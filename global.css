@@ -1,0 +1,57 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Brand Foundation - More Vibrant */
+    --brand-primary: 99 102 241;   /* indigo-500 */
+    --brand-secondary: 34 197 94;  /* green-500 */
+    --brand-accent: 251 191 36;   /* amber-400 */
+    --brand-danger: 239 68 68;    /* red-500 */
+    
+    /* Core Surfaces (Deep Slate / Dark Mode Default) */
+    --surface-background: 8 13 24;     /* charcoal deep */
+    --surface-card: 15 23 42;         /* slate-900 */
+    --surface-overlay: 30 41 59;      /* slate-800 */
+    --surface-border: 51 65 85;       /* slate-700 */
+    --surface-glass: 30 41 59 / 0.5;  /* glass effect base */
+
+    /* Typography */
+    --text-main: 248 250 252;        /* slate-50 */
+    --text-muted: 148 163 184;       /* slate-400 */
+    --text-label: 203 213 225;       /* slate-300 */
+    --text-dim: 100 116 139;         /* slate-500 */
+  }
+
+  /* Example setup if Light Mode is needed later */
+  /* @media (prefers-color-scheme: light) {
+    :root {
+      --surface-background: 248 250 252;
+      --surface-card: 255 255 255;
+      --surface-border: 226 232 240;
+      --text-main: 15 23 42;
+      --text-muted: 71 85 105;
+      --text-label: 51 65 85;
+    }
+  } */
+  .glass-card {
+    @apply bg-surface-card/60 border border-surface-border/50;
+    backdrop-filter: blur(12px);
+  }
+
+  .premium-shadow {
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.3);
+    elevation: 8;
+  }
+
+  .text-glow {
+    text-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+  }
+}
+
+@layer utilities {
+  .flex-center {
+    @apply items-center justify-center;
+  }
+}

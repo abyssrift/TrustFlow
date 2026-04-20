@@ -1,31 +1,122 @@
-import { StyleSheet } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, ScrollView, RefreshControl, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { supabase } from '@/lib/supabase';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import DevTool from '../../components/DevTool';
 
-import EditScreenInfo from '@/components/EditScreenInfo';
-import { Text, View } from '@/components/Themed';
+type TaskStats = {
+  total: number;
+  open: number;
+  inProgress: number;
+  completed: number;
+};
 
-export default function TabOneScreen() {
+export default function DashboardScreen() {
+  const [stats, setStats] = useState<TaskStats>({ total: 0, open: 0, inProgress: 0, completed: 0 });
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // ... rest of state logic
+  const fetchStats = async () => {
+    try {
+      const { data: tasks, error } = await supabase
+        .from('tasks')
+        .select('current_stage_id');
+
+      if (error) throw error;
+
+      // Temporary simple layout until pipeline context is fully mapped to stats
+      const newStats = { total: tasks?.length || 0, open: 0, inProgress: 0, completed: 0 };
+      setStats(newStats);
+    } catch (err) {
+      console.error('Error fetching stats:', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStats();
+  }, []);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchStats();
+  };
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Tab One</Text>
-      <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
-      <EditScreenInfo path="app/(tabs)/index.tsx" />
-    </View>
+    <ScrollView
+      className="flex-1 bg-surface-background p-5"
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6366f1" />}
+    >
+      <View className="mb-4 mt-4">
+        <Text className="text-secondary-400 font-bold uppercase tracking-widest text-[10px] mb-1">Company Overview</Text>
+        <Text className="text-typography-main text-4xl font-extrabold tracking-tight">TrustEdge</Text>
+      </View>
+
+      <DevTool />
+
+      {loading ? (
+        <View className="mt-10 items-center justify-center">
+          <ActivityIndicator size="large" color="#6366f1" />
+        </View>
+      ) : (
+        <View>
+          <View className="flex-row flex-wrap justify-between">
+            <View className="w-[48%] bg-surface-card p-5 rounded-3xl border border-surface-border mb-4 premium-shadow">
+              <View className="w-10 h-10 rounded-2xl bg-brand-primary/20 items-center justify-center mb-4">
+                <FontAwesome name="tasks" size={16} color="#818cf8" />
+              </View>
+              <Text className="text-typography-muted text-xs font-bold uppercase tracking-tighter mb-1">Total Pipeline</Text>
+              <Text className="text-typography-main text-3xl font-black">{stats.total}</Text>
+            </View>
+
+            <View className="w-[48%] bg-surface-card p-5 rounded-3xl border border-surface-border mb-4 premium-shadow">
+              <View className="w-10 h-10 rounded-2xl bg-brand-accent/20 items-center justify-center mb-4">
+                <FontAwesome name="hourglass-half" size={14} color="#fbbf24" />
+              </View>
+              <Text className="text-typography-muted text-xs font-bold uppercase tracking-tighter mb-1">Active Now</Text>
+              <Text className="text-typography-main text-3xl font-black">{stats.open + stats.inProgress}</Text>
+            </View>
+          </View>
+
+          {/* New Full Width Stats Bar */}
+          <View className="bg-surface-card p-6 rounded-3xl border border-surface-border mb-8 overflow-hidden">
+            <View className="flex-row items-center justify-between mb-4">
+              <Text className="text-typography-main font-bold text-lg">Completion Rate</Text>
+              <Text className="text-brand-secondary font-black text-lg">
+                {stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0}%
+              </Text>
+            </View>
+            <View className="w-full h-3 bg-surface-background rounded-full overflow-hidden">
+              <View
+                className="h-full bg-brand-secondary"
+                style={{ width: `${stats.total > 0 ? (stats.completed / stats.total) * 100 : 0}%` }}
+              />
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* Recent Activity Section - Redesigned */}
+      <View className="mt-4 mb-12">
+        <View className="flex-row items-center justify-between mb-4">
+          <Text className="text-typography-main text-2xl font-bold">Activity Feed</Text>
+          <TouchableOpacity>
+            <Text className="text-brand-primary font-bold">See All</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View className="glass-card p-8 rounded-[40px] items-center justify-center border-dashed border-2">
+          <View className="w-16 h-16 rounded-full bg-surface-overlay flex-center mb-4">
+            <FontAwesome name="bolt" size={24} color="#6366f1" />
+          </View>
+          <Text className="text-typography-muted text-center font-medium leading-5">
+            Real-time activity logs and event streams will populate here from the database audit trail.
+          </Text>
+        </View>
+      </View>
+    </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  separator: {
-    marginVertical: 30,
-    height: 1,
-    width: '80%',
-  },
-});
