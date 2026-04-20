@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Alert } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { Link } from 'expo-router';
 
 export default function DevTool() {
   const [loading, setLoading] = useState(false);
@@ -58,6 +59,16 @@ export default function DevTool() {
           <Text className="text-red-400 text-xs font-bold">Clear Tasks</Text>
         </TouchableOpacity>
       </View>
+      <Link href="/admin/pipelines" asChild>
+        <TouchableOpacity className="mt-3 bg-brand-primary/10 border border-brand-primary/30 py-2 rounded-lg items-center">
+          <Text className="text-brand-primary font-bold text-xs">Manage Pipelines & Stage Rules</Text>
+        </TouchableOpacity>
+      </Link>
+      <Link href="/admin/reports" asChild>
+        <TouchableOpacity className="mt-2 bg-brand-primary/10 border border-brand-primary/30 py-2 rounded-lg items-center">
+          <Text className="text-brand-primary font-bold text-xs">View Organizational Audits & PDF Stats</Text>
+        </TouchableOpacity>
+      </Link>
     </View>
   );
 }

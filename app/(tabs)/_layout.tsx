@@ -86,6 +86,13 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="intelligence"
+        options={{
+          title: 'Insights',
+          tabBarIcon: ({ color }) => <TabBarIcon name="line-chart" color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="people"
         options={{
           title: 'Team',

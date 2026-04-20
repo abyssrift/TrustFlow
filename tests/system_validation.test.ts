@@ -126,7 +126,7 @@ describe('TrustEdge Full System E2E Validation', () => {
       const eventTypes = events?.map(e => e.event_type);
       expect(eventTypes).toContain('task.created');
       expect(eventTypes).toContain('task.assigned');
-      expect(eventTypes).toContain('task.submitted');
+      expect(eventTypes).toContain('task.work_submitted');
       expect(eventTypes).toContain('task.submission_reviewed');
     });
   });

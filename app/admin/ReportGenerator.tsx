@@ -98,20 +98,41 @@ export default function ReportGenerator({
     try {
       setLoading(true);
 
-      // Build parameters
+      // Convert timeframe to days
+      let days = 30;
+      let dateStartParam = null;
+      let dateEndParam = null;
+
+      if (timeFrame === 'custom') {
+        dateStartParam = dateStart ? new Date(dateStart).toISOString() : null;
+        dateEndParam = dateEnd ? new Date(dateEnd).toISOString() : null;
+        if (!dateStartParam || !dateEndParam) {
+          Alert.alert('Error', 'Please provide both start and end dates');
+          setLoading(false);
+          return;
+        }
+      } else {
+        days = parseInt(timeFrame);
+      }
+
+      // Build parameters object for the RPC
       const parameters: any = {
-        timeframe: timeFrame === 'custom' ? { start: dateStart, end: dateEnd } : timeFrame,
+        days: days,
         scope: reportType === 'general' ? (pipelineId ? 'pipeline' : 'organization') : reportType,
       };
 
-      // Add optional filters
+      // Add optional filters to parameters
       if (pipelineId) parameters.pipeline_id = pipelineId;
       if (teamId) parameters.team_id = teamId;
       if (workerId) parameters.worker_id = workerId;
       if (priorityFilter) parameters.priority = priorityFilter;
       if (projectId) parameters.project_id = projectId;
+      
+      // Add date range if custom
+      if (dateStartParam) parameters.date_start = dateStartParam;
+      if (dateEndParam) parameters.date_end = dateEndParam;
 
-      // Comparison specific
+      // Comparison specific parameters
       if (reportType === 'worker_comparison') {
         if (!workerA_id || !workerB_id) {
           Alert.alert('Error', 'Please select both workers for comparison');
@@ -132,20 +153,43 @@ export default function ReportGenerator({
         parameters.team_b_id = teamB_id;
       }
 
-      // Call RPC
-      const { error } = await supabase.rpc('rpc_request_report', {
+      // Call RPC with only the 2 required parameters
+      const { data: jobId, error } = await supabase.rpc('rpc_request_report', {
         p_report_type: reportType,
         p_parameters: parameters,
-        p_comparison_target_id: reportType === 'worker_comparison' ? workerA_id : reportType === 'team_comparison' ? teamA_id : null,
-        p_comparison_target_type: reportType === 'worker_comparison' ? 'user' : reportType === 'team_comparison' ? 'team' : null,
       });
 
       if (error) throw error;
+
+      // Immediately trigger the PDF generation edge function
+      if (jobId) {
+        try {
+          const response = await fetch(
+            'https://wbvgufqfgbvbinjrdzlg.functions.supabase.co/generate-pdf-report-v8',
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ job_id: jobId }),
+            }
+          );
+
+          if (!response.ok) {
+            console.warn('Edge function trigger warning:', response.statusText);
+            // Don't fail - the job was created successfully
+          }
+        } catch (fetchErr) {
+          console.warn('Edge function trigger error:', fetchErr);
+          // Don't fail - the job was created successfully
+        }
+      }
 
       Alert.alert('Success', 'Report queued successfully!');
       onReportGenerated();
       onClose();
     } catch (error: any) {
+      console.error('Report generation error:', error);
       Alert.alert('Error', error.message || 'Failed to generate report');
     } finally {
       setLoading(false);
