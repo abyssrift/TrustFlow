@@ -1,7 +1,7 @@
 import React from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Link, Slot, usePathname } from 'expo-router';
-import { View, Text, Pressable } from 'react-native';
+import { View, Text, Pressable, Platform } from 'react-native';
 
 import { useAuth } from '@/contexts/AuthContext';
 import Colors from '@/constants/Colors';
@@ -72,7 +72,7 @@ export default function WebTabLayout() {
        </View>
 
        {/* Main Content Native Web Scrolling Block */}
-       <View className="flex-1 bg-surface-background">
+       <View className="flex-1 bg-surface-background" style={Platform.OS === 'web' ? { overflowY: 'auto' } : {}}>
          <Slot />
        </View>
     </View>

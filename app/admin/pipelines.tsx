@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, SafeAreaView, Platform, StatusBar } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, SafeAreaView, Platform, StatusBar } from 'react-native';
+import HorizontalScroll from '@/components/common/HorizontalScroll';
 import { useRouter } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
 import { PipelineEditorProvider, usePipelineEditor } from '@/contexts/PipelineEditorContext';
@@ -26,6 +27,8 @@ function PipelineEditorInner() {
     deselectPipeline, refreshPipelines, loading,
   } = usePipelineEditor();
 
+
+
   useEffect(() => {
     refreshPipelines();
   }, []);
@@ -33,7 +36,7 @@ function PipelineEditorInner() {
   // ── Render Pipeline List if nothing selected ──
   if (!selectedPipeline) {
     return (
-      <SafeAreaView className="flex-1 bg-surface-card" style={Platform.OS === 'android' ? { paddingTop: StatusBar.currentHeight } : {}}>
+      <SafeAreaView className="flex-1" style={Platform.OS === 'android' ? { paddingTop: StatusBar.currentHeight } : {}}>
         <View className="flex-1 bg-surface-background" style={Platform.OS === 'web' ? { minHeight: '100vh' } : {}}>
           {/* Top Bar */}
           <View className="bg-surface-card px-4 pt-4 pb-6 border-b border-surface-border">
@@ -61,7 +64,7 @@ function PipelineEditorInner() {
 
   // ── Render Pipeline Editor (selected pipeline) ──
   return (
-    <SafeAreaView className="flex-1 bg-surface-card" style={Platform.OS === 'android' ? { paddingTop: StatusBar.currentHeight } : {}}>
+    <SafeAreaView className="flex-1" style={Platform.OS === 'android' ? { paddingTop: StatusBar.currentHeight } : {}}>
       <View className="flex-1 bg-surface-background" style={Platform.OS === 'web' ? { minHeight: '100vh' } : {}}>
         {/* Header with back button */}
         <View className="bg-surface-card px-4 pt-4 pb-4 border-b border-surface-border">
@@ -96,7 +99,7 @@ function PipelineEditorInner() {
 
         {/* Section Tabs */}
         <View className="mb-4">
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <HorizontalScroll>
             <View className="flex-row gap-2">
               {SECTIONS.map(s => {
                 const isActive = activeSection === s.key;
@@ -126,7 +129,7 @@ function PipelineEditorInner() {
                 );
               })}
             </View>
-          </ScrollView>
+          </HorizontalScroll>
         </View>
 
         {/* Loading Overlay */}

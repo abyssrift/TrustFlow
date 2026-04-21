@@ -1,55 +1,83 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, RefreshControl, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import React, { useEffect, useState, useMemo } from 'react';
+import { 
+  View, 
+  Text, 
+  ScrollView, 
+  RefreshControl, 
+  TouchableOpacity, 
+  ActivityIndicator, 
+  Alert, 
+  Platform,
+  Switch
+} from 'react-native';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
+import ProjectFolderModal from '@/components/projects/ProjectFolderModal';
+import { useAuth } from '@/contexts/AuthContext';
 
 type Project = {
   id: string;
   name: string;
   description: string;
-  status: string;
-  task_count?: number;
-  completed_count?: number;
+  status: 'active' | 'closed' | 'archived';
+  expiry_date: string | null;
+  total_tasks: number;
+  completed_tasks: number;
+  overdue_tasks: number;
+  completion_rate: number;
 };
 
 export default function ProjectsScreen() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showClosed, setShowClosed] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedProject, setSelectedProject] = useState<Project | undefined>();
   
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? 'dark'];
+  const { hasPermission } = useAuth();
+  const isWeb = Platform.OS === 'web';
 
   const fetchProjects = async () => {
     try {
-      // Fetch projects
-      const { data, error } = await supabase
+      // 1. Fetch raw project data
+      const { data: rawProjects, error: projError } = await supabase
         .from('projects')
-        .select(`
-          *,
-          tasks(id, current_stage_id, pipeline_stages(is_terminal, terminal_type))
-        `)
+        .select('*')
+        .order('is_featured', { ascending: false })
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (projError) throw projError;
 
-      // Process stats manually for now (or use a view later)
-      const processed = (data || []).map((p: any) => {
-        const total = p.tasks?.length || 0;
-        const completed = p.tasks?.filter((t: any) => 
-          t.pipeline_stages?.is_terminal === true && t.pipeline_stages?.terminal_type === 'success'
-        ).length || 0;
-        
-        return {
-          ...p,
-          task_count: total,
-          completed_count: completed
-        };
+      if (!rawProjects || rawProjects.length === 0) {
+        setProjects([]);
+        return;
+      }
+
+      // 2. Fetch stats via RPC
+      const projectIds = rawProjects.map(p => p.id);
+      const { data: stats, error: statsError } = await supabase.rpc('rpc_get_project_stats', {
+        p_project_ids: projectIds
       });
 
-      setProjects(processed);
+      if (statsError) throw statsError;
+
+      // 3. Merge data
+      const merged = rawProjects.map(p => {
+        const s = stats?.find((stat: any) => stat.project_id === p.id) || {
+          total_tasks: 0,
+          completed_tasks: 0,
+          overdue_tasks: 0,
+          completion_rate: 0
+        };
+        return { ...p, ...s };
+      });
+
+      setProjects(merged);
     } catch (err: any) {
       console.error('Error fetching projects:', err);
     } finally {
@@ -67,100 +95,159 @@ export default function ProjectsScreen() {
     fetchProjects();
   };
 
-  const handleCreateDummyProject = async () => {
-    try {
-      setLoading(true);
-      const { error } = await supabase
-        .from('projects')
-        .insert({
-          name: `Project Alpha ${Math.floor(Math.random() * 100)}`,
-          description: 'A newly generated exploration project.',
-          status: 'active'
-        });
+  const filteredProjects = useMemo(() => {
+    if (showClosed) return projects;
+    return projects.filter(p => p.status === 'active');
+  }, [projects, showClosed]);
 
-      if (error) throw error;
-      fetchProjects();
-    } catch (err: any) {
-      Alert.alert("Error", err.message);
-      setLoading(false);
+  const handleEdit = (project: Project) => {
+    if (!hasPermission('project.edit')) {
+      Alert.alert('Permission Denied', 'You do not have permission to edit projects.');
+      return;
     }
+    setSelectedProject(project);
+    setModalVisible(true);
+  };
+
+  const handleCreateNew = () => {
+    if (!hasPermission('project.create')) {
+      Alert.alert('Permission Denied', 'You do not have permission to create projects.');
+      return;
+    }
+    setSelectedProject(undefined);
+    setModalVisible(true);
   };
 
   const renderProjectCard = (project: Project) => {
-    const progress = project.task_count ? (project.completed_count || 0) / project.task_count : 0;
+    const isOverdue = project.expiry_date && new Date(project.expiry_date) < new Date() && project.status === 'active';
+    const progress = project.completion_rate / 100;
     
     return (
-      <View key={project.id} className="bg-surface-card p-5 rounded-3xl border border-surface-border mb-4 premium-shadow">
+      <TouchableOpacity 
+        key={project.id} 
+        onPress={() => handleEdit(project)}
+        className={`${isWeb ? 'w-[31%] mx-[1%]' : 'w-full'} bg-surface-card p-6 rounded-[24px] border border-surface-border mb-6 premium-shadow`}
+      >
         <View className="flex-row items-center justify-between mb-4">
-           <View className="w-12 h-12 bg-brand-primary/10 rounded-2xl items-center justify-center">
-              <FontAwesome name="folder-open" size={20} color={theme.tint} />
+           <View className={`w-12 h-12 rounded-2xl items-center justify-center ${isOverdue ? 'bg-state-danger/10' : 'bg-brand-primary/10'}`}>
+              <FontAwesome name="folder-open" size={20} color={isOverdue ? '#ef4444' : '#818cf8'} />
            </View>
-           <View className="bg-surface-background px-2 py-1 rounded-full border border-surface-border">
-              <Text className="text-typography-muted text-[10px] font-bold uppercase">{project.status}</Text>
+           <View className={`px-3 py-1 rounded-full border ${project.status === 'active' ? 'bg-state-success/10 border-state-success/30' : 'bg-surface-background border-surface-border'}`}>
+              <Text className={`text-[10px] font-bold uppercase ${project.status === 'active' ? 'text-state-success' : 'text-typography-muted'}`}>
+                {project.status}
+              </Text>
            </View>
         </View>
 
-        <Text className="text-typography-main text-xl font-bold mb-1">{project.name}</Text>
-        <Text className="text-typography-muted text-sm mb-6" numberOfLines={2}>
-          {project.description || 'No project description available.'}
+        <View className="flex-row items-center gap-2 mb-1">
+          {project.is_featured && <FontAwesome name="star" size={14} color="#fbbf24" />}
+          <Text className="text-typography-main text-xl font-bold flex-1" numberOfLines={1}>{project.name}</Text>
+        </View>
+        
+        <Text className="text-typography-muted text-sm mb-6 h-10" numberOfLines={2}>
+          {project.description || 'Access documentation and team workflows.'}
         </Text>
 
-        <View className="space-y-2">
-           <View className="flex-row justify-between items-end">
-              <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">Progress</Text>
-              <Text className="text-typography-main text-xs font-bold">{Math.round(progress * 100)}%</Text>
+        <View className="space-y-3">
+           <View className="flex-row justify-between items-end mb-1">
+              <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest">Efficiency</Text>
+              <Text className="text-typography-main text-xs font-black">{Math.round(project.completion_rate)}%</Text>
            </View>
-           <View className="h-1.5 w-full bg-surface-background rounded-full overflow-hidden border border-surface-border/30">
+           <View className="h-2 w-full bg-surface-background rounded-full overflow-hidden">
               <View 
-                style={{ width: `${progress * 100}%` }} 
-                className="h-full bg-brand-primary" 
+                style={{ width: `${project.completion_rate}%` }} 
+                className={`h-full ${isOverdue ? 'bg-state-danger' : 'bg-brand-primary'}`} 
               />
            </View>
-           <Text className="text-typography-dim text-[10px] font-medium">
-             {project.completed_count} of {project.task_count} tasks completed
-           </Text>
+           <View className="flex-row justify-between pt-1">
+              <Text className="text-typography-muted text-[10px]">
+                {project.completed_tasks} / {project.total_tasks} Tasks
+              </Text>
+              {project.overdue_tasks > 0 && (
+                <Text className="text-state-danger text-[10px] font-bold">
+                  {project.overdue_tasks} Overdue
+                </Text>
+              )}
+           </View>
         </View>
-      </View>
+
+        {project.expiry_date && (
+           <View className="flex-row items-center mt-4 pt-4 border-t border-surface-border/50">
+              <FontAwesome name="calendar" size={12} color={isOverdue ? '#ef4444' : '#94a3b8'} />
+              <Text className={`ml-2 text-[10px] font-medium ${isOverdue ? 'text-state-danger' : 'text-typography-muted'}`}>
+                {isOverdue ? 'Expired' : 'Expires'}: {new Date(project.expiry_date).toLocaleDateString()}
+              </Text>
+           </View>
+        )}
+      </TouchableOpacity>
     );
   };
 
   if (loading && !refreshing) {
     return (
       <View className="flex-1 bg-surface-background items-center justify-center">
-        <ActivityIndicator size="large" color={theme.tint} />
+        <ActivityIndicator size="large" color="#818cf8" />
       </View>
     );
   }
 
   return (
     <View className="flex-1 bg-surface-background">
-      <View className="flex-row items-center justify-between px-6 pt-4 pb-4">
+      {/* Dynamic Navigation / Header */}
+      <View className={`flex-row items-center justify-between px-6 ${isWeb ? 'py-8 border-b border-surface-border' : 'pt-4 pb-2'}`}>
         <View>
-          <Text className="text-typography-main text-3xl font-black">Projects</Text>
-          <Text className="text-typography-muted text-xs font-medium">High-level strategic goals</Text>
+          <Text className={`${isWeb ? 'text-5xl' : 'text-3xl'} text-typography-main font-black tracking-tighter`}>Projects</Text>
+          <Text className="text-typography-muted text-sm font-medium">Organizational clusters for team productivity</Text>
         </View>
-        <TouchableOpacity 
-          onPress={handleCreateDummyProject}
-          className="bg-brand-secondary/20 p-3 rounded-2xl border border-brand-secondary/30"
-        >
-          <FontAwesome name="plus" size={18} color="#6366f1" />
-        </TouchableOpacity>
+        
+        <View className="flex-row items-center gap-4">
+          <View className="flex-row items-center gap-2 mr-2">
+            <Text className="text-typography-muted text-[10px] font-bold uppercase">Show Closed</Text>
+            <Switch 
+              value={showClosed} 
+              onValueChange={setShowClosed}
+              trackColor={{ false: '#334155', true: '#6366f1' }}
+              thumbColor={showClosed ? '#fff' : '#94a3b8'}
+            />
+          </View>
+          
+          <TouchableOpacity 
+            onPress={handleCreateNew}
+            className="bg-brand-primary p-4 rounded-2xl premium-shadow"
+          >
+            <FontAwesome name="plus" size={18} color="white" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView 
-        className="flex-1 px-6 pt-2"
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.tint} />}
+        className="flex-1 px-6 pt-6"
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#818cf8" />}
       >
-        {projects.length === 0 ? (
-          <View className="items-center justify-center py-20 bg-surface-card rounded-3xl border border-dashed border-surface-border mt-4">
-             <FontAwesome name="briefcase" size={48} color={theme.tabIconDefault} style={{ opacity: 0.3 }} />
-             <Text className="text-typography-muted mt-4 font-medium">No projects found. Create one!</Text>
-          </View>
-        ) : (
-          projects.map(renderProjectCard)
-        )}
-        <View className="h-10" />
+        <View className={`${isWeb ? 'flex-row flex-wrap mt-2' : ''}`}>
+          {filteredProjects.length === 0 ? (
+            <View className="w-full items-center justify-center py-24 bg-surface-card rounded-[32px] border border-dashed border-surface-border">
+               <View className="w-20 h-20 bg-surface-background rounded-full items-center justify-center mb-4">
+                <FontAwesome name="folder-o" size={32} color="#64748b" style={{ opacity: 0.5 }} />
+               </View>
+               <Text className="text-typography-main text-lg font-bold">No projects available</Text>
+               <Text className="text-typography-muted text-sm text-center px-10 mt-2">
+                 Active projects will appear here. Toggle 'Show Closed' to view completed work.
+               </Text>
+            </View>
+          ) : (
+            filteredProjects.map(renderProjectCard)
+          )}
+        </View>
+        <View className="h-20" />
       </ScrollView>
+
+      <ProjectFolderModal 
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+        onSuccess={fetchProjects}
+        project={selectedProject}
+      />
     </View>
   );
 }

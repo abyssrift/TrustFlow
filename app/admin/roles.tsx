@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, SafeAreaView, Platform, StatusBar } from 'react-native';
+import HorizontalScroll from '@/components/common/HorizontalScroll';
 import { Stack, useRouter } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
 import { RoleManagerProvider, useRoleManager } from '@/contexts/RoleManagerContext';
@@ -44,8 +45,8 @@ function RolesLayout() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-surface-card" style={Platform.OS === 'android' ? { paddingTop: StatusBar.currentHeight } : {}}>
-      <View className="flex-1 bg-surface-background" style={Platform.OS === 'web' ? { minHeight: '100vh' } : {}}>
+    <SafeAreaView className="flex-1" style={Platform.OS === 'android' ? { paddingTop: StatusBar.currentHeight } : {}}>
+      <View className="flex-1 bg-surface-background" style={Platform.OS === 'web' ? { height: '100vh', overflow: 'hidden' } : {}}>
         <Stack.Screen options={{ headerShown: false }} />
         
         {/* Header */}
@@ -70,7 +71,7 @@ function RolesLayout() {
           </View>
 
           {/* Tabs - Now following the Chip pattern */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="px-1">
+          <HorizontalScroll className="px-1">
             <View className="flex-row gap-2">
               {[
                 { id: 'users', label: 'Individuals', icon: 'user' },
@@ -100,7 +101,7 @@ function RolesLayout() {
                 );
               })}
             </View>
-          </ScrollView>
+          </HorizontalScroll>
         </View>
 
         {/* Content - Ensured flex-1 for background coverage */}

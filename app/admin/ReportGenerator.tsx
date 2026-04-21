@@ -7,9 +7,10 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  TextInput,
+  TextInput as RNTextInput,
   Switch,
 } from 'react-native';
+import HorizontalScroll from '@/components/common/HorizontalScroll';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import Colors from '@/constants/Colors';
@@ -284,7 +285,7 @@ export default function ReportGenerator({
 
       {timeFrame === 'custom' && (
         <View>
-          <TextInput
+          <RNTextInput
             placeholder="Start Date (YYYY-MM-DD)"
             value={dateStart}
             onChangeText={setDateStart}
@@ -298,7 +299,7 @@ export default function ReportGenerator({
             }}
             placeholderTextColor={theme.tabIconDefault}
           />
-          <TextInput
+          <RNTextInput
             placeholder="End Date (YYYY-MM-DD)"
             value={dateEnd}
             onChangeText={setDateEnd}
@@ -322,7 +323,7 @@ export default function ReportGenerator({
         <Text style={{ fontSize: 14, fontWeight: 'bold', marginBottom: 10, color: theme.text }}>
           Pipeline (Optional)
         </Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <HorizontalScroll>
           <TouchableOpacity
             onPress={() => setPipelineId('')}
             style={{
@@ -359,14 +360,14 @@ export default function ReportGenerator({
               </Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </HorizontalScroll>
       </View>
 
       <View style={{ marginBottom: 20 }}>
         <Text style={{ fontSize: 14, fontWeight: 'bold', marginBottom: 10, color: theme.text }}>
           Team (Optional)
         </Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <HorizontalScroll>
           <TouchableOpacity
             onPress={() => setTeamId('')}
             style={{
@@ -403,14 +404,14 @@ export default function ReportGenerator({
               </Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </HorizontalScroll>
       </View>
 
       <View style={{ marginBottom: 20 }}>
         <Text style={{ fontSize: 14, fontWeight: 'bold', marginBottom: 10, color: theme.text }}>
           Worker (Optional)
         </Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <HorizontalScroll>
           <TouchableOpacity
             onPress={() => setWorkerId('')}
             style={{
@@ -447,14 +448,14 @@ export default function ReportGenerator({
               </Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </HorizontalScroll>
       </View>
 
       <View style={{ marginBottom: 20 }}>
         <Text style={{ fontSize: 14, fontWeight: 'bold', marginBottom: 10, color: theme.text }}>
           Priority (Optional)
         </Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <HorizontalScroll>
           {['all', 'low', 'medium', 'high', 'critical'].map((priority) => (
             <TouchableOpacity
               key={priority}
@@ -484,7 +485,7 @@ export default function ReportGenerator({
               </Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </HorizontalScroll>
       </View>
     </>
   );
@@ -495,7 +496,7 @@ export default function ReportGenerator({
         <Text style={{ fontSize: 14, fontWeight: 'bold', marginBottom: 10, color: theme.text }}>
           Worker A
         </Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <HorizontalScroll>
           {workers.map((worker) => (
             <TouchableOpacity
               key={worker.id}
@@ -518,14 +519,14 @@ export default function ReportGenerator({
               </Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </HorizontalScroll>
       </View>
 
       <View style={{ marginBottom: 20 }}>
         <Text style={{ fontSize: 14, fontWeight: 'bold', marginBottom: 10, color: theme.text }}>
           Worker B
         </Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <HorizontalScroll>
           {workers.map((worker) => (
             <TouchableOpacity
               key={worker.id}
@@ -548,7 +549,7 @@ export default function ReportGenerator({
               </Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </HorizontalScroll>
       </View>
     </>
   );
@@ -559,7 +560,7 @@ export default function ReportGenerator({
         <Text style={{ fontSize: 14, fontWeight: 'bold', marginBottom: 10, color: theme.text }}>
           Team A
         </Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <HorizontalScroll>
           {teams.map((team) => (
             <TouchableOpacity
               key={team.id}
@@ -582,14 +583,14 @@ export default function ReportGenerator({
               </Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </HorizontalScroll>
       </View>
 
       <View style={{ marginBottom: 20 }}>
         <Text style={{ fontSize: 14, fontWeight: 'bold', marginBottom: 10, color: theme.text }}>
           Team B
         </Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <HorizontalScroll>
           {teams.map((team) => (
             <TouchableOpacity
               key={team.id}
@@ -612,7 +613,7 @@ export default function ReportGenerator({
               </Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </HorizontalScroll>
       </View>
     </>
   );

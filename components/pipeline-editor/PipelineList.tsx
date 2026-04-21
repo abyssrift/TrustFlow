@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Platform } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { usePipelineEditor, Pipeline } from '@/contexts/PipelineEditorContext';
 import DeadlockAlert from './DeadlockAlert';
@@ -98,7 +98,10 @@ export default function PipelineList() {
       <DeadlockAlert />
 
       {/* Pipeline Cards */}
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        className="flex-1"
+        showsVerticalScrollIndicator={Platform.OS === 'web'}
+      >
         {loading && pipelines.length === 0 ? (
           <View className="py-20 items-center">
             <ActivityIndicator color="rgb(var(--brand-primary))" size="large" />

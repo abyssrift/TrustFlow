@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Platform } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { usePipelineEditor } from '@/contexts/PipelineEditorContext';
 
@@ -99,7 +99,10 @@ export default function TransitionEditor() {
         </View>
       )}
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        className="flex-1"
+        showsVerticalScrollIndicator={Platform.OS === 'web'}
+      >
         {/* Add Form */}
         {showAdd && (
           <View className="bg-surface-card p-4 rounded-2xl border border-brand-primary/40 mb-4">

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Alert, Platform } from 'react-native';
+import HorizontalScroll from '../common/HorizontalScroll';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import DraggableFlatList, { ScaleDecorator, RenderItemParams } from 'react-native-draggable-flatlist';
 import { FontAwesome } from '@expo/vector-icons';
@@ -210,7 +211,7 @@ export default function StageBuilder() {
       {/* Recursive Spawning */}
       <Text className="text-typography-label text-[10px] font-bold uppercase tracking-wider mb-2">Recursive Spawning</Text>
       <View className="mb-4">
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row gap-2">
+        <HorizontalScroll className="flex-row gap-2">
           <TouchableOpacity
             onPress={() => setFormLinkedPipeId(null)}
             className={`px-3 py-2 rounded-xl border ${!formLinkedPipeId ? 'bg-brand-primary/10 border-brand-primary/40' : 'bg-surface-background border-surface-border'}`}
@@ -226,7 +227,7 @@ export default function StageBuilder() {
               <Text className={`text-xs font-bold ${formLinkedPipeId === p.id ? 'text-brand-primary' : 'text-typography-muted'}`}>{p.name}</Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </HorizontalScroll>
         <Text className="text-typography-dim text-[10px] mt-1">If a task enters this stage, spawn a sub-task with this pipeline.</Text>
       </View>
 

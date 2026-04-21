@@ -2,28 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  /* Decisive fix for 'white bottom' on Web: 
-     1. Force raw background color to ensure document coverage before JS/Tokens load.
-     2. Enforce 100% height and flex on doc root to allow RN containers to stretch.
-  */
-  html, body {
-    background-color: rgb(8, 13, 24) !important; /* matches --surface-background */
-    height: 100vh;
-    overflow: hidden;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-  }
+html, body {
+  background-color: rgb(8, 13, 24) !important;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
 
-  #root {
-    background-color: rgb(8, 13, 24) !important;
-    height: 100vh;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-  }
+#root {
+  background-color: rgb(8, 13, 24) !important;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+@layer base {
 
   :root {
     /* Brand Foundation - More Vibrant */
@@ -90,6 +85,32 @@
 
   .text-glow {
     text-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+  }
+
+  /* Premium Scrollbars for Desktop Web */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgb(var(--surface-border));
+    border-radius: 10px;
+    border: 2px solid rgb(var(--surface-background));
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgb(var(--brand-primary));
+  }
+
+  /* For Firefox */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--surface-border)) transparent;
   }
 }
 

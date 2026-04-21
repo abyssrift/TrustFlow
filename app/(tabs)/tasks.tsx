@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { 
   View, Text, ScrollView, RefreshControl, 
   TouchableOpacity, ActivityIndicator, Alert, 
-  useWindowDimensions, SectionList, FlatList 
+  useWindowDimensions, Platform 
 } from 'react-native';
+import HorizontalScroll from '@/components/common/HorizontalScroll';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
@@ -72,6 +73,8 @@ export default function TasksScreen() {
   const router = useRouter();
   const { hasPermission } = useAuth();
   const isLargeScreen = width > 768;
+
+
 
   const fetchData = async () => {
     try {
@@ -405,7 +408,13 @@ export default function TasksScreen() {
   const renderStageColumn = (stage: Stage) => {
     const stageTasks = tasks.filter(t => t.current_stage_id === stage.id);
     return (
-      <View key={stage.id} style={{ width: isLargeScreen ? 320 : width * 0.85 }} className="mr-4">
+      <View 
+        key={stage.id} 
+        style={{ width: isLargeScreen ? 320 : width * 0.85 }} 
+        className="mr-4 h-full"
+        // @ts-ignore - for web-only smart scroll
+        dataSet={Platform.OS === 'web' ? { 'vertical-scroll': 'true' } : {}}
+      >
         <View className="flex-row items-center justify-between mb-4 px-2">
            <View className="flex-row items-center">
               <View style={{ backgroundColor: stage.color }} className="w-2 h-2 rounded-full mr-2" />
@@ -628,14 +637,13 @@ export default function TasksScreen() {
          </View>
       )}
 
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false}
+      <HorizontalScroll 
         className="flex-1 px-5"
+        contentContainerStyle={{ paddingBottom: 20 }}
       >
         {stages.map(renderStageColumn)}
         <View className="w-10" />
-      </ScrollView>
+      </HorizontalScroll>
     </View>
   );
 }

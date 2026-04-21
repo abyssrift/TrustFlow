@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
+import HorizontalScroll from '../common/HorizontalScroll';
 import { FontAwesome } from '@expo/vector-icons';
 import { usePipelineEditor, Stage, LinkedOutcome, Pipeline } from '@/contexts/PipelineEditorContext';
 import { supabase } from '@/lib/supabase';
@@ -82,7 +83,7 @@ export default function HandshakeEditor() {
 
         {/* 1. Select Parent Stage */}
         <Text className="text-typography-label text-[10px] font-bold uppercase mb-2">1. When parent is in stage:</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row mb-4">
+        <HorizontalScroll className="flex-row mb-4">
           {parentStagesWithLinks.length === 0 ? (
             <Text className="text-typography-dim text-xs py-2 italic">No stages in this pipeline spawn sub-tasks.</Text>
           ) : (
@@ -96,11 +97,11 @@ export default function HandshakeEditor() {
               </TouchableOpacity>
             ))
           )}
-        </ScrollView>
+        </HorizontalScroll>
 
         {/* 2. Select Child Result */}
         <Text className="text-typography-label text-[10px] font-bold uppercase mb-2">2. And child task resolves to:</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row mb-4">
+        <HorizontalScroll className="flex-row mb-4">
           {fetchingChildStages ? (
             <ActivityIndicator size="small" color="#6366f1" className="py-2" />
           ) : !parentStageId ? (
@@ -121,11 +122,11 @@ export default function HandshakeEditor() {
               </TouchableOpacity>
             ))
           )}
-        </ScrollView>
+        </HorizontalScroll>
 
         {/* 3. Select Target Stage */}
         <Text className="text-typography-label text-[10px] font-bold uppercase mb-2">3. Move parent to stage:</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row mb-6">
+        <HorizontalScroll className="flex-row mb-6">
           {stages.map(s => (
             <TouchableOpacity
               key={s.id}
@@ -135,7 +136,7 @@ export default function HandshakeEditor() {
               <Text className={`text-xs font-bold ${parentTargetStageId === s.id ? 'text-brand-primary' : 'text-typography-muted'}`}>{s.name}</Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </HorizontalScroll>
 
         <TouchableOpacity
           onPress={handleCreate}
@@ -154,7 +155,10 @@ export default function HandshakeEditor() {
       </View>
 
       {/* List Existing Handshakes */}
-      <ScrollView className="flex-1">
+      <ScrollView 
+        className="flex-1"
+        showsVerticalScrollIndicator={Platform.OS === 'web'}
+      >
         {linkedOutcomes?.length === 0 ? (
           <View className="items-center py-12">
             <FontAwesome name="handshake-o" size={48} color="#1e293b" />

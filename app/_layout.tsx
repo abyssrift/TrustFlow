@@ -83,14 +83,16 @@ function RootLayoutNav() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-        <Stack.Screen name="admin/pipelines" options={{ headerShown: false }} />
-        <Stack.Screen name="admin/roles" options={{ headerShown: false }} />
-        <Stack.Screen name="task/[id]" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-      </Stack>
+      <View style={{ flex: 1, backgroundColor: '#080d18' }}>
+        <Stack>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+          <Stack.Screen name="admin/pipelines" options={{ headerShown: false }} />
+          <Stack.Screen name="admin/roles" options={{ headerShown: false }} />
+          <Stack.Screen name="task/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+        </Stack>
+      </View>
     </ThemeProvider>
   );
 }
