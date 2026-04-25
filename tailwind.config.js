@@ -40,9 +40,19 @@ module.exports = {
           "danger-dim": "rgb(var(--state-danger-dim))",
           info: "rgb(var(--state-info) / <alpha-value>)",
           "info-dim": "rgb(var(--state-info-dim))",
+        },
+        icon: {
+          primary: "rgb(var(--icon-primary) / <alpha-value>)",
+          muted: "rgb(var(--icon-muted))",
+          accent: "rgb(var(--icon-accent) / <alpha-value>)",
         }
+      },
+      borderRadius: {
+        "2xl": "var(--radius-base)",
+        "xl": "var(--radius-button)",
+        "lg": "var(--radius-input)",
       }
-    },
+    }
   },
   plugins: [],
 };

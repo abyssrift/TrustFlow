@@ -19,6 +19,8 @@ export type StageData = {
   id: string; name: string; color: string | null; position: number;
   is_initial: boolean; is_terminal: boolean; terminal_type: string | null;
   features?: string[];
+  requires_submission: boolean;
+  requires_timer: boolean;
 };
 
 export type TransitionData = {
@@ -32,7 +34,15 @@ export type StageActionData = {
   required_role: string; precondition: string | null;
   transition_id: string | null; position: number;
   can_perform: boolean; precondition_met: boolean;
+  requires_timer: boolean;
+  execution_route?: 'generic' | 'submit_work' | 'review_submission';
+  ui_slot?: 'button' | 'submission' | 'review';
 };
+
+// ─── Action Registry Logic ─────────────────────────────
+export * from '@/components/task-detail/actionRegistry';
+import { getActionDescriptor, splitStageActions, isComplexActionType } from '@/components/task-detail/actionRegistry';
+
 
 export type AssignmentData = { id: string; user: UserRef; team: TeamRef; assigned_at: string };
 export type StageHistoryData = {
@@ -101,7 +111,7 @@ type TaskDetailContextType = {
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
-  executeAction: (actionId: string, payload?: any) => Promise<void>;
+  executeAction: (actionId: string) => Promise<void>;
   submitWork: (content: string) => Promise<void>;
   addComment: (content: string, parentId?: string | null) => Promise<void>;
   deleteComment: (commentId: string) => Promise<void>;
@@ -147,11 +157,10 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
   }, [taskId]);
 
   // ─── Actions ────────────────────────────────────
-  const executeAction = useCallback(async (actionId: string, payload: any = {}) => {
-    const { error: rpcError } = await supabase.rpc('rpc_execute_stage_action', { 
+  const executeAction = useCallback(async (actionId: string) => {
+    const { error: rpcError } = await supabase.rpc('rpc_execute_stage_action', {
       p_task_id: taskId, 
       p_action_id: actionId,
-      p_payload: payload 
     });
     if (rpcError) throw rpcError;
     await fetchDetails();
@@ -249,7 +258,19 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
       })
       .subscribe();
 
-    channelsRef.current = [commentChannel, submissionChannel, historyChannel];
+    // Channel 4: Task Metadata
+    const taskChannel = supabase
+      .channel(`task-metadata-${taskId}`)
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'tasks',
+        filter: `id=eq.${taskId}`,
+      }, () => {
+        // Full refresh on metadata update
+        fetchDetails();
+      })
+      .subscribe();
+
+    channelsRef.current = [commentChannel, submissionChannel, historyChannel, taskChannel];
 
     return () => {
       channelsRef.current.forEach(ch => supabase.removeChannel(ch));

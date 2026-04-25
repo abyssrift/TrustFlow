@@ -3,6 +3,8 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import PermissionGate from './PermissionGate';
+import { useTheme } from '@/contexts/ThemeContext';
+import { getPrimaryColor, getMutedColor } from '@/lib/themeColors';
 
 function timeAgo(dateStr: string): string {
   const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
@@ -18,6 +20,7 @@ function timeAgo(dateStr: string): string {
 export default function PipelineJourney() {
   const { data } = useTaskDetail();
   const [expanded, setExpanded] = useState(true);
+  const { theme: activeTheme } = useTheme();
 
   if (!data) return null;
 
@@ -27,12 +30,12 @@ export default function PipelineJourney() {
         {/* Header with stats */}
         <TouchableOpacity onPress={() => setExpanded(!expanded)} className="flex-row items-center justify-between mb-3">
           <View className="flex-row items-center">
-            <FontAwesome name="history" size={12} color="#6366f1" />
+            <FontAwesome name="history" size={12} color={getPrimaryColor(activeTheme)} />
             <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em] ml-2">
               Pipeline Journey
             </Text>
           </View>
-          <FontAwesome name={expanded ? 'chevron-up' : 'chevron-down'} size={10} color="#64748b" />
+          <FontAwesome name={expanded ? 'chevron-up' : 'chevron-down'} size={10} color={getMutedColor(activeTheme)} />
         </TouchableOpacity>
 
         {/* Stats row */}
@@ -70,7 +73,7 @@ export default function PipelineJourney() {
                   <View className="flex-1 pb-4">
                     <View className="flex-row items-center flex-wrap gap-1">
                       <Text className="text-typography-muted text-[10px] font-bold">{h.from_stage_name || 'Start'}</Text>
-                      <FontAwesome name="long-arrow-right" size={8} color="#64748b" />
+                      <FontAwesome name="long-arrow-right" size={8} color={getMutedColor(activeTheme)} />
                       <Text className="text-typography-main text-[10px] font-black">{h.to_stage_name}</Text>
                       {h.is_reversal && (
                         <View className="bg-state-warning/20 px-1 rounded-sm">

@@ -22,9 +22,12 @@ export type Stage = {
   is_terminal: boolean;
   terminal_type: 'success' | 'failure' | null;
   requires_submission: boolean;
+  requires_timer: boolean;
+  use_business_hours: boolean;
   linked_pipeline_id: string | null;
   manager_routing_rule: string | null;
   max_escalation_depth: number | null;
+  ui_metadata: { x: number; y: number } | null;
 };
 
 export type Transition = {
@@ -57,6 +60,8 @@ export type StageAction = {
   transition_id: string | null;
   position: number;
   is_active: boolean;
+  requires_timer: boolean;
+  use_business_hours: boolean;
 };
 
 export type Automation = {
@@ -108,6 +113,7 @@ type PipelineEditorState = {
   // Stage CRUD
   addStage: (args: Partial<Stage>) => Promise<string | null>;
   updateStage: (id: string, args: Partial<Stage>) => Promise<boolean>;
+  updateStagePosition: (id: string, x: number, y: number) => Promise<boolean>;
   deleteStage: (id: string) => Promise<boolean>;
   reorderStages: (ids: string[]) => Promise<boolean>;
   // Transition CRUD
@@ -396,6 +402,9 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
         p_is_terminal: args.is_terminal || false,
         p_terminal_type: args.terminal_type || null,
         p_requires_submission: args.requires_submission || false,
+        p_requires_timer: args.requires_timer || false,
+        p_use_business_hours: args.use_business_hours || false,
+        p_ui_metadata: args.ui_metadata || { x: 0, y: 0 },
       });
       if (e) throw e;
       await refreshPipelineData();
@@ -420,7 +429,10 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
         p_is_terminal: args.is_terminal ?? null,
         p_terminal_type: args.terminal_type ?? null,
         p_requires_submission: args.requires_submission ?? null,
+        p_requires_timer: args.requires_timer ?? null,
+        p_use_business_hours: args.use_business_hours ?? null,
         p_linked_pipeline_id: args.linked_pipeline_id ?? null,
+        p_ui_metadata: args.ui_metadata ?? null,
       });
       if (e) throw e;
       await refreshPipelineData();
@@ -432,6 +444,23 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     }
   }, [refreshPipelineData]);
+
+  const updateStagePosition = useCallback(async (id: string, x: number, y: number): Promise<boolean> => {
+    // Optimistic update
+    setStages(prev => prev.map(s => s.id === id ? { ...s, ui_metadata: { x, y } } : s));
+    
+    try {
+      const { error: e } = await supabase.rpc('rpc_update_stage', {
+        p_stage_id: id,
+        p_ui_metadata: { x, y }
+      });
+      if (e) throw e;
+      return true;
+    } catch (e: any) {
+      console.warn('Failed to persist stage position:', e.message);
+      return false;
+    }
+  }, []);
 
   const deleteStage = useCallback(async (id: string): Promise<boolean> => {
     setLoading(true);
@@ -450,7 +479,7 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
     }
   }, [refreshPipelineData]);
 
-  const reorderTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const reorderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentPendingReorderRef = useRef<string[] | null>(null);
   const originalStagesRef = useRef<Stage[] | null>(null);
 
@@ -641,6 +670,8 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
         p_icon: args.icon || null,
         p_style: args.style || 'neutral',
         p_required_role: args.required_role || 'any',
+        p_requires_timer: args.requires_timer || false,
+        p_use_business_hours: args.use_business_hours || false,
         p_precondition: args.precondition || null,
         p_transition_id: args.transition_id || null,
       });
@@ -666,6 +697,8 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
         p_required_role: args.required_role ?? null,
         p_precondition: args.precondition ?? null,
         p_transition_id: args.transition_id ?? null,
+        p_requires_timer: args.requires_timer ?? null,
+        p_use_business_hours: args.use_business_hours ?? null,
         p_is_active: args.is_active ?? null,
       });
       if (e) throw e;
@@ -731,7 +764,7 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
         setActiveSection, selectPipeline, deselectPipeline,
         refreshPipelines, refreshPipelineData,
         createPipeline, updatePipeline, deletePipeline,
-        addStage, updateStage, deleteStage, reorderStages,
+        addStage, updateStage, updateStagePosition, deleteStage, reorderStages,
         addTransition, updateTransition, deleteTransition,
         createAutomation, updateAutomation, deleteAutomation,
         addStageAction, updateStageAction, deleteStageAction, reorderStageActions,

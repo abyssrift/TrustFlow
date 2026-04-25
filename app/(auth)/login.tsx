@@ -1,34 +1,49 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { getErrorMessage, isValidEmail } from '../../lib/auth-errors';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please enter both email and password.');
+      setError('Please enter both email and password.');
+      return;
+    }
+
+    if (!isValidEmail(email)) {
+      setError('Please enter a valid email address.');
       return;
     }
 
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    setError(null);
 
-    if (error) {
-      Alert.alert('Login Failed', error.message);
+    try {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+
+      if (signInError) {
+        setError(getErrorMessage(signInError));
+        setLoading(false);
+      }
+      // Session change will be handled by AuthContext/RootLayout
+    } catch (err) {
+      setError('An unexpected error occurred. Please try again.');
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
-    <KeyboardAvoidingView 
+    <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       className="flex-1 bg-surface-background px-8"
     >
@@ -37,9 +52,16 @@ export default function LoginScreen() {
           <View className="w-20 h-20 bg-brand-primary rounded-3xl flex-center premium-shadow mb-6">
             <FontAwesome name="shield" size={40} color="white" />
           </View>
-          <Text className="text-4xl font-extrabold text-typography-main tracking-tighter text-glow">TrustEdge</Text>
+          <Text className="text-4xl font-extrabold text-typography-main tracking-tighter text-glow">TrustFlow</Text>
           <Text className="text-typography-muted text-base mt-2 font-medium">Precision Productivity</Text>
         </View>
+
+        {error && (
+          <View className="mb-6 bg-state-danger/10 border border-state-danger/20 p-4 rounded-xl flex-row items-center">
+            <FontAwesome name="exclamation-circle" size={16} className="text-state-danger" />
+            <Text className="text-state-danger text-xs font-bold ml-3 flex-1">{error}</Text>
+          </View>
+        )}
 
         <View className="space-y-5">
           <View>
@@ -72,7 +94,7 @@ export default function LoginScreen() {
             />
           </View>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             className={`w-full rounded-2xl py-5 items-center justify-center mt-8 premium-shadow ${loading ? 'bg-brand-primary/50' : 'bg-brand-primary'}`}
             onPress={handleLogin}
             disabled={loading}

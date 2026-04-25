@@ -1,262 +1,135 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, SafeAreaView, Platform, StatusBar, ScrollView } from 'react-native';
-import HorizontalScroll from '@/components/common/HorizontalScroll';
-import { useRouter } from 'expo-router';
-import { FontAwesome } from '@expo/vector-icons';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { PipelineEditorProvider, usePipelineEditor } from '@/contexts/PipelineEditorContext';
-import PipelineList from '@/components/pipeline-editor/PipelineList';
-import StageBuilder from '@/components/pipeline-editor/StageBuilder';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+
+// Actual tactical components
+import StageBuilder from '@/components/pipeline-editor/StageBuilder.web';
 import TransitionEditor from '@/components/pipeline-editor/TransitionEditor';
 import AutomationEditor from '@/components/pipeline-editor/AutomationEditor';
 import HandshakeEditor from '@/components/pipeline-editor/HandshakeEditor';
 import PipelineVisualizer from '@/components/pipeline-editor/PipelineVisualizer';
 
-// ── Section Tab Config ──────────────────────────────────────
-const SECTIONS = [
-  { key: 'stages', label: 'Stages', icon: 'th-list' },
-  { key: 'visualizer', label: 'Designer', icon: 'paint-brush' },
-  { key: 'transitions', label: 'Flow Rules', icon: 'random' },
-  { key: 'automations', label: 'Automations', icon: 'bolt' },
-  { key: 'handshakes', label: 'Handshakes', icon: 'handshake-o' },
-] as const;
+type Section = 'stages' | 'visualizer' | 'transitions' | 'automations' | 'handshakes';
 
-function PipelineEditorInner() {
-  const router = useRouter();
-  const {
-    selectedPipeline, activeSection, setActiveSection,
-    deselectPipeline, refreshPipelines, loading,
+function PipelinesWebInner() {
+  const { 
+    pipelines, 
+    selectedPipeline, 
+    loading, 
+    selectPipeline, 
+    refreshPipelines,
+    activeSection,
+    setActiveSection
   } = usePipelineEditor();
 
   useEffect(() => {
     refreshPipelines();
   }, []);
 
-  // ── Render Pipeline List if nothing selected ──
-  if (!selectedPipeline) {
-    return (
-      <View style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100vh',
-        width: '100vw',
-        backgroundColor: 'rgb(8, 13, 24)',
-      }}>
-        {/* Top Bar */}
-        <View style={{
-          backgroundColor: 'rgb(15, 23, 42)',
-          padding: '1rem',
-          borderBottom: '1px solid rgb(51, 65, 85)',
-          display: 'flex',
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={{
-              display: 'flex',
-              flexDirection: 'row',
-              alignItems: 'center',
-              paddingRight: '1rem',
-              cursor: 'pointer',
-            }}
-          >
-            <FontAwesome name="chevron-left" size={14} color="#94a3b8" />
-            <Text style={{ color: '#94a3b8', fontWeight: 'bold', fontSize: 14, marginLeft: '0.5rem' }}>Back</Text>
-          </TouchableOpacity>
-          <View style={{
-            backgroundColor: 'rgba(99, 102, 241, 0.15)',
-            paddingHorizontal: '0.75rem',
-            paddingVertical: '0.25rem',
-            borderRadius: '9999px',
-            border: '1px solid rgba(99, 102, 241, 0.2)',
-          }}>
-            <Text style={{ color: 'rgb(99, 102, 241)', fontSize: 9, fontWeight: 'black', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pipeline Editor</Text>
+  const renderSection = () => {
+    if (!selectedPipeline) {
+      return (
+        <View className="flex-1 items-center justify-center">
+          <View className="bg-surface-card p-10 rounded-[3rem] border border-surface-border items-center max-w-md">
+             <View className="w-20 h-20 bg-brand-primary/10 rounded-3xl items-center justify-center mb-6"><FontAwesome name="map-signs" size={32} className="text-brand-primary" /></View>
+             <Text className="text-typography-main font-black text-2xl mb-4 text-center">No Pipeline Selected</Text>
+             <Text className="text-typography-muted text-center leading-relaxed">
+               Select a tactical protocol from the left registry to begin configuring its stages, automations, and operational logic.
+             </Text>
           </View>
         </View>
+      );
+    }
 
-        {/* Pipeline List Content */}
-        <View style={{
-          flex: 1,
-          paddingLeft: '1rem',
-          paddingRight: '1rem',
-          paddingTop: '1rem',
-          overflow: 'auto',
-        }}>
-          <PipelineList />
-        </View>
-      </View>
-    );
-  }
+    switch (activeSection) {
+      case 'visualizer': return <PipelineVisualizer />;
+      case 'stages': return <StageBuilder />;
+      case 'transitions': return <TransitionEditor />;
+      case 'automations': return <AutomationEditor />;
+      case 'handshakes': return <HandshakeEditor />;
+      default: return null;
+    }
+  };
 
-  // ── Render Pipeline Editor (selected pipeline) ──
   return (
-    <View style={{
-      display: 'flex',
-      flexDirection: 'column',
-      height: '100vh',
-      width: '100vw',
-      backgroundColor: 'rgb(8, 13, 24)',
-    }}>
-      {/* Header Bar */}
-      <View style={{
-        backgroundColor: 'rgb(15, 23, 42)',
-        padding: '1rem',
-        borderBottom: '1px solid rgb(51, 65, 85)',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '1rem',
-      }}>
-        {/* Top Row: Back Button + Editor Badge */}
-        <View style={{
-          display: 'flex',
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}>
-          <TouchableOpacity
-            onPress={deselectPipeline}
-            style={{
-              display: 'flex',
-              flexDirection: 'row',
-              alignItems: 'center',
-              paddingRight: '1rem',
-              cursor: 'pointer',
-            }}
-          >
-            <FontAwesome name="chevron-left" size={14} color="#94a3b8" />
-            <Text style={{ color: '#94a3b8', fontWeight: 'bold', fontSize: 14, marginLeft: '0.5rem' }}>Pipelines</Text>
-          </TouchableOpacity>
-          <View style={{
-            backgroundColor: 'rgba(99, 102, 241, 0.15)',
-            paddingHorizontal: '0.75rem',
-            paddingVertical: '0.25rem',
-            borderRadius: '9999px',
-            border: '1px solid rgba(99, 102, 241, 0.2)',
-          }}>
-            <Text style={{ color: 'rgb(99, 102, 241)', fontSize: 9, fontWeight: 'black', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Editor</Text>
+    <GestureHandlerRootView className="flex-1">
+      <View className="flex-1 flex-row bg-surface-background">
+        {/* Registry Sidebar (Pipelines List) */}
+        <View className="w-80 border-r border-surface-border bg-surface-card/30">
+          <View className="p-8 border-b border-surface-border">
+            <Text className="text-[10px] text-brand-primary font-black uppercase tracking-[0.2em] mb-2">System Registry</Text>
+            <Text className="text-typography-main text-2xl font-black">Pipelines</Text>
           </View>
+
+          <ScrollView className="flex-1 p-4">
+            {loading && pipelines.length === 0 ? (
+              <ActivityIndicator className="mt-10" color="rgb(var(--brand-primary))" />
+            ) : (
+              pipelines.map((p) => (
+                <TouchableOpacity
+                  key={p.id}
+                  onPress={() => selectPipeline(p)}
+                  className={`p-5 rounded-2xl mb-3 border transition-all ${
+                    selectedPipeline?.id === p.id 
+                      ? 'bg-brand-primary border-brand-primary premium-shadow' 
+                      : 'bg-surface-card border-surface-border hover:bg-surface-overlay'
+                  }`}
+                >
+                  <View className="flex-row items-center justify-between"><Text className={`font-bold ${selectedPipeline?.id === p.id ? 'text-white' : 'text-typography-main'}`}>{p.name}</Text>{p.is_default && (
+                       <View className={`px-2 py-0.5 rounded-md ${selectedPipeline?.id === p.id ? 'bg-white/20' : 'bg-brand-primary/10'}`}><Text className={`text-[8px] font-black ${selectedPipeline?.id === p.id ? 'text-white' : 'text-brand-primary'}`}>DEFAULT</Text></View>
+                     )}</View>
+                </TouchableOpacity>
+              ))
+            )}
+          </ScrollView>
         </View>
 
-        {/* Pipeline Info */}
-        <View>
-          <Text style={{ color: 'rgb(248, 250, 252)', fontSize: 28, fontWeight: 'black' }}>{selectedPipeline.name}</Text>
-          {selectedPipeline.description && (
-            <Text style={{ color: 'rgb(148, 163, 184)', fontSize: 14, marginTop: '0.25rem' }}>{selectedPipeline.description}</Text>
-          )}
-          {selectedPipeline.is_default && (
-            <View style={{
-              backgroundColor: 'rgba(99, 102, 241, 0.15)',
-              paddingHorizontal: '0.5rem',
-              paddingVertical: '0.125rem',
-              borderRadius: '0.375rem',
-              marginTop: '0.25rem',
-              alignSelf: 'flex-start',
-            }}>
-              <Text style={{ color: 'rgb(99, 102, 241)', fontSize: 9, fontWeight: 'black', textTransform: 'uppercase' }}>Default Pipeline</Text>
+        {/* Configuration Area */}
+        <View className="flex-1 p-10">
+          <View className="max-w-6xl mx-auto w-full h-full">
+            {selectedPipeline && (
+              <View className="flex-row items-center justify-between mb-10">
+                <View>
+                   <Text className="text-typography-main text-4xl font-black tracking-tighter mb-2">{selectedPipeline.name}</Text>
+                   <Text className="text-typography-muted font-medium">Protocol configuration and lifecycle management.</Text>
+                </View>
+
+                <View className="flex-row bg-surface-card p-1.5 rounded-2xl border border-surface-border">
+                  {(['visualizer', 'stages', 'transitions', 'automations', 'handshakes'] as any[]).map((s) => (
+                    <TouchableOpacity
+                      key={s}
+                      onPress={() => setActiveSection(s)}
+                      className={`px-6 py-2.5 rounded-xl transition-all ${
+                        activeSection === s ? 'bg-brand-primary' : 'hover:bg-surface-overlay'
+                      }`}
+                    >
+                      <Text className={`text-[10px] font-black uppercase tracking-widest ${
+                        activeSection === s ? 'text-white' : 'text-typography-muted'
+                      }`}>
+                        {s === 'visualizer' ? 'Designer' : s === 'transitions' ? 'Flow Rules' : s}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            <View className="flex-1 bg-surface-card/20 rounded-[3rem] border border-surface-border overflow-hidden">
+              {renderSection()}
             </View>
-          )}
-        </View>
-      </View>
-
-      {/* Main Content Area - Scrollable */}
-      <View style={{
-        flex: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        paddingLeft: '1rem',
-        paddingRight: '1rem',
-        paddingTop: '1rem',
-        overflow: 'hidden',
-        position: 'relative',
-      }}>
-        {/* Section Tabs */}
-        <View style={{
-          marginBottom: '1rem',
-          display: 'flex',
-          flexDirection: 'row',
-          gap: '0.5rem',
-          paddingBottom: '1rem',
-          borderBottom: '1px solid rgb(51, 65, 85)',
-          overflowX: 'auto',
-          overflowY: 'hidden',
-        }}>
-          {SECTIONS.map(s => {
-            const isActive = activeSection === s.key;
-            return (
-              <TouchableOpacity
-                key={s.key}
-                onPress={() => setActiveSection(s.key as any)}
-                style={{
-                  paddingHorizontal: '1rem',
-                  paddingVertical: '0.625rem',
-                  borderRadius: '0.75rem',
-                  border: isActive ? '1px solid rgb(99, 102, 241)' : '1px solid rgb(51, 65, 85)',
-                  backgroundColor: isActive ? 'rgb(99, 102, 241)' : 'rgb(15, 23, 42)',
-                  display: 'flex',
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                  transition: 'all 0.2s ease',
-                }}
-              >
-                <FontAwesome
-                  name={s.icon as any}
-                  size={12}
-                  color={isActive ? '#ffffff' : '#64748b'}
-                />
-                <Text style={{
-                  fontSize: 12,
-                  fontWeight: 'bold',
-                  color: isActive ? '#ffffff' : '#94a3b8',
-                  textTransform: 'capitalize',
-                }}>
-                  {s.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {/* Loading Overlay */}
-        {loading && (
-          <View style={{
-            position: 'absolute',
-            top: 0,
-            right: 0,
-            zIndex: 50,
-            padding: '1rem',
-          }}>
-            <ActivityIndicator color="#6366f1" size="small" />
           </View>
-        )}
-
-        {/* Content Container - Scrollable */}
-        <View style={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'auto',
-          paddingRight: '0.5rem',
-        }}>
-          {activeSection === 'stages' && <StageBuilder />}
-          {activeSection === 'transitions' && <TransitionEditor />}
-          {activeSection === 'automations' && <AutomationEditor />}
-          {activeSection === 'handshakes' && <HandshakeEditor />}
-          {activeSection === 'visualizer' && <PipelineVisualizer />}
         </View>
       </View>
-    </View>
+    </GestureHandlerRootView>
   );
 }
 
-export default function PipelinesScreen() {
+export default function PipelinesWebScreen() {
   return (
     <PipelineEditorProvider>
-      <PipelineEditorInner />
+      <PipelinesWebInner />
     </PipelineEditorProvider>
   );
 }
-

@@ -10,7 +10,7 @@ const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 
 const createTestClient = () => createClient(supabaseUrl, supabaseAnonKey);
 
-describe('TrustEdge Full System E2E Validation', () => {
+describe('TrustFlow Full System E2E Validation', () => {
   let founderClient: SupabaseClient;
   let managerClient: SupabaseClient;
   let workerClient: SupabaseClient;

@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, RefreshControl, Platform, Modal, TextInput } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/context/AuthProvider';
+import { useAuth } from '@/contexts/AuthContext';
 import * as Linking from 'expo-linking';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useLocalSearchParams } from 'expo-router';
 
 // Section Components
 const SectionToggle = ({ active, onSelect }: { active: string, onSelect: (s: string) => void }) => (
@@ -24,21 +25,22 @@ const SectionToggle = ({ active, onSelect }: { active: string, onSelect: (s: str
 );
 
 export default function IntelligenceScreen() {
-  const [activeSection, setActiveSection] = useState('radar');
+  const { section } = useLocalSearchParams();
+  const [activeSection, setActiveSection] = useState((section as string) || 'radar');
   const [loading, setLoading] = useState(true);
   const [showReportModal, setShowReportModal] = useState(false);
   const [showTargetModal, setShowTargetModal] = useState(false);
-  
+
   const [data, setData] = useState<any>(null);
   const [reports, setReports] = useState<any[]>([]);
   const [targets, setTargets] = useState<any[]>([]);
-  
+
   // Base Data for Selectors
   const [pipelines, setPipelines] = useState<any[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [allStages, setAllStages] = useState<any[]>([]);
-  
+
   // Current Global State
   const [days, setDays] = useState(30);
   const [pipelineId, setPipelineId] = useState<string | null>(null);
@@ -49,16 +51,22 @@ export default function IntelligenceScreen() {
   const [showWidgetModal, setShowWidgetModal] = useState(false);
 
   useEffect(() => {
-    AsyncStorage.getItem('@trustedge_radar_widgets').then(val => {
+    AsyncStorage.getItem('@TrustFlow_radar_widgets').then(val => {
       if (val) setActiveWidgets(JSON.parse(val));
     });
     fetchBaseData();
   }, []);
 
+  useEffect(() => {
+    if (section && typeof section === 'string') {
+      setActiveSection(section);
+    }
+  }, [section]);
+
   const handleSaveWidgets = async (widgets: string[]) => {
     setActiveWidgets(widgets);
     setShowWidgetModal(false);
-    await AsyncStorage.setItem('@trustedge_radar_widgets', JSON.stringify(widgets));
+    await AsyncStorage.setItem('@TrustFlow_radar_widgets', JSON.stringify(widgets));
   };
 
   useEffect(() => {
@@ -78,7 +86,7 @@ export default function IntelligenceScreen() {
     const { data: t } = await supabase.from('teams').select('id, name').is('deleted_at', null);
     const { data: u } = await supabase.from('users').select('id, full_name');
     const { data: s } = await supabase.from('pipeline_stages').select('id, name, pipeline_id').order('position', { ascending: true });
-    
+
     if (p) setPipelines(p);
     if (t) setTeams(t);
     if (u) setUsers(u);
@@ -110,21 +118,21 @@ export default function IntelligenceScreen() {
   };
 
   const fetchTargets = async () => {
-     try {
-       setLoading(true);
-       const { data: res } = await supabase.from('pipeline_stage_targets').select('*, stage:pipeline_stages(name, pipeline_id)').order('created_at', { ascending: false });
-       
-       // Enrich with current counts for volume targets
-       const enriched = await Promise.all((res || []).map(async (t) => {
-         if (t.target_type === 'volume') {
-           const { count } = await supabase.from('tasks').select('*', { count: 'exact', head: true }).eq('current_stage_id', t.stage_id);
-           return { ...t, current_count: count || 0 };
-         }
-         return t;
-       }));
-       
-       setTargets(enriched);
-     } catch (err) { console.error(err); } finally { setLoading(false); }
+    try {
+      setLoading(true);
+      const { data: res } = await supabase.from('pipeline_stage_targets').select('*, stage:pipeline_stages(name, pipeline_id)').order('created_at', { ascending: false });
+
+      // Enrich with current counts for volume targets
+      const enriched = await Promise.all((res || []).map(async (t) => {
+        if (t.target_type === 'volume') {
+          const { count } = await supabase.from('tasks').select('*', { count: 'exact', head: true }).eq('current_stage_id', t.stage_id);
+          return { ...t, current_count: count || 0 };
+        }
+        return t;
+      }));
+
+      setTargets(enriched);
+    } catch (err) { console.error(err); } finally { setLoading(false); }
   };
 
   const handleCreateTarget = async (params: any) => {
@@ -197,7 +205,7 @@ export default function IntelligenceScreen() {
         {/* Main Sections */}
         <View className="px-6">
           {loading ? (
-             <View className="py-20"><ActivityIndicator color="#6366f1" /></View>
+            <View className="py-20"><ActivityIndicator color="rgb(var(--brand-primary))" /></View>
           ) : activeSection === 'radar' ? (
             <RadarSection data={data} activeWidgets={activeWidgets} onEditWidgets={() => setShowWidgetModal(true)} />
           ) : activeSection === 'targets' ? (
@@ -256,19 +264,19 @@ const TargetCreationModal = ({ visible, onClose, onConfirm, pipelines, stages }:
       <View className="flex-1 bg-black/70 items-center justify-center px-6">
         <View className="bg-surface-card w-full max-h-[90%] rounded-[32px] border border-surface-border overflow-hidden">
           <View className="p-8 pb-4">
-             <Text className="text-typography-main text-2xl font-black mb-1">Define Objective</Text>
-             <Text className="text-typography-muted text-xs">Set performance or volume benchmarks</Text>
+            <Text className="text-typography-main text-2xl font-black mb-1">Define Objective</Text>
+            <Text className="text-typography-muted text-xs">Set performance or volume benchmarks</Text>
           </View>
 
           <ScrollView className="px-8" showsVerticalScrollIndicator={false}>
             {/* Type Switcher */}
             <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest mt-4 mb-3">Objective Type</Text>
             <View className="flex-row bg-surface-background p-1 rounded-xl mb-4">
-               {['performance', 'volume'].map(t => (
-                 <TouchableOpacity key={t} onPress={() => setType(t)} className={`flex-1 py-2 rounded-lg items-center ${type === t ? 'bg-brand-primary' : ''}`}>
-                   <Text className={`font-bold text-[10px] uppercase ${type === t ? 'text-white' : 'text-typography-muted'}`}>{t}</Text>
-                 </TouchableOpacity>
-               ))}
+              {['performance', 'volume'].map(t => (
+                <TouchableOpacity key={t} onPress={() => setType(t)} className={`flex-1 py-2 rounded-lg items-center ${type === t ? 'bg-brand-primary' : ''}`}>
+                  <Text className={`font-bold text-[10px] uppercase ${type === t ? 'text-white' : 'text-typography-muted'}`}>{t}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
 
             <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest mt-2 mb-3">Target Pipeline</Text>
@@ -308,33 +316,33 @@ const TargetCreationModal = ({ visible, onClose, onConfirm, pipelines, stages }:
                 </View>
               </View>
             )}
-            
+
             <View className="h-10" />
           </ScrollView>
 
           <View className="p-8 pt-4 flex-row gap-3 border-t border-surface-border bg-surface-card">
-             <TouchableOpacity onPress={onClose} className="flex-1 py-4 rounded-2xl bg-surface-background border border-surface-border items-center">
-                <Text className="text-typography-muted font-bold">Cancel</Text>
-             </TouchableOpacity>
-             <TouchableOpacity 
-               disabled={!s}
-               onPress={() => { 
-                 const dDate = new Date();
-                 dDate.setDate(dDate.getDate() + parseInt(deadline));
-                 onConfirm({ 
-                   stage_id: s, 
-                   target_type: type,
-                   active: type === 'performance' ? parseInt(activeGoal) : null,
-                   lifecycle: type === 'performance' ? parseInt(lifeGoal) : null,
-                   quantity: type === 'volume' ? parseInt(quantity) : null,
-                   deadline: type === 'volume' ? dDate.toISOString() : null
-                 }); 
-                 onClose(); 
-               }} 
-               className={`flex-1 py-4 rounded-2xl items-center shadow-lg ${s ? 'bg-brand-primary shadow-brand-primary/30' : 'bg-surface-border'}`}
-             >
-                <Text className="text-white font-bold">Establish Objective</Text>
-             </TouchableOpacity>
+            <TouchableOpacity onPress={onClose} className="flex-1 py-4 rounded-2xl bg-surface-background border border-surface-border items-center">
+              <Text className="text-typography-muted font-bold">Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              disabled={!s}
+              onPress={() => {
+                const dDate = new Date();
+                dDate.setDate(dDate.getDate() + parseInt(deadline));
+                onConfirm({
+                  stage_id: s,
+                  target_type: type,
+                  active: type === 'performance' ? parseInt(activeGoal) : null,
+                  lifecycle: type === 'performance' ? parseInt(lifeGoal) : null,
+                  quantity: type === 'volume' ? parseInt(quantity) : null,
+                  deadline: type === 'volume' ? dDate.toISOString() : null
+                });
+                onClose();
+              }}
+              className={`flex-1 py-4 rounded-2xl items-center shadow-lg ${s ? 'bg-brand-primary shadow-brand-primary/30' : 'bg-surface-border'}`}
+            >
+              <Text className="text-white font-bold">Establish Objective</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -354,55 +362,55 @@ const ReportConfigModal = ({ visible, onClose, onConfirm, pipelines, teams, user
       <View className="flex-1 bg-black/70 items-center justify-center px-6">
         <View className="bg-surface-card w-full max-h-[85%] rounded-[32px] border border-surface-border overflow-hidden">
           <View className="p-8 pb-4">
-             <Text className="text-typography-main text-2xl font-black mb-1">Audit Configuration</Text>
-             <Text className="text-typography-muted text-xs">Define intelligence boundaries</Text>
+            <Text className="text-typography-main text-2xl font-black mb-1">Audit Configuration</Text>
+            <Text className="text-typography-muted text-xs">Define intelligence boundaries</Text>
           </View>
 
           <ScrollView className="px-8" showsVerticalScrollIndicator={false}>
             <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest mt-4 mb-3">Timeframe</Text>
             <View className="flex-row gap-2">
-               {[7, 30, 90].map(val => (
-                 <TouchableOpacity key={val} onPress={() => setD(val)} className={`flex-1 py-3 rounded-xl border ${d === val ? 'bg-brand-primary border-brand-primary' : 'border-surface-border'}`}>
-                   <Text className={`text-center font-bold text-xs ${d === val ? 'text-white' : 'text-typography-muted'}`}>{val} Days</Text>
-                 </TouchableOpacity>
-               ))}
+              {[7, 30, 90].map(val => (
+                <TouchableOpacity key={val} onPress={() => setD(val)} className={`flex-1 py-3 rounded-xl border ${d === val ? 'bg-brand-primary border-brand-primary' : 'border-surface-border'}`}>
+                  <Text className={`text-center font-bold text-xs ${d === val ? 'text-white' : 'text-typography-muted'}`}>{val} Days</Text>
+                </TouchableOpacity>
+              ))}
             </View>
 
             <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest mt-6 mb-3">Target Pipeline</Text>
-            <Picker 
-              items={[{id: null, name: 'Organization Wide'}, ...pipelines]} 
-              selectedId={p} 
-              onSelect={setP} 
+            <Picker
+              items={[{ id: null, name: 'Organization Wide' }, ...pipelines]}
+              selectedId={p}
+              onSelect={setP}
             />
 
             <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest mt-6 mb-3">Filtered Team</Text>
-            <Picker 
-              items={[{id: null, name: 'All Teams'}, ...teams]} 
-              selectedId={t} 
-              onSelect={setT} 
+            <Picker
+              items={[{ id: null, name: 'All Teams' }, ...teams]}
+              selectedId={t}
+              onSelect={setT}
             />
 
             <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest mt-6 mb-3">Individual Scope</Text>
-            <Picker 
-              items={[{id: null, name: 'Everyone'}, ...users]} 
-              selectedId={u} 
-              onSelect={setU} 
+            <Picker
+              items={[{ id: null, name: 'Everyone' }, ...users]}
+              selectedId={u}
+              onSelect={setU}
               labelKey="full_name"
             />
-            
+
             <View className="h-10" />
           </ScrollView>
 
           <View className="p-8 pt-4 flex-row gap-3 border-t border-surface-border bg-surface-card">
-             <TouchableOpacity onPress={onClose} className="flex-1 py-4 rounded-2xl bg-surface-background border border-surface-border items-center">
-                <Text className="text-typography-muted font-bold">Cancel</Text>
-             </TouchableOpacity>
-             <TouchableOpacity 
-               onPress={() => { onConfirm({ days: d, pipeline_id: p, team_id: t, user_id: u, type }); onClose(); }} 
-               className="flex-1 py-4 rounded-2xl bg-brand-primary items-center shadow-lg shadow-brand-primary/30"
-             >
-                <Text className="text-white font-bold">Generate</Text>
-             </TouchableOpacity>
+            <TouchableOpacity onPress={onClose} className="flex-1 py-4 rounded-2xl bg-surface-background border border-surface-border items-center">
+              <Text className="text-typography-muted font-bold">Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => { onConfirm({ days: d, pipeline_id: p, team_id: t, user_id: u, type }); onClose(); }}
+              className="flex-1 py-4 rounded-2xl bg-brand-primary items-center shadow-lg shadow-brand-primary/30"
+            >
+              <Text className="text-white font-bold">Generate</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -413,16 +421,16 @@ const ReportConfigModal = ({ visible, onClose, onConfirm, pipelines, teams, user
 const Picker = ({ items, selectedId, onSelect, labelKey = 'name' }: any) => (
   <View className="flex-row flex-wrap gap-2">
     {items.map((item: any) => (
-      <TouchableOpacity 
-        key={item.id} 
-        onPress={() => onSelect(item.id)} 
+      <TouchableOpacity
+        key={item.id}
+        onPress={() => onSelect(item.id)}
         className={`px-4 py-2 rounded-xl border ${selectedId === item.id ? 'bg-surface-background border-brand-primary' : 'border-surface-border'}`}
       >
         <View className="flex-row items-center">
-           {selectedId === item.id && <View className="w-1.5 h-1.5 rounded-full bg-brand-primary mr-2" />}
-           <Text className={`text-[11px] font-medium ${selectedId === item.id ? 'text-brand-primary font-bold' : 'text-typography-muted'}`}>
-             {item[labelKey] || 'N/A'}
-           </Text>
+          {selectedId === item.id && <View className="w-1.5 h-1.5 rounded-full bg-brand-primary mr-2" />}
+          <Text className={`text-[11px] font-medium ${selectedId === item.id ? 'text-brand-primary font-bold' : 'text-typography-muted'}`}>
+            {item[labelKey] || 'N/A'}
+          </Text>
         </View>
       </TouchableOpacity>
     ))}
@@ -430,12 +438,12 @@ const Picker = ({ items, selectedId, onSelect, labelKey = 'name' }: any) => (
 );
 
 const RadarSection = ({ data, activeWidgets, onEditWidgets }: any) => {
-  if (!data) return <View className="py-20"><ActivityIndicator color="#6366f1" /></View>;
+  if (!data) return <View className="py-20"><ActivityIndicator color="rgb(var(--brand-primary))" /></View>;
   const curThr = data.current?.throughput || 0;
   const prevThr = data.comparison?.throughput || 0;
   const adv = data.radar_advanced || {};
   const curr = data.current || {};
-  
+
   const renderWidget = (key: string, idx: number) => {
     switch (key) {
       case 'throughput': return <KPIBox key={idx} label="Throughput" val={curThr} delta={curThr - prevThr} />;
@@ -455,7 +463,7 @@ const RadarSection = ({ data, activeWidgets, onEditWidgets }: any) => {
           <Text className="text-brand-primary text-[10px] font-bold uppercase tracking-wider">Customize</Text>
         </TouchableOpacity>
       </View>
-      
+
       <View className="flex-row flex-wrap justify-between mb-6">
         {activeWidgets.map((w: string, i: number) => renderWidget(w, i))}
       </View>
@@ -471,7 +479,7 @@ const RadarSection = ({ data, activeWidgets, onEditWidgets }: any) => {
               <Text className="text-typography-main text-xs font-bold">{f.task_count}</Text>
             </View>
             <View className="h-2 bg-surface-background rounded-full overflow-hidden">
-               <View className="h-full bg-brand-primary" style={{ width: `${Math.min((f.task_count / (curThr || 10)) * 100, 100)}%` }} />
+              <View className="h-full bg-brand-primary" style={{ width: `${Math.min((f.task_count / (curThr || 10)) * 100, 100)}%` }} />
             </View>
           </View>
         ))}
@@ -488,8 +496,8 @@ const RadarSection = ({ data, activeWidgets, onEditWidgets }: any) => {
 const TargetsSection = ({ targets, onUpdate, onNew }: any) => (
   <View>
     <TouchableOpacity onPress={onNew} className="bg-surface-card p-6 rounded-3xl border border-dashed border-brand-primary/40 mb-6 items-center flex-row justify-center">
-       <FontAwesome name="plus-circle" size={16} color="#6366f1" className="mr-3" />
-       <Text className="text-brand-primary font-bold text-sm">Initiate Benchmark Objective</Text>
+      <FontAwesome name="plus-circle" size={16} color="rgb(var(--brand-primary))" className="mr-3" />
+      <Text className="text-brand-primary font-bold text-sm">Initiate Benchmark Objective</Text>
     </TouchableOpacity>
     {targets.map((t: any, i: number) => (
       <View key={i} className="bg-surface-card p-5 rounded-2xl border border-surface-border mb-4">
@@ -501,24 +509,24 @@ const TargetsSection = ({ targets, onUpdate, onNew }: any) => (
             </Text>
           </View>
           <TouchableOpacity onPress={() => Alert.prompt('Active Goal', 'Update target value:', v => onUpdate(t.id, t.target_type === 'volume' ? 'target_quantity' : 'target_active_seconds', v))} className="bg-surface-background p-2 rounded-lg">
-            <FontAwesome name="edit" size={12} color="#64748b" />
+            <FontAwesome name="edit" size={12} color="rgb(var(--text-muted))" />
           </TouchableOpacity>
         </View>
 
         {t.target_type === 'volume' ? (
           <View>
-             <View className="flex-row justify-between mb-2">
-                <Text className="text-typography-muted text-[10px] font-bold uppercase">Progress: {t.current_count || 0} / {t.target_quantity}</Text>
-                <Text className="text-typography-muted text-[10px] font-bold uppercase">Deadline: {t.target_deadline ? new Date(t.target_deadline).toLocaleDateString() : 'None'}</Text>
-             </View>
-             <View className="h-1.5 bg-surface-background rounded-full overflow-hidden">
-                <View className="h-full bg-brand-primary" style={{ width: `${Math.min(((t.current_count || 0) / (t.target_quantity || 1)) * 100, 100)}%` }} />
-             </View>
+            <View className="flex-row justify-between mb-2">
+              <Text className="text-typography-muted text-[10px] font-bold uppercase">Progress: {t.current_count || 0} / {t.target_quantity}</Text>
+              <Text className="text-typography-muted text-[10px] font-bold uppercase">Deadline: {t.target_deadline ? new Date(t.target_deadline).toLocaleDateString() : 'None'}</Text>
+            </View>
+            <View className="h-1.5 bg-surface-background rounded-full overflow-hidden">
+              <View className="h-full bg-brand-primary" style={{ width: `${Math.min(((t.current_count || 0) / (t.target_quantity || 1)) * 100, 100)}%` }} />
+            </View>
           </View>
         ) : (
           <View className="flex-row gap-8">
-            <View><Text className="text-typography-muted text-xs mb-1">Target</Text><Text className="text-brand-primary font-bold">{Math.round((t.target_active_seconds || 0)/60)}m</Text></View>
-            <View><Text className="text-typography-muted text-xs mb-1">Max Life</Text><Text className="text-typography-main font-bold">{Math.round((t.target_lifecycle_seconds || 0)/3600)}h</Text></View>
+            <View><Text className="text-typography-muted text-xs mb-1">Target</Text><Text className="text-brand-primary font-bold">{Math.round((t.target_active_seconds || 0) / 60)}m</Text></View>
+            <View><Text className="text-typography-muted text-xs mb-1">Max Life</Text><Text className="text-typography-main font-bold">{Math.round((t.target_lifecycle_seconds || 0) / 3600)}h</Text></View>
           </View>
         )}
       </View>
@@ -529,37 +537,37 @@ const TargetsSection = ({ targets, onUpdate, onNew }: any) => (
 const ArchivesSection = ({ reports, onDownload, onNew }: any) => (
   <View>
     <TouchableOpacity onPress={onNew} className="bg-surface-card p-6 rounded-3xl border border-dashed border-brand-primary/40 mb-6 items-center flex-row justify-center">
-       <FontAwesome name="plus-circle" size={16} color="#6366f1" className="mr-3" />
-       <Text className="text-brand-primary font-bold text-sm">Initiate New Audit Sequence</Text>
+      <FontAwesome name="plus-circle" size={16} color="rgb(var(--brand-primary))" className="mr-3" />
+      <Text className="text-brand-primary font-bold text-sm">Initiate New Audit Sequence</Text>
     </TouchableOpacity>
     {reports.map((r: any, i: number) => (
-       <TouchableOpacity key={i} onPress={() => r.file_url && onDownload(r.file_url)} className="bg-surface-card p-5 rounded-2xl border border-surface-border mb-4 flex-row items-center">
-         <View className={`w-12 h-12 rounded-xl items-center justify-center mr-4 ${r.status === 'completed' ? 'bg-state-success/10' : 'bg-state-info/10'}`}>
-            <FontAwesome name="file-text-o" size={18} color={r.status === 'completed' ? '#10b981' : '#6366f1'} />
-         </View>
-         <View className="flex-1">
-            <Text className="text-typography-main font-bold">Report #{r.id.substring(0, 6)}</Text>
-            <Text className="text-typography-muted text-xs">{new Date(r.created_at).toLocaleDateString()} • {r.status}</Text>
-         </View>
-         <FontAwesome name="chevron-right" size={12} color="#94a3b8" />
-       </TouchableOpacity>
+      <TouchableOpacity key={i} onPress={() => r.file_url && onDownload(r.file_url)} className="bg-surface-card p-5 rounded-2xl border border-surface-border mb-4 flex-row items-center">
+        <View className={`w-12 h-12 rounded-xl items-center justify-center mr-4 ${r.status === 'completed' ? 'bg-state-success/10' : 'bg-state-info/10'}`}>
+          <FontAwesome name="file-text-o" size={18} color={r.status === 'completed' ? 'rgb(var(--state-success))' : 'rgb(var(--brand-primary))'} />
+        </View>
+        <View className="flex-1">
+          <Text className="text-typography-main font-bold">Report #{r.id.substring(0, 6)}</Text>
+          <Text className="text-typography-muted text-xs">{new Date(r.created_at).toLocaleDateString()} • {r.status}</Text>
+        </View>
+        <FontAwesome name="chevron-right" size={12} color="rgb(var(--text-muted))" />
+      </TouchableOpacity>
     ))}
   </View>
 );
 
 const KPIBox = ({ label, val, delta }: any) => (
   <View className="w-[48%] bg-surface-card p-5 rounded-3xl border border-surface-border mb-4">
-     <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-wider mb-2">{label}</Text>
-     <View className="flex-row items-baseline">
-       <Text className="text-typography-main text-2xl font-black">{val}</Text>
-       {delta !== undefined && (
-         <View className={`ml-2 px-1.5 py-0.5 rounded-md ${delta >= 0 ? 'bg-state-success/10' : 'bg-state-danger/10'}`}>
-           <Text className={`text-[9px] font-black ${delta >= 0 ? 'text-state-success' : 'text-state-danger'}`}>
-             {delta >= 0 ? '+' : ''}{delta}
-           </Text>
-         </View>
-       )}
-     </View>
+    <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-wider mb-2">{label}</Text>
+    <View className="flex-row items-baseline">
+      <Text className="text-typography-main text-2xl font-black">{val}</Text>
+      {delta !== undefined && (
+        <View className={`ml-2 px-1.5 py-0.5 rounded-md ${delta >= 0 ? 'bg-state-success/10' : 'bg-state-danger/10'}`}>
+          <Text className={`text-[9px] font-black ${delta >= 0 ? 'text-state-success' : 'text-state-danger'}`}>
+            {delta >= 0 ? '+' : ''}{delta}
+          </Text>
+        </View>
+      )}
+    </View>
   </View>
 );
 
@@ -611,7 +619,7 @@ const ConversionFunnelChart = ({ data }: any) => {
             </View>
             {idx < conversions.length - 1 && (
               <View className="items-center mt-2 mb-2">
-                <FontAwesome name="arrow-down" size={12} color="#64748b" />
+                <FontAwesome name="arrow-down" size={12} color="rgb(var(--text-muted))" />
               </View>
             )}
           </View>
@@ -671,7 +679,7 @@ const QualityLeaderboard = ({ data }: any) => {
               <Text className="text-typography-main text-sm font-bold flex-1">{worker.full_name || 'Anonymous'}</Text>
               <View className="flex-row gap-1">
                 {[1, 2, 3, 4, 5].map((s) => (
-                  <FontAwesome key={s} name={s <= stars ? 'star' : 'star-o'} size={12} color={s <= stars ? '#fbbf24' : '#cbd5e1'} />
+                  <FontAwesome key={s} name={s <= stars ? 'star' : 'star-o'} size={12} color={s <= stars ? 'rgb(var(--state-warning))' : 'rgb(var(--text-muted))'} />
                 ))}
               </View>
             </View>
@@ -736,22 +744,22 @@ const TrendComparisonCards = ({ data }: any) => {
 const SLARiskAlert = ({ data }: any) => {
   if (!data?.sla_risks || data.sla_risks.length === 0) return null;
   const risks = data.sla_risks.slice(0, 3); // show top 3
-  
+
   return (
     <View className="mb-6 bg-state-danger/5 border border-state-danger/30 p-5 rounded-3xl">
       <View className="flex-row items-center mb-3">
-        <FontAwesome name="warning" size={14} color="#ef4444" className="mr-2" />
+        <FontAwesome name="warning" size={14} color="rgb(var(--state-danger))" className="mr-2" />
         <Text className="text-state-danger font-bold text-sm">SLA Risk Detected ({data.sla_risks.length})</Text>
       </View>
       {risks.map((r: any, i: number) => (
         <View key={i} className="flex-row justify-between items-center mb-2 last:mb-0">
-           <Text className="text-typography-main font-bold text-xs">{r.task_number || 'TASK'}</Text>
-           <View className="flex-row items-center gap-3">
-             <Text className="text-typography-muted text-[10px]">{r.stage_name}</Text>
-             <View className="bg-state-danger/10 px-2 py-1 rounded">
-               <Text className="text-state-danger text-[10px] font-black">{r.risk_percent}%</Text>
-             </View>
-           </View>
+          <Text className="text-typography-main font-bold text-xs">{r.task_number || 'TASK'}</Text>
+          <View className="flex-row items-center gap-3">
+            <Text className="text-typography-muted text-[10px]">{r.stage_name}</Text>
+            <View className="bg-state-danger/10 px-2 py-1 rounded">
+              <Text className="text-state-danger text-[10px] font-black">{r.risk_percent}%</Text>
+            </View>
+          </View>
         </View>
       ))}
     </View>
@@ -760,7 +768,7 @@ const SLARiskAlert = ({ data }: any) => {
 
 const WidgetConfigModal = ({ visible, onClose, onSave, currentWidgets }: any) => {
   const [selected, setSelected] = useState<string[]>(currentWidgets || []);
-  
+
   // Update state if modal is opened with new props
   useEffect(() => {
     if (visible) setSelected(currentWidgets || []);
@@ -789,16 +797,16 @@ const WidgetConfigModal = ({ visible, onClose, onSave, currentWidgets }: any) =>
       <View className="flex-1 bg-black/70 items-center justify-center px-6">
         <View className="bg-surface-card w-full max-h-[85%] rounded-[32px] border border-surface-border overflow-hidden">
           <View className="p-8 pb-4">
-             <Text className="text-typography-main text-2xl font-black mb-1">Radar Configuration</Text>
-             <Text className="text-typography-muted text-xs">Select up to 6 metrics to display.</Text>
+            <Text className="text-typography-main text-2xl font-black mb-1">Radar Configuration</Text>
+            <Text className="text-typography-muted text-xs">Select up to 6 metrics to display.</Text>
           </View>
 
           <ScrollView className="px-8" showsVerticalScrollIndicator={false}>
             {library.map(widget => {
               const isActive = selected.includes(widget.id);
               return (
-                <TouchableOpacity 
-                  key={widget.id} 
+                <TouchableOpacity
+                  key={widget.id}
                   onPress={() => toggleWidget(widget.id)}
                   className={`p-4 rounded-xl border mb-3 flex-row items-center justify-between ${isActive ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border'}`}
                 >
@@ -807,26 +815,26 @@ const WidgetConfigModal = ({ visible, onClose, onSave, currentWidgets }: any) =>
                     <Text className="text-typography-muted text-[10px] mt-1">{widget.desc}</Text>
                   </View>
                   <View className={`w-5 h-5 rounded-full border items-center justify-center ${isActive ? 'border-brand-primary bg-brand-primary' : 'border-surface-border'}`}>
-                    {isActive && <FontAwesome name="check" size={10} color="#ffffff" />}
+                    {isActive && <FontAwesome name="check" size={10} color="white" />}
                   </View>
                 </TouchableOpacity>
               );
             })}
-            
+
             <View className="h-10" />
           </ScrollView>
 
           <View className="p-8 pt-4 flex-row gap-3 border-t border-surface-border bg-surface-card">
-             <TouchableOpacity onPress={onClose} className="flex-1 py-4 rounded-2xl bg-surface-background border border-surface-border items-center">
-                <Text className="text-typography-muted font-bold">Cancel</Text>
-             </TouchableOpacity>
-             <TouchableOpacity 
-               disabled={selected.length === 0}
-               onPress={() => onSave(selected)} 
-               className={`flex-1 py-4 rounded-2xl items-center shadow-lg ${selected.length > 0 ? 'bg-brand-primary shadow-brand-primary/30' : 'bg-surface-border'}`}
-             >
-                <Text className="text-white font-bold">Save Dashboard</Text>
-             </TouchableOpacity>
+            <TouchableOpacity onPress={onClose} className="flex-1 py-4 rounded-2xl bg-surface-background border border-surface-border items-center">
+              <Text className="text-typography-muted font-bold">Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              disabled={selected.length === 0}
+              onPress={() => onSave(selected)}
+              className={`flex-1 py-4 rounded-2xl items-center shadow-lg ${selected.length > 0 ? 'bg-brand-primary shadow-brand-primary/30' : 'bg-surface-border'}`}
+            >
+              <Text className="text-white font-bold">Save Dashboard</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>

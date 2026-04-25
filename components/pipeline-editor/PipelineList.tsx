@@ -119,7 +119,7 @@ export default function PipelineList() {
             <View key={p.id} className="mb-3">
               {editingId === p.id ? (
                 /* Inline Edit Mode */
-                <View className="bg-surface-card p-4 rounded-2xl border border-brand-primary/50">
+                <View className="bg-surface-card p-4 rounded-xl border border-brand-primary/50">
                   <TextInput
                     value={editName}
                     onChangeText={setEditName}

@@ -2,6 +2,8 @@ import React from 'react';
 import { View, Text } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import { getPrimaryColor, getMutedColor } from '@/lib/themeColors';
 
 function Avatar({ name, size = 32 }: { name: string | null; size?: number }) {
   const initial = (name || '?').charAt(0).toUpperCase();
@@ -14,6 +16,7 @@ function Avatar({ name, size = 32 }: { name: string | null; size?: number }) {
 
 export default function PeoplePanel() {
   const { data } = useTaskDetail();
+  const { theme: activeTheme } = useTheme();
   if (!data) return null;
 
   const { assignments, manager, creator } = data;
@@ -34,7 +37,7 @@ export default function PeoplePanel() {
             <Text className="text-typography-main text-sm font-bold">{manager.full_name}</Text>
             <Text className="text-brand-primary text-[9px] font-black uppercase tracking-wider">Manager</Text>
           </View>
-          <FontAwesome name="briefcase" size={12} color="#6366f1" />
+           <FontAwesome name="briefcase" size={12} color={getPrimaryColor(activeTheme)} />
         </View>
       )}
 
@@ -64,12 +67,12 @@ export default function PeoplePanel() {
         </View>
       )}
 
-      {assignments.length === 0 && (
-        <View className="py-4 items-center opacity-40">
-          <FontAwesome name="user-plus" size={20} color="#64748b" />
-          <Text className="text-typography-muted text-xs mt-2">No assignees yet</Text>
-        </View>
-      )}
+       {assignments.length === 0 && (
+         <View className="py-4 items-center opacity-40">
+           <FontAwesome name="user-plus" size={20} color={getMutedColor(activeTheme)} />
+           <Text className="text-typography-muted text-xs mt-2">No assignees yet</Text>
+         </View>
+       )}
     </View>
   );
 }

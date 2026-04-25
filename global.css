@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 html, body {
-  background-color: rgb(8, 13, 24) !important;
+  background-color: rgb(var(--surface-background)) !important;
   min-height: 100vh;
   margin: 0;
   padding: 0;
@@ -12,7 +12,7 @@ html, body {
 }
 
 #root {
-  background-color: rgb(8, 13, 24) !important;
+  background-color: rgb(var(--surface-background)) !important;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -21,45 +21,110 @@ html, body {
 @layer base {
 
   :root {
-    /* Brand Foundation - More Vibrant */
+    /* Default Theme: Indigo Night */
     --brand-primary: 99 102 241;   /* indigo-500 */
     --brand-secondary: 34 197 94;  /* green-500 */
-    --brand-accent: 251 191 36;   /* amber-400 */
-    --brand-danger: 239 68 68;    /* red-500 */
+    --brand-accent: 251 191 36;    /* amber-400 */
+    --brand-danger: 239 68 68;     /* red-500 */
     
-    /* Core Surfaces (Deep Slate / Dark Mode Default) */
-    --surface-background: 8 13 24;     /* charcoal deep */
-    --surface-card: 15 23 42;         /* slate-900 */
-    --surface-overlay: 30 41 59;      /* slate-800 */
-    --surface-border: 51 65 85;       /* slate-700 */
-    --surface-glass: 30 41 59 / 0.5;  /* glass effect base */
+    --surface-background: 8 13 24;  
+    --surface-card: 15 23 42;       
+    --surface-overlay: 30 41 59;    
+    --surface-border: 51 65 85;     
+    --surface-glass: 30 41 59 / 0.5;
 
-    /* Typography */
-    --text-main: 248 250 252;        /* slate-50 */
-    --text-muted: 148 163 184;       /* slate-400 */
-    --text-label: 203 213 225;       /* slate-300 */
-    --text-dim: 100 116 139;         /* slate-500 */
-
-    /* State System (MANDATORY per design rules) */
-    --state-success: 34 197 94;      /* green-500 */
-    --state-warning: 251 191 36;     /* amber-400 */
-    --state-danger: 239 68 68;       /* red-500 */
-    --state-info: 59 130 246;        /* blue-500 */
+    /* Personalization Tokens */
+    --radius-base: 1rem;           /* 2xl default */
+    --radius-button: 0.75rem;      /* xl default */
+    --radius-input: 0.5rem;        /* lg default */
+    
+    --spacing-scale: 1;
 
     /* Interactive Brand States */
-    --brand-primary-hover: 79 70 229;   /* indigo-600 */
-    --brand-primary-active: 67 56 202;  /* indigo-700 */
-
-    /* Dimmed / Tinted Variants (for backgrounds/badges) */
+    --brand-primary-hover: 79 70 229;  
+    --brand-primary-active: 67 56 202; 
     --brand-primary-dim: 99 102 241 / 0.15;
-    --brand-secondary-dim: 34 197 94 / 0.15;
-    --brand-accent-dim: 251 191 36 / 0.15;
-    --brand-danger-dim: 239 68 68 / 0.15;
 
-    --state-success-dim: 34 197 94 / 0.15;
-    --state-warning-dim: 251 191 36 / 0.15;
-    --state-danger-dim: 239 68 68 / 0.15;
-    --state-info-dim: 59 130 246 / 0.15;
+    /* Typography Defaults (Indigo Night Tint) */
+    --text-main: 248 250 252;
+    --text-muted: 148 163 184;
+    --text-label: 203 213 225;
+    --text-dim: 100 116 139;
+
+    /* State System */
+    --state-success: 34 197 94;
+    --state-warning: 251 191 36;
+    --state-danger: 239 68 68;
+    --state-info: 59 130 246;
+
+    /* Icon Tokens */
+    --icon-primary: var(--brand-primary);
+    --icon-muted: var(--brand-primary) / 0.5;
+    --icon-accent: var(--brand-accent);
+  }
+
+  :root[data-theme='emerald'] {
+    --brand-primary: 16 185 129;   /* emerald-500 */
+    --brand-primary-hover: 5 150 105;
+    --brand-primary-active: 4 120 87;
+    --brand-primary-dim: 16 185 129 / 0.15;
+    --brand-accent: 190 242 100;   /* lime-300 */
+
+    --surface-background: 6 9 7;   /* very dark emerald */
+    --surface-card: 10 15 12;      
+    --surface-overlay: 20 30 24;   
+    --surface-border: 22 101 52 / 0.3; 
+
+    --text-main: 236 253 245;      /* emerald-50 tint */
+    --text-muted: 110 231 183;     /* emerald-300 tint */
+  }
+
+  :root[data-theme='amber'] {
+    --brand-primary: 245 158 11;   /* amber-500 */
+    --brand-primary-hover: 217 119 6;
+    --brand-primary-active: 180 83 9;
+    --brand-primary-dim: 245 158 11 / 0.15;
+    --brand-accent: 14 165 233;    /* sky-500 (contrast) */
+
+    --surface-background: 12 10 9;  /* stone-950 */
+    --surface-card: 28 25 23;      /* stone-900 */
+    --surface-overlay: 41 37 36;   /* stone-800 */
+    --surface-border: 120 113 108 / 0.3;
+
+    --text-main: 255 251 235;      /* amber-50 tint */
+    --text-muted: 252 211 77;      /* amber-300 tint */
+  }
+
+  :root[data-theme='amethyst'] {
+    --brand-primary: 168 85 247;   /* purple-500 */
+    --brand-primary-hover: 147 51 234;
+    --brand-primary-active: 126 34 206;
+    --brand-primary-dim: 168 85 247 / 0.15;
+    --brand-accent: 34 211 238;    /* cyan-400 (cyber) */
+
+    --surface-background: 10 10 12; /* deep neutral */
+    --surface-card: 18 18 22;      
+    --surface-overlay: 30 30 36;   
+    --surface-border: 107 33 168 / 0.3;
+
+    --text-main: 250 245 255;      /* purple-50 tint */
+    --text-muted: 216 180 254;     /* purple-300 tint */
+  }
+
+
+  /* Personalization Modifiers */
+  :root[data-density='compact'] { --spacing-scale: 0.75; }
+  :root[data-density='comfort'] { --spacing-scale: 1.25; }
+
+  :root[data-roundness='sharp'] {
+    --radius-base: 0.25rem;
+    --radius-button: 0.125rem;
+    --radius-input: 0.125rem;
+  }
+  :root[data-roundness='soft'] {
+    --radius-base: 2.5rem;
+    --radius-button: 1.5rem;
+    --radius-input: 1rem;
   }
 
   /* Example setup if Light Mode is needed later */

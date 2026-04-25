@@ -61,7 +61,7 @@ export default function TransitionEditor() {
   );
 
   return (
-    <View className="flex-1">
+    <View className="flex-1 p-8">
       <View className="flex-row items-center justify-between mb-4">
         <View>
           <Text className="text-typography-main text-lg font-black">Transitions</Text>
@@ -70,7 +70,7 @@ export default function TransitionEditor() {
         {!showAdd && (
           <TouchableOpacity
             onPress={() => { resetForm(); setShowAdd(true); }}
-            className="bg-brand-primary-dim px-4 py-2 rounded-xl border border-brand-primary/20 active:bg-brand-primary-dim active:scale-95 transition-all"
+            className="bg-brand-primary-dim px-4 py-2 rounded-sm border border-brand-primary/20 active:bg-brand-primary-dim active:scale-95 transition-all"
           >
             <View className="flex-row items-center">
               <FontAwesome name="plus" size={10} color="rgb(var(--brand-primary))" />
@@ -202,7 +202,7 @@ export default function TransitionEditor() {
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleAdd}
-                className="flex-1 bg-brand-primary py-3 rounded-xl items-center h-12 justify-center"
+                className="flex-1 bg-brand-primary py-3 rounded-sm items-center h-12 justify-center"
                 disabled={!formFrom || !formTo || !formLabel.trim() || loading}
               >
                 {loading ? (

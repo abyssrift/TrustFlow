@@ -1,0 +1,20 @@
+diff --git a/node_modules/metro/src/node-haste/DependencyGraph.js b/node_modules/metro/src/node-haste/DependencyGraph.js
+index 8222d8c..dced20b 100644
+--- a/node_modules/metro/src/node-haste/DependencyGraph.js
++++ b/node_modules/metro/src/node-haste/DependencyGraph.js
+@@ -93,8 +93,14 @@ class DependencyGraph extends _events.default {
+   async ready() {
+     await this._initializedPromise;
+   }
+-  _onHasteChange({ changes, rootDir }) {
++  _onHasteChange(event) {
+     this._resolutionCache = new Map();
++    if (!event || !event.changes) {
++      this._createModuleResolver();
++      this.emit("change");
++      return;
++    }
++    const { changes, rootDir } = event;
+     [
+       ...changes.addedFiles,
+       ...changes.modifiedFiles,

@@ -4,36 +4,16 @@ import {
   Text,
   Modal,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   ActivityIndicator,
   Alert,
   TextInput as RNTextInput,
-  Switch,
 } from 'react-native';
 import HorizontalScroll from '@/components/common/HorizontalScroll';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import Colors from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
 
 type ReportType = 'general' | 'worker_comparison' | 'team_comparison' | 'workflow_analysis';
-
-interface ReportFilters {
-  reportType: ReportType;
-  timeFrame: '7' | '30' | '90' | 'custom';
-  dateStart?: string;
-  dateEnd?: string;
-  pipelineId?: string;
-  teamId?: string;
-  workerId?: string;
-  priorityFilter?: string;
-  projectId?: string;
-  // Comparison specific
-  workerA_id?: string;
-  workerB_id?: string;
-  teamA_id?: string;
-  teamB_id?: string;
-}
 
 interface ReportGeneratorProps {
   visible: boolean;
@@ -46,8 +26,6 @@ export default function ReportGenerator({
   onClose,
   onReportGenerated,
 }: ReportGeneratorProps) {
-  const colorScheme = useColorScheme();
-  const theme = Colors[colorScheme ?? 'dark'];
 
   // State
   const [reportType, setReportType] = useState<ReportType>('general');
@@ -80,10 +58,10 @@ export default function ReportGenerator({
   const loadFilterOptions = async () => {
     try {
       const [pipeRes, teamRes, workerRes, projRes] = await Promise.all([
-        supabase.from('pipelines').select('id, name').limit(20),
-        supabase.from('teams').select('id, name').limit(20),
-        supabase.from('users').select('id, full_name').limit(20),
-        supabase.from('projects').select('id, name').limit(20),
+        supabase.from('pipelines').select('id, name').is('deleted_at', null).order('name'),
+        supabase.from('teams').select('id, name').is('deleted_at', null).order('name'),
+        supabase.from('users').select('id, full_name').is('deleted_at', null).order('full_name'),
+        supabase.from('projects').select('id, name').is('deleted_at', null).order('name'),
       ]);
 
       setPipelines(pipeRes.data || []);
@@ -99,7 +77,6 @@ export default function ReportGenerator({
     try {
       setLoading(true);
 
-      // Convert timeframe to days
       let days = 30;
       let dateStartParam = null;
       let dateEndParam = null;
@@ -116,24 +93,19 @@ export default function ReportGenerator({
         days = parseInt(timeFrame);
       }
 
-      // Build parameters object for the RPC
       const parameters: any = {
         days: days,
         scope: reportType === 'general' ? (pipelineId ? 'pipeline' : 'organization') : reportType,
       };
 
-      // Add optional filters to parameters
       if (pipelineId) parameters.pipeline_id = pipelineId;
       if (teamId) parameters.team_id = teamId;
       if (workerId) parameters.worker_id = workerId;
       if (priorityFilter) parameters.priority = priorityFilter;
       if (projectId) parameters.project_id = projectId;
-      
-      // Add date range if custom
       if (dateStartParam) parameters.date_start = dateStartParam;
       if (dateEndParam) parameters.date_end = dateEndParam;
 
-      // Comparison specific parameters
       if (reportType === 'worker_comparison') {
         if (!workerA_id || !workerB_id) {
           Alert.alert('Error', 'Please select both workers for comparison');
@@ -154,7 +126,6 @@ export default function ReportGenerator({
         parameters.team_b_id = teamB_id;
       }
 
-      // Call RPC with only the 2 required parameters
       const { data: jobId, error } = await supabase.rpc('rpc_request_report', {
         p_report_type: reportType,
         p_parameters: parameters,
@@ -162,27 +133,18 @@ export default function ReportGenerator({
 
       if (error) throw error;
 
-      // Immediately trigger the PDF generation edge function
       if (jobId) {
         try {
-          const response = await fetch(
+          await fetch(
             'https://wbvgufqfgbvbinjrdzlg.functions.supabase.co/generate-pdf-report-v8',
             {
               method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
+              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ job_id: jobId }),
             }
           );
-
-          if (!response.ok) {
-            console.warn('Edge function trigger warning:', response.statusText);
-            // Don't fail - the job was created successfully
-          }
         } catch (fetchErr) {
           console.warn('Edge function trigger error:', fetchErr);
-          // Don't fail - the job was created successfully
         }
       }
 
@@ -198,119 +160,90 @@ export default function ReportGenerator({
   };
 
   const renderReportTypeSelector = () => (
-    <View style={{ marginBottom: 20 }}>
-      <Text style={{ fontSize: 14, fontWeight: 'bold', marginBottom: 10, color: theme.text }}>
-        Report Type
+    <View className="mb-6">
+      <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-typography-muted mb-3">
+        Report Architecture
       </Text>
       {[
-        { value: 'general', label: 'General Performance Audit', desc: 'Organization or pipeline metrics' },
-        { value: 'worker_comparison', label: 'Worker Comparison', desc: 'Compare 2 workers' },
-        { value: 'team_comparison', label: 'Team Comparison', desc: 'Compare 2 teams' },
-        { value: 'workflow_analysis', label: 'Workflow Analysis', desc: 'Pipeline deep-dive' },
+        { value: 'general', label: 'General Performance Audit', desc: 'Organization or pipeline metrics', icon: 'bar-chart' },
+        { value: 'worker_comparison', label: 'Worker Comparison', desc: 'Performance delta between 2 workers', icon: 'users' },
+        { value: 'team_comparison', label: 'Team Comparison', desc: 'Strategic metrics across 2 teams', icon: 'group' },
+        { value: 'workflow_analysis', label: 'Workflow Analysis', desc: 'Pipeline efficiency & bottleneck deep-dive', icon: 'rocket' },
       ].map((option) => (
-        <TouchableOpacity
+        <Pressable
           key={option.value}
           onPress={() => setReportType(option.value as ReportType)}
-          style={{
-            padding: 12,
-            marginBottom: 8,
-            borderRadius: 8,
-            borderWidth: 2,
-            borderColor: reportType === option.value ? '#6366f1' : '#e2e8f0',
-            backgroundColor: reportType === option.value ? '#6366f120' : 'transparent',
-          }}
+          className={`p-4 mb-3 rounded-2xl border transition-all ${reportType === option.value 
+            ? 'border-brand-primary bg-brand-primary/10' 
+            : 'border-surface-border bg-surface-card hover:bg-surface-overlay active:scale-[0.98]'}`}
         >
-          <Text style={{ fontWeight: '600', color: theme.text }}>{option.label}</Text>
-          <Text style={{ fontSize: 12, color: theme.tabIconDefault }}>{option.desc}</Text>
-        </TouchableOpacity>
+          <View className="flex-row items-center">
+            <View className={`h-10 w-10 items-center justify-center rounded-xl ${reportType === option.value ? 'bg-brand-primary' : 'bg-surface-background'}`}>
+              <FontAwesome 
+                name={option.icon as any} 
+                size={16} 
+                className={reportType === option.value ? 'text-white' : 'text-brand-accent/50'} 
+              />
+            </View>
+            <View className="ml-4 flex-1">
+              <Text className={`font-bold ${reportType === option.value ? 'text-brand-primary' : 'text-typography-main'}`}>{option.label}</Text>
+              <Text className="text-xs text-typography-muted mt-0.5">{option.desc}</Text>
+            </View>
+            {reportType === option.value && (
+              <FontAwesome name="check-circle" size={16} className="text-brand-accent" />
+            )}
+          </View>
+        </Pressable>
       ))}
     </View>
   );
 
   const renderTimeFrameSelector = () => (
-    <View style={{ marginBottom: 20 }}>
-      <Text style={{ fontSize: 14, fontWeight: 'bold', marginBottom: 10, color: theme.text }}>
-        Time Frame
+    <View className="mb-6">
+      <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-typography-muted mb-3">
+        Temporal Scope
       </Text>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }}>
+      <View className="flex-row gap-2 mb-3">
         {['7', '30', '90'].map((days) => (
-          <TouchableOpacity
+          <Pressable
             key={days}
             onPress={() => setTimeFrame(days as '7' | '30' | '90')}
-            style={{
-              flex: 1,
-              paddingVertical: 10,
-              marginHorizontal: 4,
-              borderRadius: 8,
-              borderWidth: 1,
-              borderColor: timeFrame === days ? '#6366f1' : '#e2e8f0',
-              backgroundColor: timeFrame === days ? '#6366f1' : 'transparent',
-              alignItems: 'center',
-            }}
+            className={`flex-1 py-3 rounded-xl border transition-all items-center ${timeFrame === days 
+              ? 'border-brand-primary bg-brand-primary' 
+              : 'border-surface-border bg-surface-card hover:bg-surface-overlay'}`}
           >
-            <Text
-              style={{
-                color: timeFrame === days ? 'white' : theme.text,
-                fontWeight: '600',
-              }}
-            >
+            <Text className={`font-bold ${timeFrame === days ? 'text-white' : 'text-typography-main'}`}>
               {days}D
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         ))}
-        <TouchableOpacity
+        <Pressable
           onPress={() => setTimeFrame('custom')}
-          style={{
-            flex: 1,
-            paddingVertical: 10,
-            marginHorizontal: 4,
-            borderRadius: 8,
-            borderWidth: 1,
-            borderColor: timeFrame === 'custom' ? '#6366f1' : '#e2e8f0',
-            backgroundColor: timeFrame === 'custom' ? '#6366f1' : 'transparent',
-            alignItems: 'center',
-          }}
+          className={`flex-1 py-3 rounded-xl border transition-all items-center ${timeFrame === 'custom' 
+            ? 'border-brand-primary bg-brand-primary' 
+            : 'border-surface-border bg-surface-card hover:bg-surface-overlay'}`}
         >
-          <Text
-            style={{
-              color: timeFrame === 'custom' ? 'white' : theme.text,
-              fontWeight: '600',
-              fontSize: 12,
-            }}
-          >
+          <Text className={`font-bold ${timeFrame === 'custom' ? 'text-white' : 'text-typography-main'}`}>
             Custom
           </Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
 
       {timeFrame === 'custom' && (
-        <View>
+        <View className="gap-2">
           <RNTextInput
             placeholder="Start Date (YYYY-MM-DD)"
             value={dateStart}
             onChangeText={setDateStart}
-            style={{
-              borderWidth: 1,
-              borderColor: '#e2e8f0',
-              borderRadius: 8,
-              padding: 10,
-              marginBottom: 8,
-              color: theme.text,
-            }}
-            placeholderTextColor={theme.tabIconDefault}
+            className="border border-surface-border bg-surface-card rounded-xl p-4 text-typography-main"
+            placeholderTextColor="rgb(var(--text-muted))"
           />
           <RNTextInput
             placeholder="End Date (YYYY-MM-DD)"
             value={dateEnd}
             onChangeText={setDateEnd}
-            style={{
-              borderWidth: 1,
-              borderColor: '#e2e8f0',
-              borderRadius: 8,
-              padding: 10,
-              color: theme.text,
-            }}
-            placeholderTextColor={theme.tabIconDefault}
+            className="border border-surface-border bg-surface-card rounded-xl p-4 text-typography-main"
+            placeholderTextColor="rgb(var(--text-muted))"
           />
         </View>
       )}
@@ -319,385 +252,247 @@ export default function ReportGenerator({
 
   const renderGeneralFilters = () => (
     <>
-      <View style={{ marginBottom: 20 }}>
-        <Text style={{ fontSize: 14, fontWeight: 'bold', marginBottom: 10, color: theme.text }}>
-          Pipeline (Optional)
+      <View className="mb-6">
+        <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-typography-muted mb-3">
+          Pipeline Context
         </Text>
         <HorizontalScroll>
-          <TouchableOpacity
+          <Pressable
             onPress={() => setPipelineId('')}
-            style={{
-              paddingHorizontal: 12,
-              paddingVertical: 8,
-              marginRight: 8,
-              borderRadius: 20,
-              backgroundColor: !pipelineId ? '#6366f1' : '#e2e8f0',
-            }}
+            className={`px-5 py-2 mr-2 rounded-full border transition-all ${!pipelineId 
+              ? 'border-brand-primary bg-brand-primary' 
+              : 'border-surface-border bg-surface-card'}`}
           >
-            <Text style={{ color: !pipelineId ? 'white' : theme.text, fontWeight: '600' }}>
-              All
+            <Text className={`font-bold text-xs ${!pipelineId ? 'text-white' : 'text-typography-main'}`}>
+              Global Organization
             </Text>
-          </TouchableOpacity>
+          </Pressable>
           {pipelines.map((pipe) => (
-            <TouchableOpacity
+            <Pressable
               key={pipe.id}
               onPress={() => setPipelineId(pipe.id)}
-              style={{
-                paddingHorizontal: 12,
-                paddingVertical: 8,
-                marginRight: 8,
-                borderRadius: 20,
-                backgroundColor: pipelineId === pipe.id ? '#6366f1' : '#e2e8f0',
-              }}
+              className={`px-5 py-2 mr-2 rounded-full border transition-all ${pipelineId === pipe.id 
+                ? 'border-brand-primary bg-brand-primary' 
+                : 'border-surface-border bg-surface-card'}`}
             >
-              <Text
-                style={{
-                  color: pipelineId === pipe.id ? 'white' : theme.text,
-                  fontWeight: '600',
-                }}
-              >
+              <Text className={`font-bold text-xs ${pipelineId === pipe.id ? 'text-white' : 'text-typography-main'}`}>
                 {pipe.name}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           ))}
         </HorizontalScroll>
       </View>
 
-      <View style={{ marginBottom: 20 }}>
-        <Text style={{ fontSize: 14, fontWeight: 'bold', marginBottom: 10, color: theme.text }}>
-          Team (Optional)
+      <View className="mb-6">
+        <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-typography-muted mb-3">
+          Structural Filters (Optional)
         </Text>
-        <HorizontalScroll>
-          <TouchableOpacity
-            onPress={() => setTeamId('')}
-            style={{
-              paddingHorizontal: 12,
-              paddingVertical: 8,
-              marginRight: 8,
-              borderRadius: 20,
-              backgroundColor: !teamId ? '#6366f1' : '#e2e8f0',
-            }}
-          >
-            <Text style={{ color: !teamId ? 'white' : theme.text, fontWeight: '600' }}>
-              All
-            </Text>
-          </TouchableOpacity>
-          {teams.map((team) => (
-            <TouchableOpacity
-              key={team.id}
-              onPress={() => setTeamId(team.id)}
-              style={{
-                paddingHorizontal: 12,
-                paddingVertical: 8,
-                marginRight: 8,
-                borderRadius: 20,
-                backgroundColor: teamId === team.id ? '#6366f1' : '#e2e8f0',
-              }}
+        
+        <View className="mb-4">
+          <Text className="text-xs font-bold text-typography-dim mb-2 ml-1">Team Unit</Text>
+          <HorizontalScroll>
+            <Pressable
+              onPress={() => setTeamId('')}
+              className={`px-4 py-2 mr-2 rounded-xl border ${!teamId ? 'border-brand-primary bg-brand-primary/20' : 'border-surface-border bg-surface-card'}`}
             >
-              <Text
-                style={{
-                  color: teamId === team.id ? 'white' : theme.text,
-                  fontWeight: '600',
-                }}
+              <Text className={`text-xs font-bold ${!teamId ? 'text-brand-primary' : 'text-typography-muted'}`}>All Teams</Text>
+            </Pressable>
+            {teams.map((team) => (
+              <Pressable
+                key={team.id}
+                onPress={() => setTeamId(team.id)}
+                className={`px-4 py-2 mr-2 rounded-xl border ${teamId === team.id ? 'border-brand-primary bg-brand-primary/20' : 'border-surface-border bg-surface-card'}`}
               >
-                {team.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </HorizontalScroll>
-      </View>
+                <Text className={`text-xs font-bold ${teamId === team.id ? 'text-brand-primary' : 'text-typography-muted'}`}>{team.name}</Text>
+              </Pressable>
+            ))}
+          </HorizontalScroll>
+        </View>
 
-      <View style={{ marginBottom: 20 }}>
-        <Text style={{ fontSize: 14, fontWeight: 'bold', marginBottom: 10, color: theme.text }}>
-          Worker (Optional)
-        </Text>
-        <HorizontalScroll>
-          <TouchableOpacity
-            onPress={() => setWorkerId('')}
-            style={{
-              paddingHorizontal: 12,
-              paddingVertical: 8,
-              marginRight: 8,
-              borderRadius: 20,
-              backgroundColor: !workerId ? '#6366f1' : '#e2e8f0',
-            }}
-          >
-            <Text style={{ color: !workerId ? 'white' : theme.text, fontWeight: '600' }}>
-              All
-            </Text>
-          </TouchableOpacity>
-          {workers.map((worker) => (
-            <TouchableOpacity
-              key={worker.id}
-              onPress={() => setWorkerId(worker.id)}
-              style={{
-                paddingHorizontal: 12,
-                paddingVertical: 8,
-                marginRight: 8,
-                borderRadius: 20,
-                backgroundColor: workerId === worker.id ? '#6366f1' : '#e2e8f0',
-              }}
+        <View className="mb-4">
+          <Text className="text-xs font-bold text-typography-dim mb-2 ml-1">Individual Worker</Text>
+          <HorizontalScroll>
+            <Pressable
+              onPress={() => setWorkerId('')}
+              className={`px-4 py-2 mr-2 rounded-xl border ${!workerId ? 'border-brand-primary bg-brand-primary/20' : 'border-surface-border bg-surface-card'}`}
             >
-              <Text
-                style={{
-                  color: workerId === worker.id ? 'white' : theme.text,
-                  fontWeight: '600',
-                }}
+              <Text className={`text-xs font-bold ${!workerId ? 'text-brand-primary' : 'text-typography-muted'}`}>All Personnel</Text>
+            </Pressable>
+            {workers.map((worker) => (
+              <Pressable
+                key={worker.id}
+                onPress={() => setWorkerId(worker.id)}
+                className={`px-4 py-2 mr-2 rounded-xl border ${workerId === worker.id ? 'border-brand-primary bg-brand-primary/20' : 'border-surface-border bg-surface-card'}`}
               >
-                {worker.full_name}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </HorizontalScroll>
-      </View>
+                <Text className={`text-xs font-bold ${workerId === worker.id ? 'text-brand-primary' : 'text-typography-muted'}`}>{worker.full_name}</Text>
+              </Pressable>
+            ))}
+          </HorizontalScroll>
+        </View>
 
-      <View style={{ marginBottom: 20 }}>
-        <Text style={{ fontSize: 14, fontWeight: 'bold', marginBottom: 10, color: theme.text }}>
-          Priority (Optional)
-        </Text>
-        <HorizontalScroll>
-          {['all', 'low', 'medium', 'high', 'critical'].map((priority) => (
-            <TouchableOpacity
-              key={priority}
-              onPress={() => setPriorityFilter(priority === 'all' ? '' : priority)}
-              style={{
-                paddingHorizontal: 12,
-                paddingVertical: 8,
-                marginRight: 8,
-                borderRadius: 20,
-                backgroundColor:
-                  (priority === 'all' && !priorityFilter) || priorityFilter === priority
-                    ? '#6366f1'
-                    : '#e2e8f0',
-              }}
-            >
-              <Text
-                style={{
-                  color:
-                    (priority === 'all' && !priorityFilter) || priorityFilter === priority
-                      ? 'white'
-                      : theme.text,
-                  fontWeight: '600',
-                  textTransform: 'capitalize',
-                }}
+        <View className="mb-4">
+          <Text className="text-xs font-bold text-typography-dim mb-2 ml-1">Priority Tier</Text>
+          <HorizontalScroll>
+            {['all', 'low', 'medium', 'high', 'critical'].map((p) => (
+              <Pressable
+                key={p}
+                onPress={() => setPriorityFilter(p === 'all' ? '' : p)}
+                className={`px-4 py-2 mr-2 rounded-xl border ${((p === 'all' && !priorityFilter) || priorityFilter === p) ? 'border-brand-primary bg-brand-primary/20' : 'border-surface-border bg-surface-card'}`}
               >
-                {priority}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </HorizontalScroll>
+                <Text className={`text-xs font-bold capitalize ${((p === 'all' && !priorityFilter) || priorityFilter === p) ? 'text-brand-primary' : 'text-typography-muted'}`}>
+                  {p}
+                </Text>
+              </Pressable>
+            ))}
+          </HorizontalScroll>
+        </View>
       </View>
     </>
   );
 
   const renderWorkerComparisonFilters = () => (
-    <>
-      <View style={{ marginBottom: 20 }}>
-        <Text style={{ fontSize: 14, fontWeight: 'bold', marginBottom: 10, color: theme.text }}>
-          Worker A
-        </Text>
+    <View className="mb-6">
+      <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-typography-muted mb-3">
+        Comparison Subjects
+      </Text>
+      
+      <View className="mb-4">
+        <Text className="text-xs font-bold text-typography-dim mb-2 ml-1">Worker Alpha</Text>
         <HorizontalScroll>
-          {workers.map((worker) => (
-            <TouchableOpacity
-              key={worker.id}
-              onPress={() => setWorkerA_id(worker.id)}
-              style={{
-                paddingHorizontal: 12,
-                paddingVertical: 8,
-                marginRight: 8,
-                borderRadius: 20,
-                backgroundColor: workerA_id === worker.id ? '#6366f1' : '#e2e8f0',
-              }}
+          {workers.map((w) => (
+            <Pressable
+              key={w.id}
+              onPress={() => setWorkerA_id(w.id)}
+              className={`px-4 py-2 mr-2 rounded-xl border ${workerA_id === w.id ? 'border-brand-primary bg-brand-primary/20' : 'border-surface-border bg-surface-card'}`}
             >
-              <Text
-                style={{
-                  color: workerA_id === worker.id ? 'white' : theme.text,
-                  fontWeight: '600',
-                }}
-              >
-                {worker.full_name}
-              </Text>
-            </TouchableOpacity>
+              <Text className={`text-xs font-bold ${workerA_id === w.id ? 'text-brand-primary' : 'text-typography-muted'}`}>{w.full_name}</Text>
+            </Pressable>
           ))}
         </HorizontalScroll>
       </View>
 
-      <View style={{ marginBottom: 20 }}>
-        <Text style={{ fontSize: 14, fontWeight: 'bold', marginBottom: 10, color: theme.text }}>
-          Worker B
-        </Text>
+      <View className="mb-4">
+        <Text className="text-xs font-bold text-typography-dim mb-2 ml-1">Worker Beta</Text>
         <HorizontalScroll>
-          {workers.map((worker) => (
-            <TouchableOpacity
-              key={worker.id}
-              onPress={() => setWorkerB_id(worker.id)}
-              style={{
-                paddingHorizontal: 12,
-                paddingVertical: 8,
-                marginRight: 8,
-                borderRadius: 20,
-                backgroundColor: workerB_id === worker.id ? '#6366f1' : '#e2e8f0',
-              }}
+          {workers.map((w) => (
+            <Pressable
+              key={w.id}
+              onPress={() => setWorkerB_id(w.id)}
+              className={`px-4 py-2 mr-2 rounded-xl border ${workerB_id === w.id ? 'border-brand-primary bg-brand-primary/20' : 'border-surface-border bg-surface-card'}`}
             >
-              <Text
-                style={{
-                  color: workerB_id === worker.id ? 'white' : theme.text,
-                  fontWeight: '600',
-                }}
-              >
-                {worker.full_name}
-              </Text>
-            </TouchableOpacity>
+              <Text className={`text-xs font-bold ${workerB_id === w.id ? 'text-brand-primary' : 'text-typography-muted'}`}>{w.full_name}</Text>
+            </Pressable>
           ))}
         </HorizontalScroll>
       </View>
-    </>
+    </View>
   );
 
   const renderTeamComparisonFilters = () => (
-    <>
-      <View style={{ marginBottom: 20 }}>
-        <Text style={{ fontSize: 14, fontWeight: 'bold', marginBottom: 10, color: theme.text }}>
-          Team A
-        </Text>
+    <View className="mb-6">
+      <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-typography-muted mb-3">
+        Strategic Comparison
+      </Text>
+      
+      <View className="mb-4">
+        <Text className="text-xs font-bold text-typography-dim mb-2 ml-1">Team Alpha</Text>
         <HorizontalScroll>
-          {teams.map((team) => (
-            <TouchableOpacity
-              key={team.id}
-              onPress={() => setTeamA_id(team.id)}
-              style={{
-                paddingHorizontal: 12,
-                paddingVertical: 8,
-                marginRight: 8,
-                borderRadius: 20,
-                backgroundColor: teamA_id === team.id ? '#6366f1' : '#e2e8f0',
-              }}
+          {teams.map((t) => (
+            <Pressable
+              key={t.id}
+              onPress={() => setTeamA_id(t.id)}
+              className={`px-4 py-2 mr-2 rounded-xl border ${teamA_id === t.id ? 'border-brand-primary bg-brand-primary/20' : 'border-surface-border bg-surface-card'}`}
             >
-              <Text
-                style={{
-                  color: teamA_id === team.id ? 'white' : theme.text,
-                  fontWeight: '600',
-                }}
-              >
-                {team.name}
-              </Text>
-            </TouchableOpacity>
+              <Text className={`text-xs font-bold ${teamA_id === t.id ? 'text-brand-primary' : 'text-typography-muted'}`}>{t.name}</Text>
+            </Pressable>
           ))}
         </HorizontalScroll>
       </View>
 
-      <View style={{ marginBottom: 20 }}>
-        <Text style={{ fontSize: 14, fontWeight: 'bold', marginBottom: 10, color: theme.text }}>
-          Team B
-        </Text>
+      <View className="mb-4">
+        <Text className="text-xs font-bold text-typography-dim mb-2 ml-1">Team Beta</Text>
         <HorizontalScroll>
-          {teams.map((team) => (
-            <TouchableOpacity
-              key={team.id}
-              onPress={() => setTeamB_id(team.id)}
-              style={{
-                paddingHorizontal: 12,
-                paddingVertical: 8,
-                marginRight: 8,
-                borderRadius: 20,
-                backgroundColor: teamB_id === team.id ? '#6366f1' : '#e2e8f0',
-              }}
+          {teams.map((t) => (
+            <Pressable
+              key={t.id}
+              onPress={() => setTeamB_id(t.id)}
+              className={`px-4 py-2 mr-2 rounded-xl border ${teamB_id === t.id ? 'border-brand-primary bg-brand-primary/20' : 'border-surface-border bg-surface-card'}`}
             >
-              <Text
-                style={{
-                  color: teamB_id === team.id ? 'white' : theme.text,
-                  fontWeight: '600',
-                }}
-              >
-                {team.name}
-              </Text>
-            </TouchableOpacity>
+              <Text className={`text-xs font-bold ${teamB_id === t.id ? 'text-brand-primary' : 'text-typography-muted'}`}>{t.name}</Text>
+            </Pressable>
           ))}
         </HorizontalScroll>
       </View>
-    </>
+    </View>
   );
 
   return (
-    <Modal visible={visible} animationType="slide" transparent={false}>
-      <View style={{ flex: 1, backgroundColor: theme.background }}>
-        {/* Header */}
-        <View
-          style={{
-            paddingHorizontal: 16,
-            paddingVertical: 12,
-            borderBottomWidth: 1,
-            borderBottomColor: '#e2e8f0',
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <Text style={{ fontSize: 18, fontWeight: 'bold', color: theme.text }}>
-            Generate Report
-          </Text>
-          <TouchableOpacity onPress={onClose}>
-            <FontAwesome name="close" size={20} color={theme.text} />
-          </TouchableOpacity>
-        </View>
+    <Modal visible={visible} animationType="slide" transparent={true}>
+      <View className="flex-1 justify-center items-center bg-black/40 p-4 lg:p-10">
+        <View className="w-full max-w-2xl h-[90%] bg-surface-background rounded-[32px] border border-surface-border overflow-hidden premium-shadow glass-card">
+          {/* Header */}
+          <View className="px-6 py-5 border-b border-surface-border flex-row items-center justify-between bg-surface-card/50">
+            <View className="flex-row items-center">
+              <View className="h-10 w-1 rounded-full bg-brand-primary mr-4" />
+              <View>
+                <Text className="text-lg font-black uppercase tracking-widest text-typography-main">
+                  Analytics Hub
+                </Text>
+                <Text className="text-[10px] font-bold text-brand-primary uppercase tracking-tighter">
+                  Intelligence Engine v8.0
+                </Text>
+              </View>
+            </View>
+            <Pressable 
+              onPress={onClose}
+              className="h-10 w-10 items-center justify-center rounded-full bg-surface-background border border-surface-border hover:bg-surface-overlay active:scale-90 transition-all"
+            >
+              <FontAwesome name="close" size={16} className="text-brand-accent" />
+            </Pressable>
+          </View>
 
-        {/* Content */}
-        <ScrollView style={{ flex: 1, padding: 16 }}>
-          {renderReportTypeSelector()}
-          {renderTimeFrameSelector()}
+          {/* Content */}
+          <ScrollView className="flex-1 p-6" showsVerticalScrollIndicator={false}>
+            {renderReportTypeSelector()}
+            <View className="h-px bg-surface-border mb-6" />
+            {renderTimeFrameSelector()}
+            <View className="h-px bg-surface-border mb-6" />
 
-          {reportType === 'general' && renderGeneralFilters()}
-          {reportType === 'worker_comparison' && renderWorkerComparisonFilters()}
-          {reportType === 'team_comparison' && renderTeamComparisonFilters()}
-          {reportType === 'workflow_analysis' && renderGeneralFilters()}
-        </ScrollView>
+            {reportType === 'general' && renderGeneralFilters()}
+            {reportType === 'worker_comparison' && renderWorkerComparisonFilters()}
+            {reportType === 'team_comparison' && renderTeamComparisonFilters()}
+            {reportType === 'workflow_analysis' && renderGeneralFilters()}
+            
+            <View className="h-12" />
+          </ScrollView>
 
-        {/* Footer */}
-        <View
-          style={{
-            paddingHorizontal: 16,
-            paddingVertical: 16,
-            borderTopWidth: 1,
-            borderTopColor: '#e2e8f0',
-            flexDirection: 'row',
-            gap: 12,
-          }}
-        >
-          <TouchableOpacity
-            onPress={onClose}
-            disabled={loading}
-            style={{
-              flex: 1,
-              paddingVertical: 12,
-              borderRadius: 8,
-              borderWidth: 1,
-              borderColor: '#6366f1',
-              alignItems: 'center',
-            }}
-          >
-            <Text style={{ color: '#6366f1', fontWeight: '600' }}>Cancel</Text>
-          </TouchableOpacity>
+          {/* Footer */}
+          <View className="px-6 py-6 border-t border-surface-border flex-row gap-4 bg-surface-card/50">
+            <Pressable
+              onPress={onClose}
+              disabled={loading}
+              className="flex-1 py-4 rounded-2xl border border-surface-border bg-surface-background hover:bg-surface-overlay active:scale-95 transition-all items-center"
+            >
+              <Text className="text-typography-muted font-bold">Discard</Text>
+            </Pressable>
 
-          <TouchableOpacity
-            onPress={handleGenerateReport}
-            disabled={loading}
-            style={{
-              flex: 1,
-              paddingVertical: 12,
-              borderRadius: 8,
-              backgroundColor: loading ? '#9ca3af' : '#6366f1',
-              alignItems: 'center',
-            }}
-          >
-            {loading ? (
-              <ActivityIndicator color="white" />
-            ) : (
-              <Text style={{ color: 'white', fontWeight: '600' }}>Generate Report</Text>
-            )}
-          </TouchableOpacity>
+            <Pressable
+              onPress={handleGenerateReport}
+              disabled={loading}
+              className={`flex-[1.5] py-4 rounded-2xl transition-all items-center ${loading ? 'bg-surface-border' : 'bg-brand-primary hover:bg-brand-primary-hover active:scale-95 shadow-lg shadow-brand-primary/20'}`}
+            >
+              {loading ? (
+                <ActivityIndicator color="white" size="small" />
+              ) : (
+                <View className="flex-row items-center">
+                   <FontAwesome name="bolt" size={14} className="text-white mr-2" />
+                  <Text className="text-white font-black uppercase tracking-widest text-xs">Execute Generation</Text>
+                </View>
+              )}
+            </Pressable>
+          </View>
         </View>
       </View>
     </Modal>
   );
 }
-

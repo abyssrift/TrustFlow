@@ -4,11 +4,25 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, Platform } from 'react-native';
 import 'react-native-reanimated';
 import '../global.css';
+import { cssInterop } from 'react-native-css-interop';
+
+// Polyfill Platform global for libraries that expect it
+if (typeof global.Platform === 'undefined') {
+  (global as any).Platform = Platform;
+}
 
 import { useColorScheme } from '@/components/useColorScheme';
+
+// Interop for Icons to support Tailwind colors
+cssInterop(FontAwesome, {
+  className: {
+    target: 'style',
+    nativeStyleToProp: { color: true, size: true },
+  },
+});
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -40,14 +54,14 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (loaded || error) {
-      SplashScreen.hideAsync().catch(() => {});
+      SplashScreen.hideAsync().catch(() => { });
     }
   }, [loaded, error]);
 
   if (!loaded && !error) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#0f172a', alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ color: '#fff' }}>Loading TrustEdge...</Text>
+      <View className="flex-1 bg-surface-background items-center justify-center">
+        <Text className="text-typography-main">Loading TrustFlow...</Text>
       </View>
     );
   }
@@ -61,9 +75,11 @@ export default function RootLayout() {
   );
 }
 
+import { ThemeProvider as AppThemeProvider } from '@/contexts/ThemeContext';
+
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
-  const { session, initialized } = useAuth();
+  const { session, profile, initialized } = useAuth();
   const segments = useSegments();
   const router = useRouter();
 
@@ -71,28 +87,35 @@ function RootLayoutNav() {
     if (!initialized) return;
 
     const inAuthGroup = segments[0] === '(auth)';
+    const inOnboarding = segments[0] === 'onboarding';
 
     if (!session && !inAuthGroup) {
       // Redirect to the login page.
       router.replace('/(auth)/login');
-    } else if (session && inAuthGroup) {
-      // Redirect away from the login page.
-      router.replace('/(tabs)');
+    } else if (session) {
+      if (!profile?.company_id && !inOnboarding) {
+        router.replace('/onboarding');
+      } else if (profile?.company_id && (inAuthGroup || inOnboarding)) {
+        router.replace('/(tabs)');
+      }
     }
-  }, [session, initialized, segments]);
+  }, [session, profile, initialized, segments]);
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <View style={{ flex: 1, backgroundColor: '#080d18' }}>
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-          <Stack.Screen name="admin/pipelines" options={{ headerShown: false }} />
-          <Stack.Screen name="admin/roles" options={{ headerShown: false }} />
-          <Stack.Screen name="task/[id]" options={{ headerShown: false }} />
-          <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-        </Stack>
-      </View>
-    </ThemeProvider>
+    <AppThemeProvider>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <View className="flex-1 bg-surface-background">
+          <Stack>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+            <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+            <Stack.Screen name="admin/pipelines" options={{ headerShown: false }} />
+            <Stack.Screen name="admin/roles" options={{ headerShown: false }} />
+            <Stack.Screen name="task/[id]" options={{ headerShown: false }} />
+            <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+          </Stack>
+        </View>
+      </ThemeProvider>
+    </AppThemeProvider>
   );
 }

@@ -48,25 +48,25 @@ export default function DashboardScreen() {
   return (
     <ScrollView
       className="flex-1 bg-surface-background p-5"
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6366f1" />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="rgb(var(--brand-primary))" />}
     >
       <View className="mb-4 mt-4">
-        <Text className="text-secondary-400 font-bold uppercase tracking-widest text-[10px] mb-1">Company Overview</Text>
-        <Text className="text-typography-main text-4xl font-extrabold tracking-tight">TrustEdge</Text>
+        <Text className="text-brand-secondary font-bold uppercase tracking-widest text-[10px] mb-1">Company Overview</Text>
+        <Text className="text-typography-main text-4xl font-extrabold tracking-tight">TrustFlow</Text>
       </View>
 
       <DevTool />
 
       {loading ? (
         <View className="mt-10 items-center justify-center">
-          <ActivityIndicator size="large" color="#6366f1" />
+          <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
         </View>
       ) : (
         <View>
           <View className="flex-row flex-wrap justify-between">
             <View className="w-[48%] bg-surface-card p-5 rounded-3xl border border-surface-border mb-4 premium-shadow">
               <View className="w-10 h-10 rounded-2xl bg-brand-primary/20 items-center justify-center mb-4">
-                <FontAwesome name="tasks" size={16} color="#818cf8" />
+                <FontAwesome name="tasks" size={16} color="rgb(var(--brand-primary))" />
               </View>
               <Text className="text-typography-muted text-xs font-bold uppercase tracking-tighter mb-1">Total Pipeline</Text>
               <Text className="text-typography-main text-3xl font-black">{stats.total}</Text>
@@ -74,7 +74,7 @@ export default function DashboardScreen() {
 
             <View className="w-[48%] bg-surface-card p-5 rounded-3xl border border-surface-border mb-4 premium-shadow">
               <View className="w-10 h-10 rounded-2xl bg-brand-accent/20 items-center justify-center mb-4">
-                <FontAwesome name="hourglass-half" size={14} color="#fbbf24" />
+                <FontAwesome name="hourglass-half" size={14} color="rgb(var(--state-warning))" />
               </View>
               <Text className="text-typography-muted text-xs font-bold uppercase tracking-tighter mb-1">Active Now</Text>
               <Text className="text-typography-main text-3xl font-black">{stats.open + stats.inProgress}</Text>
@@ -110,7 +110,7 @@ export default function DashboardScreen() {
 
         <View className="glass-card p-8 rounded-[40px] items-center justify-center border-dashed border-2">
           <View className="w-16 h-16 rounded-full bg-surface-overlay flex-center mb-4">
-            <FontAwesome name="bolt" size={24} color="#6366f1" />
+            <FontAwesome name="bolt" size={24} color="rgb(var(--brand-primary))" />
           </View>
           <Text className="text-typography-muted text-center font-medium leading-5">
             Real-time activity logs and event streams will populate here from the database audit trail.

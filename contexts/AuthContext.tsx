@@ -5,10 +5,12 @@ import { supabase } from '../lib/supabase';
 type AuthContextType = {
   session: Session | null;
   user: User | null;
+  profile: any | null;
   permissions: string[];
   initialized: boolean;
   hasPermission: (key: string) => boolean;
   signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType>({
@@ -25,6 +27,7 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<any | null>(null);
   const [permissions, setPermissions] = useState<string[]>([]);
   const [initialized, setInitialized] = useState<boolean>(false);
 
@@ -34,7 +37,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchPermissions();
+        Promise.all([fetchPermissions(), fetchProfile(session.user.id)]);
       } else {
         setInitialized(true);
       }
@@ -46,8 +49,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
-          fetchPermissions();
+          Promise.all([fetchPermissions(), fetchProfile(session.user.id)]);
         } else {
+          setProfile(null);
           setPermissions([]);
           setInitialized(true);
         }
@@ -58,6 +62,48 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       subscription.unsubscribe();
     };
   }, []);
+
+  const fetchProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      
+      if (error) {
+        if (error.code === 'PGRST116') { // Record not found
+          console.warn('Profile missing for user, attempting repair...');
+          const { data: repairData, error: repairError } = await supabase.rpc('rpc_repair_profile');
+          if (repairError) {
+            console.error('Failed to repair profile:', repairError);
+          } else {
+            // Retry fetch once after repair
+            const { data: retryData } = await supabase
+              .from('users')
+              .select('*')
+              .eq('id', userId)
+              .single();
+            if (retryData) {
+              setProfile(retryData);
+              return;
+            }
+          }
+        }
+        console.error('Error fetching profile:', error);
+        return;
+      }
+      setProfile(data);
+    } catch (err) {
+      console.error('Unexpected error fetching profile:', err);
+    }
+  };
+
+  const refreshProfile = async () => {
+    if (user) {
+      await fetchProfile(user.id);
+    }
+  };
 
   const fetchPermissions = async () => {
     try {
@@ -72,18 +118,37 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (err) {
       console.error('Unexpected error fetching permissions:', err);
     } finally {
+      // Note: setInitialized is called in fetchPermissions which is always called if session exists
+      // However, if fetchProfile fails, we still want to be initialized.
       setInitialized(true);
     }
   };
 
   const hasPermission = (key: string) => {
-    // Note: the backend `get_my_permissions` automatically includes all permissions 
-    // for owners. But for extra safety on frontend, we just check the array.
     return permissions.includes(key);
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      console.log('Initiating sign out...');
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Error during Supabase sign out:', error);
+      }
+      // Clear local state explicitly
+      setSession(null);
+      setUser(null);
+      setProfile(null);
+      setPermissions([]);
+      console.log('Sign out complete, state cleared.');
+    } catch (err) {
+      console.error('Unexpected error during sign out:', err);
+      // Still clear state to ensure UI updates
+      setSession(null);
+      setUser(null);
+      setProfile(null);
+      setPermissions([]);
+    }
   };
 
   return (
@@ -91,10 +156,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       value={{
         session,
         user,
+        profile,
         permissions,
         initialized,
         hasPermission,
         signOut,
+        refreshProfile,
       }}
     >
       {children}

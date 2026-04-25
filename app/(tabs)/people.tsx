@@ -5,9 +5,10 @@ import {
   TextInput, Modal, Pressable
 } from 'react-native';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import Colors from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
+import * as Clipboard from 'expo-clipboard';
+import { Alert } from 'react-native';
 
 type TeamMember = {
   id: string;
@@ -27,9 +28,26 @@ export default function PeopleScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedScan, setSelectedScan] = useState<TeamMember | null>(null);
+  const [joinCode, setJoinCode] = useState<string | null>(null);
+  const { profile } = useAuth();
   
-  const colorScheme = useColorScheme();
-  const theme = Colors[colorScheme ?? 'dark'];
+  useEffect(() => {
+    if (profile?.company_id) {
+      fetchCompanyInfo();
+    }
+  }, [profile?.company_id]);
+
+  const fetchCompanyInfo = async () => {
+    const { data, error } = await supabase
+      .from('companies')
+      .select('join_code')
+      .eq('id', profile.company_id)
+      .single();
+    
+    if (data) {
+      setJoinCode(data.join_code);
+    }
+  };
 
   const fetchMembers = async (q: string = '') => {
     try {
@@ -55,10 +73,10 @@ export default function PeopleScreen() {
 
   const getRoleColor = (role: string) => {
     switch (role?.toLowerCase()) {
-      case 'admin': return '#ef4444';
-      case 'manager': return '#f59e0b';
-      case 'worker': return '#3b82f6';
-      default: return theme.tabIconDefault;
+      case 'admin': return 'rgb(var(--state-danger))';
+      case 'manager': return 'rgb(var(--state-warning))';
+      case 'worker': return 'rgb(var(--brand-primary))';
+      default: return 'rgb(var(--typography-muted))';
     }
   };
 
@@ -100,7 +118,7 @@ export default function PeopleScreen() {
   if (loading && !refreshing) {
     return (
       <View className="flex-1 bg-surface-background items-center justify-center">
-        <ActivityIndicator size="large" color={theme.tint} />
+        <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
       </View>
     );
   }
@@ -118,12 +136,30 @@ export default function PeopleScreen() {
           </TouchableOpacity>
         </View>
 
+        {joinCode && (
+          <TouchableOpacity 
+            onPress={() => {
+              Clipboard.setStringAsync(joinCode);
+              Alert.alert('Copied', 'Join code copied to clipboard');
+            }}
+            className="mb-4 bg-brand-primary/10 border border-brand-primary/30 rounded-2xl p-4 flex-row items-center justify-between"
+          >
+            <View>
+              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Share Join Code</Text>
+              <Text className="text-brand-primary font-black text-xl tracking-[0.2em]">{joinCode}</Text>
+            </View>
+            <View className="bg-brand-primary w-10 h-10 rounded-xl items-center justify-center">
+              <FontAwesome name="copy" size={14} color="white" />
+            </View>
+          </TouchableOpacity>
+        )}
+
         {/* SEARCH BAR */}
         <View className="bg-surface-card border border-surface-border rounded-2xl px-4 flex-row items-center">
-           <FontAwesome name="search" size={14} color={theme.tabIconDefault} />
+           <FontAwesome name="search" size={14} color="rgb(var(--typography-muted))" />
            <TextInput 
              placeholder="Deep scan member..."
-             placeholderTextColor={theme.tabIconDefault}
+             placeholderTextColor="rgb(var(--typography-muted))"
              className="flex-1 h-12 ml-3 text-typography-main font-bold"
              value={searchQuery}
              onChangeText={setSearchQuery}
@@ -133,7 +169,7 @@ export default function PeopleScreen() {
 
       <ScrollView 
         className="flex-1 px-6 pt-2"
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.tint} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="rgb(var(--brand-primary))" />}
       >
         <View className="mb-6 flex-row items-center justify-between bg-surface-overlay/30 p-4 rounded-3xl border border-surface-border">
            <View>

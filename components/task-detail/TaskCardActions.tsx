@@ -1,0 +1,365 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, ActivityIndicator, Alert, Platform } from 'react-native';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { supabase } from '@/lib/supabase';
+import { useRouter } from 'expo-router';
+import { useTheme } from '@/contexts/ThemeContext';
+import { getPrimaryColor, getAccentColor, getSuccessColor } from '@/lib/themeColors';
+import { isComplexActionType } from './actionRegistry';
+
+// ─── Types ────────────────────────────────────────────────────
+export type ActiveSessionUser = {
+  userId: string;
+  name: string;
+  avatar: string | null;
+  startedAt: string;
+};
+
+export type StageAction = {
+  id: string;
+  stage_id: string;
+  action_type: string;
+  label: string;
+  icon: string | null;
+  style: string;
+  required_role: string;
+  requires_timer: boolean;
+  position: number;
+  transition_id: string | null;
+};
+
+type Stage = {
+  id: string;
+  name: string;
+  color: string;
+  position: number;
+  requires_timer?: boolean;
+  is_terminal?: boolean;
+  terminal_type?: string | null;
+};
+
+type Task = {
+  id: string;
+  title: string;
+  current_stage_id: string;
+  assignments?: {
+    assignee_user_id: string | null;
+    assignee_team_id: string | null;
+    user?: { full_name: string } | null;
+  }[];
+};
+
+type Props = {
+  task: Task;
+  stages: Stage[];
+  stageActions: StageAction[];
+  activeSessions: Record<string, ActiveSessionUser[]>;
+  userId: string;
+  onRefresh: () => void;
+};
+
+// ─── Style Map ────────────────────────────────────────────────
+const ACTION_STYLES: Record<string, { bg: string; border: string; text: string }> = {
+  success: { bg: 'bg-state-success/10', border: 'border-state-success/30', text: 'text-state-success' },
+  warning: { bg: 'bg-state-warning/10', border: 'border-state-warning/30', text: 'text-state-warning' },
+  danger:  { bg: 'bg-state-danger/10',  border: 'border-state-danger/30',  text: 'text-state-danger' },
+  neutral: { bg: 'bg-surface-overlay',  border: 'border-surface-border',   text: 'text-typography-main' },
+  primary: { bg: 'bg-brand-primary/10', border: 'border-brand-primary/30', text: 'text-brand-primary' },
+};
+
+// ─── Elapsed Timer Hook ───────────────────────────────────────
+function useElapsedTime(startedAt: string | null): string {
+  const [elapsed, setElapsed] = useState('00:00');
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (!startedAt) {
+      setElapsed('00:00');
+      return;
+    }
+
+    const update = () => {
+      const diff = Math.max(0, Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000));
+      const hrs = Math.floor(diff / 3600);
+      const mins = Math.floor((diff % 3600) / 60);
+      const secs = diff % 60;
+      const pad = (n: number) => String(n).padStart(2, '0');
+      setElapsed(hrs > 0 ? `${pad(hrs)}:${pad(mins)}:${pad(secs)}` : `${pad(mins)}:${pad(secs)}`);
+    };
+
+    update();
+    intervalRef.current = setInterval(update, 1000);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [startedAt]);
+
+  return elapsed;
+}
+
+// ─── Component ────────────────────────────────────────────────
+export default function TaskCardActions({ task, stages, stageActions, activeSessions, userId, onRefresh }: Props) {
+  const router = useRouter();
+  const { theme: activeTheme } = useTheme();
+  const [loadingAction, setLoadingAction] = useState<string | null>(null);
+
+  // ─── Derived State ───────────────────────────────────────
+  const isAssignedToUser = (task.assignments || []).some(a => a.assignee_user_id !== null);
+  const isMyTask = (task.assignments || []).some(a => a.assignee_user_id === userId);
+  const currentStage = stages.find(s => s.id === task.current_stage_id);
+  const stageRequiresTimer = currentStage?.requires_timer ?? false;
+  const isTerminal = currentStage?.is_terminal ?? false;
+  const terminalType = currentStage?.terminal_type;
+
+  // Session detection — match on userId
+  const taskSessions = activeSessions[task.id] || [];
+  const mySession = taskSessions.find(s => s.userId === userId);
+  const isTimerActive = !!mySession;
+  const otherSession = taskSessions.find(s => s.userId !== userId);
+
+  // Live counter for the active session (mine or someone else's — whichever is first)
+  const activeSession = mySession || taskSessions[0] || null;
+  const elapsedDisplay = useElapsedTime(activeSession?.startedAt ?? null);
+
+  // Available actions for the current stage
+  const availableActions = stageActions
+    .filter(a => a.stage_id === task.current_stage_id)
+    .sort((a, b) => a.position - b.position);
+
+  // ─── Handlers ────────────────────────────────────────────
+
+  // Execute a stage action via RPC
+  const handleExecuteAction = async (action: StageAction) => {
+    // Complex actions → navigate to task details page
+    if (['submit_work', 'review_approve', 'review_revise', 'review_reject'].includes(action.action_type)) {
+       router.push(`/task/${task.id}`);
+       return;
+    }
+
+    setLoadingAction(action.id);
+    try {
+      const { error } = await supabase.rpc('rpc_execute_stage_action', {
+        p_task_id: task.id,
+        p_action_id: action.id,
+      });
+      if (error) {
+         if (error.code === 'PGRST202' || error.message?.includes('not found') || error.message?.includes('Could not find')) {
+            throw new Error(`Backend function missing. Please ensure database migrations are applied.`);
+         }
+         throw error;
+      }
+      onRefresh();
+    } catch (err: any) {
+      Alert.alert('Action Error', err.message || 'Could not execute action.');
+    } finally {
+      setLoadingAction(null);
+    }
+  };
+
+  // Fallback advance handler (when no actions configured on non-terminal stage)
+  const handleFallbackAdvance = async () => {
+    const currentIndex = stages.findIndex(s => s.id === task.current_stage_id);
+    if (currentIndex === -1 || currentIndex === stages.length - 1) {
+      Alert.alert('Info', 'This task is already in the final stage.');
+      return;
+    }
+    const nextStage = stages[currentIndex + 1];
+    setLoadingAction('__advance__');
+    try {
+      const { error } = await supabase.rpc('rpc_advance_stage', {
+        p_task_id: task.id,
+        p_to_stage_id: nextStage.id,
+      });
+      if (error) throw error;
+      onRefresh();
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Could not advance task.');
+    } finally {
+      setLoadingAction(null);
+    }
+  };
+
+  // Start timer
+  const handleStartTimer = async () => {
+    setLoadingAction('__timer__');
+    try {
+      const { error } = await supabase.rpc('rpc_start_work', { p_task_id: task.id });
+      if (error) throw error;
+      onRefresh();
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Could not start work session.');
+    } finally {
+      setLoadingAction(null);
+    }
+  };
+
+  // Claim task (only for timer-required stages)
+  const handleClaim = async () => {
+    setLoadingAction('__claim__');
+    try {
+      const { error } = await supabase.rpc('rpc_claim_task', { p_task_id: task.id });
+      if (error) {
+         if (error.message?.includes('already claimed') || error.code === 'P0001') {
+            throw new Error('This task is already claimed. Please refresh the board.');
+         }
+         throw error;
+      }
+      onRefresh();
+    } catch (err: any) {
+      Alert.alert('Claim Error', err.message || 'Could not claim task.');
+    } finally {
+      setLoadingAction(null);
+    }
+  };
+
+  // ─── Live Timer Badge (shared between states) ──────────────
+  const renderTimerBadge = (label?: string) => {
+    if (!activeSession) return null;
+    const displayName = activeSession.userId === userId ? 'You' : (otherSession ? taskSessions[0]?.name : 'User');
+    return (
+      <View className="flex-row items-center mb-2">
+        <View className="bg-state-success/10 border border-state-success/30 px-3 py-1 rounded-full flex-row items-center">
+          <View className="w-2 h-2 rounded-full bg-state-success mr-2" />
+          <Text className="text-state-success text-sm font-black tracking-wide">{elapsedDisplay}</Text>
+          {label && <Text className="text-state-success/70 text-[10px] font-bold ml-2 uppercase">{label}</Text>}
+        </View>
+      </View>
+    );
+  };
+
+  // ─── STATE: Terminal Stage ──────────────────────────────────
+  if (isTerminal) {
+    const isSuccess = terminalType === 'success';
+    return (
+      <View className={`py-2.5 rounded-xl items-center justify-center border ${isSuccess ? 'bg-state-success/10 border-state-success/20' : 'bg-state-danger/10 border-state-danger/20'}`}>
+        <View className="flex-row items-center">
+          <FontAwesome name={isSuccess ? 'check-circle' : 'times-circle'} size={12} color={isSuccess ? 'rgb(var(--state-success))' : 'rgb(var(--state-danger))'} />
+          <Text className={`${isSuccess ? 'text-state-success' : 'text-state-danger'} font-black text-[10px] uppercase tracking-widest ml-2`}>
+            {isSuccess ? 'Completed' : 'Failed'}
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  // ─── STATE: Timer Required + Unassigned → Claim Task ────────
+  if (stageRequiresTimer && !isAssignedToUser) {
+    return (
+      <TouchableOpacity
+        onPress={handleClaim}
+        disabled={loadingAction === '__claim__'}
+        className={`bg-brand-primary/10 py-2.5 rounded-xl border border-brand-primary/20 items-center justify-center flex-row ${loadingAction === '__claim__' ? 'opacity-50' : ''}`}
+       >
+         {loadingAction === '__claim__' ? (
+           <ActivityIndicator size="small" color={getPrimaryColor(activeTheme)} />
+         ) : (
+           <>
+             <FontAwesome name="user-plus" size={12} color={getPrimaryColor(activeTheme)} />
+             <Text className="text-brand-primary font-black text-[10px] uppercase tracking-widest ml-2">Claim Task</Text>
+           </>
+         )}
+       </TouchableOpacity>
+    );
+  }
+
+  // ─── STATE: Assigned to someone else ────────────────────────
+  if (isAssignedToUser && !isMyTask) {
+    const assigneeName = task.assignments?.[0]?.user?.full_name || 'Another user';
+    return (
+      <View>
+        {taskSessions.length > 0 && renderTimerBadge(assigneeName)}
+        <View className="bg-surface-overlay py-2.5 rounded-xl border border-surface-border items-center justify-center">
+          <Text className="text-typography-muted font-bold text-[10px] uppercase tracking-widest">
+            In Progress by {assigneeName}
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  // ─── STATE: My task + Timer required + No active session ────
+  if (isMyTask && stageRequiresTimer && !isTimerActive) {
+    return (
+      <TouchableOpacity
+        onPress={handleStartTimer}
+        disabled={loadingAction === '__timer__'}
+        className={`bg-state-warning/10 py-2.5 rounded-xl border border-state-warning/20 items-center justify-center flex-row ${loadingAction === '__timer__' ? 'opacity-50' : ''}`}
+       >
+         {loadingAction === '__timer__' ? (
+           <ActivityIndicator size="small" color={getAccentColor(activeTheme)} />
+         ) : (
+           <>
+             <FontAwesome name="play" size={10} color={getAccentColor(activeTheme)} />
+             <Text className="text-state-warning font-black text-[10px] uppercase tracking-widest ml-2">Start Timer</Text>
+           </>
+         )}
+       </TouchableOpacity>
+    );
+  }
+
+  // ─── STATE: Ready for Action Buttons ────────────────────────
+  // This covers:
+  //   - My task + timer running → shows timer + actions
+  //   - My task + no timer required → shows actions directly
+  //   - Unassigned + non-timer stage → shows actions (anyone can act)
+
+  // No actions configured — fallback advance
+  if (availableActions.length === 0) {
+    return (
+      <View>
+        {isTimerActive && renderTimerBadge()}
+        <TouchableOpacity
+          onPress={handleFallbackAdvance}
+          disabled={loadingAction === '__advance__'}
+          className={`bg-brand-primary py-2.5 rounded-xl items-center justify-center flex-row ${loadingAction === '__advance__' ? 'opacity-50' : ''}`}
+        >
+          {loadingAction === '__advance__' ? (
+            <ActivityIndicator size="small" color="rgb(var(--text-main))" />
+          ) : (
+            <>
+              <Text className="text-typography-main font-black text-[10px] uppercase tracking-widest mr-2">Advance</Text>
+              <FontAwesome name="chevron-right" size={10} color="rgb(var(--text-main))" />
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Render action buttons — gate per-action timer requirement
+  return (
+    <View>
+      {isTimerActive && renderTimerBadge()}
+      <View className="flex-row gap-2 flex-wrap">
+        {availableActions.slice(0, 3).map((action) => {
+          const style = ACTION_STYLES[action.style] || ACTION_STYLES.neutral;
+          const isLoading = loadingAction === action.id;
+
+          // Per-action timer gate: if THIS action requires a timer and none is running, disable it
+          const actionNeedsTimer = action.requires_timer && !isTimerActive;
+          const isComplex = isComplexActionType(action.action_type);
+
+          return (
+            <TouchableOpacity
+              key={action.id}
+              onPress={() => handleExecuteAction(action)}
+              disabled={isLoading || actionNeedsTimer}
+              className={`flex-1 min-w-[30%] py-2.5 rounded-xl items-center justify-center border ${style.bg} ${style.border} ${(isLoading || actionNeedsTimer) ? 'opacity-40' : ''}`}
+             >
+               {isLoading ? (
+                 <ActivityIndicator size="small" color={getPrimaryColor(activeTheme)} />
+               ) : (
+                 <View className="flex-row items-center justify-center">
+                   {isComplex && <FontAwesome name="external-link" size={8} color="rgb(var(--text-main))" style={{ marginRight: 4, opacity: 0.7 }} />}
+                   <Text className={`${style.text} font-black text-[10px] uppercase tracking-widest text-center`} numberOfLines={1}>
+                     {actionNeedsTimer ? '🔒 ' : ''}{action.label}
+                   </Text>
+                 </View>
+               )}
+             </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
+  );
+}

@@ -2,31 +2,37 @@ import React from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Link, Tabs } from 'expo-router';
 import { Pressable, View, Text, useWindowDimensions, Platform } from 'react-native';
+import { cssInterop } from 'react-native-css-interop';
 
-import Colors from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
 import { useClientOnlyValue } from '@/components/useClientOnlyValue';
+
+// Interop for Icons to support Tailwind colors
+cssInterop(FontAwesome, {
+  className: {
+    target: 'style',
+    nativeStyleToProp: { color: true, size: true },
+  },
+});
 
 function TabBarIcon(props: {
   name: React.ComponentProps<typeof FontAwesome>['name'];
-  color: string;
+  className?: string;
+  color?: string;
 }) {
   return <FontAwesome size={22} style={{ marginBottom: -3 }} {...props} />;
 }
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-  const theme = Colors[colorScheme ?? 'dark'];
   const { width } = useWindowDimensions();
   const isLargeScreen = width > 768;
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: theme.tint,
-        tabBarInactiveTintColor: theme.tabIconDefault,
+        tabBarActiveTintColor: 'rgb(var(--brand-primary))',
+        tabBarInactiveTintColor: 'rgb(var(--text-muted))',
         tabBarStyle: {
-          backgroundColor: theme.background,
+          backgroundColor: 'rgb(var(--surface-background))',
           borderTopColor: 'transparent',
           paddingBottom: Platform.OS === 'ios' ? 24 : 12,
           paddingTop: 12,
@@ -34,13 +40,13 @@ export default function TabLayout() {
           display: isLargeScreen ? 'none' : 'flex', // Hide bottom tabs on large screens
         },
         headerStyle: {
-          backgroundColor: theme.background,
+          backgroundColor: 'rgb(var(--surface-background))',
           elevation: 0,
           shadowOpacity: 0,
           borderBottomWidth: 0,
         },
         headerTitleStyle: {
-          color: theme.text,
+          color: 'rgb(var(--text-main))',
           fontWeight: '800',
           fontSize: 20,
         },
@@ -60,7 +66,7 @@ export default function TabLayout() {
                        <FontAwesome
                         name="bell"
                         size={18}
-                        color={theme.tint}
+                        className="text-brand-primary"
                         style={{ opacity: pressed ? 0.5 : 1 }}
                       />
                     </View>
@@ -97,6 +103,13 @@ export default function TabLayout() {
         options={{
           title: 'Team',
           tabBarIcon: ({ color }) => <TabBarIcon name="users" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profile',
+          tabBarIcon: ({ color }) => <TabBarIcon name="user-circle" color={color} />,
         }}
       />
     </Tabs>

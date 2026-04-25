@@ -2,8 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, SafeAreaView, Dimensions } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import Colors from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
 import { Stack } from 'expo-router';
 
 type AuditData = {
@@ -20,8 +18,7 @@ export default function ComparisonScreen() {
   const [dataB, setDataB] = useState<AuditData | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const colorScheme = useColorScheme();
-  const theme = Colors[colorScheme ?? 'dark'];
+
 
   const [availableUsers, setAvailableUsers] = useState<any[]>([]);
   const [availablePipelines, setAvailablePipelines] = useState<any[]>([]);
@@ -76,7 +73,7 @@ export default function ComparisonScreen() {
               </Text>
            </View>
            <View className="px-4">
-              <FontAwesome name="exchange" size={14} color={theme.tabIconDefault} />
+              <FontAwesome name="exchange" size={14} color="rgb(var(--text-muted))" />
            </View>
            <View className={`flex-1 p-4 rounded-2xl border ${winner === 'B' ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-card border-surface-border'}`}>
               <Text className={`text-xl font-black text-center ${winner === 'B' ? 'text-brand-primary' : 'text-typography-main'}`}>
@@ -89,9 +86,9 @@ export default function ComparisonScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: theme.background }}>
+    <View className="flex-1 bg-surface-background">
       <Stack.Screen options={{ title: 'Performance Comparison', headerTitleStyle: { fontWeight: '900' } }} />
-      <SafeAreaView style={{ flex: 1 }}>
+      <SafeAreaView className="flex-1">
         <ScrollView className="flex-1 px-6 pt-6">
           
           <Text className="text-typography-main text-3xl font-black mb-1">Matrix Versus</Text>
@@ -102,19 +99,19 @@ export default function ComparisonScreen() {
              <View className="flex-1 bg-surface-card p-4 rounded-3xl border border-surface-border">
                 <Text className="text-typography-muted text-[10px] font-black uppercase mb-2">Subject A</Text>
                 <ScrollView style={{ height: 120 }}>
-                   <Text className="text-secondary-400 text-[8px] font-black uppercase mb-2">Users</Text>
+                   <Text className="text-brand-primary text-[8px] font-black uppercase mb-2 opacity-60">Users</Text>
                    {availableUsers.map(u => (
                      <TouchableOpacity key={u.id} onPress={() => setTargetA({ id: u.id, name: u.full_name, type: 'user' })} className={`p-2 rounded-lg mb-1 ${targetA?.id === u.id ? 'bg-brand-primary' : 'bg-surface-background'}`}>
                         <Text className={`text-[10px] font-bold ${targetA?.id === u.id ? 'text-white' : 'text-typography-main'}`}>{u.full_name}</Text>
                      </TouchableOpacity>
                    ))}
-                   <Text className="text-secondary-400 text-[8px] font-black uppercase my-2">Pipelines</Text>
+                   <Text className="text-brand-primary text-[8px] font-black uppercase my-2 opacity-60">Pipelines</Text>
                    {availablePipelines.map(p => (
                      <TouchableOpacity key={p.id} onPress={() => setTargetA({ id: p.id, name: p.name, type: 'pipeline' })} className={`p-2 rounded-lg mb-1 ${targetA?.id === p.id ? 'bg-brand-primary' : 'bg-surface-background'}`}>
                         <Text className={`text-[10px] font-bold ${targetA?.id === p.id ? 'text-white' : 'text-typography-main'}`}>{p.name}</Text>
                      </TouchableOpacity>
                    ))}
-                   <Text className="text-secondary-400 text-[8px] font-black uppercase my-2">Teams</Text>
+                   <Text className="text-brand-primary text-[8px] font-black uppercase my-2 opacity-60">Teams</Text>
                    {availableTeams.map(t => (
                      <TouchableOpacity key={t.id} onPress={() => setTargetA({ id: t.id, name: t.name, type: 'team' })} className={`p-2 rounded-lg mb-1 ${targetA?.id === t.id ? 'bg-brand-primary' : 'bg-surface-background'}`}>
                         <Text className={`text-[10px] font-bold ${targetA?.id === t.id ? 'text-white' : 'text-typography-main'}`}>{t.name}</Text>
@@ -125,19 +122,19 @@ export default function ComparisonScreen() {
              <View className="flex-1 bg-surface-card p-4 rounded-3xl border border-surface-border">
                 <Text className="text-typography-muted text-[10px] font-black uppercase mb-2">Subject B</Text>
                 <ScrollView style={{ height: 120 }}>
-                   <Text className="text-secondary-400 text-[8px] font-black uppercase mb-2">Users</Text>
+                   <Text className="text-brand-primary text-[8px] font-black uppercase mb-2 opacity-60">Users</Text>
                    {availableUsers.map(u => (
                      <TouchableOpacity key={u.id} onPress={() => setTargetB({ id: u.id, name: u.full_name, type: 'user' })} className={`p-2 rounded-lg mb-1 ${targetB?.id === u.id ? 'bg-brand-primary' : 'bg-surface-background'}`}>
                         <Text className={`text-[10px] font-bold ${targetB?.id === u.id ? 'text-white' : 'text-typography-main'}`}>{u.full_name}</Text>
                      </TouchableOpacity>
                    ))}
-                   <Text className="text-secondary-400 text-[8px] font-black uppercase my-2">Pipelines</Text>
+                   <Text className="text-brand-primary text-[8px] font-black uppercase my-2 opacity-60">Pipelines</Text>
                    {availablePipelines.map(p => (
                      <TouchableOpacity key={p.id} onPress={() => setTargetB({ id: p.id, name: p.name, type: 'pipeline' })} className={`p-2 rounded-lg mb-1 ${targetB?.id === p.id ? 'bg-brand-primary' : 'bg-surface-background'}`}>
                         <Text className={`text-[10px] font-bold ${targetB?.id === p.id ? 'text-white' : 'text-typography-main'}`}>{p.name}</Text>
                      </TouchableOpacity>
                    ))}
-                   <Text className="text-secondary-400 text-[8px] font-black uppercase my-2">Teams</Text>
+                   <Text className="text-brand-primary text-[8px] font-black uppercase my-2 opacity-60">Teams</Text>
                    {availableTeams.map(t => (
                      <TouchableOpacity key={t.id} onPress={() => setTargetB({ id: t.id, name: t.name, type: 'team' })} className={`p-2 rounded-lg mb-1 ${targetB?.id === t.id ? 'bg-brand-primary' : 'bg-surface-background'}`}>
                         <Text className={`text-[10px] font-bold ${targetB?.id === t.id ? 'text-white' : 'text-typography-main'}`}>{t.name}</Text>
@@ -155,7 +152,7 @@ export default function ComparisonScreen() {
              <Text className="text-white font-black uppercase tracking-widest">Execute Benchmarking</Text>
           </TouchableOpacity>
 
-          {loading && <ActivityIndicator size="large" color="#6366f1" className="mb-10" />}
+          {loading && <ActivityIndicator size="large" color="rgb(var(--brand-primary))" className="mb-10" />}
 
           {dataA && dataB && (
             <View>

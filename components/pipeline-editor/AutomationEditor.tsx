@@ -70,7 +70,7 @@ export default function AutomationEditor() {
   const conditionInfo = (type: string) => CONDITION_TYPES.find(c => c.value === type) || CONDITION_TYPES[0];
 
   return (
-    <View className="flex-1">
+    <View className="flex-1 p-8">
       <View className="flex-row items-center justify-between mb-4">
         <View>
           <Text className="text-typography-main text-lg font-black">Automations</Text>
@@ -81,7 +81,7 @@ export default function AutomationEditor() {
         {!showAdd && (
           <TouchableOpacity
             onPress={() => { resetForm(); setShowAdd(true); }}
-            className="bg-brand-primary-dim px-4 py-2 rounded-xl border border-brand-primary/20 active:bg-brand-primary-dim active:scale-95 transition-all"
+            className="bg-brand-primary-dim px-4 py-2 rounded-sm border border-brand-primary/20 active:bg-brand-primary-dim active:scale-95 transition-all"
           >
             <View className="flex-row items-center">
               <FontAwesome name="plus" size={10} color="rgb(var(--brand-primary))" />
@@ -241,7 +241,7 @@ export default function AutomationEditor() {
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleCreate}
-                className="flex-1 bg-brand-primary py-3 rounded-xl items-center h-12 justify-center"
+                className="flex-1 bg-brand-primary py-3 rounded-sm items-center h-12 justify-center"
                 disabled={!formSource || !formTarget || loading}
               >
                 {loading ? (

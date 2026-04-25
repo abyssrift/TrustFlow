@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, SafeAreaView, Platform, StatusBar } from 'react-native';
+console.log('Admin Pipelines Loading - Platform check:', Platform?.OS);
 import HorizontalScroll from '@/components/common/HorizontalScroll';
 import { useRouter } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
@@ -45,10 +46,10 @@ function PipelineEditorInner() {
                 onPress={() => router.back()}
                 className="flex-row items-center h-11 pr-4"
               >
-                <FontAwesome name="chevron-left" size={14} color="#94a3b8" />
+                <FontAwesome name="chevron-left" size={14} color="rgb(var(--text-muted))" />
                 <Text className="text-typography-muted font-bold text-sm ml-2">Back</Text>
               </TouchableOpacity>
-              <View className="bg-brand-primary-dim px-3 py-1 rounded-full border border-brand-primary/20">
+              <View className="bg-brand-primary/10 px-3 py-1 rounded-full border border-brand-primary/20">
                 <Text className="text-brand-primary text-[9px] font-black uppercase tracking-widest">Pipeline Editor</Text>
               </View>
             </View>
@@ -73,7 +74,7 @@ function PipelineEditorInner() {
               onPress={deselectPipeline}
               className="flex-row items-center h-11 pr-4"
             >
-              <FontAwesome name="chevron-left" size={14} color="#94a3b8" />
+              <FontAwesome name="chevron-left" size={14} color="rgb(var(--text-muted))" />
               <Text className="text-typography-muted font-bold text-sm ml-2">Pipelines</Text>
             </TouchableOpacity>
             <View className="bg-brand-primary-dim px-3 py-1 rounded-full border border-brand-primary/20">
@@ -95,7 +96,7 @@ function PipelineEditorInner() {
           </View>
         </View>
 
-        <View className="flex-1 px-4 pt-4">
+        <View className="flex-1 px-4 pt-4" style={Platform.OS === 'web' ? { display: 'flex', flexDirection: 'column', minHeight: 0 } : {}}>
 
         {/* Section Tabs */}
         <View className="mb-4">
@@ -116,7 +117,7 @@ function PipelineEditorInner() {
                     <FontAwesome
                       name={s.icon as any}
                       size={12}
-                      color={isActive ? '#ffffff' : '#64748b'}
+                      color={isActive ? 'white' : 'rgb(var(--text-muted))'}
                     />
                     <Text
                       className={`text-xs font-bold ml-2 ${
@@ -135,12 +136,12 @@ function PipelineEditorInner() {
         {/* Loading Overlay */}
         {loading && (
           <View className="absolute top-0 right-0 z-50 p-4">
-            <ActivityIndicator color="#6366f1" size="small" />
+            <ActivityIndicator color="rgb(var(--brand-primary))" size="small" />
           </View>
         )}
 
         {/* Active Section */}
-        <View className="flex-1">
+        <View className="flex-1" style={Platform.OS === 'web' ? { overflow: 'auto', display: 'flex', flexDirection: 'column' } : {}}>
           {activeSection === 'stages' && <StageBuilder />}
           {activeSection === 'transitions' && <TransitionEditor />}
           {activeSection === 'automations' && <AutomationEditor />}

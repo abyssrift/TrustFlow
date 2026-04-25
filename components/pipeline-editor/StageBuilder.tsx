@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Alert, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Alert, Platform, ScrollView } from 'react-native';
 import HorizontalScroll from '../common/HorizontalScroll';
 import { FontAwesome } from '@expo/vector-icons';
 import { usePipelineEditor, Stage } from '@/contexts/PipelineEditorContext';
@@ -30,7 +30,11 @@ export default function StageBuilder() {
   const [formIsTerminal, setFormIsTerminal] = useState(false);
   const [formTerminalType, setFormTerminalType] = useState<'success' | 'failure' | ''>('');
   const [formRequiresSub, setFormRequiresSub] = useState(false);
+  const [formRequiresTimer, setFormRequiresTimer] = useState(false);
+  const [formUseBus, setFormUseBus] = useState(false);
   const [formLinkedPipeId, setFormLinkedPipeId] = useState<string | null>(null);
+  const [formManagerRouting, setFormManagerRouting] = useState('INHERIT');
+  const [formMaxEscalation, setFormMaxEscalation] = useState(3);
 
   const resetForm = () => {
     setFormName('');
@@ -40,7 +44,11 @@ export default function StageBuilder() {
     setFormIsTerminal(false);
     setFormTerminalType('');
     setFormRequiresSub(false);
+    setFormRequiresTimer(false);
+    setFormUseBus(false);
     setFormLinkedPipeId(null);
+    setFormManagerRouting('INHERIT');
+    setFormMaxEscalation(3);
   };
 
   const populateForm = (s: Stage) => {
@@ -51,7 +59,11 @@ export default function StageBuilder() {
     setFormIsTerminal(s.is_terminal);
     setFormTerminalType(s.terminal_type || '');
     setFormRequiresSub(s.requires_submission);
+    setFormRequiresTimer(s.requires_timer);
+    setFormUseBus(s.use_business_hours);
     setFormLinkedPipeId(s.linked_pipeline_id);
+    setFormManagerRouting(s.manager_routing_rule || 'INHERIT');
+    setFormMaxEscalation(s.max_escalation_depth || 3);
   };
 
   const handleAdd = async () => {
@@ -64,6 +76,10 @@ export default function StageBuilder() {
       is_terminal: formIsTerminal,
       terminal_type: formTerminalType || null,
       requires_submission: formRequiresSub,
+      requires_timer: formRequiresTimer,
+      use_business_hours: formUseBus,
+      manager_routing_rule: formManagerRouting,
+      max_escalation_depth: formMaxEscalation,
     } as any);
     resetForm();
     setShowAddForm(false);
@@ -78,6 +94,11 @@ export default function StageBuilder() {
       is_terminal: formIsTerminal,
       terminal_type: formTerminalType || null,
       requires_submission: formRequiresSub,
+      requires_timer: formRequiresTimer,
+      use_business_hours: formUseBus,
+      linked_pipeline_id: formLinkedPipeId || null,
+      manager_routing_rule: formManagerRouting,
+      max_escalation_depth: formMaxEscalation,
     } as any);
     setEditingStage(null);
     resetForm();
@@ -194,6 +215,22 @@ export default function StageBuilder() {
           color="#8b5cf6"
         />
         <FlagToggle
+          label="Requires Timer"
+          desc="Enforces time-tracking for this stage"
+          active={formRequiresTimer}
+          onToggle={() => setFormRequiresTimer(!formRequiresTimer)}
+          icon="clock-o"
+          color="#f59e0b"
+        />
+        <FlagToggle
+          label="Use Business Hours"
+          desc="Calculates duration only during Sun-Thu 09:00-17:00"
+          active={formUseBus}
+          onToggle={() => setFormUseBus(!formUseBus)}
+          icon="calendar"
+          color="#14b8a6"
+        />
+        <FlagToggle
           label="Terminal Stage"
           desc="End state — no further transitions"
           active={formIsTerminal}
@@ -227,6 +264,30 @@ export default function StageBuilder() {
           ))}
         </HorizontalScroll>
         <Text className="text-typography-dim text-[10px] mt-1 italic opacity-80">If a task enters this stage, spawn a sub-task with this pipeline.</Text>
+      </View>
+
+      {/* Advanced Logic */}
+      <Text className="text-typography-label text-[10px] font-bold uppercase tracking-wider mb-2">Advanced Logic (SLA & Routing)</Text>
+      <View className="mb-4 gap-3">
+         <View>
+            <Text className="text-typography-muted text-[10px] font-bold uppercase mb-1">Manager Routing Rule</Text>
+            <TextInput
+               value={formManagerRouting}
+               onChangeText={setFormManagerRouting}
+               placeholder="INHERIT, TEAM_LEAD, etc."
+               placeholderTextColor="#64748b"
+               className="bg-surface-background text-typography-main px-4 py-2 rounded-lg border border-surface-border text-xs"
+            />
+         </View>
+         <View>
+            <Text className="text-typography-muted text-[10px] font-bold uppercase mb-1">Max Escalation Depth</Text>
+            <TextInput
+               value={String(formMaxEscalation)}
+               onChangeText={(v) => setFormMaxEscalation(parseInt(v) || 0)}
+               keyboardType="numeric"
+               className="bg-surface-background text-typography-main px-4 py-2 rounded-lg border border-surface-border text-xs w-20"
+            />
+         </View>
       </View>
 
       {/* Terminal Type */}
@@ -394,6 +455,11 @@ export default function StageBuilder() {
                           <Text className="text-brand-accent text-[8px] font-black uppercase">Submission</Text>
                         </View>
                       )}
+                      {s.requires_timer && (
+                        <View className="bg-state-warning-dim px-1.5 py-0.5 rounded border border-state-warning/20">
+                          <Text className="text-state-warning text-[8px] font-black uppercase">⏱️ Timer</Text>
+                        </View>
+                      )}
                       {s.linked_pipeline_id && (
                         <View className="bg-brand-primary-dim px-1.5 py-0.5 rounded border border-brand-primary/20">
                           <Text className="text-brand-primary text-[8px] font-black uppercase">
@@ -473,15 +539,21 @@ export default function StageBuilder() {
 }
 
 function StageActionManager({ stageId }: { stageId: string }) {
-  const { stageActions, addStageAction, deleteStageAction, reorderStageActions } = usePipelineEditor();
+  const { stageActions, addStageAction, deleteStageAction, reorderStageActions, stages, transitions } = usePipelineEditor();
   const actions = stageActions.filter(a => a.stage_id === stageId).sort((a,b) => a.position - b.position);
+  
+  // Get transitions FROM this stage for the destination picker
+  const availableTransitions = transitions.filter(t => t.from_stage_id === stageId);
   
   const [showAdd, setShowAdd] = useState(false);
   const [type, setType] = useState('advance');
   const [label, setLabel] = useState('');
   const [style, setStyle] = useState('neutral');
   const [role, setRole] = useState('any');
+  const [requiresTimer, setRequiresTimer] = useState(false);
+  const [useBus, setUseBus] = useState(false);
   const [precondition, setPrecondition] = useState('');
+  const [selectedTransitionId, setSelectedTransitionId] = useState<string | null>(null);
   
   const handleAdd = async () => {
     if (!label.trim()) return;
@@ -491,10 +563,14 @@ function StageActionManager({ stageId }: { stageId: string }) {
       label: label.trim(),
       style,
       required_role: role,
+      requires_timer: requiresTimer,
+      use_business_hours: useBus,
       precondition: precondition || null,
+      transition_id: selectedTransitionId,
     });
     setShowAdd(false);
     setLabel('');
+    setSelectedTransitionId(null);
   };
   
   const handleDelete = async (id: string) => {
@@ -506,6 +582,14 @@ function StageActionManager({ stageId }: { stageId: string }) {
     const newActions = [...actions];
     [newActions[index], newActions[index + dir]] = [newActions[index + dir], newActions[index]];
     reorderStageActions(stageId, newActions.map(a => a.id));
+  };
+
+  const getTransitionLabel = (transId: string | null): string | null => {
+    if (!transId) return null;
+    const trans = transitions.find(t => t.id === transId);
+    if (!trans) return null;
+    const toStage = stages.find(s => s.id === trans.to_stage_id);
+    return toStage?.name || 'Unknown';
   };
   
   return (
@@ -558,6 +642,53 @@ function StageActionManager({ stageId }: { stageId: string }) {
               className="flex-1 bg-surface-background border border-surface-border rounded-md px-3 py-2 text-xs text-typography-main" 
             />
           </View>
+
+          {/* Transition Destination Picker */}
+          <Text className="text-typography-label text-[10px] font-bold uppercase tracking-wider mb-1.5">Transition Destination</Text>
+          <View className="flex-row flex-wrap gap-2 mb-3">
+            <TouchableOpacity
+              onPress={() => setSelectedTransitionId(null)}
+              className={`px-3 py-2 rounded-lg border ${!selectedTransitionId ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}
+            >
+              <Text className={`text-[10px] font-bold ${!selectedTransitionId ? 'text-brand-primary' : 'text-typography-muted'}`}>Auto (Next Stage)</Text>
+            </TouchableOpacity>
+            {availableTransitions.map(t => {
+              const toStage = stages.find(s => s.id === t.to_stage_id);
+              return (
+                <TouchableOpacity
+                  key={t.id}
+                  onPress={() => setSelectedTransitionId(t.id)}
+                  className={`px-3 py-2 rounded-lg border ${selectedTransitionId === t.id ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}
+                >
+                  <Text className={`text-[10px] font-bold ${selectedTransitionId === t.id ? 'text-brand-primary' : 'text-typography-muted'}`}>
+                    → {toStage?.name || t.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          {availableTransitions.length === 0 && (
+            <Text className="text-typography-dim text-[10px] italic mb-2">No transitions configured from this stage. The action will auto-advance to the next stage by position.</Text>
+          )}
+
+          <View className="mb-2">
+            <FlagToggle 
+               label="Requires Timer" 
+               desc="Forces work session for this action" 
+               active={requiresTimer} 
+               onToggle={() => setRequiresTimer(!requiresTimer)} 
+               icon="clock-o" 
+               color="#f59e0b" 
+            />
+            <FlagToggle 
+               label="Use Business Hours" 
+               desc="Filter session via business window" 
+               active={useBus} 
+               onToggle={() => setUseBus(!useBus)} 
+               icon="calendar" 
+               color="#14b8a6" 
+            />
+          </View>
           <TouchableOpacity 
             onPress={handleAdd} 
             disabled={!label} 
@@ -572,7 +703,9 @@ function StageActionManager({ stageId }: { stageId: string }) {
         <View key={act.id} className="flex-row items-center border-b border-surface-border/50 py-2 last:border-0">
           <View className="flex-1">
             <Text className="text-typography-main text-xs font-bold">{act.label}</Text>
-            <Text className="text-typography-dim text-[10px]">Type: {act.action_type} • Role: {act.required_role} • Style: {act.style}</Text>
+            <Text className="text-typography-dim text-[10px]">
+              Type: {act.action_type} • Role: {act.required_role} • Style: {act.style} {act.requires_timer ? '• ⏱️ Timer' : ''} {act.transition_id ? `• → ${getTransitionLabel(act.transition_id)}` : '• → Auto'}
+            </Text>
           </View>
           <View className="flex-row gap-1">
             <TouchableOpacity onPress={() => moveAction(idx, -1)} disabled={idx === 0} className="p-1.5 opacity-70">
@@ -587,7 +720,7 @@ function StageActionManager({ stageId }: { stageId: string }) {
           </View>
         </View>
       ))}
-      {actions.length === 0 && !showAdd && <Text className="text-typography-dim text-xs text-center p-2">No actions.</Text>}
+      {actions.length === 0 && !showAdd && <Text className="text-typography-dim text-xs text-center p-2">No actions configured. Actions will default to advancing to the next stage.</Text>}
     </View>
   );
 }

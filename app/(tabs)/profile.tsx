@@ -1,0 +1,111 @@
+import React, { useEffect, useState } from 'react';
+import { ScrollView, View, Text, Pressable, RefreshControl } from 'react-native';
+import { Stack } from 'expo-router';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
+import ProfileAvatar from '@/components/profile/ProfileAvatar';
+import ProfileGeneralForm from '@/components/profile/ProfileGeneralForm';
+import SecurityForm from '@/components/profile/SecurityForm';
+import StatsGrid from '@/components/profile/StatsGrid';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+
+export default function ProfilePage() {
+  const { user, signOut } = useAuth();
+  const [profileData, setProfileData] = useState<any>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchProfile = async () => {
+    if (!user?.id) return;
+    const { data, error } = await supabase
+      .from('users')
+      .select('*, companies(name)')
+      .eq('id', user.id)
+      .single();
+    
+    if (!error && data) {
+      setProfileData({
+        ...data,
+        company_name: data.companies?.name
+      });
+    }
+  };
+
+  useEffect(() => {
+    fetchProfile();
+  }, [user?.id]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchProfile();
+    setRefreshing(false);
+  };
+
+  if (!profileData) return null;
+
+  return (
+    <ScrollView 
+      className="flex-1 bg-surface-background"
+      contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="rgb(var(--brand-primary))" />}
+    >
+      <Stack.Screen options={{ title: 'My Profile', headerLargeTitle: true }} />
+
+      {/* Header Section */}
+      <View className="items-center mb-8">
+        <ProfileAvatar 
+          url={profileData.avatar_url} 
+          name={profileData.display_name || profileData.full_name || 'User'} 
+          onUpload={(url) => {
+            setProfileData(prev => ({ ...prev, avatar_url: url }));
+          }}
+        />
+        <Text className="mt-4 text-2xl font-black text-typography-main">
+          {profileData.display_name || profileData.full_name || 'Set your name'}
+        </Text>
+        <Text className="text-sm font-bold text-brand-primary uppercase tracking-widest">
+          {profileData.job_title || 'New Member'}
+        </Text>
+      </View>
+
+      {/* Stats Section */}
+      <View className="mb-10">
+        <Text className="mb-4 text-[10px] font-black uppercase tracking-[0.3em] text-typography-dim">Performance Intelligence</Text>
+        <StatsGrid />
+      </View>
+
+      {/* Forms Section */}
+      <View className="gap-10">
+        <View>
+          <Text className="mb-4 text-[10px] font-black uppercase tracking-[0.3em] text-typography-dim">General Information</Text>
+          <View className="rounded-2xl border border-surface-border bg-surface-card p-6 premium-shadow">
+            <ProfileGeneralForm 
+              initialData={{
+                full_name: profileData.full_name || '',
+                display_name: profileData.display_name || '',
+                job_title: profileData.job_title || '',
+                department: profileData.department || '',
+                company_name: profileData.company_name
+              }}
+              onSuccess={fetchProfile}
+            />
+          </View>
+        </View>
+
+        <View>
+          <Text className="mb-4 text-[10px] font-black uppercase tracking-[0.3em] text-typography-dim">Security & Access</Text>
+          <View className="rounded-2xl border border-surface-border bg-surface-card p-6 premium-shadow">
+            <SecurityForm />
+          </View>
+        </View>
+
+        <Pressable
+          onPress={() => signOut()}
+          className="h-14 flex-row items-center justify-center rounded-2xl border border-brand-danger/30 bg-brand-danger/5 active:bg-brand-danger/10"
+        >
+          <FontAwesome name="sign-out" size={18} className="text-brand-danger mr-3" />
+          <Text className="text-sm font-black uppercase tracking-widest text-brand-danger">Sign Out of Workspace</Text>
+        </Pressable>
+      </View>
+    </ScrollView>
+  );
+}

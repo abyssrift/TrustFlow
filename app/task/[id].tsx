@@ -28,7 +28,7 @@ function TaskDetailContent() {
   if (loading) {
     return (
       <View className="flex-1 bg-surface-background items-center justify-center">
-        <ActivityIndicator size="large" color="#6366f1" />
+        <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
         <Text className="text-typography-muted mt-4 font-bold">Loading task details...</Text>
       </View>
     );
@@ -39,7 +39,7 @@ function TaskDetailContent() {
     return (
       <View className="flex-1 bg-surface-background items-center justify-center p-10">
         <View className="bg-state-danger/10 p-6 rounded-full mb-6 border border-state-danger/20">
-          <FontAwesome name="lock" size={48} color="#ef4444" />
+          <FontAwesome name="lock" size={48} color="rgb(var(--state-danger))" />
         </View>
         <Text className="text-typography-main font-black text-2xl mt-4">Access Denied</Text>
         <Text className="text-typography-muted text-center mt-2 leading-6">
@@ -48,9 +48,9 @@ function TaskDetailContent() {
         </Text>
         <TouchableOpacity
           onPress={() => router.back()}
-          className="mt-8 bg-surface-card px-8 py-4 rounded-2xl border border-surface-border active:opacity-80"
+          className="mt-8 bg-surface-card px-8 py-4 rounded-xl border border-surface-border active:opacity-80"
         >
-          <Text className="text-typography-main font-black">Go Back</Text>
+          <Text className="text-typography-main font-black">Return</Text>
         </TouchableOpacity>
       </View>
     );
@@ -60,7 +60,7 @@ function TaskDetailContent() {
   if (error) {
     return (
       <View className="flex-1 bg-surface-background items-center justify-center p-10">
-        <FontAwesome name="exclamation-triangle" size={48} color="#f59e0b" />
+        <FontAwesome name="exclamation-triangle" size={48} color="rgb(var(--state-warning))" />
         <Text className="text-typography-main font-black text-xl mt-4">Something went wrong</Text>
         <Text className="text-typography-muted text-center mt-2">{error}</Text>
         <TouchableOpacity
@@ -74,39 +74,6 @@ function TaskDetailContent() {
   }
 
   // ═════════════════════════════════════════════════
-  // DESKTOP LAYOUT (two columns)
-  // ═════════════════════════════════════════════════
-  if (isDesktop) {
-    return (
-      <View className="flex-1 bg-surface-background">
-        <TaskHeader />
-        <View className="flex-1 flex-row">
-          {/* LEFT: Main content (scrollable) */}
-          <ScrollView
-            className="flex-1 px-6 py-4"
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6366f1" />}
-          >
-            <View style={{ maxWidth: 800 }} className="gap-4 pb-10">
-              <StageActions />
-              <CommentsSection />
-            </View>
-          </ScrollView>
-
-          {/* RIGHT: Sidebar (scrollable) */}
-          <ScrollView className="border-l border-surface-border" style={{ width: 380 }}>
-            <View className="p-4 gap-4 pb-10">
-              <TaskMetadata />
-              <PeoplePanel />
-              <PipelineJourney />
-              <ActivityLog />
-            </View>
-          </ScrollView>
-        </View>
-      </View>
-    );
-  }
-
-  // ═════════════════════════════════════════════════
   // MOBILE LAYOUT (single column stacked)
   // ═════════════════════════════════════════════════
   return (
@@ -114,7 +81,7 @@ function TaskDetailContent() {
       <TaskHeader />
       <ScrollView
         className="flex-1 px-4 py-4"
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6366f1" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="rgb(var(--brand-primary))" />}
       >
         <View className="gap-4 pb-10">
           <TaskMetadata />

@@ -49,20 +49,15 @@ export default function RoleBuilder() {
   };
 
   const handleDelete = async (role: Role) => {
-    if (role.is_system) return Alert.alert('Operation Blocked', 'System roles cannot be deleted.');
+    if (role.is_system) return; // System roles are protected
     
+    // In a premium UI, we might use a custom confirm modal, but for now we follow current logic.
     Alert.alert(
       'Confirm Deletion',
-      `Are you sure you want to delete the role "${role.name}"? This will revoke it from all users and teams.`,
+      `Are you sure you want to delete the role "${role.name}"?`,
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete', 
-          style: 'destructive', 
-          onPress: async () => {
-            await deleteRole(role.id);
-          } 
-        }
+        { text: 'Delete', style: 'destructive', onPress: async () => await deleteRole(role.id) }
       ]
     );
   };
@@ -71,37 +66,37 @@ export default function RoleBuilder() {
 
   return (
     <View className="flex-1">
-      <ScrollView showsVerticalScrollIndicator={false} className="px-1">
-        <View className="flex-row items-center justify-between mb-8">
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <View className="flex-row items-center justify-between mb-8 px-1">
           <View>
-            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mb-1">Structural Paradigms</Text>
-            <Text className="text-typography-main text-xl font-black tracking-tight">Role Registry</Text>
+            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.25em] mb-1">Structural Paradigms</Text>
+            <Text className="text-typography-main text-2xl font-black tracking-tight">Role Registry</Text>
           </View>
           <TouchableOpacity 
             onPress={handleStartCreate}
-            className="bg-brand-primary px-6 py-4 rounded-2xl premium-shadow active:scale-[0.98] transition-transform"
+            className="bg-brand-primary px-8 py-4 rounded-xl premium-shadow active:scale-[0.98] transition-transform"
           >
-            <Text className="text-typography-main font-black text-[10px] uppercase tracking-[0.15em]">Forge Role</Text>
+            <Text className="text-white font-black text-[11px] uppercase tracking-widest">Forge New Role</Text>
           </TouchableOpacity>
         </View>
 
-        <View className="gap-4 pb-24">
+        <View className="flex-row flex-wrap gap-4 pb-32">
           {roles.map(role => (
             <TouchableOpacity
               key={role.id}
               onPress={() => handleEditRole(role)}
-              className="bg-surface-card p-6 rounded-[28px] border border-surface-border premium-shadow active:scale-[0.98] transition-transform"
+              className="bg-surface-card w-full sm:w-[48%] lg:w-[32%] p-6 rounded-2xl border border-surface-border premium-shadow active:scale-[0.98] transition-all"
             >
-              <View className="flex-row items-center justify-between mb-4">
+              <View className="flex-row items-center justify-between mb-5">
                 <View className="flex-row items-center flex-1">
                   <View 
                     style={{ backgroundColor: role.color || 'rgb(var(--brand-primary))' }}
-                    className="w-4 h-4 rounded-full mr-3 border border-surface-border/30 shadow-sm"
+                    className="w-4 h-4 rounded-full mr-3 border border-white/20 shadow-sm"
                   />
-                  <Text className="text-typography-main font-black text-lg">{role.name}</Text>
+                  <Text className="text-typography-main font-black text-lg" numberOfLines={1}>{role.name}</Text>
                   {role.is_system && (
-                    <View className="bg-brand-accent-dim px-2.5 py-1 rounded-lg ml-3 border border-brand-accent/20">
-                      <Text className="text-brand-accent text-[8px] font-black uppercase tracking-widest">System Architecture</Text>
+                    <View className="bg-brand-primary/10 px-2.5 py-1 rounded-lg ml-3 border border-brand-primary/20">
+                      <Text className="text-brand-primary text-[8px] font-black uppercase tracking-widest">System</Text>
                     </View>
                   )}
                 </View>
@@ -111,124 +106,137 @@ export default function RoleBuilder() {
                       e.stopPropagation();
                       handleDelete(role);
                     }} 
-                    className="w-10 h-10 items-center justify-center border border-state-danger/20 rounded-xl bg-state-danger-dim"
+                    className="w-10 h-10 items-center justify-center border border-state-danger/10 rounded-xl bg-state-danger-dim"
                   >
                     <FontAwesome name="trash-o" size={14} color="rgb(var(--state-danger))" />
                   </TouchableOpacity>
                 )}
               </View>
-              <Text className="text-typography-muted text-xs mb-5 leading-5" numberOfLines={2}>
-                {role.description || 'No specific operational mandate provided for this authority node.'}
+              
+              <Text className="text-typography-muted text-xs mb-6 leading-5 h-10" numberOfLines={2}>
+                {role.description || 'No operational mandate provided for this authority node.'}
               </Text>
-                  <View className="flex-row items-center gap-2">
-                     <View className="bg-brand-primary-dim px-4 py-2 rounded-xl border border-brand-primary/20 flex-row items-center">
-                        <FontAwesome name="key" size={8} color="rgb(var(--brand-primary))" />
-                        <Text className="text-brand-primary text-[9px] font-black uppercase tracking-[0.1em] ml-2">
-                          {role.permissionIds?.length || 0} Permissions Gated
-                        </Text>
-                     </View>
-                  </View>
+              
+              <View className="flex-row items-center">
+                 <View className="bg-surface-background px-4 py-2 rounded-xl border border-surface-border flex-row items-center">
+                    <FontAwesome name="key" size={10} color="rgb(var(--brand-primary))" />
+                    <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest ml-3">
+                      {role.permissionIds?.length || 0} Gates
+                    </Text>
+                 </View>
+              </View>
             </TouchableOpacity>
           ))}
         </View>
       </ScrollView>
 
       {/* Editor Modal */}
-      <Modal visible={!!editingRole || isCreating} transparent animationType="slide">
-        <View className="flex-1 bg-black/85 justify-end">
-          <View className="bg-surface-card w-full rounded-t-[56px] border-t border-surface-border p-8 pb-12 premium-shadow h-[92%]">
-             <View className="w-16 h-1.5 bg-surface-border/50 rounded-full self-center mb-10" />
-             
-             <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.25em] mb-2 text-center">Protocol Architect</Text>
-             <Text className="text-typography-main text-2xl font-black mb-10 text-center tracking-tight">
-                {isCreating ? 'Forge New Authority' : 'Modifying Structure'}
-             </Text>
+      <Modal visible={!!editingRole || isCreating} transparent animationType="fade">
+        <View className="flex-1 bg-surface-background/90 justify-center items-center p-6">
+          <View className="bg-surface-card w-full max-w-4xl rounded-3xl border border-surface-border p-8 premium-shadow max-h-[95%]">
+             <View className="flex-row items-center justify-between mb-10">
+               <View>
+                 <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.3em] mb-1">Protocol Architect</Text>
+                 <Text className="text-typography-main text-3xl font-black tracking-tight">
+                    {isCreating ? 'Forge New Authority' : 'Modify Authority Structure'}
+                 </Text>
+               </View>
+               <TouchableOpacity onPress={() => { setEditingRole(null); setIsCreating(false); }} className="w-12 h-12 items-center justify-center rounded-full bg-surface-background border border-surface-border">
+                 <FontAwesome name="times" size={20} color="rgb(var(--text-muted))" />
+               </TouchableOpacity>
+             </View>
 
-             <ScrollView showsVerticalScrollIndicator={false} className="px-2">
-                <View className="mb-10">
-                  <Text className="text-typography-label text-[10px] font-black uppercase mb-4 tracking-widest px-1">Identity & Intent</Text>
-                  <TextInput
-                    value={name}
-                    onChangeText={setName}
-                    placeholder="Authority Display Name"
-                    placeholderTextColor="rgb(var(--text-muted))"
-                    className="bg-surface-background border border-surface-border rounded-[20px] px-6 py-5 text-typography-main font-black text-sm mb-4"
-                  />
-                  <TextInput
-                    value={description}
-                    onChangeText={setDescription}
-                    placeholder="Operational responsibilities and mandates..."
-                    placeholderTextColor="rgb(var(--text-muted))"
-                    multiline
-                    numberOfLines={4}
-                    textAlignVertical="top"
-                    className="bg-surface-background border border-surface-border rounded-[20px] px-6 py-5 text-typography-main text-sm mb-6 h-28 leading-6"
-                  />
-                  
-                  <View className="flex-row items-center justify-between px-1 mb-4">
-                    <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest">Frequency Marker</Text>
-                    <Text className="text-brand-primary font-black text-[10px] uppercase tracking-tighter">{color}</Text>
-                  </View>
-                  <View className="flex-row flex-wrap gap-4 px-1">
-                    {['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#475569'].map(c => (
-                      <TouchableOpacity 
-                        key={c}
-                        onPress={() => setColor(c)}
-                        style={{ backgroundColor: c }}
-                        className={`w-11 h-11 rounded-2xl border-4 ${color === c ? 'border-white' : 'border-black/20'} shadow-sm`}
-                      />
-                    ))}
-                  </View>
-                </View>
+             <ScrollView showsVerticalScrollIndicator={false}>
+                <View className="flex-row flex-wrap gap-10">
+                    {/* Left Pane: Config */}
+                    <View className="flex-1 min-w-[300px]">
+                        <Text className="text-brand-primary text-[10px] font-black uppercase mb-6 tracking-widest px-1">Identity & Intent</Text>
+                        <TextInput
+                            value={name}
+                            onChangeText={setName}
+                            placeholder="Authority Display Name"
+                            placeholderTextColor="rgb(var(--text-muted))"
+                            className="bg-surface-background border border-surface-border rounded-xl px-6 py-5 text-typography-main font-black text-sm mb-5"
+                        />
+                        <TextInput
+                            value={description}
+                            onChangeText={setDescription}
+                            placeholder="Operational responsibilities..."
+                            placeholderTextColor="rgb(var(--text-muted))"
+                            multiline
+                            numberOfLines={4}
+                            textAlignVertical="top"
+                            className="bg-surface-background border border-surface-border rounded-xl px-6 py-5 text-typography-main text-sm mb-8 h-32 leading-6"
+                        />
+                        
+                        <View className="flex-row items-center justify-between mb-6 px-1">
+                            <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest">Frequency Marker</Text>
+                            <Text className="text-brand-primary font-black text-[10px] uppercase">{color}</Text>
+                        </View>
+                        <View className="flex-row flex-wrap gap-3 px-1">
+                            {['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#475569'].map(c => (
+                            <TouchableOpacity 
+                                key={c}
+                                onPress={() => setColor(c)}
+                                style={{ backgroundColor: c }}
+                                className={`w-10 h-10 rounded-xl border-2 ${color === c ? 'border-white' : 'border-transparent'} shadow-sm transition-all`}
+                            />
+                            ))}
+                        </View>
+                    </View>
 
-                <View className="mb-6">
-                   <Text className="text-typography-label text-[10px] font-black uppercase mb-6 tracking-widest px-1">Functional Gates</Text>
-                   {categories.map(cat => (
-                      <View key={cat} className="mb-8">
-                        <View className="flex-row items-center mb-4 ml-1">
-                          <View className="w-1.5 h-1.5 rounded-full bg-brand-primary mr-3" />
-                          <Text className="text-brand-primary text-[11px] font-black uppercase tracking-widest">{cat}</Text>
-                        </View>
-                        <View className="gap-3">
-                          {permissions.filter(p => p.category === cat).map(perm => {
-                            const isActive = selectedPerms.includes(perm.id);
-                            return (
-                              <TouchableOpacity
-                                key={perm.id}
-                                onPress={() => setSelectedPerms(prev => isActive ? prev.filter(id => id !== perm.id) : [...prev, perm.id])}
-                                className={`flex-row items-center justify-between p-5 rounded-[24px] border transition-all ${
-                                  isActive ? 'bg-brand-primary-dim border-brand-primary/40' : 'bg-surface-background/50 border-surface-border'
-                                }`}
-                              >
-                                <View className="flex-1 mr-4">
-                                  <Text className={`font-black text-xs uppercase tracking-tight ${isActive ? 'text-typography-main' : 'text-typography-muted'}`}>{perm.label}</Text>
-                                  <Text className="text-typography-dim text-[10px] mt-1 font-bold">{perm.description || '(no documentation)'}</Text>
+                    {/* Right Pane: Permissions */}
+                    <View className="flex-[1.5] min-w-[400px]">
+                        <Text className="text-brand-primary text-[10px] font-black uppercase mb-6 tracking-widest px-1">Functional Gates</Text>
+                        <View className="gap-8">
+                            {categories.map(cat => (
+                                <View key={cat}>
+                                    <View className="flex-row items-center mb-5 ml-1">
+                                        <View className="w-1.5 h-1.5 rounded-full bg-brand-primary mr-3" />
+                                        <Text className="text-typography-main text-[11px] font-black uppercase tracking-widest">{cat}</Text>
+                                    </View>
+                                    <View className="gap-3">
+                                        {permissions.filter(p => p.category === cat).map(perm => {
+                                            const isActive = selectedPerms.includes(perm.id);
+                                            return (
+                                                <TouchableOpacity
+                                                    key={perm.id}
+                                                    onPress={() => setSelectedPerms(prev => isActive ? prev.filter(id => id !== perm.id) : [...prev, perm.id])}
+                                                    className={`flex-row items-center justify-between p-5 rounded-2xl border transition-all ${
+                                                        isActive ? 'bg-brand-primary/5 border-brand-primary/40' : 'bg-surface-background/30 border-surface-border'
+                                                    }`}
+                                                >
+                                                    <View className="flex-1 mr-6">
+                                                        <Text className={`font-black text-xs uppercase tracking-tight ${isActive ? 'text-typography-main' : 'text-typography-muted'}`}>{perm.label}</Text>
+                                                        <Text className="text-typography-dim text-[10px] mt-1 font-bold leading-4">{perm.description || '(no documentation)'}</Text>
+                                                    </View>
+                                                    <View className={`w-6 h-6 rounded-full items-center justify-center border transition-all ${isActive ? 'bg-brand-primary border-brand-primary' : 'border-surface-border'}`}>
+                                                        {isActive && <FontAwesome name="check" size={10} color="white" />}
+                                                    </View>
+                                                </TouchableOpacity>
+                                            );
+                                        })}
+                                    </View>
                                 </View>
-                                <View className={`w-6 h-6 rounded-full items-center justify-center border ${isActive ? 'bg-brand-primary border-brand-primary' : 'border-surface-border'}`}>
-                                  {isActive && <FontAwesome name="check" size={10} color="rgb(var(--text-main))" />}
-                                </View>
-                              </TouchableOpacity>
-                            );
-                          })}
+                            ))}
                         </View>
-                      </View>
-                   ))}
+                    </View>
                 </View>
              </ScrollView>
 
-             <View className="flex-row gap-5 mt-6 px-2">
+             <View className="flex-row gap-6 mt-10">
                <TouchableOpacity
                  onPress={() => { setEditingRole(null); setIsCreating(false); }}
-                 className="flex-[0.4] bg-surface-background py-5 rounded-[24px] border border-surface-border items-center"
+                 className="flex-1 bg-surface-background py-5 rounded-xl border border-surface-border items-center"
                >
-                 <Text className="text-typography-muted font-black text-[10px] uppercase tracking-widest">Abort</Text>
+                 <Text className="text-typography-muted font-black text-[11px] uppercase tracking-widest">Discard Schema</Text>
                </TouchableOpacity>
                <TouchableOpacity
                  onPress={handleSave}
                  disabled={loading}
-                 className="flex-1 bg-brand-primary py-5 rounded-[24px] items-center premium-shadow active:scale-[0.98]"
+                 className="flex-[2] bg-brand-primary py-5 rounded-xl items-center premium-shadow active:scale-[0.98]"
                >
-                 <Text className="text-typography-main font-black text-[10px] uppercase tracking-[0.25em]">Commit Schema</Text>
+                 <Text className="text-white font-black text-[11px] uppercase tracking-[0.3em]">Commit Authority Registry</Text>
                </TouchableOpacity>
              </View>
           </View>

@@ -71,7 +71,7 @@ export default function HandshakeEditor() {
   }
 
   return (
-    <View className="flex-1">
+    <View className="flex-1 p-8">
       <View className="mb-6">
         <Text className="text-typography-main text-lg font-black">Linked Outcomes</Text>
         <Text className="text-typography-muted text-xs">Map child sub-task results to parent stage transitions.</Text>
@@ -141,7 +141,7 @@ export default function HandshakeEditor() {
         <TouchableOpacity
           onPress={handleCreate}
           disabled={!parentStageId || !childTerminalStageId || !parentTargetStageId || loading}
-          className={`py-3 rounded-xl flex-row items-center h-12 justify-center ${(!parentStageId || !childTerminalStageId || !parentTargetStageId) ? 'bg-surface-overlay border border-surface-border' : 'bg-brand-primary shadow-sm'}`}
+          className={`py-3 rounded-sm flex-row items-center h-12 justify-center ${(!parentStageId || !childTerminalStageId || !parentTargetStageId) ? 'bg-surface-overlay border border-surface-border' : 'bg-brand-primary shadow-sm'}`}
         >
           {loading ? (
             <ActivityIndicator size="small" color="rgb(var(--text-main))" />
