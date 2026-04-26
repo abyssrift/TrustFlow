@@ -13,7 +13,7 @@ cssInterop(FontAwesome, {
     target: 'style',
     nativeStyleToProp: { color: true, size: true },
   },
-});
+} as any);
 
 type IconName = React.ComponentProps<typeof FontAwesome>['name'];
 

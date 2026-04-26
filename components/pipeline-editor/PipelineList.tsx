@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { usePipelineEditor, Pipeline } from '@/contexts/PipelineEditorContext';
+import { useAuth } from '@/contexts/AuthContext';
 import DeadlockAlert from './DeadlockAlert';
+import PipelineSettingsForm from './PipelineSettingsForm';
 
 const STAGE_PRESETS = [
   { name: 'PENDING', color: '#64748b', is_initial: true },
@@ -23,47 +25,49 @@ export default function PipelineList() {
     pipelines, loading, error,
     refreshPipelines, selectPipeline,
     createPipeline, updatePipeline, deletePipeline,
+    permissions,
   } = usePipelineEditor();
+  const { hasPermission, profile } = useAuth();
+  const isAdmin = profile?.system_role === 'admin' || profile?.workspace_role === 'admin' || profile?.workspace_role === 'owner';
 
   const [showCreate, setShowCreate] = useState(false);
-  const [name, setName] = useState('');
-  const [desc, setDesc] = useState('');
   const [isQuickCreate, setIsQuickCreate] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editName, setEditName] = useState('');
-  const [editDesc, setEditDesc] = useState('');
+
+  const canEdit = hasPermission('pipeline.edit');
 
   useEffect(() => {
     refreshPipelines();
   }, []);
 
-  const handleCreate = async () => {
-    if (!name.trim()) return;
+  const handleCreate = async (data: any) => {
+    if (!canEdit) return;
     const stgs = isQuickCreate
       ? STAGE_PRESETS.map((s, i) => ({ ...s, position: i + 1, is_initial: s.is_initial || false, is_terminal: s.is_terminal || false, requires_submission: s.requires_submission || false }))
       : [{ name: 'START', color: '#64748b', position: 1, is_initial: true, is_terminal: false, requires_submission: false }];
     const trans = isQuickCreate ? TRANSITION_PRESETS : [];
 
-    const id = await createPipeline(name, desc, stgs, trans);
+    const id = await createPipeline(data.name, data.description, stgs, trans, data.visibility_permissions, data.task_visibility_mode);
     if (id) {
       setShowCreate(false);
-      setName('');
-      setDesc('');
     }
   };
 
   const handleDelete = async (id: string) => {
+    if (!canEdit) return;
     const ok = await deletePipeline(id);
     if (ok) setConfirmDelete(null);
   };
 
-  const handleSaveEdit = async (p: Pipeline) => {
-    await updatePipeline(p.id, editName || undefined, editDesc || undefined);
+  const handleSaveEdit = async (id: string, data: any) => {
+    if (!canEdit) return;
+    await updatePipeline(id, data.name, data.description, undefined, data.visibility_permissions, data.task_visibility_mode);
     setEditingId(null);
   };
 
   const handleToggleDefault = async (p: Pipeline) => {
+    if (!canEdit) return;
     await updatePipeline(p.id, undefined, undefined, !p.is_default);
   };
 
@@ -77,20 +81,22 @@ export default function PipelineList() {
             {pipelines.length} workflow{pipelines.length !== 1 ? 's' : ''} configured
           </Text>
         </View>
-        <TouchableOpacity
-          onPress={() => setShowCreate(true)}
-          className="bg-brand-primary px-5 py-3 rounded-xl active:bg-brand-primary-hover active:scale-95 transition-all"
-        >
-          <View className="flex-row items-center">
-            <FontAwesome name="plus" size={12} color="rgb(var(--text-main))" />
-            <Text className="text-typography-main font-bold text-sm ml-2 uppercase tracking-wide">New Pipeline</Text>
-          </View>
-        </TouchableOpacity>
+        {canEdit && (
+          <TouchableOpacity
+            onPress={() => setShowCreate(true)}
+            className="bg-brand-primary px-5 py-3 rounded-xl active:bg-brand-primary-hover active:scale-95 transition-all"
+          >
+            <View className="flex-row items-center">
+              <FontAwesome name="plus" size={12} color="white" />
+              <Text className="text-white font-bold text-sm ml-2 uppercase tracking-wide">New Pipeline</Text>
+            </View>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Error Banner */}
       {error && (
-        <View className="bg-state-danger-dim border border-state-danger/30 p-3 rounded-xl mb-4">
+        <View className="bg-state-danger/10 border border-state-danger/30 p-3 rounded-xl mb-4">
           <Text className="text-state-danger text-sm font-bold">{error}</Text>
         </View>
       )}
@@ -107,206 +113,195 @@ export default function PipelineList() {
             <ActivityIndicator color="rgb(var(--brand-primary))" size="large" />
           </View>
         ) : pipelines.length === 0 ? (
-          <View className="py-20 items-center">
-            <FontAwesome name="sitemap" size={48} color="#334155" />
-            <Text className="text-typography-muted text-lg font-bold mt-4">No Pipelines Yet</Text>
-            <Text className="text-typography-dim text-sm mt-2 text-center px-10">
-              Create your first workflow pipeline to define how tasks move through stages.
-            </Text>
-          </View>
-        ) : (
-          pipelines.map(p => (
-            <View key={p.id} className="mb-3">
-              {editingId === p.id ? (
-                /* Inline Edit Mode */
-                <View className="bg-surface-card p-4 rounded-xl border border-brand-primary/50">
-                  <TextInput
-                    value={editName}
-                    onChangeText={setEditName}
-                    placeholder="Pipeline name"
-                    placeholderTextColor="#64748b"
-                    className="bg-surface-background text-typography-main px-4 py-3 rounded-lg border border-surface-border mb-3 text-base"
-                  />
-                  <TextInput
-                    value={editDesc}
-                    onChangeText={setEditDesc}
-                    placeholder="Description (optional)"
-                    placeholderTextColor="#64748b"
-                    className="bg-surface-background text-typography-main px-4 py-3 rounded-lg border border-surface-border mb-4 text-sm"
-                    multiline
-                  />
-                  <View className="flex-row gap-3">
-                    <TouchableOpacity
-                      onPress={() => setEditingId(null)}
-                      className="flex-1 bg-surface-background py-2.5 rounded-xl border border-surface-border items-center"
-                    >
-                      <Text className="text-typography-muted font-bold text-sm">Cancel</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => handleSaveEdit(p)}
-                      className="flex-1 bg-brand-primary py-2.5 rounded-xl items-center"
-                    >
-                      <Text className="text-typography-main font-bold text-sm">Save</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ) : confirmDelete === p.id ? (
-                /* Delete Confirmation */
-                <View className="bg-surface-card p-4 rounded-2xl border border-state-danger/50">
-                  <Text className="text-typography-main font-bold text-base mb-2">Delete "{p.name}"?</Text>
-                  <Text className="text-typography-muted text-sm mb-4">
-                    This will soft-delete the pipeline. Active tasks using it will be unaffected.
+          <View className="py-20 items-center px-6">
+            <View className="bg-surface-card w-full p-8 rounded-[32px] border border-surface-border items-center premium-shadow">
+              <View className="w-20 h-20 bg-brand-primary/10 rounded-full items-center justify-center mb-6">
+                <FontAwesome name="sitemap" size={32} color="rgb(var(--brand-primary))" />
+              </View>
+              
+              {canEdit ? (
+                <>
+                  <Text className="text-typography-main text-xl font-black mt-2 text-center">No Pipelines Yet</Text>
+                  <Text className="text-typography-muted text-sm mt-3 text-center leading-5">
+                    Create your first workflow pipeline to define how tasks move through stages.
                   </Text>
-                  <View className="flex-row gap-3">
-                    <TouchableOpacity
-                      onPress={() => setConfirmDelete(null)}
-                      className="flex-1 bg-surface-background py-2.5 rounded-xl border border-surface-border items-center"
-                    >
-                      <Text className="text-typography-muted font-bold text-sm">Cancel</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => handleDelete(p.id)}
-                      className="flex-1 bg-state-danger py-2.5 rounded-xl items-center"
-                    >
-                      <Text className="text-white font-bold text-sm">Delete</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
+                  <TouchableOpacity
+                    onPress={() => setShowCreate(true)}
+                    className="bg-brand-primary px-8 py-4 rounded-2xl mt-8 active:scale-95 transition-all"
+                  >
+                    <Text className="text-white font-black uppercase tracking-widest text-xs">Create First Pipeline</Text>
+                  </TouchableOpacity>
+                </>
               ) : (
-                /* Normal Card */
-                <TouchableOpacity
-                  onPress={() => selectPipeline(p)}
-                  className="bg-surface-card p-6 rounded-[28px] border border-surface-border premium-shadow active:scale-[0.98] transition-transform"
-                >
-                  <View className="flex-row items-center justify-between">
-                    <View className="flex-1 mr-4">
-                      <View className="flex-row items-center mb-1">
-                        <Text className="text-typography-main font-bold text-lg">{p.name}</Text>
-                        {p.is_default && (
-                          <View className="bg-brand-primary/15 px-2 py-0.5 rounded-md ml-2">
-                            <Text className="text-brand-primary text-[9px] font-black uppercase">Default</Text>
-                          </View>
-                        )}
-                      </View>
-                      <Text className="text-typography-muted text-sm" numberOfLines={1}>
-                        {p.description || 'No description'}
+                <>
+                  <View className="bg-state-info/10 border border-state-info/20 p-5 rounded-2xl w-full">
+                    <View className="flex-row items-start">
+                      <FontAwesome name="info-circle" size={16} color="rgb(var(--state-info))" style={{ marginTop: 2 }} />
+                      <Text className="text-typography-main text-sm font-bold ml-3 flex-1 leading-5">
+                        Either no pipelines exist, or they are hidden due to your permissions. Contact your Admin if this is an error.
                       </Text>
                     </View>
-
-                    <View className="flex-row items-center gap-2">
-                      {/* Default Toggle */}
-                      <TouchableOpacity
-                        onPress={(e) => { e.stopPropagation(); handleToggleDefault(p); }}
-                        className={`p-2 rounded-lg border ${p.is_default ? 'bg-brand-primary-dim border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}
-                      >
-                        <FontAwesome name="star" size={12} color={p.is_default ? 'rgb(var(--brand-primary))' : 'rgb(var(--text-dim))'} />
-                      </TouchableOpacity>
-
-                      {/* Edit */}
-                      <TouchableOpacity
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          setEditingId(p.id);
-                          setEditName(p.name);
-                          setEditDesc(p.description || '');
-                        }}
-                        className="p-2 rounded-lg border border-surface-border bg-surface-background"
-                      >
-                        <FontAwesome name="pencil" size={12} color="#64748b" />
-                      </TouchableOpacity>
-
-                      {/* Delete */}
-                      <TouchableOpacity
-                        onPress={(e) => { e.stopPropagation(); setConfirmDelete(p.id); }}
-                        className="p-2 rounded-lg border border-surface-border bg-surface-background"
-                      >
-                        <FontAwesome name="trash-o" size={12} color="#64748b" />
-                      </TouchableOpacity>
-
-                      <FontAwesome name="chevron-right" size={12} color="#475569" />
-                    </View>
                   </View>
-                </TouchableOpacity>
+                </>
               )}
             </View>
-          ))
+          </View>
+        ) : (
+          <>
+            {!isAdmin && (
+               <View className="bg-surface-overlay/30 px-4 py-2 rounded-lg mb-4 border border-surface-border flex-row items-center">
+                  <FontAwesome name="lock" size={10} color="rgb(var(--text-muted))" />
+                  <Text className="text-[10px] text-typography-muted ml-2 italic">
+                    Showing only pipelines permitted for your current role.
+                  </Text>
+               </View>
+            )}
+            {pipelines.map(p => (
+              <View key={p.id} className="mb-3">
+                {editingId === p.id ? (
+                  <View className="bg-surface-card p-6 rounded-3xl border border-brand-primary/30 premium-shadow">
+                    <Text className="text-typography-main font-black text-lg mb-4">Edit Pipeline</Text>
+                    <PipelineSettingsForm 
+                      initialData={{ ...p, description: p.description ?? undefined }}
+                      permissions={permissions}
+                      onSubmit={(data: any) => handleSaveEdit(p.id, data)}
+                      onCancel={() => setEditingId(null)}
+                      submitLabel="Save Changes"
+                      loading={loading}
+                    />
+                  </View>
+                ) : confirmDelete === p.id ? (
+                  <View className="bg-surface-card p-6 rounded-3xl border border-state-danger/30 premium-shadow">
+                    <Text className="text-typography-main font-black text-lg mb-2">Delete "{p.name}"?</Text>
+                    <Text className="text-typography-muted text-sm mb-6 leading-5">
+                      This will archive the pipeline. Existing tasks using this pipeline will remain functional but new ones cannot be created.
+                    </Text>
+                    <View className="flex-row gap-3">
+                      <TouchableOpacity
+                        onPress={() => setConfirmDelete(null)}
+                        className="flex-1 bg-surface-background py-3 rounded-xl border border-surface-border items-center justify-center h-12"
+                      >
+                        <Text className="text-typography-muted font-bold">Cancel</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => handleDelete(p.id)}
+                        className="flex-1 bg-state-danger py-3 rounded-xl items-center justify-center h-12"
+                      >
+                        <Text className="text-white font-bold">Confirm Delete</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    onPress={() => selectPipeline(p)}
+                    className="bg-surface-card p-6 rounded-[28px] border border-surface-border premium-shadow active:scale-[0.98] transition-transform"
+                  >
+                    <View className="flex-row items-center justify-between">
+                      <View className="flex-1 mr-4">
+                        <View className="flex-row items-center mb-1">
+                          <Text className="text-typography-main font-bold text-lg">{p.name}</Text>
+                          {p.is_default && (
+                            <View className="bg-brand-primary/15 px-2 py-0.5 rounded-md ml-2">
+                              <Text className="text-brand-primary text-[9px] font-black uppercase">Default</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text className="text-typography-muted text-sm" numberOfLines={1}>
+                          {p.description || 'No description provided'}
+                        </Text>
+                        
+                        <View className="flex-row items-center mt-3 gap-3">
+                           <View className="flex-row items-center">
+                              <FontAwesome name="eye" size={10} color="rgb(var(--text-dim))" />
+                              <Text className="text-[10px] text-typography-muted ml-1.5">
+                                 {p.visibility_permissions?.length || 0} Roles
+                              </Text>
+                           </View>
+                           <View className="flex-row items-center">
+                              <FontAwesome name="lock" size={10} color="rgb(var(--text-dim))" />
+                              <Text className="text-[10px] text-typography-muted ml-1.5 capitalize">
+                                 {p.task_visibility_mode === 'assigned_only' ? 'Private Tasks' : 'Public Tasks'}
+                              </Text>
+                           </View>
+                        </View>
+                      </View>
+
+                      <View className="flex-row items-center gap-2">
+                        {canEdit && (
+                          <>
+                            <TouchableOpacity
+                              onPress={(e: any) => { e.stopPropagation(); handleToggleDefault(p); }}
+                              className={`p-2.5 rounded-xl border ${p.is_default ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
+                            >
+                              <FontAwesome name="star" size={12} color={p.is_default ? 'white' : 'rgb(var(--text-dim))'} />
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                              onPress={(e: any) => {
+                                e.stopPropagation();
+                                setEditingId(p.id);
+                              }}
+                              className="p-2.5 rounded-xl border border-surface-border bg-surface-background"
+                            >
+                              <FontAwesome name="pencil" size={12} color="rgb(var(--text-dim))" />
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                              onPress={(e: any) => { e.stopPropagation(); setConfirmDelete(p.id); }}
+                              className="p-2.5 rounded-xl border border-surface-border bg-surface-background"
+                            >
+                              <FontAwesome name="trash-o" size={12} color="rgb(var(--text-dim))" />
+                            </TouchableOpacity>
+                          </>
+                        )}
+                        <View className="ml-2">
+                          <FontAwesome name="chevron-right" size={12} color="rgb(var(--text-dim))" />
+                        </View>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                )}
+              </View>
+            ))}
+          </>
         )}
         <View className="h-20" />
       </ScrollView>
 
       {/* Create Modal */}
       {showCreate && (
-        <View className="absolute inset-0 bg-black/60 items-center justify-center px-6" style={{ zIndex: 100 }}>
-          <View className="bg-surface-card w-full max-w-lg rounded-3xl border border-surface-border p-6">
-            <Text className="text-typography-main font-black text-xl mb-1">Create Pipeline</Text>
-            <Text className="text-typography-muted text-sm mb-6">
-              Define a new workflow template for your tasks.
+        <View className="absolute inset-0 bg-black/70 items-center justify-center px-6" style={{ zIndex: 1000 }}>
+          <View className="bg-surface-card w-full max-w-lg rounded-[32px] border border-surface-border p-8 premium-shadow">
+            <Text className="text-typography-main font-black text-2xl mb-2">New Pipeline</Text>
+            <Text className="text-typography-muted text-sm mb-6 leading-5">
+              Design a workflow template. You can use our presets to get started faster.
             </Text>
 
-            <Text className="text-typography-label text-xs font-bold uppercase tracking-wider mb-2">Name</Text>
-            <TextInput
-              value={name}
-              onChangeText={setName}
-              placeholder="e.g. Client Onboarding"
-              placeholderTextColor="#64748b"
-              className="bg-surface-background text-typography-main px-4 py-3 rounded-lg border border-surface-border mb-4 text-base"
-              autoFocus
-            />
+            <ScrollView showsVerticalScrollIndicator={false} className="max-h-[70vh]">
+               {/* Quick Create Toggle */}
+               <TouchableOpacity 
+                  onPress={() => setIsQuickCreate(!isQuickCreate)}
+                  className={`flex-row items-center p-4 rounded-2xl border mb-6 ${isQuickCreate ? 'bg-brand-primary/5 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}
+               >
+                  <View className="flex-1 mr-4">
+                     <Text className={`font-bold text-sm ${isQuickCreate ? 'text-brand-primary' : 'text-typography-main'}`}>Quick Setup (Recommended)</Text>
+                     <Text className="text-typography-muted text-[11px] mt-1 leading-4">
+                        Auto-generate 4 standard stages and basic transitions.
+                     </Text>
+                  </View>
+                  <View className={`w-12 h-7 rounded-full flex-row items-center px-1 ${isQuickCreate ? 'bg-brand-primary justify-end' : 'bg-surface-overlay justify-start'}`}>
+                     <View className="w-5 h-5 rounded-full bg-white shadow-sm" />
+                  </View>
+               </TouchableOpacity>
 
-            <Text className="text-typography-label text-xs font-bold uppercase tracking-wider mb-2">Description</Text>
-            <TextInput
-              value={desc}
-              onChangeText={setDesc}
-              placeholder="What is this pipeline for?"
-              placeholderTextColor="#64748b"
-              className="bg-surface-background text-typography-main px-4 py-3 rounded-lg border border-surface-border mb-4 text-sm"
-              multiline
-              numberOfLines={2}
-            />
-
-            {/* Quick Create Toggle */}
-            <View className="flex-row items-center justify-between mb-6 bg-surface-background p-3 rounded-xl border border-surface-border">
-              <View className="flex-1 mr-4">
-                <Text className="text-typography-main font-bold text-sm">Quick Setup</Text>
-                <Text className="text-typography-muted text-xs">
-                  Pre-fills 4 stages (Pending → In Progress → Review → Completed) with transitions
-                </Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => setIsQuickCreate(!isQuickCreate)}
-                className={`w-12 h-7 rounded-full flex-row items-center px-1 ${isQuickCreate ? 'bg-brand-primary justify-end' : 'bg-surface-overlay justify-start'}`}
-              >
-                <View className="w-5 h-5 rounded-full bg-white" />
-              </TouchableOpacity>
-            </View>
-
-            {!isQuickCreate && (
-              <View className="bg-state-info/10 border border-state-info/30 p-3 rounded-xl mb-4">
-                <Text className="text-state-info text-xs font-bold">
-                  Empty start — you'll add stages and transitions manually in the editor.
-                </Text>
-              </View>
-            )}
-
-            <View className="flex-row gap-3">
-              <TouchableOpacity
-                onPress={() => { setShowCreate(false); setName(''); setDesc(''); }}
-                className="flex-1 bg-surface-background py-3 rounded-xl border border-surface-border items-center h-12 justify-center"
-              >
-                <Text className="text-typography-muted font-bold">Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleCreate}
-                className="flex-1 bg-brand-primary py-3 rounded-xl items-center h-12 justify-center"
-                disabled={!name.trim() || loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color="rgb(var(--text-main))" size="small" />
-                ) : (
-                  <Text className="text-typography-main font-bold">Create</Text>
-                )}
-              </TouchableOpacity>
-            </View>
+               <PipelineSettingsForm 
+                  permissions={permissions}
+                  onSubmit={handleCreate}
+                  onCancel={() => { setShowCreate(false); setIsQuickCreate(true); }}
+                  submitLabel="Create Pipeline"
+                  loading={loading}
+               />
+            </ScrollView>
           </View>
         </View>
       )}

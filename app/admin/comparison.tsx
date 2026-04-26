@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, SafeAreaView, Dimensions } from 'react-native';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
 
 type AuditData = {
   funnel: Array<{ stage_name: string; task_count: number }>;
@@ -11,6 +12,7 @@ type AuditData = {
 };
 
 export default function ComparisonScreen() {
+  const { hasPermission } = useAuth();
   const [targetA, setTargetA] = useState<{ id: string; name: string; type: 'user' | 'pipeline' | 'team' } | null>(null);
   const [targetB, setTargetB] = useState<{ id: string; name: string; type: 'user' | 'pipeline' | 'team' } | null>(null);
   
@@ -94,7 +96,44 @@ export default function ComparisonScreen() {
           <Text className="text-typography-main text-3xl font-black mb-1">Matrix Versus</Text>
           <Text className="text-typography-muted text-xs font-medium mb-8">Side-by-side performance benchmarking</Text>
 
-          {/* Selectors */}
+          {availablePipelines.length === 0 ? (
+            <View className="py-10">
+              <View className="bg-surface-card p-8 rounded-[2rem] border border-surface-border items-center premium-shadow">
+                <View className="w-16 h-16 bg-brand-primary/10 rounded-full items-center justify-center mb-6">
+                  <FontAwesome name="exchange" size={24} color="rgb(var(--brand-primary))" />
+                </View>
+                
+                {hasPermission('pipeline.edit') ? (
+                  <>
+                    <Text className="text-typography-main text-2xl font-black mb-2 text-center">Setup Required</Text>
+                    <Text className="text-typography-muted text-center mb-8 leading-relaxed text-sm">
+                      No pipelines detected. Comparison metrics require at least one active pipeline to provide meaningful data.
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => router.push('/admin/pipelines')}
+                      className="bg-brand-primary px-8 py-3 rounded-xl active:scale-95 transition-all"
+                    >
+                      <Text className="text-typography-main font-black uppercase tracking-widest text-[10px]">Configure Pipelines</Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <View className="bg-state-info-dim border border-state-info/20 p-6 rounded-2xl w-full">
+                    <View className="flex-row items-start">
+                      <FontAwesome name="info-circle" size={16} color="rgb(var(--state-info))" style={{ marginTop: 2 }} />
+                      <View className="ml-4 flex-1">
+                         <Text className="text-typography-main text-base font-black mb-1">Access Restricted</Text>
+                         <Text className="text-typography-muted text-xs font-bold leading-relaxed">
+                           Either no pipelines exist now, or they're not privileged enough to see them, contact company Admin
+                         </Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
+              </View>
+            </View>
+          ) : (
+            <>
+              {/* Selectors */}
           <View className="flex-row mb-8 space-x-3">
              <View className="flex-1 bg-surface-card p-4 rounded-3xl border border-surface-border">
                 <Text className="text-typography-muted text-[10px] font-black uppercase mb-2">Subject A</Text>
@@ -192,6 +231,8 @@ export default function ComparisonScreen() {
               <View className="h-20" />
             </View>
           )}
+          </>
+        )}
 
         </ScrollView>
       </SafeAreaView>

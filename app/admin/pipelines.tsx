@@ -38,7 +38,7 @@ function PipelineEditorInner() {
   if (!selectedPipeline) {
     return (
       <SafeAreaView className="flex-1" style={Platform.OS === 'android' ? { paddingTop: StatusBar.currentHeight } : {}}>
-        <View className="flex-1 bg-surface-background" style={Platform.OS === 'web' ? { minHeight: '100vh' } : {}}>
+        <View className="flex-1 bg-surface-background" style={Platform.OS === 'web' ? ({ minHeight: '100vh' } as any) : {}}>
           {/* Top Bar */}
           <View className="bg-surface-card px-4 pt-4 pb-6 border-b border-surface-border">
             <View className="flex-row items-center justify-between">
@@ -66,7 +66,7 @@ function PipelineEditorInner() {
   // ── Render Pipeline Editor (selected pipeline) ──
   return (
     <SafeAreaView className="flex-1" style={Platform.OS === 'android' ? { paddingTop: StatusBar.currentHeight } : {}}>
-      <View className="flex-1 bg-surface-background" style={Platform.OS === 'web' ? { minHeight: '100vh' } : {}}>
+      <View className="flex-1 bg-surface-background" style={Platform.OS === 'web' ? ({ minHeight: '100vh' } as any) : {}}>
         {/* Header with back button */}
         <View className="bg-surface-card px-4 pt-4 pb-4 border-b border-surface-border">
           <View className="flex-row items-center justify-between mb-4">
@@ -141,7 +141,7 @@ function PipelineEditorInner() {
         )}
 
         {/* Active Section */}
-        <View className="flex-1" style={Platform.OS === 'web' ? { overflow: 'auto', display: 'flex', flexDirection: 'column' } : {}}>
+        <View className="flex-1" style={Platform.OS === 'web' ? ({ overflow: 'auto', display: 'flex', flexDirection: 'column' } as any) : {}}>
           {activeSection === 'stages' && <StageBuilder />}
           {activeSection === 'transitions' && <TransitionEditor />}
           {activeSection === 'automations' && <AutomationEditor />}

@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import HorizontalScroll from '@/components/common/HorizontalScroll';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 
 type ReportType = 'general' | 'worker_comparison' | 'team_comparison' | 'workflow_analysis';
@@ -26,6 +27,7 @@ export default function ReportGenerator({
   onClose,
   onReportGenerated,
 }: ReportGeneratorProps) {
+  const { hasPermission } = useAuth();
 
   // State
   const [reportType, setReportType] = useState<ReportType>('general');
@@ -453,15 +455,58 @@ export default function ReportGenerator({
 
           {/* Content */}
           <ScrollView className="flex-1 p-6" showsVerticalScrollIndicator={false}>
-            {renderReportTypeSelector()}
-            <View className="h-px bg-surface-border mb-6" />
-            {renderTimeFrameSelector()}
-            <View className="h-px bg-surface-border mb-6" />
+            {pipelines.length === 0 ? (
+               <View className="py-10">
+                 <View className="bg-surface-card p-8 rounded-[2rem] border border-surface-border items-center premium-shadow">
+                   <View className="w-16 h-16 bg-brand-primary/10 rounded-full items-center justify-center mb-6">
+                     <FontAwesome name="file-text-o" size={24} color="rgb(var(--brand-primary))" />
+                   </View>
+                   
+                   {hasPermission('pipeline.edit') ? (
+                     <>
+                       <Text className="text-typography-main text-2xl font-black mb-2 text-center">Setup Required</Text>
+                       <Text className="text-typography-muted text-center mb-8 leading-relaxed text-sm">
+                         No pipelines detected. Report generation requires at least one active pipeline to analyze.
+                       </Text>
+                       <Pressable
+                         onPress={() => {
+                           onClose();
+                           // We can't push from here easily if it's a modal, but the user is likely on a screen that can handle navigation or we assume they'll close and go there.
+                           // Actually we should probably just show the message.
+                         }}
+                         className="bg-brand-primary px-8 py-3 rounded-xl active:scale-95 transition-all"
+                       >
+                         <Text className="text-white font-black uppercase tracking-widest text-[10px]">Configure Pipelines</Text>
+                       </Pressable>
+                     </>
+                   ) : (
+                     <View className="bg-state-info-dim border border-state-info/20 p-6 rounded-2xl w-full">
+                       <View className="flex-row items-start">
+                         <FontAwesome name="info-circle" size={16} color="rgb(var(--state-info))" style={{ marginTop: 2 }} />
+                         <View className="ml-4 flex-1">
+                            <Text className="text-typography-main text-base font-black mb-1">Access Restricted</Text>
+                            <Text className="text-typography-muted text-xs font-bold leading-relaxed">
+                              Either no pipelines exist now, or they're not privileged enough to see them, contact company Admin
+                            </Text>
+                         </View>
+                       </View>
+                     </View>
+                   )}
+                 </View>
+               </View>
+            ) : (
+              <>
+                {renderReportTypeSelector()}
+                <View className="h-px bg-surface-border mb-6" />
+                {renderTimeFrameSelector()}
+                <View className="h-px bg-surface-border mb-6" />
 
-            {reportType === 'general' && renderGeneralFilters()}
-            {reportType === 'worker_comparison' && renderWorkerComparisonFilters()}
-            {reportType === 'team_comparison' && renderTeamComparisonFilters()}
-            {reportType === 'workflow_analysis' && renderGeneralFilters()}
+                {reportType === 'general' && renderGeneralFilters()}
+                {reportType === 'worker_comparison' && renderWorkerComparisonFilters()}
+                {reportType === 'team_comparison' && renderTeamComparisonFilters()}
+                {reportType === 'workflow_analysis' && renderGeneralFilters()}
+              </>
+            )}
             
             <View className="h-12" />
           </ScrollView>
@@ -478,8 +523,8 @@ export default function ReportGenerator({
 
             <Pressable
               onPress={handleGenerateReport}
-              disabled={loading}
-              className={`flex-[1.5] py-4 rounded-2xl transition-all items-center ${loading ? 'bg-surface-border' : 'bg-brand-primary hover:bg-brand-primary-hover active:scale-95 shadow-lg shadow-brand-primary/20'}`}
+              disabled={loading || pipelines.length === 0}
+              className={`flex-[1.5] py-4 rounded-2xl transition-all items-center ${loading || pipelines.length === 0 ? 'bg-surface-border' : 'bg-brand-primary hover:bg-brand-primary-hover active:scale-95 shadow-lg shadow-brand-primary/20'}`}
             >
               {loading ? (
                 <ActivityIndicator color="white" size="small" />

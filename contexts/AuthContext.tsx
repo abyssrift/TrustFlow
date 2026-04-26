@@ -16,10 +16,12 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType>({
   session: null,
   user: null,
+  profile: null,
   permissions: [],
   initialized: false,
   hasPermission: () => false,
   signOut: async () => {},
+  refreshProfile: async () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);

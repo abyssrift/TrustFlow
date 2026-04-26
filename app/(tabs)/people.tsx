@@ -20,6 +20,7 @@ type TeamMember = {
   velocity_hours?: number;
   flap_rate?: number;
   tier?: string;
+  reliability?: number;
 };
 
 export default function PeopleScreen() {
@@ -29,6 +30,7 @@ export default function PeopleScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedScan, setSelectedScan] = useState<TeamMember | null>(null);
   const [joinCode, setJoinCode] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const { profile } = useAuth();
   
   useEffect(() => {
@@ -51,11 +53,14 @@ export default function PeopleScreen() {
 
   const fetchMembers = async (q: string = '') => {
     try {
-      const { data, error } = await supabase.rpc('rpc_search_users', { p_query: q });
-      if (error) throw error;
+      setLoading(true);
+      setError(null);
+      const { data, error: fetchError } = await supabase.rpc('rpc_search_users', { p_query: q });
+      if (fetchError) throw fetchError;
       setMembers(data || []);
     } catch (err: any) {
       console.error('Error fetching members:', err);
+      setError(err.message || 'Failed to connect to personnel database');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -181,7 +186,25 @@ export default function PeopleScreen() {
            </View>
         </View>
 
-        {members.map(renderMemberCard)}
+        {error ? (
+          <View className="items-center justify-center py-20 bg-state-danger/5 rounded-3xl border border-dashed border-state-danger/20 mx-6">
+             <FontAwesome name="exclamation-circle" size={32} color="rgb(var(--state-danger))" className="mb-4" />
+             <Text className="text-typography-main font-bold text-center px-6">{error}</Text>
+             <TouchableOpacity 
+               onPress={() => fetchMembers(searchQuery)}
+               className="mt-6 bg-brand-primary px-6 py-2 rounded-xl"
+             >
+                <Text className="text-white font-black uppercase text-[10px] tracking-widest">Retry Scan</Text>
+             </TouchableOpacity>
+          </View>
+        ) : members.length === 0 ? (
+          <View className="items-center justify-center py-20 bg-surface-card rounded-3xl border border-dashed border-surface-border mx-6">
+             <FontAwesome name="users" size={32} color="rgb(var(--typography-muted))" className="mb-4" />
+             <Text className="text-typography-muted font-bold">No members found</Text>
+          </View>
+        ) : (
+          members.map(renderMemberCard)
+        )}
         <View className="h-10" />
       </ScrollView>
 
@@ -245,7 +268,7 @@ export default function PeopleScreen() {
                       <View className="w-1/2 p-2">
                          <View className="bg-surface-card p-4 rounded-3xl border border-surface-border">
                             <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-1">Reliability</Text>
-                            <Text className="text-2xl font-black text-typography-main">94%</Text>
+                            <Text className="text-2xl font-black text-typography-main">{(selectedScan.reliability || 100).toFixed(1)}%</Text>
                             <Text className="text-[10px] text-typography-muted font-bold">Target consistency</Text>
                          </View>
                       </View>

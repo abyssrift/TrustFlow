@@ -4,9 +4,11 @@ import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { TaskDetailProvider, useTaskDetail } from '@/contexts/TaskDetailContext';
 import TaskHeader from '@/components/task-detail/TaskHeader';
+import TimerPanel from '@/components/task-detail/TimerPanel';
 import TaskMetadata from '@/components/task-detail/TaskMetadata';
 import PeoplePanel from '@/components/task-detail/PeoplePanel';
 import StageActions from '@/components/task-detail/StageActions';
+import ChildPipelinesPanel from '@/components/task-detail/ChildPipelinesPanel';
 import PipelineJourney from '@/components/task-detail/PipelineJourney';
 import CommentsSection from '@/components/task-detail/CommentsSection';
 import ActivityLog from '@/components/task-detail/ActivityLog';
@@ -79,6 +81,7 @@ function TaskDetailContent() {
   return (
     <View className="flex-1 bg-surface-background">
       <TaskHeader />
+      <TimerPanel />
       <ScrollView
         className="flex-1 px-4 py-4"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="rgb(var(--brand-primary))" />}
@@ -86,6 +89,7 @@ function TaskDetailContent() {
         <View className="gap-4 pb-10">
           <TaskMetadata />
           <PeoplePanel />
+          <ChildPipelinesPanel />
           <StageActions />
           <PipelineJourney />
           <CommentsSection />

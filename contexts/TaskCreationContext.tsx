@@ -13,6 +13,7 @@ export type TaskDraft = {
   pipelineId: string | null;
   assigneeUserIds: string[];
   assigneeTeamIds: string[];
+  visibilityPermission: string | null;
 };
 
 const INITIAL_DRAFT: TaskDraft = {
@@ -25,6 +26,7 @@ const INITIAL_DRAFT: TaskDraft = {
   pipelineId: null,
   assigneeUserIds: [],
   assigneeTeamIds: [],
+  visibilityPermission: null,
 };
 
 type TaskCreationContextType = {
@@ -118,7 +120,8 @@ export const TaskCreationProvider = ({ children }: { children: React.ReactNode }
         p_due_date: draft.dueDate,
         p_category: draft.category,
         p_weight: draft.weight,
-        p_pipeline_id: draft.pipelineId
+        p_pipeline_id: draft.pipelineId,
+        p_visibility_permission: draft.visibilityPermission
       });
 
       if (error) throw error;

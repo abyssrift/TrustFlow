@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Alert, Plat
 import HorizontalScroll from '../common/HorizontalScroll';
 import { FontAwesome } from '@expo/vector-icons';
 import { usePipelineEditor, Stage } from '@/contexts/PipelineEditorContext';
+import { useAlert } from '@/contexts/AlertContext';
 
 const COLOR_PALETTE = [
   '#64748b', '#3b82f6', '#6366f1', '#8b5cf6',
@@ -17,6 +18,8 @@ export default function StageBuilder() {
     addStage, updateStage, deleteStage, reorderStages,
     selectedPipeline,
   } = usePipelineEditor();
+
+  const { showAlert } = useAlert();
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingStage, setEditingStage] = useState<string | null>(null);
@@ -112,7 +115,11 @@ export default function StageBuilder() {
   const handleMoveUp = (index: number) => {
     if (index <= 0) return;
     if (stages[index].is_initial || (index === 1 && stages[0]?.is_initial)) {
-      Alert.alert('Invalid Move', 'Entry Stage must remain first.', [{text: 'OK'}]);
+      showAlert({
+        title: 'Invalid Move',
+        message: 'Entry Stage must remain first.',
+        type: 'info'
+      });
       return;
     }
     const ids = stages.map(s => s.id);
@@ -123,7 +130,11 @@ export default function StageBuilder() {
   const handleMoveDown = (index: number) => {
     if (index >= stages.length - 1) return;
     if (stages[index].is_initial) {
-      Alert.alert('Invalid Move', 'Entry Stage must remain first.', [{text: 'OK'}]);
+      showAlert({
+        title: 'Invalid Move',
+        message: 'Entry Stage must remain first.',
+        type: 'info'
+      });
       return;
     }
     const ids = stages.map(s => s.id);
@@ -134,7 +145,11 @@ export default function StageBuilder() {
   const handleMoveToTop = (index: number) => {
     if (index <= 0) return;
     if (stages[0]?.is_initial && !stages[index].is_initial) {
-      Alert.alert('Invalid Move', 'Entry Stage must remain first.', [{text: 'OK'}]);
+      showAlert({
+        title: 'Invalid Move',
+        message: 'Entry Stage must remain first.',
+        type: 'info'
+      });
       return;
     }
     const ids = stages.map(s => s.id);
@@ -146,7 +161,11 @@ export default function StageBuilder() {
   const handleMoveToEnd = (index: number) => {
     if (index >= stages.length - 1) return;
     if (stages[index].is_initial) {
-      Alert.alert('Invalid Move', 'Entry Stage must remain first.', [{text: 'OK'}]);
+      showAlert({
+        title: 'Invalid Move',
+        message: 'Entry Stage must remain first.',
+        type: 'info'
+      });
       return;
     }
     const ids = stages.map(s => s.id);

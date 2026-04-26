@@ -21,6 +21,7 @@ import ConnectionLines from './ConnectionLines';
 interface GraphCanvasProps {
   onEditStage: (s: Stage) => void;
   onDeleteStage: (id: string) => void;
+  onEditTransition: (id: string) => void;
 }
 
 const GRID_SIZE = 20;
@@ -30,7 +31,7 @@ const NODE_HEIGHT = 160;
 const AnimatedLine = Animated.createAnimatedComponent(Line);
 const AnimatedRect = Animated.createAnimatedComponent(Rect);
 
-export default function GraphCanvas({ onEditStage, onDeleteStage }: GraphCanvasProps) {
+export default function GraphCanvas({ onEditStage, onDeleteStage, onEditTransition }: GraphCanvasProps) {
   const { stages, transitions, updateStagePosition, addTransition } = usePipelineEditor();
 
   const translateX = useSharedValue(0);
@@ -178,18 +179,23 @@ export default function GraphCanvas({ onEditStage, onDeleteStage }: GraphCanvasP
 
         {/* Reset View Button */}
         {Platform.OS === 'web' && (
-          <View style={{ position: 'absolute', bottom: 20, right: 20, zIndex: 1000, flexDirection: 'row', gap: 10 }}>
+          <View className="absolute bottom-6 right-6 z-[1000] flex-row gap-2">
             <TouchableOpacity 
               onPress={() => { translateX.value = withSpring(0); translateY.value = withSpring(0); scale.value = withSpring(1); }}
-              className="bg-surface-card p-3 rounded-xl border border-surface-border shadow-xl hover:bg-surface-overlay"
-            ><FontAwesome name="compress" size={16} className="text-brand-primary" /></TouchableOpacity>
+              className="bg-surface-card p-3 rounded-xl border border-surface-border shadow-xl hover:bg-surface-overlay active:scale-95 transition-all group"
+            >
+              <FontAwesome name="compress" size={16} className="text-brand-primary group-active:text-brand-primary-active" />
+            </TouchableOpacity>
           </View>
         )}
 
         <GestureDetector gesture={Gesture.Simultaneous(panGesture, zoomGesture)}>
-          <Animated.View style={[styles.canvas, canvasStyle]}>
-            {/* Connection Lines (SVG Layer) */}
-            <ConnectionLines stages={stages} transitions={transitions} />
+          <Animated.View style={[styles.canvas, canvasStyle] as any}>
+            <ConnectionLines 
+              stages={stages} 
+              transitions={transitions} 
+              onEditTransition={onEditTransition}
+            />
 
             {/* Stages (Nodes) */}
             {stages.map((stage, index) => (
@@ -258,5 +264,5 @@ const styles = StyleSheet.create({
     width: 5000,
     height: 5000,
     ...(Platform.OS === 'web' ? { cursor: 'grab' } : {}),
-  }
+  } as any
 });

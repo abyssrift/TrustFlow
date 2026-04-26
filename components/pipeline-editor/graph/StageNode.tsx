@@ -2,7 +2,8 @@ import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { 
   Gesture, 
-  GestureDetector 
+  GestureDetector,
+  TouchableOpacity as GHTouchableOpacity
 } from 'react-native-gesture-handler';
 import Animated, { 
   useSharedValue, 
@@ -102,7 +103,21 @@ export default function StageNode({
       runOnJS(onEndConnection)(undefined);
     });
   
-  // Connection state style
+  // Connection state style (Pulse effect for targets)
+  const inputPortStyle = useAnimatedStyle(() => {
+    const scaleValue = isConnecting.value && !stage.is_initial ? withSpring(1.5, { damping: 10 }) : withSpring(1);
+    const opacityValue = isConnecting.value && !stage.is_initial ? withSpring(1) : 0.8;
+    
+    return {
+      transform: [{ scale: scaleValue }],
+      opacity: opacityValue,
+      shadowColor: stage.color || 'rgb(var(--brand-primary))',
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: isConnecting.value ? 0.8 : 0,
+      shadowRadius: 10,
+    };
+  });
+
   const connectionHighlightStyle = useAnimatedStyle(() => {
     return {
       opacity: isConnecting.value ? 0.6 : 1,
@@ -110,17 +125,14 @@ export default function StageNode({
         { scale: isConnecting.value ? withSpring(0.98) : withSpring(1) }
       ],
       borderWidth: isConnecting.value ? 3 : 2,
-      // Using hex-strings is safer for some reanimated versions, 
-      // but we'll stick to the var-strings if established or use themed constants if available.
-      // For now, making it clear these are design tokens.
       borderColor: isConnecting.value ? 'rgb(var(--brand-primary))' : 'rgb(var(--surface-border))',
     };
   });
 
   const animatedStyle = useAnimatedStyle(() => ({
+    left: translateX.value,
+    top: translateY.value,
     transform: [
-      { translateX: translateX.value },
-      { translateY: translateY.value },
       { scale: withSpring(isDragging.value ? 1.05 : 1) }
     ],
     zIndex: isDragging.value ? 100 : 1,
@@ -135,7 +147,7 @@ export default function StageNode({
 
   return (
     <Animated.View style={[styles.container, animatedStyle]}>
-      <GestureDetector gesture={Gesture.Exclusive(dragGesture, tapGesture)}>
+      <GestureDetector gesture={dragGesture}>
         <Animated.View 
           className="bg-surface-card rounded-2xl shadow-xl overflow-hidden border-2 border-surface-border"
           style={[
@@ -144,36 +156,98 @@ export default function StageNode({
             { borderTopColor: stage.color || 'rgb(var(--text-muted))', borderTopWidth: 6 }
           ]}
         >
-          {/* Header */}
-          <View 
-            className="bg-surface-background/50 px-3 py-2 flex-row justify-between items-center border-b border-surface-border"
-            style={styles.header}
-          ><View style={styles.headerLeft}><View style={[styles.statusDot, { backgroundColor: stage.color || '#64748b' }]} /><Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">{stage.is_initial ? 'Entry' : stage.is_terminal ? 'Terminal' : 'Logic Block'}</Text></View><View style={styles.headerRight}><TouchableOpacity onPress={onEdit}><FontAwesome name="pencil" size={10} color="rgb(var(--text-muted))" /></TouchableOpacity><TouchableOpacity onPress={onDelete}><FontAwesome name="trash" size={10} color="rgb(var(--state-danger))" /></TouchableOpacity></View></View>
-
-          {/* Body */}
-          <View className="p-4 flex-1 justify-center" style={styles.body}><Text className="text-typography-main font-black text-lg leading-tight mb-1 uppercase tracking-tight">{stage.name}</Text>{stage.description && (<Text className="text-typography-muted text-[10px] leading-relaxed" numberOfLines={2}>{stage.description}</Text>)}<View className="flex-row gap-1.5 mt-4" style={styles.flagsContainer}>{stage.requires_submission && (<View className="bg-brand-primary/10 px-2 py-0.5 rounded border border-brand-primary/20"><FontAwesome name="upload" size={8} color="rgb(var(--state-warning))" /></View>)}{stage.requires_timer && (<View className="bg-brand-primary/10 px-2 py-0.5 rounded border border-brand-primary/20"><FontAwesome name="clock-o" size={8} color="rgb(var(--state-info))" /></View>)}{stage.linked_pipeline_id && (<View className="bg-brand-primary/10 px-2 py-0.5 rounded border border-brand-primary/20"><FontAwesome name="bolt" size={8} color="rgb(var(--brand-primary))" /></View>)}</View></View>
-
-          {/* Input Port (Visual only) */}
-          {!stage.is_initial && (
-            <View style={styles.inputPortContainer}>
-               <View className="bg-surface-background border-2 border-surface-border rounded-full items-center justify-center" style={styles.inputPortDot}>
-                  <View className="bg-surface-border rounded-full" style={styles.inputPortInner} />
-               </View>
+          {/* Header (Draggable, but buttons take priority) */}
+          <View className="bg-surface-background/50 px-3 py-2 flex-row justify-between items-center border-b border-surface-border w-full">
+            <View className="flex-row items-center gap-2">
+              <View 
+                className="w-2 h-2 rounded-full" 
+                style={{ backgroundColor: stage.color || 'rgb(var(--text-muted))' }} 
+              />
+              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">
+                {stage.is_initial ? 'Entry' : stage.is_terminal ? 'Terminal' : 'Logic Block'}
+              </Text>
             </View>
-          )}
+            <View className="flex-row gap-3">
+              <TouchableOpacity 
+                onPress={onEdit}
+                className="p-1 hover:bg-surface-overlay rounded-md transition-all"
+              >
+                <FontAwesome name="pencil" size={10} color={stage.color || "rgb(var(--text-dim))"} />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                onPress={onDelete}
+                className="p-1 hover:bg-surface-overlay rounded-md transition-all"
+              >
+                <FontAwesome name="trash" size={10} color="rgb(var(--state-danger))" />
+              </TouchableOpacity>
+            </View>
+          </View>
 
-          {/* Output Port (Interactive) */}
-          {!stage.is_terminal && (
-            <GestureDetector gesture={connectGesture}>
-              <View style={styles.outputPortContainer}>
-                <View className="bg-surface-background border-2 border-brand-primary rounded-full shadow-xl items-center justify-center" style={styles.outputPortDot}>
-                  <View className="bg-brand-primary rounded-full" style={styles.outputPortInner} />
-                </View>
+          {/* Body (Tappable to Edit) */}
+          <GestureDetector gesture={tapGesture}>
+            <View className="p-4 flex-1 justify-center w-full">
+              <Text className="text-typography-main font-black text-lg leading-tight mb-1 uppercase tracking-tight">
+                {stage.name}
+              </Text>
+              {stage.description && (
+                <Text className="text-typography-muted text-[10px] leading-relaxed" numberOfLines={2}>
+                  {stage.description}
+                </Text>
+              )}
+              
+              <View className="flex-row gap-1.5 mt-4">
+                {stage.requires_submission && (
+                  <View className="bg-surface-background/40 px-2 py-0.5 rounded border border-surface-border">
+                    <FontAwesome name="upload" size={8} color={stage.color || "rgb(var(--state-warning))"} />
+                  </View>
+                )}
+                {stage.requires_timer && (
+                  <View className="bg-surface-background/40 px-2 py-0.5 rounded border border-surface-border">
+                    <FontAwesome name="clock-o" size={8} color={stage.color || "rgb(var(--state-info))"} />
+                  </View>
+                )}
+                {stage.linked_pipeline_id && (
+                  <View className="bg-surface-background/40 px-2 py-0.5 rounded border border-surface-border">
+                    <FontAwesome name="bolt" size={8} color={stage.color || "rgb(var(--brand-primary))"} />
+                  </View>
+                )}
               </View>
-            </GestureDetector>
-          )}
+            </View>
+          </GestureDetector>
         </Animated.View>
       </GestureDetector>
+
+      {/* Input Port (Target) - Moved Outside Card to avoid clipping */}
+      {!stage.is_initial && (
+        <Animated.View style={[styles.inputPortContainer, inputPortStyle]} pointerEvents="none">
+           <View 
+            className="bg-surface-background border-2 items-center justify-center rounded-full" 
+            style={[styles.inputPortDot, { borderColor: stage.color || 'rgb(var(--surface-border))' }]}
+           >
+              <View 
+                className="rounded-full" 
+                style={[styles.inputPortInner, { backgroundColor: stage.color || 'rgb(var(--surface-border))' }]} 
+              />
+           </View>
+        </Animated.View>
+      )}
+
+      {/* Output Port (Source) - Moved Outside Card to avoid clipping */}
+      {!stage.is_terminal && (
+        <GestureDetector gesture={connectGesture}>
+          <View style={styles.outputPortContainer}>
+            <View 
+              className="bg-surface-background border-2 shadow-xl items-center justify-center rounded-full" 
+              style={[styles.outputPortDot, { borderColor: stage.color || 'rgb(var(--brand-primary))' }]}
+            >
+              <View 
+                className="rounded-full" 
+                style={[styles.outputPortInner, { backgroundColor: stage.color || 'rgb(var(--brand-primary))' }]} 
+              />
+            </View>
+          </View>
+        </GestureDetector>
+      )}
     </Animated.View>
   );
 }
@@ -181,39 +255,12 @@ export default function StageNode({
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    left: 0,
-    top: 0,
     width: NODE_WIDTH,
     height: NODE_HEIGHT,
   },
   card: {
     width: NODE_WIDTH,
     height: NODE_HEIGHT,
-  },
-  header: {
-    width: '100%',
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  body: {
-    width: '100%',
-  },
-  flagsContainer: {
-    flexDirection: 'row',
-    gap: 6,
-    marginTop: 16,
   },
   inputPortContainer: {
     position: 'absolute',
@@ -245,7 +292,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 30,
     ...(Platform.OS === 'web' ? { cursor: 'crosshair' } : {}),
-  },
+  } as any,
   outputPortDot: {
     width: 20,
     height: 20,

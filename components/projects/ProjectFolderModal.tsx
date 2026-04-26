@@ -11,6 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { supabase } from '@/lib/supabase';
+import { useAlert } from '@/contexts/AlertContext';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 
 interface ProjectFolderModalProps {
@@ -23,7 +24,6 @@ interface ProjectFolderModalProps {
     description: string;
     expiry_date: string | null;
     status: 'active' | 'closed' | 'archived';
-    color: string;
   };
 }
 
@@ -33,6 +33,7 @@ export default function ProjectFolderModal({
   onSuccess,
   project,
 }: ProjectFolderModalProps) {
+  const { showAlert } = useAlert();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
@@ -55,7 +56,7 @@ export default function ProjectFolderModal({
 
   const handleSave = async () => {
     if (!name.trim()) {
-      Alert.alert('Error', 'Project name is required');
+      showAlert('Error', 'Project name is required');
       return;
     }
 
@@ -87,13 +88,12 @@ export default function ProjectFolderModal({
       }
 
       if (error) throw error;
-
-      Alert.alert('Success', `Project ${project ? 'updated' : 'created'} successfully`);
+      showAlert('Success', `Project ${project ? 'updated' : 'created'} successfully`);
       onSuccess();
       onClose();
     } catch (err: any) {
       console.error('Error saving project:', err);
-      Alert.alert('Error', err.message || 'Failed to save project');
+      showAlert('Error', err.message || 'Failed to save project');
     } finally {
       setLoading(false);
     }

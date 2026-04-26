@@ -58,6 +58,7 @@ type Task = {
 type Pipeline = {
   id: string;
   name: string;
+  task_visibility_mode: 'all' | 'assigned_only';
 };
 
 function TasksScreen() {
@@ -89,25 +90,32 @@ function TasksScreen() {
 
   const fetchData = async () => {
     try {
-      // 1. Get default pipeline
-      const { data: pipelineData, error: pError } = await supabase
-        .from('pipelines')
-        .select('id, name')
-        .eq('is_default', true)
-        .limit(1)
-        .single();
+      // 1. Resolve Pipeline
+      let targetPipelineId = paramPipelineId;
+      let pipelineData: any = null;
 
-      if (pError) throw pError;
+      if (!targetPipelineId) {
+        const { data: pDefault } = await supabase.from('pipelines').select('id, name, task_visibility_mode').eq('is_default', true).limit(1).single();
+        targetPipelineId = pDefault?.id;
+        pipelineData = pDefault;
+      } else {
+        const { data: pSpecific } = await supabase.from('pipelines').select('id, name, task_visibility_mode').eq('id', targetPipelineId).single();
+        targetPipelineId = pSpecific?.id;
+        pipelineData = pSpecific;
+      }
+
       setPipeline(pipelineData);
       
       const { data: allPipes } = await supabase.from('pipelines').select('id, name').is('deleted_at', null);
       setAvailablePipelines(allPipes || []);
 
+      if (!targetPipelineId) return;
+
       // 2. Get stages
       const { data: stagesData, error: sError } = await supabase
         .from('pipeline_stages')
         .select('*, linked_pipeline:linked_pipeline_id(name)')
-        .eq('pipeline_id', pipelineData.id)
+        .eq('pipeline_id', targetPipelineId)
         .order('position', { ascending: true });
 
       if (sError) throw sError;
@@ -120,7 +128,15 @@ function TasksScreen() {
         .in('stage_id', (stagesData || []).map(s => s.id));
       setStageActions(actionsData || []);
 
-      // 4. Get tasks with assignments
+      // 4. Get User Teams (for filtering)
+      const { data: myTeams } = await supabase
+        .from('team_members')
+        .select('team_id')
+        .eq('user_id', user?.id)
+        .is('removed_at', null);
+      const myTeamIds = myTeams?.map(mt => mt.team_id) || [];
+
+      // 5. Get tasks with assignments
       const { data: tasksData, error: tError } = await supabase
         .from('tasks')
         .select(`
@@ -132,13 +148,29 @@ function TasksScreen() {
             user:assignee_user_id(full_name)
           )
         `)
-        .eq('pipeline_id', pipelineData.id)
+        .eq('pipeline_id', targetPipelineId)
         .order('created_at', { ascending: false });
 
       if (tError) throw tError;
-      setTasks(tasksData || [] as any);
 
-      // 5. Get Active Work Sessions with User details
+      // Filter tasks based on visibility mode
+      let filteredTasks = tasksData || [];
+      const canViewAll = hasPermission('task.view_all') || hasPermission('tasks.view_all') || hasPermission('system.view_all_data') || hasPermission('pipeline.edit');
+
+      if (pipelineData?.task_visibility_mode === 'assigned_only' && !canViewAll) {
+        filteredTasks = filteredTasks.filter(t => {
+          const isManager = t.manager_id === user?.id;
+          const isAssigned = t.assignments?.some(a => 
+            (a.assignee_user_id && a.assignee_user_id === user?.id) || 
+            (a.assignee_team_id && myTeamIds.includes(a.assignee_team_id))
+          );
+          return isManager || isAssigned;
+        });
+      }
+
+      setTasks(filteredTasks as any);
+
+      // 6. Get Active Work Sessions with User details
       const { data: sessions } = await supabase
         .from('task_work_sessions')
         .select(`
@@ -170,23 +202,9 @@ function TasksScreen() {
     }
   };
 
-  // Effect to handle pipelineId changes from search params
   useEffect(() => {
-    if (paramPipelineId && typeof paramPipelineId === 'string') {
-      const switchPipeline = async () => {
-        setLoading(true);
-        const { data } = await supabase.from('pipelines').select('id, name').eq('id', paramPipelineId).single();
-        if (data) {
-          setPipeline(data);
-          // Fetch stages and tasks for this specific pipeline
-          const { data: sData } = await supabase.from('pipeline_stages').select('*, linked_pipeline:linked_pipeline_id(name)').eq('pipeline_id', data.id).order('position');
-          setStages(sData || []);
-          const { data: tData } = await supabase.from('tasks').select('*, assignments:task_assignments(*, team:assignee_team_id(name), user:assignee_user_id(full_name))').eq('pipeline_id', data.id);
-          setTasks(tData || [] as any);
-        }
-        setLoading(false);
-      };
-      switchPipeline();
+    if (paramPipelineId) {
+      fetchData();
     }
   }, [paramPipelineId]);
 
@@ -203,7 +221,7 @@ function TasksScreen() {
     const tasksChannel = supabase
       .channel('tasks-board-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
-        console.log('Task change detected:', payload.event);
+        console.log('Task change detected:', payload.eventType);
         fetchData(); // Simplest approach: refetch on any task change for consistency
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'task_work_sessions' }, (payload) => {
@@ -293,7 +311,7 @@ function TasksScreen() {
              <View className="relative">
                 <View className="w-6 h-6 rounded-full bg-brand-primary/10 overflow-hidden border-2 border-state-success">
                    {activeSessions[task.id][0].avatar ? (
-                      <Image source={{ uri: activeSessions[task.id][0].avatar }} className="w-full h-full" />
+                      <Image source={{ uri: activeSessions[task.id][0].avatar || undefined }} className="w-full h-full" />
                    ) : (
                       <View className="flex-1 items-center justify-center bg-brand-primary/20">
                          <Text className="text-brand-primary text-[8px] font-black">{activeSessions[task.id][0].name.charAt(0)}</Text>
@@ -387,6 +405,44 @@ function TasksScreen() {
     );
   }
 
+  // EMPTY STATE: NO PIPELINES
+  if (!loading && availablePipelines.length === 0) {
+    const canManage = hasPermission('pipeline.edit');
+    return (
+      <View className="flex-1 bg-surface-background items-center justify-center px-6">
+        <View className="bg-surface-card w-full p-8 rounded-[32px] border border-surface-border items-center premium-shadow">
+          <View className="w-20 h-20 bg-brand-primary/10 rounded-full items-center justify-center mb-6">
+            <FontAwesome name="sitemap" size={32} color="rgb(var(--brand-primary))" />
+          </View>
+          
+          {canManage ? (
+            <>
+              <Text className="text-typography-main text-xl font-black mt-2 text-center">Setup Required</Text>
+              <Text className="text-typography-muted text-sm mt-3 text-center leading-5">
+                No workflow pipelines found. You need to create a pipeline before you can manage tasks.
+              </Text>
+              <TouchableOpacity
+                onPress={() => router.push('/admin/pipelines')}
+                className="bg-brand-primary px-8 py-4 rounded-2xl mt-8 active:scale-95 transition-all"
+              >
+                <Text className="text-typography-main font-black uppercase tracking-widest text-xs">Create First Pipeline</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <View className="bg-state-info-dim border border-state-info/20 p-5 rounded-2xl w-full">
+              <View className="flex-row items-start">
+                <FontAwesome name="info-circle" size={16} color="rgb(var(--state-info))" style={{ marginTop: 2 }} />
+                <Text className="text-typography-main text-sm font-bold ml-3 flex-1 leading-5">
+                  Either no pipelines exist now, or they're not privileged enough to see them, contact company Admin
+                </Text>
+              </View>
+            </View>
+          )}
+        </View>
+      </View>
+    );
+  }
+
    return (
      <View className="flex-1 bg-surface-background">
       
@@ -402,9 +458,9 @@ function TasksScreen() {
           <View 
             className="absolute inset-0" 
             style={{ 
-              backgroundColor: `rgba(0,0,0,${kanban.bgOverlay})`,
-              backdropFilter: Platform.OS === 'web' ? `blur(${kanban.bgBlur}px)` : undefined
-            }} 
+               backgroundColor: `rgba(0,0,0,${kanban.bgOverlay})`,
+               ...(Platform.OS === 'web' ? { backdropFilter: `blur(${kanban.bgBlur}px)` } : {})
+            } as any} 
           />
         </View>
       )}

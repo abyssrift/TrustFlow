@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, Alert, Platform } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { supabase } from '@/lib/supabase';
@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { getPrimaryColor, getAccentColor, getSuccessColor } from '@/lib/themeColors';
 import { isComplexActionType } from './actionRegistry';
+import { useElapsedTime } from '@/hooks/useElapsedTime';
 
 // ─── Types ────────────────────────────────────────────────────
 export type ActiveSessionUser = {
@@ -67,35 +68,6 @@ const ACTION_STYLES: Record<string, { bg: string; border: string; text: string }
   primary: { bg: 'bg-brand-primary/10', border: 'border-brand-primary/30', text: 'text-brand-primary' },
 };
 
-// ─── Elapsed Timer Hook ───────────────────────────────────────
-function useElapsedTime(startedAt: string | null): string {
-  const [elapsed, setElapsed] = useState('00:00');
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => {
-    if (!startedAt) {
-      setElapsed('00:00');
-      return;
-    }
-
-    const update = () => {
-      const diff = Math.max(0, Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000));
-      const hrs = Math.floor(diff / 3600);
-      const mins = Math.floor((diff % 3600) / 60);
-      const secs = diff % 60;
-      const pad = (n: number) => String(n).padStart(2, '0');
-      setElapsed(hrs > 0 ? `${pad(hrs)}:${pad(mins)}:${pad(secs)}` : `${pad(mins)}:${pad(secs)}`);
-    };
-
-    update();
-    intervalRef.current = setInterval(update, 1000);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [startedAt]);
-
-  return elapsed;
-}
 
 // ─── Component ────────────────────────────────────────────────
 export default function TaskCardActions({ task, stages, stageActions, activeSessions, userId, onRefresh }: Props) {

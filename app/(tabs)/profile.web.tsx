@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, ScrollView, ActivityIndicator } from 'react-native';
 import { Stack } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAlert } from '@/contexts/AlertContext';
 import { supabase } from '@/lib/supabase';
 import ProfileAvatar from '@/components/profile/ProfileAvatar';
 import ProfileGeneralForm from '@/components/profile/ProfileGeneralForm';
@@ -12,7 +13,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 type TabType = 'general' | 'security' | 'stats';
 
 export default function ProfilePageWeb() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, refreshProfile } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('general');
   const [profileData, setProfileData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -36,6 +37,40 @@ export default function ProfilePageWeb() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const { showConfirm, showAlert } = useAlert();
+
+  const handleLeaveWorkspace = async () => {
+    showConfirm(
+      'Leave Workspace',
+      'Are you sure you want to leave this workspace? You will lose access to all data within this company.',
+      async () => {
+        try {
+          const { error } = await supabase.rpc('rpc_leave_company');
+          if (error) throw error;
+          await refreshProfile();
+        } catch (err: any) {
+          showAlert('Error', err.message || 'Failed to leave workspace');
+        }
+      }
+    );
+  };
+
+  const handleDisbandWorkspace = async () => {
+    showConfirm(
+      'Disband Workspace',
+      'WARNING: This will permanently delete this workspace and all associated data for ALL members. This action cannot be undone. Are you absolutely sure?',
+      async () => {
+        try {
+          const { error } = await supabase.rpc('rpc_delete_company');
+          if (error) throw error;
+          await refreshProfile();
+        } catch (err: any) {
+          showAlert('Error', err.message || 'Failed to disband workspace');
+        }
+      }
+    );
   };
 
   useEffect(() => {
@@ -63,7 +98,7 @@ export default function ProfilePageWeb() {
             url={profileData.avatar_url} 
             name={profileData.display_name || profileData.full_name || 'User'} 
             onUpload={(url) => {
-              setProfileData(prev => ({ ...prev, avatar_url: url }));
+              setProfileData((prev: any) => ({ ...prev, avatar_url: url }));
             }}
             size={100}
           />
@@ -71,7 +106,7 @@ export default function ProfilePageWeb() {
             {profileData.display_name || profileData.full_name || 'Set Name'}
           </Text>
           <Text className="text-[10px] font-bold text-brand-primary uppercase tracking-[0.2em] mt-1">
-            {profileData.job_title || 'Workspace Member'}
+            {profileData.job_title || (profileData.is_owner ? 'Workspace Owner' : 'Workspace Member')}
           </Text>
         </View>
 
@@ -99,13 +134,35 @@ export default function ProfilePageWeb() {
           />
         </View>
 
-        <View className="mt-auto">
+        <View className="mt-auto gap-3">
+          {profileData.company_id && (
+            <View className="gap-2">
+              {profileData.is_owner && (
+                <Pressable
+                  onPress={handleDisbandWorkspace}
+                  className="h-12 flex-row items-center rounded-xl border border-state-danger bg-state-danger/10 px-4 hover:bg-state-danger/20 transition-colors"
+                >
+                  <FontAwesome name="trash" size={14} color="#ef4444" style={{ marginRight: 12 }} />
+                  <Text className="text-xs font-black uppercase tracking-widest text-state-danger">Disband Workspace</Text>
+                </Pressable>
+              )}
+              
+              <Pressable
+                onPress={handleLeaveWorkspace}
+                className="h-12 flex-row items-center rounded-xl border border-state-danger/20 bg-state-danger/5 px-4 hover:bg-state-danger/10 transition-colors"
+              >
+                <FontAwesome name="minus-circle" size={14} color="#ef4444" style={{ marginRight: 12 }} />
+                <Text className="text-xs font-black uppercase tracking-widest text-state-danger">Leave Workspace</Text>
+              </Pressable>
+            </View>
+          )}
+
            <Pressable
             onPress={() => signOut()}
-            className="h-12 flex-row items-center rounded-xl border border-brand-danger/20 bg-brand-danger/5 px-4 hover:bg-brand-danger/10 transition-colors"
+            className="h-12 flex-row items-center rounded-xl border border-typography-dim/20 bg-surface-overlay px-4 hover:bg-surface-border transition-colors"
           >
-            <FontAwesome name="sign-out" size={14} className="text-brand-danger mr-3" />
-            <Text className="text-xs font-black uppercase tracking-widest text-brand-danger">Sign Out</Text>
+            <FontAwesome name="sign-out" size={14} color="rgb(var(--typography-main))" style={{ marginRight: 12 }} />
+            <Text className="text-xs font-black uppercase tracking-widest text-typography-main">Sign Out</Text>
           </Pressable>
         </View>
       </View>
@@ -159,7 +216,7 @@ function TabButton({ active, onPress, icon, label, description }: {
       }`}
     >
       <View className={`h-10 w-10 items-center justify-center rounded-xl ${active ? 'bg-brand-primary/20' : 'bg-surface-overlay'}`}>
-        <FontAwesome name={icon} size={16} className={active ? 'text-brand-accent' : 'text-typography-dim'} />
+        <FontAwesome name={icon} size={16} color={active ? '#6366f1' : '#64748b'} />
       </View>
       <View className="ml-4">
         <Text className={`text-sm font-black ${active ? 'text-brand-primary' : 'text-typography-main'}`}>{label}</Text>

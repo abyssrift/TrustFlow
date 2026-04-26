@@ -56,6 +56,7 @@ type Task = {
 type Pipeline = {
   id: string;
   name: string;
+  task_visibility_mode: 'all' | 'assigned_only';
 };
 
 function TasksScreenWeb() {
@@ -85,11 +86,11 @@ function TasksScreenWeb() {
       // 1. Resolve Pipeline
       let targetPipelineId = paramPipelineId;
       if (!targetPipelineId) {
-        const { data: pDefault } = await supabase.from('pipelines').select('id, name').eq('is_default', true).limit(1).single();
+        const { data: pDefault } = await supabase.from('pipelines').select('id, name, task_visibility_mode').eq('is_default', true).limit(1).single();
         targetPipelineId = pDefault?.id;
         setPipeline(pDefault);
       } else {
-        const { data: pSpecific } = await supabase.from('pipelines').select('id, name').eq('id', targetPipelineId).single();
+        const { data: pSpecific } = await supabase.from('pipelines').select('id, name, task_visibility_mode').eq('id', targetPipelineId).single();
         setPipeline(pSpecific);
       }
 
@@ -113,7 +114,15 @@ function TasksScreenWeb() {
         .in('stage_id', (stagesData || []).map(s => s.id));
       setStageActions(actionsData || []);
 
-      // 4. Get tasks
+      // 4. Get User Teams (for filtering)
+      const { data: myTeams } = await supabase
+        .from('team_members')
+        .select('team_id')
+        .eq('user_id', user?.id)
+        .is('removed_at', null);
+      const myTeamIds = myTeams?.map(mt => mt.team_id) || [];
+
+      // 5. Get tasks
       const { data: tasksData } = await supabase
         .from('tasks')
         .select(`
@@ -127,9 +136,25 @@ function TasksScreenWeb() {
         `)
         .eq('pipeline_id', targetPipelineId)
         .order('created_at', { ascending: false });
-      setTasks(tasksData || [] as any);
 
-      // 5. Active Sessions
+      // Filter tasks based on visibility mode
+      let filteredTasks = tasksData || [];
+      const canViewAll = hasPermission('task.view_all') || hasPermission('tasks.view_all') || hasPermission('system.view_all_data') || hasPermission('pipeline.edit');
+
+      if (pipeline?.task_visibility_mode === 'assigned_only' && !canViewAll) {
+        filteredTasks = filteredTasks.filter(t => {
+          const isManager = t.manager_id === user?.id;
+          const isAssigned = t.assignments?.some(a => 
+            (a.assignee_user_id && a.assignee_user_id === user?.id) || 
+            (a.assignee_team_id && myTeamIds.includes(a.assignee_team_id))
+          );
+          return isManager || isAssigned;
+        });
+      }
+
+      setTasks(filteredTasks as any);
+
+      // 6. Active Sessions
       const { data: sessions } = await supabase
         .from('task_work_sessions')
         .select('task_id, user_id, started_at, user:user_id(full_name, avatar_url)')
@@ -224,12 +249,14 @@ function TasksScreenWeb() {
                    <Text className="text-brand-primary text-[8px] font-black italic">SUB</Text>
                 </View>
               )}
-              <TouchableOpacity 
-                onPress={() => handleOpenAssignments(task)}
-                className="w-6 h-6 items-center justify-center rounded-full bg-surface-background border border-surface-border hover:bg-brand-primary/10 transition-colors"
-              >
-                <FontAwesome name="user-plus" size={10} className="text-typography-muted hover:text-brand-primary" />
-              </TouchableOpacity>
+              {hasPermission('task.assign') && (
+                <TouchableOpacity 
+                  onPress={() => handleOpenAssignments(task)}
+                  className="w-6 h-6 items-center justify-center rounded-full bg-surface-background border border-surface-border hover:bg-brand-primary/10 transition-colors"
+                >
+                  <FontAwesome name="user-plus" size={10} className="text-typography-muted hover:text-brand-primary" />
+                </TouchableOpacity>
+              )}
               <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest">{task.category || 'General'}</Text>
            </View>
         </View>
@@ -361,6 +388,41 @@ function TasksScreenWeb() {
           {loading ? (
             <View className="flex-1 items-center justify-center">
               <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
+            </View>
+          ) : availablePipelines.length === 0 ? (
+            <View className="flex-1 items-center justify-center">
+              <View className="bg-surface-card p-12 rounded-[3rem] border border-surface-border items-center max-w-[600px] premium-shadow">
+                <View className="w-20 h-20 bg-brand-primary/10 rounded-full items-center justify-center mb-6">
+                  <FontAwesome name="sitemap" size={32} color="rgb(var(--brand-primary))" />
+                </View>
+                
+                {hasPermission('pipeline.edit') ? (
+                  <>
+                    <Text className="text-typography-main text-3xl font-black mb-2 text-center">Setup Required</Text>
+                    <Text className="text-typography-muted text-center mb-8 leading-relaxed">
+                      No pipelines detected. You must initialize at least one workflow pipeline to begin tracking tasks.
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => router.push('/admin/pipelines')}
+                      className="bg-brand-primary px-10 py-4 rounded-2xl active:scale-95 transition-all"
+                    >
+                      <Text className="text-typography-main font-black uppercase tracking-widest text-xs">Configure Pipelines</Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <View className="bg-state-info-dim border border-state-info/20 p-8 rounded-3xl w-full">
+                    <View className="flex-row items-start">
+                      <FontAwesome name="info-circle" size={20} color="rgb(var(--state-info))" style={{ marginTop: 4 }} />
+                      <View className="ml-5 flex-1">
+                         <Text className="text-typography-main text-lg font-black mb-1">Access Restricted</Text>
+                         <Text className="text-typography-muted text-sm font-bold leading-relaxed">
+                           Either no pipelines exist now, or they're not privileged enough to see them, contact company Admin
+                         </Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
+              </View>
             </View>
           ) : (
             <ScrollView 

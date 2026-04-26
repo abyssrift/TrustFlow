@@ -4,9 +4,11 @@ import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { TaskDetailProvider, useTaskDetail } from '@/contexts/TaskDetailContext';
 import TaskHeader from '@/components/task-detail/TaskHeader';
+import TimerPanel from '@/components/task-detail/TimerPanel';
 import TaskMetadata from '@/components/task-detail/TaskMetadata';
 import PeoplePanel from '@/components/task-detail/PeoplePanel';
 import StageActions from '@/components/task-detail/StageActions';
+import ChildPipelinesPanel from '@/components/task-detail/ChildPipelinesPanel';
 import PipelineJourney from '@/components/task-detail/PipelineJourney';
 import CommentsSection from '@/components/task-detail/CommentsSection';
 import ActivityLog from '@/components/task-detail/ActivityLog';
@@ -72,6 +74,7 @@ function TaskDetailContentWeb() {
   return (
     <View className="flex-1 bg-surface-background">
       <TaskHeader />
+      <TimerPanel />
       <View className="flex-1 flex-row">
         {/* LEFT: Main Operational Area */}
         <ScrollView
@@ -87,12 +90,13 @@ function TaskDetailContentWeb() {
 
         {/* RIGHT: Strategic Metadata Sidebar */}
         <View className="w-[450px] border-l border-surface-border bg-surface-card/30">
-          <ScrollView 
+          <ScrollView
             showsVerticalScrollIndicator={false}
             className="p-8 space-y-8"
           >
             <TaskMetadata />
             <PeoplePanel />
+            <ChildPipelinesPanel />
             <PipelineJourney />
             <ActivityLog />
             <View className="h-20" />

@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
 
 type AuditData = {
   funnel: Array<{ stage_name: string; task_count: number }>;
@@ -11,6 +12,7 @@ type AuditData = {
 };
 
 export default function ComparisonScreenWeb() {
+  const { hasPermission } = useAuth();
   const [targetA, setTargetA] = useState<{ id: string; name: string; type: 'user' | 'pipeline' | 'team' } | null>(null);
   const [targetB, setTargetB] = useState<{ id: string; name: string; type: 'user' | 'pipeline' | 'team' } | null>(null);
   
@@ -89,8 +91,44 @@ export default function ComparisonScreenWeb() {
       <Stack.Screen options={{ headerShown: false }} />
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         <View className="p-12 max-w-[1400px] mx-auto w-full">
-          
-          <View className="flex-row justify-between items-end mb-12">
+          {availablePipelines.length === 0 ? (
+             <View className="py-20 items-center justify-center">
+               <View className="bg-surface-card p-12 rounded-[3rem] border border-surface-border items-center max-w-[600px] premium-shadow">
+                 <View className="w-20 h-20 bg-brand-primary/10 rounded-full items-center justify-center mb-6">
+                   <FontAwesome name="exchange" size={32} color="rgb(var(--brand-primary))" />
+                 </View>
+                 
+                 {hasPermission('pipeline.edit') ? (
+                   <>
+                     <Text className="text-typography-main text-3xl font-black mb-2 text-center">Setup Required</Text>
+                     <Text className="text-typography-muted text-center mb-8 leading-relaxed">
+                       No pipelines detected. Comparison metrics require at least one active pipeline to provide meaningful performance data.
+                     </Text>
+                     <TouchableOpacity
+                       onPress={() => router.push('/admin/pipelines')}
+                       className="bg-brand-primary px-10 py-4 rounded-2xl active:scale-95 transition-all"
+                     >
+                       <Text className="text-typography-main font-black uppercase tracking-widest text-xs">Configure Pipelines</Text>
+                     </TouchableOpacity>
+                   </>
+                 ) : (
+                   <View className="bg-state-info-dim border border-state-info/20 p-8 rounded-3xl w-full">
+                     <View className="flex-row items-start">
+                       <FontAwesome name="info-circle" size={20} color="rgb(var(--state-info))" style={{ marginTop: 4 }} />
+                       <View className="ml-5 flex-1">
+                          <Text className="text-typography-main text-lg font-black mb-1">Access Restricted</Text>
+                          <Text className="text-typography-muted text-sm font-bold leading-relaxed">
+                            Either no pipelines exist now, or they're not privileged enough to see them, contact company Admin
+                          </Text>
+                       </View>
+                     </View>
+                   </View>
+                 )}
+               </View>
+             </View>
+          ) : (
+            <>
+              <View className="flex-row justify-between items-end mb-12">
             <View>
               <View className="flex-row items-center mb-2">
                 <View className="h-2 w-12 bg-brand-primary rounded-full mr-4" />
@@ -241,6 +279,8 @@ export default function ComparisonScreenWeb() {
           )}
 
           <View className="h-40" />
+          </>
+          )}
         </View>
       </ScrollView>
     </View>

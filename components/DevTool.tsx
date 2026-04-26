@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Alert } from 'react-native';
 import { supabase } from '@/lib/supabase';
+import { useAlert } from '@/contexts/AlertContext';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Link } from 'expo-router';
 
 export default function DevTool() {
+  const { showAlert } = useAlert();
   const [loading, setLoading] = useState(false);
   const [pipeline, setPipeline] = useState<any>(null);
 
@@ -17,8 +19,8 @@ export default function DevTool() {
     setLoading(true);
     const { error } = await supabase.from('tasks').delete().neq('id', '00000000-0000-0000-0000-000000000000');
     setLoading(false);
-    if (error) Alert.alert('Error', error.message);
-    else Alert.alert('Success', 'Cleared tasks!');
+    if (error) showAlert('Error', error.message);
+    else showAlert('Success', 'Cleared tasks!');
   };
 
   const seedTasks = async () => {
@@ -32,7 +34,7 @@ export default function DevTool() {
       });
     }
     setLoading(false);
-    Alert.alert('Success', 'Seeded 5 tasks!');
+    showAlert('Success', 'Seeded 5 tasks!');
   };
 
   if (!process.env.EXPO_PUBLIC_SUPABASE_URL) return null;

@@ -12,7 +12,7 @@ cssInterop(FontAwesome, {
     target: 'style',
     nativeStyleToProp: { color: true, size: true },
   },
-});
+} as any);
 
 function TabBarIcon(props: {
   name: React.ComponentProps<typeof FontAwesome>['name'];

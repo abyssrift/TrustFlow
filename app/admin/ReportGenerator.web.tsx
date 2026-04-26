@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import HorizontalScroll from '@/components/common/HorizontalScroll';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Stack, useRouter } from 'expo-router';
 
@@ -17,6 +18,7 @@ type ReportType = 'general' | 'worker_comparison' | 'team_comparison' | 'workflo
 
 export default function ReportGeneratorWeb() {
   const router = useRouter();
+  const { hasPermission } = useAuth();
 
   // State
   const [reportType, setReportType] = useState<ReportType>('general');
@@ -152,8 +154,44 @@ export default function ReportGeneratorWeb() {
       <Stack.Screen options={{ headerShown: false }} />
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         <View className="p-12 max-w-[1200px] mx-auto w-full pb-40">
-          
-          <View className="flex-row justify-between items-end mb-16">
+          {pipelines.length === 0 ? (
+            <View className="py-20 items-center justify-center">
+              <View className="bg-surface-card p-12 rounded-[3rem] border border-surface-border items-center max-w-[600px] premium-shadow">
+                <View className="w-20 h-20 bg-brand-primary/10 rounded-full items-center justify-center mb-6">
+                  <FontAwesome name="file-text-o" size={32} color="rgb(var(--brand-primary))" />
+                </View>
+                
+                {hasPermission('pipeline.edit') ? (
+                  <>
+                    <Text className="text-typography-main text-3xl font-black mb-2 text-center">Setup Required</Text>
+                    <Text className="text-typography-muted text-center mb-8 leading-relaxed">
+                      No pipelines detected. Report generation requires at least one active workflow pipeline to analyze.
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => router.push('/admin/pipelines')}
+                      className="bg-brand-primary px-10 py-4 rounded-2xl active:scale-95 transition-all"
+                    >
+                      <Text className="text-typography-main font-black uppercase tracking-widest text-xs">Configure Pipelines</Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <View className="bg-state-info-dim border border-state-info/20 p-8 rounded-3xl w-full">
+                    <View className="flex-row items-start">
+                      <FontAwesome name="info-circle" size={20} color="rgb(var(--state-info))" style={{ marginTop: 4 }} />
+                      <View className="ml-5 flex-1">
+                         <Text className="text-typography-main text-lg font-black mb-1">Access Restricted</Text>
+                         <Text className="text-typography-muted text-sm font-bold leading-relaxed">
+                           Either no pipelines exist now, or they're not privileged enough to see them, contact company Admin
+                         </Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
+              </View>
+            </View>
+          ) : (
+            <>
+              <View className="flex-row justify-between items-end mb-16">
             <View>
               <View className="flex-row items-center mb-4">
                 <View className="h-3 w-3 rounded-full bg-brand-primary mr-3 animate-pulse" />
@@ -319,6 +357,8 @@ export default function ReportGeneratorWeb() {
               </View>
             </View>
           </View>
+          </>
+          )}
         </View>
       </ScrollView>
     </View>

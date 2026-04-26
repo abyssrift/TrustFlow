@@ -19,12 +19,24 @@ export default function TaskHeader() {
   const { task, current_stage } = data;
   const prio = PRIORITY_MAP[task.priority] || PRIORITY_MAP.medium;
 
+  const handleBack = () => {
+    // If we have a pipeline, go back to it directly.
+    // router.back() falls through to the dashboard when there's no stack.
+    if (data.pipeline?.id) {
+      router.replace(`/(tabs)/tasks?pipelineId=${data.pipeline.id}` as any);
+    } else if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/tasks' as any);
+    }
+  };
+
   return (
     <View className="px-5 pt-12 pb-4 bg-surface-card border-b border-surface-border">
       {/* Top row: back + badges */}
       <View className="flex-row items-center mb-3">
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={handleBack}
           className="mr-4 bg-surface-background p-2 rounded-xl border border-surface-border active:opacity-50"
         >
           <FontAwesome name="chevron-left" size={16} color="#94a3b8" />

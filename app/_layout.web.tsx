@@ -12,6 +12,7 @@ import { cssInterop } from 'react-native-css-interop';
 import { useColorScheme } from '@/components/useColorScheme';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { ThemeProvider as AppThemeProvider } from '@/contexts/ThemeContext';
+import { AlertProvider } from '@/contexts/AlertContext';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Sidebar from '@/components/Sidebar.web';
 
@@ -20,7 +21,7 @@ cssInterop(FontAwesome, {
     target: 'style',
     nativeStyleToProp: { color: true, size: true },
   },
-});
+} as any);
 
 SplashScreen.preventAutoHideAsync();
 
@@ -52,7 +53,9 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <AuthProvider>
         <AppThemeProvider>
-          <RootLayoutNav />
+          <AlertProvider>
+            <RootLayoutNav />
+          </AlertProvider>
         </AppThemeProvider>
       </AuthProvider>
     </SafeAreaProvider>

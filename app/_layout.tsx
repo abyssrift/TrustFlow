@@ -10,8 +10,8 @@ import '../global.css';
 import { cssInterop } from 'react-native-css-interop';
 
 // Polyfill Platform global for libraries that expect it
-if (typeof global.Platform === 'undefined') {
-  (global as any).Platform = Platform;
+if (typeof (globalThis as any).Platform === 'undefined') {
+  (globalThis as any).Platform = Platform;
 }
 
 import { useColorScheme } from '@/components/useColorScheme';
@@ -22,7 +22,7 @@ cssInterop(FontAwesome, {
     target: 'style',
     nativeStyleToProp: { color: true, size: true },
   },
-});
+} as any);
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -76,6 +76,7 @@ export default function RootLayout() {
 }
 
 import { ThemeProvider as AppThemeProvider } from '@/contexts/ThemeContext';
+import { AlertProvider } from '@/contexts/AlertContext';
 
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
@@ -103,19 +104,21 @@ function RootLayoutNav() {
 
   return (
     <AppThemeProvider>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <View className="flex-1 bg-surface-background">
-          <Stack>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-            <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-            <Stack.Screen name="admin/pipelines" options={{ headerShown: false }} />
-            <Stack.Screen name="admin/roles" options={{ headerShown: false }} />
-            <Stack.Screen name="task/[id]" options={{ headerShown: false }} />
-            <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-          </Stack>
-        </View>
-      </ThemeProvider>
+      <AlertProvider>
+        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <View className="flex-1 bg-surface-background">
+            <Stack>
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+              <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+              <Stack.Screen name="admin/pipelines" options={{ headerShown: false }} />
+              <Stack.Screen name="admin/roles" options={{ headerShown: false }} />
+              <Stack.Screen name="task/[id]" options={{ headerShown: false }} />
+              <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+            </Stack>
+          </View>
+        </ThemeProvider>
+      </AlertProvider>
     </AppThemeProvider>
   );
 }

@@ -4,6 +4,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAlert } from '@/contexts/AlertContext';
 
 interface ProfileAvatarProps {
   url: string | null;
@@ -13,6 +14,7 @@ interface ProfileAvatarProps {
 }
 
 export default function ProfileAvatar({ url, name, onUpload, size = 120 }: ProfileAvatarProps) {
+  const { showAlert } = useAlert();
   const { user } = useAuth();
   const [uploading, setUploading] = useState(false);
 
@@ -82,7 +84,7 @@ export default function ProfileAvatar({ url, name, onUpload, size = 120 }: Profi
 
     } catch (error: any) {
       console.error('Avatar upload error:', error);
-      alert('Failed to update profile picture: ' + error.message);
+      showAlert('Error', 'Failed to update profile picture: ' + error.message);
     } finally {
       setUploading(false);
     }

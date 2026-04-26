@@ -8,6 +8,8 @@ export type Pipeline = {
   name: string;
   description: string | null;
   is_default: boolean;
+  visibility_permissions: string[];
+  task_visibility_mode: 'all' | 'assigned_only';
   created_at: string;
 };
 
@@ -83,7 +85,7 @@ export type Permission = {
   label: string;
 };
 
-type EditorSection = 'list' | 'stages' | 'transitions' | 'automations' | 'visualizer' | 'handshakes';
+type EditorSection = 'list' | 'stages' | 'transitions' | 'automations' | 'visualizer' | 'handshakes' | 'settings';
 
 type PipelineEditorState = {
   // Data
@@ -106,11 +108,27 @@ type PipelineEditorState = {
   deselectPipeline: () => void;
   refreshPipelines: () => Promise<void>;
   refreshPipelineData: () => Promise<void>;
-  // Pipeline CRUD
-  createPipeline: (name: string, desc: string, stages: any[], transitions: any[]) => Promise<string | null>;
-  updatePipeline: (id: string, name?: string, desc?: string, isDefault?: boolean) => Promise<boolean>;
+  
+  // Pipeline Actions
+  pipelineActions: {
+    create: (name: string, desc: string, stages: any[], transitions: any[], visibility_permissions?: string[], task_visibility_mode?: string) => Promise<string | null>;
+    update: (id: string, name?: string, desc?: string | null, isDefault?: boolean, visibility_permissions?: string[], task_visibility_mode?: string) => Promise<boolean>;
+    remove: (id: string) => Promise<boolean>;
+  };
+  
+  // Stage Actions
+  stageActionsApi: {
+    add: (args: Partial<Stage>) => Promise<string | null>;
+    update: (id: string, args: Partial<Stage>) => Promise<boolean>;
+    updatePosition: (id: string, x: number, y: number) => Promise<boolean>;
+    remove: (id: string) => Promise<boolean>;
+    reorder: (ids: string[]) => Promise<boolean>;
+  };
+
+  // Deprecated flat access (keeping for compatibility)
+  createPipeline: (name: string, desc: string, stages: any[], transitions: any[], visibility_permissions?: string[], task_visibility_mode?: string) => Promise<string | null>;
+  updatePipeline: (id: string, name?: string, desc?: string | null, isDefault?: boolean, visibility_permissions?: string[], task_visibility_mode?: string) => Promise<boolean>;
   deletePipeline: (id: string) => Promise<boolean>;
-  // Stage CRUD
   addStage: (args: Partial<Stage>) => Promise<string | null>;
   updateStage: (id: string, args: Partial<Stage>) => Promise<boolean>;
   updateStagePosition: (id: string, x: number, y: number) => Promise<boolean>;
@@ -324,7 +342,7 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
 
   // ═══ Pipeline CRUD ═══
   const createPipeline = useCallback(async (
-    name: string, desc: string, stagesArr: any[], transArr: any[]
+    name: string, desc: string, stagesArr: any[], transArr: any[], visibility_permissions: string[] = [], task_visibility_mode: string = 'all'
   ): Promise<string | null> => {
     setLoading(true);
     try {
@@ -333,6 +351,8 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
         p_description: desc,
         p_stages: stagesArr,
         p_transitions: transArr,
+        p_visibility_permissions: visibility_permissions,
+        p_task_visibility_mode: task_visibility_mode,
       });
       if (e) throw e;
       await refreshPipelines();
@@ -346,7 +366,7 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
   }, [refreshPipelines]);
 
   const updatePipeline = useCallback(async (
-    id: string, name?: string, desc?: string, isDefault?: boolean
+    id: string, name?: string, desc?: string | null, isDefault?: boolean, visibility_permissions?: string[], task_visibility_mode?: string
   ): Promise<boolean> => {
     setLoading(true);
     try {
@@ -355,11 +375,19 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
         p_name: name ?? null,
         p_description: desc ?? null,
         p_is_default: isDefault ?? null,
+        p_visibility_permissions: visibility_permissions ?? null,
+        p_task_visibility_mode: task_visibility_mode ?? null,
       });
       if (e) throw e;
       await refreshPipelines();
-      if (selectedPipeline?.id === id && name) {
-        setSelectedPipeline(prev => prev ? { ...prev, name, description: desc ?? prev.description } : null);
+      if (selectedPipeline?.id === id) {
+        setSelectedPipeline(prev => prev ? { 
+          ...prev, 
+          name: name ?? prev.name, 
+          description: desc ?? prev.description,
+          visibility_permissions: visibility_permissions ?? prev.visibility_permissions,
+          task_visibility_mode: (task_visibility_mode as any) ?? prev.task_visibility_mode
+        } : null);
       }
       return true;
     } catch (e: any) {
@@ -763,6 +791,22 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
         activeSection, loading, error, isOperationInFlight,
         setActiveSection, selectPipeline, deselectPipeline,
         refreshPipelines, refreshPipelineData,
+        
+        // Grouped Actions
+        pipelineActions: {
+          create: createPipeline,
+          update: updatePipeline,
+          remove: deletePipeline
+        },
+        stageActionsApi: {
+          add: addStage,
+          update: updateStage,
+          updatePosition: updateStagePosition,
+          remove: deleteStage,
+          reorder: reorderStages
+        },
+
+        // Flat compatibility layer
         createPipeline, updatePipeline, deletePipeline,
         addStage, updateStage, updateStagePosition, deleteStage, reorderStages,
         addTransition, updateTransition, deleteTransition,

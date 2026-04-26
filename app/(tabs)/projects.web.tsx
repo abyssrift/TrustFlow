@@ -25,7 +25,7 @@ type Project = {
   completed_tasks: number;
   overdue_tasks: number;
   completion_rate: number;
-  is_featured?: boolean;
+  is_featured: boolean;
 };
 
 export default function ProjectsScreenWeb() {

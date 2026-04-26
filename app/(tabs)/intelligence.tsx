@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import * as Linking from 'expo-linking';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 
 // Section Components
 const SectionToggle = ({ active, onSelect }: { active: string, onSelect: (s: string) => void }) => (
@@ -26,6 +26,8 @@ const SectionToggle = ({ active, onSelect }: { active: string, onSelect: (s: str
 
 export default function IntelligenceScreen() {
   const { section } = useLocalSearchParams();
+  const router = useRouter();
+  const { hasPermission } = useAuth();
   const [activeSection, setActiveSection] = useState((section as string) || 'radar');
   const [loading, setLoading] = useState(true);
   const [showReportModal, setShowReportModal] = useState(false);
@@ -206,6 +208,41 @@ export default function IntelligenceScreen() {
         <View className="px-6">
           {loading ? (
             <View className="py-20"><ActivityIndicator color="rgb(var(--brand-primary))" /></View>
+          ) : pipelines.length === 0 ? (
+            <View className="py-10 items-center justify-center">
+              <View className="bg-surface-card p-8 rounded-[2rem] border border-surface-border items-center w-full premium-shadow">
+                <View className="w-16 h-16 bg-brand-primary/10 rounded-full items-center justify-center mb-6">
+                  <FontAwesome name="line-chart" size={24} color="rgb(var(--brand-primary))" />
+                </View>
+                
+                {hasPermission('pipeline.edit') ? (
+                  <>
+                    <Text className="text-typography-main text-xl font-black mb-2 text-center">Setup Required</Text>
+                    <Text className="text-typography-muted text-center mb-6 text-xs leading-relaxed">
+                      No pipelines found. Analytics require at least one active pipeline to function.
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => router.push('/admin/pipelines')}
+                      className="bg-brand-primary px-8 py-4 rounded-xl active:scale-95"
+                    >
+                      <Text className="text-white font-black uppercase tracking-widest text-[10px]">Configure</Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <View className="bg-state-info-dim border border-state-info/20 p-6 rounded-2xl w-full">
+                    <View className="flex-row items-start">
+                      <FontAwesome name="info-circle" size={16} color="rgb(var(--state-info))" style={{ marginTop: 2 }} />
+                      <View className="ml-4 flex-1">
+                         <Text className="text-typography-main text-sm font-black mb-1">Access Restricted</Text>
+                         <Text className="text-typography-muted text-[11px] font-bold leading-relaxed">
+                           Either no pipelines exist now, or they're not privileged enough to see them, contact company Admin
+                         </Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
+              </View>
+            </View>
           ) : activeSection === 'radar' ? (
             <RadarSection data={data} activeWidgets={activeWidgets} onEditWidgets={() => setShowWidgetModal(true)} />
           ) : activeSection === 'targets' ? (
@@ -250,8 +287,8 @@ export default function IntelligenceScreen() {
 
 const TargetCreationModal = ({ visible, onClose, onConfirm, pipelines, stages }: any) => {
   const [type, setType] = useState('performance');
-  const [p, setP] = useState(null);
-  const [s, setS] = useState(null);
+  const [p, setP] = useState<string | null>(null);
+  const [s, setS] = useState<string | null>(null);
   const [activeGoal, setActiveGoal] = useState('3600');
   const [lifeGoal, setLifeGoal] = useState('86400');
   const [quantity, setQuantity] = useState('50');
@@ -352,9 +389,9 @@ const TargetCreationModal = ({ visible, onClose, onConfirm, pipelines, stages }:
 
 const ReportConfigModal = ({ visible, onClose, onConfirm, pipelines, teams, users, initialDays }: any) => {
   const [d, setD] = useState(initialDays);
-  const [p, setP] = useState(null);
-  const [t, setT] = useState(null);
-  const [u, setU] = useState(null);
+  const [p, setP] = useState<string | null>(null);
+  const [t, setT] = useState<string | null>(null);
+  const [u, setU] = useState<string | null>(null);
   const [type, setType] = useState('performance_audit');
 
   return (

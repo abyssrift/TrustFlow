@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
+import EditTaskModal from './EditTaskModal';
 
 function MetaRow({ icon, label, value, valueColor }: { icon: string; label: string; value: string; valueColor?: string }) {
   return (
@@ -17,9 +18,11 @@ function MetaRow({ icon, label, value, valueColor }: { icon: string; label: stri
 
 export default function TaskMetadata() {
   const { data } = useTaskDetail();
+  const [isEditModalVisible, setIsEditModalVisible] = React.useState(false);
+
   if (!data) return null;
 
-  const { task, pipeline, current_stage, creator, manager, stats } = data;
+  const { task, pipeline, current_stage, creator, manager, stats, permissions } = data;
 
   const formatDate = (d: string | null) => {
     if (!d) return '—';
@@ -30,7 +33,18 @@ export default function TaskMetadata() {
 
   return (
     <View className="bg-surface-card rounded-2xl border border-surface-border p-4">
-      <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em] mb-3">Task Info</Text>
+      <View className="flex-row items-center justify-between mb-3">
+        <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em]">Task Info</Text>
+        {permissions.can_edit && (
+          <TouchableOpacity 
+            onPress={() => setIsEditModalVisible(true)}
+            className="flex-row items-center bg-surface-background px-2.5 py-1.5 rounded-lg border border-surface-border active:opacity-75"
+          >
+            <FontAwesome name="pencil" size={10} color="rgb(var(--brand-primary))" />
+            <Text className="text-brand-primary text-[10px] font-bold ml-1.5 uppercase tracking-wider">Edit</Text>
+          </TouchableOpacity>
+        )}
+      </View>
 
       {/* Description */}
       {task.description && (
@@ -58,6 +72,19 @@ export default function TaskMetadata() {
       />
       <MetaRow icon="clock-o" label="Created" value={formatDate(task.created_at)} />
       <MetaRow icon="calendar-check-o" label="In Pipeline" value={`${stats.days_in_pipeline} days`} />
+      <MetaRow icon="balance-scale" label="Weight" value={task.weight?.toString() || '1'} />
+      {task.is_recurring && <MetaRow icon="repeat" label="Recurring" value="Yes" valueColor="text-brand-primary" />}
+      {task.quarantine_reason && (
+        <View className="mt-3 p-3 bg-state-warning/10 border border-state-warning/30 rounded-xl">
+          <View className="flex-row items-center mb-1">
+            <FontAwesome name="warning" size={10} color="rgb(var(--state-warning))" />
+            <Text className="text-state-warning text-[10px] font-black uppercase ml-1.5 tracking-wider">Quarantined</Text>
+          </View>
+          <Text className="text-typography-main text-xs font-medium leading-4 italic">
+            "{task.quarantine_reason}"
+          </Text>
+        </View>
+      )}
 
       {/* Progress bar */}
       {task.progress > 0 && (
@@ -70,6 +97,13 @@ export default function TaskMetadata() {
             <View style={{ width: `${task.progress}%` }} className="h-full bg-brand-primary rounded-full" />
           </View>
         </View>
+      )}
+
+      {permissions.can_edit && (
+        <EditTaskModal 
+          visible={isEditModalVisible} 
+          onClose={() => setIsEditModalVisible(false)} 
+        />
       )}
     </View>
   );

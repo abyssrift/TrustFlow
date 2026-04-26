@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, Alert, TextInput } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTaskDetail, type StageActionData } from '@/contexts/TaskDetailContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { getActionDescriptor, splitStageActions } from './actionRegistry';
 
 const TYPE_STYLES: Record<string, { bg: string; border: string; text: string; icon: string }> = {
@@ -20,7 +21,8 @@ const STATUS_STYLES: Record<string, { bg: string; border: string; text: string; 
 };
 
 export default function StageActions() {
-  const { data, executeAction, submitWork, reviewSubmission } = useTaskDetail();
+  const { data, executeAction, submitWork, reviewSubmission, stopWork } = useTaskDetail();
+  const { user } = useAuth();
   const [loadingActionId, setLoadingActionId] = useState<string | null>(null);
   const [submissionContent, setSubmissionContent] = useState('');
 
@@ -39,9 +41,12 @@ export default function StageActions() {
   const reviewActionIds = grouped.review.map((a) => a.id);
   const pendingSubmission = data.submissions.find((s) => s.status === 'pending');
 
+  // Show the submission section only when there is something meaningful to show:
+  // a submit action, the stage explicitly requires submission, or submissions already exist.
+  // NOTE: hasReviewActions is intentionally excluded — review buttons render inside
+  // individual submission cards and should not force the whole section to appear.
   const showSubmissionSection = !!(
     submitAction ||
-    hasReviewActions ||
     data.current_stage?.requires_submission ||
     data.submissions.length > 0
   );
@@ -49,6 +54,13 @@ export default function StageActions() {
   const handleAction = async (action: StageActionData) => {
     try {
       setLoadingActionId(action.id);
+      
+      // Auto-stop timer if active
+      const myActiveSession = data.work_sessions.find(ws => ws.user_id === user?.id && ws.status === 'active');
+      if (myActiveSession) {
+        await stopWork();
+      }
+
       const descriptor = getActionDescriptor(action.action_type);
 
       if (descriptor.executionRoute === 'submit_work') {
@@ -57,7 +69,7 @@ export default function StageActions() {
           Alert.alert('Missing Submission', 'Please describe your work submission before continuing.');
           return;
         }
-        await submitWork(content);
+        await submitWork(content, action.transition_id);
         setSubmissionContent('');
         return;
       }

@@ -52,7 +52,7 @@ function RolesWebLayout() {
   }
 
   return (
-    <View className="flex-1 bg-surface-background" style={{ height: '100vh', overflow: 'hidden' }}>
+    <View className="flex-1 bg-surface-background" style={{ height: '100vh', overflow: 'hidden' } as any}>
       <Stack.Screen options={{ headerShown: false }} />
       
       {/* High-Fidelity Desktop Header */}

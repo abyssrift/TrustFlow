@@ -19,6 +19,7 @@ type TeamMember = {
   velocity_hours?: number;
   flap_rate?: number;
   tier?: string;
+  reliability?: number;
 };
 
 export default function PeopleScreenWeb() {
@@ -28,6 +29,7 @@ export default function PeopleScreenWeb() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedScan, setSelectedScan] = useState<TeamMember | null>(null);
   const [joinCode, setJoinCode] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const { profile } = useAuth();
   
   useEffect(() => {
@@ -50,11 +52,14 @@ export default function PeopleScreenWeb() {
   
   const fetchMembers = async (q: string = '') => {
     try {
-      const { data, error } = await supabase.rpc('rpc_search_users', { p_query: q });
-      if (error) throw error;
+      setLoading(true);
+      setError(null);
+      const { data, error: fetchError } = await supabase.rpc('rpc_search_users', { p_query: q });
+      if (fetchError) throw fetchError;
       setMembers(data || []);
     } catch (err: any) {
-      console.error('Error fetching members:', err);
+      console.error('Error fetching members:', JSON.stringify(err, null, 2));
+      setError(err.message || 'Failed to connect to personnel database');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -161,6 +166,18 @@ export default function PeopleScreenWeb() {
           <View className="py-40 items-center justify-center">
             <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
           </View>
+        ) : error ? (
+          <View className="w-full items-center justify-center py-40 bg-state-danger/10 rounded-[48px] border border-dashed border-state-danger/30">
+             <FontAwesome name="exclamation-triangle" size={48} color="rgb(var(--state-danger))" className="mb-6" />
+             <Text className="text-typography-main text-2xl font-black">Authentication / Connection Error</Text>
+             <Text className="text-typography-muted mt-2 text-center max-w-md">{error}</Text>
+             <TouchableOpacity 
+               onPress={() => fetchMembers(searchQuery)}
+               className="mt-8 bg-brand-primary px-8 py-3 rounded-xl"
+             >
+                <Text className="text-white font-bold uppercase tracking-widest text-[10px]">Retry Scan</Text>
+             </TouchableOpacity>
+          </View>
         ) : (
           <ScrollView 
             showsVerticalScrollIndicator={false}
@@ -225,7 +242,7 @@ export default function PeopleScreenWeb() {
                         <MetricBox label="Impact" val={selectedScan.contribution_points} desc="Cumulative contribution points" />
                         <MetricBox label="Velocity" val={`${(selectedScan.velocity_hours || 0).toFixed(1)}h`} desc="Average daily engagement" />
                         <MetricBox label="Quality" val={`${(selectedScan.flap_rate || 1.0).toFixed(2)}x`} desc="Success to attempt ratio" danger={(selectedScan.flap_rate || 0) > 1.5} />
-                        <MetricBox label="Reliability" val="94.2%" desc="Target consistency" />
+                        <MetricBox label="Reliability" val={`${(selectedScan.reliability || 100).toFixed(1)}%`} desc="Target consistency" />
                      </View>
 
                      <View className="mt-12 p-8 bg-surface-background rounded-3xl border border-surface-border">

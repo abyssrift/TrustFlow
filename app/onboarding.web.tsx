@@ -19,7 +19,7 @@ export default function OnboardingScreen() {
     const checkLateInvite = async () => {
       try {
         const { data, error: rpcError } = await supabase.rpc('rpc_claim_pending_invitation');
-        if (!rpcError && data && data.success) {
+        if (!rpcError && data) {
           // Successfully joined a late invite!
           await refreshProfile();
           router.replace('/(tabs)');
