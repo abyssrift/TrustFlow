@@ -25,7 +25,7 @@ export default function PipelineList() {
     pipelines, loading, error,
     refreshPipelines, selectPipeline,
     createPipeline, updatePipeline, deletePipeline,
-    permissions,
+    roles,
   } = usePipelineEditor();
   const { hasPermission, profile } = useAuth();
   const isAdmin = profile?.system_role === 'admin' || profile?.workspace_role === 'admin' || profile?.workspace_role === 'owner';
@@ -163,7 +163,7 @@ export default function PipelineList() {
                     <Text className="text-typography-main font-black text-lg mb-4">Edit Pipeline</Text>
                     <PipelineSettingsForm 
                       initialData={{ ...p, description: p.description ?? undefined }}
-                      permissions={permissions}
+                      roles={roles}
                       onSubmit={(data: any) => handleSaveEdit(p.id, data)}
                       onCancel={() => setEditingId(null)}
                       submitLabel="Save Changes"
@@ -295,12 +295,12 @@ export default function PipelineList() {
                </TouchableOpacity>
 
                <PipelineSettingsForm 
-                  permissions={permissions}
+                  roles={roles}
                   onSubmit={handleCreate}
                   onCancel={() => { setShowCreate(false); setIsQuickCreate(true); }}
                   submitLabel="Create Pipeline"
                   loading={loading}
-               />
+                />
             </ScrollView>
           </View>
         </View>

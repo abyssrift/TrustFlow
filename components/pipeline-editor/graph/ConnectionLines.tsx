@@ -148,7 +148,7 @@ export default function ConnectionLines({ stages, transitions, onEditTransition 
             style={{ left: item.midX - 50, top: item.midY - 22 }}
             className="absolute w-[100px] h-[44px] items-center justify-center z-50 flex-row gap-1.5"
           >
-            {transition?.label && (
+            {!!transition?.label && (
               <View className="bg-surface-card px-2 py-0.5 rounded-md border border-surface-border shadow-sm absolute -top-5">
                 <Text className="text-typography-main text-[9px] font-black uppercase tracking-tighter">
                   {transition.label}

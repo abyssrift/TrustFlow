@@ -80,10 +80,16 @@ export type Automation = {
   params?: Record<string, string>;
 };
 
-export type Permission = {
-  key: string;
-  label: string;
+/** A workspace role (dynamic cluster of permissions) */
+export type Role = {
+  id: string;
+  name: string;
+  color: string | null;
+  is_system: boolean;
 };
+
+/** @deprecated Use Role instead */
+export type Permission = Role;
 
 type EditorSection = 'list' | 'stages' | 'transitions' | 'automations' | 'visualizer' | 'handshakes' | 'settings';
 
@@ -96,7 +102,10 @@ type PipelineEditorState = {
   automations: Automation[];
   linkedOutcomes: LinkedOutcome[];
   stageActions: StageAction[];
-  permissions: Permission[];
+  /** All workspace roles available for pipeline visibility assignment */
+  roles: Role[];
+  /** @deprecated Use roles */
+  permissions: Role[];
   // UI
   activeSection: EditorSection;
   loading: boolean;
@@ -135,8 +144,8 @@ type PipelineEditorState = {
   deleteStage: (id: string) => Promise<boolean>;
   reorderStages: (ids: string[]) => Promise<boolean>;
   // Transition CRUD
-  addTransition: (from: string, to: string, label: string, perm?: string) => Promise<string | null>;
-  updateTransition: (id: string, label?: string, perm?: string) => Promise<boolean>;
+  addTransition: (from: string, to: string, label: string, perm?: string, type?: string) => Promise<string | null>;
+  updateTransition: (id: string, label?: string, perm?: string, type?: string) => Promise<boolean>;
   deleteTransition: (id: string) => Promise<boolean>;
   // Automation CRUD
   createAutomation: (args: any) => Promise<string | null>;
@@ -150,6 +159,7 @@ type PipelineEditorState = {
   updateStageAction: (id: string, args: Partial<StageAction>) => Promise<boolean>;
   deleteStageAction: (id: string) => Promise<boolean>;
   reorderStageActions: (stageId: string, actionIds: string[]) => Promise<boolean>;
+  clearError: () => void;
 };
 
 const PipelineEditorContext = createContext<PipelineEditorState | null>(null);
@@ -170,11 +180,12 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
   const [automations, setAutomations] = useState<Automation[]>([]);
   const [linkedOutcomes, setLinkedOutcomes] = useState<LinkedOutcome[]>([]);
   const [stageActions, setStageActions] = useState<StageAction[]>([]);
-  const [permissions, setPermissions] = useState<Permission[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
   const [activeSection, setActiveSection] = useState<EditorSection>('list');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isOperationInFlight, setIsOperationInFlight] = useState(false);
+  const clearError = useCallback(() => setError(null), []);
 
   // ── Fetch all pipelines ──
   const refreshPipelines = useCallback(async () => {
@@ -288,16 +299,17 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
     }
   }, [selectedPipeline]);
 
-  // ── Fetch permissions (for transition rules) ──
+  // ── Fetch roles (for pipeline visibility assignment) ──
   useEffect(() => {
-    const fetchPerms = async () => {
+    const fetchRoles = async () => {
       const { data } = await supabase
-        .from('permissions')
-        .select('key, label')
-        .order('key');
-      setPermissions(data || []);
+        .from('roles')
+        .select('id, name, color, is_system')
+        .is('deleted_at', null)
+        .order('name');
+      setRoles(data || []);
     };
-    fetchPerms();
+    fetchRoles();
   }, []);
 
   // ── Auto-refresh pipeline data when selection changes ──
@@ -326,11 +338,13 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
 
   // ── Select / Deselect ──
   const selectPipeline = useCallback((p: Pipeline) => {
+    setError(null);
     setSelectedPipeline(p);
     setActiveSection('stages');
   }, []);
 
   const deselectPipeline = useCallback(() => {
+    setError(null);
     setSelectedPipeline(null);
     setStages([]);
     setTransitions([]);
@@ -564,7 +578,7 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
 
   // ═══ Transition CRUD ═══
   const addTransition = useCallback(async (
-    from: string, to: string, label: string, perm?: string
+    from: string, to: string, label: string, perm?: string, type?: string
   ): Promise<string | null> => {
     setLoading(true);
     try {
@@ -573,6 +587,7 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
         p_to_stage_id: to,
         p_label: label,
         p_required_permission: perm || null,
+        p_transition_type: type || 'neutral',
       });
       if (e) throw e;
       await refreshPipelineData();
@@ -586,7 +601,7 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
   }, [refreshPipelineData]);
 
   const updateTransition = useCallback(async (
-    id: string, label?: string, perm?: string
+    id: string, label?: string, perm?: string, type?: string
   ): Promise<boolean> => {
     setLoading(true);
     try {
@@ -594,6 +609,7 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
         p_transition_id: id,
         p_label: label ?? null,
         p_required_permission: perm ?? null,
+        p_transition_type: type ?? null,
       });
       if (e) throw e;
       await refreshPipelineData();
@@ -786,11 +802,12 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
   return (
     <PipelineEditorContext.Provider
       value={{
-        pipelines, selectedPipeline, stages, transitions, automations, permissions,
+        pipelines, selectedPipeline, stages, transitions, automations, roles,
+        error, loading, activeSection, isOperationInFlight,
+        setActiveSection, selectPipeline, deselectPipeline, refreshPipelines, refreshPipelineData,
+        clearError,
+        permissions: roles,
         linkedOutcomes, stageActions,
-        activeSection, loading, error, isOperationInFlight,
-        setActiveSection, selectPipeline, deselectPipeline,
-        refreshPipelines, refreshPipelineData,
         
         // Grouped Actions
         pipelineActions: {

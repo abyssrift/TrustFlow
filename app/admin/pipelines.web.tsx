@@ -40,7 +40,10 @@ function PipelinesWebInner() {
     setActiveSection,
     createPipeline,
     pipelineActions,
-    permissions
+    roles,
+    error,
+    refreshPipelineData,
+    clearError
   } = usePipelineEditor();
 
   const { hasPermission } = useAuth();
@@ -94,14 +97,20 @@ function PipelinesWebInner() {
             <View className="max-w-2xl mx-auto w-full">
               <PipelineSettingsForm 
                 initialData={{
+                  id: selectedPipeline.id,
                   name: selectedPipeline.name,
                   description: selectedPipeline.description,
                   visibility_permissions: selectedPipeline.visibility_permissions || [],
                   task_visibility_mode: selectedPipeline.task_visibility_mode || 'all'
                 }}
-                permissions={permissions}
+                roles={roles}
+                error={error}
                 submitLabel="Update Configuration"
-                onCancel={() => setActiveSection('visualizer')}
+                onCancel={() => {
+                  clearError();
+                  setActiveSection('visualizer');
+                }}
+                onClearError={clearError}
                 onSubmit={async (data) => {
                   await pipelineActions.update(
                     selectedPipeline.id, 

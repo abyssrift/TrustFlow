@@ -1,54 +1,94 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity, TextInput, ScrollView, ActivityIndicator } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
-import { Permission } from '@/contexts/PipelineEditorContext';
+import { Role } from '@/contexts/PipelineEditorContext';
+import { supabase } from '@/lib/supabase';
 
 type PipelineFormData = {
+  id?: string;
   name: string;
   description: string | null;
-  visibility_permissions: string[];
+  visibility_permissions: string[];   // stores role UUIDs
   task_visibility_mode: 'all' | 'assigned_only';
 };
 
 type Props = {
   initialData?: Partial<PipelineFormData>;
-  permissions: Permission[];
+  /** Workspace roles available to assign */
+  roles: Role[];
+  /** @deprecated use roles */
+  permissions?: Role[];
   onSubmit: (data: PipelineFormData) => Promise<void>;
   onCancel: () => void;
   submitLabel: string;
   loading?: boolean;
+  error?: string | null;
   onDelete?: () => Promise<void>;
+  onClearError?: () => void;
 };
 
 export default function PipelineSettingsForm({ 
   initialData, 
-  permissions, 
+  roles: rolesProp,
+  permissions,   // backward compat
   onSubmit, 
   onCancel, 
   submitLabel,
   loading,
-  onDelete
+  error,
+  onDelete,
+  onClearError
 }: Props) {
+  // Accept either prop name
+  const roles = rolesProp ?? permissions ?? [];
+
   const [name, setName] = useState(initialData?.name || '');
+  const originalName = useMemo(() => initialData?.name || '', [initialData?.name]);
   const [desc, setDesc] = useState(initialData?.description || '');
-  const [selectedPerms, setSelectedPerms] = useState<string[]>(initialData?.visibility_permissions || []);
-  const [taskVisibilityMode, setTaskVisibilityMode] = useState<'all' | 'assigned_only'>(initialData?.task_visibility_mode || 'all');
+  const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>(
+    initialData?.visibility_permissions || []
+  );
+  const [taskVisibilityMode, setTaskVisibilityMode] = useState<'all' | 'assigned_only'>(
+    initialData?.task_visibility_mode || 'all'
+  );
   const [searchTerm, setSearchTerm] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteInput, setDeleteInput] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const [taskCount, setTaskCount] = useState<number | null>(null);
 
-  const filteredPermissions = useMemo(() => {
-    if (!searchTerm) return permissions;
-    return permissions.filter(p => 
-      p.label.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      p.key.toLowerCase().includes(searchTerm.toLowerCase())
+  // Fetch task count when delete confirmation is opened
+  React.useEffect(() => {
+    if (showDeleteConfirm && initialData?.id) {
+      const fetchTaskCount = async () => {
+        try {
+          const { count, error } = await supabase
+            .from('tasks')
+            .select('*', { count: 'exact', head: true })
+            .eq('pipeline_id', initialData.id)
+            .is('deleted_at', null);
+          
+          if (!error) {
+            setTaskCount(count || 0);
+          }
+        } catch (e) {
+          console.error('Error fetching task count:', e);
+        }
+      };
+      fetchTaskCount();
+    }
+  }, [showDeleteConfirm, initialData?.id]);
+
+  const filteredRoles = useMemo(() => {
+    if (!searchTerm) return roles;
+    return roles.filter(r =>
+      r.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
-  }, [permissions, searchTerm]);
+  }, [roles, searchTerm]);
 
-  const togglePermission = (key: string) => {
-    setSelectedPerms(prev => 
-      prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
+  const toggleRole = (id: string) => {
+    setSelectedRoleIds(prev =>
+      prev.includes(id) ? prev.filter(k => k !== id) : [...prev, id]
     );
   };
 
@@ -57,19 +97,24 @@ export default function PipelineSettingsForm({
     onSubmit({
       name: name.trim(),
       description: desc,
-      visibility_permissions: selectedPerms,
+      visibility_permissions: selectedRoleIds,
       task_visibility_mode: taskVisibilityMode
     });
   };
 
   const handleDelete = async () => {
-    if (deleteInput !== name) return;
+    if (deleteInput.trim() !== originalName.trim()) return;
     setDeleting(true);
     try {
       await onDelete?.();
+      // Only close if successful. If it fails, parent updates 'error' prop
+      // and we stay open to show it.
+      if (!error) {
+        setShowDeleteConfirm(false);
+        setDeleteInput('');
+      }
     } finally {
       setDeleting(false);
-      setShowDeleteConfirm(false);
     }
   };
 
@@ -103,13 +148,16 @@ export default function PipelineSettingsForm({
       <View className="bg-surface-overlay/50 p-4 rounded-2xl border border-surface-border">
         <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-4">Security & Visibility</Text>
         
-        {/* Permission Picker with Search */}
+        {/* Role Picker */}
         <View className="mb-4">
           <View className="flex-row items-center justify-between mb-2 px-1">
-            <Text className="text-typography-main font-bold text-xs">Access Permissions</Text>
-            <Text className="text-typography-muted text-[10px]">{selectedPerms.length} selected</Text>
+            <Text className="text-typography-main font-bold text-xs">Access Roles</Text>
+            <Text className="text-typography-muted text-[10px]">
+              {selectedRoleIds.length === 0 ? 'All roles (public)' : `${selectedRoleIds.length} selected`}
+            </Text>
           </View>
-          
+
+          {/* Search */}
           <View className="relative mb-3">
             <View className="absolute left-3 top-2.5 z-10">
               <FontAwesome name="search" size={10} color="rgb(var(--text-dim))" />
@@ -117,32 +165,44 @@ export default function PipelineSettingsForm({
             <TextInput
               value={searchTerm}
               onChangeText={setSearchTerm}
-              placeholder="Search permissions..."
+              placeholder="Search roles..."
               placeholderTextColor="rgb(var(--text-dim))"
               className="bg-surface-background border border-surface-border rounded-lg pl-8 pr-3 py-2 text-[11px] text-typography-main"
             />
           </View>
 
+          {/* Role Pills */}
           <View className="max-h-40 bg-surface-background rounded-xl border border-surface-border overflow-hidden">
             <ScrollView nestedScrollEnabled className="p-2">
               <View className="flex-row flex-wrap gap-2">
-                {filteredPermissions.length === 0 ? (
-                  <Text className="text-typography-muted text-[10px] italic p-2">No matching permissions</Text>
+                {filteredRoles.length === 0 ? (
+                  <Text className="text-typography-muted text-[10px] italic p-2">No matching roles</Text>
                 ) : (
-                  filteredPermissions.map(p => {
-                    const isSelected = selectedPerms.includes(p.key);
+                  filteredRoles.map(role => {
+                    const isSelected = selectedRoleIds.includes(role.id);
                     return (
                       <TouchableOpacity
-                        key={p.key}
-                        onPress={() => togglePermission(p.key)}
+                        key={role.id}
+                        onPress={() => toggleRole(role.id)}
                         className={`px-3 py-1.5 rounded-lg border flex-row items-center ${
                           isSelected ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border'
                         }`}
                       >
                         {isSelected && <FontAwesome name="check" size={8} color="white" style={{ marginRight: 6 }} />}
+                        {/* Role colour dot */}
+                        {role.color && (
+                          <View
+                            style={{ backgroundColor: role.color, width: 6, height: 6, borderRadius: 3, marginRight: 5 }}
+                          />
+                        )}
                         <Text className={`text-[10px] font-bold ${isSelected ? 'text-white' : 'text-typography-main'}`}>
-                          {p.label}
+                          {role.name}
                         </Text>
+                        {role.is_system && (
+                          <View className={`ml-1.5 px-1 rounded ${isSelected ? 'bg-white/20' : 'bg-surface-overlay'}`}>
+                            <Text className={`text-[7px] font-black uppercase ${isSelected ? 'text-white' : 'text-typography-muted'}`}>SYS</Text>
+                          </View>
+                        )}
                       </TouchableOpacity>
                     );
                   })
@@ -150,10 +210,20 @@ export default function PipelineSettingsForm({
               </View>
             </ScrollView>
           </View>
-          {selectedPerms.length > 0 && (
-             <TouchableOpacity onPress={() => setSelectedPerms([])} className="mt-2 self-end px-2 py-1">
-                <Text className="text-brand-primary text-[9px] font-black uppercase tracking-tighter">Clear Selection</Text>
-             </TouchableOpacity>
+
+          {selectedRoleIds.length === 0 && (
+            <View className="mt-2 px-1 flex-row items-center">
+              <FontAwesome name="globe" size={9} color="rgb(var(--state-info))" />
+              <Text className="text-state-info text-[9px] ml-1.5 italic">
+                No role restriction — all workspace members can access this pipeline.
+              </Text>
+            </View>
+          )}
+
+          {selectedRoleIds.length > 0 && (
+            <TouchableOpacity onPress={() => setSelectedRoleIds([])} className="mt-2 self-end px-2 py-1">
+              <Text className="text-brand-primary text-[9px] font-black uppercase tracking-tighter">Clear Selection</Text>
+            </TouchableOpacity>
           )}
         </View>
 
@@ -216,8 +286,26 @@ export default function PipelineSettingsForm({
 
             {showDeleteConfirm && (
               <View className="mt-4 p-4 bg-surface-card rounded-xl border border-state-danger/30">
+                {error && (
+                  <View className="bg-state-danger/10 border border-state-danger/30 p-3 rounded-lg mb-4 flex-row items-center gap-2">
+                    <FontAwesome name="exclamation-circle" size={12} color="#ef4444" />
+                    <Text className="text-state-danger text-[10px] font-bold flex-1">{error}</Text>
+                  </View>
+                )}
+
+                {taskCount !== null && taskCount > 0 && (
+                  <View className="bg-state-warning/10 border border-state-warning/30 p-3 rounded-lg mb-4 flex-row items-center gap-2">
+                    <FontAwesome name="exclamation-triangle" size={12} color="#f59e0b" />
+                    <View className="flex-1">
+                      <Text className="text-state-warning text-[10px] font-bold">Warning: Active Tasks Detected</Text>
+                      <Text className="text-state-warning text-[9px] mt-1">
+                        This pipeline has {taskCount} active tasks. Deleting it will also mark all these tasks as deleted.
+                      </Text>
+                    </View>
+                  </View>
+                )}
                 <Text className="text-typography-main font-bold text-xs mb-3">
-                  Please type <Text className="text-state-danger">"{name}"</Text> to confirm:
+                  Please type <Text className="text-state-danger">"{originalName}"</Text> to confirm:
                 </Text>
                 <TextInput
                   value={deleteInput}
@@ -231,6 +319,7 @@ export default function PipelineSettingsForm({
                     onPress={() => {
                       setShowDeleteConfirm(false);
                       setDeleteInput('');
+                      onClearError?.();
                     }}
                     className="flex-1 bg-surface-background py-2 rounded-lg border border-surface-border items-center"
                   >
@@ -238,9 +327,9 @@ export default function PipelineSettingsForm({
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={handleDelete}
-                    disabled={deleteInput !== name || deleting}
+                    disabled={deleteInput.trim() !== originalName.trim() || deleting}
                     className={`flex-1 py-2 rounded-lg items-center ${
-                      deleteInput !== name || deleting ? 'bg-state-danger/30' : 'bg-state-danger'
+                      deleteInput.trim() !== originalName.trim() || deleting ? 'bg-state-danger/30' : 'bg-state-danger'
                     }`}
                   >
                     {deleting ? (

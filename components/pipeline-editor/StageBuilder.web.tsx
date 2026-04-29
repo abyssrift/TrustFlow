@@ -17,10 +17,13 @@ export default function StageBuilder() {
     addStage, updateStage, deleteStage, reorderStages,
     transitions, updateTransition, deleteTransition,
     selectedPipeline, permissions,
+    stageActions, updateStageAction, deleteStageAction,
   } = usePipelineEditor();
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingStageId, setEditingStageId] = useState<string | null>(null);
+  const [editingActionId, setEditingActionId] = useState<string | null>(null);
+  const [actionForm, setActionForm] = useState({ label: '', style: 'primary', requires_timer: false, required_role: 'any' });
   const [editingTransitionId, setEditingTransitionId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'graph' | 'list'>('graph');
   const [showPermPicker, setShowPermPicker] = useState(false);
@@ -113,7 +116,12 @@ export default function StageBuilder() {
 
   const handleTransSave = async () => {
     if (!editingTransitionId) return;
-    const success = await updateTransition(editingTransitionId, transForm.label, transForm.required_permission);
+    const success = await updateTransition(
+      editingTransitionId, 
+      transForm.label, 
+      transForm.required_permission,
+      transForm.transition_type
+    );
     if (success) setEditingTransitionId(null);
   };
 
@@ -308,7 +316,7 @@ export default function StageBuilder() {
               </Section>
 
               {/* Advanced Routing */}
-              <Section label="SLA & Escalation" last>
+              <Section label="SLA & Escalation">
                 <Input 
                   label="Manager Routing"
                   placeholder="INHERIT, TEAM_LEAD, etc."
@@ -324,6 +332,166 @@ export default function StageBuilder() {
                     onChangeText={(val) => setFormState(prev => ({ ...prev, max_escalation_depth: parseInt(val) || 0 }))}
                   />
                 </View>
+              </Section>
+
+              {/* ── Actions & Conditionals ── */}
+              <Section label="Actions & Conditionals" last>
+                <Text className="text-typography-muted text-[10px] leading-relaxed mb-3">
+                  Buttons shown on task cards. Canvas connections auto-generate actions. Multiple actions create branching choices.
+                </Text>
+
+                {(() => {
+                  const stageActionList = stageActions
+                    .filter((a: any) => a.stage_id === editingStageId && a.is_active !== false)
+                    .sort((a: any, b: any) => a.position - b.position);
+
+                  if (stageActionList.length === 0) {
+                    return (
+                      <View className="py-5 items-center bg-surface-background rounded-xl border border-dashed border-surface-border mb-3">
+                        <FontAwesome name="share-alt" size={20} color="rgb(var(--text-dim))" />
+                        <Text className="text-typography-dim text-xs font-bold mt-2">No Actions Yet</Text>
+                        <Text className="text-typography-dim text-[10px] mt-1 text-center px-4">Draw connections from this stage on the canvas to create action buttons</Text>
+                      </View>
+                    );
+                  }
+
+                  return stageActionList.map((action: any) => {
+                    const linkedTrans = transitions.find((t: any) => t.id === action.transition_id);
+                    const targetStage = linkedTrans ? stages.find((s: any) => s.id === linkedTrans.to_stage_id) : null;
+                    const isExpanded = editingActionId === action.id;
+                    const isCanvas = !!action.transition_id;
+
+                    const styleMeta: Record<string, { ring: string; text: string; bg: string }> = {
+                      primary: { ring: 'border-brand-primary/40', text: 'text-brand-primary', bg: 'bg-brand-primary/10' },
+                      success: { ring: 'border-state-success/40', text: 'text-state-success', bg: 'bg-state-success/10' },
+                      warning: { ring: 'border-state-warning/40', text: 'text-state-warning', bg: 'bg-state-warning/10' },
+                      danger:  { ring: 'border-state-danger/40',  text: 'text-state-danger',  bg: 'bg-state-danger/10'  },
+                      neutral: { ring: 'border-surface-border',    text: 'text-typography-muted', bg: 'bg-surface-overlay' },
+                    };
+                    const sm = styleMeta[action.style] || styleMeta.neutral;
+
+                    return (
+                      <View key={action.id} className="mb-2">
+                        {/* Row */}
+                        <TouchableOpacity
+                          onPress={() => {
+                            if (isExpanded) { setEditingActionId(null); return; }
+                            setEditingActionId(action.id);
+                            setActionForm({ label: action.label, style: action.style || 'primary', requires_timer: action.requires_timer, required_role: action.required_role || 'any' });
+                          }}
+                          className={`p-3 rounded-xl border flex-row items-center justify-between ${
+                            isExpanded ? 'border-brand-primary/40 bg-brand-primary/5' : 'border-surface-border bg-surface-background'
+                          }`}
+                        >
+                          <View className="flex-1 flex-row items-center gap-2 flex-wrap">
+                            <View className={`px-2 py-0.5 rounded-md border ${sm.bg} ${sm.ring}`}>
+                              <Text className={`text-[9px] font-black uppercase tracking-wide ${sm.text}`}>{action.label}</Text>
+                            </View>
+                            {targetStage && (
+                              <View className="flex-row items-center gap-1">
+                                <FontAwesome name="long-arrow-right" size={8} color="rgb(var(--text-dim))" />
+                                <View className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: targetStage.color || '#6B7280' }} />
+                                <Text className="text-typography-dim text-[10px] font-bold">{targetStage.name}</Text>
+                              </View>
+                            )}
+                            {action.requires_timer && <FontAwesome name="clock-o" size={9} color="rgb(var(--state-warning))" />}
+                            {!isCanvas && (
+                              <View className="bg-surface-overlay px-1.5 py-0.5 rounded">
+                                <Text className="text-typography-dim text-[8px] uppercase font-bold">Custom</Text>
+                              </View>
+                            )}
+                          </View>
+                          <FontAwesome name={isExpanded ? 'chevron-up' : 'chevron-down'} size={9} color="rgb(var(--text-dim))" />
+                        </TouchableOpacity>
+
+                        {/* Inline Editor */}
+                        {isExpanded && (
+                          <View className="mt-1 ml-2 p-4 bg-surface-card border border-brand-primary/20 rounded-xl">
+                            {/* Label */}
+                            <Text className="text-typography-label text-[9px] font-black uppercase tracking-wider mb-1">Label</Text>
+                            <TextInput
+                              value={actionForm.label}
+                              onChangeText={(v) => setActionForm(prev => ({ ...prev, label: v }))}
+                              className="bg-surface-background border border-surface-border p-2.5 rounded-lg text-typography-main text-xs mb-3"
+                              placeholderTextColor="rgb(var(--text-dim))"
+                            />
+
+                            {/* Style */}
+                            <Text className="text-typography-label text-[9px] font-black uppercase tracking-wider mb-1.5">Button Style</Text>
+                            <View className="flex-row gap-1.5 mb-3">
+                              {(['primary', 'success', 'warning', 'danger', 'neutral'] as const).map(s => {
+                                const m = styleMeta[s];
+                                const active = actionForm.style === s;
+                                return (
+                                  <TouchableOpacity
+                                    key={s}
+                                    onPress={() => setActionForm(prev => ({ ...prev, style: s }))}
+                                    className={`flex-1 py-1.5 rounded-lg items-center border ${
+                                      active ? `${m.bg} ${m.ring}` : 'border-surface-border'
+                                    }`}
+                                  >
+                                    <Text className={`text-[8px] font-black uppercase ${
+                                      active ? m.text : 'text-typography-dim'
+                                    }`}>{s}</Text>
+                                  </TouchableOpacity>
+                                );
+                              })}
+                            </View>
+
+                            {/* Requires Timer */}
+                            <Toggle
+                              label="Requires Timer"
+                              desc="User must have an active work session to use this action"
+                              active={actionForm.requires_timer}
+                              onToggle={(v: boolean) => setActionForm(prev => ({ ...prev, requires_timer: v }))}
+                            />
+
+                            {/* Buttons */}
+                            <View className="flex-row gap-2 mt-1">
+                              <TouchableOpacity
+                                onPress={() => setEditingActionId(null)}
+                                className="flex-1 py-2 rounded-xl border border-surface-border items-center bg-surface-background"
+                              >
+                                <Text className="text-typography-muted text-[10px] font-bold uppercase">Cancel</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                onPress={async () => {
+                                  await updateStageAction(action.id, {
+                                    label: actionForm.label,
+                                    style: actionForm.style,
+                                    requires_timer: actionForm.requires_timer,
+                                    required_role: actionForm.required_role,
+                                  });
+                                  setEditingActionId(null);
+                                }}
+                                disabled={loading}
+                                className="flex-1 py-2 rounded-xl bg-brand-primary items-center"
+                              >
+                                {loading
+                                  ? <ActivityIndicator size="small" color="white" />
+                                  : <Text className="text-white text-[10px] font-black uppercase">Save</Text>
+                                }
+                              </TouchableOpacity>
+                              {!isCanvas && (
+                                <TouchableOpacity
+                                  onPress={async () => { await deleteStageAction(action.id); setEditingActionId(null); }}
+                                  className="p-2 rounded-xl border border-state-danger/30 bg-state-danger/5 items-center justify-center"
+                                >
+                                  <FontAwesome name="trash-o" size={12} color="rgb(var(--state-danger))" />
+                                </TouchableOpacity>
+                              )}
+                            </View>
+                            {isCanvas && (
+                              <Text className="text-typography-dim text-[9px] mt-2 text-center">
+                                Canvas-driven — delete the connection on the canvas to remove
+                              </Text>
+                            )}
+                          </View>
+                        )}
+                      </View>
+                    );
+                  });
+                })()}
               </Section>
 
               <View className="h-20" />
@@ -420,6 +588,27 @@ export default function StageBuilder() {
                     </ScrollView>
                   </View>
                 )}
+
+                <Text className="text-typography-muted text-[10px] font-bold uppercase mb-1.5 mt-4">Visual Style</Text>
+                <View className="flex-row gap-2 mb-4">
+                  {[
+                    { id: 'neutral', icon: 'circle-o', color: 'rgb(var(--text-muted))' },
+                    { id: 'success', icon: 'check-circle', color: 'rgb(var(--state-success))' },
+                    { id: 'warning', icon: 'exclamation-circle', color: 'rgb(var(--state-warning))' },
+                    { id: 'danger', icon: 'times-circle', color: 'rgb(var(--state-danger))' }
+                  ].map(t => (
+                    <TouchableOpacity
+                      key={t.id}
+                      onPress={() => setTransForm(prev => ({ ...prev, transition_type: t.id }))}
+                      className={`flex-1 p-3 rounded-xl border items-center justify-center transition-all ${transForm.transition_type === t.id ? 'border-brand-primary bg-brand-primary/10' : 'border-surface-border bg-surface-background'}`}
+                    >
+                      <FontAwesome name={t.icon as any} size={14} color={t.color} />
+                      <Text className={`text-[10px] font-bold mt-1 capitalize ${transForm.transition_type === t.id ? 'text-brand-primary' : 'text-typography-dim'}`}>
+                        {t.id}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
                 <View className="bg-brand-primary/5 p-4 rounded-xl border border-brand-primary/20">
                    <View className="flex-row items-center gap-2 mb-2">
                       <FontAwesome name="info-circle" size={14} color="rgb(var(--brand-primary))" />

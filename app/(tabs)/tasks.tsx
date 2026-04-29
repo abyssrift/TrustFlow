@@ -292,6 +292,15 @@ function TasksScreen() {
                 <Text className="text-brand-primary text-[8px] font-black italic">SUB</Text>
               </View>
             )}
+            <View className="flex-1" />
+            {hasPermission('task.assign') && (
+              <TouchableOpacity 
+                onPress={() => handleOpenAssignments(task)}
+                className="w-6 h-6 items-center justify-center rounded-full bg-surface-background border border-surface-border ml-2"
+              >
+                <FontAwesome name="user-plus" size={10} className="text-typography-muted" />
+              </TouchableOpacity>
+            )}
         </View>
 
         {/* TEAM ASSIGNMENT BADGES */}
@@ -532,19 +541,23 @@ function TasksScreen() {
            >
              <FontAwesome name="paint-brush" size={16} className="text-brand-primary" />
            </TouchableOpacity>
-           <TouchableOpacity
-             onPress={() => router.push('/admin/pipelines')}
-             className="bg-brand-primary/10 p-3 rounded-2xl border border-brand-primary/20"
-           >
-             <FontAwesome name="cog" size={16} className="text-brand-primary" />
-           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={handleCreateTask}
-            className="bg-brand-primary px-5 py-3 rounded-xl shadow-lg shadow-brand-primary/30 flex-row items-center active:bg-brand-primary-active"
-          >
-            <FontAwesome name="plus" size={12} color="white" className="mr-2" />
-            <Text className="text-white font-bold text-xs uppercase tracking-widest">Create Task</Text>
-          </TouchableOpacity>
+           {hasPermission('pipeline.edit') && (
+             <TouchableOpacity
+               onPress={() => router.push('/admin/pipelines')}
+               className="bg-brand-primary/10 p-3 rounded-2xl border border-brand-primary/20"
+             >
+               <FontAwesome name="cog" size={16} className="text-brand-primary" />
+             </TouchableOpacity>
+           )}
+           {hasPermission('task.create') && (
+             <TouchableOpacity
+               onPress={handleCreateTask}
+               className="bg-brand-primary px-5 py-3 rounded-xl shadow-lg shadow-brand-primary/30 flex-row items-center active:bg-brand-primary-active"
+             >
+               <FontAwesome name="plus" size={12} color="white" className="mr-2" />
+               <Text className="text-white font-bold text-xs uppercase tracking-widest">Create Task</Text>
+             </TouchableOpacity>
+           )}
         </View>
       </View>
 

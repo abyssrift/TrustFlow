@@ -18,6 +18,7 @@ export default function TransitionEditor() {
   const [formTo, setFormTo] = useState('');
   const [formLabel, setFormLabel] = useState('');
   const [formPerm, setFormPerm] = useState('');
+  const [formType, setFormType] = useState('neutral');
   const [showPermPicker, setShowPermPicker] = useState(false);
 
   const resetForm = () => {
@@ -25,6 +26,7 @@ export default function TransitionEditor() {
     setFormTo('');
     setFormLabel('');
     setFormPerm('');
+    setFormType('neutral');
     setShowPermPicker(false);
   };
 
@@ -33,13 +35,13 @@ export default function TransitionEditor() {
 
   const handleAdd = async () => {
     if (!formFrom || !formTo || !formLabel.trim()) return;
-    await addTransition(formFrom, formTo, formLabel.trim(), formPerm || undefined);
+    await addTransition(formFrom, formTo, formLabel.trim(), formPerm || undefined, formType);
     resetForm();
     setShowAdd(false);
   };
 
   const handleUpdate = async (id: string) => {
-    await updateTransition(id, formLabel.trim() || undefined, formPerm);
+    await updateTransition(id, formLabel.trim() || undefined, formPerm, formType);
     setEditingId(null);
     resetForm();
   };
@@ -192,6 +194,28 @@ export default function TransitionEditor() {
               </View>
             )}
 
+            {/* Transition Type */}
+            <Text className="text-typography-label text-[10px] font-bold uppercase tracking-wider mb-2 mt-2">Visual Style</Text>
+            <View className="flex-row gap-2 mb-4">
+              {[
+                { id: 'neutral', icon: 'circle-o', color: 'rgb(var(--text-muted))' },
+                { id: 'success', icon: 'check-circle', color: 'rgb(var(--state-success))' },
+                { id: 'warning', icon: 'exclamation-circle', color: 'rgb(var(--state-warning))' },
+                { id: 'danger', icon: 'times-circle', color: 'rgb(var(--state-danger))' }
+              ].map(t => (
+                <TouchableOpacity
+                  key={t.id}
+                  onPress={() => setFormType(t.id)}
+                  className={`flex-1 p-2 rounded-lg border items-center justify-center ${formType === t.id ? 'border-brand-primary bg-brand-primary/10' : 'border-surface-border bg-surface-background'}`}
+                >
+                  <FontAwesome name={t.icon as any} size={12} color={t.color} />
+                  <Text className={`text-[9px] font-bold mt-1 capitalize ${formType === t.id ? 'text-brand-primary' : 'text-typography-dim'}`}>
+                    {t.id}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
             {/* Actions */}
             <View className="flex-row gap-3 mt-2">
               <TouchableOpacity
@@ -275,7 +299,22 @@ export default function TransitionEditor() {
                   <View className="bg-surface-card p-3 rounded-xl border border-surface-border mb-2 ml-4 flex-row items-center">
                     <View className="flex-1">
                       <View className="flex-row items-center flex-wrap gap-1">
-                        <View className="bg-brand-primary-dim px-2 py-0.5 rounded-md border border-brand-primary/20">
+                        <View className="bg-brand-primary-dim px-2 py-0.5 rounded-md border border-brand-primary/20 flex-row items-center gap-1.5">
+                          {t.transition_type && t.transition_type !== 'neutral' && (
+                             <FontAwesome 
+                               name={
+                                 t.transition_type === 'success' ? 'check-circle' : 
+                                 t.transition_type === 'warning' ? 'exclamation-circle' : 
+                                 'times-circle'
+                               } 
+                               size={10} 
+                               color={
+                                 t.transition_type === 'success' ? 'rgb(var(--state-success))' : 
+                                 t.transition_type === 'warning' ? 'rgb(var(--state-warning))' : 
+                                 'rgb(var(--state-danger))'
+                               }
+                             />
+                          )}
                           <Text className="text-brand-primary text-xs font-black">{t.label}</Text>
                         </View>
                         <FontAwesome name="long-arrow-right" size={10} color="rgb(var(--text-dim))" />
@@ -296,7 +335,12 @@ export default function TransitionEditor() {
 
                     <View className="flex-row gap-1.5">
                       <TouchableOpacity
-                        onPress={() => { setFormLabel(t.label); setFormPerm(t.required_permission || ''); setEditingId(t.id); }}
+                        onPress={() => { 
+                          setFormLabel(t.label); 
+                          setFormPerm(t.required_permission || ''); 
+                          setFormType(t.transition_type || 'neutral');
+                          setEditingId(t.id); 
+                        }}
                         className="p-2 rounded-lg border border-surface-border bg-surface-background"
                       >
                         <FontAwesome name="pencil" size={10} color="#64748b" />

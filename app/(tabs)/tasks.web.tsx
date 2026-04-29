@@ -51,6 +51,8 @@ type Task = {
     team?: { name: string } | null;
     user?: { full_name: string } | null;
   }[];
+  total_seconds?: number;
+  my_seconds?: number;
 };
 
 type Pipeline = {
@@ -85,17 +87,21 @@ function TasksScreenWeb() {
     try {
       // 1. Resolve Pipeline
       let targetPipelineId = paramPipelineId;
+      let pipelineData: any = null;
       if (!targetPipelineId) {
         const { data: pDefault } = await supabase.from('pipelines').select('id, name, task_visibility_mode').eq('is_default', true).limit(1).single();
         targetPipelineId = pDefault?.id;
+        pipelineData = pDefault;
         setPipeline(pDefault);
       } else {
         const { data: pSpecific } = await supabase.from('pipelines').select('id, name, task_visibility_mode').eq('id', targetPipelineId).single();
+        targetPipelineId = pSpecific?.id;
+        pipelineData = pSpecific;
         setPipeline(pSpecific);
       }
 
-      const { data: allPipes } = await supabase.from('pipelines').select('id, name').is('deleted_at', null);
-      setAvailablePipelines(allPipes || []);
+      const { data: allPipes } = await supabase.from('pipelines').select('id, name, task_visibility_mode').is('deleted_at', null);
+      setAvailablePipelines(allPipes as Pipeline[] || []);
 
       if (!targetPipelineId) return;
 
@@ -122,7 +128,7 @@ function TasksScreenWeb() {
         .is('removed_at', null);
       const myTeamIds = myTeams?.map(mt => mt.team_id) || [];
 
-      // 5. Get tasks
+      // 5. Get tasks with time metrics
       const { data: tasksData } = await supabase
         .from('tasks')
         .select(`
@@ -137,14 +143,29 @@ function TasksScreenWeb() {
         .eq('pipeline_id', targetPipelineId)
         .order('created_at', { ascending: false });
 
-      // Filter tasks based on visibility mode
-      let filteredTasks = tasksData || [];
+      const { data: timeMetrics } = await supabase
+        .from('view_task_time_metrics')
+        .select('*')
+        .in('task_id', (tasksData || []).map(t => t.id));
+
+      const timeMap = (timeMetrics || []).reduce((acc, curr) => {
+        acc[curr.task_id] = curr;
+        return acc;
+      }, {} as any);
+
+      // Filter tasks based on visibility mode and attach time metrics
+      let filteredTasks = (tasksData || []).map(t => ({
+        ...t,
+        total_seconds: timeMap[t.id]?.total_seconds || 0,
+        my_seconds: timeMap[t.id]?.my_seconds || 0
+      }));
+      
       const canViewAll = hasPermission('task.view_all') || hasPermission('tasks.view_all') || hasPermission('system.view_all_data') || hasPermission('pipeline.edit');
 
-      if (pipeline?.task_visibility_mode === 'assigned_only' && !canViewAll) {
+      if (pipelineData?.task_visibility_mode === 'assigned_only' && !canViewAll) {
         filteredTasks = filteredTasks.filter(t => {
           const isManager = t.manager_id === user?.id;
-          const isAssigned = t.assignments?.some(a => 
+          const isAssigned = t.assignments?.some((a: any) => 
             (a.assignee_user_id && a.assignee_user_id === user?.id) || 
             (a.assignee_team_id && myTeamIds.includes(a.assignee_team_id))
           );
@@ -229,8 +250,31 @@ function TasksScreenWeb() {
     }
   };
 
+  const formatSeconds = (seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    if (h > 0) return `${h}h ${m}m`;
+    return `${m}m`;
+  };
+
   const renderTaskCard = (task: Task) => {
     const prio = getPriorityInfo(task.priority);
+    const canViewAllData = hasPermission('system.view_all_data') || user?.id === task.manager_id || (user as any)?.is_owner;
+    
+    // Calculate total time including active sessions if applicable
+    let displayTotalSeconds = task.total_seconds || 0;
+    let displayMySeconds = task.my_seconds || 0;
+
+    // Add active session elapsed time (rough estimate until next refresh)
+    const sessions = activeSessions[task.id] || [];
+    sessions.forEach(s => {
+      const elapsed = Math.floor((Date.now() - new Date(s.startedAt).getTime()) / 1000);
+      displayTotalSeconds += elapsed;
+      if (s.userId === user?.id) {
+        displayMySeconds += elapsed;
+      }
+    });
+
     return (
       <TouchableOpacity
         key={task.id}
@@ -238,12 +282,30 @@ function TasksScreenWeb() {
         className="bg-surface-card p-5 rounded-2xl border border-surface-border mb-4 premium-shadow hover:border-brand-primary/50 transition-all"
       >
         <View className="flex-row items-center justify-between mb-3">
-           <View className="bg-surface-background px-3 py-1 rounded-lg border border-surface-border">
-              <Text style={{ color: prio.color }} className="text-[10px] font-black uppercase tracking-widest">
-                {prio.label}
-              </Text>
-           </View>
            <View className="flex-row items-center gap-2">
+             <View className="bg-surface-background px-3 py-1 rounded-lg border border-surface-border">
+                <Text style={{ color: prio.color }} className="text-[10px] font-black uppercase tracking-widest">
+                  {prio.label}
+                </Text>
+             </View>
+             
+             {displayMySeconds > 0 && (
+               <View className="bg-brand-primary/10 px-3 py-1 rounded-lg border border-brand-primary/20 flex-row items-center">
+                 <FontAwesome name="clock-o" size={10} className="text-brand-primary mr-2" />
+                 <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest">
+                   {formatSeconds(displayMySeconds)}
+                 </Text>
+               </View>
+             )}
+           </View>
+
+           <View className="flex-row items-center gap-2">
+              {canViewAllData && displayTotalSeconds > 0 && (
+                <View className="bg-surface-background px-2 py-1 rounded-lg border border-surface-border flex-row items-center">
+                  <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mr-1">Total:</Text>
+                  <Text className="text-typography-main text-[10px] font-black uppercase tracking-widest">{formatSeconds(displayTotalSeconds)}</Text>
+                </View>
+              )}
               {task.parent_task_id && (
                 <View className="bg-brand-primary/20 px-2 py-0.5 rounded-md">
                    <Text className="text-brand-primary text-[8px] font-black italic">SUB</Text>

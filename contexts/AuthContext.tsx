@@ -7,8 +7,12 @@ type AuthContextType = {
   user: User | null;
   profile: any | null;
   permissions: string[];
+  /** UUIDs of the roles assigned to the current user */
+  roleIds: string[];
   initialized: boolean;
   hasPermission: (key: string) => boolean;
+  /** Returns true if the user holds the given role UUID */
+  hasRole: (roleId: string) => boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 };
@@ -18,8 +22,10 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   profile: null,
   permissions: [],
+  roleIds: [],
   initialized: false,
   hasPermission: () => false,
+  hasRole: () => false,
   signOut: async () => {},
   refreshProfile: async () => {},
 });
@@ -31,6 +37,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<any | null>(null);
   const [permissions, setPermissions] = useState<string[]>([]);
+  const [roleIds, setRoleIds] = useState<string[]>([]);
   const [initialized, setInitialized] = useState<boolean>(false);
 
   useEffect(() => {
@@ -39,7 +46,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        Promise.all([fetchPermissions(), fetchProfile(session.user.id)]);
+        Promise.all([fetchPermissions(), fetchRoles(), fetchProfile(session.user.id)]);
       } else {
         setInitialized(true);
       }
@@ -51,10 +58,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
-          Promise.all([fetchPermissions(), fetchProfile(session.user.id)]);
+          Promise.all([fetchPermissions(), fetchRoles(), fetchProfile(session.user.id)]);
         } else {
           setProfile(null);
           setPermissions([]);
+          setRoleIds([]);
           setInitialized(true);
         }
       }
@@ -74,13 +82,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .single();
       
       if (error) {
-        if (error.code === 'PGRST116') { // Record not found
+        if (error.code === 'PGRST116') {
           console.warn('Profile missing for user, attempting repair...');
           const { data: repairData, error: repairError } = await supabase.rpc('rpc_repair_profile');
           if (repairError) {
             console.error('Failed to repair profile:', repairError);
           } else {
-            // Retry fetch once after repair
             const { data: retryData } = await supabase
               .from('users')
               .select('*')
@@ -114,21 +121,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.error('Error fetching permissions:', error);
         return;
       }
-      
       const perms = (data as { key: string }[]).map(p => p.key);
       setPermissions(perms);
     } catch (err) {
       console.error('Unexpected error fetching permissions:', err);
     } finally {
-      // Note: setInitialized is called in fetchPermissions which is always called if session exists
-      // However, if fetchProfile fails, we still want to be initialized.
       setInitialized(true);
     }
   };
 
-  const hasPermission = (key: string) => {
-    return permissions.includes(key);
+  const fetchRoles = async () => {
+    try {
+      const { data, error } = await supabase.rpc('get_my_roles');
+      if (error) {
+        console.error('Error fetching roles:', error);
+        return;
+      }
+      const ids = (data as { id: string }[]).map(r => r.id);
+      setRoleIds(ids);
+    } catch (err) {
+      console.error('Unexpected error fetching roles:', err);
+    }
   };
+
+  const hasPermission = (key: string) => permissions.includes(key);
+
+  const hasRole = (roleId: string) => roleIds.includes(roleId);
 
   const signOut = async () => {
     try {
@@ -137,19 +155,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (error) {
         console.error('Error during Supabase sign out:', error);
       }
-      // Clear local state explicitly
       setSession(null);
       setUser(null);
       setProfile(null);
       setPermissions([]);
+      setRoleIds([]);
       console.log('Sign out complete, state cleared.');
     } catch (err) {
       console.error('Unexpected error during sign out:', err);
-      // Still clear state to ensure UI updates
       setSession(null);
       setUser(null);
       setProfile(null);
       setPermissions([]);
+      setRoleIds([]);
     }
   };
 
@@ -160,8 +178,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         user,
         profile,
         permissions,
+        roleIds,
         initialized,
         hasPermission,
+        hasRole,
         signOut,
         refreshProfile,
       }}

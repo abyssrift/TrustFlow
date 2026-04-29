@@ -36,7 +36,7 @@ const PIPELINE_ICONS: IconName[] = ['bolt', 'sitemap', 'random', 'sliders', 'exc
 
 const SHORTCUTS: Shortcut[] = [
   { id: 'dashboard', permissionKey: 'dashboard', icon: 'th-large', label: 'Dashboard', href: '/' },
-  { id: 'tasks', permissionKey: 'task.view_all', icon: 'check-square-o', label: 'Tasks', href: '/tasks' },
+  { id: 'tasks', permissionKey: '', icon: 'check-square-o', label: 'Tasks', href: '/tasks' },
   { id: 'projects', permissionKey: 'project.edit', icon: 'folder-o', label: 'Projects', href: '/projects' },
   { id: 'radar', permissionKey: 'report.view', icon: 'bullseye', label: 'Radar', href: '/intelligence?section=radar' },
   { id: 'targets', permissionKey: 'target.view', icon: 'crosshairs', label: 'Targets', href: '/intelligence?section=targets' },
@@ -238,7 +238,7 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
   }, []);
 
   const visibleShortcuts = useMemo(
-    () => SHORTCUTS.filter((s) => s.id === 'dashboard' || hasPermission(s.permissionKey)),
+    () => SHORTCUTS.filter((s) => s.id === 'dashboard' || s.id === 'tasks' || hasPermission(s.permissionKey)),
     [hasPermission]
   );
   const profileLabel = useMemo(() => profileName || displayNameFromSession(session), [profileName, session]);

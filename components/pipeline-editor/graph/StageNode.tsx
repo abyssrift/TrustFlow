@@ -138,12 +138,7 @@ export default function StageNode({
     zIndex: isDragging.value ? 100 : 1,
   }));
 
-  // Target detection during connection
-  const handleMouseEnter = () => {
-    if (isConnecting) {
-      // Highlight this node as target?
-    }
-  };
+
 
   return (
     <Animated.View style={[styles.container, animatedStyle]}>
@@ -189,7 +184,7 @@ export default function StageNode({
               <Text className="text-typography-main font-black text-lg leading-tight mb-1 uppercase tracking-tight">
                 {stage.name}
               </Text>
-              {stage.description && (
+              {!!stage.description && (
                 <Text className="text-typography-muted text-[10px] leading-relaxed" numberOfLines={2}>
                   {stage.description}
                 </Text>
@@ -206,7 +201,7 @@ export default function StageNode({
                     <FontAwesome name="clock-o" size={8} color={stage.color || "rgb(var(--state-info))"} />
                   </View>
                 )}
-                {stage.linked_pipeline_id && (
+                {!!stage.linked_pipeline_id && (
                   <View className="bg-surface-background/40 px-2 py-0.5 rounded border border-surface-border">
                     <FontAwesome name="bolt" size={8} color={stage.color || "rgb(var(--brand-primary))"} />
                   </View>

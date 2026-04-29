@@ -7,6 +7,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { getPrimaryColor, getAccentColor, getSuccessColor } from '@/lib/themeColors';
 import { isComplexActionType } from './actionRegistry';
 import { useElapsedTime } from '@/hooks/useElapsedTime';
+import { useAuth } from '@/contexts/AuthContext';
 
 // ─── Types ────────────────────────────────────────────────────
 export type ActiveSessionUser = {
@@ -73,13 +74,16 @@ const ACTION_STYLES: Record<string, { bg: string; border: string; text: string }
 export default function TaskCardActions({ task, stages, stageActions, activeSessions, userId, onRefresh }: Props) {
   const router = useRouter();
   const { theme: activeTheme } = useTheme();
+  const { hasPermission } = useAuth();
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
+  const [needsTimerActionId, setNeedsTimerActionId] = useState<string | null>(null);
 
   // ─── Derived State ───────────────────────────────────────
   const isAssignedToUser = (task.assignments || []).some(a => a.assignee_user_id !== null);
   const isMyTask = (task.assignments || []).some(a => a.assignee_user_id === userId);
   const currentStage = stages.find(s => s.id === task.current_stage_id);
   const stageRequiresTimer = currentStage?.requires_timer ?? false;
+  const isInitialStage = currentStage?.is_initial ?? false;
   const isTerminal = currentStage?.is_terminal ?? false;
   const terminalType = currentStage?.terminal_type;
 
@@ -93,9 +97,14 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
   const activeSession = mySession || taskSessions[0] || null;
   const elapsedDisplay = useElapsedTime(activeSession?.startedAt ?? null);
 
-  // Available actions for the current stage
+  // Available actions for the current stage (exclude inactive)
   const availableActions = stageActions
     .filter(a => a.stage_id === task.current_stage_id)
+    .filter(a => (a as any).is_active !== false)
+    .filter(a => {
+      if (!a.required_role || a.required_role === 'any') return true;
+      return hasPermission(a.required_role);
+    })
     .sort((a, b) => a.position - b.position);
 
   // ─── Handlers ────────────────────────────────────────────
@@ -104,21 +113,28 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
   const handleExecuteAction = async (action: StageAction) => {
     // Complex actions → navigate to task details page
     if (['submit_work', 'review_approve', 'review_revise', 'review_reject'].includes(action.action_type)) {
-       router.push(`/task/${task.id}`);
-       return;
+      router.push(`/task/${task.id}`);
+      return;
     }
 
+    setNeedsTimerActionId(null);
     setLoadingAction(action.id);
     try {
       const { error } = await supabase.rpc('rpc_execute_stage_action', {
         p_task_id: task.id,
         p_action_id: action.id,
+        p_payload: {}, // Use 3-arg overload to ensure correct dispatching
       });
       if (error) {
-         if (error.code === 'PGRST202' || error.message?.includes('not found') || error.message?.includes('Could not find')) {
-            throw new Error(`Backend function missing. Please ensure database migrations are applied.`);
-         }
-         throw error;
+        if (error.code === 'PGRST202' || error.message?.includes('not found') || error.message?.includes('Could not find')) {
+          throw new Error('Backend function missing. Please ensure database migrations are applied.');
+        }
+        // Timer enforcement: show inline prompt instead of generic alert
+        if (error.message?.includes('running work session is required')) {
+          setNeedsTimerActionId(action.id);
+          return;
+        }
+        throw error;
       }
       onRefresh();
     } catch (err: any) {
@@ -280,55 +296,85 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
     return (
       <View>
         {isTimerActive && renderTimerBadge()}
-        <TouchableOpacity
-          onPress={handleFallbackAdvance}
-          disabled={loadingAction === '__advance__'}
-          className={`bg-brand-primary py-2.5 rounded-xl items-center justify-center flex-row ${loadingAction === '__advance__' ? 'opacity-50' : ''}`}
-        >
-          {loadingAction === '__advance__' ? (
-            <ActivityIndicator size="small" color="rgb(var(--text-main))" />
-          ) : (
-            <>
-              <Text className="text-typography-main font-black text-[10px] uppercase tracking-widest mr-2">Advance</Text>
-              <FontAwesome name="chevron-right" size={10} color="rgb(var(--text-main))" />
-            </>
-          )}
-        </TouchableOpacity>
+        {hasPermission('task.update') && (
+          <TouchableOpacity
+            onPress={handleFallbackAdvance}
+            disabled={loadingAction === '__advance__'}
+            className={`bg-brand-primary py-2.5 rounded-xl items-center justify-center flex-row ${loadingAction === '__advance__' ? 'opacity-50' : ''}`}
+          >
+            {loadingAction === '__advance__' ? (
+              <ActivityIndicator size="small" color="rgb(var(--text-main))" />
+            ) : (
+              <>
+                <Text className="text-typography-main font-black text-[10px] uppercase tracking-widest mr-2">Advance</Text>
+                <FontAwesome name="chevron-right" size={10} color="rgb(var(--text-main))" />
+              </>
+            )}
+          </TouchableOpacity>
+        )}
       </View>
     );
   }
 
-  // Render action buttons — gate per-action timer requirement
+  // Render action buttons — all actions shown (conditional branching)
   return (
     <View>
       {isTimerActive && renderTimerBadge()}
+
+      {/* Inline timer prompt if backend rejected action due to missing session */}
+      {needsTimerActionId && (
+        <TouchableOpacity
+          onPress={handleStartTimer}
+          disabled={loadingAction === '__timer__'}
+          className={`mb-2 bg-state-warning/10 py-2 rounded-xl border border-state-warning/30 items-center justify-center flex-row gap-2 ${loadingAction === '__timer__' ? 'opacity-50' : ''}`}
+        >
+          {loadingAction === '__timer__' ? (
+            <ActivityIndicator size="small" color={getAccentColor(activeTheme)} />
+          ) : (
+            <>
+              <FontAwesome name="clock-o" size={10} color={getAccentColor(activeTheme)} />
+              <Text className="text-state-warning font-black text-[10px] uppercase tracking-widest">Start Timer to Proceed</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      )}
+
       <View className="flex-row gap-2 flex-wrap">
-        {availableActions.slice(0, 3).map((action) => {
+        {availableActions.map((action) => {
           const style = ACTION_STYLES[action.style] || ACTION_STYLES.neutral;
           const isLoading = loadingAction === action.id;
 
-          // Per-action timer gate: if THIS action requires a timer and none is running, disable it
-          const actionNeedsTimer = action.requires_timer && !isTimerActive;
+          // Disable if this specific action (or its stage) requires a timer and none is running.
+          // IMPORTANT: Timer requirements are ignored for initial stages.
+          const effectiveRequiresTimer = (action.requires_timer || stageRequiresTimer) && !isInitialStage;
+          const actionNeedsTimer = effectiveRequiresTimer && !isTimerActive;
           const isComplex = isComplexActionType(action.action_type);
+          const isNeedsTimerPending = needsTimerActionId === action.id;
 
           return (
             <TouchableOpacity
               key={action.id}
               onPress={() => handleExecuteAction(action)}
               disabled={isLoading || actionNeedsTimer}
-              className={`flex-1 min-w-[30%] py-2.5 rounded-xl items-center justify-center border ${style.bg} ${style.border} ${(isLoading || actionNeedsTimer) ? 'opacity-40' : ''}`}
-             >
-               {isLoading ? (
-                 <ActivityIndicator size="small" color={getPrimaryColor(activeTheme)} />
-               ) : (
-                 <View className="flex-row items-center justify-center">
-                   {isComplex && <FontAwesome name="external-link" size={8} color="rgb(var(--text-main))" style={{ marginRight: 4, opacity: 0.7 }} />}
-                   <Text className={`${style.text} font-black text-[10px] uppercase tracking-widest text-center`} numberOfLines={1}>
-                     {actionNeedsTimer ? '🔒 ' : ''}{action.label}
-                   </Text>
-                 </View>
-               )}
-             </TouchableOpacity>
+              className={`flex-1 min-w-[30%] py-2.5 rounded-xl items-center justify-center border ${
+                isNeedsTimerPending
+                  ? 'bg-state-warning/10 border-state-warning/40'
+                  : `${style.bg} ${style.border}`
+              } ${(isLoading || actionNeedsTimer) ? 'opacity-40' : ''}`}
+            >
+              {isLoading ? (
+                <ActivityIndicator size="small" color={getPrimaryColor(activeTheme)} />
+              ) : (
+                <View className="flex-row items-center justify-center">
+                  {isComplex && <FontAwesome name="external-link" size={8} color="rgb(var(--text-main))" style={{ marginRight: 4, opacity: 0.7 }} />}
+                  <Text className={`${
+                    isNeedsTimerPending ? 'text-state-warning' : style.text
+                  } font-black text-[10px] uppercase tracking-widest text-center`} numberOfLines={1}>
+                    {actionNeedsTimer ? '🔒 ' : ''}{action.label}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
           );
         })}
       </View>

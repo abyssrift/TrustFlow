@@ -26,9 +26,9 @@ export default function TimerPanel() {
   const mySession = activeSessions.find((ws) => ws.user_id === user?.id);
   const othersSession = !mySession && activeSessions.length > 0 ? activeSessions[0] : null;
 
-  // Show "Start Working" when: assigned, no active session of my own
+  // Show "Start Working" when: assigned, stage requires timer, and no active session of my own
   const hasWorkedBefore = data.work_sessions.some(ws => ws.user_id === user?.id);
-  const canStart = data.permissions.is_assigned && !mySession;
+  const canStart = data.permissions.is_assigned && data.current_stage?.requires_timer && !mySession;
 
   // Nothing to show if no session exists and user cannot start one
   if (!mySession && !othersSession && !canStart) return null;

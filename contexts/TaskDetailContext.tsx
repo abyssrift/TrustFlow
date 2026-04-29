@@ -195,10 +195,13 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
   }, [taskId]);
 
   // ─── Actions ────────────────────────────────────
-  const executeAction = useCallback(async (actionId: string) => {
+  const executeAction = useCallback(async (actionId: string, payload?: Record<string, any>) => {
+    // Use the 3-arg overload (p_payload) so the new dispatch logic runs correctly.
+    // The old 2-arg overload rejects start_task / advance with "Complex action type" error.
     const { error: rpcError } = await supabase.rpc('rpc_execute_stage_action', {
       p_task_id: taskId,
       p_action_id: actionId,
+      p_payload: payload ?? {},
     });
     if (rpcError) throw rpcError;
     await fetchDetails();
