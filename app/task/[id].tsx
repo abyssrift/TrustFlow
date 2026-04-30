@@ -3,6 +3,7 @@ import { View, Text, ScrollView, RefreshControl, ActivityIndicator, TouchableOpa
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { TaskDetailProvider, useTaskDetail } from '@/contexts/TaskDetailContext';
+import { TimerProvider } from '@/contexts/TimerContext';
 import TaskHeader from '@/components/task-detail/TaskHeader';
 import TimerPanel from '@/components/task-detail/TimerPanel';
 import TaskMetadata from '@/components/task-detail/TaskMetadata';
@@ -11,6 +12,7 @@ import StageActions from '@/components/task-detail/StageActions';
 import ChildPipelinesPanel from '@/components/task-detail/ChildPipelinesPanel';
 import PipelineJourney from '@/components/task-detail/PipelineJourney';
 import CommentsSection from '@/components/task-detail/CommentsSection';
+import EvidencePanel from '@/components/task-detail/EvidencePanel';
 import ActivityLog from '@/components/task-detail/ActivityLog';
 
 function TaskDetailContent() {
@@ -76,26 +78,32 @@ function TaskDetailContent() {
   }
 
   // ═════════════════════════════════════════════════
-  // MOBILE LAYOUT (single column stacked)
+  // MOBILE LAYOUT (with ergonomic bottom timer)
   // ═════════════════════════════════════════════════
   return (
     <View className="flex-1 bg-surface-background">
       <TaskHeader />
-      <TimerPanel />
+      
       <ScrollView
         className="flex-1 px-4 py-4"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="rgb(var(--brand-primary))" />}
       >
-        <View className="gap-4 pb-10">
+        <View className="gap-4 pb-32">
           <TaskMetadata />
           <PeoplePanel />
           <ChildPipelinesPanel />
           <StageActions />
           <PipelineJourney />
+          <EvidencePanel />
           <CommentsSection />
           <ActivityLog />
         </View>
       </ScrollView>
+
+      {/* Floating Timer Panel for Mobile Ergonomics */}
+      <View className="absolute bottom-6 left-0 right-0 px-4">
+        <TimerPanel />
+      </View>
     </View>
   );
 }

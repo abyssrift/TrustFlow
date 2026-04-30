@@ -3,6 +3,7 @@ import { View, Text, ScrollView, RefreshControl, ActivityIndicator, TouchableOpa
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { TaskDetailProvider, useTaskDetail } from '@/contexts/TaskDetailContext';
+import { TimerProvider } from '@/contexts/TimerContext';
 import TaskHeader from '@/components/task-detail/TaskHeader';
 import TimerPanel from '@/components/task-detail/TimerPanel';
 import TaskMetadata from '@/components/task-detail/TaskMetadata';
@@ -74,7 +75,6 @@ function TaskDetailContentWeb() {
   return (
     <View className="flex-1 bg-surface-background">
       <TaskHeader />
-      <TimerPanel />
       <View className="flex-1 flex-row">
         {/* LEFT: Main Operational Area */}
         <ScrollView
@@ -95,6 +95,7 @@ function TaskDetailContentWeb() {
             className="p-8 space-y-8"
           >
             <TaskMetadata />
+            <TimerPanel />
             <PeoplePanel />
             <ChildPipelinesPanel />
             <PipelineJourney />

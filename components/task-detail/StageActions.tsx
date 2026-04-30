@@ -2,7 +2,11 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, Alert, TextInput } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTaskDetail, type StageActionData } from '@/contexts/TaskDetailContext';
+import { useTimer } from '@/contexts/TimerContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSubmission } from '@/contexts/SubmissionContext';
+import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
 import { getActionDescriptor, splitStageActions } from './actionRegistry';
 
 const TYPE_STYLES: Record<string, { bg: string; border: string; text: string; icon: string }> = {
@@ -21,10 +25,44 @@ const STATUS_STYLES: Record<string, { bg: string; border: string; text: string; 
 };
 
 export default function StageActions() {
-  const { data, executeAction, submitWork, reviewSubmission, stopWork } = useTaskDetail();
+  const { data, executeAction, submitWork, reviewSubmission } = useTaskDetail();
+  const { stopWork, startWork, smartTimer } = useTimer();
   const { user } = useAuth();
   const [loadingActionId, setLoadingActionId] = useState<string | null>(null);
   const [submissionContent, setSubmissionContent] = useState('');
+  const [stagedFiles, setStagedFiles] = useState<any[]>([]);
+
+  const { submitWithEvidence, activeJobs } = useSubmission();
+  const activeJob = activeJobs[data.task.id];
+  const isUploading = !!activeJob && (activeJob.status === 'processing' || activeJob.status === 'uploading' || activeJob.status === 'committing');
+
+  const pickDocument = async () => {
+    const result = await DocumentPicker.getDocumentAsync({ type: '*/*', multiple: true });
+    if (!result.canceled) {
+      setStagedFiles(prev => [...prev, ...result.assets.map(a => ({
+        id: Math.random().toString(36).substring(7),
+        uri: a.uri,
+        name: a.name,
+        size: a.size || 0,
+        type: a.mimeType || 'application/octet-stream',
+      }))]);
+    }
+  };
+
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsMultipleSelection: true });
+    if (!result.canceled) {
+      setStagedFiles(prev => [...prev, ...result.assets.map(a => ({
+        id: Math.random().toString(36).substring(7),
+        uri: a.uri,
+        name: a.fileName || `image_${Date.now()}.jpg`,
+        size: a.fileSize || 0,
+        type: a.mimeType || 'image/jpeg',
+      }))]);
+    }
+  };
+
+  const removeFile = (id: string) => setStagedFiles(prev => prev.filter(f => f.id !== id));
 
   if (!data) return null;
 
@@ -41,15 +79,25 @@ export default function StageActions() {
   const reviewActionIds = grouped.review.map((a) => a.id);
   const pendingSubmission = data.submissions.find((s) => s.status === 'pending');
 
-  // Show the submission section only when there is something meaningful to show:
-  // a submit action, the stage explicitly requires submission, or submissions already exist.
-  // NOTE: hasReviewActions is intentionally excluded — review buttons render inside
-  // individual submission cards and should not force the whole section to appear.
-  const showSubmissionSection = !!(
-    submitAction ||
-    data.current_stage?.requires_submission ||
-    data.submissions.length > 0
+  // The submission form shows if:
+  // 1. The stage explicitly requires a submission (and we aren't a reviewer just looking at it)
+  // 2. Or there is a specific submit action available for the user.
+  const showSubmitForm = !!(
+    (data.current_stage?.requires_submission && (!hasReviewActions || data.permissions.is_assigned)) ||
+    (submitAction && (data.permissions.is_assigned || (data.permissions.is_owner && !hasReviewActions)))
   );
+
+  // The whole section shows if there's a form, or history, or the stage implies it.
+  const showSubmissionSection = !!(
+    data.submissions.length > 0 || 
+    showSubmitForm || 
+    submitAction || 
+    data.current_stage?.requires_submission
+  );
+
+  const stageRequiresTimer = !!data.current_stage?.requires_timer;
+  const anyActionRequiresTimer = data.stage_actions.some(a => a.requires_timer && a.can_perform && a.precondition_met);
+  const canStart = (data.permissions.is_assigned || data.permissions.is_owner || data.permissions.is_manager);
 
   const handleAction = async (action: StageActionData) => {
     try {
@@ -65,12 +113,17 @@ export default function StageActions() {
 
       if (descriptor.executionRoute === 'submit_work') {
         const content = submissionContent.trim();
-        if (!content) {
-          Alert.alert('Missing Submission', 'Please describe your work submission before continuing.');
-          return;
-        }
-        await submitWork(content, action.transition_id);
+        await submitWithEvidence({
+          taskId: data.task.id,
+          taskTitle: data.task.title,
+          companyId: data.task.company_id,
+          content: content,
+          transitionId: action.transition_id,
+          stagedFiles
+        });
+
         setSubmissionContent('');
+        setStagedFiles([]);
         return;
       }
 
@@ -137,37 +190,95 @@ export default function StageActions() {
             Submissions ({data.submissions.length})
           </Text>
 
-          {(submitAction || data.current_stage?.requires_submission) && (
+          {showSubmitForm && (
             <View className="mb-4 pb-4 border-b border-surface-border/30">
               <TextInput
                 value={submissionContent}
-                onChangeText={setSubmissionContent}
+                onChangeText={(val) => {
+                  setSubmissionContent(val);
+                  smartTimer.recordActivity();
+                }}
+                onFocus={async () => {
+                  if (!smartTimer.isActive && (stageRequiresTimer || anyActionRequiresTimer) && canStart) {
+                    try {
+                      await startWork(data.task.id, data.task.title);
+                    } catch (err) {
+                      console.error('[AutoStart] Failed to start timer:', err);
+                    }
+                  }
+                }}
                 placeholder="Describe your work submission..."
                 placeholderTextColor="rgb(var(--text-dim))"
                 multiline
                 numberOfLines={3}
                 className="bg-surface-background border border-surface-border rounded-xl p-3 text-typography-main text-sm mb-3 min-h-[80px]"
               />
+              {/* File Upload Queue */}
+              {stagedFiles.length > 0 && (
+                <View className="mb-3 gap-2">
+                  {stagedFiles.map((file) => (
+                    <View key={file.id} className="flex-row items-center bg-surface-overlay px-3 py-2 rounded-lg border border-surface-border/50">
+                      <FontAwesome 
+                        name={file.type.includes('image') ? 'file-image-o' : 'file-o'} 
+                        size={12} 
+                        color="rgb(var(--brand-primary))" 
+                      />
+                      <Text className="text-typography-main text-[11px] font-bold ml-2 flex-1" numberOfLines={1}>
+                        {file.name}
+                      </Text>
+                      {isUploading ? (
+                        <ActivityIndicator size="small" color="rgb(var(--brand-primary))" className="scale-75" />
+                      ) : (
+                        <TouchableOpacity onPress={() => removeFile(file.id)} className="ml-2 p-1">
+                          <FontAwesome name="times-circle" size={12} color="rgb(var(--state-danger))" />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              )}
+
               <View className="flex-row items-center justify-between">
-                <TouchableOpacity disabled className="flex-row items-center opacity-30">
-                  <FontAwesome name="paperclip" size={14} color="rgb(var(--text-dim))" />
-                  <Text className="text-typography-dim text-[10px] font-bold ml-1.5">Attach (Coming Soon)</Text>
-                </TouchableOpacity>
+                <View className="flex-row gap-3">
+                  <TouchableOpacity 
+                    onPress={pickImage}
+                    disabled={isUploading}
+                    className="flex-row items-center bg-surface-background px-3 py-2 rounded-xl border border-surface-border active:opacity-70"
+                  >
+                    <FontAwesome name="camera" size={11} color="rgb(var(--brand-primary))" />
+                    <Text className="text-brand-primary text-[10px] font-black uppercase ml-1.5">Add Photo</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    onPress={pickDocument}
+                    disabled={isUploading}
+                    className="flex-row items-center bg-surface-background px-3 py-2 rounded-xl border border-surface-border active:opacity-70"
+                  >
+                    <FontAwesome name="paperclip" size={11} color="rgb(var(--brand-primary))" />
+                    <Text className="text-brand-primary text-[10px] font-black uppercase ml-1.5">Attach File</Text>
+                  </TouchableOpacity>
+                </View>
+
                 <TouchableOpacity
                   onPress={() => {
                     if (submitAction) {
                       handleAction(submitAction);
-                    } else {
-                      Alert.alert('Submission Action Missing', 'This stage requires submissions, but no canonical submit action is active. Re-save the stage in Pipeline Editor.');
                     }
                   }}
-                  disabled={!submitAction || !submissionContent.trim() || loadingActionId === submitAction.id}
-                  className={`bg-brand-primary px-5 py-2.5 rounded-xl ${(!submitAction || !submissionContent.trim() || loadingActionId === submitAction?.id) ? 'opacity-50' : ''}`}
+                  disabled={!submitAction || (submissionContent.trim() === '' && stagedFiles.length === 0) || loadingActionId === submitAction.id || isUploading}
+                  className={`bg-brand-primary px-5 py-2.5 rounded-xl ${(!submitAction || (submissionContent.trim() === '' && stagedFiles.length === 0) || loadingActionId === submitAction?.id || isUploading) ? 'opacity-50' : ''}`}
                 >
-                  {loadingActionId === submitAction?.id ? (
-                    <ActivityIndicator size="small" color="rgb(var(--text-main))" />
+                  {loadingActionId === submitAction?.id || isUploading ? (
+                    <View className="flex-row items-center">
+                      <ActivityIndicator size="small" color="#fff" />
+                      {activeJob?.currentAction && (
+                        <Text className="text-white text-[9px] font-black uppercase ml-2 tracking-tighter">
+                          {activeJob.currentAction}
+                        </Text>
+                      )}
+                    </View>
                   ) : (
-                    <Text className="text-typography-main text-xs font-black">{submitAction?.label || 'Submit Work'}</Text>
+                    <Text className="text-white text-xs font-black uppercase tracking-wider">{submitAction?.label || 'Submit Work'}</Text>
                   )}
                 </TouchableOpacity>
               </View>

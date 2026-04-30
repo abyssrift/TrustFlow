@@ -40,8 +40,7 @@ export type StageActionData = {
   ui_slot?: 'button' | 'submission' | 'review';
 };
 
-// ─── Action Registry Logic ─────────────────────────────
-import { getActionDescriptor, splitStageActions, isComplexActionType } from '@/components/task-detail/actionRegistry';
+import { getActionDescriptor, splitStageActions } from '@/components/task-detail/actionRegistry';
 export * from '@/components/task-detail/actionRegistry';
 
 export type AssignmentData = { id: string; user: UserRef; team: TeamRef; assigned_at: string };
@@ -66,7 +65,7 @@ export type CommentData = {
 
 export type WorkSessionData = {
   id: string; user_name: string | null; user_id: string; status: string;
-  total_seconds_spent: number; started_at: string;
+  total_seconds_spent: number; started_at: string; last_heartbeat_at?: string;
 };
 
 export type ChildTaskData = {
@@ -113,45 +112,37 @@ export type TaskDetailPayload = {
 };
 
 type TaskDetailContextType = {
+  taskId: string;
   data: TaskDetailPayload | null;
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
-  executeAction: (actionId: string) => Promise<void>;
-  submitWork: (content: string, transitionId?: string | null) => Promise<void>;
+  executeAction: (actionId: string, payload?: any) => Promise<void>;
+  submitWork: (content: string, transitionId?: string | null, attachments?: any[]) => Promise<void>;
   addComment: (content: string, parentId?: string | null) => Promise<void>;
   deleteComment: (commentId: string) => Promise<void>;
   advanceStage: (toStageId: string) => Promise<void>;
   reviewSubmission: (submissionId: string, decision: string, notes?: string, advanceStageId?: string) => Promise<void>;
-  startWork: () => Promise<void>;
-  stopWork: () => Promise<void>;
   updateTask: (updates: Partial<TaskData>) => Promise<void>;
 };
 
-const TaskDetailContext = createContext<TaskDetailContextType>({
-  data: null, loading: true, error: null,
-  refresh: async () => { }, executeAction: async () => { },
-  submitWork: async (content: string, transitionId?: string | null) => { },
-  addComment: async () => { }, deleteComment: async () => { },
-  advanceStage: async () => { }, reviewSubmission: async () => { },
-  startWork: async () => { }, stopWork: async () => { },
-  updateTask: async () => { },
-});
+const TaskDetailContext = createContext<TaskDetailContextType | null>(null);
 
-export const useTaskDetail = () => useContext(TaskDetailContext);
+export const useTaskDetail = () => {
+  const context = useContext(TaskDetailContext);
+  if (!context) throw new Error('useTaskDetail must be used within a TaskDetailProvider');
+  return context;
+};
 
 export const TaskDetailProvider = ({ taskId, children }: { taskId: string; children: React.ReactNode }) => {
   const [data, setData] = useState<TaskDetailPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const channelsRef = useRef<RealtimeChannel[]>([]);
-  const { user } = useAuth();
 
-  // ─── Fetch ──────────────────────────────────────
   const fetchDetails = useCallback(async () => {
     try {
       setError(null);
-      // Parallel: RPC detail payload + child tasks query
       const [{ data: result, error: rpcError }, { data: childRows }] = await Promise.all([
         supabase.rpc('rpc_get_task_details', { p_task_id: taskId }),
         supabase
@@ -172,14 +163,10 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
         return;
       }
 
-      // Filter child tasks: if pipeline_id exists, pipeline metadata must be available
-      // (Otherwise RLS blocked the pipeline metadata, meaning user shouldn't "know" about it)
       const child_tasks: ChildTaskData[] = (childRows || [])
         .filter((r: any) => !r.pipeline_id || r.pipeline)
         .map((r: any) => ({
-          id: r.id,
-          title: r.title,
-          status: r.status,
+          id: r.id, title: r.title, status: r.status,
           pipeline_name: r.pipeline?.name ?? null,
           stage_name: r.stage?.name ?? null,
           stage_color: r.stage?.color ?? null,
@@ -194,27 +181,22 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
     }
   }, [taskId]);
 
-  // ─── Actions ────────────────────────────────────
-  const executeAction = useCallback(async (actionId: string, payload?: Record<string, any>) => {
-    // Use the 3-arg overload (p_payload) so the new dispatch logic runs correctly.
-    // The old 2-arg overload rejects start_task / advance with "Complex action type" error.
-    const { error: rpcError } = await supabase.rpc('rpc_execute_stage_action', {
-      p_task_id: taskId,
-      p_action_id: actionId,
-      p_payload: payload ?? {},
+  const executeAction = useCallback(async (actionId: string, payload?: any) => {
+    const { error } = await supabase.rpc('rpc_execute_stage_action', {
+      p_task_id: taskId, p_action_id: actionId, p_payload: payload ?? {},
     });
-    if (rpcError) throw rpcError;
+    if (error) throw error;
     await fetchDetails();
   }, [taskId, fetchDetails]);
 
-  const submitWork = useCallback(async (content: string, transitionId?: string | null) => {
+  const submitWork = useCallback(async (content: string, transitionId?: string | null, attachments: any[] = []) => {
     const { error } = await supabase.rpc('rpc_submit_work', { 
       p_task_id: taskId, 
-      p_content: content,
-      p_transition_id: transitionId || null
+      p_content: content, 
+      p_transition_id: transitionId || null,
+      p_attachments: attachments // Pass attachments to backend
     });
     if (error) throw error;
-    // Realtime will patch, but also do a full refresh for stats
     await fetchDetails();
   }, [taskId, fetchDetails]);
 
@@ -223,17 +205,12 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
       p_task_id: taskId, p_content: content, p_parent_id: parentId || null,
     });
     if (error) throw error;
-    // Realtime will deliver the new comment
   }, [taskId]);
 
   const deleteComment = useCallback(async (commentId: string) => {
     const { error } = await supabase.rpc('rpc_delete_task_comment', { p_comment_id: commentId });
     if (error) throw error;
-    // Remove from local state immediately
-    setData((prev: TaskDetailPayload | null) => prev ? {
-      ...prev,
-      comments: prev.comments.filter((c: CommentData) => c.id !== commentId),
-    } : null);
+    setData((prev) => prev ? { ...prev, comments: prev.comments.filter(c => c.id !== commentId) } : null);
   }, []);
 
   const advanceStage = useCallback(async (toStageId: string) => {
@@ -251,115 +228,35 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
     await fetchDetails();
   }, [fetchDetails]);
 
-  const startWork = useCallback(async () => {
-    const { error } = await supabase.rpc('rpc_start_work', { p_task_id: taskId });
-    if (error) throw error;
-    await fetchDetails();
-  }, [taskId, fetchDetails]);
-
-  const stopWork = useCallback(async () => {
-    const { error } = await supabase.rpc('rpc_stop_work', { p_task_id: taskId });
-    if (error) throw error;
-    await fetchDetails();
-  }, [taskId, fetchDetails]);
-
   const updateTask = useCallback(async (updates: Partial<TaskData>) => {
-    // Only allow updating specific fields
-    const safeUpdates: any = {};
-    if (updates.title !== undefined) safeUpdates.title = updates.title;
-    if (updates.description !== undefined) safeUpdates.description = updates.description;
-    if (updates.priority !== undefined) safeUpdates.priority = updates.priority;
-    if (updates.category !== undefined) safeUpdates.category = updates.category;
-    if (updates.due_date !== undefined) safeUpdates.due_date = updates.due_date;
-    if (updates.weight !== undefined) safeUpdates.weight = updates.weight;
-    if (updates.is_recurring !== undefined) safeUpdates.is_recurring = updates.is_recurring;
-
-    const { error } = await supabase
-      .from('tasks')
-      .update(safeUpdates)
-      .eq('id', taskId);
-      
+    const { error } = await supabase.from('tasks').update(updates).eq('id', taskId);
     if (error) throw error;
     await fetchDetails();
   }, [taskId, fetchDetails]);
 
-  // ─── Realtime Subscriptions ───────────────────────────────────
   useEffect(() => {
     fetchDetails();
+    const commentChannel = supabase.channel(`task-comments-${taskId}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'task_comments', filter: `task_id=eq.${taskId}` }, (payload) => {
+      supabase.from('users').select('id, full_name, avatar_url').eq('id', payload.new.author_id).single().then(({ data: author }) => {
+        setData(prev => prev ? { ...prev, comments: [...prev.comments, { ...payload.new, author } as any] } : null);
+      });
+    }).subscribe();
 
-    // Channel 1: Comments
-    const commentChannel = supabase
-      .channel(`task-comments-${taskId}`)
-      .on('postgres_changes', {
-        event: 'INSERT', schema: 'public', table: 'task_comments',
-        filter: `task_id=eq.${taskId}`,
-      }, (payload: any) => {
-        const newComment = payload.new as any;
-        // Fetch author info for the new comment
-        supabase.from('users').select('id, full_name, avatar_url').eq('id', newComment.author_id).single()
-          .then(({ data: author }: { data: any }) => {
-            const comment: CommentData = {
-              id: newComment.id, content: newComment.content,
-              parent_id: newComment.parent_id, is_system: newComment.is_system,
-              author: author || null, created_at: newComment.created_at,
-            };
-            setData((prev: TaskDetailPayload | null) => prev ? {
-              ...prev,
-              comments: [...prev.comments, comment],
-            } : null);
-          });
-      })
-      .subscribe();
+    const subChannel = supabase.channel(`task-subs-${taskId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'task_submissions', filter: `task_id=eq.${taskId}` }, () => fetchDetails()).subscribe();
+    const histChannel = supabase.channel(`task-hist-${taskId}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pipeline_stage_history', filter: `task_id=eq.${taskId}` }, () => fetchDetails()).subscribe();
+    const metaChannel = supabase.channel(`task-meta-${taskId}`).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tasks', filter: `id=eq.${taskId}` }, () => fetchDetails()).subscribe();
+    const workSessionChannel = supabase.channel(`task-sessions-${taskId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'task_work_sessions', filter: `task_id=eq.${taskId}` }, () => fetchDetails()).subscribe();
 
-    // Channel 2: Submissions
-    const submissionChannel = supabase
-      .channel(`task-submissions-${taskId}`)
-      .on('postgres_changes', {
-        event: '*', schema: 'public', table: 'task_submissions',
-        filter: `task_id=eq.${taskId}`,
-      }, () => {
-        // Full refresh on any submission change (new submission or review)
-        fetchDetails();
-      })
-      .subscribe();
-
-    // Channel 3: Stage history
-    const historyChannel = supabase
-      .channel(`task-history-${taskId}`)
-      .on('postgres_changes', {
-        event: 'INSERT', schema: 'public', table: 'pipeline_stage_history',
-        filter: `task_id=eq.${taskId}`,
-      }, () => {
-        // Full refresh on stage change
-        fetchDetails();
-      })
-      .subscribe();
-
-    // Channel 4: Task Metadata
-    const taskChannel = supabase
-      .channel(`task-metadata-${taskId}`)
-      .on('postgres_changes', {
-        event: 'UPDATE', schema: 'public', table: 'tasks',
-        filter: `id=eq.${taskId}`,
-      }, () => {
-        // Full refresh on metadata update
-        fetchDetails();
-      })
-      .subscribe();
-
-    channelsRef.current = [commentChannel, submissionChannel, historyChannel, taskChannel];
-
+    channelsRef.current = [commentChannel, subChannel, histChannel, metaChannel, workSessionChannel];
     return () => {
-      channelsRef.current.forEach((ch: RealtimeChannel) => supabase.removeChannel(ch));
-      channelsRef.current = [];
+      channelsRef.current.forEach(ch => supabase.removeChannel(ch));
     };
   }, [taskId, fetchDetails]);
 
   return (
     <TaskDetailContext.Provider value={{
-      data, loading, error, refresh: fetchDetails,
-      executeAction, submitWork, addComment, deleteComment, advanceStage, reviewSubmission,
-      startWork, stopWork, updateTask,
+      taskId, data, loading, error, refresh: fetchDetails,
+      executeAction, submitWork, addComment, deleteComment, advanceStage, reviewSubmission, updateTask
     }}>
       {children}
     </TaskDetailContext.Provider>

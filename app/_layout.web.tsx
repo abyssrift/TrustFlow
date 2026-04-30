@@ -13,8 +13,11 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { ThemeProvider as AppThemeProvider } from '@/contexts/ThemeContext';
 import { AlertProvider } from '@/contexts/AlertContext';
+import { TimerProvider } from '@/contexts/TimerContext';
+import { SubmissionProvider } from '@/contexts/SubmissionContext';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Sidebar from '@/components/Sidebar.web';
+import TimerIsland from '@/components/TimerIsland';
 
 cssInterop(FontAwesome, {
   className: {
@@ -52,11 +55,15 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <AppThemeProvider>
-          <AlertProvider>
-            <RootLayoutNav />
-          </AlertProvider>
-        </AppThemeProvider>
+        <SubmissionProvider>
+          <TimerProvider>
+            <AppThemeProvider>
+              <AlertProvider>
+                <RootLayoutNav />
+              </AlertProvider>
+            </AppThemeProvider>
+          </TimerProvider>
+        </SubmissionProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );
@@ -90,6 +97,10 @@ function RootLayoutNav() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <View className="flex-1 bg-surface-background">
+        <TimerIsland />
+        <View className="absolute top-0 left-0 right-0 z-[999]">
+          {/* Other banners can go here */}
+        </View>
         {showSidebar ? (
           <Sidebar>
             <Slot />

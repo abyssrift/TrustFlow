@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTaskDetail, CommentData } from '@/contexts/TaskDetailContext';
+import { useTimer } from '@/contexts/TimerContext';
 import { useAuth } from '@/contexts/AuthContext';
 import PermissionGate from './PermissionGate';
 
@@ -99,6 +100,7 @@ function CommentNode({ comment, depth, onReply, onDelete, canComment, currentUse
 
 export default function CommentsSection() {
   const { data, addComment, deleteComment } = useTaskDetail();
+  const { smartTimer, passiveStart } = useTimer();
   const { user } = useAuth();
   const [input, setInput] = useState('');
   const [replyTo, setReplyTo] = useState<string | null>(null);
@@ -176,7 +178,10 @@ export default function CommentsSection() {
           <View className="flex-row items-end gap-2">
             <TextInput
               value={input}
-              onChangeText={setInput}
+              onChangeText={(val) => {
+                setInput(val);
+                passiveStart(data.task.id, data.task.title);
+              }}
               placeholder={replyTo ? 'Write a reply...' : 'Write a comment...'}
               placeholderTextColor="#64748b"
               multiline

@@ -35,8 +35,12 @@ export const unstable_settings = {
 };
 
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
+import { SubmissionProvider } from '../contexts/SubmissionContext';
 import { useRouter, useSegments } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import GlobalUploadBanner from '@/components/GlobalUploadBanner';
+import TimerIsland from '@/components/TimerIsland';
+import { TimerProvider } from '@/contexts/TimerContext';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -69,7 +73,11 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <RootLayoutNav />
+        <TimerProvider>
+          <SubmissionProvider>
+            <RootLayoutNav />
+          </SubmissionProvider>
+        </TimerProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );
@@ -116,6 +124,10 @@ function RootLayoutNav() {
               <Stack.Screen name="task/[id]" options={{ headerShown: false }} />
               <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
             </Stack>
+            <TimerIsland />
+            <View className="absolute top-0 left-0 right-0 z-[999]">
+              <GlobalUploadBanner />
+            </View>
           </View>
         </ThemeProvider>
       </AlertProvider>
