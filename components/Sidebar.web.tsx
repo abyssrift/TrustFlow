@@ -1,8 +1,8 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Link, useLocalSearchParams, usePathname } from 'expo-router';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Platform, Pressable, ScrollView, Text, View } from 'react-native';
-import { supabase } from '@/lib/supabase';
 import { cssInterop } from 'react-native-css-interop';
 
 import { useAuth } from '@/contexts/AuthContext';
@@ -20,6 +20,7 @@ type IconName = React.ComponentProps<typeof FontAwesome>['name'];
 type Shortcut = {
   id: string;
   permissionKey: string;
+  fallbackPermissionKey?: string;
   icon: IconName;
   label: string;
   href: string;
@@ -41,8 +42,7 @@ const SHORTCUTS: Shortcut[] = [
   { id: 'radar', permissionKey: 'report.view', icon: 'bullseye', label: 'Radar', href: '/intelligence?section=radar' },
   { id: 'targets', permissionKey: 'target.view', icon: 'crosshairs', label: 'Targets', href: '/intelligence?section=targets' },
   { id: 'reports', permissionKey: 'report.view', icon: 'file-text-o', label: 'Reports', href: '/intelligence?section=archives' },
-  { id: 'members', permissionKey: 'user.view_all', icon: 'users', label: 'Members', href: '/people' },
-  { id: 'teams', permissionKey: 'role.manage', icon: 'group', label: 'Teams', href: '/admin/roles?tab=teams' },
+  { id: 'team', permissionKey: 'user.view_all', fallbackPermissionKey: 'role.manage', icon: 'users', label: 'Team', href: '/people?section=teams' },
   { id: 'pipelines-admin', permissionKey: 'pipeline.edit', icon: 'gear', label: 'Pipelines', href: '/admin/pipelines' },
   { id: 'benchmark', permissionKey: 'role.manage', icon: 'balance-scale', label: 'Benchmark', href: '/admin/comparison' },
   { id: 'analytics', permissionKey: 'report.view', icon: 'line-chart', label: 'Analytics', href: '/admin/ReportGenerator' },
@@ -238,7 +238,14 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
   }, []);
 
   const visibleShortcuts = useMemo(
-    () => SHORTCUTS.filter((s) => s.id === 'dashboard' || s.id === 'tasks' || hasPermission(s.permissionKey)),
+    () =>
+      SHORTCUTS.filter(
+        (s) =>
+          s.id === 'dashboard' ||
+          s.id === 'tasks' ||
+          hasPermission(s.permissionKey) ||
+          (!!s.fallbackPermissionKey && hasPermission(s.fallbackPermissionKey))
+      ),
     [hasPermission]
   );
   const profileLabel = useMemo(() => profileName || displayNameFromSession(session), [profileName, session]);

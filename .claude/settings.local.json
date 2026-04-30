@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/PC/.claude/**)",
+      "Read(//c/Users/j/OneDrive/Documents/GitHub/NewTrustEdgeAPP/**)",
+      "Bash(npm --version)",
+      "Bash(npm install *)",
+      "Bash(npm run lint)",
+      "Bash(npm run typecheck)",
+      "Bash(npm ls *)",
+      "Bash(supabase --version)",
+      "Bash(supabase status)",
+      "Bash(supabase db diff *)",
+      "Bash(supabase gen types *)",
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git branch)",
+      "Bash(git show *)",
+      "Bash(dir *)",
+      "Bash(ls *)",
+      "Bash(type *)",
+      "Bash(cat *)",
+      "Bash(echo *)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\PC\\.claude",
+      "C:\\Users\\j\\OneDrive\\Documents\\GitHub\\NewTrustEdgeAPP"
+    ]
+  }
+}

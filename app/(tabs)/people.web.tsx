@@ -1,277 +1,155 @@
 import React, { useEffect, useState } from 'react';
-import { 
-  View, Text, ScrollView, RefreshControl, 
-  TouchableOpacity, ActivityIndicator, Image,
-  TextInput, Modal, Pressable
-} from 'react-native';
-import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/AuthContext';
+import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as Clipboard from 'expo-clipboard';
 
-type TeamMember = {
-  id: string;
-  full_name: string;
-  role: string;
-  email?: string;
-  avatar_url?: string;
-  contribution_points?: number;
-  velocity_hours?: number;
-  flap_rate?: number;
-  tier?: string;
-  reliability?: number;
-};
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
+import { RoleManagerProvider, useRoleManager } from '@/contexts/RoleManagerContext';
+import UserAssignmentGrid from '@/components/admin/UserAssignmentGrid';
+import TeamAssignmentGrid from '@/components/admin/TeamAssignmentGrid';
+import RoleBuilder from '@/components/admin/RoleBuilder';
+
+type PeopleSection = 'members' | 'teams' | 'roles';
+
+function resolveSection(param: string | undefined, canViewMembers: boolean, canManageTeams: boolean): PeopleSection {
+  if (param === 'roles' && canManageTeams) return 'roles';
+  if (param === 'teams' && canManageTeams) return 'teams';
+  if (param === 'members' && canViewMembers) return 'members';
+  if (canManageTeams) return 'teams';
+  return 'members';
+}
+
+function TeamWorkspaceContent({ section }: { section: PeopleSection }) {
+  const { loading, error } = useRoleManager();
+
+  if (loading) {
+    return (
+      <View className="py-40 items-center justify-center">
+        <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View className="w-full items-center justify-center py-32 bg-state-danger/10 rounded-[40px] border border-dashed border-state-danger/30">
+        <FontAwesome name="exclamation-triangle" size={42} color="rgb(var(--state-danger))" />
+        <Text className="text-typography-main text-xl font-black mt-6">Unable to load team workspace</Text>
+        <Text className="text-typography-muted mt-2 text-center max-w-xl">{error}</Text>
+      </View>
+    );
+  }
+
+  if (section === 'roles') return <RoleBuilder />;
+  if (section === 'teams') return <TeamAssignmentGrid />;
+  return <UserAssignmentGrid />;
+}
 
 export default function PeopleScreenWeb() {
-  const [members, setMembers] = useState<TeamMember[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedScan, setSelectedScan] = useState<TeamMember | null>(null);
+  const params = useLocalSearchParams<{ section?: string | string[] }>();
+  const sectionParam = Array.isArray(params.section) ? params.section[0] : params.section;
+
   const [joinCode, setJoinCode] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const { profile } = useAuth();
-  
+  const [activeSection, setActiveSection] = useState<PeopleSection>('members');
+
+  const { profile, hasPermission } = useAuth();
+  const canManageTeams = hasPermission('role.manage');
+  const canViewMembers = hasPermission('user.view_all') || canManageTeams;
+  const hasWorkspaceAccess = canViewMembers || canManageTeams;
+
   useEffect(() => {
-    if (profile?.company_id) {
-      fetchCompanyInfo();
-    }
+    const fetchCompanyInfo = async () => {
+      if (!profile?.company_id) return;
+      const { data } = await supabase
+        .from('companies')
+        .select('join_code')
+        .eq('id', profile.company_id)
+        .single();
+      if (data?.join_code) setJoinCode(data.join_code);
+    };
+    fetchCompanyInfo();
   }, [profile?.company_id]);
 
-  const fetchCompanyInfo = async () => {
-    const { data, error } = await supabase
-      .from('companies')
-      .select('join_code')
-      .eq('id', profile.company_id)
-      .single();
-    
-    if (data) {
-      setJoinCode(data.join_code);
-    }
-  };
-  
-  const fetchMembers = async (q: string = '') => {
-    try {
-      setLoading(true);
-      setError(null);
-      const { data, error: fetchError } = await supabase.rpc('rpc_search_users', { p_query: q });
-      if (fetchError) throw fetchError;
-      setMembers(data || []);
-    } catch (err: any) {
-      console.error('Error fetching members:', JSON.stringify(err, null, 2));
-      setError(err.message || 'Failed to connect to personnel database');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
   useEffect(() => {
-    fetchMembers(searchQuery);
-  }, [searchQuery]);
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchMembers();
-  };
-
-  const getRoleColor = (role: string) => {
-    switch (role?.toLowerCase()) {
-      case 'admin': return 'rgb(var(--state-danger))';
-      case 'manager': return 'rgb(var(--state-warning))';
-      case 'worker': return 'rgb(var(--brand-primary))';
-      default: return 'rgb(var(--typography-muted))';
-    }
-  };
-
-  const renderMemberCard = (member: TeamMember) => {
-    return (
-      <TouchableOpacity 
-        key={member.id} 
-        onPress={() => setSelectedScan(member)}
-        className="w-[calc(25%-15px)] bg-surface-card p-6 rounded-[32px] border border-surface-border mb-5 premium-shadow hover:border-brand-primary transition-all group"
-      >
-        <View className="items-center mb-6">
-           <View className="w-24 h-24 rounded-[32px] bg-brand-primary/10 items-center justify-center mb-4 group-hover:scale-105 transition-transform">
-              {member.avatar_url ? (
-                <Image source={{ uri: member.avatar_url }} className="w-full h-full rounded-[32px]" />
-              ) : (
-                <Text className="text-brand-primary font-black text-4xl">
-                  {member.full_name?.charAt(0) || '?'}
-                </Text>
-              )}
-           </View>
-           <Text className="text-typography-main font-black text-xl text-center" numberOfLines={1}>{member.full_name || 'Anonymous'}</Text>
-           <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mt-2">{member.tier || 'Personnel'}</Text>
-        </View>
-        
-        <View className="flex-row items-center justify-between pt-6 border-t border-surface-border/50">
-           <View className="flex-row items-center">
-              <View style={{ backgroundColor: getRoleColor(member.role) }} className="w-2 h-2 rounded-full mr-2" />
-              <Text style={{ color: getRoleColor(member.role) }} className="text-[10px] font-black uppercase tracking-tighter">
-                {member.role || 'Member'}
-              </Text>
-           </View>
-           <FontAwesome name="chevron-right" size={10} className="text-typography-dim" />
-        </View>
-      </TouchableOpacity>
-    );
-  };
+    setActiveSection(resolveSection(sectionParam, canViewMembers, canManageTeams));
+  }, [sectionParam, canViewMembers, canManageTeams]);
 
   return (
     <View className="flex-1 bg-surface-background p-10">
-      <View className="max-w-[1600px] mx-auto w-full">
-        {/* Header */}
-        <View className="flex-row items-center justify-between mb-12">
+      <View className="max-w-[1600px] mx-auto w-full flex-1">
+        <View className="flex-row items-center justify-between mb-8">
           <View>
             <Text className="text-typography-main text-5xl font-black tracking-tighter">Team</Text>
-            <Text className="text-typography-muted text-lg mt-2 font-medium">Manage team members, roles, and performance</Text>
+            <Text className="text-typography-muted text-lg mt-2 font-medium">Members, teams, and role registry</Text>
           </View>
-          
-          <View className="flex-row items-center gap-6">
-            {joinCode && (
-              <View className="bg-surface-card border border-surface-border rounded-2xl px-6 flex-row items-center h-14 premium-shadow mr-2">
-                <View>
-                  <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-0.5">Join Code</Text>
-                  <Text className="text-brand-primary font-black text-lg tracking-[0.2em]">{joinCode}</Text>
-                </View>
-                <TouchableOpacity 
-                  onPress={() => Clipboard.setStringAsync(joinCode)}
-                  className="ml-6 w-10 h-10 bg-brand-primary/10 rounded-xl items-center justify-center hover:bg-brand-primary/20 transition-colors"
-                >
-                  <FontAwesome name="copy" size={14} color="rgb(var(--brand-primary))" />
-                </TouchableOpacity>
-              </View>
-            )}
 
-            <View className="bg-surface-card border border-surface-border rounded-2xl px-6 flex-row items-center h-14 premium-shadow w-[400px]">
-               <FontAwesome name="search" size={16} className="text-typography-dim" />
-               <TextInput 
-                 placeholder="Search team members..."
-                 placeholderTextColor="rgb(var(--typography-muted))"
-                 className="flex-1 ml-4 text-typography-main font-bold outline-none"
-                 value={searchQuery}
-                 onChangeText={setSearchQuery}
-               />
+          {joinCode && (
+            <View className="bg-surface-card border border-surface-border rounded-2xl px-6 flex-row items-center h-14 premium-shadow">
+              <View>
+                <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-0.5">Join Code</Text>
+                <Text className="text-brand-primary font-black text-lg tracking-[0.2em]">{joinCode}</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => Clipboard.setStringAsync(joinCode)}
+                className="ml-6 w-10 h-10 bg-brand-primary/10 rounded-xl items-center justify-center hover:bg-brand-primary/20 transition-colors"
+              >
+                <FontAwesome name="copy" size={14} color="rgb(var(--brand-primary))" />
+              </TouchableOpacity>
             </View>
-            
-            <TouchableOpacity className="bg-brand-primary px-8 py-4 rounded-2xl premium-shadow flex-row items-center active:scale-95 transition-transform">
-              <FontAwesome name="user-plus" size={14} color="white" className="mr-3" />
-              <Text className="text-white font-black uppercase tracking-widest text-xs">Add Member</Text>
-            </TouchableOpacity>
-          </View>
+          )}
         </View>
 
-        {loading ? (
-          <View className="py-40 items-center justify-center">
-            <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
-          </View>
-        ) : error ? (
+        {!hasWorkspaceAccess ? (
           <View className="w-full items-center justify-center py-40 bg-state-danger/10 rounded-[48px] border border-dashed border-state-danger/30">
-             <FontAwesome name="exclamation-triangle" size={48} color="rgb(var(--state-danger))" className="mb-6" />
-             <Text className="text-typography-main text-2xl font-black">Authentication / Connection Error</Text>
-             <Text className="text-typography-muted mt-2 text-center max-w-md">{error}</Text>
-             <TouchableOpacity 
-               onPress={() => fetchMembers(searchQuery)}
-               className="mt-8 bg-brand-primary px-8 py-3 rounded-xl"
-             >
-                <Text className="text-white font-bold uppercase tracking-widest text-[10px]">Retry Scan</Text>
-             </TouchableOpacity>
+            <FontAwesome name="lock" size={48} color="rgb(var(--state-danger))" className="mb-6" />
+            <Text className="text-typography-main text-2xl font-black">Access Restricted</Text>
+            <Text className="text-typography-muted mt-2 text-center max-w-md">
+              You do not have permission to view members or manage teams.
+            </Text>
           </View>
         ) : (
-          <ScrollView 
-            showsVerticalScrollIndicator={false}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="rgb(var(--brand-primary))" />}
-          >
-            <View className="flex-row flex-wrap gap-5">
-              {members.length === 0 ? (
-                <View className="w-full items-center justify-center py-40 bg-surface-card/50 rounded-[48px] border border-dashed border-surface-border">
-                   <FontAwesome name="users" size={48} className="text-typography-dim mb-6" />
-                   <Text className="text-typography-main text-2xl font-black">No matching records found</Text>
-                   <Text className="text-typography-muted mt-2">The search query did not yield any team records.</Text>
-                </View>
-              ) : (
-                members.map(renderMemberCard)
+          <>
+            <View className="mb-8 bg-surface-card p-1.5 rounded-2xl border border-surface-border flex-row self-start min-w-[460px]">
+              {canViewMembers && (
+                <TouchableOpacity
+                  onPress={() => setActiveSection('members')}
+                  className={`px-8 py-3 rounded-xl ${activeSection === 'members' ? 'bg-brand-primary' : ''}`}
+                >
+                  <Text className={`font-black text-xs uppercase tracking-widest ${activeSection === 'members' ? 'text-white' : 'text-typography-muted'}`}>
+                    Members
+                  </Text>
+                </TouchableOpacity>
+              )}
+              {canManageTeams && (
+                <TouchableOpacity
+                  onPress={() => setActiveSection('teams')}
+                  className={`px-8 py-3 rounded-xl ${activeSection === 'teams' ? 'bg-brand-primary' : ''}`}
+                >
+                  <Text className={`font-black text-xs uppercase tracking-widest ${activeSection === 'teams' ? 'text-white' : 'text-typography-muted'}`}>
+                    Teams
+                  </Text>
+                </TouchableOpacity>
+              )}
+              {canManageTeams && (
+                <TouchableOpacity
+                  onPress={() => setActiveSection('roles')}
+                  className={`px-8 py-3 rounded-xl ${activeSection === 'roles' ? 'bg-brand-primary' : ''}`}
+                >
+                  <Text className={`font-black text-xs uppercase tracking-widest ${activeSection === 'roles' ? 'text-white' : 'text-typography-muted'}`}>
+                    Role Registry
+                  </Text>
+                </TouchableOpacity>
               )}
             </View>
-            <View className="h-20" />
-          </ScrollView>
+
+            <RoleManagerProvider>
+              <TeamWorkspaceContent section={activeSection} />
+            </RoleManagerProvider>
+          </>
         )}
       </View>
-
-      {/* DEEP SCAN MODAL */}
-      <Modal
-        visible={!!selectedScan}
-        animationType="fade"
-        transparent={true}
-        onRequestClose={() => setSelectedScan(null)}
-      >
-        <View className="flex-1 bg-black/70 items-center justify-center p-10">
-           <Pressable className="absolute inset-0" onPress={() => setSelectedScan(null)} />
-           <View className="bg-surface-card w-full max-w-4xl rounded-[48px] border border-surface-border premium-shadow overflow-hidden flex-row">
-              {selectedScan && (
-                <>
-                  <View className="w-1/3 bg-surface-background p-10 border-r border-surface-border items-center">
-                     <View className="w-48 h-48 rounded-[48px] bg-brand-primary/10 items-center justify-center mb-8 border border-brand-primary/20">
-                        {selectedScan.avatar_url ? (
-                          <Image source={{ uri: selectedScan.avatar_url }} className="w-full h-full rounded-[48px]" />
-                        ) : (
-                          <Text className="text-brand-primary font-black text-6xl">
-                            {selectedScan.full_name?.charAt(0)}
-                          </Text>
-                        )}
-                     </View>
-                     <Text className="text-typography-main font-black text-2xl text-center mb-2">{selectedScan.full_name}</Text>
-                     <View className="bg-brand-primary/10 px-4 py-1.5 rounded-full border border-brand-primary/30 mb-6">
-                        <Text className="text-brand-primary font-black uppercase tracking-widest text-[10px]">{selectedScan.tier || 'UNRANKED'} USER</Text>
-                     </View>
-                     <Text className="text-typography-muted text-sm font-medium mb-10">{selectedScan.email}</Text>
-                     
-                     <TouchableOpacity 
-                       onPress={() => setSelectedScan(null)}
-                       className="bg-brand-primary w-full py-5 rounded-2xl items-center premium-shadow"
-                     >
-                        <Text className="text-white font-black uppercase tracking-widest text-xs">Close</Text>
-                     </TouchableOpacity>
-                  </View>
-
-                  <View className="flex-1 p-12">
-                     <Text className="text-typography-main font-black text-3xl tracking-tight mb-10">Member Intelligence</Text>
-                     
-                     <View className="flex-row flex-wrap -mx-3">
-                        <MetricBox label="Impact" val={selectedScan.contribution_points} desc="Cumulative contribution points" />
-                        <MetricBox label="Velocity" val={`${(selectedScan.velocity_hours || 0).toFixed(1)}h`} desc="Average daily engagement" />
-                        <MetricBox label="Quality" val={`${(selectedScan.flap_rate || 1.0).toFixed(2)}x`} desc="Success to attempt ratio" danger={(selectedScan.flap_rate || 0) > 1.5} />
-                        <MetricBox label="Reliability" val={`${(selectedScan.reliability || 100).toFixed(1)}%`} desc="Target consistency" />
-                     </View>
-
-                     <View className="mt-12 p-8 bg-surface-background rounded-3xl border border-surface-border">
-                        <Text className="text-typography-main font-black uppercase tracking-widest text-[10px] mb-6">Access Authorization</Text>
-                        <View className="flex-row items-center justify-between mb-4 pb-4 border-b border-surface-border/50">
-                           <Text className="text-typography-muted font-bold">Role</Text>
-                           <Text className="text-typography-main font-black uppercase">{selectedScan.role}</Text>
-                        </View>
-                        <View className="flex-row items-center justify-between">
-                           <Text className="text-typography-muted font-bold">Permission Tier</Text>
-                           <Text className="text-brand-primary font-black uppercase tracking-widest">{selectedScan.tier || 'STANDARD'}</Text>
-                        </View>
-                     </View>
-                  </View>
-                </>
-              )}
-           </View>
-        </View>
-      </Modal>
     </View>
   );
 }
-
-const MetricBox = ({ label, val, desc, danger = false }: any) => (
-  <View className="w-1/2 p-3">
-    <View className="bg-surface-background p-6 rounded-[32px] border border-surface-border h-full">
-      <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-3">{label}</Text>
-      <Text className={`text-4xl font-black mb-2 ${danger ? 'text-state-danger' : 'text-brand-primary'}`}>{val}</Text>
-      <Text className="text-typography-muted text-[10px] font-medium leading-relaxed">{desc}</Text>
-    </View>
-  </View>
-);

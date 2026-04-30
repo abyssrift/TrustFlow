@@ -14,13 +14,11 @@ const PRIORITY_MAP: Record<string, { color: string; label: string }> = {
 };
 
 export default function TaskHeader() {
-  const { data } = useTaskDetail();
+  const { data, executeAction } = useTaskDetail();
   const { isActive, activeSession, startWork, stopWork } = useTimer();
   const [busy, setBusy] = React.useState(false);
   const [loadingActionId, setLoadingActionId] = React.useState<string | null>(null);
   const router = useRouter();
-
-  // Timer logic removed from header (moved to StageActions)
 
   if (!data) return null;
 
@@ -44,12 +42,11 @@ export default function TaskHeader() {
     try {
       setLoadingActionId(action.id);
       
-      // Auto-stop timer if active
-      if (isActive && activeSession?.task_id === data.task.id) {
+      if (activeSession?.task_id === data.task.id) {
         await stopWork();
       }
 
-      await data.executeAction(action.id);
+      await executeAction(action.id);
     } catch (err: any) {
       console.error('[Action] Failed:', err);
     } finally {

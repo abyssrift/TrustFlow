@@ -111,9 +111,7 @@ export default function StageActions() {
     try {
       setLoadingActionId(action.id);
       
-      // Auto-stop timer if active
-      const myActiveSession = data.work_sessions.find(ws => ws.user_id === user?.id && ws.status === 'active');
-      if (myActiveSession) {
+      if (activeSession?.task_id === data.task.id) {
         await stopWork();
       }
 

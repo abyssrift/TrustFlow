@@ -13,7 +13,7 @@ export type TaskData = {
   progress: number; weight: number; is_recurring: boolean;
   parent_task_id: string | null; error_state: string | null;
   quarantine_reason: any; created_at: string; updated_at: string; completed_at: string | null;
-  visibility_permission: string | null;
+  visibility_permission: string | null; company_id: string;
 };
 
 export type StageData = {
