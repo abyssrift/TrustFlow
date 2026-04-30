@@ -1,8 +1,11 @@
 import React, { createContext, useContext, useCallback, useState, useRef, useEffect } from 'react';
-import { Platform, AppState, AppStateStatus } from 'react-native';
+import { Platform, AppState, AppStateStatus, DeviceEventEmitter } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, supabaseUrl, supabaseAnonKey } from '@/lib/supabase';
 import { useAuth } from './AuthContext';
 import { useSmartTimer } from '@/hooks/useSmartTimer';
+
+const ASYNC_STORAGE_KEY = 'TRUSTFLOW_PENDING_TIMER';
 
 export type WorkSession = {
   id: string;
@@ -16,7 +19,9 @@ export type WorkSession = {
 type TimerContextType = {
   isActive: boolean;
   activeSession: WorkSession | null;
-  startWork: (taskId: string, taskTitle: string) => Promise<void>;
+  isCommitting: boolean;
+  serverTimeOffset: number;
+  startWork: (taskId: string, taskTitle: string, isManual?: boolean) => Promise<void>;
   stopWork: (taskId?: string, stoppedAt?: string) => Promise<void>;
   passiveStart: (taskId: string, taskTitle: string) => Promise<void>;
   smartTimer: {
@@ -40,11 +45,31 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
   const { user, session } = useAuth();
   const [activeSession, setActiveSession] = useState<WorkSession | null>(null);
   const [isCommitting, setIsCommitting] = useState(false);
+  const [serverTimeOffset, setServerTimeOffset] = useState(0);
   
   const commitTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const currentPendingTaskIdRef = useRef<string | null>(null);
   const lastFetchTimestampRef = useRef<number>(0);
   const lastActivityTimeRef = useRef<number>(Date.now());
+
+  // NTP Calibration Logic
+  const calibrateTime = useCallback(async () => {
+    try {
+      const reqTime = Date.now();
+      const { data, error } = await supabase.rpc('get_server_time');
+      const resTime = Date.now();
+      
+      if (!error && data) {
+        const serverTime = new Date(data).getTime();
+        // NTP Formula: ((server - req) + (server - res)) / 2
+        const offset = ((serverTime - reqTime) + (serverTime - resTime)) / 2;
+        setServerTimeOffset(offset);
+        console.log('[Timer] Clock Calibrated. Offset:', offset, 'ms');
+      }
+    } catch (err) {
+      console.warn('[Timer] Calibration failed, falling back to local time.');
+    }
+  }, []);
 
   const fetchActiveSession = useCallback(async () => {
     if (!user) return;
@@ -61,24 +86,61 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
     lastFetchTimestampRef.current = fetchTime;
 
     if (!error && data) {
-      // If we found a real session, update local state
       setActiveSession(data as unknown as WorkSession);
-      // We found a real session, so we can clear the pending ref for this task
       if (currentPendingTaskIdRef.current === (data as any).task_id) {
         currentPendingTaskIdRef.current = null;
+        await AsyncStorage.removeItem(ASYNC_STORAGE_KEY);
       }
     } else {
-      // If DB says NO session, but we have a PENDING one, do NOT clear setActiveSession(null)
-      // unless we are NOT currently in the middle of a commit timeout
       if (!currentPendingTaskIdRef.current) {
         setActiveSession(null);
       }
     }
   }, [user]);
 
+  // Sync Orphaned Sessions (Crash Recovery)
+  const syncOrphanedSession = useCallback(async () => {
+    if (!user) return;
+    const stored = await AsyncStorage.getItem(ASYNC_STORAGE_KEY);
+    if (!stored) return;
+
+    try {
+      const intent = JSON.parse(stored);
+      console.log('[Timer] Found orphaned session intent, attempting recovery...');
+      
+      const { data: current } = await supabase
+        .from('task_work_sessions')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      if (!current) {
+        await supabase.rpc('rpc_start_work', { 
+          p_task_id: intent.task_id,
+          p_start_time: intent.started_at 
+        });
+      }
+      await AsyncStorage.removeItem(ASYNC_STORAGE_KEY);
+      await fetchActiveSession();
+    } catch (e) {
+      console.error('[Timer] Recovery failed:', e);
+    }
+  }, [user, fetchActiveSession]);
+
   useEffect(() => {
-    fetchActiveSession();
-  }, [fetchActiveSession]);
+    calibrateTime();
+    fetchActiveSession().then(() => syncOrphanedSession());
+  }, [calibrateTime, fetchActiveSession, syncOrphanedSession]);
+
+  // Singleton Tick Emitter (High Performance)
+  useEffect(() => {
+    if (!activeSession) return;
+    const interval = setInterval(() => {
+      DeviceEventEmitter.emit('timer:tick');
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [!!activeSession]);
 
   useEffect(() => {
     if (!user) return;
@@ -91,13 +153,9 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
     return () => { supabase.removeChannel(channel); };
   }, [user, fetchActiveSession]);
 
-  useEffect(() => {
-    const healer = setInterval(fetchActiveSession, 60000);
-    return () => clearInterval(healer);
-  }, [fetchActiveSession]);
-
   const stopWork = useCallback(async (taskId?: string, stoppedAt?: string) => {
     const targetId = taskId || activeSession?.task_id;
+    const sessionId = activeSession?.id;
     if (!targetId) return;
 
     if (commitTimeoutRef.current) {
@@ -105,42 +163,50 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
       commitTimeoutRef.current = null;
     }
     currentPendingTaskIdRef.current = null;
+    await AsyncStorage.removeItem(ASYNC_STORAGE_KEY);
     setIsCommitting(false);
 
-    if (activeSession?.id === 'pending') {
+    if (sessionId === 'pending') {
       setActiveSession(null);
       return;
     }
 
+    setIsCommitting(true);
     const { error } = await supabase.rpc('rpc_stop_work', { 
+      p_session_id: sessionId,
       p_task_id: targetId,
-      p_stopped_at: stoppedAt || new Date().toISOString()
+      p_stopped_at: stoppedAt || new Date(Date.now() + serverTimeOffset).toISOString()
     });
     
     if (error) console.error('[Timer] Stop failed:', error);
     await fetchActiveSession();
-  }, [activeSession, fetchActiveSession]);
+    setIsCommitting(false);
+  }, [activeSession, fetchActiveSession, serverTimeOffset]);
 
-  const startWork = useCallback(async (taskId: string, taskTitle: string) => {
+  const startWork = useCallback(async (taskId: string, taskTitle: string, isManual: boolean = false) => {
     if (activeSession?.task_id === taskId && activeSession.id !== 'pending') return;
+    if (isCommitting) return;
 
     if (commitTimeoutRef.current) clearTimeout(commitTimeoutRef.current);
     
     currentPendingTaskIdRef.current = taskId;
-    setIsCommitting(true);
+    const startedAt = new Date(Date.now() + serverTimeOffset).toISOString();
     
-    const startedAt = new Date().toISOString();
-    setActiveSession({
+    const pendingSession: WorkSession = {
       id: 'pending',
       task_id: taskId,
       started_at: startedAt,
       last_heartbeat_at: startedAt,
       status: 'active',
       task: { title: taskTitle }
-    });
+    };
 
-    commitTimeoutRef.current = setTimeout(async () => {
+    setActiveSession(pendingSession);
+    await AsyncStorage.setItem(ASYNC_STORAGE_KEY, JSON.stringify(pendingSession));
+
+    const commit = async () => {
       if (currentPendingTaskIdRef.current !== taskId) return;
+      setIsCommitting(true);
       try {
         const { error } = await supabase.rpc('rpc_start_work', { 
           p_task_id: taskId,
@@ -150,40 +216,45 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
         await fetchActiveSession();
       } catch (err: any) {
         console.error('[Timer] Commit failed:', err);
-        await fetchActiveSession();
       } finally {
         setIsCommitting(false);
         commitTimeoutRef.current = null;
         currentPendingTaskIdRef.current = null;
       }
-    }, 15000);
-  }, [activeSession, fetchActiveSession]);
+    };
 
-  // Intent-based Trigger: Starts timer if inactive, otherwise just records activity
+    if (isManual) {
+      await commit();
+    } else {
+      commitTimeoutRef.current = setTimeout(commit, 15000);
+    }
+  }, [activeSession, fetchActiveSession, serverTimeOffset, isCommitting]);
+
   const passiveStart = useCallback(async (taskId: string, taskTitle: string) => {
     lastActivityTimeRef.current = Date.now();
-    if (!activeSession) {
-      await startWork(taskId, taskTitle);
-    } else if (activeSession.task_id !== taskId) {
-      // Swapping tasks
-      await startWork(taskId, taskTitle);
-    } else {
-      // Already active on this task, just a heartbeat pulse maybe
-      await supabase.rpc('rpc_heartbeat_work', { p_task_id: taskId });
+    if (!activeSession || activeSession.task_id !== taskId) {
+      await startWork(taskId, taskTitle, false);
+    } else if (activeSession.id !== 'pending') {
+      await supabase.rpc('rpc_heartbeat_work', { p_session_id: activeSession.id });
     }
   }, [activeSession, startWork]);
 
   const heartbeatWork = useCallback(async () => {
     if (!activeSession || activeSession.id === 'pending') return;
-    await supabase.rpc('rpc_heartbeat_work', { p_task_id: activeSession.task_id });
+    const { error } = await supabase.rpc('rpc_heartbeat_work', { p_session_id: activeSession.id });
+    if (error && (error.code === 'P0001' || error.message?.includes('conflict'))) {
+      console.warn('[Timer] Heartbeat rejected, clearing session.');
+      setActiveSession(null);
+    }
   }, [activeSession]);
 
   const stopWorkBeacon = useCallback(() => {
-    if (Platform.OS !== 'web' || !session?.access_token || !activeSession || activeSession.id === 'pending') return;
+    if (Platform.OS !== 'web' || !session?.access_token || !activeSession) return;
     const url = `${supabaseUrl}/rest/v1/rpc/rpc_stop_work`;
     const body = JSON.stringify({ 
+      p_session_id: activeSession.id,
       p_task_id: activeSession.task_id,
-      p_stopped_at: new Date(lastActivityTimeRef.current).toISOString()
+      p_stopped_at: new Date(lastActivityTimeRef.current + serverTimeOffset).toISOString()
     });
     fetch(url, {
       method: 'POST',
@@ -195,34 +266,22 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
       body,
       keepalive: true,
     }).catch(err => console.error('[TimerBeacon] Failed:', err));
-  }, [activeSession, session]);
+  }, [activeSession, session, serverTimeOffset]);
 
-  // Mobile AppState Handling: Auto-stop on background (for security/accuracy) or just record "last gasp"
   useEffect(() => {
     if (Platform.OS === 'web') return;
-
     const handleAppStateChange = async (nextAppState: AppStateStatus) => {
       if (nextAppState.match(/inactive|background/)) {
-        if (activeSession && activeSession.id !== 'pending') {
-          console.log('[Timer] App backgrounded, recording last activity...');
-          // On mobile, we might want to auto-stop to prevent "ghost hours" if the user forgets the app
-          // But for now, let's just record activity.
-          lastActivityTimeRef.current = Date.now();
-        }
+        lastActivityTimeRef.current = Date.now();
       }
     };
-
     const subscription = AppState.addEventListener('change', handleAppStateChange);
     return () => subscription.remove();
-  }, [activeSession]);
-
-  const recordActivity = useCallback(() => {
-    lastActivityTimeRef.current = Date.now();
   }, []);
 
   const smartTimer = useSmartTimer({
     onAutoStop: async () => {
-      const truncatedTime = new Date(lastActivityTimeRef.current).toISOString();
+      const truncatedTime = new Date(lastActivityTimeRef.current + serverTimeOffset).toISOString();
       await stopWork(undefined, truncatedTime);
     },
     onAutoStart: async () => {}, 
@@ -232,25 +291,19 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
     startedAt: activeSession?.started_at || null,
   });
 
-  const extendedSmartTimer = {
-    ...smartTimer,
-    recordActivity: () => {
-      recordActivity();
-      smartTimer.recordActivity();
-    },
-    lastActivityTime: lastActivityTimeRef.current
-  };
-
   return (
     <TimerContext.Provider value={{ 
       isActive: !!activeSession, 
       activeSession,
+      isCommitting,
+      serverTimeOffset,
       startWork, 
       stopWork, 
       passiveStart,
-      smartTimer: extendedSmartTimer 
+      smartTimer: { ...smartTimer, recordActivity: () => { lastActivityTimeRef.current = Date.now(); smartTimer.recordActivity(); }, lastActivityTime: lastActivityTimeRef.current }
     }}>
       {children}
     </TimerContext.Provider>
   );
 };
+

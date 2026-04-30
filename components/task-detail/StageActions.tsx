@@ -7,15 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSubmission } from '@/contexts/SubmissionContext';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
-import { getActionDescriptor, splitStageActions } from './actionRegistry';
-
-const TYPE_STYLES: Record<string, { bg: string; border: string; text: string; icon: string }> = {
-  success: { bg: 'bg-state-success-dim', border: 'border-state-success/30', text: 'text-state-success', icon: 'check' },
-  warning: { bg: 'bg-state-warning-dim', border: 'border-state-warning/30', text: 'text-state-warning', icon: 'refresh' },
-  danger: { bg: 'bg-state-danger-dim', border: 'border-state-danger/30', text: 'text-state-danger', icon: 'times' },
-  neutral: { bg: 'bg-surface-overlay', border: 'border-surface-border', text: 'text-typography-main', icon: 'arrow-right' },
-  primary: { bg: 'bg-brand-primary-dim', border: 'border-brand-primary/30', text: 'text-brand-primary', icon: 'play' },
-};
+import { getActionDescriptor, splitStageActions, TYPE_STYLES } from './actionRegistry';
 
 const STATUS_STYLES: Record<string, { bg: string; border: string; text: string; label: string }> = {
   approved: { bg: 'bg-state-success-dim', border: 'border-state-success/30', text: 'text-state-success', label: 'Approved' },
@@ -31,10 +23,26 @@ export default function StageActions() {
   const [loadingActionId, setLoadingActionId] = useState<string | null>(null);
   const [submissionContent, setSubmissionContent] = useState('');
   const [stagedFiles, setStagedFiles] = useState<any[]>([]);
+  const [elapsedLocal, setElapsedLocal] = React.useState(0);
+  const [busy, setBusy] = React.useState(false);
 
   const { submitWithEvidence, activeJobs } = useSubmission();
   const activeJob = activeJobs[data.task.id];
   const isUploading = !!activeJob && (activeJob.status === 'processing' || activeJob.status === 'uploading' || activeJob.status === 'committing');
+
+  const { isActive, activeSession } = useTimer();
+
+  React.useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (isActive && activeSession?.task_id === data?.task.id) {
+      const start = new Date(activeSession.started_at).getTime();
+      setElapsedLocal(Math.floor((Date.now() - start) / 1000));
+      timer = setInterval(() => {
+        setElapsedLocal(Math.floor((Date.now() - start) / 1000));
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [isActive, activeSession, data?.task.id]);
 
   const pickDocument = async () => {
     const result = await DocumentPicker.getDocumentAsync({ type: '*/*', multiple: true });
@@ -154,35 +162,54 @@ export default function StageActions() {
 
   return (
     <View className="gap-4">
-      {!!buttonActions.length && (
-        <View className="bg-surface-card rounded-2xl border border-surface-border p-4">
-          <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em] mb-3">Stage Actions</Text>
-          <View className="flex-row flex-wrap gap-2">
-            {buttonActions.map((a) => {
-              const style = TYPE_STYLES[a.style] || TYPE_STYLES.neutral;
-              const isLoading = loadingActionId === a.id;
-
-              return (
-                <TouchableOpacity
-                  key={a.id}
-                  disabled={isLoading}
-                  onPress={() => handleAction(a)}
-                  className={`flex-row items-center px-4 py-2.5 rounded-xl border ${style.bg} ${style.border} ${isLoading ? 'opacity-50' : ''}`}
-                >
-                  {isLoading ? (
-                    <ActivityIndicator size="small" color="rgb(var(--brand-primary))" />
-                  ) : (
-                    <>
-                      <FontAwesome name={(a.icon as any) || style.icon} size={11} color={undefined} />
-                      <Text className={`${style.text} text-xs font-black uppercase tracking-wider ml-2`}>{a.label}</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              );
-            })}
+      {/* Timer Control Card (Swapped from Header) */}
+      <View className="bg-surface-card rounded-2xl border border-surface-border p-4">
+        <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em] mb-3">Time Tracking</Text>
+        <View className="flex-row items-center justify-between">
+          <View className="flex-row items-center">
+            <View className={`w-2 h-2 rounded-full mr-3 ${isActive && activeSession?.task_id === data.task.id ? 'bg-state-success animate-pulse' : 'bg-typography-muted'}`} />
+            <Text className="text-typography-main font-mono text-xl font-black">
+              {Math.floor(elapsedLocal / 3600).toString().padStart(2, '0')}:
+              {Math.floor((elapsedLocal % 3600) / 60).toString().padStart(2, '0')}:
+              {(elapsedLocal % 60).toString().padStart(2, '0')}
+            </Text>
           </View>
+
+          {isActive && activeSession?.task_id === data.task.id ? (
+            <TouchableOpacity 
+              onPress={async () => {
+                setBusy(true);
+                await stopWork();
+                setBusy(false);
+              }}
+              disabled={busy}
+              className="bg-state-danger px-6 py-2.5 rounded-xl active:opacity-75 flex-row items-center"
+            >
+              <FontAwesome name="stop" size={10} color="#fff" />
+              <Text className="text-white text-xs font-black uppercase ml-2 tracking-wider">Stop Session</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity 
+              onPress={async () => {
+                setBusy(true);
+                await startWork(data.task.id, data.task.title);
+                setBusy(false);
+              }}
+              disabled={busy}
+              className="bg-brand-primary px-6 py-2.5 rounded-xl active:opacity-75 flex-row items-center"
+            >
+              {busy ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <FontAwesome name="play" size={10} color="#fff" />
+                  <Text className="text-white text-xs font-black uppercase ml-2 tracking-wider">Start Working</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
-      )}
+      </View>
 
       {showSubmissionSection && (
         <View className="bg-surface-card rounded-2xl border border-surface-border p-4">

@@ -36,18 +36,26 @@ export function isComplexActionType(actionType: string): boolean {
 }
 
 export function splitStageActions<T extends { action_type: string }>(actions: T[]) {
-  const grouped: { buttons: T[]; review: T[]; submission: T[] } = {
-    buttons: [],
-    review: [],
-    submission: [],
-  };
-
-  for (const action of actions) {
-    const descriptor = getActionDescriptor(action.action_type);
-    if (descriptor.uiSlot === 'submission') grouped.submission.push(action);
-    else if (descriptor.uiSlot === 'review') grouped.review.push(action);
-    else grouped.buttons.push(action);
-  }
-
-  return grouped;
+    const grouped: { buttons: T[]; review: T[]; submission: T[] } = {
+      buttons: [],
+      review: [],
+      submission: [],
+    };
+  
+    for (const action of actions) {
+      const descriptor = getActionDescriptor(action.action_type);
+      if (descriptor.uiSlot === 'submission') grouped.submission.push(action);
+      else if (descriptor.uiSlot === 'review') grouped.review.push(action);
+      else grouped.buttons.push(action);
+    }
+  
+    return grouped;
 }
+
+export const TYPE_STYLES: Record<string, { bg: string; border: string; text: string; icon: string }> = {
+    success: { bg: 'bg-state-success/10', border: 'border-state-success/30', text: 'text-state-success', icon: 'check' },
+    warning: { bg: 'bg-state-warning/10', border: 'border-state-warning/30', text: 'text-state-warning', icon: 'refresh' },
+    danger: { bg: 'bg-state-danger/10', border: 'border-state-danger/30', text: 'text-state-danger', icon: 'times' },
+    neutral: { bg: 'bg-surface-overlay', border: 'border-surface-border', text: 'text-typography-main', icon: 'arrow-right' },
+    primary: { bg: 'bg-brand-primary/10', border: 'border-brand-primary/30', text: 'text-brand-primary', icon: 'play' },
+};

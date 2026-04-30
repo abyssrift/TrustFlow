@@ -4,6 +4,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import { useTimer } from '@/contexts/TimerContext';
+import { getActionDescriptor, splitStageActions, TYPE_STYLES } from './actionRegistry';
 
 const PRIORITY_MAP: Record<string, { color: string; label: string }> = {
   urgent: { color: '#ef4444', label: 'URGENT' },
@@ -16,20 +17,10 @@ export default function TaskHeader() {
   const { data } = useTaskDetail();
   const { isActive, activeSession, startWork, stopWork } = useTimer();
   const [busy, setBusy] = React.useState(false);
-  const [elapsedLocal, setElapsedLocal] = React.useState(0);
+  const [loadingActionId, setLoadingActionId] = React.useState<string | null>(null);
   const router = useRouter();
 
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (isActive && activeSession?.task_id === data?.task.id) {
-      const start = new Date(activeSession.started_at).getTime();
-      setElapsedLocal(Math.floor((Date.now() - start) / 1000));
-      timer = setInterval(() => {
-        setElapsedLocal(Math.floor((Date.now() - start) / 1000));
-      }, 1000);
-    }
-    return () => clearInterval(timer);
-  }, [isActive, activeSession, data?.task.id]);
+  // Timer logic removed from header (moved to StageActions)
 
   if (!data) return null;
 
@@ -37,14 +28,32 @@ export default function TaskHeader() {
   const prio = PRIORITY_MAP[task.priority] || PRIORITY_MAP.medium;
 
   const handleBack = () => {
-    // If we have a pipeline, go back to it directly.
-    // router.back() falls through to the dashboard when there's no stack.
     if (data.pipeline?.id) {
       router.replace(`/(tabs)/tasks?pipelineId=${data.pipeline.id}` as any);
     } else if (router.canGoBack()) {
       router.back();
     } else {
       router.replace('/(tabs)/tasks' as any);
+    }
+  };
+
+  const actionable = data.stage_actions.filter((a) => a.can_perform && a.precondition_met);
+  const { buttons: buttonActions } = splitStageActions(actionable);
+
+  const handleAction = async (action: any) => {
+    try {
+      setLoadingActionId(action.id);
+      
+      // Auto-stop timer if active
+      if (isActive && activeSession?.task_id === data.task.id) {
+        await stopWork();
+      }
+
+      await data.executeAction(action.id);
+    } catch (err: any) {
+      console.error('[Action] Failed:', err);
+    } finally {
+      setLoadingActionId(null);
     }
   };
 
@@ -112,47 +121,30 @@ export default function TaskHeader() {
           </View>
         </View>
 
-        {/* Compact Timer Control */}
-        <View className="flex-row items-center gap-3">
-          {isActive && activeSession?.task_id === task.id ? (
-            <View className="flex-row items-center bg-brand-primary/10 pl-3 pr-1 py-1 rounded-full border border-brand-primary/20">
-              <Text className="text-brand-primary font-mono text-xs font-bold mr-3">
-                {Math.floor(elapsedLocal / 3600).toString().padStart(2, '0')}:
-                {Math.floor((elapsedLocal % 3600) / 60).toString().padStart(2, '0')}:
-                {(elapsedLocal % 60).toString().padStart(2, '0')}
-              </Text>
-              <TouchableOpacity 
-                onPress={async () => {
-                  setBusy(true);
-                  await stopWork();
-                  setBusy(false);
-                }}
-                disabled={busy}
-                className="w-7 h-7 rounded-full bg-brand-primary items-center justify-center"
+        {/* Stage Actions Buttons (Swapped from middle) */}
+        <View className="flex-row items-center gap-2">
+          {buttonActions.map((a) => {
+            const style = TYPE_STYLES[a.style] || TYPE_STYLES.neutral;
+            const isLoading = loadingActionId === a.id;
+
+            return (
+              <TouchableOpacity
+                key={a.id}
+                disabled={isLoading}
+                onPress={() => handleAction(a)}
+                className={`flex-row items-center px-4 py-2 rounded-xl border ${style.bg} ${style.border} ${isLoading ? 'opacity-50' : ''}`}
               >
-                <FontAwesome name="stop" size={8} color="#fff" />
+                {isLoading ? (
+                  <ActivityIndicator size="small" color="rgb(var(--brand-primary))" />
+                ) : (
+                  <>
+                    <FontAwesome name={(a.icon as any) || style.icon} size={10} color={undefined} />
+                    <Text className={`${style.text} text-[10px] font-black uppercase tracking-wider ml-2`}>{a.label}</Text>
+                  </>
+                )}
               </TouchableOpacity>
-            </View>
-          ) : (
-            <TouchableOpacity 
-              onPress={async () => {
-                setBusy(true);
-                await startWork(task.id, task.title);
-                setBusy(false);
-              }}
-              disabled={busy}
-              className="flex-row items-center bg-surface-background border border-surface-border px-3 py-1.5 rounded-xl active:bg-surface-overlay"
-            >
-              {busy ? (
-                <ActivityIndicator size="small" color="rgb(var(--brand-primary))" />
-              ) : (
-                <>
-                  <FontAwesome name="play" size={10} color="rgb(var(--brand-primary))" />
-                  <Text className="text-brand-primary text-[10px] font-black uppercase ml-2">Start Working</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          )}
+            );
+          })}
         </View>
       </View>
     </View>
