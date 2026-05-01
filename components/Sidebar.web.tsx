@@ -204,7 +204,8 @@ const SidebarItem = ({
 export default function Sidebar({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const params = useLocalSearchParams();
-  const { session, hasPermission } = useAuth();
+  const { session, user, hasPermission } = useAuth();
+  const isPlatformAdmin = ['adamsamir2005@gmail.com', 'adam.samir@trustedgellc.com', 'adamsamir@hotmail.com'].includes(user?.email || '');
 
   const [isCollapsed, setIsCollapsed] = useState(() => {
     if (Platform.OS === 'web') {
@@ -334,6 +335,40 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
                       />
                     ))}
                   </View>
+
+                  {isPlatformAdmin && (
+                    <View className="mt-4 mb-2">
+                      {isExpanded && (
+                        <Text className="mb-3 ml-2 text-[10px] font-black uppercase tracking-widest text-brand-primary/50 whitespace-nowrap">
+                          System
+                        </Text>
+                      )}
+                      <Link href="/platform-admin" asChild>
+                        <Pressable
+                          className={`group relative mb-2 min-h-11 flex-row items-center overflow-hidden rounded-xl border p-3 ${
+                            pathname.startsWith('/platform-admin')
+                              ? 'border-brand-primary/30 bg-brand-primary-dim'
+                              : 'border-brand-primary/10 bg-brand-primary/5 hover:bg-brand-primary/10'
+                          }`}
+                          accessibilityLabel="Control Plane"
+                        >
+                          <View className={`absolute left-0 top-2 bottom-2 w-1 rounded-r-full ${pathname.startsWith('/platform-admin') ? 'bg-brand-primary' : 'bg-brand-primary/20 group-hover:bg-brand-primary/40'}`} />
+                          <View className={`${isExpanded ? 'w-8' : 'w-full'} items-center`}>
+                            <FontAwesome name="shield" size={18} className={pathname.startsWith('/platform-admin') ? 'text-brand-accent' : 'text-brand-primary/60'} />
+                          </View>
+                          {isExpanded && (
+                            <Text
+                              className={`ml-2 font-bold whitespace-nowrap ${pathname.startsWith('/platform-admin') ? 'text-brand-primary' : 'text-brand-primary/70'}`}
+                              numberOfLines={1}
+                            >
+                              Control Plane
+                            </Text>
+                          )}
+                          {pathname.startsWith('/platform-admin') && !isExpanded && <View className="ml-auto h-2 w-2 rounded-full bg-brand-primary" />}
+                        </Pressable>
+                      </Link>
+                    </View>
+                  )}
 
                   {pipelines.length > 0 && (
                     <View className="mt-2">
