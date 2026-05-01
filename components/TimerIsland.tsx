@@ -7,7 +7,7 @@ import { useRouter } from 'expo-router';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function TimerIsland() {
-  const { isActive, activeSession, stopWork } = useTimer();
+  const { isActive, activeSession, stopWork, serverTimeOffset } = useTimer();
   const [elapsed, setElapsed] = useState('00:00:00');
   const [expanded, setExpanded] = useState(false);
   const router = useRouter();
@@ -32,7 +32,7 @@ export default function TimerIsland() {
       const interval = setInterval(() => {
         if (!activeSession?.started_at) return;
         const start = new Date(activeSession.started_at).getTime();
-        const diff = Date.now() - start;
+        const diff = Date.now() + serverTimeOffset - start;
         const h = Math.floor(diff / 3600000);
         const m = Math.floor((diff % 3600000) / 60000);
         const s = Math.floor((diff % 60000) / 1000);
@@ -48,7 +48,7 @@ export default function TimerIsland() {
       }).start();
       setExpanded(false);
     }
-  }, [isActive, activeSession?.started_at]);
+  }, [isActive, activeSession?.started_at, serverTimeOffset]);
 
   const panResponder = useRef(
     PanResponder.create({

@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Modal } from 'react-native';
+import { User, useRoleManager } from '@/contexts/RoleManagerContext';
 import { FontAwesome } from '@expo/vector-icons';
-import { useRoleManager, User } from '@/contexts/RoleManagerContext';
+import React, { useState } from 'react';
+import { Image, Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 export default function UserAssignmentGrid() {
   const { users, roles, teams, userRoles, teamMembers, teamRoles, updateUserAssignments, loading } = useRoleManager();
@@ -38,10 +38,14 @@ export default function UserAssignmentGrid() {
                 className="bg-surface-card w-full sm:w-[48%] lg:w-[32%] p-5 rounded-2xl border border-surface-border premium-shadow active:scale-[0.98] transition-all"
               >
                 <View className="flex-row items-center mb-5">
-                  <View className="w-12 h-12 rounded-xl bg-brand-primary/10 items-center justify-center border border-brand-primary/20">
-                    <Text className="text-brand-primary font-black text-lg">
-                      {user.full_name?.charAt(0) || user.email.charAt(0).toUpperCase()}
-                    </Text>
+                  <View className="w-12 h-12 rounded-xl bg-brand-primary/10 items-center justify-center border border-brand-primary/20 overflow-hidden">
+                    {user.avatar_url ? (
+                      <Image source={{ uri: user.avatar_url }} className="w-full h-full" />
+                    ) : (
+                      <Text className="text-brand-primary font-black text-lg">
+                        {user.full_name?.charAt(0) || user.email.charAt(0).toUpperCase()}
+                      </Text>
+                    )}
                   </View>
                   <View className="ml-4 flex-1">
                     <Text className="text-typography-main font-black text-base" numberOfLines={1}>

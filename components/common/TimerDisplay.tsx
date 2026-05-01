@@ -20,7 +20,7 @@ export default function TimerDisplay({
   showSeconds = true,
   hideIfInactive = false
 }: TimerDisplayProps) {
-  const { activeSession, isActive } = useTimer();
+  const { activeSession, isActive, serverTimeOffset } = useTimer();
   const [displayTime, setDisplayTime] = useState('00:00:00');
 
   useEffect(() => {
@@ -31,8 +31,7 @@ export default function TimerDisplay({
 
     const update = () => {
       const start = new Date(activeSession.started_at).getTime();
-      // Note: serverTimeOffset logic will be added to TimerContext and used here
-      const now = Date.now(); 
+      const now = Date.now() + serverTimeOffset;
       const diff = Math.max(0, now - start);
       
       const h = Math.floor(diff / 3600000);
@@ -54,7 +53,7 @@ export default function TimerDisplay({
     // Localized 1s interval
     const interval = setInterval(update, 1000);
     return () => clearInterval(interval);
-  }, [isActive, activeSession?.started_at, showSeconds]);
+  }, [isActive, activeSession?.started_at, showSeconds, serverTimeOffset]);
 
   if (hideIfInactive && !isActive) return null;
 

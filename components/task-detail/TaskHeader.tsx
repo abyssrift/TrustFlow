@@ -1,10 +1,10 @@
-import React, { useEffect } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React from 'react';
+import { ActivityIndicator, Text, TouchableOpacity, View, Platform } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import { useTimer } from '@/contexts/TimerContext';
-import { getActionDescriptor, splitStageActions, TYPE_STYLES } from './actionRegistry';
+import { splitStageActions, TYPE_STYLES } from './actionRegistry';
 
 const PRIORITY_MAP: Record<string, { color: string; label: string }> = {
   urgent: { color: '#ef4444', label: 'URGENT' },
@@ -18,6 +18,7 @@ export default function TaskHeader() {
   const { isActive, activeSession, startWork, stopWork } = useTimer();
   const [busy, setBusy] = React.useState(false);
   const [loadingActionId, setLoadingActionId] = React.useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = React.useState<{ title: string; message: string } | null>(null);
   const router = useRouter();
 
   if (!data) return null;
@@ -48,7 +49,20 @@ export default function TaskHeader() {
 
       await executeAction(action.id);
     } catch (err: any) {
-      console.error('[Action] Failed:', err);
+      let displayMessage = err.message || 'Could not perform action';
+      
+      // Handle P0001 error for missing evidence/submissions
+      if (err.code === 'P0001' && err.message?.includes('Mandatory evidence missing')) {
+        displayMessage = 'This stage requires a submission with text or attachments to proceed.';
+      }
+      
+      setErrorMsg({
+        title: 'Action Failed',
+        message: displayMessage
+      });
+      
+      // Auto-clear error after 5 seconds
+      setTimeout(() => setErrorMsg(null), 5000);
     } finally {
       setLoadingActionId(null);
     }
@@ -144,6 +158,18 @@ export default function TaskHeader() {
           })}
         </View>
       </View>
+
+      {/* Error Message Display */}
+      {errorMsg && (
+        <View className="mt-3 bg-state-danger/10 border border-state-danger/30 rounded-xl p-3">
+          <Text className="text-state-danger font-black text-xs uppercase tracking-wider mb-1">
+            {errorMsg.title}
+          </Text>
+          <Text className="text-state-danger text-sm leading-5">
+            {errorMsg.message}
+          </Text>
+        </View>
+      )}
     </View>
   );
 }

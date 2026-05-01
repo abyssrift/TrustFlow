@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
+import React, { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 
 // ── Types ──────────────────────────────────────────────────
 
@@ -99,14 +99,14 @@ export function RoleManagerProvider({ children }: { children: ReactNode }) {
     setError(null);
     try {
       const [
-        { data: userData },
-        { data: teamData },
-        { data: roleData },
-        { data: permData },
-        { data: userRoleData },
-        { data: teamRoleData },
-        { data: memberData },
-        { data: rolePermData }
+        usersResult,
+        teamsResult,
+        rolesResult,
+        permsResult,
+        userRolesResult,
+        teamRolesResult,
+        membersResult,
+        rolePermsResult
       ] = await Promise.all([
         supabase.from('users').select('id, email, full_name, display_name, avatar_url, job_title, department').is('deleted_at', null).order('full_name'),
         supabase.from('teams').select('*').is('deleted_at', null).order('name'),
@@ -118,27 +118,37 @@ export function RoleManagerProvider({ children }: { children: ReactNode }) {
         supabase.from('role_permissions').select('role_id, permission_id')
       ]);
 
-      setUsers(userData || []);
-      setTeams(teamData || []);
-      setPermissions(permData || []);
-      setUserRoles(userRoleData || []);
-      setTeamRoles(teamRoleData || []);
-      setTeamMembers(memberData || []);
+      if (usersResult.error) throw usersResult.error;
+      if (teamsResult.error) throw teamsResult.error;
+      if (rolesResult.error) throw rolesResult.error;
+      if (permsResult.error) throw permsResult.error;
+      if (userRolesResult.error) throw userRolesResult.error;
+      if (teamRolesResult.error) throw teamRolesResult.error;
+      if (membersResult.error) throw membersResult.error;
+      if (rolePermsResult.error) throw rolePermsResult.error;
+
+      setUsers(usersResult.data || []);
+      setTeams(teamsResult.data || []);
+      setPermissions(permsResult.data || []);
+      setUserRoles(userRolesResult.data || []);
+      setTeamRoles(teamRolesResult.data || []);
+      setTeamMembers(membersResult.data || []);
 
       // Hydrate roles with their permission IDs
-      const permissionsByRole = (rolePermData || []).reduce((acc: any, curr) => {
+      const permissionsByRole = (rolePermsResult.data || []).reduce((acc: any, curr) => {
         if (!acc[curr.role_id]) acc[curr.role_id] = [];
         acc[curr.role_id].push(curr.permission_id);
         return acc;
       }, {});
 
-      setRoles((roleData || []).map(r => ({
+      setRoles((rolesResult.data || []).map(r => ({
         ...r,
         permissionIds: permissionsByRole[r.id] || []
       })));
 
     } catch (e: any) {
       setError(e.message);
+      console.error('RoleManager error:', e);
     } finally {
       setLoading(false);
     }

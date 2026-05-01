@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Platform } from 'react-native';
+import { ActivityIndicator, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { usePipelineEditor } from '@/contexts/PipelineEditorContext';
 
@@ -32,6 +32,21 @@ export default function TransitionEditor() {
 
   const stageName = (id: string) => stages.find(s => s.id === id)?.name || '—';
   const stageColor = (id: string) => stages.find(s => s.id === id)?.color || '#6B7280';
+
+  // DB stores 'revision'/'failure'; UI buttons use 'warning'/'danger'
+  const toUiType = (dbType: string | null): string => {
+    if (dbType === 'revision') return 'warning';
+    if (dbType === 'failure')  return 'danger';
+    return dbType || 'neutral';
+  };
+
+  const TYPE_DISPLAY: Record<string, { icon: string; color: string }> = {
+    success:  { icon: 'check-circle',       color: 'rgb(var(--state-success))' },
+    warning:  { icon: 'exclamation-circle', color: 'rgb(var(--state-warning))' },
+    revision: { icon: 'exclamation-circle', color: 'rgb(var(--state-warning))' },
+    danger:   { icon: 'times-circle',       color: 'rgb(var(--state-danger))' },
+    failure:  { icon: 'times-circle',       color: 'rgb(var(--state-danger))' },
+  };
 
   const handleAdd = async () => {
     if (!formFrom || !formTo || !formLabel.trim()) return;
@@ -260,6 +275,63 @@ export default function TransitionEditor() {
                       onChangeText={setFormLabel}
                       className="bg-surface-background text-typography-main px-4 py-2.5 rounded-lg border border-surface-border mb-3"
                     />
+
+                    <Text className="text-typography-label text-[10px] font-bold uppercase tracking-wider mb-1.5">
+                      Required Permission <Text className="text-typography-dim">(optional)</Text>
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => setShowPermPicker(!showPermPicker)}
+                      className="bg-surface-background px-4 py-2.5 rounded-lg border border-surface-border mb-1 flex-row items-center justify-between"
+                    >
+                      <Text className={`text-sm ${formPerm ? 'text-typography-main font-bold' : 'text-typography-dim'}`}>
+                        {formPerm ? permissions.find(p => p.key === formPerm)?.label || formPerm : 'Anyone can trigger'}
+                      </Text>
+                      <FontAwesome name={showPermPicker ? 'chevron-up' : 'chevron-down'} size={10} color="#64748b" />
+                    </TouchableOpacity>
+                    {showPermPicker && (
+                      <View className="bg-surface-background border border-surface-border rounded-lg mb-3 max-h-40">
+                        <ScrollView>
+                          <TouchableOpacity
+                            onPress={() => { setFormPerm(''); setShowPermPicker(false); }}
+                            className="px-4 py-2.5 border-b border-surface-border"
+                          >
+                            <Text className="text-typography-muted text-sm italic">No restriction (anyone)</Text>
+                          </TouchableOpacity>
+                          {permissions.map(p => (
+                            <TouchableOpacity
+                              key={p.key}
+                              onPress={() => { setFormPerm(p.key); setShowPermPicker(false); }}
+                              className={`px-4 py-2.5 border-b border-surface-border ${formPerm === p.key ? 'bg-brand-primary/10' : ''}`}
+                            >
+                              <Text className="text-typography-main text-sm font-medium">{p.label}</Text>
+                              <Text className="text-typography-dim text-[10px]">{p.key}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      </View>
+                    )}
+
+                    <Text className="text-typography-label text-[10px] font-bold uppercase tracking-wider mb-2 mt-1">Visual Style</Text>
+                    <View className="flex-row gap-2 mb-4">
+                      {[
+                        { id: 'neutral', icon: 'circle-o', color: 'rgb(var(--text-muted))' },
+                        { id: 'success', icon: 'check-circle', color: 'rgb(var(--state-success))' },
+                        { id: 'warning', icon: 'exclamation-circle', color: 'rgb(var(--state-warning))' },
+                        { id: 'danger', icon: 'times-circle', color: 'rgb(var(--state-danger))' }
+                      ].map(ty => (
+                        <TouchableOpacity
+                          key={ty.id}
+                          onPress={() => setFormType(ty.id)}
+                          className={`flex-1 p-2 rounded-lg border items-center justify-center ${formType === ty.id ? 'border-brand-primary bg-brand-primary/10' : 'border-surface-border bg-surface-background'}`}
+                        >
+                          <FontAwesome name={ty.icon as any} size={12} color={ty.color} />
+                          <Text className={`text-[9px] font-bold mt-1 capitalize ${formType === ty.id ? 'text-brand-primary' : 'text-typography-dim'}`}>
+                            {ty.id}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+
                     <View className="flex-row gap-3">
                       <TouchableOpacity
                         onPress={() => { setEditingId(null); resetForm(); }}
@@ -270,8 +342,9 @@ export default function TransitionEditor() {
                       <TouchableOpacity
                         onPress={() => handleUpdate(t.id)}
                         className="flex-1 bg-brand-primary py-2 rounded-xl items-center"
+                        disabled={loading}
                       >
-                        <Text className="text-typography-main font-bold text-sm">Save</Text>
+                        {loading ? <ActivityIndicator size="small" color="rgb(var(--text-main))" /> : <Text className="text-typography-main font-bold text-sm">Save</Text>}
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -300,20 +373,12 @@ export default function TransitionEditor() {
                     <View className="flex-1">
                       <View className="flex-row items-center flex-wrap gap-1">
                         <View className="bg-brand-primary-dim px-2 py-0.5 rounded-md border border-brand-primary/20 flex-row items-center gap-1.5">
-                          {t.transition_type && t.transition_type !== 'neutral' && (
-                             <FontAwesome 
-                               name={
-                                 t.transition_type === 'success' ? 'check-circle' : 
-                                 t.transition_type === 'warning' ? 'exclamation-circle' : 
-                                 'times-circle'
-                               } 
-                               size={10} 
-                               color={
-                                 t.transition_type === 'success' ? 'rgb(var(--state-success))' : 
-                                 t.transition_type === 'warning' ? 'rgb(var(--state-warning))' : 
-                                 'rgb(var(--state-danger))'
-                               }
-                             />
+                          {t.transition_type && t.transition_type !== 'neutral' && TYPE_DISPLAY[t.transition_type] && (
+                            <FontAwesome
+                              name={TYPE_DISPLAY[t.transition_type].icon as any}
+                              size={10}
+                              color={TYPE_DISPLAY[t.transition_type].color}
+                            />
                           )}
                           <Text className="text-brand-primary text-xs font-black">{t.label}</Text>
                         </View>
@@ -335,11 +400,11 @@ export default function TransitionEditor() {
 
                     <View className="flex-row gap-1.5">
                       <TouchableOpacity
-                        onPress={() => { 
-                          setFormLabel(t.label); 
-                          setFormPerm(t.required_permission || ''); 
-                          setFormType(t.transition_type || 'neutral');
-                          setEditingId(t.id); 
+                        onPress={() => {
+                          setFormLabel(t.label);
+                          setFormPerm(t.required_permission || '');
+                          setFormType(toUiType(t.transition_type));
+                          setEditingId(t.id);
                         }}
                         className="p-2 rounded-lg border border-surface-border bg-surface-background"
                       >

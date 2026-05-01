@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, Alert, Platform } from 'react-native';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { supabase } from '@/lib/supabase';
-import { useRouter } from 'expo-router';
-import { useTheme } from '@/contexts/ThemeContext';
-import { getPrimaryColor, getAccentColor, getSuccessColor } from '@/lib/themeColors';
-import { isComplexActionType } from './actionRegistry';
-import { useElapsedTime } from '@/hooks/useElapsedTime';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import { useElapsedTime } from '@/hooks/useElapsedTime';
+import { supabase } from '@/lib/supabase';
+import { getAccentColor, getPrimaryColor } from '@/lib/themeColors';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
+import { isComplexActionType } from './actionRegistry';
 
 // ─── Types ────────────────────────────────────────────────────
 export type ActiveSessionUser = {
@@ -77,6 +77,7 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
   const { hasPermission } = useAuth();
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [needsTimerActionId, setNeedsTimerActionId] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<{ title: string; message: string } | null>(null);
 
   // ─── Derived State ───────────────────────────────────────
   const isAssignedToUser = (task.assignments || []).some(a => a.assignee_user_id !== null);
@@ -129,6 +130,10 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
         if (error.code === 'PGRST202' || error.message?.includes('not found') || error.message?.includes('Could not find')) {
           throw new Error('Backend function missing. Please ensure database migrations are applied.');
         }
+        // Handle P0001 error for missing evidence
+        if (error.code === 'P0001' && error.message?.includes('Mandatory evidence missing')) {
+          throw new Error('This stage requires a submission with text or attachments to proceed.');
+        }
         // Timer enforcement: show inline prompt instead of generic alert
         if (error.message?.includes('running work session is required')) {
           setNeedsTimerActionId(action.id);
@@ -138,7 +143,20 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
       }
       onRefresh();
     } catch (err: any) {
-      Alert.alert('Action Error', err.message || 'Could not execute action.');
+      let displayMessage = err.message || 'Could not execute action.';
+      
+      // Handle P0001 error for missing evidence
+      if (err.code === 'P0001' && err.message?.includes('Mandatory evidence missing')) {
+        displayMessage = 'This stage requires a submission with text or attachments to proceed.';
+      }
+      
+      setErrorMsg({
+        title: 'Action Error',
+        message: displayMessage
+      });
+      
+      // Auto-clear after 5 seconds
+      setTimeout(() => setErrorMsg(null), 5000);
     } finally {
       setLoadingAction(null);
     }
@@ -320,6 +338,18 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
   return (
     <View>
       {isTimerActive && renderTimerBadge()}
+
+      {/* Error Message Display */}
+      {errorMsg && (
+        <View className="mb-2 bg-state-danger/10 border border-state-danger/30 rounded-xl p-3">
+          <Text className="text-state-danger font-black text-xs uppercase tracking-wider mb-1">
+            {errorMsg.title}
+          </Text>
+          <Text className="text-state-danger text-sm leading-5">
+            {errorMsg.message}
+          </Text>
+        </View>
+      )}
 
       {/* Inline timer prompt if backend rejected action due to missing session */}
       {needsTimerActionId && (

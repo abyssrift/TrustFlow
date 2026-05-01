@@ -557,189 +557,269 @@ export default function StageBuilder() {
   );
 }
 
+const ACTION_TYPES = [
+  { id: 'advance',        label: 'Advance Stage',       desc: 'Move task to next stage via a transition' },
+  { id: 'submit_work',    label: 'Submit Work',          desc: 'Open the submission form for the worker' },
+  { id: 'review_approve', label: 'Approve Submission',   desc: 'Mark pending submission as approved' },
+  { id: 'review_revise',  label: 'Request Revision',     desc: 'Send submission back for revision' },
+  { id: 'review_reject',  label: 'Reject Submission',    desc: 'Hard-reject the submission' },
+];
+
+const ACTION_STYLES = [
+  { id: 'neutral', color: '#64748b' },
+  { id: 'success', color: '#22c55e' },
+  { id: 'warning', color: '#f59e0b' },
+  { id: 'danger',  color: '#ef4444' },
+  { id: 'primary', color: 'rgb(var(--brand-primary))' },
+];
+
 function StageActionManager({ stageId }: { stageId: string }) {
-  const { stageActions, addStageAction, deleteStageAction, reorderStageActions, stages, transitions } = usePipelineEditor();
-  const actions = stageActions.filter(a => a.stage_id === stageId).sort((a,b) => a.position - b.position);
-  
-  // Get transitions FROM this stage for the destination picker
+  const { stageActions, addStageAction, updateStageAction, deleteStageAction, reorderStageActions, stages, transitions } = usePipelineEditor();
+  const actions = stageActions.filter(a => a.stage_id === stageId).sort((a, b) => a.position - b.position);
   const availableTransitions = transitions.filter(t => t.from_stage_id === stageId);
-  
+
+  const blankForm = () => ({
+    type: 'advance', label: '', style: 'neutral', role: 'any',
+    requiresTimer: false, useBus: false, precondition: '', transitionId: null as string | null,
+  });
+
   const [showAdd, setShowAdd] = useState(false);
-  const [type, setType] = useState('advance');
-  const [label, setLabel] = useState('');
-  const [style, setStyle] = useState('neutral');
-  const [role, setRole] = useState('any');
-  const [requiresTimer, setRequiresTimer] = useState(false);
-  const [useBus, setUseBus] = useState(false);
-  const [precondition, setPrecondition] = useState('');
-  const [selectedTransitionId, setSelectedTransitionId] = useState<string | null>(null);
-  
-  const handleAdd = async () => {
-    if (!label.trim()) return;
-    await addStageAction({
-      stage_id: stageId,
-      action_type: type,
-      label: label.trim(),
-      style,
-      required_role: role,
-      requires_timer: requiresTimer,
-      use_business_hours: useBus,
-      precondition: precondition || null,
-      transition_id: selectedTransitionId,
+  const [form, setForm] = useState(blankForm());
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+  const patch = (fields: Partial<typeof form>) => setForm(prev => ({ ...prev, ...fields }));
+
+  const startEdit = (act: typeof actions[0]) => {
+    setForm({
+      type: act.action_type,
+      label: act.label,
+      style: act.style,
+      role: act.required_role,
+      requiresTimer: act.requires_timer,
+      useBus: act.use_business_hours,
+      precondition: act.precondition || '',
+      transitionId: act.transition_id,
     });
+    setEditingId(act.id);
     setShowAdd(false);
-    setLabel('');
-    setSelectedTransitionId(null);
-  };
-  
-  const handleDelete = async (id: string) => {
-    await deleteStageAction(id);
-  };
-  
-  const moveAction = (index: number, dir: number) => {
-    if (index + dir < 0 || index + dir >= actions.length) return;
-    const newActions = [...actions];
-    [newActions[index], newActions[index + dir]] = [newActions[index + dir], newActions[index]];
-    reorderStageActions(stageId, newActions.map(a => a.id));
   };
 
-  const getTransitionLabel = (transId: string | null): string | null => {
+  const handleAdd = async () => {
+    if (!form.label.trim()) return;
+    await addStageAction({
+      stage_id: stageId,
+      action_type: form.type,
+      label: form.label.trim(),
+      style: form.style,
+      required_role: form.role,
+      requires_timer: form.requiresTimer,
+      use_business_hours: form.useBus,
+      precondition: form.precondition || null,
+      transition_id: form.transitionId,
+    });
+    setShowAdd(false);
+    setForm(blankForm());
+  };
+
+  const handleUpdate = async () => {
+    if (!editingId || !form.label.trim()) return;
+    await updateStageAction(editingId, {
+      action_type: form.type,
+      label: form.label.trim(),
+      style: form.style as any,
+      required_role: form.role,
+      requires_timer: form.requiresTimer,
+      use_business_hours: form.useBus,
+      precondition: form.precondition || null,
+      transition_id: form.transitionId,
+    });
+    setEditingId(null);
+    setForm(blankForm());
+  };
+
+  const handleDelete = async (id: string) => {
+    await deleteStageAction(id);
+    setConfirmDeleteId(null);
+  };
+
+  const moveAction = (index: number, dir: number) => {
+    if (index + dir < 0 || index + dir >= actions.length) return;
+    const next = [...actions];
+    [next[index], next[index + dir]] = [next[index + dir], next[index]];
+    reorderStageActions(stageId, next.map(a => a.id));
+  };
+
+  const getTransitionLabel = (transId: string | null) => {
     if (!transId) return null;
     const trans = transitions.find(t => t.id === transId);
     if (!trans) return null;
-    const toStage = stages.find(s => s.id === trans.to_stage_id);
-    return toStage?.name || 'Unknown';
+    return stages.find(s => s.id === trans.to_stage_id)?.name || 'Unknown';
   };
-  
+
+  const renderForm = (isEdit: boolean) => (
+    <View className="p-3 bg-surface-card border border-brand-primary/30 rounded-xl mb-3">
+      <Text className="text-typography-label text-[10px] font-bold uppercase tracking-wider mb-1.5">Label</Text>
+      <TextInput
+        placeholder="e.g. Approve, Reject, Start Work"
+        value={form.label}
+        onChangeText={v => patch({ label: v })}
+        placeholderTextColor="rgb(var(--text-dim))"
+        className="bg-surface-background border border-surface-border rounded-md px-3 py-2 text-xs text-typography-main mb-3"
+      />
+
+      <Text className="text-typography-label text-[10px] font-bold uppercase tracking-wider mb-1.5">Action Type</Text>
+      <View className="flex-col gap-1 mb-3">
+        {ACTION_TYPES.map(t => (
+          <TouchableOpacity
+            key={t.id}
+            onPress={() => patch({ type: t.id })}
+            className={`flex-row items-center px-3 py-2 rounded-lg border ${form.type === t.id ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}
+          >
+            <View className={`w-2.5 h-2.5 rounded-full mr-2.5 border-2 ${form.type === t.id ? 'bg-brand-primary border-brand-primary' : 'border-surface-border'}`} />
+            <View className="flex-1">
+              <Text className={`text-[11px] font-bold ${form.type === t.id ? 'text-brand-primary' : 'text-typography-muted'}`}>{t.label}</Text>
+              <Text className="text-typography-dim text-[9px]">{t.desc}</Text>
+            </View>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <Text className="text-typography-label text-[10px] font-bold uppercase tracking-wider mb-1.5">Visual Style</Text>
+      <View className="flex-row gap-2 mb-3">
+        {ACTION_STYLES.map(s => (
+          <TouchableOpacity
+            key={s.id}
+            onPress={() => patch({ style: s.id })}
+            className={`flex-1 py-2 rounded-lg border items-center ${form.style === s.id ? 'border-brand-primary bg-brand-primary/10' : 'border-surface-border bg-surface-background'}`}
+          >
+            <View className="w-3 h-3 rounded-full mb-1" style={{ backgroundColor: s.color }} />
+            <Text className={`text-[8px] font-bold capitalize ${form.style === s.id ? 'text-brand-primary' : 'text-typography-dim'}`}>{s.id}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <Text className="text-typography-label text-[10px] font-bold uppercase tracking-wider mb-1.5">Transition Destination</Text>
+      <View className="flex-row flex-wrap gap-1.5 mb-3">
+        <TouchableOpacity
+          onPress={() => patch({ transitionId: null })}
+          className={`px-3 py-1.5 rounded-lg border ${!form.transitionId ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}
+        >
+          <Text className={`text-[10px] font-bold ${!form.transitionId ? 'text-brand-primary' : 'text-typography-muted'}`}>Auto</Text>
+        </TouchableOpacity>
+        {availableTransitions.map(t => {
+          const toStage = stages.find(s => s.id === t.to_stage_id);
+          return (
+            <TouchableOpacity
+              key={t.id}
+              onPress={() => patch({ transitionId: t.id })}
+              className={`px-3 py-1.5 rounded-lg border ${form.transitionId === t.id ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}
+            >
+              <Text className={`text-[10px] font-bold ${form.transitionId === t.id ? 'text-brand-primary' : 'text-typography-muted'}`}>→ {toStage?.name || t.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+      {availableTransitions.length === 0 && (
+        <Text className="text-typography-dim text-[10px] italic mb-2">No transitions from this stage — action will use positional auto-advance.</Text>
+      )}
+
+      <TextInput
+        placeholder="Precondition (optional)"
+        value={form.precondition}
+        onChangeText={v => patch({ precondition: v })}
+        placeholderTextColor="rgb(var(--text-dim))"
+        className="bg-surface-background border border-surface-border rounded-md px-3 py-2 text-xs text-typography-main mb-2"
+      />
+
+      <View className="mb-2 gap-1">
+        <FlagToggle label="Requires Timer" desc="Forces work session for this action" active={form.requiresTimer} onToggle={() => patch({ requiresTimer: !form.requiresTimer })} icon="clock-o" color="#f59e0b" />
+        <FlagToggle label="Use Business Hours" desc="Filter session via business window" active={form.useBus} onToggle={() => patch({ useBus: !form.useBus })} icon="calendar" color="#14b8a6" />
+      </View>
+
+      <View className="flex-row gap-2 mt-1">
+        <TouchableOpacity
+          onPress={() => { isEdit ? setEditingId(null) : setShowAdd(false); setForm(blankForm()); }}
+          className="flex-1 py-2.5 rounded-xl border border-surface-border bg-surface-background items-center"
+        >
+          <Text className="text-typography-muted font-bold text-xs">Cancel</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={isEdit ? handleUpdate : handleAdd}
+          disabled={!form.label.trim()}
+          className={`flex-1 py-2.5 rounded-xl items-center ${form.label.trim() ? 'bg-brand-primary' : 'bg-surface-overlay border border-surface-border'}`}
+        >
+          <Text className={`text-xs font-black uppercase tracking-widest ${form.label.trim() ? 'text-typography-main' : 'text-typography-muted'}`}>
+            {isEdit ? 'Save Changes' : 'Forge Action'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
   return (
     <View className="mb-4 p-4 rounded-xl bg-surface-background border border-surface-border">
       <View className="flex-row justify-between items-center mb-3">
         <Text className="text-typography-main font-bold text-sm">Stage Actions ({actions.length})</Text>
-        <TouchableOpacity onPress={() => setShowAdd(!showAdd)}>
-          <Text className="text-brand-primary text-xs font-bold">{showAdd ? 'Cancel' : '+ Add Action'}</Text>
-        </TouchableOpacity>
-      </View>
-      
-      {showAdd && (
-        <View className="p-3 bg-surface-card border border-surface-border rounded-lg mb-3 shadow-md">
-          <TextInput 
-            placeholder="Action Label (e.g. Reject)" 
-            value={label} 
-            onChangeText={setLabel} 
-            placeholderTextColor="rgb(var(--text-dim))" 
-            className="bg-surface-background border border-surface-border rounded-md px-3 py-2 text-xs text-typography-main mb-2" 
-          />
-          <View className="flex-row gap-2 mb-2">
-            <TextInput 
-              placeholder="Type" 
-              value={type} 
-              onChangeText={setType} 
-              placeholderTextColor="rgb(var(--text-dim))" 
-              className="flex-1 bg-surface-background border border-surface-border rounded-md px-3 py-2 text-xs text-typography-main" 
-            />
-            <TextInput 
-              placeholder="Style" 
-              value={style} 
-              onChangeText={setStyle} 
-              placeholderTextColor="rgb(var(--text-dim))" 
-              className="flex-1 bg-surface-background border border-surface-border rounded-md px-3 py-2 text-xs text-typography-main" 
-            />
-          </View>
-          <View className="flex-row gap-2 mb-2">
-            <TextInput 
-              placeholder="Role" 
-              value={role} 
-              onChangeText={setRole} 
-              placeholderTextColor="rgb(var(--text-dim))" 
-              className="flex-1 bg-surface-background border border-surface-border rounded-md px-3 py-2 text-xs text-typography-main" 
-            />
-            <TextInput 
-              placeholder="Precondition" 
-              value={precondition} 
-              onChangeText={setPrecondition} 
-              placeholderTextColor="rgb(var(--text-dim))" 
-              className="flex-1 bg-surface-background border border-surface-border rounded-md px-3 py-2 text-xs text-typography-main" 
-            />
-          </View>
-
-          {/* Transition Destination Picker */}
-          <Text className="text-typography-label text-[10px] font-bold uppercase tracking-wider mb-1.5">Transition Destination</Text>
-          <View className="flex-row flex-wrap gap-2 mb-3">
-            <TouchableOpacity
-              onPress={() => setSelectedTransitionId(null)}
-              className={`px-3 py-2 rounded-lg border ${!selectedTransitionId ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}
-            >
-              <Text className={`text-[10px] font-bold ${!selectedTransitionId ? 'text-brand-primary' : 'text-typography-muted'}`}>Auto (Next Stage)</Text>
-            </TouchableOpacity>
-            {availableTransitions.map(t => {
-              const toStage = stages.find(s => s.id === t.to_stage_id);
-              return (
-                <TouchableOpacity
-                  key={t.id}
-                  onPress={() => setSelectedTransitionId(t.id)}
-                  className={`px-3 py-2 rounded-lg border ${selectedTransitionId === t.id ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}
-                >
-                  <Text className={`text-[10px] font-bold ${selectedTransitionId === t.id ? 'text-brand-primary' : 'text-typography-muted'}`}>
-                    → {toStage?.name || t.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-          {availableTransitions.length === 0 && (
-            <Text className="text-typography-dim text-[10px] italic mb-2">No transitions configured from this stage. The action will auto-advance to the next stage by position.</Text>
-          )}
-
-          <View className="mb-2">
-            <FlagToggle 
-               label="Requires Timer" 
-               desc="Forces work session for this action" 
-               active={requiresTimer} 
-               onToggle={() => setRequiresTimer(!requiresTimer)} 
-               icon="clock-o" 
-               color="#f59e0b" 
-            />
-            <FlagToggle 
-               label="Use Business Hours" 
-               desc="Filter session via business window" 
-               active={useBus} 
-               onToggle={() => setUseBus(!useBus)} 
-               icon="calendar" 
-               color="#14b8a6" 
-            />
-          </View>
-          <TouchableOpacity 
-            onPress={handleAdd} 
-            disabled={!label} 
-            className={`py-3 rounded-xl items-center justify-center ${label ? 'bg-brand-primary' : 'bg-surface-overlay border border-surface-border'}`}
-          >
-            <Text className={`text-xs font-black uppercase tracking-widest ${label ? 'text-typography-main' : 'text-typography-muted'}`}>Forge Action</Text>
+        {!showAdd && !editingId && (
+          <TouchableOpacity onPress={() => { setForm(blankForm()); setShowAdd(true); }}>
+            <Text className="text-brand-primary text-xs font-bold">+ Add Action</Text>
           </TouchableOpacity>
-        </View>
-      )}
-      
+        )}
+      </View>
+
+      {showAdd && renderForm(false)}
+
       {actions.map((act, idx) => (
-        <View key={act.id} className="flex-row items-center border-b border-surface-border/50 py-2 last:border-0">
-          <View className="flex-1">
-            <Text className="text-typography-main text-xs font-bold">{act.label}</Text>
-            <Text className="text-typography-dim text-[10px]">
-              Type: {act.action_type} • Role: {act.required_role} • Style: {act.style} {act.requires_timer ? '• ⏱️ Timer' : ''} {act.transition_id ? `• → ${getTransitionLabel(act.transition_id)}` : '• → Auto'}
-            </Text>
-          </View>
-          <View className="flex-row gap-1">
-            <TouchableOpacity onPress={() => moveAction(idx, -1)} disabled={idx === 0} className="p-1.5 opacity-70">
-              <FontAwesome name="arrow-up" size={10} color="#64748b" />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => moveAction(idx, 1)} disabled={idx === actions.length - 1} className="p-1.5 opacity-70">
-              <FontAwesome name="arrow-down" size={10} color="#64748b" />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleDelete(act.id)} className="p-2 ml-2 bg-state-danger-dim rounded-lg border border-state-danger/20">
-              <FontAwesome name="times" size={12} color="rgb(var(--state-danger))" />
-            </TouchableOpacity>
-          </View>
+        <View key={act.id}>
+          {editingId === act.id ? (
+            renderForm(true)
+          ) : confirmDeleteId === act.id ? (
+            <View className="bg-state-danger/5 border border-state-danger/30 rounded-lg p-3 mb-1">
+              <Text className="text-typography-main text-xs font-bold mb-2">Remove "{act.label}"?</Text>
+              <View className="flex-row gap-2">
+                <TouchableOpacity onPress={() => setConfirmDeleteId(null)} className="flex-1 py-1.5 rounded-lg border border-surface-border bg-surface-background items-center">
+                  <Text className="text-typography-muted text-xs font-bold">Keep</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => handleDelete(act.id)} className="flex-1 py-1.5 rounded-lg bg-state-danger items-center">
+                  <Text className="text-white text-xs font-bold">Remove</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <View className="flex-row items-center border-b border-surface-border/50 py-2 last:border-0">
+              <View className="flex-1">
+                <View className="flex-row items-center gap-1.5">
+                  <View className="w-2 h-2 rounded-full" style={{ backgroundColor: ACTION_STYLES.find(s => s.id === act.style)?.color || '#64748b' }} />
+                  <Text className="text-typography-main text-xs font-bold">{act.label}</Text>
+                </View>
+                <Text className="text-typography-dim text-[10px] mt-0.5">
+                  {ACTION_TYPES.find(t => t.id === act.action_type)?.label || act.action_type}
+                  {act.requires_timer ? ' • ⏱️' : ''}
+                  {act.transition_id ? ` • → ${getTransitionLabel(act.transition_id) || '?'}` : ' • Auto'}
+                </Text>
+              </View>
+              <View className="flex-row gap-1 items-center">
+                <TouchableOpacity onPress={() => moveAction(idx, -1)} disabled={idx === 0} className="p-1.5 opacity-70">
+                  <FontAwesome name="arrow-up" size={10} color="#64748b" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => moveAction(idx, 1)} disabled={idx === actions.length - 1} className="p-1.5 opacity-70">
+                  <FontAwesome name="arrow-down" size={10} color="#64748b" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => startEdit(act)} className="p-1.5 bg-surface-card rounded-lg border border-surface-border ml-1">
+                  <FontAwesome name="pencil" size={10} color="#64748b" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setConfirmDeleteId(act.id)} className="p-1.5 bg-state-danger-dim rounded-lg border border-state-danger/20">
+                  <FontAwesome name="times" size={10} color="rgb(var(--state-danger))" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
         </View>
       ))}
-      {actions.length === 0 && !showAdd && <Text className="text-typography-dim text-xs text-center p-2">No actions configured. Actions will default to advancing to the next stage.</Text>}
+      {actions.length === 0 && !showAdd && (
+        <Text className="text-typography-dim text-xs text-center p-2">No actions configured. Tasks will auto-advance to the next stage.</Text>
+      )}
     </View>
   );
 }

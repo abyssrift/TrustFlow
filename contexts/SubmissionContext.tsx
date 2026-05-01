@@ -1,7 +1,7 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
-import * as ImageManipulator from 'expo-image-manipulator';
-import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
+import * as ImageManipulator from 'expo-image-manipulator';
+import React, { createContext, useCallback, useContext, useState } from 'react';
 import { Alert } from 'react-native';
 
 export type UploadJob = {
@@ -203,12 +203,19 @@ export function SubmissionProvider({ children }: { children: React.ReactNode }) 
 
     } catch (err: any) {
       console.error('Submission Engine Error:', err);
+      
+      // Handle P0001 error for missing evidence
+      let displayMessage = err.message;
+      if (err.code === 'P0001' && err.message?.includes('Mandatory evidence missing')) {
+        displayMessage = 'This stage requires a submission with text or attachments to proceed.';
+      }
+      
       updateJob(taskId, { 
         status: 'error', 
-        error: err.message, 
+        error: displayMessage, 
         currentAction: 'Failed to submit evidence' 
       });
-      Alert.alert('Submission Failed', `Task: ${taskTitle}\nError: ${err.message}`);
+      Alert.alert('Submission Failed', `Task: ${taskTitle}\nError: ${displayMessage}`);
     }
   };
 

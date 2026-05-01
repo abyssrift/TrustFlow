@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, Alert, TextInput } from 'react-native';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { useTaskDetail, type StageActionData } from '@/contexts/TaskDetailContext';
-import { useTimer } from '@/contexts/TimerContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubmission } from '@/contexts/SubmissionContext';
+import { useTaskDetail, type StageActionData } from '@/contexts/TaskDetailContext';
+import { useTimer } from '@/contexts/TimerContext';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
-import { getActionDescriptor, splitStageActions, TYPE_STYLES } from './actionRegistry';
+import React, { useState } from 'react';
+import { ActivityIndicator, Alert, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { getActionDescriptor, splitStageActions } from './actionRegistry';
 
 const STATUS_STYLES: Record<string, { bg: string; border: string; text: string; label: string }> = {
   approved: { bg: 'bg-state-success-dim', border: 'border-state-success/30', text: 'text-state-success', label: 'Approved' },
@@ -25,24 +25,25 @@ export default function StageActions() {
   const [stagedFiles, setStagedFiles] = useState<any[]>([]);
   const [elapsedLocal, setElapsedLocal] = React.useState(0);
   const [busy, setBusy] = React.useState(false);
+  const [errorMsg, setErrorMsg] = React.useState<{ title: string; message: string } | null>(null);
 
   const { submitWithEvidence, activeJobs } = useSubmission();
   const activeJob = activeJobs[data.task.id];
   const isUploading = !!activeJob && (activeJob.status === 'processing' || activeJob.status === 'uploading' || activeJob.status === 'committing');
 
-  const { isActive, activeSession } = useTimer();
+  const { isActive, activeSession, serverTimeOffset } = useTimer();
 
   React.useEffect(() => {
     let timer: NodeJS.Timeout;
     if (isActive && activeSession?.task_id === data?.task.id) {
       const start = new Date(activeSession.started_at).getTime();
-      setElapsedLocal(Math.floor((Date.now() - start) / 1000));
+      setElapsedLocal(Math.floor((Date.now() + serverTimeOffset - start) / 1000));
       timer = setInterval(() => {
-        setElapsedLocal(Math.floor((Date.now() - start) / 1000));
+        setElapsedLocal(Math.floor((Date.now() + serverTimeOffset - start) / 1000));
       }, 1000);
     }
     return () => clearInterval(timer);
-  }, [isActive, activeSession, data?.task.id]);
+  }, [isActive, activeSession, data?.task.id, serverTimeOffset]);
 
   const pickDocument = async () => {
     const result = await DocumentPicker.getDocumentAsync({ type: '*/*', multiple: true });
@@ -144,13 +145,29 @@ export default function StageActions() {
             : action.action_type === 'review_revise'
               ? 'needs_revision'
               : 'rejected';
-        await reviewSubmission(pendingSubmission.id, decision);
+        const targetTransition = action.transition_id
+          ? data.available_transitions.find(t => t.id === action.transition_id)
+          : null;
+        await reviewSubmission(pendingSubmission.id, decision, undefined, targetTransition?.to_stage_id);
         return;
       }
 
       await executeAction(action.id);
     } catch (err: any) {
-      Alert.alert('Action Failed', err.message || 'Could not perform action');
+      let displayMessage = err.message || 'Could not perform action';
+      
+      // Handle P0001 error for missing evidence/submissions
+      if (err.code === 'P0001' && err.message?.includes('Mandatory evidence missing')) {
+        displayMessage = 'This stage requires a submission with text or attachments to proceed.';
+      }
+      
+      setErrorMsg({
+        title: 'Action Failed',
+        message: displayMessage
+      });
+      
+      // Auto-clear after 5 seconds
+      setTimeout(() => setErrorMsg(null), 5000);
     } finally {
       setLoadingActionId(null);
     }
@@ -160,6 +177,18 @@ export default function StageActions() {
 
   return (
     <View className="gap-4">
+      {/* Error Message Display */}
+      {errorMsg && (
+        <View className="bg-state-danger/10 border border-state-danger/30 rounded-xl p-3">
+          <Text className="text-state-danger font-black text-xs uppercase tracking-wider mb-1">
+            {errorMsg.title}
+          </Text>
+          <Text className="text-state-danger text-sm leading-5">
+            {errorMsg.message}
+          </Text>
+        </View>
+      )}
+      
       {/* Timer Control Card (Swapped from Header) */}
       <View className="bg-surface-card rounded-2xl border border-surface-border p-4">
         <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em] mb-3">Time Tracking</Text>

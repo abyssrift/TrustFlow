@@ -172,10 +172,10 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     setIsCommitting(true);
-    const { error } = await supabase.rpc('rpc_stop_work', { 
+    const { error } = await supabase.rpc('rpc_stop_work', {
       p_session_id: sessionId,
       p_task_id: targetId,
-      p_stopped_at: stoppedAt || new Date(Date.now() + serverTimeOffset).toISOString()
+      p_stopped_at: stoppedAt || new Date(Date.now() + serverTimeOffset).toISOString(),
     });
     
     if (error) console.error('[Timer] Stop failed:', error);
@@ -242,8 +242,10 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
   const heartbeatWork = useCallback(async () => {
     if (!activeSession || activeSession.id === 'pending') return;
     const { error } = await supabase.rpc('rpc_heartbeat_work', { p_session_id: activeSession.id });
-    if (error && (error.code === 'P0001' || error.message?.includes('conflict'))) {
-      console.warn('[Timer] Heartbeat rejected, clearing session.');
+    if (error) {
+      // Clear on any backend rejection — session is invalid regardless of reason
+      // P0002 = not found, 23505 = already completed, 42501 = membership revoked, P0001 = conflict
+      console.warn('[Timer] Heartbeat rejected, clearing session.', error.code, error.message);
       setActiveSession(null);
     }
   }, [activeSession]);
@@ -279,12 +281,16 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
     return () => subscription.remove();
   }, []);
 
+  const handleAutoStop = useCallback(async () => {
+    const truncatedTime = new Date(lastActivityTimeRef.current + serverTimeOffset).toISOString();
+    await stopWork(undefined, truncatedTime);
+  }, [stopWork, serverTimeOffset]);
+
+  const handleAutoStart = useCallback(async () => {}, []);
+
   const smartTimer = useSmartTimer({
-    onAutoStop: async () => {
-      const truncatedTime = new Date(lastActivityTimeRef.current + serverTimeOffset).toISOString();
-      await stopWork(undefined, truncatedTime);
-    },
-    onAutoStart: async () => {}, 
+    onAutoStop: handleAutoStop,
+    onAutoStart: handleAutoStart,
     onHeartbeat: heartbeatWork,
     onAutoStopBeacon: stopWorkBeacon,
     isActive: !!activeSession,

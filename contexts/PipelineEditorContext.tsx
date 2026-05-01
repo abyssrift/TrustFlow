@@ -88,6 +88,14 @@ export type Role = {
   is_system: boolean;
 };
 
+/** A granular permission entry from the permissions table */
+export type PermissionItem = {
+  id: string;
+  key: string;
+  label: string;
+  category: string;
+};
+
 /** @deprecated Use Role instead */
 export type Permission = Role;
 
@@ -104,8 +112,8 @@ type PipelineEditorState = {
   stageActions: StageAction[];
   /** All workspace roles available for pipeline visibility assignment */
   roles: Role[];
-  /** @deprecated Use roles */
-  permissions: Role[];
+  /** Granular permission entries for transition gate configuration */
+  permissions: PermissionItem[];
   // UI
   activeSection: EditorSection;
   loading: boolean;
@@ -181,6 +189,7 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
   const [linkedOutcomes, setLinkedOutcomes] = useState<LinkedOutcome[]>([]);
   const [stageActions, setStageActions] = useState<StageAction[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
+  const [permissionItems, setPermissionItems] = useState<PermissionItem[]>([]);
   const [activeSection, setActiveSection] = useState<EditorSection>('list');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -310,6 +319,18 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
       setRoles(data || []);
     };
     fetchRoles();
+  }, []);
+
+  // ── Fetch permissions (for transition gate configuration) ──
+  useEffect(() => {
+    const fetchPermissions = async () => {
+      const { data } = await supabase
+        .from('permissions')
+        .select('id, key, label, category')
+        .order('category, label');
+      setPermissionItems(data || []);
+    };
+    fetchPermissions();
   }, []);
 
   // ── Auto-refresh pipeline data when selection changes ──
@@ -806,7 +827,7 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
         error, loading, activeSection, isOperationInFlight,
         setActiveSection, selectPipeline, deselectPipeline, refreshPipelines, refreshPipelineData,
         clearError,
-        permissions: roles,
+        permissions: permissionItems,
         linkedOutcomes, stageActions,
         
         // Grouped Actions
