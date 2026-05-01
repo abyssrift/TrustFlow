@@ -21,7 +21,15 @@
       "Bash(ls *)",
       "Bash(type *)",
       "Bash(cat *)",
-      "Bash(echo *)"
+      "Bash(echo *)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\j\\\\Documents\\\\Github\\\\TrustFlow\" -Force)",
+      "Bash(Select-Object Name, PSIsContainer)",
+      "Bash(grep -E \"\\\\.\\(md|txt|doc\\)$\")",
+      "mcp__claude_ai_Supabase__list_projects",
+      "mcp__claude_ai_Supabase__apply_migration",
+      "mcp__claude_ai_Supabase__get_project_url",
+      "mcp__claude_ai_Supabase__get_publishable_keys",
+      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\('nativewind:', p.dependencies?.nativewind||p.devDependencies?.nativewind\\); console.log\\('tailwindcss:', p.dependencies?.tailwindcss||p.devDependencies?.tailwindcss\\); console.log\\('react-native-css-interop:', p.dependencies?.['react-native-css-interop']||p.devDependencies?.['react-native-css-interop']\\)\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\PC\\.claude",
