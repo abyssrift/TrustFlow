@@ -6,8 +6,17 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { getActionDescriptor, splitStageActions } from './actionRegistry';
+
+function getFileIcon(mimeType: string | null): { name: string; color: string } {
+  const t = (mimeType || '').toLowerCase();
+  if (t.includes('image')) return { name: 'file-image-o', color: '#8b5cf6' };
+  if (t.includes('pdf')) return { name: 'file-pdf-o', color: '#ef4444' };
+  if (t.includes('spreadsheet') || t.includes('excel') || t.includes('csv')) return { name: 'file-excel-o', color: '#22c55e' };
+  if (t.includes('word') || t.includes('document') || t.includes('text')) return { name: 'file-text-o', color: '#3b82f6' };
+  return { name: 'file-o', color: '#64748b' };
+}
 
 const STATUS_STYLES: Record<string, { bg: string; border: string; text: string; label: string }> = {
   approved: { bg: 'bg-state-success-dim', border: 'border-state-success/30', text: 'text-state-success', label: 'Approved' },
@@ -360,6 +369,27 @@ export default function StageActions() {
                   </View>
 
                   {s.content && <Text className="text-typography-label text-sm leading-5 mb-2">{s.content}</Text>}
+
+                  {s.attachments.length > 0 && (
+                    <View className="mb-2 gap-1.5">
+                      {s.attachments.map((a) => {
+                        const { name: iconName, color: iconColor } = getFileIcon(a.mime_type);
+                        return (
+                          <TouchableOpacity
+                            key={a.id}
+                            onPress={() => Linking.openURL(a.file_url)}
+                            className="flex-row items-center bg-surface-background px-2.5 py-2 rounded-lg border border-surface-border/50 active:opacity-70"
+                          >
+                            <FontAwesome name={iconName as any} size={12} color={iconColor} />
+                            <Text className="text-typography-main text-[11px] font-bold ml-2 flex-1" numberOfLines={1}>
+                              {a.file_name}
+                            </Text>
+                            <FontAwesome name="external-link" size={9} color="#64748b" />
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  )}
 
                   <View className="flex-row items-center gap-2">
                     <Text className="text-typography-dim text-[9px] font-bold">by {s.submitted_by?.full_name || 'Unknown'}</Text>

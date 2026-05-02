@@ -55,7 +55,13 @@ export type SubmissionData = {
   submitted_by: UserRef; reviewed_by: UserRef;
   review_notes: string | null; submitted_at: string; reviewed_at: string | null;
   stage_name: string | null;
-  attachments: { id: string; file_name: string; file_url: string; mime_type: string | null }[];
+  attachments: { id: string; file_name: string; file_url: string; mime_type: string | null; category: string | null; file_size: number | null }[];
+};
+
+export type TaskAttachmentData = {
+  id: string; file_name: string; file_url: string;
+  file_size: number | null; mime_type: string | null; category: string | null;
+  uploaded_by: UserRef; created_at: string;
 };
 
 export type CommentData = {
@@ -109,6 +115,7 @@ export type TaskDetailPayload = {
   stats: StatsData;
   permissions: PermissionsData;
   child_tasks: ChildTaskData[];
+  task_attachments: TaskAttachmentData[];
 };
 
 type TaskDetailContextType = {

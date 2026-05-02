@@ -12,6 +12,8 @@ import StageActions from '@/components/task-detail/StageActions';
 import ChildPipelinesPanel from '@/components/task-detail/ChildPipelinesPanel';
 import PipelineJourney from '@/components/task-detail/PipelineJourney';
 import CommentsSection from '@/components/task-detail/CommentsSection';
+import EvidencePanel from '@/components/task-detail/EvidencePanel';
+import TaskBriefPanel from '@/components/task-detail/TaskBriefPanel';
 import ActivityLog from '@/components/task-detail/ActivityLog';
 
 function TaskDetailContentWeb() {
@@ -83,7 +85,9 @@ function TaskDetailContentWeb() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="rgb(var(--brand-primary))" />}
         >
           <View className="p-10 max-w-[1000px] mx-auto w-full gap-8 pb-20">
+            <TaskBriefPanel />
             <StageActions />
+            <EvidencePanel />
             <CommentsSection />
           </View>
         </ScrollView>

@@ -13,6 +13,7 @@ import ChildPipelinesPanel from '@/components/task-detail/ChildPipelinesPanel';
 import PipelineJourney from '@/components/task-detail/PipelineJourney';
 import CommentsSection from '@/components/task-detail/CommentsSection';
 import EvidencePanel from '@/components/task-detail/EvidencePanel';
+import TaskBriefPanel from '@/components/task-detail/TaskBriefPanel';
 import ActivityLog from '@/components/task-detail/ActivityLog';
 
 function TaskDetailContent() {
@@ -92,6 +93,7 @@ function TaskDetailContent() {
           <TaskMetadata />
           <PeoplePanel />
           <ChildPipelinesPanel />
+          <TaskBriefPanel />
           <StageActions />
           <PipelineJourney />
           <EvidencePanel />
