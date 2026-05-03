@@ -123,7 +123,7 @@ function RootLayoutNav() {
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <NotificationsProvider>
             <View className="flex-1 bg-surface-background">
-            {/* Register for push notifications on native once user is signed in */}
+              {/* Register for push notifications on native once user is signed in */}
               {session && Platform.OS !== 'web' && <PushRegistrationGuard />}
               <Stack>
                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

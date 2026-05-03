@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
-import { Link, useRouter } from 'expo-router';
-import { supabase } from '../../lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { Link } from 'expo-router';
+import React, { useState } from 'react';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { getErrorMessage, isValidEmail } from '../../lib/auth-errors';
+import { supabase } from '../../lib/supabase';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -26,26 +26,29 @@ export default function LoginScreen() {
     setError(null);
 
     try {
+      console.debug('[Login] attempting signInWithPassword', { email: email?.trim() });
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
       });
 
+      console.debug('[Login] signIn response', { data, signInError });
+
       if (signInError) {
         setError(getErrorMessage(signInError));
-        setLoading(false);
         return;
       }
 
       if (!data?.session) {
         setError('Please check your email to verify your account before logging in.');
-        setLoading(false);
         return;
       }
-      
+
       // Session change will be handled by AuthContext/RootLayout
     } catch (err) {
+      console.error('[Login] unexpected error', err);
       setError('An unexpected error occurred. Please try again.');
+    } finally {
       setLoading(false);
     }
   };

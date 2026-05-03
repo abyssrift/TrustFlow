@@ -169,7 +169,7 @@ export default function IntelligenceScreenWeb() {
       setRestoringId(archive.id);
 
       const isTask = archive.entity_type === 'task';
-      const targetId = isTask ? archive.snapshot?.current_stage_id : archive.snapshot?.pipeline_id;
+      const targetId = isTask ? archive.snapshot?.task?.current_stage_id : archive.snapshot?.project?.pipeline_id;
       const set = isTask ? activeSchema.stages : activeSchema.pipelines;
 
       if (targetId && !set.has(targetId)) {

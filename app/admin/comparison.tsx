@@ -28,9 +28,9 @@ export default function ComparisonScreen() {
 
   useEffect(() => {
     const loadOptions = async () => {
-      const { data: users } = await supabase.from('users').select('id, full_name').limit(10);
-      const { data: pipes } = await supabase.from('pipelines').select('id, name').limit(10);
-      const { data: teams } = await supabase.from('teams').select('id, name').limit(10);
+      const { data: users } = await supabase.from('users').select('id, full_name').is('deleted_at', null).order('full_name');
+      const { data: pipes } = await supabase.from('pipelines').select('id, name').is('deleted_at', null).order('name');
+      const { data: teams } = await supabase.from('teams').select('id, name').is('deleted_at', null).order('name');
       setAvailableUsers(users || []);
       setAvailablePipelines(pipes || []);
       setAvailableTeams(teams || []);

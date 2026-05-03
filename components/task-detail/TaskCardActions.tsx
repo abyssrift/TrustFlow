@@ -6,7 +6,7 @@ import { getAccentColor, getPrimaryColor } from '@/lib/themeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Text, TouchableOpacity, View } from 'react-native';
 import { isComplexActionType } from './actionRegistry';
 import ConfirmModal from '@/components/common/ConfirmModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -38,6 +38,7 @@ type Stage = {
   color: string;
   position: number;
   requires_timer?: boolean;
+  is_initial?: boolean;
   is_terminal?: boolean;
   terminal_type?: string | null;
 };
@@ -95,7 +96,6 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
   const taskSessions = activeSessions[task.id] || [];
   const mySession = taskSessions.find(s => s.userId === userId);
   const isTimerActive = !!mySession;
-  const otherSession = taskSessions.find(s => s.userId !== userId);
 
   // Live counter for the active session (mine or someone else's — whichever is first)
   const activeSession = mySession || taskSessions[0] || null;
@@ -253,7 +253,6 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
   // ─── Live Timer Badge (shared between states) ──────────────
   const renderTimerBadge = (label?: string) => {
     if (!activeSession) return null;
-    const displayName = activeSession.userId === userId ? 'You' : (otherSession ? taskSessions[0]?.name : 'User');
     return (
       <View className="flex-row items-center mb-2">
         <View className="bg-state-success/10 border border-state-success/30 px-3 py-1 rounded-full flex-row items-center">
@@ -268,7 +267,7 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
   // ─── STATE: Terminal Stage ──────────────────────────────────
   if (isTerminal) {
     const isSuccess = terminalType === 'success';
-    const canArchive = hasPermission('task.archive');
+    const canArchive = hasPermission('archive:create');
     return (
       <View>
         <View className={`py-2.5 rounded-xl items-center justify-center border ${isSuccess ? 'bg-state-success/10 border-state-success/20' : 'bg-state-danger/10 border-state-danger/20'}`}>

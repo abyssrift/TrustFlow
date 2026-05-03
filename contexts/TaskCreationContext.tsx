@@ -11,7 +11,9 @@ export type TaskDraft = {
   priority: 'low' | 'normal' | 'high' | 'urgent';
   category: string;
   weight: number;
+  startDate: string | null;
   dueDate: string | null;
+  estimatedHours: number | null;
   pipelineId: string | null;
   assigneeUserIds: string[];
   assigneeTeamIds: string[];
@@ -24,7 +26,9 @@ const INITIAL_DRAFT: TaskDraft = {
   priority: 'normal',
   category: 'General',
   weight: 1,
+  startDate: null,
   dueDate: null,
+  estimatedHours: null,
   pipelineId: null,
   assigneeUserIds: [],
   assigneeTeamIds: [],
@@ -130,7 +134,9 @@ export const TaskCreationProvider = ({ children }: { children: React.ReactNode }
         p_category: draft.category,
         p_weight: draft.weight,
         p_pipeline_id: draft.pipelineId,
-        p_visibility_permission: draft.visibilityPermission
+        p_visibility_permission: draft.visibilityPermission,
+        p_start_date: draft.startDate,
+        p_estimated_hours: draft.estimatedHours,
       });
 
       if (error) throw error;

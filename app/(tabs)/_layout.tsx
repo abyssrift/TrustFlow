@@ -76,7 +76,7 @@ export default function TabLayout() {
           fontWeight: '800',
           fontSize: 20,
         },
-        headerShown: useClientOnlyValue(false, true),
+        headerShown: Platform.OS !== 'web',
       }}>
       <Tabs.Screen
         name="index"

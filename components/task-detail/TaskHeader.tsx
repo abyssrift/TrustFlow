@@ -4,7 +4,10 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import { useTimer } from '@/contexts/TimerContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { splitStageActions, TYPE_STYLES } from './actionRegistry';
+import ConfirmModal from '@/components/common/ConfirmModal';
+import { supabase } from '@/lib/supabase';
 
 const PRIORITY_MAP: Record<string, { color: string; label: string }> = {
   urgent: { color: '#ef4444', label: 'URGENT' },
@@ -16,15 +19,37 @@ const PRIORITY_MAP: Record<string, { color: string; label: string }> = {
 export default function TaskHeader() {
   const { data, executeAction } = useTaskDetail();
   const { isActive, activeSession, startWork, stopWork } = useTimer();
+  const { hasPermission } = useAuth();
   const [busy, setBusy] = React.useState(false);
   const [loadingActionId, setLoadingActionId] = React.useState<string | null>(null);
   const [errorMsg, setErrorMsg] = React.useState<{ title: string; message: string } | null>(null);
+  const [showArchiveConfirm, setShowArchiveConfirm] = React.useState(false);
+  const [archiving, setArchiving] = React.useState(false);
   const router = useRouter();
+
+  const handleArchive = async () => {
+    if (!data) return;
+    try {
+      setArchiving(true);
+      const { error } = await supabase.rpc('rpc_archive_task', { p_task_id: data.task.id });
+      if (error) throw error;
+      setShowArchiveConfirm(false);
+      router.replace('/(tabs)/tasks' as any);
+    } catch (err: any) {
+      setShowArchiveConfirm(false);
+      setErrorMsg({ title: 'Archival Failed', message: err.message || 'Could not archive task.' });
+      setTimeout(() => setErrorMsg(null), 5000);
+    } finally {
+      setArchiving(false);
+    }
+  };
 
   if (!data) return null;
 
   const { task, current_stage } = data;
   const prio = PRIORITY_MAP[task.priority] || PRIORITY_MAP.medium;
+  const isTerminal = current_stage?.is_terminal ?? false;
+  const canArchive = isTerminal && hasPermission('archive:create');
 
   const handleBack = () => {
     if (data.pipeline?.id) {
@@ -156,6 +181,23 @@ export default function TaskHeader() {
               </TouchableOpacity>
             );
           })}
+
+          {canArchive && (
+            <TouchableOpacity
+              onPress={() => setShowArchiveConfirm(true)}
+              disabled={archiving}
+              className={`flex-row items-center px-4 py-2 rounded-xl border border-surface-border bg-surface-overlay ${archiving ? 'opacity-50' : ''}`}
+            >
+              {archiving ? (
+                <ActivityIndicator size="small" color="rgb(var(--text-muted))" />
+              ) : (
+                <>
+                  <FontAwesome name="archive" size={10} color="rgb(var(--text-muted))" />
+                  <Text className="text-typography-muted text-[10px] font-black uppercase tracking-wider ml-2">Archive</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -170,6 +212,17 @@ export default function TaskHeader() {
           </Text>
         </View>
       )}
+
+      <ConfirmModal
+        visible={showArchiveConfirm}
+        onCancel={() => setShowArchiveConfirm(false)}
+        onConfirm={handleArchive}
+        title="Move to Cold Storage"
+        description="This will snapshot all task data and remove it from the active pipeline. The archive can be inspected or restored from Intelligence > Archives."
+        confirmLabel={archiving ? 'Archiving...' : 'Archive Task'}
+        variant="danger"
+        loading={archiving}
+      />
     </View>
   );
 }

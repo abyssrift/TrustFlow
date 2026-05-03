@@ -4,3 +4,4 @@
 4. reports
 5. Benchmarks
 6. Security
+closing tab while timer is running only logs 1 second.
