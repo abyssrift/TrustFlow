@@ -183,7 +183,9 @@ export default function StageActions() {
     }
   };
 
-  if (!buttonActions.length && !showSubmissionSection) return null;
+  const showTimerCard = stageRequiresTimer || anyActionRequiresTimer || (isActive && activeSession?.task_id === data.task.id);
+
+  if (!buttonActions.length && !showSubmissionSection && !showTimerCard) return null;
 
   return (
     <View className="gap-4">
@@ -199,54 +201,56 @@ export default function StageActions() {
         </View>
       )}
       
-      {/* Timer Control Card (Swapped from Header) */}
-      <View className="bg-surface-card rounded-2xl border border-surface-border p-4">
-        <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em] mb-3">Time Tracking</Text>
-        <View className="flex-row items-center justify-between">
-          <View className="flex-row items-center">
-            <View className={`w-2 h-2 rounded-full mr-3 ${isActive && activeSession?.task_id === data.task.id ? 'bg-state-success animate-pulse' : 'bg-typography-muted'}`} />
-            <Text className="text-typography-main font-mono text-xl font-black">
-              {Math.floor(elapsedLocal / 3600).toString().padStart(2, '0')}:
-              {Math.floor((elapsedLocal % 3600) / 60).toString().padStart(2, '0')}:
-              {(elapsedLocal % 60).toString().padStart(2, '0')}
-            </Text>
-          </View>
+      {/* Timer Control Card — only shown when the stage/action requires it, or a session is already active */}
+      {showTimerCard && (
+        <View className="bg-surface-card rounded-2xl border border-surface-border p-4">
+          <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em] mb-3">Time Tracking</Text>
+          <View className="flex-row items-center justify-between">
+            <View className="flex-row items-center">
+              <View className={`w-2 h-2 rounded-full mr-3 ${isActive && activeSession?.task_id === data.task.id ? 'bg-state-success animate-pulse' : 'bg-typography-muted'}`} />
+              <Text className="text-typography-main font-mono text-xl font-black">
+                {Math.floor(elapsedLocal / 3600).toString().padStart(2, '0')}:
+                {Math.floor((elapsedLocal % 3600) / 60).toString().padStart(2, '0')}:
+                {(elapsedLocal % 60).toString().padStart(2, '0')}
+              </Text>
+            </View>
 
-          {isActive && activeSession?.task_id === data.task.id ? (
-            <TouchableOpacity 
-              onPress={async () => {
-                setBusy(true);
-                await stopWork();
-                setBusy(false);
-              }}
-              disabled={busy}
-              className="bg-state-danger px-6 py-2.5 rounded-xl active:opacity-75 flex-row items-center"
-            >
-              <FontAwesome name="stop" size={10} color="#fff" />
-              <Text className="text-white text-xs font-black uppercase ml-2 tracking-wider">Stop Session</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity 
-              onPress={async () => {
-                setBusy(true);
-                await startWork(data.task.id, data.task.title);
-                setBusy(false);
-              }}
-              disabled={busy}
-              className="bg-brand-primary px-6 py-2.5 rounded-xl active:opacity-75 flex-row items-center"
-            >
-              {busy ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <>
-                  <FontAwesome name="play" size={10} color="#fff" />
-                  <Text className="text-white text-xs font-black uppercase ml-2 tracking-wider">Start Working</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          )}
+            {isActive && activeSession?.task_id === data.task.id ? (
+              <TouchableOpacity
+                onPress={async () => {
+                  setBusy(true);
+                  await stopWork();
+                  setBusy(false);
+                }}
+                disabled={busy}
+                className="bg-state-danger px-6 py-2.5 rounded-xl active:opacity-75 flex-row items-center"
+              >
+                <FontAwesome name="stop" size={10} color="#fff" />
+                <Text className="text-white text-xs font-black uppercase ml-2 tracking-wider">Stop Session</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                onPress={async () => {
+                  setBusy(true);
+                  await startWork(data.task.id, data.task.title);
+                  setBusy(false);
+                }}
+                disabled={busy}
+                className="bg-brand-primary px-6 py-2.5 rounded-xl active:opacity-75 flex-row items-center"
+              >
+                {busy ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <FontAwesome name="play" size={10} color="#fff" />
+                    <Text className="text-white text-xs font-black uppercase ml-2 tracking-wider">Start Working</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
-      </View>
+      )}
 
       {showSubmissionSection && (
         <View className="bg-surface-card rounded-2xl border border-surface-border p-4">

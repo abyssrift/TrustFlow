@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ScrollView, View, Text, Pressable, RefreshControl, Alert } from 'react-native';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAlert } from '@/contexts/AlertContext';
 import { supabase } from '@/lib/supabase';
@@ -11,6 +11,7 @@ import StatsGrid from '@/components/profile/StatsGrid';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 
 export default function ProfilePage() {
+  const router = useRouter();
   const { showConfirm, showAlert } = useAlert();
   const { user, signOut, refreshProfile } = useAuth();
   const [profileData, setProfileData] = useState<any>(null);
@@ -136,6 +137,18 @@ export default function ProfilePage() {
           <View className="rounded-2xl border border-surface-border bg-surface-card p-6 premium-shadow">
             <SecurityForm />
           </View>
+        </View>
+
+        <View>
+          <Text className="mb-4 text-[10px] font-black uppercase tracking-[0.3em] text-typography-dim">Notifications</Text>
+          <Pressable
+            onPress={() => router.push('/notifications/preferences' as any)}
+            className="h-14 flex-row items-center rounded-2xl border border-surface-border bg-surface-card px-5 active:bg-surface-overlay"
+          >
+            <FontAwesome name="bell" size={16} color="rgb(var(--brand-primary))" style={{ marginRight: 12 }} />
+            <Text className="flex-1 text-sm font-bold text-typography-main">Notification Preferences</Text>
+            <FontAwesome name="chevron-right" size={12} color="rgb(var(--text-muted))" />
+          </Pressable>
         </View>
 
         {profileData.company_id && (

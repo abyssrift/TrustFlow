@@ -52,7 +52,7 @@ describe('TrustFlow Full System E2E Validation', () => {
       const stages = [
         { name: 'Backlog', color: 'gray', position: 1, is_initial: true, is_terminal: false, requires_submission: false },
         { name: 'In Progress', color: 'blue', position: 2, is_initial: false, is_terminal: false, requires_submission: true },
-        { name: 'Done', color: 'green', position: 3, is_initial: false, is_terminal: true, terminal_type: 'completed', requires_submission: false }
+        { name: 'Done', color: 'green', position: 3, is_initial: false, is_terminal: true, terminal_type: 'success', requires_submission: false }
       ];
 
       const transitions = [

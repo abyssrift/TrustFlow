@@ -5,6 +5,7 @@ import { Pressable, View, Text, useWindowDimensions, Platform } from 'react-nati
 import { cssInterop } from 'react-native-css-interop';
 
 import { useClientOnlyValue } from '@/components/useClientOnlyValue';
+import { useNotifications } from '@/contexts/NotificationsContext';
 
 // Interop for Icons to support Tailwind colors
 cssInterop(FontAwesome, {
@@ -20,6 +21,31 @@ function TabBarIcon(props: {
   color?: string;
 }) {
   return <FontAwesome size={22} style={{ marginBottom: -3 }} {...props} />;
+}
+
+function NotificationBell() {
+  const { unreadCount } = useNotifications();
+  return (
+    <Link href="/modal" asChild>
+      <Pressable>
+        {({ pressed }) => (
+          <View className="bg-brand-primary/10 p-2 rounded-full mr-2" style={{ opacity: pressed ? 0.5 : 1 }}>
+            <FontAwesome name="bell" size={18} className="text-brand-primary" />
+            {unreadCount > 0 && (
+              <View
+                className="absolute -top-1 -right-1 bg-state-danger rounded-full items-center justify-center"
+                style={{ minWidth: 16, height: 16, paddingHorizontal: 3 }}
+              >
+                <Text className="text-white text-[9px] font-black leading-none">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+      </Pressable>
+    </Link>
+  );
 }
 
 export default function TabLayout() {
@@ -59,20 +85,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <TabBarIcon name="th-large" color={color} />,
           headerRight: () => (
             <View className="flex-row items-center mr-4">
-              <Link href="/modal" asChild>
-                <Pressable>
-                  {({ pressed }) => (
-                    <View className="bg-brand-primary/10 p-2 rounded-full mr-2">
-                       <FontAwesome
-                        name="bell"
-                        size={18}
-                        className="text-brand-primary"
-                        style={{ opacity: pressed ? 0.5 : 1 }}
-                      />
-                    </View>
-                  )}
-                </Pressable>
-              </Link>
+              <NotificationBell />
             </View>
           ),
         }}

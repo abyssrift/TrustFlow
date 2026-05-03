@@ -527,6 +527,14 @@ function TasksScreen() {
           </View>
         </TouchableOpacity>
         <View className="flex-row items-center gap-2">
+           {hasPermission('manage_notifications') && (
+             <TouchableOpacity
+               onPress={() => router.push('/admin/notifications' as any)}
+               className="bg-brand-primary/10 p-3 rounded-2xl border border-brand-primary/20"
+             >
+               <FontAwesome name="bell" size={16} className="text-brand-primary" />
+             </TouchableOpacity>
+           )}
            {hasPermission('role.manage') && (
              <TouchableOpacity
                onPress={() => router.push('/admin/roles')}

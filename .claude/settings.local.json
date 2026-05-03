@@ -31,7 +31,10 @@
       "mcp__claude_ai_Supabase__get_publishable_keys",
       "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\('nativewind:', p.dependencies?.nativewind||p.devDependencies?.nativewind\\); console.log\\('tailwindcss:', p.dependencies?.tailwindcss||p.devDependencies?.tailwindcss\\); console.log\\('react-native-css-interop:', p.dependencies?.['react-native-css-interop']||p.devDependencies?.['react-native-css-interop']\\)\")",
       "mcp__claude_ai_Supabase__get_logs",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(grep -E \"\\\\.\\(ts|tsx|js|sql\\)$\")",
+      "Bash(xargs grep *)",
+      "Bash(grep -E \"\\\\.\\(sql|ts|tsx|js\\)$\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\PC\\.claude",

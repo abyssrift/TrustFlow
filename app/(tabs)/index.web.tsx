@@ -141,12 +141,12 @@ export default function DashboardScreenWeb() {
 
       terminalStageIds = (terminalStages || []).map((s: any) => s.id);
 
-      // Use configured success stages if explicitly set; otherwise auto-detect terminal_type='completed'
+      // Use configured success stages if explicitly set; otherwise auto-detect terminal_type='success'
       if (!isAllPipelines && currentConfig!.successStageIds.length > 0) {
         successStageIds = currentConfig!.successStageIds;
       } else {
         successStageIds = (terminalStages || [])
-          .filter((s: any) => s.terminal_type === 'completed')
+          .filter((s: any) => s.terminal_type === 'success')
           .map((s: any) => s.id);
       }
 
@@ -693,9 +693,9 @@ function DashboardSettingsModal({ visible, onClose, config, onSave }: {
       setSelectedSuccessStages(prev => prev.filter(sid => !stageIds.includes(sid)));
     } else {
       setSelectedPipelines(prev => [...prev, id]);
-      // Auto-select terminal_type='completed' stages for this pipeline
+      // Auto-select terminal_type='success' stages for this pipeline
       const completedIds = stages
-        .filter(s => s.pipeline_id === id && s.is_terminal && s.terminal_type === 'completed')
+        .filter(s => s.pipeline_id === id && s.is_terminal && s.terminal_type === 'success')
         .map(s => s.id);
       setSelectedSuccessStages(prev => [...new Set([...prev, ...completedIds])]);
     }
@@ -746,7 +746,7 @@ function DashboardSettingsModal({ visible, onClose, config, onSave }: {
                     </Text>
                     <Text className="text-typography-muted text-xs font-medium">
                       Include every pipeline automatically. Success stages are auto-detected from{' '}
-                      <Text className="text-state-success font-bold">terminal_type = completed</Text> stages.
+                      <Text className="text-state-success font-bold">terminal_type = success</Text> stages.
                     </Text>
                   </View>
                   <View
@@ -767,7 +767,7 @@ function DashboardSettingsModal({ visible, onClose, config, onSave }: {
                     </View>
                     <Text className="text-typography-muted text-sm font-medium leading-relaxed">
                       All {pipelines.length} pipeline{pipelines.length !== 1 ? 's' : ''} are being monitored. Stages with{' '}
-                      <Text className="text-state-success font-bold">terminal_type = completed</Text> count toward the Completed metric.
+                      <Text className="text-state-success font-bold">terminal_type = success</Text> count toward the Completed metric.
                       Stages with other terminal types (failed, cancelled) are tracked separately as Failed/Rejected.
                     </Text>
                   </View>
@@ -805,12 +805,12 @@ function DashboardSettingsModal({ visible, onClose, config, onSave }: {
                                   {pipelineStages.map(s => {
                                     const isSelected = selectedSuccessStages.includes(s.id);
                                     const terminalColor =
-                                      s.terminal_type === 'completed' ? 'text-state-success' :
-                                      s.terminal_type === 'failed' ? 'text-state-danger' :
+                                      s.terminal_type === 'success' ? 'text-state-success' :
+                                      s.terminal_type === 'failure' ? 'text-state-danger' :
                                       'text-state-warning';
                                     const terminalBg =
-                                      s.terminal_type === 'completed' ? 'bg-state-success/20' :
-                                      s.terminal_type === 'failed' ? 'bg-state-danger/20' :
+                                      s.terminal_type === 'success' ? 'bg-state-success/20' :
+                                      s.terminal_type === 'failure' ? 'bg-state-danger/20' :
                                       'bg-state-warning/20';
                                     return (
                                       <TouchableOpacity
