@@ -6,12 +6,11 @@ import {
   Switch,
   TouchableOpacity,
   ActivityIndicator,
-  SafeAreaView,
   Modal,
   TextInput,
   Platform,
 } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -298,8 +297,8 @@ function RuleCard({
   );
 }
 
-// ── Main Screen ──────────────────────────────────────────────────────────────
-export default function AdminNotificationsScreen() {
+// ── Main Component ──────────────────────────────────────────────────────────────
+export default function NotificationRules() {
   const router = useRouter();
   const { hasPermission, initialized } = useAuth();
   const { showAlert } = useAlert();
@@ -321,9 +320,15 @@ export default function AdminNotificationsScreen() {
     setLoading(false);
   };
 
+  const canManage = hasPermission('manage_notifications') || hasPermission('role.manage');
+
   useEffect(() => {
-    if (initialized && hasPermission('manage_notifications')) {
-      load();
+    if (initialized) {
+      if (canManage) {
+        load();
+      } else {
+        setLoading(false);
+      }
     }
   }, [initialized]);
 
@@ -345,7 +350,7 @@ export default function AdminNotificationsScreen() {
 
   if (!initialized || loading) {
     return (
-      <View className="flex-1 bg-surface-background items-center justify-center">
+      <View className="py-20 items-center justify-center">
         <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
         <Text className="text-typography-muted mt-4 font-bold text-sm">
           Loading rules...
@@ -354,28 +359,18 @@ export default function AdminNotificationsScreen() {
     );
   }
 
-  if (!hasPermission('manage_notifications')) {
+  if (!canManage) {
     return (
       <View className="flex-1 bg-surface-background items-center justify-center p-6">
-        <View className="bg-state-danger/10 p-8 rounded-full mb-8 border border-state-danger/20">
+        <View className="bg-state-danger/10 p-8 rounded-[40px] mb-8 border border-dashed border-state-danger/20">
           <FontAwesome name="lock" size={48} color="rgb(var(--state-danger))" />
         </View>
         <Text className="text-typography-main font-black text-2xl text-center tracking-tight">
           Access Restricted
         </Text>
-        <Text className="text-typography-muted text-center mt-2 leading-6">
-          The{' '}
-          <Text className="text-brand-primary font-black">manage_notifications</Text>{' '}
-          permission is required.
+        <Text className="text-typography-muted text-center mt-2 leading-6 max-w-sm">
+          The <Text className="text-brand-primary font-black">manage_notifications</Text> permission is required to configure rules.
         </Text>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          className="mt-10 bg-surface-card px-10 py-4 rounded-xl border border-surface-border w-full items-center"
-        >
-          <Text className="text-typography-main font-black uppercase tracking-widest text-[10px]">
-            Go Back
-          </Text>
-        </TouchableOpacity>
       </View>
     );
   }
@@ -391,39 +386,8 @@ export default function AdminNotificationsScreen() {
   const activeCount = rules.filter((r) => r.is_active).length;
 
   return (
-    <SafeAreaView className="flex-1 bg-surface-background">
-      <Stack.Screen options={{ headerShown: false }} />
-
-      {/* Header */}
-      <View className="bg-surface-card px-4 pt-4 pb-6 border-b border-surface-border rounded-b-3xl">
-        <View className="flex-row items-center justify-between mb-6">
-          <TouchableOpacity
-            onPress={() => router.back()}
-            className="flex-row items-center h-11 pr-4"
-          >
-            <FontAwesome name="chevron-left" size={14} color="rgb(var(--text-muted))" />
-            <Text className="text-typography-muted font-bold text-sm ml-2">Back</Text>
-          </TouchableOpacity>
-          <View className="bg-state-warning/10 px-3 py-1.5 rounded-full border border-state-warning/20">
-            <Text className="text-state-warning text-[9px] font-black uppercase tracking-widest">
-              Admin
-            </Text>
-          </View>
-        </View>
-
-        <View className="px-2 mb-4">
-          <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.25em] mb-1">
-            Admin / Notifications
-          </Text>
-          <Text className="text-typography-main text-3xl font-black tracking-tight">
-            Notification Rules
-          </Text>
-          <Text className="text-typography-muted text-sm mt-2 leading-5">
-            Control which events trigger notifications and who receives them.
-          </Text>
-        </View>
-
-        {/* Stats row */}
+    <View className="flex-1">
+      {/* Stats row */}
         <View className="flex-row gap-3 px-2">
           <View className="bg-surface-background flex-1 rounded-xl px-3 py-2.5 border border-surface-border">
             <Text className="text-typography-main font-black text-lg">{rules.length}</Text>
@@ -446,7 +410,6 @@ export default function AdminNotificationsScreen() {
             </Text>
           </View>
         </View>
-      </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -518,6 +481,7 @@ export default function AdminNotificationsScreen() {
         onClose={() => setShowCreate(false)}
         onCreated={load}
       />
-    </SafeAreaView>
+    </View>
   );
 }
+

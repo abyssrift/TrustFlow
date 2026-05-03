@@ -13,7 +13,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 export default function ProfilePage() {
   const router = useRouter();
   const { showConfirm, showAlert } = useAlert();
-  const { user, signOut, refreshProfile } = useAuth();
+  const { user, signOut, refreshProfile, hasPermission } = useAuth();
   const [profileData, setProfileData] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -141,14 +141,26 @@ export default function ProfilePage() {
 
         <View>
           <Text className="mb-4 text-[10px] font-black uppercase tracking-[0.3em] text-typography-dim">Notifications</Text>
-          <Pressable
-            onPress={() => router.push('/notifications/preferences' as any)}
-            className="h-14 flex-row items-center rounded-2xl border border-surface-border bg-surface-card px-5 active:bg-surface-overlay"
-          >
-            <FontAwesome name="bell" size={16} color="rgb(var(--brand-primary))" style={{ marginRight: 12 }} />
-            <Text className="flex-1 text-sm font-bold text-typography-main">Notification Preferences</Text>
-            <FontAwesome name="chevron-right" size={12} color="rgb(var(--text-muted))" />
-          </Pressable>
+          <View className="rounded-2xl border border-surface-border bg-surface-card overflow-hidden">
+            <Pressable
+              onPress={() => router.push('/notifications/preferences' as any)}
+              className={`h-14 flex-row items-center px-5 active:bg-surface-overlay ${hasPermission('manage_notifications') || hasPermission('role.manage') ? 'border-b border-surface-border' : ''}`}
+            >
+              <FontAwesome name="bell" size={16} color="rgb(var(--brand-primary))" style={{ marginRight: 12 }} />
+              <Text className="flex-1 text-sm font-bold text-typography-main">Notification Preferences</Text>
+              <FontAwesome name="chevron-right" size={12} color="rgb(var(--text-muted))" />
+            </Pressable>
+            {(hasPermission('manage_notifications') || hasPermission('role.manage')) && (
+              <Pressable
+                onPress={() => router.push('/admin/notifications' as any)}
+                className="h-14 flex-row items-center px-5 active:bg-surface-overlay"
+              >
+                <FontAwesome name="gear" size={16} color="rgb(var(--brand-primary))" style={{ marginRight: 12 }} />
+                <Text className="flex-1 text-sm font-bold text-typography-main">Workspace Notification Rules</Text>
+                <FontAwesome name="chevron-right" size={12} color="rgb(var(--text-muted))" />
+              </Pressable>
+            )}
+          </View>
         </View>
 
         {profileData.company_id && (

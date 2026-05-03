@@ -13,10 +13,12 @@ import { RoleManagerProvider, useRoleManager } from '@/contexts/RoleManagerConte
 import UserAssignmentGrid from '@/components/admin/UserAssignmentGrid';
 import TeamAssignmentGrid from '@/components/admin/TeamAssignmentGrid';
 import RoleBuilder from '@/components/admin/RoleBuilder';
+import NotificationRules from '@/components/admin/NotificationRules';
 
-type PeopleSection = 'members' | 'teams' | 'roles';
+type PeopleSection = 'members' | 'teams' | 'roles' | 'notifications';
 
-function resolveSection(param: string | undefined, canViewMembers: boolean, canManageTeams: boolean): PeopleSection {
+function resolveSection(param: string | undefined, canViewMembers: boolean, canManageTeams: boolean, canManageNotifications: boolean): PeopleSection {
+  if (param === 'notifications' && canManageNotifications) return 'notifications';
   if (param === 'roles' && canManageTeams) return 'roles';
   if (param === 'teams' && canManageTeams) return 'teams';
   if (param === 'members' && canViewMembers) return 'members';
@@ -46,6 +48,7 @@ function TeamWorkspaceContent({ section }: { section: PeopleSection }) {
 
   if (section === 'roles') return <RoleBuilder />;
   if (section === 'teams') return <TeamAssignmentGrid />;
+  if (section === 'notifications') return <NotificationRules />;
   return <UserAssignmentGrid />;
 }
 
@@ -58,8 +61,9 @@ export default function PeopleScreen() {
 
   const { profile, hasPermission } = useAuth();
   const canManageTeams = hasPermission('role.manage');
+  const canManageNotifications = hasPermission('manage_notifications') || hasPermission('role.manage');
   const canViewMembers = hasPermission('user.view_all') || canManageTeams;
-  const hasWorkspaceAccess = canViewMembers || canManageTeams;
+  const hasWorkspaceAccess = canViewMembers || canManageTeams || canManageNotifications;
 
   useEffect(() => {
     const fetchCompanyInfo = async () => {
@@ -75,8 +79,8 @@ export default function PeopleScreen() {
   }, [profile?.company_id]);
 
   useEffect(() => {
-    setActiveSection(resolveSection(sectionParam, canViewMembers, canManageTeams));
-  }, [sectionParam, canViewMembers, canManageTeams]);
+    setActiveSection(resolveSection(sectionParam, canViewMembers, canManageTeams, canManageNotifications));
+  }, [sectionParam, canViewMembers, canManageTeams, canManageNotifications]);
 
   return (
     <View className="flex-1 bg-surface-background">
@@ -138,6 +142,16 @@ export default function PeopleScreen() {
               >
                 <Text className={`font-black text-[10px] uppercase tracking-widest ${activeSection === 'roles' ? 'text-white' : 'text-typography-muted'}`}>
                   Roles
+                </Text>
+              </TouchableOpacity>
+            )}
+            {canManageNotifications && (
+              <TouchableOpacity
+                onPress={() => setActiveSection('notifications')}
+                className={`flex-1 py-3 rounded-xl items-center ${activeSection === 'notifications' ? 'bg-brand-primary' : ''}`}
+              >
+                <Text className={`font-black text-[10px] uppercase tracking-widest ${activeSection === 'notifications' ? 'text-white' : 'text-typography-muted'}`}>
+                  Alert Rules
                 </Text>
               </TouchableOpacity>
             )}

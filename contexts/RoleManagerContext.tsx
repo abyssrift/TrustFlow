@@ -255,6 +255,25 @@ export function RoleManagerProvider({ children }: { children: ReactNode }) {
     }
   }, [refreshAll]);
 
+  const createTeam = useCallback(async (name: string, description: string, color: string) => {
+    setLoading(true);
+    try {
+      const { data, error: e } = await supabase.rpc('rpc_create_team', {
+        p_name: name,
+        p_description: description,
+        p_color: color
+      });
+      if (e) throw e;
+      await refreshAll();
+      return data;
+    } catch (e: any) {
+      setError(e.message);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [refreshAll]);
+
   return (
     <RoleManagerContext.Provider
       value={{
@@ -262,7 +281,7 @@ export function RoleManagerProvider({ children }: { children: ReactNode }) {
         loading, error,
         refreshAll,
         createRole, updateRole, deleteRole,
-        updateUserAssignments, updateTeamAssignments
+        updateUserAssignments, updateTeamAssignments, createTeam
       }}
     >
       {children}

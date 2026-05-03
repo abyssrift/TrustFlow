@@ -28,7 +28,7 @@ const STATUS_STYLES: Record<string, { bg: string; border: string; text: string; 
 
 export default function StageActions() {
   const { data, executeAction, submitWork, reviewSubmission, deleteSubmission } = useTaskDetail();
-  const { stopWork, startWork, smartTimer } = useTimer();
+  const { isActive, activeSession, serverTimeOffset, stopWork, startWork, smartTimer } = useTimer();
   const { user } = useAuth();
   const [loadingActionId, setLoadingActionId] = useState<string | null>(null);
   const [submissionContent, setSubmissionContent] = useState('');
@@ -38,14 +38,10 @@ export default function StageActions() {
   const [errorMsg, setErrorMsg] = React.useState<{ title: string; message: string } | null>(null);
 
   const { submitWithEvidence, activeJobs } = useSubmission();
-  const activeJob = activeJobs[data.task.id];
-  const isUploading = !!activeJob && (activeJob.status === 'processing' || activeJob.status === 'uploading' || activeJob.status === 'committing');
-
-  const { isActive, activeSession, serverTimeOffset } = useTimer();
 
   React.useEffect(() => {
     let timer: NodeJS.Timeout;
-    if (isActive && activeSession?.task_id === data?.task.id) {
+    if (isActive && activeSession && data?.task.id && activeSession.task_id === data.task.id) {
       const start = new Date(activeSession.started_at).getTime();
       setElapsedLocal(Math.floor((Date.now() + serverTimeOffset - start) / 1000));
       timer = setInterval(() => {
@@ -84,6 +80,9 @@ export default function StageActions() {
   const removeFile = (id: string) => setStagedFiles(prev => prev.filter(f => f.id !== id));
 
   if (!data) return null;
+
+  const activeJob = activeJobs[data.task.id];
+  const isUploading = !!activeJob && (activeJob.status === 'processing' || activeJob.status === 'uploading' || activeJob.status === 'committing');
 
   const actionable = data.stage_actions.filter((a) => a.can_perform && a.precondition_met);
 
@@ -267,7 +266,7 @@ export default function StageActions() {
                   smartTimer.recordActivity();
                 }}
                 onFocus={async () => {
-                  if (!smartTimer.isActive && (stageRequiresTimer || anyActionRequiresTimer) && canStart) {
+                  if (!isActive && (stageRequiresTimer || anyActionRequiresTimer) && canStart) {
                     try {
                       await startWork(data.task.id, data.task.title);
                     } catch (err) {
