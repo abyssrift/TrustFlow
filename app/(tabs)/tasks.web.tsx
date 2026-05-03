@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTimer } from '@/contexts/TimerContext';
 import TaskCardActions, { type ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
 import { useTheme } from '@/contexts/ThemeContext';
 import KanbanPersonalizer from '@/components/kanban/KanbanPersonalizer';
@@ -61,7 +62,9 @@ type Pipeline = {
   task_visibility_mode: 'all' | 'assigned_only';
 };
 
-function TasksScreenWeb() {
+export function TasksScreenWeb() {
+  const { activeSession, lastStoppedAt } = useTimer();
+
   const [pipeline, setPipeline] = useState<Pipeline | null>(null);
   const [stages, setStages] = useState<Stage[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -77,10 +80,14 @@ function TasksScreenWeb() {
   const [stageActions, setStageActions] = useState<any[]>([]);
   const [showPersonalizer, setShowPersonalizer] = useState(false);
   
+  // Archival State
+  const [archiveModal, setArchiveModal] = useState<{ visible: boolean, taskId: string | null }>({ visible: false, taskId: null });
+  const [archiving, setArchiving] = useState(false);
+  
   const { kanban, theme: activeTheme } = useTheme();
   const { width } = useWindowDimensions();
   const router = useRouter();
-  const { user, hasPermission } = useAuth();
+  const { user, hasPermission, profile } = useAuth();
   const { pipelineId: paramPipelineId } = useLocalSearchParams();
 
   const fetchData = async () => {
@@ -241,6 +248,28 @@ function TasksScreenWeb() {
     setShowAssignmentModal(true);
   };
 
+  const handleArchiveTask = async () => {
+    const taskId = archiveModal.taskId;
+    if (!taskId) return;
+
+    try {
+      setArchiving(true);
+      const { error } = await supabase.rpc('rpc_archive_task', { p_task_id: taskId });
+      if (error) throw error;
+      
+      setArchiveModal({ visible: false, taskId: null });
+      fetchData();
+    } catch (err: any) {
+      if (Platform.OS === 'web') {
+        alert('Archival Failed: ' + err.message);
+      } else {
+        Alert.alert('Archival Failed', err.message);
+      }
+    } finally {
+      setArchiving(false);
+    }
+  };
+
   const getPriorityInfo = (priority: string) => {
     switch (priority) {
       case 'urgent': return { color: 'rgb(var(--state-danger))', label: 'Urgent' };
@@ -317,6 +346,21 @@ function TasksScreenWeb() {
                   className="w-6 h-6 items-center justify-center rounded-full bg-surface-background border border-surface-border hover:bg-brand-primary/10 transition-colors"
                 >
                   <FontAwesome name="user-plus" size={10} className="text-typography-muted hover:text-brand-primary" />
+                </TouchableOpacity>
+              )}
+              {hasPermission('archive:create') && (
+                <TouchableOpacity 
+                  onPress={() => {
+                    const isCoolingDown = lastStoppedAt && (Date.now() - new Date(lastStoppedAt).getTime() < 35000);
+                    if (activeSession?.task_id === task.id || isCoolingDown) {
+                      Alert.alert('Archival Locked', 'System is finalizing work logs. Please wait 30 seconds after stopping your timer before moving to cold storage.');
+                      return;
+                    }
+                    setArchiveModal({ visible: true, taskId: task.id });
+                  }}
+                  className={`w-6 h-6 items-center justify-center rounded-full border border-surface-border transition-colors ${activeSession?.task_id === task.id ? 'bg-surface-card opacity-30 cursor-not-allowed' : 'bg-surface-background hover:bg-state-warning/10'}`}
+                >
+                  <FontAwesome name="archive" size={10} className="text-typography-muted hover:text-state-warning" />
                 </TouchableOpacity>
               )}
               <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest">{task.category || 'General'}</Text>
@@ -595,9 +639,22 @@ function TasksScreenWeb() {
           fetchData();
         }} 
       />
+
+      <ConfirmModal
+        visible={archiveModal.visible}
+        title="Move to Cold Storage"
+        description="Are you sure you want to archive this task? It will be removed from the active pipeline and moved to Intelligence > Archives for auditing."
+        confirmLabel="Archive Task"
+        variant="warning"
+        loading={archiving}
+        onConfirm={handleArchiveTask}
+        onCancel={() => setArchiveModal({ visible: false, taskId: null })}
+      />
     </View>
   );
 }
+
+import ConfirmModal from '@/components/common/ConfirmModal';
 
 export default function TasksScreenWebWrapper() {
   return (

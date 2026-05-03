@@ -24,6 +24,7 @@ type TimerContextType = {
   startWork: (taskId: string, taskTitle: string, isManual?: boolean) => Promise<void>;
   stopWork: (taskId?: string, stoppedAt?: string) => Promise<void>;
   passiveStart: (taskId: string, taskTitle: string) => Promise<void>;
+  lastStoppedAt: string | null;
   smartTimer: {
     showIdleModal: boolean;
     setShowIdleModal: (show: boolean) => void;
@@ -46,6 +47,7 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
   const [activeSession, setActiveSession] = useState<WorkSession | null>(null);
   const [isCommitting, setIsCommitting] = useState(false);
   const [serverTimeOffset, setServerTimeOffset] = useState(0);
+  const [lastStoppedAt, setLastStoppedAt] = useState<string | null>(null);
   
   const commitTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const currentPendingTaskIdRef = useRef<string | null>(null);
@@ -179,6 +181,7 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
     });
     
     if (error) console.error('[Timer] Stop failed:', error);
+    setLastStoppedAt(new Date().toISOString());
     await fetchActiveSession();
     setIsCommitting(false);
   }, [activeSession, fetchActiveSession, serverTimeOffset]);
@@ -306,6 +309,7 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
       startWork, 
       stopWork, 
       passiveStart,
+      lastStoppedAt,
       smartTimer: { ...smartTimer, recordActivity: () => { lastActivityTimeRef.current = Date.now(); smartTimer.recordActivity(); }, lastActivityTime: lastActivityTimeRef.current }
     }}>
       {children}

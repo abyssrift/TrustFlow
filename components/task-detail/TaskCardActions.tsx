@@ -8,6 +8,8 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 import { isComplexActionType } from './actionRegistry';
+import ConfirmModal from '@/components/common/ConfirmModal';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ─── Types ────────────────────────────────────────────────────
 export type ActiveSessionUser = {
@@ -78,6 +80,7 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [needsTimerActionId, setNeedsTimerActionId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<{ title: string; message: string } | null>(null);
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
 
   // ─── Derived State ───────────────────────────────────────
   const isAssignedToUser = (task.assignments || []).some(a => a.assignee_user_id !== null);
@@ -218,6 +221,35 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
     }
   };
 
+  // Archival logic with cooldown
+  const handleArchive = async () => {
+    try {
+      const lastArchived = await AsyncStorage.getItem('last_archival_at');
+      const now = Date.now();
+      if (lastArchived && now - parseInt(lastArchived) < 35000) {
+        const remaining = Math.ceil((35000 - (now - parseInt(lastArchived))) / 1000);
+        setErrorMsg({
+          title: 'Sync Cooldown',
+          message: `Network synchronization in progress. Please wait ${remaining}s for cross-platform safety.`
+        });
+        setTimeout(() => setErrorMsg(null), 3000);
+        return;
+      }
+
+      setLoadingAction('__archive__');
+      const { error } = await supabase.rpc('rpc_archive_task', { p_task_id: task.id });
+      if (error) throw error;
+      
+      await AsyncStorage.setItem('last_archival_at', now.toString());
+      onRefresh();
+    } catch (err: any) {
+      setErrorMsg({ title: 'Archival Failed', message: err.message || 'Could not archive task.' });
+    } finally {
+      setLoadingAction(null);
+      setShowArchiveConfirm(false);
+    }
+  };
+
   // ─── Live Timer Badge (shared between states) ──────────────
   const renderTimerBadge = (label?: string) => {
     if (!activeSession) return null;
@@ -236,14 +268,38 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
   // ─── STATE: Terminal Stage ──────────────────────────────────
   if (isTerminal) {
     const isSuccess = terminalType === 'success';
+    const canArchive = hasPermission('task.archive');
     return (
-      <View className={`py-2.5 rounded-xl items-center justify-center border ${isSuccess ? 'bg-state-success/10 border-state-success/20' : 'bg-state-danger/10 border-state-danger/20'}`}>
-        <View className="flex-row items-center">
-          <FontAwesome name={isSuccess ? 'check-circle' : 'times-circle'} size={12} color={isSuccess ? 'rgb(var(--state-success))' : 'rgb(var(--state-danger))'} />
-          <Text className={`${isSuccess ? 'text-state-success' : 'text-state-danger'} font-black text-[10px] uppercase tracking-widest ml-2`}>
-            {isSuccess ? 'Completed' : 'Failed'}
-          </Text>
+      <View>
+        <View className={`py-2.5 rounded-xl items-center justify-center border ${isSuccess ? 'bg-state-success/10 border-state-success/20' : 'bg-state-danger/10 border-state-danger/20'}`}>
+          <View className="flex-row items-center">
+            <FontAwesome name={isSuccess ? 'check-circle' : 'times-circle'} size={12} color={isSuccess ? 'rgb(var(--state-success))' : 'rgb(var(--state-danger))'} />
+            <Text className={`${isSuccess ? 'text-state-success' : 'text-state-danger'} font-black text-[10px] uppercase tracking-widest ml-2`}>
+              {isSuccess ? 'Completed' : 'Failed'}
+            </Text>
+          </View>
         </View>
+        
+        {canArchive && (
+          <TouchableOpacity
+            onPress={() => setShowArchiveConfirm(true)}
+            className="mt-2 bg-surface-overlay py-2.5 rounded-xl border border-surface-border items-center justify-center flex-row"
+          >
+            <FontAwesome name="archive" size={10} className="text-typography-muted" />
+            <Text className="text-typography-muted font-black text-[10px] uppercase tracking-widest ml-2">Archive Task</Text>
+          </TouchableOpacity>
+        )}
+
+        <ConfirmModal
+          visible={showArchiveConfirm}
+          onCancel={() => setShowArchiveConfirm(false)}
+          onConfirm={handleArchive}
+          title="Snapshot Confirmation"
+          description="Are you certain you want to move this task to Cold Storage? This will snapshot all telemetry and clear it from the active board."
+          confirmLabel={loadingAction === '__archive__' ? 'Syncing...' : 'Archive Task'}
+          variant="danger"
+          loading={loadingAction === '__archive__'}
+        />
       </View>
     );
   }

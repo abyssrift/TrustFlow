@@ -13,6 +13,8 @@ import {
 import { supabase } from '@/lib/supabase';
 import { useAlert } from '@/contexts/AlertContext';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import ConfirmModal from '@/components/common/ConfirmModal';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface ProjectFolderModalProps {
   visible: boolean;
@@ -39,6 +41,8 @@ export default function ProjectFolderModal({
   const [expiryDate, setExpiryDate] = useState('');
   const [status, setStatus] = useState<'active' | 'closed' | 'archived'>('active');
   const [loading, setLoading] = useState(false);
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
+  const [archiveCooldown, setArchiveCooldown] = useState(false);
 
   useEffect(() => {
     if (project) {
@@ -99,10 +103,38 @@ export default function ProjectFolderModal({
     }
   };
 
+  const handleArchiveProject = async () => {
+    if (!project) return;
+    
+    try {
+      const lastArchived = await AsyncStorage.getItem('last_archival_at');
+      const now = Date.now();
+      if (lastArchived && now - parseInt(lastArchived) < 35000) {
+        const remaining = Math.ceil((35000 - (now - parseInt(lastArchived))) / 1000);
+        showAlert('Sync Cooldown', `Network synchronization in progress. Please wait ${remaining}s for cross-platform safety.`);
+        return;
+      }
+
+      setLoading(true);
+      const { error } = await supabase.rpc('rpc_archive_project', { p_project_id: project.id });
+      if (error) throw error;
+      
+      await AsyncStorage.setItem('last_archival_at', now.toString());
+      showAlert('Success', 'Project and all associated tasks have been snapshotted to Cold Storage.');
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      console.error('Error archiving project:', err);
+      showAlert('Archival Error', err.message || 'Failed to archive project');
+    } finally {
+      setLoading(false);
+      setShowArchiveConfirm(false);
+    }
+  };
+
   const statusOptions: { value: typeof status; label: string; icon: string }[] = [
     { value: 'active', label: 'Active', icon: 'play-circle' },
     { value: 'closed', label: 'Closed', icon: 'check-circle' },
-    { value: 'archived', label: 'Archived', icon: 'archive' },
   ];
 
   return (
@@ -197,6 +229,25 @@ export default function ProjectFolderModal({
               ))}
             </View>
           </View>
+
+          {project && (
+            <TouchableOpacity
+              onPress={() => setShowArchiveConfirm(true)}
+              className="mt-6 bg-state-danger/5 border border-state-danger/20 p-5 rounded-2xl flex-row items-center justify-between"
+            >
+              <View className="flex-1 mr-4">
+                <Text className="text-state-danger font-black text-sm uppercase tracking-widest mb-1">Cold Storage</Text>
+                <Text className="text-state-danger/60 text-[10px] font-medium leading-relaxed">
+                  Recursively snapshots all project tasks and telemetry before removal from the active database.
+                </Text>
+              </View>
+              <View className="w-10 h-10 bg-state-danger/10 rounded-full items-center justify-center">
+                <FontAwesome name="archive" size={16} color="rgb(var(--state-danger))" />
+              </View>
+            </TouchableOpacity>
+          )}
+
+          <View className="h-20" />
         </ScrollView>
 
         {/* Footer */}
@@ -225,6 +276,17 @@ export default function ProjectFolderModal({
           </TouchableOpacity>
         </View>
       </View>
+
+      <ConfirmModal
+        visible={showArchiveConfirm}
+        onCancel={() => setShowArchiveConfirm(false)}
+        onConfirm={handleArchiveProject}
+        title="Project Snapshot Confirmation"
+        description={`Are you certain you want to move "${project?.name}" to Cold Storage? This will snapshot all historical data and recursive child tasks. This action ensures data integrity but removes the project from the active pipeline.`}
+        confirmLabel={loading ? 'Snapshotting...' : 'Confirm Archival'}
+        variant="danger"
+        loading={loading}
+      />
     </Modal>
   );
 }

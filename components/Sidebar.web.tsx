@@ -41,7 +41,7 @@ const SHORTCUTS: Shortcut[] = [
   { id: 'projects', permissionKey: 'project.edit', icon: 'folder-o', label: 'Projects', href: '/projects' },
   { id: 'radar', permissionKey: 'report.view', icon: 'bullseye', label: 'Radar', href: '/intelligence?section=radar' },
   { id: 'targets', permissionKey: 'target.view', icon: 'crosshairs', label: 'Targets', href: '/intelligence?section=targets' },
-  { id: 'reports', permissionKey: 'report.view', icon: 'file-text-o', label: 'Reports', href: '/intelligence?section=archives' },
+  { id: 'archives', permissionKey: 'archive.view', icon: 'archive', label: 'Archives', href: '/intelligence?section=archives' },
   { id: 'team', permissionKey: 'user.view_all', fallbackPermissionKey: 'role.manage', icon: 'users', label: 'Team', href: '/people?section=teams' },
   { id: 'pipelines-admin', permissionKey: 'pipeline.edit', icon: 'gear', label: 'Pipelines', href: '/admin/pipelines' },
   { id: 'benchmark', permissionKey: 'role.manage', icon: 'balance-scale', label: 'Benchmark', href: '/admin/comparison' },

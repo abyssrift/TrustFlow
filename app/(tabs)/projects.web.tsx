@@ -10,10 +10,12 @@ import {
   Platform,
   Switch
 } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTimer } from '@/contexts/TimerContext';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import ProjectFolderModal from '@/components/projects/ProjectFolderModal';
-import { useAuth } from '@/contexts/AuthContext';
 
 type Project = {
   id: string;
@@ -29,6 +31,9 @@ type Project = {
 };
 
 export default function ProjectsScreenWeb() {
+  const { hasPermission } = useAuth();
+  const { activeSession, lastStoppedAt } = useTimer();
+  
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -36,7 +41,11 @@ export default function ProjectsScreenWeb() {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | undefined>();
   
-  const { hasPermission } = useAuth();
+  // Archival State
+  const [archiveModal, setArchiveModal] = useState<{ visible: boolean, projectId: string | null }>({ visible: false, projectId: null });
+  const [archiving, setArchiving] = useState(false);
+  
+
 
   const fetchProjects = async () => {
     try {
@@ -109,6 +118,28 @@ export default function ProjectsScreenWeb() {
     setModalVisible(true);
   };
 
+  const handleArchiveProject = async () => {
+    const projectId = archiveModal.projectId;
+    if (!projectId) return;
+
+    try {
+      setArchiving(true);
+      const { error } = await supabase.rpc('rpc_archive_project', { p_project_id: projectId });
+      if (error) throw error;
+      
+      setArchiveModal({ visible: false, projectId: null });
+      fetchProjects();
+    } catch (err: any) {
+      if (Platform.OS === 'web') {
+        alert('Archival Failed: ' + err.message);
+      } else {
+        Alert.alert('Archival Failed', err.message);
+      }
+    } finally {
+      setArchiving(false);
+    }
+  };
+
   const renderProjectCard = (project: Project) => {
     const isOverdue = project.expiry_date && new Date(project.expiry_date) < new Date() && project.status === 'active';
     
@@ -122,10 +153,28 @@ export default function ProjectsScreenWeb() {
            <View className={`w-14 h-14 rounded-2xl items-center justify-center ${isOverdue ? 'bg-state-danger/10' : 'bg-brand-primary/10'} group-hover:scale-110 transition-transform`}>
               <FontAwesome name="folder-open" size={24} color={isOverdue ? 'rgb(var(--state-danger))' : 'rgb(var(--brand-primary))'} />
            </View>
-           <View className={`px-4 py-1.5 rounded-full border ${project.status === 'active' ? 'bg-state-success/10 border-state-success/30' : 'bg-surface-background border-surface-border'}`}>
-              <Text className={`text-[10px] font-black uppercase tracking-widest ${project.status === 'active' ? 'text-state-success' : 'text-typography-muted'}`}>
-                {project.status}
-              </Text>
+           <View className="flex-row items-center gap-2">
+              {hasPermission('archive:create') && (
+                <TouchableOpacity 
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    const isCoolingDown = lastStoppedAt && (Date.now() - new Date(lastStoppedAt).getTime() < 35000);
+                    if (activeSession || isCoolingDown) {
+                      Alert.alert('Archival Locked', 'Cannot archive while agents are recording time. Please stop all timers and wait 30 seconds for strategic sync.');
+                      return;
+                    }
+                    setArchiveModal({ visible: true, projectId: project.id });
+                  }}
+                  className={`w-10 h-10 items-center justify-center rounded-xl border border-surface-border transition-colors ${activeSession || isCoolingDown ? 'bg-surface-card opacity-30 cursor-not-allowed' : 'bg-surface-background hover:bg-state-warning/10'}`}
+                >
+                  <FontAwesome name="archive" size={14} className="text-typography-muted hover:text-state-warning" />
+                </TouchableOpacity>
+              )}
+              <View className={`px-4 py-1.5 rounded-full border ${project.status === 'active' ? 'bg-state-success/10 border-state-success/30' : 'bg-surface-background border-surface-border'}`}>
+                  <Text className={`text-[10px] font-black uppercase tracking-widest ${project.status === 'active' ? 'text-state-success' : 'text-typography-muted'}`}>
+                    {project.status}
+                  </Text>
+              </View>
            </View>
         </View>
 
@@ -251,6 +300,19 @@ export default function ProjectsScreenWeb() {
         onSuccess={fetchProjects}
         project={selectedProject}
       />
+
+      <ConfirmModal
+        visible={archiveModal.visible}
+        title="Deep Archive Project"
+        description="This will move the project and ALL associated tasks to cold storage. This operation is recursive and will clear all active items from the pipeline."
+        confirmLabel="Confirm Deep Archive"
+        variant="warning"
+        loading={archiving}
+        onConfirm={handleArchiveProject}
+        onCancel={() => setArchiveModal({ visible: false, projectId: null })}
+      />
     </View>
   );
 }
+
+import ConfirmModal from '@/components/common/ConfirmModal';
