@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, Linking, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import { useTimer } from '@/contexts/TimerContext';
+import { openStorageFile, SUBMISSION_BUCKET } from '@/lib/storage';
 
 const CATEGORY_UI: Record<string, { icon: string; color: string; label: string }> = {
   'image': { icon: 'file-image-o', color: '#8b5cf6', label: 'Images' },
@@ -112,7 +113,7 @@ export default function EvidencePanel() {
                     key={`${ev.id}-${idx}`}
                     onPress={async () => {
                       await passiveStart(data.task.id, data.task.title);
-                      Linking.openURL(ev.file_url);
+                      openStorageFile(SUBMISSION_BUCKET, ev.storage_path || ev.file_url);
                     }}
                     className="flex-row items-center bg-surface-background p-3 rounded-xl border border-surface-border/50 active:opacity-75"
                   >

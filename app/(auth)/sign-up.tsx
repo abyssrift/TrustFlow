@@ -98,7 +98,7 @@ export default function SignUpScreen() {
         
         <Link href="/(auth)/login" asChild>
           <TouchableOpacity className="w-full bg-brand-primary rounded-2xl py-5 items-center justify-center premium-shadow active:scale-[0.98]">
-            <Text className="text-white font-black text-lg">Return to Login</Text>
+            <Text className="text-typography-main font-bold text-lg">Return to Login</Text>
           </TouchableOpacity>
         </Link>
       </View>
@@ -188,7 +188,7 @@ export default function SignUpScreen() {
             {loading ? (
               <ActivityIndicator color="white" />
             ) : (
-              <Text className="text-white font-black text-lg tracking-tight">
+              <Text className="text-typography-main font-bold text-lg">
                 {invitation ? 'Join Team' : 'Create Account'}
               </Text>
             )}

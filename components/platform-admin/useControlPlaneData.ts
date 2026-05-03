@@ -160,7 +160,8 @@ export function useControlPlaneData() {
 
   const fetchCompanies = useCallback(async () => {
     const { data, error } = await supabase.rpc(
-      'rpc_platform_companies_overview'
+      'rpc_platform_companies_overview',
+      { _dummy: null }
     );
     if (!error && data) {
       const list = data as CompanyOverview[];
@@ -273,7 +274,8 @@ export function useLiveSessions() {
 
   const fetchSessions = useCallback(async () => {
     const { data, error } = await supabase.rpc(
-      'rpc_platform_live_sessions'
+      'rpc_platform_live_sessions',
+      { _dummy: null }
     );
     if (!error && data) setSessions(data as LiveSession[]);
     setLastRefreshed(new Date());

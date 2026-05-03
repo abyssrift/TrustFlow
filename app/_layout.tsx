@@ -85,6 +85,12 @@ export default function RootLayout() {
 
 import { ThemeProvider as AppThemeProvider } from '@/contexts/ThemeContext';
 import { AlertProvider } from '@/contexts/AlertContext';
+import { usePushRegistration } from '@/hooks/usePushRegistration';
+
+function PushRegistrationGuard() {
+  usePushRegistration();
+  return null;
+}
 
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
@@ -115,6 +121,8 @@ function RootLayoutNav() {
       <AlertProvider>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <View className="flex-1 bg-surface-background">
+            {/* Register for push notifications on native once user is signed in */}
+            {session && Platform.OS !== 'web' && <PushRegistrationGuard />}
             <Stack>
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
               <Stack.Screen name="(auth)" options={{ headerShown: false }} />

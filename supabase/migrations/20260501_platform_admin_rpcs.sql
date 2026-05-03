@@ -2,12 +2,16 @@
 -- Platform Admin RPCs — Cross-tenant monitoring (platform owner only)
 -- All functions validate the caller is the TrustFlow platform owner
 -- before returning any data.
+-- NOTE: Zero-param functions use _dummy BOOLEAN DEFAULT NULL to avoid
+--       PostgREST schema-cache issues with zero-argument SETOF functions.
+--       RETURNS TABLE(id ...) creates an implicit PL/pgSQL variable named
+--       "id" — auth checks must use table aliases to avoid ambiguity.
 -- ====================================================================
 
 -- ── 1. rpc_platform_companies_overview ──────────────────────────────
--- Returns all tenant companies with aggregate usage metrics.
 DROP FUNCTION IF EXISTS public.rpc_platform_companies_overview();
-CREATE OR REPLACE FUNCTION public.rpc_platform_companies_overview()
+DROP FUNCTION IF EXISTS public.rpc_platform_companies_overview(BOOLEAN);
+CREATE FUNCTION public.rpc_platform_companies_overview(_dummy BOOLEAN DEFAULT NULL)
 RETURNS TABLE (
   id                   UUID,
   name                 TEXT,
@@ -25,8 +29,11 @@ AS $$
 DECLARE
   v_email TEXT;
 BEGIN
-  SELECT email INTO v_email FROM auth.users WHERE id = auth.uid();
-  IF v_email NOT IN ('adamsamir2005@gmail.com', 'adam.samir@trustedgellc.com', 'adamsamir@hotmail.com') THEN
+  -- Use alias `au` to avoid ambiguity with implicit PL/pgSQL output var `id`
+  SELECT au.email INTO v_email FROM auth.users au WHERE au.id = auth.uid();
+  IF v_email IS NULL OR v_email NOT IN (
+    'adamsamir2005@gmail.com','adam.samir@trustedgellc.com','adamsamir@hotmail.com'
+  ) THEN
     RAISE EXCEPTION 'access denied' USING ERRCODE = '42501';
   END IF;
 
@@ -79,8 +86,6 @@ END;
 $$;
 
 -- ── 2. rpc_platform_activity_timeline ───────────────────────────────
--- Returns day-by-day task creation, session minutes, and active users
--- across the entire platform.
 DROP FUNCTION IF EXISTS public.rpc_platform_activity_timeline(INT);
 CREATE OR REPLACE FUNCTION public.rpc_platform_activity_timeline(p_days INT DEFAULT 30)
 RETURNS TABLE (
@@ -96,8 +101,10 @@ AS $$
 DECLARE
   v_email TEXT;
 BEGIN
-  SELECT email INTO v_email FROM auth.users WHERE id = auth.uid();
-  IF v_email NOT IN ('adamsamir2005@gmail.com', 'adam.samir@trustedgellc.com', 'adamsamir@hotmail.com') THEN
+  SELECT au.email INTO v_email FROM auth.users au WHERE au.id = auth.uid();
+  IF v_email IS NULL OR v_email NOT IN (
+    'adamsamir2005@gmail.com','adam.samir@trustedgellc.com','adamsamir@hotmail.com'
+  ) THEN
     RAISE EXCEPTION 'access denied' USING ERRCODE = '42501';
   END IF;
 
@@ -137,9 +144,9 @@ END;
 $$;
 
 -- ── 3. rpc_platform_live_sessions ───────────────────────────────────
--- Returns all currently active work sessions across all tenants.
 DROP FUNCTION IF EXISTS public.rpc_platform_live_sessions();
-CREATE OR REPLACE FUNCTION public.rpc_platform_live_sessions()
+DROP FUNCTION IF EXISTS public.rpc_platform_live_sessions(BOOLEAN);
+CREATE FUNCTION public.rpc_platform_live_sessions(_dummy BOOLEAN DEFAULT NULL)
 RETURNS TABLE (
   session_id        UUID,
   user_id           UUID,
@@ -160,8 +167,10 @@ AS $$
 DECLARE
   v_email TEXT;
 BEGIN
-  SELECT email INTO v_email FROM auth.users WHERE id = auth.uid();
-  IF v_email NOT IN ('adamsamir2005@gmail.com', 'adam.samir@trustedgellc.com', 'adamsamir@hotmail.com') THEN
+  SELECT au.email INTO v_email FROM auth.users au WHERE au.id = auth.uid();
+  IF v_email IS NULL OR v_email NOT IN (
+    'adamsamir2005@gmail.com','adam.samir@trustedgellc.com','adamsamir@hotmail.com'
+  ) THEN
     RAISE EXCEPTION 'access denied' USING ERRCODE = '42501';
   END IF;
 
@@ -189,7 +198,6 @@ END;
 $$;
 
 -- ── 4. rpc_platform_company_detail ──────────────────────────────────
--- Returns a single JSON object with full detail on one tenant company.
 DROP FUNCTION IF EXISTS public.rpc_platform_company_detail(UUID);
 CREATE OR REPLACE FUNCTION public.rpc_platform_company_detail(p_company_id UUID)
 RETURNS JSON
@@ -201,8 +209,10 @@ DECLARE
   v_email  TEXT;
   v_result JSON;
 BEGIN
-  SELECT email INTO v_email FROM auth.users WHERE id = auth.uid();
-  IF v_email NOT IN ('adamsamir2005@gmail.com', 'adam.samir@trustedgellc.com', 'adamsamir@hotmail.com') THEN
+  SELECT au.email INTO v_email FROM auth.users au WHERE au.id = auth.uid();
+  IF v_email IS NULL OR v_email NOT IN (
+    'adamsamir2005@gmail.com','adam.samir@trustedgellc.com','adamsamir@hotmail.com'
+  ) THEN
     RAISE EXCEPTION 'access denied' USING ERRCODE = '42501';
   END IF;
 
@@ -261,7 +271,18 @@ END;
 $$;
 
 -- ── Grants ────────────────────────────────────────────────────────────────
-GRANT EXECUTE ON FUNCTION public.rpc_platform_companies_overview()       TO authenticated;
-GRANT EXECUTE ON FUNCTION public.rpc_platform_activity_timeline(INT)     TO authenticated;
-GRANT EXECUTE ON FUNCTION public.rpc_platform_live_sessions()            TO authenticated;
-GRANT EXECUTE ON FUNCTION public.rpc_platform_company_detail(UUID)       TO authenticated;
+REVOKE EXECUTE ON FUNCTION public.rpc_platform_companies_overview(BOOLEAN) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.rpc_platform_companies_overview(BOOLEAN) FROM anon;
+GRANT  EXECUTE ON FUNCTION public.rpc_platform_companies_overview(BOOLEAN) TO authenticated;
+
+REVOKE EXECUTE ON FUNCTION public.rpc_platform_activity_timeline(INT)      FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.rpc_platform_activity_timeline(INT)      FROM anon;
+GRANT  EXECUTE ON FUNCTION public.rpc_platform_activity_timeline(INT)      TO authenticated;
+
+REVOKE EXECUTE ON FUNCTION public.rpc_platform_live_sessions(BOOLEAN)      FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.rpc_platform_live_sessions(BOOLEAN)      FROM anon;
+GRANT  EXECUTE ON FUNCTION public.rpc_platform_live_sessions(BOOLEAN)      TO authenticated;
+
+REVOKE EXECUTE ON FUNCTION public.rpc_platform_company_detail(UUID)        FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.rpc_platform_company_detail(UUID)        FROM anon;
+GRANT  EXECUTE ON FUNCTION public.rpc_platform_company_detail(UUID)        TO authenticated;

@@ -13,7 +13,10 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSUserNotificationsUsageDescription": "TrustFlow sends you task and pipeline notifications."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -30,7 +33,26 @@
     "plugins": [
       "expo-router",
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/adaptive-icon.png",
+          "color": "#1a1a2e",
+          "androidMode": "default",
+          "androidCollapsedTitle": "TrustFlow",
+          "sounds": [],
+          "androidChannels": [
+            {
+              "name": "default",
+              "importance": "HIGH",
+              "sound": true,
+              "vibrate": true,
+              "badge": true
+            }
+          ]
+        }
+      ]
     ]
   }
 }

@@ -131,22 +131,18 @@ export function SubmissionProvider({ children }: { children: React.ReactNode }) 
         const filePath = `${companyId}/tasks/${taskId}/users/${user.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
 
         const { data, error: storageError } = await supabase.storage
-          .from('task-submissions')
-          .upload(filePath, blob, { 
-            contentType: file.type || 'application/octet-stream', 
-            upsert: true 
+          .from('submission-attachments')
+          .upload(filePath, blob, {
+            contentType: file.type || 'application/octet-stream',
+            upsert: true
           });
 
         if (storageError) throw storageError;
 
-        const { data: { publicUrl } } = supabase.storage
-          .from('task-submissions')
-          .getPublicUrl(data.path);
-
         completedCount++;
         const currentProgress = Math.min(90, (completedCount / stagedFiles.length) * 100);
-        
-        updateJob(taskId, { 
+
+        updateJob(taskId, {
           completedFiles: completedCount,
           progress: currentProgress,
           currentAction: `Uploaded ${completedCount}/${stagedFiles.length}...`
@@ -154,7 +150,8 @@ export function SubmissionProvider({ children }: { children: React.ReactNode }) 
 
         return {
           file_name: file.name,
-          file_url: publicUrl,
+          file_url: data.path,
+          storage_path: data.path,
           file_size: file.size,
           mime_type: file.type,
           category: category

@@ -1,7 +1,9 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from './AuthContext';
+import { TASK_BRIEF_BUCKET } from '@/lib/storage';
+import * as ImageManipulator from 'expo-image-manipulator';
 
 export type TaskDraft = {
   title: string;
@@ -29,6 +31,10 @@ const INITIAL_DRAFT: TaskDraft = {
   visibilityPermission: null,
 };
 
+export type StagedBriefFile = {
+  id: string; uri: string; name: string; size: number; type: string;
+};
+
 type TaskCreationContextType = {
   draft: TaskDraft;
   setDraft: (draft: Partial<TaskDraft>) => void;
@@ -37,6 +43,8 @@ type TaskCreationContextType = {
   loadRecentTasks: () => Promise<void>;
   createTask: () => Promise<string | null>;
   loading: boolean;
+  briefFiles: StagedBriefFile[];
+  setBriefFiles: React.Dispatch<React.SetStateAction<StagedBriefFile[]>>;
 };
 
 const TaskCreationContext = createContext<TaskCreationContextType | null>(null);
@@ -54,6 +62,7 @@ export const TaskCreationProvider = ({ children }: { children: React.ReactNode }
   const [draft, setDraftState] = useState<TaskDraft>(INITIAL_DRAFT);
   const [recentTasks, setRecentTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [briefFiles, setBriefFiles] = useState<StagedBriefFile[]>([]);
 
   // Load draft on mount
   useEffect(() => {
@@ -136,6 +145,60 @@ export const TaskCreationProvider = ({ children }: { children: React.ReactNode }
         if (assignError) console.error('Assignment error:', assignError);
       }
 
+      // 3. Upload brief files if any
+      if (briefFiles.length > 0) {
+        try {
+          const { data: companyRow } = await supabase.from('users').select('company_id').eq('id', user!.id).single();
+          const companyId = companyRow?.company_id;
+          const uploaded: any[] = [];
+
+          for (const file of briefFiles) {
+            let finalUri = file.uri;
+            if (file.type.startsWith('image/')) {
+              try {
+                const result = await ImageManipulator.manipulateAsync(
+                  file.uri, [{ resize: { width: 2000 } }],
+                  { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+                );
+                finalUri = result.uri;
+              } catch { /* keep original */ }
+            }
+
+            const response = await fetch(finalUri);
+            const blob = await response.blob();
+            const ext = file.name.split('.').pop() || 'bin';
+            const path = `${companyId}/tasks/${taskId}/brief/${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
+
+            const { data: storageData, error: storageErr } = await supabase.storage
+              .from(TASK_BRIEF_BUCKET)
+              .upload(path, blob, { contentType: file.type, upsert: true });
+
+            if (storageErr) { console.error('Brief upload error:', storageErr); continue; }
+
+            const cat = file.type.startsWith('image/') ? 'image'
+              : file.type.includes('pdf') || file.type.includes('word') ? 'document'
+              : file.type.includes('sheet') || file.type.includes('excel') || file.type.includes('csv') ? 'spreadsheet'
+              : 'other';
+
+            uploaded.push({
+              file_name: file.name, file_url: storageData.path,
+              storage_path: storageData.path, file_size: file.size,
+              mime_type: file.type, category: cat,
+            });
+          }
+
+          if (uploaded.length > 0) {
+            const { error: rpcErr } = await supabase.rpc('rpc_add_task_attachments', {
+              p_task_id: taskId, p_attachments: uploaded,
+            });
+            if (rpcErr) console.error('Brief attach error:', rpcErr);
+          }
+        } catch (e) {
+          console.error('Brief file upload failed:', e);
+        }
+        setBriefFiles([]);
+      }
+
       await resetDraft();
       await loadRecentTasks();
       return taskId;
@@ -149,13 +212,10 @@ export const TaskCreationProvider = ({ children }: { children: React.ReactNode }
 
   return (
     <TaskCreationContext.Provider value={{
-      draft,
-      setDraft,
-      resetDraft,
-      recentTasks,
-      loadRecentTasks,
-      createTask,
-      loading
+      draft, setDraft, resetDraft,
+      recentTasks, loadRecentTasks,
+      createTask, loading,
+      briefFiles, setBriefFiles,
     }}>
       {children}
     </TaskCreationContext.Provider>

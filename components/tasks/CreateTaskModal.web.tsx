@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, Modal, TouchableOpacity, TextInput, ScrollView, ActivityIndicator, Platform } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { useTaskCreation } from '@/contexts/TaskCreationContext';
+import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '@/lib/supabase';
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 
@@ -12,7 +14,7 @@ type Props = {
 };
 
 export default function CreateTaskModal({ visible, onClose, initialPipelineId }: Props) {
-  const { draft, setDraft, createTask, loading, recentTasks, loadRecentTasks } = useTaskCreation();
+  const { draft, setDraft, createTask, loading, recentTasks, loadRecentTasks, briefFiles, setBriefFiles } = useTaskCreation();
   const [activeTab, setActiveTab] = useState<'details' | 'assignments'>('details');
   const [users, setUsers] = useState<any[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
@@ -212,7 +214,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
 
                   <View>
                     <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-3 ml-1">Mandate Documentation</Text>
-                    <TextInput 
+                    <TextInput
                       value={draft.description}
                       onChangeText={t => setDraft({ description: t })}
                       placeholder="Define the scope of this tactical objective..."
@@ -222,6 +224,46 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                       textAlignVertical="top"
                       className="bg-surface-background border border-surface-border rounded-3xl px-6 py-5 text-typography-main text-sm leading-6 h-40"
                     />
+                  </View>
+
+                  <View>
+                    <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-3 ml-1">Brief Files</Text>
+                    <Text className="text-typography-muted text-xs mb-4">Attach reference materials, specs, or context files for the assignee.</Text>
+                    {briefFiles.length > 0 && (
+                      <View className="gap-2 mb-4">
+                        {briefFiles.map(f => (
+                          <View key={f.id} className="flex-row items-center bg-surface-background px-4 py-3 rounded-xl border border-surface-border/50">
+                            <FontAwesome name={f.type.startsWith('image/') ? 'file-image-o' : 'file-o'} size={13} color="rgb(var(--brand-primary))" />
+                            <Text className="text-typography-main text-xs font-bold ml-3 flex-1" numberOfLines={1}>{f.name}</Text>
+                            <TouchableOpacity onPress={() => setBriefFiles(prev => prev.filter(x => x.id !== f.id))} className="ml-3 p-1">
+                              <FontAwesome name="times-circle" size={13} color="rgb(var(--state-danger))" />
+                            </TouchableOpacity>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                    <View className="flex-row gap-4">
+                      <TouchableOpacity
+                        onPress={async () => {
+                          const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsMultipleSelection: true });
+                          if (!result.canceled) setBriefFiles(prev => [...prev, ...result.assets.map(a => ({ id: Math.random().toString(36).substring(7), uri: a.uri, name: a.fileName || `image_${Date.now()}.jpg`, size: a.fileSize || 0, type: a.mimeType || 'image/jpeg' }))]);
+                        }}
+                        className="flex-row items-center bg-surface-background px-4 py-3 rounded-xl border border-surface-border hover:border-brand-primary transition-colors"
+                      >
+                        <FontAwesome name="camera" size={13} color="rgb(var(--brand-primary))" />
+                        <Text className="text-brand-primary text-xs font-black uppercase ml-2">Add Photo</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={async () => {
+                          const result = await DocumentPicker.getDocumentAsync({ type: '*/*', multiple: true });
+                          if (!result.canceled) setBriefFiles(prev => [...prev, ...result.assets.map(a => ({ id: Math.random().toString(36).substring(7), uri: a.uri, name: a.name, size: a.size || 0, type: a.mimeType || 'application/octet-stream' }))]);
+                        }}
+                        className="flex-row items-center bg-surface-background px-4 py-3 rounded-xl border border-surface-border hover:border-brand-primary transition-colors"
+                      >
+                        <FontAwesome name="paperclip" size={13} color="rgb(var(--brand-primary))" />
+                        <Text className="text-brand-primary text-xs font-black uppercase ml-2">Attach File</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 </View>
               ) : (

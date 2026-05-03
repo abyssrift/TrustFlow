@@ -26,7 +26,7 @@ export default function LoginScreen() {
     setError(null);
 
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
       });
@@ -34,7 +34,15 @@ export default function LoginScreen() {
       if (signInError) {
         setError(getErrorMessage(signInError));
         setLoading(false);
+        return;
       }
+
+      if (!data?.session) {
+        setError('Please check your email to verify your account before logging in.');
+        setLoading(false);
+        return;
+      }
+      
       // Session change will be handled by AuthContext/RootLayout
     } catch (err) {
       setError('An unexpected error occurred. Please try again.');
@@ -102,7 +110,7 @@ export default function LoginScreen() {
             {loading ? (
               <ActivityIndicator color="white" />
             ) : (
-              <Text className="text-white font-black text-lg tracking-tight">Sign In</Text>
+              <Text className="text-typography-main font-bold text-lg">Sign In</Text>
             )}
           </TouchableOpacity>
         </View>

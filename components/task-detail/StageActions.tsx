@@ -6,7 +6,8 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Linking, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { openStorageFile, SUBMISSION_BUCKET } from '@/lib/storage';
 import { getActionDescriptor, splitStageActions } from './actionRegistry';
 
 function getFileIcon(mimeType: string | null): { name: string; color: string } {
@@ -26,7 +27,7 @@ const STATUS_STYLES: Record<string, { bg: string; border: string; text: string; 
 };
 
 export default function StageActions() {
-  const { data, executeAction, submitWork, reviewSubmission } = useTaskDetail();
+  const { data, executeAction, submitWork, reviewSubmission, deleteSubmission } = useTaskDetail();
   const { stopWork, startWork, smartTimer } = useTimer();
   const { user } = useAuth();
   const [loadingActionId, setLoadingActionId] = useState<string | null>(null);
@@ -377,7 +378,7 @@ export default function StageActions() {
                         return (
                           <TouchableOpacity
                             key={a.id}
-                            onPress={() => Linking.openURL(a.file_url)}
+                            onPress={() => openStorageFile(SUBMISSION_BUCKET, a.storage_path || a.file_url)}
                             className="flex-row items-center bg-surface-background px-2.5 py-2 rounded-lg border border-surface-border/50 active:opacity-70"
                           >
                             <FontAwesome name={iconName as any} size={12} color={iconColor} />
@@ -394,6 +395,21 @@ export default function StageActions() {
                   <View className="flex-row items-center gap-2">
                     <Text className="text-typography-dim text-[9px] font-bold">by {s.submitted_by?.full_name || 'Unknown'}</Text>
                     <Text className="text-typography-dim text-[9px]">{new Date(s.submitted_at).toLocaleDateString()}</Text>
+                    {(s.submitted_by?.id === user?.id || data.permissions.is_manager || data.permissions.is_owner) && (
+                      <TouchableOpacity
+                        onPress={() => Alert.alert(
+                          'Delete Submission',
+                          'This will permanently remove the submission and its attachments.',
+                          [
+                            { text: 'Cancel', style: 'cancel' },
+                            { text: 'Delete', style: 'destructive', onPress: () => deleteSubmission(s.id).catch(err => setErrorMsg({ title: 'Delete Failed', message: err.message })) },
+                          ]
+                        )}
+                        className="ml-auto p-1"
+                      >
+                        <FontAwesome name="trash-o" size={11} color="rgb(var(--state-danger))" />
+                      </TouchableOpacity>
+                    )}
                   </View>
 
                   {s.review_notes && (

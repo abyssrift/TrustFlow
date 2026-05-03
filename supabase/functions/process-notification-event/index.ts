@@ -1,3 +1,18 @@
+// ====================================================================
+// process-notification-event — Rule evaluator
+// ====================================================================
+//
+// !! REQUIRED SECRETS — set in Supabase Dashboard:
+//    Project Settings → Edge Functions → Secrets
+//
+//   NOTIFY_INTERNAL_SECRET  — must match the same secret set on the
+//                             `notify` function. Generate with:
+//                             openssl rand -base64 32
+//                             Without this, calls to `notify` have no auth.
+//
+// SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are injected automatically.
+// ====================================================================
+
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 

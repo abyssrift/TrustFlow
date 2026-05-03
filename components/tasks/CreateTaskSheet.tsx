@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Modal, TouchableOpacity, TextInput, ScrollView, ActivityIndicator, Platform, KeyboardAvoidingView } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
-import { useTaskCreation } from '@/contexts/TaskCreationContext';
+import { useTaskCreation, type StagedBriefFile } from '@/contexts/TaskCreationContext';
 import { supabase } from '@/lib/supabase';
+import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import PremiumCalendarPicker from '../common/PremiumCalendarPicker';
 
@@ -14,7 +16,7 @@ type Props = {
 
 export default function CreateTaskSheet({ visible, onClose, initialPipelineId }: Props) {
   const insets = useSafeAreaInsets();
-  const { draft, setDraft, createTask, loading, recentTasks, loadRecentTasks } = useTaskCreation();
+  const { draft, setDraft, createTask, loading, recentTasks, loadRecentTasks, briefFiles, setBriefFiles } = useTaskCreation();
   const [step, setStep] = useState(1);
   const [users, setUsers] = useState<any[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
@@ -145,6 +147,46 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
       case 3:
         return (
           <View className="gap-6">
+             <View>
+               <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-3 ml-1">Brief Files</Text>
+               <Text className="text-typography-muted text-[10px] mb-3">Attach reference materials for the assignee.</Text>
+               {briefFiles.length > 0 && (
+                 <View className="gap-1.5 mb-3">
+                   {briefFiles.map(f => (
+                     <View key={f.id} className="flex-row items-center bg-surface-background px-3 py-2 rounded-lg border border-surface-border/50">
+                       <FontAwesome name={f.type.startsWith('image/') ? 'file-image-o' : 'file-o'} size={11} color="rgb(var(--brand-primary))" />
+                       <Text className="text-typography-main text-[11px] font-bold ml-2 flex-1" numberOfLines={1}>{f.name}</Text>
+                       <TouchableOpacity onPress={() => setBriefFiles(prev => prev.filter(x => x.id !== f.id))} className="ml-2 p-1">
+                         <FontAwesome name="times-circle" size={12} color="rgb(var(--state-danger))" />
+                       </TouchableOpacity>
+                     </View>
+                   ))}
+                 </View>
+               )}
+               <View className="flex-row gap-3">
+                 <TouchableOpacity
+                   onPress={async () => {
+                     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsMultipleSelection: true });
+                     if (!result.canceled) setBriefFiles(prev => [...prev, ...result.assets.map(a => ({ id: Math.random().toString(36).substring(7), uri: a.uri, name: a.fileName || `image_${Date.now()}.jpg`, size: a.fileSize || 0, type: a.mimeType || 'image/jpeg' }))]);
+                   }}
+                   className="flex-row items-center bg-surface-background px-3 py-2 rounded-xl border border-surface-border"
+                 >
+                   <FontAwesome name="camera" size={11} color="rgb(var(--brand-primary))" />
+                   <Text className="text-brand-primary text-[10px] font-black uppercase ml-1.5">Add Photo</Text>
+                 </TouchableOpacity>
+                 <TouchableOpacity
+                   onPress={async () => {
+                     const result = await DocumentPicker.getDocumentAsync({ type: '*/*', multiple: true });
+                     if (!result.canceled) setBriefFiles(prev => [...prev, ...result.assets.map(a => ({ id: Math.random().toString(36).substring(7), uri: a.uri, name: a.name, size: a.size || 0, type: a.mimeType || 'application/octet-stream' }))]);
+                   }}
+                   className="flex-row items-center bg-surface-background px-3 py-2 rounded-xl border border-surface-border"
+                 >
+                   <FontAwesome name="paperclip" size={11} color="rgb(var(--brand-primary))" />
+                   <Text className="text-brand-primary text-[10px] font-black uppercase ml-1.5">Attach File</Text>
+                 </TouchableOpacity>
+               </View>
+             </View>
+
              <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2 ml-1">Resources</Text>
              <ScrollView className="max-h-96">
                 <Text className="text-brand-primary text-[10px] font-black uppercase mb-3">Agents</Text>

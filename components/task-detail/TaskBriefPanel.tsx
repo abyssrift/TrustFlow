@@ -1,12 +1,13 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
+import { openStorageFile, TASK_BRIEF_BUCKET } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
-import { ActivityIndicator, Linking, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 
 function getFileIcon(mimeType: string | null): { name: string; color: string } {
   const t = (mimeType || '').toLowerCase();
@@ -74,18 +75,15 @@ export default function TaskBriefPanel() {
         const path = `${data.task.company_id}/tasks/${data.task.id}/brief/${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
 
         const { data: storageData, error: storageErr } = await supabase.storage
-          .from('task-submissions')
+          .from(TASK_BRIEF_BUCKET)
           .upload(path, blob, { contentType: file.type, upsert: true });
 
         if (storageErr) throw storageErr;
 
-        const { data: { publicUrl } } = supabase.storage
-          .from('task-submissions')
-          .getPublicUrl(storageData.path);
-
         uploaded.push({
           file_name: file.name,
-          file_url: publicUrl,
+          file_url: storageData.path,
+          storage_path: storageData.path,
           file_size: file.size,
           mime_type: file.type,
           category: getCategory(file.type),
@@ -160,7 +158,7 @@ export default function TaskBriefPanel() {
             return (
               <TouchableOpacity
                 key={att.id}
-                onPress={() => Linking.openURL(att.file_url)}
+                onPress={() => openStorageFile(TASK_BRIEF_BUCKET, att.storage_path || att.file_url)}
                 className="flex-row items-center bg-surface-background px-3 py-2.5 rounded-xl border border-surface-border/50 active:opacity-70"
               >
                 <View className="w-8 h-8 rounded-lg bg-surface-card items-center justify-center mr-3">

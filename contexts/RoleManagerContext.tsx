@@ -71,6 +71,7 @@ type RoleManagerState = {
   deleteRole: (id: string) => Promise<boolean>;
   updateUserAssignments: (userId: string, roleIds: string[], teamIds: string[]) => Promise<boolean>;
   updateTeamAssignments: (teamId: string, roleIds: string[]) => Promise<boolean>;
+  createTeam: (name: string, description: string, color: string) => Promise<string | null>;
 };
 
 const RoleManagerContext = createContext<RoleManagerState | null>(null);

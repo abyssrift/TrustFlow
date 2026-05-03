@@ -55,11 +55,11 @@ export type SubmissionData = {
   submitted_by: UserRef; reviewed_by: UserRef;
   review_notes: string | null; submitted_at: string; reviewed_at: string | null;
   stage_name: string | null;
-  attachments: { id: string; file_name: string; file_url: string; mime_type: string | null; category: string | null; file_size: number | null }[];
+  attachments: { id: string; file_name: string; file_url: string; mime_type: string | null; category: string | null; file_size: number | null; storage_path: string | null }[];
 };
 
 export type TaskAttachmentData = {
-  id: string; file_name: string; file_url: string;
+  id: string; file_name: string; file_url: string; storage_path: string | null;
   file_size: number | null; mime_type: string | null; category: string | null;
   uploaded_by: UserRef; created_at: string;
 };
@@ -130,6 +130,7 @@ type TaskDetailContextType = {
   deleteComment: (commentId: string) => Promise<void>;
   advanceStage: (toStageId: string) => Promise<void>;
   reviewSubmission: (submissionId: string, decision: string, notes?: string, advanceStageId?: string) => Promise<void>;
+  deleteSubmission: (submissionId: string) => Promise<void>;
   updateTask: (updates: Partial<TaskData>) => Promise<void>;
 };
 
@@ -235,6 +236,12 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
     await fetchDetails();
   }, [fetchDetails]);
 
+  const deleteSubmission = useCallback(async (submissionId: string) => {
+    const { error } = await supabase.rpc('rpc_delete_submission', { p_submission_id: submissionId });
+    if (error) throw error;
+    await fetchDetails();
+  }, [fetchDetails]);
+
   const updateTask = useCallback(async (updates: Partial<TaskData>) => {
     const { error } = await supabase.from('tasks').update(updates).eq('id', taskId);
     if (error) throw error;
@@ -263,7 +270,7 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
   return (
     <TaskDetailContext.Provider value={{
       taskId, data, loading, error, refresh: fetchDetails,
-      executeAction, submitWork, addComment, deleteComment, advanceStage, reviewSubmission, updateTask
+      executeAction, submitWork, addComment, deleteComment, advanceStage, reviewSubmission, deleteSubmission, updateTask
     }}>
       {children}
     </TaskDetailContext.Provider>
