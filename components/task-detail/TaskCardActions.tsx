@@ -9,6 +9,7 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Text, TouchableOpacity, View } from 'react-native';
 import { isComplexActionType } from './actionRegistry';
 import ConfirmModal from '@/components/common/ConfirmModal';
+import ManualTimeModal from '@/components/common/ManualTimeModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ─── Types ────────────────────────────────────────────────────
@@ -77,11 +78,13 @@ const ACTION_STYLES: Record<string, { bg: string; border: string; text: string }
 export default function TaskCardActions({ task, stages, stageActions, activeSessions, userId, onRefresh }: Props) {
   const router = useRouter();
   const { theme: activeTheme } = useTheme();
-  const { hasPermission } = useAuth();
+  const { hasPermission, profile } = useAuth();
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [needsTimerActionId, setNeedsTimerActionId] = useState<string | null>(null);
-  const [errorMsg, setErrorMsg] = useState<{ title: string; message: string } | null>(null);
+  const [errorMsg, setErrorMsg] = useState<{ title: string; message: string; variant?: 'danger' | 'warning' } | null>(null);
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
+  const [showManualTimeModal, setShowManualTimeModal] = useState(false);
+  const [pendingAction, setPendingAction] = useState<StageAction | null>(null);
 
   // ─── Derived State ───────────────────────────────────────
   const isAssignedToUser = (task.assignments || []).some(a => a.assignee_user_id !== null);
@@ -140,6 +143,12 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
         // Timer enforcement: show inline prompt instead of generic alert
         if (error.message?.includes('running work session is required')) {
           setNeedsTimerActionId(action.id);
+          return;
+        }
+        // Smart timer minimum time check
+        if (error.message?.includes('LOW_TIMER_TIME')) {
+          setPendingAction(action);
+          setShowManualTimeModal(true);
           return;
         }
         throw error;
@@ -250,6 +259,24 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
     }
   };
 
+  // Retry pending action after manual time declared
+  const handleManualTimeSuccess = async (isFlagged: boolean) => {
+    setShowManualTimeModal(false);
+    const actionToRetry = pendingAction;
+    setPendingAction(null);
+    if (isFlagged) {
+      setErrorMsg({
+        title: 'Entry Flagged for Review',
+        message: 'Your time declaration has been forwarded to your manager. Proceeding with transition.',
+        variant: 'warning',
+      });
+      setTimeout(() => setErrorMsg(null), 5000);
+    }
+    if (actionToRetry) {
+      await handleExecuteAction(actionToRetry);
+    }
+  };
+
   // ─── Live Timer Badge (shared between states) ──────────────
   const renderTimerBadge = (label?: string) => {
     if (!activeSession) return null;
@@ -267,7 +294,7 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
   // ─── STATE: Terminal Stage ──────────────────────────────────
   if (isTerminal) {
     const isSuccess = terminalType === 'success';
-    const canArchive = hasPermission('archive:create');
+    const canArchive = profile?.is_owner || hasPermission('archive:create') || hasPermission('pipeline.edit');
     return (
       <View>
         <View className={`py-2.5 rounded-xl items-center justify-center border ${isSuccess ? 'bg-state-success/10 border-state-success/20' : 'bg-state-danger/10 border-state-danger/20'}`}>
@@ -394,13 +421,21 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
     <View>
       {isTimerActive && renderTimerBadge()}
 
-      {/* Error Message Display */}
+      {/* Error / Warning Message Display */}
       {errorMsg && (
-        <View className="mb-2 bg-state-danger/10 border border-state-danger/30 rounded-xl p-3">
-          <Text className="text-state-danger font-black text-xs uppercase tracking-wider mb-1">
+        <View className={`mb-2 rounded-xl p-3 ${
+          errorMsg.variant === 'warning'
+            ? 'bg-state-warning/10 border border-state-warning/30'
+            : 'bg-state-danger/10 border border-state-danger/30'
+        }`}>
+          <Text className={`font-black text-xs uppercase tracking-wider mb-1 ${
+            errorMsg.variant === 'warning' ? 'text-state-warning' : 'text-state-danger'
+          }`}>
             {errorMsg.title}
           </Text>
-          <Text className="text-state-danger text-sm leading-5">
+          <Text className={`text-sm leading-5 ${
+            errorMsg.variant === 'warning' ? 'text-state-warning' : 'text-state-danger'
+          }`}>
             {errorMsg.message}
           </Text>
         </View>
@@ -463,6 +498,14 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
           );
         })}
       </View>
+
+      <ManualTimeModal
+        visible={showManualTimeModal}
+        taskId={task.id}
+        stageId={task.current_stage_id}
+        onSuccess={handleManualTimeSuccess}
+        onCancel={() => { setShowManualTimeModal(false); setPendingAction(null); }}
+      />
     </View>
   );
 }

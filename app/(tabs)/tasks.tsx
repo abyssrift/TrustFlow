@@ -17,6 +17,7 @@ import { getPrimaryColor, getMutedColor } from '@/lib/themeColors';
 import CreateTaskSheet from '@/components/tasks/CreateTaskSheet';
 import { TaskCreationProvider, useTaskCreation } from '@/contexts/TaskCreationContext';
 import AssignmentModal from '@/components/tasks/AssignmentModal';
+import ConfirmModal from '@/components/common/ConfirmModal';
 
 type Stage = {
   id: string;
@@ -76,13 +77,15 @@ function TasksScreen() {
   const [stageActions, setStageActions] = useState<any[]>([]);
   const [showPersonalizer, setShowPersonalizer] = useState(false);
   const [showCreateSheet, setShowCreateSheet] = useState(false);
+  const [archiveModal, setArchiveModal] = useState<{ visible: boolean; taskId: string | null }>({ visible: false, taskId: null });
+  const [archiving, setArchiving] = useState(false);
   
   const { kanban } = useTheme();
   
    const { width } = useWindowDimensions();
    const { theme: activeTheme } = useTheme();
    const router = useRouter();
-   const { user, hasPermission } = useAuth();
+   const { user, hasPermission, profile } = useAuth();
    const { pipelineId: paramPipelineId } = useLocalSearchParams();
    const isLargeScreen = width > 768;
 
@@ -255,6 +258,21 @@ function TasksScreen() {
 
   // handleAdvanceTask removed — logic moved to TaskCardActions component
 
+  const handleArchiveTask = async () => {
+    if (!archiveModal.taskId) return;
+    try {
+      setArchiving(true);
+      const { error } = await supabase.rpc('rpc_archive_task', { p_task_id: archiveModal.taskId });
+      if (error) throw error;
+      setArchiveModal({ visible: false, taskId: null });
+      fetchData();
+    } catch (err: any) {
+      Alert.alert('Archival Failed', err.message || 'Could not archive task.');
+    } finally {
+      setArchiving(false);
+    }
+  };
+
   const handleOpenAssignments = (task: Task) => {
     setSelectedTask(task);
     setShowAssignmentModal(true);
@@ -278,41 +296,54 @@ function TasksScreen() {
         activeOpacity={0.7}
         className="bg-surface-card p-4 rounded-2xl border border-surface-border mb-3 premium-shadow"
       >
-        <View className="flex-row items-center justify-between mb-2">
-           <View className="bg-surface-background px-2 py-0.5 rounded-md border border-surface-border">
+        <View className="flex-row items-center justify-between mb-3">
+          <View className="flex-row items-center gap-2">
+            <View className="bg-surface-background px-2 py-0.5 rounded-md border border-surface-border">
               <Text style={{ color: prio.color }} className="text-[9px] font-black uppercase tracking-tighter">
                 {prio.label}
               </Text>
-           </View>
-           {task.category && (
-              <Text className="text-typography-dim text-[10px] font-bold">{task.category}</Text>
-           )}
+            </View>
             {task.parent_task_id && (
-              <View className="bg-brand-primary/20 px-1 rounded-sm ml-2">
+              <View className="bg-brand-primary/20 px-1.5 py-0.5 rounded-md">
                 <Text className="text-brand-primary text-[8px] font-black italic">SUB</Text>
               </View>
             )}
-            <View className="flex-1" />
+          </View>
+          <View className="flex-row items-center gap-1.5">
             {hasPermission('task.assign') && (
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={() => handleOpenAssignments(task)}
-                className="w-6 h-6 items-center justify-center rounded-full bg-surface-background border border-surface-border ml-2"
+                className="w-7 h-7 items-center justify-center rounded-xl bg-surface-background border border-surface-border"
               >
                 <FontAwesome name="user-plus" size={10} className="text-typography-muted" />
               </TouchableOpacity>
             )}
+            {(profile?.is_owner || hasPermission('archive:create') || hasPermission('pipeline.edit')) && (
+              <TouchableOpacity
+                onPress={() => setArchiveModal({ visible: true, taskId: task.id })}
+                className="w-7 h-7 items-center justify-center rounded-xl bg-surface-background border border-surface-border"
+              >
+                <FontAwesome name="archive" size={10} className="text-typography-muted" />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
         {/* TEAM ASSIGNMENT BADGES */}
-        <View className="flex-row flex-wrap gap-1 mb-2">
-           {task.assignments?.filter(a => a.assignee_team_id).map((a, idx) => (
+        {task.assignments?.some(a => a.assignee_team_id) && (
+          <View className="flex-row flex-wrap gap-1 mb-2">
+            {task.assignments?.filter(a => a.assignee_team_id).map((a, idx) => (
               <View key={idx} className="bg-surface-overlay px-1.5 py-0.5 rounded-md border border-surface-border">
-                 <Text className="text-typography-muted text-[8px] font-bold uppercase tracking-tight">Team: {a.team?.name}</Text>
+                <Text className="text-typography-muted text-[8px] font-bold uppercase tracking-tight">{a.team?.name}</Text>
               </View>
-           ))}
-        </View>
+            ))}
+          </View>
+        )}
 
-        <Text className="text-typography-main font-bold text-base mb-1">{task.title}</Text>
+        <Text className="text-typography-main font-bold text-base mb-0.5">{task.title}</Text>
+        {task.category && (
+          <Text className="text-typography-dim text-[9px] font-bold uppercase tracking-wider mb-1">{task.category}</Text>
+        )}
         
          {/* ACTIVE WORK INDICATOR - Avatar Refined */}
         {kanban.showAvatars && activeSessions[task.id] && activeSessions[task.id].length > 0 && (
@@ -619,7 +650,18 @@ function TasksScreen() {
         />
       )}
 
-      <HorizontalScroll 
+      <ConfirmModal
+        visible={archiveModal.visible}
+        title="Move to Cold Storage"
+        description="This will snapshot the task and remove it from the active pipeline. It can be restored from Intelligence > Archives."
+        confirmLabel="Archive Task"
+        variant="warning"
+        loading={archiving}
+        onConfirm={handleArchiveTask}
+        onCancel={() => setArchiveModal({ visible: false, taskId: null })}
+      />
+
+      <HorizontalScroll
         className="flex-1 px-5"
         contentContainerStyle={{ paddingBottom: 20 }}
       >

@@ -15,6 +15,7 @@ export type TaskDraft = {
   dueDate: string | null;
   estimatedHours: number | null;
   pipelineId: string | null;
+  projectId: string | null;
   assigneeUserIds: string[];
   assigneeTeamIds: string[];
   visibilityPermission: string | null;
@@ -30,6 +31,7 @@ const INITIAL_DRAFT: TaskDraft = {
   dueDate: null,
   estimatedHours: null,
   pipelineId: null,
+  projectId: null,
   assigneeUserIds: [],
   assigneeTeamIds: [],
   visibilityPermission: null,
@@ -134,6 +136,7 @@ export const TaskCreationProvider = ({ children }: { children: React.ReactNode }
         p_category: draft.category,
         p_weight: draft.weight,
         p_pipeline_id: draft.pipelineId,
+        p_project_id: draft.projectId,
         p_visibility_permission: draft.visibilityPermission,
         p_start_date: draft.startDate,
         p_estimated_hours: draft.estimatedHours,

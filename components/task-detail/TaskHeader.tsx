@@ -7,6 +7,7 @@ import { useTimer } from '@/contexts/TimerContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { splitStageActions, TYPE_STYLES } from './actionRegistry';
 import ConfirmModal from '@/components/common/ConfirmModal';
+import ManualTimeModal from '@/components/common/ManualTimeModal';
 import { supabase } from '@/lib/supabase';
 
 const PRIORITY_MAP: Record<string, { color: string; label: string }> = {
@@ -19,12 +20,14 @@ const PRIORITY_MAP: Record<string, { color: string; label: string }> = {
 export default function TaskHeader() {
   const { data, executeAction } = useTaskDetail();
   const { isActive, activeSession, startWork, stopWork } = useTimer();
-  const { hasPermission } = useAuth();
+  const { hasPermission, profile } = useAuth();
   const [busy, setBusy] = React.useState(false);
   const [loadingActionId, setLoadingActionId] = React.useState<string | null>(null);
   const [errorMsg, setErrorMsg] = React.useState<{ title: string; message: string } | null>(null);
   const [showArchiveConfirm, setShowArchiveConfirm] = React.useState(false);
   const [archiving, setArchiving] = React.useState(false);
+  const [showManualTimeModal, setShowManualTimeModal] = React.useState(false);
+  const [pendingAction, setPendingAction] = React.useState<any | null>(null);
   const router = useRouter();
 
   const handleArchive = async () => {
@@ -38,7 +41,7 @@ export default function TaskHeader() {
     } catch (err: any) {
       setShowArchiveConfirm(false);
       setErrorMsg({ title: 'Archival Failed', message: err.message || 'Could not archive task.' });
-      setTimeout(() => setErrorMsg(null), 5000);
+      setTimeout(() => setErrorMsg(null), 10000);
     } finally {
       setArchiving(false);
     }
@@ -48,8 +51,7 @@ export default function TaskHeader() {
 
   const { task, current_stage } = data;
   const prio = PRIORITY_MAP[task.priority] || PRIORITY_MAP.medium;
-  const isTerminal = current_stage?.is_terminal ?? false;
-  const canArchive = isTerminal && hasPermission('archive:create');
+  const canArchive = data.permissions.is_owner || hasPermission('archive:create') || hasPermission('pipeline.edit');
 
   const handleBack = () => {
     if (data.pipeline?.id) {
@@ -67,29 +69,56 @@ export default function TaskHeader() {
   const handleAction = async (action: any) => {
     try {
       setLoadingActionId(action.id);
-      
+
       if (activeSession?.task_id === data.task.id) {
         await stopWork();
       }
 
       await executeAction(action.id);
     } catch (err: any) {
+      if (err.message?.includes('LOW_TIMER_TIME')) {
+        setPendingAction(action);
+        setShowManualTimeModal(true);
+        return;
+      }
+
       let displayMessage = err.message || 'Could not perform action';
-      
+
       // Handle P0001 error for missing evidence/submissions
       if (err.code === 'P0001' && err.message?.includes('Mandatory evidence missing')) {
         displayMessage = 'This stage requires a submission with text or attachments to proceed.';
       }
-      
+
       setErrorMsg({
         title: 'Action Failed',
         message: displayMessage
       });
-      
+
       // Auto-clear error after 5 seconds
       setTimeout(() => setErrorMsg(null), 5000);
     } finally {
       setLoadingActionId(null);
+    }
+  };
+
+  const handleManualTimeSuccess = async (isFlagged: boolean) => {
+    setShowManualTimeModal(false);
+    if (isFlagged) {
+      setErrorMsg({ title: 'Declaration Flagged', message: 'Your time declaration has been flagged for manager review. The task will proceed.' });
+      setTimeout(() => setErrorMsg(null), 6000);
+    }
+    if (pendingAction) {
+      const action = pendingAction;
+      setPendingAction(null);
+      try {
+        setLoadingActionId(action.id);
+        await executeAction(action.id);
+      } catch (err: any) {
+        setErrorMsg({ title: 'Action Failed', message: err.message || 'Could not perform action' });
+        setTimeout(() => setErrorMsg(null), 5000);
+      } finally {
+        setLoadingActionId(null);
+      }
     }
   };
 
@@ -222,6 +251,17 @@ export default function TaskHeader() {
         confirmLabel={archiving ? 'Archiving...' : 'Archive Task'}
         variant="danger"
         loading={archiving}
+      />
+
+      <ManualTimeModal
+        visible={showManualTimeModal}
+        taskId={data.task.id}
+        stageId={data.current_stage?.id ?? ''}
+        onSuccess={(isFlagged) => handleManualTimeSuccess(isFlagged)}
+        onCancel={() => {
+          setShowManualTimeModal(false);
+          setPendingAction(null);
+        }}
       />
     </View>
   );

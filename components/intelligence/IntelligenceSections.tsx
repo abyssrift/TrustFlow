@@ -206,7 +206,7 @@ export const ArchivesSectionWeb = ({ reports, archives, search, activeSchema, on
           </View>
           <View className="flex-row flex-wrap gap-6">
             {archives.map((archive: any) => {
-              const pipelineId = archive.snapshot?.pipeline_id || archive.snapshot?.child_tasks?.[0]?.pipeline_id;
+              const pipelineId = archive.metadata?.pipeline_id;
               const hasIntegrityIssue = pipelineId && !activeSchema.pipelines.has(pipelineId);
               return (
                 <View key={archive.id} className="w-[calc(25%-18px)] bg-surface-card p-6 rounded-3xl border border-surface-border premium-shadow">

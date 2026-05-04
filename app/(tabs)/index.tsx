@@ -171,7 +171,7 @@ export default function DashboardScreen() {
           task:task_id(title, pipeline_id),
           from_stage:from_stage_id(name),
           to_stage:to_stage_id(name),
-          moved_by:users!moved_by_user_id(full_name, display_name)
+          transitioned_by_user:users!transitioned_by(full_name, display_name)
         `)
         .order('created_at', { ascending: false })
         .limit(15);
@@ -184,7 +184,7 @@ export default function DashboardScreen() {
           taskTitle: h.task?.title || 'Unknown Task',
           fromStage: h.from_stage?.name || '—',
           toStage: h.to_stage?.name || '—',
-          movedBy: h.moved_by?.display_name || h.moved_by?.full_name || 'System',
+          movedBy: h.transitioned_by_user?.display_name || h.transitioned_by_user?.full_name || 'System',
           movedAt: h.created_at,
         }));
       setActivity(activityEntries);

@@ -311,65 +311,64 @@ export function TasksScreenWeb() {
         className="bg-surface-card p-5 rounded-2xl border border-surface-border mb-4 premium-shadow hover:border-brand-primary/50 transition-all"
       >
         <View className="flex-row items-center justify-between mb-3">
-           <View className="flex-row items-center gap-2">
-             <View className="bg-surface-background px-3 py-1 rounded-lg border border-surface-border">
-                <Text style={{ color: prio.color }} className="text-[10px] font-black uppercase tracking-widest">
-                  {prio.label}
-                </Text>
-             </View>
-             
-             {displayMySeconds > 0 && (
-               <View className="bg-brand-primary/10 px-3 py-1 rounded-lg border border-brand-primary/20 flex-row items-center">
-                 <FontAwesome name="clock-o" size={10} className="text-brand-primary mr-2" />
-                 <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest">
-                   {formatSeconds(displayMySeconds)}
-                 </Text>
-               </View>
-             )}
-           </View>
+          <View className="flex-row items-center gap-2">
+            <View className="bg-surface-background px-3 py-1 rounded-lg border border-surface-border">
+              <Text style={{ color: prio.color }} className="text-[10px] font-black uppercase tracking-widest">
+                {prio.label}
+              </Text>
+            </View>
+            {task.parent_task_id && (
+              <View className="bg-brand-primary/20 px-2 py-0.5 rounded-md">
+                <Text className="text-brand-primary text-[8px] font-black italic">SUB</Text>
+              </View>
+            )}
+            {displayMySeconds > 0 && (
+              <View className="bg-brand-primary/10 px-2.5 py-1 rounded-lg border border-brand-primary/20 flex-row items-center gap-1">
+                <FontAwesome name="clock-o" size={9} className="text-brand-primary" />
+                <Text className="text-brand-primary text-[10px] font-black">{formatSeconds(displayMySeconds)}</Text>
+              </View>
+            )}
+            {canViewAllData && displayTotalSeconds > 0 && displayMySeconds !== displayTotalSeconds && (
+              <View className="bg-surface-background px-2.5 py-1 rounded-lg border border-surface-border flex-row items-center gap-1">
+                <FontAwesome name="users" size={9} className="text-typography-muted" />
+                <Text className="text-typography-muted text-[10px] font-black">{formatSeconds(displayTotalSeconds)}</Text>
+              </View>
+            )}
+          </View>
 
-           <View className="flex-row items-center gap-2">
-              {canViewAllData && displayTotalSeconds > 0 && (
-                <View className="bg-surface-background px-2 py-1 rounded-lg border border-surface-border flex-row items-center">
-                  <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mr-1">Total:</Text>
-                  <Text className="text-typography-main text-[10px] font-black uppercase tracking-widest">{formatSeconds(displayTotalSeconds)}</Text>
-                </View>
-              )}
-              {task.parent_task_id && (
-                <View className="bg-brand-primary/20 px-2 py-0.5 rounded-md">
-                   <Text className="text-brand-primary text-[8px] font-black italic">SUB</Text>
-                </View>
-              )}
-              {hasPermission('task.assign') && (
-                <TouchableOpacity 
-                  onPress={() => handleOpenAssignments(task)}
-                  className="w-6 h-6 items-center justify-center rounded-full bg-surface-background border border-surface-border hover:bg-brand-primary/10 transition-colors"
-                >
-                  <FontAwesome name="user-plus" size={10} className="text-typography-muted hover:text-brand-primary" />
-                </TouchableOpacity>
-              )}
-              {hasPermission('archive:create') && (
-                <TouchableOpacity 
-                  onPress={() => {
-                    const isCoolingDown = lastStoppedAt && (Date.now() - new Date(lastStoppedAt).getTime() < 35000);
-                    if (activeSession?.task_id === task.id || isCoolingDown) {
-                      Alert.alert('Archival Locked', 'System is finalizing work logs. Please wait 30 seconds after stopping your timer before moving to cold storage.');
-                      return;
-                    }
-                    setArchiveModal({ visible: true, taskId: task.id });
-                  }}
-                  className={`w-6 h-6 items-center justify-center rounded-full border border-surface-border transition-colors ${activeSession?.task_id === task.id ? 'bg-surface-card opacity-30 cursor-not-allowed' : 'bg-surface-background hover:bg-state-warning/10'}`}
-                >
-                  <FontAwesome name="archive" size={10} className="text-typography-muted hover:text-state-warning" />
-                </TouchableOpacity>
-              )}
-              <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest">{task.category || 'General'}</Text>
-           </View>
+          <View className="flex-row items-center gap-1.5">
+            {hasPermission('task.assign') && (
+              <TouchableOpacity
+                onPress={() => handleOpenAssignments(task)}
+                className="w-7 h-7 items-center justify-center rounded-xl bg-surface-background border border-surface-border hover:bg-brand-primary/10 transition-colors"
+              >
+                <FontAwesome name="user-plus" size={10} className="text-typography-muted" />
+              </TouchableOpacity>
+            )}
+            {(profile?.is_owner || hasPermission('archive:create') || hasPermission('pipeline.edit')) && (
+              <TouchableOpacity
+                onPress={() => {
+                  const isCoolingDown = lastStoppedAt && (Date.now() - new Date(lastStoppedAt).getTime() < 35000);
+                  if (activeSession?.task_id === task.id || isCoolingDown) {
+                    Alert.alert('Archival Locked', 'System is finalizing work logs. Please wait 30 seconds after stopping your timer before moving to cold storage.');
+                    return;
+                  }
+                  setArchiveModal({ visible: true, taskId: task.id });
+                }}
+                className={`w-7 h-7 items-center justify-center rounded-xl border border-surface-border transition-colors ${activeSession?.task_id === task.id ? 'opacity-30 cursor-not-allowed bg-surface-card' : 'bg-surface-background hover:bg-state-warning/10'}`}
+              >
+                <FontAwesome name="archive" size={10} className="text-typography-muted" />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
-        <Text className="text-typography-main font-black text-lg mb-2">{task.title}</Text>
-        <Text className="text-typography-muted text-sm leading-relaxed mb-4" numberOfLines={3}>
-          {task.description || 'No detailed description available.'}
+        <Text className="text-typography-main font-black text-lg mb-1">{task.title}</Text>
+        {task.category && (
+          <Text className="text-typography-dim text-[10px] font-bold uppercase tracking-wider mb-2">{task.category}</Text>
+        )}
+        <Text className="text-typography-muted text-sm leading-relaxed mb-4" numberOfLines={2}>
+          {task.description || 'No description.'}
         </Text>
         
         {kanban.showAvatars && activeSessions[task.id] && activeSessions[task.id].length > 0 && (

@@ -14,6 +14,7 @@ type Props = {
 };
 
 type Pipeline = { id: string; name: string };
+type Project  = { id: string; name: string; color: string | null };
 
 const VISIBILITY_OPTIONS = [
   { value: null,              label: 'All Agents',    icon: 'globe'       },
@@ -27,8 +28,10 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
   const [users, setUsers]         = useState<any[]>([]);
   const [teams, setTeams]         = useState<any[]>([]);
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
+  const [projects,  setProjects]  = useState<Project[]>([]);
   const [search, setSearch]       = useState('');
   const [pipelineSearch, setPipelineSearch] = useState('');
+  const [projectSearch,  setProjectSearch]  = useState('');
 
   // Deadline calendar
   const [showCalendar, setShowCalendar]     = useState(false);
@@ -45,6 +48,11 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
   const pipelineButtonRef                               = useRef<any>(null);
   const [pipelineDropdownPos, setPipelineDropdownPos]   = useState({ top: 0, left: 0, width: 0 });
 
+  // Project dropdown
+  const [showProjectDropdown, setShowProjectDropdown] = useState(false);
+  const projectButtonRef                              = useRef<any>(null);
+  const [projectDropdownPos, setProjectDropdownPos]   = useState({ top: 0, left: 0, width: 0 });
+
   useEffect(() => {
     if (visible) {
       loadRecentTasks();
@@ -56,14 +64,16 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
   }, [visible]);
 
   const fetchResources = async () => {
-    const [{ data: userData }, { data: teamData }, { data: pipelineData }] = await Promise.all([
+    const [{ data: userData }, { data: teamData }, { data: pipelineData }, { data: projectData }] = await Promise.all([
       supabase.from('users').select('id, full_name, avatar_url').is('deleted_at', null),
       supabase.from('teams').select('id, name, color').is('deleted_at', null),
       supabase.from('pipelines').select('id, name').is('deleted_at', null).order('name'),
+      supabase.from('projects').select('id, name, color').is('deleted_at', null).order('name'),
     ]);
     setUsers(userData || []);
     setTeams(teamData || []);
     setPipelines(pipelineData || []);
+    setProjects(projectData || []);
   };
 
   const openOverlay = (
@@ -82,6 +92,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
     setShowCalendar(false);
     setShowStartCalendar(false);
     setShowPipelineDropdown(false);
+    setShowProjectDropdown(false);
   };
 
   const handleCopyRecent = (task: any) => {
@@ -112,6 +123,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
   };
 
   const selectedPipeline = pipelines.find(p => p.id === draft.pipelineId);
+  const selectedProject  = projects.find(p => p.id === draft.projectId);
 
   const PRIORITY_COLORS: Record<string, string> = {
     urgent: 'text-state-danger',
@@ -234,30 +246,64 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                     </View>
                   </View>
 
-                  {/* Project / Pipeline */}
-                  <View>
-                    <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-3 ml-1">Project / Pipeline</Text>
-                    <TouchableOpacity
-                      ref={pipelineButtonRef}
-                      onPress={() => {
-                        if (!showPipelineDropdown) {
-                          openOverlay(pipelineButtonRef, setPipelineDropdownPos, setShowPipelineDropdown);
-                          setShowCalendar(false);
-                          setShowStartCalendar(false);
-                        } else {
-                          setShowPipelineDropdown(false);
-                        }
-                      }}
-                      className={`bg-surface-background border rounded-2xl px-6 py-4 flex-row items-center justify-between transition-all ${showPipelineDropdown ? 'border-brand-primary' : 'border-surface-border'}`}
-                    >
-                      <View className="flex-row items-center gap-3">
-                        <FontAwesome name="sitemap" size={13} color={draft.pipelineId ? 'rgb(var(--brand-primary))' : 'rgb(var(--text-dim))'} />
-                        <Text className={`font-black text-sm ${draft.pipelineId ? 'text-typography-main' : 'text-typography-dim'}`}>
-                          {selectedPipeline?.name ?? 'Select Pipeline (optional)'}
-                        </Text>
-                      </View>
-                      <FontAwesome name={showPipelineDropdown ? 'chevron-up' : 'chevron-down'} size={11} color="rgb(var(--text-dim))" />
-                    </TouchableOpacity>
+                  {/* Pipeline + Project (separate) */}
+                  <View className="flex-row gap-8">
+                    {/* Pipeline */}
+                    <View className="flex-1">
+                      <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-3 ml-1">Pipeline</Text>
+                      <TouchableOpacity
+                        ref={pipelineButtonRef}
+                        onPress={() => {
+                          if (!showPipelineDropdown) {
+                            openOverlay(pipelineButtonRef, setPipelineDropdownPos, setShowPipelineDropdown);
+                            setShowCalendar(false);
+                            setShowStartCalendar(false);
+                            setShowProjectDropdown(false);
+                          } else {
+                            setShowPipelineDropdown(false);
+                          }
+                        }}
+                        className={`bg-surface-background border rounded-2xl px-5 py-4 flex-row items-center justify-between transition-all ${showPipelineDropdown ? 'border-brand-primary' : 'border-surface-border'}`}
+                      >
+                        <View className="flex-row items-center gap-3">
+                          <FontAwesome name="sitemap" size={13} color={draft.pipelineId ? 'rgb(var(--brand-primary))' : 'rgb(var(--text-dim))'} />
+                          <Text className={`font-black text-sm ${draft.pipelineId ? 'text-typography-main' : 'text-typography-dim'}`} numberOfLines={1}>
+                            {selectedPipeline?.name ?? 'None'}
+                          </Text>
+                        </View>
+                        <FontAwesome name={showPipelineDropdown ? 'chevron-up' : 'chevron-down'} size={11} color="rgb(var(--text-dim))" />
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Project */}
+                    <View className="flex-1">
+                      <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-3 ml-1">Project</Text>
+                      <TouchableOpacity
+                        ref={projectButtonRef}
+                        onPress={() => {
+                          if (!showProjectDropdown) {
+                            openOverlay(projectButtonRef, setProjectDropdownPos, setShowProjectDropdown);
+                            setShowCalendar(false);
+                            setShowStartCalendar(false);
+                            setShowPipelineDropdown(false);
+                          } else {
+                            setShowProjectDropdown(false);
+                          }
+                        }}
+                        className={`bg-surface-background border rounded-2xl px-5 py-4 flex-row items-center justify-between transition-all ${showProjectDropdown ? 'border-brand-accent' : 'border-surface-border'}`}
+                      >
+                        <View className="flex-row items-center gap-3">
+                          {selectedProject?.color
+                            ? <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: selectedProject.color }} />
+                            : <FontAwesome name="folder-o" size={13} color="rgb(var(--text-dim))" />
+                          }
+                          <Text className={`font-black text-sm ${draft.projectId ? 'text-typography-main' : 'text-typography-dim'}`} numberOfLines={1}>
+                            {selectedProject?.name ?? 'None'}
+                          </Text>
+                        </View>
+                        <FontAwesome name={showProjectDropdown ? 'chevron-up' : 'chevron-down'} size={11} color="rgb(var(--text-dim))" />
+                      </TouchableOpacity>
+                    </View>
                   </View>
 
                   {/* Start Date + Deadline */}
@@ -501,7 +547,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
 
         {/* ── Fixed-position overlays — rendered outside ScrollView so they're never clipped ── */}
 
-        {(showCalendar || showStartCalendar || showPipelineDropdown) && (
+        {(showCalendar || showStartCalendar || showPipelineDropdown || showProjectDropdown) && (
           <TouchableOpacity
             style={{ position: 'fixed', inset: 0, zIndex: 998 } as any}
             onPress={closeAllOverlays}
@@ -555,7 +601,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                 className={`flex-row items-center px-5 py-3.5 border-b border-surface-border/40 hover:bg-surface-overlay ${!draft.pipelineId ? 'bg-brand-primary/5' : ''}`}
               >
                 <FontAwesome name="times-circle-o" size={13} color="rgb(var(--text-dim))" />
-                <Text className="text-typography-dim font-bold text-sm ml-3 flex-1">No Pipeline</Text>
+                <Text className="text-typography-dim font-bold text-sm ml-3 flex-1">None</Text>
                 {!draft.pipelineId && <FontAwesome name="check" size={11} color="rgb(var(--brand-primary))" />}
               </TouchableOpacity>
               {pipelines
@@ -569,6 +615,52 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                     <FontAwesome name="sitemap" size={13} color={draft.pipelineId === p.id ? 'rgb(var(--brand-primary))' : 'rgb(var(--text-dim))'} />
                     <Text className={`font-bold text-sm ml-3 flex-1 ${draft.pipelineId === p.id ? 'text-brand-primary' : 'text-typography-main'}`}>{p.name}</Text>
                     {draft.pipelineId === p.id && <FontAwesome name="check" size={11} color="rgb(var(--brand-primary))" />}
+                  </TouchableOpacity>
+                ))
+              }
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Project dropdown */}
+        {showProjectDropdown && (
+          <View
+            style={{ position: 'fixed', top: projectDropdownPos.top, left: projectDropdownPos.left, width: projectDropdownPos.width, zIndex: 999, maxHeight: 300 } as any}
+            className="bg-surface-card border border-surface-border rounded-2xl overflow-hidden premium-shadow"
+          >
+            <View className="p-3 border-b border-surface-border">
+              <View className="bg-surface-background flex-row items-center px-4 py-2.5 rounded-xl border border-surface-border gap-3">
+                <FontAwesome name="search" size={12} color="rgb(var(--text-dim))" />
+                <TextInput
+                  value={projectSearch}
+                  onChangeText={setProjectSearch}
+                  placeholder="Search projects..."
+                  placeholderTextColor="rgb(var(--text-dim))"
+                  className="flex-1 text-typography-main font-bold text-sm"
+                  autoFocus
+                />
+              </View>
+            </View>
+            <ScrollView style={{ maxHeight: 220 }}>
+              <TouchableOpacity
+                onPress={() => { setDraft({ projectId: null }); setShowProjectDropdown(false); setProjectSearch(''); }}
+                className={`flex-row items-center px-5 py-3.5 border-b border-surface-border/40 hover:bg-surface-overlay ${!draft.projectId ? 'bg-brand-accent/5' : ''}`}
+              >
+                <FontAwesome name="times-circle-o" size={13} color="rgb(var(--text-dim))" />
+                <Text className="text-typography-dim font-bold text-sm ml-3 flex-1">None</Text>
+                {!draft.projectId && <FontAwesome name="check" size={11} color="rgb(var(--brand-accent))" />}
+              </TouchableOpacity>
+              {projects
+                .filter(p => p.name.toLowerCase().includes(projectSearch.toLowerCase()))
+                .map(p => (
+                  <TouchableOpacity
+                    key={p.id}
+                    onPress={() => { setDraft({ projectId: p.id }); setShowProjectDropdown(false); setProjectSearch(''); }}
+                    className={`flex-row items-center px-5 py-3.5 hover:bg-surface-overlay ${draft.projectId === p.id ? 'bg-brand-accent/5' : ''}`}
+                  >
+                    <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: p.color || 'rgb(var(--brand-accent))' }} />
+                    <Text className={`font-bold text-sm ml-3 flex-1 ${draft.projectId === p.id ? 'text-brand-accent' : 'text-typography-main'}`}>{p.name}</Text>
+                    {draft.projectId === p.id && <FontAwesome name="check" size={11} color="rgb(var(--brand-accent))" />}
                   </TouchableOpacity>
                 ))
               }

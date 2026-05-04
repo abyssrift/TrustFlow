@@ -9,6 +9,7 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { openStorageFile, SUBMISSION_BUCKET } from '@/lib/storage';
 import { getActionDescriptor, splitStageActions } from './actionRegistry';
+import ManualTimeModal from '@/components/common/ManualTimeModal';
 
 function getFileIcon(mimeType: string | null): { name: string; color: string } {
   const t = (mimeType || '').toLowerCase();
@@ -35,7 +36,10 @@ export default function StageActions() {
   const [stagedFiles, setStagedFiles] = useState<any[]>([]);
   const [elapsedLocal, setElapsedLocal] = React.useState(0);
   const [busy, setBusy] = React.useState(false);
-  const [errorMsg, setErrorMsg] = React.useState<{ title: string; message: string } | null>(null);
+  const [errorMsg, setErrorMsg] = React.useState<{ title: string; message: string; variant?: 'danger' | 'warning' } | null>(null);
+  const [showManualTimeModal, setShowManualTimeModal] = useState(false);
+  const [pendingSubmitAction, setPendingSubmitAction] = useState<StageActionData | null>(null);
+  const [manualTimeLogged, setManualTimeLogged] = useState(false);
 
   const { submitWithEvidence, activeJobs } = useSubmission();
 
@@ -78,6 +82,24 @@ export default function StageActions() {
   };
 
   const removeFile = (id: string) => setStagedFiles(prev => prev.filter(f => f.id !== id));
+
+  const handleManualTimeSuccess = async (isFlagged: boolean) => {
+    setShowManualTimeModal(false);
+    setManualTimeLogged(true);
+    const actionToRetry = pendingSubmitAction;
+    setPendingSubmitAction(null);
+    if (isFlagged) {
+      setErrorMsg({
+        title: 'Entry Flagged for Review',
+        message: 'Your time declaration has been forwarded to your manager. Proceeding with submission.',
+        variant: 'warning',
+      });
+      setTimeout(() => setErrorMsg(null), 5000);
+    }
+    if (actionToRetry) {
+      await handleAction(actionToRetry, true);
+    }
+  };
 
   if (!data) return null;
 
@@ -128,6 +150,21 @@ export default function StageActions() {
       const descriptor = getActionDescriptor(action.action_type);
 
       if (descriptor.executionRoute === 'submit_work') {
+        // Pre-upload timer check — prevents partial file uploads when gate would block.
+        // Uses stale work_sessions data + elapsedLocal (the just-stopped session's time).
+        const stage = data.current_stage;
+        if (stage?.requires_timer && !stage?.is_initial && !data.permissions.is_owner && !manualTimeLogged) {
+          const completedSeconds = (data.work_sessions || [])
+            .filter((s: any) => s.status === 'completed')
+            .reduce((sum: number, s: any) => sum + (s.total_seconds_spent || 0), 0);
+          const totalSeconds = completedSeconds + elapsedLocal;
+          if (totalSeconds < 300) {
+            setPendingSubmitAction(action);
+            setShowManualTimeModal(true);
+            return;
+          }
+        }
+
         const content = submissionContent.trim();
         await submitWithEvidence({
           taskId: data.task.id,
@@ -140,6 +177,7 @@ export default function StageActions() {
 
         setSubmissionContent('');
         setStagedFiles([]);
+        setManualTimeLogged(false);
         return;
       }
 
@@ -163,19 +201,19 @@ export default function StageActions() {
 
       await executeAction(action.id);
     } catch (err: any) {
+      // Backend safety net: LOW_TIMER_TIME (fires if frontend check was bypassed)
+      if (err.message?.includes('LOW_TIMER_TIME')) {
+        setPendingSubmitAction(action);
+        setShowManualTimeModal(true);
+        return;
+      }
+
       let displayMessage = err.message || 'Could not perform action';
-      
-      // Handle P0001 error for missing evidence/submissions
       if (err.code === 'P0001' && err.message?.includes('Mandatory evidence missing')) {
         displayMessage = 'This stage requires a submission with text or attachments to proceed.';
       }
-      
-      setErrorMsg({
-        title: 'Action Failed',
-        message: displayMessage
-      });
-      
-      // Auto-clear after 5 seconds
+
+      setErrorMsg({ title: 'Action Failed', message: displayMessage });
       setTimeout(() => setErrorMsg(null), 5000);
     } finally {
       setLoadingActionId(null);
@@ -188,13 +226,21 @@ export default function StageActions() {
 
   return (
     <View className="gap-4">
-      {/* Error Message Display */}
+      {/* Error / Warning Message Display */}
       {errorMsg && (
-        <View className="bg-state-danger/10 border border-state-danger/30 rounded-xl p-3">
-          <Text className="text-state-danger font-black text-xs uppercase tracking-wider mb-1">
+        <View className={`rounded-xl p-3 ${
+          errorMsg.variant === 'warning'
+            ? 'bg-state-warning/10 border border-state-warning/30'
+            : 'bg-state-danger/10 border border-state-danger/30'
+        }`}>
+          <Text className={`font-black text-xs uppercase tracking-wider mb-1 ${
+            errorMsg.variant === 'warning' ? 'text-state-warning' : 'text-state-danger'
+          }`}>
             {errorMsg.title}
           </Text>
-          <Text className="text-state-danger text-sm leading-5">
+          <Text className={`text-sm leading-5 ${
+            errorMsg.variant === 'warning' ? 'text-state-warning' : 'text-state-danger'
+          }`}>
             {errorMsg.message}
           </Text>
         </View>
@@ -250,6 +296,14 @@ export default function StageActions() {
           </View>
         </View>
       )}
+
+      <ManualTimeModal
+        visible={showManualTimeModal}
+        taskId={data.task.id}
+        stageId={data.current_stage?.id ?? ''}
+        onSuccess={handleManualTimeSuccess}
+        onCancel={() => { setShowManualTimeModal(false); setPendingSubmitAction(null); }}
+      />
 
       {showSubmissionSection && (
         <View className="bg-surface-card rounded-2xl border border-surface-border p-4">
