@@ -189,7 +189,7 @@ export default function ProfilePage() {
           onPress={() => signOut()}
           className="h-14 flex-row items-center justify-center rounded-2xl border border-typography-dim/30 bg-surface-overlay active:bg-surface-border"
         >
-          <FontAwesome name="sign-out" size={18} color="rgb(var(--typography-main))" style={{ marginRight: 12 }} />
+          <FontAwesome name="sign-out" size={18} color="rgb(var(--text-main))" style={{ marginRight: 12 }} />
           <Text className="text-sm font-black uppercase tracking-widest text-typography-main">Sign Out of Account</Text>
         </Pressable>
       </View>

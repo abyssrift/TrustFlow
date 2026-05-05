@@ -86,7 +86,7 @@ export default function ChildPipelinesPanel() {
                 </Text>
               </View>
 
-              <FontAwesome name="chevron-right" size={10} color="rgb(var(--typography-muted))" style={{ marginLeft: 8 }} />
+              <FontAwesome name="chevron-right" size={10} color="rgb(var(--text-muted))" style={{ marginLeft: 8 }} />
             </TouchableOpacity>
           );
         })}

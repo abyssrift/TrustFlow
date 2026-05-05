@@ -1,7 +1,15 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, Modal, TouchableOpacity, TextInput, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, TextInput, ScrollView, ActivityIndicator, useWindowDimensions } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
+import { cssInterop } from 'react-native-css-interop';
 import { useTaskCreation } from '@/contexts/TaskCreationContext';
+
+cssInterop(FontAwesome, {
+  className: {
+    target: 'style',
+    nativeStyleToProp: { color: true, size: true },
+  },
+} as any);
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '@/lib/supabase';
@@ -52,6 +60,7 @@ function quickDate(days: number): string {
 }
 
 export default function CreateTaskModal({ visible, onClose, initialPipelineId }: Props) {
+  const { width } = useWindowDimensions();
   const { draft, setDraft, createTask, loading, recentTasks, loadRecentTasks, briefFiles, setBriefFiles } = useTaskCreation();
   const [activeTab, setActiveTab] = useState<'details' | 'assignments'>('details');
   const [users, setUsers]         = useState<any[]>([]);
@@ -165,20 +174,6 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
   const assignmentCount    = draft.assigneeUserIds.length + draft.assigneeTeamIds.length;
   const dateConflict       = !!(draft.startDate && draft.dueDate && draft.startDate > draft.dueDate);
 
-  // Reusable quick-date chip strip
-  const QuickDateChips = ({ onSelect }: { onSelect: (date: string) => void }) => (
-    <View className="flex-row gap-2 px-3 pt-3 pb-2 border-b border-surface-border flex-wrap">
-      {QUICK_DATES.map(q => (
-        <TouchableOpacity
-          key={q.label}
-          onPress={() => onSelect(quickDate(q.days))}
-          className="px-3 py-1.5 rounded-xl bg-surface-background border border-surface-border hover:border-brand-primary transition-colors"
-        >
-          <Text className="text-[10px] font-black uppercase tracking-wider text-typography-dim">{q.label}</Text>
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
 
   return (
     <Modal visible={visible} transparent animationType="fade">
@@ -188,7 +183,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
           {/* ── LEFT SIDEBAR ── */}
           <View className="w-80 border-r border-surface-border bg-surface-background/30 p-8">
             <View className="flex-row items-center mb-8">
-              <FontAwesome name="history" size={14} color="rgb(var(--brand-primary))" />
+              <FontAwesome name="history" size={14} className="text-brand-primary" />
               <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] ml-3">Tactical Archive</Text>
             </View>
             <Text className="text-typography-main font-black text-xl mb-2 tracking-tight">Recent Tasks</Text>
@@ -233,7 +228,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                 <Text className="text-typography-main text-3xl font-black tracking-tighter">Initialize Deployment</Text>
               </View>
               <TouchableOpacity onPress={onClose} className="w-12 h-12 bg-surface-background rounded-full items-center justify-center border border-surface-border hover:border-brand-primary transition-colors">
-                <FontAwesome name="times" size={18} color="rgb(var(--text-muted))" />
+                <FontAwesome name="times" size={18} className="text-typography-muted" />
               </TouchableOpacity>
             </View>
 
@@ -669,10 +664,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
 
         {/* Deadline calendar */}
         {showCalendar && (
-          <View style={{ position: 'fixed', top: calendarPos.top, left: calendarPos.left, width: Math.max(calendarPos.width, 320), zIndex: 999 } as any}
-            className="bg-surface-card rounded-3xl border border-surface-border overflow-hidden premium-shadow"
-          >
-            <QuickDateChips onSelect={date => { setDraft({ dueDate: date }); setShowCalendar(false); }} />
+          <View style={{ position: 'fixed', top: calendarPos.top, left: Math.max(20, Math.min(calendarPos.left, width - 820)), width: Math.min(width - 40, 800), zIndex: 999 } as any}>
             <PremiumCalendarPicker
               selectedDate={draft.dueDate}
               onSelect={date => { setDraft({ dueDate: date }); setShowCalendar(false); }}
@@ -682,10 +674,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
 
         {/* Start date calendar */}
         {showStartCalendar && (
-          <View style={{ position: 'fixed', top: startCalendarPos.top, left: startCalendarPos.left, width: Math.max(startCalendarPos.width, 320), zIndex: 999 } as any}
-            className="bg-surface-card rounded-3xl border border-surface-border overflow-hidden premium-shadow"
-          >
-            <QuickDateChips onSelect={date => { setDraft({ startDate: date }); setShowStartCalendar(false); }} />
+          <View style={{ position: 'fixed', top: startCalendarPos.top, left: Math.max(20, Math.min(startCalendarPos.left, width - 820)), width: Math.min(width - 40, 800), zIndex: 999 } as any}>
             <PremiumCalendarPicker
               selectedDate={draft.startDate}
               accentColor="rgb(var(--brand-accent))"

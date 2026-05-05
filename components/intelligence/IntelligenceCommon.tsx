@@ -35,7 +35,7 @@ export const SectionToggle = ({ active, onSelect, hasPermission }: { active: str
           <FontAwesome
             name={s === 'Radar' ? 'crosshairs' : s === 'Targets' ? 'bullseye' : 'archive'}
             size={14}
-            color={active === s.toLowerCase() ? 'white' : 'rgb(var(--typography-muted))'}
+            color={active === s.toLowerCase() ? 'white' : 'rgb(var(--text-muted))'}
           />
         </View>
         <Text className={`font-black text-[10px] uppercase tracking-widest ${active === s.toLowerCase() ? 'text-white' : 'text-typography-muted'}`}>
@@ -47,14 +47,14 @@ export const SectionToggle = ({ active, onSelect, hasPermission }: { active: str
 );
 
 export const KPIBoxWeb = ({ label, val, delta }: any) => (
-  <View className="flex-1 min-w-[280px] bg-surface-card p-8 rounded-[32px] border border-surface-border premium-shadow">
-    <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mb-4">{label}</Text>
+  <View className="flex-1 min-w-[220px] bg-surface-card p-5 rounded-[24px] border border-surface-border premium-shadow">
+    <Text className="text-typography-muted text-[9px] font-black uppercase tracking-[0.2em] mb-3">{label}</Text>
     <View className="flex-row items-baseline">
-      <Text className="text-typography-main text-4xl font-black">{val}</Text>
+      <Text className="text-typography-main text-2xl font-black">{val}</Text>
       {delta !== undefined && (
-        <View className={`ml-4 px-3 py-1 rounded-full ${delta >= 0 ? 'bg-state-success/10' : 'bg-state-danger/10'}`}>
-          <Text className={`text-[10px] font-black ${delta >= 0 ? 'text-state-success' : 'text-state-danger'}`}>
-            {delta >= 0 ? '+' : ''}{delta} units
+        <View className={`ml-3 px-2 py-0.5 rounded-full ${delta >= 0 ? 'bg-state-success/10' : 'bg-state-danger/10'}`}>
+          <Text className={`text-[9px] font-black ${delta >= 0 ? 'text-state-success' : 'text-state-danger'}`}>
+            {delta >= 0 ? '+' : ''}{delta}
           </Text>
         </View>
       )}
@@ -97,31 +97,30 @@ export const CircularTargetCard = ({ target, onEdit }: any) => {
     : 50;
   
   const status = getStatusInfo(target);
-  const accentColor = 'rgb(var(--brand-accent))';
-  const circumference = 2 * Math.PI * 45;
+  const circumference = 2 * Math.PI * 35;
   const strokeDashoffset = circumference - (progress / 100) * circumference;
 
   return (
-    <View className="w-[340px] bg-surface-card p-10 rounded-[40px] border border-surface-border premium-shadow hover:scale-[1.02] transition-all duration-300">
+    <View className="w-[260px] bg-surface-card p-6 rounded-[32px] border border-surface-border premium-shadow hover:scale-[1.02] transition-all duration-300">
       {/* Header Info */}
-      <View className="flex-row justify-between items-start mb-8">
+      <View className="flex-row justify-between items-start mb-6">
         <View className="flex-1">
-          <Text className="text-typography-main font-black text-2xl tracking-tighter mb-1">{target.stage?.name}</Text>
-          <Text className="text-typography-muted text-[9px] font-black uppercase tracking-[0.2em]">
-            {isVolume ? 'Volume Quota' : 'SLA Performance Goal'}
+          <Text className="text-typography-main font-black text-lg tracking-tighter mb-0.5">{target.stage?.name}</Text>
+          <Text className="text-typography-muted text-[8px] font-black uppercase tracking-[0.2em]">
+            {isVolume ? 'Volume Quota' : 'SLA Goal'}
           </Text>
         </View>
-        <View style={{ backgroundColor: status.bg, borderColor: status.color }} className="px-3 py-1.5 rounded-full border border-opacity-50">
-          <Text style={{ color: status.color }} className="text-[8px] font-black uppercase tracking-widest">
+        <View style={{ backgroundColor: status.bg, borderColor: status.color }} className="px-2 py-1 rounded-full border border-opacity-50">
+          <Text style={{ color: status.color }} className="text-[7px] font-black uppercase tracking-widest">
             {status.label}
           </Text>
         </View>
       </View>
 
       {/* Circular Progress Container */}
-      <View className="items-center justify-center mb-10 relative">
-        <View className="w-40 h-40 items-center justify-center">
-          <Svg width={160} height={160} viewBox="0 0 160 160" style={{ position: 'absolute' }}>
+      <View className="items-center justify-center mb-6 relative">
+        <View className="w-32 h-32 items-center justify-center">
+          <Svg width={120} height={120} viewBox="0 0 120 120" style={{ position: 'absolute' }}>
             <Defs>
               <LinearGradient id={`grad-${target.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
                 <Stop offset="0%" stopColor={status.gradient[0]} />
@@ -131,90 +130,89 @@ export const CircularTargetCard = ({ target, onEdit }: any) => {
             
             {/* Background Track */}
             <Circle 
-              cx={80} 
-              cy={80} 
-              r={45} 
+              cx={60} 
+              cy={60} 
+              r={35} 
               fill="none" 
               stroke="rgb(var(--surface-background))" 
-              strokeWidth={12} 
+              strokeWidth={10} 
               strokeOpacity={0.5}
             />
             
             {/* Progress Stroke */}
             <Circle
-              cx={80}
-              cy={80}
-              r={45}
+              cx={60}
+              cy={60}
+              r={35}
               fill="none"
               stroke={`url(#grad-${target.id})`}
-              strokeWidth={12}
+              strokeWidth={10}
               strokeDasharray={circumference}
               strokeDashoffset={strokeDashoffset}
               strokeLinecap="round"
-              style={{ transform: 'rotate(-90deg)', transformOrigin: '80px 80px' }}
+              style={{ transform: 'rotate(-90deg)', transformOrigin: '60px 60px' }}
             />
           </Svg>
 
           {/* Center Analytics */}
           <View className="items-center z-10">
             <View className="flex-row items-baseline">
-              <Text className="text-typography-main text-3xl font-black tracking-tighter">
+              <Text className="text-typography-main text-2xl font-black tracking-tighter">
                 {Math.round(progress)}
               </Text>
-              <Text className="text-typography-muted text-xl font-black ml-1">%</Text>
+              <Text className="text-typography-muted text-sm font-black ml-0.5">%</Text>
             </View>
-            <Text className="text-typography-muted text-[10px] font-bold mt-1 uppercase tracking-widest">Efficiency</Text>
           </View>
         </View>
       </View>
 
       {/* Metric Breakdown */}
-      <View className="bg-surface-background/50 rounded-3xl p-6 border border-surface-border/30">
+      <View className="bg-surface-background/50 rounded-2xl p-4 border border-surface-border/30">
         {isVolume ? (
           <View className="flex-row justify-between items-center">
             <View>
-              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-1">Processed</Text>
-              <Text className="text-typography-main font-black text-lg">
-                {target.current_count || 0} <Text className="text-sm font-bold text-typography-muted">Units</Text>
+              <Text className="text-typography-muted text-[8px] font-black uppercase tracking-widest mb-0.5">Processed</Text>
+              <Text className="text-typography-main font-black text-base">
+                {target.current_count || 0} <Text className="text-[10px] font-bold text-typography-muted">Units</Text>
               </Text>
             </View>
             <View className="items-end">
-              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-1">Target</Text>
-              <Text className="text-brand-primary font-black text-lg">{target.target_quantity}</Text>
+              <Text className="text-typography-muted text-[8px] font-black uppercase tracking-widest mb-0.5">Target</Text>
+              <Text className="text-brand-primary font-black text-base">{target.target_quantity}</Text>
             </View>
           </View>
         ) : (
-          <View className="flex-row gap-6">
+          <View className="flex-row gap-4">
             <View className="flex-1">
-              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-1">Active</Text>
-              <Text className="text-brand-primary font-black text-lg">{Math.round((target.target_active_seconds || 0) / 60)}m</Text>
+              <Text className="text-typography-muted text-[8px] font-black uppercase tracking-widest mb-0.5">Active</Text>
+              <Text className="text-brand-primary font-black text-base">{Math.round((target.target_active_seconds || 0) / 60)}m</Text>
             </View>
             <View className="flex-1">
-              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-1">Max Life</Text>
-              <Text className="text-typography-main font-black text-lg">{Math.round((target.target_lifecycle_seconds || 0) / 3600)}h</Text>
+              <Text className="text-typography-muted text-[8px] font-black uppercase tracking-widest mb-0.5">Max Life</Text>
+              <Text className="text-typography-main font-black text-base">{Math.round((target.target_lifecycle_seconds || 0) / 3600)}h</Text>
             </View>
           </View>
         )}
       </View>
 
       {/* Footer Actions */}
-      <View className="mt-8 flex-row items-center justify-between">
+      <View className="mt-6 flex-row items-center justify-between">
         <View className="flex-row items-center">
-          <View className="mr-2">
-            <FontAwesome name="calendar" size={10} color="rgb(var(--text-muted))" />
+          <View className="mr-1.5">
+            <FontAwesome name="calendar" size={9} color="rgb(var(--text-muted))" />
           </View>
-          <Text className="text-typography-muted text-[10px] font-bold ml-2">
-            {target.target_deadline ? new Date(target.target_deadline).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'No Limit'}
+          <Text className="text-typography-muted text-[9px] font-bold">
+            {target.target_deadline ? new Date(target.target_deadline).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'No Limit'}
           </Text>
         </View>
         
         <TouchableOpacity
           onPress={onEdit}
-          className="bg-brand-primary/10 px-4 py-2 rounded-xl border border-brand-primary/20 hover:bg-brand-primary/20 transition-all"
+          className="bg-brand-primary/10 px-3 py-1.5 rounded-lg border border-brand-primary/20 hover:bg-brand-primary/20 transition-all"
         >
           <View className="flex-row items-center">
-            <FontAwesome name="pencil" size={10} color="rgb(var(--brand-primary))" />
-            <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest ml-2">Tune</Text>
+            <FontAwesome name="pencil" size={9} color="rgb(var(--brand-primary))" />
+            <Text className="text-brand-primary text-[9px] font-black uppercase tracking-widest ml-1.5">Tune</Text>
           </View>
         </TouchableOpacity>
       </View>

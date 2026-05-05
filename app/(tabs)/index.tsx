@@ -533,7 +533,7 @@ function DashboardSettingsModal({ visible, onClose, config, onSave }: {
               <Text className="text-typography-muted text-[10px] font-bold uppercase">Pipeline Source Settings</Text>
             </View>
             <TouchableOpacity onPress={onClose} className="w-10 h-10 rounded-full bg-surface-background items-center justify-center border border-surface-border">
-              <FontAwesome name="times" size={14} color="rgb(var(--typography-dim))" />
+              <FontAwesome name="times" size={14} color="rgb(var(--text-dim))" />
             </TouchableOpacity>
           </View>
 
@@ -626,7 +626,7 @@ function DashboardSettingsModal({ visible, onClose, config, onSave }: {
                                       <FontAwesome
                                         name={isSelected ? 'check-square' : 'square-o'}
                                         size={12}
-                                        color={isSelected ? 'rgb(var(--state-success))' : 'rgb(var(--typography-dim))'}
+                                        color={isSelected ? 'rgb(var(--state-success))' : 'rgb(var(--text-dim))'}
                                         style={{ marginRight: 6 }}
                                       />
                                       <Text className={`text-[10px] font-bold mr-1.5 ${isSelected ? 'text-state-success' : 'text-typography-muted'}`}>{s.name}</Text>

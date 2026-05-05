@@ -1,7 +1,15 @@
 import { User, useRoleManager } from '@/contexts/RoleManagerContext';
-import { FontAwesome } from '@expo/vector-icons';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useState } from 'react';
 import { Image, Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { cssInterop } from 'react-native-css-interop';
+
+cssInterop(FontAwesome, {
+  className: {
+    target: 'style',
+    nativeStyleToProp: { color: true, size: true },
+  },
+} as any);
 
 export default function UserAssignmentGrid() {
   const { users, roles, teams, userRoles, teamMembers, teamRoles, updateUserAssignments, loading } = useRoleManager();
@@ -81,14 +89,14 @@ export default function UserAssignmentGrid() {
                 <Text className="text-typography-main text-2xl font-black">{selectedUser?.full_name || selectedUser?.email}</Text>
               </View>
               <TouchableOpacity onPress={() => setSelectedUser(null)} className="w-10 h-10 items-center justify-center rounded-full bg-surface-background border border-surface-border">
-                <FontAwesome name="times" size={16} color="rgb(var(--text-muted))" />
+                <FontAwesome name="times" size={16} className="text-typography-muted" />
               </TouchableOpacity>
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
               <View className="mb-10">
                 <View className="flex-row items-center mb-6">
-                  <FontAwesome name="shield" size={14} color="rgb(var(--brand-primary))" />
+                  <FontAwesome name="shield" size={14} className="text-brand-primary" />
                   <Text className="text-brand-primary text-xs font-black uppercase ml-3 tracking-[0.15em]">Direct Authority Nodes</Text>
                 </View>
                 <View className="flex-row flex-wrap gap-3">
@@ -107,7 +115,7 @@ export default function UserAssignmentGrid() {
                             key={role.id}
                             className="px-5 py-3 rounded-xl border bg-brand-primary/5 border-brand-primary/20 flex-row items-center opacity-60"
                           >
-                            <FontAwesome name="lock" size={10} color="rgb(var(--brand-primary))" style={{ marginRight: 8 }} />
+                            <FontAwesome name="lock" size={10} className="text-brand-primary" style={{ marginRight: 8 }} />
                             <Text className="text-[10px] font-black uppercase tracking-widest text-brand-primary">
                               {role.name}
                             </Text>
@@ -135,7 +143,7 @@ export default function UserAssignmentGrid() {
 
               <View className="mb-4">
                 <View className="flex-row items-center mb-6">
-                   <FontAwesome name="users" size={14} color="rgb(var(--brand-primary))" />
+                   <FontAwesome name="users" size={14} className="text-brand-primary" />
                    <Text className="text-brand-primary text-xs font-black uppercase ml-3 tracking-[0.15em]">Tactical Team Deployment</Text>
                 </View>
                 <View className="flex-row flex-wrap gap-3">
@@ -180,3 +188,4 @@ export default function UserAssignmentGrid() {
     </View>
   );
 }
+

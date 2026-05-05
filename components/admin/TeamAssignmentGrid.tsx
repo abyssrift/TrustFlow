@@ -1,7 +1,15 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Modal, TextInput } from 'react-native';
-import { FontAwesome } from '@expo/vector-icons';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRoleManager, Team } from '@/contexts/RoleManagerContext';
+import { cssInterop } from 'react-native-css-interop';
+
+cssInterop(FontAwesome, {
+  className: {
+    target: 'style',
+    nativeStyleToProp: { color: true, size: true },
+  },
+} as any);
 
 export default function TeamAssignmentGrid() {
   const { teams, roles, teamRoles, updateTeamAssignments, createTeam, loading } = useRoleManager();
@@ -56,7 +64,7 @@ export default function TeamAssignmentGrid() {
         {teams.length === 0 ? (
           <View className="items-center justify-center py-32 bg-surface-card rounded-[40px] border border-dashed border-surface-border">
             <View className="w-20 h-20 bg-brand-primary/10 rounded-3xl items-center justify-center mb-6">
-              <FontAwesome name="users" size={32} color="rgb(var(--brand-primary))" />
+              <FontAwesome name="users" size={32} className="text-brand-primary" />
             </View>
             <Text className="text-typography-main text-xl font-black mb-2">No active teams found</Text>
             <Text className="text-typography-muted text-center max-w-sm mb-10 leading-6">
@@ -117,7 +125,7 @@ export default function TeamAssignmentGrid() {
                 <Text className="text-typography-main text-2xl font-black">Forge New Cluster</Text>
               </View>
               <TouchableOpacity onPress={() => setIsCreating(false)} className="w-10 h-10 items-center justify-center rounded-full bg-surface-background border border-surface-border">
-                <FontAwesome name="times" size={16} color="rgb(var(--text-muted))" />
+                <FontAwesome name="times" size={16} className="text-typography-muted" />
               </TouchableOpacity>
             </View>
 
@@ -180,14 +188,14 @@ export default function TeamAssignmentGrid() {
                   <Text className="text-typography-main text-2xl font-black">{selectedTeam?.name}</Text>
                 </View>
                 <TouchableOpacity onPress={() => setSelectedTeam(null)} className="w-10 h-10 items-center justify-center rounded-full bg-surface-background border border-surface-border">
-                  <FontAwesome name="times" size={16} color="rgb(var(--text-muted))" />
+                  <FontAwesome name="times" size={16} className="text-typography-muted" />
                 </TouchableOpacity>
               </View>
 
               <ScrollView showsVerticalScrollIndicator={false}>
                 <View className="mb-6">
                   <View className="flex-row items-center mb-8">
-                    <FontAwesome name="shield" size={14} color="rgb(var(--brand-primary))" />
+                    <FontAwesome name="shield" size={14} className="text-brand-primary" />
                     <Text className="text-brand-primary text-xs font-black uppercase ml-3 tracking-widest">Inherent Authority Matrix</Text>
                   </View>
                   <View className="flex-row flex-wrap gap-3">

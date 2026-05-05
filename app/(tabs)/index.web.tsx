@@ -289,12 +289,12 @@ export default function DashboardScreenWeb() {
       accentType === 'danger' ? 'border-state-danger/20' :
       'border-brand-primary/20';
 
-    const iconColorStr =
-      accentType === 'success' ? 'rgb(var(--state-success))' :
-      accentType === 'warning' ? 'rgb(var(--state-warning))' :
-      accentType === 'info' ? 'rgb(var(--state-info))' :
-      accentType === 'danger' ? 'rgb(var(--state-danger))' :
-      'rgb(var(--brand-primary))';
+    const iconColorClass =
+      accentType === 'success' ? 'text-state-success' :
+      accentType === 'warning' ? 'text-state-warning' :
+      accentType === 'info' ? 'text-state-info' :
+      accentType === 'danger' ? 'text-state-danger' :
+      'text-brand-primary';
 
     const subtitleClass =
       accentType === 'success' ? 'text-state-success' :
@@ -306,7 +306,7 @@ export default function DashboardScreenWeb() {
     return (
       <View className="flex-1 min-w-[240px] bg-surface-card p-8 rounded-[32px] border border-surface-border premium-shadow">
         <View className={`w-14 h-14 rounded-2xl ${iconBgClass} items-center justify-center mb-6 border ${iconBorderClass}`}>
-          <FontAwesome name={icon} size={22} color={iconColorStr} />
+          <FontAwesome name={icon} size={22} className={iconColorClass} />
         </View>
         <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mb-2">{label}</Text>
         <Text className="text-typography-main text-5xl font-black tracking-tighter">{value}</Text>
@@ -340,7 +340,7 @@ export default function DashboardScreenWeb() {
               onPress={() => setShowSettings(true)}
               className="flex-row items-center bg-surface-card border border-surface-border px-6 py-4 rounded-2xl premium-shadow active:scale-95 transition-transform hover:border-brand-primary/50"
             >
-              <FontAwesome name="cog" size={14} color="rgb(var(--brand-primary))" />
+              <FontAwesome name="cog" size={14} className="text-brand-primary" />
               <Text className="ml-3 font-black uppercase tracking-widest text-xs text-typography-main">Settings</Text>
             </TouchableOpacity>
 
@@ -348,7 +348,7 @@ export default function DashboardScreenWeb() {
               onPress={onRefresh}
               className="flex-row items-center bg-surface-card border border-surface-border px-6 py-4 rounded-2xl premium-shadow active:scale-95 transition-transform hover:border-brand-primary/50"
             >
-              <FontAwesome name="refresh" size={14} color="rgb(var(--brand-primary))" />
+              <FontAwesome name="refresh" size={14} className="text-brand-primary" />
               <Text className="ml-3 font-black uppercase tracking-widest text-xs text-typography-main">Refresh</Text>
             </TouchableOpacity>
           </View>
@@ -394,7 +394,7 @@ export default function DashboardScreenWeb() {
                 </View>
                 {pulse.is_working && (
                   <View className="flex-row items-center bg-state-success/10 px-5 py-3 rounded-full border border-state-success/20">
-                    <View className="w-2.5 h-2.5 rounded-full bg-state-success mr-3" />
+                    <View className="w-2.5 h-2.5 rounded-full bg-state-success mr-3 pulse-animation" />
                     <Text className="text-state-success text-[10px] font-black uppercase tracking-widest">Session Active</Text>
                   </View>
                 )}
@@ -447,7 +447,7 @@ export default function DashboardScreenWeb() {
               <View className="flex-row mb-10">
                 <View className="flex-1 min-w-[240px] bg-surface-card p-8 rounded-[32px] border border-surface-border premium-shadow max-w-[300px]">
                   <View className="w-14 h-14 rounded-2xl bg-state-info/10 items-center justify-center mb-6 border border-state-info/20">
-                    <FontAwesome name="bolt" size={22} color="rgb(var(--state-info))" />
+                    <FontAwesome name="bolt" size={22} className="text-state-info" />
                   </View>
                   <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mb-2">Live Sessions</Text>
                   <Text className="text-typography-main text-5xl font-black tracking-tighter">{stats.activeSessions}</Text>
@@ -529,14 +529,14 @@ export default function DashboardScreenWeb() {
                 <View className="flex-row items-center justify-between mb-8">
                   <Text className="text-typography-main text-2xl font-black tracking-tight">Recent Activity</Text>
                   <TouchableOpacity onPress={() => router.push('/tasks')}>
-                    <FontAwesome name="arrow-right" size={12} color="rgb(var(--brand-primary))" />
+                    <FontAwesome name="arrow-right" size={12} className="text-brand-primary" />
                   </TouchableOpacity>
                 </View>
 
                 {activity.length === 0 ? (
                   <View className="flex-1 items-center justify-center p-8 rounded-[24px] bg-surface-background/50 border border-dashed border-surface-border">
                     <View className="w-16 h-16 rounded-full bg-brand-primary/5 flex-center mb-6">
-                      <FontAwesome name="bolt" size={24} color="rgb(var(--brand-primary))" />
+                      <FontAwesome name="bolt" size={24} className="text-brand-primary" />
                     </View>
                     <Text className="text-typography-main font-bold text-center mb-2">No Activity Yet</Text>
                     <Text className="text-typography-muted text-center text-xs font-medium leading-relaxed">
@@ -563,7 +563,7 @@ export default function DashboardScreenWeb() {
                             <View className="bg-surface-card px-2 py-1 rounded-lg border border-surface-border">
                               <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest">{entry.fromStage}</Text>
                             </View>
-                            <FontAwesome name="long-arrow-right" size={10} color="rgb(var(--brand-primary))" style={{ marginHorizontal: 8 }} />
+                            <FontAwesome name="long-arrow-right" size={10} className="text-brand-primary mx-2" />
                             <View className="bg-brand-primary/10 px-2 py-1 rounded-lg border border-brand-primary/20">
                               <Text className="text-brand-primary text-[9px] font-black uppercase tracking-widest">{entry.toStage}</Text>
                             </View>
@@ -584,7 +584,7 @@ export default function DashboardScreenWeb() {
                   <TouchableOpacity onPress={() => router.push('/projects')}>
                     <View className="flex-row items-center bg-surface-card border border-surface-border px-5 py-2.5 rounded-xl hover:border-brand-primary/50 transition-colors">
                       <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest mr-2">View All</Text>
-                      <FontAwesome name="arrow-right" size={10} color="rgb(var(--brand-primary))" />
+                      <FontAwesome name="arrow-right" size={10} className="text-brand-primary" />
                     </View>
                   </TouchableOpacity>
                 </View>
@@ -597,7 +597,7 @@ export default function DashboardScreenWeb() {
                     >
                       <View className="flex-row items-center mb-4">
                         <View className="w-12 h-12 rounded-2xl bg-brand-primary/10 items-center justify-center mr-4 border border-brand-primary/20">
-                          <FontAwesome name="folder-open" size={18} color="rgb(var(--brand-primary))" />
+                          <FontAwesome name="folder-open" size={18} className="text-brand-primary" />
                         </View>
                         <View className="flex-1">
                           <Text className="text-typography-main font-black text-lg tracking-tight" numberOfLines={1}>{project.name}</Text>
@@ -726,7 +726,7 @@ function DashboardSettingsModal({ visible, onClose, config, onSave }: {
               <Text className="text-typography-muted font-medium">Select pipelines to monitor and define success stages.</Text>
             </View>
             <TouchableOpacity onPress={onClose} className="w-12 h-12 rounded-full bg-surface-background items-center justify-center border border-surface-border">
-              <FontAwesome name="times" size={16} color="rgb(var(--typography-dim))" />
+              <FontAwesome name="times" size={16} className="text-typography-dim" />
             </TouchableOpacity>
           </View>
 
@@ -762,7 +762,7 @@ function DashboardSettingsModal({ visible, onClose, config, onSave }: {
                 {useAllPipelines && (
                   <View className="bg-surface-background p-6 rounded-3xl border border-surface-border mb-8">
                     <View className="flex-row items-center mb-3">
-                      <FontAwesome name="check-circle" size={14} color="rgb(var(--brand-primary))" />
+                      <FontAwesome name="check-circle" size={14} className="text-brand-primary" />
                       <Text className="text-brand-primary font-black text-xs ml-2 uppercase tracking-widest">Auto Mode Active</Text>
                     </View>
                     <Text className="text-typography-muted text-sm font-medium leading-relaxed">
@@ -821,7 +821,7 @@ function DashboardSettingsModal({ visible, onClose, config, onSave }: {
                                         <FontAwesome
                                           name={isSelected ? 'check-square' : 'square-o'}
                                           size={14}
-                                          color={isSelected ? 'rgb(var(--state-success))' : 'rgb(var(--typography-dim))'}
+                                          className={isSelected ? 'text-state-success' : 'text-typography-dim'}
                                           style={{ marginRight: 8 }}
                                         />
                                         <Text className={`text-[11px] font-bold mr-2 ${isSelected ? 'text-state-success' : 'text-typography-muted'}`}>{s.name}</Text>

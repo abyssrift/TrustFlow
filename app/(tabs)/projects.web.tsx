@@ -218,7 +218,7 @@ export default function ProjectsScreenWeb() {
 
         {project.expiry_date && (
            <View className="flex-row items-center mt-6 pt-6 border-t border-surface-border/50">
-              <FontAwesome name="calendar" size={12} color={isOverdue ? 'rgb(var(--state-danger))' : 'rgb(var(--typography-muted))'} />
+              <FontAwesome name="calendar" size={12} color={isOverdue ? 'rgb(var(--state-danger))' : 'rgb(var(--text-muted))'} />
               <Text className={`ml-3 text-[10px] font-black uppercase tracking-widest ${isOverdue ? 'text-state-danger' : 'text-typography-muted'}`}>
                 {isOverdue ? 'Overdue' : 'Deadline'}: {new Date(project.expiry_date).toLocaleDateString()}
               </Text>

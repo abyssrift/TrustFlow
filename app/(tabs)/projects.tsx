@@ -171,7 +171,7 @@ export default function ProjectsScreen() {
 
         {project.expiry_date && (
            <View className="flex-row items-center mt-4 pt-4 border-t border-surface-border/50">
-              <FontAwesome name="calendar" size={12} color={isOverdue ? 'rgb(var(--state-danger))' : 'rgb(var(--typography-muted))'} />
+              <FontAwesome name="calendar" size={12} color={isOverdue ? 'rgb(var(--state-danger))' : 'rgb(var(--text-muted))'} />
               <Text className={`ml-2 text-[10px] font-medium ${isOverdue ? 'text-state-danger' : 'text-typography-muted'}`}>
                 {isOverdue ? 'Expired' : 'Expires'}: {new Date(project.expiry_date).toLocaleDateString()}
               </Text>
@@ -205,7 +205,7 @@ export default function ProjectsScreen() {
               value={showClosed} 
               onValueChange={setShowClosed}
               trackColor={{ false: 'rgb(var(--surface-border))', true: 'rgb(var(--brand-primary))' }}
-              thumbColor={showClosed ? 'white' : 'rgb(var(--typography-muted))'}
+              thumbColor={showClosed ? 'white' : 'rgb(var(--text-muted))'}
             />
           </View>
           
@@ -226,7 +226,7 @@ export default function ProjectsScreen() {
           {filteredProjects.length === 0 ? (
             <View className="w-full items-center justify-center py-24 bg-surface-card rounded-[32px] border border-dashed border-surface-border">
                <View className="w-20 h-20 bg-surface-background rounded-full items-center justify-center mb-4">
-                <FontAwesome name="folder-o" size={32} color="rgb(var(--typography-muted))" style={{ opacity: 0.5 }} />
+                <FontAwesome name="folder-o" size={32} color="rgb(var(--text-muted))" style={{ opacity: 0.5 }} />
                </View>
                <Text className="text-typography-main text-lg font-bold">No projects available</Text>
                <Text className="text-typography-muted text-sm text-center px-10 mt-2">

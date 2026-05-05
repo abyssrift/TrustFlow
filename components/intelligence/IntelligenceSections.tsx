@@ -132,17 +132,17 @@ export const ArchivesSectionWeb = ({ reports, archives, search, activeSchema, on
               <Text className="text-white font-black uppercase tracking-widest text-xs">New Report Request</Text>
             </TouchableOpacity>
           </View>
-          <View className="flex-row flex-wrap gap-8">
+          <View className="flex-row flex-wrap gap-6">
             {reports.map((r: any, i: number) => (
-              <TouchableOpacity key={i} onPress={() => r.file_url && onDownload(r.file_url)} className="w-[calc(33.33%-22px)] bg-surface-card p-8 rounded-[32px] border border-surface-border premium-shadow hover:border-brand-primary transition-all">
-                <View className={`w-16 h-16 rounded-2xl items-center justify-center mb-6 ${r.status === 'completed' ? 'bg-state-success/10' : 'bg-state-info/10'}`}>
-                  <FontAwesome name="file-pdf-o" size={24} color={r.status === 'completed' ? 'rgb(var(--state-success))' : 'rgb(var(--brand-primary))'} />
+              <TouchableOpacity key={i} onPress={() => r.file_url && onDownload(r.file_url)} className="w-[calc(20%-20px)] bg-surface-card p-5 rounded-2xl border border-surface-border premium-shadow hover:border-brand-primary transition-all">
+                <View className={`w-10 h-10 rounded-xl items-center justify-center mb-4 ${r.status === 'completed' ? 'bg-state-success/10' : 'bg-state-info/10'}`}>
+                  <FontAwesome name="file-pdf-o" size={16} color={r.status === 'completed' ? 'rgb(var(--state-success))' : 'rgb(var(--brand-primary))'} />
                 </View>
-                <Text className="text-typography-main font-black text-xl mb-2">Audit Report #{r.id.substring(0, 8).toUpperCase()}</Text>
-                <View className="flex-row items-center justify-between mt-4 pt-4 border-t border-surface-border/50">
-                  <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest">{new Date(r.created_at).toLocaleDateString()}</Text>
-                  <View className={`px-3 py-1 rounded-full ${r.status === 'completed' ? 'bg-state-success/10' : 'bg-brand-primary/10'}`}>
-                    <Text className={`text-[9px] font-black uppercase ${r.status === 'completed' ? 'text-state-success' : 'text-brand-primary'}`}>{r.status}</Text>
+                <Text className="text-typography-main font-black text-sm mb-1" numberOfLines={1}>Audit Report #{r.id.substring(0, 8).toUpperCase()}</Text>
+                <View className="flex-row items-center justify-between mt-3 pt-3 border-t border-surface-border/50">
+                  <Text className="text-typography-muted text-[8px] font-bold uppercase tracking-widest">{new Date(r.created_at).toLocaleDateString()}</Text>
+                  <View className={`px-2 py-0.5 rounded-full ${r.status === 'completed' ? 'bg-state-success/10' : 'bg-brand-primary/10'}`}>
+                    <Text className={`text-[8px] font-black uppercase ${r.status === 'completed' ? 'text-state-success' : 'text-brand-primary'}`}>{r.status}</Text>
                   </View>
                 </View>
               </TouchableOpacity>
@@ -158,54 +158,54 @@ export const ArchivesSectionWeb = ({ reports, archives, search, activeSchema, on
                 <View className="mr-4">
                   <FontAwesome name="search" size={16} color="rgb(var(--text-dim))" />
                 </View>
-                <TextInput value={search} onChangeText={onSearch} placeholder="Search snapshots by ID, metadata, or title..." className="flex-1 text-typography-main font-bold outline-none" placeholderTextColor="rgb(var(--typography-muted))" />
+                <TextInput value={search} onChangeText={onSearch} placeholder="Search snapshots by ID, metadata, or title..." className="flex-1 text-typography-main font-bold outline-none" placeholderTextColor="rgb(var(--text-muted))" />
               </View>
             </View>
             <TouchableOpacity onPress={onRefresh} className="h-14 w-14 items-center justify-center bg-surface-card border border-surface-border rounded-2xl premium-shadow hover:border-brand-primary">
               <FontAwesome name="refresh" size={16} color="rgb(var(--brand-primary))" />
             </TouchableOpacity>
           </View>
-          <View className="flex-row flex-wrap gap-6">
+          <View className="flex-row flex-wrap gap-4">
             {archives.map((archive: any) => {
               const pipelineId = archive.metadata?.pipeline_id;
               const hasIntegrityIssue = pipelineId && !activeSchema.pipelines.has(pipelineId);
               return (
-                <View key={archive.id} className="w-[calc(25%-18px)] bg-surface-card p-6 rounded-3xl border border-surface-border premium-shadow">
-                  <View className="flex-row justify-between mb-6">
-                    <View className={`w-12 h-12 rounded-xl items-center justify-center ${archive.restored_at ? 'bg-state-success/10' : 'bg-surface-background'}`}>
-                      <FontAwesome name={archive.entity_type === 'project' ? 'briefcase' : 'tasks'} size={18} color={archive.restored_at ? 'rgb(var(--state-success))' : 'rgb(var(--brand-primary))'} />
+                <View key={archive.id} className="w-[calc(16.66%-14px)] bg-surface-card p-4 rounded-2xl border border-surface-border premium-shadow">
+                  <View className="flex-row justify-between mb-3">
+                    <View className={`w-9 h-9 rounded-lg items-center justify-center ${archive.restored_at ? 'bg-state-success/10' : 'bg-surface-background'}`}>
+                      <FontAwesome name={archive.entity_type === 'project' ? 'briefcase' : 'tasks'} size={14} color={archive.restored_at ? 'rgb(var(--state-success))' : 'rgb(var(--brand-primary))'} />
                     </View>
-                    <View className="flex-row gap-2">
+                    <View className="flex-row gap-1">
                        {hasIntegrityIssue && (
-                         <View className="bg-state-danger/10 px-2 py-1 rounded-lg">
-                           <FontAwesome name="warning" size={10} color="rgb(var(--state-danger))" />
+                         <View className="bg-state-danger/10 px-1.5 py-0.5 rounded-md">
+                           <FontAwesome name="warning" size={8} color="rgb(var(--state-danger))" />
                          </View>
                        )}
-                       <View className="bg-surface-background px-3 py-1 rounded-lg border border-surface-border">
-                          <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest">{archive.entity_type}</Text>
+                       <View className="bg-surface-background px-2 py-0.5 rounded-md border border-surface-border">
+                          <Text className="text-typography-muted text-[8px] font-black uppercase tracking-widest">{archive.entity_type}</Text>
                        </View>
                     </View>
                   </View>
-                  <Text className="text-typography-main font-black text-lg mb-4 h-14" numberOfLines={2}>
+                  <Text className="text-typography-main font-black text-xs mb-3 h-8" numberOfLines={2}>
                     {archive.metadata?.title || archive.metadata?.name || 'Untitled Snapshot'}
                   </Text>
-                  <View className="space-y-3 mb-6">
+                  <View className="space-y-2 mb-4">
                     <View className="flex-row justify-between">
-                       <Text className="text-typography-muted text-[10px] font-bold">Snapshot Date</Text>
-                       <Text className="text-typography-main text-[10px] font-black">{new Date(archive.archived_at).toLocaleDateString()}</Text>
+                       <Text className="text-typography-muted text-[8px] font-bold">Date</Text>
+                       <Text className="text-typography-main text-[8px] font-black">{new Date(archive.archived_at).toLocaleDateString()}</Text>
                     </View>
                     <View className="flex-row justify-between">
-                       <Text className="text-typography-muted text-[10px] font-bold">Integrity</Text>
-                       <Text className={`text-[10px] font-black ${hasIntegrityIssue ? 'text-state-danger' : 'text-state-success'}`}>{hasIntegrityIssue ? 'ORPHANED' : 'SECURE'}</Text>
+                       <Text className="text-typography-muted text-[8px] font-bold">Status</Text>
+                       <Text className={`text-[8px] font-black ${hasIntegrityIssue ? 'text-state-danger' : 'text-state-success'}`}>{hasIntegrityIssue ? 'FAIL' : 'OK'}</Text>
                     </View>
                   </View>
-                  <View className="flex-row gap-3 pt-6 border-t border-surface-border/50">
-                    <TouchableOpacity onPress={() => onViewSnapshot(archive)} className="flex-1 py-3 rounded-xl bg-surface-background border border-surface-border items-center">
-                       <Text className="text-typography-muted font-black uppercase tracking-widest text-[9px]">Inspect</Text>
+                  <View className="flex-row gap-2 pt-4 border-t border-surface-border/50">
+                    <TouchableOpacity onPress={() => onViewSnapshot(archive)} className="flex-1 py-2 rounded-lg bg-surface-background border border-surface-border items-center">
+                       <Text className="text-typography-muted font-black uppercase tracking-widest text-[8px]">Inspect</Text>
                     </TouchableOpacity>
                     {!archive.restored_at && !hasIntegrityIssue && hasPermission('archive.restore') && (
-                      <TouchableOpacity onPress={() => onRestore(archive)} className="flex-1 py-3 rounded-xl bg-brand-primary items-center">
-                         <Text className="text-white font-black uppercase tracking-widest text-[9px]">Restore</Text>
+                      <TouchableOpacity onPress={() => onRestore(archive)} className="flex-1 py-2 rounded-lg bg-brand-primary items-center">
+                         <Text className="text-white font-black uppercase tracking-widest text-[8px]">Restore</Text>
                       </TouchableOpacity>
                     )}
                   </View>

@@ -3,6 +3,14 @@ import { View, Text, TouchableOpacity, ScrollView, Switch, Platform } from 'reac
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '@/contexts/ThemeContext';
+import { cssInterop } from 'react-native-css-interop';
+
+cssInterop(FontAwesome, {
+  className: {
+    target: 'style',
+    nativeStyleToProp: { color: true, size: true },
+  },
+} as any);
 
 interface Props {
   onClose: () => void;
@@ -37,7 +45,7 @@ export default function KanbanPersonalizer({ onClose }: Props) {
       <Switch 
         value={value} 
         onValueChange={onToggle}
-        trackColor={{ false: '#334155', true: '#6366f1' }}
+        trackColor={{ false: 'rgb(var(--surface-border))', true: 'rgb(var(--brand-primary))' }}
       />
     </View>
   );
@@ -51,7 +59,7 @@ export default function KanbanPersonalizer({ onClose }: Props) {
             <Text className="text-typography-muted text-[10px] uppercase font-bold">Personalize your workspace</Text>
           </View>
           <TouchableOpacity onPress={onClose} className="p-2 bg-surface-overlay rounded-full">
-            <FontAwesome name="times" size={16} color="#94a3b8" />
+            <FontAwesome name="times" size={16} className="text-typography-muted" />
           </TouchableOpacity>
         </View>
 
@@ -64,7 +72,7 @@ export default function KanbanPersonalizer({ onClose }: Props) {
               onPress={handlePickImage}
               className="w-20 h-28 rounded-xl border border-dashed border-surface-border items-center justify-center bg-surface-overlay"
              >
-                <FontAwesome name="upload" size={20} color="#64748b" />
+                <FontAwesome name="upload" size={20} className="text-typography-dim" />
                 <Text className="text-typography-muted text-[8px] mt-2 font-bold">Upload</Text>
              </TouchableOpacity>
 
@@ -164,3 +172,4 @@ export default function KanbanPersonalizer({ onClose }: Props) {
     </View>
   );
 }
+

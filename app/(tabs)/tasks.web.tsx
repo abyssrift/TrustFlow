@@ -11,8 +11,16 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
+import { cssInterop } from 'react-native-css-interop';
+
+cssInterop(FontAwesome, {
+  className: {
+    target: 'style',
+    nativeStyleToProp: { color: true, size: true },
+  },
+} as any);
 import {
-    ActivityIndicator, Alert,
+    ActivityIndicator,
     Image,
     Platform,
     ScrollView,
@@ -88,6 +96,7 @@ export function TasksScreenWeb() {
   // Archival State
   const [archiveModal, setArchiveModal] = useState<{ visible: boolean, taskId: string | null }>({ visible: false, taskId: null });
   const [archiving, setArchiving] = useState(false);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
   
   const { kanban, theme: activeTheme } = useTheme();
   const { width } = useWindowDimensions();
@@ -255,7 +264,8 @@ export function TasksScreenWeb() {
 
   const handleCreateTask = () => {
     if (!hasPermission('task.create')) {
-      Alert.alert('Permission Denied', 'You do not have administrative clearance to initialize tasks.');
+      setArchiveError('You do not have permission to create tasks.');
+      setTimeout(() => setArchiveError(null), 6000);
       return;
     }
     setShowCreateModal(true);
@@ -278,11 +288,9 @@ export function TasksScreenWeb() {
       setArchiveModal({ visible: false, taskId: null });
       fetchData();
     } catch (err: any) {
-      if (Platform.OS === 'web') {
-        alert('Archival Failed: ' + err.message);
-      } else {
-        Alert.alert('Archival Failed', err.message);
-      }
+      setArchiveModal({ visible: false, taskId: null });
+      setArchiveError(err.message || 'Could not archive task.');
+      setTimeout(() => setArchiveError(null), 8000);
     } finally {
       setArchiving(false);
     }
@@ -290,10 +298,10 @@ export function TasksScreenWeb() {
 
   const getPriorityInfo = (priority: string) => {
     switch (priority) {
-      case 'urgent': return { color: 'rgb(var(--state-danger))', label: 'Urgent' };
-      case 'high': return { color: 'rgb(var(--state-warning))', label: 'High' };
-      case 'low': return { color: 'rgb(var(--state-success))', label: 'Low' };
-      default: return { color: 'rgb(var(--text-muted))', label: 'Normal' };
+      case 'urgent': return { textClass: 'text-state-danger', label: 'Urgent' };
+      case 'high': return { textClass: 'text-state-warning', label: 'High' };
+      case 'low': return { textClass: 'text-state-success', label: 'Low' };
+      default: return { textClass: 'text-typography-muted', label: 'Normal' };
     }
   };
 
@@ -331,7 +339,7 @@ export function TasksScreenWeb() {
         <View className="flex-row items-center justify-between mb-3">
           <View className="flex-row items-center gap-2">
             <View className="bg-surface-background px-3 py-1 rounded-lg border border-surface-border">
-              <Text style={{ color: prio.color }} className="text-[10px] font-black uppercase tracking-widest">
+              <Text className={`${prio.textClass} text-[10px] font-black uppercase tracking-widest`}>
                 {prio.label}
               </Text>
             </View>
@@ -368,7 +376,8 @@ export function TasksScreenWeb() {
                 onPress={() => {
                   const isCoolingDown = lastStoppedAt && (Date.now() - new Date(lastStoppedAt).getTime() < 35000);
                   if (activeSession?.task_id === task.id || isCoolingDown) {
-                    Alert.alert('Archival Locked', 'System is finalizing work logs. Please wait 30 seconds after stopping your timer before moving to cold storage.');
+                    setArchiveError('System is finalizing work logs. Please wait 30 seconds after stopping your timer before archiving.');
+                    setTimeout(() => setArchiveError(null), 6000);
                     return;
                   }
                   setArchiveModal({ visible: true, taskId: task.id });
@@ -411,6 +420,7 @@ export function TasksScreenWeb() {
       </TouchableOpacity>
     );
   };
+
 
   return (
     <View className="flex-1 bg-surface-background">
@@ -516,7 +526,7 @@ export function TasksScreenWeb() {
             <View className="flex-1 items-center justify-center">
               <View className="bg-surface-card p-12 rounded-[3rem] border border-surface-border items-center max-w-[600px] premium-shadow">
                 <View className="w-20 h-20 bg-brand-primary/10 rounded-full items-center justify-center mb-6">
-                  <FontAwesome name="sitemap" size={32} color="rgb(var(--brand-primary))" />
+                  <FontAwesome name="sitemap" size={32} className="text-brand-primary" />
                 </View>
                 
                 {hasPermission('pipeline.edit') ? (
@@ -657,6 +667,16 @@ export function TasksScreenWeb() {
           fetchData();
         }} 
       />
+
+      {archiveError && (
+        <View className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-state-danger/10 border border-state-danger/30 rounded-2xl px-6 py-4 flex-row items-center gap-3 premium-shadow">
+          <FontAwesome name="exclamation-circle" size={14} color="rgb(var(--state-danger))" />
+          <Text className="text-state-danger font-bold text-sm">
+            <Text className="font-black uppercase tracking-wider">Archival Failed: </Text>
+            {archiveError}
+          </Text>
+        </View>
+      )}
 
       <ConfirmModal
         visible={archiveModal.visible}

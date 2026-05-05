@@ -2,6 +2,7 @@ import React from 'react';
 import { ActivityIndicator, Text, TouchableOpacity, View, Platform } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
+import { cssInterop } from 'react-native-css-interop';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import { useTimer } from '@/contexts/TimerContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,11 +11,18 @@ import ConfirmModal from '@/components/common/ConfirmModal';
 import ManualTimeModal from '@/components/common/ManualTimeModal';
 import { supabase } from '@/lib/supabase';
 
-const PRIORITY_MAP: Record<string, { color: string; label: string }> = {
-  urgent: { color: '#ef4444', label: 'URGENT' },
-  high:   { color: '#f59e0b', label: 'HIGH' },
-  medium: { color: '#94a3b8', label: 'NORMAL' },
-  low:    { color: '#22c55e', label: 'LOW' },
+cssInterop(FontAwesome, {
+  className: {
+    target: 'style',
+    nativeStyleToProp: { color: true, size: true },
+  },
+} as any);
+
+const PRIORITY_MAP: Record<string, { textClass: string; label: string }> = {
+  urgent: { textClass: 'text-state-danger', label: 'URGENT' },
+  high:   { textClass: 'text-state-warning', label: 'HIGH' },
+  medium: { textClass: 'text-typography-muted', label: 'NORMAL' },
+  low:    { textClass: 'text-state-success', label: 'LOW' },
 };
 
 export default function TaskHeader() {
@@ -50,7 +58,7 @@ export default function TaskHeader() {
   if (!data) return null;
 
   const { task, current_stage } = data;
-  const prio = PRIORITY_MAP[task.priority] || PRIORITY_MAP.medium;
+  const prio = PRIORITY_MAP[task.priority?.toLowerCase()] || PRIORITY_MAP.medium;
   const canArchive = data.permissions.is_owner || hasPermission('archive:create') || hasPermission('pipeline.edit');
 
   const handleBack = () => {
@@ -130,13 +138,13 @@ export default function TaskHeader() {
           onPress={handleBack}
           className="mr-4 bg-surface-background p-2 rounded-xl border border-surface-border active:opacity-50"
         >
-          <FontAwesome name="chevron-left" size={16} color="#94a3b8" />
+          <FontAwesome name="chevron-left" size={16} className="text-typography-muted" />
         </TouchableOpacity>
 
         <View className="flex-1 flex-row items-center flex-wrap gap-2">
           {/* Priority badge */}
           <View className="bg-surface-background px-2 py-0.5 rounded-md border border-surface-border">
-            <Text style={{ color: prio.color }} className="text-[9px] font-black uppercase tracking-tighter">
+            <Text className={`${prio.textClass} text-[9px] font-black uppercase tracking-tighter`}>
               {prio.label}
             </Text>
           </View>
@@ -179,9 +187,10 @@ export default function TaskHeader() {
               <Text className="text-typography-dim text-[10px] font-bold uppercase tracking-wider">{task.category}</Text>
             )}
             {data.pipeline && (
-              <Text className="text-typography-dim text-[10px] font-bold">
-                <FontAwesome name="code-fork" size={9} color="#64748b" /> {data.pipeline.name}
-              </Text>
+              <View className="flex-row items-center">
+                <FontAwesome name="code-fork" size={9} className="text-typography-dim" />
+                <Text className="text-typography-dim text-[10px] font-bold ml-1">{data.pipeline.name}</Text>
+              </View>
             )}
           </View>
         </View>
@@ -203,7 +212,7 @@ export default function TaskHeader() {
                   <ActivityIndicator size="small" color="rgb(var(--brand-primary))" />
                 ) : (
                   <>
-                    <FontAwesome name={(a.icon as any) || style.icon} size={10} color={undefined} />
+                    <FontAwesome name={(a.icon as any) || style.icon} size={10} className={style.text} />
                     <Text className={`${style.text} text-[10px] font-black uppercase tracking-wider ml-2`}>{a.label}</Text>
                   </>
                 )}
@@ -221,7 +230,7 @@ export default function TaskHeader() {
                 <ActivityIndicator size="small" color="rgb(var(--text-muted))" />
               ) : (
                 <>
-                  <FontAwesome name="archive" size={10} color="rgb(var(--text-muted))" />
+                  <FontAwesome name="archive" size={10} className="text-typography-muted" />
                   <Text className="text-typography-muted text-[10px] font-black uppercase tracking-wider ml-2">Archive</Text>
                 </>
               )}
@@ -266,3 +275,4 @@ export default function TaskHeader() {
     </View>
   );
 }
+

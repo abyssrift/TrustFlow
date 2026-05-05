@@ -2,18 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
-html, body {
+html, body, #root {
   background-color: rgb(var(--surface-background)) !important;
+  color: rgb(var(--text-main));
   min-height: 100vh;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-#root {
-  background-color: rgb(var(--surface-background)) !important;
-  min-height: 100vh;
   display: flex;
   flex-direction: column;
 }
@@ -31,7 +25,7 @@ html, body {
     --surface-card: 15 23 42;       
     --surface-overlay: 30 41 59;    
     --surface-border: 51 65 85;     
-    --surface-glass: 30 41 59 / 0.5;
+    --surface-glass: 30 41 59;
 
     /* Personalization Tokens */
     --radius-base: 1rem;           /* 2xl default */
@@ -43,7 +37,6 @@ html, body {
     /* Interactive Brand States */
     --brand-primary-hover: 79 70 229;  
     --brand-primary-active: 67 56 202; 
-    --brand-primary-dim: 99 102 241 / 0.15;
 
     /* Typography Defaults (Indigo Night Tint) */
     --text-main: 248 250 252;
@@ -56,59 +49,54 @@ html, body {
     --state-warning: 251 191 36;
     --state-danger: 239 68 68;
     --state-info: 59 130 246;
-
-    /* Icon Tokens */
-    --icon-primary: var(--brand-primary);
-    --icon-muted: var(--brand-primary) / 0.5;
-    --icon-accent: var(--brand-accent);
   }
 
   :root[data-theme='emerald'] {
     --brand-primary: 16 185 129;   /* emerald-500 */
     --brand-primary-hover: 5 150 105;
     --brand-primary-active: 4 120 87;
-    --brand-primary-dim: 16 185 129 / 0.15;
     --brand-accent: 190 242 100;   /* lime-300 */
 
     --surface-background: 6 9 7;   /* very dark emerald */
     --surface-card: 10 15 12;      
     --surface-overlay: 20 30 24;   
-    --surface-border: 22 101 52 / 0.3; 
+    --surface-border: 22 101 52; 
 
     --text-main: 236 253 245;      /* emerald-50 tint */
     --text-muted: 110 231 183;     /* emerald-300 tint */
+    --text-dim: 52 211 153;
   }
 
   :root[data-theme='amber'] {
     --brand-primary: 245 158 11;   /* amber-500 */
     --brand-primary-hover: 217 119 6;
     --brand-primary-active: 180 83 9;
-    --brand-primary-dim: 245 158 11 / 0.15;
     --brand-accent: 14 165 233;    /* sky-500 (contrast) */
 
     --surface-background: 12 10 9;  /* stone-950 */
     --surface-card: 28 25 23;      /* stone-900 */
     --surface-overlay: 41 37 36;   /* stone-800 */
-    --surface-border: 120 113 108 / 0.3;
+    --surface-border: 120 113 108;
 
     --text-main: 255 251 235;      /* amber-50 tint */
     --text-muted: 252 211 77;      /* amber-300 tint */
+    --text-dim: 217 119 6;
   }
 
   :root[data-theme='amethyst'] {
     --brand-primary: 168 85 247;   /* purple-500 */
     --brand-primary-hover: 147 51 234;
     --brand-primary-active: 126 34 206;
-    --brand-primary-dim: 168 85 247 / 0.15;
     --brand-accent: 34 211 238;    /* cyan-400 (cyber) */
 
     --surface-background: 10 10 12; /* deep neutral */
     --surface-card: 18 18 22;      
     --surface-overlay: 30 30 36;   
-    --surface-border: 107 33 168 / 0.3;
+    --surface-border: 107 33 168;
 
     --text-main: 250 245 255;      /* purple-50 tint */
     --text-muted: 216 180 254;     /* purple-300 tint */
+    --text-dim: 168 85 247;
   }
 
 
@@ -127,19 +115,8 @@ html, body {
     --radius-input: 1rem;
   }
 
-  /* Example setup if Light Mode is needed later */
-  /* @media (prefers-color-scheme: light) {
-    :root {
-      --surface-background: 248 250 252;
-      --surface-card: 255 255 255;
-      --surface-border: 226 232 240;
-      --text-main: 15 23 42;
-      --text-muted: 71 85 105;
-      --text-label: 51 65 85;
-    }
-  } */
   .glass-card {
-    @apply bg-surface-card/60 border border-surface-border/50;
+    @apply bg-surface-card/60 border border-surface-border/30;
     backdrop-filter: blur(12px);
   }
 
@@ -184,3 +161,4 @@ html, body {
     @apply items-center justify-center;
   }
 }
+
