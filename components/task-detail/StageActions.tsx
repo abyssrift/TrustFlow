@@ -139,10 +139,10 @@ export default function StageActions() {
   const anyActionRequiresTimer = data.stage_actions.some(a => a.requires_timer && a.can_perform && a.precondition_met);
   const canStart = (data.permissions.is_assigned || data.permissions.is_owner || data.permissions.is_manager);
 
-  const handleAction = async (action: StageActionData) => {
+  const handleAction = async (action: StageActionData, skipTimerCheck: boolean = false) => {
     try {
       setLoadingActionId(action.id);
-      
+
       if (activeSession?.task_id === data.task.id) {
         await stopWork();
       }
@@ -153,7 +153,7 @@ export default function StageActions() {
         // Pre-upload timer check — prevents partial file uploads when gate would block.
         // Uses stale work_sessions data + elapsedLocal (the just-stopped session's time).
         const stage = data.current_stage;
-        if (stage?.requires_timer && !stage?.is_initial && !data.permissions.is_owner && !manualTimeLogged) {
+        if (stage?.requires_timer && !stage?.is_initial && !data.permissions.is_owner && !manualTimeLogged && !skipTimerCheck) {
           const completedSeconds = (data.work_sessions || [])
             .filter((s: any) => s.status === 'completed')
             .reduce((sum: number, s: any) => sum + (s.total_seconds_spent || 0), 0);
