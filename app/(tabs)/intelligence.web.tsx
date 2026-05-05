@@ -1,17 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, RefreshControl, Platform, Modal, TextInput } from 'react-native';
-import { FontAwesome } from '@expo/vector-icons';
-import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/AuthContext';
-import * as Linking from 'expo-linking';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useDebounce } from '@/hooks/useDebounce';
 import ConfirmModal from '@/components/common/ConfirmModal';
+import { useAuth } from '@/contexts/AuthContext';
+import { useDebounce } from '@/hooks/useDebounce';
+import { supabase } from '@/lib/supabase';
+import { FontAwesome } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Linking from 'expo-linking';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 import { SectionToggle } from '@/components/intelligence/IntelligenceCommon';
-import { RadarSectionWeb, TargetsSectionWeb, ArchivesSectionWeb } from '@/components/intelligence/IntelligenceSections';
-import { TargetCreationModal, ReportConfigModal, WidgetConfigModal, SnapshotDetailModal } from '@/components/intelligence/IntelligenceModals';
+import { ReportConfigModal, SnapshotDetailModal, TargetCreationModal, WidgetConfigModal } from '@/components/intelligence/IntelligenceModals';
+import { ArchivesSectionWeb, RadarSectionWeb, TargetsSectionWeb } from '@/components/intelligence/IntelligenceSections';
 
 // --- MAIN SCREEN COMPONENT ---
 
@@ -274,7 +274,7 @@ export default function IntelligenceScreenWeb() {
 
   return (
     <View className="flex-1 bg-surface-background p-10">
-      <View className="max-w-[1600px] mx-auto w-full">
+      <View className="max-w-[1600px] mx-auto w-full flex-1">
         {/* Header */}
         <View className="flex-row items-center justify-between mb-12">
           <View>
@@ -301,78 +301,80 @@ export default function IntelligenceScreenWeb() {
 
         <SectionToggle active={activeSection} onSelect={setActiveSection} hasPermission={hasPermission} />
 
-        {loading ? (
-          <View className="py-40 items-center justify-center">
-            <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
-          </View>
-        ) : pipelines.length === 0 ? (
-          <View className="py-20 items-center justify-center">
-            <View className="bg-surface-card p-12 rounded-[3rem] border border-surface-border items-center max-w-[600px] premium-shadow">
-              <View className="w-20 h-20 bg-brand-primary/10 rounded-full items-center justify-center mb-6">
-                <FontAwesome name="line-chart" size={32} color="rgb(var(--brand-primary))" />
-              </View>
-              
-              {hasPermission('pipeline.edit') ? (
-                <>
-                  <Text className="text-typography-main text-3xl font-black mb-2 text-center">Intelligence Unavailable</Text>
-                  <Text className="text-typography-muted text-center mb-8 leading-relaxed">
-                    No workflow pipelines found. Intelligence analytics and benchmarking require at least one active pipeline to aggregate data.
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => router.push('/admin/pipelines')}
-                    className="bg-brand-primary px-10 py-4 rounded-2xl active:scale-95 transition-all"
-                  >
-                    <Text className="text-typography-main font-black uppercase tracking-widest text-xs">Configure Pipelines</Text>
-                  </TouchableOpacity>
-                </>
-              ) : (
-                <View className="bg-state-info-dim border border-state-info/20 p-8 rounded-3xl w-full">
-                  <View className="flex-row items-start">
-                    <FontAwesome name="info-circle" size={20} color="rgb(var(--state-info))" style={{ marginTop: 4 }} />
-                    <View className="ml-5 flex-1">
-                       <Text className="text-typography-main text-lg font-black mb-1">Access Restricted</Text>
-                       <Text className="text-typography-muted text-sm font-bold leading-relaxed">
-                         Either no pipelines exist now, or they're not privileged enough to see them, contact company Admin
-                       </Text>
+        <ScrollView className="flex-1" contentContainerClassName="pb-16 flex-grow" showsVerticalScrollIndicator={false}>
+          {loading ? (
+            <View className="py-40 items-center justify-center">
+              <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
+            </View>
+          ) : pipelines.length === 0 ? (
+            <View className="py-20 items-center justify-center">
+              <View className="bg-surface-card p-12 rounded-[3rem] border border-surface-border items-center max-w-[600px] premium-shadow">
+                <View className="w-20 h-20 bg-brand-primary/10 rounded-full items-center justify-center mb-6">
+                  <FontAwesome name="line-chart" size={32} color="rgb(var(--brand-primary))" />
+                </View>
+                
+                {hasPermission('pipeline.edit') ? (
+                  <>
+                    <Text className="text-typography-main text-3xl font-black mb-2 text-center">Intelligence Unavailable</Text>
+                    <Text className="text-typography-muted text-center mb-8 leading-relaxed">
+                      No workflow pipelines found. Intelligence analytics and benchmarking require at least one active pipeline to aggregate data.
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => router.push('/admin/pipelines')}
+                      className="bg-brand-primary px-10 py-4 rounded-2xl active:scale-95 transition-all"
+                    >
+                      <Text className="text-typography-main font-black uppercase tracking-widest text-xs">Configure Pipelines</Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <View className="bg-state-info-dim border border-state-info/20 p-8 rounded-3xl w-full">
+                    <View className="flex-row items-start">
+                      <FontAwesome name="info-circle" size={20} color="rgb(var(--state-info))" style={{ marginTop: 4 }} />
+                      <View className="ml-5 flex-1">
+                         <Text className="text-typography-main text-lg font-black mb-1">Access Restricted</Text>
+                         <Text className="text-typography-muted text-sm font-bold leading-relaxed">
+                           Either no pipelines exist now, or they're not privileged enough to see them, contact company Admin
+                         </Text>
+                      </View>
                     </View>
                   </View>
-                </View>
+                )}
+              </View>
+            </View>
+          ) : (
+            <View>
+              {activeSection === 'radar' && (
+                <RadarSectionWeb
+                  data={data}
+                  activeWidgets={activeWidgets}
+                  onEditWidgets={() => setShowWidgetModal(true)}
+                />
+              )}
+              {activeSection === 'targets' && (
+                <TargetsSectionWeb
+                  targets={targets}
+                  onUpdate={handleUpdateTarget}
+                  onNew={() => setShowTargetModal(true)}
+                />
+              )}
+              {activeSection === 'archives' && (
+                <ArchivesSectionWeb
+                  reports={reports}
+                  archives={coldArchives}
+                  search={archiveSearch}
+                  activeSchema={activeSchema}
+                  onSearch={setArchiveSearch}
+                  onDownload={handleDownloadReport}
+                  onNew={() => setShowReportModal(true)}
+                  onRefresh={fetchColdArchives}
+                  onRestore={(a: any) => setRestoreModal({ visible: true, archive: a })}
+                  onViewSnapshot={(a: any) => setSnapshotModal({ visible: true, data: a.snapshot })}
+                  hasPermission={hasPermission}
+                />
               )}
             </View>
-          </View>
-        ) : (
-          <View>
-            {activeSection === 'radar' && (
-              <RadarSectionWeb
-                data={data}
-                activeWidgets={activeWidgets}
-                onEditWidgets={() => setShowWidgetModal(true)}
-              />
-            )}
-            {activeSection === 'targets' && (
-              <TargetsSectionWeb
-                targets={targets}
-                onUpdate={handleUpdateTarget}
-                onNew={() => setShowTargetModal(true)}
-              />
-            )}
-            {activeSection === 'archives' && (
-              <ArchivesSectionWeb
-                reports={reports}
-                archives={coldArchives}
-                search={archiveSearch}
-                activeSchema={activeSchema}
-                onSearch={setArchiveSearch}
-                onDownload={handleDownloadReport}
-                onNew={() => setShowReportModal(true)}
-                onRefresh={fetchColdArchives}
-                onRestore={(a: any) => setRestoreModal({ visible: true, archive: a })}
-                onViewSnapshot={(a: any) => setSnapshotModal({ visible: true, data: a.snapshot })}
-                hasPermission={hasPermission}
-              />
-            )}
-          </View>
-        )}
+          )}
+        </ScrollView>
       </View>
 
       <ReportConfigModal

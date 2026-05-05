@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, RefreshControl, Platform, Modal, TextInput } from 'react-native';
-import { FontAwesome } from '@expo/vector-icons';
-import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/AuthContext';
-import * as Linking from 'expo-linking';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useLocalSearchParams, useRouter } from 'expo-router';
 import ConfirmModal from '@/components/common/ConfirmModal';
+import { CircularTargetCardMobile } from '@/components/intelligence/IntelligenceCommon';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
+import { FontAwesome } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Linking from 'expo-linking';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Modal, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 // --- UTILITIES & SUB-COMPONENTS (Defined BEFORE main screen to avoid non-hoisted variable errors) ---
 
@@ -253,45 +254,23 @@ const RadarSection = ({ data, activeWidgets, onEditWidgets }: any) => {
   );
 };
 
-const TargetsSection = ({ targets, onUpdate, onNew }: any) => (
-  <View>
-    <TouchableOpacity onPress={onNew} className="bg-surface-card p-6 rounded-3xl border border-dashed border-brand-primary/40 mb-6 items-center flex-row justify-center">
-      <FontAwesome name="plus-circle" size={16} color="rgb(var(--brand-primary))" className="mr-3" />
-      <Text className="text-brand-primary font-bold text-sm">Initiate Benchmark Objective</Text>
-    </TouchableOpacity>
-    {targets.map((t: any, i: number) => (
-      <View key={i} className="bg-surface-card p-5 rounded-2xl border border-surface-border mb-4">
-        <View className="flex-row justify-between mb-4">
-          <View>
-            <Text className="text-typography-main font-bold text-base">{t.stage?.name}</Text>
-            <Text className="text-typography-muted text-[10px] uppercase tracking-widest">
-              {t.target_type === 'volume' ? 'Volume Tracking Quota' : 'SLA Performance Goal'}
-            </Text>
-          </View>
-          <TouchableOpacity onPress={() => Alert.prompt('Active Goal', 'Update target value:', v => onUpdate(t.id, t.target_type === 'volume' ? 'target_quantity' : 'target_active_seconds', v))} className="bg-surface-background p-2 rounded-lg">
-            <FontAwesome name="edit" size={12} color="rgb(var(--text-muted))" />
-          </TouchableOpacity>
-        </View>
-        {t.target_type === 'volume' ? (
-          <View>
-            <View className="flex-row justify-between mb-2">
-              <Text className="text-typography-muted text-[10px] font-bold uppercase">Progress: {t.current_count || 0} / {t.target_quantity}</Text>
-              <Text className="text-typography-muted text-[10px] font-bold uppercase">Deadline: {t.target_deadline ? new Date(t.target_deadline).toLocaleDateString() : 'None'}</Text>
-            </View>
-            <View className="h-1.5 bg-surface-background rounded-full overflow-hidden">
-              <View className="h-full bg-brand-primary" style={{ width: `${Math.min(((t.current_count || 0) / (t.target_quantity || 1)) * 100, 100)}%` }} />
-            </View>
-          </View>
-        ) : (
-          <View className="flex-row gap-8">
-            <View><Text className="text-typography-muted text-xs mb-1">Target</Text><Text className="text-brand-primary font-bold">{Math.round((t.target_active_seconds || 0) / 60)}m</Text></View>
-            <View><Text className="text-typography-muted text-xs mb-1">Max Life</Text><Text className="text-typography-main font-bold">{Math.round((t.target_lifecycle_seconds || 0) / 3600)}h</Text></View>
-          </View>
-        )}
-      </View>
-    ))}
-  </View>
-);
+const TargetsSection = ({ targets, onUpdate, onNew }: any) => {
+  const handleEditTarget = (target: any) => {
+    Alert.prompt('Active Goal', 'Update target value:', v => onUpdate(target.id, target.target_type === 'volume' ? 'target_quantity' : 'target_active_seconds', v));
+  };
+
+  return (
+    <View>
+      <TouchableOpacity onPress={onNew} className="bg-surface-card p-6 rounded-3xl border border-dashed border-brand-primary/40 mb-6 items-center flex-row justify-center">
+        <FontAwesome name="plus-circle" size={16} color="rgb(var(--brand-primary))" className="mr-3" />
+        <Text className="text-brand-primary font-bold text-sm">Initiate Benchmark Objective</Text>
+      </TouchableOpacity>
+      {targets.map((t: any, i: number) => (
+        <CircularTargetCardMobile key={i} target={t} onEdit={() => handleEditTarget(t)} />
+      ))}
+    </View>
+  );
+};
 
 const ArchivesSection = ({ reports, onDownload, onNew, coldArchives, activeSchema, currentSubSection, setSubSection, onSelectArchive, hasPermission }: any) => (
   <View>

@@ -1,23 +1,28 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { 
-  View, Text, ScrollView, RefreshControl, 
-  TouchableOpacity, ActivityIndicator, Alert, 
-  useWindowDimensions, Platform 
-} from 'react-native';
-import HorizontalScroll from '@/components/common/HorizontalScroll';
-import { supabase } from '@/lib/supabase';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useAuth } from '@/contexts/AuthContext';
-import TaskCardActions, { type ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
-import { useTheme } from '@/contexts/ThemeContext';
-import KanbanPersonalizer from '@/components/kanban/KanbanPersonalizer';
-import { Image } from 'react-native';
-import { getPrimaryColor, getMutedColor } from '@/lib/themeColors';
-import CreateTaskSheet from '@/components/tasks/CreateTaskSheet';
-import { TaskCreationProvider, useTaskCreation } from '@/contexts/TaskCreationContext';
-import AssignmentModal from '@/components/tasks/AssignmentModal';
 import ConfirmModal from '@/components/common/ConfirmModal';
+import HorizontalScroll from '@/components/common/HorizontalScroll';
+import KanbanPersonalizer from '@/components/kanban/KanbanPersonalizer';
+import TaskCardActions, { type ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
+import AssignmentModal from '@/components/tasks/AssignmentModal';
+import CreateTaskSheet from '@/components/tasks/CreateTaskSheet';
+import { useAuth } from '@/contexts/AuthContext';
+import { TaskCreationProvider } from '@/contexts/TaskCreationContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import { supabase } from '@/lib/supabase';
+import { getPrimaryColor } from '@/lib/themeColors';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+    ActivityIndicator, Alert,
+    Image,
+    Platform,
+    ScrollView,
+    Text,
+    TouchableOpacity,
+    useWindowDimensions,
+    View
+} from 'react-native';
 
 type Stage = {
   id: string;
@@ -98,9 +103,21 @@ function TasksScreen() {
       let pipelineData: any = null;
 
       if (!targetPipelineId) {
-        const { data: pDefault } = await supabase.from('pipelines').select('id, name, task_visibility_mode').eq('is_default', true).limit(1).single();
-        targetPipelineId = pDefault?.id;
-        pipelineData = pDefault;
+        // Try to restore from storage
+        const savedPipelineId = await AsyncStorage.getItem('@TrustFlow_tasks_pipeline');
+        if (savedPipelineId) {
+          const { data: pSaved } = await supabase.from('pipelines').select('id, name, task_visibility_mode').eq('id', savedPipelineId).single();
+          if (pSaved) {
+            targetPipelineId = pSaved.id;
+            pipelineData = pSaved;
+          }
+        }
+        // Fall back to default if saved pipeline not found
+        if (!targetPipelineId) {
+          const { data: pDefault } = await supabase.from('pipelines').select('id, name, task_visibility_mode').eq('is_default', true).limit(1).single();
+          targetPipelineId = pDefault?.id;
+          pipelineData = pDefault;
+        }
       } else {
         const { data: pSpecific } = await supabase.from('pipelines').select('id, name, task_visibility_mode').eq('id', targetPipelineId).single();
         targetPipelineId = pSpecific?.id;
@@ -610,18 +627,10 @@ function TasksScreen() {
                       <TouchableOpacity 
                         key={p.id} 
                         className="py-4 border-b border-surface-border"
-                        onPress={() => {
-                           setPipeline(p);
-                           setLoading(true);
+                        onPress={async () => {
+                           await AsyncStorage.setItem('@TrustFlow_tasks_pipeline', p.id);
+                           router.setParams({ pipelineId: p.id });
                            setShowPipelinePicker(false);
-                           // Force refresh with specific ID
-                           supabase.from('pipeline_stages').select('*').eq('pipeline_id', p.id).order('position').then(res => {
-                              setStages(res.data || []);
-                              supabase.from('tasks').select('*').eq('pipeline_id', p.id).then(tres => {
-                                 setTasks(tres.data || []);
-                                 setLoading(false);
-                              });
-                           });
                         }}
                       >
                          <Text className="text-typography-main font-bold">{p.name}</Text>

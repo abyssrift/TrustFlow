@@ -1,14 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, TextInput } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
-import { KPIBoxWeb } from './IntelligenceCommon';
-import { 
-  SLARiskAlertWeb, 
-  StageDurationChartWeb, 
-  ConversionFunnelChartWeb, 
-  WorkDistributionChartWeb, 
-  QualityLeaderboardWeb, 
-  TrendComparisonCardsWeb 
+import React, { useEffect, useState } from 'react';
+import { Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { CircularTargetCard, KPIBoxWeb } from './IntelligenceCommon';
+import {
+    ConversionFunnelChartWeb,
+    QualityLeaderboardWeb,
+    SLARiskAlertWeb,
+    StageDurationChartWeb,
+    TrendComparisonCardsWeb,
+    WorkDistributionChartWeb
 } from './RadarWidgets';
 
 export const RadarSectionWeb = ({ data, activeWidgets, onEditWidgets }: any) => {
@@ -64,79 +64,36 @@ export const RadarSectionWeb = ({ data, activeWidgets, onEditWidgets }: any) => 
   );
 };
 
-export const TargetsSectionWeb = ({ targets, onUpdate, onNew }: any) => (
-  <View>
-    <View className="flex-row justify-between items-center mb-10">
-      <Text className="text-typography-main font-black text-3xl tracking-tight">Active Objectives</Text>
-      <TouchableOpacity
-        onPress={onNew}
-        className="bg-brand-primary px-8 py-4 rounded-2xl premium-shadow flex-row items-center"
-      >
-        <FontAwesome name="plus" size={14} color="white" className="mr-3" />
-        <Text className="text-white font-black uppercase tracking-widest text-xs">New Benchmark</Text>
-      </TouchableOpacity>
-    </View>
-    <View className="flex-row flex-wrap gap-8">
-      {targets.map((t: any, i: number) => (
-        <View key={i} className="w-[calc(50%-16px)] bg-surface-card p-8 rounded-[32px] border border-surface-border premium-shadow">
-          <View className="flex-row justify-between mb-8">
-            <View>
-              <Text className="text-typography-main font-black text-2xl tracking-tight mb-2">{t.stage?.name}</Text>
-              <View className="bg-surface-background px-4 py-1.5 rounded-full border border-surface-border inline-flex">
-                <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">
-                  {t.target_type === 'volume' ? 'Volume Quota' : 'SLA Target'}
-                </Text>
-              </View>
-            </View>
-            <TouchableOpacity
-              onPress={() => {
-                const newVal = window.prompt('Enter new target value:', t.target_type === 'volume' ? t.target_quantity : t.target_active_seconds);
-                if (newVal) onUpdate(t.id, t.target_type === 'volume' ? 'target_quantity' : 'target_active_seconds', newVal);
-              }}
-              className="w-12 h-12 rounded-2xl bg-surface-background border border-surface-border items-center justify-center hover:border-brand-primary transition-colors"
-            >
-              <FontAwesome name="pencil" size={16} className="text-typography-dim" />
-            </TouchableOpacity>
+export const TargetsSectionWeb = ({ targets, onUpdate, onNew }: any) => {
+  const handleEditTarget = (target: any) => {
+    const newVal = window.prompt('Enter new target value:', target.target_type === 'volume' ? target.target_quantity : target.target_active_seconds);
+    if (newVal) onUpdate(target.id, target.target_type === 'volume' ? 'target_quantity' : 'target_active_seconds', newVal);
+  };
+
+  return (
+    <View>
+      <View className="flex-row justify-between items-center mb-10">
+        <Text className="text-typography-main font-black text-3xl tracking-tight">Active Objectives</Text>
+        <TouchableOpacity
+          onPress={onNew}
+          className="bg-brand-primary px-8 py-4 rounded-2xl premium-shadow flex-row items-center"
+        >
+          <View className="mr-3">
+            <FontAwesome name="plus" size={14} color="white" />
           </View>
-          {t.target_type === 'volume' ? (
-            <View>
-              <View className="flex-row justify-between mb-4 items-end">
-                <View>
-                  <Text className="text-typography-main text-3xl font-black">{t.current_count || 0} / {t.target_quantity}</Text>
-                  <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest mt-1">Units Processed</Text>
-                </View>
-                <View className="items-end">
-                  <Text className="text-typography-main font-black">{Math.round(((t.current_count || 0) / (t.target_quantity || 1)) * 100)}%</Text>
-                  <Text className="text-typography-muted text-[10px] font-bold uppercase mt-1">Completion</Text>
-                </View>
-              </View>
-              <View className="h-4 bg-surface-background rounded-full overflow-hidden border border-surface-border">
-                <View className="h-full bg-brand-primary rounded-full shadow-lg shadow-brand-primary/50" style={{ width: `${Math.min(((t.current_count || 0) / (t.target_quantity || 1)) * 100, 100)}%` }} />
-              </View>
-              <View className="mt-6 flex-row items-center bg-surface-background p-4 rounded-2xl border border-surface-border/50">
-                <FontAwesome name="clock-o" size={14} className="text-typography-dim mr-3" />
-                <Text className="text-typography-muted text-[11px] font-bold uppercase tracking-widest">
-                  Objective Expiration: {t.target_deadline ? new Date(t.target_deadline).toLocaleDateString() : 'N/A'}
-                </Text>
-              </View>
-            </View>
-          ) : (
-            <View className="flex-row gap-12">
-              <View className="flex-1 bg-surface-background p-6 rounded-2xl border border-surface-border/50">
-                <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Target Active</Text>
-                <Text className="text-brand-primary text-3xl font-black">{Math.round((t.target_active_seconds || 0) / 60)}<Text className="text-lg">m</Text></Text>
-              </View>
-              <View className="flex-1 bg-surface-background p-6 rounded-2xl border border-surface-border/50">
-                <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Max Life-Cycle</Text>
-                <Text className="text-typography-main text-3xl font-black">{Math.round((t.target_lifecycle_seconds || 0) / 3600)}<Text className="text-lg">h</Text></Text>
-              </View>
-            </View>
-          )}
-        </View>
-      ))}
+          <Text className="text-white font-black uppercase tracking-widest text-xs">New Benchmark</Text>
+        </TouchableOpacity>
+      </View>
+      <View className="flex-row flex-wrap gap-8">
+        {targets.map((t: any, i: number) => (
+          <View key={i}>
+            <CircularTargetCard target={t} onEdit={() => handleEditTarget(t)} />
+          </View>
+        ))}
+      </View>
     </View>
-  </View>
-);
+  );
+};
 
 
 
@@ -169,7 +126,9 @@ export const ArchivesSectionWeb = ({ reports, archives, search, activeSchema, on
           <View className="flex-row justify-between items-center mb-10">
             <Text className="text-typography-main font-black text-3xl tracking-tight">Audit Repositories</Text>
             <TouchableOpacity onPress={onNew} className="bg-brand-primary px-8 py-4 rounded-2xl premium-shadow flex-row items-center">
-              <FontAwesome name="plus" size={14} color="white" className="mr-3" />
+              <View className="mr-3">
+                <FontAwesome name="plus" size={14} color="white" />
+              </View>
               <Text className="text-white font-black uppercase tracking-widest text-xs">New Report Request</Text>
             </TouchableOpacity>
           </View>
@@ -196,12 +155,14 @@ export const ArchivesSectionWeb = ({ reports, archives, search, activeSchema, on
             <View className="flex-1 max-w-xl">
               <Text className="text-typography-main font-black text-3xl tracking-tight mb-4">Cold Storage Browser</Text>
               <View className="flex-row bg-surface-card rounded-2xl border border-surface-border px-6 py-4 items-center focus-within:border-brand-primary transition-all">
-                <FontAwesome name="search" size={16} className="text-typography-dim mr-4" />
+                <View className="mr-4">
+                  <FontAwesome name="search" size={16} color="rgb(var(--text-dim))" />
+                </View>
                 <TextInput value={search} onChangeText={onSearch} placeholder="Search snapshots by ID, metadata, or title..." className="flex-1 text-typography-main font-bold outline-none" placeholderTextColor="rgb(var(--typography-muted))" />
               </View>
             </View>
             <TouchableOpacity onPress={onRefresh} className="h-14 w-14 items-center justify-center bg-surface-card border border-surface-border rounded-2xl premium-shadow hover:border-brand-primary">
-              <FontAwesome name="refresh" size={16} className="text-brand-primary" />
+              <FontAwesome name="refresh" size={16} color="rgb(var(--brand-primary))" />
             </TouchableOpacity>
           </View>
           <View className="flex-row flex-wrap gap-6">
@@ -217,7 +178,7 @@ export const ArchivesSectionWeb = ({ reports, archives, search, activeSchema, on
                     <View className="flex-row gap-2">
                        {hasIntegrityIssue && (
                          <View className="bg-state-danger/10 px-2 py-1 rounded-lg">
-                           <FontAwesome name="warning" size={10} className="text-state-danger" />
+                           <FontAwesome name="warning" size={10} color="rgb(var(--state-danger))" />
                          </View>
                        )}
                        <View className="bg-surface-background px-3 py-1 rounded-lg border border-surface-border">

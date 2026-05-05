@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
 // ── Types ──────────────────────────────────────────────────
 
@@ -333,6 +334,27 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
     fetchPermissions();
   }, []);
 
+  // ── Restore selected pipeline from storage ──
+  useEffect(() => {
+    if (pipelines.length > 0 && !selectedPipeline) {
+      const restoreSelection = async () => {
+        try {
+          const savedPipelineId = await AsyncStorage.getItem('@TrustFlow_selected_pipeline');
+          if (savedPipelineId) {
+            const pipeline = pipelines.find(p => p.id === savedPipelineId);
+            if (pipeline) {
+              setSelectedPipeline(pipeline);
+              setActiveSection('stages');
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to restore selected pipeline:', e);
+        }
+      };
+      restoreSelection();
+    }
+  }, [pipelines, selectedPipeline]);
+
   // ── Auto-refresh pipeline data when selection changes ──
   useEffect(() => {
     if (selectedPipeline) {
@@ -362,6 +384,10 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
     setError(null);
     setSelectedPipeline(p);
     setActiveSection('stages');
+    // Persist selected pipeline to storage
+    AsyncStorage.setItem('@TrustFlow_selected_pipeline', p.id).catch(e => {
+      console.warn('Failed to persist selected pipeline:', e);
+    });
   }, []);
 
   const deselectPipeline = useCallback(() => {
@@ -373,6 +399,10 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
     setLinkedOutcomes([]);
     setStageActions([]);
     setActiveSection('list');
+    // Clear persisted selection
+    AsyncStorage.removeItem('@TrustFlow_selected_pipeline').catch(e => {
+      console.warn('Failed to clear selected pipeline:', e);
+    });
   }, []);
 
   // ═══ Pipeline CRUD ═══

@@ -1,21 +1,26 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { 
-  View, Text, ScrollView, RefreshControl, 
-  TouchableOpacity, ActivityIndicator, Alert, 
-  useWindowDimensions, Platform, Image
-} from 'react-native';
+import KanbanPersonalizer from '@/components/kanban/KanbanPersonalizer';
+import TaskCardActions, { type ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
+import AssignmentModal from '@/components/tasks/AssignmentModal';
+import CreateTaskModal from '@/components/tasks/CreateTaskModal.web';
+import { useAuth } from '@/contexts/AuthContext';
+import { TaskCreationProvider } from '@/contexts/TaskCreationContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import { useTimer } from '@/contexts/TimerContext';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useAuth } from '@/contexts/AuthContext';
-import { useTimer } from '@/contexts/TimerContext';
-import TaskCardActions, { type ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
-import { useTheme } from '@/contexts/ThemeContext';
-import KanbanPersonalizer from '@/components/kanban/KanbanPersonalizer';
-import { getPrimaryColor } from '@/lib/themeColors';
-import CreateTaskModal from '@/components/tasks/CreateTaskModal.web';
-import { TaskCreationProvider, useTaskCreation } from '@/contexts/TaskCreationContext';
-import AssignmentModal from '@/components/tasks/AssignmentModal';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+    ActivityIndicator, Alert,
+    Image,
+    Platform,
+    ScrollView,
+    Text,
+    TouchableOpacity,
+    useWindowDimensions,
+    View
+} from 'react-native';
 
 type Stage = {
   id: string;
@@ -96,10 +101,23 @@ export function TasksScreenWeb() {
       let targetPipelineId = paramPipelineId;
       let pipelineData: any = null;
       if (!targetPipelineId) {
-        const { data: pDefault } = await supabase.from('pipelines').select('id, name, task_visibility_mode').eq('is_default', true).limit(1).single();
-        targetPipelineId = pDefault?.id;
-        pipelineData = pDefault;
-        setPipeline(pDefault);
+        // Try to restore from storage
+        const savedPipelineId = await AsyncStorage.getItem('@TrustFlow_tasks_pipeline');
+        if (savedPipelineId) {
+          const { data: pSaved } = await supabase.from('pipelines').select('id, name, task_visibility_mode').eq('id', savedPipelineId).single();
+          if (pSaved) {
+            targetPipelineId = pSaved.id;
+            pipelineData = pSaved;
+            setPipeline(pSaved);
+          }
+        }
+        // Fall back to default if saved pipeline not found
+        if (!targetPipelineId) {
+          const { data: pDefault } = await supabase.from('pipelines').select('id, name, task_visibility_mode').eq('is_default', true).limit(1).single();
+          targetPipelineId = pDefault?.id;
+          pipelineData = pDefault;
+          setPipeline(pDefault);
+        }
       } else {
         const { data: pSpecific } = await supabase.from('pipelines').select('id, name, task_visibility_mode').eq('id', targetPipelineId).single();
         targetPipelineId = pSpecific?.id;
@@ -594,7 +612,8 @@ export function TasksScreenWeb() {
                       <TouchableOpacity 
                         key={p.id} 
                         className={`p-6 rounded-2xl mb-3 border transition-all ${pipeline?.id === p.id ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border hover:bg-surface-overlay'}`}
-                        onPress={() => {
+                        onPress={async () => {
+                           await AsyncStorage.setItem('@TrustFlow_tasks_pipeline', p.id);
                            router.setParams({ pipelineId: p.id });
                            setShowPipelinePicker(false);
                         }}

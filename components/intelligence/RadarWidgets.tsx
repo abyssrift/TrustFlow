@@ -93,7 +93,9 @@ export const ConversionFunnelChartWeb = ({ data }: any) => {
               </View>
               {idx < data.conversion_by_stage.length - 1 && (
                 <View className="py-2 opacity-30">
-                  <FontAwesome name="long-arrow-down" size={20} className="text-typography-dim" />
+                  <View>
+                    <FontAwesome name="long-arrow-down" size={20} color="rgb(var(--text-dim))" />
+                  </View>
                 </View>
               )}
             </View>

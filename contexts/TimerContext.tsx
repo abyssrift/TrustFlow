@@ -254,12 +254,12 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
   }, [activeSession]);
 
   const stopWorkBeacon = useCallback(() => {
-    if (Platform.OS !== 'web' || !session?.access_token || !activeSession) return;
+    if (Platform.OS !== 'web' || !session?.access_token || !activeSession || activeSession.id === 'pending') return;
     const url = `${supabaseUrl}/rest/v1/rpc/rpc_stop_work`;
-    const body = JSON.stringify({ 
+    const body = JSON.stringify({
       p_session_id: activeSession.id,
       p_task_id: activeSession.task_id,
-      p_stopped_at: new Date(lastActivityTimeRef.current + serverTimeOffset).toISOString()
+      p_stopped_at: new Date(Date.now() + serverTimeOffset).toISOString()
     });
     fetch(url, {
       method: 'POST',
@@ -296,6 +296,7 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
     onAutoStart: handleAutoStart,
     onHeartbeat: heartbeatWork,
     onAutoStopBeacon: stopWorkBeacon,
+    onActivity: () => { lastActivityTimeRef.current = Date.now(); },
     isActive: !!activeSession,
     startedAt: activeSession?.started_at || null,
   });

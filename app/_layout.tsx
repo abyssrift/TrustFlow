@@ -1,13 +1,14 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { View, Text, Platform } from 'react-native';
+import { Platform, Text, View } from 'react-native';
+import { cssInterop } from 'react-native-css-interop';
 import 'react-native-reanimated';
 import '../global.css';
-import { cssInterop } from 'react-native-css-interop';
 
 // Polyfill Platform global for libraries that expect it
 if (typeof (globalThis as any).Platform === 'undefined') {
@@ -25,8 +26,8 @@ cssInterop(FontAwesome, {
 } as any);
 
 export {
-  // Catch any errors thrown by the Layout component.
-  ErrorBoundary,
+    // Catch any errors thrown by the Layout component.
+    ErrorBoundary
 } from 'expo-router';
 
 export const unstable_settings = {
@@ -34,13 +35,13 @@ export const unstable_settings = {
   initialRouteName: '(tabs)',
 };
 
-import { AuthProvider, useAuth } from '../contexts/AuthContext';
-import { SubmissionProvider } from '../contexts/SubmissionContext';
-import { useRouter, useSegments } from 'expo-router';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
 import GlobalUploadBanner from '@/components/GlobalUploadBanner';
 import TimerIsland from '@/components/TimerIsland';
 import { TimerProvider } from '@/contexts/TimerContext';
+import { useRouter, useSegments } from 'expo-router';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { AuthProvider, useAuth } from '../contexts/AuthContext';
+import { SubmissionProvider } from '../contexts/SubmissionContext';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -83,10 +84,10 @@ export default function RootLayout() {
   );
 }
 
-import { ThemeProvider as AppThemeProvider } from '@/contexts/ThemeContext';
 import { AlertProvider } from '@/contexts/AlertContext';
-import { usePushRegistration } from '@/hooks/usePushRegistration';
 import { NotificationsProvider } from '@/contexts/NotificationsContext';
+import { ThemeProvider as AppThemeProvider } from '@/contexts/ThemeContext';
+import { usePushRegistration } from '@/hooks/usePushRegistration';
 
 function PushRegistrationGuard() {
   usePushRegistration();
@@ -98,6 +99,16 @@ function RootLayoutNav() {
   const { session, profile, initialized } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+
+  // Save current route to storage whenever it changes
+  useEffect(() => {
+    if (initialized && session && profile?.company_id) {
+      const currentRoute = `/${segments.join('/')}`;
+      AsyncStorage.setItem('@TrustFlow_current_route', currentRoute).catch(e => {
+        console.warn('Failed to save current route:', e);
+      });
+    }
+  }, [segments, initialized, session, profile?.company_id]);
 
   useEffect(() => {
     if (!initialized) return;
@@ -112,7 +123,21 @@ function RootLayoutNav() {
       if (!profile?.company_id && !inOnboarding) {
         router.replace('/onboarding');
       } else if (profile?.company_id && (inAuthGroup || inOnboarding)) {
-        router.replace('/(tabs)');
+        // Restore saved route if available, otherwise go to dashboard
+        const restoreSavedRoute = async () => {
+          try {
+            const savedRoute = await AsyncStorage.getItem('@TrustFlow_current_route');
+            if (savedRoute && !savedRoute.startsWith('/(auth)') && !savedRoute.startsWith('/onboarding')) {
+              router.replace(savedRoute);
+            } else {
+              router.replace('/(tabs)');
+            }
+          } catch (e) {
+            console.warn('Failed to restore route:', e);
+            router.replace('/(tabs)');
+          }
+        };
+        restoreSavedRoute();
       }
     }
   }, [session, profile, initialized, segments]);

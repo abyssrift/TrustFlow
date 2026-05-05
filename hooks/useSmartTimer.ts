@@ -11,25 +11,29 @@ export type SmartTimerConfig = {
   onAutoStart: () => Promise<void>;
   onHeartbeat?: () => Promise<void>;
   onAutoStopBeacon?: () => void;
+  onActivity?: () => void;
   isActive: boolean;
   startedAt: string | null;
 };
 
-export function useSmartTimer({ onAutoStop, onAutoStart, onHeartbeat, onAutoStopBeacon, isActive, startedAt }: SmartTimerConfig) {
+export function useSmartTimer({ onAutoStop, onAutoStart, onHeartbeat, onAutoStopBeacon, onActivity, isActive, startedAt }: SmartTimerConfig) {
   const [showIdleModal, setShowIdleModal] = useState(false);
   const lastActivityRef = useRef(Date.now());
   const checkTimerRef = useRef<NodeJS.Timeout | null>(null);
   const heartbeatTimerRef = useRef<NodeJS.Timeout | null>(null);
   const broadcastRef = useRef<BroadcastChannel | null>(null);
+  const isAutoStoppingRef = useRef(false);
 
   // Stable refs for callbacks — prevents interval re-registration when parent re-renders.
   // The interval closures always call the latest version of the callback via the ref.
   const onAutoStopRef = useRef(onAutoStop);
   const onHeartbeatRef = useRef(onHeartbeat);
   const onAutoStopBeaconRef = useRef(onAutoStopBeacon);
+  const onActivityRef = useRef(onActivity);
   useEffect(() => { onAutoStopRef.current = onAutoStop; }, [onAutoStop]);
   useEffect(() => { onHeartbeatRef.current = onHeartbeat; }, [onHeartbeat]);
   useEffect(() => { onAutoStopBeaconRef.current = onAutoStopBeacon; }, [onAutoStopBeacon]);
+  useEffect(() => { onActivityRef.current = onActivity; }, [onActivity]);
 
   // Cross-tab sync via BroadcastChannel — created once, never torn down until unmount
   useEffect(() => {
@@ -39,6 +43,7 @@ export function useSmartTimer({ onAutoStop, onAutoStart, onHeartbeat, onAutoStop
     channel.onmessage = (event) => {
       if (event.data === 'activity_detected') {
         lastActivityRef.current = Date.now();
+        onActivityRef.current?.();
         setShowIdleModal(false);
       }
     };
@@ -50,6 +55,7 @@ export function useSmartTimer({ onAutoStop, onAutoStart, onHeartbeat, onAutoStop
 
   const recordActivity = useCallback(() => {
     lastActivityRef.current = Date.now();
+    onActivityRef.current?.();
     setShowIdleModal(false);
     if (broadcastRef.current) {
       broadcastRef.current.postMessage('activity_detected');
@@ -76,25 +82,27 @@ export function useSmartTimer({ onAutoStop, onAutoStart, onHeartbeat, onAutoStop
   useEffect(() => {
     if (!isActive || !startedAt) {
       if (checkTimerRef.current) clearInterval(checkTimerRef.current);
+      isAutoStoppingRef.current = false;
       setShowIdleModal(false);
       return;
     }
 
     const check = async () => {
+      if (isAutoStoppingRef.current) return;
       const now = Date.now();
       const elapsedSinceActivity = now - lastActivityRef.current;
       const elapsedSinceStart = now - new Date(startedAt).getTime();
 
-      if (elapsedSinceActivity > IDLE_TIMEOUT) {
-        setShowIdleModal(true);
-        if (elapsedSinceActivity > IDLE_TIMEOUT + 2 * 60 * 1000) {
-          await onAutoStopRef.current();
-          setShowIdleModal(false);
-        }
-      }
+      const isIdle = elapsedSinceActivity > IDLE_TIMEOUT;
+      const isForceStop = isIdle && elapsedSinceActivity > IDLE_TIMEOUT + 2 * 60 * 1000;
+      const isMaxSession = elapsedSinceStart > SESSION_MAX_DURATION;
 
-      if (elapsedSinceStart > SESSION_MAX_DURATION) {
+      if (isIdle) setShowIdleModal(true);
+
+      if (isForceStop || isMaxSession) {
+        isAutoStoppingRef.current = true;
         await onAutoStopRef.current();
+        isAutoStoppingRef.current = false;
         setShowIdleModal(false);
       }
     };
@@ -149,13 +157,18 @@ export function useSmartTimer({ onAutoStop, onAutoStart, onHeartbeat, onAutoStop
   // Auto-stop on tab close (Web)
   useEffect(() => {
     if (Platform.OS !== 'web') return;
-    const handleBeforeUnload = () => {
+    const handlePageExit = () => {
       if (isActive && onAutoStopBeaconRef.current) {
         onAutoStopBeaconRef.current();
       }
     };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    // pagehide is more reliable than beforeunload on iOS Safari and Firefox
+    window.addEventListener('beforeunload', handlePageExit);
+    window.addEventListener('pagehide', handlePageExit);
+    return () => {
+      window.removeEventListener('beforeunload', handlePageExit);
+      window.removeEventListener('pagehide', handlePageExit);
+    };
   }, [isActive]);
 
   return {
