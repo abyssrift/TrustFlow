@@ -93,7 +93,7 @@ export default function TimerIsland() {
         <View className="bg-surface-card border border-surface-border rounded-2xl p-6 mx-6 max-w-sm w-full shadow-2xl">
           <View className="items-center mb-4">
             <View className="w-12 h-12 rounded-full bg-state-warning/15 items-center justify-center mb-3">
-              <FontAwesome name="clock-o" size={22} color="rgb(var(--state-warning, 234 179 8))" />
+              <FontAwesome name="clock-o" size={22} color="var(--color-warning)" />
             </View>
             <Text className="text-typography-main font-bold text-base text-center">Are you still working?</Text>
             <Text className="text-typography-muted text-sm text-center mt-1">
@@ -180,7 +180,7 @@ export default function TimerIsland() {
                 onPress={() => stopWork()}
                 className="w-7 h-7 rounded-full bg-state-danger/10 items-center justify-center border border-state-danger/20 active:bg-state-danger/30"
               >
-                <FontAwesome name="stop" size={9} color="rgb(var(--state-danger))" />
+                <FontAwesome name="stop" size={9} color="var(--color-danger)" />
              </TouchableOpacity>
           )}
           
@@ -188,7 +188,7 @@ export default function TimerIsland() {
             onPress={toggleExpand}
             className="w-7 h-7 rounded-full bg-white/10 items-center justify-center active:bg-white/20"
           >
-            <FontAwesome name={expanded ? 'compress' : 'expand'} size={9} color="#fff" />
+            <FontAwesome name={expanded ? 'compress' : 'expand'} size={9} color="var(--color-text-main)" />
           </TouchableOpacity>
         </View>
       </View>

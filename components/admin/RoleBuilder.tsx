@@ -31,7 +31,11 @@ export default function RoleBuilder() {
     setIsCreating(true);
   };
 
+  const isGlobal = editingRole?.is_system && !editingRole?.company_id;
+  const canEdit = !isGlobal;
+
   const handleSave = async () => {
+    if (!canEdit) return;
     if (!name.trim()) return Alert.alert('Error', 'Role name is required.');
     
     let success = false;
@@ -147,6 +151,18 @@ export default function RoleBuilder() {
              </View>
 
              <ScrollView showsVerticalScrollIndicator={false}>
+                {isGlobal && (
+                  <View className="bg-state-info/10 border border-state-info/30 p-6 rounded-2xl mb-10 flex-row items-center">
+                    <View className="w-10 h-10 rounded-full bg-state-info/20 items-center justify-center mr-4">
+                      <FontAwesome name="shield" size={18} color="rgb(var(--state-info))" />
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-typography-main font-black text-xs uppercase tracking-tight mb-1">System Protected Protocol</Text>
+                      <Text className="text-typography-muted text-[10px] leading-4">This authority structure is a platform-wide standard. To modify its specific functional gates, please forge a custom company role instead.</Text>
+                    </View>
+                  </View>
+                )}
+
                 <View className="flex-row flex-wrap gap-10">
                     {/* Left Pane: Config */}
                     <View className="flex-1 min-w-[300px]">
@@ -154,30 +170,32 @@ export default function RoleBuilder() {
                         <TextInput
                             value={name}
                             onChangeText={setName}
+                            editable={canEdit}
                             placeholder="Authority Display Name"
                             placeholderTextColor="rgb(var(--text-muted))"
-                            className="bg-surface-background border border-surface-border rounded-xl px-6 py-5 text-typography-main font-black text-sm mb-5"
+                            className={`bg-surface-background border border-surface-border rounded-xl px-6 py-5 text-typography-main font-black text-sm mb-5 ${!canEdit ? 'opacity-50' : ''}`}
                         />
                         <TextInput
                             value={description}
                             onChangeText={setDescription}
+                            editable={canEdit}
                             placeholder="Operational responsibilities..."
                             placeholderTextColor="rgb(var(--text-muted))"
                             multiline
                             numberOfLines={4}
                             textAlignVertical="top"
-                            className="bg-surface-background border border-surface-border rounded-xl px-6 py-5 text-typography-main text-sm mb-8 h-32 leading-6"
+                            className={`bg-surface-background border border-surface-border rounded-xl px-6 py-5 text-typography-main text-sm mb-8 h-32 leading-6 ${!canEdit ? 'opacity-50' : ''}`}
                         />
                         
                         <View className="flex-row items-center justify-between mb-6 px-1">
                             <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest">Frequency Marker</Text>
                             <Text className="text-brand-primary font-black text-[10px] uppercase">{color}</Text>
                         </View>
-                        <View className="flex-row flex-wrap gap-3 px-1">
+                        <View className={`flex-row flex-wrap gap-3 px-1 ${!canEdit ? 'opacity-50' : ''}`}>
                             {['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#475569'].map(c => (
                             <TouchableOpacity 
                                 key={c}
-                                onPress={() => setColor(c)}
+                                onPress={() => canEdit && setColor(c)}
                                 style={{ backgroundColor: c }}
                                 className={`w-10 h-10 rounded-xl border-2 ${color === c ? 'border-white' : 'border-transparent'} shadow-sm transition-all`}
                             />
@@ -201,10 +219,10 @@ export default function RoleBuilder() {
                                             return (
                                                 <TouchableOpacity
                                                     key={perm.id}
-                                                    onPress={() => setSelectedPerms(prev => isActive ? prev.filter(id => id !== perm.id) : [...prev, perm.id])}
+                                                    onPress={() => canEdit && setSelectedPerms(prev => isActive ? prev.filter(id => id !== perm.id) : [...prev, perm.id])}
                                                     className={`flex-row items-center justify-between p-5 rounded-2xl border transition-all ${
                                                         isActive ? 'bg-brand-primary/5 border-brand-primary/40' : 'bg-surface-background/30 border-surface-border'
-                                                    }`}
+                                                    } ${!canEdit ? 'opacity-70' : ''}`}
                                                 >
                                                     <View className="flex-1 mr-6">
                                                         <Text className={`font-black text-xs uppercase tracking-tight ${isActive ? 'text-typography-main' : 'text-typography-muted'}`}>{perm.label}</Text>
@@ -231,14 +249,17 @@ export default function RoleBuilder() {
                >
                  <Text className="text-typography-muted font-black text-[11px] uppercase tracking-widest">Discard Schema</Text>
                </TouchableOpacity>
-               <TouchableOpacity
-                 onPress={handleSave}
-                 disabled={loading}
-                 className="flex-[2] bg-brand-primary py-5 rounded-xl items-center premium-shadow active:scale-[0.98]"
-               >
-                 <Text className="text-white font-black text-[11px] uppercase tracking-[0.3em]">Commit Authority Registry</Text>
-               </TouchableOpacity>
+               {canEdit && (
+                 <TouchableOpacity
+                   onPress={handleSave}
+                   disabled={loading}
+                   className="flex-[2] bg-brand-primary py-5 rounded-xl items-center premium-shadow active:scale-[0.98]"
+                 >
+                   <Text className="text-white font-black text-[11px] uppercase tracking-[0.3em]">Commit Authority Registry</Text>
+                 </TouchableOpacity>
+               )}
              </View>
+
           </View>
         </View>
       </Modal>

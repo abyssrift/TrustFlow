@@ -319,15 +319,7 @@ export default function StageActions() {
                   setSubmissionContent(val);
                   smartTimer.recordActivity();
                 }}
-                onFocus={async () => {
-                  if (!isActive && (stageRequiresTimer || anyActionRequiresTimer) && canStart) {
-                    try {
-                      await startWork(data.task.id, data.task.title);
-                    } catch (err) {
-                      console.error('[AutoStart] Failed to start timer:', err);
-                    }
-                  }
-                }}
+
                 placeholder="Describe your work submission..."
                 placeholderTextColor="rgb(var(--text-dim))"
                 multiline

@@ -39,13 +39,11 @@ const SHORTCUTS: Shortcut[] = [
   { id: 'dashboard', permissionKey: 'dashboard', icon: 'th-large', label: 'Dashboard', href: '/' },
   { id: 'tasks', permissionKey: '', icon: 'check-square-o', label: 'Tasks', href: '/tasks' },
   { id: 'projects', permissionKey: 'project.edit', icon: 'folder-o', label: 'Projects', href: '/projects' },
-  { id: 'radar', permissionKey: 'report.view', icon: 'bullseye', label: 'Radar', href: '/intelligence?section=radar' },
-  { id: 'targets', permissionKey: 'target.view', icon: 'crosshairs', label: 'Targets', href: '/intelligence?section=targets' },
-  { id: 'archives', permissionKey: 'archive.view', icon: 'archive', label: 'Archives', href: '/intelligence?section=archives' },
+  { id: 'radar', permissionKey: 'report.view', icon: 'bullseye', label: 'Intelligence', href: '/intelligence' },
+  { id: 'targets', permissionKey: 'target.view', icon: 'crosshairs', label: 'Targets', href: '/intelligence/targets' },
+  { id: 'archives', permissionKey: 'archive.view', icon: 'archive', label: 'Archives', href: '/intelligence/archives' },
   { id: 'team', permissionKey: 'user.view_all', fallbackPermissionKey: 'role.manage', icon: 'users', label: 'Team', href: '/people?section=teams' },
   { id: 'pipelines-admin', permissionKey: 'pipeline.edit', icon: 'gear', label: 'Pipelines', href: '/admin/pipelines' },
-  { id: 'benchmark', permissionKey: 'role.manage', icon: 'balance-scale', label: 'Benchmark', href: '/admin/comparison' },
-  { id: 'analytics', permissionKey: 'report.view', icon: 'line-chart', label: 'Analytics', href: '/admin/ReportGenerator' },
 ];
 
 const matchesHref = (pathname: string, params: Record<string, any>, href: string) => {
@@ -115,12 +113,12 @@ const ThemePopover = ({
                 }`}
             >
               <View className={`h-8 w-8 items-center justify-center rounded-lg ${theme === option.id ? 'bg-brand-primary/20' : 'bg-surface-overlay'}`}>
-                <FontAwesome name={option.icon} size={14} className={theme === option.id ? 'text-brand-accent' : 'text-brand-accent/50'} />
+                <FontAwesome name={option.icon} size={14} className={theme === option.id ? 'text-brand-primary' : 'text-typography-dim'} />
               </View>
               <Text className={`ml-3 text-xs font-bold ${theme === option.id ? 'text-brand-primary' : 'text-typography-muted'}`}>{option.label}</Text>
               {theme === option.id && (
                 <View className="ml-auto">
-                  <FontAwesome name="check-circle" size={14} className="text-brand-accent" />
+                  <FontAwesome name="check-circle" size={14} className="text-brand-primary" />
                 </View>
               )}
             </Pressable>
@@ -180,13 +178,17 @@ const SidebarItem = ({
 }) => (
   <Link href={href as any} asChild>
     <Pressable
-      className={`group relative mb-2 min-h-11 flex-row items-center overflow-hidden rounded-xl border p-3 ${isActive ? 'border-brand-primary/30 bg-brand-primary-dim' : 'border-transparent hover:bg-surface-card'
+      className={`group relative mb-2 min-h-11 flex-row items-center overflow-hidden rounded-xl border p-3 ${isActive ? 'border-brand-primary/30 bg-brand-primary/10' : 'border-transparent hover:bg-surface-card'
         }`}
       accessibilityLabel={label}
     >
       <View className={`absolute left-0 top-2 bottom-2 w-1 rounded-r-full ${isActive ? 'bg-brand-primary' : 'bg-transparent group-hover:bg-surface-border'}`} />
       <View className={`${collapsed ? 'w-full' : 'w-8'} items-center`}>
-        <FontAwesome name={icon} size={18} className={isActive ? 'text-brand-accent' : 'text-brand-accent/40'} />
+        <FontAwesome 
+          name={icon} 
+          size={18} 
+          className={isActive ? 'text-brand-primary' : 'text-typography-dim'} 
+        />
       </View>
       {!collapsed && (
         <Text
@@ -318,7 +320,7 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
                   <FontAwesome
                     name={isCollapsed ? 'indent' : 'outdent'}
                     size={16}
-                    className="text-brand-accent"
+                    className="text-brand-primary"
                   />
                 </Pressable>
               </View>
@@ -361,7 +363,11 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
                         >
                           <View className={`absolute left-0 top-2 bottom-2 w-1 rounded-r-full ${pathname.startsWith('/platform-admin') ? 'bg-brand-primary' : 'bg-brand-primary/20 group-hover:bg-brand-primary/40'}`} />
                           <View className={`${isExpanded ? 'w-8' : 'w-full'} items-center`}>
-                            <FontAwesome name="shield" size={18} className={pathname.startsWith('/platform-admin') ? 'text-brand-accent' : 'text-brand-primary/60'} />
+                            <FontAwesome 
+                              name="shield" 
+                              size={18} 
+                              className={pathname.startsWith('/platform-admin') ? 'text-brand-primary' : 'text-brand-primary/40'} 
+                            />
                           </View>
                           {isExpanded && (
                             <Text
@@ -407,7 +413,7 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
                   accessibilityLabel="Theme settings"
                 >
                   <View className={`${isExpanded ? 'w-8' : ''} items-center`}>
-                    <FontAwesome name="paint-brush" size={18} className="text-brand-accent/60" />
+                    <FontAwesome name="paint-brush" size={18} className="text-typography-dim" />
                   </View>
                   {isExpanded && <Text className="ml-2 font-bold text-typography-main">Theme</Text>}
                 </Pressable>
@@ -418,7 +424,7 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
                       }`}
                   >
                     <View className={`${isExpanded ? 'w-8' : ''} items-center`}>
-                      <FontAwesome name="bell" size={18} className="text-brand-accent/80" />
+                      <FontAwesome name="bell" size={18} className="text-brand-primary" />
                     </View>
                     {isExpanded && <Text className="ml-2 font-bold text-typography-main">Notifications</Text>}
                   </Pressable>

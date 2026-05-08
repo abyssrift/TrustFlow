@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase';
 import ProfileAvatar from '@/components/profile/ProfileAvatar';
 import ProfileGeneralForm from '@/components/profile/ProfileGeneralForm';
 import SecurityForm from '@/components/profile/SecurityForm';
-import StatsGrid from '@/components/profile/StatsGrid';
+import { ProfileAnalytics } from '@/components/analytics/ProfileAnalytics';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 
 type TabType = 'general' | 'security' | 'stats';
@@ -192,7 +192,7 @@ export default function ProfilePageWeb() {
                 onSuccess={fetchProfile}
               />
             )}
-            {activeTab === 'stats' && <StatsGrid />}
+            {activeTab === 'stats' && user?.id && <ProfileAnalytics userId={user.id} />}
             {activeTab === 'security' && <SecurityForm />}
           </View>
         </View>

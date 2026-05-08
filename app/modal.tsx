@@ -17,18 +17,18 @@ import { useNotifications, AppNotification } from '@/contexts/NotificationsConte
 // ── Notification type → icon + color ────────────────────────────────────────
 type IconSpec = { name: React.ComponentProps<typeof FontAwesome>['name']; color: string };
 
-function getIconSpec(type: string): IconSpec {
+function getIconSpec(type: string): { name: React.ComponentProps<typeof FontAwesome>['name']; iconClass: string; bgClass: string } {
   switch (type) {
-    case 'task.assigned':       return { name: 'user-plus',         color: 'rgb(var(--brand-primary))' };
-    case 'task.mentioned':      return { name: 'at',                color: 'rgb(var(--state-warning))' };
-    case 'task.commented':      return { name: 'comment',           color: 'rgb(var(--text-muted))' };
-    case 'task.created':        return { name: 'plus-square',       color: 'rgb(var(--state-success))' };
-    case 'task.completed':      return { name: 'check-circle',      color: 'rgb(var(--state-success))' };
-    case 'task.stage_transition': return { name: 'exchange',        color: 'rgb(var(--brand-primary))' };
-    case 'task.status_changed': return { name: 'refresh',           color: 'rgb(var(--brand-primary))' };
-    case 'task.due_soon':       return { name: 'clock-o',           color: 'rgb(var(--state-warning))' };
-    case 'task.overdue':        return { name: 'exclamation-circle',color: 'rgb(var(--state-danger))' };
-    default:                    return { name: 'bell',              color: 'rgb(var(--brand-primary))' };
+    case 'task.assigned':       return { name: 'user-plus',         iconClass: 'text-brand-primary', bgClass: 'bg-brand-primary/10' };
+    case 'task.mentioned':      return { name: 'at',                iconClass: 'text-state-warning', bgClass: 'bg-state-warning/10' };
+    case 'task.commented':      return { name: 'comment',           iconClass: 'text-typography-muted', bgClass: 'bg-surface-overlay' };
+    case 'task.created':        return { name: 'plus-square',       iconClass: 'text-state-success', bgClass: 'bg-state-success/10' };
+    case 'task.completed':      return { name: 'check-circle',      iconClass: 'text-state-success', bgClass: 'bg-state-success/10' };
+    case 'task.stage_transition': return { name: 'exchange',        iconClass: 'text-brand-primary', bgClass: 'bg-brand-primary/10' };
+    case 'task.status_changed': return { name: 'refresh',           iconClass: 'text-brand-primary', bgClass: 'bg-brand-primary/10' };
+    case 'task.due_soon':       return { name: 'clock-o',           iconClass: 'text-state-warning', bgClass: 'bg-state-warning/10' };
+    case 'task.overdue':        return { name: 'exclamation-circle',iconClass: 'text-state-danger', bgClass: 'bg-state-danger/10' };
+    default:                    return { name: 'bell',              iconClass: 'text-brand-primary', bgClass: 'bg-brand-primary/10' };
   }
 }
 
@@ -65,7 +65,7 @@ function NotificationItem({
   item: AppNotification;
   onPress: (item: AppNotification) => void;
 }) {
-  const { name: iconName, color: iconColor } = getIconSpec(item.type);
+  const { name: iconName, iconClass, bgClass } = getIconSpec(item.type);
   const isUnread = !item.read_at;
 
   return (
@@ -78,10 +78,9 @@ function NotificationItem({
     >
       {/* Icon bubble */}
       <View
-        className="w-10 h-10 rounded-full items-center justify-center mr-3 mt-0.5 flex-shrink-0"
-        style={{ backgroundColor: iconColor + '22' }}
+        className={`w-10 h-10 rounded-full items-center justify-center mr-3 mt-0.5 flex-shrink-0 ${bgClass}`}
       >
-        <FontAwesome name={iconName} size={16} color={iconColor} />
+        <FontAwesome name={iconName} size={16} className={iconClass} />
       </View>
 
       {/* Content */}
@@ -117,7 +116,7 @@ function EmptyState() {
   return (
     <View className="flex-1 items-center justify-center px-8 py-24">
       <View className="bg-brand-primary/10 p-6 rounded-full mb-6 border border-brand-primary/20">
-        <FontAwesome name="bell-o" size={40} color="rgb(var(--brand-primary))" />
+        <FontAwesome name="bell-o" size={40} className="text-brand-primary" />
       </View>
       <Text className="text-typography-main font-black text-2xl tracking-tight text-center mb-2">
         All Clear
@@ -212,7 +211,7 @@ export default function NotificationsModal() {
               <FontAwesome
                 name="sliders"
                 size={15}
-                color="rgb(var(--text-muted))"
+                className="text-typography-muted"
               />
             </TouchableOpacity>
           </View>
@@ -231,7 +230,7 @@ export default function NotificationsModal() {
 
       {loading && notifications.length === 0 ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
+          <ActivityIndicator size="large" color="var(--color-primary)" />
         </View>
       ) : notifications.length === 0 ? (
         <EmptyState />
@@ -244,7 +243,7 @@ export default function NotificationsModal() {
             <RefreshControl
               refreshing={loading}
               onRefresh={refresh}
-              tintColor="rgb(var(--brand-primary))"
+              tintColor="var(--color-primary)"
             />
           }
           contentContainerStyle={{ paddingBottom: 40 }}

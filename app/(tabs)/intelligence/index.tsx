@@ -1,31 +1,41 @@
 import ConfirmModal from '@/components/common/ConfirmModal';
 import { CircularTargetCardMobile } from '@/components/intelligence/IntelligenceCommon';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAnalytics, StageDwell, ThroughputPeriod } from '@/contexts/AnalyticsContext';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 // --- UTILITIES & SUB-COMPONENTS (Defined BEFORE main screen to avoid non-hoisted variable errors) ---
 
-const SectionToggle = ({ active, onSelect, hasPermission }: { active: string, onSelect: (s: string) => void, hasPermission: (p: string) => boolean }) => (
-  <View className="flex-row bg-surface-card rounded-2xl p-1 mx-6 mb-6 border border-surface-border">
-    {['Radar', 'Targets', 'Archives'].filter(s => s !== 'Archives' || hasPermission('archive.view')).map((s) => (
-      <TouchableOpacity
-        key={s}
-        onPress={() => onSelect(s.toLowerCase())}
-        className={`flex-1 py-3 rounded-xl items-center ${active === s.toLowerCase() ? 'bg-brand-primary' : ''}`}
-      >
-        <Text className={`font-bold text-xs ${active === s.toLowerCase() ? 'text-white' : 'text-typography-muted'}`}>
-          {s}
-        </Text>
-      </TouchableOpacity>
-    ))}
-  </View>
-);
+const SectionToggle = ({ active, onSelect, hasPermission }: { active: string, onSelect: (s: string) => void, hasPermission: (p: string) => boolean }) => {
+  const sections = ['Radar', 'Targets', 'Archives', 'Analytics'].filter(s => {
+    if (s === 'Archives') return hasPermission('archive.view');
+    if (s === 'Analytics') return hasPermission('analytics.view');
+    return true;
+  });
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mx-6 mb-6">
+      <View className="flex-row bg-surface-card rounded-2xl p-1 border border-surface-border">
+        {sections.map((s) => (
+          <TouchableOpacity
+            key={s}
+            onPress={() => onSelect(s.toLowerCase())}
+            className={`px-5 py-3 rounded-xl items-center ${active === s.toLowerCase() ? 'bg-brand-primary' : ''}`}
+          >
+            <Text className={`font-bold text-xs ${active === s.toLowerCase() ? 'text-white' : 'text-typography-muted'}`}>
+              {s}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </ScrollView>
+  );
+};
 
 const Picker = ({ items, selectedId, onSelect, labelKey = 'name' }: any) => (
   <View className="flex-row flex-wrap gap-2">
@@ -199,6 +209,133 @@ const TrendComparisonCards = ({ data }: any) => {
           </View>
         );
       })}
+    </View>
+  );
+};
+
+const NativeAnalyticsSection = ({ pipelines }: { pipelines: any[] }) => {
+  const { getPipelineStageDwell, getPipelineThroughput } = useAnalytics();
+  const router = useRouter();
+
+  const today   = new Date();
+  const defFrom = new Date(today);
+  defFrom.setDate(today.getDate() - 30);
+
+  const [pipelineId, setPipelineId] = useState<string | null>(pipelines[0]?.id ?? null);
+  const [from]                      = useState(defFrom.toISOString().split('T')[0]);
+  const [to]                        = useState(today.toISOString().split('T')[0]);
+  const [dwell, setDwell]           = useState<StageDwell[]>([]);
+  const [throughput, setThroughput] = useState<ThroughputPeriod[]>([]);
+  const [loading, setLoading]       = useState(false);
+
+  useEffect(() => {
+    if (pipelines.length && !pipelineId) setPipelineId(pipelines[0].id);
+  }, [pipelines]);
+
+  const load = useCallback(async () => {
+    if (!pipelineId) return;
+    setLoading(true);
+    try {
+      const [d, t] = await Promise.all([
+        getPipelineStageDwell(pipelineId, from, to),
+        getPipelineThroughput(pipelineId, 'month', 6),
+      ]);
+      setDwell(d);
+      setThroughput(t);
+    } finally {
+      setLoading(false);
+    }
+  }, [pipelineId, from, to]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const maxSec = Math.max(1, ...dwell.map(d => d.avg_seconds));
+
+  const fmtS = (s: number) => {
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+    return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  };
+
+  return (
+    <View className="px-6 gap-6">
+      {/* Pipeline selector */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <View className="flex-row gap-2 pb-1">
+          {pipelines.map(p => (
+            <TouchableOpacity
+              key={p.id}
+              onPress={() => setPipelineId(p.id)}
+              className={`px-4 py-2 rounded-xl border ${pipelineId === p.id ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border'}`}
+            >
+              <Text className={`text-xs font-bold ${pipelineId === p.id ? 'text-white' : 'text-typography-main'}`}>{p.name}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </ScrollView>
+
+      {loading ? (
+        <View className="py-16 items-center">
+          <ActivityIndicator color="rgb(var(--brand-primary))" />
+        </View>
+      ) : (
+        <>
+          {/* Stage dwell */}
+          <View className="bg-surface-card border border-surface-border rounded-2xl p-5">
+            <Text className="text-typography-main font-black text-base mb-4">Stage Dwell Times</Text>
+            {dwell.length === 0 ? (
+              <Text className="text-typography-muted text-sm">No stage activity in this period.</Text>
+            ) : (
+              dwell.slice().sort((a, b) => a.stage_position - b.stage_position).map(s => {
+                const pct = (s.avg_seconds / maxSec) * 100;
+                const color = s.is_bottleneck ? '#f59e0b' : s.is_terminal && s.terminal_type === 'success' ? '#22c55e' : s.is_terminal ? '#ef4444' : 'rgb(99,102,241)';
+                return (
+                  <View key={s.stage_id} className="mb-3">
+                    <View className="flex-row justify-between mb-1">
+                      <Text className="text-typography-main text-xs font-bold flex-1 mr-3" numberOfLines={1}>
+                        {s.stage_name}{s.is_bottleneck ? ' ⚠' : ''}
+                      </Text>
+                      <Text className="text-typography-muted text-xs">{fmtS(s.avg_seconds)}</Text>
+                    </View>
+                    <View className="h-2 bg-surface-overlay rounded-full overflow-hidden">
+                      <View style={{ width: `${pct}%`, backgroundColor: color }} className="h-full rounded-full" />
+                    </View>
+                  </View>
+                );
+              })
+            )}
+          </View>
+
+          {/* Throughput summary */}
+          <View className="bg-surface-card border border-surface-border rounded-2xl p-5">
+            <Text className="text-typography-main font-black text-base mb-4">Recent Throughput</Text>
+            {throughput.length === 0 ? (
+              <Text className="text-typography-muted text-sm">No throughput data.</Text>
+            ) : (
+              [...throughput].reverse().slice(0, 5).map((t, i, arr) => (
+                <View key={i} className={`flex-row justify-between items-center py-2.5 ${i < arr.length - 1 ? 'border-b border-surface-border/50' : ''}`}>
+                  <Text className="text-typography-muted text-xs">{t.period_label}</Text>
+                  <View className="flex-row gap-3">
+                    <Text className="text-state-success text-xs font-bold">↑ {t.tasks_succeeded}</Text>
+                    <Text className="text-state-danger text-xs font-bold">↓ {t.tasks_failed}</Text>
+                    {t.success_rate !== null && (
+                      <Text className="text-typography-dim text-xs">{t.success_rate.toFixed(0)}%</Text>
+                    )}
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
+
+          {/* CTA */}
+          <TouchableOpacity
+            onPress={() => router.push('/intelligence/analytics' as any)}
+            className="bg-brand-primary py-4 rounded-2xl items-center flex-row justify-center gap-3"
+          >
+            <FontAwesome name="bar-chart" size={14} color="white" />
+            <Text className="text-white font-black uppercase tracking-widest text-xs">Full Analytics Hub</Text>
+          </TouchableOpacity>
+        </>
+      )}
     </View>
   );
 };
@@ -629,7 +766,7 @@ export default function IntelligenceScreen() {
   const { section } = useLocalSearchParams();
   const router = useRouter();
   const { hasPermission, profile } = useAuth();
-  
+
   const [activeSection, setActiveSection] = useState((section as string) || 'radar');
   const [loading, setLoading] = useState(true);
   const [showReportModal, setShowReportModal] = useState(false);
@@ -733,8 +870,6 @@ export default function IntelligenceScreen() {
       setLoading(true);
       const { data: res } = await supabase.from('reporting_jobs').select('*').order('created_at', { ascending: false });
       setReports(res || []);
-      
-      // Also fetch cold archives when in archives section
       await fetchColdArchives();
     } catch (err) { console.error(err); } finally { setLoading(false); }
   };
@@ -766,7 +901,6 @@ export default function IntelligenceScreen() {
       setLoading(true);
       const { data: res } = await supabase.from('pipeline_stage_targets').select('*, stage:pipeline_stages(name, pipeline_id)').order('created_at', { ascending: false });
 
-      // Enrich with current counts for volume targets
       const enriched = await Promise.all((res || []).map(async (t) => {
         if (t.target_type === 'volume') {
           const { count } = await supabase.from('tasks').select('*', { count: 'exact', head: true }).eq('current_stage_id', t.stage_id);
@@ -879,7 +1013,7 @@ export default function IntelligenceScreen() {
                 <View className="w-16 h-16 bg-brand-primary/10 rounded-full items-center justify-center mb-6">
                   <FontAwesome name="line-chart" size={24} color="rgb(var(--brand-primary))" />
                 </View>
-                
+
                 {hasPermission('pipeline.edit') ? (
                   <>
                     <Text className="text-typography-main text-xl font-black mb-2 text-center">Setup Required</Text>
@@ -912,10 +1046,12 @@ export default function IntelligenceScreen() {
             <RadarSection data={data} activeWidgets={activeWidgets} onEditWidgets={() => setShowWidgetModal(true)} />
           ) : activeSection === 'targets' ? (
             <TargetsSection targets={targets} onUpdate={handleUpdateTarget} onNew={() => setShowTargetModal(true)} />
+          ) : activeSection === 'analytics' ? (
+            <NativeAnalyticsSection pipelines={pipelines} />
           ) : activeSection === 'archives' && (
-            <ArchivesSection 
-              reports={reports} 
-              onDownload={handleDownloadReport} 
+            <ArchivesSection
+              reports={reports}
+              onDownload={handleDownloadReport}
               onNew={() => setShowReportModal(true)}
               coldArchives={coldArchives}
               activeSchema={activeSchema}
@@ -929,7 +1065,6 @@ export default function IntelligenceScreen() {
         <View className="h-20" />
       </ScrollView>
 
-      {/* Global Config Modal */}
       <ReportConfigModal
         visible={showReportModal}
         onClose={() => setShowReportModal(false)}
@@ -940,7 +1075,6 @@ export default function IntelligenceScreen() {
         initialDays={days}
       />
 
-      {/* Target Creation Modal */}
       <TargetCreationModal
         visible={showTargetModal}
         onClose={() => setShowTargetModal(false)}
@@ -949,7 +1083,6 @@ export default function IntelligenceScreen() {
         stages={allStages}
       />
 
-      {/* Widget Configuration Modal */}
       <WidgetConfigModal
         visible={showWidgetModal}
         onClose={() => setShowWidgetModal(false)}
@@ -957,7 +1090,6 @@ export default function IntelligenceScreen() {
         currentWidgets={activeWidgets}
       />
 
-      {/* Archive Detail Modal (Path B) */}
       <ArchiveDetailModal
         visible={!!selectedArchive}
         onClose={() => setSelectedArchive(null)}
@@ -970,7 +1102,6 @@ export default function IntelligenceScreen() {
         hasPermission={hasPermission}
       />
 
-      {/* Confirmation Modal */}
       <ConfirmModal
         visible={confirmRestore.visible}
         title="Restore Archive"

@@ -117,7 +117,7 @@ function CreateRuleModal({ visible, onClose, onCreated }: CreateRuleModalProps) 
           <View className="flex-row items-center justify-between mb-6">
             <Text className="text-typography-main font-black text-xl">New Rule</Text>
             <TouchableOpacity onPress={onClose} className="p-2">
-              <FontAwesome name="times" size={18} color="rgb(var(--text-muted))" />
+              <FontAwesome name="times" size={18} className="text-typography-muted" />
             </TouchableOpacity>
           </View>
 
@@ -129,7 +129,7 @@ function CreateRuleModal({ visible, onClose, onCreated }: CreateRuleModalProps) 
             value={name}
             onChangeText={setName}
             placeholder="e.g. Notify assignees on stage move"
-            placeholderTextColor="rgb(var(--text-muted))"
+            placeholderTextColor="var(--color-text-dim)"
             className="bg-surface-background border border-surface-border rounded-xl px-4 py-3 text-typography-main text-sm mb-4"
           />
 
@@ -141,7 +141,7 @@ function CreateRuleModal({ visible, onClose, onCreated }: CreateRuleModalProps) 
             value={description}
             onChangeText={setDescription}
             placeholder="Optional description..."
-            placeholderTextColor="rgb(var(--text-muted))"
+            placeholderTextColor="var(--color-text-dim)"
             className="bg-surface-background border border-surface-border rounded-xl px-4 py-3 text-typography-main text-sm mb-4"
           />
 
@@ -227,13 +227,13 @@ function RuleCard({
   onToggle: (id: string, active: boolean) => void;
 }) {
   const meta = EVENT_TYPE_LABELS[rule.event_type];
-  const categoryColor = meta?.category === 'Tasks'
-    ? 'rgb(var(--brand-primary))'
+  const categoryClasses = meta?.category === 'Tasks'
+    ? { bg: 'bg-brand-primary/10', border: 'border-brand-primary/20', text: 'text-brand-primary' }
     : meta?.category === 'Comments'
-    ? 'rgb(var(--state-warning))'
+    ? { bg: 'bg-state-warning/10', border: 'border-state-warning/20', text: 'text-state-warning' }
     : meta?.category === 'Deadlines'
-    ? 'rgb(var(--state-danger))'
-    : 'rgb(var(--text-muted))';
+    ? { bg: 'bg-state-danger/10', border: 'border-state-danger/20', text: 'text-state-danger' }
+    : { bg: 'bg-surface-overlay', border: 'border-surface-border', text: 'text-typography-muted' };
 
   return (
     <View className="bg-surface-card border border-surface-border rounded-2xl p-4 mb-3">
@@ -242,15 +242,10 @@ function RuleCard({
           {/* Category tag */}
           <View className="flex-row items-center gap-2 mb-2">
             <View
-              className="px-2 py-0.5 rounded-full border"
-              style={{
-                backgroundColor: categoryColor + '18',
-                borderColor: categoryColor + '40',
-              }}
+              className={`px-2 py-0.5 rounded-full border ${categoryClasses.bg} ${categoryClasses.border}`}
             >
               <Text
-                className="text-[9px] font-black uppercase tracking-widest"
-                style={{ color: categoryColor }}
+                className={`text-[9px] font-black uppercase tracking-widest ${categoryClasses.text}`}
               >
                 {meta?.category ?? 'General'}
               </Text>
@@ -287,8 +282,8 @@ function RuleCard({
           value={rule.is_active}
           onValueChange={(val) => onToggle(rule.id, val)}
           trackColor={{
-            false: 'rgb(var(--surface-border))',
-            true: 'rgb(var(--brand-primary))',
+            false: 'var(--color-border)',
+            true: 'var(--color-primary)',
           }}
           thumbColor="#fff"
         />
@@ -351,7 +346,7 @@ export default function NotificationRules() {
   if (!initialized || loading) {
     return (
       <View className="py-20 items-center justify-center">
-        <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
+        <ActivityIndicator size="large" color="var(--color-primary)" />
         <Text className="text-typography-muted mt-4 font-bold text-sm">
           Loading rules...
         </Text>
@@ -363,7 +358,7 @@ export default function NotificationRules() {
     return (
       <View className="flex-1 bg-surface-background items-center justify-center p-6">
         <View className="bg-state-danger/10 p-8 rounded-[40px] mb-8 border border-dashed border-state-danger/20">
-          <FontAwesome name="lock" size={48} color="rgb(var(--state-danger))" />
+          <FontAwesome name="lock" size={48} className="text-state-danger" />
         </View>
         <Text className="text-typography-main font-black text-2xl text-center tracking-tight">
           Access Restricted
@@ -418,7 +413,7 @@ export default function NotificationRules() {
         {rules.length === 0 ? (
           <View className="items-center justify-center py-20 px-8">
             <View className="bg-brand-primary/10 p-6 rounded-full mb-6 border border-brand-primary/20">
-              <FontAwesome name="bell-slash-o" size={36} color="rgb(var(--brand-primary))" />
+              <FontAwesome name="bell-slash-o" size={36} className="text-brand-primary" />
             </View>
             <Text className="text-typography-main font-black text-xl text-center mb-2">
               No Rules Yet
@@ -442,7 +437,7 @@ export default function NotificationRules() {
                       : 'bell'
                   }
                   size={11}
-                  color="rgb(var(--text-muted))"
+                  className="text-typography-muted"
                 />
                 <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-typography-muted">
                   {category}
@@ -468,7 +463,7 @@ export default function NotificationRules() {
             onPress={() => setShowCreate(true)}
             className="flex-row items-center justify-center bg-brand-primary/10 border border-brand-primary/30 rounded-2xl py-4 gap-2"
           >
-            <FontAwesome name="plus" size={13} color="rgb(var(--brand-primary))" />
+            <FontAwesome name="plus" size={13} className="text-brand-primary" />
             <Text className="text-brand-primary font-black text-sm uppercase tracking-widest text-[11px]">
               Add Rule
             </Text>

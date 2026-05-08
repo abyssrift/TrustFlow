@@ -86,6 +86,7 @@ export default function RootLayout() {
 
 import { AlertProvider } from '@/contexts/AlertContext';
 import { NotificationsProvider } from '@/contexts/NotificationsContext';
+import { AnalyticsProvider } from '@/contexts/AnalyticsContext';
 import { ThemeProvider as AppThemeProvider } from '@/contexts/ThemeContext';
 import { usePushRegistration } from '@/hooks/usePushRegistration';
 
@@ -144,31 +145,33 @@ function RootLayoutNav() {
 
   return (
     <AppThemeProvider>
-      <AlertProvider>
-        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <NotificationsProvider>
-            <View className="flex-1 bg-surface-background">
-              {/* Register for push notifications on native once user is signed in */}
-              {session && Platform.OS !== 'web' && <PushRegistrationGuard />}
-              <Stack>
-                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-                <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-                <Stack.Screen name="admin/pipelines" options={{ headerShown: false }} />
-                <Stack.Screen name="admin/roles" options={{ headerShown: false }} />
-                <Stack.Screen name="admin/notifications" options={{ headerShown: false }} />
-                <Stack.Screen name="notifications/preferences" options={{ headerShown: false }} />
-                <Stack.Screen name="task/[id]" options={{ headerShown: false }} />
-                <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-              </Stack>
-              <TimerIsland />
-              <View className="absolute top-0 left-0 right-0 z-[999]">
-                <GlobalUploadBanner />
+      <AnalyticsProvider>
+        <AlertProvider>
+          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+            <NotificationsProvider>
+              <View className="flex-1 bg-surface-background">
+                {/* Register for push notifications on native once user is signed in */}
+                {session && Platform.OS !== 'web' && <PushRegistrationGuard />}
+                <Stack>
+                  <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                  <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                  <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+                  <Stack.Screen name="admin/pipelines" options={{ headerShown: false }} />
+                  <Stack.Screen name="admin/roles" options={{ headerShown: false }} />
+                  <Stack.Screen name="admin/notifications" options={{ headerShown: false }} />
+                  <Stack.Screen name="notifications/preferences" options={{ headerShown: false }} />
+                  <Stack.Screen name="task/[id]" options={{ headerShown: false }} />
+                  <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+                </Stack>
+                <TimerIsland />
+                <View className="absolute top-0 left-0 right-0 z-[999]">
+                  <GlobalUploadBanner />
+                </View>
               </View>
-            </View>
-          </NotificationsProvider>
-        </ThemeProvider>
-      </AlertProvider>
+            </NotificationsProvider>
+          </ThemeProvider>
+        </AlertProvider>
+      </AnalyticsProvider>
     </AppThemeProvider>
   );
 }

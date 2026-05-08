@@ -67,6 +67,9 @@ type Task = {
   }[];
   total_seconds?: number;
   my_seconds?: number;
+  submission_count?: { count: number }[];
+  comment_count?: { count: number }[];
+  has_mention?: boolean;
 };
 
 type Pipeline = {
@@ -172,7 +175,9 @@ export function TasksScreenWeb() {
             assignee_team_id,
             team:assignee_team_id(name),
             user:assignee_user_id(full_name)
-          )
+          ),
+          submission_count:task_submissions(count),
+          comment_count:task_comments(count)
         `)
         .eq('pipeline_id', targetPipelineId)
         .order('created_at', { ascending: false });
@@ -207,7 +212,53 @@ export function TasksScreenWeb() {
         });
       }
 
-      setTasks(filteredTasks as any);
+      let mentionTaskIds = new Set<string>();
+      if (filteredTasks.length > 0) {
+        // Fetch mention acknowledgements for this user
+        const { data: acks } = await supabase
+          .from('task_mention_acks')
+          .select('task_id, acknowledged_at')
+          .eq('user_id', user?.id)
+          .in('task_id', filteredTasks.map(t => t.id));
+
+        const ackMap = new Map(acks?.map(a => [a.task_id, a.acknowledged_at]));
+
+        const variants = Array.from(new Set([
+          profile?.full_name,
+          profile?.display_name,
+          user?.user_metadata?.full_name,
+          user?.email?.split('@')[0]
+        ].filter(Boolean) as string[]));
+
+        const searchTerms = new Set<string>();
+        variants.forEach(v => {
+          searchTerms.add(v);
+          const first = v.split(' ')[0];
+          if (first && first.length > 2) searchTerms.add(first);
+        });
+
+        const orQuery = Array.from(searchTerms)
+          .map(term => `content.ilike.%@${term}%`)
+          .join(',');
+
+        const { data: mentions } = await supabase
+          .from('task_comments')
+          .select('task_id, created_at')
+          .or(orQuery)
+          .in('task_id', filteredTasks.map(t => t.id));
+        
+        mentions?.forEach(m => {
+          const lastAck = ackMap.get(m.task_id);
+          if (!lastAck || new Date(m.created_at) > new Date(lastAck)) {
+            mentionTaskIds.add(m.task_id);
+          }
+        });
+      }
+
+      setTasks(filteredTasks.map(t => ({
+        ...t,
+        has_mention: mentionTaskIds.has(t.id)
+      })) as any);
 
       // 6. Active Sessions
       const { data: sessions } = await supabase
@@ -248,6 +299,8 @@ export function TasksScreenWeb() {
       .channel('tasks-board-realtime-web')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => fetchData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'task_work_sessions' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_comments' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_submissions' }, () => fetchData())
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pipeline_stage_history' }, () => fetchData())
       .subscribe();
 
@@ -313,6 +366,7 @@ export function TasksScreenWeb() {
   };
 
   const renderTaskCard = (task: Task) => {
+    if (!task) return null;
     const prio = getPriorityInfo(task.priority);
     const canViewAllData = hasPermission('system.view_all_data') || user?.id === task.manager_id || (user as any)?.is_owner;
     
@@ -334,8 +388,13 @@ export function TasksScreenWeb() {
       <TouchableOpacity
         key={task.id}
         onPress={() => router.push(`/task/${task.id}`)}
-        className="bg-surface-card p-5 rounded-2xl border border-surface-border mb-4 premium-shadow hover:border-brand-primary/50 transition-all"
+        className="bg-surface-card p-5 rounded-2xl border border-surface-border mb-4 premium-shadow hover:border-brand-primary/50 transition-all relative"
       >
+        {task.has_mention && (
+          <View className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-state-danger items-center justify-center border-2 border-surface-card z-[60] animate-vibrate shadow-lg">
+            <Text className="text-white text-[10px] font-black">@</Text>
+          </View>
+        )}
         <View className="flex-row items-center justify-between mb-3">
           <View className="flex-row items-center gap-2">
             <View className="bg-surface-background px-3 py-1 rounded-lg border border-surface-border">
@@ -350,7 +409,7 @@ export function TasksScreenWeb() {
             )}
             {displayMySeconds > 0 && (
               <View className="bg-brand-primary/10 px-2.5 py-1 rounded-lg border border-brand-primary/20 flex-row items-center gap-1">
-                <FontAwesome name="clock-o" size={9} className="text-brand-primary" />
+                <FontAwesome name="clock-o" size={9} color="var(--color-primary)" />
                 <Text className="text-brand-primary text-[10px] font-black">{formatSeconds(displayMySeconds)}</Text>
               </View>
             )}
@@ -358,6 +417,18 @@ export function TasksScreenWeb() {
               <View className="bg-surface-background px-2.5 py-1 rounded-lg border border-surface-border flex-row items-center gap-1">
                 <FontAwesome name="users" size={9} className="text-typography-muted" />
                 <Text className="text-typography-muted text-[10px] font-black">{formatSeconds(displayTotalSeconds)}</Text>
+              </View>
+            )}
+            {(task.submission_count?.[0]?.count ?? 0) > 0 && (
+              <View className="bg-brand-primary/10 px-2.5 py-1 rounded-lg border border-brand-primary/20 flex-row items-center gap-1">
+                <FontAwesome name="send" size={9} className="text-brand-primary" />
+                <Text className="text-brand-primary text-[10px] font-black">{task.submission_count?.[0]?.count}</Text>
+              </View>
+            )}
+            {(task.comment_count?.[0]?.count ?? 0) > 0 && (
+              <View className="bg-surface-background px-2.5 py-1 rounded-lg border border-surface-border flex-row items-center gap-1">
+                <FontAwesome name="comment-o" size={9} className="text-typography-muted" />
+                <Text className="text-typography-muted text-[10px] font-black">{task.comment_count?.[0]?.count}</Text>
               </View>
             )}
           </View>
@@ -368,7 +439,7 @@ export function TasksScreenWeb() {
                 onPress={() => handleOpenAssignments(task)}
                 className="w-7 h-7 items-center justify-center rounded-xl bg-surface-background border border-surface-border hover:bg-brand-primary/10 transition-colors"
               >
-                <FontAwesome name="user-plus" size={10} className="text-typography-muted" />
+                <FontAwesome name="user-plus" size={10} color="var(--color-text-muted)" />
               </TouchableOpacity>
             )}
             {(profile?.is_owner || hasPermission('archive:create') || hasPermission('pipeline.edit')) && (
@@ -384,7 +455,7 @@ export function TasksScreenWeb() {
                 }}
                 className={`w-7 h-7 items-center justify-center rounded-xl border border-surface-border transition-colors ${activeSession?.task_id === task.id ? 'opacity-30 cursor-not-allowed bg-surface-card' : 'bg-surface-background hover:bg-state-warning/10'}`}
               >
-                <FontAwesome name="archive" size={10} className="text-typography-muted" />
+                <FontAwesome name="archive" size={10} color="var(--color-text-muted)" />
               </TouchableOpacity>
             )}
           </View>
@@ -498,20 +569,20 @@ export function TasksScreenWeb() {
                  onPress={() => setShowPersonalizer(true)}
                  className="h-14 w-14 items-center justify-center bg-surface-card border border-surface-border rounded-2xl premium-shadow hover:bg-surface-overlay"
                >
-                  <FontAwesome name="paint-brush" size={16} className="text-brand-primary" />
+                  <FontAwesome name="paint-brush" size={16} color="var(--color-primary)" />
                </TouchableOpacity>
                <TouchableOpacity 
                  onPress={onRefresh}
                  className="h-14 w-14 items-center justify-center bg-surface-card border border-surface-border rounded-2xl premium-shadow hover:bg-surface-overlay"
                >
-                  <FontAwesome name="refresh" size={16} className="text-brand-primary" />
+                  <FontAwesome name="refresh" size={16} color="var(--color-primary)" />
                </TouchableOpacity>
                {hasPermission('task.create') && (
                  <TouchableOpacity 
                    onPress={handleCreateTask}
                    className="bg-brand-primary px-8 py-4 rounded-2xl premium-shadow active:scale-95 transition-transform flex-row items-center"
                  >
-                    <FontAwesome name="plus" size={12} color="white" className="mr-3" />
+                    <FontAwesome name="plus" size={12} color="white" />
                     <Text className="text-white font-black uppercase tracking-widest text-xs">Create Task</Text>
                  </TouchableOpacity>
                )}
@@ -520,13 +591,13 @@ export function TasksScreenWeb() {
 
           {loading ? (
             <View className="flex-1 items-center justify-center">
-              <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
+              <ActivityIndicator size="large" color="var(--color-primary)" />
             </View>
           ) : availablePipelines.length === 0 ? (
             <View className="flex-1 items-center justify-center">
               <View className="bg-surface-card p-12 rounded-[3rem] border border-surface-border items-center max-w-[600px] premium-shadow">
                 <View className="w-20 h-20 bg-brand-primary/10 rounded-full items-center justify-center mb-6">
-                  <FontAwesome name="sitemap" size={32} className="text-brand-primary" />
+                  <FontAwesome name="sitemap" size={32} color="var(--color-primary)" />
                 </View>
                 
                 {hasPermission('pipeline.edit') ? (
@@ -545,7 +616,7 @@ export function TasksScreenWeb() {
                 ) : (
                   <View className="bg-state-info-dim border border-state-info/20 p-8 rounded-3xl w-full">
                     <View className="flex-row items-start">
-                      <FontAwesome name="info-circle" size={20} color="rgb(var(--state-info))" style={{ marginTop: 4 }} />
+                      <FontAwesome name="info-circle" size={20} color="var(--color-info)" style={{ marginTop: 4 }} />
                       <View className="ml-5 flex-1">
                          <Text className="text-typography-main text-lg font-black mb-1">Access Restricted</Text>
                          <Text className="text-typography-muted text-sm font-bold leading-relaxed">
@@ -581,7 +652,7 @@ export function TasksScreenWeb() {
                       
                       {stage.linked_pipeline && (
                          <View className="flex-row items-center border border-brand-primary/30 bg-brand-primary/10 px-2 py-0.5 rounded-full">
-                            <FontAwesome name="bolt" size={8} className="text-brand-primary" />
+                            <FontAwesome name="bolt" size={8} color="var(--color-primary)" />
                             <Text className="text-brand-primary text-[8px] font-black ml-1 uppercase">Pushes to {stage.linked_pipeline.name}</Text>
                          </View>
                       )}
@@ -595,7 +666,7 @@ export function TasksScreenWeb() {
                     >
                       {stageTasks.length === 0 ? (
                         <View className="py-20 items-center justify-center opacity-20">
-                           <FontAwesome name="inbox" size={48} className="text-typography-muted" />
+                           <FontAwesome name="inbox" size={48} color="var(--color-text-muted)" />
                            <Text className="text-typography-muted text-xs mt-6 font-black uppercase tracking-widest">No Active Tasks</Text>
                         </View>
                       ) : (
@@ -670,7 +741,7 @@ export function TasksScreenWeb() {
 
       {archiveError && (
         <View className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-state-danger/10 border border-state-danger/30 rounded-2xl px-6 py-4 flex-row items-center gap-3 premium-shadow">
-          <FontAwesome name="exclamation-circle" size={14} color="rgb(var(--state-danger))" />
+          <FontAwesome name="exclamation-circle" size={14} color="var(--color-danger)" />
           <Text className="text-state-danger font-bold text-sm">
             <Text className="font-black uppercase tracking-wider">Archival Failed: </Text>
             {archiveError}

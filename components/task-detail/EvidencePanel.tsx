@@ -2,7 +2,6 @@ import React, { useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
-import { useTimer } from '@/contexts/TimerContext';
 import { openStorageFile, SUBMISSION_BUCKET } from '@/lib/storage';
 
 const CATEGORY_UI: Record<string, { icon: string; color: string; label: string }> = {
@@ -24,7 +23,6 @@ type FilterType = 'all' | 'image' | 'document' | 'spreadsheet';
 
 export default function EvidencePanel() {
   const { data } = useTaskDetail();
-  const { passiveStart } = useTimer();
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
 
   const { groupedEvidence, stats } = useMemo(() => {
@@ -112,7 +110,6 @@ export default function EvidencePanel() {
                   <TouchableOpacity
                     key={`${ev.id}-${idx}`}
                     onPress={async () => {
-                      await passiveStart(data.task.id, data.task.title);
                       openStorageFile(SUBMISSION_BUCKET, ev.storage_path || ev.file_url);
                     }}
                     className="flex-row items-center bg-surface-background p-3 rounded-xl border border-surface-border/50 active:opacity-75"

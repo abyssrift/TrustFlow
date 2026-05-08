@@ -55,10 +55,10 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: 'rgb(var(--brand-primary))',
-        tabBarInactiveTintColor: 'rgb(var(--text-muted))',
+        tabBarActiveTintColor: 'var(--color-primary)',
+        tabBarInactiveTintColor: 'var(--color-text-muted)',
         tabBarStyle: {
-          backgroundColor: 'rgb(var(--surface-background))',
+          backgroundColor: 'var(--color-background)',
           borderTopColor: 'transparent',
           paddingBottom: Platform.OS === 'ios' ? 24 : 12,
           paddingTop: 12,
@@ -66,13 +66,13 @@ export default function TabLayout() {
           display: isLargeScreen ? 'none' : 'flex', // Hide bottom tabs on large screens
         },
         headerStyle: {
-          backgroundColor: 'rgb(var(--surface-background))',
+          backgroundColor: 'var(--color-background)',
           elevation: 0,
           shadowOpacity: 0,
           borderBottomWidth: 0,
         },
         headerTitleStyle: {
-          color: 'rgb(var(--text-main))',
+          color: 'var(--color-text-main)',
           fontWeight: '800',
           fontSize: 20,
         },
@@ -109,6 +109,13 @@ export default function TabLayout() {
         options={{
           title: 'Insights',
           tabBarIcon: ({ color }) => <TabBarIcon name="line-chart" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="analytics"
+        options={{
+          title: 'Analytics',
+          tabBarIcon: ({ color }) => <TabBarIcon name="bar-chart" color={color} />,
         }}
       />
       <Tabs.Screen

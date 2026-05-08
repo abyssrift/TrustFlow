@@ -18,6 +18,8 @@ import { SubmissionProvider } from '@/contexts/SubmissionContext';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Sidebar from '@/components/Sidebar.web';
 import TimerIsland from '@/components/TimerIsland';
+import { AnalyticsProvider } from '@/contexts/AnalyticsContext';
+import { NotificationsProvider } from '@/contexts/NotificationsContext';
 
 cssInterop(FontAwesome, {
   className: {
@@ -96,19 +98,23 @@ function RootLayoutNav() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <View className="flex-1 bg-surface-background">
-        <TimerIsland />
-        <View className="absolute top-0 left-0 right-0 z-[999]">
-          {/* Other banners can go here */}
-        </View>
-        {showSidebar ? (
-          <Sidebar>
-            <Slot />
-          </Sidebar>
-        ) : (
-          <Slot />
-        )}
-      </View>
+      <AnalyticsProvider>
+        <NotificationsProvider>
+          <View className="flex-1 bg-surface-background">
+            <TimerIsland />
+            <View className="absolute top-0 left-0 right-0 z-[999]">
+              {/* Other banners can go here */}
+            </View>
+            {showSidebar ? (
+              <Sidebar>
+                <Slot />
+              </Sidebar>
+            ) : (
+              <Slot />
+            )}
+          </View>
+        </NotificationsProvider>
+      </AnalyticsProvider>
     </ThemeProvider>
   );
 }

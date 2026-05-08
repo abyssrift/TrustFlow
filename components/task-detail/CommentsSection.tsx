@@ -1,9 +1,10 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import React, { useState, useMemo, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert, FlatList } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTaskDetail, CommentData } from '@/contexts/TaskDetailContext';
 import { useTimer } from '@/contexts/TimerContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 import PermissionGate from './PermissionGate';
 
 type CommentTree = CommentData & { children: CommentTree[] };
@@ -37,15 +38,21 @@ function timeAgo(dateStr: string): string {
   return `${days}d ago`;
 }
 
-function CommentNode({ comment, depth, onReply, onDelete, canComment, currentUserId }: {
+function CommentNode({ comment, depth, onReply, onDelete, canComment, currentUserId, checkIfMentioned }: {
   comment: CommentTree; depth: number; onReply: (id: string) => void;
   onDelete: (id: string) => void; canComment: boolean; currentUserId: string | null;
+  checkIfMentioned: (content: string) => boolean;
 }) {
+  const isMentioned = checkIfMentioned(comment.content);
   const maxIndent = Math.min(depth, 6); // Cap visual indent at 6 levels
 
   return (
     <View style={{ marginLeft: maxIndent * 16 }} className="mb-3">
-      <View className={`${comment.is_system ? 'bg-surface-background' : 'bg-surface-card'} rounded-xl border border-surface-border/50 p-3`}>
+      <View className={`
+        ${comment.is_system ? 'bg-surface-background' : 'bg-surface-card'} 
+        rounded-xl border p-3
+        ${isMentioned ? 'border-brand-primary bg-brand-primary/5 shadow-sm' : 'border-surface-border/50'}
+      `}>
         {/* Author row */}
         <View className="flex-row items-center justify-between mb-1.5">
           <View className="flex-row items-center">
@@ -58,6 +65,11 @@ function CommentNode({ comment, depth, onReply, onDelete, canComment, currentUse
               {comment.is_system ? 'System' : comment.author?.full_name || 'Unknown'}
             </Text>
             <Text className="text-typography-dim text-[9px] ml-2">{timeAgo(comment.created_at)}</Text>
+            {isMentioned && (
+              <View className="ml-2 bg-brand-primary/20 px-1.5 py-0.5 rounded-full">
+                <Text className="text-brand-primary text-[8px] font-black uppercase">Mentioned</Text>
+              </View>
+            )}
           </View>
 
           {/* Delete button (only for own comments) */}
@@ -92,6 +104,7 @@ function CommentNode({ comment, depth, onReply, onDelete, canComment, currentUse
           onDelete={onDelete}
           canComment={canComment}
           currentUserId={currentUserId}
+          checkIfMentioned={checkIfMentioned}
         />
       ))}
     </View>
@@ -100,11 +113,151 @@ function CommentNode({ comment, depth, onReply, onDelete, canComment, currentUse
 
 export default function CommentsSection() {
   const { data, addComment, deleteComment } = useTaskDetail();
-  const { smartTimer, passiveStart } = useTimer();
-  const { user } = useAuth();
+  const { smartTimer } = useTimer();
+  const { user, profile } = useAuth();
+  
+  // Calculate user variants for mention highlighting
+  const userVariants = useMemo(() => {
+    const variants = new Set<string>();
+    const full = profile?.full_name || user?.user_metadata?.full_name;
+    const disp = profile?.display_name;
+    
+    if (full) {
+      variants.add(full.toLowerCase());
+      const first = full.split(' ')[0];
+      if (first && first.length > 2) variants.add(first.toLowerCase());
+    }
+    if (disp) variants.add(disp.toLowerCase());
+    
+    return Array.from(variants);
+  }, [profile, user]);
+
+  const checkIfMentioned = (content: string) => {
+    if (!content || userVariants.length === 0) return false;
+    const lowerContent = content.toLowerCase();
+    return userVariants.some(v => lowerContent.includes(`@${v}`));
+  };
   const [input, setInput] = useState('');
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+
+  // Mention system state
+  const [eligibleUsers, setEligibleUsers] = useState<any[]>([]);
+  const [showMentionPicker, setShowMentionPicker] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [cursorPos, setCursorPos] = useState(0);
+  const [lastAck, setLastAck] = useState<string | null>(null);
+
+  // Fetch last acknowledgement time
+  useEffect(() => {
+    const fetchLastAck = async () => {
+      if (!data?.task?.id || !user?.id) return;
+      const { data: ack } = await supabase
+        .from('task_mention_acks')
+        .select('acknowledged_at')
+        .eq('task_id', data.task.id)
+        .eq('user_id', user.id)
+        .single();
+      if (ack) setLastAck(ack.acknowledged_at);
+    };
+    fetchLastAck();
+  }, [data?.task?.id, user?.id]);
+
+  // Mark mentions as read when viewed
+  useEffect(() => {
+    const hasMentions = data?.comments?.some(c => checkIfMentioned(c.content));
+    const hasNewMention = data?.comments?.some(c => {
+      const isMentioned = checkIfMentioned(c.content);
+      return isMentioned && (!lastAck || new Date(c.created_at) > new Date(lastAck));
+    });
+
+    if (hasNewMention && user?.id && profile?.company_id && data?.task?.id) {
+       // Upsert current time as acknowledged_at
+       supabase
+         .from('task_mention_acks')
+         .upsert({
+           task_id: data.task.id,
+           user_id: user.id,
+           company_id: profile.company_id,
+           acknowledged_at: new Date().toISOString()
+         }, { onConflict: 'task_id,user_id' })
+         .then(({ error }) => {
+           if (!error) {
+             setLastAck(new Date().toISOString());
+           }
+         });
+    }
+  }, [data?.comments, user?.id, profile?.company_id, data?.task?.id, lastAck]);
+
+  useEffect(() => {
+    const fetchEligibleUsers = async () => {
+      if (!data?.task?.company_id) return;
+      
+      // Fetch all active users in the company
+      const { data: users, error } = await supabase
+        .from('users')
+        .select('id, full_name, display_name, avatar_url')
+        .eq('company_id', data.task.company_id)
+        .eq('is_active', true);
+      
+      if (!error && users) {
+        setEligibleUsers(users);
+      }
+    };
+    fetchEligibleUsers();
+  }, [data?.task?.company_id]);
+
+  const filteredUsers = useMemo(() => {
+    if (!mentionQuery) return eligibleUsers;
+    const q = mentionQuery.toLowerCase();
+    return eligibleUsers.filter(u => 
+      (u.full_name || '').toLowerCase().includes(q) || 
+      (u.display_name || '').toLowerCase().includes(q)
+    );
+  }, [eligibleUsers, mentionQuery]);
+
+  const updateMentionState = (text: string, position: number) => {
+    // Detect mention trigger
+    // We look for '@' at the current cursor or before it
+    const lastAtIdx = text.lastIndexOf('@', position - 1);
+    const charBeforeAt = lastAtIdx > 0 ? text[lastAtIdx - 1] : null;
+    const isValidTrigger = lastAtIdx !== -1 && (!charBeforeAt || charBeforeAt === ' ' || charBeforeAt === '\n');
+
+    if (isValidTrigger) {
+      const chunk = text.slice(lastAtIdx + 1, position);
+      if (!chunk.includes('\n') && !chunk.includes('  ')) { // Don't show if too many spaces
+        setMentionQuery(chunk);
+        setShowMentionPicker(true);
+      } else {
+        setShowMentionPicker(false);
+      }
+    } else {
+      setShowMentionPicker(false);
+    }
+  };
+
+  const handleInputChange = (text: string) => {
+    setInput(text);
+    updateMentionState(text, cursorPos);
+  };
+
+  const handleSelectionChange = (position: number) => {
+    setCursorPos(position);
+    updateMentionState(input, position);
+  };
+
+  const handleSelectUser = (user: any) => {
+    const lastAtIdx = input.lastIndexOf('@', cursorPos - 1);
+    if (lastAtIdx === -1) return;
+
+    const nameToInsert = user.display_name || user.full_name || 'User';
+    const beforeAt = input.slice(0, lastAtIdx);
+    const afterAt = input.slice(cursorPos);
+    
+    const newValue = `${beforeAt}@${nameToInsert} ${afterAt}`;
+    setInput(newValue);
+    setShowMentionPicker(false);
+  };
 
   const tree = useMemo(() => buildTree(data?.comments || []), [data?.comments]);
 
@@ -135,9 +288,17 @@ export default function CommentsSection() {
 
   return (
     <View className="bg-surface-card rounded-2xl border border-surface-border p-4">
-      <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em] mb-3">
-        Comments ({data.comments.length})
-      </Text>
+      <View className="flex-row items-center justify-between mb-3">
+        <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em]">
+          Comments ({data.comments.length})
+        </Text>
+        {data.comments.some(c => checkIfMentioned(c.content)) && (
+          <View className="flex-row items-center">
+            <FontAwesome name="check-circle" size={10} color="#10b981" />
+            <Text className="text-state-success text-[9px] font-bold ml-1 uppercase">Mentions Cleared</Text>
+          </View>
+        )}
+      </View>
 
       {/* Comment tree */}
       {tree.length === 0 ? (
@@ -155,6 +316,7 @@ export default function CommentsSection() {
             onDelete={handleDelete}
             canComment={data.permissions.can_comment}
             currentUserId={user?.id || null}
+            checkIfMentioned={checkIfMentioned}
           />
         ))
       )}
@@ -175,13 +337,40 @@ export default function CommentsSection() {
             </View>
           )}
 
+          {/* Mention Picker */}
+          {showMentionPicker && filteredUsers.length > 0 && (
+            <View className="bg-surface-background border border-surface-border rounded-xl mb-2 overflow-hidden max-h-[160px]">
+              <FlatList
+                data={filteredUsers}
+                keyExtractor={(item) => item.id}
+                keyboardShouldPersistTaps="always"
+                renderItem={({ item }) => (
+                  <TouchableOpacity 
+                    onPress={() => handleSelectUser(item)}
+                    className="flex-row items-center p-3 border-b border-surface-border/30 active:bg-brand-primary/10"
+                  >
+                    <View className="w-6 h-6 rounded-full bg-brand-primary/20 items-center justify-center mr-3">
+                      <Text className="text-brand-primary text-[10px] font-black">
+                        {(item.full_name || '?').charAt(0)}
+                      </Text>
+                    </View>
+                    <View>
+                      <Text className="text-typography-main text-xs font-bold">{item.full_name}</Text>
+                      {item.display_name && (
+                        <Text className="text-typography-dim text-[9px]">@{item.display_name}</Text>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                )}
+              />
+            </View>
+          )}
+
           <View className="flex-row items-end gap-2">
             <TextInput
               value={input}
-              onChangeText={(val) => {
-                setInput(val);
-                passiveStart(data.task.id, data.task.title);
-              }}
+              onChangeText={handleInputChange}
+              onSelectionChange={(e) => handleSelectionChange(e.nativeEvent.selection.start)}
               placeholder={replyTo ? 'Write a reply...' : 'Write a comment...'}
               placeholderTextColor="#64748b"
               multiline

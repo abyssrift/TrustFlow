@@ -12,109 +12,170 @@ html, body, #root {
   flex-direction: column;
 }
 
+/* --- CORE DESIGN TOKENS --- */
+:root {
+  /* Brand Tokens (Comma-separated RGB) */
+  --brand-primary: 99, 102, 241;   /* indigo-500 */
+  --brand-secondary: 168, 85, 247; /* purple-500 */
+  --brand-accent: 251, 191, 36;    /* amber-400 */
+  --brand-danger: 239, 68, 68;     /* red-500 */
+
+  /* Surface Tokens */
+  --surface-background: 8, 13, 24;  
+  --surface-card: 15, 23, 42;       
+  --surface-overlay: 30, 41, 59;    
+  --surface-border: 51, 65, 85;     
+  --surface-glass: 30, 41, 59;
+
+  /* Typography Tokens */
+  --text-main: 248, 250, 252;
+  --text-muted: 148, 163, 184;
+  --text-label: 203, 213, 225;
+  --text-dim: 100, 116, 139;
+
+  /* State Tokens */
+  --state-success: 34, 197, 94;
+  --state-warning: 251, 191, 36;
+  --state-danger: 239, 68, 68;
+  --state-info: 59, 130, 246;
+
+  /* Interactive States */
+  --brand-primary-hover: 79, 70, 229;  
+  --brand-primary-active: 67, 56, 202; 
+
+  /* Shape Tokens */
+  --radius-base: 1rem;
+  --radius-button: 0.75rem;
+  --radius-input: 0.5rem;
+  
+  /* Layout Tokens */
+  --spacing-scale: 1;
+
+  /* Semantic Color Strings (Ready for JS props) */
+  --color-primary: rgb(99, 102, 241);
+  --color-primary-dim: rgba(99, 102, 241, 0.1);
+  --color-accent: rgb(251, 191, 36);
+  --color-accent-dim: rgba(251, 191, 36, 0.1);
+  --color-accent-muted: rgba(251, 191, 36, 0.4);
+  --color-success: rgb(34, 197, 94);
+  --color-success-dim: rgba(34, 197, 94, 0.1);
+  --color-warning: rgb(251, 191, 36);
+  --color-warning-dim: rgba(251, 191, 36, 0.1);
+  --color-danger: rgb(239, 68, 68);
+  --color-danger-dim: rgba(239, 68, 68, 0.1);
+  --color-info: rgb(59, 130, 246);
+  --color-text-main: rgb(248, 250, 252);
+  --color-text-muted: rgb(148, 163, 184);
+  --color-text-dim: rgb(100, 116, 139);
+  --color-border: rgb(51, 65, 85);
+  --color-background: rgb(8, 13, 24);
+  --color-card: rgb(15, 23, 42);
+  --color-overlay: rgb(30, 41, 59);
+}
+
+/* --- THEME OVERRIDES --- */
+
+:root[data-theme='emerald'] {
+  --brand-primary: 16, 185, 129;
+  --brand-secondary: 20, 184, 166;
+  --brand-accent: 190, 242, 100;
+  --surface-background: 6, 9, 7;
+  --surface-card: 10, 15, 12;
+  --surface-border: 22, 101, 52;
+  --text-main: 236, 253, 245;
+  --text-muted: 110, 231, 183;
+  --text-dim: 52, 211, 153;
+
+  --color-primary: rgb(16, 185, 129);
+  --color-primary-dim: rgba(16, 185, 129, 0.1);
+  --color-accent: rgb(190, 242, 100);
+  --color-accent-dim: rgba(190, 242, 100, 0.1);
+  --color-accent-muted: rgba(190, 242, 100, 0.4);
+  --color-text-main: rgb(236, 253, 245);
+  --color-text-muted: rgb(110, 231, 183);
+  --color-text-dim: rgb(52, 211, 153);
+  --color-border: rgb(22, 101, 52);
+  --color-background: rgb(6, 9, 7);
+  --color-card: rgb(10, 15, 12);
+  --color-overlay: rgb(22, 101, 52);
+  --color-success-dim: rgba(16, 185, 129, 0.1);
+  --color-warning-dim: rgba(190, 242, 100, 0.1);
+  --color-danger-dim: rgba(239, 68, 68, 0.1);
+}
+
+:root[data-theme='amber'] {
+  --brand-primary: 245, 158, 11;
+  --brand-secondary: 251, 191, 36;
+  --brand-accent: 14, 165, 233;
+  --surface-background: 12, 10, 9;
+  --surface-card: 28, 25, 23;
+  --surface-border: 120, 113, 108;
+  --text-main: 255, 251, 235;
+  --text-muted: 252, 211, 77;
+  --text-dim: 217, 119, 6;
+
+  --color-primary: rgb(245, 158, 11);
+  --color-primary-dim: rgba(245, 158, 11, 0.1);
+  --color-accent: rgb(14, 165, 233);
+  --color-accent-dim: rgba(14, 165, 233, 0.1);
+  --color-accent-muted: rgba(14, 165, 233, 0.4);
+  --color-text-main: rgb(255, 251, 235);
+  --color-text-muted: rgb(252, 211, 77);
+  --color-text-dim: rgb(217, 119, 6);
+  --color-border: rgb(120, 113, 108);
+  --color-background: rgb(12, 10, 9);
+  --color-card: rgb(28, 25, 23);
+  --color-overlay: rgb(41, 37, 36);
+  --color-success-dim: rgba(245, 158, 11, 0.1);
+  --color-warning-dim: rgba(251, 191, 36, 0.1);
+  --color-danger-dim: rgba(239, 68, 68, 0.1);
+}
+
+:root[data-theme='amethyst'] {
+  --brand-primary: 168, 85, 247;
+  --brand-secondary: 192, 132, 252;
+  --brand-accent: 34, 211, 238;
+  --surface-background: 10, 10, 12;
+  --surface-card: 18, 18, 22;
+  --surface-border: 107, 33, 168;
+  --text-main: 250, 245, 255;
+  --text-muted: 216, 180, 254;
+  --text-dim: 168, 85, 247;
+
+  --color-primary: rgb(168, 85, 247);
+  --color-primary-dim: rgba(168, 85, 247, 0.1);
+  --color-accent: rgb(34, 211, 238);
+  --color-accent-dim: rgba(34, 211, 238, 0.1);
+  --color-accent-muted: rgba(34, 211, 238, 0.4);
+  --color-text-main: rgb(250, 245, 255);
+  --color-text-muted: rgb(216, 180, 254);
+  --color-text-dim: rgb(168, 85, 247);
+  --color-border: rgb(107, 33, 168);
+  --color-background: rgb(10, 10, 12);
+  --color-card: rgb(18, 18, 22);
+  --color-overlay: rgb(30, 30, 38);
+  --color-success-dim: rgba(168, 85, 247, 0.1);
+  --color-warning-dim: rgba(251, 191, 36, 0.1);
+  --color-danger-dim: rgba(239, 68, 68, 0.1);
+}
+
+/* --- DENSITY OVERRIDES --- */
+:root[data-density='compact'] { --spacing-scale: 0.75; }
+:root[data-density='comfort'] { --spacing-scale: 1.25; }
+
+/* --- BASE LAYER --- */
 @layer base {
-
-  :root {
-    /* Default Theme: Indigo Night */
-    --brand-primary: 99 102 241;   /* indigo-500 */
-    --brand-secondary: 34 197 94;  /* green-500 */
-    --brand-accent: 251 191 36;    /* amber-400 */
-    --brand-danger: 239 68 68;     /* red-500 */
-    
-    --surface-background: 8 13 24;  
-    --surface-card: 15 23 42;       
-    --surface-overlay: 30 41 59;    
-    --surface-border: 51 65 85;     
-    --surface-glass: 30 41 59;
-
-    /* Personalization Tokens */
-    --radius-base: 1rem;           /* 2xl default */
-    --radius-button: 0.75rem;      /* xl default */
-    --radius-input: 0.5rem;        /* lg default */
-    
-    --spacing-scale: 1;
-
-    /* Interactive Brand States */
-    --brand-primary-hover: 79 70 229;  
-    --brand-primary-active: 67 56 202; 
-
-    /* Typography Defaults (Indigo Night Tint) */
-    --text-main: 248 250 252;
-    --text-muted: 148 163 184;
-    --text-label: 203 213 225;
-    --text-dim: 100 116 139;
-
-    /* State System */
-    --state-success: 34 197 94;
-    --state-warning: 251 191 36;
-    --state-danger: 239 68 68;
-    --state-info: 59 130 246;
+  * {
+    @apply border-surface-border;
   }
-
-  :root[data-theme='emerald'] {
-    --brand-primary: 16 185 129;   /* emerald-500 */
-    --brand-primary-hover: 5 150 105;
-    --brand-primary-active: 4 120 87;
-    --brand-accent: 190 242 100;   /* lime-300 */
-
-    --surface-background: 6 9 7;   /* very dark emerald */
-    --surface-card: 10 15 12;      
-    --surface-overlay: 20 30 24;   
-    --surface-border: 22 101 52; 
-
-    --text-main: 236 253 245;      /* emerald-50 tint */
-    --text-muted: 110 231 183;     /* emerald-300 tint */
-    --text-dim: 52 211 153;
+  body {
+    @apply bg-surface-background text-typography-main antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
+}
 
-  :root[data-theme='amber'] {
-    --brand-primary: 245 158 11;   /* amber-500 */
-    --brand-primary-hover: 217 119 6;
-    --brand-primary-active: 180 83 9;
-    --brand-accent: 14 165 233;    /* sky-500 (contrast) */
-
-    --surface-background: 12 10 9;  /* stone-950 */
-    --surface-card: 28 25 23;      /* stone-900 */
-    --surface-overlay: 41 37 36;   /* stone-800 */
-    --surface-border: 120 113 108;
-
-    --text-main: 255 251 235;      /* amber-50 tint */
-    --text-muted: 252 211 77;      /* amber-300 tint */
-    --text-dim: 217 119 6;
-  }
-
-  :root[data-theme='amethyst'] {
-    --brand-primary: 168 85 247;   /* purple-500 */
-    --brand-primary-hover: 147 51 234;
-    --brand-primary-active: 126 34 206;
-    --brand-accent: 34 211 238;    /* cyan-400 (cyber) */
-
-    --surface-background: 10 10 12; /* deep neutral */
-    --surface-card: 18 18 22;      
-    --surface-overlay: 30 30 36;   
-    --surface-border: 107 33 168;
-
-    --text-main: 250 245 255;      /* purple-50 tint */
-    --text-muted: 216 180 254;     /* purple-300 tint */
-    --text-dim: 168 85 247;
-  }
-
-
-  /* Personalization Modifiers */
-  :root[data-density='compact'] { --spacing-scale: 0.75; }
-  :root[data-density='comfort'] { --spacing-scale: 1.25; }
-
-  :root[data-roundness='sharp'] {
-    --radius-base: 0.25rem;
-    --radius-button: 0.125rem;
-    --radius-input: 0.125rem;
-  }
-  :root[data-roundness='soft'] {
-    --radius-base: 2.5rem;
-    --radius-button: 1.5rem;
-    --radius-input: 1rem;
-  }
-
+/* --- COMPONENTS LAYER --- */
+@layer components {
   .glass-card {
     @apply bg-surface-card/60 border border-surface-border/30;
     backdrop-filter: blur(12px);
@@ -122,43 +183,56 @@ html, body, #root {
 
   .premium-shadow {
     box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.3);
-    elevation: 8;
   }
 
   .text-glow {
     text-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
   }
-
-  /* Premium Scrollbars for Desktop Web */
-  ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-  }
-
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  ::-webkit-scrollbar-thumb {
-    background: rgb(var(--surface-border));
-    border-radius: 10px;
-    border: 2px solid rgb(var(--surface-background));
-  }
-
-  ::-webkit-scrollbar-thumb:hover {
-    background: rgb(var(--brand-primary));
-  }
-
-  /* For Firefox */
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: rgb(var(--surface-border)) transparent;
-  }
 }
 
+/* --- UTILITIES LAYER --- */
 @layer utilities {
   .flex-center {
     @apply items-center justify-center;
   }
+
+  /* Animations */
+  @keyframes vibrate {
+    0% { transform: translate(0); }
+    25% { transform: translate(-1px, 1px); }
+    50% { transform: translate(1px, -1px); }
+    75% { transform: translate(-1px, -1px); }
+    100% { transform: translate(0); }
+  }
+
+  .animate-vibrate {
+    animation: vibrate 0.2s linear infinite;
+  }
+
+  @keyframes pulse-ring {
+    0% { transform: scale(0.95); opacity: 0.5; }
+    50% { transform: scale(1.05); opacity: 0.8; }
+    100% { transform: scale(0.95); opacity: 0.5; }
+  }
+
+  .pulse-animation {
+    animation: pulse-ring 2s ease-in-out infinite;
+  }
 }
 
+/* Premium Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--surface-border));
+  border-radius: 10px;
+  border: 2px solid rgb(var(--surface-background));
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--brand-primary));
+}

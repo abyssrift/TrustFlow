@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase';
 import ProfileAvatar from '@/components/profile/ProfileAvatar';
 import ProfileGeneralForm from '@/components/profile/ProfileGeneralForm';
 import SecurityForm from '@/components/profile/SecurityForm';
-import StatsGrid from '@/components/profile/StatsGrid';
+import { ProfileAnalytics } from '@/components/analytics/ProfileAnalytics';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 
 export default function ProfilePage() {
@@ -108,11 +108,13 @@ export default function ProfilePage() {
         </Text>
       </View>
 
-      {/* Stats Section */}
-      <View className="mb-10">
-        <Text className="mb-4 text-[10px] font-black uppercase tracking-[0.3em] text-typography-dim">Performance Intelligence</Text>
-        <StatsGrid />
-      </View>
+      {/* Analytics Section */}
+      {user?.id && (
+        <View className="mb-10">
+          <Text className="mb-4 text-[10px] font-black uppercase tracking-[0.3em] text-typography-dim">Performance Intelligence</Text>
+          <ProfileAnalytics userId={user.id} />
+        </View>
+      )}
 
       {/* Forms Section */}
       <View className="gap-10">

@@ -25,15 +25,15 @@ type ThemeColorMap = {
 // This ensures that regardless of which theme is selected in TS logic,
 // the actual color rendered is controlled by the global CSS theme state.
 const SEMANTIC_MAP = {
-  primary: 'rgb(var(--brand-primary))',
-  secondary: 'rgb(var(--brand-secondary))',
-  accent: 'rgb(var(--brand-accent))',
-  danger: 'rgb(var(--state-danger))',
-  success: 'rgb(var(--state-success))',
-  warning: 'rgb(var(--state-warning))',
-  info: 'rgb(var(--state-info))',
-  muted: 'rgb(var(--text-muted))',
-  border: 'rgb(var(--surface-border))',
+  primary: 'var(--color-primary)',
+  secondary: 'var(--color-secondary)',
+  accent: 'var(--color-accent)',
+  danger: 'var(--color-danger)',
+  success: 'var(--color-success)',
+  warning: 'var(--color-warning)',
+  info: 'var(--color-info)',
+  muted: 'var(--color-text-muted)',
+  border: 'var(--color-border)',
   overlay: 'rgb(var(--surface-overlay))',
 };
 

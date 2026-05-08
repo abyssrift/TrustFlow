@@ -211,7 +211,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
               ))}
               {recentTasks.length === 0 && (
                 <View className="py-20 items-center opacity-30">
-                  <FontAwesome name="inbox" size={32} color="rgb(var(--text-muted))" />
+                  <FontAwesome name="inbox" size={32} color="var(--color-text-muted)" />
                   <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mt-4">Empty Stack</Text>
                 </View>
               )}
@@ -240,7 +240,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => setActiveTab('assignments')}>
-                <View className="flex-row items-center gap-2 pb-2 border-b-2" style={{ borderBottomColor: activeTab === 'assignments' ? 'rgb(var(--brand-primary))' : 'transparent' }}>
+                <View className="flex-row items-center gap-2 pb-2 border-b-2" style={{ borderBottomColor: activeTab === 'assignments' ? 'var(--color-primary)' : 'transparent' }}>
                   <Text className={`font-black text-xs uppercase tracking-widest ${activeTab === 'assignments' ? 'text-brand-primary' : 'text-typography-muted'}`}>
                     Assignments
                   </Text>
@@ -268,7 +268,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                       value={draft.title}
                       onChangeText={t => setDraft({ title: t })}
                       placeholder="e.g. Critical Infrastructure Audit"
-                      placeholderTextColor="rgb(var(--text-dim))"
+                      placeholderTextColor="var(--color-text-dim)"
                       className={`bg-surface-background border rounded-2xl px-6 py-5 text-typography-main font-black text-lg transition-colors ${draft.title ? 'border-surface-border' : 'border-state-danger/30'}`}
                     />
                   </View>
@@ -315,7 +315,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                         className={`bg-surface-background border rounded-2xl px-5 py-4 flex-row items-center justify-between transition-all ${showPipelineDropdown ? 'border-brand-primary' : 'border-surface-border'}`}
                       >
                         <View className="flex-row items-center gap-3 flex-1">
-                          <FontAwesome name="sitemap" size={13} color={draft.pipelineId ? 'rgb(var(--brand-primary))' : 'rgb(var(--text-dim))'} />
+                          <FontAwesome name="sitemap" size={13} color={draft.pipelineId ? 'var(--color-primary)' : 'var(--color-text-dim)'} />
                           <Text className={`font-black text-sm flex-1 ${draft.pipelineId ? 'text-typography-main' : 'text-typography-dim'}`} numberOfLines={1}>
                             {selectedPipeline?.name ?? 'None'}
                           </Text>
@@ -373,7 +373,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                           </TouchableOpacity>
                           {draft.startDate ? (
                             <TouchableOpacity onPress={() => setDraft({ startDate: null })} className="px-4 py-4">
-                              <FontAwesome name="times-circle" size={14} color="rgb(var(--text-dim))" />
+                              <FontAwesome name="times-circle" size={14} color="var(--color-text-dim)" />
                             </TouchableOpacity>
                           ) : (
                             <TouchableOpacity
@@ -385,7 +385,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                               }}
                               className="px-4 py-4"
                             >
-                              <FontAwesome name="calendar-o" size={14} color="rgb(var(--brand-accent))" />
+                              <FontAwesome name="calendar-o" size={14} color="var(--color-accent)" />
                             </TouchableOpacity>
                           )}
                         </View>
@@ -411,7 +411,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                           </TouchableOpacity>
                           {draft.dueDate ? (
                             <TouchableOpacity onPress={() => setDraft({ dueDate: null })} className="px-4 py-4">
-                              <FontAwesome name="times-circle" size={14} color="rgb(var(--text-dim))" />
+                              <FontAwesome name="times-circle" size={14} color="var(--color-text-dim)" />
                             </TouchableOpacity>
                           ) : (
                             <TouchableOpacity
@@ -423,7 +423,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                               }}
                               className="px-4 py-4"
                             >
-                              <FontAwesome name="calendar" size={14} color="rgb(var(--brand-primary))" />
+                              <FontAwesome name="calendar" size={14} color="var(--color-primary)" />
                             </TouchableOpacity>
                           )}
                         </View>
@@ -433,7 +433,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                     {/* Date conflict warning */}
                     {dateConflict && (
                       <View className="flex-row items-center gap-2 ml-1">
-                        <FontAwesome name="exclamation-triangle" size={11} color="rgb(var(--state-warning))" />
+                        <FontAwesome name="exclamation-triangle" size={11} color="var(--color-warning)" />
                         <Text className="text-state-warning text-[10px] font-black uppercase tracking-wider">Start date is after deadline</Text>
                       </View>
                     )}
@@ -447,7 +447,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                         value={draft.category}
                         onChangeText={t => setDraft({ category: t })}
                         placeholder="General"
-                        placeholderTextColor="rgb(var(--text-dim))"
+                        placeholderTextColor="var(--color-text-dim)"
                         className="bg-surface-background border border-surface-border rounded-2xl px-6 py-4 text-typography-main font-black"
                       />
                     </View>
@@ -461,7 +461,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                             setDraft({ estimatedHours: t === '' ? null : isNaN(val) ? null : val });
                           }}
                           placeholder="e.g. 4"
-                          placeholderTextColor="rgb(var(--text-dim))"
+                          placeholderTextColor="var(--color-text-dim)"
                           keyboardType="decimal-pad"
                           className="flex-1 text-typography-main font-black"
                         />
@@ -511,7 +511,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                       value={draft.description}
                       onChangeText={t => setDraft({ description: t })}
                       placeholder="Define the scope of this tactical objective..."
-                      placeholderTextColor="rgb(var(--text-dim))"
+                      placeholderTextColor="var(--color-text-dim)"
                       multiline
                       numberOfLines={5}
                       textAlignVertical="top"
@@ -544,7 +544,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                         }}
                         className="flex-row items-center bg-surface-background px-4 py-3 rounded-xl border border-surface-border hover:border-brand-primary transition-colors"
                       >
-                        <FontAwesome name="camera" size={13} color="rgb(var(--brand-primary))" />
+                        <FontAwesome name="camera" size={13} color="var(--color-primary)" />
                         <Text className="text-brand-primary text-xs font-black uppercase ml-2">Add Photo</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
@@ -554,7 +554,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                         }}
                         className="flex-row items-center bg-surface-background px-4 py-3 rounded-xl border border-surface-border hover:border-brand-primary transition-colors"
                       >
-                        <FontAwesome name="paperclip" size={13} color="rgb(var(--brand-primary))" />
+                        <FontAwesome name="paperclip" size={13} color="var(--color-primary)" />
                         <Text className="text-brand-primary text-xs font-black uppercase ml-2">Attach File</Text>
                       </TouchableOpacity>
                     </View>
@@ -565,10 +565,10 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                 /* ── ASSIGNMENTS TAB ── */
                 <View className="gap-8 pb-10">
                   <View className="bg-surface-background border border-surface-border rounded-2xl flex-row items-center px-6 py-4 mb-4">
-                    <FontAwesome name="search" size={14} color="rgb(var(--text-muted))" />
+                    <FontAwesome name="search" size={14} color="var(--color-text-muted)" />
                     <TextInput
                       placeholder="Search Agents or Teams..."
-                      placeholderTextColor="rgb(var(--text-dim))"
+                      placeholderTextColor="var(--color-text-dim)"
                       value={search}
                       onChangeText={setSearch}
                       className="flex-1 text-typography-main font-bold ml-4"
@@ -596,7 +596,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                               </View>
                               <Text className="text-typography-main font-bold text-sm">{u.full_name}</Text>
                             </View>
-                            {draft.assigneeUserIds.includes(u.id) && <FontAwesome name="check" size={12} color="rgb(var(--brand-primary))" />}
+                            {draft.assigneeUserIds.includes(u.id) && <FontAwesome name="check" size={12} color="var(--color-primary)" />}
                           </TouchableOpacity>
                         ))}
                       </View>
@@ -615,7 +615,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                               <View style={{ backgroundColor: t.color || 'rgb(var(--brand-accent))' }} className="w-3 h-3 rounded-full mr-4" />
                               <Text className="text-typography-main font-bold text-sm">{t.name}</Text>
                             </View>
-                            {draft.assigneeTeamIds.includes(t.id) && <FontAwesome name="check" size={12} color="rgb(var(--brand-accent))" />}
+                            {draft.assigneeTeamIds.includes(t.id) && <FontAwesome name="check" size={12} color="var(--color-accent)" />}
                           </TouchableOpacity>
                         ))}
                       </View>
@@ -677,7 +677,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
           <View style={{ position: 'fixed', top: startCalendarPos.top, left: Math.max(20, Math.min(startCalendarPos.left, width - 820)), width: Math.min(width - 40, 800), zIndex: 999 } as any}>
             <PremiumCalendarPicker
               selectedDate={draft.startDate}
-              accentColor="rgb(var(--brand-accent))"
+              accentColor="var(--color-accent)"
               onSelect={date => { setDraft({ startDate: date }); setShowStartCalendar(false); }}
             />
           </View>
@@ -691,21 +691,21 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
           >
             <View className="p-3 border-b border-surface-border">
               <View className="bg-surface-background flex-row items-center px-4 py-2.5 rounded-xl border border-surface-border gap-3">
-                <FontAwesome name="search" size={12} color="rgb(var(--text-dim))" />
+                <FontAwesome name="search" size={12} color="var(--color-text-dim)" />
                 <TextInput value={pipelineSearch} onChangeText={setPipelineSearch} placeholder="Search pipelines..." placeholderTextColor="rgb(var(--text-dim))" className="flex-1 text-typography-main font-bold text-sm" autoFocus />
               </View>
             </View>
             <ScrollView style={{ maxHeight: 220 }}>
               <TouchableOpacity onPress={() => { setDraft({ pipelineId: null }); setShowPipelineDropdown(false); setPipelineSearch(''); }} className={`flex-row items-center px-5 py-3.5 border-b border-surface-border/40 hover:bg-surface-overlay ${!draft.pipelineId ? 'bg-brand-primary/5' : ''}`}>
-                <FontAwesome name="times-circle-o" size={13} color="rgb(var(--text-dim))" />
+                <FontAwesome name="times-circle-o" size={13} color="var(--color-text-dim)" />
                 <Text className="text-typography-dim font-bold text-sm ml-3 flex-1">None</Text>
-                {!draft.pipelineId && <FontAwesome name="check" size={11} color="rgb(var(--brand-primary))" />}
+                {!draft.pipelineId && <FontAwesome name="check" size={11} color="var(--color-primary)" />}
               </TouchableOpacity>
               {pipelines.filter(p => p.name.toLowerCase().includes(pipelineSearch.toLowerCase())).map(p => (
                 <TouchableOpacity key={p.id} onPress={() => { setDraft({ pipelineId: p.id }); setShowPipelineDropdown(false); setPipelineSearch(''); }} className={`flex-row items-center px-5 py-3.5 hover:bg-surface-overlay ${draft.pipelineId === p.id ? 'bg-brand-primary/5' : ''}`}>
-                  <FontAwesome name="sitemap" size={13} color={draft.pipelineId === p.id ? 'rgb(var(--brand-primary))' : 'rgb(var(--text-dim))'} />
+                  <FontAwesome name="sitemap" size={13} color={draft.pipelineId === p.id ? 'var(--color-primary)' : 'var(--color-text-dim)'} />
                   <Text className={`font-bold text-sm ml-3 flex-1 ${draft.pipelineId === p.id ? 'text-brand-primary' : 'text-typography-main'}`}>{p.name}</Text>
-                  {draft.pipelineId === p.id && <FontAwesome name="check" size={11} color="rgb(var(--brand-primary))" />}
+                  {draft.pipelineId === p.id && <FontAwesome name="check" size={11} color="var(--color-primary)" />}
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -720,21 +720,21 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
           >
             <View className="p-3 border-b border-surface-border">
               <View className="bg-surface-background flex-row items-center px-4 py-2.5 rounded-xl border border-surface-border gap-3">
-                <FontAwesome name="search" size={12} color="rgb(var(--text-dim))" />
+                <FontAwesome name="search" size={12} color="var(--color-text-dim)" />
                 <TextInput value={projectSearch} onChangeText={setProjectSearch} placeholder="Search projects..." placeholderTextColor="rgb(var(--text-dim))" className="flex-1 text-typography-main font-bold text-sm" autoFocus />
               </View>
             </View>
             <ScrollView style={{ maxHeight: 220 }}>
               <TouchableOpacity onPress={() => { setDraft({ projectId: null }); setShowProjectDropdown(false); setProjectSearch(''); }} className={`flex-row items-center px-5 py-3.5 border-b border-surface-border/40 hover:bg-surface-overlay ${!draft.projectId ? 'bg-brand-accent/5' : ''}`}>
-                <FontAwesome name="times-circle-o" size={13} color="rgb(var(--text-dim))" />
+                <FontAwesome name="times-circle-o" size={13} color="var(--color-text-dim)" />
                 <Text className="text-typography-dim font-bold text-sm ml-3 flex-1">None</Text>
-                {!draft.projectId && <FontAwesome name="check" size={11} color="rgb(var(--brand-accent))" />}
+                {!draft.projectId && <FontAwesome name="check" size={11} color="var(--color-accent)" />}
               </TouchableOpacity>
               {projects.filter(p => p.name.toLowerCase().includes(projectSearch.toLowerCase())).map(p => (
                 <TouchableOpacity key={p.id} onPress={() => { setDraft({ projectId: p.id }); setShowProjectDropdown(false); setProjectSearch(''); }} className={`flex-row items-center px-5 py-3.5 hover:bg-surface-overlay ${draft.projectId === p.id ? 'bg-brand-accent/5' : ''}`}>
                   <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: p.color || 'rgb(var(--brand-accent))' }} />
                   <Text className={`font-bold text-sm ml-3 flex-1 ${draft.projectId === p.id ? 'text-brand-accent' : 'text-typography-main'}`}>{p.name}</Text>
-                  {draft.projectId === p.id && <FontAwesome name="check" size={11} color="rgb(var(--brand-accent))" />}
+                  {draft.projectId === p.id && <FontAwesome name="check" size={11} color="var(--color-accent)" />}
                 </TouchableOpacity>
               ))}
             </ScrollView>

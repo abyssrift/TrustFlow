@@ -1,7 +1,13 @@
-1. Smart timer and its testing
+
 2. Notifications
-3. Analytics Engine
-4. reports
-5. Benchmarks
+5.benchmarks
 6. Security
 closing tab while timer is running only logs 1 second.
+fix the damned black icons.
+More smart timer testing
+when user plugs in a time because there's no time sessions, it should send to the manager of this task to approve it and it should have a notification to notify the manager.
+Refactor targets page.
+Fix Report Generation UI.
+Refactor Report Engine to include all the new features, all analytics, targets, benchmarks, etc.
+Remove goal tracking from analytics in intelligence.
+it would also be very nice if when you do @ a list of people you can ping (all the people who have the ability to see this pipeline) should show. and you can select a name.

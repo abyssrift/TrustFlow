@@ -23,28 +23,39 @@ export const Picker = ({ items, selectedId, onSelect, labelKey = 'name', disable
   </View>
 );
 
-export const SectionToggle = ({ active, onSelect, hasPermission }: { active: string, onSelect: (s: string) => void, hasPermission: (p: string) => boolean }) => (
-  <View className="flex-row bg-surface-card rounded-2xl p-1.5 border border-surface-border mb-10 w-fit">
-    {['Radar', 'Targets', 'Archives'].filter(s => s !== 'Archives' || hasPermission('archive.view')).map((s) => (
-      <TouchableOpacity
-        key={s}
-        onPress={() => onSelect(s.toLowerCase())}
-        className={`px-8 py-3 rounded-xl items-center flex-row ${active === s.toLowerCase() ? 'bg-brand-primary premium-shadow' : 'hover:bg-surface-background'}`}
-      >
-        <View className="mr-3">
-          <FontAwesome
-            name={s === 'Radar' ? 'crosshairs' : s === 'Targets' ? 'bullseye' : 'archive'}
-            size={14}
-            color={active === s.toLowerCase() ? 'white' : 'rgb(var(--text-muted))'}
-          />
-        </View>
-        <Text className={`font-black text-[10px] uppercase tracking-widest ${active === s.toLowerCase() ? 'text-white' : 'text-typography-muted'}`}>
-          {s}
-        </Text>
-      </TouchableOpacity>
-    ))}
-  </View>
-);
+const SECTION_ICONS: Record<string, React.ComponentProps<typeof FontAwesome>['name']> = {
+  Radar: 'crosshairs', Targets: 'bullseye', Archives: 'archive', Analytics: 'bar-chart',
+};
+
+export const SectionToggle = ({ active, onSelect, hasPermission }: { active: string, onSelect: (s: string) => void, hasPermission: (p: string) => boolean }) => {
+  const sections = ['Radar', 'Targets', 'Archives', 'Analytics'].filter(s => {
+    if (s === 'Archives') return hasPermission('archive.view');
+    if (s === 'Analytics') return hasPermission('analytics.view');
+    return true;
+  });
+  return (
+    <View className="flex-row bg-surface-card rounded-2xl p-1.5 border border-surface-border mb-10 w-fit">
+      {sections.map((s) => (
+        <TouchableOpacity
+          key={s}
+          onPress={() => onSelect(s.toLowerCase())}
+          className={`px-8 py-3 rounded-xl items-center flex-row ${active === s.toLowerCase() ? 'bg-brand-primary premium-shadow' : 'hover:bg-surface-background'}`}
+        >
+          <View className="mr-3">
+            <FontAwesome
+              name={SECTION_ICONS[s] ?? 'circle'}
+              size={14}
+              color={active === s.toLowerCase() ? 'white' : 'rgb(var(--text-muted))'}
+            />
+          </View>
+          <Text className={`font-black text-[10px] uppercase tracking-widest ${active === s.toLowerCase() ? 'text-white' : 'text-typography-muted'}`}>
+            {s}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+};
 
 export const KPIBoxWeb = ({ label, val, delta }: any) => (
   <View className="flex-1 min-w-[220px] bg-surface-card p-5 rounded-[24px] border border-surface-border premium-shadow">

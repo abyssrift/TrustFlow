@@ -142,6 +142,7 @@ export default function ProjectsScreenWeb() {
 
   const renderProjectCard = (project: Project) => {
     const isOverdue = project.expiry_date && new Date(project.expiry_date) < new Date() && project.status === 'active';
+    const isCoolingDown = lastStoppedAt && (Date.now() - new Date(lastStoppedAt).getTime() < 35000);
     
     return (
       <TouchableOpacity 
@@ -158,7 +159,6 @@ export default function ProjectsScreenWeb() {
                 <TouchableOpacity 
                   onPress={(e) => {
                     e.stopPropagation();
-                    const isCoolingDown = lastStoppedAt && (Date.now() - new Date(lastStoppedAt).getTime() < 35000);
                     if (activeSession || isCoolingDown) {
                       Alert.alert('Archival Locked', 'Cannot archive while agents are recording time. Please stop all timers and wait 30 seconds for strategic sync.');
                       return;
