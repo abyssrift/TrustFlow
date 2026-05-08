@@ -62,8 +62,8 @@ export const TargetCreationModal = ({ visible, onClose, onConfirm, pipelines, st
                 <View>
                   <Text className="text-typography-muted text-[10px] font-bold mb-3">Expiration Deadline</Text>
                   <PremiumCalendarPicker
-                    selectedDate={deadline}
-                    onDateChange={setDeadline}
+                    selectedDate={deadline?.toISOString() || null}
+                    onSelect={(date) => setDeadline(new Date(date))}
                   />
                 </View>
               </View>

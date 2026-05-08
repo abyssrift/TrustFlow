@@ -77,13 +77,13 @@ export default function PremiumCalendarPicker({ selectedDate, onSelect, accentCo
 
   const handleSelect = (day: number, y: number, m: number) => {
     const d = new Date(y, m, day);
-    onSelect(d.toISOString().split('T')[0]);
+    onSelect?.(d.toISOString().split('T')[0]);
   };
 
   const handleQuickAction = (days: number) => {
     const d = new Date();
     d.setDate(d.getDate() + days);
-    onSelect(d.toISOString().split('T')[0]);
+    onSelect?.(d.toISOString().split('T')[0]);
   };
 
   const MonthGrid = ({ days, y, m, title }: { days: (number | null)[], y: number, m: number, title: string }) => (
