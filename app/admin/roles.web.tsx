@@ -24,7 +24,7 @@ function RolesWebLayout() {
   if (!authInitialized || loading) {
     return (
       <View className="flex-1 bg-surface-background items-center justify-center">
-        <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
+        <ActivityIndicator size="large" color="var(--color-primary)" />
         <Text className="text-typography-muted mt-4 font-bold">Synchronizing RBAC Terminal...</Text>
       </View>
     );
@@ -34,7 +34,7 @@ function RolesWebLayout() {
     return (
       <View className="flex-1 bg-surface-background items-center justify-center p-10">
         <View className="bg-state-danger/10 p-10 rounded-full mb-10 border border-state-danger/20">
-          <FontAwesome name="lock" size={80} color="rgb(var(--state-danger))" />
+          <FontAwesome name="lock" size={80} color="var(--color-danger)" />
         </View>
         <Text className="text-typography-main font-black text-4xl mt-4 tracking-tighter">Access Denied</Text>
         <Text className="text-typography-muted text-xl text-center mt-4 leading-8 max-w-md">
@@ -65,7 +65,7 @@ function RolesWebLayout() {
                 className="flex-row items-center group"
               >
                 <View className="w-8 h-8 rounded-lg bg-surface-background items-center justify-center border border-surface-border group-hover:border-brand-primary transition-colors">
-                  <FontAwesome name="chevron-left" size={10} color="rgb(var(--text-muted))" />
+                  <FontAwesome name="chevron-left" size={10} color="var(--color-text-muted)" />
                 </View>
                 <Text className="text-typography-muted font-bold text-xs ml-3 group-hover:text-typography-main transition-colors">Back to Admin</Text>
               </TouchableOpacity>
@@ -103,7 +103,7 @@ function RolesWebLayout() {
                   <FontAwesome 
                     name={t.icon as any} 
                     size={14} 
-                    color={isActive ? 'rgb(var(--brand-primary))' : 'rgb(var(--text-muted))'} 
+                    color={isActive ? 'var(--color-primary)' : 'var(--color-text-muted)'} 
                   />
                   <Text className={`font-black text-xs uppercase tracking-widest ml-3 ${isActive ? 'text-typography-main' : 'text-typography-muted'}`}>
                     {t.label}
@@ -127,7 +127,7 @@ function RolesWebLayout() {
       {/* Persistent Status Bar / Error Overlay */}
       {error && (
         <View className="absolute bottom-10 right-10 bg-state-danger px-8 py-5 rounded-2xl flex-row items-center border border-surface-border shadow-2xl">
-          <FontAwesome name="warning" size={18} color="rgb(var(--text-main))" />
+          <FontAwesome name="warning" size={18} color="var(--color-text-main)" />
           <Text className="text-typography-main font-black ml-4 text-sm">{error}</Text>
         </View>
       )}

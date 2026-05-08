@@ -11,3 +11,7 @@ Fix Report Generation UI.
 Refactor Report Engine to include all the new features, all analytics, targets, benchmarks, etc.
 Remove goal tracking from analytics in intelligence.
 it would also be very nice if when you do @ a list of people you can ping (all the people who have the ability to see this pipeline) should show. and you can select a name.
+Restoring a project that has set tasks ends up with an error.
+IMPORTANT
+
+The pipeline_stage_targets table now tracks completed_at timestamps for accurate velocity tracking. Ensure your backend triggers are updated if any server-side reporting relies on this field.

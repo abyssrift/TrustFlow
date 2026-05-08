@@ -124,7 +124,7 @@ export default function NotificationPreferencesScreen() {
   if (loading) {
     return (
       <SafeAreaView className="flex-1 bg-surface-background items-center justify-center">
-        <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
+        <ActivityIndicator size="large" color="var(--color-primary)" />
       </SafeAreaView>
     );
   }
@@ -146,7 +146,7 @@ export default function NotificationPreferencesScreen() {
             onPress={() => router.back()}
             className="flex-row items-center h-11 pr-4"
           >
-            <FontAwesome name="chevron-left" size={14} color="rgb(var(--text-muted))" />
+            <FontAwesome name="chevron-left" size={14} color="var(--color-text-muted)" />
             <Text className="text-typography-muted font-bold text-sm ml-2">Back</Text>
           </TouchableOpacity>
           <View className="bg-brand-primary/10 px-3 py-1.5 rounded-full border border-brand-primary/20">
@@ -192,7 +192,7 @@ export default function NotificationPreferencesScreen() {
                 <FontAwesome
                   name={ch.icon}
                   size={15}
-                  color="rgb(var(--brand-primary))"
+                  color="var(--color-primary)"
                 />
               </View>
               <View className="flex-1 mr-3">
@@ -205,8 +205,8 @@ export default function NotificationPreferencesScreen() {
                 value={prefs[ch.key]}
                 onValueChange={() => toggle(ch.key)}
                 trackColor={{
-                  false: 'rgb(var(--surface-border))',
-                  true: 'rgb(var(--brand-primary))',
+                  false: 'var(--color-surface-border)',
+                  true: 'var(--color-primary)',
                 }}
                 thumbColor="#fff"
               />
@@ -221,7 +221,7 @@ export default function NotificationPreferencesScreen() {
               <FontAwesome
                 name={group.icon}
                 size={11}
-                color="rgb(var(--text-muted))"
+                color="var(--color-text-muted)"
               />
               <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-typography-muted">
                 {group.label} Events
@@ -240,7 +240,7 @@ export default function NotificationPreferencesScreen() {
                 >
                   <View className="w-1.5 h-1.5 rounded-full bg-brand-primary/50 mr-3" />
                   <Text className="text-typography-muted text-sm flex-1">{ev.label}</Text>
-                  <View className="bg-state-success/10 px-2 py-0.5 rounded-full border border-state-success/20">
+                  <View className="bg-[var(--color-success)]/10 px-2 py-0.5 rounded-full border-[var(--color-success)]/20">
                     <Text className="text-state-success text-[9px] font-black uppercase tracking-wider">
                       Active
                     </Text>

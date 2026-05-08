@@ -111,7 +111,7 @@ export default function ProfileAvatar({ url, name, onUpload, size = 120 }: Profi
         
         {uploading && (
           <View className="absolute inset-0 items-center justify-center bg-surface-background/60">
-            <ActivityIndicator color="rgb(var(--brand-primary))" />
+            <ActivityIndicator color="var(--color-primary)" />
           </View>
         )}
       </View>

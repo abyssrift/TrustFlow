@@ -128,9 +128,9 @@ export default function ProjectsScreen() {
       >
         <View className="flex-row items-center justify-between mb-4">
            <View className={`w-12 h-12 rounded-2xl items-center justify-center ${isOverdue ? 'bg-state-danger/10' : 'bg-brand-primary/10'}`}>
-              <FontAwesome name="folder-open" size={20} color={isOverdue ? 'rgb(var(--state-danger))' : 'rgb(var(--brand-primary))'} />
+              <FontAwesome name="folder-open" size={20} color={isOverdue ? 'var(--color-danger)' : 'var(--color-primary)'} />
            </View>
-           <View className={`px-3 py-1 rounded-full border ${project.status === 'active' ? 'bg-state-success/10 border-state-success/30' : 'bg-surface-background border-surface-border'}`}>
+           <View className={`px-3 py-1 rounded-full border ${project.status === 'active' ? 'bg-state-success/10 border-color-success/30' : 'bg-surface-background border-surface-border'}`}>
               <Text className={`text-[10px] font-bold uppercase ${project.status === 'active' ? 'text-state-success' : 'text-typography-muted'}`}>
                 {project.status}
               </Text>
@@ -138,7 +138,7 @@ export default function ProjectsScreen() {
         </View>
 
         <View className="flex-row items-center gap-2 mb-1">
-          {project.is_featured && <FontAwesome name="star" size={14} color="rgb(var(--state-warning))" />}
+          {project.is_featured && <FontAwesome name="star" size={14} color="var(--color-warning)" />}
           <Text className="text-typography-main text-xl font-bold flex-1" numberOfLines={1}>{project.name}</Text>
         </View>
         
@@ -171,7 +171,7 @@ export default function ProjectsScreen() {
 
         {project.expiry_date && (
            <View className="flex-row items-center mt-4 pt-4 border-t border-surface-border/50">
-              <FontAwesome name="calendar" size={12} color={isOverdue ? 'rgb(var(--state-danger))' : 'rgb(var(--text-muted))'} />
+              <FontAwesome name="calendar" size={12} color={isOverdue ? 'var(--color-danger)' : 'var(--color-text-muted)'} />
               <Text className={`ml-2 text-[10px] font-medium ${isOverdue ? 'text-state-danger' : 'text-typography-muted'}`}>
                 {isOverdue ? 'Expired' : 'Expires'}: {new Date(project.expiry_date).toLocaleDateString()}
               </Text>
@@ -184,7 +184,7 @@ export default function ProjectsScreen() {
   if (loading && !refreshing) {
     return (
       <View className="flex-1 bg-surface-background items-center justify-center">
-        <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
+        <ActivityIndicator size="large" color="var(--color-primary)" />
       </View>
     );
   }
@@ -204,8 +204,8 @@ export default function ProjectsScreen() {
             <Switch 
               value={showClosed} 
               onValueChange={setShowClosed}
-              trackColor={{ false: 'rgb(var(--surface-border))', true: 'rgb(var(--brand-primary))' }}
-              thumbColor={showClosed ? 'white' : 'rgb(var(--text-muted))'}
+              trackColor={{ false: 'var(--color-surface-border)', true: 'var(--color-primary)' }}
+              thumbColor={showClosed ? 'white' : 'var(--color-text-muted)'}
             />
           </View>
           
@@ -220,13 +220,13 @@ export default function ProjectsScreen() {
 
       <ScrollView 
         className="flex-1 px-6 pt-6"
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="rgb(var(--brand-primary))" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="var(--color-primary)" />}
       >
         <View className={`${isWeb ? 'flex-row flex-wrap mt-2' : ''}`}>
           {filteredProjects.length === 0 ? (
             <View className="w-full items-center justify-center py-24 bg-surface-card rounded-[32px] border border-dashed border-surface-border">
                <View className="w-20 h-20 bg-surface-background rounded-full items-center justify-center mb-4">
-                <FontAwesome name="folder-o" size={32} color="rgb(var(--text-muted))" style={{ opacity: 0.5 }} />
+                <FontAwesome name="folder-o" size={32} color="var(--color-text-muted)" style={{ opacity: 0.5 }} />
                </View>
                <Text className="text-typography-main text-lg font-bold">No projects available</Text>
                <Text className="text-typography-muted text-sm text-center px-10 mt-2">

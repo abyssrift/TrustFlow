@@ -31,6 +31,8 @@ const THEME_OPTIONS: { id: ThemeType; label: string; icon: IconName }[] = [
   { id: 'emerald', label: 'Emerald Matrix', icon: 'leaf' },
   { id: 'amber', label: 'Amber Signal', icon: 'sun-o' },
   { id: 'amethyst', label: 'Amethyst Grid', icon: 'diamond' },
+  { id: 'light', label: 'Light Mode', icon: 'certificate' },
+  { id: 'dark', label: 'Dark Mode', icon: 'circle-o' },
 ];
 
 const PIPELINE_ICONS: IconName[] = ['bolt', 'sitemap', 'random', 'sliders', 'exchange', 'cogs'];
@@ -98,7 +100,7 @@ const ThemePopover = ({
             onPress={onClose}
             className="h-10 w-10 items-center justify-center rounded-xl border border-surface-border bg-surface-background hover:bg-surface-overlay active:scale-95 transition-transform"
           >
-            <FontAwesome name="times" size={14} className="text-brand-accent/50" />
+            <FontAwesome name="times" size={14} color="var(--color-accent-muted)" />
           </Pressable>
         </View>
 
@@ -113,12 +115,12 @@ const ThemePopover = ({
                 }`}
             >
               <View className={`h-8 w-8 items-center justify-center rounded-lg ${theme === option.id ? 'bg-brand-primary/20' : 'bg-surface-overlay'}`}>
-                <FontAwesome name={option.icon} size={14} className={theme === option.id ? 'text-brand-primary' : 'text-typography-dim'} />
+                <FontAwesome name={option.icon} size={14} color={theme === option.id ? 'var(--color-primary)' : 'var(--color-text-dim)'} />
               </View>
               <Text className={`ml-3 text-xs font-bold ${theme === option.id ? 'text-brand-primary' : 'text-typography-muted'}`}>{option.label}</Text>
               {theme === option.id && (
                 <View className="ml-auto">
-                  <FontAwesome name="check-circle" size={14} className="text-brand-primary" />
+                  <FontAwesome name="check-circle" size={14} color="var(--color-primary)" />
                 </View>
               )}
             </Pressable>
@@ -187,7 +189,7 @@ const SidebarItem = ({
         <FontAwesome 
           name={icon} 
           size={18} 
-          className={isActive ? 'text-brand-primary' : 'text-typography-dim'} 
+          color={isActive ? 'var(--color-primary)' : 'var(--color-text-dim)'} 
         />
       </View>
       {!collapsed && (
@@ -320,7 +322,7 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
                   <FontAwesome
                     name={isCollapsed ? 'indent' : 'outdent'}
                     size={16}
-                    className="text-brand-primary"
+                    color="var(--color-primary)"
                   />
                 </Pressable>
               </View>
@@ -366,7 +368,7 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
                             <FontAwesome 
                               name="shield" 
                               size={18} 
-                              className={pathname.startsWith('/platform-admin') ? 'text-brand-primary' : 'text-brand-primary/40'} 
+                              color={pathname.startsWith('/platform-admin') ? 'var(--color-primary)' : 'var(--color-primary-dim)'} 
                             />
                           </View>
                           {isExpanded && (
@@ -413,7 +415,7 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
                   accessibilityLabel="Theme settings"
                 >
                   <View className={`${isExpanded ? 'w-8' : ''} items-center`}>
-                    <FontAwesome name="paint-brush" size={18} className="text-typography-dim" />
+                    <FontAwesome name="paint-brush" size={18} color="var(--color-text-dim)" />
                   </View>
                   {isExpanded && <Text className="ml-2 font-bold text-typography-main">Theme</Text>}
                 </Pressable>
@@ -424,7 +426,7 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
                       }`}
                   >
                     <View className={`${isExpanded ? 'w-8' : ''} items-center`}>
-                      <FontAwesome name="bell" size={18} className="text-brand-primary" />
+                      <FontAwesome name="bell" size={18} color="var(--color-primary)" />
                     </View>
                     {isExpanded && <Text className="ml-2 font-bold text-typography-main">Notifications</Text>}
                   </Pressable>

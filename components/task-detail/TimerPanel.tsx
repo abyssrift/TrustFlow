@@ -35,7 +35,7 @@ export default function TimerPanel() {
           <Text className="text-typography-main text-xl font-black">{formatDuration(totalSpent)}</Text>
         </View>
         <View className="w-10 h-10 rounded-full bg-brand-primary/10 items-center justify-center">
-          <FontAwesome name="history" size={16} color="rgb(var(--brand-primary))" />
+          <FontAwesome name="history" size={16} color="var(--color-primary)" />
         </View>
       </View>
 

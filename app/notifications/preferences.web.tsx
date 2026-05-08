@@ -118,7 +118,7 @@ export default function NotificationPreferencesWeb() {
   if (loading) {
     return (
       <View className="flex-1 bg-surface-background items-center justify-center">
-        <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
+        <ActivityIndicator size="large" color="var(--color-primary)" />
       </View>
     );
   }
@@ -131,7 +131,7 @@ export default function NotificationPreferencesWeb() {
         {/* Breadcrumb */}
         <View className="flex-row items-center gap-2 mb-10">
           <TouchableOpacity onPress={() => router.back()} className="flex-row items-center gap-2">
-            <FontAwesome name="chevron-left" size={11} color="rgb(var(--text-muted))" />
+            <FontAwesome name="chevron-left" size={11} color="var(--color-text-muted)" />
             <Text className="text-typography-muted font-bold text-sm">Back</Text>
           </TouchableOpacity>
           <Text className="text-typography-muted text-sm">/</Text>
@@ -188,7 +188,7 @@ export default function NotificationPreferencesWeb() {
               }`}
             >
               <View className="bg-brand-primary/10 w-12 h-12 rounded-2xl items-center justify-center mr-5 border border-brand-primary/20">
-                <FontAwesome name={ch.icon} size={18} color="rgb(var(--brand-primary))" />
+                <FontAwesome name={ch.icon} size={18} color="var(--color-primary)" />
               </View>
               <View className="flex-1 mr-6">
                 <Text className="text-typography-main font-bold text-base">{ch.label}</Text>
@@ -200,8 +200,8 @@ export default function NotificationPreferencesWeb() {
                 value={prefs[ch.key]}
                 onValueChange={() => toggle(ch.key)}
                 trackColor={{
-                  false: 'rgb(var(--surface-border))',
-                  true: 'rgb(var(--brand-primary))',
+                  false: 'var(--color-surface-border)',
+                  true: 'var(--color-primary)',
                 }}
                 thumbColor="#fff"
               />
@@ -213,7 +213,7 @@ export default function NotificationPreferencesWeb() {
         {EVENT_GROUPS.map((group) => (
           <View key={group.label} className="bg-surface-card rounded-[32px] border border-surface-border overflow-hidden premium-shadow mb-8">
             <View className="px-8 py-6 border-b border-surface-border flex-row items-center gap-3">
-              <FontAwesome name={group.icon} size={14} color="rgb(var(--text-muted))" />
+              <FontAwesome name={group.icon} size={14} color="var(--color-text-muted)" />
               <Text className="text-typography-main font-black text-lg tracking-tight">
                 {group.label} Events
               </Text>

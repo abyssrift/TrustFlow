@@ -1,5 +1,4 @@
-import ConfirmModal from '@/components/common/ConfirmModal';
-import { CircularTargetCardMobile } from '@/components/intelligence/IntelligenceCommon';
+import { CircularTargetCardMobile, IntelligencePicker } from '@/components/intelligence/IntelligenceCommon';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAnalytics, StageDwell, ThroughputPeriod } from '@/contexts/AnalyticsContext';
 import { supabase } from '@/lib/supabase';
@@ -8,7 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Modal, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 // --- UTILITIES & SUB-COMPONENTS (Defined BEFORE main screen to avoid non-hoisted variable errors) ---
 
@@ -37,25 +36,6 @@ const SectionToggle = ({ active, onSelect, hasPermission }: { active: string, on
   );
 };
 
-const Picker = ({ items, selectedId, onSelect, labelKey = 'name' }: any) => (
-  <View className="flex-row flex-wrap gap-2">
-    {items.map((item: any) => (
-      <TouchableOpacity
-        key={item.id}
-        onPress={() => onSelect(item.id)}
-        className={`px-4 py-2 rounded-xl border ${selectedId === item.id ? 'bg-surface-background border-brand-primary' : 'border-surface-border'}`}
-      >
-        <View className="flex-row items-center">
-          {selectedId === item.id && <View className="w-1.5 h-1.5 rounded-full bg-brand-primary mr-2" />}
-          <Text className={`text-[11px] font-medium ${selectedId === item.id ? 'text-brand-primary font-bold' : 'text-typography-muted'}`}>
-            {item[labelKey] || 'N/A'}
-          </Text>
-        </View>
-      </TouchableOpacity>
-    ))}
-  </View>
-);
-
 const KPIBox = ({ label, val, delta }: any) => (
   <View className="w-[48%] bg-surface-card p-5 rounded-3xl border border-surface-border mb-4">
     <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-wider mb-2">{label}</Text>
@@ -77,7 +57,7 @@ const SLARiskAlert = ({ data }: any) => {
   return (
     <View className="mb-6 bg-state-danger/5 border border-state-danger/20 p-5 rounded-3xl">
       <View className="flex-row items-center mb-4">
-        <FontAwesome name="warning" size={14} color="rgb(var(--state-danger))" className="mr-2" />
+        <FontAwesome name="warning" size={14} color="var(--color-danger)" className="mr-2" />
         <Text className="text-state-danger font-bold">SLA Breach Risks</Text>
       </View>
       {data.sla_risks.slice(0, 3).map((r: any, i: number) => (
@@ -149,8 +129,19 @@ const WorkDistributionChart = ({ data }: any) => {
         const percentage = (w.action_count / (max || 1)) * 100;
         return (
           <View key={idx} className="mb-4">
-            <View className="flex-row justify-between mb-2">
-              <Text className="text-typography-muted text-xs font-medium">{w.full_name || 'Agent'}</Text>
+            <View className="flex-row items-center mb-2 gap-3">
+              <View className="w-6 h-6 rounded-full bg-surface-card border border-surface-border overflow-hidden">
+                {w.avatar_url ? (
+                  <Image source={{ uri: w.avatar_url }} className="w-full h-full" />
+                ) : (
+                  <View className="w-full h-full items-center justify-center bg-brand-primary/5">
+                    <Text className="text-brand-primary font-black text-[8px]">
+                      {(w.full_name || 'A')[0].toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              <Text className="text-typography-muted text-xs font-medium flex-1">{w.full_name || 'Agent'}</Text>
               <Text className="text-brand-primary text-xs font-bold">{w.action_count} ops</Text>
             </View>
             <View className="h-2 bg-surface-background rounded-full overflow-hidden">
@@ -171,12 +162,25 @@ const QualityLeaderboard = ({ data }: any) => {
       <Text className="text-typography-main font-bold text-lg mb-4">Quality Scoreboard</Text>
       {best.map((w: any, idx: number) => (
         <View key={idx} className="flex-row justify-between mb-3 items-center">
-          <Text className="text-typography-muted text-xs">{w.full_name || 'Agent'}</Text>
+          <View className="flex-row items-center gap-3">
+            <View className="w-6 h-6 rounded-full bg-surface-card border border-surface-border overflow-hidden">
+              {w.avatar_url ? (
+                <Image source={{ uri: w.avatar_url }} className="w-full h-full" />
+              ) : (
+                <View className="w-full h-full items-center justify-center bg-brand-primary/5">
+                  <Text className="text-brand-primary font-black text-[8px]">
+                    {(w.full_name || 'A')[0].toUpperCase()}
+                  </Text>
+                </View>
+              )}
+            </View>
+            <Text className="text-typography-muted text-xs">{w.full_name || 'Agent'}</Text>
+          </View>
           <View className="flex-row items-center">
             <View className="bg-state-success/10 px-2 py-0.5 rounded-lg mr-2">
               <Text className="text-state-success text-[10px] font-black">{Math.round(100 - (w.revision_rate || 0))}%</Text>
             </View>
-            <FontAwesome name="star" size={10} color="rgb(var(--state-warning))" />
+            <FontAwesome name="star" size={10} color="var(--color-warning)" />
           </View>
         </View>
       ))}
@@ -275,7 +279,7 @@ const NativeAnalyticsSection = ({ pipelines }: { pipelines: any[] }) => {
 
       {loading ? (
         <View className="py-16 items-center">
-          <ActivityIndicator color="rgb(var(--brand-primary))" />
+          <ActivityIndicator color="var(--color-primary)" />
         </View>
       ) : (
         <>
@@ -341,7 +345,7 @@ const NativeAnalyticsSection = ({ pipelines }: { pipelines: any[] }) => {
 };
 
 const RadarSection = ({ data, activeWidgets, onEditWidgets }: any) => {
-  if (!data) return <View className="py-20"><ActivityIndicator color="rgb(var(--brand-primary))" /></View>;
+  if (!data) return <View className="py-20"><ActivityIndicator color="var(--color-primary)" /></View>;
   const curThr = data.current?.throughput || 0;
   const prevThr = data.comparison?.throughput || 0;
   const adv = data.radar_advanced || {};
@@ -399,7 +403,7 @@ const TargetsSection = ({ targets, onUpdate, onNew }: any) => {
   return (
     <View>
       <TouchableOpacity onPress={onNew} className="bg-surface-card p-6 rounded-3xl border border-dashed border-brand-primary/40 mb-6 items-center flex-row justify-center">
-        <FontAwesome name="plus-circle" size={16} color="rgb(var(--brand-primary))" className="mr-3" />
+        <FontAwesome name="plus-circle" size={16} color="var(--color-primary)" className="mr-3" />
         <Text className="text-brand-primary font-bold text-sm">Initiate Benchmark Objective</Text>
       </TouchableOpacity>
       {targets.map((t: any, i: number) => (
@@ -424,19 +428,19 @@ const ArchivesSection = ({ reports, onDownload, onNew, coldArchives, activeSchem
     {currentSubSection === 'reports' ? (
       <>
         <TouchableOpacity onPress={onNew} className="bg-surface-card p-6 rounded-3xl border border-dashed border-brand-primary/40 mb-6 items-center flex-row justify-center">
-          <FontAwesome name="plus-circle" size={16} color="rgb(var(--brand-primary))" className="mr-3" />
+          <FontAwesome name="plus-circle" size={16} color="var(--color-primary)" className="mr-3" />
           <Text className="text-brand-primary font-bold text-sm">Initiate New Audit Sequence</Text>
         </TouchableOpacity>
         {reports.map((r: any, i: number) => (
           <TouchableOpacity key={i} onPress={() => r.file_url && onDownload(r.file_url)} className="bg-surface-card p-5 rounded-2xl border border-surface-border mb-4 flex-row items-center">
             <View className={`w-12 h-12 rounded-xl items-center justify-center mr-4 ${r.status === 'completed' ? 'bg-state-success/10' : 'bg-state-info/10'}`}>
-              <FontAwesome name="file-text-o" size={18} color={r.status === 'completed' ? 'rgb(var(--state-success))' : 'rgb(var(--brand-primary))'} />
+              <FontAwesome name="file-text-o" size={18} color={r.status === 'completed' ? 'var(--color-success)' : 'var(--color-primary)'} />
             </View>
             <View className="flex-1">
               <Text className="text-typography-main font-bold">Report #{r.id.substring(0, 6)}</Text>
               <Text className="text-typography-muted text-xs">{new Date(r.created_at).toLocaleDateString()} • {r.status}</Text>
             </View>
-            <FontAwesome name="chevron-right" size={12} color="rgb(var(--text-muted))" />
+            <FontAwesome name="chevron-right" size={12} color="var(--color-text-muted)" />
           </TouchableOpacity>
         ))}
       </>
@@ -475,7 +479,7 @@ const ArchivesSection = ({ reports, onDownload, onNew, coldArchives, activeSchem
                     )}
                   </View>
                 </View>
-                <FontAwesome name="chevron-right" size={12} color="rgb(var(--text-muted))" />
+                <FontAwesome name="chevron-right" size={12} color="var(--color-text-muted)" />
               </TouchableOpacity>
             );
           })
@@ -512,11 +516,11 @@ const TargetCreationModal = ({ visible, onClose, onConfirm, pipelines, stages }:
               ))}
             </View>
             <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest mt-2 mb-3">Target Pipeline</Text>
-            <Picker items={pipelines} selectedId={p} onSelect={(id: string) => { setP(id); setS(null); }} />
+            <IntelligencePicker items={pipelines} selectedId={p} onSelect={(id: string) => { setP(id); setS(null); }} />
             {p && (
               <>
                 <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest mt-6 mb-3">Target Stage</Text>
-                <Picker items={filteredStages} selectedId={s} onSelect={setS} />
+                <IntelligencePicker items={filteredStages} selectedId={s} onSelect={setS} />
               </>
             )}
             <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest mt-6 mb-3">
@@ -597,11 +601,11 @@ const ReportConfigModal = ({ visible, onClose, onConfirm, pipelines, teams, user
               ))}
             </View>
             <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest mt-6 mb-3">Target Pipeline</Text>
-            <Picker items={[{ id: null, name: 'Organization Wide' }, ...pipelines]} selectedId={p} onSelect={setP} />
+            <IntelligencePicker items={[{ id: null, name: 'Organization Wide' }, ...pipelines]} selectedId={p} onSelect={setP} />
             <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest mt-6 mb-3">Filtered Team</Text>
-            <Picker items={[{ id: null, name: 'All Teams' }, ...teams]} selectedId={t} onSelect={setT} />
+            <IntelligencePicker items={[{ id: null, name: 'All Teams' }, ...teams]} selectedId={t} onSelect={setT} />
             <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest mt-6 mb-3">Individual Scope</Text>
-            <Picker items={[{ id: null, name: 'Everyone' }, ...users]} selectedId={u} onSelect={setU} labelKey="full_name" />
+            <IntelligencePicker items={[{ id: null, name: 'Everyone' }, ...users]} selectedId={u} onSelect={setU} labelKey="full_name" />
             <View className="h-10" />
           </ScrollView>
           <View className="p-8 pt-4 flex-row gap-3 border-t border-surface-border bg-surface-card">
@@ -732,7 +736,7 @@ const ArchiveDetailModal = ({ visible, onClose, archive, activeSchema, onRestore
             {hasIntegrityIssue && (
               <View className="bg-state-danger/10 border border-state-danger/20 p-5 rounded-2xl mb-8">
                 <View className="flex-row items-center mb-2">
-                   <FontAwesome name="warning" size={16} color="rgb(var(--state-danger))" className="mr-3" />
+                   <FontAwesome name="warning" size={16} color="var(--color-danger)" className="mr-3" />
                    <Text className="text-state-danger font-black">Integrity Breach Detected</Text>
                 </View>
                 <Text className="text-state-danger/70 text-xs font-bold leading-relaxed">
@@ -1006,12 +1010,12 @@ export default function IntelligenceScreen() {
         {/* Main Sections */}
         <View className="px-6">
           {loading ? (
-            <View className="py-20"><ActivityIndicator color="rgb(var(--brand-primary))" /></View>
+            <View className="py-20"><ActivityIndicator color="var(--color-primary)" /></View>
           ) : pipelines.length === 0 ? (
             <View className="py-10 items-center justify-center">
               <View className="bg-surface-card p-8 rounded-[2rem] border border-surface-border items-center w-full premium-shadow">
                 <View className="w-16 h-16 bg-brand-primary/10 rounded-full items-center justify-center mb-6">
-                  <FontAwesome name="line-chart" size={24} color="rgb(var(--brand-primary))" />
+                  <FontAwesome name="line-chart" size={24} color="var(--color-primary)" />
                 </View>
 
                 {hasPermission('pipeline.edit') ? (
@@ -1030,7 +1034,7 @@ export default function IntelligenceScreen() {
                 ) : (
                   <View className="bg-state-info-dim border border-state-info/20 p-6 rounded-2xl w-full">
                     <View className="flex-row items-start">
-                      <FontAwesome name="info-circle" size={16} color="rgb(var(--state-info))" style={{ marginTop: 2 }} />
+                      <FontAwesome name="info-circle" size={16} color="var(--color-info)" style={{ marginTop: 2 }} />
                       <View className="ml-4 flex-1">
                          <Text className="text-typography-main text-sm font-black mb-1">Access Restricted</Text>
                          <Text className="text-typography-muted text-[11px] font-bold leading-relaxed">

@@ -65,7 +65,7 @@ export default function HandshakeEditor() {
   if (!stages || !pipelines || !linkedOutcomes) {
     return (
       <View className="flex-1 items-center justify-center py-20">
-        <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
+        <ActivityIndicator size="large" color="var(--color-primary)" />
       </View>
     );
   }
@@ -116,7 +116,7 @@ export default function HandshakeEditor() {
                 className={`px-3 py-2 rounded-xl border mr-2 ${childTerminalStageId === s.id ? 'bg-brand-primary-dim border-brand-primary/40' : 'bg-surface-background border-surface-border'}`}
               >
                 <View className="flex-row items-center">
-                   <View className="w-1.5 h-1.5 rounded-full mr-1.5" style={{ backgroundColor: s.terminal_type === 'success' ? 'rgb(var(--state-success))' : 'rgb(var(--state-danger))' }} />
+                   <View className="w-1.5 h-1.5 rounded-full mr-1.5" style={{ backgroundColor: s.terminal_type === 'success' ? 'var(--color-success)' : 'var(--color-danger)' }} />
                    <Text className={`text-xs font-bold ${childTerminalStageId === s.id ? 'text-brand-primary' : 'text-typography-muted'}`}>{s.name}</Text>
                 </View>
               </TouchableOpacity>
@@ -144,10 +144,10 @@ export default function HandshakeEditor() {
           className={`py-3 rounded-sm flex-row items-center h-12 justify-center ${(!parentStageId || !childTerminalStageId || !parentTargetStageId) ? 'bg-surface-overlay border border-surface-border' : 'bg-brand-primary shadow-sm'}`}
         >
           {loading ? (
-            <ActivityIndicator size="small" color="rgb(var(--text-main))" />
+            <ActivityIndicator size="small" color="var(--color-text-main)" />
           ) : (
             <>
-              <FontAwesome name="plus" size={12} color={(!parentStageId || !childTerminalStageId || !parentTargetStageId) ? 'rgb(var(--text-dim))' : 'rgb(var(--text-main))'} />
+              <FontAwesome name="plus" size={12} color={(!parentStageId || !childTerminalStageId || !parentTargetStageId) ? 'var(--color-text-dim)' : 'var(--color-text-main)'} />
               <Text className={`font-black text-xs ml-2 uppercase tracking-widest ${(!parentStageId || !childTerminalStageId || !parentTargetStageId) ? 'text-typography-muted' : 'text-typography-main'}`}>Forge Handshake</Text>
             </>
           )}
@@ -178,12 +178,12 @@ export default function HandshakeEditor() {
                     <View className="bg-brand-primary-dim px-2 py-1 rounded border border-brand-primary/20">
                       <Text className="text-brand-primary text-[10px] font-bold">{parentStage?.name || 'Unknown'}</Text>
                     </View>
-                    <FontAwesome name="long-arrow-right" size={10} color="rgb(var(--text-dim))" />
+                    <FontAwesome name="long-arrow-right" size={10} color="var(--color-text-dim)" />
                     <View className="bg-surface-background px-2 py-1 rounded border border-surface-border">
                       <Text className="text-typography-muted text-[10px] font-bold italic">Child Resolution</Text>
                     </View>
-                    <FontAwesome name="long-arrow-right" size={10} color="rgb(var(--text-dim))" />
-                    <View className="bg-state-info-dim px-2 py-1 rounded border border-state-info/20">
+                    <FontAwesome name="long-arrow-right" size={10} color="var(--color-text-dim)" />
+                    <View className="bg-state-info-dim px-2 py-1 rounded border border-info/20">
                       <Text className="text-state-info text-[10px] font-bold">{targetStage?.name || 'Unknown'}</Text>
                     </View>
                   </View>
@@ -192,7 +192,7 @@ export default function HandshakeEditor() {
                   onPress={() => deleteLinkedOutcome(lk.id)}
                   className="w-10 h-10 items-center justify-center bg-state-danger-dim rounded-xl border border-state-danger/10 ml-2"
                 >
-                  <FontAwesome name="trash-o" size={14} color="rgb(var(--state-danger))" />
+                  <FontAwesome name="trash-o" size={14} color="var(--color-danger)" />
                 </TouchableOpacity>
               </View>
             );

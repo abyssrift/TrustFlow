@@ -36,7 +36,7 @@ const StatTile = ({
   <View className={`flex-1 rounded-2xl p-4 border ${accent ? 'bg-brand-primary-dim border-brand-primary/20' : 'bg-surface-card border-surface-border'}`}>
     <View className="flex-row items-center justify-between mb-3">
       <Text className={`text-[10px] font-black uppercase tracking-widest ${accent ? 'text-brand-primary' : 'text-typography-muted'}`}>{label}</Text>
-      <FontAwesome name={icon as any} size={12} color={accent ? 'rgb(var(--brand-primary))' : 'rgb(var(--text-muted))'} />
+      <FontAwesome name={icon as any} size={12} color={accent ? 'var(--color-primary)' : 'var(--color-text-muted)'} />
     </View>
     <Text className={`text-2xl font-black tracking-tight ${accent ? 'text-brand-primary' : 'text-typography-main'}`}>{value}</Text>
     {sub && <Text className="text-typography-dim text-[10px] mt-1">{sub}</Text>}
@@ -45,7 +45,7 @@ const StatTile = ({
 
 const HBar = ({ value, max, tint = 'primary' }: { value: number; max: number; tint?: 'primary' | 'success' | 'warning' }) => {
   const pct = max > 0 ? Math.max(2, (value / max) * 100) : 2;
-  const colorClass = tint === 'success' ? 'bg-state-success' : tint === 'warning' ? 'bg-state-warning' : 'bg-brand-primary';
+  const colorClass = tint === 'success' ? 'bg-state-success' : tint === 'warning' ? 'bg-[var(--color-warning)]' : 'bg-brand-primary';
   return (
     <View className="flex-1 h-1.5 bg-surface-border rounded-full overflow-hidden">
       <View className={`h-full rounded-full ${colorClass}`} style={{ width: `${pct}%` }} />
@@ -90,7 +90,7 @@ const CompanyDetailModal = ({
 
           {loading || !detail ? (
             <View className="items-center justify-center py-20">
-              <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
+              <ActivityIndicator size="large" color="var(--color-primary)" />
               <Text className="text-typography-muted mt-4 text-sm font-bold">Loading...</Text>
             </View>
           ) : (
@@ -106,7 +106,7 @@ const CompanyDetailModal = ({
                   onPress={onClose}
                   className="bg-surface-card border border-surface-border rounded-full w-9 h-9 items-center justify-center"
                 >
-                  <FontAwesome name="times" size={14} color="rgb(var(--text-muted))" />
+                  <FontAwesome name="times" size={14} color="var(--color-text-muted)" />
                 </TouchableOpacity>
               </View>
 
@@ -121,7 +121,7 @@ const CompanyDetailModal = ({
                   <Text className="text-typography-main font-black text-lg">{fmtMins(detail.stats.total_session_minutes)}</Text>
                   <Text className="text-typography-muted text-[10px] mt-0.5 uppercase tracking-wide">All Time</Text>
                 </View>
-                <View className={`flex-1 rounded-2xl p-3 border items-center ${detail.stats.active_sessions > 0 ? 'bg-state-success/10 border-state-success/20' : 'bg-surface-card border-surface-border'}`}>
+                <View className={`flex-1 rounded-2xl p-3 border items-center ${detail.stats.active_sessions > 0 ? 'bg-state-success/10 border-[var(--color-success)]/20' : 'bg-surface-card border-surface-border'}`}>
                   <Text className={`font-black text-lg ${detail.stats.active_sessions > 0 ? 'text-state-success' : 'text-typography-main'}`}>{detail.stats.active_sessions}</Text>
                   <Text className={`text-[10px] mt-0.5 uppercase tracking-wide ${detail.stats.active_sessions > 0 ? 'text-state-success' : 'text-typography-muted'}`}>Live</Text>
                 </View>
@@ -130,7 +130,7 @@ const CompanyDetailModal = ({
               <Divider />
 
               <View className="flex-row items-center px-6 py-4 gap-3">
-                <FontAwesome name="key" size={12} color="rgb(var(--text-muted))" />
+                <FontAwesome name="key" size={12} color="var(--color-text-muted)" />
                 <Text className="text-typography-muted text-xs">Join code</Text>
                 <Text className="text-typography-main font-black text-xs tracking-widest ml-1">{detail.company.join_code}</Text>
               </View>
@@ -192,7 +192,7 @@ const CommandSection = ({
   if (loading) {
     return (
       <View className="flex-1 items-center justify-center">
-        <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
+        <ActivityIndicator size="large" color="var(--color-primary)" />
         <Text className="text-typography-muted mt-4 font-bold text-sm">Fetching platform data...</Text>
       </View>
     );
@@ -267,7 +267,7 @@ const CommandSection = ({
             <View key={row.label}>
               <View className="flex-row items-center justify-between px-4 py-3.5">
                 <View className="flex-row items-center gap-3">
-                  <FontAwesome name={row.icon as any} size={12} color="rgb(var(--text-muted))" />
+                  <FontAwesome name={row.icon as any} size={12} color="var(--color-text-muted)" />
                   <Text className="text-typography-muted text-sm">{row.label}</Text>
                 </View>
                 <Text className="text-typography-main font-black text-sm">{row.value}</Text>
@@ -305,7 +305,7 @@ const TenantsSection = ({
   if (loading) {
     return (
       <View className="flex-1 items-center justify-center">
-        <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
+        <ActivityIndicator size="large" color="var(--color-primary)" />
       </View>
     );
   }
@@ -333,7 +333,7 @@ const TenantsSection = ({
 
         {companies.length === 0 && (
           <View className="items-center py-20">
-            <FontAwesome name="building-o" size={40} color="rgb(var(--text-dim))" />
+            <FontAwesome name="building-o" size={40} color="var(--color-text-dim)" />
             <Text className="text-typography-dim mt-4 text-sm">No tenants registered yet</Text>
           </View>
         )}
@@ -370,7 +370,7 @@ const TenantsSection = ({
                     { icon: 'clock-o', value: fmtMins(co.session_minutes_week), label: 'this week' },
                   ].map(m => (
                     <View key={m.label} className="flex-row items-center gap-1.5">
-                      <FontAwesome name={m.icon as any} size={10} color="rgb(var(--text-muted))" />
+                      <FontAwesome name={m.icon as any} size={10} color="var(--color-text-muted)" />
                       <Text className="text-typography-main font-black text-xs">{m.value}</Text>
                       <Text className="text-typography-dim text-[10px]">{m.label}</Text>
                     </View>
@@ -381,7 +381,7 @@ const TenantsSection = ({
                   <Text className="text-typography-dim text-[10px]">Last active {timeAgo(co.last_active_at)}</Text>
                   <View className="flex-row items-center gap-1">
                     <Text className="text-typography-dim text-[10px]">{workspaceAge(co.created_at)} old</Text>
-                    <FontAwesome name="chevron-right" size={8} color="rgb(var(--text-dim))" />
+                    <FontAwesome name="chevron-right" size={8} color="var(--color-text-dim)" />
                   </View>
                 </View>
               </TouchableOpacity>
@@ -445,7 +445,7 @@ const SignalsSection = ({
           </Text>
           <Text className="text-typography-muted text-xs mt-0.5">{metricLabel} · last {days} days</Text>
         </View>
-        {fetching && <ActivityIndicator size="small" color="rgb(var(--brand-primary))" />}
+        {fetching && <ActivityIndicator size="small" color="var(--color-primary)" />}
       </View>
 
       <Divider />
@@ -479,7 +479,7 @@ const LiveSection = () => {
   if (loading) {
     return (
       <View className="flex-1 items-center justify-center">
-        <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
+        <ActivityIndicator size="large" color="var(--color-primary)" />
         <Text className="text-typography-muted mt-4 font-bold text-sm">Connecting...</Text>
       </View>
     );
@@ -495,7 +495,7 @@ const LiveSection = () => {
           </Text>
         </View>
         <TouchableOpacity onPress={fetchSessions} className="flex-row items-center gap-1.5">
-          <FontAwesome name="refresh" size={10} color="rgb(var(--text-muted))" />
+          <FontAwesome name="refresh" size={10} color="var(--color-text-muted)" />
           <Text className="text-typography-dim text-[10px]">{secsAgo}s ago</Text>
         </TouchableOpacity>
       </View>
@@ -505,7 +505,7 @@ const LiveSection = () => {
       {sessions.length === 0 ? (
         <View className="items-center py-20">
           <View className="w-16 h-16 bg-surface-card rounded-full border border-surface-border items-center justify-center mb-4">
-            <FontAwesome name="moon-o" size={24} color="rgb(var(--text-dim))" />
+            <FontAwesome name="moon-o" size={24} color="var(--color-text-dim)" />
           </View>
           <Text className="text-typography-main font-black text-base">All quiet</Text>
           <Text className="text-typography-muted text-sm mt-1">No one is working right now</Text>
@@ -529,7 +529,7 @@ const LiveSection = () => {
               </Text>
               <View className="flex-row items-center justify-between mt-1">
                 <View className="flex-row items-center gap-1.5">
-                  <FontAwesome name="building-o" size={9} color="rgb(var(--text-dim))" />
+                  <FontAwesome name="building-o" size={9} color="var(--color-text-dim)" />
                   <Text className="text-typography-dim text-[10px]">{s.company_name ?? 'Unknown workspace'}</Text>
                 </View>
                 <Text className="text-typography-dim text-[10px]">Started {timeAgo(s.started_at)}</Text>
@@ -555,7 +555,7 @@ export default function PlatformAdminScreen() {
   if (!initialized) {
     return (
       <View className="flex-1 bg-surface-background items-center justify-center">
-        <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
+        <ActivityIndicator size="large" color="var(--color-primary)" />
       </View>
     );
   }
@@ -580,7 +580,7 @@ export default function PlatformAdminScreen() {
         <View className="flex-row items-center justify-between mb-4">
           <View>
             <View className="flex-row items-center gap-2 mb-0.5">
-              <FontAwesome name="shield" size={11} color="rgb(var(--brand-primary))" />
+              <FontAwesome name="shield" size={11} color="var(--color-primary)" />
               <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest">TrustFlow</Text>
             </View>
             <Text className="text-typography-main font-black text-xl tracking-tight">Control Plane</Text>

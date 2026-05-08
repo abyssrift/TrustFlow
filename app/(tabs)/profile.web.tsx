@@ -9,11 +9,22 @@ import ProfileGeneralForm from '@/components/profile/ProfileGeneralForm';
 import SecurityForm from '@/components/profile/SecurityForm';
 import { ProfileAnalytics } from '@/components/analytics/ProfileAnalytics';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { useTheme, ThemeType, DensityType, RoundnessType } from '@/contexts/ThemeContext';
 
-type TabType = 'general' | 'security' | 'stats';
+const THEME_OPTIONS: { id: ThemeType; label: string; icon: string }[] = [
+  { id: 'indigo', label: 'Indigo Night', icon: 'moon-o' },
+  { id: 'emerald', label: 'Emerald Matrix', icon: 'leaf' },
+  { id: 'amber', label: 'Amber Signal', icon: 'sun-o' },
+  { id: 'amethyst', label: 'Amethyst Grid', icon: 'diamond' },
+  { id: 'light', label: 'Light Mode', icon: 'certificate' },
+  { id: 'dark', label: 'Dark Mode', icon: 'circle-o' },
+];
+
+type TabType = 'general' | 'security' | 'stats' | 'appearance';
 
 export default function ProfilePageWeb() {
   const { user, signOut, refreshProfile } = useAuth();
+  const { theme: activeTheme, setTheme, density, setDensity, roundness, setRoundness } = useTheme();
   const [activeTab, setActiveTab] = useState<TabType>('general');
   const [profileData, setProfileData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -79,8 +90,8 @@ export default function ProfilePageWeb() {
 
   if (loading) {
     return (
-      <View className="flex-1 items-center justify-center bg-surface-background">
-        <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
+      <View className="flex-1 items-center justify-center bg-[var(--color-surface-background)]">
+        <ActivityIndicator size="large" color="var(--color-brand-primary)" />
       </View>
     );
   }
@@ -132,6 +143,13 @@ export default function ProfilePageWeb() {
             label="Security" 
             description="Password and email settings"
           />
+          <TabButton 
+            active={activeTab === 'appearance'} 
+            onPress={() => setActiveTab('appearance')} 
+            icon="paint-brush" 
+            label="Appearance" 
+            description="Themes and interface settings"
+          />
         </View>
 
         <View className="mt-auto gap-3">
@@ -161,7 +179,7 @@ export default function ProfilePageWeb() {
             onPress={() => signOut()}
             className="h-12 flex-row items-center rounded-xl border border-typography-dim/20 bg-surface-overlay px-4 hover:bg-surface-border transition-colors"
           >
-            <FontAwesome name="sign-out" size={14} color="rgb(var(--text-main))" style={{ marginRight: 12 }} />
+            <FontAwesome name="sign-out" size={14} color="var(--color-text-muted)" style={{ marginRight: 12 }} />
             <Text className="text-xs font-black uppercase tracking-widest text-typography-main">Sign Out</Text>
           </Pressable>
         </View>
@@ -172,10 +190,12 @@ export default function ProfilePageWeb() {
         <View className="max-w-3xl mx-auto w-full">
           <View className="mb-10">
              <Text className="text-3xl font-black text-typography-main mb-2">
-               {activeTab === 'general' ? 'Account Settings' : activeTab === 'stats' ? 'Your Intelligence' : 'Security Suite'}
+               {activeTab === 'general' ? 'Account Settings' : activeTab === 'stats' ? 'Your Intelligence' : activeTab === 'security' ? 'Security Suite' : 'Interface Design'}
              </Text>
              <Text className="text-typography-muted font-bold text-sm">
-               Manage your account preferences and view system-level metrics associated with your identity.
+               {activeTab === 'appearance' 
+                 ? 'Customize the visual identity and interaction density of your workspace.' 
+                 : 'Manage your account preferences and view system-level metrics associated with your identity.'}
              </Text>
           </View>
 
@@ -192,8 +212,77 @@ export default function ProfilePageWeb() {
                 onSuccess={fetchProfile}
               />
             )}
-            {activeTab === 'stats' && user?.id && <ProfileAnalytics userId={user.id} />}
+             {activeTab === 'stats' && user?.id && <ProfileAnalytics userId={user.id} />}
             {activeTab === 'security' && <SecurityForm />}
+            {activeTab === 'appearance' && (
+              <View className="gap-10">
+                <View>
+                  <Text className="mb-6 text-[10px] font-black uppercase tracking-[0.3em] text-typography-dim">Color Theme</Text>
+                  <View className="flex-row flex-wrap gap-4">
+                    {THEME_OPTIONS.map((option) => (
+                      <Pressable
+                        key={option.id}
+                        onPress={() => setTheme(option.id)}
+                        className={`h-24 w-32 items-center justify-center rounded-2xl border transition-all ${
+                          activeTheme === option.id 
+                            ? 'border-brand-primary bg-brand-primary/10' 
+                            : 'border-surface-border bg-surface-background/50 hover:bg-surface-overlay'
+                        }`}
+                      >
+                        <View className={`h-10 w-10 items-center justify-center rounded-xl ${activeTheme === option.id ? 'bg-brand-primary/20' : 'bg-surface-overlay'}`}>
+                          <FontAwesome 
+                            name={option.icon as any} 
+                            size={18} 
+                            color={activeTheme === option.id ? 'var(--color-primary)' : 'var(--color-text-dim)'} 
+                          />
+                        </View>
+                        <Text className={`mt-3 text-[10px] font-black uppercase tracking-widest ${
+                          activeTheme === option.id ? 'text-brand-primary' : 'text-typography-muted'
+                        }`}>
+                          {option.label}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+
+                <View className="flex-row gap-10">
+                  <View className="flex-1">
+                    <Text className="mb-4 text-[10px] font-black uppercase tracking-[0.3em] text-typography-dim">Interface Density</Text>
+                    <View className="flex-row gap-2 rounded-2xl border border-surface-border bg-surface-background/50 p-2">
+                      {(['compact', 'normal', 'comfort'] as DensityType[]).map((d) => (
+                        <Pressable
+                          key={d}
+                          onPress={() => setDensity(d)}
+                          className={`h-12 flex-1 items-center justify-center rounded-xl transition-all ${
+                            density === d ? 'bg-brand-primary shadow-lg' : 'hover:bg-surface-overlay'
+                          }`}
+                        >
+                          <Text className={`text-xs font-black capitalize tracking-widest ${density === d ? 'text-white' : 'text-typography-muted'}`}>{d}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  </View>
+
+                  <View className="flex-1">
+                    <Text className="mb-4 text-[10px] font-black uppercase tracking-[0.3em] text-typography-dim">Corner Roundness</Text>
+                    <View className="flex-row gap-2 rounded-2xl border border-surface-border bg-surface-background/50 p-2">
+                      {(['sharp', 'normal', 'soft'] as RoundnessType[]).map((r) => (
+                        <Pressable
+                          key={r}
+                          onPress={() => setRoundness(r)}
+                          className={`h-12 flex-1 items-center justify-center rounded-xl transition-all ${
+                            roundness === r ? 'bg-brand-primary shadow-lg' : 'hover:bg-surface-overlay'
+                          }`}
+                        >
+                          <Text className={`text-xs font-black capitalize tracking-widest ${roundness === r ? 'text-white' : 'text-typography-muted'}`}>{r}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  </View>
+                </View>
+              </View>
+            )}
           </View>
         </View>
       </ScrollView>

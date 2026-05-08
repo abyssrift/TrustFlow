@@ -154,7 +154,7 @@ function PipelinesWebInner() {
 
           <ScrollView className="flex-1 p-4">
             {loading && pipelines.length === 0 ? (
-              <ActivityIndicator className="mt-10" color="rgb(var(--brand-primary))" />
+              <ActivityIndicator className="mt-10" color="var(--color-primary)" />
             ) : (
               pipelines.map((p) => (
                 <TouchableOpacity
@@ -176,7 +176,7 @@ function PipelinesWebInner() {
                           <FontAwesome 
                             name="lock" 
                             size={10} 
-                            color={selectedPipeline?.id === p.id ? 'white' : 'rgb(var(--state-danger))'} 
+                            color={selectedPipeline?.id === p.id ? 'white' : 'var(--color-danger)'} 
                             style={{ opacity: selectedPipeline?.id === p.id ? 0.7 : 1 }}
                           />
                         )}
@@ -184,7 +184,7 @@ function PipelinesWebInner() {
                           <FontAwesome 
                             name="user-secret" 
                             size={10} 
-                            color={selectedPipeline?.id === p.id ? 'white' : 'rgb(var(--brand-primary))'} 
+                            color={selectedPipeline?.id === p.id ? 'white' : 'var(--color-primary)'} 
                             style={{ opacity: selectedPipeline?.id === p.id ? 0.7 : 1 }}
                           />
                         )}
@@ -259,7 +259,7 @@ function PipelinesWebInner() {
                 }}
                 className="w-10 h-10 bg-surface-background rounded-full items-center justify-center border border-surface-border"
               >
-                <FontAwesome name="times" size={14} color="rgb(var(--text-muted))" />
+                <FontAwesome name="times" size={14} color="var(--color-text-muted)" />
               </TouchableOpacity>
             </View>
 

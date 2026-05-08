@@ -45,7 +45,7 @@ export default function KanbanPersonalizer({ onClose }: Props) {
       <Switch 
         value={value} 
         onValueChange={onToggle}
-        trackColor={{ false: 'rgb(var(--surface-border))', true: 'rgb(var(--brand-primary))' }}
+        trackColor={{ false: 'var(--color-surface-border)', true: 'var(--color-primary)' }}
       />
     </View>
   );

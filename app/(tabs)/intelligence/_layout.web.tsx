@@ -51,16 +51,16 @@ export default function IntelligenceLayout() {
                       <FontAwesome
                         name={item.icon}
                         size={16}
-                        color={isActive ? 'white' : 'var(--color-text-muted)'}
+                        className={isActive ? 'text-brand-on-primary' : 'text-typography-muted'}
                       />
                     </View>
                     <Text
-                      className={`text-sm font-bold flex-1 ${isActive ? 'text-white' : 'text-typography-main'}`}
+                      className={`text-sm font-bold flex-1 ${isActive ? 'text-brand-on-primary' : 'text-typography-main'}`}
                     >
                       {item.label}
                     </Text>
                     {isActive && (
-                      <FontAwesome name="chevron-right" size={10} color="white" style={{ opacity: 0.5 }} />
+                      <FontAwesome name="chevron-right" size={10} className="text-brand-on-primary opacity-50" />
                     )}
                   </TouchableOpacity>
                 </Link>

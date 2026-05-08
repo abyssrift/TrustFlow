@@ -152,7 +152,7 @@ export default function ProjectsScreenWeb() {
       >
         <View className="flex-row items-center justify-between mb-6">
            <View className={`w-14 h-14 rounded-2xl items-center justify-center ${isOverdue ? 'bg-state-danger/10' : 'bg-brand-primary/10'} group-hover:scale-110 transition-transform`}>
-              <FontAwesome name="folder-open" size={24} color={isOverdue ? 'rgb(var(--state-danger))' : 'rgb(var(--brand-primary))'} />
+              <FontAwesome name="folder-open" size={24} color={isOverdue ? 'var(--color-danger)' : 'var(--color-primary)'} />
            </View>
            <View className="flex-row items-center gap-2">
               {hasPermission('archive:create') && (
@@ -170,7 +170,7 @@ export default function ProjectsScreenWeb() {
                   <FontAwesome name="archive" size={14} className="text-typography-muted hover:text-state-warning" />
                 </TouchableOpacity>
               )}
-              <View className={`px-4 py-1.5 rounded-full border ${project.status === 'active' ? 'bg-state-success/10 border-state-success/30' : 'bg-surface-background border-surface-border'}`}>
+              <View className={`px-4 py-1.5 rounded-full border ${project.status === 'active' ? 'bg-state-success/10 border-[var(--color-success)]/30' : 'bg-surface-background border-surface-border'}`}>
                   <Text className={`text-[10px] font-black uppercase tracking-widest ${project.status === 'active' ? 'text-state-success' : 'text-typography-muted'}`}>
                     {project.status}
                   </Text>
@@ -179,7 +179,7 @@ export default function ProjectsScreenWeb() {
         </View>
 
         <View className="flex-row items-center gap-3 mb-2">
-          {project.is_featured && <FontAwesome name="star" size={16} color="rgb(var(--state-warning))" />}
+          {project.is_featured && <FontAwesome name="star" size={16} color="var(--color-warning)" />}
           <Text className="text-typography-main text-2xl font-black tracking-tight flex-1" numberOfLines={1}>{project.name}</Text>
         </View>
         
@@ -218,7 +218,7 @@ export default function ProjectsScreenWeb() {
 
         {project.expiry_date && (
            <View className="flex-row items-center mt-6 pt-6 border-t border-surface-border/50">
-              <FontAwesome name="calendar" size={12} color={isOverdue ? 'rgb(var(--state-danger))' : 'rgb(var(--text-muted))'} />
+              <FontAwesome name="calendar" size={12} color={isOverdue ? 'var(--color-danger)' : 'var(--color-text-muted)'} />
               <Text className={`ml-3 text-[10px] font-black uppercase tracking-widest ${isOverdue ? 'text-state-danger' : 'text-typography-muted'}`}>
                 {isOverdue ? 'Overdue' : 'Deadline'}: {new Date(project.expiry_date).toLocaleDateString()}
               </Text>
@@ -244,7 +244,7 @@ export default function ProjectsScreenWeb() {
               <Switch 
                 value={showClosed} 
                 onValueChange={setShowClosed}
-                trackColor={{ false: 'rgb(var(--surface-border))', true: 'rgb(var(--brand-primary))' }}
+                trackColor={{ false: 'var(--color-surface-border)', true: 'var(--color-primary)' }}
                 thumbColor="white"
               />
             </View>
@@ -261,12 +261,12 @@ export default function ProjectsScreenWeb() {
 
         {loading ? (
           <View className="py-20 items-center justify-center">
-            <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
+            <ActivityIndicator size="large" color="var(--color-primary)" />
           </View>
         ) : (
           <ScrollView 
             showsVerticalScrollIndicator={false}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="rgb(var(--brand-primary))" />}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="var(--color-primary)" />}
           >
             <View className="flex-row flex-wrap gap-x-[30px]">
               {filteredProjects.length === 0 ? (

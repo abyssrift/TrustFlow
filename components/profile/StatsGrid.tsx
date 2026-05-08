@@ -64,7 +64,7 @@ export default function StatsGrid() {
   if (loading) {
     return (
       <View className="h-40 items-center justify-center">
-        <ActivityIndicator color="rgb(var(--brand-primary))" />
+        <ActivityIndicator color="var(--color-primary)" />
       </View>
     );
   }

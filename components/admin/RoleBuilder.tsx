@@ -10,7 +10,7 @@ export default function RoleBuilder() {
   
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [color, setColor] = useState('#6366f1');
+  const [color, setColor] = useState('var(--color-primary)');
   const [selectedPerms, setSelectedPerms] = useState<string[]>([]);
 
   const handleEditRole = (role: Role) => {
@@ -94,7 +94,7 @@ export default function RoleBuilder() {
               <View className="flex-row items-center justify-between mb-5">
                 <View className="flex-row items-center flex-1">
                   <View 
-                    style={{ backgroundColor: role.color || 'rgb(var(--brand-primary))' }}
+                    style={{ backgroundColor: role.color || 'var(--color-primary)' }}
                     className="w-4 h-4 rounded-full mr-3 border border-white/20 shadow-sm"
                   />
                   <Text className="text-typography-main font-black text-lg" numberOfLines={1}>{role.name}</Text>
@@ -112,7 +112,7 @@ export default function RoleBuilder() {
                     }} 
                     className="w-10 h-10 items-center justify-center border border-state-danger/10 rounded-xl bg-state-danger-dim"
                   >
-                    <FontAwesome name="trash-o" size={14} color="rgb(var(--state-danger))" />
+                    <FontAwesome name="trash-o" size={14} color="var(--color-danger)" />
                   </TouchableOpacity>
                 )}
               </View>
@@ -123,7 +123,7 @@ export default function RoleBuilder() {
               
               <View className="flex-row items-center">
                  <View className="bg-surface-background px-4 py-2 rounded-xl border border-surface-border flex-row items-center">
-                    <FontAwesome name="key" size={10} color="rgb(var(--brand-primary))" />
+                    <FontAwesome name="key" size={10} color="var(--color-primary)" />
                     <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest ml-3">
                       {role.permissionIds?.length || 0} Gates
                     </Text>
@@ -146,7 +146,7 @@ export default function RoleBuilder() {
                  </Text>
                </View>
                <TouchableOpacity onPress={() => { setEditingRole(null); setIsCreating(false); }} className="w-12 h-12 items-center justify-center rounded-full bg-surface-background border border-surface-border">
-                 <FontAwesome name="times" size={20} color="rgb(var(--text-muted))" />
+                 <FontAwesome name="times" size={20} color="var(--color-text-main)" />
                </TouchableOpacity>
              </View>
 
@@ -154,7 +154,7 @@ export default function RoleBuilder() {
                 {isGlobal && (
                   <View className="bg-state-info/10 border border-state-info/30 p-6 rounded-2xl mb-10 flex-row items-center">
                     <View className="w-10 h-10 rounded-full bg-state-info/20 items-center justify-center mr-4">
-                      <FontAwesome name="shield" size={18} color="rgb(var(--state-info))" />
+                      <FontAwesome name="shield" size={18} color="var(--color-info)" />
                     </View>
                     <View className="flex-1">
                       <Text className="text-typography-main font-black text-xs uppercase tracking-tight mb-1">System Protected Protocol</Text>
@@ -172,7 +172,7 @@ export default function RoleBuilder() {
                             onChangeText={setName}
                             editable={canEdit}
                             placeholder="Authority Display Name"
-                            placeholderTextColor="rgb(var(--text-muted))"
+                            placeholderTextColor="var(--color-text-muted)"
                             className={`bg-surface-background border border-surface-border rounded-xl px-6 py-5 text-typography-main font-black text-sm mb-5 ${!canEdit ? 'opacity-50' : ''}`}
                         />
                         <TextInput
@@ -180,7 +180,7 @@ export default function RoleBuilder() {
                             onChangeText={setDescription}
                             editable={canEdit}
                             placeholder="Operational responsibilities..."
-                            placeholderTextColor="rgb(var(--text-muted))"
+                            placeholderTextColor="var(--color-text-muted)"
                             multiline
                             numberOfLines={4}
                             textAlignVertical="top"
@@ -192,7 +192,7 @@ export default function RoleBuilder() {
                             <Text className="text-brand-primary font-black text-[10px] uppercase">{color}</Text>
                         </View>
                         <View className={`flex-row flex-wrap gap-3 px-1 ${!canEdit ? 'opacity-50' : ''}`}>
-                            {['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#475569'].map(c => (
+                        {['var(--color-primary)', 'var(--color-success)', 'var(--color-warning)', 'var(--color-danger)', 'rgb(var(--brand-accent))', 'rgb(var(--brand-secondary))', 'var(--color-info)', 'rgb(var(--surface-border))'].map(c => (
                             <TouchableOpacity 
                                 key={c}
                                 onPress={() => canEdit && setColor(c)}

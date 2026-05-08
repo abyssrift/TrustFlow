@@ -5,10 +5,10 @@ import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import { openStorageFile, SUBMISSION_BUCKET } from '@/lib/storage';
 
 const CATEGORY_UI: Record<string, { icon: string; color: string; label: string }> = {
-  'image': { icon: 'file-image-o', color: '#8b5cf6', label: 'Images' },
-  'document': { icon: 'file-pdf-o', color: '#ef4444', label: 'Documents' },
-  'spreadsheet': { icon: 'file-excel-o', color: '#22c55e', label: 'Spreadsheets' },
-  'other': { icon: 'file-o', color: '#64748b', label: 'Other' },
+  'image': { icon: 'file-image-o', color: 'var(--color-primary)', label: 'Images' },
+  'document': { icon: 'file-pdf-o', color: 'var(--color-danger)', label: 'Documents' },
+  'spreadsheet': { icon: 'file-excel-o', color: 'var(--color-success)', label: 'Spreadsheets' },
+  'other': { icon: 'file-o', color: 'var(--color-text-muted)', label: 'Other' },
 };
 
 function formatSize(bytes: number) {
@@ -133,7 +133,7 @@ export default function EvidencePanel() {
                       </View>
                     </View>
 
-                    <FontAwesome name="external-link" size={10} color="#64748b" />
+                    <FontAwesome name="external-link" size={10} color="var(--color-text-muted)" />
                   </TouchableOpacity>
                 );
               })}

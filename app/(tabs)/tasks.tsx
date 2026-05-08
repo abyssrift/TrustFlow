@@ -297,10 +297,10 @@ function TasksScreen() {
 
   const getPriorityInfo = (priority: string) => {
     switch (priority) {
-      case 'urgent': return { color: 'rgb(var(--state-danger))', label: 'Urgent' };
-      case 'high': return { color: 'rgb(var(--state-warning))', label: 'High' };
-      case 'low': return { color: 'rgb(var(--state-success))', label: 'Low' };
-      default: return { color: 'rgb(var(--text-muted))', label: 'Normal' };
+      case 'urgent': return { color: 'var(--color-danger)', label: 'Urgent' };
+      case 'high': return { color: 'var(--color-warning)', label: 'High' };
+      case 'low': return { color: 'var(--color-success)', label: 'Low' };
+      default: return { color: 'var(--color-text-muted)', label: 'Normal' };
     }
   };
 
@@ -457,7 +457,7 @@ function TasksScreen() {
   if (loading && !refreshing) {
     return (
       <View className="flex-1 bg-surface-background items-center justify-center">
-        <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
+        <ActivityIndicator size="large" color="var(--color-primary)" />
       </View>
     );
   }
@@ -469,7 +469,7 @@ function TasksScreen() {
       <View className="flex-1 bg-surface-background items-center justify-center px-6">
         <View className="bg-surface-card w-full p-8 rounded-[32px] border border-surface-border items-center premium-shadow">
           <View className="w-20 h-20 bg-brand-primary/10 rounded-full items-center justify-center mb-6">
-            <FontAwesome name="sitemap" size={32} color="rgb(var(--brand-primary))" />
+            <FontAwesome name="sitemap" size={32} color="var(--color-primary)" />
           </View>
           
           {canManage ? (
@@ -488,7 +488,7 @@ function TasksScreen() {
           ) : (
             <View className="bg-state-info-dim border border-state-info/20 p-5 rounded-2xl w-full">
               <View className="flex-row items-start">
-                <FontAwesome name="info-circle" size={16} color="rgb(var(--state-info))" style={{ marginTop: 2 }} />
+                <FontAwesome name="info-circle" size={16} color="var(--color-info)" style={{ marginTop: 2 }} />
                 <Text className="text-typography-main text-sm font-bold ml-3 flex-1 leading-5">
                   Either no pipelines exist now, or they're not privileged enough to see them, contact company Admin
                 </Text>

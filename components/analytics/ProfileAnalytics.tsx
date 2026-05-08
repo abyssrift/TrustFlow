@@ -89,7 +89,7 @@ export function ProfileAnalytics({ userId }: ProfileAnalyticsProps) {
   if (loading) {
     return (
       <View className="py-12 items-center">
-        <ActivityIndicator color="rgb(var(--brand-primary))" />
+        <ActivityIndicator color="var(--color-primary)" />
         <Text className="text-typography-muted text-xs mt-3">Loading performance data…</Text>
       </View>
     );

@@ -1,5 +1,6 @@
-import { WorkDistributionChartWeb, QualityLeaderboardWeb, SLARiskAlertWeb, StageDurationChartWeb, TrendComparisonCardsWeb } from '@/components/intelligence/RadarWidgets';
+import { WorkDistributionChartWeb, QualityLeaderboardWeb, SLARiskAlertWeb, StageDurationChartWeb, TrendComparisonCardsWeb, StageDwellChartWeb } from '@/components/intelligence/RadarWidgets';
 import { useAnalytics, StageDwell, ThroughputPeriod } from '@/contexts/AnalyticsContext';
+import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -19,6 +20,14 @@ const PERIOD_OPTS = [
 const fmtSec = (s: number) => {
   const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
+};
+
+const tooltipStyle = {
+  backgroundColor: 'var(--color-card)',
+  border: '1px solid var(--color-border)',
+  borderRadius: '8px',
+  color: 'var(--color-text-main)',
+  boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
 };
 
 export default function IntelligenceGraphs() {
@@ -66,24 +75,6 @@ export default function IntelligenceGraphs() {
     success_rate: t.success_rate ?? 0,
   }));
 
-  const dwellChartData = [...dwell]
-    .sort((a, b) => a.stage_position - b.stage_position)
-    .map(s => ({
-      name:  s.stage_name,
-      hours: parseFloat((s.avg_seconds / 3600).toFixed(2)),
-      fill:  s.is_bottleneck ? '#F59E0B'
-           : (s.is_terminal && s.terminal_type === 'success') ? '#10B981'
-           : s.is_terminal ? '#EF4444'
-           : 'rgb(var(--brand-primary))',
-    }));
-
-  const tooltipStyle = {
-    backgroundColor: 'rgb(var(--surface-card))',
-    border: '1px solid rgb(var(--surface-border))',
-    borderRadius: 12,
-    fontSize: 11,
-  };
-
   return (
     <View className="flex-1 bg-surface-background flex-col">
 
@@ -125,14 +116,14 @@ export default function IntelligenceGraphs() {
             ))}
           </View>
           <TouchableOpacity onPress={load} className="h-10 w-10 items-center justify-center bg-surface-card border border-surface-border rounded-xl">
-            <FontAwesome name="refresh" size={13} color="rgb(var(--brand-primary))" />
+            <FontAwesome name="refresh" size={13} color="var(--color-primary)" />
           </TouchableOpacity>
         </View>
       </View>
 
       {loading ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
+          <ActivityIndicator size="large" color="var(--color-primary)" />
         </View>
       ) : (
         <ScrollView className="flex-1" contentContainerStyle={{ padding: 40, gap: 24 }} showsVerticalScrollIndicator={false}>
@@ -164,18 +155,18 @@ export default function IntelligenceGraphs() {
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={throughputChartData} barGap={4}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,0.15)" vertical={false} />
-                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'rgb(var(--text-muted))' }} axisLine={false} tickLine={false} />
-                    <YAxis yAxisId="l" tick={{ fontSize: 10, fill: 'rgb(var(--text-muted))' }} axisLine={false} tickLine={false} />
-                    <YAxis yAxisId="r" orientation="right" domain={[0, 100]} tick={{ fontSize: 10, fill: 'rgb(var(--text-muted))' }} axisLine={false} tickLine={false} unit="%" />
+                    <XAxis dataKey="label" stroke="var(--color-text-dim)" fontSize={12} tickLine={false} axisLine={false} />
+                    <YAxis yAxisId="l" stroke="var(--color-text-dim)" fontSize={12} tickLine={false} axisLine={false} />
+                    <YAxis yAxisId="r" orientation="right" domain={[0, 100]} stroke="var(--color-text-dim)" fontSize={12} tickLine={false} axisLine={false} unit="%" />
                     <RechartTooltip contentStyle={tooltipStyle} />
-                    <Bar yAxisId="l" dataKey="succeeded" fill="#10B981" name="Completed" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                    <Bar yAxisId="l" dataKey="failed"    fill="#EF4444" name="Failed"    radius={[4, 4, 0, 0]} maxBarSize={40} />
-                    <Line yAxisId="r" type="monotone" dataKey="success_rate" stroke="rgb(var(--brand-primary))" strokeWidth={2.5} dot={{ r: 4, fill: 'rgb(var(--brand-primary))' }} name="Success %" />
+                    <Bar yAxisId="l" dataKey="succeeded" fill="var(--color-success)" name="Completed" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                    <Bar yAxisId="l" dataKey="failed"    fill="var(--color-danger)" name="Failed"    radius={[4, 4, 0, 0]} maxBarSize={40} />
+                    <Line yAxisId="r" type="monotone" dataKey="success_rate" stroke="var(--color-primary)" strokeWidth={2.5} dot={{ r: 4, fill: 'var(--color-primary)' }} name="Success %" />
                   </ComposedChart>
                 </ResponsiveContainer>
               ) : (
                 <View className="flex-1 items-center justify-center">
-                  <FontAwesome name="bar-chart" size={32} color="rgb(var(--text-dim))" />
+                  <FontAwesome name="bar-chart" size={32} color="var(--color-text-dim)" />
                   <Text className="text-typography-muted text-sm mt-3">No throughput data for this pipeline/period</Text>
                 </View>
               )}
@@ -191,36 +182,12 @@ export default function IntelligenceGraphs() {
           {/* ── Stage Dwell + Work Distribution ── */}
           <View className="flex-row gap-6">
             {/* Stage Dwell */}
-            <View className="flex-1 bg-surface-card p-8 rounded-[32px] border border-surface-border premium-shadow">
-              <Text className="text-typography-main font-black text-xl tracking-tight mb-1">Stage Dwell Time</Text>
-              <Text className="text-typography-muted text-xs mb-6">Avg hours tasks spend at each stage</Text>
-              <View className="flex-row items-center gap-4 mb-5">
-                {[['#F59E0B','Bottleneck'],['#10B981','Terminal'],['#EF4444','Failed']].map(([c,l]) => (
-                  <View key={l} className="flex-row items-center gap-1.5">
-                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: c }} />
-                    <Text className="text-typography-muted text-[9px] font-bold uppercase">{l}</Text>
-                  </View>
-                ))}
-              </View>
-              <View style={{ height: 260 }}>
-                {dwellChartData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart layout="vertical" data={dwellChartData} margin={{ left: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(128,128,128,0.15)" />
-                      <XAxis type="number" tick={{ fontSize: 10, fill: 'rgb(var(--text-muted))' }} axisLine={false} tickLine={false} unit="h" />
-                      <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 10, fill: 'rgb(var(--text-muted))' }} axisLine={false} tickLine={false} />
-                      <RechartTooltip contentStyle={tooltipStyle} formatter={(v: any) => [`${v}h`, 'Avg Dwell']} />
-                      <Bar dataKey="hours" radius={[0, 4, 4, 0]} maxBarSize={22}>
-                        {dwellChartData.map((e, i) => <Cell key={i} fill={e.fill} />)}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <View className="flex-1 items-center justify-center">
-                    <Text className="text-typography-muted text-sm">No stage history in this period</Text>
-                  </View>
-                )}
-              </View>
+            <View className="flex-1">
+              <StageDwellChartWeb 
+                data={dwell} 
+                onViewDetails={() => router.push('/intelligence/analytics')}
+                className="h-full"
+              />
             </View>
 
             {/* Work Distribution */}

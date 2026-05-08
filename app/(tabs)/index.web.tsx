@@ -178,14 +178,14 @@ export default function DashboardScreenWeb() {
         .from('pipeline_stage_history')
         .select(`
           id,
-          created_at,
+          transitioned_at,
           task:task_id(title, pipeline_id),
           from_stage:from_stage_id(name),
           to_stage:to_stage_id(name),
           transitioned_by_user:users!transitioned_by(full_name, display_name)
         `)
-        .order('created_at', { ascending: false })
-        .limit(20);
+        .order('transitioned_at', { ascending: false })
+        .limit(4);
 
       const activityEntries: ActivityEntry[] = (historyData || [])
         .filter((h: any) => targetPipelineIds.includes(h.task?.pipeline_id))
@@ -196,7 +196,7 @@ export default function DashboardScreenWeb() {
           fromStage: h.from_stage?.name || '—',
           toStage: h.to_stage?.name || '—',
           movedBy: h.transitioned_by_user?.display_name || h.transitioned_by_user?.full_name || 'System',
-          movedAt: h.created_at,
+          movedAt: h.transitioned_at,
         }));
       setActivity(activityEntries);
 
@@ -284,9 +284,9 @@ export default function DashboardScreenWeb() {
 
     const iconBorderClass =
       accentType === 'success' ? 'border-state-success/20' :
-      accentType === 'warning' ? 'border-state-warning/20' :
+      accentType === 'warning' ? 'border-var(--color-warning)/20' :
       accentType === 'info' ? 'border-state-info/20' :
-      accentType === 'danger' ? 'border-state-danger/20' :
+      accentType === 'danger' ? 'border-var(--color-danger)/20' :
       'border-brand-primary/20';
 
     const iconColorClass =
@@ -321,7 +321,7 @@ export default function DashboardScreenWeb() {
     <ScrollView
       className="flex-1 bg-surface-background"
       showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="rgb(var(--brand-primary))" />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="var(--color-primary)" />}
     >
       <View className="max-w-[1600px] mx-auto w-full p-10">
         <View className="mb-12 flex-row items-center justify-between">
@@ -356,7 +356,7 @@ export default function DashboardScreenWeb() {
 
         {loading ? (
           <View className="h-96 items-center justify-center bg-surface-card rounded-[32px] border border-surface-border">
-            <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
+            <ActivityIndicator size="large" color="var(--color-primary)" />
             <Text className="text-typography-muted mt-4 font-bold uppercase tracking-widest text-[10px]">Loading intelligence...</Text>
           </View>
         ) : (
@@ -492,6 +492,7 @@ export default function DashboardScreenWeb() {
                       />
                     </View>
                   </View>
+
                   <View>
                     <View className="flex-row justify-between mb-2 px-1">
                       <Text className="text-typography-main font-bold text-sm">Completed</Text>
@@ -506,6 +507,7 @@ export default function DashboardScreenWeb() {
                       />
                     </View>
                   </View>
+
                   {stats.failed > 0 && (
                     <View>
                       <View className="flex-row justify-between mb-2 px-1">
@@ -527,52 +529,48 @@ export default function DashboardScreenWeb() {
 
               <View className="flex-1 bg-surface-card p-10 rounded-[32px] border border-surface-border premium-shadow">
                 <View className="flex-row items-center justify-between mb-8">
-                  <Text className="text-typography-main text-2xl font-black tracking-tight">Recent Activity</Text>
-                  <TouchableOpacity onPress={() => router.push('/tasks')}>
-                    <FontAwesome name="arrow-right" size={12} className="text-brand-primary" />
+                  <View className="flex-row items-center gap-3">
+                    <View className="w-1.5 h-4 bg-brand-primary rounded-full" />
+                    <Text className="text-typography-main text-sm font-black uppercase tracking-widest">Recent Activity</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => router.push('/pipelines')}>
+                    <FontAwesome name="chevron-right" size={10} color="var(--color-brand-primary)" />
                   </TouchableOpacity>
                 </View>
 
                 {activity.length === 0 ? (
                   <View className="flex-1 items-center justify-center p-8 rounded-[24px] bg-surface-background/50 border border-dashed border-surface-border">
-                    <View className="w-16 h-16 rounded-full bg-brand-primary/5 flex-center mb-6">
-                      <FontAwesome name="bolt" size={24} className="text-brand-primary" />
-                    </View>
-                    <Text className="text-typography-main font-bold text-center mb-2">No Activity Yet</Text>
-                    <Text className="text-typography-muted text-center text-xs font-medium leading-relaxed">
-                      Stage transitions for selected pipelines will appear here.
-                    </Text>
+                    <Text className="text-typography-muted text-[10px] uppercase font-black tracking-widest">No Activity Yet</Text>
                   </View>
                 ) : (
-                  <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
-                    <View className="gap-3">
-                      {activity.map((entry) => (
-                        <View
-                          key={entry.id}
-                          className="p-4 rounded-2xl bg-surface-background border border-surface-border/50 hover:border-brand-primary/30 transition-colors"
-                        >
-                          <View className="flex-row items-center justify-between mb-2">
-                            <Text className="text-typography-main font-bold text-sm flex-1 mr-2" numberOfLines={1}>
-                              {entry.taskTitle}
-                            </Text>
-                            <Text className="text-typography-dim text-[10px] font-bold uppercase tracking-widest">
-                              {timeAgo(entry.movedAt)}
-                            </Text>
-                          </View>
-                          <View className="flex-row items-center">
-                            <View className="bg-surface-card px-2 py-1 rounded-lg border border-surface-border">
-                              <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest">{entry.fromStage}</Text>
-                            </View>
-                            <FontAwesome name="long-arrow-right" size={10} className="text-brand-primary mx-2" />
-                            <View className="bg-brand-primary/10 px-2 py-1 rounded-lg border border-brand-primary/20">
-                              <Text className="text-brand-primary text-[9px] font-black uppercase tracking-widest">{entry.toStage}</Text>
-                            </View>
-                            <Text className="text-typography-dim text-[9px] font-bold ml-auto">{entry.movedBy}</Text>
+                  <View className="gap-0">
+                    {activity.map((entry, idx) => (
+                      <View
+                        key={entry.id}
+                        className={`flex-row items-center py-3 ${idx !== activity.length - 1 ? 'border-b border-surface-border/30' : ''}`}
+                      >
+                        <View className="w-8 h-8 rounded-lg bg-surface-background items-center justify-center mr-4 border border-surface-border">
+                          <FontAwesome name="exchange" size={12} color="var(--color-brand-primary)" />
+                        </View>
+                        <View className="flex-1">
+                          <Text className="text-typography-main font-bold text-xs" numberOfLines={1}>
+                            {entry.taskTitle}
+                          </Text>
+                          <View className="flex-row items-center gap-1">
+                            <Text className="text-typography-muted text-[9px] font-black uppercase tracking-tighter" numberOfLines={1}>{entry.fromStage}</Text>
+                            <FontAwesome name="long-arrow-right" size={8} color="var(--color-brand-primary)" />
+                            <Text className="text-brand-primary text-[9px] font-black uppercase tracking-tighter" numberOfLines={1}>{entry.toStage}</Text>
                           </View>
                         </View>
-                      ))}
-                    </View>
-                  </ScrollView>
+                        <View className="items-end">
+                          <Text className="text-typography-dim text-[10px] font-black uppercase tracking-tighter">
+                            {timeAgo(entry.movedAt)}
+                          </Text>
+                          <Text className="text-typography-dim text-[9px] italic">{entry.movedBy}</Text>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
                 )}
               </View>
             </View>
@@ -732,7 +730,7 @@ function DashboardSettingsModal({ visible, onClose, config, onSave }: {
 
           <ScrollView className="p-10">
             {loading ? (
-              <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
+              <ActivityIndicator size="large" color="var(--color-primary)" />
             ) : (
               <View>
                 {/* All Pipelines Toggle */}

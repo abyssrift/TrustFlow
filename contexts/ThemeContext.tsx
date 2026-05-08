@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export type ThemeType = 'indigo' | 'emerald' | 'amber' | 'amethyst';
+export type ThemeType = 'indigo' | 'emerald' | 'amber' | 'amethyst' | 'light' | 'dark';
 export type DensityType = 'compact' | 'normal' | 'comfort';
 export type RoundnessType = 'sharp' | 'normal' | 'soft';
 

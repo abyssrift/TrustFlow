@@ -13,20 +13,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAnalytics, StageDwell, ThroughputPeriod, PersonnelRow } from '@/contexts/AnalyticsContext';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Stack } from 'expo-router';
-import { ConversionFunnelChartWeb } from '@/components/intelligence/RadarWidgets';
+import { ConversionFunnelChartWeb, StageDwellChartWeb } from '@/components/intelligence/RadarWidgets';
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 import { useRef } from 'react';
+import { useTheme } from '@/contexts/ThemeContext';
+import { getPrimaryColor, getMutedColor } from '@/lib/themeColors';
 
 type AdminTab = 'pipeline' | 'personnel';
-
-function fmtSeconds(s: number): string {
-  if (s <= 0) return '0m';
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m}m`;
-}
-
 function fmtPct(v: number | null): string {
   return v !== null ? `${v.toFixed(1)}%` : '—';
 }
@@ -34,75 +27,6 @@ function fmtPct(v: number | null): string {
 function fmtUSD(v: number | null): string {
   if (v === null) return '—';
   return `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-// ─── Stage Dwell Chart ────────────────────────────────────────────────────────
-
-const DwellTooltip = ({ active, payload }: any) => {
-  if (!active || !payload?.length) return null;
-  const d: StageDwell = payload[0]?.payload;
-  return (
-    <View className="bg-surface-overlay border border-surface-border rounded-xl p-3 gap-1">
-      <Text className="text-typography-main font-black text-sm">{d.stage_name}</Text>
-      <Text className="text-typography-muted text-xs">Avg: {fmtSeconds(d.avg_seconds)}</Text>
-      <Text className="text-typography-muted text-xs">Median: {fmtSeconds(d.median_seconds)}</Text>
-      <Text className="text-typography-muted text-xs">P75: {fmtSeconds(d.p75_seconds)}</Text>
-      <Text className="text-typography-muted text-xs">{d.sample_count} samples · {d.reversal_count} reversals</Text>
-      {d.is_bottleneck && (
-        <Text className="text-state-warning text-xs font-black">⚠ Bottleneck</Text>
-      )}
-    </View>
-  );
-};
-
-function StageDwellChart({ data }: { data: StageDwell[] }) {
-  if (!data.length) {
-    return (
-      <View className="h-40 items-center justify-center">
-        <Text className="text-typography-muted text-sm">No stage activity in this period.</Text>
-      </View>
-    );
-  }
-
-  const chartData = [...data]
-    .sort((a, b) => a.stage_position - b.stage_position)
-    .map(d => ({ ...d, avg_minutes: parseFloat((d.avg_seconds / 60).toFixed(1)) }));
-
-  const getBarColor = (entry: StageDwell) => {
-    return entry.is_bottleneck ? 'var(--color-warning)' : 'var(--color-primary)';
-  };
-
-  return (
-    <View style={{ height: 280, width: '100%' }}>
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={chartData} layout="vertical" margin={{ top: 0, right: 40, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" horizontal={false} opacity={0.4} />
-          <XAxis
-            type="number"
-            dataKey="avg_minutes"
-            tick={{ fill: 'var(--color-text-dim)', fontSize: 11 }}
-            axisLine={false}
-            tickLine={false}
-            tickFormatter={v => `${v}m`}
-          />
-          <YAxis
-            type="category"
-            dataKey="stage_name"
-            width={120}
-            tick={{ fill: 'var(--color-text-dim)', fontSize: 11 }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <Tooltip content={<DwellTooltip />} />
-          <Bar dataKey="avg_minutes" radius={[0, 6, 6, 0]} maxBarSize={28}>
-            {chartData.map((entry, i) => (
-              <Cell key={i} fill={getBarColor(entry)} />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
-    </View>
-  );
 }
 
 // ─── Throughput Chart ─────────────────────────────────────────────────────────
@@ -180,12 +104,12 @@ function ThroughputChart({ data }: { data: ThroughputPeriod[] }) {
 // ─── Pipeline Analytics Tab ───────────────────────────────────────────────────
 
 function PipelineTab() {
-  const { getPipelineStageDwell, getPipelineThroughput, getTargetsStatus } = useAnalytics();
+  const { getPipelineStageDwell, getPipelineThroughput } = useAnalytics();
+  const { theme: activeTheme } = useTheme();
   const [pipelines, setPipelines] = useState<any[]>([]);
   const [selectedPipeline, setSelectedPipeline] = useState<string | null>(null);
   const [period, setPeriod] = useState('month');
-  const [targets, setTargets] = useState<any[]>([]);
-  const [targetsLoading, setTargetsLoading] = useState(false);
+
 
   const today = new Date();
   const defaultFrom = new Date(today);
@@ -251,22 +175,10 @@ function PipelineTab() {
     }
   }, [selectedPipeline, from, to, period]);
 
-  const loadTargets = useCallback(async () => {
-    if (!selectedPipeline) return;
-    setTargetsLoading(true);
-    try {
-      const data = await getTargetsStatus();
-      // Filter by selected pipeline
-      setTargets(data.filter((t: any) => t.pipeline_name === pipelines.find(p => p.id === selectedPipeline)?.name));
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setTargetsLoading(false);
-    }
-  }, [selectedPipeline, pipelines, getTargetsStatus]);
+
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { loadTargets(); }, [loadTargets]);
+
 
   return (
     <View className="gap-8">
@@ -303,7 +215,7 @@ function PipelineTab() {
               onPress={() => openOverlay(fromRef, setFromPos, setShowFromCalendar)}
               className="bg-surface-card border border-surface-border rounded-xl px-4 py-2 flex-row items-center w-40"
             >
-              <FontAwesome name="calendar" size={12} color="var(--color-text-dim)" className="mr-3" />
+              <FontAwesome name="calendar" size={12} color={getMutedColor(activeTheme)} className="mr-3" />
               <Text className="text-typography-main text-sm flex-1">
                 {from ? new Date(from).toLocaleDateString(undefined, { dateStyle: 'medium' }) : 'Start Date'}
               </Text>
@@ -314,7 +226,7 @@ function PipelineTab() {
               onPress={() => openOverlay(toRef, setToPos, setShowToCalendar)}
               className="bg-surface-card border border-surface-border rounded-xl px-4 py-2 flex-row items-center w-40"
             >
-              <FontAwesome name="calendar" size={12} color="var(--color-text-dim)" className="mr-3" />
+              <FontAwesome name="calendar" size={12} color={getMutedColor(activeTheme)} className="mr-3" />
               <Text className="text-typography-main text-sm flex-1">
                 {to ? new Date(to).toLocaleDateString(undefined, { dateStyle: 'medium' }) : 'End Date'}
               </Text>
@@ -341,7 +253,7 @@ function PipelineTab() {
 
       {loading ? (
         <View className="py-16 items-center">
-          <ActivityIndicator size="large" color="var(--color-primary)" />
+          <ActivityIndicator size="large" color={getPrimaryColor(activeTheme)} />
         </View>
       ) : pipelines.length === 0 ? (
         <View className="bg-surface-card border border-surface-border rounded-2xl p-10 items-center gap-3">
@@ -351,158 +263,20 @@ function PipelineTab() {
       ) : (
         <View className="gap-8">
           {/* Stage Dwell */}
-          <View className="bg-surface-card border border-surface-border rounded-2xl p-6">
-            <View className="flex-row items-center justify-between mb-6">
-              <Text className="text-typography-main font-black text-lg">Stage Dwell Times</Text>
-              <View className="flex-row gap-4">
-                <View className="flex-row items-center gap-2">
-                  <View className="w-3 h-3 rounded-sm bg-state-warning" />
-                  <Text className="text-typography-dim text-xs">Bottleneck</Text>
-                </View>
-                <View className="flex-row items-center gap-2">
-                  <View className="w-3 h-3 rounded-sm bg-state-success" />
-                  <Text className="text-typography-dim text-xs">Terminal Success</Text>
-                </View>
-                <View className="flex-row items-center gap-2">
-                  <View className="w-3 h-3 rounded-sm bg-state-danger" />
-                  <Text className="text-typography-dim text-xs">Terminal Failure</Text>
-                </View>
-              </View>
-            </View>
-            <StageDwellChart data={dwell} />
-          </View>
+          <StageDwellChartWeb data={dwell} />
 
           {/* Throughput */}
           <View className="bg-surface-card border border-surface-border rounded-2xl p-6">
-            <Text className="text-typography-main font-black text-lg mb-6">Throughput Trend</Text>
+            <View className="flex-row items-center justify-between mb-6">
+              <Text className="text-typography-main font-black text-lg">Throughput Trend</Text>
+              <View className="px-3 py-1 bg-surface-background border border-surface-border rounded-lg">
+                <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest">Pipeline-Specific Analytics</Text>
+              </View>
+            </View>
             <ThroughputChart data={throughput} />
           </View>
 
-          {/* Goal Tracking Section */}
-          <View className="bg-surface-card border border-surface-border rounded-2xl p-6">
-            <View className="flex-row items-center justify-between mb-8">
-              <View>
-                <Text className="text-typography-main font-black text-lg">Goal Tracking</Text>
-                <Text className="text-typography-muted text-xs mt-1">Status of volume targets across pipeline stages</Text>
-              </View>
-              <View className="flex-row items-center gap-6">
-                <TouchableOpacity 
-                  onPress={loadTargets}
-                  disabled={targetsLoading}
-                  className="w-8 h-8 rounded-full bg-surface-background border border-surface-border items-center justify-center active:scale-95 transition-all"
-                >
-                  <FontAwesome 
-                    name="refresh" 
-                    size={12} 
-                    color="var(--color-primary)" 
-                    className={targetsLoading ? 'animate-spin' : ''} 
-                  />
-                </TouchableOpacity>
 
-                <View className="flex-row gap-4 border-l border-surface-border pl-6">
-                <View className="flex-row items-center gap-2">
-                  <View className="w-3 h-3 rounded-full bg-state-success" />
-                  <Text className="text-typography-dim text-[10px] font-black uppercase">Hit</Text>
-                </View>
-                <View className="flex-row items-center gap-2">
-                  <View className="w-3 h-3 rounded-full bg-state-danger" />
-                  <Text className="text-typography-dim text-[10px] font-black uppercase">Expired</Text>
-                </View>
-                <View className="flex-row items-center gap-2">
-                  <View className="w-3 h-3 rounded-full bg-brand-primary" />
-                  <Text className="text-typography-dim text-[10px] font-black uppercase">Active</Text>
-                </View>
-              </View>
-            </View>
-          </View>
-
-          {targetsLoading ? (
-            <ActivityIndicator size="small" color="var(--color-primary)" />
-          ) : targets.length === 0 ? (
-              <View className="py-12 items-center opacity-50">
-                <FontAwesome name="bullseye" size={32} color="var(--color-text-dim)" />
-                <Text className="text-typography-muted text-sm mt-4">No targets defined for this pipeline.</Text>
-              </View>
-            ) : (
-              <View className="flex-row flex-wrap gap-6">
-                {targets.map((t, idx) => {
-                  const targetVal = t.target_value || 1; // Avoid div by zero
-                  const progress = Math.min(100, (t.current_value / targetVal) * 100);
-                  const isHit = t.status === 'hit';
-                  const isExpired = t.status === 'expired';
-                  
-                  // Use consistent color tokens
-                  const statusColor = isHit 
-                    ? 'var(--color-success)' 
-                    : isExpired 
-                      ? 'var(--color-danger)' 
-                      : 'var(--color-primary)';
-                  
-                  const statusBg = isHit 
-                    ? 'var(--color-success-dim)' 
-                    : isExpired 
-                      ? 'var(--color-danger-dim)' 
-                      : 'var(--color-primary-dim)';
-
-                  return (
-                    <View 
-                      key={idx} 
-                      className="flex-1 min-w-[320px] bg-surface-background border border-surface-border rounded-2xl p-5 hover:border-brand-primary/30 transition-all"
-                    >
-                      <View className="flex-row justify-between items-start mb-5">
-                        <View className="flex-row items-center gap-3">
-                          <View className="w-10 h-10 rounded-xl bg-surface-card border border-surface-border items-center justify-center">
-                            <FontAwesome 
-                              name={isHit ? "trophy" : isExpired ? "clock-o" : "bullseye"} 
-                              size={16} 
-                              color={statusColor} 
-                            />
-                          </View>
-                          <View>
-                            <Text className="text-typography-main font-black text-sm">{t.stage_name}</Text>
-                            <Text className="text-typography-muted text-[9px] font-black uppercase tracking-wider">{t.target_type}</Text>
-                          </View>
-                        </View>
-                        <View className="px-3 py-1 rounded-full" style={{ backgroundColor: statusBg }}>
-                          <Text className="text-[9px] font-black uppercase tracking-tighter" style={{ color: statusColor }}>{t.status}</Text>
-                        </View>
-                      </View>
-
-                      <View className="mb-5">
-                        <View className="flex-row justify-between items-end mb-2">
-                          <View className="flex-row items-baseline gap-1">
-                            <Text className="text-typography-main font-black text-2xl">{t.current_value}</Text>
-                            <Text className="text-typography-muted text-xs font-bold">/ {t.target_value}</Text>
-                          </View>
-                          <Text className="text-typography-main text-xs font-black italic">{Math.round(progress)}%</Text>
-                        </View>
-                        <View className="h-1.5 bg-surface-card rounded-full overflow-hidden border border-surface-border/50">
-                          <View 
-                            className="h-full rounded-full transition-all duration-1000" 
-                            style={{ width: `${progress}%`, backgroundColor: statusColor }} 
-                          />
-                        </View>
-                      </View>
-
-                      {t.deadline && (
-                        <View className="flex-row items-center justify-between pt-4 border-t border-surface-border/50">
-                          <View className="flex-row items-center gap-2">
-                            <FontAwesome name="calendar-check-o" size={10} color="var(--color-text-dim)" />
-                            <Text className="text-typography-dim text-[10px] font-bold">
-                              {isExpired ? 'Expired on' : 'Goal Deadline'}
-                            </Text>
-                          </View>
-                          <Text className="text-typography-main text-[10px] font-black">
-                            {new Date(t.deadline).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                  );
-                })}
-              </View>
-            )}
-          </View>
 
           {/* Conversion Funnel */}
           <ConversionFunnelChartWeb data={auditData} />
@@ -564,6 +338,7 @@ type SortDir = 'asc' | 'desc';
 
 function PersonnelTab() {
   const { comparePersonnel } = useAnalytics();
+  const { theme: activeTheme } = useTheme();
   const [users, setUsers] = useState<any[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [salaries, setSalaries] = useState<Record<string, string>>({});
@@ -662,7 +437,7 @@ function PersonnelTab() {
 
   const exportCSV = () => {
     if (!results.length) return;
-    const headers = ['Name', 'Results (Pts)', 'Effort (OPS)', 'Hours', 'Completed', 'On-Time', 'Timer Eff.', 'Daily Rate', 'Total Cost', 'Cost/Pt', 'Pts/Hr'];
+    const headers = ['Name', 'Results (Pts)', 'Effort (OPS)', 'Hours', 'Completed', 'On-Time', 'Timer Eff.', 'Monthly Rate', 'Total Cost', 'Cost/Pt', 'Pts/Hr'];
     const rows = sorted.map(r => [
       r.full_name,
       r.weight_points,
@@ -671,7 +446,7 @@ function PersonnelTab() {
       r.completed_tasks,
       fmtPct(r.on_time_rate),
       fmtPct(r.timer_efficiency),
-      r.daily_rate_usd,
+      (r.daily_rate_usd * 30).toFixed(2),
       r.total_cost_usd,
       r.cost_per_point?.toFixed(2) ?? '',
       r.points_per_hour?.toFixed(2) ?? '',
@@ -698,7 +473,7 @@ function PersonnelTab() {
       for (const [uid, v] of Object.entries(salaries)) {
         const val = String(v || '0');
         const n = parseFloat(val);
-        if (!isNaN(n) && n > 0) salaryMap[uid] = n;
+        if (!isNaN(n) && n > 0) salaryMap[uid] = n / 30; // Monthly to Daily
       }
       const data = await comparePersonnel(selected, from, to, salaryMap);
       setResults(data);
@@ -766,7 +541,7 @@ function PersonnelTab() {
         <FontAwesome
           name={sortDir === 'asc' ? 'chevron-up' : 'chevron-down'}
           size={8}
-          color="var(--color-primary)"
+          color={getPrimaryColor(activeTheme)}
         />
       )}
     </TouchableOpacity>
@@ -788,7 +563,7 @@ function PersonnelTab() {
       return (
         <View className="flex-1 items-center justify-center p-8 bg-surface-overlay/20 rounded-[32px] border border-dashed border-surface-border">
           <View className="w-16 h-16 rounded-full bg-surface-card items-center justify-center mb-4 border border-surface-border">
-            <FontAwesome name="users" size={24} color="var(--color-text-dim)" />
+            <FontAwesome name="users" size={24} color={getMutedColor(activeTheme)} />
           </View>
           <Text className="text-typography-main font-black text-lg mb-2">Ready to Compare</Text>
           <Text className="text-typography-muted text-xs text-center">Select personnel from the roster to begin live analysis.</Text>
@@ -800,7 +575,7 @@ function PersonnelTab() {
       return (
         <View className="flex-1 items-center justify-center p-8 bg-surface-overlay/20 rounded-[32px] border border-dashed border-surface-border">
           <View className="w-16 h-16 rounded-full bg-brand-primary/10 items-center justify-center mb-4 border border-brand-primary/20">
-            <FontAwesome name="plus" size={20} color="rgb(var(--brand-primary))" />
+            <FontAwesome name="plus" size={20} color={getPrimaryColor(activeTheme)} />
           </View>
           <Text className="text-typography-main font-black text-lg mb-2">Add One More</Text>
           <Text className="text-typography-muted text-xs text-center">Comparative intelligence requires at least two individuals.</Text>
@@ -824,20 +599,20 @@ function PersonnelTab() {
             <Text className="text-typography-muted text-[10px] uppercase font-bold tracking-widest">{selected.length} Personnel Linked</Text>
           </View>
           <View className="w-8 h-8 rounded-full bg-brand-primary/10 items-center justify-center">
-            <FontAwesome name="bolt" size={14} color="rgb(var(--brand-primary))" />
+            <FontAwesome name="bolt" size={14} color={getPrimaryColor(activeTheme)} />
           </View>
         </View>
 
         <View style={{ height: 240, width: '100%' }}>
           <ResponsiveContainer width="100%" height="100%">
             <RadarChart cx="50%" cy="50%" outerRadius="80%" data={previewData}>
-              <PolarGrid stroke="rgba(var(--surface-border), 1)" />
-              <PolarAngleAxis dataKey="subject" tick={{ fill: 'rgb(var(--text-dim))', fontSize: 10 }} />
+              <PolarGrid stroke="var(--color-surface-border)" />
+              <PolarAngleAxis dataKey="subject" tick={{ fill: 'var(--color-text-dim)', fontSize: 10 }} />
               <Radar
                 name="Group Mean"
                 dataKey="A"
-                stroke="rgb(var(--brand-primary))"
-                fill="rgb(var(--brand-primary))"
+                stroke="var(--color-primary)"
+                fill="var(--color-primary)"
                 fillOpacity={0.3}
               />
             </RadarChart>
@@ -881,12 +656,12 @@ function PersonnelTab() {
           </View>
 
           <View className="flex-row items-center bg-surface-background border border-surface-border rounded-xl px-4 py-2 mb-4">
-            <FontAwesome name="search" size={12} color="rgb(var(--text-dim))" className="mr-3" />
+            <FontAwesome name="search" size={12} color={getMutedColor(activeTheme)} className="mr-3" />
             <TextInput
               value={search}
               onChangeText={setSearch}
               placeholder="Search by name..."
-              placeholderTextColor="rgb(var(--text-dim))"
+              placeholderTextColor={getMutedColor(activeTheme)}
               className="flex-1 text-typography-main text-sm outline-none"
             />
           </View>
@@ -942,7 +717,7 @@ function PersonnelTab() {
                     onPress={() => openOverlay(fromRef, setFromPos, setShowFromCalendar)}
                     className="flex-1 bg-surface-background border border-surface-border rounded-xl px-4 py-2 flex-row items-center"
                   >
-                    <FontAwesome name="calendar" size={10} color="rgb(var(--text-dim))" className="mr-2" />
+                    <FontAwesome name="calendar" size={10} color={getMutedColor(activeTheme)} className="mr-2" />
                     <Text className="text-typography-main text-xs flex-1">
                       {from ? new Date(from).toLocaleDateString(undefined, { dateStyle: 'medium' }) : 'Start Date'}
                     </Text>
@@ -953,7 +728,7 @@ function PersonnelTab() {
                     onPress={() => openOverlay(toRef, setToPos, setShowToCalendar)}
                     className="flex-1 bg-surface-background border border-surface-border rounded-xl px-4 py-2 flex-row items-center"
                   >
-                    <FontAwesome name="calendar" size={10} color="rgb(var(--text-dim))" className="mr-2" />
+                    <FontAwesome name="calendar" size={10} color={getMutedColor(activeTheme)} className="mr-2" />
                     <Text className="text-typography-main text-xs flex-1">
                       {to ? new Date(to).toLocaleDateString(undefined, { dateStyle: 'medium' }) : 'End Date'}
                     </Text>
@@ -964,7 +739,7 @@ function PersonnelTab() {
               {selected.length > 0 && (
                 <View className="pt-4 border-t border-surface-border/50">
                   <View className="flex-row items-center justify-between mb-3">
-                    <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">Efficiency Rates</Text>
+                    <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">Salary Configuration</Text>
                     <TouchableOpacity onPress={() => setSalaries({})}>
                       <Text className="text-state-warning text-[10px] font-black uppercase">Clear Rates</Text>
                     </TouchableOpacity>
@@ -976,7 +751,7 @@ function PersonnelTab() {
                       <TextInput
                         value={bulkRate}
                         onChangeText={setBulkRate}
-                        placeholder="Global rate..."
+                        placeholder="Monthly salary..."
                         keyboardType="numeric"
                         className="py-2 px-2 text-typography-main text-xs flex-1 outline-none"
                       />
@@ -1002,7 +777,7 @@ function PersonnelTab() {
                               <TextInput
                                 value={salaries[uid] ?? ''}
                                 onChangeText={v => setSalaries(prev => ({ ...prev, [uid]: v }))}
-                                placeholder="0"
+                                placeholder="Monthly"
                                 keyboardType="numeric"
                                 className="py-1 px-2 text-typography-main text-xs flex-1 outline-none"
                               />
@@ -1045,7 +820,7 @@ function PersonnelTab() {
               onPress={exportCSV}
               className="flex-row items-center gap-2 bg-surface-card border border-surface-border px-4 py-2 rounded-xl"
             >
-              <FontAwesome name="download" size={14} color="rgb(var(--brand-primary))" />
+              <FontAwesome name="download" size={14} color="var(--color-primary)" />
               <Text className="text-typography-main text-xs font-black uppercase">Export CSV</Text>
             </TouchableOpacity>
           </View>
@@ -1053,7 +828,7 @@ function PersonnelTab() {
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View className="bg-surface-card border border-surface-border rounded-3xl overflow-hidden shadow-sm">
               <View className="flex-row px-4 py-4 bg-surface-background/50 border-b border-surface-border gap-4">
-                <View style={{ width: 160 }}><Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">Personnel</Text></View>
+                <View style={{ width: 200 }}><Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">Personnel</Text></View>
                 {[
                   { field: 'weight_points',   label: 'Results (Pts)' },
                   { field: 'activity_count',  label: 'Effort (OPS)' },
@@ -1061,7 +836,7 @@ function PersonnelTab() {
                   { field: 'completed_tasks', label: 'Completed' },
                   { field: 'on_time_rate',    label: 'On-Time' },
                   { field: 'timer_efficiency',label: 'Timer Eff.' },
-                  { field: 'daily_rate_usd',  label: 'Daily Rate' },
+                  { field: 'daily_rate_usd',  label: 'Monthly Rate' },
                   { field: 'total_cost_usd',  label: 'Total Cost' },
                   { field: 'cost_per_point',  label: 'Cost/Pt' },
                   { field: 'points_per_hour', label: 'Pts/Hr' },
@@ -1079,9 +854,22 @@ function PersonnelTab() {
                     i % 2 === 0 ? 'bg-surface-card' : 'bg-surface-background'
                   }`}
                 >
-                  <View style={{ width: 160 }}>
-                    <Text className="text-typography-main text-sm font-bold" numberOfLines={1}>{row.full_name}</Text>
-                    <Text className="text-typography-dim text-[10px]">{row.working_days}d tracked</Text>
+                  <View style={{ width: 200 }} className="flex-row items-center gap-3">
+                    <View className="w-8 h-8 rounded-full bg-surface-card border border-surface-border overflow-hidden">
+                      {row.avatar_url ? (
+                        <Image source={{ uri: row.avatar_url }} className="w-full h-full" />
+                      ) : (
+                        <View className="w-full h-full items-center justify-center bg-brand-primary/5">
+                          <Text className="text-brand-primary font-black text-[10px]">
+                            {(row.full_name || 'A')[0].toUpperCase()}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-typography-main text-sm font-bold" numberOfLines={1}>{row.full_name}</Text>
+                      <Text className="text-typography-dim text-[10px]">{row.working_days}d tracked</Text>
+                    </View>
                   </View>
                   <View style={{ width: 110 }}>
                     <CellBadgeText badge={cellBadge('weight_points', row.weight_points)}>{row.weight_points}</CellBadgeText>
@@ -1108,7 +896,7 @@ function PersonnelTab() {
                     </CellBadgeText>
                   </View>
                   <View style={{ width: 110 }}>
-                    <Text className="text-typography-main text-sm">{fmtUSD(row.daily_rate_usd)}</Text>
+                    <Text className="text-typography-main text-sm">{fmtUSD(row.daily_rate_usd * 30)}</Text>
                   </View>
                   <View style={{ width: 110 }}>
                     <CellBadgeText badge={cellBadge('total_cost_usd', row.total_cost_usd)}>
@@ -1193,7 +981,7 @@ export default function AdminAnalyticsWeb() {
   if (!hasPermission('analytics.view')) {
     return (
       <View className="flex-1 bg-surface-background items-center justify-center p-10">
-        <FontAwesome name="lock" size={40} color="rgb(var(--brand-primary))" />
+        <FontAwesome name="lock" size={40} color="var(--color-primary)" />
         <Text className="text-typography-main font-black text-xl mt-6 mb-2">Access Restricted</Text>
         <Text className="text-typography-muted text-center">
           You need the <Text className="font-black">analytics.view</Text> permission to access this dashboard.
@@ -1261,7 +1049,7 @@ export default function AdminAnalyticsWeb() {
           {activeTab === 'personnel' && canCompare && <PersonnelTab />}
           {activeTab === 'personnel' && !canCompare && (
             <View className="bg-surface-card border border-surface-border rounded-2xl p-10 items-center gap-3">
-              <FontAwesome name="lock" size={32} color="rgb(var(--brand-primary))" />
+              <FontAwesome name="lock" size={32} color="var(--color-primary)" />
               <Text className="text-typography-main font-black text-lg">Permission Required</Text>
               <Text className="text-typography-muted text-sm text-center">
                 You need <Text className="font-black">analytics.compare</Text> to access personnel benchmarking.

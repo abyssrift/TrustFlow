@@ -42,6 +42,8 @@ export const THEME_COLORS: ThemeColorMap = {
   emerald: { ...SEMANTIC_MAP },
   amber: { ...SEMANTIC_MAP },
   amethyst: { ...SEMANTIC_MAP },
+  light: { ...SEMANTIC_MAP },
+  dark: { ...SEMANTIC_MAP },
 };
 
 /**

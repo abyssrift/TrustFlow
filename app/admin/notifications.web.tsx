@@ -15,7 +15,7 @@ export default function AdminNotificationsScreenWeb() {
         {/* Breadcrumb */}
         <View className="flex-row items-center gap-2 mb-10">
           <TouchableOpacity onPress={() => router.back()} className="flex-row items-center gap-2">
-            <FontAwesome name="chevron-left" size={11} color="rgb(var(--text-muted))" />
+            <FontAwesome name="chevron-left" size={11} color="var(--color-text-muted)" />
             <Text className="text-typography-muted font-bold text-sm">Back</Text>
           </TouchableOpacity>
           <Text className="text-typography-muted text-sm">/</Text>

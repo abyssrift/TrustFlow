@@ -6,9 +6,9 @@ import EditTaskModal from './EditTaskModal';
 
 function MetaRow({ icon, label, value, valueColor }: { icon: string; label: string; value: string; valueColor?: string }) {
   return (
-    <View className="flex-row items-center justify-between py-2.5 border-b border-surface-border/30">
+    <View className="flex-row items-center justify-between py-2.5 border-b border-[var(--color-surface-border)]/30">
       <View className="flex-row items-center">
-        <FontAwesome name={icon as any} size={11} color="#64748b" />
+        <FontAwesome name={icon as any} size={11} color="var(--color-text-muted)" />
         <Text className="text-typography-muted text-xs font-bold ml-2.5 uppercase tracking-wider">{label}</Text>
       </View>
       <Text className={`text-xs font-black ${valueColor || 'text-typography-main'}`}>{value}</Text>
@@ -40,7 +40,7 @@ export default function TaskMetadata() {
             onPress={() => setIsEditModalVisible(true)}
             className="flex-row items-center bg-surface-background px-2.5 py-1.5 rounded-lg border border-surface-border active:opacity-75"
           >
-            <FontAwesome name="pencil" size={10} color="rgb(var(--brand-primary))" />
+            <FontAwesome name="pencil" size={10} color="var(--color-primary)" />
             <Text className="text-brand-primary text-[10px] font-bold ml-1.5 uppercase tracking-wider">Edit</Text>
           </TouchableOpacity>
         )}
@@ -68,16 +68,16 @@ export default function TaskMetadata() {
         icon="calendar"
         label="Due Date"
         value={task.due_date ? `${formatDate(task.due_date)}${isOverdue ? ' ⚠ OVERDUE' : ''}` : 'No due date'}
-        valueColor={isOverdue ? 'text-state-danger' : undefined}
+        valueColor={isOverdue ? 'text-[var(--color-danger)]' : undefined}
       />
       <MetaRow icon="clock-o" label="Created" value={formatDate(task.created_at)} />
       <MetaRow icon="calendar-check-o" label="In Pipeline" value={`${stats.days_in_pipeline} days`} />
       <MetaRow icon="balance-scale" label="Weight" value={task.weight?.toString() || '1'} />
       {task.is_recurring && <MetaRow icon="repeat" label="Recurring" value="Yes" valueColor="text-brand-primary" />}
       {task.quarantine_reason && (
-        <View className="mt-3 p-3 bg-state-warning/10 border border-state-warning/30 rounded-xl">
+        <View className="mt-3 p-3 bg-[var(--color-warning)]/10 border border-[var(--color-warning)]/30 rounded-xl">
           <View className="flex-row items-center mb-1">
-            <FontAwesome name="warning" size={10} color="rgb(var(--state-warning))" />
+            <FontAwesome name="warning" size={10} color="var(--color-warning)" />
             <Text className="text-state-warning text-[10px] font-black uppercase ml-1.5 tracking-wider">Quarantined</Text>
           </View>
           <Text className="text-typography-main text-xs font-medium leading-4 italic">
@@ -94,7 +94,7 @@ export default function TaskMetadata() {
             <Text className="text-brand-primary text-[10px] font-black">{task.progress}%</Text>
           </View>
           <View className="h-1.5 bg-surface-overlay rounded-full overflow-hidden">
-            <View style={{ width: `${task.progress}%` }} className="h-full bg-brand-primary rounded-full" />
+            <View style={{ width: `${task.progress}%`, backgroundColor: 'var(--color-primary)' }} className="h-full rounded-full" />
           </View>
         </View>
       )}

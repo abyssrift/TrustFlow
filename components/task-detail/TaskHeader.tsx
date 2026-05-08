@@ -10,6 +10,8 @@ import { splitStageActions, TYPE_STYLES } from './actionRegistry';
 import ConfirmModal from '@/components/common/ConfirmModal';
 import ManualTimeModal from '@/components/common/ManualTimeModal';
 import { supabase } from '@/lib/supabase';
+import { useTheme } from '@/contexts/ThemeContext';
+import { getPrimaryColor, getMutedColor } from '@/lib/themeColors';
 
 cssInterop(FontAwesome, {
   className: {
@@ -28,6 +30,7 @@ const PRIORITY_MAP: Record<string, { textClass: string; label: string }> = {
 export default function TaskHeader() {
   const { data, executeAction } = useTaskDetail();
   const { isActive, activeSession, startWork, stopWork } = useTimer();
+  const { theme: activeTheme } = useTheme();
   const { hasPermission, profile } = useAuth();
   const [busy, setBusy] = React.useState(false);
   const [loadingActionId, setLoadingActionId] = React.useState<string | null>(null);
@@ -152,7 +155,7 @@ export default function TaskHeader() {
           {/* Stage badge */}
           {current_stage && (
             <View className="flex-row items-center bg-brand-primary/10 px-2.5 py-0.5 rounded-full border border-brand-primary/30">
-              <View style={{ backgroundColor: current_stage.color || '#6366f1' }} className="w-1.5 h-1.5 rounded-full mr-1.5" />
+              <View style={{ backgroundColor: current_stage.color || 'var(--color-primary)' }} className="w-1.5 h-1.5 rounded-full mr-1.5" />
               <Text className="text-brand-primary text-[9px] font-black uppercase tracking-wider">
                 {current_stage.name}
               </Text>
@@ -209,7 +212,7 @@ export default function TaskHeader() {
                 className={`flex-row items-center px-4 py-2 rounded-xl border ${style.bg} ${style.border} ${isLoading ? 'opacity-50' : ''}`}
               >
                 {isLoading ? (
-                  <ActivityIndicator size="small" color="rgb(var(--brand-primary))" />
+                  <ActivityIndicator size="small" color={getPrimaryColor(activeTheme)} />
                 ) : (
                   <>
                     <FontAwesome name={(a.icon as any) || style.icon} size={10} className={style.text} />
@@ -227,7 +230,7 @@ export default function TaskHeader() {
               className={`flex-row items-center px-4 py-2 rounded-xl border border-surface-border bg-surface-overlay ${archiving ? 'opacity-50' : ''}`}
             >
               {archiving ? (
-                <ActivityIndicator size="small" color="rgb(var(--text-muted))" />
+                <ActivityIndicator size="small" color={getMutedColor(activeTheme)} />
               ) : (
                 <>
                   <FontAwesome name="archive" size={10} className="text-typography-muted" />

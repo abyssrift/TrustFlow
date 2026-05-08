@@ -9,11 +9,22 @@ import ProfileGeneralForm from '@/components/profile/ProfileGeneralForm';
 import SecurityForm from '@/components/profile/SecurityForm';
 import { ProfileAnalytics } from '@/components/analytics/ProfileAnalytics';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { useTheme, ThemeType } from '@/contexts/ThemeContext';
+
+const THEME_OPTIONS: { id: ThemeType; label: string; icon: string }[] = [
+  { id: 'indigo', label: 'Indigo', icon: 'moon-o' },
+  { id: 'emerald', label: 'Emerald', icon: 'leaf' },
+  { id: 'amber', label: 'Amber', icon: 'sun-o' },
+  { id: 'amethyst', label: 'Amethyst', icon: 'diamond' },
+  { id: 'light', label: 'Light', icon: 'certificate' },
+  { id: 'dark', label: 'Dark', icon: 'circle-o' },
+];
 
 export default function ProfilePage() {
   const router = useRouter();
   const { showConfirm, showAlert } = useAlert();
   const { user, signOut, refreshProfile, hasPermission } = useAuth();
+  const { theme: activeTheme, setTheme } = useTheme();
   const [profileData, setProfileData] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -85,9 +96,9 @@ export default function ProfilePage() {
 
   return (
     <ScrollView 
-      className="flex-1 bg-surface-background"
+      className="flex-1 bg-[var(--color-surface-background)]"
       contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="rgb(var(--brand-primary))" />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="var(--color-primary)" />}
     >
       <Stack.Screen options={{ title: 'My Profile', headerLargeTitle: true }} />
 
@@ -142,24 +153,59 @@ export default function ProfilePage() {
         </View>
 
         <View>
+          <Text className="mb-4 text-[10px] font-black uppercase tracking-[0.3em] text-typography-dim">Appearance & Theme</Text>
+          <View className="rounded-2xl border border-surface-border bg-surface-card p-4 premium-shadow">
+            <View className="flex-row flex-wrap gap-3">
+              {THEME_OPTIONS.map((option) => (
+                <Pressable
+                  key={option.id}
+                  onPress={() => setTheme(option.id)}
+                  className={`h-20 w-[30%] items-center justify-center rounded-xl border transition-all ${
+                    activeTheme === option.id 
+                      ? 'border-brand-primary bg-brand-primary/10' 
+                      : 'border-surface-border bg-surface-background/50'
+                  }`}
+                >
+                  <FontAwesome 
+                    name={option.icon as any} 
+                    size={20} 
+                    color={activeTheme === option.id ? 'var(--color-primary)' : 'var(--color-text-dim)'} 
+                  />
+                  <Text className={`mt-2 text-[10px] font-black uppercase tracking-widest ${
+                    activeTheme === option.id ? 'text-brand-primary' : 'text-typography-muted'
+                  }`}>
+                    {option.label}
+                  </Text>
+                  {activeTheme === option.id && (
+                    <View className="absolute top-1 right-1">
+                      <FontAwesome name="check-circle" size={10} color="var(--color-primary)" />
+                    </View>
+                  )}
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        </View>
+
+        <View>
           <Text className="mb-4 text-[10px] font-black uppercase tracking-[0.3em] text-typography-dim">Notifications</Text>
           <View className="rounded-2xl border border-surface-border bg-surface-card overflow-hidden">
             <Pressable
               onPress={() => router.push('/notifications/preferences' as any)}
               className={`h-14 flex-row items-center px-5 active:bg-surface-overlay ${hasPermission('manage_notifications') || hasPermission('role.manage') ? 'border-b border-surface-border' : ''}`}
             >
-              <FontAwesome name="bell" size={16} color="rgb(var(--brand-primary))" style={{ marginRight: 12 }} />
+              <FontAwesome name="bell" size={16} color="var(--color-primary)" style={{ marginRight: 12 }} />
               <Text className="flex-1 text-sm font-bold text-typography-main">Notification Preferences</Text>
-              <FontAwesome name="chevron-right" size={12} color="rgb(var(--text-muted))" />
+              <FontAwesome name="chevron-right" size={12} color="var(--color-text-muted)" />
             </Pressable>
             {(hasPermission('manage_notifications') || hasPermission('role.manage')) && (
               <Pressable
                 onPress={() => router.push('/admin/notifications' as any)}
                 className="h-14 flex-row items-center px-5 active:bg-surface-overlay"
               >
-                <FontAwesome name="gear" size={16} color="rgb(var(--brand-primary))" style={{ marginRight: 12 }} />
+                <FontAwesome name="gear" size={16} color="var(--color-primary)" style={{ marginRight: 12 }} />
                 <Text className="flex-1 text-sm font-bold text-typography-main">Workspace Notification Rules</Text>
-                <FontAwesome name="chevron-right" size={12} color="rgb(var(--text-muted))" />
+                <FontAwesome name="chevron-right" size={12} color="var(--color-text-muted)" />
               </Pressable>
             )}
           </View>
@@ -191,7 +237,7 @@ export default function ProfilePage() {
           onPress={() => signOut()}
           className="h-14 flex-row items-center justify-center rounded-2xl border border-typography-dim/30 bg-surface-overlay active:bg-surface-border"
         >
-          <FontAwesome name="sign-out" size={18} color="rgb(var(--text-main))" style={{ marginRight: 12 }} />
+          <FontAwesome name="sign-out" size={18} color="var(--color-text-main)" style={{ marginRight: 12 }} />
           <Text className="text-sm font-black uppercase tracking-widest text-typography-main">Sign Out of Account</Text>
         </Pressable>
       </View>

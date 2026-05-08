@@ -13,11 +13,11 @@ import ManualTimeModal from '@/components/common/ManualTimeModal';
 
 function getFileIcon(mimeType: string | null): { name: string; color: string } {
   const t = (mimeType || '').toLowerCase();
-  if (t.includes('image')) return { name: 'file-image-o', color: '#8b5cf6' };
-  if (t.includes('pdf')) return { name: 'file-pdf-o', color: '#ef4444' };
-  if (t.includes('spreadsheet') || t.includes('excel') || t.includes('csv')) return { name: 'file-excel-o', color: '#22c55e' };
-  if (t.includes('word') || t.includes('document') || t.includes('text')) return { name: 'file-text-o', color: '#3b82f6' };
-  return { name: 'file-o', color: '#64748b' };
+  if (t.includes('image')) return { name: 'file-image-o', color: 'var(--color-warning)' };
+  if (t.includes('pdf')) return { name: 'file-pdf-o', color: 'var(--color-danger)' };
+  if (t.includes('spreadsheet') || t.includes('excel') || t.includes('csv')) return { name: 'file-excel-o', color: 'var(--color-success)' };
+  if (t.includes('word') || t.includes('document') || t.includes('text')) return { name: 'file-text-o', color: 'var(--color-info)' };
+  return { name: 'file-o', color: 'var(--color-text-muted)' };
 }
 
 const STATUS_STYLES: Record<string, { bg: string; border: string; text: string; label: string }> = {
@@ -270,7 +270,7 @@ export default function StageActions() {
                 disabled={busy}
                 className="bg-state-danger px-6 py-2.5 rounded-xl active:opacity-75 flex-row items-center"
               >
-                <FontAwesome name="stop" size={10} color="#fff" />
+                <FontAwesome name="stop" size={10} color="white" />
                 <Text className="text-white text-xs font-black uppercase ml-2 tracking-wider">Stop Session</Text>
               </TouchableOpacity>
             ) : (
@@ -284,10 +284,10 @@ export default function StageActions() {
                 className="bg-brand-primary px-6 py-2.5 rounded-xl active:opacity-75 flex-row items-center"
               >
                 {busy ? (
-                  <ActivityIndicator size="small" color="#fff" />
+                  <ActivityIndicator size="small" color="white" />
                 ) : (
                   <>
-                    <FontAwesome name="play" size={10} color="#fff" />
+                    <FontAwesome name="play" size={10} color="white" />
                     <Text className="text-white text-xs font-black uppercase ml-2 tracking-wider">Start Working</Text>
                   </>
                 )}
@@ -321,7 +321,7 @@ export default function StageActions() {
                 }}
 
                 placeholder="Describe your work submission..."
-                placeholderTextColor="rgb(var(--text-dim))"
+                placeholderTextColor="var(--color-text-dim)"
                 multiline
                 numberOfLines={3}
                 className="bg-surface-background border border-surface-border rounded-xl p-3 text-typography-main text-sm mb-3 min-h-[80px]"
@@ -334,16 +334,16 @@ export default function StageActions() {
                       <FontAwesome 
                         name={file.type.includes('image') ? 'file-image-o' : 'file-o'} 
                         size={12} 
-                        color="rgb(var(--brand-primary))" 
+                        color="var(--color-primary)" 
                       />
                       <Text className="text-typography-main text-[11px] font-bold ml-2 flex-1" numberOfLines={1}>
                         {file.name}
                       </Text>
                       {isUploading ? (
-                        <ActivityIndicator size="small" color="rgb(var(--brand-primary))" className="scale-75" />
+                        <ActivityIndicator size="small" color="var(--color-primary)" className="scale-75" />
                       ) : (
                         <TouchableOpacity onPress={() => removeFile(file.id)} className="ml-2 p-1">
-                          <FontAwesome name="times-circle" size={12} color="rgb(var(--state-danger))" />
+                          <FontAwesome name="times-circle" size={12} color="var(--color-danger)" />
                         </TouchableOpacity>
                       )}
                     </View>
@@ -358,7 +358,7 @@ export default function StageActions() {
                     disabled={isUploading}
                     className="flex-row items-center bg-surface-background px-3 py-2 rounded-xl border border-surface-border active:opacity-70"
                   >
-                    <FontAwesome name="camera" size={11} color="rgb(var(--brand-primary))" />
+                    <FontAwesome name="camera" size={11} color="var(--color-primary)" />
                     <Text className="text-brand-primary text-[10px] font-black uppercase ml-1.5">Add Photo</Text>
                   </TouchableOpacity>
 
@@ -367,7 +367,7 @@ export default function StageActions() {
                     disabled={isUploading}
                     className="flex-row items-center bg-surface-background px-3 py-2 rounded-xl border border-surface-border active:opacity-70"
                   >
-                    <FontAwesome name="paperclip" size={11} color="rgb(var(--brand-primary))" />
+                    <FontAwesome name="paperclip" size={11} color="var(--color-primary)" />
                     <Text className="text-brand-primary text-[10px] font-black uppercase ml-1.5">Attach File</Text>
                   </TouchableOpacity>
                 </View>
@@ -383,7 +383,7 @@ export default function StageActions() {
                 >
                   {loadingActionId === submitAction?.id || isUploading ? (
                     <View className="flex-row items-center">
-                      <ActivityIndicator size="small" color="#fff" />
+                      <ActivityIndicator size="small" color="white" />
                       {activeJob?.currentAction && (
                         <Text className="text-white text-[9px] font-black uppercase ml-2 tracking-tighter">
                           {activeJob.currentAction}
@@ -400,7 +400,7 @@ export default function StageActions() {
 
           {data.submissions.length === 0 ? (
             <View className="py-4 items-center opacity-40">
-              <FontAwesome name="inbox" size={20} color="rgb(var(--text-dim))" />
+              <FontAwesome name="inbox" size={20} color="var(--color-text-dim)" />
               <Text className="text-typography-muted text-xs mt-2">No submissions yet</Text>
             </View>
           ) : (
@@ -434,7 +434,7 @@ export default function StageActions() {
                             <Text className="text-typography-main text-[11px] font-bold ml-2 flex-1" numberOfLines={1}>
                               {a.file_name}
                             </Text>
-                            <FontAwesome name="external-link" size={9} color="#64748b" />
+                            <FontAwesome name="external-link" size={9} color="var(--color-text-muted)" />
                           </TouchableOpacity>
                         );
                       })}
@@ -456,7 +456,7 @@ export default function StageActions() {
                         )}
                         className="ml-auto p-1"
                       >
-                        <FontAwesome name="trash-o" size={11} color="rgb(var(--state-danger))" />
+                        <FontAwesome name="trash-o" size={11} color="var(--color-danger)" />
                       </TouchableOpacity>
                     )}
                   </View>

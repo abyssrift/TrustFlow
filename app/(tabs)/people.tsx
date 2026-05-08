@@ -32,16 +32,16 @@ function TeamWorkspaceContent({ section }: { section: PeopleSection }) {
   if (loading) {
     return (
       <View className="py-20 items-center justify-center">
-        <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
+        <ActivityIndicator size="large" color="var(--color-primary)" />
       </View>
     );
   }
 
   if (error) {
     return (
-      <View className="w-full items-center justify-center py-16 bg-state-danger/10 rounded-3xl border border-dashed border-state-danger/30 mx-4">
-        <FontAwesome name="exclamation-triangle" size={32} color="rgb(var(--state-danger))" />
-        <Text className="text-typography-main font-black mt-4 text-center px-4">{error}</Text>
+      <View className="w-full items-center justify-center py-16 bg-var(--color-danger)/10 rounded-3xl border border-dashed border-var(--color-danger)/30 mx-4">
+        <FontAwesome name="exclamation-triangle" size={32} color="var(--color-danger)" />
+        <Text className="text-var(--color-text-main) font-black mt-4 text-center px-4">{error}</Text>
       </View>
     );
   }
@@ -83,15 +83,15 @@ export default function PeopleScreen() {
   }, [sectionParam, canViewMembers, canManageTeams, canManageNotifications]);
 
   return (
-    <View className="flex-1 bg-surface-background">
+    <View className="flex-1 bg-var(--color-surface-background)">
       <View className="px-6 pt-4 pb-4">
         <View className="flex-row items-center justify-between mb-4">
           <View>
-            <Text className="text-typography-main text-3xl font-black">Team</Text>
-            <Text className="text-typography-muted text-xs font-medium">Members, teams, and roles</Text>
+            <Text className="text-var(--color-text-main) text-3xl font-black">Team</Text>
+            <Text className="text-var(--color-text-dim) text-xs font-medium">Members, teams, and roles</Text>
           </View>
-          <TouchableOpacity className="bg-brand-primary w-11 h-11 rounded-2xl items-center justify-center">
-            <FontAwesome name="settings" size={16} color="white" />
+          <TouchableOpacity className="bg-var(--color-primary) w-11 h-11 rounded-2xl items-center justify-center">
+            <FontAwesome name="gear" size={16} color="var(--color-surface-background)" />
           </TouchableOpacity>
         </View>
 
@@ -101,26 +101,26 @@ export default function PeopleScreen() {
               Clipboard.setStringAsync(joinCode);
               Alert.alert('Copied', 'Join code copied to clipboard');
             }}
-            className="mb-4 bg-brand-primary/10 border border-brand-primary/30 rounded-2xl p-4 flex-row items-center justify-between"
+            className="mb-4 bg-var(--color-primary)/10 border border-var(--color-primary)/30 rounded-2xl p-4 flex-row items-center justify-between"
           >
             <View>
-              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Share Join Code</Text>
-              <Text className="text-brand-primary font-black text-xl tracking-[0.2em]">{joinCode}</Text>
+              <Text className="text-var(--color-text-dim) text-[10px] font-black uppercase tracking-widest">Share Join Code</Text>
+              <Text className="text-var(--color-primary) font-black text-xl tracking-[0.2em]">{joinCode}</Text>
             </View>
-            <View className="bg-brand-primary w-10 h-10 rounded-xl items-center justify-center">
-              <FontAwesome name="copy" size={14} color="white" />
+            <View className="bg-var(--color-primary) w-10 h-10 rounded-xl items-center justify-center">
+              <FontAwesome name="copy" size={14} color="var(--color-surface-background)" />
             </View>
           </TouchableOpacity>
         )}
 
         {hasWorkspaceAccess && (
-          <View className="mb-4 bg-surface-card p-1 rounded-2xl border border-surface-border flex-row">
+          <View className="mb-4 bg-var(--color-surface-card) p-1 rounded-2xl border border-var(--color-surface-border) flex-row">
             {canViewMembers && (
               <TouchableOpacity
                 onPress={() => setActiveSection('members')}
-                className={`flex-1 py-3 rounded-xl items-center ${activeSection === 'members' ? 'bg-brand-primary' : ''}`}
+                className={`flex-1 py-3 rounded-xl items-center ${activeSection === 'members' ? 'bg-var(--color-primary)' : ''}`}
               >
-                <Text className={`font-black text-[10px] uppercase tracking-widest ${activeSection === 'members' ? 'text-white' : 'text-typography-muted'}`}>
+                <Text className={`font-black text-[10px] uppercase tracking-widest ${activeSection === 'members' ? 'text-var(--color-surface-background)' : 'text-var(--color-text-dim)'}`}>
                   Members
                 </Text>
               </TouchableOpacity>
@@ -162,7 +162,7 @@ export default function PeopleScreen() {
       {!hasWorkspaceAccess ? (
         <View className="flex-1 px-6 pb-6">
           <View className="flex-1 items-center justify-center bg-state-danger/10 rounded-3xl border border-state-danger/20">
-            <FontAwesome name="lock" size={32} color="rgb(var(--state-danger))" />
+            <FontAwesome name="lock" size={32} color="var(--color-danger)" />
             <Text className="text-typography-main font-black mt-4">Access Restricted</Text>
             <Text className="text-typography-muted text-xs mt-2 text-center px-8">
               You do not have permission to view members or manage teams.

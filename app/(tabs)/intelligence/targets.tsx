@@ -1,25 +1,10 @@
-import { CircularTargetCardMobile } from '@/components/intelligence/IntelligenceCommon';
+import { CircularTargetCardMobile, CompletionVelocityMobile, IntelligencePicker } from '@/components/intelligence/IntelligenceCommon';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
-
-const Picker = ({ items, selectedId, onSelect, labelKey = 'name' }: any) => (
-  <View className="flex-row flex-wrap gap-2">
-    {items.map((item: any) => (
-      <TouchableOpacity
-        key={item.id}
-        onPress={() => onSelect(item.id)}
-        className={`px-4 py-2 rounded-xl border ${selectedId === item.id ? 'bg-surface-background border-brand-primary' : 'border-surface-border'}`}
-      >
-        <Text className={`text-[11px] font-medium ${selectedId === item.id ? 'text-brand-primary font-bold' : 'text-typography-muted'}`}>
-          {item[labelKey] || 'N/A'}
-        </Text>
-      </TouchableOpacity>
-    ))}
-  </View>
-);
+import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 
 const CreateModal = ({ visible, onClose, onConfirm, pipelines, stages }: any) => {
   const [type, setType]           = useState('performance');
@@ -28,83 +13,120 @@ const CreateModal = ({ visible, onClose, onConfirm, pipelines, stages }: any) =>
   const [activeGoal, setActiveGoal] = useState('3600');
   const [lifeGoal, setLifeGoal]   = useState('86400');
   const [quantity, setQuantity]   = useState('50');
-  const [deadline, setDeadline]   = useState('7');
+  const [deadline, setDeadline]   = useState<Date | null>(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
   const filteredStages = stages.filter((s: any) => s.pipeline_id === pipeline);
+  
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View className="flex-1 bg-black/70 items-center justify-center px-6">
-        <View className="bg-surface-card w-full max-h-[90%] rounded-[32px] border border-surface-border overflow-hidden">
-          <View className="p-8 pb-4">
-            <Text className="text-typography-main text-2xl font-black mb-1">New Benchmark</Text>
-            <Text className="text-typography-muted text-xs">Set performance or volume targets</Text>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View className="flex-1 bg-black/70 justify-end">
+        <View className="bg-surface-card w-full rounded-t-[40px] border-t border-surface-border overflow-hidden pb-10">
+          <View className="p-8 pb-4 items-center">
+            <View className="w-12 h-1.5 bg-surface-border rounded-full mb-6" />
+            <Text className="text-typography-main text-2xl font-black mb-1">Define Objective</Text>
+            <Text className="text-typography-muted text-xs">Establish high-fidelity benchmarks</Text>
           </View>
-          <ScrollView className="px-8" showsVerticalScrollIndicator={false}>
-            <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest mt-4 mb-3">Type</Text>
-            <View className="flex-row bg-surface-background p-1 rounded-xl mb-4">
+          
+          <ScrollView className="px-8 max-h-[500px]" showsVerticalScrollIndicator={false}>
+            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mt-6 mb-4">Targeting Vector</Text>
+            <View className="flex-row bg-surface-background p-1.5 rounded-2xl mb-6">
               {['performance', 'volume'].map(t => (
-                <TouchableOpacity key={t} onPress={() => setType(t)} className={`flex-1 py-2 rounded-lg items-center ${type === t ? 'bg-brand-primary' : ''}`}>
-                  <Text className={`font-bold text-[10px] uppercase ${type === t ? 'text-white' : 'text-typography-muted'}`}>{t}</Text>
+                <TouchableOpacity 
+                  key={t} 
+                  onPress={() => setType(t)} 
+                  className={`flex-1 py-3 rounded-xl items-center flex-row justify-center ${type === t ? 'bg-brand-primary premium-shadow' : ''}`}
+                >
+                  <FontAwesome 
+                    name={t === 'performance' ? 'bolt' : 'database'} 
+                    size={10} 
+                    color={type === t ? 'white' : 'var(--color-text-muted)'} 
+                    style={{ marginRight: 8 }}
+                  />
+                  <Text className={`font-black text-[10px] uppercase tracking-widest ${type === t ? 'text-white' : 'text-typography-muted'}`}>{t}</Text>
                 </TouchableOpacity>
               ))}
             </View>
-            <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest mt-2 mb-3">Pipeline</Text>
+
+            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mb-4">Pipeline Architecture</Text>
             <Picker items={pipelines} selectedId={pipeline} onSelect={(id: string) => { setPipeline(id); setStage(null); }} />
+            
             {pipeline && (
               <>
-                <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest mt-6 mb-3">Stage</Text>
+                <View className="h-4" />
                 <Picker items={filteredStages} selectedId={stage} onSelect={setStage} />
               </>
             )}
-            <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest mt-6 mb-3">
-              {type === 'performance' ? 'Performance Rules' : 'Volume Rules'}
+
+            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mt-8 mb-4">
+              {type === 'performance' ? 'SLA Constraints' : 'Volume Metrics'}
             </Text>
+            
             {type === 'performance' ? (
               <View className="flex-row gap-4 mb-6">
                 <View className="flex-1">
-                  <Text className="text-typography-muted text-[10px] font-bold mb-2">Target Active (sec)</Text>
-                  <TextInput value={activeGoal} onChangeText={setActiveGoal} keyboardType="numeric" className="bg-surface-background border border-surface-border text-typography-main p-4 rounded-xl font-bold" />
+                  <Text className="text-typography-muted text-[9px] font-black uppercase mb-2">Target Active (s)</Text>
+                  <TextInput 
+                    value={activeGoal} 
+                    onChangeText={setActiveGoal} 
+                    keyboardType="numeric" 
+                    placeholderTextColor="var(--color-text-dim)"
+                    className="bg-surface-background border border-surface-border text-typography-main p-4 rounded-2xl font-black text-lg" 
+                  />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-typography-muted text-[10px] font-bold mb-2">Max Life (sec)</Text>
-                  <TextInput value={lifeGoal} onChangeText={setLifeGoal} keyboardType="numeric" className="bg-surface-background border border-surface-border text-typography-main p-4 rounded-xl font-bold" />
+                  <Text className="text-typography-muted text-[9px] font-black uppercase mb-2">Max Life (s)</Text>
+                  <TextInput 
+                    value={lifeGoal} 
+                    onChangeText={setLifeGoal} 
+                    keyboardType="numeric" 
+                    placeholderTextColor="var(--color-text-dim)"
+                    className="bg-surface-background border border-surface-border text-typography-main p-4 rounded-2xl font-black text-lg" 
+                  />
                 </View>
               </View>
             ) : (
-              <View className="flex-row gap-4 mb-6">
-                <View className="flex-1">
-                  <Text className="text-typography-muted text-[10px] font-bold mb-2">Target Quota</Text>
-                  <TextInput value={quantity} onChangeText={setQuantity} keyboardType="numeric" className="bg-surface-background border border-surface-border text-typography-main p-4 rounded-xl font-bold" />
+              <View className="gap-6 mb-6">
+                <View>
+                  <Text className="text-typography-muted text-[9px] font-black uppercase mb-2">Target Quota (Units)</Text>
+                  <TextInput 
+                    value={quantity} 
+                    onChangeText={setQuantity} 
+                    keyboardType="numeric" 
+                    placeholderTextColor="var(--color-text-dim)"
+                    className="bg-surface-background border border-surface-border text-typography-main p-4 rounded-2xl font-black text-lg" 
+                  />
                 </View>
-                <View className="flex-1">
-                  <Text className="text-typography-muted text-[10px] font-bold mb-2">In (Days)</Text>
-                  <TextInput value={deadline} onChangeText={setDeadline} keyboardType="numeric" className="bg-surface-background border border-surface-border text-typography-main p-4 rounded-xl font-bold" />
+                <View>
+                  <Text className="text-typography-muted text-[9px] font-black uppercase mb-3">Expiration Deadline</Text>
+                  <PremiumCalendarPicker
+                    selectedDate={deadline}
+                    onDateChange={setDeadline}
+                  />
                 </View>
               </View>
             )}
             <View className="h-10" />
           </ScrollView>
-          <View className="p-8 pt-4 flex-row gap-3 border-t border-surface-border">
+
+          <View className="px-8 pt-4 flex-row gap-4 border-t border-surface-border">
             <TouchableOpacity onPress={onClose} className="flex-1 py-4 rounded-2xl bg-surface-background border border-surface-border items-center">
-              <Text className="text-typography-muted font-bold">Cancel</Text>
+              <Text className="text-typography-muted font-black uppercase tracking-widest text-xs">Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
               disabled={!stage}
               onPress={() => {
-                const dDate = new Date();
-                dDate.setDate(dDate.getDate() + parseInt(deadline));
                 onConfirm({
                   stage_id: stage,
                   target_type: type,
                   active:    type === 'performance' ? parseInt(activeGoal) : null,
                   lifecycle: type === 'performance' ? parseInt(lifeGoal) : null,
                   quantity:  type === 'volume' ? parseInt(quantity) : null,
-                  deadline:  type === 'volume' ? dDate.toISOString() : null,
+                  deadline:  type === 'volume' ? deadline?.toISOString() : null,
                 });
                 onClose();
               }}
-              className={`flex-1 py-4 rounded-2xl items-center ${stage ? 'bg-brand-primary' : 'bg-surface-border'}`}
+              className={`flex-1 py-4 rounded-2xl items-center premium-shadow ${stage ? 'bg-brand-primary' : 'bg-surface-border opacity-50'}`}
             >
-              <Text className="text-white font-bold">Create</Text>
+              <Text className="text-brand-on-primary font-black uppercase tracking-widest text-xs">Deploy</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -168,15 +190,35 @@ export default function IntelligenceTargetsNative() {
     } catch (e: any) { Alert.alert('Error', e.message); }
   };
 
+  const handleAction = async (targetId: string, action: 'completed' | 'expired' | 'clear') => {
+    try {
+      if (action === 'clear') {
+        const { error } = await supabase.from('pipeline_stage_targets').delete().eq('id', targetId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('pipeline_stage_targets')
+          .update({ 
+            status: action,
+            completed_at: action === 'completed' ? new Date().toISOString() : null
+          })
+          .eq('id', targetId);
+        if (error) throw error;
+      }
+      fetchTargets();
+    } catch (e: any) { Alert.alert('Error', e.message); }
+  };
+
   const handleEdit = (target: any) => {
     Alert.prompt(
-      'Update Target',
-      `Current: ${target.target_type === 'volume' ? target.target_quantity : target.target_active_seconds}`,
+      'Adjust Benchmark',
+      `Target: ${target.target_type === 'volume' ? target.target_quantity + ' units' : Math.round(target.target_active_seconds / 60) + 'm'}`,
       async (val) => {
         const num = parseInt(val || '');
         if (isNaN(num)) return;
         const field = target.target_type === 'volume' ? 'target_quantity' : 'target_active_seconds';
-        const { error } = await supabase.from('pipeline_stage_targets').update({ [field]: num }).eq('id', target.id);
+        const finalVal = target.target_type === 'volume' ? num : num * 60;
+        const { error } = await supabase.from('pipeline_stage_targets').update({ [field]: finalVal }).eq('id', target.id);
         if (!error) fetchTargets();
       }
     );
@@ -221,9 +263,53 @@ export default function IntelligenceTargetsNative() {
         </View>
       ) : (
         <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false}>
-          {targets.map((t, i) => (
-            <CircularTargetCardMobile key={i} target={t} onEdit={() => handleEdit(t)} />
-          ))}
+          <View className="flex-row items-center gap-3 mb-6 mt-4">
+            <View className="w-1 h-5 bg-brand-primary rounded-full" />
+            <Text className="text-typography-main text-lg font-black tracking-tight">Active Benchmarks</Text>
+          </View>
+          
+          {targets.filter(t => t.status === 'active').length === 0 ? (
+            <View className="bg-surface-card/50 p-8 rounded-3xl border border-surface-border border-dashed items-center mb-8">
+              <Text className="text-typography-muted font-bold text-[10px] uppercase tracking-widest">No Active Vectors</Text>
+            </View>
+          ) : (
+            targets.filter(t => t.status === 'active').map((t, i) => (
+              <CircularTargetCardMobile 
+                key={t.id} 
+                target={t} 
+                onEdit={() => handleEdit(t)} 
+                onAction={(action: any) => handleAction(t.id, action)}
+              />
+            ))
+          )}
+
+          <CompletionVelocityMobile 
+            data={Object.values(targets.reduce((acc: any, t) => {
+              if (t.status === 'completed' && t.completed_at) {
+                const date = new Date(t.completed_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                acc[date] = acc[date] || { date, count: 0 };
+                acc[date].count += 1;
+              }
+              return acc;
+            }, {})).sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime()) as any} 
+          />
+
+          {targets.filter(t => t.status !== 'active').length > 0 && (
+            <>
+              <View className="flex-row items-center gap-3 mb-6 mt-10">
+                <View className="w-1 h-5 bg-typography-muted rounded-full" />
+                <Text className="text-typography-main text-lg font-black tracking-tight">Benchmark History</Text>
+              </View>
+              {targets.filter(t => t.status !== 'active').map((t, i) => (
+                <CircularTargetCardMobile 
+                  key={t.id} 
+                  target={t} 
+                  onEdit={() => handleEdit(t)} 
+                  onAction={(action: any) => handleAction(t.id, action)}
+                />
+              ))}
+            </>
+          )}
           <View className="h-10" />
         </ScrollView>
       )}

@@ -17,6 +17,7 @@ module.exports = {
           "accent-dim": "rgba(var(--brand-accent), 0.1)",
           danger: "rgba(var(--brand-danger), <alpha-value>)",
           "danger-dim": "rgba(var(--brand-danger), 0.1)",
+          "on-primary": "var(--color-on-primary)",
         },
         surface: {
           background: "rgba(var(--surface-background), <alpha-value>)",

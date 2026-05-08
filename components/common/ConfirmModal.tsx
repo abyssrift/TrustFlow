@@ -66,7 +66,7 @@ export default function ConfirmModal({
         <View className="bg-surface-card w-full max-w-lg rounded-[40px] border border-surface-border premium-shadow overflow-hidden">
           <View className="p-10 items-center">
             <View className={`w-20 h-20 rounded-full ${styles.dim} items-center justify-center mb-6`}>
-              <FontAwesome name={styles.icon as any} size={32} color={`rgb(var(--state-${variant === 'primary' ? 'info' : variant}))`} />
+              <FontAwesome name={styles.icon as any} size={32} color={`var(--color-${variant === 'primary' ? 'info' : variant})`} />
             </View>
             
             <Text className="text-typography-main text-3xl font-black tracking-tight mb-4 text-center">{title}</Text>

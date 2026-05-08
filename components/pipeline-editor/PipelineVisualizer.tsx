@@ -18,7 +18,7 @@ export default function PipelineVisualizer() {
   if (stages.length === 0) {
     return (
       <View className="flex-1 items-center justify-center py-20">
-        <FontAwesome name="sitemap" size={48} color="#1e293b" />
+        <FontAwesome name="sitemap" size={48} color="var(--color-border)" />
         <Text className="text-typography-muted text-base font-bold mt-4">Empty Pipeline</Text>
         <Text className="text-typography-dim text-sm mt-1">Add stages to visualize the flow.</Text>
       </View>
@@ -84,7 +84,7 @@ export default function PipelineVisualizer() {
       {isAdding && (
         <View className="bg-brand-primary/10 border border-brand-primary/30 p-3 rounded-2xl mb-4">
           <View className="flex-row items-center mb-1">
-            <FontAwesome name="magic" size={12} color="#6366f1" />
+            <FontAwesome name="magic" size={12} color="var(--color-primary)" />
             <Text className="text-brand-primary font-black text-xs ml-2">DESIGN MODE: CONNECTING STAGES</Text>
           </View>
           <Text className="text-typography-main text-[10px] mb-3">
@@ -94,7 +94,7 @@ export default function PipelineVisualizer() {
             value={transitionLabel}
             onChangeText={setTransitionLabel}
             placeholder="Enter Action Label (e.g. 'Approve')"
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor="var(--color-text-muted)"
             className="bg-surface-background text-typography-main px-3 py-2.5 rounded-lg border border-brand-primary/50 text-xs font-bold"
             autoFocus
           />
@@ -114,14 +114,14 @@ export default function PipelineVisualizer() {
           const canBeTarget = isAdding && !isSource;
           
           const borderColor = isSource 
-            ? '#6366f1' // Brand primary for active source
+            ? 'var(--color-primary)' // Brand primary for active source
             : canBeTarget 
-              ? '#10b981' // Green for potential targets
+              ? 'var(--color-success)' // Green for potential targets
               : stage.is_initial
-                ? '#3b82f6'
+                ? 'var(--color-info)'
                 : stage.is_terminal
-                  ? stage.terminal_type === 'success' ? '#22c55e' : '#ef4444'
-                  : (stage.color || '#334155');
+                  ? stage.terminal_type === 'success' ? 'var(--color-success)' : 'var(--color-danger)'
+                  : (stage.color || 'var(--color-border)');
           
           return (
             <View key={stage.id} className="mb-1">
@@ -139,10 +139,10 @@ export default function PipelineVisualizer() {
                       <Text className="text-white font-black text-[10px]">{stage.position}</Text>
                     </View>
                     <Text className="text-typography-main font-bold text-base mr-2">{stage.name}</Text>
-                    {stage.is_initial && <FontAwesome name="sign-in" size={12} color="#3b82f6" style={{ marginRight: 4 }} />}
-                    {stage.is_terminal && <FontAwesome name="flag-checkered" size={12} color={stage.terminal_type === 'success' ? '#22c55e' : '#ef4444'} style={{ marginRight: 4 }} />}
-                    {stage.requires_submission && <FontAwesome name="upload" size={10} color="#8b5cf6" style={{ marginRight: 4 }} />}
-                    {stage.linked_pipeline_id && <FontAwesome name="bolt" size={12} color="#6366f1" />}
+                    {stage.is_initial && <FontAwesome name="sign-in" size={12} color="var(--color-info)" style={{ marginRight: 4 }} />}
+                    {stage.is_terminal && <FontAwesome name="flag-checkered" size={12} color={stage.terminal_type === 'success' ? 'var(--color-success)' : 'var(--color-danger)'} style={{ marginRight: 4 }} />}
+                    {stage.requires_submission && <FontAwesome name="upload" size={10} color="var(--color-accent)" style={{ marginRight: 4 }} />}
+                    {stage.linked_pipeline_id && <FontAwesome name="bolt" size={12} color="var(--color-primary)" />}
                   </View>
 
                   {/* Action Buttons */}
@@ -151,7 +151,7 @@ export default function PipelineVisualizer() {
                       onPress={() => handleStartAdd(stage.id)}
                       className="bg-brand-primary/10 w-8 h-8 rounded-full items-center justify-center"
                     >
-                      <FontAwesome name="plus" size={12} color="#6366f1" />
+                      <FontAwesome name="plus" size={12} color="var(--color-primary)" />
                     </TouchableOpacity>
                   )}
                   {canBeTarget && (
@@ -174,7 +174,7 @@ export default function PipelineVisualizer() {
                           <FontAwesome
                             name={isBackward ? 'reply' : 'long-arrow-right'}
                             size={10}
-                            color={isBackward ? '#f59e0b' : '#475569'}
+                            color={isBackward ? 'var(--color-warning)' : 'var(--color-text-muted)'}
                             style={{ width: 16 }}
                           />
                           <View className={`px-2 py-0.5 rounded-md mr-2 ${isBackward ? 'bg-state-warning/10' : 'bg-brand-primary/10'}`}>
@@ -202,7 +202,7 @@ export default function PipelineVisualizer() {
                               </View>
                             ) : (
                               <TouchableOpacity onPress={() => setConfirmDeleteId(t.id)} className="p-1">
-                                <FontAwesome name="times-circle" size={10} color="#94a3b8" />
+                                <FontAwesome name="times-circle" size={10} color="var(--color-text-muted)" />
                               </TouchableOpacity>
                             )
                           )}
@@ -217,7 +217,7 @@ export default function PipelineVisualizer() {
               {index < sortedStages.length - 1 && (
                 <View className="items-center my-0.5">
                   <View className="w-0.5 h-3 bg-surface-border" />
-                  <FontAwesome name="chevron-down" size={8} color="#334155" />
+                  <FontAwesome name="chevron-down" size={8} color="var(--color-text-muted)" />
                   <View className="w-0.5 h-1 bg-surface-border" />
                 </View>
               )}
@@ -230,7 +230,7 @@ export default function PipelineVisualizer() {
       {/* Loading Overlay */}
       {loading && (
         <View className="absolute inset-0 bg-surface-background/50 items-center justify-center">
-          <ActivityIndicator color="#6366f1" />
+          <ActivityIndicator color="var(--color-primary)" />
         </View>
       )}
     </View>

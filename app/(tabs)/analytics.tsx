@@ -113,7 +113,7 @@ export default function PersonalAnalyticsScreen() {
 
         {loading ? (
           <View className="items-center py-16">
-            <ActivityIndicator color="rgb(var(--brand-primary))" />
+            <ActivityIndicator color="var(--color-primary)" />
           </View>
         ) : (
           <>
@@ -168,13 +168,13 @@ export default function PersonalAnalyticsScreen() {
             )}
 
             {/* Period breakdown */}
-            <View className="bg-surface-card border border-surface-border rounded-2xl p-6 mb-10">
+            <View className="bg-surface-card border border-[var(--color-surface-border)] rounded-2xl p-6 mb-10">
               <Text className="text-typography-main font-black text-lg mb-4">Period Breakdown</Text>
               {[
                 { label: 'Tasks Completed',  value: current?.completed_tasks ?? 0,  color: 'text-typography-main' },
-                { label: 'Tasks Failed',      value: current?.failed_tasks ?? 0,     color: 'text-state-danger' },
-                { label: 'Revisions',         value: current?.revision_count ?? 0,   color: 'text-state-warning' },
-                { label: 'On-Time Tasks',     value: current?.on_time_tasks ?? 0,    color: 'text-state-success' },
+                { label: 'Tasks Failed',      value: current?.failed_tasks ?? 0,     color: 'text-[var(--color-danger)]' },
+                { label: 'Revisions',         value: current?.revision_count ?? 0,   color: 'text-[var(--color-warning)]' },
+                { label: 'On-Time Tasks',     value: current?.on_time_tasks ?? 0,    color: 'text-[var(--color-success)]' },
               ].map((row, i, arr) => (
                 <View
                   key={row.label}

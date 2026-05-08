@@ -56,7 +56,7 @@ export default function ProfileGeneralForm({ initialData, onSuccess }: ProfileGe
           onChangeText={(text) => setFormData(prev => ({ ...prev, full_name: text }))}
           className="h-12 rounded-lg border border-surface-border bg-surface-background px-4 text-sm font-bold text-typography-main focus:border-brand-primary"
           placeholder="Enter your full name"
-          placeholderTextColor="rgb(var(--text-dim))"
+          placeholderTextColor="var(--color-text-dim)"
         />
       </View>
 
@@ -67,7 +67,7 @@ export default function ProfileGeneralForm({ initialData, onSuccess }: ProfileGe
           onChangeText={(text) => setFormData(prev => ({ ...prev, display_name: text }))}
           className="h-12 rounded-lg border border-surface-border bg-surface-background px-4 text-sm font-bold text-typography-main focus:border-brand-primary"
           placeholder="How should we call you?"
-          placeholderTextColor="rgb(var(--text-dim))"
+          placeholderTextColor="var(--color-text-dim)"
         />
       </View>
 
@@ -79,7 +79,7 @@ export default function ProfileGeneralForm({ initialData, onSuccess }: ProfileGe
             onChangeText={(text) => setFormData(prev => ({ ...prev, job_title: text }))}
             className="h-12 rounded-lg border border-surface-border bg-surface-background px-4 text-sm font-bold text-typography-main focus:border-brand-primary"
             placeholder="e.g. Senior Analyst"
-            placeholderTextColor="rgb(var(--text-dim))"
+            placeholderTextColor="#71717A"
           />
         </View>
         <View className="flex-1 gap-2">
@@ -89,7 +89,7 @@ export default function ProfileGeneralForm({ initialData, onSuccess }: ProfileGe
             onChangeText={(text) => setFormData(prev => ({ ...prev, department: text }))}
             className="h-12 rounded-lg border border-surface-border bg-surface-background px-4 text-sm font-bold text-typography-main focus:border-brand-primary"
             placeholder="e.g. Operations"
-            placeholderTextColor="rgb(var(--text-dim))"
+            placeholderTextColor="var(--color-text-dim)"
           />
         </View>
       </View>

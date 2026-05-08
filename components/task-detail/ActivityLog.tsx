@@ -4,13 +4,13 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
 
 const EVENT_ICONS: Record<string, { icon: string; color: string }> = {
-  'task.created':             { icon: 'plus-circle',  color: '#6366f1' },
-  'task.stage_advanced':      { icon: 'arrow-right',  color: '#22c55e' },
-  'task.work_submitted':      { icon: 'upload',       color: '#3b82f6' },
-  'task.submission_reviewed': { icon: 'gavel',        color: '#f59e0b' },
-  'task.comment_added':       { icon: 'comment',      color: '#8b5cf6' },
-  'task.comment_deleted':     { icon: 'trash',        color: '#ef4444' },
-  'task.assigned':            { icon: 'user-plus',    color: '#06b6d4' },
+  'task.created':             { icon: 'plus-circle',  color: 'var(--color-primary)' },
+  'task.stage_advanced':      { icon: 'arrow-right',  color: 'var(--color-success)' },
+  'task.work_submitted':      { icon: 'upload',       color: 'var(--color-info)' },
+  'task.submission_reviewed': { icon: 'gavel',        color: 'var(--color-warning)' },
+  'task.comment_added':       { icon: 'comment',      color: 'var(--color-primary)' },
+  'task.comment_deleted':     { icon: 'trash',        color: 'var(--color-danger)' },
+  'task.assigned':            { icon: 'user-plus',    color: 'var(--color-info)' },
 };
 
 function timeAgo(dateStr: string): string {
@@ -42,11 +42,11 @@ export default function ActivityLog() {
   if (!data || data.activity.length === 0) return null;
 
   return (
-    <View className="bg-surface-card rounded-2xl border border-surface-border p-4">
+    <View className="bg-surface-card rounded-2xl border border-color-surface-border p-4">
       <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em] mb-3">Activity</Text>
 
       {data.activity.slice(0, 20).map(a => {
-        const ev = EVENT_ICONS[a.event_type] || { icon: 'circle-o', color: '#64748b' };
+        const ev = EVENT_ICONS[a.event_type] || { icon: 'circle-o', color: 'var(--color-text-muted)' };
         return (
           <View key={a.id} className="flex-row items-start mb-2.5">
             <View className="w-5 items-center mt-0.5">

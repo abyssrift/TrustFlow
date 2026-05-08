@@ -25,7 +25,7 @@ function RolesLayout() {
   if (!authInitialized || loading) {
     return (
       <View className="flex-1 bg-surface-background items-center justify-center">
-        <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
+        <ActivityIndicator size="large" color="var(--color-primary)" />
         <Text className="text-typography-muted mt-4 font-bold">Synchronizing RBAC...</Text>
       </View>
     );
@@ -35,7 +35,7 @@ function RolesLayout() {
     return (
       <View className="flex-1 bg-surface-background items-center justify-center p-6">
         <View className="bg-state-danger-dim p-8 rounded-full mb-8 border border-state-danger/20">
-          <FontAwesome name="lock" size={64} color="rgb(var(--state-danger))" />
+          <FontAwesome name="lock" size={64} color="var(--color-danger)" />
         </View>
         <Text className="text-typography-main font-black text-3xl mt-4 tracking-tighter text-center">Security Gated Content</Text>
         <Text className="text-typography-muted text-center mt-3 leading-6">
@@ -62,7 +62,7 @@ function RolesLayout() {
             onPress={() => router.back()}
             className="flex-row items-center h-11 pr-4"
           >
-            <FontAwesome name="chevron-left" size={14} color="rgb(var(--text-muted))" />
+            <FontAwesome name="chevron-left" size={14} color="var(--color-text-muted)" />
             <Text className="text-typography-muted font-bold text-sm ml-2">Back</Text>
           </TouchableOpacity>
           <View className="bg-brand-primary-dim px-3 py-1.5 rounded-full border border-brand-primary/20">
@@ -97,7 +97,7 @@ function RolesLayout() {
                 <FontAwesome 
                   name={tab.icon as any} 
                   size={12} 
-                  color={isActive ? 'rgb(var(--brand-primary))' : 'rgb(var(--text-muted))'} 
+                  color={isActive ? 'var(--color-primary)' : 'var(--color-text-muted)'} 
                 />
                 <Text className={`font-black text-[10px] uppercase tracking-wider ml-2 ${isActive ? 'text-typography-main' : 'text-typography-muted'}`}>
                   {tab.label}

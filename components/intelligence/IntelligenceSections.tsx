@@ -85,9 +85,9 @@ export const TargetsSectionWeb = ({ targets, onUpdate, onNew }: any) => {
           className="bg-brand-primary px-8 py-4 rounded-2xl premium-shadow flex-row items-center"
         >
           <View className="mr-3">
-            <FontAwesome name="plus" size={14} color="white" />
+            <FontAwesome name="plus" size={14} className="text-brand-on-primary" />
           </View>
-          <Text className="text-white font-black uppercase tracking-widest text-xs">New Benchmark</Text>
+          <Text className="text-brand-on-primary font-black uppercase tracking-widest text-xs">New Benchmark</Text>
         </TouchableOpacity>
       </View>
       <View className="flex-row flex-wrap gap-8">
@@ -119,7 +119,7 @@ export const ArchivesSectionWeb = ({ reports, archives, search, activeSchema, on
             onPress={() => setSubSection(s as any)}
             className={`px-8 py-3 rounded-xl items-center flex-row ${subSection === s ? 'bg-brand-primary premium-shadow' : 'hover:bg-surface-background'}`}
           >
-            <Text className={`font-black text-[10px] uppercase tracking-widest ${subSection === s ? 'text-white' : 'text-typography-muted'}`}>
+            <Text className={`font-black text-[10px] uppercase tracking-widest ${subSection === s ? 'text-brand-on-primary' : 'text-typography-muted'}`}>
               {s.replace('_', ' ')}
             </Text>
           </TouchableOpacity>
@@ -131,9 +131,9 @@ export const ArchivesSectionWeb = ({ reports, archives, search, activeSchema, on
             <Text className="text-typography-main font-black text-3xl tracking-tight">Audit Repositories</Text>
             <TouchableOpacity onPress={onNew} className="bg-brand-primary px-8 py-4 rounded-2xl premium-shadow flex-row items-center">
               <View className="mr-3">
-                <FontAwesome name="plus" size={14} color="white" />
+                <FontAwesome name="plus" size={14} className="text-brand-on-primary" />
               </View>
-              <Text className="text-white font-black uppercase tracking-widest text-xs">New Report Request</Text>
+              <Text className="text-brand-on-primary font-black uppercase tracking-widest text-xs">New Report Request</Text>
             </TouchableOpacity>
           </View>
           <View className="flex-row flex-wrap gap-6">
@@ -209,7 +209,7 @@ export const ArchivesSectionWeb = ({ reports, archives, search, activeSchema, on
                     </TouchableOpacity>
                     {!archive.restored_at && !hasIntegrityIssue && hasPermission('archive.restore') && (
                       <TouchableOpacity onPress={() => onRestore(archive)} className="flex-1 py-2 rounded-lg bg-brand-primary items-center">
-                         <Text className="text-white font-black uppercase tracking-widest text-[8px]">Restore</Text>
+                         <Text className="text-brand-on-primary font-black uppercase tracking-widest text-[8px]">Restore</Text>
                       </TouchableOpacity>
                     )}
                   </View>
@@ -319,8 +319,8 @@ export const AnalyticsSectionWeb = ({ pipelines }: { pipelines: any[] }) => {
           onPress={() => router.push('/intelligence/analytics' as any)}
           className="bg-brand-primary px-8 py-4 rounded-2xl flex-row items-center"
         >
-          <FontAwesome name="bar-chart" size={14} color="white" style={{ marginRight: 10 }} />
-          <Text className="text-white font-black uppercase tracking-widest text-xs">Full Analytics Hub</Text>
+          <FontAwesome name="bar-chart" size={14} className="text-brand-on-primary mr-2.5" />
+          <Text className="text-brand-on-primary font-black uppercase tracking-widest text-xs">Full Analytics Hub</Text>
         </TouchableOpacity>
       </View>
 
@@ -335,7 +335,7 @@ export const AnalyticsSectionWeb = ({ pipelines }: { pipelines: any[] }) => {
                 onPress={() => setPipelineId(p.id)}
                 className={`px-4 py-2 rounded-xl border ${pipelineId === p.id ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border hover:bg-surface-overlay'}`}
               >
-                <Text className={`text-xs font-bold ${pipelineId === p.id ? 'text-white' : 'text-typography-main'}`}>{p.name}</Text>
+                <Text className={`text-xs font-bold ${pipelineId === p.id ? 'text-brand-on-primary' : 'text-typography-main'}`}>{p.name}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -359,7 +359,7 @@ export const AnalyticsSectionWeb = ({ pipelines }: { pipelines: any[] }) => {
                 onPress={() => setPeriod(p)}
                 className={`px-4 py-2 rounded-xl border ${period === p ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border'}`}
               >
-                <Text className={`text-xs font-black uppercase ${period === p ? 'text-white' : 'text-typography-muted'}`}>{p}</Text>
+                <Text className={`text-xs font-black uppercase ${period === p ? 'text-brand-on-primary' : 'text-typography-muted'}`}>{p}</Text>
               </TouchableOpacity>
             ))}
           </View>

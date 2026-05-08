@@ -61,7 +61,7 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
                 value={draft.title}
                 onChangeText={t => setDraft({ title: t })}
                 placeholder="Deployment Objective"
-                placeholderTextColor="rgb(var(--text-dim))"
+                placeholderTextColor="var(--color-text-dim)"
                 className="bg-surface-background border border-surface-border rounded-xl px-5 py-4 text-typography-main font-bold text-base"
               />
             </View>
@@ -71,7 +71,7 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
                 value={draft.category}
                 onChangeText={t => setDraft({ category: t })}
                 placeholder="General"
-                placeholderTextColor="rgb(var(--text-dim))"
+                placeholderTextColor="var(--color-text-dim)"
                 className="bg-surface-background border border-surface-border rounded-xl px-5 py-4 text-typography-main font-bold"
               />
             </View>
@@ -81,7 +81,7 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
                 value={draft.description}
                 onChangeText={t => setDraft({ description: t })}
                 placeholder="Operation details..."
-                placeholderTextColor="rgb(var(--text-dim))"
+                placeholderTextColor="var(--color-text-dim)"
                 multiline
                 numberOfLines={4}
                 className="bg-surface-background border border-surface-border rounded-xl px-5 py-4 text-typography-main text-sm h-32"
@@ -154,10 +154,10 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
                  <View className="gap-1.5 mb-3">
                    {briefFiles.map(f => (
                      <View key={f.id} className="flex-row items-center bg-surface-background px-3 py-2 rounded-lg border border-surface-border/50">
-                       <FontAwesome name={f.type.startsWith('image/') ? 'file-image-o' : 'file-o'} size={11} color="rgb(var(--brand-primary))" />
+                       <FontAwesome name={f.type.startsWith('image/') ? 'file-image-o' : 'file-o'} size={11} color="var(--color-primary)" />
                        <Text className="text-typography-main text-[11px] font-bold ml-2 flex-1" numberOfLines={1}>{f.name}</Text>
                        <TouchableOpacity onPress={() => setBriefFiles(prev => prev.filter(x => x.id !== f.id))} className="ml-2 p-1">
-                         <FontAwesome name="times-circle" size={12} color="rgb(var(--state-danger))" />
+                         <FontAwesome name="times-circle" size={12} color="var(--color-danger)" />
                        </TouchableOpacity>
                      </View>
                    ))}
@@ -171,7 +171,7 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
                    }}
                    className="flex-row items-center bg-surface-background px-3 py-2 rounded-xl border border-surface-border"
                  >
-                   <FontAwesome name="camera" size={11} color="rgb(var(--brand-primary))" />
+                   <FontAwesome name="camera" size={11} color="var(--color-primary)" />
                    <Text className="text-brand-primary text-[10px] font-black uppercase ml-1.5">Add Photo</Text>
                  </TouchableOpacity>
                  <TouchableOpacity
@@ -181,7 +181,7 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
                    }}
                    className="flex-row items-center bg-surface-background px-3 py-2 rounded-xl border border-surface-border"
                  >
-                   <FontAwesome name="paperclip" size={11} color="rgb(var(--brand-primary))" />
+                   <FontAwesome name="paperclip" size={11} color="var(--color-primary)" />
                    <Text className="text-brand-primary text-[10px] font-black uppercase ml-1.5">Attach File</Text>
                  </TouchableOpacity>
                </View>

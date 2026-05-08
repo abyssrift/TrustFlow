@@ -76,7 +76,7 @@ export default function EditTaskModal({ visible, onClose }: Props) {
           <View className="flex-row items-center justify-between p-5 border-b border-surface-border/50">
             <Text className="text-typography-main text-lg font-black">Edit Task</Text>
             <TouchableOpacity onPress={onClose} className="p-2 rounded-full bg-surface-background">
-              <FontAwesome name="times" size={16} color="rgb(var(--text-muted))" />
+              <FontAwesome name="times" size={16} color="var(--color-text-muted)" />
             </TouchableOpacity>
           </View>
           
@@ -94,7 +94,7 @@ export default function EditTaskModal({ visible, onClose }: Props) {
                   value={title}
                   onChangeText={setTitle}
                   placeholder="Task title"
-                  placeholderTextColor="rgb(var(--text-muted))"
+                  placeholderTextColor="var(--color-text-muted)"
                   className="bg-surface-background border border-surface-border text-typography-main px-4 py-3 rounded-xl font-medium"
                 />
               </View>
@@ -105,7 +105,7 @@ export default function EditTaskModal({ visible, onClose }: Props) {
                   value={description}
                   onChangeText={setDescription}
                   placeholder="Details about this task..."
-                  placeholderTextColor="rgb(var(--text-muted))"
+                  placeholderTextColor="var(--color-text-muted)"
                   multiline
                   numberOfLines={4}
                   textAlignVertical="top"
@@ -120,8 +120,8 @@ export default function EditTaskModal({ visible, onClose }: Props) {
                     <Picker
                       selectedValue={priority}
                       onValueChange={setPriority}
-                      style={{ color: 'rgb(var(--text-main))', ...Platform.select({ web: { outlineStyle: 'none' }, default: {} }) } as any}
-                      dropdownIconColor="rgb(var(--text-muted))"
+                      style={{ color: 'var(--color-text-main)', ...Platform.select({ web: { outlineStyle: 'none' }, default: {} }) } as any}
+                      dropdownIconColor="var(--color-text-muted)"
                     >
                       <Picker.Item label="Urgent" value="urgent" />
                       <Picker.Item label="High" value="high" />
@@ -137,7 +137,7 @@ export default function EditTaskModal({ visible, onClose }: Props) {
                     value={category}
                     onChangeText={setCategory}
                     placeholder="e.g. Bug, Feature"
-                    placeholderTextColor="rgb(var(--text-muted))"
+                    placeholderTextColor="var(--color-text-muted)"
                     className="bg-surface-background border border-surface-border text-typography-main px-4 py-3 rounded-xl font-medium h-12"
                   />
                 </View>
@@ -150,7 +150,7 @@ export default function EditTaskModal({ visible, onClose }: Props) {
                     value={dueDate}
                     onChangeText={setDueDate}
                     placeholder="YYYY-MM-DD"
-                    placeholderTextColor="rgb(var(--text-muted))"
+                    placeholderTextColor="var(--color-text-muted)"
                     className="bg-surface-background border border-surface-border text-typography-main px-4 py-3 rounded-xl font-medium h-12"
                   />
                 </View>
@@ -162,7 +162,7 @@ export default function EditTaskModal({ visible, onClose }: Props) {
                     onChangeText={setWeight}
                     keyboardType="numeric"
                     placeholder="1"
-                    placeholderTextColor="rgb(var(--text-muted))"
+                    placeholderTextColor="var(--color-text-muted)"
                     className="bg-surface-background border border-surface-border text-typography-main px-4 py-3 rounded-xl font-medium h-12"
                   />
                 </View>

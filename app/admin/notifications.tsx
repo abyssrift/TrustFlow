@@ -18,7 +18,7 @@ export default function AdminNotificationsScreen() {
             onPress={() => router.back()}
             className="flex-row items-center h-11 pr-4"
           >
-            <FontAwesome name="chevron-left" size={14} color="rgb(var(--text-muted))" />
+            <FontAwesome name="chevron-left" size={14} color="var(--color-text-muted)" />
             <Text className="text-typography-muted font-bold text-sm ml-2">Back</Text>
           </TouchableOpacity>
           <View className="bg-brand-primary/10 px-3 py-1.5 rounded-full border border-brand-primary/20">

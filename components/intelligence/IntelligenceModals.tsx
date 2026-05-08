@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Modal, TextInput } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
-import { Picker } from './IntelligenceCommon';
+import { IntelligencePicker } from './IntelligenceCommon';
+
+import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 
 export const TargetCreationModal = ({ visible, onClose, onConfirm, pipelines, stages }: any) => {
   const [type, setType] = useState('performance');
@@ -10,7 +12,7 @@ export const TargetCreationModal = ({ visible, onClose, onConfirm, pipelines, st
   const [activeGoal, setActiveGoal] = useState('3600');
   const [lifeGoal, setLifeGoal] = useState('86400');
   const [quantity, setQuantity] = useState('100');
-  const [deadline, setDeadline] = useState('7');
+  const [deadline, setDeadline] = useState<Date | null>(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
   const filteredStages = stages.filter((stage: any) => stage.pipeline_id === p);
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -25,18 +27,18 @@ export const TargetCreationModal = ({ visible, onClose, onConfirm, pipelines, st
             <View className="flex-row bg-surface-background p-2 rounded-2xl mb-8 border border-surface-border">
               {['performance', 'volume'].map(t => (
                 <TouchableOpacity key={t} onPress={() => setType(t)} className={`flex-1 py-4 rounded-xl items-center ${type === t ? 'bg-brand-primary premium-shadow' : 'hover:bg-surface-card/50'}`}>
-                  <Text className={`font-black text-[10px] uppercase tracking-widest ${type === t ? 'text-white' : 'text-typography-muted'}`}>{t}</Text>
+                  <Text className={`font-black text-[10px] uppercase tracking-widest ${type === t ? 'text-brand-on-primary' : 'text-typography-muted'}`}>{t}</Text>
                 </TouchableOpacity>
               ))}
             </View>
             <View className="flex-row gap-8 mb-8">
               <View className="flex-1">
                 <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mb-4">Strategic Pipeline</Text>
-                <Picker items={pipelines} selectedId={p} onSelect={(id: string) => { setP(id); setS(null); }} />
+                <IntelligencePicker items={pipelines} selectedId={p} onSelect={(id: string) => { setP(id); setS(null); }} />
               </View>
               <View className="flex-1">
                 <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mb-4">Target Node</Text>
-                <Picker items={filteredStages} selectedId={s} onSelect={setS} disabled={!p} />
+                <IntelligencePicker items={filteredStages} selectedId={s} onSelect={setS} disabled={!p} />
               </View>
             </View>
             <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mb-4">Boundary Parameters</Text>
@@ -52,14 +54,17 @@ export const TargetCreationModal = ({ visible, onClose, onConfirm, pipelines, st
                 </View>
               </View>
             ) : (
-              <View className="flex-row gap-8">
-                <View className="flex-1">
-                  <Text className="text-typography-muted text-[10px] font-bold mb-3">Tasks</Text>
+              <View className="gap-8">
+                <View>
+                  <Text className="text-typography-muted text-[10px] font-bold mb-3">Tasks (Quota)</Text>
                   <TextInput value={quantity} onChangeText={setQuantity} keyboardType="numeric" className="bg-surface-background border border-surface-border text-typography-main p-5 rounded-2xl font-black text-lg focus:border-brand-primary" />
                 </View>
-                <View className="flex-1">
-                  <Text className="text-typography-muted text-[10px] font-bold mb-3">Timeframe (Days)</Text>
-                  <TextInput value={deadline} onChangeText={setDeadline} keyboardType="numeric" className="bg-surface-background border border-surface-border text-typography-main p-5 rounded-2xl font-black text-lg focus:border-brand-primary" />
+                <View>
+                  <Text className="text-typography-muted text-[10px] font-bold mb-3">Expiration Deadline</Text>
+                  <PremiumCalendarPicker
+                    selectedDate={deadline}
+                    onDateChange={setDeadline}
+                  />
                 </View>
               </View>
             )}
@@ -71,21 +76,19 @@ export const TargetCreationModal = ({ visible, onClose, onConfirm, pipelines, st
             <TouchableOpacity
               disabled={!s}
               onPress={() => {
-                const dDate = new Date();
-                dDate.setDate(dDate.getDate() + parseInt(deadline));
                 onConfirm({
                   stage_id: s,
                   target_type: type,
                   active: type === 'performance' ? parseInt(activeGoal) : null,
                   lifecycle: type === 'performance' ? parseInt(lifeGoal) : null,
                   quantity: type === 'volume' ? parseInt(quantity) : null,
-                  deadline: type === 'volume' ? dDate.toISOString() : null
+                  deadline: type === 'volume' ? deadline?.toISOString() : null
                 });
                 onClose();
               }}
               className={`flex-[2] py-5 rounded-2xl items-center shadow-lg transition-all active:scale-[0.98] ${s ? 'bg-brand-primary shadow-brand-primary/30' : 'bg-surface-border opacity-50'}`}
             >
-              <Text className="text-white font-black uppercase tracking-widest text-xs">Create Objective</Text>
+              <Text className="text-brand-on-primary font-black uppercase tracking-widest text-xs">Create Objective</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -113,22 +116,22 @@ export const ReportConfigModal = ({ visible, onClose, onConfirm, pipelines, team
             <View className="flex-row gap-4 mb-8">
               {[7, 30, 90, 180].map(val => (
                 <TouchableOpacity key={val} onPress={() => setD(val)} className={`flex-1 py-4 rounded-xl border transition-all ${d === val ? 'bg-brand-primary border-brand-primary premium-shadow' : 'border-surface-border hover:bg-surface-background'}`}>
-                  <Text className={`text-center font-black text-[10px] uppercase tracking-widest ${d === val ? 'text-white' : 'text-typography-muted'}`}>{val} Days</Text>
+                  <Text className={`text-center font-black text-[10px] uppercase tracking-widest ${d === val ? 'text-brand-on-primary' : 'text-typography-muted'}`}>{val} Days</Text>
                 </TouchableOpacity>
               ))}
             </View>
             <View className="space-y-8">
               <View>
                 <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mb-4">Pipeline Sector</Text>
-                <Picker items={[{ id: null, name: 'Global Organization' }, ...pipelines]} selectedId={p} onSelect={setP} />
+                <IntelligencePicker items={[{ id: null, name: 'Global Organization' }, ...pipelines]} selectedId={p} onSelect={setP} />
               </View>
               <View>
                 <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mb-4">Team Scope</Text>
-                <Picker items={[{ id: null, name: 'All Tactical Teams' }, ...teams]} selectedId={t} onSelect={setT} />
+                <IntelligencePicker items={[{ id: null, name: 'All Tactical Teams' }, ...teams]} selectedId={t} onSelect={setT} />
               </View>
               <View>
                 <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mb-4">Individual Personnel</Text>
-                <Picker items={[{ id: null, name: 'All Active Agents' }, ...users]} selectedId={u} onSelect={setU} labelKey="full_name" />
+                <IntelligencePicker items={[{ id: null, name: 'All Active Agents' }, ...users]} selectedId={u} onSelect={setU} labelKey="full_name" />
               </View>
             </View>
           </ScrollView>
@@ -140,7 +143,7 @@ export const ReportConfigModal = ({ visible, onClose, onConfirm, pipelines, team
               onPress={() => { onConfirm({ days: d, pipeline_id: p, team_id: t, user_id: u, type }); onClose(); }}
               className="flex-[2] py-5 rounded-2xl bg-brand-primary items-center shadow-lg shadow-brand-primary/30 active:scale-[0.98] transition-transform"
             >
-              <Text className="text-white font-black uppercase tracking-widest text-xs">Execute Audit Request</Text>
+              <Text className="text-brand-on-primary font-black uppercase tracking-widest text-xs">Execute Audit Request</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -181,7 +184,7 @@ export const WidgetConfigModal = ({ visible, onClose, onSave, currentWidgets }: 
                     <Text className="text-typography-muted text-[10px] mt-1">{widget.desc}</Text>
                   </View>
                   <View className={`w-6 h-6 rounded-full border items-center justify-center ${isActive ? 'border-brand-primary bg-brand-primary' : 'border-surface-border'}`}>
-                    {isActive && <FontAwesome name="check" size={10} color="white" />}
+                    {isActive && <FontAwesome name="check" size={10} color="var(--color-on-primary)" />}
                   </View>
                 </TouchableOpacity>
               );
@@ -192,7 +195,7 @@ export const WidgetConfigModal = ({ visible, onClose, onSave, currentWidgets }: 
               <Text className="text-typography-muted font-black text-xs">Dismiss</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => onSave(selected)} className="flex-1 py-5 rounded-2xl bg-brand-primary items-center shadow-lg">
-              <Text className="text-white font-black text-xs">Update Matrix</Text>
+              <Text className="text-brand-on-primary font-black text-xs">Update Matrix</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -228,7 +231,7 @@ export const SnapshotDetailModal = ({ visible, onClose, data }: any) => {
               <Text className="text-typography-muted text-xs">Deep-inspecting historical data trace (PII Masked)</Text>
             </View>
             <TouchableOpacity onPress={onClose} className="w-12 h-12 rounded-full bg-surface-background border border-surface-border items-center justify-center">
-              <FontAwesome name="times" size={16} color="rgb(var(--text-dim))" />
+              <FontAwesome name="times" size={16} color="var(--color-text-dim)" />
             </TouchableOpacity>
           </View>
           <ScrollView className="p-10 bg-surface-background">

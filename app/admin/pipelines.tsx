@@ -46,7 +46,7 @@ function PipelineEditorInner() {
                 onPress={() => router.back()}
                 className="flex-row items-center h-11 pr-4"
               >
-                <FontAwesome name="chevron-left" size={14} color="rgb(var(--text-muted))" />
+                <FontAwesome name="chevron-left" size={14} color="var(--color-text-muted)" />
                 <Text className="text-typography-muted font-bold text-sm ml-2">Back</Text>
               </TouchableOpacity>
               <View className="bg-brand-primary/10 px-3 py-1 rounded-full border border-brand-primary/20">
@@ -74,7 +74,7 @@ function PipelineEditorInner() {
               onPress={deselectPipeline}
               className="flex-row items-center h-11 pr-4"
             >
-              <FontAwesome name="chevron-left" size={14} color="rgb(var(--text-muted))" />
+              <FontAwesome name="chevron-left" size={14} color="var(--color-text-muted)" />
               <Text className="text-typography-muted font-bold text-sm ml-2">Pipelines</Text>
             </TouchableOpacity>
             <View className="bg-brand-primary-dim px-3 py-1 rounded-full border border-brand-primary/20">
@@ -117,7 +117,7 @@ function PipelineEditorInner() {
                     <FontAwesome
                       name={s.icon as any}
                       size={12}
-                      color={isActive ? 'white' : 'rgb(var(--text-muted))'}
+                      color={isActive ? 'white' : 'var(--color-text-muted)'}
                     />
                     <Text
                       className={`text-xs font-bold ml-2 ${
@@ -136,7 +136,7 @@ function PipelineEditorInner() {
         {/* Loading Overlay */}
         {loading && (
           <View className="absolute top-0 right-0 z-50 p-4">
-            <ActivityIndicator color="rgb(var(--brand-primary))" size="small" />
+            <ActivityIndicator color="var(--color-primary)" size="small" />
           </View>
         )}
 

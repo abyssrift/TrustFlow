@@ -299,7 +299,7 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
       <View>
         <View className={`py-2.5 rounded-xl items-center justify-center border ${isSuccess ? 'bg-state-success/10 border-state-success/20' : 'bg-state-danger/10 border-state-danger/20'}`}>
           <View className="flex-row items-center">
-            <FontAwesome name={isSuccess ? 'check-circle' : 'times-circle'} size={12} color={isSuccess ? 'rgb(var(--state-success))' : 'rgb(var(--state-danger))'} />
+            <FontAwesome name={isSuccess ? 'check-circle' : 'times-circle'} size={12} color={isSuccess ? 'var(--color-success)' : 'var(--color-danger)'} />
             <Text className={`${isSuccess ? 'text-state-success' : 'text-state-danger'} font-black text-[10px] uppercase tracking-widest ml-2`}>
               {isSuccess ? 'Completed' : 'Failed'}
             </Text>

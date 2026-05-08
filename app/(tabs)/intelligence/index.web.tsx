@@ -104,9 +104,14 @@ export default function IntelligenceOverview() {
 
       {/* ── Header ── */}
       <View className="px-10 pt-8 pb-5 flex-row items-center justify-between border-b border-surface-border flex-shrink-0">
-        <View>
-          <Text className="text-brand-primary font-black uppercase tracking-[0.3em] text-[9px] mb-1">Intelligence Hub</Text>
-          <Text className="text-typography-main text-4xl font-black tracking-tighter">Overview</Text>
+        <View className="flex-row items-center gap-4">
+          <View>
+            <Text className="text-brand-primary font-black uppercase tracking-[0.3em] text-[9px] mb-1">Intelligence Hub</Text>
+            <Text className="text-typography-main text-4xl font-black tracking-tighter">Overview</Text>
+          </View>
+          <View className="mt-4 px-3 py-1 bg-surface-card border border-surface-border rounded-lg">
+            <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest">Global Organizational View</Text>
+          </View>
         </View>
         <View className="flex-row items-center gap-3">
           {/* Timeframe */}

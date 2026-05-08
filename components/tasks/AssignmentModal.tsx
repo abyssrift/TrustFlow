@@ -133,7 +133,7 @@ export default function AssignmentModal({
                 </View>
                 <TextInput 
                   placeholder={`Search ${activeTab === 'teams' ? 'teams' : 'agents'}...`}
-                  placeholderTextColor="rgb(var(--text-dim))"
+                  placeholderTextColor="var(--color-text-dim)"
                   value={search}
                   onChangeText={setSearch}
                   className="px-12 py-3.5 text-typography-main font-bold"
@@ -144,7 +144,7 @@ export default function AssignmentModal({
           {/* LIST */}
           {loading ? (
             <View className="flex-1 items-center justify-center">
-              <ActivityIndicator color="rgb(var(--brand-primary))" />
+              <ActivityIndicator color="var(--color-primary)" />
             </View>
           ) : (
             <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false}>
@@ -175,14 +175,14 @@ export default function AssignmentModal({
                       >
                          <View className="flex-row items-center flex-1">
                             <View className={`w-10 h-10 rounded-full items-center justify-center mr-4 ${isSelected ? 'bg-brand-primary' : 'bg-surface-background'}`}>
-                               <FontAwesome name={activeTab === 'teams' ? 'users' : 'user'} size={14} color={isSelected ? 'white' : 'rgb(var(--brand-primary))'} />
+                               <FontAwesome name={activeTab === 'teams' ? 'users' : 'user'} size={14} color={isSelected ? 'white' : 'var(--color-primary)'} />
                             </View>
                             <View>
                                <Text className={`font-black text-sm ${isSelected ? 'text-typography-main' : 'text-typography-label'}`}>{item.name || item.full_name || item.email}</Text>
                                <Text className="text-[9px] text-typography-muted font-bold uppercase tracking-tight mt-0.5">Active Tasks: {taskCount}</Text>
                             </View>
                          </View>
-                         {isSelected && <FontAwesome name="check-circle" size={20} color="rgb(var(--brand-primary))" />}
+                         {isSelected && <FontAwesome name="check-circle" size={20} color="var(--color-primary)" />}
                       </TouchableOpacity>
                     );
                   })}

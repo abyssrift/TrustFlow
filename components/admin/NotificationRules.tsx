@@ -230,7 +230,7 @@ function RuleCard({
   const categoryClasses = meta?.category === 'Tasks'
     ? { bg: 'bg-brand-primary/10', border: 'border-brand-primary/20', text: 'text-brand-primary' }
     : meta?.category === 'Comments'
-    ? { bg: 'bg-state-warning/10', border: 'border-state-warning/20', text: 'text-state-warning' }
+    ? { bg: 'bg-state-warning/10', border: 'border-[var(--color-warning)]/20', text: 'text-state-warning' }
     : meta?.category === 'Deadlines'
     ? { bg: 'bg-state-danger/10', border: 'border-state-danger/20', text: 'text-state-danger' }
     : { bg: 'bg-surface-overlay', border: 'border-surface-border', text: 'text-typography-muted' };
@@ -390,7 +390,7 @@ export default function NotificationRules() {
               Total Rules
             </Text>
           </View>
-          <View className="bg-state-success/10 flex-1 rounded-xl px-3 py-2.5 border border-state-success/20">
+          <View className="bg-state-success/10 flex-1 rounded-xl px-3 py-2.5 border border-[var(--color-success)]/20">
             <Text className="text-state-success font-black text-lg">{activeCount}</Text>
             <Text className="text-state-success/70 text-[10px] font-bold uppercase tracking-wider">
               Active

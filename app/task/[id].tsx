@@ -3,7 +3,8 @@ import { View, Text, ScrollView, RefreshControl, ActivityIndicator, TouchableOpa
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { TaskDetailProvider, useTaskDetail } from '@/contexts/TaskDetailContext';
-import { TimerProvider } from '@/contexts/TimerContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import { getPrimaryColor } from '@/lib/themeColors';
 import TaskHeader from '@/components/task-detail/TaskHeader';
 import TimerPanel from '@/components/task-detail/TimerPanel';
 import TaskMetadata from '@/components/task-detail/TaskMetadata';
@@ -18,6 +19,7 @@ import ActivityLog from '@/components/task-detail/ActivityLog';
 
 function TaskDetailContent() {
   const { data, loading, error, refresh } = useTaskDetail();
+  const { theme: activeTheme } = useTheme();
   const { width } = useWindowDimensions();
   const router = useRouter();
   const isDesktop = width > 768;
@@ -33,7 +35,7 @@ function TaskDetailContent() {
   if (loading) {
     return (
       <View className="flex-1 bg-surface-background items-center justify-center">
-        <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
+        <ActivityIndicator size="large" color={getPrimaryColor(activeTheme)} />
         <Text className="text-typography-muted mt-4 font-bold">Loading task details...</Text>
       </View>
     );
@@ -44,7 +46,7 @@ function TaskDetailContent() {
     return (
       <View className="flex-1 bg-surface-background items-center justify-center p-10">
         <View className="bg-state-danger/10 p-6 rounded-full mb-6 border border-state-danger/20">
-          <FontAwesome name="lock" size={48} color="rgb(var(--state-danger))" />
+          <FontAwesome name="lock" size={48} color="var(--color-danger)" />
         </View>
         <Text className="text-typography-main font-black text-2xl mt-4">Access Denied</Text>
         <Text className="text-typography-muted text-center mt-2 leading-6">
@@ -65,7 +67,7 @@ function TaskDetailContent() {
   if (error) {
     return (
       <View className="flex-1 bg-surface-background items-center justify-center p-10">
-        <FontAwesome name="exclamation-triangle" size={48} color="rgb(var(--state-warning))" />
+        <FontAwesome name="exclamation-triangle" size={48} color="var(--color-warning)" />
         <Text className="text-typography-main font-black text-xl mt-4">Something went wrong</Text>
         <Text className="text-typography-muted text-center mt-2">{error}</Text>
         <TouchableOpacity
@@ -87,7 +89,7 @@ function TaskDetailContent() {
       
       <ScrollView
         className="flex-1 px-4 py-4"
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="rgb(var(--brand-primary))" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={getPrimaryColor(activeTheme)} />}
       >
         <View className="gap-4 pb-32">
           <TaskMetadata />

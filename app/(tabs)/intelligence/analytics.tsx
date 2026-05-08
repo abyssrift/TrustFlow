@@ -141,7 +141,7 @@ function PipelineTab() {
 
       {loading ? (
         <View className="py-16 items-center">
-          <ActivityIndicator color="rgb(var(--brand-primary))" />
+          <ActivityIndicator color="var(--color-primary)" />
         </View>
       ) : (
         <>
@@ -171,8 +171,8 @@ function PipelineTab() {
                 >
                   <Text className="text-typography-muted text-xs">{t.period_label}</Text>
                   <View className="flex-row gap-4">
-                    <Text className="text-state-success text-xs font-bold">↑ {t.tasks_succeeded}</Text>
-                    <Text className="text-state-danger text-xs font-bold">↓ {t.tasks_failed}</Text>
+                    <Text className="text-[var(--color-success)] text-xs font-bold">↑ {t.tasks_succeeded}</Text>
+                    <Text className="text-[var(--color-danger)] text-xs font-bold">↓ {t.tasks_failed}</Text>
                     {t.success_rate !== null && (
                       <Text className="text-typography-dim text-xs">{t.success_rate.toFixed(0)}%</Text>
                     )}
@@ -394,7 +394,7 @@ export default function AdminAnalyticsNative() {
     return (
       <View className="flex-1 bg-surface-background items-center justify-center p-10">
         <Stack.Screen options={{ title: 'Analytics' }} />
-        <FontAwesome name="lock" size={40} color="rgb(var(--brand-primary))" />
+        <FontAwesome name="lock" size={40} color="var(--color-primary)" />
         <Text className="text-typography-main font-black text-xl mt-6 mb-2 text-center">Access Restricted</Text>
         <Text className="text-typography-muted text-center">
           You need the analytics.view permission to access this screen.
@@ -442,7 +442,7 @@ export default function AdminAnalyticsNative() {
         {activeTab === 'personnel' && canCompare && <PersonnelTab />}
         {activeTab === 'personnel' && !canCompare && (
           <View className="bg-surface-card border border-surface-border rounded-2xl p-10 items-center gap-3">
-            <FontAwesome name="lock" size={28} color="rgb(var(--brand-primary))" />
+            <FontAwesome name="lock" size={28} color="var(--color-primary)" />
             <Text className="text-typography-main font-black">Permission Required</Text>
             <Text className="text-typography-muted text-sm text-center">
               You need analytics.compare to access personnel benchmarking.

@@ -7,10 +7,10 @@ import DeadlockAlert from './DeadlockAlert';
 import PipelineSettingsForm from './PipelineSettingsForm';
 
 const STAGE_PRESETS = [
-  { name: 'PENDING', color: '#64748b', is_initial: true },
-  { name: 'IN PROGRESS', color: '#3b82f6' },
-  { name: 'REVIEW', color: '#fbbf24', requires_submission: true },
-  { name: 'COMPLETED', color: '#22c55e', is_terminal: true, terminal_type: 'success' },
+  { name: 'PENDING', color: 'var(--color-text-dim)', is_initial: true },
+  { name: 'IN PROGRESS', color: 'var(--color-primary)' },
+  { name: 'REVIEW', color: 'var(--color-warning)', requires_submission: true },
+  { name: 'COMPLETED', color: 'var(--color-success)', is_terminal: true, terminal_type: 'success' },
 ];
 
 const TRANSITION_PRESETS = [
@@ -45,7 +45,7 @@ export default function PipelineList() {
     if (!canEdit) return;
     const stgs = isQuickCreate
       ? STAGE_PRESETS.map((s, i) => ({ ...s, position: i + 1, is_initial: s.is_initial || false, is_terminal: s.is_terminal || false, requires_submission: s.requires_submission || false }))
-      : [{ name: 'START', color: '#64748b', position: 1, is_initial: true, is_terminal: false, requires_submission: false }];
+      : [{ name: 'START', color: 'var(--color-text-dim)', position: 1, is_initial: true, is_terminal: false, requires_submission: false }];
     const trans = isQuickCreate ? TRANSITION_PRESETS : [];
 
     const id = await createPipeline(data.name, data.description, stgs, trans, data.visibility_permissions, data.task_visibility_mode);
@@ -87,8 +87,8 @@ export default function PipelineList() {
             className="bg-brand-primary px-5 py-3 rounded-xl active:bg-brand-primary-hover active:scale-95 transition-all"
           >
             <View className="flex-row items-center">
-              <FontAwesome name="plus" size={12} color="white" />
-              <Text className="text-white font-bold text-sm ml-2 uppercase tracking-wide">New Pipeline</Text>
+              <FontAwesome name="plus" size={12} className="text-brand-on-primary" />
+              <Text className="text-brand-on-primary font-bold text-sm ml-2 uppercase tracking-wide">New Pipeline</Text>
             </View>
           </TouchableOpacity>
         )}
@@ -110,13 +110,13 @@ export default function PipelineList() {
       >
         {loading && pipelines.length === 0 ? (
           <View className="py-20 items-center">
-            <ActivityIndicator color="rgb(var(--brand-primary))" size="large" />
+            <ActivityIndicator color="var(--color-primary)" size="large" />
           </View>
         ) : pipelines.length === 0 ? (
           <View className="py-20 items-center px-6">
             <View className="bg-surface-card w-full p-8 rounded-[32px] border border-surface-border items-center premium-shadow">
               <View className="w-20 h-20 bg-brand-primary/10 rounded-full items-center justify-center mb-6">
-                <FontAwesome name="sitemap" size={32} color="rgb(var(--brand-primary))" />
+                <FontAwesome name="sitemap" size={32} className="text-brand-primary" />
               </View>
               
               {canEdit ? (
@@ -129,14 +129,14 @@ export default function PipelineList() {
                     onPress={() => setShowCreate(true)}
                     className="bg-brand-primary px-8 py-4 rounded-2xl mt-8 active:scale-95 transition-all"
                   >
-                    <Text className="text-white font-black uppercase tracking-widest text-xs">Create First Pipeline</Text>
+                    <Text className="text-brand-on-primary font-black uppercase tracking-widest text-xs">Create First Pipeline</Text>
                   </TouchableOpacity>
                 </>
               ) : (
                 <>
                   <View className="bg-state-info/10 border border-state-info/20 p-5 rounded-2xl w-full">
                     <View className="flex-row items-start">
-                      <FontAwesome name="info-circle" size={16} color="rgb(var(--state-info))" style={{ marginTop: 2 }} />
+                      <FontAwesome name="info-circle" size={16} className="text-state-info" style={{ marginTop: 2 }} />
                       <Text className="text-typography-main text-sm font-bold ml-3 flex-1 leading-5">
                         Either no pipelines exist, or they are hidden due to your permissions. Contact your Admin if this is an error.
                       </Text>
@@ -150,7 +150,7 @@ export default function PipelineList() {
           <>
             {!isAdmin && (
                <View className="bg-surface-overlay/30 px-4 py-2 rounded-lg mb-4 border border-surface-border flex-row items-center">
-                  <FontAwesome name="lock" size={10} color="rgb(var(--text-muted))" />
+                  <FontAwesome name="lock" size={10} className="text-typography-muted" />
                   <Text className="text-[10px] text-typography-muted ml-2 italic">
                     Showing only pipelines permitted for your current role.
                   </Text>
@@ -187,7 +187,7 @@ export default function PipelineList() {
                         onPress={() => handleDelete(p.id)}
                         className="flex-1 bg-state-danger py-3 rounded-xl items-center justify-center h-12"
                       >
-                        <Text className="text-white font-bold">Confirm Delete</Text>
+                        <Text className="text-brand-on-primary font-bold">Confirm Delete</Text>
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -212,13 +212,13 @@ export default function PipelineList() {
                         
                         <View className="flex-row items-center mt-3 gap-3">
                            <View className="flex-row items-center">
-                              <FontAwesome name="eye" size={10} color="rgb(var(--text-dim))" />
+                              <FontAwesome name="eye" size={10} className="text-typography-muted" />
                               <Text className="text-[10px] text-typography-muted ml-1.5">
                                  {p.visibility_permissions?.length || 0} Roles
                               </Text>
                            </View>
                            <View className="flex-row items-center">
-                              <FontAwesome name="lock" size={10} color="rgb(var(--text-dim))" />
+                              <FontAwesome name="lock" size={10} className="text-typography-muted" />
                               <Text className="text-[10px] text-typography-muted ml-1.5 capitalize">
                                  {p.task_visibility_mode === 'assigned_only' ? 'Private Tasks' : 'Public Tasks'}
                               </Text>
@@ -233,7 +233,7 @@ export default function PipelineList() {
                               onPress={(e: any) => { e.stopPropagation(); handleToggleDefault(p); }}
                               className={`p-2.5 rounded-xl border ${p.is_default ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
                             >
-                              <FontAwesome name="star" size={12} color={p.is_default ? 'white' : 'rgb(var(--text-dim))'} />
+                              <FontAwesome name="star" size={12} className={p.is_default ? 'text-brand-on-primary' : 'text-typography-muted'} />
                             </TouchableOpacity>
 
                             <TouchableOpacity
@@ -243,19 +243,19 @@ export default function PipelineList() {
                               }}
                               className="p-2.5 rounded-xl border border-surface-border bg-surface-background"
                             >
-                              <FontAwesome name="pencil" size={12} color="rgb(var(--text-dim))" />
+                              <FontAwesome name="pencil" size={12} className="text-typography-muted" />
                             </TouchableOpacity>
 
                             <TouchableOpacity
                               onPress={(e: any) => { e.stopPropagation(); setConfirmDelete(p.id); }}
                               className="p-2.5 rounded-xl border border-surface-border bg-surface-background"
                             >
-                              <FontAwesome name="trash-o" size={12} color="rgb(var(--text-dim))" />
+                              <FontAwesome name="trash-o" size={12} className="text-typography-muted" />
                             </TouchableOpacity>
                           </>
                         )}
                         <View className="ml-2">
-                          <FontAwesome name="chevron-right" size={12} color="rgb(var(--text-dim))" />
+                          <FontAwesome name="chevron-right" size={12} className="text-typography-muted" />
                         </View>
                       </View>
                     </View>
@@ -290,7 +290,7 @@ export default function PipelineList() {
                      </Text>
                   </View>
                   <View className={`w-12 h-7 rounded-full flex-row items-center px-1 ${isQuickCreate ? 'bg-brand-primary justify-end' : 'bg-surface-overlay justify-start'}`}>
-                     <View className="w-5 h-5 rounded-full bg-white shadow-sm" />
+                     <View className="w-5 h-5 rounded-full bg-brand-on-primary shadow-sm" />
                   </View>
                </TouchableOpacity>
 

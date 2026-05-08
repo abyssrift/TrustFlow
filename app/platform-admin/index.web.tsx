@@ -143,7 +143,7 @@ function CompanyDetailPanel({ companyId, onClose }: { companyId: string | null; 
 
           {loading || !detail ? (
             <View className="flex-1 items-center justify-center">
-              <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
+              <ActivityIndicator size="large" color="var(--color-primary)" />
             </View>
           ) : (
             <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
@@ -226,7 +226,7 @@ function CommandSection({ companies, liveCount, loading, totalUsers, totalTasks,
   if (loading) {
     return (
       <View className="flex-1 items-center justify-center">
-        <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
+        <ActivityIndicator size="large" color="var(--color-primary)" />
         <Text className="text-typography-muted mt-4 font-bold text-sm">Fetching platform data...</Text>
       </View>
     );
@@ -361,7 +361,7 @@ function TenantsSection({ companies, loading }: { companies: CompanyOverview[]; 
   if (loading) {
     return (
       <View className="flex-1 items-center justify-center">
-        <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
+        <ActivityIndicator size="large" color="var(--color-primary)" />
       </View>
     );
   }
@@ -493,7 +493,7 @@ function SignalsSection() {
             </TouchableOpacity>
           ))}
         </View>
-        {fetching && <ActivityIndicator size="small" color="rgb(var(--brand-primary))" />}
+        {fetching && <ActivityIndicator size="small" color="var(--color-primary)" />}
       </View>
 
       {/* Summary stat */}
@@ -543,7 +543,7 @@ function LiveSection() {
   if (loading) {
     return (
       <View className="flex-1 items-center justify-center">
-        <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
+        <ActivityIndicator size="large" color="var(--color-primary)" />
         <Text className="text-typography-muted mt-4 font-bold text-sm">Connecting...</Text>
       </View>
     );
@@ -686,7 +686,7 @@ export default function PlatformAdminWebScreen() {
   if (!initialized) {
     return (
       <View className="flex-1 bg-surface-background items-center justify-center">
-        <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
+        <ActivityIndicator size="large" color="var(--color-primary)" />
       </View>
     );
   }

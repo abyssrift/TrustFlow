@@ -3,7 +3,8 @@ import { View, Text, ScrollView, RefreshControl, ActivityIndicator, TouchableOpa
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { TaskDetailProvider, useTaskDetail } from '@/contexts/TaskDetailContext';
-import { TimerProvider } from '@/contexts/TimerContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import { getPrimaryColor, getDangerColor, getWarningColor } from '@/lib/themeColors';
 import TaskHeader from '@/components/task-detail/TaskHeader';
 import TimerPanel from '@/components/task-detail/TimerPanel';
 import TaskMetadata from '@/components/task-detail/TaskMetadata';
@@ -18,6 +19,7 @@ import ActivityLog from '@/components/task-detail/ActivityLog';
 
 function TaskDetailContentWeb() {
   const { data, loading, error, refresh } = useTaskDetail();
+  const { theme: activeTheme } = useTheme();
   const router = useRouter();
   const [refreshing, setRefreshing] = React.useState(false);
 
@@ -30,7 +32,7 @@ function TaskDetailContentWeb() {
   if (loading) {
     return (
       <View className="flex-1 bg-surface-background items-center justify-center">
-        <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
+        <ActivityIndicator size="large" color={getPrimaryColor(activeTheme)} />
         <Text className="text-typography-muted mt-6 font-black uppercase tracking-widest text-xs">Synchronizing Task Data...</Text>
       </View>
     );
@@ -40,7 +42,7 @@ function TaskDetailContentWeb() {
     return (
       <View className="flex-1 bg-surface-background items-center justify-center p-20">
         <View className="bg-state-danger/10 p-12 rounded-[40px] mb-8 border border-state-danger/20">
-          <FontAwesome name="lock" size={64} color="rgb(var(--state-danger))" />
+          <FontAwesome name="lock" size={64} color={getDangerColor(activeTheme)} />
         </View>
         <Text className="text-typography-main font-black text-4xl tracking-tighter">Security Clearance Required</Text>
         <Text className="text-typography-muted text-center mt-4 max-w-lg leading-7 font-medium">
@@ -60,7 +62,7 @@ function TaskDetailContentWeb() {
     return (
       <View className="flex-1 bg-surface-background items-center justify-center p-20">
         <View className="bg-state-warning/10 p-10 rounded-full mb-6">
-           <FontAwesome name="exclamation-triangle" size={48} color="rgb(var(--state-warning))" />
+           <FontAwesome name="exclamation-triangle" size={48} color={getWarningColor(activeTheme)} />
         </View>
         <Text className="text-typography-main font-black text-2xl tracking-tight">Telemetry Interrupted</Text>
         <Text className="text-typography-muted text-center mt-2 font-medium">{error}</Text>
@@ -82,7 +84,7 @@ function TaskDetailContentWeb() {
         <ScrollView
           className="flex-1"
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="rgb(var(--brand-primary))" />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={getPrimaryColor(activeTheme)} />}
         >
           <View className="p-10 max-w-[1000px] mx-auto w-full gap-8 pb-20">
             <TaskBriefPanel />

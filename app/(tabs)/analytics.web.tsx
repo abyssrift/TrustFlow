@@ -105,7 +105,7 @@ export default function PersonalAnalyticsWeb() {
 
         {loading ? (
           <View className="items-center py-24">
-            <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
+            <ActivityIndicator size="large" color="var(--color-primary)" />
             <Text className="text-typography-muted text-sm mt-4">Computing your metrics…</Text>
           </View>
         ) : (
@@ -159,12 +159,12 @@ export default function PersonalAnalyticsWeb() {
                 )}
 
                 {/* Period breakdown card */}
-                <View className="bg-surface-card border border-surface-border rounded-2xl p-6 flex-1">
+                <View className="bg-surface-card border-[var(--color-surface-border)] rounded-2xl p-6 flex-1">
                   <Text className="text-typography-main font-black text-lg mb-5">Period Breakdown</Text>
                   {[
-                    { label: 'Failed Tasks',   value: current?.failed_tasks ?? 0,   color: 'text-state-danger' },
-                    { label: 'Revisions',      value: current?.revision_count ?? 0, color: 'text-state-warning' },
-                    { label: 'On-Time Tasks',  value: current?.on_time_tasks ?? 0,  color: 'text-state-success' },
+                    { label: 'Failed Tasks',   value: current?.failed_tasks ?? 0,   color: '[var(--color-danger)]' },
+                    { label: 'Revisions',      value: current?.revision_count ?? 0, color: '[var(--color-warning)]' },
+                    { label: 'On-Time Tasks',  value: current?.on_time_tasks ?? 0,  color: '[var(--color-success)]' },
                   ].map((row, i, arr) => (
                     <View
                       key={row.label}

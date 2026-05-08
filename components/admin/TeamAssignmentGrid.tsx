@@ -90,7 +90,7 @@ export default function TeamAssignmentGrid() {
                 >
                   <View className="flex-row items-center mb-6">
                     <View 
-                      style={{ backgroundColor: team.color || 'rgb(var(--brand-primary))' }}
+                      style={{ backgroundColor: team.color || 'var(--color-primary)' }}
                       className="w-12 h-12 rounded-xl items-center justify-center border border-white/10"
                     >
                       <FontAwesome name="users" size={18} color="white" />
@@ -134,21 +134,21 @@ export default function TeamAssignmentGrid() {
                 value={name}
                 onChangeText={setName}
                 placeholder="Cluster Name"
-                placeholderTextColor="rgb(var(--text-muted))"
+                placeholderTextColor="var(--color-text-muted)"
                 className="bg-surface-background border border-surface-border rounded-xl px-6 py-5 text-typography-main font-black text-sm"
               />
               <TextInput
                 value={description}
                 onChangeText={setDescription}
                 placeholder="Cluster mandate & responsibilities..."
-                placeholderTextColor="rgb(var(--text-muted))"
+                placeholderTextColor="var(--color-text-muted)"
                 multiline
                 numberOfLines={3}
                 className="bg-surface-background border border-surface-border rounded-xl px-6 py-5 text-typography-main text-sm h-24"
               />
               
               <View className="flex-row flex-wrap gap-3 mt-2">
-                {['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'].map(c => (
+                {['var(--color-primary)', 'var(--color-success)', 'var(--color-warning)', 'var(--color-danger)', 'var(--color-success)', 'var(--color-primary)'].map(c => (
                   <TouchableOpacity 
                     key={c}
                     onPress={() => setColor(c)}

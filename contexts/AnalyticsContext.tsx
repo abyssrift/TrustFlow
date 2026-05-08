@@ -75,6 +75,7 @@ export interface TargetStatus {
 export interface PersonnelRow {
   user_id: string;
   full_name: string;
+  avatar_url: string | null;
   weight_points: number;
   active_seconds: number;
   active_hours: number;

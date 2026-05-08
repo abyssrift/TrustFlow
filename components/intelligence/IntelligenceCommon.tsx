@@ -1,16 +1,16 @@
 import { FontAwesome } from '@expo/vector-icons';
 import React from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 
-export const Picker = ({ items, selectedId, onSelect, labelKey = 'name', disabled = false }: any) => (
+export const IntelligencePicker = ({ items, selectedId, onSelect, labelKey = 'name', disabled = false }: any) => (
   <View className={`flex-row flex-wrap gap-2 ${disabled ? 'opacity-30' : ''}`}>
     {items.map((item: any) => (
       <TouchableOpacity
         key={item.id}
         disabled={disabled}
-        onPress={() => onSelect(item.id)}
-        className={`px-5 py-2.5 rounded-xl border transition-all ${selectedId === item.id ? 'bg-brand-primary/5 border-brand-primary' : 'border-surface-border hover:bg-surface-background'}`}
+        onPress={() => onSelect?.(item.id)}
+        className={`px-5 py-2.5 rounded-xl border ${selectedId === item.id ? 'bg-brand-primary/5 border-brand-primary' : 'border-surface-border bg-surface-card'}`}
       >
         <View className="flex-row items-center">
           {selectedId === item.id && <View className="w-1.5 h-1.5 rounded-full bg-brand-primary mr-3" />}
@@ -39,7 +39,7 @@ export const SectionToggle = ({ active, onSelect, hasPermission }: { active: str
         <TouchableOpacity
           key={s}
           onPress={() => onSelect(s.toLowerCase())}
-          className={`px-8 py-3 rounded-xl items-center flex-row ${active === s.toLowerCase() ? 'bg-brand-primary premium-shadow' : 'hover:bg-surface-background'}`}
+          className={`px-8 py-3 rounded-xl items-center flex-row ${active === s.toLowerCase() ? 'bg-brand-primary premium-shadow' : 'bg-surface-card'}`}
         >
           <View className="mr-3">
             <FontAwesome
@@ -74,54 +74,80 @@ export const KPIBoxWeb = ({ label, val, delta }: any) => (
 );
 
 const getStatusInfo = (target: any) => {
+  if (target.status === 'completed') {
+    return {
+      color: 'var(--color-success)',
+      bg: 'var(--color-success-dim)',
+      label: 'COMPLETED',
+      gradient: ['var(--color-success)', 'var(--color-primary)']
+    };
+  }
+  if (target.status === 'expired') {
+    return {
+      color: 'var(--color-text-dim)',
+      bg: 'rgba(var(--surface-border), 0.2)',
+      label: 'EXPIRED',
+      gradient: ['var(--color-text-dim)', 'var(--color-text-muted)']
+    };
+  }
+
   const deadline = target.target_deadline ? new Date(target.target_deadline) : null;
   const today = new Date();
   const daysUntil = deadline ? Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : null;
 
-  if (daysUntil !== null && daysUntil <= 1) {
+  if (daysUntil !== null && daysUntil <= 0) {
     return { 
-      color: 'rgb(var(--state-danger))', 
-      bg: 'rgba(var(--state-danger), 0.15)',
+      color: 'var(--color-danger)', 
+      bg: 'var(--color-danger-dim)',
+      label: 'EXPIRED', 
+      gradient: ['var(--color-danger)', 'var(--color-danger)'] 
+    };
+  } else if (daysUntil !== null && daysUntil <= 1) {
+    return { 
+      color: 'var(--color-danger)', 
+      bg: 'var(--color-danger-dim)',
       label: 'EXPIRES SOON', 
-      gradient: ['#EF4444', '#B91C1C'] 
+      gradient: ['var(--color-danger)', 'var(--color-danger)'] 
     };
   } else if (daysUntil !== null && daysUntil <= 3) {
     return { 
-      color: 'rgb(var(--state-warning))', 
-      bg: 'rgba(var(--state-warning), 0.15)',
+      color: 'var(--color-warning)', 
+      bg: 'var(--color-warning-dim)',
       label: 'EXPIRING SOON', 
-      gradient: ['#F59E0B', '#B45309'] 
+      gradient: ['var(--color-warning)', 'var(--color-accent)'] 
     };
   }
   return { 
-    color: 'rgb(var(--state-success))', 
-    bg: 'rgba(var(--state-success), 0.15)',
+    color: 'var(--color-success)', 
+    bg: 'var(--color-success-dim)',
     label: 'ON TRACK', 
-    gradient: ['#10B981', '#047857'] 
+    gradient: ['var(--color-success)', 'var(--color-primary)'] 
   };
 };
 
-export const CircularTargetCard = ({ target, onEdit }: any) => {
+export const CircularTargetCard = ({ target, onEdit, onClear }: any) => {
   const isVolume = target.target_type === 'volume';
   const progress = isVolume 
     ? Math.min(((target.current_count || 0) / (target.target_quantity || 1)) * 100, 100)
-    : 50;
+    : 50; // Performance goals currently static 50% for visual
   
   const status = getStatusInfo(target);
   const circumference = 2 * Math.PI * 35;
   const strokeDashoffset = circumference - (progress / 100) * circumference;
+  const isExpired = status.label === 'EXPIRED' && target.status === 'active';
+  const isMet = progress >= 100 && target.status === 'active';
 
   return (
-    <View className="w-[260px] bg-surface-card p-6 rounded-[32px] border border-surface-border premium-shadow hover:scale-[1.02] transition-all duration-300">
+    <View className={`w-[280px] bg-surface-card p-6 rounded-[32px] border border-surface-border premium-shadow transition-all duration-300 ${target.status !== 'active' ? 'opacity-70 grayscale-[0.5]' : 'hover:scale-[1.02]'}`}>
       {/* Header Info */}
       <View className="flex-row justify-between items-start mb-6">
         <View className="flex-1">
-          <Text className="text-typography-main font-black text-lg tracking-tighter mb-0.5">{target.stage?.name}</Text>
+          <Text className="text-typography-main font-black text-lg tracking-tighter mb-0.5" numberOfLines={1}>{target.stage?.name}</Text>
           <Text className="text-typography-muted text-[8px] font-black uppercase tracking-[0.2em]">
             {isVolume ? 'Volume Quota' : 'SLA Goal'}
           </Text>
         </View>
-        <View style={{ backgroundColor: status.bg, borderColor: status.color }} className="px-2 py-1 rounded-full border border-opacity-50">
+        <View style={{ backgroundColor: status.bg, borderColor: status.color }} className="px-2 py-1 rounded-full border border-opacity-30">
           <Text style={{ color: status.color }} className="text-[7px] font-black uppercase tracking-widest">
             {status.label}
           </Text>
@@ -145,7 +171,7 @@ export const CircularTargetCard = ({ target, onEdit }: any) => {
               cy={60} 
               r={35} 
               fill="none" 
-              stroke="rgb(var(--surface-background))" 
+              stroke="var(--color-background)" 
               strokeWidth={10} 
               strokeOpacity={0.5}
             />
@@ -210,49 +236,90 @@ export const CircularTargetCard = ({ target, onEdit }: any) => {
       <View className="mt-6 flex-row items-center justify-between">
         <View className="flex-row items-center">
           <View className="mr-1.5">
-            <FontAwesome name="calendar" size={9} color="rgb(var(--text-muted))" />
+            <FontAwesome name="calendar" size={9} color="var(--color-text-dim)" />
           </View>
           <Text className="text-typography-muted text-[9px] font-bold">
             {target.target_deadline ? new Date(target.target_deadline).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'No Limit'}
           </Text>
         </View>
         
-        <TouchableOpacity
-          onPress={onEdit}
-          className="bg-brand-primary/10 px-3 py-1.5 rounded-lg border border-brand-primary/20 hover:bg-brand-primary/20 transition-all"
-        >
-          <View className="flex-row items-center">
-            <FontAwesome name="pencil" size={9} color="rgb(var(--brand-primary))" />
-            <Text className="text-brand-primary text-[9px] font-black uppercase tracking-widest ml-1.5">Tune</Text>
-          </View>
-        </TouchableOpacity>
+        <View className="flex-row gap-2">
+          {target.status === 'active' && (
+            <>
+              {isMet ? (
+                <TouchableOpacity
+                  onPress={() => onClear('completed')}
+                  className="bg-state-success px-4 py-1.5 rounded-lg premium-shadow hover:scale-105 transition-all"
+                >
+                  <View className="flex-row items-center">
+                    <FontAwesome name="check" size={9} color="var(--color-on-primary)" />
+                    <Text className="text-brand-on-primary text-[9px] font-black uppercase tracking-widest ml-1.5">Complete</Text>
+                  </View>
+                </TouchableOpacity>
+              ) : isExpired ? (
+                <TouchableOpacity
+                  onPress={() => onClear('expired')}
+                  className="bg-state-danger px-4 py-1.5 rounded-lg premium-shadow hover:scale-105 transition-all"
+                >
+                  <View className="flex-row items-center">
+                    <FontAwesome name="times" size={9} color="var(--color-on-primary)" />
+                    <Text className="text-brand-on-primary text-[9px] font-black uppercase tracking-widest ml-1.5">Clear</Text>
+                  </View>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  onPress={onEdit}
+                  className="bg-brand-primary/10 px-3 py-1.5 rounded-lg border border-brand-primary/20 hover:bg-brand-primary/20 transition-all"
+                >
+                  <View className="flex-row items-center">
+                    <FontAwesome name="pencil" size={9} color="var(--color-primary)" />
+                    <Text className="text-brand-primary text-[9px] font-black uppercase tracking-widest ml-1.5">Tune</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+            </>
+          )}
+          {target.status !== 'active' && (
+            <View className="bg-surface-background/50 px-3 py-1.5 rounded-lg border border-surface-border/30">
+               <Text className="text-typography-muted text-[8px] font-black uppercase tracking-widest">Archived</Text>
+            </View>
+          )}
+        </View>
       </View>
     </View>
   );
 };
 
-export const CircularTargetCardMobile = ({ target, onEdit }: any) => {
+export const CircularTargetCardMobile = ({ target, onEdit, onAction }: any) => {
+  const isCompleted = target.status === 'completed';
   const isVolume = target.target_type === 'volume';
   const progress = isVolume 
     ? Math.min(((target.current_count || 0) / (target.target_quantity || 1)) * 100, 100)
-    : 50;
+    : Math.min(((target.active_seconds || 0) / (target.target_active_seconds || 1)) * 100, 100);
   
   const status = getStatusInfo(target);
   const circumference = 2 * Math.PI * 35;
   const strokeDashoffset = circumference - (progress / 100) * circumference;
+  
+  const isExpired = target.status === 'expired' || (target.status === 'active' && status.label === 'EXPIRED');
+  const isMet = progress >= 100 && target.status === 'active';
+
+  // Reward/Punishment Styles
+  const stateColor = isCompleted ? 'rgb(var(--state-success))' : isExpired ? 'rgb(var(--state-danger))' : 'rgb(var(--brand-primary))';
+  const stateLabel = isCompleted ? 'ACHIEVED' : isExpired ? 'MISSED' : 'ACTIVE';
 
   return (
-    <View className="bg-surface-card p-6 rounded-3xl border border-surface-border mb-6 premium-shadow">
+    <View className={`bg-surface-card p-6 rounded-3xl border ${isCompleted ? 'border-state-success' : isExpired ? 'border-state-danger' : 'border-surface-border'} mb-6 premium-shadow ${target.status !== 'active' && !isCompleted && !isExpired ? 'opacity-70 grayscale-[0.5]' : ''}`}>
       <View className="flex-row justify-between items-start mb-6">
         <View className="flex-1">
-          <Text className="text-typography-main font-black text-lg mb-1">{target.stage?.name}</Text>
+          <Text className="text-typography-main font-black text-lg mb-1">{target.stage?.name || 'Global Objective'}</Text>
           <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest">
             {isVolume ? 'Volume Quota' : 'SLA Performance Goal'}
           </Text>
         </View>
-        <View style={{ backgroundColor: status.bg, borderColor: status.color }} className="px-2.5 py-1 rounded-full border border-opacity-50">
-          <Text style={{ color: status.color }} className="text-[7px] font-black uppercase tracking-widest">
-            {status.label}
+        <View style={{ backgroundColor: isCompleted ? 'rgba(var(--state-success), 0.1)' : isExpired ? 'rgba(var(--state-danger), 0.1)' : status.bg, borderColor: stateColor }} className="px-2.5 py-1 rounded-full border border-opacity-50">
+          <Text style={{ color: stateColor }} className="text-[7px] font-black uppercase tracking-widest">
+            {stateLabel}
           </Text>
         </View>
       </View>
@@ -265,25 +332,29 @@ export const CircularTargetCardMobile = ({ target, onEdit }: any) => {
               cy={50} 
               r={35} 
               fill="none" 
-              stroke="rgb(var(--surface-background))" 
+              stroke="rgba(var(--surface-border), 0.3)" 
               strokeWidth={8} 
-              strokeOpacity={0.3}
             />
             <Circle
               cx={50}
               cy={50}
               r={35}
               fill="none"
-              stroke={status.color}
+              stroke={stateColor}
               strokeWidth={8}
               strokeDasharray={circumference}
               strokeDashoffset={strokeDashoffset}
               strokeLinecap="round"
-              style={{ transform: 'rotate(-90deg)', transformOrigin: '50px 50px' }}
+              transform="rotate(-90 50 50)"
             />
           </Svg>
           <View className="items-center z-10">
-            <Text className="text-typography-main text-xl font-black">{Math.round(progress)}%</Text>
+            <Text 
+              style={{ color: stateColor }}
+              className="text-xl font-black"
+            >
+              {Math.round(progress)}%
+            </Text>
           </View>
         </View>
 
@@ -311,21 +382,96 @@ export const CircularTargetCardMobile = ({ target, onEdit }: any) => {
           </View>
 
           <View className="flex-row items-center mb-4">
-            <FontAwesome name="calendar" size={8} color="rgb(var(--text-muted))" />
+            <FontAwesome name="calendar" size={8} color="var(--color-text-dim)" />
             <Text className="text-typography-muted text-[8px] font-bold ml-1.5">
               {target.target_deadline ? new Date(target.target_deadline).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'No Limit'}
             </Text>
           </View>
 
-          <TouchableOpacity
-            onPress={onEdit}
-            className="flex-row items-center justify-center bg-brand-primary/10 py-2.5 rounded-xl border border-brand-primary/20"
-          >
-            <FontAwesome name="pencil" size={10} color="rgb(var(--brand-primary))" />
-            <Text className="text-brand-primary text-[9px] font-black uppercase tracking-widest ml-2">Edit</Text>
-          </TouchableOpacity>
+          {target.status === 'active' ? (
+            <View className="flex-row gap-2">
+              {isMet ? (
+                <TouchableOpacity
+                  onPress={() => onAction(target.id, 'completed')}
+                  className="flex-1 flex-row items-center justify-center bg-state-success py-2.5 rounded-xl premium-shadow"
+                >
+                  <FontAwesome name="check" size={10} color="white" />
+                  <Text className="text-white text-[9px] font-black uppercase tracking-widest ml-2">Complete</Text>
+                </TouchableOpacity>
+              ) : isExpired ? (
+                <TouchableOpacity
+                  onPress={() => onAction(target.id, 'expired')}
+                  className="flex-1 flex-row items-center justify-center bg-state-danger py-2.5 rounded-xl premium-shadow"
+                >
+                  <FontAwesome name="times" size={10} color="white" />
+                  <Text className="text-white text-[9px] font-black uppercase tracking-widest ml-2">Clear</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  onPress={onEdit}
+                  className="flex-1 flex-row items-center justify-center bg-brand-primary/10 py-2.5 rounded-xl border border-brand-primary/20"
+                >
+                  <FontAwesome name="pencil" size={10} color="rgb(var(--brand-primary))" />
+                  <Text className="text-brand-primary text-[9px] font-black uppercase tracking-widest ml-2">Edit</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : (
+            <TouchableOpacity 
+              onPress={() => onAction(target.id, 'clear')}
+              className="bg-surface-background/50 py-2.5 rounded-xl border border-surface-border/30 items-center"
+            >
+              <Text className="text-typography-muted text-[8px] font-black uppercase tracking-widest">Delete Record</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
+    </View>
+  );
+};
+export const CompletionVelocityMobile = ({ data }: { data: { date: string, count: number }[] }) => {
+  const max = Math.max(...data.map(d => d.count), 5);
+  const chartHeight = 120;
+  const barWidth = 30;
+  const gap = 15;
+
+  return (
+    <View className="bg-surface-card p-6 rounded-3xl border border-surface-border mb-8 premium-shadow">
+      <View className="flex-row items-center justify-between mb-6">
+        <View>
+          <Text className="text-typography-main font-black text-lg">Velocity Trace</Text>
+          <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest">Completed Objectives / Week</Text>
+        </View>
+        <View className="w-8 h-8 rounded-full bg-brand-primary/10 items-center justify-center">
+          <FontAwesome name="bolt" size={12} color="rgb(var(--brand-primary))" />
+        </View>
+      </View>
+
+      {data.length === 0 ? (
+        <View className="h-32 items-center justify-center bg-surface-background/50 rounded-2xl border border-dashed border-surface-border">
+          <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest">No Recent Deployments</Text>
+        </View>
+      ) : (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="h-40">
+          <View style={{ height: chartHeight + 40 }} className="flex-row items-end px-2">
+            {data.map((d, i) => {
+              const h = (d.count / max) * chartHeight;
+              return (
+                <View key={i} style={{ width: barWidth, marginRight: gap }} className="items-center">
+                  <View 
+                    style={{ height: h, width: barWidth }} 
+                    className="bg-brand-primary rounded-t-lg premium-shadow relative overflow-hidden"
+                  >
+                    <View className="absolute inset-0 bg-white/10" />
+                  </View>
+                  <Text className="text-typography-main font-black text-[10px] mt-2">{d.count}</Text>
+                  <Text className="text-typography-muted text-[7px] font-bold uppercase mt-0.5">{d.date}</Text>
+                </View>
+              );
+            })}
+          </View>
+        </ScrollView>
+      )}
     </View>
   );
 };

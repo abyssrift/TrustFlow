@@ -32,7 +32,7 @@ export default function ChildPipelinesPanel() {
       {/* Header */}
       <View className="flex-row items-center mb-3 gap-2">
         <View className="bg-brand-primary/10 p-1.5 rounded-lg border border-brand-primary/20">
-          <FontAwesome name="code-fork" size={11} color="rgb(var(--brand-primary))" />
+          <FontAwesome name="code-fork" size={11} color="var(--color-primary)" />
         </View>
         <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em]">
           Spawned Sub-Pipelines ({data.child_tasks.length})
@@ -86,7 +86,7 @@ export default function ChildPipelinesPanel() {
                 </Text>
               </View>
 
-              <FontAwesome name="chevron-right" size={10} color="rgb(var(--text-muted))" style={{ marginLeft: 8 }} />
+              <FontAwesome name="chevron-right" size={10} color="var(--color-text-muted)" style={{ marginLeft: 8 }} />
             </TouchableOpacity>
           );
         })}

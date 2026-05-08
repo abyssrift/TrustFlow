@@ -327,12 +327,12 @@ export default function CommentsSection() {
           {/* Reply indicator */}
           {replyComment && (
             <View className="flex-row items-center bg-surface-background rounded-lg px-3 py-2 mb-2 border border-surface-border/50">
-              <FontAwesome name="reply" size={9} color="#6366f1" />
+              <FontAwesome name="reply" size={9} color="var(--color-primary)" />
               <Text className="text-typography-muted text-[10px] ml-2 flex-1" numberOfLines={1}>
                 Replying to {replyComment.author?.full_name}: {replyComment.content}
               </Text>
               <TouchableOpacity onPress={() => setReplyTo(null)}>
-                <FontAwesome name="times" size={10} color="#64748b" />
+                <FontAwesome name="times" size={10} color="var(--color-text-muted)" />
               </TouchableOpacity>
             </View>
           )}
@@ -372,7 +372,7 @@ export default function CommentsSection() {
               onChangeText={handleInputChange}
               onSelectionChange={(e) => handleSelectionChange(e.nativeEvent.selection.start)}
               placeholder={replyTo ? 'Write a reply...' : 'Write a comment...'}
-              placeholderTextColor="#64748b"
+              placeholderTextColor="var(--color-text-muted)"
               multiline
               className="flex-1 bg-surface-background border border-surface-border rounded-xl px-3 py-2.5 text-typography-main text-sm max-h-[100px]"
             />
@@ -382,9 +382,9 @@ export default function CommentsSection() {
               className={`bg-brand-primary p-2.5 rounded-xl ${(!input.trim() || sending) ? 'opacity-50' : ''}`}
             >
               {sending ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color="white" />
               ) : (
-                <FontAwesome name="send" size={14} color="#fff" />
+                <FontAwesome name="paper-plane" size={14} color="white" />
               )}
             </TouchableOpacity>
           </View>

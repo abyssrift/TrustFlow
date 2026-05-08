@@ -8,16 +8,16 @@ type IconSpec = { name: React.ComponentProps<typeof FontAwesome>['name']; color:
 
 function getIconSpec(type: string): IconSpec {
   switch (type) {
-    case 'task.assigned':       return { name: 'user-plus',         color: 'rgb(var(--brand-primary))' };
-    case 'task.mentioned':      return { name: 'at',                color: 'rgb(var(--state-warning))' };
-    case 'task.commented':      return { name: 'comment',           color: 'rgb(var(--text-muted))' };
-    case 'task.created':        return { name: 'plus-square',       color: 'rgb(var(--state-success))' };
-    case 'task.completed':      return { name: 'check-circle',      color: 'rgb(var(--state-success))' };
-    case 'task.stage_transition': return { name: 'exchange',        color: 'rgb(var(--brand-primary))' };
-    case 'task.status_changed': return { name: 'refresh',           color: 'rgb(var(--brand-primary))' };
-    case 'task.due_soon':       return { name: 'clock-o',           color: 'rgb(var(--state-warning))' };
-    case 'task.overdue':        return { name: 'exclamation-circle',color: 'rgb(var(--state-danger))' };
-    default:                    return { name: 'bell',              color: 'rgb(var(--brand-primary))' };
+    case 'task.assigned':       return { name: 'user-plus',         color: 'var(--color-primary)' };
+    case 'task.mentioned':      return { name: 'at',                color: 'var(--color-warning)' };
+    case 'task.commented':      return { name: 'comment',           color: 'var(--color-text-muted)' };
+    case 'task.created':        return { name: 'plus-square',       color: 'var(--color-success)' };
+    case 'task.completed':      return { name: 'check-circle',      color: 'var(--color-success)' };
+    case 'task.stage_transition': return { name: 'exchange',        color: 'var(--color-primary)' };
+    case 'task.status_changed': return { name: 'refresh',           color: 'var(--color-primary)' };
+    case 'task.due_soon':       return { name: 'clock-o',           color: 'var(--color-warning)' };
+    case 'task.overdue':        return { name: 'exclamation-circle',color: 'var(--color-danger)' };
+    default:                    return { name: 'bell',              color: 'var(--color-primary)' };
   }
 }
 
@@ -173,12 +173,12 @@ export default function ModalScreenWeb() {
         <View className="flex-1 min-h-[400px]">
           {loading && notifications.length === 0 ? (
             <View className="flex-1 items-center justify-center">
-              <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
+              <ActivityIndicator size="large" color="var(--color-primary)" />
             </View>
           ) : notifications.length === 0 ? (
             <View className="flex-1 items-center justify-center px-10 py-20">
               <View className="bg-brand-primary/10 p-8 rounded-[32px] mb-8 border border-brand-primary/20">
-                <FontAwesome name="bell-o" size={48} color="rgb(var(--brand-primary))" />
+                <FontAwesome name="bell-o" size={48} color="var(--color-primary)" />
               </View>
               <Text className="text-typography-main font-black text-2xl tracking-tight text-center mb-3">
                 All Clear

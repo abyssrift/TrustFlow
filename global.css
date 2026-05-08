@@ -19,6 +19,7 @@ html, body, #root {
   --brand-secondary: 168, 85, 247; /* purple-500 */
   --brand-accent: 251, 191, 36;    /* amber-400 */
   --brand-danger: 239, 68, 68;     /* red-500 */
+  --brand-on-primary: 255, 255, 255;
 
   /* Surface Tokens */
   --surface-background: 8, 13, 24;  
@@ -51,26 +52,32 @@ html, body, #root {
   /* Layout Tokens */
   --spacing-scale: 1;
 
-  /* Semantic Color Strings (Ready for JS props) */
-  --color-primary: rgb(99, 102, 241);
-  --color-primary-dim: rgba(99, 102, 241, 0.1);
-  --color-accent: rgb(251, 191, 36);
-  --color-accent-dim: rgba(251, 191, 36, 0.1);
-  --color-accent-muted: rgba(251, 191, 36, 0.4);
-  --color-success: rgb(34, 197, 94);
-  --color-success-dim: rgba(34, 197, 94, 0.1);
-  --color-warning: rgb(251, 191, 36);
-  --color-warning-dim: rgba(251, 191, 36, 0.1);
-  --color-danger: rgb(239, 68, 68);
-  --color-danger-dim: rgba(239, 68, 68, 0.1);
-  --color-info: rgb(59, 130, 246);
-  --color-text-main: rgb(248, 250, 252);
-  --color-text-muted: rgb(148, 163, 184);
-  --color-text-dim: rgb(100, 116, 139);
-  --color-border: rgb(51, 65, 85);
-  --color-background: rgb(8, 13, 24);
-  --color-card: rgb(15, 23, 42);
-  --color-overlay: rgb(30, 41, 59);
+  /* Semantic Color Strings (Theme-Reactive via vars) */
+  --color-primary: rgb(var(--brand-primary));
+  --color-primary-dim: rgba(var(--brand-primary), 0.1);
+  --color-accent: rgb(var(--brand-accent));
+  --color-accent-dim: rgba(var(--brand-accent), 0.1);
+  --color-accent-muted: rgba(var(--brand-accent), 0.4);
+  
+  --color-success: rgb(var(--state-success));
+  --color-success-dim: rgba(var(--state-success), 0.1);
+  --color-warning: rgb(var(--state-warning));
+  --color-warning-dim: rgba(var(--state-warning), 0.1);
+  --color-danger: rgb(var(--state-danger));
+  --color-danger-dim: rgba(var(--state-danger), 0.1);
+  --color-info: rgb(var(--state-info));
+  --color-info-dim: rgba(var(--state-info), 0.1);
+
+  --color-text-main: rgb(var(--text-main));
+  --color-text-muted: rgb(var(--text-muted));
+  --color-text-dim: rgb(var(--text-dim));
+  --color-border: rgb(var(--surface-border));
+  --color-background: rgb(var(--surface-background));
+  --color-card: rgb(var(--surface-card));
+  --color-overlay: rgb(var(--surface-overlay));
+  --color-on-primary: rgb(var(--brand-on-primary));
+  
+  --color-chart-grid: rgba(var(--surface-border), 0.3);
 }
 
 /* --- THEME OVERRIDES --- */
@@ -82,25 +89,12 @@ html, body, #root {
   --surface-background: 6, 9, 7;
   --surface-card: 10, 15, 12;
   --surface-border: 22, 101, 52;
+  --surface-overlay: 22, 101, 52;
   --text-main: 236, 253, 245;
   --text-muted: 110, 231, 183;
   --text-dim: 52, 211, 153;
-
-  --color-primary: rgb(16, 185, 129);
-  --color-primary-dim: rgba(16, 185, 129, 0.1);
-  --color-accent: rgb(190, 242, 100);
-  --color-accent-dim: rgba(190, 242, 100, 0.1);
-  --color-accent-muted: rgba(190, 242, 100, 0.4);
-  --color-text-main: rgb(236, 253, 245);
-  --color-text-muted: rgb(110, 231, 183);
-  --color-text-dim: rgb(52, 211, 153);
-  --color-border: rgb(22, 101, 52);
-  --color-background: rgb(6, 9, 7);
-  --color-card: rgb(10, 15, 12);
-  --color-overlay: rgb(22, 101, 52);
-  --color-success-dim: rgba(16, 185, 129, 0.1);
-  --color-warning-dim: rgba(190, 242, 100, 0.1);
-  --color-danger-dim: rgba(239, 68, 68, 0.1);
+  
+  /* Status colors also shift to emerald-adjacent if desired, or keep global */
 }
 
 :root[data-theme='amber'] {
@@ -110,25 +104,10 @@ html, body, #root {
   --surface-background: 12, 10, 9;
   --surface-card: 28, 25, 23;
   --surface-border: 120, 113, 108;
+  --surface-overlay: 41, 37, 36;
   --text-main: 255, 251, 235;
   --text-muted: 252, 211, 77;
   --text-dim: 217, 119, 6;
-
-  --color-primary: rgb(245, 158, 11);
-  --color-primary-dim: rgba(245, 158, 11, 0.1);
-  --color-accent: rgb(14, 165, 233);
-  --color-accent-dim: rgba(14, 165, 233, 0.1);
-  --color-accent-muted: rgba(14, 165, 233, 0.4);
-  --color-text-main: rgb(255, 251, 235);
-  --color-text-muted: rgb(252, 211, 77);
-  --color-text-dim: rgb(217, 119, 6);
-  --color-border: rgb(120, 113, 108);
-  --color-background: rgb(12, 10, 9);
-  --color-card: rgb(28, 25, 23);
-  --color-overlay: rgb(41, 37, 36);
-  --color-success-dim: rgba(245, 158, 11, 0.1);
-  --color-warning-dim: rgba(251, 191, 36, 0.1);
-  --color-danger-dim: rgba(239, 68, 68, 0.1);
 }
 
 :root[data-theme='amethyst'] {
@@ -138,25 +117,38 @@ html, body, #root {
   --surface-background: 10, 10, 12;
   --surface-card: 18, 18, 22;
   --surface-border: 107, 33, 168;
+  --surface-overlay: 30, 30, 38;
   --text-main: 250, 245, 255;
   --text-muted: 216, 180, 254;
   --text-dim: 168, 85, 247;
+}
 
-  --color-primary: rgb(168, 85, 247);
-  --color-primary-dim: rgba(168, 85, 247, 0.1);
-  --color-accent: rgb(34, 211, 238);
-  --color-accent-dim: rgba(34, 211, 238, 0.1);
-  --color-accent-muted: rgba(34, 211, 238, 0.4);
-  --color-text-main: rgb(250, 245, 255);
-  --color-text-muted: rgb(216, 180, 254);
-  --color-text-dim: rgb(168, 85, 247);
-  --color-border: rgb(107, 33, 168);
-  --color-background: rgb(10, 10, 12);
-  --color-card: rgb(18, 18, 22);
-  --color-overlay: rgb(30, 30, 38);
-  --color-success-dim: rgba(168, 85, 247, 0.1);
-  --color-warning-dim: rgba(251, 191, 36, 0.1);
-  --color-danger-dim: rgba(239, 68, 68, 0.1);
+:root[data-theme='light'] {
+  --brand-primary: 79, 70, 229;
+  --brand-secondary: 124, 58, 237;
+  --brand-accent: 245, 158, 11;
+  --surface-background: 248, 250, 252;
+  --surface-card: 255, 255, 255;
+  --surface-border: 226, 232, 240;
+  --surface-overlay: 241, 245, 249;
+  --text-main: 15, 23, 42;
+  --text-muted: 71, 85, 105;
+  --text-dim: 100, 116, 139;
+  --brand-on-primary: 255, 255, 255;
+}
+
+:root[data-theme='dark'] {
+  --brand-primary: 163, 163, 163;
+  --brand-secondary: 115, 115, 115;
+  --brand-accent: 59, 130, 246;
+  --surface-background: 10, 10, 10;
+  --surface-card: 23, 23, 23;
+  --surface-border: 38, 38, 38;
+  --surface-overlay: 38, 38, 38;
+  --text-main: 250, 250, 250;
+  --text-muted: 163, 163, 163;
+  --text-dim: 115, 115, 115;
+  --brand-on-primary: 15, 23, 42;
 }
 
 /* --- DENSITY OVERRIDES --- */
@@ -186,7 +178,7 @@ html, body, #root {
   }
 
   .text-glow {
-    text-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+    text-shadow: 0 0 10px rgba(var(--brand-primary), 0.5);
   }
 }
 

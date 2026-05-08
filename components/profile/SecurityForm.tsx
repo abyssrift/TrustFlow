@@ -60,7 +60,7 @@ export default function SecurityForm() {
           keyboardType="email-address"
           className="h-12 rounded-lg border border-surface-border bg-surface-background px-4 text-sm font-bold text-typography-main focus:border-brand-primary"
           placeholder="New email address"
-          placeholderTextColor="rgb(var(--text-dim))"
+          placeholderTextColor="var(--color-text-dim)"
         />
         <Pressable
           onPress={handleUpdateEmail}
@@ -82,7 +82,7 @@ export default function SecurityForm() {
           secureTextEntry
           className="h-12 rounded-lg border border-surface-border bg-surface-background px-4 text-sm font-bold text-typography-main focus:border-brand-primary"
           placeholder="New password (min 6 chars)"
-          placeholderTextColor="rgb(var(--text-dim))"
+          placeholderTextColor="var(--color-text-dim)"
         />
         <TextInput
           value={confirmPassword}
@@ -90,7 +90,7 @@ export default function SecurityForm() {
           secureTextEntry
           className="h-12 rounded-lg border border-surface-border bg-surface-background px-4 text-sm font-bold text-typography-main focus:border-brand-primary"
           placeholder="Confirm new password"
-          placeholderTextColor="rgb(var(--text-dim))"
+          placeholderTextColor="var(--color-text-dim)"
         />
         <Pressable
           onPress={handleUpdatePassword}
