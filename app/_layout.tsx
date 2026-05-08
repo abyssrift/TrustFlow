@@ -112,36 +112,63 @@ function RootLayoutNav() {
   }, [segments, initialized, session, profile?.company_id]);
 
   useEffect(() => {
-    if (!initialized) return;
+    if (!initialized) {
+      if (Platform.OS !== 'web') console.log('[RootLayoutNav] [Native] Waiting for initialized=true...');
+      return;
+    }
 
     const inAuthGroup = segments[0] === '(auth)';
     const inOnboarding = segments[0] === 'onboarding';
 
+    if (Platform.OS === 'web') {
+      // Original Web Logic - preserved exactly as requested
+      if (!session && !inAuthGroup) {
+        router.replace('/(auth)/login');
+      } else if (session) {
+        if (!profile?.company_id && !inOnboarding) {
+          router.replace('/onboarding');
+        } else if (profile?.company_id && (inAuthGroup || inOnboarding)) {
+          router.replace('/(tabs)');
+        }
+      }
+      return;
+    }
+
+    // Mobile/Native Hardened Logic
+    console.log('[RootLayoutNav] [Native] Auth State:', { 
+      hasSession: !!session, 
+      hasProfile: !!profile, 
+      companyId: profile?.company_id,
+      segments 
+    });
+
     if (!session && !inAuthGroup) {
-      // Redirect to the login page.
+      console.log('[RootLayoutNav] [Native] Redirecting to login');
       router.replace('/(auth)/login');
     } else if (session) {
+      // If we have a session but profile is loading, we might show onboarding temporarily
+      // or wait for the profile to update.
       if (!profile?.company_id && !inOnboarding) {
+        console.log('[RootLayoutNav] [Native] No company, redirecting to onboarding');
         router.replace('/onboarding');
       } else if (profile?.company_id && (inAuthGroup || inOnboarding)) {
-        // Restore saved route if available, otherwise go to dashboard
+        console.log('[RootLayoutNav] [Native] Ready! Restoring route or going to tabs');
         const restoreSavedRoute = async () => {
           try {
             const savedRoute = await AsyncStorage.getItem('@TrustFlow_current_route');
             if (savedRoute && !savedRoute.startsWith('/(auth)') && !savedRoute.startsWith('/onboarding')) {
-              router.replace(savedRoute);
+              router.replace(savedRoute as any);
             } else {
               router.replace('/(tabs)');
             }
           } catch (e) {
-            console.warn('Failed to restore route:', e);
             router.replace('/(tabs)');
           }
         };
         restoreSavedRoute();
       }
     }
-  }, [session, profile, initialized, segments]);
+  }, [session, profile?.company_id, initialized, segments]);
 
   return (
     <AppThemeProvider>

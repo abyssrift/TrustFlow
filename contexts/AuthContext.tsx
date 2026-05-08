@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
+import { Platform } from 'react-native';
 import { supabase } from '../lib/supabase';
 
 type AuthContextType = {
@@ -41,40 +42,85 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [initialized, setInitialized] = useState<boolean>(false);
 
   useEffect(() => {
-    // 1. Initial Load
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        Promise.all([fetchPermissions(), fetchRoles(), fetchProfile(session.user.id)]);
-      } else {
-        setInitialized(true);
-      }
-    });
+    let mounted = true;
 
-    // 2. Listen for Auth State Changes
+    const initializeAuth = async () => {
+      try {
+        if (Platform.OS !== 'web') {
+          console.log('[AuthContext] [Native] Initializing session check...');
+        }
+        
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('[AuthContext] Session error:', error);
+          if (mounted) setInitialized(true);
+          return;
+        }
+
+        if (mounted) {
+          setSession(session);
+          setUser(session?.user ?? null);
+          
+          // CRITICAL: We set initialized=true immediately so the RootLayout can redirect.
+          // Background data can load while the user is being navigated.
+          setInitialized(true);
+
+          if (session?.user) {
+            console.log('[AuthContext] [Native] Session found, loading metadata in background');
+            Promise.all([
+              fetchPermissions(),
+              fetchRoles(),
+              fetchProfile(session.user.id)
+            ]);
+          }
+        }
+      } catch (err) {
+        console.error('[AuthContext] Initialization crash:', err);
+        if (mounted) setInitialized(true);
+      }
+    };
+
+    initializeAuth();
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          Promise.all([fetchPermissions(), fetchRoles(), fetchProfile(session.user.id)]);
-        } else {
-          setProfile(null);
-          setPermissions([]);
-          setRoleIds([]);
+      async (event, session) => {
+        if (Platform.OS !== 'web') {
+          console.log('[AuthContext] [Native] onAuthStateChange:', event, !!session);
+        }
+        
+        if (mounted) {
+          setSession(session);
+          setUser(session?.user ?? null);
+          
+          if (session?.user) {
+            // Trigger background fetches
+            Promise.all([
+              fetchPermissions(),
+              fetchRoles(),
+              fetchProfile(session.user.id)
+            ]);
+          } else {
+            setProfile(null);
+            setPermissions([]);
+            setRoleIds([]);
+          }
+          
+          // Ensure initialized is true after any auth state change
           setInitialized(true);
         }
       }
     );
 
     return () => {
+      mounted = false;
       subscription.unsubscribe();
     };
   }, []);
 
   const fetchProfile = async (userId: string) => {
     try {
+      if (Platform.OS !== 'web') console.log('[AuthContext] [Native] Fetching profile...');
       const { data, error } = await supabase
         .from('users')
         .select('*')
@@ -83,11 +129,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       if (error) {
         if (error.code === 'PGRST116') {
-          console.warn('Profile missing for user, attempting repair...');
-          const { data: repairData, error: repairError } = await supabase.rpc('rpc_repair_profile');
-          if (repairError) {
-            console.error('Failed to repair profile:', repairError);
-          } else {
+          console.warn('[AuthContext] Profile missing, repairing...');
+          const { error: repairError } = await supabase.rpc('rpc_repair_profile');
+          if (!repairError) {
             const { data: retryData } = await supabase
               .from('users')
               .select('*')
@@ -99,12 +143,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             }
           }
         }
-        console.error('Error fetching profile:', error);
+        console.error('[AuthContext] Profile error:', error);
         return;
       }
       setProfile(data);
     } catch (err) {
-      console.error('Unexpected error fetching profile:', err);
+      console.error('[AuthContext] Unexpected profile error:', err);
     }
   };
 
@@ -118,15 +162,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       const { data, error } = await supabase.rpc('get_my_permissions');
       if (error) {
-        console.error('Error fetching permissions:', error);
+        console.error('[AuthContext] Permissions error:', error);
         return;
       }
       const perms = (data as { key: string }[]).map(p => p.key);
       setPermissions(perms);
     } catch (err) {
-      console.error('Unexpected error fetching permissions:', err);
-    } finally {
-      setInitialized(true);
+      console.error('[AuthContext] Unexpected permissions error:', err);
     }
   };
 
@@ -134,13 +176,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       const { data, error } = await supabase.rpc('get_my_roles');
       if (error) {
-        console.error('Error fetching roles:', error);
+        console.error('[AuthContext] Roles error:', error);
         return;
       }
       const ids = (data as { id: string }[]).map(r => r.id);
       setRoleIds(ids);
     } catch (err) {
-      console.error('Unexpected error fetching roles:', err);
+      console.error('[AuthContext] Unexpected roles error:', err);
     }
   };
 
@@ -150,24 +192,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signOut = async () => {
     try {
-      console.log('Initiating sign out...');
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        console.error('Error during Supabase sign out:', error);
-      }
+      if (Platform.OS !== 'web') console.log('[AuthContext] [Native] Sign out initiated');
+      await supabase.auth.signOut();
       setSession(null);
       setUser(null);
       setProfile(null);
       setPermissions([]);
       setRoleIds([]);
-      console.log('Sign out complete, state cleared.');
+      setInitialized(true);
     } catch (err) {
-      console.error('Unexpected error during sign out:', err);
+      console.error('[AuthContext] Sign out error:', err);
       setSession(null);
       setUser(null);
       setProfile(null);
       setPermissions([]);
       setRoleIds([]);
+      setInitialized(true);
     }
   };
 

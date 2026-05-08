@@ -94,6 +94,16 @@ export interface PersonnelRow {
   activity_count: number;
 }
 
+export interface ActivityEntry {
+  id: string;
+  transitioned_at: string;
+  task_title: string;
+  from_stage_name: string;
+  to_stage_name: string;
+  moved_by: string;
+  is_completion: boolean;
+}
+
 // ── Context interface ──────────────────────────────────────────────────────
 
 interface AnalyticsContextType {
@@ -104,6 +114,7 @@ interface AnalyticsContextType {
   getPipelineThroughput: (pipelineId: string, periodType: string, nPeriods: number) => Promise<ThroughputPeriod[]>;
   getTargetsStatus: () => Promise<TargetStatus[]>;
   comparePersonnel: (userIds: string[], from: string, to: string, salaries: Record<string, number>) => Promise<PersonnelRow[]>;
+  getRecentActivity: (limit?: number) => Promise<ActivityEntry[]>;
   invalidate: (keyPrefix?: string) => void;
 }
 
@@ -278,6 +289,38 @@ export const AnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return (data ?? []) as PersonnelRow[];
   };
 
+  const getRecentActivity = (limit = 15): Promise<ActivityEntry[]> =>
+    fetchWithDedup(
+      `activity:${limit}`,
+      async () => {
+        const { data: history, error } = await supabase
+          .from('pipeline_stage_history')
+          .select(`
+            id,
+            transitioned_at,
+            task:task_id(title, pipeline_id),
+            from_stage:from_stage_id(name),
+            to_stage:to_stage_id(name, is_terminal, terminal_type),
+            moved_by_user:users!transitioned_by(full_name, display_name)
+          `)
+          .order('transitioned_at', { ascending: false })
+          .limit(limit);
+
+        if (error) throw error;
+
+        return (history || []).map((h: any) => ({
+          id: h.id,
+          transitioned_at: h.transitioned_at,
+          task_title: h.task?.title || 'Unknown Task',
+          from_stage_name: h.from_stage?.name || 'Start',
+          to_stage_name: h.to_stage?.name || 'End',
+          moved_by: h.moved_by_user?.display_name || h.moved_by_user?.full_name || 'System',
+          is_completion: h.to_stage?.is_terminal && h.to_stage?.terminal_type === 'success'
+        }));
+      },
+      PULSE_TTL_MS,
+    );
+
   const invalidate = (keyPrefix?: string) => {
     if (!keyPrefix) { cache.current.clear(); return; }
     for (const key of cache.current.keys()) {
@@ -294,6 +337,7 @@ export const AnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       getPipelineThroughput,
       getTargetsStatus,
       comparePersonnel,
+      getRecentActivity,
       invalidate,
     }}>
       {children}
