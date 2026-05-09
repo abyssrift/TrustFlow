@@ -146,12 +146,18 @@ function RootLayoutNav() {
       console.log('[RootLayoutNav] [Native] Redirecting to login');
       router.replace('/(auth)/login');
     } else if (session) {
-      // If we have a session but profile is loading, we might show onboarding temporarily
-      // or wait for the profile to update.
-      if (!profile?.company_id && !inOnboarding) {
-        console.log('[RootLayoutNav] [Native] No company, redirecting to onboarding');
+      // CRITICAL: If profile is still null (loading in background), do NOT redirect
+      // to onboarding. Wait for profile to load first to avoid the race condition
+      // where session is set but profile hasn't been fetched yet.
+      if (profile === null) {
+        console.log('[RootLayoutNav] [Native] Session exists but profile still loading, waiting...');
+        return; // Don't navigate yet — wait for profile to load
+      }
+
+      if (!profile.company_id && !inOnboarding) {
+        console.log('[RootLayoutNav] [Native] Profile loaded but no company, redirecting to onboarding');
         router.replace('/onboarding');
-      } else if (profile?.company_id && (inAuthGroup || inOnboarding)) {
+      } else if (profile.company_id && (inAuthGroup || inOnboarding)) {
         console.log('[RootLayoutNav] [Native] Ready! Restoring route or going to tabs');
         const restoreSavedRoute = async () => {
           try {
@@ -168,7 +174,7 @@ function RootLayoutNav() {
         restoreSavedRoute();
       }
     }
-  }, [session, profile?.company_id, initialized, segments]);
+  }, [session, profile, initialized, segments]);
 
   return (
     <AppThemeProvider>

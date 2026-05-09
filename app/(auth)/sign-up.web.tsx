@@ -192,7 +192,7 @@ export default function SignUpScreenWeb() {
             {invitation && (
               <View className="bg-brand-primary/10 border border-brand-primary/20 p-5 rounded-2xl">
                 <View className="flex-row items-center mb-2">
-                  <FontAwesome name="envelope-open" size={14} color="#6366f1" />
+                  <FontAwesome name="envelope-open" size={14} color="var(--color-primary)" />
                   <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest ml-2">Invitation Detected</Text>
                 </View>
                 <Text className="text-typography-main font-bold text-sm">

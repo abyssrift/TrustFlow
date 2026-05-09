@@ -1,7 +1,7 @@
 import React from 'react';
 import { useWindowDimensions } from 'react-native';
-import TasksDesktop from './tasks.desktop';
-import TasksAdaptive from './tasks.adaptive';
+import TasksDesktop from './_tasks_desktop';
+import TasksAdaptive from './_tasks_adaptive';
 
 export default function TasksWebSwitcher() {
   const { width } = useWindowDimensions();
@@ -14,3 +14,5 @@ export default function TasksWebSwitcher() {
 
   return <TasksAdaptive />;
 }
+
+

@@ -309,7 +309,7 @@ function TabButton({ active, onPress, icon, label, description }: {
       }`}
     >
       <View className={`h-10 w-10 items-center justify-center rounded-xl ${active ? 'bg-brand-primary/20' : 'bg-surface-overlay'}`}>
-        <FontAwesome name={icon} size={16} color={active ? '#6366f1' : '#64748b'} />
+        <FontAwesome name={icon} size={16} color={active ? 'var(--color-primary)' : 'var(--color-text-dim)'} />
       </View>
       <View className="ml-4">
         <Text className={`text-sm font-black ${active ? 'text-brand-primary' : 'text-typography-main'}`}>{label}</Text>

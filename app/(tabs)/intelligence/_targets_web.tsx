@@ -1,7 +1,7 @@
 import React from 'react';
 import { useWindowDimensions } from 'react-native';
-import IntelligenceTargetsDesktop from './targets.desktop';
-import IntelligenceTargetsAdaptive from './targets.adaptive';
+import IntelligenceTargetsDesktop from './_targets_desktop';
+import IntelligenceTargetsAdaptive from './_targets_adaptive';
 
 export default function IntelligenceTargetsWebSwitcher() {
   const { width } = useWindowDimensions();
@@ -13,3 +13,5 @@ export default function IntelligenceTargetsWebSwitcher() {
 
   return <IntelligenceTargetsAdaptive />;
 }
+
+

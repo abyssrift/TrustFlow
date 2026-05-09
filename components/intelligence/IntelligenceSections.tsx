@@ -138,7 +138,7 @@ export const ArchivesSectionWeb = ({ reports, archives, search, activeSchema, on
           </View>
           <View className="flex-row flex-wrap gap-6">
             {reports.map((r: any, i: number) => (
-              <TouchableOpacity key={i} onPress={() => r.file_url && onDownload(r.file_url)} className="w-[calc(20%-20px)] bg-surface-card p-5 rounded-2xl border border-surface-border premium-shadow hover:border-brand-primary transition-all">
+              <TouchableOpacity key={i} onPress={() => r.file_url && onDownload(r.file_url)} className="w-full md:w-[calc(50%-12px)] lg:w-[calc(33.33%-16px)] xl:w-[calc(20%-20px)] bg-surface-card p-5 rounded-2xl border border-surface-border premium-shadow hover:border-brand-primary transition-all">
                 <View className={`w-10 h-10 rounded-xl items-center justify-center mb-4 ${r.status === 'completed' ? 'bg-state-success/10' : 'bg-state-info/10'}`}>
                   <FontAwesome name="file-pdf-o" size={16} color={r.status === 'completed' ? 'var(--color-success)' : 'var(--color-primary)'} />
                 </View>
@@ -174,7 +174,7 @@ export const ArchivesSectionWeb = ({ reports, archives, search, activeSchema, on
               const pipelineId = archive.metadata?.pipeline_id;
               const hasIntegrityIssue = pipelineId && !activeSchema.pipelines.has(pipelineId);
               return (
-                <View key={archive.id} className="w-[calc(16.66%-14px)] bg-surface-card p-4 rounded-2xl border border-surface-border premium-shadow">
+                <View key={archive.id} className="w-full md:w-[calc(50%-8px)] lg:w-[calc(33.33%-11px)] xl:w-[calc(16.66%-14px)] bg-surface-card p-4 rounded-2xl border border-surface-border premium-shadow">
                   <View className="flex-row justify-between mb-3">
                     <View className={`w-9 h-9 rounded-lg items-center justify-center ${archive.restored_at ? 'bg-state-success/10' : 'bg-surface-background'}`}>
                       <FontAwesome name={archive.entity_type === 'project' ? 'briefcase' : 'tasks'} size={14} color={archive.restored_at ? 'var(--color-success)' : 'var(--color-primary)'} />

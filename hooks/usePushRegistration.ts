@@ -16,7 +16,7 @@
 import { useEffect, useRef } from 'react'
 import { Platform } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import * as Notifications from 'expo-notifications'
+import type * as NotificationsType from 'expo-notifications'
 import * as Device from 'expo-device'
 import Constants from 'expo-constants'
 import { supabase } from '@/lib/supabase'
@@ -40,34 +40,40 @@ async function registerForPushNotifications(): Promise<string | null> {
     return null
   }
 
-  const { status: existingStatus } = await Notifications.getPermissionsAsync()
-  let finalStatus = existingStatus
+  try {
+    const Notifications = require('expo-notifications')
+    const { status: existingStatus } = await Notifications.getPermissionsAsync()
+    let finalStatus = existingStatus
 
-  if (existingStatus !== 'granted') {
-    const { status } = await Notifications.requestPermissionsAsync()
-    finalStatus = status
-  }
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync()
+      finalStatus = status
+    }
 
-  if (finalStatus !== 'granted') return null
+    if (finalStatus !== 'granted') return null
 
-  const projectId =
-    Constants.expoConfig?.extra?.eas?.projectId ??
-    Constants.easConfig?.projectId
+    const projectId =
+      Constants.expoConfig?.extra?.eas?.projectId ??
+      Constants.easConfig?.projectId
 
-  if (!projectId) {
-    console.warn('[usePushRegistration] No EAS projectId — skipping token fetch')
+    if (!projectId) {
+      console.warn('[usePushRegistration] No EAS projectId — skipping token fetch')
+      return null
+    }
+
+    const tokenData = await Notifications.getExpoPushTokenAsync({ projectId })
+    return tokenData.data
+  } catch (error) {
+    console.warn('[usePushRegistration] Push registration skipped (expected in Expo Go):', error)
     return null
   }
-
-  const tokenData = await Notifications.getExpoPushTokenAsync({ projectId })
-  return tokenData.data
 }
 
 export function usePushRegistration() {
   // Only runs on native — web has its own Phase 6 VAPID path
   if (Platform.OS === 'web') return
 
-  const tokenRefreshSub = useRef<Notifications.EventSubscription | null>(null)
+  const tokenRefreshSub = useRef<NotificationsType.EventSubscription | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -96,18 +102,23 @@ export function usePushRegistration() {
     setup()
 
     // Re-register on token rotation (rare but happens)
-    tokenRefreshSub.current = Notifications.addPushTokenListener(async (tokenData) => {
-      const deviceId = await getOrCreateDeviceId()
-      await supabase.rpc('rpc_upsert_push_subscription', {
-        p_token: tokenData.data,
-        p_type: 'expo',
-        p_device_id: deviceId,
-        p_device_meta: {
-          platform: Platform.OS,
-          version: Platform.Version,
-        },
+    try {
+      const Notifications = require('expo-notifications')
+      tokenRefreshSub.current = Notifications.addPushTokenListener(async (tokenData: any) => {
+        const deviceId = await getOrCreateDeviceId()
+        await supabase.rpc('rpc_upsert_push_subscription', {
+          p_token: tokenData.data,
+          p_type: 'expo',
+          p_device_id: deviceId,
+          p_device_meta: {
+            platform: Platform.OS,
+            version: Platform.Version,
+          },
+        })
       })
-    })
+    } catch (err) {
+      console.warn('[usePushRegistration] Could not add token listener (expected in Expo Go):', err)
+    }
 
     return () => {
       cancelled = true

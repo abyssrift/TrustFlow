@@ -2,8 +2,9 @@ import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Link, useLocalSearchParams, usePathname } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Image, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { Image, Platform, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
+import WebMobileNav from '@/components/navigation/WebMobileNav';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { DensityType, RoundnessType, ThemeType, useTheme } from '@/contexts/ThemeContext';
@@ -206,6 +207,8 @@ const SidebarItem = ({
 );
 
 export default function Sidebar({ children }: { children: React.ReactNode }) {
+  const { width } = useWindowDimensions();
+  const isMobile = width < 768;
   const pathname = usePathname();
   const params = useLocalSearchParams();
   const { session, user, hasPermission } = useAuth();
@@ -291,6 +294,17 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
     setShowThemePopover(false);
     if (Platform.OS === 'web') localStorage.setItem('sidebar_collapsed', String(next));
   };
+
+  if (isMobile) {
+    return (
+      <View className="flex-1 bg-surface-background w-full h-full">
+        <View className="flex-1 bg-surface-background">
+          {children}
+        </View>
+        <WebMobileNav visibleShortcuts={visibleShortcuts} pipelines={pipelines} isPlatformAdmin={isPlatformAdmin} />
+      </View>
+    );
+  }
 
   return (
     <View className="flex-1 flex-row bg-surface-background w-full h-full overflow-hidden">

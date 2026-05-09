@@ -1,7 +1,7 @@
 import React from 'react';
 import { useWindowDimensions } from 'react-native';
-import IntelligenceArchivesDesktop from './archives.desktop';
-import IntelligenceArchivesAdaptive from './archives.adaptive';
+import IntelligenceArchivesDesktop from './_archives_desktop';
+import IntelligenceArchivesAdaptive from './_archives_adaptive';
 
 export default function IntelligenceArchivesWebSwitcher() {
   const { width } = useWindowDimensions();
@@ -13,3 +13,5 @@ export default function IntelligenceArchivesWebSwitcher() {
 
   return <IntelligenceArchivesAdaptive />;
 }
+
+

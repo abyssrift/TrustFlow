@@ -453,17 +453,42 @@ export default function NotificationRules() {
     return (
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
          {/* Simple List for Mobile */}
-         <View className="px-4 gap-3">
+         <View className="px-4 py-4 gap-4">
+           <TouchableOpacity 
+             onPress={() => setShowCreate(true)}
+             className="w-full h-12 bg-brand-primary rounded-xl items-center justify-center shadow-lg shadow-brand-primary/20 flex-row gap-2"
+           >
+             <FontAwesome name="plus" size={14} color="white" />
+             <Text className="text-white font-black text-xs uppercase tracking-widest">New Rule</Text>
+           </TouchableOpacity>
           {rules.map(r => (
             <RuleListItem 
               key={r.id} 
               rule={r} 
               isSelected={false} 
-              onSelect={() => {}} 
+              onSelect={() => setSelectedId(r.id)} 
               onToggle={handleToggle} 
             />
           ))}
          </View>
+         
+         <Modal visible={!!selectedId} animationType="slide" onRequestClose={() => setSelectedId(null)}>
+           <View className="flex-1 bg-surface-background">
+             <View className="pt-12 pb-4 px-4 border-b border-surface-border flex-row items-center gap-4 bg-surface-card">
+               <TouchableOpacity onPress={() => setSelectedId(null)} className="w-10 h-10 items-center justify-center bg-surface-background rounded-full border border-surface-border">
+                 <FontAwesome name="arrow-left" size={16} color="var(--color-text-main)" />
+               </TouchableOpacity>
+               <Text className="text-typography-main font-black text-lg">Rule Details</Text>
+             </View>
+             <RuleInspector rule={activeRule} onToggle={handleToggle} />
+           </View>
+         </Modal>
+
+         <CreateRuleModal 
+           visible={showCreate} 
+           onClose={() => setShowCreate(false)} 
+           onCreated={load} 
+         />
       </ScrollView>
     );
   }

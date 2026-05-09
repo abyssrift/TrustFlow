@@ -351,8 +351,8 @@ export default function StageActions() {
                 </View>
               )}
 
-              <View className="flex-row items-center justify-between">
-                <View className="flex-row gap-3">
+              <View className="flex-row flex-wrap items-center justify-between gap-3">
+                <View className="flex-row flex-wrap gap-3">
                   <TouchableOpacity 
                     onPress={pickImage}
                     disabled={isUploading}

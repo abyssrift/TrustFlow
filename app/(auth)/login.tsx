@@ -80,7 +80,7 @@ export default function LoginScreen() {
             <TextInput
               className="w-full bg-surface-card border border-surface-border rounded-2xl px-5 py-4 text-typography-main font-medium"
               placeholder="name@company.com"
-              placeholderTextColor="#475569"
+              placeholderTextColor="var(--color-text-dim)"
               keyboardType="email-address"
               autoCapitalize="none"
               value={email}
@@ -98,7 +98,7 @@ export default function LoginScreen() {
             <TextInput
               className="w-full bg-surface-card border border-surface-border rounded-2xl px-5 py-4 text-typography-main font-medium"
               placeholder="••••••••"
-              placeholderTextColor="#475569"
+              placeholderTextColor="var(--color-text-dim)"
               secureTextEntry
               value={password}
               onChangeText={setPassword}

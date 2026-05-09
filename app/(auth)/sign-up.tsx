@@ -117,7 +117,7 @@ export default function SignUpScreen() {
       >
         <View className="mb-10 items-center">
           <View className="w-16 h-16 bg-brand-primary/20 rounded-2xl flex-center mb-4">
-            <FontAwesome name="user-plus" size={24} color="#6366f1" />
+            <FontAwesome name="user-plus" size={24} color="var(--color-primary)" />
           </View>
           <Text className="text-3xl font-black text-typography-main tracking-tighter text-glow">Join TrustFlow</Text>
           <Text className="text-typography-muted text-sm font-medium mt-1">Get started with your secure workspace</Text>
@@ -136,7 +136,7 @@ export default function SignUpScreen() {
             <TextInput
               className="w-full bg-surface-card border border-surface-border rounded-2xl px-5 py-4 text-typography-main font-medium"
               placeholder="Jane Doe"
-              placeholderTextColor="#475569"
+              placeholderTextColor="var(--color-text-dim)"
               autoCapitalize="words"
               value={fullName}
               onChangeText={setFullName}
@@ -148,7 +148,7 @@ export default function SignUpScreen() {
             <TextInput
               className="w-full bg-surface-card border border-surface-border rounded-2xl px-5 py-4 text-typography-main font-medium"
               placeholder="jane@acme.com"
-              placeholderTextColor="#475569"
+              placeholderTextColor="var(--color-text-dim)"
               keyboardType="email-address"
               autoCapitalize="none"
               value={email}
@@ -159,7 +159,7 @@ export default function SignUpScreen() {
           {invitation && (
             <View className="bg-brand-primary/10 border border-brand-primary/20 p-4 rounded-xl">
               <View className="flex-row items-center mb-1">
-                <FontAwesome name="envelope-open-o" size={14} color="#6366f1" />
+                <FontAwesome name="envelope-open-o" size={14} color="var(--color-primary)" />
                 <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest ml-2">Invitation Detected</Text>
               </View>
               <Text className="text-typography-main font-bold">
@@ -173,7 +173,7 @@ export default function SignUpScreen() {
             <TextInput
               className="w-full bg-surface-card border border-surface-border rounded-2xl px-5 py-4 text-typography-main font-medium"
               placeholder="••••••••"
-              placeholderTextColor="#475569"
+              placeholderTextColor="var(--color-text-dim)"
               secureTextEntry
               value={password}
               onChangeText={setPassword}

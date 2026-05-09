@@ -1,7 +1,7 @@
 import React from 'react';
 import { useWindowDimensions } from 'react-native';
-import ProjectsDesktop from './projects.desktop';
-import ProjectsAdaptive from './projects.adaptive';
+import ProjectsDesktop from './_projects_desktop';
+import ProjectsAdaptive from './_projects_adaptive';
 
 export default function ProjectsWebSwitcher() {
   const { width } = useWindowDimensions();
@@ -13,3 +13,5 @@ export default function ProjectsWebSwitcher() {
 
   return <ProjectsAdaptive />;
 }
+
+

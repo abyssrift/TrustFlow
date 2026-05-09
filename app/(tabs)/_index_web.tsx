@@ -1,7 +1,7 @@
 import React from 'react';
 import { useWindowDimensions } from 'react-native';
-import DashboardDesktop from './index.desktop';
-import DashboardAdaptive from './index.adaptive';
+import DashboardDesktop from './_index_desktop';
+import DashboardAdaptive from './_index_adaptive';
 
 export default function DashboardWebSwitcher() {
   const { width } = useWindowDimensions();
@@ -13,3 +13,5 @@ export default function DashboardWebSwitcher() {
 
   return <DashboardAdaptive />;
 }
+
+

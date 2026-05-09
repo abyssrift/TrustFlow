@@ -1,7 +1,7 @@
 import React from 'react';
 import { useWindowDimensions } from 'react-native';
-import AnalyticsDesktop from './analytics.desktop';
-import AnalyticsAdaptive from './analytics.adaptive';
+import AnalyticsDesktop from './_analytics_desktop';
+import AnalyticsAdaptive from './_analytics_adaptive';
 
 export default function AnalyticsWeb() {
   const { width } = useWindowDimensions();
@@ -13,3 +13,5 @@ export default function AnalyticsWeb() {
 
   return <AnalyticsAdaptive />;
 }
+
+

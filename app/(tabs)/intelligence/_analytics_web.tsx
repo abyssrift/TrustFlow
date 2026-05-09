@@ -1,7 +1,7 @@
 import React from 'react';
 import { useWindowDimensions } from 'react-native';
-import IntelligenceAnalyticsDesktop from './analytics.desktop';
-import IntelligenceAnalyticsAdaptive from './analytics.adaptive';
+import IntelligenceAnalyticsDesktop from './_analytics_desktop';
+import IntelligenceAnalyticsAdaptive from './_analytics_adaptive';
 
 export default function IntelligenceAnalyticsWebSwitcher() {
   const { width } = useWindowDimensions();
@@ -13,3 +13,5 @@ export default function IntelligenceAnalyticsWebSwitcher() {
 
   return <IntelligenceAnalyticsAdaptive />;
 }
+
+

@@ -86,13 +86,13 @@ export default function OnboardingScreen() {
         className="w-full bg-surface-card border border-surface-border rounded-2xl p-6 flex-row items-center premium-shadow hover:border-brand-primary transition-all"
       >
         <View className="w-14 h-14 bg-brand-primary/10 rounded-xl items-center justify-center mr-5">
-          <FontAwesome name="users" size={24} color="#6366f1" />
+          <FontAwesome name="users" size={24} color="var(--color-primary)" />
         </View>
         <View className="flex-1">
           <Text className="text-xl font-bold text-typography-main">Join an Existing Team</Text>
           <Text className="text-typography-muted text-sm mt-1">If your company is already using TrustFlow, enter your team's join code.</Text>
         </View>
-        <FontAwesome name="chevron-right" size={16} color="#475569" />
+        <FontAwesome name="chevron-right" size={16} color="var(--color-text-dim)" />
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -100,13 +100,13 @@ export default function OnboardingScreen() {
         className="w-full bg-surface-card border border-surface-border rounded-2xl p-6 flex-row items-center premium-shadow hover:border-brand-primary transition-all"
       >
         <View className="w-14 h-14 bg-brand-primary/10 rounded-xl items-center justify-center mr-5">
-          <FontAwesome name="plus-circle" size={24} color="#6366f1" />
+          <FontAwesome name="plus-circle" size={24} color="var(--color-primary)" />
         </View>
         <View className="flex-1">
           <Text className="text-xl font-bold text-typography-main">Set Up a New Workspace</Text>
           <Text className="text-typography-muted text-sm mt-1">Start fresh and invite your team to a new secure organization.</Text>
         </View>
-        <FontAwesome name="chevron-right" size={16} color="#475569" />
+        <FontAwesome name="chevron-right" size={16} color="var(--color-text-dim)" />
       </TouchableOpacity>
     </View>
   );
@@ -181,7 +181,7 @@ export default function OnboardingScreen() {
       <View className="flex-1 max-w-2xl mx-auto w-full justify-center px-8 py-20">
         <View className="mb-12 items-center">
           <View className="w-20 h-20 bg-brand-primary/10 rounded-3xl items-center justify-center mb-6">
-            <FontAwesome name="rocket" size={32} color="#6366f1" />
+            <FontAwesome name="rocket" size={32} color="var(--color-primary)" />
           </View>
           <Text className="text-4xl font-black text-typography-main tracking-tighter text-center">
             Welcome to TrustFlow

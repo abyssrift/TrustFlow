@@ -107,6 +107,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="intelligence"
         options={{
+          href: null,
           title: 'Insights',
           tabBarIcon: ({ color }) => <TabBarIcon name="line-chart" color={color} />,
         }}
@@ -114,6 +115,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="analytics"
         options={{
+          href: null,
           title: 'Analytics',
           tabBarIcon: ({ color }) => <TabBarIcon name="bar-chart" color={color} />,
         }}
@@ -121,6 +123,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="people"
         options={{
+          href: null,
           title: 'Team',
           tabBarIcon: ({ color }) => <TabBarIcon name="users" color={color} />,
         }}
@@ -128,8 +131,16 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
+          href: null,
           title: 'Profile',
           tabBarIcon: ({ color }) => <TabBarIcon name="user-circle" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="menu"
+        options={{
+          title: 'Menu',
+          tabBarIcon: ({ color }) => <TabBarIcon name="navicon" color={color} />,
         }}
       />
     </Tabs>

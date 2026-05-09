@@ -1,7 +1,7 @@
 import React from 'react';
 import { useWindowDimensions } from 'react-native';
-import ReportGeneratorDesktop from './ReportGenerator.desktop';
-import ReportGeneratorAdaptive from './ReportGenerator.adaptive';
+import ReportGeneratorDesktop from './_ReportGenerator_desktop';
+import ReportGeneratorAdaptive from './_ReportGenerator_adaptive';
 import { Stack } from 'expo-router';
 
 export default function ReportGeneratorWeb() {
@@ -26,3 +26,5 @@ export default function ReportGeneratorWeb() {
     </>
   );
 }
+
+

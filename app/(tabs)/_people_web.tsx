@@ -1,7 +1,7 @@
 import React from 'react';
 import { useWindowDimensions } from 'react-native';
-import PeopleDesktop from './people.desktop';
-import PeopleAdaptive from './people.adaptive';
+import PeopleDesktop from './_people_desktop';
+import PeopleAdaptive from './_people_adaptive';
 
 export default function PeopleWebSwitcher() {
   const { width } = useWindowDimensions();
@@ -13,3 +13,5 @@ export default function PeopleWebSwitcher() {
 
   return <PeopleAdaptive />;
 }
+
+

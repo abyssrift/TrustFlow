@@ -86,13 +86,13 @@ export default function OnboardingScreen() {
         className="w-full bg-surface-card border border-surface-border rounded-2xl p-5 flex-row items-center"
       >
         <View className="w-12 h-12 bg-brand-primary/10 rounded-xl items-center justify-center mr-4">
-          <FontAwesome name="users" size={20} color="#6366f1" />
+          <FontAwesome name="users" size={20} color="var(--color-primary)" />
         </View>
         <View className="flex-1">
           <Text className="text-lg font-bold text-typography-main">Join a Team</Text>
           <Text className="text-typography-muted text-xs mt-1">If your team is already on TrustFlow.</Text>
         </View>
-        <FontAwesome name="chevron-right" size={14} color="#475569" />
+        <FontAwesome name="chevron-right" size={14} color="var(--color-text-dim)" />
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -100,13 +100,13 @@ export default function OnboardingScreen() {
         className="w-full bg-surface-card border border-surface-border rounded-2xl p-5 flex-row items-center"
       >
         <View className="w-12 h-12 bg-brand-primary/10 rounded-xl items-center justify-center mr-4">
-          <FontAwesome name="plus-circle" size={20} color="#6366f1" />
+          <FontAwesome name="plus-circle" size={20} color="var(--color-primary)" />
         </View>
         <View className="flex-1">
           <Text className="text-lg font-bold text-typography-main">Set Up Workspace</Text>
           <Text className="text-typography-muted text-xs mt-1">Create a new secure organization.</Text>
         </View>
-        <FontAwesome name="chevron-right" size={14} color="#475569" />
+        <FontAwesome name="chevron-right" size={14} color="var(--color-text-dim)" />
       </TouchableOpacity>
     </View>
   );
@@ -118,7 +118,7 @@ export default function OnboardingScreen() {
         <TextInput
           className="w-full bg-surface-card border border-surface-border rounded-2xl px-5 py-4 text-typography-main font-bold text-xl text-center"
           placeholder="XXXXXX"
-          placeholderTextColor="#475569"
+          placeholderTextColor="var(--color-text-dim)"
           autoCapitalize="characters"
           maxLength={6}
           value={joinCode}
@@ -151,7 +151,7 @@ export default function OnboardingScreen() {
         <TextInput
           className="w-full bg-surface-card border border-surface-border rounded-2xl px-5 py-4 text-typography-main font-bold"
           placeholder="Acme Corp"
-          placeholderTextColor="#475569"
+          placeholderTextColor="var(--color-text-dim)"
           autoCapitalize="words"
           value={companyName}
           onChangeText={setCompanyName}
@@ -187,7 +187,7 @@ export default function OnboardingScreen() {
       >
         <View className="mb-10 items-center">
           <View className="w-16 h-16 bg-brand-primary/10 rounded-2xl items-center justify-center mb-4">
-            <FontAwesome name="rocket" size={24} color="#6366f1" />
+            <FontAwesome name="rocket" size={24} color="var(--color-primary)" />
           </View>
           <Text className="text-3xl font-black text-typography-main tracking-tighter text-center">
             Welcome

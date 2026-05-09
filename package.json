@@ -7,7 +7,8 @@
     "test": "vitest run",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "postinstall": "npx patch-package"
   },
   "dependencies": {
     "@expo/log-box": "^55.0.11",

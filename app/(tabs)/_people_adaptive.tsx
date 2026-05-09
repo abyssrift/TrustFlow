@@ -39,9 +39,9 @@ function TeamWorkspaceContent({ section }: { section: PeopleSection }) {
 
   if (error) {
     return (
-      <View className="w-full items-center justify-center py-16 bg-var(--color-danger)/10 rounded-3xl border border-dashed border-var(--color-danger)/30 mx-4">
+      <View className="w-full items-center justify-center py-16 bg-state-danger/10 rounded-3xl border border-dashed border-state-danger/30 mx-4">
         <FontAwesome name="exclamation-triangle" size={32} color="var(--color-danger)" />
-        <Text className="text-var(--color-text-main) font-black mt-4 text-center px-4">{error}</Text>
+        <Text className="text-typography-main font-black mt-4 text-center px-4">{error}</Text>
       </View>
     );
   }
@@ -83,15 +83,16 @@ export default function PeopleScreen() {
   }, [sectionParam, canViewMembers, canManageTeams, canManageNotifications]);
 
   return (
-    <View className="flex-1 bg-var(--color-surface-background)">
+    <View className="flex-1 bg-surface-background">
+      <View>
       <View className="px-6 pt-4 pb-4">
         <View className="flex-row items-center justify-between mb-4">
           <View>
-            <Text className="text-var(--color-text-main) text-3xl font-black">Team</Text>
-            <Text className="text-var(--color-text-dim) text-xs font-medium">Members, teams, and roles</Text>
+            <Text className="text-typography-main text-3xl font-black">Team</Text>
+            <Text className="text-typography-dim text-xs font-medium">Members, teams, and roles</Text>
           </View>
-          <TouchableOpacity className="bg-var(--color-primary) w-11 h-11 rounded-2xl items-center justify-center">
-            <FontAwesome name="gear" size={16} color="var(--color-surface-background)" />
+          <TouchableOpacity className="bg-brand-primary w-11 h-11 rounded-2xl items-center justify-center">
+            <FontAwesome name="gear" size={16} color="white" />
           </TouchableOpacity>
         </View>
 
@@ -101,61 +102,63 @@ export default function PeopleScreen() {
               Clipboard.setStringAsync(joinCode);
               Alert.alert('Copied', 'Join code copied to clipboard');
             }}
-            className="mb-4 bg-var(--color-primary)/10 border border-var(--color-primary)/30 rounded-2xl p-4 flex-row items-center justify-between"
+            className="mb-4 bg-brand-primary/10 border border-brand-primary/30 rounded-2xl p-4 flex-row items-center justify-between"
           >
             <View>
-              <Text className="text-var(--color-text-dim) text-[10px] font-black uppercase tracking-widest">Share Join Code</Text>
-              <Text className="text-var(--color-primary) font-black text-xl tracking-[0.2em]">{joinCode}</Text>
+              <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">Share Join Code</Text>
+              <Text className="text-brand-primary font-black text-xl tracking-[0.2em]">{joinCode}</Text>
             </View>
-            <View className="bg-var(--color-primary) w-10 h-10 rounded-xl items-center justify-center">
-              <FontAwesome name="copy" size={14} color="var(--color-surface-background)" />
+            <View className="bg-brand-primary w-10 h-10 rounded-xl items-center justify-center">
+              <FontAwesome name="copy" size={14} color="white" />
             </View>
           </TouchableOpacity>
         )}
 
         {hasWorkspaceAccess && (
-          <View className="mb-4 bg-var(--color-surface-card) p-1 rounded-2xl border border-var(--color-surface-border) flex-row">
-            {canViewMembers && (
-              <TouchableOpacity
-                onPress={() => setActiveSection('members')}
-                className={`flex-1 py-3 rounded-xl items-center ${activeSection === 'members' ? 'bg-var(--color-primary)' : ''}`}
-              >
-                <Text className={`font-black text-[10px] uppercase tracking-widest ${activeSection === 'members' ? 'text-var(--color-surface-background)' : 'text-var(--color-text-dim)'}`}>
-                  Members
-                </Text>
-              </TouchableOpacity>
-            )}
-            {canManageTeams && (
-              <TouchableOpacity
-                onPress={() => setActiveSection('teams')}
-                className={`flex-1 py-3 rounded-xl items-center ${activeSection === 'teams' ? 'bg-brand-primary' : ''}`}
-              >
-                <Text className={`font-black text-[10px] uppercase tracking-widest ${activeSection === 'teams' ? 'text-white' : 'text-typography-muted'}`}>
-                  Teams
-                </Text>
-              </TouchableOpacity>
-            )}
-            {canManageTeams && (
-              <TouchableOpacity
-                onPress={() => setActiveSection('roles')}
-                className={`flex-1 py-3 rounded-xl items-center ${activeSection === 'roles' ? 'bg-brand-primary' : ''}`}
-              >
-                <Text className={`font-black text-[10px] uppercase tracking-widest ${activeSection === 'roles' ? 'text-white' : 'text-typography-muted'}`}>
-                  Roles
-                </Text>
-              </TouchableOpacity>
-            )}
-            {canManageNotifications && (
-              <TouchableOpacity
-                onPress={() => setActiveSection('notifications')}
-                className={`flex-1 py-3 rounded-xl items-center ${activeSection === 'notifications' ? 'bg-brand-primary' : ''}`}
-              >
-                <Text className={`font-black text-[10px] uppercase tracking-widest ${activeSection === 'notifications' ? 'text-white' : 'text-typography-muted'}`}>
-                  Alert Rules
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4">
+            <View className="bg-surface-card p-1 rounded-2xl border border-surface-border flex-row">
+              {canViewMembers && (
+                <TouchableOpacity
+                  onPress={() => setActiveSection('members')}
+                  className={`px-5 py-3 rounded-xl items-center ${activeSection === 'members' ? 'bg-brand-primary' : ''}`}
+                >
+                  <Text className={`font-black text-[10px] uppercase tracking-widest ${activeSection === 'members' ? 'text-white' : 'text-typography-muted'}`}>
+                    Members
+                  </Text>
+                </TouchableOpacity>
+              )}
+              {canManageTeams && (
+                <TouchableOpacity
+                  onPress={() => setActiveSection('teams')}
+                  className={`px-5 py-3 rounded-xl items-center ${activeSection === 'teams' ? 'bg-brand-primary' : ''}`}
+                >
+                  <Text className={`font-black text-[10px] uppercase tracking-widest ${activeSection === 'teams' ? 'text-white' : 'text-typography-muted'}`}>
+                    Teams
+                  </Text>
+                </TouchableOpacity>
+              )}
+              {canManageTeams && (
+                <TouchableOpacity
+                  onPress={() => setActiveSection('roles')}
+                  className={`px-5 py-3 rounded-xl items-center ${activeSection === 'roles' ? 'bg-brand-primary' : ''}`}
+                >
+                  <Text className={`font-black text-[10px] uppercase tracking-widest ${activeSection === 'roles' ? 'text-white' : 'text-typography-muted'}`}>
+                    Roles
+                  </Text>
+                </TouchableOpacity>
+              )}
+              {canManageNotifications && (
+                <TouchableOpacity
+                  onPress={() => setActiveSection('notifications')}
+                  className={`px-5 py-3 rounded-xl items-center ${activeSection === 'notifications' ? 'bg-brand-primary' : ''}`}
+                >
+                  <Text className={`font-black text-[10px] uppercase tracking-widest ${activeSection === 'notifications' ? 'text-white' : 'text-typography-muted'}`}>
+                    Alert Rules
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </ScrollView>
         )}
       </View>
 
@@ -177,6 +180,7 @@ export default function PeopleScreen() {
           <View className="h-6" />
         </ScrollView>
       )}
+    </View>
     </View>
   );
 }
