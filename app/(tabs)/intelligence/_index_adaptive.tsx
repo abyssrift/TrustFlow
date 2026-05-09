@@ -1,4 +1,5 @@
 import { CircularTargetCardMobile, IntelligencePicker } from '@/components/intelligence/IntelligenceCommon';
+import ConfirmModal from '@/components/common/ConfirmModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAnalytics, StageDwell, ThroughputPeriod } from '@/contexts/AnalyticsContext';
 import { supabase } from '@/lib/supabase';
@@ -37,7 +38,7 @@ const SectionToggle = ({ active, onSelect, hasPermission }: { active: string, on
 };
 
 const KPIBox = ({ label, val, delta }: any) => (
-  <View className="w-[48%] bg-surface-card p-5 rounded-3xl border border-surface-border mb-4">
+  <View className="flex-1 min-w-[140px] bg-surface-card p-5 rounded-3xl border border-surface-border mb-4">
     <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-wider mb-2">{label}</Text>
     <View className="flex-row items-baseline">
       <Text className="text-typography-main text-2xl font-black">{val}</Text>
@@ -197,7 +198,7 @@ const TrendComparisonCards = ({ data }: any) => {
     { label: 'Latency Drift', cur: c.avg_lead_time_minutes, prev: p.avg_lead_time_minutes, unit: 'm', reverse: true }
   ];
   return (
-    <View className="flex-row gap-4 mb-6">
+    <View className="flex-row flex-wrap gap-4 mb-6">
       {metrics.map((m, i) => {
         const diff = (m.cur || 0) - (m.prev || 0);
         const isBetter = m.reverse ? diff <= 0 : diff >= 0;

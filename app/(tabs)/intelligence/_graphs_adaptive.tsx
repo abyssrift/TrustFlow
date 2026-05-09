@@ -78,7 +78,7 @@ export default function IntelligenceGraphsNative() {
             </View>
           </ScrollView>
         )}
-        <View className="flex-row bg-surface-card border border-surface-border rounded-xl p-1 gap-0.5 self-start">
+        <View className="flex-row flex-wrap bg-surface-card border border-surface-border rounded-xl p-1 gap-0.5 self-start">
           {PERIOD_OPTS.map(opt => (
             <TouchableOpacity
               key={opt.label}
@@ -113,7 +113,7 @@ export default function IntelligenceGraphsNative() {
                   : 'rgb(var(--brand-primary))';
                 return (
                   <View key={s.stage_id} className="mb-3">
-                    <View className="flex-row justify-between mb-1">
+                    <View className="flex-row flex-wrap justify-between items-end mb-1 gap-x-2">
                       <Text className="text-typography-main text-xs font-bold flex-1 mr-2" numberOfLines={1}>
                         {s.stage_name}{s.is_bottleneck ? ' ⚠' : ''}
                       </Text>
@@ -140,9 +140,9 @@ export default function IntelligenceGraphsNative() {
                 const successPct = total > 0 ? (t.tasks_succeeded / total) * 100 : 0;
                 return (
                   <View key={i} className={`py-3 ${i < arr.length - 1 ? 'border-b border-surface-border/50' : ''}`}>
-                    <View className="flex-row justify-between mb-1.5">
+                    <View className="flex-row flex-wrap justify-between items-end mb-1.5 gap-x-2">
                       <Text className="text-typography-muted text-xs">{t.period_label}</Text>
-                      <View className="flex-row gap-3">
+                      <View className="flex-row flex-wrap gap-3">
                         <Text className="text-state-success text-xs font-bold">↑ {t.tasks_succeeded}</Text>
                         <Text className="text-state-danger text-xs font-bold">↓ {t.tasks_failed}</Text>
                         {t.success_rate !== null && (

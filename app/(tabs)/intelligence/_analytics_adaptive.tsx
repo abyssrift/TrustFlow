@@ -122,7 +122,7 @@ function PipelineTab() {
       {/* Date range */}
       <View className="gap-2">
         <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">Date Range</Text>
-        <View className="flex-row gap-3 items-center">
+        <View className="flex-row flex-wrap gap-3 items-center">
           <TextInput
             value={from}
             onChangeText={setFrom}
@@ -170,7 +170,7 @@ function PipelineTab() {
                   className={`flex-row justify-between items-center py-3 ${i < Math.min(throughput.length, 6) - 1 ? 'border-b border-surface-border/50' : ''}`}
                 >
                   <Text className="text-typography-muted text-xs">{t.period_label}</Text>
-                  <View className="flex-row gap-4">
+                  <View className="flex-row flex-wrap justify-end gap-4 flex-1">
                     <Text className="text-[var(--color-success)] text-xs font-bold">↑ {t.tasks_succeeded}</Text>
                     <Text className="text-[var(--color-danger)] text-xs font-bold">↓ {t.tasks_failed}</Text>
                     {t.success_rate !== null && (
@@ -299,7 +299,7 @@ function PersonnelTab() {
       {/* Date range */}
       <View className="gap-2">
         <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">Date Range</Text>
-        <View className="flex-row gap-3 items-center">
+        <View className="flex-row flex-wrap gap-3 items-center">
           <TextInput
             value={from}
             onChangeText={setFrom}
@@ -324,7 +324,7 @@ function PersonnelTab() {
             const u = users.find(x => x.id === uid);
             if (!u) return null;
             return (
-              <View key={uid} className="flex-row items-center gap-3">
+              <View key={uid} className="flex-row flex-wrap items-center gap-3">
                 <Text className="text-typography-main text-sm font-bold flex-1" numberOfLines={1}>{u.full_name}</Text>
                 <View className="flex-row items-center border border-surface-border bg-surface-card rounded-xl overflow-hidden">
                   <Text className="px-3 text-typography-dim text-sm">$</Text>

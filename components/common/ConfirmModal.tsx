@@ -75,18 +75,18 @@ export default function ConfirmModal({
             </Text>
           </View>
 
-          <View className="p-10 border-t border-surface-border flex-row gap-6 bg-surface-card/50">
+          <View className="p-10 border-t border-surface-border flex-row flex-wrap gap-4 bg-surface-card/50">
             <TouchableOpacity 
               onPress={onCancel} 
               disabled={loading}
-              className="flex-1 py-5 rounded-2xl bg-surface-background border border-surface-border items-center"
+              className="flex-1 min-w-[120px] py-5 rounded-2xl bg-surface-background border border-surface-border items-center"
             >
               <Text className="text-typography-muted font-black uppercase tracking-widest text-xs">{cancelLabel}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={onConfirm}
               disabled={loading}
-              className={`flex-[2] py-5 rounded-2xl ${styles.bg} items-center shadow-lg active:scale-[0.98] transition-transform`}
+              className={`flex-[2] min-w-[120px] py-5 rounded-2xl ${styles.bg} items-center shadow-lg active:scale-[0.98] transition-transform`}
             >
               <Text className="text-white font-black uppercase tracking-widest text-xs">
                 {loading ? 'Processing...' : confirmLabel}

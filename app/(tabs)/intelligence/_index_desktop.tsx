@@ -103,7 +103,7 @@ export default function IntelligenceOverview() {
     <View className="flex-1 bg-surface-background flex-col">
 
       {/* ── Header ── */}
-      <View className="px-10 pt-8 pb-5 flex-row items-center justify-between border-b border-surface-border flex-shrink-0">
+      <View className="px-10 pt-8 pb-5 flex-row flex-wrap items-center justify-between border-b border-surface-border flex-shrink-0 gap-y-4">
         <View className="flex-row items-center gap-4">
           <View>
             <Text className="text-brand-primary font-black uppercase tracking-[0.3em] text-[9px] mb-1">Intelligence Hub</Text>
@@ -113,7 +113,7 @@ export default function IntelligenceOverview() {
             <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest">Global Organizational View</Text>
           </View>
         </View>
-        <View className="flex-row items-center gap-3">
+        <View className="flex-row flex-wrap items-center gap-3">
           {/* Timeframe */}
           <View className="flex-row bg-surface-card border border-surface-border rounded-xl p-1 gap-0.5">
             {DAY_OPTS.map(d => (
@@ -154,7 +154,7 @@ export default function IntelligenceOverview() {
                 <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest">Configure</Text>
               </TouchableOpacity>
             </View>
-            <View className="flex-row gap-4 mb-8">
+            <View className="flex-row flex-wrap gap-4 mb-8">
               {activeWidgets.map(renderWidget)}
             </View>
           </View>
@@ -167,7 +167,7 @@ export default function IntelligenceOverview() {
 
             <SLARiskAlertMiniWeb data={data} onViewAll={() => router.push('/intelligence/graphs')} />
             
-            <View className="flex-row gap-6">
+            <View className="flex-row flex-wrap gap-6">
               <View className="flex-1">
                 <StageDurationMiniWeb data={data} onViewAll={() => router.push('/intelligence/graphs')} />
               </View>

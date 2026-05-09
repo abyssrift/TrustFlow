@@ -75,7 +75,7 @@ export default function IntelligenceArchivesNative() {
         <Text className="text-typography-main text-3xl font-black">Cold Storage</Text>
       </View>
 
-      <View className="px-6 mb-4 flex-row items-center gap-3">
+      <View className="px-6 mb-4 flex-row flex-wrap items-center gap-3">
         <View className="flex-1 flex-row items-center bg-surface-card border border-surface-border rounded-2xl px-4 py-3 gap-3">
           <FontAwesome name="search" size={12} color="rgb(var(--text-muted))" />
           <TextInput

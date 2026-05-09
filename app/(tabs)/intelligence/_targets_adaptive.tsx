@@ -47,12 +47,12 @@ const CreateModal = ({ visible, onClose, onConfirm, pipelines, stages }: any) =>
             </View>
 
             <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mb-4">Pipeline Architecture</Text>
-            <Picker items={pipelines} selectedId={pipeline} onSelect={(id: string) => { setPipeline(id); setStage(null); }} />
+            <IntelligencePicker items={pipelines} selectedId={pipeline} onSelect={(id: string) => { setPipeline(id); setStage(null); }} />
             
             {pipeline && (
               <>
                 <View className="h-4" />
-                <Picker items={filteredStages} selectedId={stage} onSelect={setStage} />
+                <IntelligencePicker items={filteredStages} selectedId={stage} onSelect={setStage} />
               </>
             )}
 
@@ -61,7 +61,7 @@ const CreateModal = ({ visible, onClose, onConfirm, pipelines, stages }: any) =>
             </Text>
             
             {type === 'performance' ? (
-              <View className="flex-row gap-4 mb-6">
+              <View className="flex-row flex-wrap gap-4 mb-6">
                 <View className="flex-1">
                   <Text className="text-typography-muted text-[9px] font-black uppercase mb-2">Target Active (s)</Text>
                   <TextInput 
@@ -98,8 +98,8 @@ const CreateModal = ({ visible, onClose, onConfirm, pipelines, stages }: any) =>
                 <View>
                   <Text className="text-typography-muted text-[9px] font-black uppercase mb-3">Expiration Deadline</Text>
                   <PremiumCalendarPicker
-                    selectedDate={deadline}
-                    onDateChange={setDeadline}
+                    selectedDate={deadline ? deadline.toISOString().split('T')[0] : null}
+                    onSelect={(d) => setDeadline(new Date(d))}
                   />
                 </View>
               </View>
@@ -107,7 +107,7 @@ const CreateModal = ({ visible, onClose, onConfirm, pipelines, stages }: any) =>
             <View className="h-10" />
           </ScrollView>
 
-          <View className="px-8 pt-4 flex-row gap-4 border-t border-surface-border">
+          <View className="px-8 pt-4 flex-row flex-wrap gap-4 border-t border-surface-border">
             <TouchableOpacity onPress={onClose} className="flex-1 py-4 rounded-2xl bg-surface-background border border-surface-border items-center">
               <Text className="text-typography-muted font-black uppercase tracking-widest text-xs">Cancel</Text>
             </TouchableOpacity>
@@ -226,12 +226,12 @@ export default function IntelligenceTargetsNative() {
 
   return (
     <View className="flex-1 bg-surface-background">
-      <View className="px-6 pt-14 pb-4 flex-row items-end justify-between">
+      <View className="px-6 pt-14 pb-4 flex-row flex-wrap items-end justify-between gap-y-4">
         <View>
           <Text className="text-brand-primary font-black uppercase tracking-[4px] text-[10px] mb-1">Intelligence Hub</Text>
           <Text className="text-typography-main text-3xl font-black">Targets</Text>
         </View>
-        <View className="flex-row gap-2">
+        <View className="flex-row flex-wrap gap-2">
           <TouchableOpacity onPress={fetchTargets} className="w-11 h-11 items-center justify-center bg-surface-card border border-surface-border rounded-2xl">
             <FontAwesome name="refresh" size={13} color="rgb(var(--brand-primary))" />
           </TouchableOpacity>

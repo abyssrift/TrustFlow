@@ -126,8 +126,8 @@ function TasksScreen() {
 
       setPipeline(pipelineData);
       
-      const { data: allPipes } = await supabase.from('pipelines').select('id, name').is('deleted_at', null);
-      setAvailablePipelines(allPipes || []);
+      const { data: allPipes } = await supabase.from('pipelines').select('id, name, task_visibility_mode').is('deleted_at', null);
+      setAvailablePipelines(allPipes as Pipeline[] || []);
 
       if (!targetPipelineId) return;
 
@@ -526,32 +526,32 @@ function TasksScreen() {
       {kanban.showPulse && pulse && (
          <View className={`px-5 py-3 ${kanban.backgroundUrl ? 'bg-surface-background/40' : 'bg-brand-primary/5'} border-b border-surface-border`}>
             <View className="flex-row items-center justify-between">
-               <View className="flex-row items-center space-x-6">
-                  <View>
-                     <Text className="text-[9px] text-brand-primary font-black uppercase tracking-tighter mb-0.5">Today''s Pulse</Text>
-                     <View className="flex-row items-baseline">
-                        <Text className="text-lg font-black text-brand-primary">{pulse.daily_points}</Text>
-                        <Text className="text-[9px] text-brand-primary/60 ml-0.5 font-bold">PTS</Text>
-                     </View>
-                  </View>
-
-                  <View className="ml-6">
-                     <Text className="text-[9px] text-typography-muted font-black uppercase tracking-tighter mb-0.5">Velocity</Text>
-                     <View className="flex-row items-baseline">
-                        <Text className="text-lg font-black text-typography-main">{Math.floor(pulse.active_seconds_today / 3600)}h</Text>
-                        <Text className="text-[9px] text-typography-muted ml-0.5 font-bold">{Math.floor((pulse.active_seconds_today % 3600) / 60)}m</Text>
-                     </View>
-                  </View>
-
-                  <View className="ml-6">
-                     <Text className="text-[9px] text-typography-muted font-black uppercase tracking-tighter mb-0.5">Quality (Flap)</Text>
-                     <View className="flex-row items-baseline">
-                        <Text className={`text-lg font-black ${pulse.flap_rate_score > 1.5 ? 'text-state-danger' : 'text-state-success'}`}>
-                           {pulse.flap_rate_score}x
-                        </Text>
-                     </View>
+            <View className="flex-row items-center flex-wrap gap-x-8 gap-y-4">
+               <View>
+                  <Text className="text-[9px] text-brand-primary font-black uppercase tracking-tighter mb-0.5">Today's Pulse</Text>
+                  <View className="flex-row items-baseline">
+                     <Text className="text-lg font-black text-brand-primary">{pulse.daily_points}</Text>
+                     <Text className="text-[9px] text-brand-primary/60 ml-0.5 font-bold">PTS</Text>
                   </View>
                </View>
+
+               <View>
+                  <Text className="text-[9px] text-typography-muted font-black uppercase tracking-tighter mb-0.5">Velocity</Text>
+                  <View className="flex-row items-baseline">
+                     <Text className="text-lg font-black text-typography-main">{Math.floor(pulse.active_seconds_today / 3600)}h</Text>
+                     <Text className="text-[9px] text-typography-muted ml-0.5 font-bold">{Math.floor((pulse.active_seconds_today % 3600) / 60)}m</Text>
+                  </View>
+               </View>
+
+               <View>
+                  <Text className="text-[9px] text-typography-muted font-black uppercase tracking-tighter mb-0.5">Quality (Flap)</Text>
+                  <View className="flex-row items-baseline">
+                     <Text className={`text-lg font-black ${pulse.flap_rate_score > 1.5 ? 'text-state-danger' : 'text-state-success'}`}>
+                        {pulse.flap_rate_score}x
+                     </Text>
+                  </View>
+               </View>
+            </View>
 
                {pulse.is_working && (
                   <View className="bg-state-success/10 px-2 py-0.5 rounded-full flex-row items-center border border-state-success/20">
@@ -563,7 +563,7 @@ function TasksScreen() {
          </View>
       )}
 
-      <View className="flex-row items-center justify-between px-5 pt-4 pb-4">
+      <View className="flex-row flex-wrap items-center justify-between px-5 pt-4 pb-4 gap-y-4">
         <TouchableOpacity onPress={() => setShowPipelinePicker(true)}>
           <View className="flex-row items-center">
             <View>
@@ -574,7 +574,7 @@ function TasksScreen() {
             </View>
           </View>
         </TouchableOpacity>
-        <View className="flex-row items-center gap-2">
+        <View className="flex-row flex-wrap items-center gap-2">
            {hasPermission('manage_notifications') && (
              <TouchableOpacity
                onPress={() => router.push('/admin/notifications' as any)}
