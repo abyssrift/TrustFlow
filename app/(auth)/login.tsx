@@ -58,7 +58,7 @@ export default function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       className="flex-1 bg-surface-background px-8"
     >
-      <View className="flex-1 justify-center">
+      <View className="flex-1 justify-center max-w-[480px] w-full self-center">
         <View className="items-center mb-12">
           <View className="w-20 h-20 bg-brand-primary rounded-3xl flex-center premium-shadow mb-6">
             <FontAwesome name="shield" size={40} color="white" />

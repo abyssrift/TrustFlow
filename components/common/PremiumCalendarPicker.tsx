@@ -104,7 +104,7 @@ export default function PremiumCalendarPicker({ selectedDate, onSelect, accentCo
 
       <View className="flex-row flex-wrap">
         {days.map((day, idx) => (
-          <View key={idx} className="w-[14.285%] p-1 aspect-square">
+          <View key={idx} style={{ width: '14.285%', aspectRatio: 1 }} className="p-1">
             {day !== null ? (
               <TouchableOpacity
                 onPress={() => handleSelect(day, y, m)}
