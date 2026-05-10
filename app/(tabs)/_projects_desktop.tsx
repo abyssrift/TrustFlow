@@ -1,14 +1,15 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { 
-  View, 
-  Text, 
-  ScrollView, 
-  RefreshControl, 
-  TouchableOpacity, 
-  ActivityIndicator, 
-  Alert, 
+import {
+  View,
+  Text,
+  ScrollView,
+  RefreshControl,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
   Platform,
-  Switch
+  Switch,
+  useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
@@ -33,6 +34,9 @@ type Project = {
 export default function ProjectsScreenWeb() {
   const { hasPermission } = useAuth();
   const { activeSession, lastStoppedAt } = useTimer();
+  const { width } = useWindowDimensions();
+  // Switch to 2-col grid on smaller desktops (sidebar eats ~256px of the viewport)
+  const cardWidth = width >= 1280 ? 'w-[calc(33.33%-20px)]' : 'w-[calc(50%-15px)]';
   
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -148,7 +152,7 @@ export default function ProjectsScreenWeb() {
       <TouchableOpacity 
         key={project.id} 
         onPress={() => handleEdit(project)}
-        className="w-[calc(33.33%-20px)] bg-surface-card p-8 rounded-[32px] border border-surface-border mb-8 premium-shadow hover:border-brand-primary/50 transition-all group"
+        className={`${cardWidth} bg-surface-card p-8 rounded-[32px] border border-surface-border mb-8 premium-shadow hover:border-brand-primary/50 transition-all group`}
       >
         <View className="flex-row items-center justify-between mb-6">
            <View className={`w-14 h-14 rounded-2xl items-center justify-center ${isOverdue ? 'bg-state-danger/10' : 'bg-brand-primary/10'} group-hover:scale-110 transition-transform`}>

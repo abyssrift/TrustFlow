@@ -10,7 +10,6 @@ import {
   TrendComparisonCardsWeb,
   TrendComparisonMiniWeb,
   ThroughputOverTimeMiniWeb,
-  TargetsMiniWeb,
 } from '@/components/intelligence/RadarWidgets';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
@@ -154,7 +153,7 @@ export default function IntelligenceOverview() {
                 <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest">Configure</Text>
               </TouchableOpacity>
             </View>
-            <View className="flex-row gap-4 mb-8">
+            <View className="flex-row flex-wrap gap-4 mb-8">
               {activeWidgets.map(renderWidget)}
             </View>
           </View>
@@ -162,8 +161,6 @@ export default function IntelligenceOverview() {
           {/* ── Mini Widgets Row ── */}
           <View className="px-10 flex-col gap-4">
             <ThroughputOverTimeMiniWeb pipelines={pipelines} onViewAll={() => router.push('/intelligence/graphs')} />
-
-            <TargetsMiniWeb onViewAll={() => router.push('/intelligence/analytics')} />
 
             <SLARiskAlertMiniWeb data={data} onViewAll={() => router.push('/intelligence/graphs')} />
             

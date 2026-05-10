@@ -1,12 +1,12 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { 
-  View, 
-  Text, 
-  ScrollView, 
-  RefreshControl, 
-  TouchableOpacity, 
-  ActivityIndicator, 
-  Alert, 
+import {
+  View,
+  Text,
+  ScrollView,
+  RefreshControl,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
   Platform,
   Switch
 } from 'react-native';
@@ -14,6 +14,7 @@ import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import ProjectFolderModal from '@/components/projects/ProjectFolderModal';
 import { useAuth } from '@/contexts/AuthContext';
+import { TAB_BAR_HEIGHT } from '@/lib/layout';
 
 type Project = {
   id: string;
@@ -191,35 +192,40 @@ export default function ProjectsScreen() {
 
   return (
     <View className="flex-1 bg-surface-background">
-      {/* Dynamic Navigation / Header */}
-      <View className={`flex-row items-center justify-between px-6 ${isWeb ? 'py-8 border-b border-surface-border' : 'pt-4 pb-2'}`}>
-        <View>
-          <Text className={`${isWeb ? 'text-5xl' : 'text-3xl'} text-typography-main font-black tracking-tighter`}>Projects</Text>
-          <Text className="text-typography-muted text-sm font-medium">Organizational clusters for team productivity</Text>
+      {/* Header */}
+      <View className={`flex-row items-center justify-between px-6 ${isWeb ? 'py-8 border-b border-surface-border' : 'pt-4 pb-3'}`}>
+        <View className="flex-1 mr-3">
+          <Text className={`${isWeb ? 'text-5xl' : 'text-2xl'} text-typography-main font-black tracking-tighter`}>Projects</Text>
+          {isWeb && (
+            <Text className="text-typography-muted text-sm font-medium">Manage your projects and team initiatives</Text>
+          )}
         </View>
-        
-        <View className="flex-row items-center gap-4">
-          <View className="flex-row items-center gap-2 mr-2">
-            <Text className="text-typography-muted text-[10px] font-bold uppercase">Show Closed</Text>
-            <Switch 
-              value={showClosed} 
+
+        <View className="flex-row items-center gap-3 flex-shrink-0">
+          <View className="flex-row items-center gap-2">
+            {isWeb && (
+              <Text className="text-typography-muted text-[10px] font-bold uppercase">Show Closed</Text>
+            )}
+            <Switch
+              value={showClosed}
               onValueChange={setShowClosed}
-              trackColor={{ false: 'var(--color-surface-border)', true: 'var(--color-primary)' }}
-              thumbColor={showClosed ? 'white' : 'var(--color-text-muted)'}
+              trackColor={{ false: '#334155', true: 'var(--color-primary)' }}
+              thumbColor="white"
             />
           </View>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             onPress={handleCreateNew}
-            className="bg-brand-primary p-4 rounded-2xl premium-shadow"
+            className="bg-brand-primary p-3 rounded-xl"
           >
-            <FontAwesome name="plus" size={18} color="white" />
+            <FontAwesome name="plus" size={16} color="white" />
           </TouchableOpacity>
         </View>
       </View>
 
-      <ScrollView 
+      <ScrollView
         className="flex-1 px-6 pt-6"
+        contentContainerStyle={{ paddingBottom: isWeb ? 32 : TAB_BAR_HEIGHT.native + 16 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="var(--color-primary)" />}
       >
         <View className={`${isWeb ? 'flex-row flex-wrap mt-2' : ''}`}>
@@ -237,7 +243,6 @@ export default function ProjectsScreen() {
             filteredProjects.map(renderProjectCard)
           )}
         </View>
-        <View className="h-20" />
       </ScrollView>
 
       <ProjectFolderModal 

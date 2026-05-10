@@ -125,6 +125,9 @@ function RootLayoutNav() {
       if (!session && !inAuthGroup) {
         router.replace('/(auth)/login');
       } else if (session) {
+        // Wait for profile to load before making redirection decisions
+        if (profile === null) return;
+
         if (!profile?.company_id && !inOnboarding) {
           router.replace('/onboarding');
         } else if (profile?.company_id && (inAuthGroup || inOnboarding)) {

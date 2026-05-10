@@ -22,6 +22,8 @@ export type StageData = {
   features?: string[];
   requires_submission: boolean;
   requires_timer: boolean;
+  linked_pipeline_id?: string | null;
+  linked_pipeline?: { id: string; name: string } | null;
 };
 
 export type TransitionData = {

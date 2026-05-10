@@ -6,6 +6,8 @@ import { cssInterop } from 'react-native-css-interop';
 
 import { useClientOnlyValue } from '@/components/useClientOnlyValue';
 import { useNotifications } from '@/contexts/NotificationsContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import { NATIVE_THEME_COLORS, TAB_BAR_HEIGHT } from '@/lib/layout';
 
 // Interop for Icons to support Tailwind colors
 cssInterop(FontAwesome, {
@@ -50,29 +52,32 @@ function NotificationBell() {
 
 export default function TabLayout() {
   const { width } = useWindowDimensions();
+  const { theme } = useTheme();
   const isLargeScreen = width > 768;
+
+  const colors = NATIVE_THEME_COLORS[theme];
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: 'var(--color-primary)',
-        tabBarInactiveTintColor: 'var(--color-text-muted)',
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.muted,
         tabBarStyle: {
-          backgroundColor: 'var(--color-background)',
+          backgroundColor: colors.background,
           borderTopColor: 'transparent',
           paddingBottom: Platform.OS === 'ios' ? 24 : 12,
           paddingTop: 12,
-          height: Platform.OS === 'ios' ? 88 : 70,
-          display: isLargeScreen ? 'none' : 'flex', // Hide bottom tabs on large screens
+          height: TAB_BAR_HEIGHT.native,
+          display: isLargeScreen ? 'none' : 'flex',
         },
         headerStyle: {
-          backgroundColor: 'var(--color-background)',
+          backgroundColor: colors.background,
           elevation: 0,
           shadowOpacity: 0,
           borderBottomWidth: 0,
         },
         headerTitleStyle: {
-          color: 'var(--color-text-main)',
+          color: theme === 'light' ? '#0f172a' : '#f8fafc',
           fontWeight: '800',
           fontSize: 20,
         },

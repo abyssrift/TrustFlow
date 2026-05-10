@@ -1,4 +1,4 @@
-import { CircularTargetCardMobile, IntelligencePicker } from '@/components/intelligence/IntelligenceCommon';
+import { IntelligencePicker } from '@/components/intelligence/IntelligenceCommon';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAnalytics, StageDwell, ThroughputPeriod } from '@/contexts/AnalyticsContext';
 import { supabase } from '@/lib/supabase';
@@ -12,7 +12,7 @@ import { ActivityIndicator, Alert, Image, Modal, RefreshControl, ScrollView, Tex
 // --- UTILITIES & SUB-COMPONENTS (Defined BEFORE main screen to avoid non-hoisted variable errors) ---
 
 const SectionToggle = ({ active, onSelect, hasPermission }: { active: string, onSelect: (s: string) => void, hasPermission: (p: string) => boolean }) => {
-  const sections = ['Radar', 'Targets', 'Archives', 'Analytics'].filter(s => {
+  const sections = ['Radar', 'Archives', 'Analytics'].filter(s => {
     if (s === 'Archives') return hasPermission('archive.view');
     if (s === 'Analytics') return hasPermission('analytics.view');
     return true;
@@ -395,24 +395,6 @@ const RadarSection = ({ data, activeWidgets, onEditWidgets }: any) => {
   );
 };
 
-const TargetsSection = ({ targets, onUpdate, onNew }: any) => {
-  const handleEditTarget = (target: any) => {
-    Alert.prompt('Active Goal', 'Update target value:', v => onUpdate(target.id, target.target_type === 'volume' ? 'target_quantity' : 'target_active_seconds', v));
-  };
-
-  return (
-    <View>
-      <TouchableOpacity onPress={onNew} className="bg-surface-card p-6 rounded-3xl border border-dashed border-brand-primary/40 mb-6 items-center flex-row justify-center">
-        <FontAwesome name="plus-circle" size={16} color="var(--color-primary)" className="mr-3" />
-        <Text className="text-brand-primary font-bold text-sm">Initiate Benchmark Objective</Text>
-      </TouchableOpacity>
-      {targets.map((t: any, i: number) => (
-        <CircularTargetCardMobile key={i} target={t} onEdit={() => handleEditTarget(t)} />
-      ))}
-    </View>
-  );
-};
-
 const ArchivesSection = ({ reports, onDownload, onNew, coldArchives, activeSchema, currentSubSection, setSubSection, onSelectArchive, hasPermission }: any) => (
   <View>
     <View className="flex-row bg-surface-background p-1 rounded-xl mb-6">
@@ -488,94 +470,6 @@ const ArchivesSection = ({ reports, onDownload, onNew, coldArchives, activeSchem
     )}
   </View>
 );
-
-const TargetCreationModal = ({ visible, onClose, onConfirm, pipelines, stages }: any) => {
-  const [type, setType] = useState('performance');
-  const [p, setP] = useState<string | null>(null);
-  const [s, setS] = useState<string | null>(null);
-  const [activeGoal, setActiveGoal] = useState('3600');
-  const [lifeGoal, setLifeGoal] = useState('86400');
-  const [quantity, setQuantity] = useState('50');
-  const [deadline, setDeadline] = useState('7');
-  const filteredStages = stages.filter((st: any) => st.pipeline_id === p);
-  return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View className="flex-1 bg-black/70 items-center justify-center px-6">
-        <View className="bg-surface-card w-full max-h-[90%] rounded-[32px] border border-surface-border overflow-hidden">
-          <View className="p-8 pb-4">
-            <Text className="text-typography-main text-2xl font-black mb-1">Define Objective</Text>
-            <Text className="text-typography-muted text-xs">Set performance or volume benchmarks</Text>
-          </View>
-          <ScrollView className="px-8" showsVerticalScrollIndicator={false}>
-            <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest mt-4 mb-3">Objective Type</Text>
-            <View className="flex-row bg-surface-background p-1 rounded-xl mb-4">
-              {['performance', 'volume'].map(t => (
-                <TouchableOpacity key={t} onPress={() => setType(t)} className={`flex-1 py-2 rounded-lg items-center ${type === t ? 'bg-brand-primary' : ''}`}>
-                  <Text className={`font-bold text-[10px] uppercase ${type === t ? 'text-white' : 'text-typography-muted'}`}>{t}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest mt-2 mb-3">Target Pipeline</Text>
-            <IntelligencePicker items={pipelines} selectedId={p} onSelect={(id: string) => { setP(id); setS(null); }} />
-            {p && (
-              <>
-                <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest mt-6 mb-3">Target Stage</Text>
-                <IntelligencePicker items={filteredStages} selectedId={s} onSelect={setS} />
-              </>
-            )}
-            <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest mt-6 mb-3">
-              {type === 'performance' ? 'Performance Rules' : 'Volume Rules'}
-            </Text>
-            {type === 'performance' ? (
-              <View className="flex-row gap-4 mb-6">
-                <View className="flex-1">
-                  <Text className="text-typography-muted text-[10px] font-bold mb-2">Target Active (sec)</Text>
-                  <TextInput value={activeGoal} onChangeText={setActiveGoal} keyboardType="numeric" className="bg-surface-background border border-surface-border text-typography-main p-4 rounded-xl font-bold" />
-                </View>
-                <View className="flex-1">
-                  <Text className="text-typography-muted text-[10px] font-bold mb-2">Max Life (sec)</Text>
-                  <TextInput value={lifeGoal} onChangeText={setLifeGoal} keyboardType="numeric" className="bg-surface-background border border-surface-border text-typography-main p-4 rounded-xl font-bold" />
-                </View>
-              </View>
-            ) : (
-              <View className="flex-row gap-4 mb-6">
-                <View className="flex-1">
-                  <Text className="text-typography-muted text-[10px] font-bold mb-2">Target Quota (Tasks)</Text>
-                  <TextInput value={quantity} onChangeText={setQuantity} keyboardType="numeric" className="bg-surface-background border border-surface-border text-typography-main p-4 rounded-xl font-bold" />
-                </View>
-                <View className="flex-1">
-                  <Text className="text-typography-muted text-[10px] font-bold mb-2">In (Days)</Text>
-                  <TextInput value={deadline} onChangeText={setDeadline} keyboardType="numeric" className="bg-surface-background border border-surface-border text-typography-main p-4 rounded-xl font-bold" />
-                </View>
-              </View>
-            )}
-            <View className="h-10" />
-          </ScrollView>
-          <View className="p-8 pt-4 flex-row gap-3 border-t border-surface-border bg-surface-card">
-            <TouchableOpacity onPress={onClose} className="flex-1 py-4 rounded-2xl bg-surface-background border border-surface-border items-center">
-              <Text className="text-typography-muted font-bold">Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity disabled={!s} onPress={() => {
-              const dDate = new Date();
-              dDate.setDate(dDate.getDate() + parseInt(deadline));
-              onConfirm({
-                stage_id: s,
-                target_type: type,
-                active: type === 'performance' ? parseInt(activeGoal) : null,
-                lifecycle: type === 'performance' ? parseInt(lifeGoal) : null,
-                quantity: type === 'volume' ? parseInt(quantity) : null,
-                deadline: type === 'volume' ? dDate.toISOString() : null
-              });
-              onClose();
-            }} className={`flex-1 py-4 rounded-2xl items-center shadow-lg ${s ? 'bg-brand-primary shadow-brand-primary/30' : 'bg-surface-border'}`}>
-              <Text className="text-white font-bold">Establish Objective</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-};
 
 const ReportConfigModal = ({ visible, onClose, onConfirm, pipelines, teams, users, initialDays }: any) => {
   const [d, setD] = useState(initialDays);
@@ -774,18 +668,12 @@ export default function IntelligenceScreen() {
   const [activeSection, setActiveSection] = useState((section as string) || 'radar');
   const [loading, setLoading] = useState(true);
   const [showReportModal, setShowReportModal] = useState(false);
-  const [showTargetModal, setShowTargetModal] = useState(false);
-
   // Core Data State
   const [data, setData] = useState<any>(null);
   const [reports, setReports] = useState<any[]>([]);
-  const [targets, setTargets] = useState<any[]>([]);
   const [pipelines, setPipelines] = useState<any[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
-
-  // Base Data for Selectors
-  const [allStages, setAllStages] = useState<any[]>([]);
   const [coldArchives, setColdArchives] = useState<any[]>([]);
   const [activeSchema, setActiveSchema] = useState<{ pipelines: Set<string>, stages: Set<string> }>({
     pipelines: new Set(),
@@ -835,7 +723,6 @@ export default function IntelligenceScreen() {
       if (!isMounted) return;
       if (activeSection === 'radar') await fetchAudit();
       if (activeSection === 'archives') await fetchReports();
-      if (activeSection === 'targets') await fetchTargets();
     };
     fetch();
     return () => { isMounted = false; };
@@ -845,12 +732,9 @@ export default function IntelligenceScreen() {
     const { data: p } = await supabase.from('pipelines').select('id, name').is('deleted_at', null);
     const { data: t } = await supabase.from('teams').select('id, name').is('deleted_at', null);
     const { data: u } = await supabase.from('users').select('id, full_name');
-    const { data: s } = await supabase.from('pipeline_stages').select('id, name, pipeline_id').order('position', { ascending: true });
-
     if (p) setPipelines(p);
     if (t) setTeams(t);
     if (u) setUsers(u);
-    if (s) setAllStages(s);
   };
 
   const fetchAudit = async () => {
@@ -898,52 +782,6 @@ export default function IntelligenceScreen() {
     } catch (err) {
       console.error('[Intelligence] Mobile Archive fetch failed:', err);
     }
-  };
-
-  const fetchTargets = async () => {
-    try {
-      setLoading(true);
-      const { data: res } = await supabase.from('pipeline_stage_targets').select('*, stage:pipeline_stages(name, pipeline_id)').order('created_at', { ascending: false });
-
-      const enriched = await Promise.all((res || []).map(async (t) => {
-        if (t.target_type === 'volume') {
-          const { count } = await supabase.from('tasks').select('*', { count: 'exact', head: true }).eq('current_stage_id', t.stage_id);
-          return { ...t, current_count: count || 0 };
-        }
-        return t;
-      }));
-
-      setTargets(enriched);
-    } catch (err) { console.error(err); } finally { setLoading(false); }
-  };
-
-  const handleCreateTarget = async (params: any) => {
-    try {
-      setLoading(true);
-      const { error } = await supabase.from('pipeline_stage_targets').insert({
-        stage_id: params.stage_id,
-        company_id: profile?.company_id,
-        target_type: params.target_type,
-        target_active_seconds: params.active,
-        target_lifecycle_seconds: params.lifecycle,
-        target_quantity: params.quantity,
-        target_deadline: params.deadline
-      });
-      if (error) throw error;
-      fetchTargets();
-    } catch (err: any) {
-      Alert.alert('Creation Failed', err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleUpdateTarget = async (id: string, field: string, val: string) => {
-    const num = parseInt(val);
-    if (isNaN(num)) return;
-    const { error } = await supabase.from('pipeline_stage_targets').update({ [field]: num }).eq('id', id);
-    if (error) Alert.alert('Update Failed', error.message);
-    else fetchTargets();
   };
 
   const handleExportPDF = async (params: any) => {
@@ -1048,8 +886,6 @@ export default function IntelligenceScreen() {
             </View>
           ) : activeSection === 'radar' ? (
             <RadarSection data={data} activeWidgets={activeWidgets} onEditWidgets={() => setShowWidgetModal(true)} />
-          ) : activeSection === 'targets' ? (
-            <TargetsSection targets={targets} onUpdate={handleUpdateTarget} onNew={() => setShowTargetModal(true)} />
           ) : activeSection === 'analytics' ? (
             <NativeAnalyticsSection pipelines={pipelines} />
           ) : activeSection === 'archives' && (
@@ -1077,14 +913,6 @@ export default function IntelligenceScreen() {
         teams={teams}
         users={users}
         initialDays={days}
-      />
-
-      <TargetCreationModal
-        visible={showTargetModal}
-        onClose={() => setShowTargetModal(false)}
-        onConfirm={handleCreateTarget}
-        pipelines={pipelines}
-        stages={allStages}
       />
 
       <WidgetConfigModal

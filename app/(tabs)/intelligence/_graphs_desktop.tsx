@@ -126,13 +126,15 @@ export default function IntelligenceGraphs() {
           <ActivityIndicator size="large" color="var(--color-primary)" />
         </View>
       ) : (
-        <ScrollView className="flex-1" contentContainerStyle={{ padding: 40, gap: 24 }} showsVerticalScrollIndicator={false}>
+        <ScrollView className="flex-1" contentContainerStyle={{ paddingHorizontal: 32, paddingVertical: 40, paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
 
           {/* SLA Risks */}
-          <SLARiskAlertWeb data={auditData} />
+          <View className="mb-6">
+            <SLARiskAlertWeb data={auditData} />
+          </View>
 
           {/* ── Throughput Over Time ── */}
-          <View className="bg-surface-card p-8 rounded-[32px] border border-surface-border premium-shadow">
+          <View className="bg-surface-card p-8 rounded-[32px] border border-surface-border premium-shadow mb-6">
             <View className="flex-row justify-between items-start mb-6">
               <View>
                 <Text className="text-typography-main font-black text-xl tracking-tight">Throughput Over Time</Text>
@@ -174,23 +176,24 @@ export default function IntelligenceGraphs() {
           </View>
 
           {/* Stage Duration Chart */}
-          <StageDurationChartWeb data={auditData} />
+          <View className="mb-6">
+            <StageDurationChartWeb data={auditData} />
+          </View>
 
           {/* Performance Trends */}
-          <TrendComparisonCardsWeb data={auditData} />
+          <View className="mb-6">
+            <TrendComparisonCardsWeb data={auditData} />
+          </View>
 
           {/* ── Stage Dwell + Work Distribution ── */}
-          <View className="flex-row gap-6">
-            {/* Stage Dwell */}
+          <View className="flex-row gap-6 mb-6">
             <View className="flex-1">
-              <StageDwellChartWeb 
-                data={dwell} 
+              <StageDwellChartWeb
+                data={dwell}
                 onViewDetails={() => router.push('/intelligence/analytics')}
                 className="h-full"
               />
             </View>
-
-            {/* Work Distribution */}
             <View className="flex-1">
               <WorkDistributionChartWeb data={auditData} />
             </View>

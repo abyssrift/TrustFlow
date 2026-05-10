@@ -206,38 +206,44 @@ function PipelinesWebInner() {
         </View>
 
         {/* Configuration Area */}
-        <View className="flex-1 p-10">
-          <View className="max-w-6xl mx-auto w-full h-full">
-            {selectedPipeline && (
-              <View className="flex-row items-center justify-between mb-10">
-                <View>
-                   <Text className="text-typography-main text-4xl font-black tracking-tighter mb-2">{selectedPipeline.name}</Text>
+        <View className="flex-1">
+          {selectedPipeline && (
+            <View className="px-6 md:px-10 pt-10 pb-6 w-full">
+              <View className="max-w-6xl mx-auto w-full flex-row flex-wrap items-center justify-between gap-6">
+                <View className="flex-1 min-w-[280px]">
+                   <Text className="text-typography-main text-3xl md:text-4xl font-black tracking-tighter mb-2" numberOfLines={2}>
+                     {selectedPipeline.name}
+                   </Text>
                    <Text className="text-typography-muted font-medium">Pipeline configuration and lifecycle management.</Text>
                 </View>
 
-                <View className="flex-row bg-surface-card p-1.5 rounded-2xl border border-surface-border">
-                  {(['visualizer', 'stages', 'transitions', 'automations', 'handshakes', 'settings'] as any[]).map((s) => (
-                    <TouchableOpacity
-                      key={s}
-                      onPress={() => setActiveSection(s)}
-                      className={`px-6 py-2.5 rounded-xl transition-all ${
-                        activeSection === s ? 'bg-brand-primary' : 'hover:bg-surface-overlay'
-                      }`}
-                    >
-                      <Text className={`text-[10px] font-black uppercase tracking-widest ${
-                        activeSection === s ? 'text-white' : 'text-typography-muted'
-                      }`}>
-                        {s === 'visualizer' ? 'Designer' : s === 'transitions' ? 'Flow Rules' : s}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                <View className="max-w-full">
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <View className="flex-row bg-surface-card p-1.5 rounded-2xl border border-surface-border self-start">
+                      {(['visualizer', 'stages', 'transitions', 'automations', 'handshakes', 'settings'] as any[]).map((s) => (
+                        <TouchableOpacity
+                          key={s}
+                          onPress={() => setActiveSection(s)}
+                          className={`px-4 py-2.5 rounded-xl transition-all ${
+                            activeSection === s ? 'bg-brand-primary' : 'hover:bg-surface-overlay'
+                          }`}
+                        >
+                          <Text className={`text-[10px] font-black uppercase tracking-widest ${
+                            activeSection === s ? 'text-white' : 'text-typography-muted'
+                          }`}>
+                            {s === 'visualizer' ? 'Designer' : s === 'transitions' ? 'Flow Rules' : s}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </ScrollView>
                 </View>
               </View>
-            )}
-
-            <View className="flex-1 bg-surface-card/20 rounded-[3rem] border border-surface-border overflow-hidden">
-              {renderSection()}
             </View>
+          )}
+
+          <View className="flex-1 overflow-visible">
+            {renderSection()}
           </View>
         </View>
       </View>

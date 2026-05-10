@@ -145,7 +145,7 @@ export function TasksScreenWeb() {
       // 2. Get stages
       const { data: stagesData } = await supabase
         .from('pipeline_stages')
-        .select('*, linked_pipeline:linked_pipeline_id(name)')
+        .select('*, linked_pipeline:linked_pipeline_id(id, name)')
         .eq('pipeline_id', targetPipelineId)
         .order('position', { ascending: true });
       setStages(stagesData || []);

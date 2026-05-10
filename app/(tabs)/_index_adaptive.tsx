@@ -1,9 +1,11 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, ScrollView, RefreshControl, ActivityIndicator, TouchableOpacity, Modal } from 'react-native';
+import { View, Text, ScrollView, RefreshControl, ActivityIndicator, TouchableOpacity, Modal, Platform } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useAuth } from '@/contexts/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
+import { TAB_BAR_HEIGHT } from '@/lib/layout';
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -69,6 +71,7 @@ export default function DashboardScreen() {
   const [config, setConfig] = useState<DashboardConfig | null>(null);
 
   const { user, profile } = useAuth();
+  const router = useRouter();
 
   const displayName = useMemo(() => {
     return profile?.display_name || profile?.full_name || user?.user_metadata?.full_name || 'Operator';
@@ -227,18 +230,19 @@ export default function DashboardScreen() {
     <ScrollView
       className="flex-1 bg-surface-background p-5"
       showsVerticalScrollIndicator={false}
+      contentContainerStyle={{ paddingBottom: Platform.OS !== 'web' ? TAB_BAR_HEIGHT.native + 16 : 32 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="var(--color-primary)" />}
     >
       <View className="mb-6 mt-4 flex-row justify-between items-start">
-        <View>
+        <View className="flex-1 mr-3">
           <Text className="text-brand-primary font-bold uppercase tracking-widest text-[10px] mb-1">Command Center</Text>
-          <Text className="text-typography-main text-3xl font-black tracking-tight">
+          <Text className="text-typography-main text-2xl font-black tracking-tight" numberOfLines={2}>
             {getGreeting()}, {firstName}
           </Text>
         </View>
         <TouchableOpacity
           onPress={() => setShowSettings(true)}
-          className="w-10 h-10 bg-surface-card rounded-full items-center justify-center border border-surface-border"
+          className="w-10 h-10 bg-surface-card rounded-full items-center justify-center border border-surface-border flex-shrink-0"
         >
           <FontAwesome name="cog" size={16} color="var(--color-primary)" />
         </TouchableOpacity>
@@ -391,13 +395,13 @@ export default function DashboardScreen() {
             </View>
           </View>
 
-          <View className="mb-12">
+          <View>
             <View className="flex-row items-center justify-between mb-4">
               <View className="flex-row items-center gap-2">
                 <View className="w-1.5 h-4 bg-brand-primary rounded-full" />
                 <Text className="text-typography-main text-sm font-black uppercase tracking-widest">Recent Activity</Text>
               </View>
-              <TouchableOpacity onPress={() => router.push('/pipelines')}>
+              <TouchableOpacity onPress={() => router.push('/intelligence' as any)}>
                 <FontAwesome name="chevron-right" size={10} color="var(--color-primary)" />
               </TouchableOpacity>
             </View>

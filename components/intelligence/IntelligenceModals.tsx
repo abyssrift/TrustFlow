@@ -97,50 +97,149 @@ export const TargetCreationModal = ({ visible, onClose, onConfirm, pipelines, st
   );
 };
 
+const QUICK_REPORT_TYPES = [
+  { value: 'performance_audit',        label: 'General Audit',      icon: 'bar-chart'     },
+  { value: 'user_performance_summary', label: 'Worker Summary',     icon: 'user'          },
+  { value: 'pipeline_stage_dwell',     label: 'Stage Dwell',        icon: 'clock-o'       },
+  { value: 'personnel_comparison',     label: 'Personnel Compare',  icon: 'balance-scale' },
+  { value: 'targets_status',           label: 'Targets & SLAs',     icon: 'bullseye'      },
+];
+
 export const ReportConfigModal = ({ visible, onClose, onConfirm, pipelines, teams, users, initialDays }: any) => {
-  const [d, setD] = useState(initialDays);
-  const [p, setP] = useState<string | null>(null);
-  const [t, setT] = useState<string | null>(null);
-  const [u, setU] = useState<string | null>(null);
+  const [d, setD]       = useState(initialDays);
+  const [p, setP]       = useState<string | null>(null);
+  const [t, setT]       = useState<string | null>(null);
+  const [u, setU]       = useState<string | null>(null);
   const [type, setType] = useState('performance_audit');
+
+  const needsPipeline = type === 'pipeline_stage_dwell';
+  const needsUser     = type === 'user_performance_summary';
+  const needsWorkers  = type === 'personnel_comparison';
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const toggleUser = (id: string) =>
+    setSelectedUserIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+
+  const showTemporal = type !== 'targets_status';
+
+  const buildParams = () => {
+    const base: any = { days: d, type };
+    if (p) base.pipeline_id = p;
+    if (t) base.team_id     = t;
+    if (u) base.user_id     = u;
+    if (needsWorkers && selectedUserIds.length >= 2) base.user_ids = selectedUserIds;
+    return base;
+  };
+
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View className="flex-1 bg-black/70 items-center justify-center">
         <View className="bg-surface-card w-full max-w-2xl rounded-[40px] border border-surface-border premium-shadow overflow-hidden">
           <View className="p-10 border-b border-surface-border">
-            <Text className="text-typography-main text-3xl font-black tracking-tight mb-2">Audit Parameters</Text>
-            <Text className="text-typography-muted font-medium">Define the telemetry boundaries for automated audit generation</Text>
+            <Text className="text-typography-main text-3xl font-black tracking-tight mb-2">Quick Report</Text>
+            <Text className="text-typography-muted font-medium">Generate a report with key parameters</Text>
           </View>
-          <ScrollView className="p-10 max-h-[600px]">
-            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mb-4">Temporal Range</Text>
-            <View className="flex-row gap-4 mb-8">
-              {[7, 30, 90, 180].map(val => (
-                <TouchableOpacity key={val} onPress={() => setD(val)} className={`flex-1 py-4 rounded-xl border transition-all ${d === val ? 'bg-brand-primary border-brand-primary premium-shadow' : 'border-surface-border hover:bg-surface-background'}`}>
-                  <Text className={`text-center font-black text-[10px] uppercase tracking-widest ${d === val ? 'text-brand-on-primary' : 'text-typography-muted'}`}>{val} Days</Text>
+          <ScrollView className="p-10 max-h-[640px]">
+
+            {/* Report type tabs */}
+            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mb-4">Report Type</Text>
+            <View className="flex-row flex-wrap gap-2 mb-8">
+              {QUICK_REPORT_TYPES.map(rt => (
+                <TouchableOpacity
+                  key={rt.value}
+                  onPress={() => setType(rt.value)}
+                  className={`flex-row items-center gap-2 px-4 py-3 rounded-2xl border transition-all ${type === rt.value ? 'bg-brand-primary border-brand-primary' : 'border-surface-border bg-surface-background hover:bg-surface-overlay'}`}
+                >
+                  <FontAwesome name={rt.icon as any} size={12} color={type === rt.value ? 'white' : 'rgb(var(--text-muted))'} />
+                  <Text className={`text-[10px] font-black uppercase tracking-widest ${type === rt.value ? 'text-white' : 'text-typography-muted'}`}>{rt.label}</Text>
                 </TouchableOpacity>
               ))}
             </View>
-            <View className="space-y-8">
-              <View>
-                <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mb-4">Pipeline Sector</Text>
-                <IntelligencePicker items={[{ id: null, name: 'Global Organization' }, ...pipelines]} selectedId={p} onSelect={setP} />
+
+            {/* Temporal Range */}
+            {showTemporal && (
+              <>
+                <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mb-4">Temporal Range</Text>
+                <View className="flex-row gap-4 mb-8">
+                  {[7, 30, 90, 180].map(val => (
+                    <TouchableOpacity key={val} onPress={() => setD(val)} className={`flex-1 py-4 rounded-xl border transition-all ${d === val ? 'bg-brand-primary border-brand-primary premium-shadow' : 'border-surface-border hover:bg-surface-background'}`}>
+                      <Text className={`text-center font-black text-[10px] uppercase tracking-widest ${d === val ? 'text-brand-on-primary' : 'text-typography-muted'}`}>{val} Days</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
+
+            {/* Contextual filters */}
+            {type === 'targets_status' ? (
+              <View className="bg-brand-primary/5 border border-brand-primary/20 p-6 rounded-3xl">
+                <Text className="text-typography-main font-black text-sm mb-2">Company-Wide Scope</Text>
+                <Text className="text-typography-muted text-xs leading-5">
+                  All active, hit, and expired performance targets across every pipeline will be included. No filters needed.
+                </Text>
               </View>
-              <View>
-                <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mb-4">Team Scope</Text>
-                <IntelligencePicker items={[{ id: null, name: 'All Tactical Teams' }, ...teams]} selectedId={t} onSelect={setT} />
+            ) : (
+              <View className="gap-6">
+                {!needsUser && !needsWorkers && (
+                  <View>
+                    <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mb-4">Pipeline Sector</Text>
+                    <IntelligencePicker items={[{ id: null, name: 'Global Organization' }, ...pipelines]} selectedId={p} onSelect={setP} />
+                  </View>
+                )}
+                {!needsPipeline && !needsUser && !needsWorkers && (
+                  <>
+                    <View>
+                      <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mb-4">Team Scope</Text>
+                      <IntelligencePicker items={[{ id: null, name: 'All Tactical Teams' }, ...teams]} selectedId={t} onSelect={setT} />
+                    </View>
+                    <View>
+                      <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mb-4">Individual Personnel</Text>
+                      <IntelligencePicker items={[{ id: null, name: 'All Active Agents' }, ...users]} selectedId={u} onSelect={setU} labelKey="full_name" />
+                    </View>
+                  </>
+                )}
+                {needsPipeline && (
+                  <View>
+                    <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mb-4">Pipeline</Text>
+                    <IntelligencePicker items={pipelines} selectedId={p} onSelect={setP} />
+                  </View>
+                )}
+                {needsUser && (
+                  <View>
+                    <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mb-4">Worker</Text>
+                    <IntelligencePicker items={users} selectedId={u} onSelect={setU} labelKey="full_name" />
+                  </View>
+                )}
+                {needsWorkers && (
+                  <View>
+                    <View className="flex-row items-center mb-4">
+                      <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] flex-1">Workers (min 2)</Text>
+                      <Text className="text-typography-muted text-[10px]">{selectedUserIds.length} selected</Text>
+                    </View>
+                    <View className="flex-row flex-wrap gap-2">
+                      {users.map((usr: any) => {
+                        const active = selectedUserIds.includes(usr.id);
+                        return (
+                          <TouchableOpacity
+                            key={usr.id}
+                            onPress={() => toggleUser(usr.id)}
+                            className={`px-4 py-2 rounded-xl border ${active ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
+                          >
+                            <Text className={`text-[10px] font-black ${active ? 'text-white' : 'text-typography-muted'}`}>{usr.full_name}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+                )}
               </View>
-              <View>
-                <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mb-4">Individual Personnel</Text>
-                <IntelligencePicker items={[{ id: null, name: 'All Active Agents' }, ...users]} selectedId={u} onSelect={setU} labelKey="full_name" />
-              </View>
-            </View>
+            )}
           </ScrollView>
           <View className="p-10 border-t border-surface-border flex-row gap-6 bg-surface-card/50">
             <TouchableOpacity onPress={onClose} className="flex-1 py-5 rounded-2xl bg-surface-background border border-surface-border items-center">
               <Text className="text-typography-muted font-black uppercase tracking-widest text-xs">Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => { onConfirm({ days: d, pipeline_id: p, team_id: t, user_id: u, type }); onClose(); }}
+              onPress={() => { onConfirm(buildParams()); onClose(); }}
               className="flex-[2] py-5 rounded-2xl bg-brand-primary items-center shadow-lg shadow-brand-primary/30 active:scale-[0.98] transition-transform"
             >
               <Text className="text-brand-on-primary font-black uppercase tracking-widest text-xs">Execute Audit Request</Text>

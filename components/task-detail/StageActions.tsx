@@ -10,6 +10,8 @@ import { ActivityIndicator, Alert, Text, TextInput, TouchableOpacity, View } fro
 import { openStorageFile, SUBMISSION_BUCKET } from '@/lib/storage';
 import { getActionDescriptor, splitStageActions } from './actionRegistry';
 import ManualTimeModal from '@/components/common/ManualTimeModal';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
 
 function getFileIcon(mimeType: string | null): { name: string; color: string } {
   const t = (mimeType || '').toLowerCase();
@@ -30,6 +32,7 @@ const STATUS_STYLES: Record<string, { bg: string; border: string; text: string; 
 export default function StageActions() {
   const { data, executeAction, submitWork, reviewSubmission, deleteSubmission } = useTaskDetail();
   const { isActive, activeSession, serverTimeOffset, stopWork, startWork, smartTimer } = useTimer();
+  const router = useRouter();
   const { user } = useAuth();
   const [loadingActionId, setLoadingActionId] = useState<string | null>(null);
   const [submissionContent, setSubmissionContent] = useState('');
@@ -221,6 +224,34 @@ export default function StageActions() {
   };
 
   const showTimerCard = stageRequiresTimer || anyActionRequiresTimer || (isActive && activeSession?.task_id === data.task.id);
+
+  const hasLinkedPipeline = !!data.current_stage?.linked_pipeline_id;
+  const linkedPipelineName = data.current_stage?.linked_pipeline?.name || 'Sub-Pipeline';
+
+  if (hasLinkedPipeline) {
+    return (
+      <View className="bg-surface-card rounded-2xl border border-surface-border p-4">
+        <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em] mb-3">Sub-Pipeline Active</Text>
+        <TouchableOpacity
+          onPress={() => {
+            if (data.current_stage?.linked_pipeline_id) {
+              AsyncStorage.setItem('@TrustFlow_tasks_pipeline', data.current_stage.linked_pipeline_id);
+              router.push({
+                 pathname: '/(tabs)',
+                 params: { pipelineId: data.current_stage.linked_pipeline_id }
+              } as any);
+            }
+          }}
+          className="bg-brand-primary/10 py-3 rounded-xl border border-brand-primary/30 items-center justify-center flex-row"
+        >
+          <FontAwesome name="bolt" size={14} color="var(--color-primary)" />
+          <Text className="text-brand-primary font-black text-xs uppercase tracking-widest ml-2">
+            Navigate to {linkedPipelineName}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   if (!buttonActions.length && !showSubmissionSection && !showTimerCard) return null;
 

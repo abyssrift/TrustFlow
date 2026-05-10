@@ -2,8 +2,48 @@ import { ReportConfigModal } from '@/components/intelligence/IntelligenceModals'
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+
+function formatDuration(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  if (m < 60) return `${m}:${String(s).padStart(2, '0')}`;
+  const h = Math.floor(m / 60);
+  return `${h}h ${m % 60}m`;
+}
+
+function ElapsedTimer({ createdAt, updatedAt, status }: { createdAt: string; updatedAt: string; status: string }) {
+  const isActive = status === 'pending' || status === 'processing';
+
+  const getStaticSeconds = () =>
+    Math.round((new Date(updatedAt).getTime() - new Date(createdAt).getTime()) / 1000);
+
+  const getLiveSeconds = () =>
+    Math.round((Date.now() - new Date(createdAt).getTime()) / 1000);
+
+  const [elapsed, setElapsed] = useState(isActive ? getLiveSeconds() : getStaticSeconds());
+
+  useEffect(() => {
+    if (!isActive) { setElapsed(getStaticSeconds()); return; }
+    const id = setInterval(() => setElapsed(getLiveSeconds()), 1000);
+    return () => clearInterval(id);
+  }, [isActive, createdAt, updatedAt]);
+
+  return (
+    <View className="w-20 items-start">
+      <View className={`flex-row items-center gap-1.5 px-2.5 py-1 rounded-lg ${isActive ? 'bg-state-info/10' : 'bg-surface-background'}`}>
+        {isActive && (
+          <View className="w-1.5 h-1.5 rounded-full bg-state-info animate-pulse" />
+        )}
+        <Text className={`text-[10px] font-black tabular-nums ${isActive ? 'text-state-info' : 'text-typography-muted'}`}>
+          {formatDuration(elapsed)}
+        </Text>
+      </View>
+    </View>
+  );
+}
 
 const STATUS_COLOR: Record<string, string> = {
   completed: 'text-state-success',
@@ -18,6 +58,53 @@ const STATUS_BG: Record<string, string> = {
   processing:'bg-state-info/10',
 };
 
+const REPORT_META: Record<string, { label: string; icon: string }> = {
+  general:                   { label: 'Tactical Performance Audit',  icon: 'bar-chart'     },
+  performance_audit:         { label: 'Tactical Performance Audit',  icon: 'bar-chart'     },
+  worker_comparison:         { label: 'Personnel Benchmarking',      icon: 'users'         },
+  team_comparison:           { label: 'Structural Matrix Analysis',  icon: 'group'         },
+  workflow_analysis:         { label: 'Pipeline Bottleneck Scan',    icon: 'rocket'        },
+  user_performance_series:   { label: 'Worker Performance Timeline', icon: 'line-chart'    },
+  user_performance_summary:  { label: 'Worker Performance Summary',  icon: 'user'          },
+  pipeline_stage_dwell:      { label: 'Stage Dwell Analysis',        icon: 'clock-o'       },
+  pipeline_throughput:       { label: 'Pipeline Throughput',         icon: 'area-chart'    },
+  personnel_comparison:      { label: 'Multi-Personnel Comparison',  icon: 'balance-scale' },
+  targets_status:            { label: 'Objectives & SLA Report',     icon: 'bullseye'      },
+  personal_pulse:            { label: 'Personal Activity Snapshot',  icon: 'heartbeat'     },
+};
+
+function getReportSubtitle(r: any): string {
+  const p = r.parameters || {};
+  switch (r.report_type) {
+    case 'user_performance_series':
+      return `${p.period_type ?? 'month'} series · ${p.n_periods ?? 12} periods`;
+    case 'user_performance_summary':
+      return p.date_start && p.date_end
+        ? `${p.date_start.slice(0, 10)} → ${p.date_end.slice(0, 10)}`
+        : `${p.days ?? 30} day window`;
+    case 'pipeline_stage_dwell':
+      return p.date_start && p.date_end
+        ? `Stage dwell · ${p.date_start.slice(0, 10)} → ${p.date_end.slice(0, 10)}`
+        : 'Stage dwell analysis';
+    case 'pipeline_throughput':
+      return `${p.period_type ?? 'month'} throughput · ${p.n_periods ?? 12} periods`;
+    case 'personnel_comparison':
+      return `${(p.user_ids ?? []).length} workers compared · ${p.days ?? 30}d window`;
+    case 'targets_status':
+      return 'All company objectives';
+    case 'personal_pulse':
+      return 'Real-time activity snapshot';
+    case 'worker_comparison':
+      return `Worker A vs Worker B · ${p.days ?? 30}d window`;
+    case 'team_comparison':
+      return `Team A vs Team B · ${p.days ?? 30}d window`;
+    default:
+      return p.scope === 'pipeline' ? `Pipeline scope · ${p.days ?? 30}d` : `${p.days ?? 30} day window`;
+  }
+}
+
+const POLL_INTERVAL_MS = 4000;
+
 export default function IntelligenceReports() {
   const [reports, setReports]         = useState<any[]>([]);
   const [loading, setLoading]         = useState(true);
@@ -25,6 +112,7 @@ export default function IntelligenceReports() {
   const [pipelines, setPipelines]     = useState<any[]>([]);
   const [teams, setTeams]             = useState<any[]>([]);
   const [users, setUsers]             = useState<any[]>([]);
+  const pollRef                       = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -37,27 +125,53 @@ export default function IntelligenceReports() {
       if (u.data) setUsers(u.data);
     });
     fetchReports();
+    return () => stopPolling();
   }, []);
+
+  const hasActive = (list: any[]) =>
+    list.some(r => r.status === 'pending' || r.status === 'processing');
+
+  const startPolling = () => {
+    if (pollRef.current) return;
+    pollRef.current = setInterval(async () => {
+      const { data } = await supabase
+        .from('reporting_jobs')
+        .select('*')
+        .order('created_at', { ascending: false });
+      const list = data || [];
+      setReports(list);
+      if (!hasActive(list)) stopPolling();
+    }, POLL_INTERVAL_MS);
+  };
+
+  const stopPolling = () => {
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+  };
 
   const fetchReports = async () => {
     setLoading(true);
     try {
-      const { data } = await supabase.from('reporting_jobs').select('*').order('created_at', { ascending: false });
-      setReports(data || []);
+      const { data } = await supabase
+        .from('reporting_jobs')
+        .select('*')
+        .order('created_at', { ascending: false });
+      const list = data || [];
+      setReports(list);
+      if (hasActive(list)) startPolling(); else stopPolling();
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };
 
   const handleGenerate = async (params: any) => {
     try {
-      const { error } = await supabase.rpc('rpc_request_report', {
+      const { data: jobId, error } = await supabase.rpc('rpc_request_report', {
         p_report_type: params.type || 'performance_audit',
-        p_parameters: { days: params.days, pipeline_id: params.pipeline_id, team_id: params.team_id, user_id: params.user_id },
+        p_parameters: params,
       });
       if (error) throw error;
       setShowModal(false);
       fetchReports();
-    } catch (e) { console.error(e); }
+    } catch (e: any) { console.error(e); }
   };
 
   const handleDownload = async (path: string) => {
@@ -112,59 +226,69 @@ export default function IntelligenceReports() {
               <Text className="flex-[2] text-typography-muted text-[9px] font-black uppercase tracking-widest">Report</Text>
               <Text className="flex-1 text-typography-muted text-[9px] font-black uppercase tracking-widest">Type</Text>
               <Text className="flex-1 text-typography-muted text-[9px] font-black uppercase tracking-widest">Created</Text>
+              <Text className="w-20 text-typography-muted text-[9px] font-black uppercase tracking-widest">Duration</Text>
               <Text className="w-24 text-center text-typography-muted text-[9px] font-black uppercase tracking-widest">Status</Text>
               <View className="w-20" />
             </View>
 
-            {reports.map((r, i) => (
-              <View
-                key={r.id}
-                className={`flex-row items-center px-8 py-5 ${i < reports.length - 1 ? 'border-b border-surface-border/50' : ''}`}
-              >
-                {/* Icon + ID */}
-                <View className="flex-[2] flex-row items-center gap-4">
-                  <View className={`w-10 h-10 rounded-xl items-center justify-center ${STATUS_BG[r.status] || 'bg-surface-background'}`}>
-                    <FontAwesome name="file-text-o" size={16} color={r.status === 'completed' ? 'var(--color-success)' : 'var(--color-primary)'} />
-                  </View>
-                  <View>
-                    <Text className="text-typography-main font-black text-sm">Report #{r.id.substring(0, 8).toUpperCase()}</Text>
-                    <Text className="text-typography-muted text-[10px]">{r.parameters?.days || 30} day window</Text>
-                  </View>
-                </View>
-                {/* Type */}
-                <Text className="flex-1 text-typography-muted text-xs font-bold capitalize">
-                  {(r.report_type || 'Performance').replace(/_/g, ' ')}
-                </Text>
-                {/* Date */}
-                <Text className="flex-1 text-typography-muted text-xs">
-                  {new Date(r.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                </Text>
-                {/* Status badge */}
-                <View className="w-24 items-center">
-                  <View className={`px-3 py-1 rounded-full ${STATUS_BG[r.status] || 'bg-surface-background'}`}>
-                    <Text className={`text-[9px] font-black uppercase tracking-widest ${STATUS_COLOR[r.status] || 'text-typography-muted'}`}>
-                      {r.status}
-                    </Text>
-                  </View>
-                </View>
-                {/* Action */}
-                <View className="w-20 items-end">
-                  {r.status === 'completed' && r.file_url ? (
-                    <TouchableOpacity
-                      onPress={() => handleDownload(r.file_url)}
-                      className="bg-brand-primary/10 border border-brand-primary/20 px-3 py-1.5 rounded-lg flex-row items-center gap-1.5"
-                    >
-                      <FontAwesome name="download" size={10} color="var(--color-primary)" />
-                      <Text className="text-brand-primary text-[10px] font-black">Download</Text>
-                    </TouchableOpacity>
-                  ) : (
-                    <View className="px-3 py-1.5">
-                      <Text className="text-typography-dim text-[10px]">—</Text>
+            {reports.map((r, i) => {
+              const meta = REPORT_META[r.report_type] ?? { label: (r.report_type || 'Report').replace(/_/g, ' '), icon: 'file-text-o' };
+              return (
+                <View
+                  key={r.id}
+                  className={`flex-row items-center px-8 py-5 ${i < reports.length - 1 ? 'border-b border-surface-border/50' : ''}`}
+                >
+                  {/* Icon + ID */}
+                  <View className="flex-[2] flex-row items-center gap-4">
+                    <View className={`w-10 h-10 rounded-xl items-center justify-center ${STATUS_BG[r.status] || 'bg-surface-background'}`}>
+                      <FontAwesome
+                        name={meta.icon as any}
+                        size={16}
+                        color={r.status === 'completed' ? 'var(--color-success)' : 'var(--color-primary)'}
+                      />
                     </View>
-                  )}
+                    <View>
+                      <Text className="text-typography-main font-black text-sm">Report #{r.id.substring(0, 8).toUpperCase()}</Text>
+                      <Text className="text-typography-muted text-[10px]">{getReportSubtitle(r)}</Text>
+                    </View>
+                  </View>
+                  {/* Type */}
+                  <Text className="flex-1 text-typography-muted text-xs font-bold" numberOfLines={1}>
+                    {meta.label}
+                  </Text>
+                  {/* Date */}
+                  <Text className="flex-1 text-typography-muted text-xs">
+                    {new Date(r.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </Text>
+                  {/* Duration timer */}
+                  <ElapsedTimer createdAt={r.created_at} updatedAt={r.updated_at} status={r.status} />
+                  {/* Status badge */}
+                  <View className="w-24 items-center">
+                    <View className={`px-3 py-1 rounded-full ${STATUS_BG[r.status] || 'bg-surface-background'}`}>
+                      <Text className={`text-[9px] font-black uppercase tracking-widest ${STATUS_COLOR[r.status] || 'text-typography-muted'}`}>
+                        {r.status}
+                      </Text>
+                    </View>
+                  </View>
+                  {/* Action */}
+                  <View className="w-20 items-end">
+                    {r.status === 'completed' && r.file_url ? (
+                      <TouchableOpacity
+                        onPress={() => handleDownload(r.file_url)}
+                        className="bg-brand-primary/10 border border-brand-primary/20 px-3 py-1.5 rounded-lg flex-row items-center gap-1.5"
+                      >
+                        <FontAwesome name="download" size={10} color="var(--color-primary)" />
+                        <Text className="text-brand-primary text-[10px] font-black">Download</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <View className="px-3 py-1.5">
+                        <Text className="text-typography-dim text-[10px]">—</Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
-              </View>
-            ))}
+              );
+            })}
           </View>
         </ScrollView>
       )}

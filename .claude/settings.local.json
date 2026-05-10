@@ -34,11 +34,30 @@
       "Bash(node -e ' *)",
       "Bash(grep -E \"\\\\.\\(ts|tsx|js|sql\\)$\")",
       "Bash(xargs grep *)",
-      "Bash(grep -E \"\\\\.\\(sql|ts|tsx|js\\)$\")"
+      "Bash(grep -E \"\\\\.\\(sql|ts|tsx|js\\)$\")",
+      "PowerShell(Get-ChildItem -Path \"c:\\\\Users\\\\j\\\\Documents\\\\Github\\\\TrustFlow\" -Force | Select-Object Name, @{Name=\"IsFolder\"; Expression={$_.PSIsContainer}})",
+      "Bash(grep -rE \"style.*\\\\{.*[0-9]{2,}px|width.*[0-9]{2,}|height.*[0-9]{2,}|overflow|maxWidth|maxHeight\" \"c:\\\\Users\\\\j\\\\Documents\\\\Github\\\\TrustFlow\\\\app\")",
+      "Bash(grep -rE \"style=.*[0-9]{2,}px|tabBarStyle|paddingBottom|paddingTop|height:\" \"c:\\\\Users\\\\j\\\\Documents\\\\Github\\\\TrustFlow\\\\app\\\\\\(tabs\\)\")",
+      "Bash(Remove-Item \"c:\\\\Users\\\\j\\\\Documents\\\\Github\\\\TrustFlow\\\\app\\\\\\(tabs\\)\\\\intelligence\\\\targets.tsx\" -Force)",
+      "Bash(Remove-Item \"c:\\\\Users\\\\j\\\\Documents\\\\Github\\\\TrustFlow\\\\app\\\\\\(tabs\\)\\\\intelligence\\\\_targets_adaptive.tsx\" -Force)",
+      "Bash(Remove-Item \"c:\\\\Users\\\\j\\\\Documents\\\\Github\\\\TrustFlow\\\\app\\\\\\(tabs\\)\\\\intelligence\\\\_targets_desktop.tsx\" -Force)",
+      "Bash(Remove-Item \"c:\\\\Users\\\\j\\\\Documents\\\\Github\\\\TrustFlow\\\\app\\\\\\(tabs\\)\\\\intelligence\\\\_targets_web.tsx\" -Force)",
+      "Bash(Write-Host \"Deleted 4 targets files\")",
+      "Bash(rm \"c:/Users/j/Documents/Github/TrustFlow/app/\\(tabs\\)/intelligence/targets.tsx\" \"c:/Users/j/Documents/Github/TrustFlow/app/\\(tabs\\)/intelligence/_targets_adaptive.tsx\" \"c:/Users/j/Documents/Github/TrustFlow/app/\\(tabs\\)/intelligence/_targets_desktop.tsx\" \"c:/Users/j/Documents/Github/TrustFlow/app/\\(tabs\\)/intelligence/_targets_web.tsx\" && echo \"Deleted 4 files\")",
+      "Bash(git checkout *)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\j\\\\Documents\\\\Github\\\\TrustFlow\" -Recurse -File)",
+      "Bash(Select-Object FullName)",
+      "Bash(npx supabase *)",
+      "mcp__plugin_supabase_supabase__list_projects",
+      "mcp__plugin_supabase_supabase__execute_sql",
+      "mcp__plugin_supabase_supabase__apply_migration",
+      "mcp__plugin_supabase_supabase__get_logs",
+      "mcp__plugin_supabase_supabase__get_edge_function"
     ],
     "additionalDirectories": [
       "C:\\Users\\PC\\.claude",
-      "C:\\Users\\j\\OneDrive\\Documents\\GitHub\\NewTrustEdgeAPP"
+      "C:\\Users\\j\\OneDrive\\Documents\\GitHub\\NewTrustEdgeAPP",
+      "c:\\Users\\j\\Documents\\Github\\TrustFlow\\app\\(tabs)\\intelligence"
     ]
   }
 }

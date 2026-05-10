@@ -637,9 +637,9 @@ function PersonnelTab() {
   return (
     <View className="gap-8">
       {/* 3-Column Cockpit Header */}
-      <View className="flex-row gap-6 flex-wrap xl:flex-nowrap">
+      <View className="flex-row gap-6 flex-wrap">
         {/* Column 1: Cohort Selection */}
-        <View className="flex-1 min-w-[350px] bg-surface-card border border-surface-border rounded-[32px] p-6 shadow-sm">
+        <View className="bg-surface-card border border-surface-border rounded-[32px] p-6 shadow-sm" style={{ flex: 1, minWidth: 280 }}>
           <View className="flex-row items-center justify-between mb-6">
             <View>
               <Text className="text-typography-main font-black text-xl">Select Cohort</Text>
@@ -696,12 +696,12 @@ function PersonnelTab() {
         </View>
 
         {/* Column 2: The Radar Chart (Insights) */}
-        <View className="flex-1 min-w-[350px] flex-col">
+        <View className="flex-col" style={{ flex: 1, minWidth: 280 }}>
           <ComparisonInsights />
         </View>
 
         {/* Column 3: Parameters */}
-        <View className="w-full xl:w-[400px] gap-6">
+        <View className="gap-6" style={{ flex: 1, minWidth: 280 }}>
           <View className="bg-surface-card border border-surface-border rounded-[32px] p-6 shadow-sm">
             <View className="mb-6">
               <Text className="text-typography-main font-black text-xl">Parameters</Text>
@@ -995,8 +995,8 @@ export default function AdminAnalyticsWeb() {
   return (
     <View className="flex-1 bg-surface-background">
       <Stack.Screen options={{ headerShown: false }} />
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <View className="max-w-[1400px] mx-auto w-full p-10">
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+        <View className="max-w-[1400px] mx-auto w-full px-8 py-10">
 
           {/* Header */}
           <View className="mb-10">

@@ -14,6 +14,7 @@ type Props = {
   selectedDate: string | null; // ISO string (YYYY-MM-DD)
   onSelect: (date: string) => void;
   accentColor?: string;
+  compact?: boolean; // single-month, no sidebar — for use inside modals
 };
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -31,9 +32,9 @@ const QUICK_ACTIONS = [
   { label: '+1 Month',  days: 30 },
 ];
 
-export default function PremiumCalendarPicker({ selectedDate, onSelect, accentColor = 'rgb(var(--brand-primary))' }: Props) {
+export default function PremiumCalendarPicker({ selectedDate, onSelect, accentColor = 'rgb(var(--brand-primary))', compact = false }: Props) {
   const { width } = useWindowDimensions();
-  const isDesktop = width > 768;
+  const isDesktop = !compact && width > 768;
 
   const initialDate = selectedDate ? new Date(selectedDate) : new Date();
   const [viewDate, setViewDate] = useState(new Date(initialDate.getFullYear(), initialDate.getMonth(), 1));

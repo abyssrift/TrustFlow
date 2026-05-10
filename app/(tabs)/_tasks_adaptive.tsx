@@ -9,6 +9,7 @@ import { TaskCreationProvider } from '@/contexts/TaskCreationContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/supabase';
 import { getPrimaryColor } from '@/lib/themeColors';
+import { TAB_BAR_HEIGHT } from '@/lib/layout';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -134,7 +135,7 @@ function TasksScreen() {
       // 2. Get stages
       const { data: stagesData, error: sError } = await supabase
         .from('pipeline_stages')
-        .select('*, linked_pipeline:linked_pipeline_id(name)')
+        .select('*, linked_pipeline:linked_pipeline_id(id, name)')
         .eq('pipeline_id', targetPipelineId)
         .order('position', { ascending: true });
 
@@ -524,97 +525,102 @@ function TasksScreen() {
 
       {/* PERFORMANCE PULSE HEADER */}
       {kanban.showPulse && pulse && (
-         <View className={`px-5 py-3 ${kanban.backgroundUrl ? 'bg-surface-background/40' : 'bg-brand-primary/5'} border-b border-surface-border`}>
-            <View className="flex-row items-center justify-between">
-               <View className="flex-row items-center space-x-6">
-                  <View>
-                     <Text className="text-[9px] text-brand-primary font-black uppercase tracking-tighter mb-0.5">Today''s Pulse</Text>
-                     <View className="flex-row items-baseline">
-                        <Text className="text-lg font-black text-brand-primary">{pulse.daily_points}</Text>
-                        <Text className="text-[9px] text-brand-primary/60 ml-0.5 font-bold">PTS</Text>
-                     </View>
+         <View className={`px-4 py-2.5 ${kanban.backgroundUrl ? 'bg-surface-background/40' : 'bg-brand-primary/5'} border-b border-surface-border`}>
+            <View className="flex-row items-center">
+               <View className="flex-1 items-center">
+                  <Text className="text-[8px] text-brand-primary font-black uppercase tracking-tighter mb-0.5">Pulse</Text>
+                  <View className="flex-row items-baseline">
+                     <Text className="text-base font-black text-brand-primary">{pulse.daily_points}</Text>
+                     <Text className="text-[8px] text-brand-primary/60 ml-0.5 font-bold">pts</Text>
                   </View>
+               </View>
 
-                  <View className="ml-6">
-                     <Text className="text-[9px] text-typography-muted font-black uppercase tracking-tighter mb-0.5">Velocity</Text>
-                     <View className="flex-row items-baseline">
-                        <Text className="text-lg font-black text-typography-main">{Math.floor(pulse.active_seconds_today / 3600)}h</Text>
-                        <Text className="text-[9px] text-typography-muted ml-0.5 font-bold">{Math.floor((pulse.active_seconds_today % 3600) / 60)}m</Text>
-                     </View>
+               <View className="w-px h-8 bg-surface-border/50" />
+
+               <View className="flex-1 items-center">
+                  <Text className="text-[8px] text-typography-muted font-black uppercase tracking-tighter mb-0.5">Velocity</Text>
+                  <View className="flex-row items-baseline">
+                     <Text className="text-base font-black text-typography-main">{Math.floor(pulse.active_seconds_today / 3600)}h</Text>
+                     <Text className="text-[8px] text-typography-muted ml-0.5 font-bold">{Math.floor((pulse.active_seconds_today % 3600) / 60)}m</Text>
                   </View>
+               </View>
 
-                  <View className="ml-6">
-                     <Text className="text-[9px] text-typography-muted font-black uppercase tracking-tighter mb-0.5">Quality (Flap)</Text>
-                     <View className="flex-row items-baseline">
-                        <Text className={`text-lg font-black ${pulse.flap_rate_score > 1.5 ? 'text-state-danger' : 'text-state-success'}`}>
-                           {pulse.flap_rate_score}x
-                        </Text>
-                     </View>
+               <View className="w-px h-8 bg-surface-border/50" />
+
+               <View className="flex-1 items-center">
+                  <Text className="text-[8px] text-typography-muted font-black uppercase tracking-tighter mb-0.5">Flap</Text>
+                  <View className="flex-row items-baseline">
+                     <Text className={`text-base font-black ${pulse.flap_rate_score > 1.5 ? 'text-state-danger' : 'text-state-success'}`}>
+                        {pulse.flap_rate_score}x
+                     </Text>
                   </View>
                </View>
 
                {pulse.is_working && (
-                  <View className="bg-state-success/10 px-2 py-0.5 rounded-full flex-row items-center border border-state-success/20">
-                     <View className="w-1 h-1 rounded-full bg-state-success mr-1.5" />
-                     <Text className="text-[8px] text-state-success font-black uppercase tracking-widest">Active</Text>
+                  <View className="ml-3 bg-state-success/10 px-2 py-0.5 rounded-full flex-row items-center border border-state-success/20">
+                     <View className="w-1.5 h-1.5 rounded-full bg-state-success mr-1" />
+                     <Text className="text-[8px] text-state-success font-black uppercase tracking-widest">On</Text>
                   </View>
                )}
             </View>
          </View>
       )}
 
-      <View className="flex-row items-center justify-between px-5 pt-4 pb-4">
-        <TouchableOpacity onPress={() => setShowPipelinePicker(true)}>
-          <View className="flex-row items-center">
-            <View>
-              <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-wider mb-0.5">
-                {pipeline?.name || 'Pipeline'} <FontAwesome name="chevron-down" size={8} className="text-brand-primary" />
-              </Text>
-              <Text className="text-typography-main text-3xl font-black">Board</Text>
-            </View>
-          </View>
+      <View className="flex-row items-center px-4 pt-3 pb-3 gap-3">
+        {/* Pipeline title — takes available space, never pushes buttons off screen */}
+        <TouchableOpacity onPress={() => setShowPipelinePicker(true)} className="flex-1 min-w-0">
+          <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-wider mb-0.5" numberOfLines={1}>
+            {pipeline?.name || 'Pipeline'}  ▾
+          </Text>
+          <Text className="text-typography-main text-2xl font-black" numberOfLines={1}>Board</Text>
         </TouchableOpacity>
-        <View className="flex-row items-center gap-2">
+
+        {/* Action buttons — horizontal scroll if too many appear */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 8, alignItems: 'center' }}
+          style={{ flexShrink: 0 }}
+        >
            {hasPermission('manage_notifications') && (
              <TouchableOpacity
                onPress={() => router.push('/admin/notifications' as any)}
-               className="bg-brand-primary/10 p-3 rounded-2xl border border-brand-primary/20"
+               className="bg-brand-primary/10 p-2.5 rounded-xl border border-brand-primary/20"
              >
-               <FontAwesome name="bell" size={16} className="text-brand-primary" />
+               <FontAwesome name="bell" size={15} className="text-brand-primary" />
              </TouchableOpacity>
            )}
            {hasPermission('role.manage') && (
              <TouchableOpacity
                onPress={() => router.push('/admin/roles')}
-               className="bg-brand-primary/10 p-3 rounded-2xl border border-brand-primary/20"
+               className="bg-brand-primary/10 p-2.5 rounded-xl border border-brand-primary/20"
              >
-               <FontAwesome name="shield" size={16} className="text-brand-primary" />
+               <FontAwesome name="shield" size={15} className="text-brand-primary" />
              </TouchableOpacity>
            )}
            <TouchableOpacity
              onPress={() => setShowPersonalizer(true)}
-             className="bg-brand-primary/10 p-3 rounded-2xl border border-brand-primary/20"
+             className="bg-brand-primary/10 p-2.5 rounded-xl border border-brand-primary/20"
            >
-             <FontAwesome name="paint-brush" size={16} className="text-brand-primary" />
+             <FontAwesome name="paint-brush" size={15} className="text-brand-primary" />
            </TouchableOpacity>
            {hasPermission('pipeline.edit') && (
              <TouchableOpacity
                onPress={() => router.push('/admin/pipelines')}
-               className="bg-brand-primary/10 p-3 rounded-2xl border border-brand-primary/20"
+               className="bg-brand-primary/10 p-2.5 rounded-xl border border-brand-primary/20"
              >
-               <FontAwesome name="cog" size={16} className="text-brand-primary" />
+               <FontAwesome name="cog" size={15} className="text-brand-primary" />
              </TouchableOpacity>
            )}
            {hasPermission('task.create') && (
              <TouchableOpacity
                onPress={handleCreateTask}
-               className="bg-brand-primary px-5 py-3 rounded-xl shadow-lg shadow-brand-primary/30 flex-row items-center active:bg-brand-primary-active"
+               className="bg-brand-primary w-9 h-9 rounded-xl items-center justify-center"
              >
-               <FontAwesome name="plus" size={12} color="white" className="mr-2" />
-               <Text className="text-white font-bold text-xs uppercase tracking-widest">Create Task</Text>
+               <FontAwesome name="plus" size={15} color="white" />
              </TouchableOpacity>
            )}
-        </View>
+        </ScrollView>
       </View>
 
       {/* PIPELINE PICKER MODAL */}
@@ -685,7 +691,8 @@ function TasksScreen() {
       {hasPermission('task.create') && (
         <TouchableOpacity
           onPress={handleCreateTask}
-          className="absolute bottom-10 right-6 w-16 h-16 bg-brand-primary rounded-full items-center justify-center premium-shadow z-40 active:scale-90 transition-transform"
+          className="absolute right-6 w-16 h-16 bg-brand-primary rounded-full items-center justify-center premium-shadow z-40 active:scale-90 transition-transform"
+          style={{ bottom: TAB_BAR_HEIGHT.native + 16 }}
         >
           <FontAwesome name="plus" size={24} color="white" />
         </TouchableOpacity>

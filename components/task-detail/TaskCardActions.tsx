@@ -42,6 +42,8 @@ type Stage = {
   is_initial?: boolean;
   is_terminal?: boolean;
   terminal_type?: string | null;
+  linked_pipeline_id?: string | null;
+  linked_pipeline?: { name: string } | null;
 };
 
 type Task = {
@@ -94,6 +96,8 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
   const isInitialStage = currentStage?.is_initial ?? false;
   const isTerminal = currentStage?.is_terminal ?? false;
   const terminalType = currentStage?.terminal_type;
+  const hasLinkedPipeline = !!currentStage?.linked_pipeline_id;
+  const linkedPipelineName = currentStage?.linked_pipeline?.name || 'Sub-Pipeline';
 
   // Session detection — match on userId
   const taskSessions = activeSessions[task.id] || [];
@@ -290,6 +294,29 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
       </View>
     );
   };
+
+  // ─── STATE: Linked Pipeline (Sub-task Spawn) ────────────────
+  if (hasLinkedPipeline) {
+    return (
+      <TouchableOpacity
+        onPress={() => {
+          if (currentStage.linked_pipeline_id) {
+            AsyncStorage.setItem('@TrustFlow_tasks_pipeline', currentStage.linked_pipeline_id);
+            router.push({
+               pathname: '/(tabs)',
+               params: { pipelineId: currentStage.linked_pipeline_id }
+            } as any);
+          }
+        }}
+        className="bg-brand-primary/10 py-2.5 rounded-xl border border-brand-primary/30 items-center justify-center flex-row"
+      >
+        <FontAwesome name="bolt" size={12} color="var(--color-primary)" />
+        <Text className="text-brand-primary font-black text-[10px] uppercase tracking-widest ml-2">
+          Navigate to {linkedPipelineName}
+        </Text>
+      </TouchableOpacity>
+    );
+  }
 
   // ─── STATE: Terminal Stage ──────────────────────────────────
   if (isTerminal) {

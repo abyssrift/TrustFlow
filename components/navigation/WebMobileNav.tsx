@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, Pressable, ScrollView, Modal, Platform } from 'react-native';
+import { View, Text, Pressable, ScrollView, Modal } from 'react-native';
 import { Link, usePathname, useLocalSearchParams } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -38,11 +39,18 @@ export default function WebMobileNav({
   const { theme, setTheme } = useTheme();
   const { session } = useAuth();
 
+  const { bottom } = useSafeAreaInsets();
   const handleClose = () => setDrawerOpen(false);
+
+  // 56px is the visible icon+label area; bottom inset handles iPhone notch/home bar
+  const navHeight = 56 + bottom;
 
   return (
     <>
-      <View className="h-[70px] w-full border-t border-surface-border bg-surface-background flex-row items-center justify-around px-2" style={{ paddingBottom: Platform.OS === 'ios' ? 20 : 0 }}>
+      <View
+        style={{ height: navHeight, paddingBottom: bottom }}
+        className="w-full border-t border-surface-border bg-surface-background flex-row items-center justify-around px-2"
+      >
         {MAIN_TABS.map((tab) => {
           const isActive = matchesHref(pathname, params, tab.href);
           return (
