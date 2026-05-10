@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { vars } from 'nativewind';
+import { NATIVE_THEME_COLORS } from '@/lib/layout';
 
 export type ThemeType = 'indigo' | 'emerald' | 'amber' | 'amethyst' | 'light' | 'dark';
 export type DensityType = 'compact' | 'normal' | 'comfort';
@@ -25,6 +27,9 @@ interface ThemeContextType {
   setRoundness: (r: RoundnessType) => void;
   kanban: KanbanSettings;
   updateKanban: (updates: Partial<KanbanSettings>) => void;
+  themeVariables: any;
+  isLoading: boolean;
+  setIsLoading: (loading: boolean) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -46,11 +51,20 @@ const DEFAULT_KANBAN: KanbanSettings = {
   isVibrant: false,
 };
 
+// Helper to convert hex to RGB string for NativeWind variables
+const hexToRgb = (hex: string) => {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `${r}, ${g}, ${b}`;
+};
+
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<ThemeType>('indigo');
   const [density, setDensityState] = useState<DensityType>('normal');
   const [roundness, setRoundnessState] = useState<RoundnessType>('normal');
   const [kanban, setKanbanState] = useState<KanbanSettings>(DEFAULT_KANBAN);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Load selection
   useEffect(() => {
@@ -103,12 +117,35 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     AsyncStorage.setItem(STORAGE_KEYS.KANBAN, JSON.stringify(newSettings));
   };
 
+  // Generate NativeWind variables for the current theme
+  const themeVariables = React.useMemo(() => {
+    const colors = NATIVE_THEME_COLORS[theme];
+    return vars({
+      '--brand-primary': hexToRgb(colors.primary),
+      '--brand-secondary': hexToRgb(colors.secondary),
+      '--brand-accent': hexToRgb(colors.accent),
+      '--surface-background': hexToRgb(colors.background),
+      '--surface-card': hexToRgb(colors.card),
+      '--surface-border': hexToRgb(colors.border),
+      '--surface-overlay': hexToRgb(colors.card), // fallback
+      '--text-main': hexToRgb(colors.textMain),
+      '--text-muted': hexToRgb(colors.textMuted),
+      '--text-dim': hexToRgb(colors.textDim),
+      '--state-success': hexToRgb(colors.success),
+      '--state-warning': hexToRgb(colors.warning),
+      '--state-danger': hexToRgb(colors.danger),
+      '--state-info': hexToRgb(colors.info),
+    });
+  }, [theme]);
+
   return (
     <ThemeContext.Provider value={{ 
       theme, setTheme, 
       density, setDensity, 
       roundness, setRoundness, 
-      kanban, updateKanban 
+      kanban, updateKanban,
+      themeVariables,
+      isLoading, setIsLoading
     }}>
       {children}
     </ThemeContext.Provider>

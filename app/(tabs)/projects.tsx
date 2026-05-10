@@ -1,7 +1,7 @@
 import React from 'react';
 import { Platform } from 'react-native';
-import WebComponent from './_projects_web';
-import AdaptiveComponent from './_projects_adaptive';
+import WebComponent from '@/components/tabs/_projects_web';
+import AdaptiveComponent from '@/components/tabs/_projects_adaptive';
 
 export default function projectsScreen() {
   if (Platform.OS === 'web') {

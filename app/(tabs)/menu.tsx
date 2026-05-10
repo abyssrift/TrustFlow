@@ -5,6 +5,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 type IconName = React.ComponentProps<typeof FontAwesome>['name'];
 
@@ -38,6 +39,7 @@ const initials = (value: string) => {
 
 export default function MenuScreen() {
   const { theme, setTheme } = useTheme();
+  const colors = useThemeColors();
   const { session, user, hasPermission } = useAuth();
   const pathname = usePathname();
   const params = useLocalSearchParams();
@@ -114,7 +116,7 @@ export default function MenuScreen() {
               <Text className="font-bold text-lg text-typography-main" numberOfLines={1}>{profileLabel}</Text>
               <Text className="text-xs font-bold uppercase tracking-widest text-brand-primary/60">View Profile</Text>
             </View>
-            <FontAwesome name="chevron-right" size={14} color="var(--color-text-dim)" />
+            <FontAwesome name="chevron-right" size={14} color={colors.textDim} />
           </Pressable>
         </Link>
 
@@ -127,7 +129,7 @@ export default function MenuScreen() {
               <Link key={s.id} href={s.href as any} asChild>
                 <Pressable className={`flex-row items-center p-4 ${idx !== visibleShortcuts.length - 1 ? 'border-b border-surface-border/50' : ''} ${isActive ? 'bg-brand-primary/10' : ''}`}>
                   <View className="w-8 items-center">
-                    <FontAwesome name={s.icon} size={18} color={isActive ? 'var(--color-primary)' : 'var(--color-text-main)'} />
+                    <FontAwesome name={s.icon} size={18} color={isActive ? colors.primary : colors.textMain} />
                   </View>
                   <Text className={`font-bold ml-2 ${isActive ? 'text-brand-primary' : 'text-typography-main'}`}>{s.label}</Text>
                 </Pressable>
@@ -144,7 +146,7 @@ export default function MenuScreen() {
               <Link href="/platform-admin" asChild>
                 <Pressable className={`flex-row items-center p-4 ${pathname.startsWith('/platform-admin') ? 'bg-brand-primary-dim' : ''}`}>
                   <View className="w-8 items-center">
-                    <FontAwesome name="shield" size={18} color={pathname.startsWith('/platform-admin') ? 'var(--color-primary)' : 'var(--color-primary-dim)'} />
+                    <FontAwesome name="shield" size={18} color={pathname.startsWith('/platform-admin') ? colors.primary : colors.primary} />
                   </View>
                   <Text className={`font-bold ml-2 ${pathname.startsWith('/platform-admin') ? 'text-brand-primary' : 'text-typography-main'}`}>Control Plane</Text>
                 </Pressable>
@@ -152,7 +154,7 @@ export default function MenuScreen() {
               <Link href="/admin/pipelines" asChild>
                 <Pressable className={`flex-row items-center p-4 border-t border-surface-border/50 ${pathname.startsWith('/admin/pipelines') ? 'bg-brand-primary-dim' : ''}`}>
                   <View className="w-8 items-center">
-                    <FontAwesome name="gear" size={18} color={pathname.startsWith('/admin/pipelines') ? 'var(--color-primary)' : 'var(--color-primary-dim)'} />
+                    <FontAwesome name="gear" size={18} color={pathname.startsWith('/admin/pipelines') ? colors.primary : colors.primary} />
                   </View>
                   <Text className={`font-bold ml-2 ${pathname.startsWith('/admin/pipelines') ? 'text-brand-primary' : 'text-typography-main'}`}>Pipelines Admin</Text>
                 </Pressable>
@@ -174,7 +176,7 @@ export default function MenuScreen() {
                   <Link key={p.id} href={`/tasks?pipelineId=${p.id}`} asChild>
                     <Pressable className={`flex-row items-center p-4 ${i !== pipelines.length - 1 ? 'border-b border-surface-border/50' : ''} ${isActive ? 'bg-brand-primary/10' : ''}`}>
                       <View className="w-8 items-center">
-                        <FontAwesome name={icon} size={18} color={isActive ? 'var(--color-primary)' : 'var(--color-text-main)'} />
+                        <FontAwesome name={icon} size={18} color={isActive ? colors.primary : colors.textMain} />
                       </View>
                       <Text className={`font-bold ml-2 ${isActive ? 'text-brand-primary' : 'text-typography-main'}`}>{p.name}</Text>
                     </Pressable>
@@ -193,7 +195,7 @@ export default function MenuScreen() {
             className="flex-row items-center p-4 border-b border-surface-border/50"
           >
             <View className="w-8 items-center">
-              <FontAwesome name={theme === 'dark' ? 'sun-o' : 'moon-o'} size={18} color="var(--color-text-main)" />
+              <FontAwesome name={theme === 'dark' ? 'sun-o' : 'moon-o'} size={18} color={colors.textMain} />
             </View>
             <Text className="font-bold ml-2 text-typography-main">Toggle Theme ({theme === 'dark' ? 'Dark' : 'Light'})</Text>
           </Pressable>
@@ -201,7 +203,7 @@ export default function MenuScreen() {
           <Link href="/modal" asChild>
             <Pressable className="flex-row items-center p-4">
               <View className="w-8 items-center">
-                <FontAwesome name="bell" size={18} color="var(--color-text-main)" />
+                <FontAwesome name="bell" size={18} color={colors.textMain} />
               </View>
               <Text className="font-bold ml-2 text-typography-main">Notifications</Text>
             </Pressable>

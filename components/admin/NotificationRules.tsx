@@ -14,6 +14,7 @@ import { FontAwesome } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAlert } from '@/contexts/AlertContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 // Types and Constants
 type NotificationRule = {
@@ -26,12 +27,12 @@ type NotificationRule = {
   created_at: string;
 };
 
-const EVENT_META: Record<string, { label: string; cat: string; icon: any; color: string }> = {
-  'task.assigned': { label: 'Task Assigned', cat: 'Tasks', icon: 'user-plus', color: 'var(--color-primary)' },
-  'task.commented': { label: 'New Comment', cat: 'Comments', icon: 'comment', color: 'var(--color-warning)' },
-  'task.due_soon': { label: 'Due Soon', cat: 'Deadlines', icon: 'clock-o', color: 'var(--color-danger)' },
-  'task.mentioned': { label: 'Mention', cat: 'Comments', icon: 'at', color: 'var(--color-warning)' },
-  'task.overdue': { label: 'Overdue', cat: 'Deadlines', icon: 'exclamation-circle', color: 'var(--color-danger)' },
+const EVENT_META: Record<string, { label: string; cat: string; icon: any; colorKey: any }> = {
+  'task.assigned': { label: 'Task Assigned', cat: 'Tasks', icon: 'user-plus', colorKey: 'primary' },
+  'task.commented': { label: 'New Comment', cat: 'Comments', icon: 'comment', colorKey: 'warning' },
+  'task.due_soon': { label: 'Due Soon', cat: 'Deadlines', icon: 'clock-o', colorKey: 'danger' },
+  'task.mentioned': { label: 'Mention', cat: 'Comments', icon: 'at', colorKey: 'warning' },
+  'task.overdue': { label: 'Task Overdue', cat: 'Deadlines', icon: 'exclamation-circle', colorKey: 'danger' },
 };
 
 const STRATEGY_LABELS: Record<string, string> = {
@@ -58,6 +59,7 @@ type CreateRuleModalProps = {
 
 function CreateRuleModal({ visible, onClose, onCreated }: CreateRuleModalProps) {
   const { showAlert } = useAlert();
+  const colors = useThemeColors();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [eventType, setEventType] = useState('task.assigned');
@@ -112,7 +114,7 @@ function CreateRuleModal({ visible, onClose, onCreated }: CreateRuleModalProps) 
           <View className="flex-row items-center justify-between mb-8">
             <Text className="text-typography-main font-black text-2xl tracking-tight">New Rule</Text>
             <TouchableOpacity onPress={onClose} className="w-8 h-8 bg-surface-background rounded-full items-center justify-center border border-surface-border">
-              <FontAwesome name="times" size={14} color="var(--color-text-muted)" />
+              <FontAwesome name="times" size={14} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
 
@@ -122,7 +124,7 @@ function CreateRuleModal({ visible, onClose, onCreated }: CreateRuleModalProps) 
             value={name}
             onChangeText={setName}
             placeholder="e.g. Notify on Assignment"
-            placeholderTextColor="var(--color-text-dim)"
+            placeholderTextColor={colors.textDim}
             className="bg-surface-background border border-surface-border rounded-xl px-4 py-3.5 text-typography-main text-sm mb-5 focus:border-brand-primary"
           />
 
@@ -178,7 +180,8 @@ function CreateRuleModal({ visible, onClose, onCreated }: CreateRuleModalProps) 
 // ── Shared Sub-Components ───────────────────────────────────────────────────
 
 const RuleListItem = ({ rule, isSelected, onSelect, onToggle }: { rule: NotificationRule, isSelected: boolean, onSelect: () => void, onToggle: any }) => {
-  const meta = EVENT_META[rule.event_type] || { label: rule.event_type, icon: 'bell', color: 'var(--color-text-muted)' };
+  const colors = useThemeColors();
+  const meta = EVENT_META[rule.event_type] || { label: rule.event_type, icon: 'bell', colorKey: 'textMuted' };
   return (
     <TouchableOpacity 
       onPress={onSelect}
@@ -188,7 +191,7 @@ const RuleListItem = ({ rule, isSelected, onSelect, onToggle }: { rule: Notifica
       <View className="flex-row items-center justify-between">
         <View className="flex-row items-center gap-3 flex-1">
           <View className={`w-8 h-8 rounded-lg items-center justify-center bg-surface-background border border-surface-border shadow-sm`}>
-            <FontAwesome name={meta.icon} size={14} color={rule.is_active ? meta.color : 'var(--color-text-muted)'} />
+            <FontAwesome name={meta.icon} size={14} color={rule.is_active ? (colors[meta.colorKey] || colors.primary) : colors.textMuted} />
           </View>
           <View className="flex-1">
             <Text className={`font-black text-sm truncate ${isSelected ? 'text-typography-main' : 'text-typography-muted'}`}>{rule.name}</Text>
@@ -198,7 +201,7 @@ const RuleListItem = ({ rule, isSelected, onSelect, onToggle }: { rule: Notifica
         <Switch 
           value={rule.is_active} 
           onValueChange={(v) => onToggle(rule.id, v)}
-          trackColor={{ false: 'var(--color-border)', true: 'var(--color-primary)' }}
+          trackColor={{ false: colors.border, true: colors.primary }}
           thumbColor="#fff"
           style={{ transform: [{ scaleX: 0.75 }, { scaleY: 0.75 }] }}
         />
@@ -208,6 +211,7 @@ const RuleListItem = ({ rule, isSelected, onSelect, onToggle }: { rule: Notifica
 };
 
 const RuleInspector = ({ rule, onToggle }: { rule: NotificationRule | null, onToggle: any }) => {
+  const colors = useThemeColors();
   const [activeTab, setActiveTab] = useState<'config' | 'test' | 'logs'>('config');
   const [testing, setTesting] = useState(false);
 
@@ -215,7 +219,7 @@ const RuleInspector = ({ rule, onToggle }: { rule: NotificationRule | null, onTo
     <View className="flex-1 items-center justify-center p-12 bg-surface-background/30">
       <View className="bg-surface-card p-10 rounded-[40px] border border-dashed border-surface-border items-center">
         <View className="w-16 h-16 bg-surface-background rounded-full items-center justify-center mb-6">
-          <FontAwesome name="mouse-pointer" size={24} color="var(--color-text-muted)" />
+          <FontAwesome name="mouse-pointer" size={24} color={colors.textMuted} />
         </View>
         <Text className="text-typography-main text-lg font-black tracking-tight">Select a Rule</Text>
         <Text className="text-typography-muted mt-2 text-center max-w-[200px] leading-5">Choose a rule from the left to view configuration and logs.</Text>
@@ -248,13 +252,13 @@ const RuleInspector = ({ rule, onToggle }: { rule: NotificationRule | null, onTo
               <Switch 
                 value={rule.is_active} 
                 onValueChange={(v) => onToggle(rule.id, v)}
-                trackColor={{ false: 'var(--color-border)', true: 'var(--color-primary)' }}
+                trackColor={{ false: colors.border, true: colors.primary }}
                 thumbColor="#fff"
               />
             </View>
           </View>
           <TouchableOpacity className="bg-surface-background w-12 h-12 rounded-2xl border border-surface-border items-center justify-center hover:bg-state-danger/10">
-            <FontAwesome name="trash" size={16} color="var(--color-danger)" />
+            <FontAwesome name="trash" size={16} color={colors.danger} />
           </TouchableOpacity>
         </View>
       </View>
@@ -271,7 +275,7 @@ const RuleInspector = ({ rule, onToggle }: { rule: NotificationRule | null, onTo
               <FontAwesome 
                 name={tab === 'config' ? 'sliders' : tab === 'test' ? 'flask' : 'history'} 
                 size={12} 
-                color={activeTab === tab ? 'var(--color-primary)' : 'var(--color-text-muted)'} 
+                color={activeTab === tab ? colors.primary : colors.textMuted} 
               />
               <Text className={`font-black text-[11px] uppercase tracking-[0.15em] ${activeTab === tab ? 'text-typography-main' : 'text-typography-muted'}`}>
                 {tab === 'config' ? 'Configuration' : tab === 'test' ? 'Playground' : 'Activity Logs'}
@@ -303,7 +307,7 @@ const RuleInspector = ({ rule, onToggle }: { rule: NotificationRule | null, onTo
                <View className="flex-1 bg-surface-background/50 p-6 rounded-3xl border border-surface-border">
                   <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-4">Conditions</Text>
                   <View className="items-center justify-center py-8">
-                    <FontAwesome name="filter" size={24} color="var(--color-text-muted)" className="opacity-20 mb-3" />
+                    <FontAwesome name="filter" size={24} color={colors.textMuted} className="opacity-20 mb-3" />
                     <Text className="text-typography-muted text-xs font-bold">No custom filters applied</Text>
                   </View>
                </View>
@@ -312,13 +316,13 @@ const RuleInspector = ({ rule, onToggle }: { rule: NotificationRule | null, onTo
                   <View className="flex-row gap-4">
                     <View className="items-center gap-2">
                       <View className="w-10 h-10 bg-brand-primary/10 rounded-xl items-center justify-center border border-brand-primary/20">
-                        <FontAwesome name="envelope" size={14} color="var(--color-primary)" />
+                        <FontAwesome name="envelope" size={14} color={colors.primary} />
                       </View>
                       <Text className="text-typography-main text-[10px] font-bold">Email</Text>
                     </View>
                     <View className="items-center gap-2">
                       <View className="w-10 h-10 bg-brand-primary/10 rounded-xl items-center justify-center border border-brand-primary/20">
-                        <FontAwesome name="bell" size={14} color="var(--color-primary)" />
+                        <FontAwesome name="bell" size={14} color={colors.primary} />
                       </View>
                       <Text className="text-typography-main text-[10px] font-bold">In-App</Text>
                     </View>
@@ -332,7 +336,7 @@ const RuleInspector = ({ rule, onToggle }: { rule: NotificationRule | null, onTo
           <View>
             <View className="bg-surface-background p-8 rounded-[32px] border border-surface-border mb-8 overflow-hidden">
               <View className="absolute top-0 right-0 p-8 opacity-5">
-                <FontAwesome name="flask" size={120} color="var(--color-primary)" />
+                <FontAwesome name="flask" size={120} color={colors.primary} />
               </View>
               <Text className="text-typography-main text-xl font-black mb-2">Rule Simulator</Text>
               <Text className="text-typography-muted text-sm leading-6 max-w-md">
@@ -378,8 +382,8 @@ const RuleInspector = ({ rule, onToggle }: { rule: NotificationRule | null, onTo
                 </View>
                 <View className="flex-row items-center gap-4 bg-surface-card px-4 py-2 rounded-xl border border-surface-border">
                   <View className="flex-row gap-3">
-                    <FontAwesome name="envelope" size={10} color="var(--color-primary)" />
-                    <FontAwesome name="mobile" size={12} color="var(--color-primary)" />
+                    <FontAwesome name="envelope" size={10} color={colors.primary} />
+                    <FontAwesome name="mobile" size={12} color={colors.primary} />
                   </View>
                   <View className="w-px h-3 bg-surface-border" />
                   <Text className="text-typography-muted text-[10px] font-black tracking-tighter">3 RCVP</Text>
@@ -396,6 +400,7 @@ const RuleInspector = ({ rule, onToggle }: { rule: NotificationRule | null, onTo
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export default function NotificationRules() {
+  const colors = useThemeColors();
   const { width } = useWindowDimensions();
   const isDesktop = width > 1024;
   const { hasPermission, initialized } = useAuth();
@@ -441,7 +446,7 @@ export default function NotificationRules() {
 
   if (loading) return (
     <View className="py-40 items-center justify-center">
-      <ActivityIndicator size="large" color="var(--color-primary)" />
+      <ActivityIndicator size="large" color={colors.primary} />
       <Text className="text-typography-muted mt-4 font-black text-xs uppercase tracking-widest">Loading Workspace</Text>
     </View>
   );
@@ -476,7 +481,7 @@ export default function NotificationRules() {
            <View className="flex-1 bg-surface-background">
              <View className="pt-12 pb-4 px-4 border-b border-surface-border flex-row items-center gap-4 bg-surface-card">
                <TouchableOpacity onPress={() => setSelectedId(null)} className="w-10 h-10 items-center justify-center bg-surface-background rounded-full border border-surface-border">
-                 <FontAwesome name="arrow-left" size={16} color="var(--color-text-main)" />
+                 <FontAwesome name="arrow-left" size={16} color={colors.textMain} />
                </TouchableOpacity>
                <Text className="text-typography-main font-black text-lg">Rule Details</Text>
              </View>

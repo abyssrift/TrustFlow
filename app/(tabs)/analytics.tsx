@@ -1,7 +1,7 @@
 import React from 'react';
 import { Platform } from 'react-native';
-import WebComponent from './_analytics_web';
-import AdaptiveComponent from './_analytics_adaptive';
+import WebComponent from '@/components/tabs/_analytics_web';
+import AdaptiveComponent from '@/components/tabs/_analytics_adaptive';
 
 export default function analyticsScreen() {
   if (Platform.OS === 'web') {

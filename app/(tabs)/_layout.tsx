@@ -81,7 +81,7 @@ export default function TabLayout() {
           fontWeight: '800',
           fontSize: 20,
         },
-        headerShown: Platform.OS !== 'web',
+        headerShown: false,
       }}>
       <Tabs.Screen
         name="index"
@@ -107,6 +107,48 @@ export default function TabLayout() {
         options={{
           title: 'Projects',
           tabBarIcon: ({ color }) => <TabBarIcon name="folder-o" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="intelligence/index"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="intelligence/analytics"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="intelligence/archives"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="intelligence/graphs"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="intelligence/reports"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="intelligence/targets"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="intelligence/ReportGenerator"
+        options={{
+          href: null,
         }}
       />
       <Tabs.Screen

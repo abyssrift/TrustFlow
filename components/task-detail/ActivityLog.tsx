@@ -2,16 +2,7 @@ import React from 'react';
 import { View, Text } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
-
-const EVENT_ICONS: Record<string, { icon: string; color: string }> = {
-  'task.created':             { icon: 'plus-circle',  color: 'var(--color-primary)' },
-  'task.stage_advanced':      { icon: 'arrow-right',  color: 'var(--color-success)' },
-  'task.work_submitted':      { icon: 'upload',       color: 'var(--color-info)' },
-  'task.submission_reviewed': { icon: 'gavel',        color: 'var(--color-warning)' },
-  'task.comment_added':       { icon: 'comment',      color: 'var(--color-primary)' },
-  'task.comment_deleted':     { icon: 'trash',        color: 'var(--color-danger)' },
-  'task.assigned':            { icon: 'user-plus',    color: 'var(--color-info)' },
-};
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 function timeAgo(dateStr: string): string {
   const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
@@ -38,7 +29,22 @@ function eventLabel(type: string, metadata: any): string {
 }
 
 export default function ActivityLog() {
+  const colors = useThemeColors();
   const { data } = useTaskDetail();
+
+  const getEventStyle = (type: string) => {
+    switch (type) {
+      case 'task.created': return { icon: 'plus-circle', color: colors.primary };
+      case 'task.stage_advanced': return { icon: 'arrow-right', color: colors.success };
+      case 'task.work_submitted': return { icon: 'upload', color: colors.info };
+      case 'task.submission_reviewed': return { icon: 'gavel', color: colors.warning };
+      case 'task.comment_added': return { icon: 'comment', color: colors.primary };
+      case 'task.comment_deleted': return { icon: 'trash', color: colors.danger };
+      case 'task.assigned': return { icon: 'user-plus', color: colors.info };
+      default: return { icon: 'circle-o', color: colors.textMuted };
+    }
+  };
+
   if (!data || data.activity.length === 0) return null;
 
   return (
@@ -46,7 +52,7 @@ export default function ActivityLog() {
       <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em] mb-3">Activity</Text>
 
       {data.activity.slice(0, 20).map(a => {
-        const ev = EVENT_ICONS[a.event_type] || { icon: 'circle-o', color: 'var(--color-text-muted)' };
+        const ev = getEventStyle(a.event_type);
         return (
           <View key={a.id} className="flex-row items-start mb-2.5">
             <View className="w-5 items-center mt-0.5">

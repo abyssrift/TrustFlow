@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useState } from 'react';
 import { ActivityIndicator, Modal, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 type Props = {
   visible: boolean;
@@ -12,6 +13,7 @@ type Props = {
 };
 
 export default function ManualTimeModal({ visible, taskId, stageId, onSuccess, onCancel }: Props) {
+  const colors = useThemeColors();
   const [hours, setHours] = useState('');
   const [minutes, setMinutes] = useState('');
   const [reason, setReason] = useState('');
@@ -71,7 +73,7 @@ export default function ManualTimeModal({ visible, taskId, stageId, onSuccess, o
           {/* Header */}
           <View className="p-10 items-center">
             <View className="w-20 h-20 rounded-full bg-state-warning/10 items-center justify-center mb-6">
-              <FontAwesome name="clock-o" size={32} color="var(--color-warning)" />
+              <FontAwesome name="clock-o" size={32} color={colors.warning} />
             </View>
             <Text className="text-typography-main text-3xl font-black tracking-tight mb-4 text-center">
               Declare Work Hours
@@ -93,7 +95,7 @@ export default function ManualTimeModal({ visible, taskId, stageId, onSuccess, o
                   keyboardType="number-pad"
                   maxLength={2}
                   placeholder="0"
-                  placeholderTextColor="var(--color-text-muted)"
+                  placeholderTextColor={colors.textMuted}
                   value={hours}
                   onChangeText={v => setHours(v.replace(/[^0-9]/g, ''))}
                 />
@@ -108,7 +110,7 @@ export default function ManualTimeModal({ visible, taskId, stageId, onSuccess, o
                   keyboardType="number-pad"
                   maxLength={2}
                   placeholder="0"
-                  placeholderTextColor="var(--color-text-muted)"
+                  placeholderTextColor={colors.textMuted}
                   value={minutes}
                   onChangeText={v => setMinutes(v.replace(/[^0-9]/g, ''))}
                 />
@@ -126,7 +128,7 @@ export default function ManualTimeModal({ visible, taskId, stageId, onSuccess, o
               <TextInput
                 className="bg-surface-background border border-surface-border rounded-2xl px-4 py-3 text-typography-main"
                 placeholder="e.g. worked offline, forgot to start timer..."
-                placeholderTextColor="var(--color-text-muted)"
+                placeholderTextColor={colors.textMuted}
                 value={reason}
                 onChangeText={setReason}
                 multiline
@@ -144,7 +146,7 @@ export default function ManualTimeModal({ visible, taskId, stageId, onSuccess, o
             {/* Fraud notice */}
             <View className="bg-state-warning/5 border border-state-warning/20 rounded-2xl p-4">
               <View className="flex-row items-start gap-3">
-                <FontAwesome name="shield" size={14} color="var(--color-warning)" style={{ marginTop: 1 }} />
+                <FontAwesome name="shield" size={14} color={colors.warning} style={{ marginTop: 1 }} />
                 <Text className="text-state-warning/80 text-xs font-medium leading-relaxed flex-1">
                   All declarations are logged and auditable. Entries that significantly exceed the task estimate or stage average are automatically flagged for manager review.
                 </Text>

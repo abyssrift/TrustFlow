@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, Animated, PanResponder, Platform, Dimensi
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTimer } from '@/contexts/TimerContext';
 import { useRouter } from 'expo-router';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -11,6 +12,7 @@ export default function TimerIsland() {
   const [elapsed, setElapsed] = useState('00:00:00');
   const [expanded, setExpanded] = useState(false);
   const router = useRouter();
+  const colors = useThemeColors();
 
   // Animation values
   const pan = useRef(new Animated.ValueXY({ x: (SCREEN_WIDTH / 2) - 80, y: 20 })).current;
@@ -87,38 +89,6 @@ export default function TimerIsland() {
 
   if (!isActive) return null;
 
-  const IdleWarning = () => (
-    <Modal transparent animationType="fade" visible={smartTimer.showIdleModal} onRequestClose={() => smartTimer.setShowIdleModal(false)}>
-      <View className="flex-1 items-center justify-center bg-black/60">
-        <View className="bg-surface-card border border-surface-border rounded-2xl p-6 mx-6 max-w-sm w-full shadow-2xl">
-          <View className="items-center mb-4">
-            <View className="w-12 h-12 rounded-full bg-state-warning/15 items-center justify-center mb-3">
-              <FontAwesome name="clock-o" size={22} color="var(--color-warning)" />
-            </View>
-            <Text className="text-typography-main font-bold text-base text-center">Are you still working?</Text>
-            <Text className="text-typography-muted text-sm text-center mt-1">
-              No activity detected for 30 minutes. The timer will stop automatically in 2 minutes.
-            </Text>
-          </View>
-          <View className="flex-row gap-3">
-            <TouchableOpacity
-              onPress={() => { smartTimer.setShowIdleModal(false); smartTimer.recordActivity(); }}
-              className="flex-1 bg-brand-primary/10 border border-brand-primary/30 rounded-xl py-3 items-center active:bg-brand-primary/20"
-            >
-              <Text className="text-brand-primary font-semibold text-sm">Keep Working</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => { smartTimer.setShowIdleModal(false); stopWork(); }}
-              className="flex-1 bg-state-danger/10 border border-state-danger/30 rounded-xl py-3 items-center active:bg-state-danger/20"
-            >
-              <Text className="text-state-danger font-semibold text-sm">Stop Timer</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-
   const islandWidth = expandAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [140, 300],
@@ -131,7 +101,7 @@ export default function TimerIsland() {
 
   return (
     <>
-    <IdleWarning />
+    <IdleWarning smartTimer={smartTimer} stopWork={stopWork} colors={colors} />
     <Animated.View
       {...panResponder.panHandlers}
       style={{
@@ -180,7 +150,7 @@ export default function TimerIsland() {
                 onPress={() => stopWork()}
                 className="w-7 h-7 rounded-full bg-state-danger/10 items-center justify-center border border-state-danger/20 active:bg-state-danger/30"
               >
-                <FontAwesome name="stop" size={9} color="var(--color-danger)" />
+                <FontAwesome name="stop" size={9} color={colors.danger} />
              </TouchableOpacity>
           )}
           
@@ -188,7 +158,7 @@ export default function TimerIsland() {
             onPress={toggleExpand}
             className="w-7 h-7 rounded-full bg-white/10 items-center justify-center active:bg-white/20"
           >
-            <FontAwesome name={expanded ? 'compress' : 'expand'} size={9} color="var(--color-text-main)" />
+            <FontAwesome name={expanded ? 'compress' : 'expand'} size={9} color={colors.textMain} />
           </TouchableOpacity>
         </View>
       </View>
@@ -196,3 +166,35 @@ export default function TimerIsland() {
     </>
   );
 }
+
+const IdleWarning = ({ smartTimer, stopWork, colors }: any) => (
+  <Modal transparent animationType="fade" visible={smartTimer.showIdleModal} onRequestClose={() => smartTimer.setShowIdleModal(false)}>
+    <View className="flex-1 items-center justify-center bg-black/60">
+      <View className="bg-surface-card border border-surface-border rounded-2xl p-6 mx-6 max-w-sm w-full shadow-2xl">
+        <View className="items-center mb-4">
+          <View className="w-12 h-12 rounded-full bg-state-warning/15 items-center justify-center mb-3">
+            <FontAwesome name="clock-o" size={22} color={colors.warning} />
+          </View>
+          <Text className="text-typography-main font-bold text-base text-center">Are you still working?</Text>
+          <Text className="text-typography-muted text-sm text-center mt-1">
+            No activity detected for 30 minutes. The timer will stop automatically in 2 minutes.
+          </Text>
+        </View>
+        <View className="flex-row gap-3">
+          <TouchableOpacity
+            onPress={() => { smartTimer.setShowIdleModal(false); smartTimer.recordActivity(); }}
+            className="flex-1 bg-brand-primary/10 border border-brand-primary/30 rounded-xl py-3 items-center active:bg-brand-primary/20"
+          >
+            <Text className="text-brand-primary font-semibold text-sm">Keep Working</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => { smartTimer.setShowIdleModal(false); stopWork(); }}
+            className="flex-1 bg-state-danger/10 border border-state-danger/30 rounded-xl py-3 items-center active:bg-state-danger/20"
+          >
+            <Text className="text-state-danger font-semibold text-sm">Stop Timer</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  </Modal>
+);

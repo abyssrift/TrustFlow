@@ -1,7 +1,7 @@
 import React from 'react';
 import { useWindowDimensions, View } from 'react-native';
 import { Slot } from 'expo-router';
-import IntelligenceDesktopLayout from './IntelligenceDesktopLayout';
+import IntelligenceDesktopLayout from '@/components/intelligence/_IntelligenceDesktopLayout';
 
 export default function IntelligenceLayout() {
   const { width } = useWindowDimensions();

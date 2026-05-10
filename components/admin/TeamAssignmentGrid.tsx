@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Modal, TextInput } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRoleManager, Team } from '@/contexts/RoleManagerContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
 import { cssInterop } from 'react-native-css-interop';
 
 cssInterop(FontAwesome, {
@@ -12,6 +13,7 @@ cssInterop(FontAwesome, {
 } as any);
 
 export default function TeamAssignmentGrid() {
+  const colors = useThemeColors();
   const { teams, roles, teamRoles, updateTeamAssignments, createTeam, loading } = useRoleManager();
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -20,7 +22,7 @@ export default function TeamAssignmentGrid() {
   // Create form state
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [color, setColor] = useState('#6366f1');
+  const [color, setColor] = useState(colors.primary);
 
   const handleOpenTeam = (team: Team) => {
     const currentRoles = teamRoles.filter(tr => tr.team_id === team.id).map(tr => tr.role_id);
@@ -41,7 +43,7 @@ export default function TeamAssignmentGrid() {
       setIsCreating(false);
       setName('');
       setDescription('');
-      setColor('#6366f1');
+      setColor(colors.primary);
     }
   };
 
@@ -90,7 +92,7 @@ export default function TeamAssignmentGrid() {
                 >
                   <View className="flex-row items-center mb-6">
                     <View 
-                      style={{ backgroundColor: team.color || 'var(--color-primary)' }}
+                      style={{ backgroundColor: team.color?.includes('var') ? colors.primary : (team.color || colors.primary) }}
                       className="w-12 h-12 rounded-xl items-center justify-center border border-white/10"
                     >
                       <FontAwesome name="users" size={18} color="white" />
@@ -134,21 +136,21 @@ export default function TeamAssignmentGrid() {
                 value={name}
                 onChangeText={setName}
                 placeholder="Cluster Name"
-                placeholderTextColor="var(--color-text-muted)"
+                placeholderTextColor={colors.textMuted}
                 className="bg-surface-background border border-surface-border rounded-xl px-6 py-5 text-typography-main font-black text-sm"
               />
               <TextInput
                 value={description}
                 onChangeText={setDescription}
                 placeholder="Cluster mandate & responsibilities..."
-                placeholderTextColor="var(--color-text-muted)"
+                placeholderTextColor={colors.textMuted}
                 multiline
                 numberOfLines={3}
                 className="bg-surface-background border border-surface-border rounded-xl px-6 py-5 text-typography-main text-sm h-24"
               />
               
               <View className="flex-row flex-wrap gap-3 mt-2">
-                {['var(--color-primary)', 'var(--color-success)', 'var(--color-warning)', 'var(--color-danger)', 'var(--color-success)', 'var(--color-primary)'].map(c => (
+                {[colors.primary, colors.success, colors.warning, colors.danger, '#6366f1', '#10b981'].map(c => (
                   <TouchableOpacity 
                     key={c}
                     onPress={() => setColor(c)}
