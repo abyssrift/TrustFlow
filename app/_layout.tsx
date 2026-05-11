@@ -37,7 +37,7 @@ export const unstable_settings = {
 
 import GlobalUploadBanner from '@/components/GlobalUploadBanner';
 import TimerIsland from '@/components/TimerIsland';
-import { TimerProvider } from '@/contexts/TimerContext';
+import { TimerProvider, useTimer } from '@/contexts/TimerContext';
 import { useRouter, useSegments } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
@@ -199,10 +199,14 @@ import LoadingOverlay from '@/components/LoadingOverlay';
 function ThemedRoot() {
   const { themeVariables, isLoading } = useTheme();
   const { session, initialized } = useAuth();
+  const { smartTimer } = useTimer();
 
   return (
     <View style={themeVariables} className="flex-1">
-      <View className="flex-1 bg-surface-background">
+      <View
+        className="flex-1 bg-surface-background"
+        onTouchStart={Platform.OS !== 'web' ? () => smartTimer.recordActivity() : undefined}
+      >
         {/* Register for push notifications on native once user is signed in */}
         {session && Platform.OS !== 'web' && <PushRegistrationGuard />}
         

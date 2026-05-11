@@ -1,28 +1,33 @@
 
 2. Notifications
-5.benchmarks
 6. Security
 More smart timer testing
-when user plugs in a time because there's no time sessions, it should send to the manager of this task to approve it and it should have a notification to notify the manager.
+Idle tracking seems to be broken on mobile. i click buttons but it doesnt reset.
+
+when user plugs in a time because there's no time sessions, it should send to the manager of this task to approve it and it should have a notification to notify the manager. because currently users can kind of plug in whatever numbers they want and it breaks things.
+
+Analytics engine should also display a new graph in analytics screen and profile. and its about timer deliverability. do you deliver within the timer limit or not? if a manager assigns you 8h for a task, do you take 10 hours or 4?
+
 get the reports system to track all the new features, such as the new analytics engine, the worker graphs, the personal comparison, etc.
 Remove goal tracking from analytics in intelligence.
-Restoring a project that has set tasks ends up with an error.
-IMPORTANT
-
-The pipeline_stage_targets table now tracks completed_at timestamps for accurate velocity tracking. Ensure your backend triggers are updated if any server-side reporting relies on this field.
-Very good!
-Everything is working finally perfectly, my only complains are minor. but for some reason, theme on mobile is broken and isnt the same as web/desktop, and ALOT of icons/texts are using outdated RGB stuff which is causing them to be colored Black.
 
 
-one more thing, pages load without any kind of loading which makes them look very weird.
+one more thing, pages load without any kind of loading which makes them look very weird. clicking on things in mobile is so slow, it takes a while for things to open, iam hoping we can make things quicker.
 graphs misbehave on mobile and overflow inside their containers in a weird non dynamic way.
-alot of components look great but arent built for mobile
+updates should reflect on mobile specifically in the board. when i do things on web, they dont reflect in mobile. i know this requires realtime but iam hoping for a simpler solution because realtime is very expensive!
+also, mobile keeps getting me an error when i leave [id].tsx saying Something went wrong: Error: Cannot add 'postgres_changes' callbacks for realtime:tasks-board-realtime after 'subscribe()'.
+
 project creation/editing should use the premium calendar modal. 
 make sure that the calendar modal is working nicely on mobile.
-profile doesnt conform to theme on mobile and stays black despite using white components.
-screens are way too stuck at the top and need padding at the top on mobile.
+
+
 i get an error trying to start the timer via the card view rather than [id].tsx
-timerisland is broken interms of CSS on mobile.
-most actions require loading states on web AND mobile.
+
+timerisland is broken interms of CSS on mobile. it keeps giving me an error of Style proerty 'height' is not supported by native animated module. and expanding that island gives another error. Attempting to run JS driven animation on animated node that has been moved to native earlier by starting an animation with useNativeDriver: true
+
+most actions lack loading states on web AND mobile and it makes them look weird, dry or unrefined.
 most date pickers do NOT utilize the calendar on mobile.
 Mobile QOL features on each screen.
+
+
+cardview of tasks still doesnt show open for review despite removing its hardcoded permission.

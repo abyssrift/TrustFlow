@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { 
-  View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Modal, Pressable
+import {
+  View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Modal, Pressable, Platform,
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -85,7 +85,7 @@ export default function PeopleScreen() {
   return (
     <View className="flex-1 bg-surface-background">
       <View>
-      <View className="px-6 pt-4 pb-4">
+      <View className="px-6 pb-4" style={{ paddingTop: Platform.OS !== 'web' ? 54 : 16 }}>
         <View className="flex-row items-center justify-between mb-4">
           <View>
             <Text className="text-typography-main text-3xl font-black">Team</Text>

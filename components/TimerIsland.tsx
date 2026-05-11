@@ -1,11 +1,11 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, TouchableOpacity, Animated, PanResponder, Platform, Dimensions, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, Animated, PanResponder, Dimensions, Modal } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTimer } from '@/contexts/TimerContext';
 import { useRouter } from 'expo-router';
 import { useThemeColors } from '@/hooks/useThemeColors';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const SCREEN_WIDTH = Dimensions.get('window').width;
 
 export default function TimerIsland() {
   const { isActive, activeSession, stopWork, serverTimeOffset, smartTimer } = useTimer();
@@ -89,9 +89,11 @@ export default function TimerIsland() {
 
   if (!isActive) return null;
 
+  const maxIslandWidth = Math.min(300, SCREEN_WIDTH - 40);
+
   const islandWidth = expandAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [140, 300],
+    outputRange: [Math.min(140, SCREEN_WIDTH - 40), maxIslandWidth],
   });
 
   const islandHeight = expandAnim.interpolate({

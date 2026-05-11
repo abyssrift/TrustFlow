@@ -436,7 +436,7 @@ export default function IntelligenceTargets() {
     .filter(h => h.status === 'completed')
     .map(h => ({
       y: timelineCategories.indexOf(h.stage?.name || 'Global'),
-      x: new Date(h.completed_at).getTime(),
+      x: new Date(h.completed_at || h.created_at).getTime(),
       name: h.stage?.name || 'Global',
       type: h.target_type,
       dateLabel: new Date(h.completed_at).toLocaleDateString(),

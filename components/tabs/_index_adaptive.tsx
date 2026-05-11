@@ -230,7 +230,7 @@ export default function DashboardScreen() {
     <ScrollView
       className="flex-1 bg-surface-background p-5"
       showsVerticalScrollIndicator={false}
-      contentContainerStyle={{ paddingBottom: Platform.OS !== 'web' ? TAB_BAR_HEIGHT.native + 16 : 32 }}
+      contentContainerStyle={{ paddingTop: Platform.OS !== 'web' ? 54 : 0, paddingBottom: Platform.OS !== 'web' ? TAB_BAR_HEIGHT.native + 16 : 32 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="var(--color-primary)" />}
     >
       <View className="mb-6 mt-4 flex-row justify-between items-start">
@@ -249,7 +249,7 @@ export default function DashboardScreen() {
       </View>
 
       {loading && !refreshing ? (
-        <View className="flex-1 items-center justify-center p-10">
+        <View className="items-center justify-center py-24">
           <ActivityIndicator size="large" color="var(--color-primary)" />
           <Text className="text-typography-muted mt-3 font-bold uppercase tracking-widest text-[10px]">Loading data...</Text>
         </View>

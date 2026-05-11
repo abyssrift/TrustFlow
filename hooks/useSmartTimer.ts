@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Platform, AppState, AppStateStatus } from 'react-native';
 
-const IDLE_TIMEOUT = 30 * 60 * 1000;        // 30 minutes of no activity
+const IDLE_TIMEOUT = 60 * 60 * 1000;        // 60 minutes of no activity
 const SESSION_MAX_DURATION = 6 * 60 * 60 * 1000; // 6 hours
 const CHECK_INTERVAL = 10 * 1000;           // Check state every 10 seconds
 const HEARTBEAT_INTERVAL = 30 * 1000;       // Pulse server every 30 seconds
@@ -89,6 +89,14 @@ export function useSmartTimer({ onAutoStop, onAutoStart, onHeartbeat, onAutoStop
 
     const check = async () => {
       if (isAutoStoppingRef.current) return;
+
+      // Skip idle enforcement while app is backgrounded — user may be working in Excel or another app.
+      // The session keeps running; we only enforce idle when the user is actually looking at the app.
+      const isInForeground = Platform.OS === 'web'
+        ? document.visibilityState === 'visible'
+        : AppState.currentState === 'active';
+      if (!isInForeground) return;
+
       const now = Date.now();
       const elapsedSinceActivity = now - lastActivityRef.current;
       const elapsedSinceStart = now - new Date(startedAt).getTime();
@@ -101,15 +109,43 @@ export function useSmartTimer({ onAutoStop, onAutoStart, onHeartbeat, onAutoStop
 
       if (isForceStop || isMaxSession) {
         isAutoStoppingRef.current = true;
-        await onAutoStopRef.current();
-        isAutoStoppingRef.current = false;
-        setShowIdleModal(false);
+        try {
+          await onAutoStopRef.current();
+          setShowIdleModal(false);
+        } finally {
+          // Always reset even if auto-stop fails, otherwise the timer freezes permanently.
+          isAutoStoppingRef.current = false;
+        }
       }
     };
+
+    // When returning from background, reset the idle clock so accumulated background time
+    // is not counted as inactivity. This lets users work in Excel without triggering auto-stop.
+    let appStateSubscription: ReturnType<typeof AppState.addEventListener> | null = null;
+    let handleVisibilityChange: (() => void) | null = null;
+
+    if (Platform.OS !== 'web') {
+      appStateSubscription = AppState.addEventListener('change', (nextState: AppStateStatus) => {
+        if (nextState === 'active') {
+          lastActivityRef.current = Date.now();
+          setShowIdleModal(false);
+        }
+      });
+    } else if (typeof document !== 'undefined') {
+      handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+          lastActivityRef.current = Date.now();
+          setShowIdleModal(false);
+        }
+      };
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    }
 
     checkTimerRef.current = setInterval(check, CHECK_INTERVAL);
     return () => {
       if (checkTimerRef.current) clearInterval(checkTimerRef.current);
+      if (appStateSubscription) appStateSubscription.remove();
+      if (handleVisibilityChange) document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [isActive, startedAt]); // callbacks accessed via ref — no cascade on re-render
 
@@ -126,7 +162,7 @@ export function useSmartTimer({ onAutoStop, onAutoStart, onHeartbeat, onAutoStop
 
     const pulse = async () => {
       const isVisible = Platform.OS === 'web'
-        ? document.visibilityState === 'active' || document.visibilityState === 'visible'
+        ? document.visibilityState === 'visible'
         : AppState.currentState === 'active';
       if (!isVisible) return;
 

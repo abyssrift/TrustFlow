@@ -24,10 +24,11 @@ import StageBuilder from '@/components/pipeline-editor/StageBuilder.web';
 import TransitionEditor from '@/components/pipeline-editor/TransitionEditor';
 import AutomationEditor from '@/components/pipeline-editor/AutomationEditor';
 import HandshakeEditor from '@/components/pipeline-editor/HandshakeEditor';
+import SubpipelineEditor from '@/components/pipeline-editor/SubpipelineEditor';
 import PipelineVisualizer from '@/components/pipeline-editor/PipelineVisualizer';
 import PipelineSettingsForm from '@/components/pipeline-editor/PipelineSettingsForm';
 
-type Section = 'stages' | 'visualizer' | 'transitions' | 'automations' | 'handshakes' | 'settings';
+type Section = 'stages' | 'visualizer' | 'transitions' | 'automations' | 'handshakes' | 'settings' | 'subpipelines';
 
 function PipelinesWebInner() {
   const { 
@@ -91,7 +92,15 @@ function PipelinesWebInner() {
       case 'transitions': return <TransitionEditor />;
       case 'automations': return <AutomationEditor />;
       case 'handshakes': return <HandshakeEditor />;
-      case 'settings': 
+      case 'subpipelines':
+        return (
+          <ScrollView className="flex-1 bg-surface-background/30" contentContainerStyle={{ padding: 40 }}>
+            <View className="max-w-2xl mx-auto w-full">
+              <SubpipelineEditor />
+            </View>
+          </ScrollView>
+        );
+      case 'settings':
         return (
           <ScrollView className="flex-1 bg-surface-background/30" contentContainerStyle={{ padding: 40 }}>
             <View className="max-w-2xl mx-auto w-full">
@@ -220,7 +229,7 @@ function PipelinesWebInner() {
                 <View className="max-w-full">
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                     <View className="flex-row bg-surface-card p-1.5 rounded-2xl border border-surface-border self-start">
-                      {(['visualizer', 'stages', 'transitions', 'automations', 'handshakes', 'settings'] as any[]).map((s) => (
+                      {(['visualizer', 'stages', 'transitions', 'automations', 'handshakes', 'subpipelines', 'settings'] as any[]).map((s) => (
                         <TouchableOpacity
                           key={s}
                           onPress={() => setActiveSection(s)}
@@ -231,7 +240,7 @@ function PipelinesWebInner() {
                           <Text className={`text-[10px] font-black uppercase tracking-widest ${
                             activeSection === s ? 'text-white' : 'text-typography-muted'
                           }`}>
-                            {s === 'visualizer' ? 'Designer' : s === 'transitions' ? 'Flow Rules' : s}
+                            {s === 'visualizer' ? 'Designer' : s === 'transitions' ? 'Flow Rules' : s === 'subpipelines' ? 'Subpipelines' : s}
                           </Text>
                         </TouchableOpacity>
                       ))}

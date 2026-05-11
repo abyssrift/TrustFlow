@@ -12,8 +12,8 @@ import { getPrimaryColor } from '@/lib/themeColors';
 import { TAB_BAR_HEIGHT } from '@/lib/layout';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator, Alert,
     Image,
@@ -67,6 +67,15 @@ type Pipeline = {
   name: string;
   task_visibility_mode: 'all' | 'assigned_only';
 };
+
+function getPriorityInfo(priority: string) {
+  switch (priority) {
+    case 'urgent': return { color: 'var(--color-danger)', label: 'Urgent' };
+    case 'high':   return { color: 'var(--color-warning)', label: 'High' };
+    case 'low':    return { color: 'var(--color-success)', label: 'Low' };
+    default:       return { color: 'var(--color-text-muted)', label: 'Normal' };
+  }
+}
 
 function TasksScreen() {
   const [pipeline, setPipeline] = useState<Pipeline | null>(null);
@@ -234,37 +243,44 @@ function TasksScreen() {
     if (data) setPulse(data);
   };
 
+  // Refs always hold the latest fetch functions so useFocusEffect never captures stale closures.
+  const fetchDataRef = useRef(fetchData);
+  fetchDataRef.current = fetchData;
+  const fetchPulseRef = useRef(fetchPulse);
+  fetchPulseRef.current = fetchPulse;
+
+  // Track whether the initial mount load has already run, so useFocusEffect skips it.
+  const didMountRef = useRef(false);
+
   useEffect(() => {
     fetchPulse();
     fetchData();
-
-    // REALTIME SUBSCRIPTIONS
-    const tasksChannel = supabase
-      .channel('tasks-board-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
-        console.log('Task change detected:', payload.eventType);
-        fetchData(); // Simplest approach: refetch on any task change for consistency
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_work_sessions' }, (payload) => {
-        console.log('Work session change detected');
-        fetchData();
-      })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pipeline_stage_history' }, (payload) => {
-        console.log('Stage history insertion detected');
-        fetchData();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(tasksChannel);
-    };
   }, []);
 
-  const onRefresh = () => {
+  // Refresh when the screen regains focus (e.g. returning from task detail).
+  // Replaces the old realtime subscription — cheaper and avoids the
+  // "Cannot add postgres_changes callbacks after subscribe()" crash.
+  useFocusEffect(
+    useCallback(() => {
+      if (!didMountRef.current) {
+        didMountRef.current = true;
+        return;
+      }
+      fetchDataRef.current();
+      fetchPulseRef.current();
+    }, [])
+  );
+
+  const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchPulse();
-    fetchData();
-  };
+    fetchDataRef.current();
+    fetchPulseRef.current();
+  }, []);
+
+  // Used by task cards after actions — refreshes data without pull-to-refresh indicator.
+  const silentRefresh = useCallback(() => {
+    fetchDataRef.current();
+  }, []);
 
   const handleCreateTask = () => {
     if (!hasPermission('task.create')) {
@@ -291,21 +307,13 @@ function TasksScreen() {
     }
   };
 
-  const handleOpenAssignments = (task: Task) => {
+  const handleOpenAssignments = useCallback((task: Task) => {
     setSelectedTask(task);
     setShowAssignmentModal(true);
-  };
+  }, []);
 
-  const getPriorityInfo = (priority: string) => {
-    switch (priority) {
-      case 'urgent': return { color: 'var(--color-danger)', label: 'Urgent' };
-      case 'high': return { color: 'var(--color-warning)', label: 'High' };
-      case 'low': return { color: 'var(--color-success)', label: 'Low' };
-      default: return { color: 'var(--color-text-muted)', label: 'Normal' };
-    }
-  };
 
-  const renderTaskCard = (task: Task) => {
+  const renderTaskCard = useCallback((task: Task) => {
     const prio = getPriorityInfo(task.priority);
     return (
       <TouchableOpacity
@@ -395,12 +403,12 @@ function TasksScreen() {
             stageActions={stageActions}
             activeSessions={activeSessions}
             userId={user?.id || ''}
-            onRefresh={fetchData}
+            onRefresh={silentRefresh}
           />
         </View>
       </TouchableOpacity>
     );
-  };
+  }, [router, hasPermission, profile?.is_owner, kanban, activeSessions, stages, stageActions, user?.id, handleOpenAssignments, silentRefresh]);
 
   const renderStageColumn = (stage: Stage) => {
     const stageTasks = tasks.filter(t => t.current_stage_id === stage.id);
@@ -503,7 +511,8 @@ function TasksScreen() {
 
    return (
      <View className="flex-1 bg-surface-background">
-      
+      {Platform.OS !== 'web' && <View style={{ height: 54 }} />}
+
       {/* KANBAN BACKGROUND LAYER */}
       {kanban.backgroundUrl && (
         <View className="absolute inset-0 overflow-hidden">

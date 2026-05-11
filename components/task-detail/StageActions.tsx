@@ -6,7 +6,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, Platform, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { openStorageFile, SUBMISSION_BUCKET } from '@/lib/storage';
 import { getActionDescriptor, splitStageActions } from './actionRegistry';
 import ManualTimeModal from '@/components/common/ManualTimeModal';
@@ -38,6 +38,8 @@ export default function StageActions() {
   const [submissionContent, setSubmissionContent] = useState('');
   const [stagedFiles, setStagedFiles] = useState<any[]>([]);
   const [elapsedLocal, setElapsedLocal] = React.useState(0);
+  const [idleSeconds, setIdleSeconds] = React.useState(0);
+  const [isTracking, setIsTracking] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState<{ title: string; message: string; variant?: 'danger' | 'warning' } | null>(null);
   const [showManualTimeModal, setShowManualTimeModal] = useState(false);
@@ -50,13 +52,26 @@ export default function StageActions() {
     let timer: NodeJS.Timeout;
     if (isActive && activeSession && data?.task.id && activeSession.task_id === data.task.id) {
       const start = new Date(activeSession.started_at).getTime();
-      setElapsedLocal(Math.floor((Date.now() + serverTimeOffset - start) / 1000));
-      timer = setInterval(() => {
-        setElapsedLocal(Math.floor((Date.now() + serverTimeOffset - start) / 1000));
-      }, 1000);
+
+      const tick = () => {
+        const now = Date.now();
+        setElapsedLocal(Math.floor((now + serverTimeOffset - start) / 1000));
+        setIdleSeconds(Math.floor((now - smartTimer.getLastActivityTime()) / 1000));
+        setIsTracking(
+          Platform.OS === 'web'
+            ? typeof document !== 'undefined' && document.visibilityState === 'visible'
+            : AppState.currentState === 'active'
+        );
+      };
+
+      tick();
+      timer = setInterval(tick, 1000);
+    } else {
+      setIdleSeconds(0);
+      setIsTracking(true);
     }
     return () => clearInterval(timer);
-  }, [isActive, activeSession, data?.task.id, serverTimeOffset]);
+  }, [isActive, activeSession, data?.task.id, serverTimeOffset, smartTimer.getLastActivityTime]);
 
   const pickDocument = async () => {
     const result = await DocumentPicker.getDocumentAsync({ type: '*/*', multiple: true });
@@ -282,13 +297,31 @@ export default function StageActions() {
         <View className="bg-surface-card rounded-2xl border border-surface-border p-4">
           <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em] mb-3">Time Tracking</Text>
           <View className="flex-row items-center justify-between">
-            <View className="flex-row items-center">
-              <View className={`w-2 h-2 rounded-full mr-3 ${isActive && activeSession?.task_id === data.task.id ? 'bg-state-success animate-pulse' : 'bg-typography-muted'}`} />
-              <Text className="text-typography-main font-mono text-xl font-black">
-                {Math.floor(elapsedLocal / 3600).toString().padStart(2, '0')}:
-                {Math.floor((elapsedLocal % 3600) / 60).toString().padStart(2, '0')}:
-                {(elapsedLocal % 60).toString().padStart(2, '0')}
-              </Text>
+            <View>
+              <View className="flex-row items-center">
+                <View className={`w-2 h-2 rounded-full mr-3 ${isActive && activeSession?.task_id === data.task.id ? 'bg-state-success animate-pulse' : 'bg-typography-muted'}`} />
+                <Text className="text-typography-main font-mono text-xl font-black">
+                  {Math.floor(elapsedLocal / 3600).toString().padStart(2, '0')}:
+                  {Math.floor((elapsedLocal % 3600) / 60).toString().padStart(2, '0')}:
+                  {(elapsedLocal % 60).toString().padStart(2, '0')}
+                </Text>
+              </View>
+              {isActive && activeSession?.task_id === data.task.id && (
+                <View className="flex-row items-center mt-1.5 ml-5 gap-2">
+                  <View className={`w-1.5 h-1.5 rounded-full ${isTracking ? 'bg-state-success' : 'bg-typography-dim'}`} />
+                  <Text className={`text-[9px] font-bold uppercase tracking-wider ${isTracking ? 'text-state-success' : 'text-typography-dim'}`}>
+                    {isTracking ? 'Tracking' : 'Background'}
+                  </Text>
+                  <Text className="text-typography-dim text-[9px]">·</Text>
+                  <Text className="text-typography-dim text-[9px]">
+                    {idleSeconds < 60
+                      ? 'Active now'
+                      : idleSeconds < 3600
+                        ? `${Math.floor(idleSeconds / 60)}m idle`
+                        : `${Math.floor(idleSeconds / 3600)}h ${Math.floor((idleSeconds % 3600) / 60)}m idle`}
+                  </Text>
+                </View>
+              )}
             </View>
 
             {isActive && activeSession?.task_id === data.task.id ? (

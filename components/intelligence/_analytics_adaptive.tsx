@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, ActivityIndicator, TextInput,
+  View, Text, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack } from 'expo-router';
@@ -408,7 +408,7 @@ export default function AdminAnalyticsNative() {
   return (
     <ScrollView className="flex-1 bg-surface-background">
       <Stack.Screen options={{ title: 'Analytics Hub' }} />
-      <View className="p-6">
+      <View className="p-6" style={{ paddingTop: Platform.OS !== 'web' ? 54 : 24 }}>
         {/* Header */}
         <View className="mb-6">
           <Text className="text-brand-primary font-black uppercase tracking-[0.3em] text-[10px] mb-1">

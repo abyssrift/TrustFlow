@@ -193,7 +193,7 @@ export default function ProjectsScreen() {
   return (
     <View className="flex-1 bg-surface-background">
       {/* Header */}
-      <View className={`flex-row items-center justify-between px-6 ${isWeb ? 'py-8 border-b border-surface-border' : 'pt-4 pb-3'}`}>
+      <View className={`flex-row items-center justify-between px-6 ${isWeb ? 'py-8 border-b border-surface-border' : 'pb-3'}`} style={!isWeb ? { paddingTop: Platform.OS !== 'web' ? 54 : 16 } : undefined}>
         <View className="flex-1 mr-3">
           <Text className={`${isWeb ? 'text-5xl' : 'text-2xl'} text-typography-main font-black tracking-tighter`}>Projects</Text>
           {isWeb && (

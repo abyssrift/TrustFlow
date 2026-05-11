@@ -15,6 +15,7 @@ import { useAlert } from '@/contexts/AlertContext';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import ConfirmModal from '@/components/common/ConfirmModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 
 interface ProjectFolderModalProps {
   visible: boolean;
@@ -38,24 +39,26 @@ export default function ProjectFolderModal({
   const { showAlert } = useAlert();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [expiryDate, setExpiryDate] = useState('');
+  const [expiryDate, setExpiryDate] = useState<string | null>(null);
   const [status, setStatus] = useState<'active' | 'closed' | 'archived'>('active');
   const [loading, setLoading] = useState(false);
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [archiveCooldown, setArchiveCooldown] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
 
   useEffect(() => {
     if (project) {
       setName(project.name);
       setDescription(project.description || '');
-      setExpiryDate(project.expiry_date ? new Date(project.expiry_date).toISOString().split('T')[0] : '');
+      setExpiryDate(project.expiry_date ? new Date(project.expiry_date).toISOString().split('T')[0] : null);
       setStatus(project.status || 'active');
     } else {
       setName('');
       setDescription('');
-      setExpiryDate('');
+      setExpiryDate(null);
       setStatus('active');
     }
+    setShowCalendar(false);
   }, [project, visible]);
 
   const handleSave = async () => {
@@ -185,16 +188,32 @@ export default function ProjectFolderModal({
             <Text className="text-typography-muted text-xs font-bold uppercase mb-2 tracking-widest">
               Expiry Date (Optional)
             </Text>
-            <TextInput
-              className="bg-surface-card border border-surface-border p-4 rounded-xl text-typography-main"
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor="#64748b"
-              value={expiryDate}
-              onChangeText={setExpiryDate}
-            />
-            <Text className="text-typography-muted text-[10px] mt-2">
-              Leave blank if the project has no set deadline.
-            </Text>
+            <View className="flex-row gap-2 mb-2">
+              <TouchableOpacity
+                onPress={() => setShowCalendar(!showCalendar)}
+                className="flex-1 bg-surface-card border border-surface-border p-4 rounded-xl flex-row items-center justify-between"
+              >
+                <Text className={expiryDate ? 'text-typography-main font-medium' : 'text-typography-muted'}>
+                  {expiryDate ? new Date(expiryDate + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'No expiry date set'}
+                </Text>
+                <FontAwesome name="calendar" size={14} color="#64748b" />
+              </TouchableOpacity>
+              {expiryDate && (
+                <TouchableOpacity
+                  onPress={() => { setExpiryDate(null); setShowCalendar(false); }}
+                  className="w-14 bg-surface-card border border-surface-border rounded-xl items-center justify-center"
+                >
+                  <FontAwesome name="times" size={14} color="#64748b" />
+                </TouchableOpacity>
+              )}
+            </View>
+            {showCalendar && (
+              <PremiumCalendarPicker
+                selectedDate={expiryDate}
+                onSelect={(date) => { setExpiryDate(date); setShowCalendar(false); }}
+                compact
+              />
+            )}
           </View>
 
           <View className="mb-10">

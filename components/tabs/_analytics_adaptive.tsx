@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, RefreshControl, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, RefreshControl, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
 import { useAnalytics, PerformancePeriod } from '@/contexts/AnalyticsContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { PeriodToggle } from '@/components/analytics/PeriodToggle';
@@ -93,14 +93,14 @@ export default function PersonalAnalyticsScreen() {
       className="flex-1 bg-surface-background"
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
-      <View className="p-6">
+      <View className="p-6" style={{ paddingTop: Platform.OS !== 'web' ? 54 : 24 }}>
 
         {/* Header */}
         <View className="mb-8">
           <Text className="text-brand-primary font-black uppercase tracking-[0.3em] text-[10px] mb-2">
             Personal Performance
           </Text>
-          <Text className="text-typography-main text-4xl font-black tracking-tighter">Your Pulse</Text>
+          <Text className="text-typography-main text-3xl font-black tracking-tighter">Your Pulse</Text>
           <Text className="text-typography-muted text-sm mt-1">
             {pulse?.is_working ? '● Working now' : 'Real-time efficiency and output tracking.'}
           </Text>

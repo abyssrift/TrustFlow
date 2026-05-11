@@ -1,5 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useTimer } from '@/contexts/TimerContext';
 import { useElapsedTime } from '@/hooks/useElapsedTime';
 import { supabase } from '@/lib/supabase';
 import { getAccentColor, getPrimaryColor } from '@/lib/themeColors';
@@ -81,6 +82,7 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
   const router = useRouter();
   const { theme: activeTheme } = useTheme();
   const { hasPermission, profile } = useAuth();
+  const { startWork } = useTimer();
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [needsTimerActionId, setNeedsTimerActionId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<{ title: string; message: string; variant?: 'danger' | 'warning' } | null>(null);
@@ -205,8 +207,7 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
   const handleStartTimer = async () => {
     setLoadingAction('__timer__');
     try {
-      const { error } = await supabase.rpc('rpc_start_work', { p_task_id: task.id });
-      if (error) throw error;
+      await startWork(task.id, task.title ?? '');
       onRefresh();
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Could not start work session.');
@@ -378,7 +379,9 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
   }
 
   // ─── STATE: Assigned to someone else ────────────────────────
-  if (isAssignedToUser && !isMyTask) {
+  // Only bail out if the current user has no actions — reviewers with
+  // review_approve/review_revise/review_reject must still see their buttons.
+  if (isAssignedToUser && !isMyTask && availableActions.length === 0) {
     const assigneeName = task.assignments?.[0]?.user?.full_name || 'Another user';
     return (
       <View>

@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Modal, Scro
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import { Picker } from '@react-native-picker/picker';
+import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 
 type Props = {
   visible: boolean;
@@ -16,10 +17,11 @@ export default function EditTaskModal({ visible, onClose }: Props) {
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState('medium');
   const [category, setCategory] = useState('');
-  const [dueDate, setDueDate] = useState('');
+  const [dueDate, setDueDate] = useState<string | null>(null);
   const [weight, setWeight] = useState('1');
   const [isRecurring, setIsRecurring] = useState(false);
-  
+  const [showCalendar, setShowCalendar] = useState(false);
+
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,10 +31,10 @@ export default function EditTaskModal({ visible, onClose }: Props) {
       setDescription(data.task.description || '');
       setPriority(data.task.priority || 'medium');
       setCategory(data.task.category || '');
-      // Simplistic date format parsing for input if exists
-      setDueDate(data.task.due_date ? new Date(data.task.due_date).toISOString().split('T')[0] : '');
+      setDueDate(data.task.due_date ? new Date(data.task.due_date).toISOString().split('T')[0] : null);
       setWeight(data.task.weight?.toString() || '1');
       setIsRecurring(!!data.task.is_recurring);
+      setShowCalendar(false);
       setError(null);
     }
   }, [data, visible]);
@@ -146,13 +148,25 @@ export default function EditTaskModal({ visible, onClose }: Props) {
               <View className="flex-row gap-4">
                 <View className="flex-1">
                   <Text className="text-typography-muted text-xs font-bold uppercase tracking-wider mb-2">Due Date</Text>
-                  <TextInput
-                    value={dueDate}
-                    onChangeText={setDueDate}
-                    placeholder="YYYY-MM-DD"
-                    placeholderTextColor="var(--color-text-muted)"
-                    className="bg-surface-background border border-surface-border text-typography-main px-4 py-3 rounded-xl font-medium h-12"
-                  />
+                  <View className="flex-row gap-2">
+                    <TouchableOpacity
+                      onPress={() => setShowCalendar(!showCalendar)}
+                      className="flex-1 bg-surface-background border border-surface-border px-4 rounded-xl h-12 flex-row items-center justify-between"
+                    >
+                      <Text className={`font-medium text-sm ${dueDate ? 'text-typography-main' : 'text-typography-muted'}`}>
+                        {dueDate ? new Date(dueDate + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'Set date'}
+                      </Text>
+                      <FontAwesome name="calendar" size={12} color="var(--color-text-muted)" />
+                    </TouchableOpacity>
+                    {dueDate && (
+                      <TouchableOpacity
+                        onPress={() => { setDueDate(null); setShowCalendar(false); }}
+                        className="w-12 h-12 bg-surface-background border border-surface-border rounded-xl items-center justify-center"
+                      >
+                        <FontAwesome name="times" size={12} color="var(--color-text-muted)" />
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
 
                 <View className="flex-1">
@@ -167,6 +181,15 @@ export default function EditTaskModal({ visible, onClose }: Props) {
                   />
                 </View>
               </View>
+              {showCalendar && (
+                <View className="mt-2">
+                  <PremiumCalendarPicker
+                    selectedDate={dueDate}
+                    onSelect={(date) => { setDueDate(date); setShowCalendar(false); }}
+                    compact
+                  />
+                </View>
+              )}
               
               <TouchableOpacity
                 onPress={() => setIsRecurring(!isRecurring)}

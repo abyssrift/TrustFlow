@@ -31,6 +31,7 @@ type TimerContextType = {
     recordActivity: () => void;
     lastHeartbeat: number | null;
     lastActivityTime: number;
+    getLastActivityTime: () => number;
   };
 };
 
@@ -273,17 +274,6 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
     }).catch(err => console.error('[TimerBeacon] Failed:', err));
   }, [activeSession, session, serverTimeOffset]);
 
-  useEffect(() => {
-    if (Platform.OS === 'web') return;
-    const handleAppStateChange = async (nextAppState: AppStateStatus) => {
-      if (nextAppState.match(/inactive|background/)) {
-        lastActivityTimeRef.current = Date.now();
-      }
-    };
-    const subscription = AppState.addEventListener('change', handleAppStateChange);
-    return () => subscription.remove();
-  }, []);
-
   const handleAutoStop = useCallback(async () => {
     const truncatedTime = new Date(lastActivityTimeRef.current + serverTimeOffset).toISOString();
     await stopWork(undefined, truncatedTime);
@@ -311,7 +301,7 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
       stopWork, 
       passiveStart,
       lastStoppedAt,
-      smartTimer: { ...smartTimer, recordActivity: () => { lastActivityTimeRef.current = Date.now(); smartTimer.recordActivity(); }, lastActivityTime: lastActivityTimeRef.current }
+      smartTimer: { ...smartTimer, recordActivity: () => { lastActivityTimeRef.current = Date.now(); smartTimer.recordActivity(); }, lastActivityTime: lastActivityTimeRef.current, getLastActivityTime: () => lastActivityTimeRef.current }
     }}>
       {children}
     </TimerContext.Provider>

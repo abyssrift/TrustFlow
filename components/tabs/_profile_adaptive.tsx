@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, View, Text, Pressable, RefreshControl, Alert } from 'react-native';
+import { ScrollView, View, Text, Pressable, RefreshControl, Alert, ActivityIndicator, Platform } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAlert } from '@/contexts/AlertContext';
@@ -92,12 +92,18 @@ export default function ProfilePage() {
     );
   };
 
-  if (!profileData) return null;
+  if (!profileData) {
+    return (
+      <View className="flex-1 bg-surface-background items-center justify-center">
+        <ActivityIndicator size="large" color="var(--color-primary)" />
+      </View>
+    );
+  }
 
   return (
-    <ScrollView 
-      className="flex-1 bg-[var(--color-surface-background)]"
-      contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
+    <ScrollView
+      className="flex-1 bg-surface-background"
+      contentContainerStyle={{ padding: 20, paddingTop: Platform.OS !== 'web' ? 58 : 20, paddingBottom: 100 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="var(--color-primary)" />}
     >
       <Stack.Screen options={{ title: 'My Profile', headerLargeTitle: true }} />

@@ -28,6 +28,7 @@ export type Stage = {
   requires_timer: boolean;
   use_business_hours: boolean;
   linked_pipeline_id: string | null;
+  child_inherits_submission: boolean;
   manager_routing_rule: string | null;
   max_escalation_depth: number | null;
   ui_metadata: { x: number; y: number } | null;
@@ -163,6 +164,8 @@ type PipelineEditorState = {
   // Handshake CRUD
   upsertLinkedOutcome: (parent: string, child: string, target: string) => Promise<string | null>;
   deleteLinkedOutcome: (id: string) => Promise<boolean>;
+  // Spawn config
+  updateStageSpawnConfig: (stageId: string, childInheritsSubmission: boolean) => Promise<boolean>;
   // Action CRUD
   addStageAction: (args: Partial<StageAction>) => Promise<string | null>;
   updateStageAction: (id: string, args: Partial<StageAction>) => Promise<boolean>;
@@ -911,7 +914,26 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
           } finally {
             setLoading(false);
           }
-        }
+        },
+        updateStageSpawnConfig: async (stageId, childInheritsSubmission) => {
+          setLoading(true);
+          try {
+            const { error: e } = await supabase.rpc('rpc_update_stage_spawn_config', {
+              p_stage_id: stageId,
+              p_child_inherits_submission: childInheritsSubmission,
+            });
+            if (e) throw e;
+            setStages(prev => prev.map(s =>
+              s.id === stageId ? { ...s, child_inherits_submission: childInheritsSubmission } : s
+            ));
+            return true;
+          } catch (e: any) {
+            setError(e.message);
+            return false;
+          } finally {
+            setLoading(false);
+          }
+        },
       }}
     >
       {children}

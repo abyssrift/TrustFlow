@@ -10,6 +10,7 @@ import StageBuilder from '@/components/pipeline-editor/StageBuilder';
 import TransitionEditor from '@/components/pipeline-editor/TransitionEditor';
 import AutomationEditor from '@/components/pipeline-editor/AutomationEditor';
 import HandshakeEditor from '@/components/pipeline-editor/HandshakeEditor';
+import SubpipelineEditor from '@/components/pipeline-editor/SubpipelineEditor';
 import PipelineVisualizer from '@/components/pipeline-editor/PipelineVisualizer';
 
 // ── Section Tab Config ──────────────────────────────────────
@@ -19,6 +20,7 @@ const SECTIONS = [
   { key: 'transitions', label: 'Flow Rules', icon: 'random' },
   { key: 'automations', label: 'Automations', icon: 'bolt' },
   { key: 'handshakes', label: 'Handshakes', icon: 'handshake-o' },
+  { key: 'subpipelines', label: 'Subpipelines', icon: 'sitemap' },
 ] as const;
 
 function PipelineEditorInner() {
@@ -146,6 +148,7 @@ function PipelineEditorInner() {
           {activeSection === 'transitions' && <TransitionEditor />}
           {activeSection === 'automations' && <AutomationEditor />}
           {activeSection === 'handshakes' && <HandshakeEditor />}
+          {activeSection === 'subpipelines' && <SubpipelineEditor />}
           {activeSection === 'visualizer' && <PipelineVisualizer />}
         </View>
         </View>

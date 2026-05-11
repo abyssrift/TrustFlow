@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Dimensions } from 'react-native';
+import { View, Text, useWindowDimensions } from 'react-native';
 import Svg, { Rect, Defs, LinearGradient, Stop } from 'react-native-svg';
 
 interface PerformanceChartProps {
@@ -9,10 +9,12 @@ interface PerformanceChartProps {
 }
 
 export const PerformanceChart = ({ data, metricKey, label }: PerformanceChartProps) => {
+  const { width: windowWidth } = useWindowDimensions();
   const chartData = [...data].reverse();
   const maxVal = Math.max(1, ...chartData.map(d => d[metricKey]));
   const chartHeight = 200;
-  const chartWidth = Dimensions.get('window').width - 64; // Account for padding
+  // Outer p-6 (24×2=48) + inner p-5 (20×2=40) = 88px total horizontal padding
+  const chartWidth = Math.max(100, windowWidth - 88);
   const barWidth = (chartWidth / chartData.length) * 0.7;
   const gap = (chartWidth / chartData.length) * 0.3;
 
