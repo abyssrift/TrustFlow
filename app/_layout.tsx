@@ -2,7 +2,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { Stack, usePathname } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useRef, useState } from 'react';
 import { Platform, Text, View } from 'react-native';
@@ -26,8 +26,8 @@ cssInterop(FontAwesome, {
 } as any);
 
 export {
-    // Catch any errors thrown by the Layout component.
-    ErrorBoundary
+  // Catch any errors thrown by the Layout component.
+  ErrorBoundary
 } from 'expo-router';
 
 export const unstable_settings = {
@@ -141,11 +141,11 @@ function RootLayoutNav() {
     }
 
     // Mobile/Native Hardened Logic
-    console.log('[RootLayoutNav] [Native] Auth State:', { 
-      hasSession: !!session, 
-      hasProfile: !!profile, 
+    console.log('[RootLayoutNav] [Native] Auth State:', {
+      hasSession: !!session,
+      hasProfile: !!profile,
       companyId: profile?.company_id,
-      segments 
+      segments
     });
 
     if (!session && !inAuthGroup) {
@@ -235,7 +235,7 @@ function ThemedRoot() {
       >
         {/* Register for push notifications on native once user is signed in */}
         {session && Platform.OS !== 'web' && <PushRegistrationGuard />}
-        
+
         {/* Global Loading Overlay */}
         {(!initialized || isLoading || showRouteLoading) && (
           <LoadingOverlay message={showRouteLoading ? 'Opening page...' : undefined} />
