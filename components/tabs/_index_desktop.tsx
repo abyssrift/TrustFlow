@@ -1,10 +1,11 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, ScrollView, RefreshControl, ActivityIndicator, TouchableOpacity, Modal } from 'react-native';
+import PendingTimeApprovalsWidget from '@/components/common/PendingTimeApprovalsWidget';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Modal, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -77,6 +78,7 @@ export default function DashboardScreenWeb() {
   const [refreshing, setRefreshing] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [config, setConfig] = useState<DashboardConfig | null>(null);
+  const [widgetRefreshKey, setWidgetRefreshKey] = useState(0);
 
   const { user, profile } = useAuth();
   const router = useRouter();
@@ -257,6 +259,7 @@ export default function DashboardScreenWeb() {
     setRefreshing(true);
     fetchDashboardData();
     fetchPulse();
+    setWidgetRefreshKey(k => k + 1);
   };
 
   const completionRate = stats.totalTasks > 0 ? Math.round((stats.completed / stats.totalTasks) * 100) : 0;
@@ -379,13 +382,6 @@ export default function DashboardScreenWeb() {
                     </View>
                   </View>
                   <View>
-                    <Text className="text-[10px] text-typography-muted font-black uppercase tracking-widest mb-1">Monthly Score</Text>
-                    <View className="flex-row items-baseline">
-                      <Text className="text-3xl font-black text-typography-main">{pulse.monthly_points}</Text>
-                      <Text className="text-xs text-typography-muted ml-1 font-bold">PTS</Text>
-                    </View>
-                  </View>
-                  <View>
                     <Text className="text-[10px] text-typography-muted font-black uppercase tracking-widest mb-1">Flap Score</Text>
                     <Text className={`text-3xl font-black ${pulse.flap_rate_score > 1.5 ? 'text-state-danger' : 'text-state-success'}`}>
                       {pulse.flap_rate_score}x
@@ -400,6 +396,8 @@ export default function DashboardScreenWeb() {
                 )}
               </View>
             )}
+
+            <PendingTimeApprovalsWidget refreshKey={widgetRefreshKey} />
 
             <View className="flex-row flex-wrap gap-6 mb-10">
               <KPICard

@@ -244,6 +244,15 @@ async function resolveStrategy(
       return []
     }
 
+    case 'payload_user': {
+      // Reads a single user ID from a named payload field.
+      // recipient_config: { "payload_field": "<field_name>" }
+      const field = config.payload_field as string | undefined
+      if (!field) return []
+      const userId = payload[field] as string | undefined
+      return userId ? [userId] : []
+    }
+
     default:
       console.warn('[process-notification-event] unknown strategy:', strategy)
       return []
@@ -284,6 +293,17 @@ function buildContent(
       return { title: 'Task Due Soon', body: `${q} is due within 24 hours.` }
     case 'task.overdue':
       return { title: 'Task Overdue', body: `${q} is past its due date.` }
+    case 'task.manual_time_flagged': {
+      const mins = payload.declared_minutes as number | undefined
+      const time = mins ? `${Math.floor(mins / 60)}h ${mins % 60}m` : 'time'
+      return { title: 'Time Declaration Needs Review', body: `A worker declared ${time} on ${q} — this exceeds expected limits and needs your approval.` }
+    }
+    case 'task.manual_time_approved':
+      return { title: 'Time Declaration Approved', body: `Your time declaration on ${q} has been approved. You can now submit your work.` }
+    case 'task.manual_time_rejected': {
+      const reason = payload.rejection_reason as string | undefined
+      return { title: 'Time Declaration Rejected', body: reason ? `Your time on ${q} was rejected: ${reason}` : `Your time declaration on ${q} was rejected. Please re-declare.` }
+    }
     case 'pipeline.member_added':
       return { title: 'Added to Pipeline', body: `You have been added to a pipeline.` }
     case 'pipeline.archived':

@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { TAB_BAR_HEIGHT } from '@/lib/layout';
+import PendingTimeApprovalsWidget from '@/components/common/PendingTimeApprovalsWidget';
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -69,6 +70,7 @@ export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [config, setConfig] = useState<DashboardConfig | null>(null);
+  const [widgetRefreshKey, setWidgetRefreshKey] = useState(0);
 
   const { user, profile } = useAuth();
   const router = useRouter();
@@ -221,6 +223,7 @@ export default function DashboardScreen() {
     setRefreshing(true);
     fetchDashboardData();
     fetchPulse();
+    setWidgetRefreshKey(k => k + 1);
   };
 
   const completionRate = stats.totalTasks > 0 ? Math.round((stats.completed / stats.totalTasks) * 100) : 0;
@@ -286,6 +289,8 @@ export default function DashboardScreen() {
               </View>
             </View>
           )}
+
+          <PendingTimeApprovalsWidget refreshKey={widgetRefreshKey} />
 
           <View className="flex-row flex-wrap justify-between mb-4">
             <View className="w-[48%] bg-surface-card p-5 rounded-2xl border border-surface-border mb-4 premium-shadow">

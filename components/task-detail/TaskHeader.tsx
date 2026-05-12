@@ -1,17 +1,18 @@
-import React from 'react';
-import { ActivityIndicator, Text, TouchableOpacity, View, Platform } from 'react-native';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { useRouter } from 'expo-router';
-import { cssInterop } from 'react-native-css-interop';
-import { useTaskDetail } from '@/contexts/TaskDetailContext';
-import { useTimer } from '@/contexts/TimerContext';
-import { useAuth } from '@/contexts/AuthContext';
-import { splitStageActions, TYPE_STYLES } from './actionRegistry';
 import ConfirmModal from '@/components/common/ConfirmModal';
 import ManualTimeModal from '@/components/common/ManualTimeModal';
-import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { getPrimaryColor, getMutedColor } from '@/lib/themeColors';
+import { useTimer } from '@/contexts/TimerContext';
+import { useToast } from '@/contexts/ToastContext';
+import { supabase } from '@/lib/supabase';
+import { getMutedColor, getPrimaryColor } from '@/lib/themeColors';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { useRouter } from 'expo-router';
+import React from 'react';
+import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
+import { cssInterop } from 'react-native-css-interop';
+import { splitStageActions, TYPE_STYLES } from './actionRegistry';
 
 cssInterop(FontAwesome, {
   className: {
@@ -40,6 +41,7 @@ export default function TaskHeader() {
   const [showManualTimeModal, setShowManualTimeModal] = React.useState(false);
   const [pendingAction, setPendingAction] = React.useState<any | null>(null);
   const router = useRouter();
+  const { successToast, errorToast } = useToast();
 
   const handleArchive = async () => {
     if (!data) return;
@@ -47,11 +49,13 @@ export default function TaskHeader() {
       setArchiving(true);
       const { error } = await supabase.rpc('rpc_archive_task', { p_task_id: data.task.id });
       if (error) throw error;
+      successToast('Task archived.');
       setShowArchiveConfirm(false);
       router.replace('/(tabs)/tasks' as any);
     } catch (err: any) {
       setShowArchiveConfirm(false);
       setErrorMsg({ title: 'Archival Failed', message: err.message || 'Could not archive task.' });
+      errorToast(err.message || 'Could not archive task.');
       setTimeout(() => setErrorMsg(null), 10000);
     } finally {
       setArchiving(false);

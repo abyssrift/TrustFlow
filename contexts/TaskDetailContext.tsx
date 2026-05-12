@@ -1,7 +1,7 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from './AuthContext';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { useToast } from './ToastContext';
 
 // ─── Types ────────────────────────────────────────────
 type UserRef = { id: string; full_name: string | null; avatar_url: string | null; email?: string } | null;
@@ -42,7 +42,6 @@ export type StageActionData = {
   ui_slot?: 'button' | 'submission' | 'review';
 };
 
-import { getActionDescriptor, splitStageActions } from '@/components/task-detail/actionRegistry';
 export * from '@/components/task-detail/actionRegistry';
 
 export type AssignmentData = { id: string; user: UserRef; team: TeamRef; assigned_at: string };
@@ -99,6 +98,25 @@ export type PermissionsData = {
   is_owner: boolean; is_assigned: boolean; is_manager: boolean; is_creator: boolean;
 };
 
+export type ManualTimeApprovalEntry = {
+  id: string;
+  declared_minutes: number;
+  reason: string | null;
+  flag_reason: string | null;
+  logged_at: string;
+  approval_status: 'pending' | 'approved' | 'rejected';
+  rejection_reason: string | null;
+  user: UserRef;
+};
+
+export type MyManualTimeEntry = {
+  id: string;
+  declared_minutes: number;
+  is_flagged: boolean;
+  approval_status: 'pending' | 'approved' | 'rejected';
+  rejection_reason: string | null;
+} | null;
+
 export type TaskDetailPayload = {
   task: TaskData;
   pipeline: { id: string; name: string; description: string | null } | null;
@@ -118,6 +136,8 @@ export type TaskDetailPayload = {
   permissions: PermissionsData;
   child_tasks: ChildTaskData[];
   task_attachments: TaskAttachmentData[];
+  pending_time_approvals: ManualTimeApprovalEntry[];
+  my_manual_time_entry: MyManualTimeEntry;
 };
 
 type TaskDetailContextType = {
@@ -134,6 +154,7 @@ type TaskDetailContextType = {
   reviewSubmission: (submissionId: string, decision: string, notes?: string, advanceStageId?: string) => Promise<void>;
   deleteSubmission: (submissionId: string) => Promise<void>;
   updateTask: (updates: Partial<TaskData>) => Promise<void>;
+  reviewManualTime: (entryId: string, approve: boolean, rejectionReason?: string) => Promise<void>;
 };
 
 const TaskDetailContext = createContext<TaskDetailContextType | null>(null);
@@ -145,6 +166,7 @@ export const useTaskDetail = () => {
 };
 
 export const TaskDetailProvider = ({ taskId, children }: { taskId: string; children: React.ReactNode }) => {
+  const { successToast, errorToast, infoToast, warningToast } = useToast();
   const [data, setData] = useState<TaskDetailPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -182,7 +204,12 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
           stage_color: r.stage?.color ?? null,
         }));
 
-      setData({ ...(result as TaskDetailPayload), child_tasks });
+      setData({
+        ...(result as TaskDetailPayload),
+        child_tasks,
+        pending_time_approvals: (result as any).pending_time_approvals ?? [],
+        my_manual_time_entry: (result as any).my_manual_time_entry ?? null,
+      });
     } catch (err: any) {
       console.error('[TaskDetail] Fetch error:', err);
       setError(err.message || 'Failed to load task details');
@@ -192,63 +219,127 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
   }, [taskId]);
 
   const executeAction = useCallback(async (actionId: string, payload?: any) => {
-    const { error } = await supabase.rpc('rpc_execute_stage_action', {
-      p_task_id: taskId, p_action_id: actionId, p_payload: payload ?? {},
-    });
-    if (error) throw error;
-    await fetchDetails();
-  }, [taskId, fetchDetails]);
+    try {
+      const { error } = await supabase.rpc('rpc_execute_stage_action', {
+        p_task_id: taskId, p_action_id: actionId, p_payload: payload ?? {},
+      });
+      if (error) throw error;
+      await fetchDetails();
+      successToast('Task action completed.');
+    } catch (err: any) {
+      errorToast(err.message || 'Could not complete task action.');
+      throw err;
+    }
+  }, [taskId, fetchDetails, successToast, errorToast]);
 
   const submitWork = useCallback(async (content: string, transitionId?: string | null, attachments: any[] = []) => {
-    const { error } = await supabase.rpc('rpc_submit_work', { 
-      p_task_id: taskId, 
-      p_content: content, 
-      p_transition_id: transitionId || null,
-      p_attachments: attachments // Pass attachments to backend
-    });
-    if (error) throw error;
-    await fetchDetails();
-  }, [taskId, fetchDetails]);
+    try {
+      const { error } = await supabase.rpc('rpc_submit_work', { 
+        p_task_id: taskId, 
+        p_content: content, 
+        p_transition_id: transitionId || null,
+        p_attachments: attachments // Pass attachments to backend
+      });
+      if (error) throw error;
+      await fetchDetails();
+      successToast('Submission sent.');
+    } catch (err: any) {
+      errorToast(err.message || 'Could not submit work.');
+      throw err;
+    }
+  }, [taskId, fetchDetails, successToast, errorToast]);
 
   const addComment = useCallback(async (content: string, parentId?: string | null) => {
-    const { error } = await supabase.rpc('rpc_add_task_comment', {
-      p_task_id: taskId, p_content: content, p_parent_id: parentId || null,
-    });
-    if (error) throw error;
-  }, [taskId]);
+    try {
+      const { error } = await supabase.rpc('rpc_add_task_comment', {
+        p_task_id: taskId, p_content: content, p_parent_id: parentId || null,
+      });
+      if (error) throw error;
+      infoToast('Comment posted.');
+    } catch (err: any) {
+      errorToast(err.message || 'Could not add comment.');
+      throw err;
+    }
+  }, [taskId, infoToast, errorToast]);
 
   const deleteComment = useCallback(async (commentId: string) => {
-    const { error } = await supabase.rpc('rpc_delete_task_comment', { p_comment_id: commentId });
-    if (error) throw error;
-    setData((prev) => prev ? { ...prev, comments: prev.comments.filter(c => c.id !== commentId) } : null);
-  }, []);
+    try {
+      const { error } = await supabase.rpc('rpc_delete_task_comment', { p_comment_id: commentId });
+      if (error) throw error;
+      setData((prev) => prev ? { ...prev, comments: prev.comments.filter(c => c.id !== commentId) } : null);
+      infoToast('Comment deleted.');
+    } catch (err: any) {
+      errorToast(err.message || 'Could not delete comment.');
+      throw err;
+    }
+  }, [infoToast, errorToast]);
 
   const advanceStage = useCallback(async (toStageId: string) => {
-    const { error } = await supabase.rpc('rpc_advance_stage', { p_task_id: taskId, p_to_stage_id: toStageId });
-    if (error) throw error;
-    await fetchDetails();
-  }, [taskId, fetchDetails]);
+    try {
+      const { error } = await supabase.rpc('rpc_advance_stage', { p_task_id: taskId, p_to_stage_id: toStageId });
+      if (error) throw error;
+      await fetchDetails();
+      successToast('Task advanced.');
+    } catch (err: any) {
+      errorToast(err.message || 'Could not advance task.');
+      throw err;
+    }
+  }, [taskId, fetchDetails, successToast, errorToast]);
 
   const reviewSubmission = useCallback(async (submissionId: string, decision: string, notes?: string, advanceStageId?: string) => {
-    const { error } = await supabase.rpc('rpc_review_submission', {
-      p_submission_id: submissionId, p_decision: decision,
-      p_notes: notes || null, p_advance_stage_id: advanceStageId || null,
-    });
-    if (error) throw error;
-    await fetchDetails();
-  }, [fetchDetails]);
+    try {
+      const { error } = await supabase.rpc('rpc_review_submission', {
+        p_submission_id: submissionId, p_decision: decision,
+        p_notes: notes || null, p_advance_stage_id: advanceStageId || null,
+      });
+      if (error) throw error;
+      await fetchDetails();
+      successToast(decision === 'approved' ? 'Submission approved.' : decision === 'needs_revision' ? 'Revision requested.' : 'Submission rejected.');
+    } catch (err: any) {
+      errorToast(err.message || 'Could not review submission.');
+      throw err;
+    }
+  }, [fetchDetails, successToast, errorToast]);
 
   const deleteSubmission = useCallback(async (submissionId: string) => {
-    const { error } = await supabase.rpc('rpc_delete_submission', { p_submission_id: submissionId });
-    if (error) throw error;
-    await fetchDetails();
-  }, [fetchDetails]);
+    try {
+      const { error } = await supabase.rpc('rpc_delete_submission', { p_submission_id: submissionId });
+      if (error) throw error;
+      await fetchDetails();
+      infoToast('Submission removed.');
+    } catch (err: any) {
+      errorToast(err.message || 'Could not delete submission.');
+      throw err;
+    }
+  }, [fetchDetails, infoToast, errorToast]);
 
   const updateTask = useCallback(async (updates: Partial<TaskData>) => {
-    const { error } = await supabase.from('tasks').update(updates).eq('id', taskId);
-    if (error) throw error;
-    await fetchDetails();
-  }, [taskId, fetchDetails]);
+    try {
+      const { error } = await supabase.from('tasks').update(updates).eq('id', taskId);
+      if (error) throw error;
+      await fetchDetails();
+      successToast('Task updated.');
+    } catch (err: any) {
+      errorToast(err.message || 'Could not update task.');
+      throw err;
+    }
+  }, [taskId, fetchDetails, successToast, errorToast]);
+
+  const reviewManualTime = useCallback(async (entryId: string, approve: boolean, rejectionReason?: string) => {
+    try {
+      const { error } = await supabase.rpc('rpc_review_manual_time', {
+        p_entry_id: entryId,
+        p_approve: approve,
+        p_rejection_reason: rejectionReason || null,
+      });
+      if (error) throw error;
+      await fetchDetails();
+      successToast(approve ? 'Time approved.' : 'Time rejected.');
+    } catch (err: any) {
+      errorToast(err.message || 'Could not review time entry.');
+      throw err;
+    }
+  }, [fetchDetails, successToast, errorToast]);
 
   useEffect(() => {
     fetchDetails();
@@ -262,8 +353,9 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
     const histChannel = supabase.channel(`task-hist-${taskId}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pipeline_stage_history', filter: `task_id=eq.${taskId}` }, () => fetchDetails()).subscribe();
     const metaChannel = supabase.channel(`task-meta-${taskId}`).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tasks', filter: `id=eq.${taskId}` }, () => fetchDetails()).subscribe();
     const workSessionChannel = supabase.channel(`task-sessions-${taskId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'task_work_sessions', filter: `task_id=eq.${taskId}` }, () => fetchDetails()).subscribe();
+    const manualTimeChannel = supabase.channel(`task-manual-time-${taskId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'task_manual_time_entries', filter: `task_id=eq.${taskId}` }, () => fetchDetails()).subscribe();
 
-    channelsRef.current = [commentChannel, subChannel, histChannel, metaChannel, workSessionChannel];
+    channelsRef.current = [commentChannel, subChannel, histChannel, metaChannel, workSessionChannel, manualTimeChannel];
     return () => {
       channelsRef.current.forEach(ch => supabase.removeChannel(ch));
     };
@@ -272,7 +364,7 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
   return (
     <TaskDetailContext.Provider value={{
       taskId, data, loading, error, refresh: fetchDetails,
-      executeAction, submitWork, addComment, deleteComment, advanceStage, reviewSubmission, deleteSubmission, updateTask
+      executeAction, submitWork, addComment, deleteComment, advanceStage, reviewSubmission, deleteSubmission, updateTask, reviewManualTime
     }}>
       {children}
     </TaskDetailContext.Provider>

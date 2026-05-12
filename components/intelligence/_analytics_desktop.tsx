@@ -149,6 +149,7 @@ function PipelineTab() {
       .select('id, name')
       .is('deleted_at', null)
       .order('name')
+      .order('created_at')
       .then(({ data }) => {
         if (data?.length) {
           setPipelines(data);

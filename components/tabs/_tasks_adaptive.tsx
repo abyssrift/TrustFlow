@@ -7,9 +7,9 @@ import CreateTaskSheet from '@/components/tasks/CreateTaskSheet';
 import { useAuth } from '@/contexts/AuthContext';
 import { TaskCreationProvider } from '@/contexts/TaskCreationContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { TAB_BAR_HEIGHT } from '@/lib/layout';
 import { supabase } from '@/lib/supabase';
 import { getPrimaryColor } from '@/lib/themeColors';
-import { TAB_BAR_HEIGHT } from '@/lib/layout';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -66,6 +66,7 @@ type Pipeline = {
   id: string;
   name: string;
   task_visibility_mode: 'all' | 'assigned_only';
+  is_default?: boolean;
 };
 
 function getPriorityInfo(priority: string) {
@@ -116,7 +117,7 @@ function TasksScreen() {
         // Try to restore from storage
         const savedPipelineId = await AsyncStorage.getItem('@TrustFlow_tasks_pipeline');
         if (savedPipelineId) {
-          const { data: pSaved } = await supabase.from('pipelines').select('id, name, task_visibility_mode').eq('id', savedPipelineId).single();
+          const { data: pSaved } = await supabase.from('pipelines').select('id, name, task_visibility_mode, is_default').eq('id', savedPipelineId).single();
           if (pSaved) {
             targetPipelineId = pSaved.id;
             pipelineData = pSaved;
@@ -124,19 +125,19 @@ function TasksScreen() {
         }
         // Fall back to default if saved pipeline not found
         if (!targetPipelineId) {
-          const { data: pDefault } = await supabase.from('pipelines').select('id, name, task_visibility_mode').eq('is_default', true).limit(1).single();
+          const { data: pDefault } = await supabase.from('pipelines').select('id, name, task_visibility_mode, is_default').eq('is_default', true).limit(1).single();
           targetPipelineId = pDefault?.id;
           pipelineData = pDefault;
         }
       } else {
-        const { data: pSpecific } = await supabase.from('pipelines').select('id, name, task_visibility_mode').eq('id', targetPipelineId).single();
+        const { data: pSpecific } = await supabase.from('pipelines').select('id, name, task_visibility_mode, is_default').eq('id', targetPipelineId).single();
         targetPipelineId = pSpecific?.id;
         pipelineData = pSpecific;
       }
 
       setPipeline(pipelineData);
       
-      const { data: allPipes } = await supabase.from('pipelines').select('id, name, task_visibility_mode').is('deleted_at', null);
+      const { data: allPipes } = await supabase.from('pipelines').select('id, name, task_visibility_mode, is_default').is('deleted_at', null);
       setAvailablePipelines(allPipes as Pipeline[] || []);
 
       if (!targetPipelineId) return;
@@ -251,6 +252,8 @@ function TasksScreen() {
 
   // Track whether the initial mount load has already run, so useFocusEffect skips it.
   const didMountRef = useRef(false);
+  // Track whether the screen is currently focused (for polling control)
+  const isFocusedRef = useRef(false);
 
   useEffect(() => {
     fetchPulse();
@@ -262,14 +265,40 @@ function TasksScreen() {
   // "Cannot add postgres_changes callbacks after subscribe()" crash.
   useFocusEffect(
     useCallback(() => {
+      // Mark focused state for the polling effect
+      isFocusedRef.current = true;
       if (!didMountRef.current) {
         didMountRef.current = true;
-        return;
+      } else {
+        fetchDataRef.current();
+        fetchPulseRef.current();
       }
-      fetchDataRef.current();
-      fetchPulseRef.current();
+      return () => {
+        isFocusedRef.current = false;
+      };
     }, [])
   );
+
+  // Lightweight polling for mobile to reflect remote changes without realtime
+  useEffect(() => {
+    if (Platform.OS === 'web' || isLargeScreen) return; // only enable on small/mobile screens
+
+    let intervalId: NodeJS.Timeout | null = null;
+    const startPolling = () => {
+      // Poll every 12 seconds while focused
+      if (intervalId) return;
+      intervalId = setInterval(() => {
+        if (isFocusedRef.current) fetchDataRef.current();
+      }, 12000);
+    };
+
+    startPolling();
+
+    return () => {
+      if (intervalId) clearInterval(intervalId as any);
+      intervalId = null;
+    };
+  }, [isLargeScreen]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -281,6 +310,19 @@ function TasksScreen() {
   const silentRefresh = useCallback(() => {
     fetchDataRef.current();
   }, []);
+
+  const handleSetDefault = async (pipelineId: string) => {
+    try {
+      // Step 1: clear existing default — only rows currently marked true (avoids unique constraint conflict)
+      await supabase.from('pipelines').update({ is_default: false }).eq('is_default', true);
+      // Step 2: mark the chosen pipeline as default
+      await supabase.from('pipelines').update({ is_default: true }).eq('id', pipelineId);
+      const { data: allPipes } = await supabase.from('pipelines').select('id, name, task_visibility_mode, is_default').is('deleted_at', null);
+      setAvailablePipelines(allPipes as Pipeline[] || []);
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Could not update default pipeline.');
+    }
+  };
 
   const handleCreateTask = () => {
     if (!hasPermission('task.create')) {
@@ -638,17 +680,36 @@ function TasksScreen() {
                 <Text className="text-typography-main font-bold text-xl mb-4">Switch Pipeline</Text>
                 <ScrollView className="max-h-80">
                    {availablePipelines.map(p => (
-                      <TouchableOpacity 
-                        key={p.id} 
-                        className="py-4 border-b border-surface-border"
-                        onPress={async () => {
-                           await AsyncStorage.setItem('@TrustFlow_tasks_pipeline', p.id);
-                           router.setParams({ pipelineId: p.id });
-                           setShowPipelinePicker(false);
-                        }}
+                      <View
+                        key={p.id}
+                        className="flex-row items-center border-b border-surface-border"
                       >
-                         <Text className="text-typography-main font-bold">{p.name}</Text>
-                      </TouchableOpacity>
+                        <TouchableOpacity
+                          className="flex-1 py-4"
+                          onPress={async () => {
+                             await AsyncStorage.setItem('@TrustFlow_tasks_pipeline', p.id);
+                             router.setParams({ pipelineId: p.id });
+                             setShowPipelinePicker(false);
+                          }}
+                        >
+                          <Text className={`font-bold text-base ${pipeline?.id === p.id ? 'text-brand-primary' : 'text-typography-main'}`}>{p.name}</Text>
+                          {p.is_default && (
+                            <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-wider mt-0.5">Default</Text>
+                          )}
+                        </TouchableOpacity>
+                        {hasPermission('pipeline.edit') && (
+                          <TouchableOpacity
+                            onPress={() => handleSetDefault(p.id)}
+                            className="px-4 py-4 items-center justify-center"
+                          >
+                            <FontAwesome
+                              name={p.is_default ? 'star' : 'star-o'}
+                              size={16}
+                              color={p.is_default ? 'var(--color-primary)' : 'var(--color-text-muted)'}
+                            />
+                          </TouchableOpacity>
+                        )}
+                      </View>
                    ))}
                 </ScrollView>
                 <TouchableOpacity onPress={() => setShowPipelinePicker(false)} className="mt-4 pt-4 items-center">

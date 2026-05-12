@@ -1,17 +1,18 @@
+import ManualTimeModal from '@/components/common/ManualTimeModal';
+import ManualTimeApprovalCard from '@/components/task-detail/ManualTimeApprovalCard';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubmission } from '@/contexts/SubmissionContext';
 import { useTaskDetail, type StageActionData } from '@/contexts/TaskDetailContext';
 import { useTimer } from '@/contexts/TimerContext';
+import { openStorageFile, SUBMISSION_BUCKET } from '@/lib/storage';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, AppState, Platform, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { openStorageFile, SUBMISSION_BUCKET } from '@/lib/storage';
 import { getActionDescriptor, splitStageActions } from './actionRegistry';
-import ManualTimeModal from '@/components/common/ManualTimeModal';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
 
 function getFileIcon(mimeType: string | null): { name: string; color: string } {
   const t = (mimeType || '').toLowerCase();
@@ -101,11 +102,21 @@ export default function StageActions() {
 
   const removeFile = (id: string) => setStagedFiles(prev => prev.filter(f => f.id !== id));
 
-  const handleManualTimeSuccess = async (isFlagged: boolean) => {
+  const handleManualTimeSuccess = async (isFlagged: boolean, flagReason: string | null, approvalStatus: string) => {
     setShowManualTimeModal(false);
     setManualTimeLogged(true);
     const actionToRetry = pendingSubmitAction;
     setPendingSubmitAction(null);
+
+    if (isFlagged && approvalStatus === 'pending') {
+      setErrorMsg({
+        title: 'Awaiting Manager Approval',
+        message: 'Your time declaration has been flagged and sent to your manager. You can submit your work once they approve it.',
+        variant: 'warning',
+      });
+      return;
+    }
+
     if (isFlagged) {
       setErrorMsg({
         title: 'Entry Flagged for Review',
@@ -114,12 +125,17 @@ export default function StageActions() {
       });
       setTimeout(() => setErrorMsg(null), 5000);
     }
+
     if (actionToRetry) {
       await handleAction(actionToRetry, true);
     }
   };
 
   if (!data) return null;
+
+  const myEntry = data.my_manual_time_entry;
+  const isMyEntryPending = myEntry?.is_flagged && myEntry?.approval_status === 'pending';
+  const isMyEntryRejected = myEntry?.is_flagged && myEntry?.approval_status === 'rejected';
 
   const activeJob = activeJobs[data.task.id];
   const isUploading = !!activeJob && (activeJob.status === 'processing' || activeJob.status === 'uploading' || activeJob.status === 'committing');
@@ -171,15 +187,31 @@ export default function StageActions() {
         // Pre-upload timer check — prevents partial file uploads when gate would block.
         // Uses stale work_sessions data + elapsedLocal (the just-stopped session's time).
         const stage = data.current_stage;
-        if (stage?.requires_timer && !stage?.is_initial && !data.permissions.is_owner && !manualTimeLogged && !skipTimerCheck) {
-          const completedSeconds = (data.work_sessions || [])
-            .filter((s: any) => s.status === 'completed')
-            .reduce((sum: number, s: any) => sum + (s.total_seconds_spent || 0), 0);
-          const totalSeconds = completedSeconds + elapsedLocal;
-          if (totalSeconds < 300) {
+        if (stage?.requires_timer && !stage?.is_initial && !data.permissions.is_owner && !skipTimerCheck) {
+          // If the user has a flagged entry pending/rejected, surface that state instead of the modal
+          if (isMyEntryPending) {
+            setErrorMsg({
+              title: 'Awaiting Manager Approval',
+              message: 'Your time declaration is awaiting manager approval. You can submit once approved.',
+              variant: 'warning',
+            });
+            return;
+          }
+          if (isMyEntryRejected) {
             setPendingSubmitAction(action);
             setShowManualTimeModal(true);
             return;
+          }
+          if (!manualTimeLogged && !myEntry) {
+            const completedSeconds = (data.work_sessions || [])
+              .filter((s: any) => s.status === 'completed')
+              .reduce((sum: number, s: any) => sum + (s.total_seconds_spent || 0), 0);
+            const totalSeconds = completedSeconds + elapsedLocal;
+            if (totalSeconds < 300) {
+              setPendingSubmitAction(action);
+              setShowManualTimeModal(true);
+              return;
+            }
           }
         }
 
@@ -226,6 +258,15 @@ export default function StageActions() {
         return;
       }
 
+      if (err.message?.includes('TIME_APPROVAL_PENDING')) {
+        setErrorMsg({
+          title: 'Awaiting Manager Approval',
+          message: 'Your time declaration is awaiting manager approval. You will be able to submit once it is approved.',
+          variant: 'warning',
+        });
+        return;
+      }
+
       let displayMessage = err.message || 'Could not perform action';
       if (err.code === 'P0001' && err.message?.includes('Mandatory evidence missing')) {
         displayMessage = 'This stage requires a submission with text or attachments to proceed.';
@@ -243,35 +284,64 @@ export default function StageActions() {
   const hasLinkedPipeline = !!data.current_stage?.linked_pipeline_id;
   const linkedPipelineName = data.current_stage?.linked_pipeline?.name || 'Sub-Pipeline';
 
-  if (hasLinkedPipeline) {
-    return (
-      <View className="bg-surface-card rounded-2xl border border-surface-border p-4">
-        <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em] mb-3">Sub-Pipeline Active</Text>
-        <TouchableOpacity
-          onPress={() => {
-            if (data.current_stage?.linked_pipeline_id) {
-              AsyncStorage.setItem('@TrustFlow_tasks_pipeline', data.current_stage.linked_pipeline_id);
-              router.push({
-                 pathname: '/(tabs)',
-                 params: { pipelineId: data.current_stage.linked_pipeline_id }
-              } as any);
-            }
-          }}
-          className="bg-brand-primary/10 py-3 rounded-xl border border-brand-primary/30 items-center justify-center flex-row"
-        >
-          <FontAwesome name="bolt" size={14} color="var(--color-primary)" />
-          <Text className="text-brand-primary font-black text-xs uppercase tracking-widest ml-2">
-            Navigate to {linkedPipelineName}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  if (!buttonActions.length && !showSubmissionSection && !showTimerCard) return null;
+  if (!buttonActions.length && !showSubmissionSection && !showTimerCard && !hasLinkedPipeline) return null;
 
   return (
     <View className="gap-4">
+      {hasLinkedPipeline && (
+        <View className="bg-surface-card rounded-2xl border border-surface-border p-4">
+          <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em] mb-3">Sub-Pipeline Active</Text>
+          <TouchableOpacity
+            onPress={() => {
+              if (data.current_stage?.linked_pipeline_id) {
+                AsyncStorage.setItem('@TrustFlow_tasks_pipeline', data.current_stage.linked_pipeline_id);
+                router.push({
+                   pathname: '/(tabs)',
+                   params: { pipelineId: data.current_stage.linked_pipeline_id }
+                } as any);
+              }
+            }}
+            className="bg-brand-primary/10 py-3 rounded-xl border border-brand-primary/30 items-center justify-center flex-row"
+          >
+            <FontAwesome name="bolt" size={14} color="var(--color-primary)" />
+            <Text className="text-brand-primary font-black text-xs uppercase tracking-widest ml-2">
+              Navigate to {linkedPipelineName}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Manager: pending time approval card */}
+      {data.permissions.is_manager && data.pending_time_approvals?.length > 0 && (
+        <ManualTimeApprovalCard entries={data.pending_time_approvals} />
+      )}
+
+      {/* Worker: persistent pending approval banner */}
+      {isMyEntryPending && !errorMsg && (
+        <View className="bg-state-warning/10 border border-state-warning/30 rounded-xl p-3">
+          <Text className="text-state-warning font-black text-xs uppercase tracking-wider mb-1">
+            Awaiting Manager Approval
+          </Text>
+          <Text className="text-state-warning text-sm leading-5">
+            Your time declaration has been flagged and sent to your manager. You can submit your work once they approve it.
+          </Text>
+        </View>
+      )}
+
+      {/* Worker: rejected entry banner — prompts re-declaration */}
+      {isMyEntryRejected && !errorMsg && (
+        <View className="bg-state-danger/10 border border-state-danger/30 rounded-xl p-3">
+          <Text className="text-state-danger font-black text-xs uppercase tracking-wider mb-1">
+            Time Declaration Rejected
+          </Text>
+          <Text className="text-state-danger text-sm leading-5">
+            {myEntry?.rejection_reason
+              ? `Reason: ${myEntry.rejection_reason}. Please re-declare your work hours.`
+              : 'Your time declaration was rejected. Please re-declare your work hours.'}
+          </Text>
+        </View>
+      )}
+
       {/* Error / Warning Message Display */}
       {errorMsg && (
         <View className={`rounded-xl p-3 ${
@@ -442,8 +512,8 @@ export default function StageActions() {
                       handleAction(submitAction);
                     }
                   }}
-                  disabled={!submitAction || (submissionContent.trim() === '' && stagedFiles.length === 0) || loadingActionId === submitAction.id || isUploading}
-                  className={`bg-brand-primary px-5 py-2.5 rounded-xl ${(!submitAction || (submissionContent.trim() === '' && stagedFiles.length === 0) || loadingActionId === submitAction?.id || isUploading) ? 'opacity-50' : ''}`}
+                  disabled={!submitAction || (submissionContent.trim() === '' && stagedFiles.length === 0) || loadingActionId === submitAction.id || isUploading || isMyEntryPending}
+                  className={`bg-brand-primary px-5 py-2.5 rounded-xl ${(!submitAction || (submissionContent.trim() === '' && stagedFiles.length === 0) || loadingActionId === submitAction?.id || isUploading || isMyEntryPending) ? 'opacity-50' : ''}`}
                 >
                   {loadingActionId === submitAction?.id || isUploading ? (
                     <View className="flex-row items-center">

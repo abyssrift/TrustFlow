@@ -8,7 +8,7 @@ type Props = {
   visible: boolean;
   taskId: string;
   stageId: string;
-  onSuccess: (isFlagged: boolean, flagReason: string | null) => void;
+  onSuccess: (isFlagged: boolean, flagReason: string | null, approvalStatus: string) => void;
   onCancel: () => void;
 };
 
@@ -52,7 +52,7 @@ export default function ManualTimeModal({ visible, taskId, stageId, onSuccess, o
       });
       if (rpcError) throw rpcError;
       reset();
-      onSuccess(data.is_flagged, data.flag_reason);
+      onSuccess(data.is_flagged, data.flag_reason, data.approval_status);
     } catch (err: any) {
       setError(err.message || 'Failed to log time. Please try again.');
     } finally {

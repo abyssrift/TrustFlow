@@ -1,3 +1,4 @@
+import { useToast } from '@/contexts/ToastContext';
 import { supabase } from '@/lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
@@ -185,6 +186,7 @@ export function usePipelineEditor() {
 // ── Provider ───────────────────────────────────────────────
 
 export function PipelineEditorProvider({ children }: { children: ReactNode }) {
+  const { successToast, errorToast, infoToast } = useToast();
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [selectedPipeline, setSelectedPipeline] = useState<Pipeline | null>(null);
   const [stages, setStages] = useState<Stage[]>([]);
@@ -424,14 +426,16 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
       });
       if (e) throw e;
       await refreshPipelines();
+      successToast(`Pipeline "${name}" created.`, 'Pipeline saved');
       return data;
     } catch (e: any) {
       setError(e.message);
+      errorToast(e.message || 'Unable to create pipeline.');
       return null;
     } finally {
       setLoading(false);
     }
-  }, [refreshPipelines]);
+  }, [refreshPipelines, successToast, errorToast]);
 
   const updatePipeline = useCallback(async (
     id: string, name?: string, desc?: string | null, isDefault?: boolean, visibility_permissions?: string[], task_visibility_mode?: string
@@ -457,14 +461,16 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
           task_visibility_mode: (task_visibility_mode as any) ?? prev.task_visibility_mode
         } : null);
       }
+      successToast('Pipeline updated.', 'Saved');
       return true;
     } catch (e: any) {
       setError(e.message);
+      errorToast(e.message || 'Unable to update pipeline.');
       return false;
     } finally {
       setLoading(false);
     }
-  }, [refreshPipelines, selectedPipeline]);
+  }, [refreshPipelines, selectedPipeline, successToast, errorToast]);
 
   const deletePipeline = useCallback(async (id: string): Promise<boolean> => {
     setLoading(true);
@@ -475,14 +481,16 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
       if (e) throw e;
       if (selectedPipeline?.id === id) deselectPipeline();
       await refreshPipelines();
+      infoToast('Pipeline removed.');
       return true;
     } catch (e: any) {
       setError(e.message);
+      errorToast(e.message || 'Unable to delete pipeline.');
       return false;
     } finally {
       setLoading(false);
     }
-  }, [refreshPipelines, selectedPipeline, deselectPipeline]);
+  }, [refreshPipelines, selectedPipeline, deselectPipeline, infoToast, errorToast]);
 
   // ═══ Stage CRUD ═══
   const addStage = useCallback(async (args: Partial<Stage>): Promise<string | null> => {
@@ -504,14 +512,16 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
       });
       if (e) throw e;
       await refreshPipelineData();
+      successToast(`Stage "${args.name || 'New Stage'}" added.`);
       return data;
     } catch (e: any) {
       setError(e.message);
+      errorToast(e.message || 'Unable to add stage.');
       return null;
     } finally {
       setLoading(false);
     }
-  }, [selectedPipeline, refreshPipelineData]);
+  }, [selectedPipeline, refreshPipelineData, successToast, errorToast]);
 
   const updateStage = useCallback(async (id: string, args: Partial<Stage>): Promise<boolean> => {
     setLoading(true);
@@ -532,14 +542,16 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
       });
       if (e) throw e;
       await refreshPipelineData();
+      successToast('Stage updated.');
       return true;
     } catch (e: any) {
       setError(e.message);
+      errorToast(e.message || 'Unable to update stage.');
       return false;
     } finally {
       setLoading(false);
     }
-  }, [refreshPipelineData]);
+  }, [refreshPipelineData, successToast, errorToast]);
 
   const updateStagePosition = useCallback(async (id: string, x: number, y: number): Promise<boolean> => {
     // Optimistic update
@@ -554,9 +566,10 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
       return true;
     } catch (e: any) {
       console.warn('Failed to persist stage position:', e.message);
+      errorToast(e.message || 'Unable to move stage.');
       return false;
     }
-  }, []);
+  }, [errorToast]);
 
   const deleteStage = useCallback(async (id: string): Promise<boolean> => {
     setLoading(true);
@@ -566,14 +579,16 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
       });
       if (e) throw e;
       await refreshPipelineData();
+      infoToast('Stage deleted.');
       return true;
     } catch (e: any) {
       setError(e.message);
+      errorToast(e.message || 'Unable to delete stage.');
       return false;
     } finally {
       setLoading(false);
     }
-  }, [refreshPipelineData]);
+  }, [refreshPipelineData, infoToast, errorToast]);
 
   const reorderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentPendingReorderRef = useRef<string[] | null>(null);
@@ -614,9 +629,11 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
             p_stage_ids: finalIds,
           });
           if (e) throw e;
+          successToast('Stages reordered.');
           resolve(true);
         } catch (e: any) {
           setError(`Failed to reorder: ${e.message}`);
+          errorToast(e.message || 'Unable to reorder stages.');
           if (originalStagesRef.current) {
             setStages([...originalStagesRef.current]); // Rollback
           }
@@ -628,7 +645,7 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
         }
       }, 400); // 400ms debounce
     });
-  }, [selectedPipeline]);
+  }, [selectedPipeline, successToast, errorToast]);
 
   // ═══ Transition CRUD ═══
   const addTransition = useCallback(async (
@@ -645,14 +662,16 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
       });
       if (e) throw e;
       await refreshPipelineData();
+      successToast(`Transition "${label}" added.`);
       return data;
     } catch (e: any) {
       setError(e.message);
+      errorToast(e.message || 'Unable to add transition.');
       return null;
     } finally {
       setLoading(false);
     }
-  }, [refreshPipelineData]);
+  }, [refreshPipelineData, successToast, errorToast]);
 
   const updateTransition = useCallback(async (
     id: string, label?: string, perm?: string, type?: string
@@ -667,14 +686,16 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
       });
       if (e) throw e;
       await refreshPipelineData();
+      successToast('Transition updated.');
       return true;
     } catch (e: any) {
       setError(e.message);
+      errorToast(e.message || 'Unable to update transition.');
       return false;
     } finally {
       setLoading(false);
     }
-  }, [refreshPipelineData]);
+  }, [refreshPipelineData, successToast, errorToast]);
 
   const deleteTransition = useCallback(async (id: string): Promise<boolean> => {
     setLoading(true);
@@ -684,14 +705,16 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
       });
       if (e) throw e;
       await refreshPipelineData();
+      infoToast('Transition deleted.');
       return true;
     } catch (e: any) {
       setError(e.message);
+      errorToast(e.message || 'Unable to delete transition.');
       return false;
     } finally {
       setLoading(false);
     }
-  }, [refreshPipelineData]);
+  }, [refreshPipelineData, infoToast, errorToast]);
 
   // ═══ Automation CRUD ═══
   const createAutomation = useCallback(async (args: any): Promise<string | null> => {
@@ -709,14 +732,16 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
       });
       if (e) throw e;
       await refreshPipelineData();
+      successToast('Automation created.');
       return data;
     } catch (e: any) {
       setError(e.message);
+      errorToast(e.message || 'Unable to create automation.');
       return null;
     } finally {
       setLoading(false);
     }
-  }, [selectedPipeline, refreshPipelineData]);
+  }, [selectedPipeline, refreshPipelineData, successToast, errorToast]);
 
   const updateAutomation = useCallback(async (id: string, args: any): Promise<boolean> => {
     setLoading(true);
@@ -731,14 +756,16 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
       });
       if (e) throw e;
       await refreshPipelineData();
+      successToast('Automation updated.');
       return true;
     } catch (e: any) {
       setError(e.message);
+      errorToast(e.message || 'Unable to update automation.');
       return false;
     } finally {
       setLoading(false);
     }
-  }, [refreshPipelineData]);
+  }, [refreshPipelineData, successToast, errorToast]);
 
   const deleteAutomation = useCallback(async (id: string): Promise<boolean> => {
     setLoading(true);
@@ -748,14 +775,16 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
       });
       if (e) throw e;
       await refreshPipelineData();
+      infoToast('Automation deleted.');
       return true;
     } catch (e: any) {
       setError(e.message);
+      errorToast(e.message || 'Unable to delete automation.');
       return false;
     } finally {
       setLoading(false);
     }
-  }, [refreshPipelineData]);
+  }, [refreshPipelineData, infoToast, errorToast]);
 
   // ═══ Action CRUD ═══
   const addStageAction = useCallback(async (args: Partial<StageAction>): Promise<string | null> => {
@@ -775,14 +804,16 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
       });
       if (e) throw e;
       await refreshPipelineData();
+      successToast('Stage action created.');
       return data;
     } catch (e: any) {
       setError(e.message);
+      errorToast(e.message || 'Unable to create stage action.');
       return null;
     } finally {
       setLoading(false);
     }
-  }, [refreshPipelineData]);
+  }, [refreshPipelineData, successToast, errorToast]);
 
   const updateStageAction = useCallback(async (id: string, args: Partial<StageAction>): Promise<boolean> => {
     setLoading(true);
@@ -801,14 +832,16 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
       });
       if (e) throw e;
       await refreshPipelineData();
+      successToast('Stage action updated.');
       return true;
     } catch (e: any) {
       setError(e.message);
+      errorToast(e.message || 'Unable to update stage action.');
       return false;
     } finally {
       setLoading(false);
     }
-  }, [refreshPipelineData]);
+  }, [refreshPipelineData, successToast, errorToast]);
 
   const deleteStageAction = useCallback(async (id: string): Promise<boolean> => {
     setLoading(true);
@@ -818,14 +851,16 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
       });
       if (e) throw e;
       await refreshPipelineData();
+      infoToast('Stage action deleted.');
       return true;
     } catch (e: any) {
       setError(e.message);
+      errorToast(e.message || 'Unable to delete stage action.');
       return false;
     } finally {
       setLoading(false);
     }
-  }, [refreshPipelineData]);
+  }, [refreshPipelineData, infoToast, errorToast]);
 
   const reorderStageActions = useCallback(async (stageId: string, actionIds: string[]): Promise<boolean> => {
     try {
@@ -893,9 +928,11 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
             });
             if (e) throw e;
             await refreshPipelineData();
+            successToast('Linked outcome saved.');
             return data;
           } catch (e: any) {
             setError(e.message);
+            errorToast(e.message || 'Unable to save linked outcome.');
             return null;
           } finally {
             setLoading(false);
@@ -907,9 +944,11 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
             const { error: e } = await supabase.rpc('rpc_delete_linked_outcome', { p_id: id });
             if (e) throw e;
             await refreshPipelineData();
+            infoToast('Linked outcome removed.');
             return true;
           } catch (e: any) {
             setError(e.message);
+            errorToast(e.message || 'Unable to delete linked outcome.');
             return false;
           } finally {
             setLoading(false);
@@ -926,9 +965,11 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
             setStages(prev => prev.map(s =>
               s.id === stageId ? { ...s, child_inherits_submission: childInheritsSubmission } : s
             ));
+            successToast('Spawn settings updated.');
             return true;
           } catch (e: any) {
             setError(e.message);
+            errorToast(e.message || 'Unable to update spawn settings.');
             return false;
           } finally {
             setLoading(false);

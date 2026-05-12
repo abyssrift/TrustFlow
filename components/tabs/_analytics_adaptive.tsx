@@ -6,6 +6,7 @@ import { PeriodToggle } from '@/components/analytics/PeriodToggle';
 import { StatsCard } from '@/components/analytics/StatsCard';
 import { EfficiencyIndicator } from '@/components/analytics/EfficiencyIndicator';
 import { PerformanceChart } from '@/components/analytics/PerformanceChart';
+import { TimerDeliverabilityChart } from '@/components/analytics/TimerDeliverabilityChart';
 import { FontAwesome } from '@expo/vector-icons';
 
 export default function PersonalAnalyticsScreen() {
@@ -164,6 +165,13 @@ export default function PersonalAnalyticsScreen() {
                   metricKey="weight_points"
                   label="Weight Points per Period"
                 />
+              </View>
+            )}
+
+            {/* Timer deliverability chart */}
+            {series.length > 0 && (
+              <View className="mb-6">
+                <TimerDeliverabilityChart data={series} />
               </View>
             )}
 

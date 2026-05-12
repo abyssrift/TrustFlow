@@ -4,22 +4,23 @@ import { useFonts } from 'expo-font';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { View, Text } from 'react-native';
+import { Text, View } from 'react-native';
+import { cssInterop } from 'react-native-css-interop';
 import 'react-native-reanimated';
 import '../global.css';
-import { cssInterop } from 'react-native-css-interop';
 
-import { useColorScheme } from '@/components/useColorScheme';
-import { AuthProvider, useAuth } from '../contexts/AuthContext';
-import { ThemeProvider as AppThemeProvider } from '@/contexts/ThemeContext';
-import { AlertProvider } from '@/contexts/AlertContext';
-import { TimerProvider } from '@/contexts/TimerContext';
-import { SubmissionProvider } from '@/contexts/SubmissionContext';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Sidebar from '@/components/Sidebar.web';
 import TimerIsland from '@/components/TimerIsland';
+import { useColorScheme } from '@/components/useColorScheme';
+import { AlertProvider } from '@/contexts/AlertContext';
 import { AnalyticsProvider } from '@/contexts/AnalyticsContext';
 import { NotificationsProvider } from '@/contexts/NotificationsContext';
+import { SubmissionProvider } from '@/contexts/SubmissionContext';
+import { ThemeProvider as AppThemeProvider } from '@/contexts/ThemeContext';
+import { TimerProvider } from '@/contexts/TimerContext';
+import { ToastProvider } from '@/contexts/ToastContext';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { AuthProvider, useAuth } from '../contexts/AuthContext';
 
 cssInterop(FontAwesome, {
   className: {
@@ -61,7 +62,9 @@ export default function RootLayout() {
           <TimerProvider>
             <AppThemeProvider>
               <AlertProvider>
-                <RootLayoutNav />
+                <ToastProvider>
+                  <RootLayoutNav />
+                </ToastProvider>
               </AlertProvider>
             </AppThemeProvider>
           </TimerProvider>

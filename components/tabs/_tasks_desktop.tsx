@@ -11,14 +11,6 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { cssInterop } from 'react-native-css-interop';
-
-cssInterop(FontAwesome, {
-  className: {
-    target: 'style',
-    nativeStyleToProp: { color: true, size: true },
-  },
-} as any);
 import {
     ActivityIndicator,
     Image,
@@ -29,6 +21,14 @@ import {
     useWindowDimensions,
     View
 } from 'react-native';
+import { cssInterop } from 'react-native-css-interop';
+
+cssInterop(FontAwesome, {
+  className: {
+    target: 'style',
+    nativeStyleToProp: { color: true, size: true },
+  },
+} as any);
 
 type Stage = {
   id: string;
@@ -76,6 +76,7 @@ type Pipeline = {
   id: string;
   name: string;
   task_visibility_mode: 'all' | 'assigned_only';
+  is_default?: boolean;
 };
 
 export function TasksScreenWeb() {
@@ -116,7 +117,7 @@ export function TasksScreenWeb() {
         // Try to restore from storage
         const savedPipelineId = await AsyncStorage.getItem('@TrustFlow_tasks_pipeline');
         if (savedPipelineId) {
-          const { data: pSaved } = await supabase.from('pipelines').select('id, name, task_visibility_mode').eq('id', savedPipelineId).single();
+          const { data: pSaved } = await supabase.from('pipelines').select('id, name, task_visibility_mode, is_default').eq('id', savedPipelineId).single();
           if (pSaved) {
             targetPipelineId = pSaved.id;
             pipelineData = pSaved;
@@ -125,19 +126,19 @@ export function TasksScreenWeb() {
         }
         // Fall back to default if saved pipeline not found
         if (!targetPipelineId) {
-          const { data: pDefault } = await supabase.from('pipelines').select('id, name, task_visibility_mode').eq('is_default', true).limit(1).single();
+          const { data: pDefault } = await supabase.from('pipelines').select('id, name, task_visibility_mode, is_default').eq('is_default', true).limit(1).single();
           targetPipelineId = pDefault?.id;
           pipelineData = pDefault;
           setPipeline(pDefault);
         }
       } else {
-        const { data: pSpecific } = await supabase.from('pipelines').select('id, name, task_visibility_mode').eq('id', targetPipelineId).single();
+        const { data: pSpecific } = await supabase.from('pipelines').select('id, name, task_visibility_mode, is_default').eq('id', targetPipelineId).single();
         targetPipelineId = pSpecific?.id;
         pipelineData = pSpecific;
         setPipeline(pSpecific);
       }
 
-      const { data: allPipes } = await supabase.from('pipelines').select('id, name, task_visibility_mode').is('deleted_at', null);
+      const { data: allPipes } = await supabase.from('pipelines').select('id, name, task_visibility_mode, is_default').is('deleted_at', null);
       setAvailablePipelines(allPipes as Pipeline[] || []);
 
       if (!targetPipelineId) return;
@@ -295,8 +296,9 @@ export function TasksScreenWeb() {
     fetchPulse();
     fetchData();
 
+    const channelName = `tasks-board-realtime-web-${Date.now()}`;
     const tasksChannel = supabase
-      .channel('tasks-board-realtime-web')
+      .channel(channelName)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => fetchData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'task_work_sessions' }, () => fetchData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'task_comments' }, () => fetchData())
@@ -313,6 +315,21 @@ export function TasksScreenWeb() {
     setRefreshing(true);
     fetchPulse();
     fetchData();
+  };
+
+  const handleSetDefault = async (pipelineId: string) => {
+    try {
+      // Step 1: clear existing default (only rows currently marked true) — avoids unique constraint conflict
+      await supabase.from('pipelines').update({ is_default: false }).eq('is_default', true);
+      // Step 2: mark the chosen pipeline as default
+      await supabase.from('pipelines').update({ is_default: true }).eq('id', pipelineId);
+      // Refresh the list in-place
+      const { data: allPipes } = await supabase.from('pipelines').select('id, name, task_visibility_mode, is_default').is('deleted_at', null);
+      setAvailablePipelines(allPipes as Pipeline[] || []);
+    } catch (err: any) {
+      setArchiveError(err.message || 'Could not update default pipeline.');
+      setTimeout(() => setArchiveError(null), 6000);
+    }
   };
 
   const handleCreateTask = () => {
@@ -688,21 +705,40 @@ export function TasksScreenWeb() {
                 <Text className="text-typography-main font-black text-3xl mb-2 tracking-tighter">Switch Pipeline</Text>
                 <Text className="text-typography-muted text-sm mb-8 font-medium">Select a pipeline to reconfigure the dashboard.</Text>
                 
-                <ScrollView className="max-h-[400px]">
-                   {availablePipelines.map(p => (
-                      <TouchableOpacity 
-                        key={p.id} 
-                        className={`p-6 rounded-2xl mb-3 border transition-all ${pipeline?.id === p.id ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border hover:bg-surface-overlay'}`}
-                        onPress={async () => {
-                           await AsyncStorage.setItem('@TrustFlow_tasks_pipeline', p.id);
-                           router.setParams({ pipelineId: p.id });
-                           setShowPipelinePicker(false);
-                        }}
-                      >
-                         <Text className={`font-black text-lg ${pipeline?.id === p.id ? 'text-brand-primary' : 'text-typography-main'}`}>{p.name}</Text>
-                      </TouchableOpacity>
-                   ))}
-                </ScrollView>
+                 <ScrollView className="max-h-[400px]">
+                    {availablePipelines.map(p => (
+                       <View
+                         key={p.id}
+                         className={`flex-row items-center mb-3 rounded-2xl border overflow-hidden transition-all ${pipeline?.id === p.id ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border'}`}
+                       >
+                         <TouchableOpacity
+                           className="flex-1 p-6"
+                           onPress={async () => {
+                              await AsyncStorage.setItem('@TrustFlow_tasks_pipeline', p.id);
+                              router.setParams({ pipelineId: p.id });
+                              setShowPipelinePicker(false);
+                           }}
+                         >
+                           <Text className={`font-black text-lg ${pipeline?.id === p.id ? 'text-brand-primary' : 'text-typography-main'}`}>{p.name}</Text>
+                           {p.is_default && (
+                             <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-wider mt-1">Default Pipeline</Text>
+                           )}
+                         </TouchableOpacity>
+                         {hasPermission('pipeline.edit') && (
+                           <TouchableOpacity
+                             onPress={() => handleSetDefault(p.id)}
+                             className={`px-5 py-6 items-center justify-center border-l border-surface-border/50 hover:bg-brand-primary/10 transition-colors`}
+                           >
+                             <FontAwesome
+                               name={p.is_default ? 'star' : 'star-o'}
+                               size={16}
+                               color={p.is_default ? 'var(--color-primary)' : 'var(--color-text-muted)'}
+                             />
+                           </TouchableOpacity>
+                         )}
+                       </View>
+                    ))}
+                 </ScrollView>
                 
                 <TouchableOpacity onPress={() => setShowPipelinePicker(false)} className="mt-8 py-4 items-center bg-surface-background border border-surface-border rounded-2xl">
                    <Text className="text-typography-muted font-black uppercase tracking-widest text-xs">Cancel Navigation</Text>

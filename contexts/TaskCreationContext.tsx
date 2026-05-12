@@ -1,9 +1,10 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from '@/lib/supabase';
-import { useAuth } from './AuthContext';
 import { TASK_BRIEF_BUCKET } from '@/lib/storage';
+import { supabase } from '@/lib/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImageManipulator from 'expo-image-manipulator';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { useAuth } from './AuthContext';
+import { useToast } from './ToastContext';
 
 export type TaskDraft = {
   title: string;
@@ -65,6 +66,7 @@ const STORAGE_KEY = 'newTrustFlow_task_draft';
 
 export const TaskCreationProvider = ({ children }: { children: React.ReactNode }) => {
   const { user } = useAuth();
+  const { successToast, errorToast, infoToast } = useToast();
   const [draft, setDraftState] = useState<TaskDraft>(INITIAL_DRAFT);
   const [recentTasks, setRecentTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -127,11 +129,13 @@ export const TaskCreationProvider = ({ children }: { children: React.ReactNode }
     if (!draft.title.trim()) return null;
     setLoading(true);
     try {
+      const dbPriority = draft.priority === 'normal' ? 'medium' : draft.priority;
+
       // 1. Create the task
       const { data: taskId, error } = await supabase.rpc('rpc_create_task', {
         p_title: draft.title,
         p_description: draft.description,
-        p_priority: draft.priority,
+        p_priority: dbPriority,
         p_due_date: draft.dueDate,
         p_category: draft.category,
         p_weight: draft.weight,
@@ -210,9 +214,11 @@ export const TaskCreationProvider = ({ children }: { children: React.ReactNode }
 
       await resetDraft();
       await loadRecentTasks();
+      successToast(`Task "${draft.title}" created.`, 'Task created');
       return taskId;
     } catch (err) {
       console.error('Creation error:', err);
+      errorToast(err instanceof Error ? err.message : 'Could not create task.');
       return null;
     } finally {
       setLoading(false);

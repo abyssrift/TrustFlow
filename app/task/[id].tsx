@@ -1,21 +1,21 @@
-import React from 'react';
-import { View, Text, ScrollView, RefreshControl, ActivityIndicator, TouchableOpacity, useWindowDimensions } from 'react-native';
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
+import ActivityLog from '@/components/task-detail/ActivityLog';
+import ChildPipelinesPanel from '@/components/task-detail/ChildPipelinesPanel';
+import CommentsSection from '@/components/task-detail/CommentsSection';
+import EvidencePanel from '@/components/task-detail/EvidencePanel';
+import PeoplePanel from '@/components/task-detail/PeoplePanel';
+import PipelineJourney from '@/components/task-detail/PipelineJourney';
+import StageActions from '@/components/task-detail/StageActions';
+import TaskBriefPanel from '@/components/task-detail/TaskBriefPanel';
+import TaskHeader from '@/components/task-detail/TaskHeader';
+import TaskMetadata from '@/components/task-detail/TaskMetadata';
+import TimerPanel from '@/components/task-detail/TimerPanel';
 import { TaskDetailProvider, useTaskDetail } from '@/contexts/TaskDetailContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { getPrimaryColor } from '@/lib/themeColors';
-import TaskHeader from '@/components/task-detail/TaskHeader';
-import TimerPanel from '@/components/task-detail/TimerPanel';
-import TaskMetadata from '@/components/task-detail/TaskMetadata';
-import PeoplePanel from '@/components/task-detail/PeoplePanel';
-import StageActions from '@/components/task-detail/StageActions';
-import ChildPipelinesPanel from '@/components/task-detail/ChildPipelinesPanel';
-import PipelineJourney from '@/components/task-detail/PipelineJourney';
-import CommentsSection from '@/components/task-detail/CommentsSection';
-import EvidencePanel from '@/components/task-detail/EvidencePanel';
-import TaskBriefPanel from '@/components/task-detail/TaskBriefPanel';
-import ActivityLog from '@/components/task-detail/ActivityLog';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import React from 'react';
+import { ActivityIndicator, RefreshControl, ScrollView, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 
 function TaskDetailContent() {
   const { data, loading, error, refresh } = useTaskDetail();
@@ -51,7 +51,7 @@ function TaskDetailContent() {
         <Text className="text-typography-main font-black text-2xl mt-4">Access Denied</Text>
         <Text className="text-typography-muted text-center mt-2 leading-6">
           You do not have permission to view this task. You must be assigned, the creator, a manager, or have the{' '}
-          <Text className="text-brand-primary font-bold">tasks.view_all</Text> permission.
+          <Text className="text-brand-primary font-bold">task.view_detail</Text> permission.
         </Text>
         <TouchableOpacity
           onPress={() => router.back()}

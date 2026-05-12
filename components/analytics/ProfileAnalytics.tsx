@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ActivityIndicator } from 'react-native';
 import { useAnalytics, PerformancePeriod } from '@/contexts/AnalyticsContext';
 import { PerformanceChart } from './PerformanceChart';
+import { TimerDeliverabilityChart } from './TimerDeliverabilityChart';
 import { PeriodToggle } from './PeriodToggle';
 
 interface ProfileAnalyticsProps {
@@ -95,7 +96,9 @@ export function ProfileAnalytics({ userId }: ProfileAnalyticsProps) {
     );
   }
 
-  const isAllZero = series.every(r => r.weight_points === 0 && r.active_seconds === 0);
+  const isAllZero = series.every(
+    r => r.weight_points === 0 && r.active_seconds === 0 && r.completed_tasks === 0,
+  );
   const conclusion = buildConclusion(current, onTimeRate, timerEfficiency);
 
   return (
@@ -123,6 +126,7 @@ export function ProfileAnalytics({ userId }: ProfileAnalyticsProps) {
                 metricKey="active_hours"
                 label="Active Hours per Period"
               />
+              <TimerDeliverabilityChart data={chartData} />
             </>
           )}
 

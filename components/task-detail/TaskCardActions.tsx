@@ -1,3 +1,5 @@
+import ConfirmModal from '@/components/common/ConfirmModal';
+import ManualTimeModal from '@/components/common/ManualTimeModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTimer } from '@/contexts/TimerContext';
@@ -5,13 +7,12 @@ import { useElapsedTime } from '@/hooks/useElapsedTime';
 import { supabase } from '@/lib/supabase';
 import { getAccentColor, getPrimaryColor } from '@/lib/themeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Text, TouchableOpacity, View } from 'react-native';
 import { isComplexActionType } from './actionRegistry';
-import ConfirmModal from '@/components/common/ConfirmModal';
-import ManualTimeModal from '@/components/common/ManualTimeModal';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useToast } from '@/contexts/ToastContext';
 
 // ─── Types ────────────────────────────────────────────────────
 export type ActiveSessionUser = {
@@ -83,6 +84,7 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
   const { theme: activeTheme } = useTheme();
   const { hasPermission, profile } = useAuth();
   const { startWork } = useTimer();
+  const { successToast, errorToast, infoToast } = useToast();
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [needsTimerActionId, setNeedsTimerActionId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<{ title: string; message: string; variant?: 'danger' | 'warning' } | null>(null);
@@ -114,10 +116,6 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
   const availableActions = stageActions
     .filter(a => a.stage_id === task.current_stage_id)
     .filter(a => (a as any).is_active !== false)
-    .filter(a => {
-      if (!a.required_role || a.required_role === 'any') return true;
-      return hasPermission(a.required_role);
-    })
     .sort((a, b) => a.position - b.position);
 
   // ─── Handlers ────────────────────────────────────────────
@@ -160,6 +158,8 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
         throw error;
       }
       onRefresh();
+      // Show success toast for card-level actions
+      successToast(action.label || 'Action completed');
     } catch (err: any) {
       let displayMessage = err.message || 'Could not execute action.';
       
@@ -172,6 +172,7 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
         title: 'Action Error',
         message: displayMessage
       });
+      errorToast(displayMessage);
       
       // Auto-clear after 5 seconds
       setTimeout(() => setErrorMsg(null), 5000);
@@ -196,8 +197,9 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
       });
       if (error) throw error;
       onRefresh();
+      successToast('Task advanced.');
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Could not advance task.');
+      errorToast(err.message || 'Could not advance task.');
     } finally {
       setLoadingAction(null);
     }
@@ -209,8 +211,9 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
     try {
       await startWork(task.id, task.title ?? '');
       onRefresh();
+      successToast('Work session started.');
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Could not start work session.');
+      errorToast(err.message || 'Could not start work session.');
     } finally {
       setLoadingAction(null);
     }
@@ -228,8 +231,9 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
          throw error;
       }
       onRefresh();
+      successToast('Task claimed.');
     } catch (err: any) {
-      Alert.alert('Claim Error', err.message || 'Could not claim task.');
+      errorToast(err.message || 'Could not claim task.');
     } finally {
       setLoadingAction(null);
     }
@@ -253,7 +257,7 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
       setLoadingAction('__archive__');
       const { error } = await supabase.rpc('rpc_archive_task', { p_task_id: task.id });
       if (error) throw error;
-      
+      successToast('Task archived.');
       await AsyncStorage.setItem('last_archival_at', now.toString());
       onRefresh();
     } catch (err: any) {

@@ -1,14 +1,16 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, TouchableOpacity, Animated, PanResponder, Dimensions, Modal } from 'react-native';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTimer } from '@/contexts/TimerContext';
-import { useRouter } from 'expo-router';
+import { useToast } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, Dimensions, Modal, PanResponder, Text, TouchableOpacity, View } from 'react-native';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
 export default function TimerIsland() {
   const { isActive, activeSession, stopWork, serverTimeOffset, smartTimer } = useTimer();
+  const { successToast, errorToast } = useToast();
   const [elapsed, setElapsed] = useState('00:00:00');
   const [expanded, setExpanded] = useState(false);
   const router = useRouter();
@@ -26,7 +28,7 @@ export default function TimerIsland() {
     if (isActive) {
       Animated.spring(scale, {
         toValue: 1,
-        useNativeDriver: true,
+        useNativeDriver: false,
         tension: 50,
         friction: 7,
       }).start();
@@ -46,7 +48,7 @@ export default function TimerIsland() {
       Animated.timing(scale, {
         toValue: 0,
         duration: 300,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }).start();
       setExpanded(false);
     }
@@ -148,12 +150,19 @@ export default function TimerIsland() {
         {/* Right: Controls */}
         <View className="flex-row items-center gap-1.5 pr-1">
           {expanded && (
-             <TouchableOpacity 
-                onPress={() => stopWork()}
-                className="w-7 h-7 rounded-full bg-state-danger/10 items-center justify-center border border-state-danger/20 active:bg-state-danger/30"
-              >
-                <FontAwesome name="stop" size={9} color={colors.danger} />
-             </TouchableOpacity>
+            <TouchableOpacity 
+               onPress={async () => {
+                 try {
+                   await stopWork();
+                   successToast('Work session stopped.');
+                 } catch (err: any) {
+                   errorToast(err?.message || 'Could not stop work session.');
+                 }
+               }}
+               className="w-7 h-7 rounded-full bg-state-danger/10 items-center justify-center border border-state-danger/20 active:bg-state-danger/30"
+             >
+               <FontAwesome name="stop" size={9} color={colors.danger} />
+            </TouchableOpacity>
           )}
           
           <TouchableOpacity 

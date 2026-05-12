@@ -4,7 +4,7 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Platform, Text, View } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
 import 'react-native-reanimated';
@@ -38,6 +38,7 @@ export const unstable_settings = {
 import GlobalUploadBanner from '@/components/GlobalUploadBanner';
 import TimerIsland from '@/components/TimerIsland';
 import { TimerProvider, useTimer } from '@/contexts/TimerContext';
+import { ToastProvider } from '@/contexts/ToastContext';
 import { useRouter, useSegments } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
@@ -76,7 +77,9 @@ export default function RootLayout() {
       <AuthProvider>
         <TimerProvider>
           <SubmissionProvider>
-            <RootLayoutNav />
+            <ToastProvider>
+              <RootLayoutNav />
+            </ToastProvider>
           </SubmissionProvider>
         </TimerProvider>
       </AuthProvider>
@@ -85,8 +88,8 @@ export default function RootLayout() {
 }
 
 import { AlertProvider } from '@/contexts/AlertContext';
-import { NotificationsProvider } from '@/contexts/NotificationsContext';
 import { AnalyticsProvider } from '@/contexts/AnalyticsContext';
+import { NotificationsProvider } from '@/contexts/NotificationsContext';
 import { ThemeProvider as AppThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import { usePushRegistration } from '@/hooks/usePushRegistration';
 
@@ -200,6 +203,29 @@ function ThemedRoot() {
   const { themeVariables, isLoading } = useTheme();
   const { session, initialized } = useAuth();
   const { smartTimer } = useTimer();
+  const pathname = usePathname();
+  const initialPathRef = useRef<string | null>(null);
+  const [showRouteLoading, setShowRouteLoading] = useState(false);
+
+  useEffect(() => {
+    if (initialPathRef.current === null) {
+      initialPathRef.current = pathname;
+      return;
+    }
+
+    if (initialPathRef.current === pathname) {
+      return;
+    }
+
+    initialPathRef.current = pathname;
+    setShowRouteLoading(true);
+
+    const hideLoading = setTimeout(() => {
+      setShowRouteLoading(false);
+    }, Platform.OS === 'web' ? 120 : 220);
+
+    return () => clearTimeout(hideLoading);
+  }, [pathname]);
 
   return (
     <View style={themeVariables} className="flex-1">
@@ -211,7 +237,9 @@ function ThemedRoot() {
         {session && Platform.OS !== 'web' && <PushRegistrationGuard />}
         
         {/* Global Loading Overlay */}
-        {(!initialized || isLoading) && <LoadingOverlay />}
+        {(!initialized || isLoading || showRouteLoading) && (
+          <LoadingOverlay message={showRouteLoading ? 'Opening page...' : undefined} />
+        )}
 
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

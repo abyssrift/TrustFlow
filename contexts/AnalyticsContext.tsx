@@ -22,6 +22,8 @@ export interface PerformancePeriod {
   revision_count: number;
   on_time_tasks: number;
   is_current_period: boolean;
+  within_budget_tasks: number;
+  over_budget_tasks: number;
 }
 
 export interface PerformanceSummary {
