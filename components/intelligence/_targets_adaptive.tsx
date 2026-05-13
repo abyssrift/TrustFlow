@@ -1,15 +1,14 @@
+import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
+import { CompletionVelocityMobile, IntelligencePicker } from '@/components/intelligence/IntelligenceCommon';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Modal, ScrollView, Text, TextInput,
-  TouchableOpacity, View, useWindowDimensions,
+    ActivityIndicator, Alert, Modal, ScrollView, Text, TextInput,
+    TouchableOpacity, View, useWindowDimensions,
 } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
-import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
-import { IntelligencePicker } from '@/components/intelligence/IntelligenceCommon';
-import { CompletionVelocityMobile } from '@/components/intelligence/IntelligenceCommon';
 
 // ── Create Modal ───────────────────────────────────────────────────────────────
 
@@ -37,12 +36,12 @@ const CreateModal = ({ visible, onClose, onConfirm, pipelines, stages }: any) =>
 
           <ScrollView className="px-8 max-h-[520px]" showsVerticalScrollIndicator={false}>
             <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mt-6 mb-4">Targeting Vector</Text>
-            <View className="flex-row bg-surface-background p-1.5 rounded-2xl mb-6">
+            <View className="flex-row flex-wrap gap-2 bg-surface-background p-1.5 rounded-2xl mb-6">
               {['performance', 'volume'].map(t => (
                 <TouchableOpacity
                   key={t}
                   onPress={() => setType(t)}
-                  className={`flex-1 py-3 rounded-xl items-center flex-row justify-center ${type === t ? 'bg-brand-primary premium-shadow' : ''}`}
+                  className={`flex-1 min-w-[132px] py-3 rounded-xl items-center flex-row justify-center ${type === t ? 'bg-brand-primary premium-shadow' : ''}`}
                 >
                   <FontAwesome
                     name={t === 'performance' ? 'bolt' : 'database'}
@@ -497,12 +496,12 @@ export default function IntelligenceTargetsNative() {
 
   return (
     <View className="flex-1 bg-surface-background">
-      <View className="px-6 pt-14 pb-4 flex-row flex-wrap items-end justify-between gap-y-4">
-        <View>
+      <View className="px-6 pt-14 pb-4 flex-row flex-wrap items-end justify-between gap-4">
+        <View className="min-w-0">
           <Text className="text-brand-primary font-black uppercase tracking-[4px] text-[10px] mb-1">Intelligence Hub</Text>
           <Text className="text-typography-main text-3xl font-black">Targets</Text>
         </View>
-        <View className="flex-row flex-wrap gap-2">
+        <View className="flex-row flex-wrap justify-end gap-2 max-w-full">
           <TouchableOpacity onPress={fetchTargets} className="w-11 h-11 items-center justify-center bg-surface-card border border-surface-border rounded-2xl">
             <FontAwesome name="refresh" size={13} color="rgb(var(--brand-primary))" />
           </TouchableOpacity>

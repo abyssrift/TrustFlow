@@ -1,16 +1,18 @@
+import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 import { TargetCreationModal } from '@/components/intelligence/IntelligenceModals';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { getPrimaryColor, getMutedColor } from '@/lib/themeColors';
 import { supabase } from '@/lib/supabase';
+import { getMutedColor, getPrimaryColor } from '@/lib/themeColors';
 import { FontAwesome } from '@expo/vector-icons';
-import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import {
-  Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, ScatterChart, Scatter,
-  Tooltip, XAxis, YAxis, ZAxis,
+    Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer,
+    Scatter,
+    ScatterChart,
+    Tooltip, XAxis, YAxis, ZAxis,
 } from 'recharts';
 
 // ── Edit Modal ────────────────────────────────────────────────────────────────
@@ -451,12 +453,12 @@ export default function IntelligenceTargets() {
 
       {/* ── LEFT COLUMN ── */}
       <View className="flex-1 flex-col overflow-hidden">
-        <View className="px-10 pt-8 pb-5 flex-row items-center justify-between border-b border-surface-border">
-          <View>
+        <View className="px-10 pt-8 pb-5 flex-row flex-wrap items-start justify-between gap-4 border-b border-surface-border">
+          <View className="min-w-0">
             <Text className="text-brand-primary font-black uppercase tracking-[0.3em] text-[9px] mb-1">Intelligence Hub</Text>
             <Text className="text-typography-main text-4xl font-black tracking-tighter">Performance Targets</Text>
           </View>
-          <View className="flex-row items-center gap-3">
+          <View className="flex-row flex-wrap items-center justify-end gap-3 max-w-full">
             <TouchableOpacity
               onPress={() => setShowModal(true)}
               className="bg-brand-primary px-6 py-2.5 rounded-xl flex-row items-center gap-2"

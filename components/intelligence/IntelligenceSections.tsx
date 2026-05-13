@@ -1,12 +1,19 @@
+import { StageDwell, ThroughputPeriod, useAnalytics } from '@/contexts/AnalyticsContext';
 import { FontAwesome } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip as RechartTooltip, ResponsiveContainer, CartesianGrid,
-  ComposedChart, Line, Legend, Cell,
+    Bar,
+    BarChart,
+    CartesianGrid,
+    Cell,
+    ComposedChart,
+    Legend,
+    Line,
+    Tooltip as RechartTooltip, ResponsiveContainer,
+    XAxis, YAxis,
 } from 'recharts';
-import { useAnalytics, StageDwell, ThroughputPeriod } from '@/contexts/AnalyticsContext';
-import { router } from 'expo-router';
 import { CircularTargetCard, KPIBoxWeb } from './IntelligenceCommon';
 import {
     ConversionFunnelChartWeb,
@@ -112,14 +119,14 @@ export const ArchivesSectionWeb = ({ reports, archives, search, activeSchema, on
 
   return (
     <View>
-      <View className="flex-row bg-surface-card rounded-2xl p-1.5 border border-surface-border mb-10 w-fit">
+      <View className="flex-row flex-wrap gap-2 bg-surface-card rounded-2xl p-1.5 border border-surface-border mb-10 w-full max-w-full">
         {['reports', 'cold_storage'].map((s) => (
           <TouchableOpacity
             key={s}
             onPress={() => setSubSection(s as any)}
-            className={`px-8 py-3 rounded-xl items-center flex-row ${subSection === s ? 'bg-brand-primary premium-shadow' : 'hover:bg-surface-background'}`}
+            className={`px-5 py-3 rounded-xl items-center flex-row justify-center flex-1 min-w-[140px] ${subSection === s ? 'bg-brand-primary premium-shadow' : 'hover:bg-surface-background'}`}
           >
-            <Text className={`font-black text-[10px] uppercase tracking-widest ${subSection === s ? 'text-brand-on-primary' : 'text-typography-muted'}`}>
+            <Text className={`font-black text-[10px] uppercase tracking-widest text-center ${subSection === s ? 'text-brand-on-primary' : 'text-typography-muted'}`} numberOfLines={1}>
               {s.replace('_', ' ')}
             </Text>
           </TouchableOpacity>

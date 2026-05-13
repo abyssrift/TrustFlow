@@ -1,20 +1,80 @@
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
-import { FontAwesome } from '@expo/vector-icons';
 import { usePipelineEditor } from '@/contexts/PipelineEditorContext';
+import { FontAwesome } from '@expo/vector-icons';
+import React from 'react';
+import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 export default function SubpipelineEditor() {
-  const { stages, pipelines, loading, updateStageSpawnConfig } = usePipelineEditor();
+  const { stages, pipelines, loading, selectedPipeline, updateStage, updateStageSpawnConfig } = usePipelineEditor();
 
   const spawningStages = (stages || []).filter(s => !!s.linked_pipeline_id);
+  const availablePipelines = pipelines.filter(p => p.id !== selectedPipeline?.id);
+
+  const handleLinkPipeline = async (stageId: string, linkedPipelineId: string | null) => {
+    await updateStage(stageId, { linked_pipeline_id: linkedPipelineId });
+  };
 
   return (
     <View className="flex-1">
       <View className="mb-6">
         <Text className="text-typography-main text-lg font-black">Subpipeline Spawning</Text>
         <Text className="text-typography-muted text-xs">
-          Configure how child tasks inherit properties from the parent when spawned.
+          Choose which stages spawn subpipelines, then configure child inheritance behavior.
         </Text>
+      </View>
+
+      <View className="bg-surface-card border border-surface-border rounded-2xl mb-4 overflow-hidden">
+        <View className="px-4 py-3 border-b border-surface-border bg-surface-background">
+          <Text className="text-typography-main font-black text-sm">Stage Spawn Routing</Text>
+          <Text className="text-typography-dim text-[10px] mt-0.5">
+            Set a target pipeline for any stage. "No Spawn" keeps the stage in the parent flow only.
+          </Text>
+        </View>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={Platform.OS === 'web'}>
+          <View className="p-4 gap-3 min-w-full">
+            {(stages || []).map(stage => (
+              <View key={stage.id} className="bg-surface-background border border-surface-border rounded-xl p-3">
+                <View className="flex-row items-center mb-2">
+                  <View
+                    className="w-2.5 h-2.5 rounded-full mr-2"
+                    style={{ backgroundColor: stage.color || 'var(--color-text-dim)' }}
+                  />
+                  <Text className="text-typography-main font-bold text-xs flex-1">{stage.name}</Text>
+                  {stage.linked_pipeline_id && (
+                    <View className="bg-brand-primary-dim px-2 py-0.5 rounded-md border border-brand-primary/20">
+                      <Text className="text-brand-primary text-[9px] font-black uppercase tracking-wider">Spawns</Text>
+                    </View>
+                  )}
+                </View>
+
+                <View className="flex-row flex-wrap gap-1.5">
+                  <TouchableOpacity
+                    disabled={loading}
+                    onPress={() => handleLinkPipeline(stage.id, null)}
+                    className={`px-2.5 py-1.5 rounded-lg border ${!stage.linked_pipeline_id ? 'bg-brand-primary-dim border-brand-primary/40' : 'bg-surface-card border-surface-border'}`}
+                  >
+                    <Text className={`text-[10px] font-bold uppercase tracking-wider ${!stage.linked_pipeline_id ? 'text-brand-primary' : 'text-typography-muted'}`}>
+                      No Spawn
+                    </Text>
+                  </TouchableOpacity>
+
+                  {availablePipelines.map(p => (
+                    <TouchableOpacity
+                      key={`${stage.id}-${p.id}`}
+                      disabled={loading}
+                      onPress={() => handleLinkPipeline(stage.id, p.id)}
+                      className={`px-2.5 py-1.5 rounded-lg border ${stage.linked_pipeline_id === p.id ? 'bg-brand-primary-dim border-brand-primary/40' : 'bg-surface-card border-surface-border'}`}
+                    >
+                      <Text className={`text-[10px] font-bold uppercase tracking-wider ${stage.linked_pipeline_id === p.id ? 'text-brand-primary' : 'text-typography-muted'}`}>
+                        {p.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            ))}
+          </View>
+        </ScrollView>
       </View>
 
       {spawningStages.length === 0 ? (
@@ -22,7 +82,7 @@ export default function SubpipelineEditor() {
           <FontAwesome name="sitemap" size={48} color="var(--color-surface-overlay)" />
           <Text className="text-typography-muted text-sm font-bold mt-4">No spawning stages configured.</Text>
           <Text className="text-typography-dim text-xs mt-1 text-center px-8">
-            Assign a linked pipeline to a stage in the Stages tab to configure spawn settings here.
+            Assign a target pipeline above to configure inheritance settings below.
           </Text>
         </View>
       ) : (

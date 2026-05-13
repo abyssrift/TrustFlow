@@ -1,18 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  Modal,
-  ScrollView,
-  Pressable,
-  ActivityIndicator,
-  Alert,
-  TextInput as RNTextInput,
-} from 'react-native';
 import HorizontalScroll from '@/components/common/HorizontalScroll';
-import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import React, { useEffect, useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    Modal,
+    Pressable,
+    TextInput as RNTextInput,
+    ScrollView,
+    Text,
+    View,
+} from 'react-native';
 
 type ReportType =
   | 'general'
@@ -239,8 +239,8 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
   const content = (
     <View className={isPage ? 'flex-1 bg-surface-background' : 'w-full max-w-2xl h-[90%] bg-surface-background rounded-[32px] border border-surface-border overflow-hidden premium-shadow glass-card'}>
       {/* Header */}
-      <View className={`px-6 py-5 border-b border-surface-border flex-row items-center justify-between ${isPage ? 'bg-surface-card' : 'bg-surface-card/50'}`}>
-        <View className="flex-row items-center">
+      <View className={`px-6 py-5 border-b border-surface-border flex-row flex-wrap items-center justify-between gap-4 ${isPage ? 'bg-surface-card' : 'bg-surface-card/50'}`}>
+        <View className="flex-row items-center min-w-0">
           <View className="h-10 w-1 rounded-full bg-brand-primary mr-4" />
           <View>
             <Text className="text-lg font-black uppercase tracking-widest text-typography-main">Report Architect</Text>
@@ -424,16 +424,16 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
       </ScrollView>
 
       {/* Footer */}
-      <View className={`px-6 py-6 border-t border-surface-border flex-row gap-4 ${isPage ? 'bg-surface-card pb-12' : 'bg-surface-card/50'}`}>
+      <View className={`px-6 py-6 border-t border-surface-border flex-row flex-wrap gap-4 ${isPage ? 'bg-surface-card pb-12' : 'bg-surface-card/50'}`}>
         {!isPage && (
-          <Pressable onPress={onClose} disabled={loading} className="flex-1 py-4 rounded-2xl border border-surface-border bg-surface-background items-center">
+          <Pressable onPress={onClose} disabled={loading} className="flex-1 min-w-[140px] py-4 rounded-2xl border border-surface-border bg-surface-background items-center">
             <Text className="text-typography-muted font-bold">Discard</Text>
           </Pressable>
         )}
         <Pressable
           onPress={handleGenerateReport}
           disabled={loading || pipelines.length === 0}
-          className={`${isPage ? 'flex-1' : 'flex-[1.5]'} py-4 rounded-2xl items-center ${loading || pipelines.length === 0 ? 'bg-surface-border' : 'bg-brand-primary active:scale-95 shadow-lg shadow-brand-primary/20'}`}
+          className={`${isPage ? 'flex-1' : 'flex-[1.5]'} min-w-[160px] py-4 rounded-2xl items-center ${loading || pipelines.length === 0 ? 'bg-surface-border' : 'bg-brand-primary active:scale-95 shadow-lg shadow-brand-primary/20'}`}
         >
           {loading ? (
             <ActivityIndicator color="white" size="small" />

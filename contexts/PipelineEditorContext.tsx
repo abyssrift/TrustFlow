@@ -416,18 +416,144 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
   ): Promise<string | null> => {
     setLoading(true);
     try {
-      const { data, error: e } = await supabase.rpc('rpc_create_pipeline', {
-        p_name: name,
-        p_description: desc,
-        p_stages: stagesArr,
-        p_transitions: transArr,
-        p_visibility_permissions: visibility_permissions,
-        p_task_visibility_mode: task_visibility_mode,
-      });
-      if (e) throw e;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      // Get company_id from current user
+      const { data: userProfile } = await supabase
+        .from('users')
+        .select('company_id')
+        .eq('id', user.id)
+        .single();
+      if (!userProfile?.company_id) throw new Error('Company not found');
+
+      // Step 1: Create the pipeline record
+      const { data: pipelineData, error: pipelineErr } = await supabase
+        .from('pipelines')
+        .insert({
+          company_id: userProfile.company_id,
+          name,
+          description: desc,
+          visibility_permissions: visibility_permissions.length > 0 ? visibility_permissions : [],
+          task_visibility_mode,
+          is_default: false,
+          deleted_at: null,
+        })
+        .select('id')
+        .single();
+      if (pipelineErr) throw pipelineErr;
+      const pipelineId = pipelineData.id;
+
+      // Step 2: Create all stages and map position -> stage ID
+      const stageMap: Record<number, string> = {};
+      if (stagesArr.length > 0) {
+        const stageInserts = stagesArr.map((stage: any, idx: number) => ({
+          pipeline_id: pipelineId,
+          name: stage.name || `Stage ${idx + 1}`,
+          color: stage.color || '#6B7280',
+          description: stage.description || null,
+          position: stage.position || idx + 1,
+          is_initial: stage.is_initial || false,
+          is_terminal: stage.is_terminal || false,
+          terminal_type: stage.terminal_type || null,
+          requires_submission: stage.requires_submission || false,
+          requires_timer: stage.requires_timer || false,
+          use_business_hours: stage.use_business_hours || false,
+          ui_metadata: stage.ui_metadata || { x: 0, y: 0 },
+        }));
+
+        const { data: stagesData, error: stagesErr } = await supabase
+          .from('pipeline_stages')
+          .insert(stageInserts)
+          .select('id, position');
+        if (stagesErr) throw stagesErr;
+
+        // Map position to ID
+        stagesData?.forEach((s: any) => {
+          const origStage = stagesArr.find((sa: any) => sa.position === s.position);
+          if (origStage) {
+            stageMap[origStage.position] = s.id;
+          }
+        });
+      }
+
+      // Step 3: Create all transitions and auto-create actions for them
+      if (transArr.length > 0) {
+        const transInserts = transArr
+          .map((trans: any) => {
+            const fromStageId = stageMap[trans.from_position];
+            const toStageId = stageMap[trans.to_position];
+            if (!fromStageId || !toStageId) return null;
+            return {
+              from_stage_id: fromStageId,
+              to_stage_id: toStageId,
+              label: trans.label || 'Transition',
+              required_permission: trans.required_permission || null,
+              transition_type: trans.transition_type || 'neutral',
+            };
+          })
+          .filter(Boolean);
+
+        if (transInserts.length > 0) {
+          const { data: transData, error: transErr } = await supabase
+            .from('pipeline_stage_transitions')
+            .insert(transInserts)
+            .select('id, from_stage_id, to_stage_id');
+          if (transErr) throw transErr;
+
+          // Step 4: Auto-create stage actions for each transition
+          // This ensures that initialized transitions are displayed as actionable buttons
+          const actionInserts = (transData || [])
+            .map((t: any) => {
+              const origTrans = transArr.find((ta: any) =>
+                stageMap[ta.from_position] === t.from_stage_id &&
+                stageMap[ta.to_position] === t.to_stage_id
+              );
+              if (!origTrans) return null;
+              return {
+                stage_id: t.from_stage_id,
+                action_type: 'advance',
+                label: origTrans.label || 'Transition',
+                icon: null,
+                style: 'primary',
+                required_role: 'any',
+                requires_timer: false,
+                use_business_hours: false,
+                precondition: null,
+                transition_id: t.id,
+                position: 1,
+                is_active: true,
+              };
+            })
+            .filter(Boolean);
+
+          if (actionInserts.length > 0) {
+            const { error: actionsErr } = await supabase
+              .from('pipeline_stage_actions')
+              .insert(actionInserts);
+            if (actionsErr) {
+              console.warn('Failed to auto-create stage actions:', actionsErr.message);
+              // Don't throw - actions are nice-to-have but transitions should exist
+            }
+          }
+        }
+      }
+
       await refreshPipelines();
+      
+      // Fetch and select the newly created pipeline so its data is loaded
+      const { data: newPipeline } = await supabase
+        .from('pipelines')
+        .select('*')
+        .eq('id', pipelineId)
+        .single();
+      
+      if (newPipeline) {
+        setSelectedPipeline(newPipeline);
+      }
+      
       successToast(`Pipeline "${name}" created.`, 'Pipeline saved');
-      return data;
+      return pipelineId;
     } catch (e: any) {
       setError(e.message);
       errorToast(e.message || 'Unable to create pipeline.');

@@ -6,7 +6,7 @@ Idle tracking seems to be broken on mobile. i click buttons but it doesnt reset.
 
 when user plugs in a time because there's no time sessions, it should send to the manager of this task to approve it and it should have a notification to notify the manager. because currently users can kind of plug in whatever numbers they want and it breaks things.
 
-once the manager approves, the time session that the worker proposed should be added to his time effort.
+once the manager approves, the time session that the worker proposed should be added to his time effort as a single session.
 
 get the reports system to track all the new features, such as the new analytics engine, the worker graphs, the personal comparison, etc.
 Remove goal tracking from analytics in intelligence.
@@ -15,15 +15,9 @@ Remove goal tracking from analytics in intelligence.
 one more thing, pages load without any kind of loading which makes them look very weird. clicking on things in mobile is so slow, it takes a while for things to open, iam hoping we can make things quicker.
 graphs misbehave on mobile and overflow inside their containers in a weird non dynamic way.
 
-i get an error trying to start the timer via the card view rather than [id].tsx (Fixed in mobile!)
-
 most actions lack loading states on web AND mobile and it makes them look weird, dry or unrefined.
 
 Mobile QOL features on each screen.
-
-
-split the task viewing permission from task.viewall to something else. because currently a worker should have access to view [id].tsx if his role applies to the pipeline and he's assigned and conforms to the rules of the pipeline. currently, if a user doesnt have the task.viewall permission, he's not able to view [id].tsx, but viewall breaks the assigned functionality of the visibility of the pipeline.
-
 
 Refreshing the timer after 15 seconds resets it on web, didnt test on mobile, requires more thoroughness!
 
@@ -32,3 +26,10 @@ Pipeline action initializations are not working! user has to manually re do the 
 when a user creates a new pipeline, the initialized actions between stages arent displayed, do not work, and are only in the canvas, misleading the user for some reason.
 D
 Handle Offline/Slow network.
+
+Check if stage dwell time graph actually is taking correct snapshots.
+its been at 49 samples for a fucking week.
+
+Can we please add a smarter time indicator?
+i have this issue where the units are often too big. instead i want a unit that auto scales. but doesnt lose context.
+if something is big, it goes from year, to month to week to day to hour to minute to second. all depending on unit and conversions. but there are SO MANY units througout the app. i want them all to be replaced by this smarter unit.
