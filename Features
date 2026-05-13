@@ -30,5 +30,5 @@ Refreshing the timer after 15 seconds resets it on web, didnt test on mobile, re
 
 Pipeline action initializations are not working! user has to manually re do the actions.
 when a user creates a new pipeline, the initialized actions between stages arent displayed, do not work, and are only in the canvas, misleading the user for some reason.
-
+D
 Handle Offline/Slow network.
