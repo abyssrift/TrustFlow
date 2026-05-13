@@ -1,23 +1,36 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View, Text, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, Platform, Image,
-} from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
-  ComposedChart, Line, Legend, Cell,
-  Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-} from 'recharts';
-import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/AuthContext';
-import { useAnalytics, StageDwell, ThroughputPeriod, PersonnelRow } from '@/contexts/AnalyticsContext';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { Stack } from 'expo-router';
-import { ConversionFunnelChartWeb, StageDwellChartWeb } from '@/components/intelligence/RadarWidgets';
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
-import { useRef } from 'react';
+import { ConversionFunnelChartWeb, StageDwellChartWeb } from '@/components/intelligence/RadarWidgets';
+import { PersonnelRow, StageDwell, ThroughputPeriod, useAnalytics } from '@/contexts/AnalyticsContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { getPrimaryColor, getMutedColor } from '@/lib/themeColors';
+import { supabase } from '@/lib/supabase';
+import { getMutedColor, getPrimaryColor } from '@/lib/themeColors';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Stack } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import {
+    ActivityIndicator,
+    Image,
+    ScrollView,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
+} from 'react-native';
+import {
+    Bar,
+    CartesianGrid,
+    ComposedChart,
+    Legend,
+    Line,
+    PolarAngleAxis,
+    PolarGrid,
+    Radar, RadarChart,
+    ResponsiveContainer,
+    Tooltip,
+    XAxis, YAxis
+} from 'recharts';
 
 type AdminTab = 'pipeline' | 'personnel';
 function fmtPct(v: number | null): string {
@@ -210,11 +223,11 @@ function PipelineTab() {
         {/* Date range */}
         <View className="gap-2">
           <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">Date Range</Text>
-          <View className="flex-row gap-3 items-center">
+          <View className="flex-row flex-wrap gap-3 items-center">
             <TouchableOpacity
               ref={fromRef}
               onPress={() => openOverlay(fromRef, setFromPos, setShowFromCalendar)}
-              className="bg-surface-card border border-surface-border rounded-xl px-4 py-2 flex-row items-center w-40"
+              className="bg-surface-card border border-surface-border rounded-xl px-4 py-2 flex-row items-center w-full max-w-[11rem]"
             >
               <FontAwesome name="calendar" size={12} color={getMutedColor(activeTheme)} className="mr-3" />
               <Text className="text-typography-main text-sm flex-1">
@@ -225,7 +238,7 @@ function PipelineTab() {
             <TouchableOpacity
               ref={toRef}
               onPress={() => openOverlay(toRef, setToPos, setShowToCalendar)}
-              className="bg-surface-card border border-surface-border rounded-xl px-4 py-2 flex-row items-center w-40"
+              className="bg-surface-card border border-surface-border rounded-xl px-4 py-2 flex-row items-center w-full max-w-[11rem]"
             >
               <FontAwesome name="calendar" size={12} color={getMutedColor(activeTheme)} className="mr-3" />
               <Text className="text-typography-main text-sm flex-1">
@@ -238,12 +251,12 @@ function PipelineTab() {
         {/* Period toggle for throughput */}
         <View className="gap-2">
           <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">Throughput Granularity</Text>
-          <View className="flex-row gap-2">
+          <View className="flex-row flex-wrap gap-2">
             {['week', 'month', 'year'].map(p => (
               <TouchableOpacity
                 key={p}
                 onPress={() => setPeriod(p)}
-                className={`px-4 py-2 rounded-xl border ${period === p ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border'}`}
+                className={`px-4 py-2 rounded-xl border min-w-[86px] items-center ${period === p ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border'}`}
               >
                 <Text className={`text-xs font-black uppercase ${period === p ? 'text-white' : 'text-typography-muted'}`}>{p}</Text>
               </TouchableOpacity>

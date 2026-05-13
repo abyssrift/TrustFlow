@@ -1,6 +1,6 @@
 import { FontAwesome } from '@expo/vector-icons';
 import React from 'react';
-import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 
 export const IntelligencePicker = ({ items, selectedId, onSelect, labelKey = 'name', disabled = false }: any) => (
@@ -34,21 +34,21 @@ export const SectionToggle = ({ active, onSelect, hasPermission }: { active: str
     return true;
   });
   return (
-    <View className="flex-row bg-surface-card rounded-2xl p-1.5 border border-surface-border mb-10 w-fit">
+    <View className="flex-row flex-wrap gap-2 bg-surface-card rounded-2xl p-1.5 border border-surface-border mb-10 w-full max-w-full">
       {sections.map((s) => (
         <TouchableOpacity
           key={s}
           onPress={() => onSelect(s.toLowerCase())}
-          className={`px-8 py-3 rounded-xl items-center flex-row ${active === s.toLowerCase() ? 'bg-brand-primary premium-shadow' : 'bg-surface-card'}`}
+          className={`px-5 py-3 rounded-xl items-center flex-row justify-center flex-1 min-w-[132px] ${active === s.toLowerCase() ? 'bg-brand-primary premium-shadow' : 'bg-surface-card'}`}
         >
-          <View className="mr-3">
+          <View className="mr-2">
             <FontAwesome
               name={SECTION_ICONS[s] ?? 'circle'}
-              size={14}
+              size={13}
               color={active === s.toLowerCase() ? 'white' : 'rgb(var(--text-muted))'}
             />
           </View>
-          <Text className={`font-black text-[10px] uppercase tracking-widest ${active === s.toLowerCase() ? 'text-white' : 'text-typography-muted'}`}>
+          <Text className={`font-black text-[10px] uppercase tracking-widest text-center ${active === s.toLowerCase() ? 'text-white' : 'text-typography-muted'}`} numberOfLines={1}>
             {s}
           </Text>
         </TouchableOpacity>

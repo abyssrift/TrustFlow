@@ -1,0 +1,15 @@
+-- =====================================================================
+-- Pipeline Initialization Fixes
+-- Fixes issue where initialized transitions exist on canvas but no action buttons display
+-- Root Cause: When pipelines were created with initial stages + transitions,
+-- the pipeline_stage_actions rows were never seeded, so no action buttons appeared
+-- Solution: Frontend now auto-creates stage actions for each transition during
+-- pipeline initialization
+-- =====================================================================
+-- No database changes needed - fix is entirely in frontend (PipelineEditorContext.tsx)
+-- The frontend now:
+-- 1. Creates pipeline record
+-- 2. Batch-inserts all stages
+-- 3. Batch-inserts all transitions
+-- 4. **AUTO-CREATES** pipeline_stage_actions for each transition
+-- This ensures initialized transitions display as actionable buttons immediately

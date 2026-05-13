@@ -1,13 +1,18 @@
-import { WorkDistributionChartWeb, QualityLeaderboardWeb, SLARiskAlertWeb, StageDurationChartWeb, TrendComparisonCardsWeb, StageDwellChartWeb } from '@/components/intelligence/RadarWidgets';
-import { useAnalytics, StageDwell, ThroughputPeriod } from '@/contexts/AnalyticsContext';
-import { router } from 'expo-router';
+import { QualityLeaderboardWeb, SLARiskAlertWeb, StageDurationChartWeb, StageDwellChartWeb, TrendComparisonCardsWeb, WorkDistributionChartWeb } from '@/components/intelligence/RadarWidgets';
+import { StageDwell, ThroughputPeriod, useAnalytics } from '@/contexts/AnalyticsContext';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import {
-  Bar, BarChart, CartesianGrid, Cell, ComposedChart,
-  Legend, Line, ResponsiveContainer, Tooltip as RechartTooltip, XAxis, YAxis,
+    Bar,
+    CartesianGrid,
+    ComposedChart,
+    Line,
+    Tooltip as RechartTooltip,
+    ResponsiveContainer,
+    XAxis, YAxis
 } from 'recharts';
 
 const PERIOD_OPTS = [
@@ -79,22 +84,22 @@ export default function IntelligenceGraphs() {
     <View className="flex-1 bg-surface-background flex-col">
 
       {/* ── Header ── */}
-      <View className="px-10 pt-8 pb-5 flex-row items-center justify-between border-b border-surface-border flex-shrink-0">
-        <View>
+      <View className="px-10 pt-8 pb-5 flex-row flex-wrap items-start justify-between gap-4 border-b border-surface-border flex-shrink-0">
+        <View className="min-w-0">
           <Text className="text-brand-primary font-black uppercase tracking-[0.3em] text-[9px] mb-1">Intelligence Hub</Text>
           <Text className="text-typography-main text-4xl font-black tracking-tighter">Performance</Text>
         </View>
-        <View className="flex-row items-center gap-3">
+        <View className="flex-row flex-wrap items-center justify-end gap-3 max-w-full">
           {/* Pipeline selector */}
           {pipelines.length > 1 && (
-            <View className="flex-row bg-surface-card border border-surface-border rounded-xl p-1 gap-0.5">
+            <View className="flex-row flex-wrap max-w-full bg-surface-card border border-surface-border rounded-xl p-1 gap-0.5">
               {pipelines.slice(0, 4).map(p => (
                 <TouchableOpacity
                   key={p.id}
                   onPress={() => setPipelineId(p.id)}
-                  className={`px-4 py-2 rounded-lg ${pipelineId === p.id ? 'bg-brand-primary' : ''}`}
+                  className={`px-4 py-2 rounded-lg max-w-[180px] ${pipelineId === p.id ? 'bg-brand-primary' : ''}`}
                 >
-                  <Text className={`text-[11px] font-black ${pipelineId === p.id ? 'text-white' : 'text-typography-muted'}`}>
+                  <Text className={`text-[11px] font-black text-center ${pipelineId === p.id ? 'text-white' : 'text-typography-muted'}`} numberOfLines={1}>
                     {p.name}
                   </Text>
                 </TouchableOpacity>
@@ -102,7 +107,7 @@ export default function IntelligenceGraphs() {
             </View>
           )}
           {/* Period selector */}
-          <View className="flex-row bg-surface-card border border-surface-border rounded-xl p-1 gap-0.5">
+          <View className="flex-row bg-surface-card border border-surface-border rounded-xl p-1 gap-0.5 shrink-0">
             {PERIOD_OPTS.map(opt => (
               <TouchableOpacity
                 key={opt.label}

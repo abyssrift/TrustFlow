@@ -76,14 +76,14 @@ export default function IntelligenceArchives() {
     <View className="flex-1 bg-surface-background flex-col">
 
       {/* ── Header ── */}
-      <View className="px-10 pt-8 pb-5 flex-row items-center justify-between border-b border-surface-border flex-shrink-0">
-        <View>
+      <View className="px-10 pt-8 pb-5 flex-row flex-wrap items-start justify-between gap-4 border-b border-surface-border flex-shrink-0">
+        <View className="min-w-0">
           <Text className="text-brand-primary font-black uppercase tracking-[0.3em] text-[9px] mb-1">Intelligence Hub</Text>
           <Text className="text-typography-main text-4xl font-black tracking-tighter">Cold Storage</Text>
         </View>
-        <View className="flex-row items-center gap-3">
+        <View className="flex-row flex-wrap items-center justify-end gap-3 max-w-full">
           {/* Search */}
-          <View className="flex-row items-center bg-surface-card border border-surface-border rounded-xl px-4 py-2.5 gap-3" style={{ width: 260 }}>
+          <View className="flex-row items-center bg-surface-card border border-surface-border rounded-xl px-4 py-2.5 gap-3 w-full max-w-[320px] min-w-[220px]">
             <FontAwesome name="search" size={12} color="var(--color-text-muted)" />
             <TextInput
               value={search}
@@ -98,7 +98,7 @@ export default function IntelligenceArchives() {
               </TouchableOpacity>
             )}
           </View>
-          <TouchableOpacity onPress={fetchArchives} className="h-10 w-10 items-center justify-center bg-surface-card border border-surface-border rounded-xl">
+          <TouchableOpacity onPress={fetchArchives} className="h-10 w-10 items-center justify-center bg-surface-card border border-surface-border rounded-xl shrink-0">
             <FontAwesome name="refresh" size={13} color="var(--color-primary)" />
           </TouchableOpacity>
         </View>
