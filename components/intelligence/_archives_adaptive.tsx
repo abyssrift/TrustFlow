@@ -91,6 +91,13 @@ export default function IntelligenceArchivesNative() {
             </TouchableOpacity>
           )}
         </View>
+        <TouchableOpacity
+          onPress={() => router.push('/intelligence/ReportGenerator')}
+          className="bg-brand-primary px-4 py-3 rounded-2xl flex-row items-center gap-2"
+        >
+          <FontAwesome name="magic" size={11} color="white" />
+          <Text className="text-white font-black uppercase tracking-widest text-[10px]">Generate Report</Text>
+        </TouchableOpacity>
         <TouchableOpacity onPress={fetchArchives} className="w-11 h-11 items-center justify-center bg-surface-card border border-surface-border rounded-2xl">
           <FontAwesome name="refresh" size={13} color="rgb(var(--brand-primary))" />
         </TouchableOpacity>

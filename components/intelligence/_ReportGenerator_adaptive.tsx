@@ -2,6 +2,7 @@ import HorizontalScroll from '@/components/common/HorizontalScroll';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
@@ -58,6 +59,7 @@ interface ReportGeneratorProps {
 
 export default function ReportGenerator({ visible, onClose, onReportGenerated, isPage = false }: ReportGeneratorProps) {
   const { hasPermission } = useAuth();
+  const router = useRouter();
 
   const [reportType, setReportType]           = useState<ReportType>('general');
   const [timeFrame, setTimeFrame]             = useState<'7' | '30' | '90' | 'custom'>('30');
@@ -225,8 +227,12 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
       }
 
       Alert.alert('Success', 'Report queued successfully!');
-      onReportGenerated();
-      onClose();
+      if (isPage) {
+        router.replace('/intelligence/archives');
+      } else {
+        onReportGenerated();
+        onClose();
+      }
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to generate report');
     } finally {

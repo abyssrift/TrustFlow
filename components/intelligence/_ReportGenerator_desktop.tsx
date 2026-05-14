@@ -1,19 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  Alert,
-  TextInput as RNTextInput,
-  Linking,
-} from 'react-native';
-import HorizontalScroll from '@/components/common/HorizontalScroll';
-import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Stack, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    TextInput as RNTextInput,
+    ScrollView,
+    Text,
+    TouchableOpacity,
+    View
+} from 'react-native';
 import { generateAndUploadReport } from './reports/generate';
 
 type ReportType =
@@ -237,7 +235,7 @@ export default function ReportGeneratorDesktop() {
 
       if (!user?.id || !profile?.company_id) throw new Error('User session is not ready');
 
-      const signedUrl = await generateAndUploadReport(
+      await generateAndUploadReport(
         jobId,
         reportType,
         parameters,
@@ -246,11 +244,7 @@ export default function ReportGeneratorDesktop() {
         profile.company_id,
       );
 
-      if (signedUrl) {
-        await Linking.openURL(signedUrl);
-      }
-
-      router.replace('/intelligence?section=archives');
+      router.replace('/intelligence/archives');
     } catch (error: any) {
       console.error('Report generation error:', error);
       Alert.alert('Error', error.message || 'Failed to generate report');

@@ -1,33 +1,42 @@
-import React, { useState, useMemo } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Modal, Pressable,
-} from 'react-native';
-import { Stack } from 'expo-router';
+    fmtDay,
+    fmtMins,
+    fmtNumber,
+    healthLabel,
+    timeAgo,
+    useCompanyDetail,
+    useControlPlaneData,
+    useLiveSessions,
+    useTimeline,
+    workspaceAge,
+    type CompanyOverview,
+    type Section,
+    type SignalMetric,
+    type SortKey,
+} from '@/components/platform-admin/useControlPlaneData';
 import { FontAwesome } from '@expo/vector-icons';
+import { Stack } from 'expo-router';
+import React, { useMemo, useState } from 'react';
+import {
+    ActivityIndicator, Modal, Pressable,
+    ScrollView,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
+import {
+    Area,
+    AreaChart,
+    CartesianGrid,
+    ResponsiveContainer,
+    Tooltip,
+    XAxis, YAxis,
+} from 'recharts';
 
 cssInterop(FontAwesome, {
   className: { target: 'style', nativeStyleToProp: { color: true, size: true } },
 } as any);
-import {
-  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
-} from 'recharts';
-import {
-  useControlPlaneData,
-  useTimeline,
-  useLiveSessions,
-  useCompanyDetail,
-  fmtMins,
-  fmtNumber,
-  timeAgo,
-  fmtDay,
-  workspaceAge,
-  healthLabel,
-  type CompanyOverview,
-  type Section,
-  type SortKey,
-  type SignalMetric,
-} from '@/components/platform-admin/useControlPlaneData';
 
 // ── Sparkline ──────────────────────────────────────────────────────────────
 

@@ -1,10 +1,10 @@
+import WebMobileNav from '@/components/navigation/WebMobileNav';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Link, useLocalSearchParams, usePathname } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Platform, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
-import WebMobileNav from '@/components/navigation/WebMobileNav';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { DensityType, RoundnessType, ThemeType, useTheme } from '@/contexts/ThemeContext';
@@ -394,6 +394,35 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
                             </Text>
                           )}
                           {pathname.startsWith('/platform-admin') && !isExpanded && <View className="ml-auto h-2 w-2 rounded-full bg-brand-primary" />}
+                        </Pressable>
+                      </Link>
+
+                      <Link href="/admin/dev-tools" asChild>
+                        <Pressable
+                          className={`group relative mb-2 min-h-11 flex-row items-center overflow-hidden rounded-xl border p-3 ${
+                            pathname === '/admin/dev-tools'
+                              ? 'border-brand-primary/30 bg-brand-primary-dim'
+                              : 'border-brand-primary/10 bg-brand-primary/5 hover:bg-brand-primary/10'
+                          }`}
+                          accessibilityLabel="Dev Tools"
+                        >
+                          <View className={`absolute left-0 top-2 bottom-2 w-1 rounded-r-full ${pathname === '/admin/dev-tools' ? 'bg-brand-primary' : 'bg-brand-primary/20 group-hover:bg-brand-primary/40'}`} />
+                          <View className={`${isExpanded ? 'w-8' : 'w-full'} items-center`}>
+                            <FontAwesome 
+                              name="wrench" 
+                              size={18} 
+                              color={pathname === '/admin/dev-tools' ? 'var(--color-primary)' : 'var(--color-primary-dim)'} 
+                            />
+                          </View>
+                          {isExpanded && (
+                            <Text
+                              className={`ml-2 font-bold whitespace-nowrap ${pathname === '/admin/dev-tools' ? 'text-brand-primary' : 'text-brand-primary/70'}`}
+                              numberOfLines={1}
+                            >
+                              Dev Tools
+                            </Text>
+                          )}
+                          {pathname === '/admin/dev-tools' && !isExpanded && <View className="ml-auto h-2 w-2 rounded-full bg-brand-primary" />}
                         </Pressable>
                       </Link>
                     </View>

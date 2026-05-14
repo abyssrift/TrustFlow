@@ -185,6 +185,13 @@ export default function IntelligenceArchives() {
                       <FontAwesome name="eye" size={10} color="var(--color-text-muted)" />
                       <Text className="text-typography-muted text-[10px] font-bold">Snapshot</Text>
                     </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => router.push('/intelligence/ReportGenerator')}
+                      className="bg-brand-primary px-5 py-2.5 rounded-xl flex-row items-center gap-2 shrink-0"
+                    >
+                      <FontAwesome name="magic" size={11} color="white" />
+                      <Text className="text-white font-black uppercase tracking-widest text-[10px]">Generate Report</Text>
+                    </TouchableOpacity>
                     {!isRestored && !hasIssue && hasPermission('archive.restore') && (
                       <TouchableOpacity
                         onPress={() => setRestoreModal({ visible: true, archive })}

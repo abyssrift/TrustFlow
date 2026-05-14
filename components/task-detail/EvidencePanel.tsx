@@ -1,8 +1,8 @@
-import React, { useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import { openStorageFile, SUBMISSION_BUCKET } from '@/lib/storage';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import React, { useMemo, useState } from 'react';
+import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 const CATEGORY_UI: Record<string, { icon: string; color: string; label: string }> = {
   'image': { icon: 'file-image-o', color: 'var(--color-primary)', label: 'Images' },
@@ -24,19 +24,18 @@ type FilterType = 'all' | 'image' | 'document' | 'spreadsheet';
 export default function EvidencePanel() {
   const { data } = useTaskDetail();
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
-  const [showPendingReview, setShowPendingReview] = useState(false);
+  const [showPendingReview, setShowPendingReview] = useState(true);
 
-  const { groupedEvidence, stats, totalAttachments } = useMemo(() => {
-    if (!data?.submissions) return { groupedEvidence: {}, stats: { all: 0, image: 0, document: 0, spreadsheet: 0 }, totalAttachments: 0 };
-
-    const total = data.submissions.reduce((sum, s) => sum + (s.attachments?.length || 0), 0);
+  const { groupedEvidence, stats } = useMemo(() => {
+    if (!data?.submissions) return { groupedEvidence: {}, stats: { all: 0, image: 0, document: 0, spreadsheet: 0 } };
 
     const filteredByStatus = showPendingReview
       ? data.submissions
-      : data.submissions.filter(s => s.status === 'approved');
+      : data.submissions.filter(s => s.status === 'confirmed');
 
     const all = filteredByStatus.flatMap(s =>
       (s.attachments || []).map(a => {
+        // Fallback for legacy items without a category column
         const cat = a.category || 'other';
         const ui = CATEGORY_UI[cat] || CATEGORY_UI['other'];
 
@@ -69,10 +68,10 @@ export default function EvidencePanel() {
       spreadsheet: all.filter(a => a.category === 'spreadsheet').length,
     };
 
-    return { groupedEvidence: groups, stats: currentStats, totalAttachments: total };
+    return { groupedEvidence: groups, stats: currentStats };
   }, [data?.submissions, activeFilter, showPendingReview]);
 
-  if (!data || totalAttachments === 0) return null;
+  if (!data || stats.all === 0) return null;
 
   return (
     <View className="bg-surface-card rounded-2xl border border-surface-border p-4">
