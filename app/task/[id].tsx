@@ -15,6 +15,7 @@ import { getPrimaryColor } from '@/lib/themeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
+import SkeletonBlock, { SkeletonList } from '@/components/Skeleton';
 import { ActivityIndicator, RefreshControl, ScrollView, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 
 function TaskDetailContent() {
@@ -34,9 +35,16 @@ function TaskDetailContent() {
   // Loading state
   if (loading) {
     return (
-      <View className="flex-1 bg-surface-background items-center justify-center">
-        <ActivityIndicator size="large" color={getPrimaryColor(activeTheme)} />
-        <Text className="text-typography-muted mt-4 font-bold">Loading task details...</Text>
+      <View className="flex-1 bg-surface-background px-4 pt-6">
+        <SkeletonBlock height={28} borderRadius={10} style={{ width: '60%', marginBottom: 16 }} />
+        <SkeletonBlock height={14} borderRadius={8} style={{ width: '40%', marginBottom: 20 }} />
+
+        <ScrollView>
+          <View style={{ gap: 12 }}>
+            <SkeletonList count={2} itemHeight={120} />
+            <SkeletonList count={3} itemHeight={80} />
+          </View>
+        </ScrollView>
       </View>
     );
   }

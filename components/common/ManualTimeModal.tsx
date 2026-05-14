@@ -8,11 +8,12 @@ type Props = {
   visible: boolean;
   taskId: string;
   stageId: string;
+  transitionId?: string | null;
   onSuccess: (isFlagged: boolean, flagReason: string | null, approvalStatus: string) => void;
   onCancel: () => void;
 };
 
-export default function ManualTimeModal({ visible, taskId, stageId, onSuccess, onCancel }: Props) {
+export default function ManualTimeModal({ visible, taskId, stageId, transitionId, onSuccess, onCancel }: Props) {
   const colors = useThemeColors();
   const [hours, setHours] = useState('');
   const [minutes, setMinutes] = useState('');
@@ -49,6 +50,7 @@ export default function ManualTimeModal({ visible, taskId, stageId, onSuccess, o
         p_stage_id:         stageId,
         p_declared_minutes: totalMinutes,
         p_reason:           reason.trim() || null,
+        p_transition_id:    transitionId ?? null,
       });
       if (rpcError) throw rpcError;
       reset();

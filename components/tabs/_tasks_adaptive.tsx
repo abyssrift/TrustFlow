@@ -1,4 +1,5 @@
 import ConfirmModal from '@/components/common/ConfirmModal';
+import SkeletonBlock, { SkeletonList } from '@/components/Skeleton';
 import HorizontalScroll from '@/components/common/HorizontalScroll';
 import KanbanPersonalizer from '@/components/kanban/KanbanPersonalizer';
 import TaskCardActions, { type ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
@@ -507,8 +508,20 @@ function TasksScreen() {
 
   if (loading && !refreshing) {
     return (
-      <View className="flex-1 bg-surface-background items-center justify-center">
-        <ActivityIndicator size="large" color="var(--color-primary)" />
+      <View className="flex-1 bg-surface-background px-4 pt-6">
+        <View className="flex-row gap-4 mb-4">
+          <SkeletonBlock height={20} style={{ width: 120 }} />
+          <SkeletonBlock height={20} style={{ width: 80 }} />
+          <SkeletonBlock height={20} style={{ width: 40 }} />
+        </View>
+        <HorizontalScroll className="px-1">
+          {[0,1,2].map(col => (
+            <View key={col} style={{ width: 260, marginRight: 12 }}>
+              <SkeletonBlock height={18} borderRadius={8} style={{ width: '60%', marginBottom: 12 }} />
+              <SkeletonList count={3} itemHeight={110} />
+            </View>
+          ))}
+        </HorizontalScroll>
       </View>
     );
   }

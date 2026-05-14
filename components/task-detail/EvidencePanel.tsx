@@ -24,16 +24,22 @@ type FilterType = 'all' | 'image' | 'document' | 'spreadsheet';
 export default function EvidencePanel() {
   const { data } = useTaskDetail();
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+  const [showPendingReview, setShowPendingReview] = useState(false);
 
-  const { groupedEvidence, stats } = useMemo(() => {
-    if (!data?.submissions) return { groupedEvidence: {}, stats: { all: 0, image: 0, document: 0, spreadsheet: 0 } };
+  const { groupedEvidence, stats, totalAttachments } = useMemo(() => {
+    if (!data?.submissions) return { groupedEvidence: {}, stats: { all: 0, image: 0, document: 0, spreadsheet: 0 }, totalAttachments: 0 };
 
-    const all = data.submissions.flatMap(s => 
+    const total = data.submissions.reduce((sum, s) => sum + (s.attachments?.length || 0), 0);
+
+    const filteredByStatus = showPendingReview
+      ? data.submissions
+      : data.submissions.filter(s => s.status === 'approved');
+
+    const all = filteredByStatus.flatMap(s =>
       (s.attachments || []).map(a => {
-        // Fallback for legacy items without a category column
         const cat = a.category || 'other';
         const ui = CATEGORY_UI[cat] || CATEGORY_UI['other'];
-        
+
         return {
           ...a,
           submitted_by: s.submitted_by?.full_name,
@@ -46,8 +52,8 @@ export default function EvidencePanel() {
       })
     );
 
-    const filtered = activeFilter === 'all' 
-      ? all 
+    const filtered = activeFilter === 'all'
+      ? all
       : all.filter(a => a.category === activeFilter);
 
     const groups: Record<string, any[]> = {};
@@ -63,10 +69,10 @@ export default function EvidencePanel() {
       spreadsheet: all.filter(a => a.category === 'spreadsheet').length,
     };
 
-    return { groupedEvidence: groups, stats: currentStats };
-  }, [data?.submissions, activeFilter]);
+    return { groupedEvidence: groups, stats: currentStats, totalAttachments: total };
+  }, [data?.submissions, activeFilter, showPendingReview]);
 
-  if (!data || stats.all === 0) return null;
+  if (!data || totalAttachments === 0) return null;
 
   return (
     <View className="bg-surface-card rounded-2xl border border-surface-border p-4">
@@ -74,8 +80,18 @@ export default function EvidencePanel() {
         <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em]">
           Evidence & Proofs
         </Text>
-        <View className="bg-brand-primary/10 px-2 py-0.5 rounded-md">
-          <Text className="text-brand-primary text-[8px] font-black uppercase tracking-tighter">Verified Assets</Text>
+        <View className="flex-row items-center gap-3">
+          <TouchableOpacity
+            onPress={() => setShowPendingReview(!showPendingReview)}
+            className={`px-2 py-1.5 rounded-lg border flex-row items-center ${showPendingReview ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
+          >
+            <Text className={`text-[8px] font-black uppercase tracking-tighter ${showPendingReview ? 'text-white' : 'text-typography-muted'}`}>
+              {showPendingReview ? 'Show Pending' : 'Confirmed Only'}
+            </Text>
+          </TouchableOpacity>
+          <View className="bg-brand-primary/10 px-2 py-0.5 rounded-md">
+            <Text className="text-brand-primary text-[8px] font-black uppercase tracking-tighter">Verified Assets</Text>
+          </View>
         </View>
       </View>
 

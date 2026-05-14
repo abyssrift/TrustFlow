@@ -6,6 +6,7 @@ import { useAuth } from './AuthContext';
 import { useSmartTimer } from '@/hooks/useSmartTimer';
 
 const ASYNC_STORAGE_KEY = 'TRUSTFLOW_PENDING_TIMER';
+const SESSION_STORAGE_KEY = 'tf_reload_session';
 
 export type WorkSession = {
   id: string;
@@ -131,10 +132,66 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [user, fetchActiveSession]);
 
+  // Write real session to sessionStorage so we can detect page reload vs tab close.
+  // sessionStorage survives refresh but is cleared on tab close.
+  // 'pending' sessions are excluded — the beacon guards against stopping them already.
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    if (activeSession && activeSession.id !== 'pending') {
+      sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
+        id: activeSession.id,
+        task_id: activeSession.task_id,
+        started_at: activeSession.started_at,
+        task_title: activeSession.task?.title ?? '',
+      }));
+    } else if (!activeSession) {
+      sessionStorage.removeItem(SESSION_STORAGE_KEY);
+    }
+  }, [activeSession]);
+
+  // On reload, the pagehide beacon stops the session in the DB.
+  // sessionStorage survives the reload, so we detect this and reactivate
+  // the same session row (preserving its original started_at).
+  const restoreAfterReload = useCallback(async () => {
+    if (!user || Platform.OS !== 'web') return;
+    const stored = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    if (!stored) return;
+
+    let intent: { id: string; task_id: string; started_at: string };
+    try { intent = JSON.parse(stored); } catch { sessionStorage.removeItem(SESSION_STORAGE_KEY); return; }
+
+    const { data: sessionRow } = await supabase
+      .from('task_work_sessions')
+      .select('id, status')
+      .eq('id', intent.id)
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (sessionRow?.status === 'completed') {
+      // Beacon stopped it during reload — restore to active so the timer continues
+      const { error } = await supabase
+        .from('task_work_sessions')
+        .update({ status: 'active', stopped_at: null })
+        .eq('id', intent.id)
+        .eq('user_id', user.id);
+
+      if (!error) {
+        console.log('[Timer] Session reactivated after page reload');
+        await fetchActiveSession();
+      } else {
+        console.warn('[Timer] Could not reactivate session after reload:', error.message);
+        sessionStorage.removeItem(SESSION_STORAGE_KEY);
+      }
+    }
+    // If status is still 'active' (beacon didn't fire / race), fetchActiveSession already restored it
+  }, [user, fetchActiveSession]);
+
   useEffect(() => {
     calibrateTime();
-    fetchActiveSession().then(() => syncOrphanedSession());
-  }, [calibrateTime, fetchActiveSession, syncOrphanedSession]);
+    fetchActiveSession()
+      .then(() => syncOrphanedSession())
+      .then(() => restoreAfterReload());
+  }, [calibrateTime, fetchActiveSession, syncOrphanedSession, restoreAfterReload]);
 
   // Singleton Tick Emitter (High Performance)
   useEffect(() => {

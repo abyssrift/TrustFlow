@@ -26,8 +26,8 @@ cssInterop(FontAwesome, {
 } as any);
 
 export {
-  // Catch any errors thrown by the Layout component.
-  ErrorBoundary
+    // Catch any errors thrown by the Layout component.
+    ErrorBoundary
 } from 'expo-router';
 
 export const unstable_settings = {
@@ -36,6 +36,7 @@ export const unstable_settings = {
 };
 
 import GlobalUploadBanner from '@/components/GlobalUploadBanner';
+import NetworkStatusBanner from '@/components/NetworkStatusBanner';
 import TimerIsland from '@/components/TimerIsland';
 import { TimerProvider, useTimer } from '@/contexts/TimerContext';
 import { ToastProvider } from '@/contexts/ToastContext';
@@ -77,9 +78,7 @@ export default function RootLayout() {
       <AuthProvider>
         <TimerProvider>
           <SubmissionProvider>
-            <ToastProvider>
-              <RootLayoutNav />
-            </ToastProvider>
+            <RootLayoutNav />
           </SubmissionProvider>
         </TimerProvider>
       </AuthProvider>
@@ -188,7 +187,9 @@ function RootLayoutNav() {
         <AlertProvider>
           <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
             <NotificationsProvider>
-              <ThemedRoot />
+              <ToastProvider>
+                <ThemedRoot />
+              </ToastProvider>
             </NotificationsProvider>
           </ThemeProvider>
         </AlertProvider>
@@ -206,6 +207,8 @@ function ThemedRoot() {
   const pathname = usePathname();
   const initialPathRef = useRef<string | null>(null);
   const [showRouteLoading, setShowRouteLoading] = useState(false);
+  const touchTimeoutRef = useRef<any>(null);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     if (initialPathRef.current === null) {
@@ -222,7 +225,7 @@ function ThemedRoot() {
 
     const hideLoading = setTimeout(() => {
       setShowRouteLoading(false);
-    }, Platform.OS === 'web' ? 120 : 220);
+    }, Platform.OS === 'web' ? 400 : 500);
 
     return () => clearTimeout(hideLoading);
   }, [pathname]);
@@ -231,7 +234,37 @@ function ThemedRoot() {
     <View style={themeVariables} className="flex-1">
       <View
         className="flex-1 bg-surface-background"
-        onTouchStart={Platform.OS !== 'web' ? () => smartTimer.recordActivity() : undefined}
+        onTouchStart={Platform.OS !== 'web' ? (e) => {
+          smartTimer.recordActivity();
+          touchStartRef.current = {
+            x: e.nativeEvent.pageX,
+            y: e.nativeEvent.pageY,
+          };
+        } : undefined}
+        onTouchMove={Platform.OS !== 'web' ? (e) => {
+          if (!touchStartRef.current) return;
+          const dx = Math.abs(e.nativeEvent.pageX - touchStartRef.current.x);
+          const dy = Math.abs(e.nativeEvent.pageY - touchStartRef.current.y);
+          if (dx > 10 || dy > 10) {
+            touchStartRef.current = null;
+            if (touchTimeoutRef.current) {
+              clearTimeout(touchTimeoutRef.current);
+              touchTimeoutRef.current = null;
+            }
+            setShowRouteLoading(false);
+          }
+        } : undefined}
+        onTouchEnd={Platform.OS !== 'web' ? () => {
+          if (touchStartRef.current !== null) {
+            setShowRouteLoading(true);
+            if (touchTimeoutRef.current) clearTimeout(touchTimeoutRef.current);
+            touchTimeoutRef.current = setTimeout(() => {
+              setShowRouteLoading(false);
+              touchTimeoutRef.current = null;
+            }, 300);
+          }
+          touchStartRef.current = null;
+        } : undefined}
       >
         {/* Register for push notifications on native once user is signed in */}
         {session && Platform.OS !== 'web' && <PushRegistrationGuard />}
@@ -254,6 +287,7 @@ function ThemedRoot() {
         </Stack>
         <TimerIsland />
         <View className="absolute top-0 left-0 right-0 z-[999]">
+          <NetworkStatusBanner />
           <GlobalUploadBanner />
         </View>
       </View>

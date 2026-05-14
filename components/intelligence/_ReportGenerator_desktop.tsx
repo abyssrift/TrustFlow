@@ -7,12 +7,14 @@ import {
   ActivityIndicator,
   Alert,
   TextInput as RNTextInput,
+  Linking,
 } from 'react-native';
 import HorizontalScroll from '@/components/common/HorizontalScroll';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Stack, useRouter } from 'expo-router';
+import { generateAndUploadReport } from './reports/generate';
 
 type ReportType =
   | 'general'
@@ -57,7 +59,7 @@ const REPORT_TYPES: {
 
 export default function ReportGeneratorDesktop() {
   const router = useRouter();
-  const { hasPermission } = useAuth();
+  const { hasPermission, user, profile } = useAuth();
 
   const [reportType, setReportType]         = useState<ReportType>('general');
   const [timeFrame, setTimeFrame]           = useState<'7' | '30' | '90' | 'custom'>('30');
@@ -231,19 +233,23 @@ export default function ReportGeneratorDesktop() {
       });
       if (error) throw error;
 
-      if (jobId) {
-        try {
-          await fetch('https://wbvgufqfgbvbinjrdzlg.functions.supabase.co/generate-pdf-report-v8', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ job_id: jobId }),
-          });
-        } catch (fetchErr) {
-          console.warn('Edge function trigger error:', fetchErr);
-        }
+      if (!jobId) throw new Error('Failed to create report job');
+
+      if (!user?.id || !profile?.company_id) throw new Error('User session is not ready');
+
+      const signedUrl = await generateAndUploadReport(
+        jobId,
+        reportType,
+        parameters,
+        supabase,
+        user.id,
+        profile.company_id,
+      );
+
+      if (signedUrl) {
+        await Linking.openURL(signedUrl);
       }
 
-      Alert.alert('Success', 'Report queued successfully! It will appear in your Archives shortly.');
       router.replace('/intelligence?section=archives');
     } catch (error: any) {
       console.error('Report generation error:', error);
@@ -562,7 +568,7 @@ export default function ReportGeneratorDesktop() {
                           <Text className="text-[10px] font-black uppercase tracking-widest text-typography-main">Data Sovereignty</Text>
                         </View>
                         <Text className="text-typography-muted text-xs leading-5 font-medium">
-                          Reports are generated asynchronously. High-volume data sets may require up to 120 seconds for full packet reconstruction.
+                          Reports are generated client-side and downloaded immediately. High-volume data sets may take 10–30 seconds to compile.
                         </Text>
                       </View>
                     </View>

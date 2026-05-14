@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import SkeletonBlock, { SkeletonList } from '@/components/Skeleton';
 import {
   View,
   Text,
@@ -184,8 +185,29 @@ export default function ProjectsScreen() {
 
   if (loading && !refreshing) {
     return (
-      <View className="flex-1 bg-surface-background items-center justify-center">
-        <ActivityIndicator size="large" color="var(--color-primary)" />
+      <View className="flex-1 bg-surface-background px-6 pt-6">
+        <View className="flex-row items-center justify-between mb-6">
+          <SkeletonBlock height={28} style={{ width: '40%' }} />
+          <SkeletonBlock height={36} style={{ width: 90 }} />
+        </View>
+
+        <ScrollView className="flex-1 px-0">
+          <View style={{ gap: 16 }}>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <View style={{ flex: 1 }}>
+                <SkeletonBlock height={160} borderRadius={20} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <SkeletonBlock height={160} borderRadius={20} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <SkeletonBlock height={160} borderRadius={20} />
+              </View>
+            </View>
+
+            <SkeletonList count={3} itemHeight={80} />
+          </View>
+        </ScrollView>
       </View>
     );
   }

@@ -9,6 +9,7 @@ import { cssInterop } from 'react-native-css-interop';
 import 'react-native-reanimated';
 import '../global.css';
 
+import NetworkStatusBanner from '@/components/NetworkStatusBanner';
 import Sidebar from '@/components/Sidebar.web';
 import TimerIsland from '@/components/TimerIsland';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -109,7 +110,7 @@ function RootLayoutNav() {
           <View className="flex-1 bg-surface-background">
             <TimerIsland />
             <View className="absolute top-0 left-0 right-0 z-[999]">
-              {/* Other banners can go here */}
+              <NetworkStatusBanner />
             </View>
             {showSidebar ? (
               <Sidebar>

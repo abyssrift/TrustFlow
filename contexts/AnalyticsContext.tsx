@@ -205,7 +205,12 @@ export const AnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     from: string,
     to: string,
   ): Promise<PerformanceSummary> => {
-    const isPast = new Date(to) < new Date();
+    // Only permanently cache if "to" is strictly a closed past period (yesterday or earlier).
+    // Comparing a bare date string like "2026-05-13" against new Date() always yields true
+    // (it parses as midnight UTC), which permanently caches today's open period in-session.
+    const toDate = new Date(to);
+    toDate.setDate(toDate.getDate() + 1); // advance to end-of-day for the "to" date
+    const isPast = toDate < new Date();
     return fetchWithDedup(
       `summary:${userId}:${from}:${to}`,
       async () => {
@@ -227,7 +232,9 @@ export const AnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     from: string,
     to: string,
   ): Promise<StageDwell[]> => {
-    const isPast = new Date(to) < new Date();
+    // Never permanently cache dwell data — "to" as a date string always parses
+    // to midnight UTC which is technically in the past, causing isPast=true and
+    // permanent caching that makes the refresh button a no-op all day.
     return fetchWithDedup(
       `dwell:${pipelineId}:${from}:${to}`,
       async () => {
@@ -240,7 +247,6 @@ export const AnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         return (data ?? []) as StageDwell[];
       },
       SERIES_TTL_MS,
-      isPast,
     );
   };
 

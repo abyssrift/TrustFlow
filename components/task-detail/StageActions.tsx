@@ -44,8 +44,7 @@ export default function StageActions() {
   const [busy, setBusy] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState<{ title: string; message: string; variant?: 'danger' | 'warning' } | null>(null);
   const [showManualTimeModal, setShowManualTimeModal] = useState(false);
-  const [pendingSubmitAction, setPendingSubmitAction] = useState<StageActionData | null>(null);
-  const [manualTimeLogged, setManualTimeLogged] = useState(false);
+  const [pendingAdvanceAction, setPendingAdvanceAction] = useState<StageActionData | null>(null);
 
   const { submitWithEvidence, activeJobs } = useSubmission();
 
@@ -102,40 +101,37 @@ export default function StageActions() {
 
   const removeFile = (id: string) => setStagedFiles(prev => prev.filter(f => f.id !== id));
 
-  const handleManualTimeSuccess = async (isFlagged: boolean, flagReason: string | null, approvalStatus: string) => {
+  const handleManualTimeSuccess = (isFlagged: boolean, _flagReason: string | null, approvalStatus: string) => {
     setShowManualTimeModal(false);
-    setManualTimeLogged(true);
-    const actionToRetry = pendingSubmitAction;
-    setPendingSubmitAction(null);
 
     if (isFlagged && approvalStatus === 'pending') {
+      setPendingAdvanceAction(null);
       setErrorMsg({
         title: 'Awaiting Manager Approval',
-        message: 'Your time declaration has been flagged and sent to your manager. You can submit your work once they approve it.',
+        message: 'Your time declaration has been sent to your manager. The stage will advance automatically once they approve it.',
         variant: 'warning',
       });
       return;
     }
 
-    if (isFlagged) {
-      setErrorMsg({
-        title: 'Entry Flagged for Review',
-        message: 'Your time declaration has been forwarded to your manager. Proceeding with submission.',
-        variant: 'warning',
-      });
-      setTimeout(() => setErrorMsg(null), 5000);
-    }
-
-    if (actionToRetry) {
-      await handleAction(actionToRetry, true);
+    // Time was immediately approved (not flagged) — execute the advance now
+    const action = pendingAdvanceAction;
+    setPendingAdvanceAction(null);
+    setErrorMsg(null);
+    if (action) {
+      setLoadingActionId(action.id);
+      executeAction(action.id)
+        .catch((err: any) => setErrorMsg({ title: 'Action Failed', message: err.message }))
+        .finally(() => setLoadingActionId(null));
     }
   };
 
   if (!data) return null;
 
   const myEntry = data.my_manual_time_entry;
-  const isMyEntryPending = myEntry?.is_flagged && myEntry?.approval_status === 'pending';
-  const isMyEntryRejected = myEntry?.is_flagged && myEntry?.approval_status === 'rejected';
+  const isMyEntryPending = myEntry?.approval_status === 'pending';
+  const isMyEntryRejected = myEntry?.approval_status === 'rejected';
+  const isMyEntryApproved = myEntry?.approval_status === 'approved';
 
   const activeJob = activeJobs[data.task.id];
   const isUploading = !!activeJob && (activeJob.status === 'processing' || activeJob.status === 'uploading' || activeJob.status === 'committing');
@@ -173,7 +169,7 @@ export default function StageActions() {
   const anyActionRequiresTimer = data.stage_actions.some(a => a.requires_timer && a.can_perform && a.precondition_met);
   const canStart = (data.permissions.is_assigned || data.permissions.is_owner || data.permissions.is_manager);
 
-  const handleAction = async (action: StageActionData, skipTimerCheck: boolean = false) => {
+  const handleAction = async (action: StageActionData) => {
     try {
       setLoadingActionId(action.id);
 
@@ -184,37 +180,6 @@ export default function StageActions() {
       const descriptor = getActionDescriptor(action.action_type);
 
       if (descriptor.executionRoute === 'submit_work') {
-        // Pre-upload timer check — prevents partial file uploads when gate would block.
-        // Uses stale work_sessions data + elapsedLocal (the just-stopped session's time).
-        const stage = data.current_stage;
-        if (stage?.requires_timer && !stage?.is_initial && !data.permissions.is_owner && !skipTimerCheck) {
-          // If the user has a flagged entry pending/rejected, surface that state instead of the modal
-          if (isMyEntryPending) {
-            setErrorMsg({
-              title: 'Awaiting Manager Approval',
-              message: 'Your time declaration is awaiting manager approval. You can submit once approved.',
-              variant: 'warning',
-            });
-            return;
-          }
-          if (isMyEntryRejected) {
-            setPendingSubmitAction(action);
-            setShowManualTimeModal(true);
-            return;
-          }
-          if (!manualTimeLogged && !myEntry) {
-            const completedSeconds = (data.work_sessions || [])
-              .filter((s: any) => s.status === 'completed')
-              .reduce((sum: number, s: any) => sum + (s.total_seconds_spent || 0), 0);
-            const totalSeconds = completedSeconds + elapsedLocal;
-            if (totalSeconds < 300) {
-              setPendingSubmitAction(action);
-              setShowManualTimeModal(true);
-              return;
-            }
-          }
-        }
-
         const content = submissionContent.trim();
         await submitWithEvidence({
           taskId: data.task.id,
@@ -227,8 +192,33 @@ export default function StageActions() {
 
         setSubmissionContent('');
         setStagedFiles([]);
-        setManualTimeLogged(false);
         return;
+      }
+
+      // Advance action: check timer before hitting the backend
+      if (action.action_type === 'advance') {
+        const stage = data.current_stage;
+        if (stage?.requires_timer && !stage?.is_initial && !data.permissions.is_owner) {
+          if (isMyEntryPending) {
+            setErrorMsg({
+              title: 'Awaiting Manager Approval',
+              message: 'Your time declaration is awaiting manager approval. The stage will advance automatically once approved.',
+              variant: 'warning',
+            });
+            return;
+          }
+
+          const completedSeconds = (data.work_sessions || [])
+            .filter((s: any) => s.status === 'completed')
+            .reduce((sum: number, s: any) => sum + (s.total_seconds_spent || 0), 0);
+          const totalSeconds = completedSeconds + elapsedLocal;
+
+          if (totalSeconds < 300 && !isMyEntryApproved) {
+            setPendingAdvanceAction(action);
+            setShowManualTimeModal(true);
+            return;
+          }
+        }
       }
 
       if (descriptor.executionRoute === 'review_submission') {
@@ -251,9 +241,9 @@ export default function StageActions() {
 
       await executeAction(action.id);
     } catch (err: any) {
-      // Backend safety net: LOW_TIMER_TIME (fires if frontend check was bypassed)
+      // Backend safety net for advance gate (fires if frontend check was bypassed)
       if (err.message?.includes('LOW_TIMER_TIME')) {
-        setPendingSubmitAction(action);
+        setPendingAdvanceAction(action);
         setShowManualTimeModal(true);
         return;
       }
@@ -261,7 +251,7 @@ export default function StageActions() {
       if (err.message?.includes('TIME_APPROVAL_PENDING')) {
         setErrorMsg({
           title: 'Awaiting Manager Approval',
-          message: 'Your time declaration is awaiting manager approval. You will be able to submit once it is approved.',
+          message: 'Your time declaration is awaiting manager approval. The stage will advance automatically once approved.',
           variant: 'warning',
         });
         return;
@@ -435,8 +425,9 @@ export default function StageActions() {
         visible={showManualTimeModal}
         taskId={data.task.id}
         stageId={data.current_stage?.id ?? ''}
+        transitionId={pendingAdvanceAction?.transition_id ?? null}
         onSuccess={handleManualTimeSuccess}
-        onCancel={() => { setShowManualTimeModal(false); setPendingSubmitAction(null); }}
+        onCancel={() => { setShowManualTimeModal(false); setPendingAdvanceAction(null); }}
       />
 
       {showSubmissionSection && (
@@ -512,8 +503,8 @@ export default function StageActions() {
                       handleAction(submitAction);
                     }
                   }}
-                  disabled={!submitAction || (submissionContent.trim() === '' && stagedFiles.length === 0) || loadingActionId === submitAction.id || isUploading || isMyEntryPending}
-                  className={`bg-brand-primary px-5 py-2.5 rounded-xl ${(!submitAction || (submissionContent.trim() === '' && stagedFiles.length === 0) || loadingActionId === submitAction?.id || isUploading || isMyEntryPending) ? 'opacity-50' : ''}`}
+                  disabled={!submitAction || (submissionContent.trim() === '' && stagedFiles.length === 0) || loadingActionId === submitAction.id || isUploading}
+                  className={`bg-brand-primary px-5 py-2.5 rounded-xl ${(!submitAction || (submissionContent.trim() === '' && stagedFiles.length === 0) || loadingActionId === submitAction?.id || isUploading) ? 'opacity-50' : ''}`}
                 >
                   {loadingActionId === submitAction?.id || isUploading ? (
                     <View className="flex-row items-center">
