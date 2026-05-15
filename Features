@@ -1,14 +1,10 @@
 
-2. Notifications
-6. Security
+
 More smart timer testing
 Idle tracking seems to be broken on mobile. i click buttons but it doesnt reset.
 
 
 once the manager approves, the time session that the worker proposed should be added to his time effort as a single session.
-
-get the reports system to track all the new features, such as the new analytics engine, the worker graphs, the personal comparison, etc.
-Remove goal tracking from analytics in intelligence.
 
 most actions lack loading states on web AND mobile and it makes them look weird, dry or unrefined.
 
@@ -27,9 +23,4 @@ i have this issue where the units are often too big. instead i want a unit that 
 if something is big, it goes from year, to month to week to day to hour to minute to second. all depending on unit and conversions. but there are SO MANY units througout the app. i want them all to be replaced by this smarter unit.
 
 
-New better function, but we require figuring out the reporting sequence, UI, customizability, extensibility etc.
-Alot of shit is broken!!!
-
-
-added a dev tool for seeding!
-continue testing it though!
+Reports are generated successfully but they arent in the reports screen or shown locally, find out where they go.

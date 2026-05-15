@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
@@ -75,6 +76,7 @@ const GenerateModal = ({ visible, onClose, onConfirm, pipelines, teams, users }:
 };
 
 export default function IntelligenceReportsNative() {
+  const router = useRouter();
   const [reports, setReports]   = useState<any[]>([]);
   const [loading, setLoading]   = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -132,7 +134,7 @@ export default function IntelligenceReportsNative() {
           <TouchableOpacity onPress={fetchReports} className="w-11 h-11 items-center justify-center bg-surface-card border border-surface-border rounded-2xl">
             <FontAwesome name="refresh" size={13} color="rgb(var(--brand-primary))" />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => setShowModal(true)} className="bg-brand-primary px-5 py-3 rounded-2xl flex-row items-center gap-2">
+          <TouchableOpacity onPress={() => router.push('/intelligence/ReportGenerator')} className="bg-brand-primary px-5 py-3 rounded-2xl flex-row items-center gap-2">
             <FontAwesome name="file-pdf-o" size={11} color="white" />
             <Text className="text-white font-black text-[11px]">Generate</Text>
           </TouchableOpacity>
@@ -153,7 +155,7 @@ export default function IntelligenceReportsNative() {
             <Text className="text-typography-muted text-center text-sm leading-relaxed mb-6">
               Generate a PDF audit report to track performance, compliance, and team health.
             </Text>
-            <TouchableOpacity onPress={() => setShowModal(true)} className="bg-brand-primary px-8 py-3 rounded-2xl">
+            <TouchableOpacity onPress={() => router.push('/intelligence/ReportGenerator')} className="bg-brand-primary px-8 py-3 rounded-2xl">
               <Text className="text-white font-black uppercase tracking-widest text-xs">Generate First Report</Text>
             </TouchableOpacity>
           </View>

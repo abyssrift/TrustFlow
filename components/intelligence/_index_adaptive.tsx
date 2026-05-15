@@ -1,15 +1,15 @@
-import { CircularTargetCardMobile, IntelligencePicker } from '@/components/intelligence/IntelligenceCommon';
 import ConfirmModal from '@/components/common/ConfirmModal';
+import { IntelligencePicker } from '@/components/intelligence/IntelligenceCommon';
 
+import { StageDwell, ThroughputPeriod, useAnalytics } from '@/contexts/AnalyticsContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { useAnalytics, StageDwell, ThroughputPeriod } from '@/contexts/AnalyticsContext';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Modal, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Modal, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 // --- UTILITIES & SUB-COMPONENTS (Defined BEFORE main screen to avoid non-hoisted variable errors) ---
 
@@ -413,7 +413,7 @@ const ArchivesSection = ({ reports, onDownload, onNew, coldArchives, activeSchem
       <>
         <TouchableOpacity onPress={onNew} className="bg-surface-card p-6 rounded-3xl border border-dashed border-brand-primary/40 mb-6 items-center flex-row justify-center">
           <FontAwesome name="plus-circle" size={16} color="var(--color-primary)" className="mr-3" />
-          <Text className="text-brand-primary font-bold text-sm">Initiate New Audit Sequence</Text>
+          <Text className="text-brand-primary font-bold text-sm">Generate Report</Text>
         </TouchableOpacity>
         {reports.map((r: any, i: number) => (
           <TouchableOpacity key={i} onPress={() => r.file_url && onDownload(r.file_url)} className="bg-surface-card p-5 rounded-2xl border border-surface-border mb-4 flex-row items-center">
@@ -894,7 +894,7 @@ export default function IntelligenceScreen() {
             <ArchivesSection
               reports={reports}
               onDownload={handleDownloadReport}
-              onNew={() => setShowReportModal(true)}
+              onNew={() => router.push('/intelligence/ReportGenerator')}
               coldArchives={coldArchives}
               activeSchema={activeSchema}
               currentSubSection={archiveSection}

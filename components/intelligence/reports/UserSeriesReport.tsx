@@ -1,7 +1,7 @@
+import { Document, Page, StyleSheet } from '@react-pdf/renderer'
 import React from 'react'
-import { Document, Page, View, Text, StyleSheet } from '@react-pdf/renderer'
-import { C, F, base } from './theme'
-import { Cover, Footer, Section, Sub, KpiRow, Table, VBar, Empty, Insight, sf } from './shared'
+import { Cover, Empty, Footer, Insight, KpiRow, Section, Sub, Table, VBar, sf } from './shared'
+import { C, base } from './theme'
 
 const s = StyleSheet.create({ page: { ...base.page } })
 
@@ -13,7 +13,7 @@ export interface UserSeriesData {
   company: string
 }
 
-export function UserSeriesReport({ data, jobId }: { data: UserSeriesData; jobId: string }) {
+export function UserSeriesReportPages({ data, jobId }: { data: UserSeriesData; jobId: string }) {
   const { rows, workerName, periodType, nPeriods } = data
 
   const totalPts  = rows.reduce((s, r) => s + (r.weight_points || 0), 0)
@@ -23,9 +23,9 @@ export function UserSeriesReport({ data, jobId }: { data: UserSeriesData; jobId:
   const sr        = totalComp + totalFail > 0 ? Math.round((totalComp / (totalComp + totalFail)) * 100) : null
 
   return (
-    <Document>
+    <>
       <Cover
-        title="Worker Performance Timeline"
+        title="Performance Timeline"
         subtitle={`Period-by-period output, session hours & efficiency`}
         company={workerName}
         dateRange={`${nPeriods} ${periodType}(s)`}
@@ -85,6 +85,14 @@ export function UserSeriesReport({ data, jobId }: { data: UserSeriesData; jobId:
 
         <Footer jobId={jobId} />
       </Page>
+    </>
+  )
+}
+
+export function UserSeriesReport({ data, jobId }: { data: UserSeriesData; jobId: string }) {
+  return (
+    <Document>
+      <UserSeriesReportPages data={data} jobId={jobId} />
     </Document>
   )
 }

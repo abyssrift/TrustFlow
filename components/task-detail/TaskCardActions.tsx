@@ -1,18 +1,17 @@
 import ConfirmModal from '@/components/common/ConfirmModal';
 import ManualTimeModal from '@/components/common/ManualTimeModal';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTheme } from '@/contexts/ThemeContext';
 import { useTimer } from '@/contexts/TimerContext';
+import { useToast } from '@/contexts/ToastContext';
 import { useElapsedTime } from '@/hooks/useElapsedTime';
+import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
-import { getAccentColor, getPrimaryColor } from '@/lib/themeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Text, TouchableOpacity, View } from 'react-native';
 import { isComplexActionType } from './actionRegistry';
-import { useToast } from '@/contexts/ToastContext';
 
 // ─── Types ────────────────────────────────────────────────────
 export type ActiveSessionUser = {
@@ -81,7 +80,7 @@ const ACTION_STYLES: Record<string, { bg: string; border: string; text: string }
 // ─── Component ────────────────────────────────────────────────
 export default function TaskCardActions({ task, stages, stageActions, activeSessions, userId, onRefresh }: Props) {
   const router = useRouter();
-  const { theme: activeTheme } = useTheme();
+  const colors = useThemeColors();
   const { hasPermission, profile } = useAuth();
   const { startWork } = useTimer();
   const { successToast, errorToast, infoToast } = useToast();
@@ -371,10 +370,10 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
         className={`bg-brand-primary/10 py-2.5 rounded-xl border border-brand-primary/20 items-center justify-center flex-row ${loadingAction === '__claim__' ? 'opacity-50' : ''}`}
        >
          {loadingAction === '__claim__' ? (
-           <ActivityIndicator size="small" color={getPrimaryColor(activeTheme)} />
+           <ActivityIndicator size="small" color={colors.primary} />
          ) : (
            <>
-             <FontAwesome name="user-plus" size={12} color={getPrimaryColor(activeTheme)} />
+             <FontAwesome name="user-plus" size={12} color={colors.primary} />
              <Text className="text-brand-primary font-black text-[10px] uppercase tracking-widest ml-2">Claim Task</Text>
            </>
          )}
@@ -408,10 +407,10 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
         className={`bg-state-warning/10 py-2.5 rounded-xl border border-state-warning/20 items-center justify-center flex-row ${loadingAction === '__timer__' ? 'opacity-50' : ''}`}
        >
          {loadingAction === '__timer__' ? (
-           <ActivityIndicator size="small" color={getAccentColor(activeTheme)} />
+           <ActivityIndicator size="small" color={colors.accent} />
          ) : (
            <>
-             <FontAwesome name="play" size={10} color={getAccentColor(activeTheme)} />
+             <FontAwesome name="play" size={10} color={colors.accent} />
              <Text className="text-state-warning font-black text-[10px] uppercase tracking-widest ml-2">Start Timer</Text>
            </>
          )}
@@ -437,11 +436,11 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
             className={`bg-brand-primary py-2.5 rounded-xl items-center justify-center flex-row ${loadingAction === '__advance__' ? 'opacity-50' : ''}`}
           >
             {loadingAction === '__advance__' ? (
-              <ActivityIndicator size="small" color="rgb(var(--text-main))" />
+              <ActivityIndicator size="small" color={colors.textMain} />
             ) : (
               <>
                 <Text className="text-typography-main font-black text-[10px] uppercase tracking-widest mr-2">Advance</Text>
-                <FontAwesome name="chevron-right" size={10} color="rgb(var(--text-main))" />
+                <FontAwesome name="chevron-right" size={10} color={colors.textMain} />
               </>
             )}
           </TouchableOpacity>
@@ -483,10 +482,10 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
           className={`mb-2 bg-state-warning/10 py-2 rounded-xl border border-state-warning/30 items-center justify-center flex-row gap-2 ${loadingAction === '__timer__' ? 'opacity-50' : ''}`}
         >
           {loadingAction === '__timer__' ? (
-            <ActivityIndicator size="small" color={getAccentColor(activeTheme)} />
+            <ActivityIndicator size="small" color={colors.accent} />
           ) : (
             <>
-              <FontAwesome name="clock-o" size={10} color={getAccentColor(activeTheme)} />
+              <FontAwesome name="clock-o" size={10} color={colors.accent} />
               <Text className="text-state-warning font-black text-[10px] uppercase tracking-widest">Start Timer to Proceed</Text>
             </>
           )}
@@ -517,10 +516,10 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
               } ${(isLoading || actionNeedsTimer) ? 'opacity-40' : ''}`}
             >
               {isLoading ? (
-                <ActivityIndicator size="small" color={getPrimaryColor(activeTheme)} />
+                <ActivityIndicator size="small" color={colors.primary} />
               ) : (
                 <View className="flex-row items-center justify-center">
-                  {isComplex && <FontAwesome name="external-link" size={8} color="rgb(var(--text-main))" style={{ marginRight: 4, opacity: 0.7 }} />}
+                  {isComplex && <FontAwesome name="external-link" size={8} color={colors.textMain} style={{ marginRight: 4, opacity: 0.7 }} />}
                   <Text className={`${
                     isNeedsTimerPending ? 'text-state-warning' : style.text
                   } font-black text-[10px] uppercase tracking-widest text-center`} numberOfLines={1}>

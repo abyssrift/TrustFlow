@@ -1,7 +1,7 @@
-import React from 'react'
 import { Document, Page, StyleSheet } from '@react-pdf/renderer'
+import React from 'react'
+import { Cover, Empty, Footer, Insight, KpiRow, Section, Sub, fmtDate, sf } from './shared'
 import { C, base } from './theme'
-import { Cover, Footer, Section, Sub, KpiRow, Empty, Insight, sf, fmtDate } from './shared'
 
 const s = StyleSheet.create({ page: { ...base.page } })
 
@@ -13,19 +13,19 @@ export interface UserSummaryData {
   company: string
 }
 
-export function UserSummaryReport({ data, jobId }: { data: UserSummaryData; jobId: string }) {
+export function UserSummaryReportPages({ data, jobId }: { data: UserSummaryData; jobId: string }) {
   const { summary, workerName, dateStart, dateEnd } = data
 
   if (!summary) {
     return (
-      <Document>
-        <Cover title="Worker Performance Summary" subtitle="Aggregated stats for one worker over a date range" company={workerName} dateRange={`${fmtDate(dateStart)} — ${fmtDate(dateEnd)}`} />
+      <>
+        <Cover title="Performance Summary" subtitle="Aggregated stats for one person over a date range" company={workerName} dateRange={`${fmtDate(dateStart)} — ${fmtDate(dateEnd)}`} />
         <Page size="A4" style={s.page}>
           <Section title="Summary" />
-          <Empty msg="No data found for this worker in the specified period." />
+          <Empty msg="No data found for this person in the specified period." />
           <Footer jobId={jobId} />
         </Page>
-      </Document>
+      </>
     )
   }
 
@@ -38,10 +38,10 @@ export function UserSummaryReport({ data, jobId }: { data: UserSummaryData; jobI
     : null
 
   return (
-    <Document>
+    <>
       <Cover
-        title="Worker Performance Summary"
-        subtitle="Aggregated stats for one worker over a date range"
+        title="Performance Summary"
+        subtitle="Aggregated stats for one person over a date range"
         company={workerName}
         dateRange={`${fmtDate(dateStart)} — ${fmtDate(dateEnd)}`}
       />
@@ -109,6 +109,14 @@ export function UserSummaryReport({ data, jobId }: { data: UserSummaryData; jobI
 
         <Footer jobId={jobId} />
       </Page>
+    </>
+  )
+}
+
+export function UserSummaryReport({ data, jobId }: { data: UserSummaryData; jobId: string }) {
+  return (
+    <Document>
+      <UserSummaryReportPages data={data} jobId={jobId} />
     </Document>
   )
 }

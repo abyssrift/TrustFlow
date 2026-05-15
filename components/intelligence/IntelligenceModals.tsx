@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Modal, TextInput } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
+import React, { useEffect, useState } from 'react';
+import { Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { IntelligencePicker } from './IntelligenceCommon';
 
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
@@ -98,11 +98,11 @@ export const TargetCreationModal = ({ visible, onClose, onConfirm, pipelines, st
 };
 
 const QUICK_REPORT_TYPES = [
-  { value: 'performance_audit',        label: 'General Audit',      icon: 'bar-chart'     },
-  { value: 'user_performance_summary', label: 'Worker Summary',     icon: 'user'          },
-  { value: 'pipeline_stage_dwell',     label: 'Stage Dwell',        icon: 'clock-o'       },
-  { value: 'personnel_comparison',     label: 'Personnel Compare',  icon: 'balance-scale' },
-  { value: 'targets_status',           label: 'Targets & SLAs',     icon: 'bullseye'      },
+  { value: 'performance_audit',        label: 'Overview',          icon: 'bar-chart'     },
+  { value: 'user_performance_summary', label: 'Performance Summary', icon: 'user'          },
+  { value: 'pipeline_stage_dwell',     label: 'Stage Dwell',       icon: 'clock-o'       },
+  { value: 'personnel_comparison',     label: 'People Compare',    icon: 'balance-scale' },
+  { value: 'targets_status',           label: 'Targets & SLAs',    icon: 'bullseye'      },
 ];
 
 export const ReportConfigModal = ({ visible, onClose, onConfirm, pipelines, teams, users, initialDays }: any) => {
@@ -205,14 +205,14 @@ export const ReportConfigModal = ({ visible, onClose, onConfirm, pipelines, team
                 )}
                 {needsUser && (
                   <View>
-                    <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mb-4">Worker</Text>
+                    <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mb-4">Person</Text>
                     <IntelligencePicker items={users} selectedId={u} onSelect={setU} labelKey="full_name" />
                   </View>
                 )}
                 {needsWorkers && (
                   <View>
                     <View className="flex-row items-center mb-4">
-                      <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] flex-1">Workers (min 2)</Text>
+                      <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] flex-1">People (min 2)</Text>
                       <Text className="text-typography-muted text-[10px]">{selectedUserIds.length} selected</Text>
                     </View>
                     <View className="flex-row flex-wrap gap-2">

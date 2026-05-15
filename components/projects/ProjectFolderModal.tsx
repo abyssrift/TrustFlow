@@ -1,21 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  Modal,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  ActivityIndicator,
-  Alert,
-  Platform,
-} from 'react-native';
-import { supabase } from '@/lib/supabase';
-import { useAlert } from '@/contexts/AlertContext';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 import ConfirmModal from '@/components/common/ConfirmModal';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
+import { useAlert } from '@/contexts/AlertContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
+import { supabase } from '@/lib/supabase';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useEffect, useState } from 'react';
+import {
+    ActivityIndicator,
+    Modal,
+    ScrollView,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
+} from 'react-native';
 
 interface ProjectFolderModalProps {
   visible: boolean;
@@ -37,6 +36,7 @@ export default function ProjectFolderModal({
   project,
 }: ProjectFolderModalProps) {
   const { showAlert } = useAlert();
+  const colors = useThemeColors();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [expiryDate, setExpiryDate] = useState<string | null>(null);
@@ -261,7 +261,7 @@ export default function ProjectFolderModal({
                 </Text>
               </View>
               <View className="w-10 h-10 bg-state-danger/10 rounded-full items-center justify-center">
-                <FontAwesome name="archive" size={16} color="rgb(var(--state-danger))" />
+                <FontAwesome name="archive" size={16} color={colors.danger} />
               </View>
             </TouchableOpacity>
           )}

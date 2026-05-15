@@ -19,9 +19,20 @@ import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const NOTIFY_INTERNAL_SECRET = Deno.env.get('NOTIFY_INTERNAL_SECRET') ?? ''
+// Optional auth gate for pg_net trigger calls. Set PROCESS_NOTIFICATION_SECRET
+// in Edge Function secrets and store the same value in vault under the name
+// 'process_notification_secret' so the pg_net trigger can include it.
+const PROCESS_NOTIFICATION_SECRET = Deno.env.get('PROCESS_NOTIFICATION_SECRET') ?? ''
 
 // ── Entry point ──────────────────────────────────────────────────────
 serve(async (req: Request) => {
+  if (PROCESS_NOTIFICATION_SECRET) {
+    const auth = req.headers.get('Authorization') ?? ''
+    if (auth !== `Bearer ${PROCESS_NOTIFICATION_SECRET}`) {
+      return respond({ error: 'unauthorized' }, 401)
+    }
+  }
+
   try {
     const body = await req.json()
 
@@ -66,12 +77,15 @@ serve(async (req: Request) => {
     if (event.actor_id) recipientSet.delete(event.actor_id)
 
     // 4. Fetch task title for notification content
+    // Fall back to entity_id when payload.task_id is absent (e.g. task.manual_time_flagged)
+    const taskId = event.payload?.task_id ??
+      (event.entity_type === 'task' ? event.entity_id : null)
     let taskTitle = 'A task'
-    if (event.payload?.task_id) {
+    if (taskId) {
       const { data: task } = await db
         .from('tasks')
         .select('title')
-        .eq('id', event.payload.task_id)
+        .eq('id', taskId)
         .single()
       if (task?.title) taskTitle = task.title
     }
@@ -100,7 +114,8 @@ serve(async (req: Request) => {
             title,
             body: notifBody,
             data: {
-              task_id: event.payload?.task_id ?? null,
+              task_id: event.payload?.task_id ??
+                (event.entity_type === 'task' ? event.entity_id : null),
               pipeline_id: event.payload?.pipeline_id ?? null,
               comment_id: event.payload?.comment_id ?? null,
             },

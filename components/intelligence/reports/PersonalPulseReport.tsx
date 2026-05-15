@@ -21,7 +21,7 @@ export interface PersonalPulseData {
   company: string
 }
 
-export function PersonalPulseReport({ data, jobId }: { data: PersonalPulseData; jobId: string }) {
+export function PersonalPulseReportPages({ data, jobId }: { data: PersonalPulseData; jobId: string }) {
   const {
     workerName, dailyPts, monthlyPts, activeSecondsToday,
     isWorking, flapRate, taskCount, company,
@@ -31,7 +31,7 @@ export function PersonalPulseReport({ data, jobId }: { data: PersonalPulseData; 
   const flapNote  = flapRate > 2 ? 'High reversal activity — review workflow discipline' : flapRate > 1.5 ? 'Moderate revisit rate' : 'Clean workflow — minimal stage revisits'
 
   return (
-    <Document>
+    <>
       <Cover
         title="Personal Activity Snapshot"
         subtitle="Real-time daily points, session time & flap rate"
@@ -81,6 +81,14 @@ export function PersonalPulseReport({ data, jobId }: { data: PersonalPulseData; 
 
         <Footer jobId={jobId} />
       </Page>
+    </>
+  )
+}
+
+export function PersonalPulseReport({ data, jobId }: { data: PersonalPulseData; jobId: string }) {
+  return (
+    <Document>
+      <PersonalPulseReportPages data={data} jobId={jobId} />
     </Document>
   )
 }

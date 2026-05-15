@@ -1,81 +1,154 @@
-import React from 'react'
 import { Document, Page, StyleSheet } from '@react-pdf/renderer'
+import React from 'react'
+import { CompareGrid, Cover, Empty, Footer, HBar, Insight, KpiRow, Section, Sub, Table, sf } from './shared'
 import { C, base } from './theme'
-import { Cover, Footer, Section, Sub, KpiRow, CompareGrid, HBar, Empty, Insight, sf } from './shared'
 
 const s = StyleSheet.create({ page: { ...base.page } })
 
+export interface TeamStats {
+  id: string
+  name: string
+  count: number
+  completed: number
+  failed: number
+  pts: number
+  hours: number
+}
+
 export interface TeamComparisonData {
-  teamA: { id: string; name: string }
-  teamB: { id: string; name: string }
-  statsA: { count: number; completed: number; failed: number; pts: number; hours: number }
-  statsB: { count: number; completed: number; failed: number; pts: number; hours: number }
+  teams: TeamStats[]
   company: string
   dateRange: string
 }
 
-export function TeamComparisonReport({ data, jobId }: { data: TeamComparisonData; jobId: string }) {
-  const { statsA: sA, statsB: sB, teamA, teamB } = data
+export function TeamComparisonReportPages({ data, jobId }: { data: TeamComparisonData; jobId: string }) {
+  const teams = data.teams || []
 
-  const arA = sA.completed + sA.failed > 0 ? Math.round((sA.completed / (sA.completed + sA.failed)) * 100) : 0
-  const arB = sB.completed + sB.failed > 0 ? Math.round((sB.completed / (sB.completed + sB.failed)) * 100) : 0
-  const pphA = sA.hours > 0 ? sA.pts / sA.hours : 0
-  const pphB = sB.hours > 0 ? sB.pts / sB.hours : 0
+  if (teams.length === 0) {
+    return (
+      <>
+        <Cover title="Team Comparison" subtitle="Efficiency metrics across teams" company={data.company} dateRange={data.dateRange} />
+        <Page size="A4" style={s.page}>
+          <Section title="Comparison" />
+          <Empty msg="No team data found for the selected period." />
+          <Footer jobId={jobId} />
+        </Page>
+      </>
+    )
+  }
 
-  const rows = [
-    { label: 'Members',           vA: String(sA.count),            vB: String(sB.count),            winA: null as boolean | null },
-    { label: 'Tasks Completed',   vA: String(sA.completed),         vB: String(sB.completed),         winA: sA.completed >= sB.completed },
-    { label: 'Tasks Failed',      vA: String(sA.failed),            vB: String(sB.failed),            winA: sA.failed <= sB.failed },
-    { label: 'Weight Points',     vA: String(sA.pts),               vB: String(sB.pts),               winA: sA.pts >= sB.pts },
-    { label: 'Active Hours',      vA: `${sf(sA.hours, 1)}h`,        vB: `${sf(sB.hours, 1)}h`,        winA: sA.hours >= sB.hours },
-    { label: 'Success Rate',      vA: `${arA}%`,                    vB: `${arB}%`,                    winA: arA >= arB },
-    { label: 'Points / Hour',     vA: sf(pphA, 2),                  vB: sf(pphB, 2),                  winA: pphA >= pphB },
-  ]
+  const ar  = (t: TeamStats) => t.completed + t.failed > 0 ? Math.round((t.completed / (t.completed + t.failed)) * 100) : 0
+  const pph = (t: TeamStats) => t.hours > 0 ? t.pts / t.hours : 0
 
-  const winsA = rows.filter(r => r.winA === true).length
-  const winsB = rows.filter(r => r.winA === false).length
-  const winner = winsA > winsB ? teamA.name : winsB > winsA ? teamB.name : null
+  // ── 2-team head-to-head layout ────────────────────────────────────────────
+  if (teams.length === 2) {
+    const [tA, tB] = teams
+    const arA = ar(tA), arB = ar(tB)
+    const pphA = pph(tA), pphB = pph(tB)
+
+    const rows = [
+      { label: 'Members',         vA: String(tA.count),       vB: String(tB.count),       winA: null as boolean | null },
+      { label: 'Tasks Completed', vA: String(tA.completed),   vB: String(tB.completed),   winA: tA.completed >= tB.completed },
+      { label: 'Tasks Failed',    vA: String(tA.failed),      vB: String(tB.failed),      winA: tA.failed <= tB.failed },
+      { label: 'Weight Points',   vA: String(tA.pts),         vB: String(tB.pts),         winA: tA.pts >= tB.pts },
+      { label: 'Active Hours',    vA: `${sf(tA.hours, 1)}h`,  vB: `${sf(tB.hours, 1)}h`,  winA: tA.hours >= tB.hours },
+      { label: 'Success Rate',    vA: `${arA}%`,              vB: `${arB}%`,              winA: arA >= arB },
+      { label: 'Points / Hour',   vA: sf(pphA, 2),            vB: sf(pphB, 2),            winA: pphA >= pphB },
+    ]
+    const winsA  = rows.filter(r => r.winA === true).length
+    const winsB  = rows.filter(r => r.winA === false).length
+    const winner = winsA > winsB ? tA.name : winsB > winsA ? tB.name : null
+    const decided = rows.filter(r => r.winA !== null).length
+
+    return (
+      <>
+        <Cover title="Team Comparison" subtitle="Efficiency metrics across teams" company={data.company} dateRange={data.dateRange} />
+        <Page size="A4" style={s.page}>
+          <Section title="Team Overview" />
+          <KpiRow items={[
+            { label: tA.name, value: `${arA}%`, note: `${tA.completed} tasks done · ${tA.count} members`, accent: C.primary },
+            { label: tB.name, value: `${arB}%`, note: `${tB.completed} tasks done · ${tB.count} members`, accent: C.warning },
+            { label: 'Winner', value: winner || 'TIE', note: winner ? `${Math.max(winsA, winsB)} of ${decided} categories` : 'Balanced performance', accent: winner ? C.success : C.muted },
+          ]} />
+          <Sub title="Head-to-Head Breakdown" />
+          <CompareGrid nameA={tA.name.substring(0, 18)} nameB={tB.name.substring(0, 18)} rows={rows} />
+          <Sub title="Output Comparison" />
+          <HBar data={[
+            { label: `${tA.name.substring(0, 16)} — Points`, value: tA.pts,       color: C.primary },
+            { label: `${tB.name.substring(0, 16)} — Points`, value: tB.pts,       color: C.warning },
+            { label: `${tA.name.substring(0, 16)} — Tasks`,  value: tA.completed, color: C.success },
+            { label: `${tB.name.substring(0, 16)} — Tasks`,  value: tB.completed, color: C.danger  },
+          ]} />
+          {winner && (
+            <Insight text={`${winner} outperforms in ${Math.max(winsA, winsB)} of ${decided} measured areas.`} color={C.success} />
+          )}
+          <Footer jobId={jobId} />
+        </Page>
+      </>
+    )
+  }
+
+  // ── N-team group table layout ─────────────────────────────────────────────
+  const maxPts  = Math.max(...teams.map(t => t.pts), 1)
+  const topTeam = teams.reduce((best, t) => t.pts > best.pts ? t : best, teams[0])
+  const avgAr   = teams.reduce((s, t) => s + ar(t), 0) / teams.length
 
   return (
-    <Document>
-      <Cover
-        title="Structural Matrix Analysis"
-        subtitle="Efficiency metrics across structural units"
-        company={data.company}
-        dateRange={data.dateRange}
-      />
-
+    <>
+      <Cover title="Team Comparison" subtitle={`${teams.length}-team group comparison`} company={data.company} dateRange={data.dateRange} />
       <Page size="A4" style={s.page}>
-        <Section title="Team Overview" />
+        <Section title="Group Overview" />
         <KpiRow items={[
-          { label: teamA.name, value: `${arA}%`,           note: `${sA.completed} tasks done · ${sA.count} members`, accent: C.primary },
-          { label: teamB.name, value: `${arB}%`,           note: `${sB.completed} tasks done · ${sB.count} members`, accent: C.warning },
-          { label: 'Winner',   value: winner || 'TIE',    note: winner ? `${Math.max(winsA, winsB)} of ${rows.filter(r => r.winA !== null).length} categories` : 'Balanced performance', accent: winner ? C.success : C.muted },
+          { label: 'Teams Compared',    value: String(teams.length),                             accent: C.primary },
+          { label: 'Top Team',          value: topTeam.name.substring(0, 14),                   note: `${topTeam.pts} pts`, accent: C.success },
+          { label: 'Avg Success Rate',  value: `${sf(avgAr, 1)}%`, accent: avgAr >= 80 ? C.success : avgAr >= 60 ? C.warning : C.danger, color: avgAr >= 80 ? C.success : avgAr >= 60 ? C.warning : C.danger },
         ]} />
 
-        <Sub title="Head-to-Head Breakdown" />
-        <CompareGrid
-          nameA={teamA.name.substring(0, 18)}
-          nameB={teamB.name.substring(0, 18)}
-          rows={rows}
+        <Sub title="Points Ranking" />
+        <HBar data={teams.map(t => ({
+          label: t.name.substring(0, 22),
+          value: t.pts,
+          color: t.pts === maxPts ? C.success : C.primary,
+        }))} />
+
+        <Sub title="Full Metrics Table" />
+        <Table
+          headers={['Team', 'Members', 'Done', 'Failed', 'Points', 'Hours', 'Success%', 'Pts/Hr']}
+          colFlex={[2.5, 1, 1, 1, 1, 1, 1.2, 1.2]}
+          rows={teams.map(t => ({
+            cells: [
+              t.name.substring(0, 20),
+              String(t.count),
+              String(t.completed),
+              String(t.failed),
+              String(t.pts),
+              `${sf(t.hours, 1)}h`,
+              `${ar(t)}%`,
+              sf(pph(t), 2),
+            ],
+            colors: [
+              t.pts === maxPts ? C.success : null,
+              null, null,
+              t.failed > 0 ? C.danger : null,
+              t.pts === maxPts ? C.success : null,
+              null,
+              ar(t) >= 80 ? C.success : ar(t) >= 60 ? C.warning : C.danger,
+              null,
+            ],
+          }))}
         />
 
-        <Sub title="Output Comparison" />
-        <HBar data={[
-          { label: `${teamA.name.substring(0, 16)} — Points`, value: sA.pts,       color: C.primary },
-          { label: `${teamB.name.substring(0, 16)} — Points`, value: sB.pts,       color: C.warning },
-          { label: `${teamA.name.substring(0, 16)} — Tasks`,  value: sA.completed, color: C.success },
-          { label: `${teamB.name.substring(0, 16)} — Tasks`,  value: sB.completed, color: C.danger },
-        ]} />
-
-        {winner && (
-          <Insight
-            text={`${winner} outperforms in ${Math.max(winsA, winsB)} of ${rows.filter(r => r.winA !== null).length} measured areas over this period.`}
-            color={C.success}
-          />
-        )}
+        <Insight text={`${topTeam.name} leads with ${topTeam.pts} pts — ${sf((topTeam.pts / maxPts) * 100, 0)}% of the group maximum.`} color={C.success} />
         <Footer jobId={jobId} />
       </Page>
+    </>
+  )
+}
+
+export function TeamComparisonReport({ data, jobId }: { data: TeamComparisonData; jobId: string }) {
+  return (
+    <Document>
+      <TeamComparisonReportPages data={data} jobId={jobId} />
     </Document>
   )
 }

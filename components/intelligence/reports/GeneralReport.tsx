@@ -1,7 +1,7 @@
+import { Document, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
 import React from 'react'
-import { Document, Page, View, Text, StyleSheet } from '@react-pdf/renderer'
-import { C, F, M, base } from './theme'
-import { Cover, Footer, Section, Sub, KpiRow, Table, HBar, Empty, Insight, sf } from './shared'
+import { Cover, Empty, Footer, HBar, Insight, KpiRow, Section, Sub, Table, sf } from './shared'
+import { C, F, base } from './theme'
 
 const s = StyleSheet.create({
   page: { ...base.page },
@@ -18,18 +18,16 @@ export interface GeneralData {
   dateRange: string
 }
 
-export function GeneralReport({ data, jobId }: { data: GeneralData; jobId: string }) {
+export function GeneralReportPages({ data, jobId }: { data: GeneralData; jobId: string }) {
   const a   = data.audit || {}
   const cur = a.current   || {}
   const cmp = a.comparison || {}
 
-  // Correct field names from rpc_get_organizational_audit
   const wtm        = a.worker_time_metrics    || []
-  const stageConv  = a.conversion_by_stage    || []   // { stage_name, task_count, completion_rate }
-  const stageDur   = a.stage_duration_analysis || []  // { stage_name, avg_duration_days }
-  const slaRisks   = a.sla_risks              || []   // { stage_name, task_number, risk_percent }
-  const engagement = a.worker_engagement      || []   // { full_name, action_count }
-  const quality    = a.quality_by_worker      || []   // { full_name, total_tasks, revision_rate }
+  const stageConv  = a.conversion_by_stage    || []
+  const stageDur   = a.stage_duration_analysis || []
+  const slaRisks   = a.sla_risks              || []
+  const engagement = a.worker_engagement      || []
   const costM      = a.cost_metrics           || {}
   const radar      = a.radar_advanced         || {}
 
@@ -39,11 +37,15 @@ export function GeneralReport({ data, jobId }: { data: GeneralData; jobId: strin
     return `${pct > 0 ? '+' : ''}${pct}% vs prior`
   }
 
-  // Compute tasks_per_hour since RPC doesn't return it
   const wtmWithRate = wtm.map((w: any) => ({
     ...w,
     tasks_per_hour: w.total_hours > 0 ? (w.task_count / w.total_hours) : 0,
   }))
+
+  // Avg Time / Task: total active hours → minutes, divided by task count
+  const totalHours = costM.total_hours ?? wtm.reduce((s: number, w: any) => s + (w.total_hours || 0), 0)
+  const taskCount  = costM.task_count ?? 0
+  const avgMinPerTask = taskCount > 0 ? (totalHours * 60) / taskCount : null
 
   const insights: { text: string; color: string }[] = []
   if ((cur.success_rate || 0) >= 80)
@@ -63,7 +65,7 @@ export function GeneralReport({ data, jobId }: { data: GeneralData; jobId: strin
     insights.push({ text: 'Insufficient data for automated insights. Expand the date range for more meaningful analysis.', color: C.primary })
 
   return (
-    <Document>
+    <>
       <Cover
         title="Performance Audit"
         subtitle="Tactical organizational metrics and pipeline health"
@@ -81,17 +83,17 @@ export function GeneralReport({ data, jobId }: { data: GeneralData; jobId: strin
           { label: 'Revision Rate', value: `${sf(cur.revision_rate || 0, 1)}%`,            note: 'Rework ratio',                                                    accent: cur.revision_rate < 20 ? C.success : cur.revision_rate < 40 ? C.warning : C.danger, color: cur.revision_rate < 20 ? C.success : cur.revision_rate < 40 ? C.warning : C.danger },
         ]} />
 
-        {(costM.task_count > 0 || wtm.length > 0) && (
+        {(taskCount > 0 || wtm.length > 0) && (
           <View style={s.twoCol}>
             <View style={s.halfCard}>
               <Text style={s.halfTitle}>Total Active Hours</Text>
-              <Text style={s.halfValue}>{sf(costM.total_hours || wtm.reduce((s: number, w: any) => s + (w.total_hours || 0), 0), 2)}h</Text>
-              <Text style={s.halfNote}>Across {wtm.length} worker{wtm.length !== 1 ? 's' : ''}</Text>
+              <Text style={s.halfValue}>{sf(totalHours, 2)}h</Text>
+              <Text style={s.halfNote}>Across {wtm.length} person{wtm.length !== 1 ? 's' : ''}</Text>
             </View>
             <View style={s.halfCard}>
-              <Text style={s.halfTitle}>Avg Cost / Task</Text>
-              <Text style={s.halfValue}>${sf(costM.avg_cost_per_task || 0, 2)}</Text>
-              <Text style={s.halfNote}>{costM.task_count || 0} tasks in period</Text>
+              <Text style={s.halfTitle}>Avg Time / Task</Text>
+              <Text style={s.halfValue}>{avgMinPerTask != null ? `${sf(avgMinPerTask, 1)}m` : '—'}</Text>
+              <Text style={s.halfNote}>{taskCount > 0 ? `${taskCount} tasks in period` : 'No tasks in period'}</Text>
             </View>
           </View>
         )}
@@ -137,7 +139,7 @@ export function GeneralReport({ data, jobId }: { data: GeneralData; jobId: strin
           />
         ) : <Empty msg="No stage duration data available." />}
 
-        <Sub title="Worker Engagement (Actions)" />
+        <Sub title="People Engagement (Actions)" />
         {engagement.length > 0 ? (
           <HBar data={engagement.slice(0, 8).map((w: any) => ({
             label: String(w.full_name || '—').substring(0, 22),
@@ -168,9 +170,9 @@ export function GeneralReport({ data, jobId }: { data: GeneralData; jobId: strin
               display: w.tasks_per_hour > 0 ? `${sf(w.tasks_per_hour, 1)} t/h` : '—',
             }))} />
 
-            <Sub title="Worker Detail" />
+            <Sub title="People Detail" />
             <Table
-              headers={['Worker', 'Hours', 'Tasks', 'Tasks/Hr', 'Revision %']}
+              headers={['Person', 'Hours', 'Tasks', 'Tasks/Hr', 'Revision %']}
               colFlex={[3, 1, 1, 1.2, 1.5]}
               rows={wtmWithRate.slice(0, 10).map((w: any) => {
                 const rev = w.revision_rate || 0
@@ -216,6 +218,14 @@ export function GeneralReport({ data, jobId }: { data: GeneralData; jobId: strin
         {insights.map((ins, i) => <Insight key={i} text={ins.text} color={ins.color} />)}
         <Footer jobId={jobId} />
       </Page>
+    </>
+  )
+}
+
+export function GeneralReport({ data, jobId }: { data: GeneralData; jobId: string }) {
+  return (
+    <Document>
+      <GeneralReportPages data={data} jobId={jobId} />
     </Document>
   )
 }

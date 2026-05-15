@@ -10,7 +10,7 @@
 //    Edge Function won't be authenticated.
 //    (The token send itself works without it; receipts cleanup needs it.)
 //
-// This hook is a no-op on web — call it unconditionally and it self-guards.
+// This hook is a no-op on web and in Expo Go — call it unconditionally and it self-guards.
 // ====================================================================
 
 import { useEffect, useRef } from 'react'
@@ -22,6 +22,12 @@ import Constants from 'expo-constants'
 import { supabase } from '@/lib/supabase'
 
 const DEVICE_ID_KEY = 'trustflow_push_device_id'
+
+// expo-notifications dropped remote push support from Expo Go in SDK 53.
+// DevicePushTokenAutoRegistration.fx.js fires addPushTokenListener as a
+// module-load side effect, which calls console.error before we can catch it.
+// Guard against loading the module at all in Expo Go.
+const isExpoGo = Constants.appOwnership === 'expo'
 
 // Stable device ID — generated once, persisted in AsyncStorage
 async function getOrCreateDeviceId(): Promise<string> {
@@ -36,7 +42,9 @@ async function getOrCreateDeviceId(): Promise<string> {
 
 async function registerForPushNotifications(): Promise<string | null> {
   if (!Device.isDevice) {
-    // Push tokens don't work on simulators — skip silently
+    return null
+  }
+  if (isExpoGo) {
     return null
   }
 
@@ -70,8 +78,8 @@ async function registerForPushNotifications(): Promise<string | null> {
 }
 
 export function usePushRegistration() {
-  // Only runs on native — web has its own Phase 6 VAPID path
-  if (Platform.OS === 'web') return
+  // No-op on web (Phase 6 VAPID) and in Expo Go (unsupported since SDK 53)
+  if (Platform.OS === 'web' || isExpoGo) return
 
   const tokenRefreshSub = useRef<NotificationsType.EventSubscription | null>(null)
 
@@ -88,10 +96,7 @@ export function usePushRegistration() {
         p_token: token,
         p_type: 'expo',
         p_device_id: deviceId,
-        p_device_meta: {
-          platform: Platform.OS,
-          version: Platform.Version,
-        },
+        p_platform: Platform.OS,
       })
 
       if (error) {
@@ -110,10 +115,7 @@ export function usePushRegistration() {
           p_token: tokenData.data,
           p_type: 'expo',
           p_device_id: deviceId,
-          p_device_meta: {
-            platform: Platform.OS,
-            version: Platform.Version,
-          },
+          p_platform: Platform.OS,
         })
       })
     } catch (err) {

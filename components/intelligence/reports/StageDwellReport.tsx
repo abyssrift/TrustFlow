@@ -13,7 +13,7 @@ export interface StageDwellData {
   company: string
 }
 
-export function StageDwellReport({ data, jobId }: { data: StageDwellData; jobId: string }) {
+export function StageDwellReportPages({ data, jobId }: { data: StageDwellData; jobId: string }) {
   const { rows, pipelineName, dateStart, dateEnd } = data
 
   const bottlenecks   = rows.filter(r => r.is_bottleneck)
@@ -22,7 +22,7 @@ export function StageDwellReport({ data, jobId }: { data: StageDwellData; jobId:
   const avgDwell      = rows.length > 0 ? rows.reduce((s, r) => s + (r.avg_seconds || 0), 0) / rows.length : 0
 
   return (
-    <Document>
+    <>
       <Cover
         title="Stage Dwell Analysis"
         subtitle="Avg / median / P75 dwell, bottleneck flags, reversal counts"
@@ -97,6 +97,14 @@ export function StageDwellReport({ data, jobId }: { data: StageDwellData; jobId:
 
         <Footer jobId={jobId} />
       </Page>
+    </>
+  )
+}
+
+export function StageDwellReport({ data, jobId }: { data: StageDwellData; jobId: string }) {
+  return (
+    <Document>
+      <StageDwellReportPages data={data} jobId={jobId} />
     </Document>
   )
 }

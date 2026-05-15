@@ -43,7 +43,7 @@ export default function UserAssignmentGrid() {
               <TouchableOpacity
                 key={user.id}
                 onPress={() => handleOpenUser(user)}
-                className="bg-card-bg w-full sm:w-[48%] lg:w-[32%] p-5 rounded-2xl border border-border-default premium-shadow active:scale-[0.98] transition-all"
+                className="bg-surface-card w-full sm:w-[48%] lg:w-[32%] p-5 rounded-2xl border border-surface-border premium-shadow active:scale-[0.98] transition-all"
               >
                 <View className="flex-row items-center mb-5">
                   <View className="w-12 h-12 rounded-xl bg-brand-primary/10 items-center justify-center border border-brand-primary/20 overflow-hidden">
@@ -56,10 +56,10 @@ export default function UserAssignmentGrid() {
                     )}
                   </View>
                   <View className="ml-4 flex-1">
-                    <Text className="text-text-primary font-black text-base" numberOfLines={1}>
+                    <Text className="text-typography-main font-black text-base" numberOfLines={1}>
                       {user.full_name || 'Unknown Node'}
                     </Text>
-                    <Text className="text-text-muted text-[10px] font-bold uppercase tracking-widest" numberOfLines={1}>
+                    <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest" numberOfLines={1}>
                       {user.job_title || 'Unassigned Role'}
                     </Text>
                   </View>

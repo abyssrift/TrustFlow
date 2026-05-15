@@ -7,5 +7,5 @@ export default function ReportGeneratorScreen() {
   if (Platform.OS === 'web') {
     return <WebComponent />;
   }
-  return <AdaptiveComponent />;
+  return <AdaptiveComponent visible={true} onClose={() => {}} onReportGenerated={() => {}} isPage={true} />;
 }

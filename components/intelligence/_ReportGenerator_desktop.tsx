@@ -2,17 +2,60 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Stack, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
     TextInput as RNTextInput,
     ScrollView,
     Text,
     TouchableOpacity,
     View
 } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 import { generateAndUploadReport } from './reports/generate';
+
+const BRAND = 'rgb(99,102,241)';
+const BRAND_DIM = 'rgba(99,102,241,0.15)';
+
+function fmt(s: number) {
+  return `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
+}
+
+function GenerationProgress({ current, total, elapsed }: { current: number; total: number; elapsed: number }) {
+  const size = 148;
+  const stroke = 10;
+  const r = (size - stroke) / 2;
+  const circ = 2 * Math.PI * r;
+  const pct = total > 0 ? current / total : 0;
+  const eta = current > 1 && elapsed > 1 ? Math.round((elapsed / current) * (total - current)) : null;
+
+  return (
+    <View style={{ alignItems: 'center', gap: 6 }}>
+      <View style={{ width: size, height: size }}>
+        <Svg width={size} height={size}>
+          <Circle cx={size / 2} cy={size / 2} r={r} stroke={BRAND_DIM} strokeWidth={stroke} fill="none" />
+          <Circle
+            cx={size / 2} cy={size / 2} r={r}
+            stroke={BRAND} strokeWidth={stroke} fill="none"
+            strokeDasharray={circ} strokeDashoffset={circ * (1 - pct)}
+            strokeLinecap="round" rotation="-90" origin={`${size / 2}, ${size / 2}`}
+          />
+        </Svg>
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: 'white', fontWeight: '900', fontSize: 24, fontVariant: ['tabular-nums'] }}>
+            {current}/{total}
+          </Text>
+          <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, marginTop: 2 }}>reports</Text>
+        </View>
+      </View>
+      <Text style={{ color: 'rgba(255,255,255,0.65)', fontSize: 13, fontWeight: '700', fontVariant: ['tabular-nums'] }}>
+        {fmt(elapsed)}
+      </Text>
+      {eta !== null && eta > 0 ? (
+        <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11 }}>~{fmt(eta)} remaining</Text>
+      ) : null}
+    </View>
+  );
+}
 
 type ReportType =
   | 'general'
@@ -42,48 +85,51 @@ const REPORT_TYPES: {
   icon: string;
   group: 'legacy' | 'analytics';
 }[] = [
-  { value: 'general',                  label: 'Tactical Performance Audit',   desc: 'Holistic organization or pipeline metrics',               icon: 'bar-chart',     group: 'legacy'    },
-  { value: 'worker_comparison',         label: 'Personnel Benchmarking',        desc: 'Delta analysis between two deployment assets',            icon: 'users',         group: 'legacy'    },
-  { value: 'team_comparison',           label: 'Structural Matrix Analysis',    desc: 'Efficiency metrics across structural units',              icon: 'group',         group: 'legacy'    },
-  { value: 'workflow_analysis',         label: 'Pipeline Bottleneck Scan',      desc: 'Stage-by-stage efficiency & delay deep-dive',            icon: 'rocket',        group: 'legacy'    },
-  { value: 'user_performance_series',   label: 'Worker Performance Timeline',   desc: 'Period-by-period output, session hours & efficiency',     icon: 'line-chart',    group: 'analytics' },
-  { value: 'user_performance_summary',  label: 'Worker Performance Summary',    desc: 'All aggregated stats for one worker over a date range',   icon: 'user',          group: 'analytics' },
+  { value: 'general',                  label: 'Overview',                    desc: 'Organization or pipeline metrics',                    icon: 'bar-chart',     group: 'legacy'    },
+  { value: 'worker_comparison',         label: 'People Comparison',          desc: 'Compare people in pairs or groups',                   icon: 'users',         group: 'legacy'    },
+  { value: 'team_comparison',           label: 'Team Comparison',            desc: 'Efficiency metrics across teams',                     icon: 'group',         group: 'legacy'    },
+  { value: 'workflow_analysis',         label: 'Pipeline Review',            desc: 'Stage-by-stage efficiency and delay deep-dive',       icon: 'rocket',        group: 'legacy'    },
+  { value: 'user_performance_series',   label: 'Performance Timeline',       desc: 'Period-by-period output, session hours and efficiency', icon: 'line-chart',    group: 'analytics' },
+  { value: 'user_performance_summary',  label: 'Performance Summary',        desc: 'All aggregated stats for one person over a date range', icon: 'user',          group: 'analytics' },
   { value: 'pipeline_stage_dwell',      label: 'Stage Dwell Analysis',          desc: 'Avg/median/P75 dwell, bottleneck flag, reversal counts',  icon: 'clock-o',       group: 'analytics' },
   { value: 'pipeline_throughput',       label: 'Pipeline Throughput Report',    desc: 'Period success/failure rates across a pipeline',          icon: 'area-chart',    group: 'analytics' },
-  { value: 'personnel_comparison',      label: 'Multi-Personnel Comparison',    desc: 'Cost analysis, points/hour & efficiency across workers',  icon: 'balance-scale', group: 'analytics' },
+  { value: 'personnel_comparison',      label: 'People Cost Comparison',     desc: 'Cost analysis, points/hour and efficiency across people', icon: 'balance-scale', group: 'analytics' },
   { value: 'targets_status',            label: 'Objectives & SLA Report',       desc: 'All active, hit, and expired performance targets',        icon: 'bullseye',      group: 'analytics' },
-  { value: 'personal_pulse',            label: 'Personal Activity Snapshot',    desc: 'Your daily/monthly points, session time & flap rate',     icon: 'heartbeat',     group: 'analytics' },
+  { value: 'personal_pulse',            label: 'Personal Snapshot',         desc: 'Your daily and monthly points, session time and flap rate', icon: 'heartbeat',     group: 'analytics' },
 ];
 
 export default function ReportGeneratorDesktop() {
   const router = useRouter();
   const { hasPermission, user, profile } = useAuth();
 
-  const [reportType, setReportType]         = useState<ReportType>('general');
-  const [timeFrame, setTimeFrame]           = useState<'7' | '30' | '90' | 'custom'>('30');
-  const [dateStart, setDateStart]           = useState('');
-  const [dateEnd, setDateEnd]               = useState('');
-  const [pipelineId, setPipelineId]         = useState('');
-  const [teamId, setTeamId]                 = useState('');
-  const [workerId, setWorkerId]             = useState('');
-  const [priorityFilter, setPriorityFilter] = useState('');
-  const [workerA_id, setWorkerA_id]         = useState('');
-  const [workerB_id, setWorkerB_id]         = useState('');
-  const [teamA_id, setTeamA_id]             = useState('');
-  const [teamB_id, setTeamB_id]             = useState('');
-  // Analytics-engine specific
-  const [singleUserId, setSingleUserId]     = useState('');
-  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
-  const [salaries, setSalaries]             = useState<Record<string, number>>({});
-  const [periodType, setPeriodType]         = useState<'week' | 'month' | 'year'>('month');
-  const [nPeriods, setNPeriods]             = useState('12');
+  // Multi-select: one or more report types per generation
+  const [selectedTypes, setSelectedTypes] = useState<ReportType[]>(['general']);
+  // Per-type params: keyed by ReportType, value is that type's specific params
+  const [typeParams, setTypeParams]       = useState<Record<string, Record<string, any>>>({});
+
+  // Shared temporal scope
+  const [timeFrame, setTimeFrame]   = useState<'7' | '30' | '90' | 'custom'>('30');
+  const [dateStart, setDateStart]   = useState('');
+  const [dateEnd, setDateEnd]       = useState('');
 
   const [pipelines, setPipelines] = useState<any[]>([]);
   const [teams, setTeams]         = useState<any[]>([]);
   const [workers, setWorkers]     = useState<any[]>([]);
-  const [loading, setLoading]     = useState(false);
+  const [loading, setLoading]         = useState(false);
+  const [genError, setGenError]       = useState<string | null>(null);
+  const [genProgress, setGenProgress] = useState<{ current: number; total: number } | null>(null);
+  const [elapsed, setElapsed]         = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => { loadFilterOptions(); }, []);
+
+  // Block browser tab close / refresh while generating
+  useEffect(() => {
+    if (!loading || typeof window === 'undefined') return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [loading]);
 
   const loadFilterOptions = async () => {
     const [pipeRes, teamRes, workerRes] = await Promise.all([
@@ -96,166 +142,172 @@ export default function ReportGeneratorDesktop() {
     setWorkers(workerRes.data || []);
   };
 
-  const toggleMultiUser = (uid: string) => {
-    setSelectedUserIds(prev =>
-      prev.includes(uid) ? prev.filter(x => x !== uid) : [...prev, uid]
+  const toggleType = (type: ReportType) => {
+    setSelectedTypes(prev =>
+      prev.includes(type)
+        ? prev.length > 1 ? prev.filter(t => t !== type) : prev  // never empty
+        : [...prev, type]
     );
   };
 
+  const getParam = (type: ReportType, key: string, def: any = '') =>
+    (typeParams[type] || {})[key] ?? def;
+
+  const setParam = (type: ReportType, key: string, value: any) =>
+    setTypeParams(prev => ({ ...prev, [type]: { ...(prev[type] || {}), [key]: value } }));
+
+  const toggleMultiUser = (type: ReportType, uid: string) => {
+    const cur: string[] = getParam(type, 'user_ids', []);
+    setParam(type, 'user_ids', cur.includes(uid) ? cur.filter(x => x !== uid) : [...cur, uid]);
+  };
+
+  // Whether to show the shared date-range picker (any selected type uses range mode)
+  const needsDateRange = selectedTypes.some(t => getTemporalMode(t) === 'range');
+
+  const buildTemporalParams = () => {
+    let days = 30;
+    let dateStartParam: string | null = null;
+    let dateEndParam: string | null   = null;
+
+    if (timeFrame === 'custom') {
+      dateStartParam = dateStart ? new Date(dateStart).toISOString() : null;
+      dateEndParam   = dateEnd   ? new Date(dateEnd).toISOString()   : null;
+    } else {
+      days = parseInt(timeFrame);
+      const now = new Date();
+      dateEndParam   = now.toISOString();
+      dateStartParam = new Date(now.getTime() - days * 86400000).toISOString();
+    }
+    return { days, dateStartParam, dateEndParam };
+  };
+
+  const buildTypeParameters = (type: ReportType) => {
+    const tp = typeParams[type] || {};
+    const { days, dateStartParam, dateEndParam } = buildTemporalParams();
+    const params: Record<string, any> = {};
+
+    const tMode = getTemporalMode(type);
+    if (tMode === 'range') {
+      params.days       = days;
+      params.date_start = dateStartParam;
+      params.date_end   = dateEndParam;
+    } else if (tMode === 'series') {
+      params.period_type = tp.period_type || 'month';
+      params.n_periods   = parseInt(tp.n_periods || '12') || 12;
+    }
+
+    switch (type) {
+      case 'general':
+      case 'workflow_analysis':
+        if (tp.pipeline_id) params.pipeline_id = tp.pipeline_id;
+        if (tp.team_id)     params.team_id     = tp.team_id;
+        if (tp.worker_id)   params.worker_id   = tp.worker_id;
+        if (tp.priority)    params.priority    = tp.priority;
+        break;
+      case 'worker_comparison':
+        params.user_ids = tp.user_ids || [];
+        break;
+      case 'team_comparison':
+        params.team_ids = tp.team_ids || [];
+        break;
+      case 'user_performance_series':
+      case 'user_performance_summary':
+        params.user_id = tp.user_id || '';
+        break;
+      case 'pipeline_stage_dwell':
+      case 'pipeline_throughput':
+        params.pipeline_id = tp.pipeline_id || '';
+        break;
+      case 'personnel_comparison':
+        params.user_ids  = tp.user_ids  || [];
+        params.salaries  = tp.salaries  || {};
+        break;
+    }
+    return params;
+  };
+
+  // Expand selected types into individual jobs, broadcasting over all workers/pipelines when none is selected
+  const expandJobs = () => {
+    const jobs: { reportType: string; parameters: Record<string, any> }[] = [];
+    for (const type of selectedTypes) {
+      const params = buildTypeParameters(type);
+      if ((type === 'user_performance_series' || type === 'user_performance_summary') && !params.user_id) {
+        workers.forEach(w => jobs.push({ reportType: type, parameters: { ...params, user_id: w.id } }));
+      } else if ((type === 'pipeline_stage_dwell' || type === 'pipeline_throughput') && !params.pipeline_id) {
+        pipelines.forEach(p => jobs.push({ reportType: type, parameters: { ...params, pipeline_id: p.id } }));
+      } else if (type === 'worker_comparison' && (params.user_ids || []).length === 0) {
+        jobs.push({ reportType: type, parameters: { ...params, user_ids: workers.map(w => w.id) } });
+      } else if (type === 'team_comparison' && (params.team_ids || []).length === 0) {
+        jobs.push({ reportType: type, parameters: { ...params, team_ids: teams.map(t => t.id) } });
+      } else if (type === 'personnel_comparison' && (params.user_ids || []).length < 2) {
+        jobs.push({ reportType: type, parameters: { ...params, user_ids: workers.map(w => w.id) } });
+      } else {
+        jobs.push({ reportType: type, parameters: params });
+      }
+    }
+    return jobs;
+  };
+
   const handleGenerateReport = async () => {
+    setGenError(null);
+    setGenProgress(null);
+    setElapsed(0);
     try {
       setLoading(true);
-      const temporalMode = getTemporalMode(reportType);
+      const t0 = Date.now();
+      timerRef.current = setInterval(() => setElapsed(Math.floor((Date.now() - t0) / 1000)), 1000);
 
-      // --- Temporal params ---
-      let days = 30;
-      let dateStartParam: string | null = null;
-      let dateEndParam: string | null = null;
-
-      if (temporalMode === 'range') {
-        if (timeFrame === 'custom') {
-          dateStartParam = dateStart ? new Date(dateStart).toISOString() : null;
-          dateEndParam   = dateEnd   ? new Date(dateEnd).toISOString()   : null;
-          if (!dateStartParam || !dateEndParam) {
-            Alert.alert('Error', 'Please provide both start and end dates');
-            return;
-          }
-        } else {
-          days = parseInt(timeFrame);
-          const now = new Date();
-          dateEndParam   = now.toISOString();
-          dateStartParam = new Date(now.getTime() - days * 86400000).toISOString();
-        }
+      if (needsDateRange && timeFrame === 'custom' && (!dateStart || !dateEnd)) {
+        setGenError('Please provide both start and end dates');
+        return;
       }
 
-      // --- Build parameters ---
-      const parameters: Record<string, any> = {};
 
-      switch (reportType) {
-        case 'general':
-        case 'workflow_analysis': {
-          parameters.days = days;
-          parameters.scope = reportType === 'general' ? (pipelineId ? 'pipeline' : 'organization') : reportType;
-          if (pipelineId)     parameters.pipeline_id = pipelineId;
-          if (teamId)         parameters.team_id     = teamId;
-          if (workerId)       parameters.worker_id   = workerId;
-          if (priorityFilter) parameters.priority    = priorityFilter;
-          if (dateStartParam) parameters.date_start  = dateStartParam;
-          if (dateEndParam)   parameters.date_end    = dateEndParam;
-          break;
-        }
-        case 'worker_comparison': {
-          if (!workerA_id || !workerB_id) {
-            Alert.alert('Error', 'Please select both workers for comparison');
-            return;
-          }
-          parameters.days         = days;
-          parameters.worker_a_id  = workerA_id;
-          parameters.worker_b_id  = workerB_id;
-          if (dateStartParam) parameters.date_start = dateStartParam;
-          if (dateEndParam)   parameters.date_end   = dateEndParam;
-          break;
-        }
-        case 'team_comparison': {
-          if (!teamA_id || !teamB_id) {
-            Alert.alert('Error', 'Please select both teams for comparison');
-            return;
-          }
-          parameters.days       = days;
-          parameters.team_a_id  = teamA_id;
-          parameters.team_b_id  = teamB_id;
-          if (dateStartParam) parameters.date_start = dateStartParam;
-          if (dateEndParam)   parameters.date_end   = dateEndParam;
-          break;
-        }
-        case 'user_performance_series': {
-          if (!singleUserId) {
-            Alert.alert('Error', 'Please select a worker');
-            return;
-          }
-          parameters.user_id     = singleUserId;
-          parameters.period_type = periodType;
-          parameters.n_periods   = parseInt(nPeriods) || 12;
-          break;
-        }
-        case 'user_performance_summary': {
-          if (!singleUserId) {
-            Alert.alert('Error', 'Please select a worker');
-            return;
-          }
-          parameters.user_id    = singleUserId;
-          parameters.date_start = dateStartParam;
-          parameters.date_end   = dateEndParam;
-          break;
-        }
-        case 'pipeline_stage_dwell': {
-          if (!pipelineId) {
-            Alert.alert('Error', 'Please select a pipeline');
-            return;
-          }
-          parameters.pipeline_id = pipelineId;
-          parameters.date_start  = dateStartParam;
-          parameters.date_end    = dateEndParam;
-          break;
-        }
-        case 'pipeline_throughput': {
-          if (!pipelineId) {
-            Alert.alert('Error', 'Please select a pipeline');
-            return;
-          }
-          parameters.pipeline_id = pipelineId;
-          parameters.period_type = periodType;
-          parameters.n_periods   = parseInt(nPeriods) || 12;
-          break;
-        }
-        case 'personnel_comparison': {
-          if (selectedUserIds.length < 2) {
-            Alert.alert('Error', 'Please select at least 2 workers');
-            return;
-          }
-          parameters.user_ids   = selectedUserIds;
-          parameters.date_start = dateStartParam;
-          parameters.date_end   = dateEndParam;
-          if (Object.keys(salaries).length > 0) parameters.salaries = salaries;
-          break;
-        }
-        case 'targets_status':
-        case 'personal_pulse':
-          // no extra params needed
-          break;
-      }
-
-      const { data: jobId, error } = await supabase.rpc('rpc_request_report', {
-        p_report_type: reportType,
-        p_parameters:  parameters,
-      });
-      if (error) throw error;
-
-      if (!jobId) throw new Error('Failed to create report job');
 
       if (!user?.id || !profile?.company_id) throw new Error('User session is not ready');
 
-      await generateAndUploadReport(
-        jobId,
-        reportType,
-        parameters,
-        supabase,
-        user.id,
-        profile.company_id,
-      );
+      const expanded = expandJobs();
 
-      router.replace('/intelligence/archives');
+      // If exactly one type selected and no expansion happened → single report
+      // If multiple types, all with specific selections → combine into multi_report
+      // If any expansion happened → run as separate individual jobs
+      const wasExpanded = expanded.length !== selectedTypes.length;
+
+      let jobs: { reportType: string; parameters: Record<string, any> }[];
+      if (!wasExpanded && selectedTypes.length > 1) {
+        jobs = [{ reportType: 'multi_report', parameters: { modules: selectedTypes.map(t => ({ type: t, parameters: buildTypeParameters(t) })) } }];
+      } else {
+        jobs = expanded;
+      }
+
+      setGenProgress({ current: 0, total: jobs.length });
+
+      for (let i = 0; i < jobs.length; i++) {
+        setGenProgress({ current: i + 1, total: jobs.length });
+        const { reportType, parameters } = jobs[i];
+        const { data: jobId, error } = await supabase.rpc('rpc_request_report', {
+          p_report_type: reportType,
+          p_parameters:  parameters,
+        });
+        if (error) throw error;
+        if (!jobId) throw new Error('Failed to create report job');
+        await generateAndUploadReport(jobId, reportType, parameters, supabase, user.id, profile.company_id);
+      }
+
+      router.replace('/intelligence/reports');
     } catch (error: any) {
       console.error('Report generation error:', error);
-      Alert.alert('Error', error.message || 'Failed to generate report');
+      setGenError(error.message || 'Failed to generate report');
     } finally {
+      if (timerRef.current) clearInterval(timerRef.current);
       setLoading(false);
+      setGenProgress(null);
     }
   };
 
-  const temporalMode = getTemporalMode(reportType);
-  const legacyTypes  = REPORT_TYPES.filter(t => t.group === 'legacy');
+  const legacyTypes    = REPORT_TYPES.filter(t => t.group === 'legacy');
   const analyticsTypes = REPORT_TYPES.filter(t => t.group === 'analytics');
+  const isMulti        = selectedTypes.length > 1;
 
   return (
     <View className="flex-1 bg-surface-background">
@@ -307,24 +359,34 @@ export default function ReportGeneratorDesktop() {
                   </View>
                   <Text className="text-typography-main text-6xl font-black tracking-tighter">Report Architect</Text>
                   <Text className="text-typography-muted text-lg font-medium mt-2 max-w-2xl leading-8">
-                    Configure and execute deep-packet analytics reports. All generated reports are encrypted and archived for strategic review.
+                    Configure and execute deep-packet analytics reports. Select one or combine multiple report types into a single document.
                   </Text>
                 </View>
-                <TouchableOpacity
-                  onPress={handleGenerateReport}
-                  disabled={loading}
-                  className={`px-12 py-6 rounded-[32px] flex-row items-center transition-all ${loading ? 'bg-surface-border opacity-50' : 'bg-brand-primary premium-shadow active:scale-95'}`}
-                >
-                  {loading ? (
-                    <ActivityIndicator size="small" color="white" />
-                  ) : (
-                    <>
-                      <FontAwesome name="bolt" size={16} color="white" style={{ marginRight: 10 }} />
-                      <Text className="text-white font-black uppercase tracking-[0.2em] text-sm">Deploy Generation</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
+                {loading && genProgress ? (
+                  <GenerationProgress current={genProgress.current} total={genProgress.total} elapsed={elapsed} />
+                ) : (
+                  <TouchableOpacity
+                    onPress={handleGenerateReport}
+                    disabled={loading}
+                    className="px-12 py-6 rounded-[32px] flex-row items-center bg-brand-primary premium-shadow active:scale-95"
+                  >
+                    <FontAwesome name="bolt" size={16} color="white" style={{ marginRight: 10 }} />
+                    <Text className="text-white font-black uppercase tracking-[0.2em] text-sm">
+                      {isMulti ? `Deploy ${selectedTypes.length} Reports` : 'Deploy Generation'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
+
+              {genError && (
+                <View className="bg-state-danger/10 border border-state-danger/30 rounded-2xl px-8 py-5 mb-8 flex-row items-center gap-4">
+                  <FontAwesome name="exclamation-circle" size={18} color="rgb(var(--state-danger))" />
+                  <Text className="text-state-danger font-bold flex-1">{genError}</Text>
+                  <TouchableOpacity onPress={() => setGenError(null)}>
+                    <FontAwesome name="times" size={16} color="rgb(var(--state-danger))" />
+                  </TouchableOpacity>
+                </View>
+              )}
 
               <View className="flex-row gap-12">
                 {/* ── Left Column ── */}
@@ -332,106 +394,82 @@ export default function ReportGeneratorDesktop() {
 
                   {/* Step 1 — Architecture Type */}
                   <View className="bg-surface-card p-10 rounded-[48px] border border-surface-border">
-                    <Text className="text-typography-muted text-xs font-black uppercase tracking-[0.2em] mb-8 opacity-60">01. Architecture Type</Text>
+                    <View className="flex-row items-center justify-between mb-8">
+                      <Text className="text-typography-muted text-xs font-black uppercase tracking-[0.2em] opacity-60">01. Architecture Type</Text>
+                      {isMulti && (
+                        <View className="bg-brand-primary/10 border border-brand-primary/30 px-3 py-1 rounded-full flex-row items-center gap-2">
+                          <FontAwesome name="files-o" size={10} color="rgb(var(--brand-primary))" />
+                          <Text className="text-brand-primary text-[9px] font-black uppercase tracking-widest">{selectedTypes.length} Combined</Text>
+                        </View>
+                      )}
+                    </View>
 
-                    {/* Legacy reports */}
-                    <Text className="text-typography-dim text-[9px] font-black uppercase tracking-[0.3em] mb-4">Standard Reports</Text>
+                    <Text className="text-typography-dim text-[9px] font-semibold uppercase tracking-[0.18em] mb-4">Standard Reports</Text>
                     <View className="gap-3 mb-8">
                       {legacyTypes.map(opt => (
-                        <TypeCard key={opt.value} opt={opt} selected={reportType === opt.value} onPress={() => setReportType(opt.value)} />
+                        <TypeCard key={opt.value} opt={opt} selected={selectedTypes.includes(opt.value)} onPress={() => toggleType(opt.value)} />
                       ))}
                     </View>
 
-                    {/* Analytics engine reports */}
                     <View className="flex-row items-center gap-3 mb-4">
-                      <Text className="text-typography-dim text-[9px] font-black uppercase tracking-[0.3em]">Analytics Engine</Text>
+                      <Text className="text-typography-dim text-[9px] font-semibold uppercase tracking-[0.18em]">Analytics Engine</Text>
                       <View className="flex-1 h-px bg-brand-primary/20" />
                       <View className="bg-brand-primary/10 px-2 py-0.5 rounded-full">
-                        <Text className="text-brand-primary text-[8px] font-black uppercase tracking-widest">New</Text>
+                        <Text className="text-brand-primary text-[8px] font-semibold uppercase tracking-widest">New</Text>
                       </View>
                     </View>
                     <View className="gap-3">
                       {analyticsTypes.map(opt => (
-                        <TypeCard key={opt.value} opt={opt} selected={reportType === opt.value} onPress={() => setReportType(opt.value)} />
+                        <TypeCard key={opt.value} opt={opt} selected={selectedTypes.includes(opt.value)} onPress={() => toggleType(opt.value)} />
                       ))}
                     </View>
                   </View>
 
-                  {/* Step 2 — Temporal Scope (conditional) */}
-                  {temporalMode !== 'none' && (
+                  {/* Step 2 — Temporal Scope (shown when any selected type uses a date range) */}
+                  {needsDateRange && (
                     <View className="bg-surface-card p-10 rounded-[48px] border border-surface-border">
                       <Text className="text-typography-muted text-xs font-black uppercase tracking-[0.2em] mb-8 opacity-60">02. Temporal Scope</Text>
 
-                      {temporalMode === 'range' && (
-                        <>
-                          <View className="flex-row gap-4 mb-6">
-                            {(['7', '30', '90'] as const).map(d => (
-                              <TouchableOpacity
-                                key={d}
-                                onPress={() => setTimeFrame(d)}
-                                className={`flex-1 py-5 rounded-2xl border items-center transition-all ${timeFrame === d ? 'border-brand-primary bg-brand-primary' : 'border-surface-border bg-surface-background/40'}`}
-                              >
-                                <Text className={`font-black uppercase tracking-widest ${timeFrame === d ? 'text-white' : 'text-typography-main'}`}>{d} Days</Text>
-                              </TouchableOpacity>
-                            ))}
-                            <TouchableOpacity
-                              onPress={() => setTimeFrame('custom')}
-                              className={`flex-1 py-5 rounded-2xl border items-center transition-all ${timeFrame === 'custom' ? 'border-brand-primary bg-brand-primary' : 'border-surface-border bg-surface-background/40'}`}
-                            >
-                              <Text className={`font-black uppercase tracking-widest ${timeFrame === 'custom' ? 'text-white' : 'text-typography-main'}`}>Custom</Text>
-                            </TouchableOpacity>
+                      <View className="flex-row gap-4 mb-6">
+                        {(['7', '30', '90'] as const).map(d => (
+                          <TouchableOpacity
+                            key={d}
+                            onPress={() => setTimeFrame(d)}
+                            className={`flex-1 py-5 rounded-2xl border items-center transition-all ${timeFrame === d ? 'border-brand-primary bg-brand-primary' : 'border-surface-border bg-surface-background/40'}`}
+                          >
+                            <Text className={`font-black uppercase tracking-widest ${timeFrame === d ? 'text-white' : 'text-typography-main'}`}>{d} Days</Text>
+                          </TouchableOpacity>
+                        ))}
+                        <TouchableOpacity
+                          onPress={() => setTimeFrame('custom')}
+                          className={`flex-1 py-5 rounded-2xl border items-center transition-all ${timeFrame === 'custom' ? 'border-brand-primary bg-brand-primary' : 'border-surface-border bg-surface-background/40'}`}
+                        >
+                          <Text className={`font-black uppercase tracking-widest ${timeFrame === 'custom' ? 'text-white' : 'text-typography-main'}`}>Custom</Text>
+                        </TouchableOpacity>
+                      </View>
+                      {timeFrame === 'custom' && (
+                        <View className="flex-row gap-4">
+                          <View className="flex-1">
+                            <Text className="text-typography-muted text-[10px] font-bold uppercase mb-2 ml-1">Start Date</Text>
+                            <RNTextInput
+                              placeholder="YYYY-MM-DD"
+                              value={dateStart}
+                              onChangeText={setDateStart}
+                              className="border border-surface-border bg-surface-background rounded-2xl p-5 text-typography-main font-bold"
+                              placeholderTextColor="rgb(var(--text-muted))"
+                            />
                           </View>
-                          {timeFrame === 'custom' && (
-                            <View className="flex-row gap-4">
-                              <View className="flex-1">
-                                <Text className="text-typography-muted text-[10px] font-bold uppercase mb-2 ml-1">Start Date</Text>
-                                <RNTextInput
-                                  placeholder="YYYY-MM-DD"
-                                  value={dateStart}
-                                  onChangeText={setDateStart}
-                                  className="border border-surface-border bg-surface-background rounded-2xl p-5 text-typography-main font-bold"
-                                  placeholderTextColor="rgb(var(--text-muted))"
-                                />
-                              </View>
-                              <View className="flex-1">
-                                <Text className="text-typography-muted text-[10px] font-bold uppercase mb-2 ml-1">End Date</Text>
-                                <RNTextInput
-                                  placeholder="YYYY-MM-DD"
-                                  value={dateEnd}
-                                  onChangeText={setDateEnd}
-                                  className="border border-surface-border bg-surface-background rounded-2xl p-5 text-typography-main font-bold"
-                                  placeholderTextColor="rgb(var(--text-muted))"
-                                />
-                              </View>
-                            </View>
-                          )}
-                        </>
-                      )}
-
-                      {temporalMode === 'series' && (
-                        <>
-                          <Text className="text-typography-muted text-[10px] font-bold uppercase mb-3 ml-1">Period Granularity</Text>
-                          <View className="flex-row gap-4 mb-6">
-                            {(['week', 'month', 'year'] as const).map(p => (
-                              <TouchableOpacity
-                                key={p}
-                                onPress={() => setPeriodType(p)}
-                                className={`flex-1 py-5 rounded-2xl border items-center transition-all ${periodType === p ? 'border-brand-primary bg-brand-primary' : 'border-surface-border bg-surface-background/40'}`}
-                              >
-                                <Text className={`font-black capitalize tracking-widest ${periodType === p ? 'text-white' : 'text-typography-main'}`}>{p}</Text>
-                              </TouchableOpacity>
-                            ))}
+                          <View className="flex-1">
+                            <Text className="text-typography-muted text-[10px] font-bold uppercase mb-2 ml-1">End Date</Text>
+                            <RNTextInput
+                              placeholder="YYYY-MM-DD"
+                              value={dateEnd}
+                              onChangeText={setDateEnd}
+                              className="border border-surface-border bg-surface-background rounded-2xl p-5 text-typography-main font-bold"
+                              placeholderTextColor="rgb(var(--text-muted))"
+                            />
                           </View>
-                          <Text className="text-typography-muted text-[10px] font-bold uppercase mb-2 ml-1">Number of Periods</Text>
-                          <RNTextInput
-                            value={nPeriods}
-                            onChangeText={setNPeriods}
-                            keyboardType="numeric"
-                            placeholder="12"
-                            className="border border-surface-border bg-surface-background rounded-2xl p-5 text-typography-main font-bold"
-                            placeholderTextColor="rgb(var(--text-muted))"
-                          />
-                        </>
+                        </View>
                       )}
                     </View>
                   )}
@@ -443,115 +481,31 @@ export default function ReportGeneratorDesktop() {
                     <Text className="text-typography-muted text-xs font-black uppercase tracking-[0.2em] mb-8 opacity-60">03. Tactical Parameters</Text>
                     <ScrollView showsVerticalScrollIndicator={false} className="max-h-[70vh]">
 
-                      {/* ── Legacy report params ── */}
-                      {(reportType === 'general' || reportType === 'workflow_analysis') && (
-                        <>
-                          <ParameterSection title="Pipeline Focus"   options={pipelines} value={pipelineId} onSelect={setPipelineId} placeholder="All Pipelines" />
-                          <ParameterSection title="Unit Allocation"  options={teams}     value={teamId}     onSelect={setTeamId}     placeholder="All Teams" />
-                          <ParameterSection title="Individual Asset" options={workers}   value={workerId}   onSelect={setWorkerId}   placeholder="All Personnel" labelKey="full_name" />
-                          <ParameterSection title="Priority Tier"
-                            options={[{ id: 'low', name: 'Low' }, { id: 'medium', name: 'Medium' }, { id: 'high', name: 'High' }, { id: 'critical', name: 'Critical' }]}
-                            value={priorityFilter} onSelect={setPriorityFilter} placeholder="All Tiers"
-                          />
-                        </>
-                      )}
+                      {selectedTypes.map((type, idx) => {
+                        const meta = REPORT_TYPES.find(r => r.value === type)!;
+                        return (
+                          <View key={type} className={`${idx > 0 ? 'mt-8 pt-8 border-t border-surface-border' : ''}`}>
+                            {isMulti && (
+                              <View className="flex-row items-center gap-3 mb-6">
+                                <View className="w-6 h-6 bg-brand-primary rounded-lg items-center justify-center">
+                                  <FontAwesome name={meta.icon as any} size={11} color="white" />
+                                </View>
+                                <Text className="text-typography-main text-xs font-black uppercase tracking-wider flex-1">{meta.label}</Text>
+                              </View>
+                            )}
 
-                      {reportType === 'worker_comparison' && (
-                        <>
-                          <ParameterSection title="Asset Alpha" options={workers} value={workerA_id} onSelect={setWorkerA_id} placeholder="Select Worker" labelKey="full_name" />
-                          <ParameterSection title="Asset Beta"  options={workers} value={workerB_id} onSelect={setWorkerB_id} placeholder="Select Worker" labelKey="full_name" />
-                        </>
-                      )}
-
-                      {reportType === 'team_comparison' && (
-                        <>
-                          <ParameterSection title="Unit Alpha" options={teams} value={teamA_id} onSelect={setTeamA_id} placeholder="Select Team" />
-                          <ParameterSection title="Unit Beta"  options={teams} value={teamB_id} onSelect={setTeamB_id} placeholder="Select Team" />
-                        </>
-                      )}
-
-                      {/* ── Analytics engine params ── */}
-                      {(reportType === 'user_performance_series' || reportType === 'user_performance_summary') && (
-                        <ParameterSection title="Worker" options={workers} value={singleUserId} onSelect={setSingleUserId} placeholder="Select Worker" labelKey="full_name" required />
-                      )}
-
-                      {(reportType === 'pipeline_stage_dwell' || reportType === 'pipeline_throughput') && (
-                        <ParameterSection title="Pipeline" options={pipelines} value={pipelineId} onSelect={setPipelineId} placeholder="Select Pipeline" required />
-                      )}
-
-                      {reportType === 'personnel_comparison' && (
-                        <>
-                          <View className="mb-8">
-                            <View className="flex-row items-center mb-4">
-                              <Text className="text-typography-main text-xs font-black uppercase tracking-widest flex-1">Workers</Text>
-                              <Text className="text-typography-muted text-[10px]">{selectedUserIds.length} selected (min 2)</Text>
-                            </View>
-                            <View className="flex-row flex-wrap gap-2">
-                              {workers.map(w => {
-                                const active = selectedUserIds.includes(w.id);
-                                return (
-                                  <TouchableOpacity
-                                    key={w.id}
-                                    onPress={() => toggleMultiUser(w.id)}
-                                    className={`px-4 py-2.5 rounded-xl border transition-all ${active ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
-                                  >
-                                    <Text className={`text-[11px] font-black uppercase tracking-tighter ${active ? 'text-white' : 'text-typography-main'}`}>
-                                      {w.full_name}
-                                    </Text>
-                                  </TouchableOpacity>
-                                );
-                              })}
-                            </View>
+                            <TypeParamPanel
+                              type={type}
+                              params={typeParams[type] || {}}
+                              setParam={(k, v) => setParam(type, k, v)}
+                              toggleMultiUser={(uid) => toggleMultiUser(type, uid)}
+                              pipelines={pipelines}
+                              teams={teams}
+                              workers={workers}
+                            />
                           </View>
-
-                          {selectedUserIds.length > 0 && (
-                            <View className="mb-8">
-                              <Text className="text-typography-main text-xs font-black uppercase tracking-widest mb-4">Daily Rate (USD) — Optional</Text>
-                              {selectedUserIds.map(uid => {
-                                const w = workers.find(x => x.id === uid);
-                                if (!w) return null;
-                                return (
-                                  <View key={uid} className="flex-row items-center gap-3 mb-3">
-                                    <Text className="text-typography-muted text-xs font-bold flex-1" numberOfLines={1}>{w.full_name}</Text>
-                                    <RNTextInput
-                                      value={salaries[uid]?.toString() ?? ''}
-                                      onChangeText={v => setSalaries(prev => ({ ...prev, [uid]: parseFloat(v) || 0 }))}
-                                      keyboardType="numeric"
-                                      placeholder="0.00"
-                                      className="border border-surface-border bg-surface-background rounded-xl px-4 py-3 text-typography-main font-bold w-28 text-right"
-                                      placeholderTextColor="rgb(var(--text-muted))"
-                                    />
-                                  </View>
-                                );
-                              })}
-                            </View>
-                          )}
-                        </>
-                      )}
-
-                      {reportType === 'targets_status' && (
-                        <View className="bg-brand-primary/5 border border-brand-primary/20 p-6 rounded-3xl">
-                          <View className="flex-row items-center gap-3 mb-3">
-                            <FontAwesome name="bullseye" size={16} color="var(--color-primary)" />
-                            <Text className="text-typography-main font-black text-sm">Company-Wide Scope</Text>
-                          </View>
-                          <Text className="text-typography-muted text-xs leading-5">
-                            This report includes all active, hit, and expired performance targets across every pipeline for your company. No additional filters required.
-                          </Text>
-                        </View>
-                      )}
-
-                      {reportType === 'personal_pulse' && (
-                        <View className="bg-brand-primary/5 border border-brand-primary/20 p-6 rounded-3xl">
-                          <View className="flex-row items-center gap-3 mb-3">
-                            <FontAwesome name="heartbeat" size={16} color="var(--color-primary)" />
-                            <Text className="text-typography-main font-black text-sm">Your Current Session</Text>
-                          </View>
-                          <Text className="text-typography-muted text-xs leading-5">
-                            Captures a real-time snapshot of your daily points, monthly points, active session time, and flap rate score at the moment of generation.
-                          </Text>
-                        </View>
-                      )}
+                        );
+                      })}
 
                     </ScrollView>
 
@@ -562,7 +516,10 @@ export default function ReportGeneratorDesktop() {
                           <Text className="text-[10px] font-black uppercase tracking-widest text-typography-main">Data Sovereignty</Text>
                         </View>
                         <Text className="text-typography-muted text-xs leading-5 font-medium">
-                          Reports are generated client-side and downloaded immediately. High-volume data sets may take 10–30 seconds to compile.
+                          {isMulti
+                            ? `Generating a combined ${selectedTypes.length}-module report. Data is fetched and assembled client-side before upload.`
+                            : 'Reports are generated client-side and downloaded immediately. High-volume data sets may take 10–30 seconds to compile.'
+                          }
                         </Text>
                       </View>
                     </View>
@@ -577,7 +534,7 @@ export default function ReportGeneratorDesktop() {
   );
 }
 
-// ── Sub-components ─────────────────────────────────────────────────────────
+// ── TypeCard ──────────────────────────────────────────────────────────────────
 
 function TypeCard({ opt, selected, onPress }: { opt: typeof REPORT_TYPES[number]; selected: boolean; onPress: () => void }) {
   return (
@@ -592,21 +549,269 @@ function TypeCard({ opt, selected, onPress }: { opt: typeof REPORT_TYPES[number]
         <Text className={`text-lg font-black ${selected ? 'text-brand-primary' : 'text-typography-main'}`}>{opt.label}</Text>
         <Text className="text-typography-muted mt-1 font-medium text-sm">{opt.desc}</Text>
       </View>
-      {selected && (
-        <View className="h-8 w-8 rounded-full bg-brand-primary items-center justify-center">
-          <FontAwesome name="check" size={12} color="white" />
-        </View>
-      )}
+      {/* Checkbox indicator — shows for all selected, not just one */}
+      <View className={`h-8 w-8 rounded-full border-2 items-center justify-center ${selected ? 'bg-brand-primary border-brand-primary' : 'border-surface-border'}`}>
+        {selected && <FontAwesome name="check" size={12} color="white" />}
+      </View>
     </TouchableOpacity>
   );
 }
+
+// ── TypeParamPanel ─────────────────────────────────────────────────────────────
+
+function TypeParamPanel({
+  type, params, setParam, toggleMultiUser, pipelines, teams, workers,
+}: {
+  type: ReportType;
+  params: Record<string, any>;
+  setParam: (key: string, value: any) => void;
+  toggleMultiUser: (uid: string) => void;
+  pipelines: any[];
+  teams: any[];
+  workers: any[];
+}) {
+  if (type === 'general' || type === 'workflow_analysis') {
+    return (
+      <>
+        <ParameterSection title="Pipeline Focus"   options={pipelines} value={params.pipeline_id || ''} onSelect={v => setParam('pipeline_id', v)} placeholder="All Pipelines" />
+        <ParameterSection title="Unit Allocation"  options={teams}     value={params.team_id     || ''} onSelect={v => setParam('team_id', v)}     placeholder="All Teams" />
+        <ParameterSection title="Individual Asset" options={workers}   value={params.worker_id   || ''} onSelect={v => setParam('worker_id', v)}   placeholder="All Personnel" labelKey="full_name" />
+        <ParameterSection title="Priority Tier"
+          options={[{ id: 'low', name: 'Low' }, { id: 'medium', name: 'Medium' }, { id: 'high', name: 'High' }, { id: 'critical', name: 'Critical' }]}
+          value={params.priority || ''} onSelect={v => setParam('priority', v)} placeholder="All Tiers"
+        />
+      </>
+    );
+  }
+
+  if (type === 'worker_comparison') {
+    const selectedIds: string[] = params.user_ids || [];
+    return (
+      <View className="mb-8">
+        <View className="flex-row items-center mb-4">
+          <Text className="text-typography-main text-xs font-semibold uppercase tracking-wide flex-1">People</Text>
+          <Text className="text-typography-muted text-[10px]">
+            {selectedIds.length === 0 ? 'All people (leave empty)' : `${selectedIds.length} selected`}
+          </Text>
+        </View>
+        <View className="flex-row flex-wrap gap-2">
+          {workers.map(w => {
+            const active = selectedIds.includes(w.id);
+            return (
+              <TouchableOpacity
+                key={w.id}
+                onPress={() => toggleMultiUser(w.id)}
+                className={`px-4 py-2.5 rounded-xl border transition-all ${active ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
+              >
+                <Text className={`text-[11px] font-semibold ${active ? 'text-white' : 'text-typography-main'}`}>
+                  {w.full_name}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        <Text className="text-typography-muted text-[10px] mt-3 leading-4">
+          Select 2 people for a head-to-head comparison, 3+ for a group table, or leave empty to compare everyone.
+        </Text>
+      </View>
+    );
+  }
+
+  if (type === 'team_comparison') {
+    const selectedIds: string[] = params.team_ids || [];
+    return (
+      <View className="mb-8">
+        <View className="flex-row items-center mb-4">
+          <Text className="text-typography-main text-xs font-semibold uppercase tracking-wide flex-1">Teams</Text>
+          <Text className="text-typography-muted text-[10px]">
+            {selectedIds.length === 0 ? 'All teams (leave empty)' : `${selectedIds.length} selected`}
+          </Text>
+        </View>
+        <View className="flex-row flex-wrap gap-2">
+          {teams.map(t => {
+            const active = selectedIds.includes(t.id);
+            return (
+              <TouchableOpacity
+                key={t.id}
+                onPress={() => setParam('team_ids', active ? selectedIds.filter(x => x !== t.id) : [...selectedIds, t.id])}
+                className={`px-4 py-2.5 rounded-xl border transition-all ${active ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
+              >
+                <Text className={`text-[11px] font-semibold ${active ? 'text-white' : 'text-typography-main'}`}>
+                  {t.name}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        <Text className="text-typography-muted text-[10px] mt-3 leading-4">
+          Select 2 teams for a head-to-head comparison, 3+ for a group table, or leave empty to compare all teams.
+        </Text>
+      </View>
+    );
+  }
+
+  if (type === 'user_performance_series' || type === 'user_performance_summary') {
+    return (
+      <>
+        <ParameterSection title="Person" options={workers} value={params.user_id || ''} onSelect={v => setParam('user_id', v)} placeholder="Select Person" labelKey="full_name" required />
+        {type === 'user_performance_series' && (
+          <SeriesControls
+            periodType={params.period_type || 'month'}
+            nPeriods={params.n_periods || '12'}
+            onPeriodType={v => setParam('period_type', v)}
+            onNPeriods={v => setParam('n_periods', v)}
+          />
+        )}
+      </>
+    );
+  }
+
+  if (type === 'pipeline_stage_dwell') {
+    return <ParameterSection title="Pipeline" options={pipelines} value={params.pipeline_id || ''} onSelect={v => setParam('pipeline_id', v)} placeholder="Select Pipeline" required />;
+  }
+
+  if (type === 'pipeline_throughput') {
+    return (
+      <>
+        <ParameterSection title="Pipeline" options={pipelines} value={params.pipeline_id || ''} onSelect={v => setParam('pipeline_id', v)} placeholder="Select Pipeline" required />
+        <SeriesControls
+          periodType={params.period_type || 'month'}
+          nPeriods={params.n_periods || '12'}
+          onPeriodType={v => setParam('period_type', v)}
+          onNPeriods={v => setParam('n_periods', v)}
+        />
+      </>
+    );
+  }
+
+  if (type === 'personnel_comparison') {
+    const selectedIds: string[] = params.user_ids || [];
+    const salaries: Record<string, number> = params.salaries || {};
+    return (
+      <>
+        <View className="mb-8">
+          <View className="flex-row items-center mb-4">
+            <Text className="text-typography-main text-xs font-semibold uppercase tracking-wide flex-1">People</Text>
+            <Text className="text-typography-muted text-[10px]">{selectedIds.length} selected (min 2)</Text>
+          </View>
+          <View className="flex-row flex-wrap gap-2">
+            {workers.map(w => {
+              const active = selectedIds.includes(w.id);
+              return (
+                <TouchableOpacity
+                  key={w.id}
+                  onPress={() => toggleMultiUser(w.id)}
+                  className={`px-4 py-2.5 rounded-xl border transition-all ${active ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
+                >
+                  <Text className={`text-[11px] font-semibold ${active ? 'text-white' : 'text-typography-main'}`}>
+                    {w.full_name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        {selectedIds.length > 0 && (
+          <View className="mb-8">
+            <Text className="text-typography-main text-xs font-semibold uppercase tracking-wide mb-4">Daily Rate (USD) — Optional</Text>
+            {selectedIds.map(uid => {
+              const w = workers.find(x => x.id === uid);
+              if (!w) return null;
+              return (
+                <View key={uid} className="flex-row items-center gap-3 mb-3">
+                  <Text className="text-typography-muted text-xs font-bold flex-1" numberOfLines={1}>{w.full_name}</Text>
+                  <RNTextInput
+                    value={salaries[uid]?.toString() ?? ''}
+                    onChangeText={v => setParam('salaries', { ...salaries, [uid]: parseFloat(v) || 0 })}
+                    keyboardType="numeric"
+                    placeholder="0.00"
+                    className="border border-surface-border bg-surface-background rounded-xl px-4 py-3 text-typography-main font-bold w-28 text-right"
+                    placeholderTextColor="rgb(var(--text-muted))"
+                  />
+                </View>
+              );
+            })}
+          </View>
+        )}
+      </>
+    );
+  }
+
+  if (type === 'targets_status') {
+    return (
+      <View className="bg-brand-primary/5 border border-brand-primary/20 p-6 rounded-3xl">
+        <View className="flex-row items-center gap-3 mb-3">
+          <FontAwesome name="bullseye" size={16} color="var(--color-primary)" />
+          <Text className="text-typography-main font-black text-sm">Company-Wide Scope</Text>
+        </View>
+        <Text className="text-typography-muted text-xs leading-5">
+          Includes all active, hit, and expired performance targets across every pipeline. No filters required.
+        </Text>
+      </View>
+    );
+  }
+
+  if (type === 'personal_pulse') {
+    return (
+      <View className="bg-brand-primary/5 border border-brand-primary/20 p-6 rounded-3xl">
+        <View className="flex-row items-center gap-3 mb-3">
+          <FontAwesome name="heartbeat" size={16} color="var(--color-primary)" />
+          <Text className="text-typography-main font-black text-sm">Your Current Session</Text>
+        </View>
+        <Text className="text-typography-muted text-xs leading-5">
+          Captures a real-time snapshot of your daily points, monthly points, active session time, and flap rate at the moment of generation.
+        </Text>
+      </View>
+    );
+  }
+
+  return null;
+}
+
+// ── SeriesControls ─────────────────────────────────────────────────────────────
+
+function SeriesControls({ periodType, nPeriods, onPeriodType, onNPeriods }: {
+  periodType: string;
+  nPeriods: string;
+  onPeriodType: (v: string) => void;
+  onNPeriods: (v: string) => void;
+}) {
+  return (
+    <>
+      <Text className="text-typography-muted text-[10px] font-bold uppercase mb-3 ml-1">Period Granularity</Text>
+      <View className="flex-row gap-4 mb-6">
+        {(['week', 'month', 'year'] as const).map(p => (
+          <TouchableOpacity
+            key={p}
+            onPress={() => onPeriodType(p)}
+            className={`flex-1 py-5 rounded-2xl border items-center transition-all ${periodType === p ? 'border-brand-primary bg-brand-primary' : 'border-surface-border bg-surface-background/40'}`}
+          >
+            <Text className={`font-semibold capitalize tracking-wide ${periodType === p ? 'text-white' : 'text-typography-main'}`}>{p}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      <Text className="text-typography-muted text-[10px] font-semibold uppercase mb-2 ml-1">Number of Periods</Text>
+      <RNTextInput
+        value={nPeriods}
+        onChangeText={onNPeriods}
+        keyboardType="numeric"
+        placeholder="12"
+        className="border border-surface-border bg-surface-background rounded-2xl p-5 text-typography-main font-bold mb-8"
+        placeholderTextColor="rgb(var(--text-muted))"
+      />
+    </>
+  );
+}
+
+// ── ParameterSection ───────────────────────────────────────────────────────────
 
 function ParameterSection({ title, options, value, onSelect, placeholder, labelKey = 'name', required = false }: any) {
   return (
     <View className="mb-8">
       <View className="flex-row items-center mb-4">
-        <Text className="text-typography-main text-xs font-black uppercase tracking-widest flex-1">{title}</Text>
-        {required && <Text className="text-state-danger text-[9px] font-black uppercase tracking-widest">Required</Text>}
+        <Text className="text-typography-main text-xs font-semibold uppercase tracking-wide flex-1">{title}</Text>
+        {required && <Text className="text-state-danger text-[9px] font-semibold uppercase tracking-wide">Required</Text>}
       </View>
       <View className="flex-row flex-wrap gap-2">
         {!required && (
@@ -614,7 +819,7 @@ function ParameterSection({ title, options, value, onSelect, placeholder, labelK
             onPress={() => onSelect('')}
             className={`px-4 py-2.5 rounded-xl border transition-all ${!value ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border hover:bg-surface-overlay'}`}
           >
-            <Text className={`text-[11px] font-black uppercase tracking-tighter ${!value ? 'text-white' : 'text-typography-muted'}`}>{placeholder}</Text>
+            <Text className={`text-[11px] font-semibold ${!value ? 'text-white' : 'text-typography-muted'}`}>{placeholder}</Text>
           </TouchableOpacity>
         )}
         {options.map((opt: any) => (
@@ -623,7 +828,7 @@ function ParameterSection({ title, options, value, onSelect, placeholder, labelK
             onPress={() => onSelect(opt.id)}
             className={`px-4 py-2.5 rounded-xl border transition-all ${value === opt.id ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border hover:bg-surface-overlay'}`}
           >
-            <Text className={`text-[11px] font-black uppercase tracking-tighter ${value === opt.id ? 'text-white' : 'text-typography-main'}`}>{opt[labelKey]}</Text>
+            <Text className={`text-[11px] font-semibold ${value === opt.id ? 'text-white' : 'text-typography-main'}`}>{opt[labelKey]}</Text>
           </TouchableOpacity>
         ))}
       </View>

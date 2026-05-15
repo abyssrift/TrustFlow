@@ -2,6 +2,7 @@ import { ReportConfigModal } from '@/components/intelligence/IntelligenceModals'
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
@@ -59,18 +60,19 @@ const STATUS_BG: Record<string, string> = {
 };
 
 const REPORT_META: Record<string, { label: string; icon: string }> = {
-  general:                   { label: 'Tactical Performance Audit',  icon: 'bar-chart'     },
-  performance_audit:         { label: 'Tactical Performance Audit',  icon: 'bar-chart'     },
-  worker_comparison:         { label: 'Personnel Benchmarking',      icon: 'users'         },
-  team_comparison:           { label: 'Structural Matrix Analysis',  icon: 'group'         },
-  workflow_analysis:         { label: 'Pipeline Bottleneck Scan',    icon: 'rocket'        },
-  user_performance_series:   { label: 'Worker Performance Timeline', icon: 'line-chart'    },
-  user_performance_summary:  { label: 'Worker Performance Summary',  icon: 'user'          },
+  general:                   { label: 'Overview',                  icon: 'bar-chart'     },
+  performance_audit:         { label: 'Overview',                  icon: 'bar-chart'     },
+  worker_comparison:         { label: 'People Comparison',         icon: 'users'         },
+  team_comparison:           { label: 'Team Comparison',           icon: 'group'         },
+  workflow_analysis:         { label: 'Pipeline Review',           icon: 'rocket'        },
+  user_performance_series:   { label: 'Performance Timeline',      icon: 'line-chart'    },
+  user_performance_summary:  { label: 'Performance Summary',       icon: 'user'          },
   pipeline_stage_dwell:      { label: 'Stage Dwell Analysis',        icon: 'clock-o'       },
   pipeline_throughput:       { label: 'Pipeline Throughput',         icon: 'area-chart'    },
-  personnel_comparison:      { label: 'Multi-Personnel Comparison',  icon: 'balance-scale' },
-  targets_status:            { label: 'Objectives & SLA Report',     icon: 'bullseye'      },
-  personal_pulse:            { label: 'Personal Activity Snapshot',  icon: 'heartbeat'     },
+  personnel_comparison:      { label: 'People Cost Comparison',     icon: 'balance-scale' },
+  targets_status:            { label: 'Objectives & SLA Report',    icon: 'bullseye'      },
+  personal_pulse:            { label: 'Personal Snapshot',          icon: 'heartbeat'     },
+  multi_report:              { label: 'Combined Report Bundle',       icon: 'files-o'       },
 };
 
 function getReportSubtitle(r: any): string {
@@ -89,13 +91,13 @@ function getReportSubtitle(r: any): string {
     case 'pipeline_throughput':
       return `${p.period_type ?? 'month'} throughput · ${p.n_periods ?? 12} periods`;
     case 'personnel_comparison':
-      return `${(p.user_ids ?? []).length} workers compared · ${p.days ?? 30}d window`;
+      return `${(p.user_ids ?? []).length} people compared · ${p.days ?? 30}d window`;
     case 'targets_status':
       return 'All company objectives';
     case 'personal_pulse':
       return 'Real-time activity snapshot';
     case 'worker_comparison':
-      return `Worker A vs Worker B · ${p.days ?? 30}d window`;
+      return `Person A vs Person B · ${p.days ?? 30}d window`;
     case 'team_comparison':
       return `Team A vs Team B · ${p.days ?? 30}d window`;
     default:
@@ -106,6 +108,7 @@ function getReportSubtitle(r: any): string {
 const POLL_INTERVAL_MS = 4000;
 
 export default function IntelligenceReports() {
+  const router = useRouter();
   const [reports, setReports]         = useState<any[]>([]);
   const [loading, setLoading]         = useState(true);
   const [showModal, setShowModal]     = useState(false);
@@ -192,7 +195,7 @@ export default function IntelligenceReports() {
           <TouchableOpacity onPress={fetchReports} className="h-10 w-10 items-center justify-center bg-surface-card border border-surface-border rounded-xl">
             <FontAwesome name="refresh" size={13} color="var(--color-primary)" />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => setShowModal(true)} className="bg-brand-primary px-6 py-2.5 rounded-xl flex-row items-center gap-2">
+          <TouchableOpacity onPress={() => router.push('/intelligence/ReportGenerator')} className="bg-brand-primary px-6 py-2.5 rounded-xl flex-row items-center gap-2">
             <FontAwesome name="file-pdf-o" size={12} color="white" />
             <Text className="text-white font-black uppercase tracking-widest text-[11px]">Generate Report</Text>
           </TouchableOpacity>
@@ -213,7 +216,7 @@ export default function IntelligenceReports() {
             <Text className="text-typography-muted text-center mb-6 text-sm leading-relaxed">
               Generate a PDF audit report to track performance, compliance, and team health metrics.
             </Text>
-            <TouchableOpacity onPress={() => setShowModal(true)} className="bg-brand-primary px-8 py-3 rounded-2xl">
+            <TouchableOpacity onPress={() => router.push('/intelligence/ReportGenerator')} className="bg-brand-primary px-8 py-3 rounded-2xl">
               <Text className="text-white font-black uppercase tracking-widest text-xs">Generate First Report</Text>
             </TouchableOpacity>
           </View>

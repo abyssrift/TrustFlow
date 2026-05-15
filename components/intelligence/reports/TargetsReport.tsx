@@ -1,6 +1,6 @@
 import React from 'react'
 import { Document, Page, View, Text, StyleSheet } from '@react-pdf/renderer'
-import { C, F, base, statusColor } from './theme'
+import { C, F, base } from './theme'
 import { Cover, Footer, Section, Sub, KpiRow, Table, HBar, Empty, Insight, sf, fmtDate } from './shared'
 
 const s = StyleSheet.create({
@@ -25,7 +25,7 @@ export interface TargetsData {
   company: string
 }
 
-export function TargetsReport({ data, jobId }: { data: TargetsData; jobId: string }) {
+export function TargetsReportPages({ data, jobId }: { data: TargetsData; jobId: string }) {
   const { targets, company } = data
 
   const hit     = targets.filter(t => t.status === 'hit')
@@ -61,7 +61,7 @@ export function TargetsReport({ data, jobId }: { data: TargetsData; jobId: strin
   }
 
   return (
-    <Document>
+    <>
       <Cover
         title="Objectives & SLA Report"
         subtitle="All active, hit, and expired performance targets"
@@ -110,6 +110,14 @@ export function TargetsReport({ data, jobId }: { data: TargetsData; jobId: strin
 
         <Footer jobId={jobId} />
       </Page>
+    </>
+  )
+}
+
+export function TargetsReport({ data, jobId }: { data: TargetsData; jobId: string }) {
+  return (
+    <Document>
+      <TargetsReportPages data={data} jobId={jobId} />
     </Document>
   )
 }

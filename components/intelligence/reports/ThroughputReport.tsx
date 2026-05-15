@@ -19,7 +19,7 @@ export interface ThroughputData {
   company: string
 }
 
-export function ThroughputReport({ data, jobId }: { data: ThroughputData; jobId: string }) {
+export function ThroughputReportPages({ data, jobId }: { data: ThroughputData; jobId: string }) {
   const { rows, pipelineName, periodType, nPeriods } = data
 
   const validRows    = rows.filter(r => (r.tasks_succeeded || 0) + (r.tasks_failed || 0) > 0)
@@ -32,7 +32,7 @@ export function ThroughputReport({ data, jobId }: { data: ThroughputData; jobId:
     : null
 
   return (
-    <Document>
+    <>
       <Cover
         title="Pipeline Throughput Report"
         subtitle="Period success / failure rates across a pipeline"
@@ -98,6 +98,14 @@ export function ThroughputReport({ data, jobId }: { data: ThroughputData; jobId:
 
         <Footer jobId={jobId} />
       </Page>
+    </>
+  )
+}
+
+export function ThroughputReport({ data, jobId }: { data: ThroughputData; jobId: string }) {
+  return (
+    <Document>
+      <ThroughputReportPages data={data} jobId={jobId} />
     </Document>
   )
 }

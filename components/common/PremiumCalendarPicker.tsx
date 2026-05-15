@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, TouchableOpacity, useWindowDimensions, Platform } from 'react-native';
+import { useThemeColors } from '@/hooks/useThemeColors';
 import { FontAwesome } from '@expo/vector-icons';
+import React, { useMemo, useState } from 'react';
+import { Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
 
 cssInterop(FontAwesome, {
@@ -32,7 +33,9 @@ const QUICK_ACTIONS = [
   { label: '+1 Month',  days: 30 },
 ];
 
-export default function PremiumCalendarPicker({ selectedDate, onSelect, accentColor = 'rgb(var(--brand-primary))', compact = false }: Props) {
+export default function PremiumCalendarPicker({ selectedDate, onSelect, accentColor, compact = false }: Props) {
+  const colors = useThemeColors();
+  const resolvedAccentColor = accentColor ?? colors.primary;
   const { width } = useWindowDimensions();
   const isDesktop = !compact && width > 768;
 
@@ -115,12 +118,13 @@ export default function PremiumCalendarPicker({ selectedDate, onSelect, accentCo
                       ? 'bg-brand-primary/10 border border-brand-primary/30' 
                       : 'hover:bg-surface-overlay'
                 }`}
+                style={isSelected(day, y, m) ? { backgroundColor: resolvedAccentColor } : undefined}
               >
                 <Text className={`text-xs font-bold ${isSelected(day, y, m) ? 'text-white' : 'text-typography-main'}`}>
                   {day}
                 </Text>
                 {isToday(day, y, m) && !isSelected(day, y, m) && (
-                  <View className="absolute bottom-1 w-1 h-1 rounded-full bg-brand-primary" />
+                  <View className="absolute bottom-1 w-1 h-1 rounded-full" style={{ backgroundColor: resolvedAccentColor }} />
                 )}
               </TouchableOpacity>
             ) : (
