@@ -1,6 +1,6 @@
 import { Document, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
 import React from 'react'
-import { Cover, Empty, Footer, HBar, Insight, KpiRow, Section, Sub, Table, sf } from './shared'
+import { Cover, Empty, Footer, HBar, Insight, KpiRow, Section, SectionDivider, Sub, Table, sf } from './shared'
 import { C, F, base } from './theme'
 
 const s = StyleSheet.create({
@@ -18,7 +18,34 @@ export interface GeneralData {
   dateRange: string
 }
 
-export function GeneralReportPages({ data, jobId }: { data: GeneralData; jobId: string }) {
+export function computeGeneralInsights(data: GeneralData): { text: string; color: string }[] {
+  const a = data.audit || {}
+  const cur = a.current || {}
+  const slaRisks = a.sla_risks || []
+  const radar = a.radar_advanced || {}
+  const wtm = (a.worker_time_metrics || []).map((w: any) => ({
+    ...w, tasks_per_hour: w.total_hours > 0 ? w.task_count / w.total_hours : 0,
+  }))
+  const ins: { text: string; color: string }[] = []
+  if ((cur.success_rate || 0) >= 80)
+    ins.push({ text: `Strong success rate of ${sf(cur.success_rate, 1)}% — quality control is working.`, color: C.success })
+  if ((cur.success_rate || 0) > 0 && (cur.success_rate || 0) < 50)
+    ins.push({ text: `Success rate of ${sf(cur.success_rate, 1)}% is below 50%. Investigate root causes of task failure.`, color: C.warning })
+  if ((cur.revision_rate || 0) > 30)
+    ins.push({ text: `Revision rate of ${sf(cur.revision_rate, 1)}% indicates significant rework. Consider quality gates earlier in the pipeline.`, color: C.warning })
+  if (slaRisks.length > 0)
+    ins.push({ text: `${slaRisks.length} task${slaRisks.length > 1 ? 's are' : ' is'} at SLA risk (≥99% risk score). Immediate attention required.`, color: C.danger })
+  if ((radar.first_pass_yield || 0) > 0)
+    ins.push({ text: `First-pass yield: ${sf(radar.first_pass_yield, 1)}% without revision. Flow ratio: ${sf(radar.flow_ratio, 1)}%.`, color: C.primary })
+  const top = wtm.length > 0 ? wtm[0] : null
+  if (top && top.tasks_per_hour > 0)
+    ins.push({ text: `Top performer: ${top.full_name} at ${sf(top.tasks_per_hour, 1)} tasks/hour.`, color: C.success })
+  if (ins.length === 0)
+    ins.push({ text: 'Insufficient data for automated insights. Expand the date range for more meaningful analysis.', color: C.primary })
+  return ins
+}
+
+export function GeneralReportPages({ data, jobId, isModule }: { data: GeneralData; jobId: string; isModule?: boolean }) {
   const a   = data.audit || {}
   const cur = a.current   || {}
   const cmp = a.comparison || {}
@@ -66,15 +93,10 @@ export function GeneralReportPages({ data, jobId }: { data: GeneralData; jobId: 
 
   return (
     <>
-      <Cover
-        title="Performance Audit"
-        subtitle="Tactical organizational metrics and pipeline health"
-        company={data.company}
-        dateRange={data.dateRange}
-      />
+      {!isModule && <Cover title="Performance Audit" subtitle="Tactical organizational metrics and pipeline health" company={data.company} dateRange={data.dateRange} />}
 
-      {/* ── Page 2: KPIs + Stage Funnel ── */}
       <Page size="A4" style={s.page}>
+        {isModule && <SectionDivider title="Performance Audit" company={data.company} dateRange={data.dateRange} />}
         <Section title="Key Performance Indicators" />
         <KpiRow items={[
           { label: 'Throughput',    value: String(cur.throughput || 0),                    note: delta(cur.throughput || 0, cmp.throughput || 0),                  accent: C.primary },
@@ -212,12 +234,13 @@ export function GeneralReportPages({ data, jobId }: { data: GeneralData; jobId: 
         <Footer jobId={jobId} />
       </Page>
 
-      {/* ── Page 5: Insights ── */}
-      <Page size="A4" style={s.page}>
-        <Section title="Insights & Recommendations" />
-        {insights.map((ins, i) => <Insight key={i} text={ins.text} color={ins.color} />)}
-        <Footer jobId={jobId} />
-      </Page>
+      {!isModule && (
+        <Page size="A4" style={s.page}>
+          <Section title="Insights & Recommendations" />
+          {insights.map((ins, i) => <Insight key={i} text={ins.text} color={ins.color} />)}
+          <Footer jobId={jobId} />
+        </Page>
+      )}
     </>
   )
 }

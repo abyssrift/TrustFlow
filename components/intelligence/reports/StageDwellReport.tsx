@@ -1,7 +1,7 @@
 import React from 'react'
 import { Document, Page, StyleSheet } from '@react-pdf/renderer'
 import { C, base } from './theme'
-import { Cover, Footer, Section, Sub, KpiRow, Table, HBar, Empty, Insight, sf, fmtDate, fmtSec } from './shared'
+import { Cover, Footer, Section, SectionDivider, Sub, KpiRow, Table, HBar, Empty, Insight, sf, fmtDate, fmtSec } from './shared'
 
 const s = StyleSheet.create({ page: { ...base.page } })
 
@@ -13,7 +13,7 @@ export interface StageDwellData {
   company: string
 }
 
-export function StageDwellReportPages({ data, jobId }: { data: StageDwellData; jobId: string }) {
+export function StageDwellReportPages({ data, jobId, isModule }: { data: StageDwellData; jobId: string; isModule?: boolean }) {
   const { rows, pipelineName, dateStart, dateEnd } = data
 
   const bottlenecks   = rows.filter(r => r.is_bottleneck)
@@ -23,14 +23,17 @@ export function StageDwellReportPages({ data, jobId }: { data: StageDwellData; j
 
   return (
     <>
-      <Cover
-        title="Stage Dwell Analysis"
-        subtitle="Avg / median / P75 dwell, bottleneck flags, reversal counts"
-        company={pipelineName}
-        dateRange={`${fmtDate(dateStart)} — ${fmtDate(dateEnd)}`}
-      />
+      {!isModule && (
+        <Cover
+          title="Stage Dwell Analysis"
+          subtitle="Avg / median / P75 dwell, bottleneck flags, reversal counts"
+          company={pipelineName}
+          dateRange={`${fmtDate(dateStart)} — ${fmtDate(dateEnd)}`}
+        />
+      )}
 
       <Page size="A4" style={s.page}>
+        {isModule && <SectionDivider title="Stage Dwell Analysis" company={pipelineName} dateRange={`${fmtDate(dateStart)} — ${fmtDate(dateEnd)}`} />}
         <Section title={`Dwell Times — ${pipelineName}`} />
 
         <KpiRow items={[

@@ -1,14 +1,15 @@
-import { Document, pdf } from '@react-pdf/renderer'
+import { Document, Page, pdf } from '@react-pdf/renderer'
 import { SupabaseClient } from '@supabase/supabase-js'
 import React from 'react'
 
-import { GeneralData, GeneralReport, GeneralReportPages } from './GeneralReport'
+import { GeneralData, GeneralReport, GeneralReportPages, computeGeneralInsights } from './GeneralReport'
 import { PersonalPulseData, PersonalPulseReport, PersonalPulseReportPages } from './PersonalPulseReport'
 import { PersonnelData, PersonnelReport, PersonnelReportPages } from './PersonnelReport'
-import { fmtDate } from './shared'
+import { Footer, Insight, Section, fmtDate } from './shared'
 import { StageDwellData, StageDwellReport, StageDwellReportPages } from './StageDwellReport'
 import { TargetsData, TargetsReport, TargetsReportPages } from './TargetsReport'
 import { TeamComparisonData, TeamComparisonReport, TeamComparisonReportPages } from './TeamComparisonReport'
+import { base } from './theme'
 import { ThroughputData, ThroughputReport, ThroughputReportPages } from './ThroughputReport'
 import { UserSeriesData, UserSeriesReport, UserSeriesReportPages } from './UserSeriesReport'
 import { UserSummaryData, UserSummaryReport, UserSummaryReportPages } from './UserSummaryReport'
@@ -197,6 +198,11 @@ async function fetchPersonalPulse(sb: SupabaseClient, userId: string, companyNam
 
 // ── Multi-report: build pages for a single module ─────────────────────────────
 
+type ModuleResult = {
+  element: React.ReactElement
+  insights: { text: string; color: string }[]
+}
+
 async function buildReportSection(
   type: string,
   p: any,
@@ -204,52 +210,59 @@ async function buildReportSection(
   userId: string,
   company: string,
   jobId: string,
-): Promise<React.ReactElement> {
+  isModule = false,
+): Promise<ModuleResult> {
   switch (type) {
     case 'general':
     case 'workflow_analysis': {
       const data = await fetchGeneral(sb, p, userId, company)
-      return React.createElement(GeneralReportPages, { data, jobId })
+      return {
+        element: React.createElement(GeneralReportPages, { data, jobId, isModule }),
+        insights: computeGeneralInsights(data),
+      }
     }
     case 'worker_comparison': {
       const data = await fetchWorkerComparison(sb, p, company)
-      return React.createElement(WorkerComparisonReportPages, { data, jobId })
+      return { element: React.createElement(WorkerComparisonReportPages, { data, jobId, isModule }), insights: [] }
     }
     case 'team_comparison': {
       const data = await fetchTeamComparison(sb, p, company)
-      return React.createElement(TeamComparisonReportPages, { data, jobId })
+      return { element: React.createElement(TeamComparisonReportPages, { data, jobId, isModule }), insights: [] }
     }
     case 'user_performance_series': {
       const data = await fetchUserSeries(sb, p, userId, company)
-      return React.createElement(UserSeriesReportPages, { data, jobId })
+      return { element: React.createElement(UserSeriesReportPages, { data, jobId, isModule }), insights: [] }
     }
     case 'user_performance_summary': {
       const data = await fetchUserSummary(sb, p, company)
-      return React.createElement(UserSummaryReportPages, { data, jobId })
+      return { element: React.createElement(UserSummaryReportPages, { data, jobId, isModule }), insights: [] }
     }
     case 'pipeline_stage_dwell': {
       const data = await fetchStageDwell(sb, p, company)
-      return React.createElement(StageDwellReportPages, { data, jobId })
+      return { element: React.createElement(StageDwellReportPages, { data, jobId, isModule }), insights: [] }
     }
     case 'pipeline_throughput': {
       const data = await fetchThroughput(sb, p, company)
-      return React.createElement(ThroughputReportPages, { data, jobId })
+      return { element: React.createElement(ThroughputReportPages, { data, jobId, isModule }), insights: [] }
     }
     case 'personnel_comparison': {
       const data = await fetchPersonnel(sb, p, company)
-      return React.createElement(PersonnelReportPages, { data, jobId })
+      return { element: React.createElement(PersonnelReportPages, { data, jobId, isModule }), insights: [] }
     }
     case 'targets_status': {
       const data = await fetchTargets(sb, company)
-      return React.createElement(TargetsReportPages, { data, jobId })
+      return { element: React.createElement(TargetsReportPages, { data, jobId, isModule }), insights: [] }
     }
     case 'personal_pulse': {
       const data = await fetchPersonalPulse(sb, userId, company)
-      return React.createElement(PersonalPulseReportPages, { data, jobId })
+      return { element: React.createElement(PersonalPulseReportPages, { data, jobId, isModule }), insights: [] }
     }
     default: {
       const data = await fetchGeneral(sb, p, userId, company)
-      return React.createElement(GeneralReportPages, { data, jobId })
+      return {
+        element: React.createElement(GeneralReportPages, { data, jobId, isModule }),
+        insights: computeGeneralInsights(data),
+      }
     }
   }
 }
@@ -277,11 +290,29 @@ export async function generateAndUploadReport(
       const modules = (p.modules || []) as Array<{ type: string; parameters: any }>
       if (modules.length === 0) throw new Error('No report modules specified')
 
-      const sections = await Promise.all(
-        modules.map(m => buildReportSection(m.type, m.parameters || {}, sb, userId, company, jobId))
+      const results = await Promise.all(
+        modules.map(m => buildReportSection(m.type, m.parameters || {}, sb, userId, company, jobId, true))
       )
 
-      element = React.createElement(Document, null, ...sections)
+      const sectionElements = results.map(r => r.element)
+      const allInsights = results.flatMap(r => r.insights)
+
+      const children: React.ReactElement[] = [...sectionElements]
+
+      if (allInsights.length > 0) {
+        const insightsPage = React.createElement(
+          Page,
+          { size: 'A4', style: base.page },
+          React.createElement(Section, { title: 'Insights & Recommendations' }),
+          ...allInsights.map((ins, i) =>
+            React.createElement(Insight, { key: String(i), text: ins.text, color: ins.color })
+          ),
+          React.createElement(Footer, { jobId })
+        )
+        children.push(insightsPage)
+      }
+
+      element = React.createElement(Document, null, ...children)
     } else {
       switch (reportType) {
         case 'general':

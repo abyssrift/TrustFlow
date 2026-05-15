@@ -1,6 +1,6 @@
 import { Document, Page, StyleSheet } from '@react-pdf/renderer'
 import React from 'react'
-import { Cover, Empty, Footer, HBar, Insight, KpiRow, Section, Sub, Table, fmtDate, sf } from './shared'
+import { Cover, Empty, Footer, HBar, Insight, KpiRow, Section, SectionDivider, Sub, Table, fmtDate, sf } from './shared'
 import { C, base } from './theme'
 
 const s = StyleSheet.create({ page: { ...base.page } })
@@ -13,14 +13,16 @@ export interface PersonnelData {
   hasSalaries: boolean
 }
 
-export function PersonnelReportPages({ data, jobId }: { data: PersonnelData; jobId: string }) {
+export function PersonnelReportPages({ data, jobId, isModule }: { data: PersonnelData; jobId: string; isModule?: boolean }) {
   const { rows, dateStart, dateEnd, hasSalaries } = data
+  const dr = `${fmtDate(dateStart)} — ${fmtDate(dateEnd)}`
 
   if (rows.length === 0) {
     return (
       <>
-        <Cover title="People Cost Comparison" subtitle="Cost analysis, points/hour & efficiency across people" company={data.company} dateRange={`${fmtDate(dateStart)} — ${fmtDate(dateEnd)}`} />
+        {!isModule && <Cover title="People Cost Comparison" subtitle="Cost analysis, points/hour & efficiency across people" company={data.company} dateRange={dr} />}
         <Page size="A4" style={s.page}>
+          {isModule && <SectionDivider title="People Cost Comparison" company={data.company} dateRange={dr} />}
           <Section title="Personnel Metrics" />
           <Empty msg="No data for the selected people in this period." />
           <Footer jobId={jobId} />
@@ -38,14 +40,10 @@ export function PersonnelReportPages({ data, jobId }: { data: PersonnelData; job
 
   return (
     <>
-      <Cover
-        title="People Cost Comparison"
-        subtitle="Cost analysis, points/hour & efficiency across people"
-        company={data.company}
-        dateRange={`${fmtDate(dateStart)} — ${fmtDate(dateEnd)}`}
-      />
+      {!isModule && <Cover title="People Cost Comparison" subtitle="Cost analysis, points/hour & efficiency across people" company={data.company} dateRange={dr} />}
 
       <Page size="A4" style={s.page}>
+        {isModule && <SectionDivider title="People Cost Comparison" company={data.company} dateRange={dr} />}
         <Section title="Personnel Overview" />
 
         <KpiRow items={[

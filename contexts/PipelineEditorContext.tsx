@@ -27,6 +27,7 @@ export type Stage = {
   terminal_type: 'success' | 'failure' | null;
   requires_submission: boolean;
   requires_timer: boolean;
+  min_timer_seconds: number;
   use_business_hours: boolean;
   linked_pipeline_id: string | null;
   child_inherits_submission: boolean;
@@ -458,6 +459,7 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
           terminal_type: stage.terminal_type || null,
           requires_submission: stage.requires_submission || false,
           requires_timer: stage.requires_timer || false,
+          min_timer_seconds: stage.min_timer_seconds ?? 300,
           use_business_hours: stage.use_business_hours || false,
           ui_metadata: stage.ui_metadata || { x: 0, y: 0 },
         }));
@@ -635,6 +637,7 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
         p_requires_timer: args.requires_timer || false,
         p_use_business_hours: args.use_business_hours || false,
         p_ui_metadata: args.ui_metadata || { x: 0, y: 0 },
+        p_min_timer_seconds: args.min_timer_seconds ?? 300,
       });
       if (e) throw e;
       await refreshPipelineData();
@@ -665,6 +668,7 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
         p_use_business_hours: args.use_business_hours ?? null,
         p_linked_pipeline_id: args.linked_pipeline_id ?? null,
         p_ui_metadata: args.ui_metadata ?? null,
+        p_min_timer_seconds: args.min_timer_seconds ?? null,
       });
       if (e) throw e;
       await refreshPipelineData();

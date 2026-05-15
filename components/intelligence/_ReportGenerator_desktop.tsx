@@ -378,6 +378,15 @@ export default function ReportGeneratorDesktop() {
                 )}
               </View>
 
+              {loading && (
+                <View className="bg-state-warning/10 border border-state-warning/30 rounded-2xl px-8 py-4 mb-4 flex-row items-center gap-4">
+                  <FontAwesome name="warning" size={15} color="rgb(var(--state-warning))" />
+                  <Text className="text-state-warning font-semibold text-sm flex-1">
+                    Don't close or navigate away — reports are actively being generated. Leaving will cancel the remaining jobs.
+                  </Text>
+                </View>
+              )}
+
               {genError && (
                 <View className="bg-state-danger/10 border border-state-danger/30 rounded-2xl px-8 py-5 mb-8 flex-row items-center gap-4">
                   <FontAwesome name="exclamation-circle" size={18} color="rgb(var(--state-danger))" />

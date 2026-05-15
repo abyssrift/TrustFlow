@@ -93,10 +93,37 @@ export function Footer({ jobId, pageNum }: { jobId: string; pageNum?: number }) 
   )
 }
 
+// ── Section Divider (module header, replaces Cover in multi-report mode) ─────
+
+const divS = StyleSheet.create({
+  wrap:  { borderRadius: 4, marginBottom: 12, overflow: 'hidden', borderWidth: 1, borderColor: C.border },
+  top:   { backgroundColor: C.primary, paddingHorizontal: 10, paddingVertical: 4, flexDirection: 'row', alignItems: 'center' },
+  dot:   { width: 4, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.6)', marginRight: 6 },
+  brand: { color: 'rgba(255,255,255,0.85)', fontSize: F.xs, fontFamily: 'Helvetica-Bold', letterSpacing: 2 },
+  body:  { paddingHorizontal: 10, paddingTop: 7, paddingBottom: 7, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f1f5f9' },
+  title: { color: C.text, fontSize: F.md, fontFamily: 'Helvetica-Bold' },
+  meta:  { color: C.muted, fontSize: F.xs },
+})
+
+export function SectionDivider({ title, company, dateRange }: { title: string; company: string; dateRange: string }) {
+  return (
+    <View style={divS.wrap}>
+      <View style={divS.top}>
+        <View style={divS.dot} />
+        <Text style={divS.brand}>TRUSTFLOW INTELLIGENCE</Text>
+      </View>
+      <View style={divS.body}>
+        <Text style={divS.title}>{title}</Text>
+        <Text style={divS.meta}>{company} · {dateRange}</Text>
+      </View>
+    </View>
+  )
+}
+
 // ── Section Header ────────────────────────────────────────────────────────────
 
 const sectionS = StyleSheet.create({
-  wrap: { backgroundColor: C.primary, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, marginBottom: 14 },
+  wrap: { backgroundColor: C.primary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, marginBottom: 10 },
   text: { color: '#ffffff', fontSize: F.md, fontFamily: 'Helvetica-Bold', letterSpacing: 0.5 },
 })
 
@@ -111,7 +138,7 @@ export function Section({ title }: { title: string }) {
 // ── Sub-heading ───────────────────────────────────────────────────────────────
 
 const subS = StyleSheet.create({
-  wrap: { borderLeftWidth: 3, borderLeftColor: C.primary, paddingLeft: 8, marginBottom: 10, marginTop: 6 },
+  wrap: { borderLeftWidth: 3, borderLeftColor: C.primary, paddingLeft: 8, marginBottom: 8, marginTop: 4 },
   text: { color: C.text, fontSize: F.base, fontFamily: 'Helvetica-Bold' },
 })
 
@@ -126,10 +153,10 @@ export function Sub({ title }: { title: string }) {
 // ── KPI Row ───────────────────────────────────────────────────────────────────
 
 const kpiS = StyleSheet.create({
-  row: { flexDirection: 'row', gap: 10, marginBottom: 16 },
-  card: { flex: 1, backgroundColor: C.bg, borderRadius: 8, padding: 14, borderWidth: 1, borderColor: C.border, borderLeftWidth: 3 },
-  label: { color: C.muted, fontSize: F.xs, fontFamily: 'Helvetica-Bold', letterSpacing: 0.5, marginBottom: 6, textTransform: 'uppercase' },
-  value: { color: C.text, fontSize: F.xl, fontFamily: 'Helvetica-Bold', marginBottom: 4 },
+  row: { flexDirection: 'row', gap: 8, marginBottom: 10 },
+  card: { flex: 1, backgroundColor: C.bg, borderRadius: 6, padding: 10, borderWidth: 1, borderColor: C.border, borderLeftWidth: 3 },
+  label: { color: C.muted, fontSize: F.xs, fontFamily: 'Helvetica-Bold', letterSpacing: 0.5, marginBottom: 4, textTransform: 'uppercase' },
+  value: { color: C.text, fontSize: F.xl, fontFamily: 'Helvetica-Bold', marginBottom: 2 },
   note: { fontSize: F.xs },
 })
 
@@ -152,10 +179,10 @@ export function KpiRow({ items }: {
 // ── Table ─────────────────────────────────────────────────────────────────────
 
 const tableS = StyleSheet.create({
-  wrap: { marginBottom: 16, borderRadius: 6, overflow: 'hidden', borderWidth: 1, borderColor: C.border },
-  header: { flexDirection: 'row', backgroundColor: C.primary, paddingVertical: 7, paddingHorizontal: 10 },
+  wrap: { marginBottom: 10, borderRadius: 6, overflow: 'hidden', borderWidth: 1, borderColor: C.border },
+  header: { flexDirection: 'row', backgroundColor: C.primary, paddingVertical: 5, paddingHorizontal: 8 },
   headerCell: { color: '#ffffff', fontSize: F.xs, fontFamily: 'Helvetica-Bold', letterSpacing: 0.3 },
-  row: { flexDirection: 'row', paddingVertical: 6, paddingHorizontal: 10, borderTopWidth: 1, borderTopColor: C.border },
+  row: { flexDirection: 'row', paddingVertical: 4, paddingHorizontal: 8, borderTopWidth: 1, borderTopColor: C.border },
   cell: { fontSize: F.sm, color: C.text },
 })
 
@@ -194,8 +221,8 @@ export function Table({
 // ── Horizontal Bar Chart ──────────────────────────────────────────────────────
 
 const hbarS = StyleSheet.create({
-  wrap: { marginBottom: 16 },
-  row: { flexDirection: 'row', alignItems: 'center', marginBottom: 5 },
+  wrap: { marginBottom: 10 },
+  row: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
   label: { fontSize: F.xs, color: C.muted, width: 110 },
   track: { flex: 1, height: 14, backgroundColor: C.bg, borderRadius: 3, overflow: 'hidden', borderWidth: 1, borderColor: C.border },
   fill: { height: 14, borderRadius: 3 },

@@ -1,6 +1,6 @@
 import { Document, Page, StyleSheet } from '@react-pdf/renderer'
 import React from 'react'
-import { Cover, Empty, Footer, Insight, KpiRow, Section, Sub, Table, VBar, sf } from './shared'
+import { Cover, Empty, Footer, Insight, KpiRow, Section, SectionDivider, Sub, Table, VBar, sf } from './shared'
 import { C, base } from './theme'
 
 const s = StyleSheet.create({ page: { ...base.page } })
@@ -13,7 +13,7 @@ export interface UserSeriesData {
   company: string
 }
 
-export function UserSeriesReportPages({ data, jobId }: { data: UserSeriesData; jobId: string }) {
+export function UserSeriesReportPages({ data, jobId, isModule }: { data: UserSeriesData; jobId: string; isModule?: boolean }) {
   const { rows, workerName, periodType, nPeriods } = data
 
   const totalPts  = rows.reduce((s, r) => s + (r.weight_points || 0), 0)
@@ -24,14 +24,17 @@ export function UserSeriesReportPages({ data, jobId }: { data: UserSeriesData; j
 
   return (
     <>
-      <Cover
-        title="Performance Timeline"
-        subtitle={`Period-by-period output, session hours & efficiency`}
-        company={workerName}
-        dateRange={`${nPeriods} ${periodType}(s)`}
-      />
+      {!isModule && (
+        <Cover
+          title="Performance Timeline"
+          subtitle={`Period-by-period output, session hours & efficiency`}
+          company={workerName}
+          dateRange={`${nPeriods} ${periodType}(s)`}
+        />
+      )}
 
       <Page size="A4" style={s.page}>
+        {isModule && <SectionDivider title="Performance Timeline" company={workerName} dateRange={`${nPeriods} ${periodType}(s)`} />}
         <Section title={`Performance Summary — ${workerName}`} />
 
         <KpiRow items={[

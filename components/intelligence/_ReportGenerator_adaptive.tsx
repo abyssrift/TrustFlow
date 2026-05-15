@@ -3,9 +3,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
     Modal,
     Pressable,
     TextInput as RNTextInput,
@@ -14,7 +13,52 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 import { generateAndUploadReport } from './reports/generate';
+
+const BRAND = 'rgb(99,102,241)';
+const BRAND_DIM = 'rgba(99,102,241,0.15)';
+
+function fmt(s: number) {
+  return `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
+}
+
+function GenerationProgress({ current, total, elapsed }: { current: number; total: number; elapsed: number }) {
+  const size = 110;
+  const stroke = 8;
+  const r = (size - stroke) / 2;
+  const circ = 2 * Math.PI * r;
+  const pct = total > 0 ? current / total : 0;
+  const eta = current > 1 && elapsed > 1 ? Math.round((elapsed / current) * (total - current)) : null;
+
+  return (
+    <View style={{ alignItems: 'center', gap: 4 }}>
+      <View style={{ width: size, height: size }}>
+        <Svg width={size} height={size}>
+          <Circle cx={size / 2} cy={size / 2} r={r} stroke={BRAND_DIM} strokeWidth={stroke} fill="none" />
+          <Circle
+            cx={size / 2} cy={size / 2} r={r}
+            stroke={BRAND} strokeWidth={stroke} fill="none"
+            strokeDasharray={circ} strokeDashoffset={circ * (1 - pct)}
+            strokeLinecap="round" rotation="-90" origin={`${size / 2}, ${size / 2}`}
+          />
+        </Svg>
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: 'white', fontWeight: '900', fontSize: 18, fontVariant: ['tabular-nums'] }}>
+            {current}/{total}
+          </Text>
+          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginTop: 2 }}>reports</Text>
+        </View>
+      </View>
+      <Text style={{ color: 'rgba(255,255,255,0.65)', fontSize: 12, fontWeight: '700', fontVariant: ['tabular-nums'] }}>
+        {fmt(elapsed)}
+      </Text>
+      {eta !== null && eta > 0 ? (
+        <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10 }}>~{fmt(eta)} remaining</Text>
+      ) : null}
+    </View>
+  );
+}
 
 type ReportType =
   | 'general'
@@ -73,13 +117,22 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
   const [pipelines, setPipelines] = useState<any[]>([]);
   const [teams, setTeams]         = useState<any[]>([]);
   const [workers, setWorkers]     = useState<any[]>([]);
-  const [loading, setLoading]       = useState(false);
-  const [genError, setGenError]     = useState<string | null>(null);
+  const [loading, setLoading]         = useState(false);
+  const [genError, setGenError]       = useState<string | null>(null);
   const [genProgress, setGenProgress] = useState<{ current: number; total: number } | null>(null);
+  const [elapsed, setElapsed]         = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (visible || isPage) loadFilterOptions();
   }, [visible]);
+
+  useEffect(() => {
+    if (!loading || typeof window === 'undefined') return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [loading]);
 
   const loadFilterOptions = async () => {
     const [pipeRes, teamRes, workerRes] = await Promise.all([
@@ -196,8 +249,11 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
   const handleGenerateReport = async () => {
     setGenError(null);
     setGenProgress(null);
+    setElapsed(0);
     try {
       setLoading(true);
+      const t0 = Date.now();
+      timerRef.current = setInterval(() => setElapsed(Math.floor((Date.now() - t0) / 1000)), 1000);
 
       if (needsDateRange && timeFrame === 'custom' && (!dateStart || !dateEnd)) {
         setGenError('Please provide both start and end dates');
@@ -241,6 +297,7 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
       console.error('Report generation error:', error);
       setGenError(error.message || 'Failed to generate report');
     } finally {
+      if (timerRef.current) clearInterval(timerRef.current);
       setLoading(false);
       setGenProgress(null);
     }
@@ -384,36 +441,41 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
         <View className="h-12" />
       </ScrollView>
 
+      {/* Leave warning */}
+      {loading && (
+        <View className="mx-6 mb-0 mt-2 bg-state-warning/10 border border-state-warning/30 rounded-2xl px-5 py-3 flex-row items-center gap-3">
+          <FontAwesome name="warning" size={13} color="rgb(var(--state-warning))" />
+          <Text className="text-state-warning font-semibold text-xs flex-1">
+            Don't close this — reports are being generated. Leaving will cancel the remaining jobs.
+          </Text>
+        </View>
+      )}
+
       {/* Footer */}
-      <View className={`px-6 py-6 border-t border-surface-border flex-row flex-wrap gap-4 ${isPage ? 'bg-surface-card pb-12' : 'bg-surface-card/50'}`}>
-        {!isPage && (
-          <Pressable onPress={onClose} disabled={loading} className="flex-1 min-w-[120px] py-4 rounded-2xl border border-surface-border bg-surface-background items-center">
-            <Text className="text-typography-muted font-bold">Discard</Text>
-          </Pressable>
-        )}
-        <Pressable
-          onPress={handleGenerateReport}
-          disabled={loading || pipelines.length === 0}
-          className={`${isPage ? 'flex-1' : 'flex-[1.5]'} min-w-[160px] py-4 rounded-2xl items-center ${loading || pipelines.length === 0 ? 'bg-surface-border' : 'bg-brand-primary active:scale-95 shadow-lg shadow-brand-primary/20'}`}
-        >
-          {loading ? (
-            <View className="flex-row items-center gap-2">
-              <ActivityIndicator color="white" size="small" />
-              {genProgress && genProgress.total > 1 && (
-                <Text className="text-white/80 font-black text-xs tabular-nums">
-                  {genProgress.current}/{genProgress.total}
+      <View className={`px-6 py-6 border-t border-surface-border ${isPage ? 'bg-surface-card pb-12' : 'bg-surface-card/50'} ${loading && genProgress ? 'items-center' : 'flex-row flex-wrap gap-4'}`}>
+        {loading && genProgress ? (
+          <GenerationProgress current={genProgress.current} total={genProgress.total} elapsed={elapsed} />
+        ) : (
+          <>
+            {!isPage && (
+              <Pressable onPress={onClose} disabled={loading} className="flex-1 min-w-[120px] py-4 rounded-2xl border border-surface-border bg-surface-background items-center">
+                <Text className="text-typography-muted font-bold">Discard</Text>
+              </Pressable>
+            )}
+            <Pressable
+              onPress={handleGenerateReport}
+              disabled={loading || pipelines.length === 0}
+              className={`${isPage ? 'flex-1' : 'flex-[1.5]'} min-w-[160px] py-4 rounded-2xl items-center ${pipelines.length === 0 ? 'bg-surface-border' : 'bg-brand-primary active:scale-95 shadow-lg shadow-brand-primary/20'}`}
+            >
+              <View className="flex-row items-center">
+                <FontAwesome name="bolt" size={14} color="white" style={{ marginRight: 8 }} />
+                <Text className="text-white font-black uppercase tracking-widest text-xs">
+                  {isMulti ? `Execute ${selectedTypes.length} Reports` : 'Execute Generation'}
                 </Text>
-              )}
-            </View>
-          ) : (
-            <View className="flex-row items-center">
-              <FontAwesome name="bolt" size={14} color="white" style={{ marginRight: 8 }} />
-              <Text className="text-white font-black uppercase tracking-widest text-xs">
-                {isMulti ? `Execute ${selectedTypes.length} Reports` : 'Execute Generation'}
-              </Text>
-            </View>
-          )}
-        </Pressable>
+              </View>
+            </Pressable>
+          </>
+        )}
       </View>
     </View>
   );

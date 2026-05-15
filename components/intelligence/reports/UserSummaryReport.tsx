@@ -1,6 +1,6 @@
 import { Document, Page, StyleSheet } from '@react-pdf/renderer'
 import React from 'react'
-import { Cover, Empty, Footer, Insight, KpiRow, Section, Sub, fmtDate, sf } from './shared'
+import { Cover, Empty, Footer, Insight, KpiRow, Section, SectionDivider, Sub, fmtDate, sf } from './shared'
 import { C, base } from './theme'
 
 const s = StyleSheet.create({ page: { ...base.page } })
@@ -13,14 +13,16 @@ export interface UserSummaryData {
   company: string
 }
 
-export function UserSummaryReportPages({ data, jobId }: { data: UserSummaryData; jobId: string }) {
+export function UserSummaryReportPages({ data, jobId, isModule }: { data: UserSummaryData; jobId: string; isModule?: boolean }) {
   const { summary, workerName, dateStart, dateEnd } = data
+  const dr = `${fmtDate(dateStart)} — ${fmtDate(dateEnd)}`
 
   if (!summary) {
     return (
       <>
-        <Cover title="Performance Summary" subtitle="Aggregated stats for one person over a date range" company={workerName} dateRange={`${fmtDate(dateStart)} — ${fmtDate(dateEnd)}`} />
+        {!isModule && <Cover title="Performance Summary" subtitle="Aggregated stats for one person over a date range" company={workerName} dateRange={dr} />}
         <Page size="A4" style={s.page}>
+          {isModule && <SectionDivider title="Performance Summary" company={workerName} dateRange={dr} />}
           <Section title="Summary" />
           <Empty msg="No data found for this person in the specified period." />
           <Footer jobId={jobId} />
@@ -39,14 +41,10 @@ export function UserSummaryReportPages({ data, jobId }: { data: UserSummaryData;
 
   return (
     <>
-      <Cover
-        title="Performance Summary"
-        subtitle="Aggregated stats for one person over a date range"
-        company={workerName}
-        dateRange={`${fmtDate(dateStart)} — ${fmtDate(dateEnd)}`}
-      />
+      {!isModule && <Cover title="Performance Summary" subtitle="Aggregated stats for one person over a date range" company={workerName} dateRange={dr} />}
 
       <Page size="A4" style={s.page}>
+        {isModule && <SectionDivider title="Performance Summary" company={workerName} dateRange={dr} />}
         <Section title={`Aggregate Metrics — ${workerName}`} />
 
         <KpiRow items={[

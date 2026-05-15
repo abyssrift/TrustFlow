@@ -1,7 +1,7 @@
 import React from 'react'
 import { Document, Page, View, Text, StyleSheet } from '@react-pdf/renderer'
 import { C, F, base } from './theme'
-import { Cover, Footer, Section, Sub, KpiRow, Empty, Insight, sf, fmtSec } from './shared'
+import { Cover, Footer, Section, SectionDivider, Sub, KpiRow, Empty, Insight, sf, fmtSec } from './shared'
 
 const s = StyleSheet.create({
   page: { ...base.page },
@@ -21,7 +21,7 @@ export interface PersonalPulseData {
   company: string
 }
 
-export function PersonalPulseReportPages({ data, jobId }: { data: PersonalPulseData; jobId: string }) {
+export function PersonalPulseReportPages({ data, jobId, isModule }: { data: PersonalPulseData; jobId: string; isModule?: boolean }) {
   const {
     workerName, dailyPts, monthlyPts, activeSecondsToday,
     isWorking, flapRate, taskCount, company,
@@ -30,16 +30,21 @@ export function PersonalPulseReportPages({ data, jobId }: { data: PersonalPulseD
   const flapColor = flapRate > 2 ? C.danger : flapRate > 1.5 ? C.warning : C.success
   const flapNote  = flapRate > 2 ? 'High reversal activity — review workflow discipline' : flapRate > 1.5 ? 'Moderate revisit rate' : 'Clean workflow — minimal stage revisits'
 
+  const dateLabel = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+
   return (
     <>
-      <Cover
-        title="Personal Activity Snapshot"
-        subtitle="Real-time daily points, session time & flap rate"
-        company={workerName}
-        dateRange={new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
-      />
+      {!isModule && (
+        <Cover
+          title="Personal Activity Snapshot"
+          subtitle="Real-time daily points, session time & flap rate"
+          company={workerName}
+          dateRange={dateLabel}
+        />
+      )}
 
       <Page size="A4" style={s.page}>
+        {isModule && <SectionDivider title="Personal Activity" company={workerName} dateRange={dateLabel} />}
         <Section title="Today at a Glance" />
 
         <View style={[s.statusBadge, { backgroundColor: isWorking ? C.successDim : C.bg, borderWidth: 1, borderColor: isWorking ? C.success : C.border }]}>

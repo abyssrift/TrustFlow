@@ -1,7 +1,7 @@
 import React from 'react'
 import { Document, Page, View, Text, StyleSheet } from '@react-pdf/renderer'
 import { C, F, base } from './theme'
-import { Cover, Footer, Section, Sub, KpiRow, Table, HBar, Empty, Insight, sf, fmtDate } from './shared'
+import { Cover, Footer, Section, SectionDivider, Sub, KpiRow, Table, HBar, Empty, Insight, sf, fmtDate } from './shared'
 
 const s = StyleSheet.create({
   page: { ...base.page },
@@ -25,7 +25,7 @@ export interface TargetsData {
   company: string
 }
 
-export function TargetsReportPages({ data, jobId }: { data: TargetsData; jobId: string }) {
+export function TargetsReportPages({ data, jobId, isModule }: { data: TargetsData; jobId: string; isModule?: boolean }) {
   const { targets, company } = data
 
   const hit     = targets.filter(t => t.status === 'hit')
@@ -60,16 +60,21 @@ export function TargetsReportPages({ data, jobId }: { data: TargetsData; jobId: 
     )
   }
 
+  const dateLabel = `As of ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`
+
   return (
     <>
-      <Cover
-        title="Objectives & SLA Report"
-        subtitle="All active, hit, and expired performance targets"
-        company={company}
-        dateRange={`As of ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`}
-      />
+      {!isModule && (
+        <Cover
+          title="Objectives & SLA Report"
+          subtitle="All active, hit, and expired performance targets"
+          company={company}
+          dateRange={dateLabel}
+        />
+      )}
 
       <Page size="A4" style={s.page}>
+        {isModule && <SectionDivider title="Objectives & SLA" company={company} dateRange={dateLabel} />}
         <Section title="Company-Wide Performance Targets" />
 
         <KpiRow items={[

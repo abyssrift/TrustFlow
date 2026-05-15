@@ -1,6 +1,6 @@
 import { Document, Page, StyleSheet } from '@react-pdf/renderer'
 import React from 'react'
-import { CompareGrid, Cover, Empty, Footer, HBar, Insight, KpiRow, Section, Sub, Table, sf } from './shared'
+import { CompareGrid, Cover, Empty, Footer, HBar, Insight, KpiRow, Section, SectionDivider, Sub, Table, sf } from './shared'
 import { C, base } from './theme'
 
 const s = StyleSheet.create({ page: { ...base.page } })
@@ -21,14 +21,15 @@ export interface TeamComparisonData {
   dateRange: string
 }
 
-export function TeamComparisonReportPages({ data, jobId }: { data: TeamComparisonData; jobId: string }) {
+export function TeamComparisonReportPages({ data, jobId, isModule }: { data: TeamComparisonData; jobId: string; isModule?: boolean }) {
   const teams = data.teams || []
 
   if (teams.length === 0) {
     return (
       <>
-        <Cover title="Team Comparison" subtitle="Efficiency metrics across teams" company={data.company} dateRange={data.dateRange} />
+        {!isModule && <Cover title="Team Comparison" subtitle="Efficiency metrics across teams" company={data.company} dateRange={data.dateRange} />}
         <Page size="A4" style={s.page}>
+          {isModule && <SectionDivider title="Team Comparison" company={data.company} dateRange={data.dateRange} />}
           <Section title="Comparison" />
           <Empty msg="No team data found for the selected period." />
           <Footer jobId={jobId} />
@@ -62,8 +63,9 @@ export function TeamComparisonReportPages({ data, jobId }: { data: TeamCompariso
 
     return (
       <>
-        <Cover title="Team Comparison" subtitle="Efficiency metrics across teams" company={data.company} dateRange={data.dateRange} />
+        {!isModule && <Cover title="Team Comparison" subtitle="Efficiency metrics across teams" company={data.company} dateRange={data.dateRange} />}
         <Page size="A4" style={s.page}>
+          {isModule && <SectionDivider title="Team Comparison" company={data.company} dateRange={data.dateRange} />}
           <Section title="Team Overview" />
           <KpiRow items={[
             { label: tA.name, value: `${arA}%`, note: `${tA.completed} tasks done · ${tA.count} members`, accent: C.primary },
@@ -95,8 +97,9 @@ export function TeamComparisonReportPages({ data, jobId }: { data: TeamCompariso
 
   return (
     <>
-      <Cover title="Team Comparison" subtitle={`${teams.length}-team group comparison`} company={data.company} dateRange={data.dateRange} />
+      {!isModule && <Cover title="Team Comparison" subtitle={`${teams.length}-team group comparison`} company={data.company} dateRange={data.dateRange} />}
       <Page size="A4" style={s.page}>
+        {isModule && <SectionDivider title="Team Comparison" company={data.company} dateRange={data.dateRange} />}
         <Section title="Group Overview" />
         <KpiRow items={[
           { label: 'Teams Compared',    value: String(teams.length),                             accent: C.primary },

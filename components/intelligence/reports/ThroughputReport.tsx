@@ -1,7 +1,7 @@
 import React from 'react'
 import { Document, Page, View, Text, StyleSheet } from '@react-pdf/renderer'
 import { C, F, base } from './theme'
-import { Cover, Footer, Section, Sub, KpiRow, Table, StackedVBar, Empty, Insight, sf } from './shared'
+import { Cover, Footer, Section, SectionDivider, Sub, KpiRow, Table, StackedVBar, Empty, Insight, sf } from './shared'
 
 const s = StyleSheet.create({
   page: { ...base.page },
@@ -19,7 +19,7 @@ export interface ThroughputData {
   company: string
 }
 
-export function ThroughputReportPages({ data, jobId }: { data: ThroughputData; jobId: string }) {
+export function ThroughputReportPages({ data, jobId, isModule }: { data: ThroughputData; jobId: string; isModule?: boolean }) {
   const { rows, pipelineName, periodType, nPeriods } = data
 
   const validRows    = rows.filter(r => (r.tasks_succeeded || 0) + (r.tasks_failed || 0) > 0)
@@ -33,14 +33,17 @@ export function ThroughputReportPages({ data, jobId }: { data: ThroughputData; j
 
   return (
     <>
-      <Cover
-        title="Pipeline Throughput Report"
-        subtitle="Period success / failure rates across a pipeline"
-        company={pipelineName}
-        dateRange={`${nPeriods} ${periodType}(s)`}
-      />
+      {!isModule && (
+        <Cover
+          title="Pipeline Throughput Report"
+          subtitle="Period success / failure rates across a pipeline"
+          company={pipelineName}
+          dateRange={`${nPeriods} ${periodType}(s)`}
+        />
+      )}
 
       <Page size="A4" style={s.page}>
+        {isModule && <SectionDivider title="Pipeline Throughput" company={pipelineName} dateRange={`${nPeriods} ${periodType}(s)`} />}
         <Section title={`Throughput — ${pipelineName}`} />
 
         <KpiRow items={[

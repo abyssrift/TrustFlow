@@ -1,6 +1,6 @@
 import { Document, Page, StyleSheet } from '@react-pdf/renderer'
 import React from 'react'
-import { CompareGrid, Cover, Empty, Footer, HBar, Insight, KpiRow, Section, Sub, Table, sf } from './shared'
+import { CompareGrid, Cover, Empty, Footer, HBar, Insight, KpiRow, Section, SectionDivider, Sub, Table, sf } from './shared'
 import { C, base } from './theme'
 
 const s = StyleSheet.create({ page: { ...base.page } })
@@ -11,14 +11,15 @@ export interface WorkerComparisonData {
   dateRange: string
 }
 
-export function WorkerComparisonReportPages({ data, jobId }: { data: WorkerComparisonData; jobId: string }) {
+export function WorkerComparisonReportPages({ data, jobId, isModule }: { data: WorkerComparisonData; jobId: string; isModule?: boolean }) {
   const workers = data.workers || []
 
   if (workers.length === 0) {
     return (
       <>
-        <Cover title="People Comparison" subtitle="Head-to-head people performance comparison" company={data.company} dateRange={data.dateRange} />
+        {!isModule && <Cover title="People Comparison" subtitle="Head-to-head people performance comparison" company={data.company} dateRange={data.dateRange} />}
         <Page size="A4" style={s.page}>
+          {isModule && <SectionDivider title="People Comparison" company={data.company} dateRange={data.dateRange} />}
           <Section title="Comparison" />
           <Empty msg="Insufficient data. Ensure the selected people have activity in the period." />
           <Footer jobId={jobId} />
@@ -47,8 +48,9 @@ export function WorkerComparisonReportPages({ data, jobId }: { data: WorkerCompa
 
     return (
       <>
-        <Cover title="People Comparison" subtitle="Head-to-head people performance comparison" company={data.company} dateRange={data.dateRange} />
+        {!isModule && <Cover title="People Comparison" subtitle="Head-to-head people performance comparison" company={data.company} dateRange={data.dateRange} />}
         <Page size="A4" style={s.page}>
+          {isModule && <SectionDivider title="People Comparison" company={data.company} dateRange={data.dateRange} />}
           <Section title="Head-to-Head Comparison" />
           <KpiRow items={[
             { label: wA.full_name || 'Person A', value: `${winsA} wins`,  note: 'Categories leading', accent: C.success },
@@ -78,8 +80,9 @@ export function WorkerComparisonReportPages({ data, jobId }: { data: WorkerCompa
 
   return (
     <>
-      <Cover title="People Comparison" subtitle={`${workers.length}-person performance comparison`} company={data.company} dateRange={data.dateRange} />
+      {!isModule && <Cover title="People Comparison" subtitle={`${workers.length}-person performance comparison`} company={data.company} dateRange={data.dateRange} />}
       <Page size="A4" style={s.page}>
+        {isModule && <SectionDivider title="People Comparison" company={data.company} dateRange={data.dateRange} />}
         <Section title="Group Overview" />
         <KpiRow items={[
           { label: 'People Compared',   value: String(workers.length),                                 accent: C.primary },

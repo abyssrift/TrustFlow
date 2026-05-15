@@ -1,8 +1,17 @@
+import ReportFiltersModal, {
+  applyReportFilters,
+  countActiveFilters,
+  describeDateRange,
+  EMPTY_FILTERS,
+  REPORT_TYPE_OPTIONS,
+  type ReportFilters,
+} from '@/components/intelligence/ReportFiltersModal';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 const STATUS_COLOR: Record<string, string> = {
@@ -83,6 +92,14 @@ export default function IntelligenceReportsNative() {
   const [pipelines, setPipelines] = useState<any[]>([]);
   const [teams, setTeams]         = useState<any[]>([]);
   const [users, setUsers]         = useState<any[]>([]);
+  const [filters, setFilters]         = useState<ReportFilters>(EMPTY_FILTERS);
+  const [showFilters, setShowFilters] = useState(false);
+
+  const filteredReports   = useMemo(() => applyReportFilters(reports, filters), [reports, filters]);
+  const activeFilterCount = countActiveFilters(filters);
+
+  const typeLabel = (val: string) =>
+    REPORT_TYPE_OPTIONS.find(o => o.value === val)?.label ?? val.replace(/_/g, ' ');
 
   useEffect(() => {
     Promise.all([
@@ -94,8 +111,11 @@ export default function IntelligenceReportsNative() {
       if (t.data) setTeams(t.data);
       if (u.data) setUsers(u.data);
     });
-    fetchReports();
   }, []);
+
+  useFocusEffect(useCallback(() => {
+    fetchReports();
+  }, []));
 
   const fetchReports = async () => {
     setLoading(true);
@@ -126,11 +146,30 @@ export default function IntelligenceReportsNative() {
   return (
     <View className="flex-1 bg-surface-background">
       <View className="px-6 pt-14 pb-4 flex-row items-end justify-between">
-        <View>
+        <View className="flex-1">
           <Text className="text-brand-primary font-black uppercase tracking-[4px] text-[10px] mb-1">Intelligence Hub</Text>
           <Text className="text-typography-main text-3xl font-black">Reports</Text>
         </View>
         <View className="flex-row gap-2">
+          <TouchableOpacity
+            onPress={() => setShowFilters(true)}
+            className={`w-11 h-11 items-center justify-center rounded-2xl border ${
+              activeFilterCount > 0
+                ? 'bg-brand-primary/10 border-brand-primary'
+                : 'bg-surface-card border-surface-border'
+            }`}
+          >
+            <FontAwesome
+              name="filter"
+              size={13}
+              color={activeFilterCount > 0 ? 'rgb(var(--brand-primary))' : 'rgb(var(--text-muted))'}
+            />
+            {activeFilterCount > 0 && (
+              <View className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-brand-primary items-center justify-center">
+                <Text className="text-white text-[9px] font-black">{activeFilterCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
           <TouchableOpacity onPress={fetchReports} className="w-11 h-11 items-center justify-center bg-surface-card border border-surface-border rounded-2xl">
             <FontAwesome name="refresh" size={13} color="rgb(var(--brand-primary))" />
           </TouchableOpacity>
@@ -140,6 +179,52 @@ export default function IntelligenceReportsNative() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Active filter pills (horizontal scroll on mobile) */}
+      {activeFilterCount > 0 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 12, gap: 8 }}
+        >
+          {filters.statuses.map(s => (
+            <TouchableOpacity
+              key={`s-${s}`}
+              onPress={() => setFilters(f => ({ ...f, statuses: f.statuses.filter(x => x !== s) }))}
+              className="flex-row items-center gap-2 bg-brand-primary/10 border border-brand-primary/30 px-3 py-1.5 rounded-full"
+            >
+              <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest capitalize">{s}</Text>
+              <FontAwesome name="close" size={9} color="rgb(var(--brand-primary))" />
+            </TouchableOpacity>
+          ))}
+          {filters.types.map(t => (
+            <TouchableOpacity
+              key={`t-${t}`}
+              onPress={() => setFilters(f => ({ ...f, types: f.types.filter(x => x !== t) }))}
+              className="flex-row items-center gap-2 bg-brand-primary/10 border border-brand-primary/30 px-3 py-1.5 rounded-full"
+            >
+              <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest">{typeLabel(t)}</Text>
+              <FontAwesome name="close" size={9} color="rgb(var(--brand-primary))" />
+            </TouchableOpacity>
+          ))}
+          {describeDateRange(filters) && (
+            <TouchableOpacity
+              onPress={() => setFilters(f => ({ ...f, dateFrom: null, dateTo: null }))}
+              className="flex-row items-center gap-2 bg-brand-primary/10 border border-brand-primary/30 px-3 py-1.5 rounded-full"
+            >
+              <FontAwesome name="calendar" size={9} color="rgb(var(--brand-primary))" />
+              <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest">{describeDateRange(filters)}</Text>
+              <FontAwesome name="close" size={9} color="rgb(var(--brand-primary))" />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            onPress={() => setFilters(EMPTY_FILTERS)}
+            className="px-3 py-1.5 rounded-full border border-surface-border"
+          >
+            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Clear All</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      )}
 
       {loading ? (
         <View className="flex-1 items-center justify-center">
@@ -160,9 +245,24 @@ export default function IntelligenceReportsNative() {
             </TouchableOpacity>
           </View>
         </View>
+      ) : filteredReports.length === 0 ? (
+        <View className="flex-1 items-center justify-center px-6">
+          <View className="bg-surface-card p-10 rounded-[2.5rem] border border-surface-border items-center w-full">
+            <View className="w-16 h-16 bg-surface-background rounded-full items-center justify-center mb-4">
+              <FontAwesome name="filter" size={24} color="rgb(var(--text-muted))" />
+            </View>
+            <Text className="text-typography-main text-xl font-black mb-2">No Matches</Text>
+            <Text className="text-typography-muted text-center text-sm leading-relaxed mb-6">
+              No reports match the current filters. Try widening your criteria.
+            </Text>
+            <TouchableOpacity onPress={() => setFilters(EMPTY_FILTERS)} className="bg-brand-primary px-8 py-3 rounded-2xl">
+              <Text className="text-white font-black uppercase tracking-widest text-xs">Clear Filters</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       ) : (
         <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false}>
-          {reports.map(r => (
+          {filteredReports.map(r => (
             <TouchableOpacity
               key={r.id}
               onPress={() => r.status === 'completed' && r.file_url && handleDownload(r.file_url)}
@@ -197,6 +297,13 @@ export default function IntelligenceReportsNative() {
         pipelines={pipelines}
         teams={teams}
         users={users}
+      />
+
+      <ReportFiltersModal
+        visible={showFilters}
+        onClose={() => setShowFilters(false)}
+        onApply={setFilters}
+        initial={filters}
       />
     </View>
   );
