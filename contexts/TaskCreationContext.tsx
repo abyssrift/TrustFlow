@@ -64,6 +64,29 @@ export const useTaskCreation = () => {
 
 const STORAGE_KEY = 'newTrustFlow_task_draft';
 
+const normalizeDraft = (draft: Partial<TaskDraft> | null | undefined): TaskDraft => {
+  const merged = { ...INITIAL_DRAFT, ...(draft || {}) };
+  const priority = merged.priority === 'low' || merged.priority === 'normal' || merged.priority === 'high' || merged.priority === 'urgent'
+    ? merged.priority
+    : 'normal';
+
+  return {
+    title: merged.title ?? '',
+    description: merged.description ?? '',
+    priority,
+    category: merged.category ?? 'General',
+    weight: Number.isFinite(merged.weight) && merged.weight > 0 ? merged.weight : 1,
+    startDate: merged.startDate ?? null,
+    dueDate: merged.dueDate ?? null,
+    estimatedHours: merged.estimatedHours ?? null,
+    pipelineId: merged.pipelineId ?? null,
+    projectId: merged.projectId ?? null,
+    assigneeUserIds: Array.isArray(merged.assigneeUserIds) ? merged.assigneeUserIds : [],
+    assigneeTeamIds: Array.isArray(merged.assigneeTeamIds) ? merged.assigneeTeamIds : [],
+    visibilityPermission: merged.visibilityPermission ?? null,
+  };
+};
+
 export const TaskCreationProvider = ({ children }: { children: React.ReactNode }) => {
   const { user } = useAuth();
   const { successToast, errorToast, infoToast } = useToast();
@@ -78,7 +101,7 @@ export const TaskCreationProvider = ({ children }: { children: React.ReactNode }
       try {
         const saved = await AsyncStorage.getItem(STORAGE_KEY);
         if (saved) {
-          setDraftState(JSON.parse(saved));
+          setDraftState(normalizeDraft(JSON.parse(saved)));
         }
       } catch (err) {
         console.error('Failed to load draft:', err);
@@ -102,7 +125,7 @@ export const TaskCreationProvider = ({ children }: { children: React.ReactNode }
   }, [draft]);
 
   const setDraft = useCallback((updates: Partial<TaskDraft>) => {
-    setDraftState(prev => ({ ...prev, ...updates }));
+    setDraftState(prev => normalizeDraft({ ...prev, ...updates }));
   }, []);
 
   const resetDraft = useCallback(async () => {

@@ -9,11 +9,13 @@ type Props = {
   taskId: string;
   stageId: string;
   transitionId?: string | null;
+  minTimerSeconds?: number;
   onSuccess: (isFlagged: boolean, flagReason: string | null, approvalStatus: string) => void;
   onCancel: () => void;
 };
 
-export default function ManualTimeModal({ visible, taskId, stageId, transitionId, onSuccess, onCancel }: Props) {
+export default function ManualTimeModal({ visible, taskId, stageId, transitionId, minTimerSeconds = 300, onSuccess, onCancel }: Props) {
+  const minMinutes = Math.max(1, Math.round(minTimerSeconds / 60));
   const colors = useThemeColors();
   const [hours, setHours] = useState('');
   const [minutes, setMinutes] = useState('');
@@ -81,7 +83,7 @@ export default function ManualTimeModal({ visible, taskId, stageId, transitionId
               Declare Work Hours
             </Text>
             <Text className="text-typography-muted text-center font-medium leading-relaxed">
-              Less than 5 minutes of active timer was recorded for this stage. How long did you actually work on this task?
+              Less than {minMinutes} minute{minMinutes === 1 ? '' : 's'} of active timer was recorded for this stage. How long did you actually work on this task?
             </Text>
           </View>
 

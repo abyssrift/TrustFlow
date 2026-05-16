@@ -30,7 +30,7 @@ const STATUS_STYLES: Record<string, { bg: string; border: string; text: string; 
   pending: { bg: 'bg-state-info-dim', border: 'border-state-info/30', text: 'text-state-info', label: 'Pending Review' },
 };
 
-export default function StageActions() {
+export default function StageActionsWeb() {
   const { data, executeAction, submitWork, reviewSubmission, deleteSubmission } = useTaskDetail();
   const { isActive, activeSession, serverTimeOffset, stopWork, startWork, smartTimer } = useTimer();
   const router = useRouter();
@@ -122,8 +122,6 @@ export default function StageActions() {
   const isUploading = !!activeJob && (activeJob.status === 'processing' || activeJob.status === 'uploading' || activeJob.status === 'committing');
 
   const actionable = data.stage_actions.filter((a) => a.can_perform && a.precondition_met);
-
-  // Registry-driven slots keep UI stable as action types grow.
   const grouped = splitStageActions(actionable);
   const buttonActions = grouped.buttons;
   const submitAction = grouped.submission[0] || null;
@@ -131,28 +129,22 @@ export default function StageActions() {
   const reviewRevise = grouped.review.find((a) => a.action_type === 'review_revise');
   const reviewReject = grouped.review.find((a) => a.action_type === 'review_reject');
   const hasReviewActions = !!(reviewApprove || reviewRevise || reviewReject);
-  const reviewActionIds = grouped.review.map((a) => a.id);
   const pendingSubmission = data.submissions.find((s) => s.status === 'pending');
 
-  // The submission form shows if:
-  // 1. The stage explicitly requires a submission (and we aren't a reviewer just looking at it)
-  // 2. Or there is a specific submit action available for the user.
   const showSubmitForm = !!(
     (data.current_stage?.requires_submission && (!hasReviewActions || data.permissions.is_assigned)) ||
     (submitAction && (data.permissions.is_assigned || (data.permissions.is_owner && !hasReviewActions)))
   );
 
-  // The whole section shows if there's a form, or history, or the stage implies it.
   const showSubmissionSection = !!(
-    data.submissions.length > 0 || 
-    showSubmitForm || 
-    submitAction || 
+    data.submissions.length > 0 ||
+    showSubmitForm ||
+    submitAction ||
     data.current_stage?.requires_submission
   );
 
   const stageRequiresTimer = !!data.current_stage?.requires_timer;
   const anyActionRequiresTimer = data.stage_actions.some(a => a.requires_timer && a.can_perform && a.precondition_met);
-  const canStart = (data.permissions.is_assigned || data.permissions.is_owner || data.permissions.is_manager);
 
   const handleAction = async (action: StageActionData) => {
     try {
@@ -160,9 +152,6 @@ export default function StageActions() {
 
       const descriptor = getActionDescriptor(action.action_type);
 
-      // Timer gate fires ONLY on advancement actions ('advance', 'custom',
-      // 'start_task') by the assigned worker. Submit Work just persists
-      // evidence and is NOT gated; review actions are the reviewer's path.
       const isAdvancement =
         action.action_type === 'advance' ||
         action.action_type === 'custom' ||
@@ -212,7 +201,7 @@ export default function StageActions() {
           companyId: data.task.company_id,
           content: content,
           transitionId: action.transition_id,
-          stagedFiles
+          stagedFiles,
         });
 
         setSubmissionContent('');
@@ -240,7 +229,6 @@ export default function StageActions() {
 
       await executeAction(action.id);
     } catch (err: any) {
-      // Backend safety net for advance gate (fires if frontend check was bypassed)
       if (err.message?.includes('LOW_TIMER_TIME')) {
         setPendingAdvanceAction(action);
         setShowManualTimeModal(true);
@@ -269,7 +257,6 @@ export default function StageActions() {
   };
 
   const showTimerCard = stageRequiresTimer || anyActionRequiresTimer || (isActive && activeSession?.task_id === data.task.id);
-
   const hasLinkedPipeline = !!data.current_stage?.linked_pipeline_id;
   const linkedPipelineName = data.current_stage?.linked_pipeline?.name || 'Sub-Pipeline';
 
@@ -297,31 +284,34 @@ export default function StageActions() {
         </View>
       )}
 
-      {/* Manager: pending time approval card */}
       {data.permissions.is_manager && data.pending_time_approvals?.length > 0 && (
         <ManualTimeApprovalCard entries={data.pending_time_approvals} />
       )}
 
-      {/* Worker: locked banner while time declaration is pending */}
       {isMyEntryPending && !errorMsg && (
-        <View className="bg-state-warning/10 border border-state-warning/30 rounded-xl p-3 flex-row items-start gap-3">
-          <View className="w-8 h-8 rounded-lg bg-state-warning/20 items-center justify-center">
+        <View className="bg-state-warning/10 border border-state-warning/30 rounded-2xl p-4 flex-row items-start gap-4">
+          <View className="w-10 h-10 rounded-xl bg-state-warning/20 items-center justify-center">
             <FontAwesome name="lock" size={14} color="var(--color-warning)" />
           </View>
           <View className="flex-1">
-            <Text className="text-state-warning font-black text-xs uppercase tracking-wider mb-1">
-              Stage Locked — Awaiting Manager Approval
-            </Text>
-            <Text className="text-state-warning text-sm leading-5">
+            <View className="flex-row items-center gap-2 mb-2">
+              <View className="bg-state-warning/20 px-2.5 py-1 rounded-full border border-state-warning/20 flex-row items-center gap-1.5">
+                <FontAwesome name="lock" size={10} color="var(--color-warning)" />
+                <Text className="text-state-warning text-[9px] font-black uppercase tracking-[0.18em]">Stage Locked</Text>
+              </View>
+              <Text className="text-state-warning text-[9px] font-bold uppercase tracking-[0.18em]">
+                Awaiting Manager Approval
+              </Text>
+            </View>
+            <Text className="text-state-warning text-sm leading-6">
               You declared {myEntry?.declared_minutes ?? 0} min of work on this stage. Advancement is locked until your manager approves the declaration.
             </Text>
           </View>
         </View>
       )}
 
-      {/* Worker: rejected entry banner — prompts re-declaration */}
       {isMyEntryRejected && !errorMsg && (
-        <View className="bg-state-danger/10 border border-state-danger/30 rounded-xl p-3">
+        <View className="bg-state-danger/10 border border-state-danger/30 rounded-2xl p-4">
           <Text className="text-state-danger font-black text-xs uppercase tracking-wider mb-1">
             Time Declaration Rejected
           </Text>
@@ -333,9 +323,8 @@ export default function StageActions() {
         </View>
       )}
 
-      {/* Error / Warning Message Display */}
       {errorMsg && (
-        <View className={`rounded-xl p-3 ${
+        <View className={`rounded-2xl p-4 ${
           errorMsg.variant === 'warning'
             ? 'bg-state-warning/10 border border-state-warning/30'
             : 'bg-state-danger/10 border border-state-danger/30'
@@ -352,12 +341,11 @@ export default function StageActions() {
           </Text>
         </View>
       )}
-      
-      {/* Timer Control Card — only shown when the stage/action requires it, or a session is already active */}
+
       {showTimerCard && (
         <View className="bg-surface-card rounded-2xl border border-surface-border p-4">
           <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em] mb-3">Time Tracking</Text>
-          <View className="flex-row items-center justify-between">
+          <View className="flex-row items-center justify-between gap-4">
             <View>
               <View className="flex-row items-center">
                 <View className={`w-2 h-2 rounded-full mr-3 ${isActive && activeSession?.task_id === data.task.id ? 'bg-state-success animate-pulse' : 'bg-typography-muted'}`} />
@@ -452,41 +440,38 @@ export default function StageActions() {
                   setSubmissionContent(val);
                   smartTimer.recordActivity();
                 }}
-
                 placeholder="Describe your work submission..."
                 placeholderTextColor="var(--color-text-dim)"
                 multiline
                 numberOfLines={3}
                 className="bg-surface-background border border-surface-border rounded-xl p-3 text-typography-main text-sm mb-3 min-h-[80px]"
               />
-              {/* File Upload Queue */}
               {stagedFiles.length > 0 && (
                 <View className="mb-3 gap-2">
-                  {stagedFiles.map((file) => (
-                    <View key={file.id} className="flex-row items-center bg-surface-overlay px-3 py-2 rounded-lg border border-surface-border/50">
-                      <FontAwesome 
-                        name={file.type.includes('image') ? 'file-image-o' : 'file-o'} 
-                        size={12} 
-                        color="var(--color-primary)" 
-                      />
-                      <Text className="text-typography-main text-[11px] font-bold ml-2 flex-1" numberOfLines={1}>
-                        {file.name}
-                      </Text>
-                      {isUploading ? (
-                        <ActivityIndicator size="small" color="var(--color-primary)" className="scale-75" />
-                      ) : (
-                        <TouchableOpacity onPress={() => removeFile(file.id)} className="ml-2 p-1">
-                          <FontAwesome name="times-circle" size={12} color="var(--color-danger)" />
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  ))}
+                  {stagedFiles.map((file) => {
+                    const fileIcon = getFileIcon(file.type);
+                    return (
+                      <View key={file.id} className="flex-row items-center bg-surface-overlay px-3 py-2 rounded-lg border border-surface-border/50">
+                        <FontAwesome name={fileIcon.name as any} size={12} color={fileIcon.color} />
+                        <Text className="text-typography-main text-[11px] font-bold ml-2 flex-1" numberOfLines={1}>
+                          {file.name}
+                        </Text>
+                        {isUploading ? (
+                          <ActivityIndicator size="small" color="var(--color-primary)" className="scale-75" />
+                        ) : (
+                          <TouchableOpacity onPress={() => removeFile(file.id)} className="ml-2 p-1">
+                            <FontAwesome name="times-circle" size={12} color="var(--color-danger)" />
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    );
+                  })}
                 </View>
               )}
 
               <View className="flex-row flex-wrap items-center justify-between gap-3">
                 <View className="flex-row flex-wrap gap-3">
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     onPress={pickImage}
                     disabled={isUploading}
                     className="flex-row items-center bg-surface-background px-3 py-2 rounded-xl border border-surface-border active:opacity-70"
@@ -495,7 +480,7 @@ export default function StageActions() {
                     <Text className="text-brand-primary text-[10px] font-black uppercase ml-1.5">Add Photo</Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     onPress={pickDocument}
                     disabled={isUploading}
                     className="flex-row items-center bg-surface-background px-3 py-2 rounded-xl border border-surface-border active:opacity-70"
@@ -518,124 +503,96 @@ export default function StageActions() {
                     <View className="flex-row items-center">
                       <ActivityIndicator size="small" color="white" />
                       {activeJob?.currentAction && (
-                        <Text className="text-white text-[9px] font-black uppercase ml-2 tracking-tighter">
+                        <Text className="text-white text-xs font-black uppercase ml-2 tracking-wider">
                           {activeJob.currentAction}
                         </Text>
                       )}
                     </View>
                   ) : (
-                    <Text className="text-white text-xs font-black uppercase tracking-wider">{submitAction?.label || 'Submit Work'}</Text>
+                    <Text className="text-white text-xs font-black uppercase tracking-wider">Submit Work</Text>
                   )}
                 </TouchableOpacity>
               </View>
             </View>
           )}
 
-          {data.submissions.length === 0 ? (
-            <View className="py-4 items-center opacity-40">
-              <FontAwesome name="inbox" size={20} color="var(--color-text-dim)" />
-              <Text className="text-typography-muted text-xs mt-2">No submissions yet</Text>
-            </View>
-          ) : (
-            data.submissions.map((s) => {
-              const style = STATUS_STYLES[s.status] || STATUS_STYLES.pending;
-              const isReviewing = reviewActionIds.includes(loadingActionId as string);
-              const showReviewActions = s.status === 'pending' && hasReviewActions;
+          {data.submissions.length > 0 && (
+            <View className="gap-3">
+              {data.submissions.map((submission) => {
+                const status = STATUS_STYLES[submission.status] || STATUS_STYLES.pending;
+                return (
+                  <View key={submission.id} className="bg-surface-background rounded-xl border border-surface-border p-4">
+                    <View className="flex-row items-center justify-between mb-3">
+                      <View className="flex-row items-center gap-2">
+                        <View className={`px-2.5 py-1 rounded-full border ${status.bg} ${status.border}`}>
+                          <Text className={`${status.text} text-[9px] font-black uppercase tracking-[0.18em]`}>
+                            {status.label}
+                          </Text>
+                        </View>
+                        <Text className="text-typography-dim text-[10px] font-bold uppercase tracking-[0.18em]">
+                          {submission.created_at ? new Date(submission.created_at).toLocaleString() : 'Recently'}
+                        </Text>
+                      </View>
 
-              return (
-                <View key={s.id} className="mb-3 pb-3 border-b border-surface-border/20 last:border-0">
-                  <View className="flex-row items-center justify-between mb-2">
-                    <View className={`${style.bg} ${style.border} border px-2 py-0.5 rounded-md`}>
-                      <Text className={`${style.text} text-[9px] font-black uppercase`}>{style.label}</Text>
-                    </View>
-                    {s.stage_name && <Text className="text-typography-dim text-[9px] font-bold">{s.stage_name}</Text>}
-                  </View>
-
-                  {s.content && <Text className="text-typography-label text-sm leading-5 mb-2">{s.content}</Text>}
-
-                  {s.attachments.length > 0 && (
-                    <View className="mb-2 gap-1.5">
-                      {s.attachments.map((a) => {
-                        const { name: iconName, color: iconColor } = getFileIcon(a.mime_type);
-                        return (
-                          <TouchableOpacity
-                            key={a.id}
-                            onPress={() => openStorageFile(SUBMISSION_BUCKET, a.storage_path || a.file_url)}
-                            className="flex-row items-center bg-surface-background px-2.5 py-2 rounded-lg border border-surface-border/50 active:opacity-70"
-                          >
-                            <FontAwesome name={iconName as any} size={12} color={iconColor} />
-                            <Text className="text-typography-main text-[11px] font-bold ml-2 flex-1" numberOfLines={1}>
-                              {a.file_name}
-                            </Text>
-                            <FontAwesome name="external-link" size={9} color="var(--color-text-muted)" />
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  )}
-
-                  <View className="flex-row items-center gap-2">
-                    <Text className="text-typography-dim text-[9px] font-bold">by {s.submitted_by?.full_name || 'Unknown'}</Text>
-                    <Text className="text-typography-dim text-[9px]">{new Date(s.submitted_at).toLocaleDateString()}</Text>
-                    {(s.submitted_by?.id === user?.id || data.permissions.is_manager || data.permissions.is_owner) && (
-                      <TouchableOpacity
-                        onPress={() => Alert.alert(
-                          'Delete Submission',
-                          'This will permanently remove the submission and its attachments.',
-                          [
-                            { text: 'Cancel', style: 'cancel' },
-                            { text: 'Delete', style: 'destructive', onPress: () => deleteSubmission(s.id).catch(err => setErrorMsg({ title: 'Delete Failed', message: err.message })) },
-                          ]
+                      <View className="flex-row items-center gap-2">
+                        {submission.status === 'pending' && data.permissions.is_manager && (
+                          <Text className="text-typography-dim text-[10px] font-bold uppercase tracking-[0.18em]">
+                            Awaiting review
+                          </Text>
                         )}
-                        className="ml-auto p-1"
-                      >
-                        <FontAwesome name="trash-o" size={11} color="var(--color-danger)" />
-                      </TouchableOpacity>
+                      </View>
+                    </View>
+
+                    {submission.content && (
+                      <Text className="text-typography-main text-sm leading-6 mb-3">
+                        {submission.content}
+                      </Text>
+                    )}
+
+                    {submission.files?.length > 0 && (
+                      <View className="gap-2 mb-3">
+                        {submission.files.map((file: any) => (
+                          <TouchableOpacity
+                            key={file.id}
+                            onPress={() => openStorageFile(SUBMISSION_BUCKET, file.path)}
+                            className="flex-row items-center bg-surface-card px-3 py-2 rounded-lg border border-surface-border/50"
+                          >
+                            <FontAwesome name={file.file_type?.includes('image') ? 'file-image-o' : 'file-o'} size={12} color="var(--color-primary)" />
+                            <Text className="text-typography-main text-[11px] font-bold ml-2 flex-1" numberOfLines={1}>
+                              {file.name}
+                            </Text>
+                            <Text className="text-typography-dim text-[9px] font-bold uppercase tracking-wider">
+                              Open
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+
+                    {submission.status === 'pending' && data.permissions.is_manager && (
+                      <View className="flex-row gap-2 pt-1">
+                        <TouchableOpacity
+                          onPress={async () => {
+                            await reviewSubmission(submission.id, 'approved');
+                          }}
+                          className="flex-1 bg-state-success/10 border border-state-success/30 rounded-xl py-2.5 items-center"
+                        >
+                          <Text className="text-state-success text-[10px] font-black uppercase tracking-[0.18em]">Approve</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={async () => {
+                            await reviewSubmission(submission.id, 'rejected');
+                          }}
+                          className="flex-1 bg-state-danger/10 border border-state-danger/30 rounded-xl py-2.5 items-center"
+                        >
+                          <Text className="text-state-danger text-[10px] font-black uppercase tracking-[0.18em]">Reject</Text>
+                        </TouchableOpacity>
+                      </View>
                     )}
                   </View>
-
-                  {s.review_notes && (
-                    <View className="bg-surface-background rounded-lg p-2.5 mt-2 border border-surface-border/50">
-                      <Text className="text-typography-dim text-[9px] font-black uppercase mb-1">Review Notes</Text>
-                      <Text className="text-typography-label text-xs leading-4">{s.review_notes}</Text>
-                      <Text className="text-typography-dim text-[9px] mt-1">- {s.reviewed_by?.full_name}</Text>
-                    </View>
-                  )}
-
-                  {showReviewActions && (
-                    <View className="flex-row gap-2 mt-3">
-                      {reviewApprove && (
-                        <TouchableOpacity
-                          disabled={isReviewing}
-                          onPress={() => handleAction(reviewApprove)}
-                          className={`flex-1 bg-state-success/10 py-2 rounded-xl border border-state-success/30 items-center ${isReviewing ? 'opacity-50' : ''}`}
-                        >
-                          <Text className="text-state-success text-[10px] font-black uppercase">{reviewApprove.label}</Text>
-                        </TouchableOpacity>
-                      )}
-                      {reviewRevise && (
-                        <TouchableOpacity
-                          disabled={isReviewing}
-                          onPress={() => handleAction(reviewRevise)}
-                          className={`flex-1 bg-state-warning/10 py-2 rounded-xl border border-state-warning/30 items-center ${isReviewing ? 'opacity-50' : ''}`}
-                        >
-                          <Text className="text-state-warning text-[10px] font-black uppercase">{reviewRevise.label}</Text>
-                        </TouchableOpacity>
-                      )}
-                      {reviewReject && (
-                        <TouchableOpacity
-                          disabled={isReviewing}
-                          onPress={() => handleAction(reviewReject)}
-                          className={`flex-1 bg-state-danger/10 py-2 rounded-xl border border-state-danger/30 items-center ${isReviewing ? 'opacity-50' : ''}`}
-                        >
-                          <Text className="text-state-danger text-[10px] font-black uppercase">{reviewReject.label}</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  )}
-                </View>
-              );
-            })
+                );
+              })}
+            </View>
           )}
         </View>
       )}

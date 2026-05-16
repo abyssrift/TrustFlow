@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import { View, Text, Image, Pressable, ActivityIndicator, Platform } from 'react-native';
+import { useAlert } from '@/contexts/AlertContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as ImagePicker from 'expo-image-picker';
-import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/AuthContext';
-import { useAlert } from '@/contexts/AlertContext';
+import React, { useState } from 'react';
+import { ActivityIndicator, Image, Platform, Pressable, Text, View } from 'react-native';
 
 interface ProfileAvatarProps {
   url: string | null;
@@ -42,10 +42,26 @@ export default function ProfileAvatar({ url, name, onUpload, size = 120 }: Profi
       const fileName = `${Date.now()}.${fileExt}`;
       const filePath = `${user?.id}/${fileName}`;
 
-      let fileBody;
+      let fileBody: Blob | File | FormData | null = null;
       if (Platform.OS === 'web') {
-        const response = await fetch(image.uri);
-        fileBody = await response.blob();
+        try {
+          const response = await fetch(image.uri);
+          const blob = await response.blob();
+          // Create a File so Supabase receives a proper filename/type in the browser
+          fileBody = new File([blob], fileName, { type: blob.type || `image/${fileExt}` });
+        } catch (err) {
+          // Fallback: some web pickers may provide base64 instead of a stable blob URL
+          if ((image as any).base64) {
+            const base64 = (image as any).base64 as string;
+            const binary = atob(base64);
+            const len = binary.length;
+            const u8 = new Uint8Array(len);
+            for (let i = 0; i < len; i++) u8[i] = binary.charCodeAt(i);
+            fileBody = new File([u8.buffer], fileName, { type: `image/${fileExt}` });
+          } else {
+            throw err;
+          }
+        }
       } else {
         const formData = new FormData();
         formData.append('file', {
@@ -58,7 +74,7 @@ export default function ProfileAvatar({ url, name, onUpload, size = 120 }: Profi
 
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(filePath, fileBody);
+        .upload(filePath, fileBody as any, { contentType: (fileBody as any)?.type });
 
       if (uploadError) throw uploadError;
 

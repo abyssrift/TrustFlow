@@ -23,16 +23,17 @@ cssInterop(FontAwesome, {
 
 const PRIORITY_MAP: Record<string, { textClass: string; label: string }> = {
   urgent: { textClass: 'text-state-danger', label: 'URGENT' },
-  high:   { textClass: 'text-state-warning', label: 'HIGH' },
+  high: { textClass: 'text-state-warning', label: 'HIGH' },
   medium: { textClass: 'text-typography-muted', label: 'NORMAL' },
-  low:    { textClass: 'text-state-success', label: 'LOW' },
+  low: { textClass: 'text-state-success', label: 'LOW' },
 };
 
-export default function TaskHeader() {
+export default function TaskHeaderWeb() {
   const { data, executeAction } = useTaskDetail();
   const { isActive, activeSession, startWork, stopWork } = useTimer();
   const { theme: activeTheme } = useTheme();
-  const { hasPermission, profile } = useAuth();
+  const { hasPermission } = useAuth();
+  const { infoToast, successToast, errorToast } = useToast();
   const [busy, setBusy] = React.useState(false);
   const [loadingActionId, setLoadingActionId] = React.useState<string | null>(null);
   const [errorMsg, setErrorMsg] = React.useState<{ title: string; message: string } | null>(null);
@@ -41,7 +42,6 @@ export default function TaskHeader() {
   const [showManualTimeModal, setShowManualTimeModal] = React.useState(false);
   const [pendingAction, setPendingAction] = React.useState<any | null>(null);
   const router = useRouter();
-  const { successToast, errorToast } = useToast();
 
   const handleArchive = async () => {
     if (!data) return;
@@ -113,17 +113,15 @@ export default function TaskHeader() {
 
       let displayMessage = err.message || 'Could not perform action';
 
-      // Handle P0001 error for missing evidence/submissions
       if (err.code === 'P0001' && err.message?.includes('Mandatory evidence missing')) {
         displayMessage = 'This stage requires a submission with text or attachments to proceed.';
       }
 
       setErrorMsg({
         title: 'Action Failed',
-        message: displayMessage
+        message: displayMessage,
       });
 
-      // Auto-clear error after 5 seconds
       setTimeout(() => setErrorMsg(null), 5000);
     } finally {
       setLoadingActionId(null);
@@ -141,60 +139,57 @@ export default function TaskHeader() {
   };
 
   return (
-    <View className="px-5 pt-12 pb-4 bg-surface-card border-b border-surface-border">
-      {/* Top row: back + badges */}
-      <View className="flex-row items-center mb-3">
+    <View className="px-6 pt-10 pb-5 bg-surface-card border-b border-surface-border shadow-[0_1px_0_rgba(255,255,255,0.03)]">
+      <View className="flex-row items-center gap-4 mb-4">
         <TouchableOpacity
           onPress={handleBack}
-          className="mr-4 bg-surface-background p-2 rounded-xl border border-surface-border active:opacity-50"
+          className="w-11 h-11 items-center justify-center rounded-2xl bg-surface-background border border-surface-border hover:bg-surface-overlay transition-colors"
         >
-          <FontAwesome name="chevron-left" size={16} className="text-typography-muted" />
+          <FontAwesome name="chevron-left" size={15} className="text-typography-muted" />
         </TouchableOpacity>
 
         <View className="flex-1 flex-row items-center flex-wrap gap-2">
-          {/* Priority badge */}
-          <View className="bg-surface-background px-2 py-0.5 rounded-md border border-surface-border">
-            <Text className={`${prio.textClass} text-[9px] font-black uppercase tracking-tighter`}>
+          <View className="bg-surface-background px-3 py-1 rounded-full border border-surface-border">
+            <Text className={`${prio.textClass} text-[10px] font-black uppercase tracking-[0.18em]`}>
               {prio.label}
             </Text>
           </View>
 
-          {/* Stage badge */}
           {current_stage && (
-            <View className="flex-row items-center bg-brand-primary/10 px-2.5 py-0.5 rounded-full border border-brand-primary/30">
-              <View style={{ backgroundColor: current_stage.color || 'var(--color-primary)' }} className="w-1.5 h-1.5 rounded-full mr-1.5" />
-              <Text className="text-brand-primary text-[9px] font-black uppercase tracking-wider">
+            <View className="flex-row items-center bg-brand-primary/10 px-3 py-1 rounded-full border border-brand-primary/25">
+              <View style={{ backgroundColor: current_stage.color || 'var(--color-primary)' }} className="w-2 h-2 rounded-full mr-2" />
+              <Text className="text-brand-primary text-[10px] font-black uppercase tracking-[0.18em]">
                 {current_stage.name}
               </Text>
             </View>
           )}
 
-          {/* Sub-task badge */}
           {task.parent_task_id && (
-            <View className="bg-brand-primary/20 px-1.5 py-0.5 rounded-sm">
-              <Text className="text-brand-primary text-[8px] font-black italic">SUB-TASK</Text>
+            <View className="bg-brand-primary/15 px-2.5 py-1 rounded-full border border-brand-primary/20">
+              <Text className="text-brand-primary text-[9px] font-black uppercase tracking-[0.18em]">Sub-task</Text>
             </View>
           )}
 
-          {/* Error state badge */}
           {task.error_state && (
-            <View className="bg-state-danger/10 px-2 py-0.5 rounded-md border border-state-danger/30">
-              <Text className="text-state-danger text-[8px] font-black uppercase">{task.error_state}</Text>
+            <View className="bg-state-danger/10 px-3 py-1 rounded-full border border-state-danger/25">
+              <Text className="text-state-danger text-[9px] font-black uppercase tracking-[0.18em]">
+                {task.error_state}
+              </Text>
             </View>
           )}
         </View>
       </View>
 
-      {/* Title & Actions Row */}
-      <View className="flex-row items-center justify-between mt-1">
-        <View className="flex-1 mr-4">
-          <Text className="text-typography-main text-2xl font-black tracking-tight">
+      <View className="flex-row items-start justify-between gap-6">
+        <View className="flex-1 min-w-0">
+          <Text className="text-typography-main text-[clamp(1.75rem,3vw,2.75rem)] leading-tight font-black tracking-tight">
             {task.title}
           </Text>
-          {/* Muted info row */}
-          <View className="flex-row items-center gap-4 mt-1">
+          <View className="flex-row items-center flex-wrap gap-x-4 gap-y-1 mt-2">
             {task.category && (
-              <Text className="text-typography-dim text-[10px] font-bold uppercase tracking-wider">{task.category}</Text>
+              <Text className="text-typography-dim text-[10px] font-bold uppercase tracking-[0.18em]">
+                {task.category}
+              </Text>
             )}
             {data.pipeline && (
               <View className="flex-row items-center">
@@ -205,8 +200,7 @@ export default function TaskHeader() {
           </View>
         </View>
 
-        {/* Stage Actions Buttons (Swapped from middle) */}
-        <View className="flex-row items-center gap-2">
+        <View className="flex-row flex-wrap items-center justify-end gap-2 max-w-[52%]">
           {buttonActions.map((a) => {
             const style = TYPE_STYLES[a.style] || TYPE_STYLES.neutral;
             const isLoading = loadingActionId === a.id;
@@ -218,19 +212,18 @@ export default function TaskHeader() {
                 disabled={isLoading || isLocked}
                 onPress={() => {
                   if (isLocked) {
-                    setErrorMsg({
-                      title: 'Locked — Awaiting Manager Approval',
-                      message: 'Your time declaration is pending review. This action will unlock once your manager approves it.',
-                    });
-                    setTimeout(() => setErrorMsg(null), 6000);
+                    infoToast(
+                      'This action will unlock once your manager approves it.',
+                      'Locked - Awaiting Manager Approval'
+                    );
                     return;
                   }
                   handleAction(a);
                 }}
-                className={`flex-row items-center px-4 py-2 rounded-xl border ${
+                className={`min-w-[128px] flex-row items-center justify-center px-4 py-2.5 rounded-2xl border transition-colors ${
                   isLocked
-                    ? 'bg-surface-overlay border-state-warning/40 opacity-70'
-                    : `${style.bg} ${style.border}`
+                    ? 'bg-state-warning/10 border-state-warning/30 opacity-80'
+                    : `${style.bg} ${style.border} hover:opacity-95`
                 } ${isLoading ? 'opacity-50' : ''}`}
               >
                 {isLoading ? (
@@ -238,12 +231,16 @@ export default function TaskHeader() {
                 ) : isLocked ? (
                   <>
                     <FontAwesome name="lock" size={10} className="text-state-warning" />
-                    <Text className="text-state-warning text-[10px] font-black uppercase tracking-wider ml-2">{a.label}</Text>
+                    <Text className="text-state-warning text-[10px] font-black uppercase tracking-[0.18em] ml-2">
+                      {a.label}
+                    </Text>
                   </>
                 ) : (
                   <>
                     <FontAwesome name={(a.icon as any) || style.icon} size={10} className={style.text} />
-                    <Text className={`${style.text} text-[10px] font-black uppercase tracking-wider ml-2`}>{a.label}</Text>
+                    <Text className={`${style.text} text-[10px] font-black uppercase tracking-[0.18em] ml-2`}>
+                      {a.label}
+                    </Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -254,14 +251,16 @@ export default function TaskHeader() {
             <TouchableOpacity
               onPress={() => setShowArchiveConfirm(true)}
               disabled={archiving}
-              className={`flex-row items-center px-4 py-2 rounded-xl border border-surface-border bg-surface-overlay ${archiving ? 'opacity-50' : ''}`}
+              className={`min-w-[128px] flex-row items-center justify-center px-4 py-2.5 rounded-2xl border border-surface-border bg-surface-overlay hover:bg-surface-background transition-colors ${archiving ? 'opacity-50' : ''}`}
             >
               {archiving ? (
                 <ActivityIndicator size="small" color={getMutedColor(activeTheme)} />
               ) : (
                 <>
                   <FontAwesome name="archive" size={10} className="text-typography-muted" />
-                  <Text className="text-typography-muted text-[10px] font-black uppercase tracking-wider ml-2">Archive</Text>
+                  <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.18em] ml-2">
+                    Archive
+                  </Text>
                 </>
               )}
             </TouchableOpacity>
@@ -269,13 +268,12 @@ export default function TaskHeader() {
         </View>
       </View>
 
-      {/* Error Message Display */}
       {errorMsg && (
-        <View className="mt-3 bg-state-danger/10 border border-state-danger/30 rounded-xl p-3">
-          <Text className="text-state-danger font-black text-xs uppercase tracking-wider mb-1">
+        <View className="mt-4 bg-state-danger/10 border border-state-danger/25 rounded-2xl p-4">
+          <Text className="text-state-danger font-black text-xs uppercase tracking-[0.18em] mb-1">
             {errorMsg.title}
           </Text>
-          <Text className="text-state-danger text-sm leading-5">
+          <Text className="text-state-danger/90 text-sm leading-6">
             {errorMsg.message}
           </Text>
         </View>
@@ -307,4 +305,3 @@ export default function TaskHeader() {
     </View>
   );
 }
-

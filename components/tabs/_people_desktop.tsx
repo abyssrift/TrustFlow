@@ -1,16 +1,16 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as Clipboard from 'expo-clipboard';
+import { useLocalSearchParams } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 
-import { supabase } from '@/lib/supabase';
+import NotificationRules from '@/components/admin/NotificationRules';
+import RoleBuilder from '@/components/admin/RoleBuilder';
+import TeamAssignmentGrid from '@/components/admin/TeamAssignmentGrid';
+import UserAssignmentGrid from '@/components/admin/UserAssignmentGrid';
 import { useAuth } from '@/contexts/AuthContext';
 import { RoleManagerProvider, useRoleManager } from '@/contexts/RoleManagerContext';
-import UserAssignmentGrid from '@/components/admin/UserAssignmentGrid';
-import TeamAssignmentGrid from '@/components/admin/TeamAssignmentGrid';
-import RoleBuilder from '@/components/admin/RoleBuilder';
-import NotificationRules from '@/components/admin/NotificationRules';
+import { supabase } from '@/lib/supabase';
 
 type PeopleSection = 'members' | 'teams' | 'roles' | 'notifications';
 
@@ -85,7 +85,7 @@ export default function PeopleScreenWeb() {
       <View className="max-w-[1600px] mx-auto w-full flex-1">
         <View className="flex-row items-center justify-between mb-8">
           <View>
-            <Text className="text-typography-main text-5xl font-black tracking-tighter">Team</Text>
+            <Text className="text-typography-main text-5xl font-black tracking-tighter">Corporate</Text>
             <Text className="text-typography-muted text-lg mt-2 font-medium">Members, teams, and role registry</Text>
           </View>
 

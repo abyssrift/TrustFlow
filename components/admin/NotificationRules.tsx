@@ -1,20 +1,20 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  Switch,
-  TouchableOpacity,
-  ActivityIndicator,
-  Modal,
-  TextInput,
-  useWindowDimensions,
-} from 'react-native';
-import { FontAwesome } from '@expo/vector-icons';
-import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/AuthContext';
 import { useAlert } from '@/contexts/AlertContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { supabase } from '@/lib/supabase';
+import { FontAwesome } from '@expo/vector-icons';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+    ActivityIndicator,
+    Modal,
+    ScrollView,
+    Switch,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    useWindowDimensions,
+    View,
+} from 'react-native';
 
 // Types and Constants
 type NotificationRule = {
@@ -214,6 +214,11 @@ const RuleInspector = ({ rule, onToggle }: { rule: NotificationRule | null, onTo
   const colors = useThemeColors();
   const [activeTab, setActiveTab] = useState<'config' | 'test' | 'logs'>('config');
   const [testing, setTesting] = useState(false);
+  const [testLogs, setTestLogs] = useState<string[]>([]);
+  const [testSummary, setTestSummary] = useState<{ matchedRules?: number; recipients?: string[] } | null>(null);
+  const [simTaskId, setSimTaskId] = useState<string>('');
+  const [simPipelineId, setSimPipelineId] = useState<string>('');
+  const [simMentionedUserId, setSimMentionedUserId] = useState<string>('');
 
   if (!rule) return (
     <View className="flex-1 items-center justify-center p-12 bg-surface-background/30">
@@ -343,8 +348,155 @@ const RuleInspector = ({ rule, onToggle }: { rule: NotificationRule | null, onTo
                 Trigger a virtual <Text className="text-brand-primary font-black">{rule.event_type}</Text> event. This will simulate the notification flow without actually sending messages to users.
               </Text>
               
-              <TouchableOpacity 
-                onPress={() => { setTesting(true); setTimeout(() => setTesting(false), 1500); }}
+              <View className="mt-6">
+                <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Simulation Payload (dev)</Text>
+                <View className="flex-row gap-2 mb-4">
+                  <TextInput
+                    placeholder="Task ID (optional)"
+                    value={simTaskId}
+                    onChangeText={setSimTaskId}
+                    placeholderTextColor={colors.textDim}
+                    className="flex-1 bg-surface-background border border-surface-border rounded-xl px-3 py-2 text-typography-main text-sm"
+                  />
+                  <TextInput
+                    placeholder="Mentioned User ID (optional)"
+                    value={simMentionedUserId}
+                    onChangeText={setSimMentionedUserId}
+                    placeholderTextColor={colors.textDim}
+                    className="w-48 bg-surface-background border border-surface-border rounded-xl px-3 py-2 text-typography-main text-sm"
+                  />
+                </View>
+                <TextInput
+                  placeholder="Pipeline ID (optional)"
+                  value={simPipelineId}
+                  onChangeText={setSimPipelineId}
+                  placeholderTextColor={colors.textDim}
+                  className="mb-4 bg-surface-background border border-surface-border rounded-xl px-3 py-2 text-typography-main text-sm"
+                />
+
+                <TouchableOpacity 
+                  onPress={async () => {
+                  setTesting(true);
+                  setTestLogs([]);
+                  setTestSummary(null);
+                  try {
+                    // Run client-side detailed simulation (best-effort; some reads may be restricted by RLS)
+                    const logs: string[] = [];
+                    logs.push(`Starting simulation for event: ${rule.event_type}`);
+
+                    // 1. Load rule details (we already have rule object)
+                    logs.push(`Loaded rule: ${rule.name} (id=${rule.id})`);
+
+                    // 2. Show conditions
+                    logs.push(`Conditions: ${JSON.stringify(rule.conditions || {})}`);
+
+                    // 2b. Determine event payload from user inputs or rule conditions
+                    const payload: any = {};
+                    const taskIdFromRule = (rule.conditions && (rule.conditions as any).task_id) || null;
+                    const taskId = simTaskId || taskIdFromRule || null;
+                    const pipelineId = simPipelineId || (rule.conditions && (rule.conditions as any).pipeline_id) || null;
+                    const mentionedUserId = simMentionedUserId || null;
+                    if (taskId) payload.task_id = taskId;
+                    if (pipelineId) payload.pipeline_id = pipelineId;
+                    if (mentionedUserId) payload.mentioned_user_id = mentionedUserId;
+                    logs.push(`Using payload: ${JSON.stringify(payload)}`);
+
+                    // 3. Attempt to resolve recipients per strategy
+                    const resolved = new Set<string>();
+                    for (const strategy of rule.recipient_strategies) {
+                      logs.push(`Resolving strategy: ${strategy}`);
+                      try {
+                        if (strategy === 'specific_users') {
+                          // Use recipient_config if present
+                          const config = rule.recipient_config || {} as any;
+                          const ids = (config.user_ids as string[] | undefined) || [];
+                          if (ids.length) {
+                            ids.forEach((id) => resolved.add(id));
+                            logs.push(`  specific_users -> explicit ids: ${ids.join(', ')}`);
+                          } else {
+                            logs.push('  specific_users -> no explicit ids; would rely on event payload (server-only)');
+                          }
+                        } else if (strategy === 'assignee') {
+                          // Try to read task_assignments for the entity_id if available in rule.conditions (best-effort)
+                          const taskId = payload.task_id || (rule.conditions && (rule.conditions as any).task_id) || null;
+                          if (!taskId) {
+                            logs.push('  assignee -> no task_id available to resolve (client simulation requires a task id)');
+                          } else {
+                            const { data, error } = await supabase
+                              .from('task_assignments')
+                              .select('assignee_user_id')
+                              .eq('task_id', taskId)
+                              .not('assignee_user_id', 'is', null);
+                            if (error) {
+                              logs.push(`  assignee -> DB read failed: ${error.message}`);
+                            } else {
+                              const ids = (data ?? []).map((r: any) => r.assignee_user_id);
+                              ids.forEach((id: string) => resolved.add(id));
+                              logs.push(`  assignee -> resolved: ${ids.join(', ') || 'none'}`);
+                            }
+                          }
+                        } else if (strategy === 'task_owner') {
+                          const taskId = payload.task_id || (rule.conditions && (rule.conditions as any).task_id) || null;
+                          if (!taskId) {
+                            logs.push('  task_owner -> no task_id available to resolve');
+                          } else {
+                            const { data, error } = await supabase
+                              .from('tasks')
+                              .select('created_by')
+                              .eq('id', taskId)
+                              .single();
+                            if (error) {
+                              logs.push(`  task_owner -> DB read failed: ${error.message}`);
+                            } else if (data?.created_by) {
+                              resolved.add(data.created_by);
+                              logs.push(`  task_owner -> resolved: ${data.created_by}`);
+                            } else {
+                              logs.push('  task_owner -> no owner found');
+                            }
+                          }
+                        } else if (strategy === 'watchers') {
+                          const taskId = payload.task_id || (rule.conditions && (rule.conditions as any).task_id) || null;
+                          if (!taskId) {
+                            logs.push('  watchers -> no task_id available to resolve');
+                          } else {
+                            const { data, error } = await supabase
+                              .from('entity_watchers')
+                              .select('user_id')
+                              .eq('entity_type', 'task')
+                              .eq('entity_id', taskId);
+                            if (error) {
+                              logs.push(`  watchers -> DB read failed (likely RLS): ${error.message}`);
+                            } else {
+                              const ids = (data ?? []).map((r: any) => r.user_id);
+                              ids.forEach((id: string) => resolved.add(id));
+                              logs.push(`  watchers -> resolved: ${ids.join(', ') || 'none'}`);
+                            }
+                          }
+                        } else {
+                          logs.push(`  ${strategy} -> resolution logic not available in client simulation`);
+                        }
+                      } catch (err: any) {
+                        logs.push(`  ${strategy} -> unexpected error: ${err?.message || String(err)}`);
+                      }
+                    }
+
+                    // 4. Exclude actor (unknown in client simulation)
+                    logs.push('Excluding actor: (not available in client simulation)');
+
+                    // 5. Build content preview
+                    const title = rule.event_type === 'task.mentioned' ? 'You Were Mentioned' : `Event: ${rule.event_type}`;
+                    logs.push(`Built preview title: ${title}`);
+
+                    // 6. Summary
+                    setTestSummary({ matchedRules: 1, recipients: [...resolved] });
+                    logs.push(`Simulation complete — ${resolved.size} recipient(s) resolved (client-side)`);
+                    setTestLogs(logs);
+                  } catch (err: any) {
+                    setTestLogs((prev) => [...prev, `Simulation error: ${err?.message || String(err)}`]);
+                  } finally {
+                    setTesting(false);
+                  }
+                }}
                 activeOpacity={0.8}
                 className="mt-8 bg-brand-primary py-5 rounded-2xl items-center flex-row justify-center gap-3 premium-shadow"
               >
@@ -354,18 +506,32 @@ const RuleInspector = ({ rule, onToggle }: { rule: NotificationRule | null, onTo
             </View>
             
             {testing && (
-              <View className="bg-state-success/10 border border-state-success/20 p-6 rounded-2xl flex-row items-start gap-4">
-                <View className="w-10 h-10 rounded-full bg-state-success items-center justify-center">
-                  <FontAwesome name="check" size={16} color="white" />
-                </View>
-                <View>
-                  <Text className="text-typography-main font-black text-base">Simulation Successful</Text>
-                  <Text className="text-typography-muted text-xs mt-1 leading-5">
-                    The rule would have triggered notifications for <Text className="text-state-success font-bold">3 recipients</Text> across Email and Push channels.
-                  </Text>
+              <View className="bg-surface-card p-6 rounded-2xl border border-surface-border">
+                <Text className="text-typography-main font-black">Running simulation…</Text>
+                <Text className="text-typography-muted text-xs mt-2">This runs a best-effort, client-side simulation and may be limited by DB row-level security.</Text>
+              </View>
+            )}
+
+            {!testing && testSummary && (
+              <View className="bg-state-success/10 border border-state-success/20 p-6 rounded-2xl">
+                <View className="flex-row items-start gap-4">
+                  <View className="w-10 h-10 rounded-full bg-state-success items-center justify-center">
+                    <FontAwesome name="check" size={16} color="white" />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-typography-main font-black text-base">Simulation Complete</Text>
+                    <Text className="text-typography-muted text-xs mt-1 leading-5">The client-side simulation resolved <Text className="text-state-success font-bold">{testSummary.recipients?.length ?? 0}</Text> recipient(s).</Text>
+                    <Text className="text-typography-muted text-xs mt-2">Details:</Text>
+                    <View className="mt-2">
+                      {testLogs.map((l, i) => (
+                        <Text key={i} className="text-typography-muted text-[12px]">• {l}</Text>
+                      ))}
+                    </View>
+                  </View>
                 </View>
               </View>
             )}
+          </View>
           </View>
         )}
 

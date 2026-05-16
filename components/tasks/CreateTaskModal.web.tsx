@@ -1,8 +1,12 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, Modal, TouchableOpacity, TextInput, ScrollView, ActivityIndicator, useWindowDimensions } from 'react-native';
-import { FontAwesome } from '@expo/vector-icons';
-import { cssInterop } from 'react-native-css-interop';
+import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 import { useTaskCreation } from '@/contexts/TaskCreationContext';
+import { supabase } from '@/lib/supabase';
+import { FontAwesome } from '@expo/vector-icons';
+import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Modal, ScrollView, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { cssInterop } from 'react-native-css-interop';
 
 cssInterop(FontAwesome, {
   className: {
@@ -10,10 +14,6 @@ cssInterop(FontAwesome, {
     nativeStyleToProp: { color: true, size: true },
   },
 } as any);
-import * as DocumentPicker from 'expo-document-picker';
-import * as ImagePicker from 'expo-image-picker';
-import { supabase } from '@/lib/supabase';
-import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 
 type Props = {
   visible: boolean;
@@ -227,8 +227,12 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                 <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.3em] mb-1">Task Orchestrator</Text>
                 <Text className="text-typography-main text-3xl font-black tracking-tighter">Initialize Deployment</Text>
               </View>
-              <TouchableOpacity onPress={onClose} className="w-12 h-12 bg-surface-background rounded-full items-center justify-center border border-surface-border hover:border-brand-primary transition-colors">
-                <FontAwesome name="times" size={18} className="text-typography-muted" />
+                <TouchableOpacity
+                  onPress={onClose}
+                  disabled={loading}
+                  className={`w-12 h-12 bg-surface-background rounded-full items-center justify-center border border-surface-border transition-colors ${loading ? 'opacity-40' : 'hover:border-brand-primary'}`}
+                >
+                  <FontAwesome name="times" size={18} className="text-typography-muted" />
               </TouchableOpacity>
             </View>
 
@@ -265,7 +269,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                       <Text className="text-state-danger text-[10px] font-black uppercase tracking-wider mr-1">Required</Text>
                     </View>
                     <TextInput
-                      value={draft.title}
+                      value={draft.title ?? ''}
                       onChangeText={t => setDraft({ title: t })}
                       placeholder="e.g. Critical Infrastructure Audit"
                       placeholderTextColor="var(--color-text-dim)"
@@ -292,7 +296,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                     <View className="w-36">
                       <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-3 ml-1">Weight</Text>
                       <TextInput
-                        value={draft.weight.toString()}
+                        value={(draft.weight ?? 1).toString()}
                         onChangeText={t => setDraft({ weight: parseInt(t) || 1 })}
                         keyboardType="numeric"
                         className="bg-surface-background border border-surface-border rounded-2xl px-6 py-4 text-typography-main font-black text-center"
@@ -444,7 +448,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                     <View className="flex-1">
                       <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-3 ml-1">Category Registry</Text>
                       <TextInput
-                        value={draft.category}
+                        value={draft.category ?? ''}
                         onChangeText={t => setDraft({ category: t })}
                         placeholder="General"
                         placeholderTextColor="var(--color-text-dim)"
@@ -508,7 +512,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                   <View>
                     <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-3 ml-1">Mandate Documentation</Text>
                     <TextInput
-                      value={draft.description}
+                      value={draft.description ?? ''}
                       onChangeText={t => setDraft({ description: t })}
                       placeholder="Define the scope of this tactical objective..."
                       placeholderTextColor="var(--color-text-dim)"
@@ -629,6 +633,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
             <View className="px-10 py-6 border-t border-surface-border flex-row gap-6 items-center">
               <TouchableOpacity
                 onPress={onClose}
+                disabled={loading}
                 className="flex-1 bg-surface-background py-5 rounded-2xl border border-surface-border items-center hover:bg-surface-overlay transition-colors"
               >
                 <Text className="text-typography-muted font-black uppercase tracking-widest text-xs">Keep as Draft</Text>
@@ -648,6 +653,15 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                 <Text className="text-typography-dim text-[9px] font-bold text-center tracking-wider">⌘ + Enter to submit</Text>
               </View>
             </View>
+
+            {loading && (
+              <View className="absolute inset-0 z-50 items-center justify-center bg-surface-background/70">
+                <View className="bg-surface-card border border-surface-border rounded-[2rem] px-7 py-6 items-center premium-shadow">
+                  <ActivityIndicator size="large" color="var(--color-primary)" />
+                  <Text className="text-typography-main font-black uppercase tracking-[0.25em] text-[10px] mt-3">Creating task</Text>
+                </View>
+              </View>
+            )}
 
           </View>
         </View>

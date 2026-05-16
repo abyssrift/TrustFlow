@@ -34,6 +34,7 @@ export default function StageBuilder() {
   const [formTerminalType, setFormTerminalType] = useState<'success' | 'failure' | ''>('');
   const [formRequiresSub, setFormRequiresSub] = useState(false);
   const [formRequiresTimer, setFormRequiresTimer] = useState(false);
+  const [formMinTimerMinutes, setFormMinTimerMinutes] = useState(5);
   const [formUseBus, setFormUseBus] = useState(false);
   const [formLinkedPipeId, setFormLinkedPipeId] = useState<string | null>(null);
   const [formManagerRouting, setFormManagerRouting] = useState('INHERIT');
@@ -48,6 +49,7 @@ export default function StageBuilder() {
     setFormTerminalType('');
     setFormRequiresSub(false);
     setFormRequiresTimer(false);
+    setFormMinTimerMinutes(5);
     setFormUseBus(false);
     setFormLinkedPipeId(null);
     setFormManagerRouting('INHERIT');
@@ -63,6 +65,7 @@ export default function StageBuilder() {
     setFormTerminalType(s.terminal_type || '');
     setFormRequiresSub(s.requires_submission);
     setFormRequiresTimer(s.requires_timer);
+    setFormMinTimerMinutes(Math.max(0, Math.round((s.min_timer_seconds ?? 300) / 60)));
     setFormUseBus(s.use_business_hours);
     setFormLinkedPipeId(s.linked_pipeline_id);
     setFormManagerRouting(s.manager_routing_rule || 'INHERIT');
@@ -80,6 +83,7 @@ export default function StageBuilder() {
       terminal_type: formTerminalType || null,
       requires_submission: formRequiresSub,
       requires_timer: formRequiresTimer,
+      min_timer_seconds: formRequiresTimer ? Math.max(0, formMinTimerMinutes) * 60 : 0,
       use_business_hours: formUseBus,
       manager_routing_rule: formManagerRouting,
       max_escalation_depth: formMaxEscalation,
@@ -98,6 +102,7 @@ export default function StageBuilder() {
       terminal_type: formTerminalType || null,
       requires_submission: formRequiresSub,
       requires_timer: formRequiresTimer,
+      min_timer_seconds: formRequiresTimer ? Math.max(0, formMinTimerMinutes) * 60 : 0,
       use_business_hours: formUseBus,
       linked_pipeline_id: formLinkedPipeId || null,
       manager_routing_rule: formManagerRouting,
@@ -236,11 +241,34 @@ export default function StageBuilder() {
         <FlagToggle
           label="Requires Timer"
           desc="Enforces time-tracking for this stage"
-          active={form.requiresTimer}
+          active={formRequiresTimer}
           onToggle={() => setFormRequiresTimer(!formRequiresTimer)}
           icon="clock-o"
           color="var(--color-warning)"
         />
+        {formRequiresTimer && (
+          <View className="ml-4 pl-4 border-l-2 border-state-warning/30 py-2">
+            <Text className="text-typography-label text-[10px] font-bold uppercase tracking-wider mb-1.5">
+              Minimum Timer (minutes)
+            </Text>
+            <View className="flex-row items-center gap-3">
+              <TextInput
+                value={String(formMinTimerMinutes)}
+                onChangeText={(v) => {
+                  const n = parseInt(v.replace(/[^0-9]/g, ''), 10);
+                  setFormMinTimerMinutes(isNaN(n) ? 0 : Math.min(1440, Math.max(0, n)));
+                }}
+                keyboardType="numeric"
+                className="bg-surface-background text-typography-main px-4 py-2 rounded-lg border border-surface-border text-sm font-bold w-24 text-center"
+              />
+              <Text className="text-typography-dim text-[11px] flex-1 italic">
+                {formMinTimerMinutes === 0
+                  ? 'Gate disabled — workers can advance with no recorded time.'
+                  : `Workers must accrue ${formMinTimerMinutes} min of timer (or declare manual time) before advancing.`}
+              </Text>
+            </View>
+          </View>
+        )}
         <FlagToggle
           label="Use Business Hours"
           desc="Calculates duration only during Sun-Thu 09:00-17:00"

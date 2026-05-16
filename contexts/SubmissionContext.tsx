@@ -200,17 +200,27 @@ export function SubmissionProvider({ children }: { children: React.ReactNode }) 
 
     } catch (err: any) {
       console.error('Submission Engine Error:', err);
-      
-      // Handle P0001 error for missing evidence
+
+      // Timer gate errors must surface to the caller so the manual-time modal
+      // can be shown. Don't alert and don't swallow.
+      if (err.message?.includes('LOW_TIMER_TIME') || err.message?.includes('TIME_APPROVAL_PENDING')) {
+        updateJob(taskId, {
+          status: 'error',
+          error: err.message,
+          currentAction: 'Time declaration required',
+        });
+        throw err;
+      }
+
       let displayMessage = err.message;
       if (err.code === 'P0001' && err.message?.includes('Mandatory evidence missing')) {
         displayMessage = 'This stage requires a submission with text or attachments to proceed.';
       }
-      
-      updateJob(taskId, { 
-        status: 'error', 
-        error: displayMessage, 
-        currentAction: 'Failed to submit evidence' 
+
+      updateJob(taskId, {
+        status: 'error',
+        error: displayMessage,
+        currentAction: 'Failed to submit evidence'
       });
       Alert.alert('Submission Failed', `Task: ${taskTitle}\nError: ${displayMessage}`);
     }

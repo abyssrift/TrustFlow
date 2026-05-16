@@ -52,6 +52,7 @@ export const REPORT_TYPE_OPTIONS = [
   { value: 'targets_status',           label: 'Targets & SLA',        icon: 'bullseye'      },
   { value: 'personal_pulse',           label: 'Personal Snapshot',    icon: 'heartbeat'     },
   { value: 'multi_report',             label: 'Bundle',               icon: 'files-o'       },
+  { value: 'projects',                 label: 'Projects',             icon: 'folder-open-o' },
 ];
 
 const DATE_PRESETS = [

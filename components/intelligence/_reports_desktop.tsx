@@ -24,11 +24,12 @@ function formatDuration(seconds: number): string {
   return `${h}h ${m % 60}m`;
 }
 
-function ElapsedTimer({ createdAt, updatedAt, status }: { createdAt: string; updatedAt: string; status: string }) {
+function ElapsedTimer({ createdAt, updatedAt, completedAt, status }: { createdAt: string; updatedAt: string; completedAt?: string | null; status: string }) {
   const isActive = status === 'pending' || status === 'processing';
+  const endRef = completedAt || updatedAt;
 
   const getStaticSeconds = () =>
-    Math.round((new Date(updatedAt).getTime() - new Date(createdAt).getTime()) / 1000);
+    Math.round((new Date(endRef).getTime() - new Date(createdAt).getTime()) / 1000);
 
   const getLiveSeconds = () =>
     Math.round((Date.now() - new Date(createdAt).getTime()) / 1000);
@@ -39,7 +40,7 @@ function ElapsedTimer({ createdAt, updatedAt, status }: { createdAt: string; upd
     if (!isActive) { setElapsed(getStaticSeconds()); return; }
     const id = setInterval(() => setElapsed(getLiveSeconds()), 1000);
     return () => clearInterval(id);
-  }, [isActive, createdAt, updatedAt]);
+  }, [isActive, createdAt, endRef]);
 
   return (
     <View className="w-20 items-start">
@@ -82,6 +83,13 @@ const REPORT_META: Record<string, { label: string; icon: string }> = {
   targets_status:            { label: 'Objectives & SLA Report',    icon: 'bullseye'      },
   personal_pulse:            { label: 'Personal Snapshot',          icon: 'heartbeat'     },
   multi_report:              { label: 'Combined Report Bundle',       icon: 'files-o'       },
+  projects:                  { label: 'Projects Status',              icon: 'folder-open-o' },
+};
+
+const SOURCE_LABEL: Record<string, string> = {
+  desktop:      'Desktop',
+  mobile:       'Mobile',
+  mobile_modal: 'Mobile',
 };
 
 function getReportSubtitle(r: any): string {
@@ -362,15 +370,24 @@ export default function IntelligenceReports() {
                     </View>
                   </View>
                   {/* Type */}
-                  <Text className="flex-1 text-typography-muted text-xs font-bold" numberOfLines={1}>
-                    {meta.label}
-                  </Text>
+                  <View className="flex-1 flex-row items-center gap-2">
+                    <Text className="text-typography-muted text-xs font-bold flex-shrink" numberOfLines={1}>
+                      {meta.label}
+                    </Text>
+                    {r.parameters?._generated_from && SOURCE_LABEL[r.parameters._generated_from] && (
+                      <View className="px-2 py-0.5 rounded-full bg-surface-background border border-surface-border">
+                        <Text className="text-typography-muted text-[8px] font-black uppercase tracking-widest">
+                          {SOURCE_LABEL[r.parameters._generated_from]}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
                   {/* Date */}
                   <Text className="flex-1 text-typography-muted text-xs">
                     {new Date(r.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                   </Text>
                   {/* Duration timer */}
-                  <ElapsedTimer createdAt={r.created_at} updatedAt={r.updated_at} status={r.status} />
+                  <ElapsedTimer createdAt={r.created_at} updatedAt={r.updated_at} completedAt={r.completed_at} status={r.status} />
                   {/* Status badge */}
                   <View className="w-24 items-center">
                     <View className={`px-3 py-1 rounded-full ${STATUS_BG[r.status] || 'bg-surface-background'}`}>

@@ -38,6 +38,7 @@ export default function StageBuilder() {
     terminal_type: '' as 'success' | 'failure' | '',
     requires_submission: false,
     requires_timer: false,
+    min_timer_minutes: 5,
     use_business_hours: false,
     linked_pipeline_id: null as string | null,
     manager_routing_rule: 'INHERIT',
@@ -60,6 +61,7 @@ export default function StageBuilder() {
       terminal_type: '',
       requires_submission: false,
       requires_timer: false,
+      min_timer_minutes: 5,
       use_business_hours: false,
       linked_pipeline_id: null,
       manager_routing_rule: 'INHERIT',
@@ -78,6 +80,7 @@ export default function StageBuilder() {
       terminal_type: s.terminal_type || '',
       requires_submission: s.requires_submission,
       requires_timer: s.requires_timer,
+      min_timer_minutes: Math.max(0, Math.round((s.min_timer_seconds ?? 300) / 60)),
       use_business_hours: s.use_business_hours,
       linked_pipeline_id: s.linked_pipeline_id,
       manager_routing_rule: s.manager_routing_rule || 'INHERIT',
@@ -96,10 +99,12 @@ export default function StageBuilder() {
   const handleSave = async () => {
     if (!formState.name.trim()) return;
     
+    const { min_timer_minutes, ...rest } = formState;
     const payload = {
-      ...formState,
+      ...rest,
       name: formState.name.trim().toUpperCase(),
       terminal_type: formState.is_terminal ? (formState.terminal_type || 'success') : null,
+      min_timer_seconds: formState.requires_timer ? Math.max(0, min_timer_minutes) * 60 : 0,
     };
 
     if (editingStageId) {
@@ -301,13 +306,34 @@ export default function StageBuilder() {
 
               {/* Time Management */}
               <Section label="Time Management">
-                 <Toggle 
+                 <Toggle
                     label="Focus Timer"
                     desc="Task requires active work session"
                     active={formState.requires_timer}
                     onToggle={(val: boolean) => setFormState(prev => ({ ...prev, requires_timer: val }))}
                  />
-                 <Toggle 
+                 {formState.requires_timer && (
+                   <View className="ml-4 pl-4 border-l-2 border-state-warning/30 mb-4">
+                     <Text className="text-typography-muted text-[10px] font-bold uppercase mb-1.5">Minimum Timer (minutes)</Text>
+                     <View className="flex-row items-center gap-3">
+                       <TextInput
+                         className="bg-surface-background border border-surface-border p-3 rounded-lg text-typography-main text-sm font-bold w-24 text-center"
+                         keyboardType="numeric"
+                         value={String(formState.min_timer_minutes)}
+                         onChangeText={(v) => {
+                           const n = parseInt(v.replace(/[^0-9]/g, ''), 10);
+                           setFormState(prev => ({ ...prev, min_timer_minutes: isNaN(n) ? 0 : Math.min(1440, Math.max(0, n)) }));
+                         }}
+                       />
+                       <Text className="text-typography-dim text-[11px] flex-1 italic leading-tight">
+                         {formState.min_timer_minutes === 0
+                           ? 'Gate disabled — workers can advance with no recorded time.'
+                           : `Workers must accrue ${formState.min_timer_minutes} min of timer (or declare manual time) before advancing.`}
+                       </Text>
+                     </View>
+                   </View>
+                 )}
+                 <Toggle
                     label="Business Hours"
                     desc="Only count official working time"
                     active={formState.use_business_hours}

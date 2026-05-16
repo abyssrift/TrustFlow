@@ -1,10 +1,9 @@
-import React from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Link, Tabs } from 'expo-router';
-import { Pressable, View, Text, useWindowDimensions, Platform } from 'react-native';
+import React from 'react';
+import { Platform, Pressable, Text, useWindowDimensions, View } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
 
-import { useClientOnlyValue } from '@/components/useClientOnlyValue';
 import { useNotifications } from '@/contexts/NotificationsContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { NATIVE_THEME_COLORS, TAB_BAR_HEIGHT } from '@/lib/layout';
@@ -171,7 +170,7 @@ export default function TabLayout() {
         name="people"
         options={{
           href: null,
-          title: 'Team',
+          title: 'Corporate',
           tabBarIcon: ({ color }) => <TabBarIcon name="users" color={color} />,
         }}
       />

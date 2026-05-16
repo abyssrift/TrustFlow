@@ -68,13 +68,15 @@ type ReportType =
   | 'pipeline_throughput'
   | 'personnel_comparison'
   | 'targets_status'
-  | 'personal_pulse';
+  | 'personal_pulse'
+  | 'projects';
 
 type TemporalMode = 'range' | 'series' | 'none';
 
-function getTemporalMode(type: ReportType): TemporalMode {
+function getTemporalMode(type: ReportType, tp: Record<string, any> = {}): TemporalMode {
   if (type === 'user_performance_series' || type === 'pipeline_throughput') return 'series';
   if (type === 'targets_status' || type === 'personal_pulse') return 'none';
+  if (type === 'projects') return tp.date_scoped ? 'range' : 'none';
   return 'range';
 }
 
@@ -96,6 +98,7 @@ const REPORT_TYPES: {
   { value: 'personnel_comparison',      label: 'People Cost Comparison',     desc: 'Cost analysis, points/hour and efficiency across people', icon: 'balance-scale', group: 'analytics' },
   { value: 'targets_status',            label: 'Objectives & SLA Report',       desc: 'All active, hit, and expired performance targets',        icon: 'bullseye',      group: 'analytics' },
   { value: 'personal_pulse',            label: 'Personal Snapshot',         desc: 'Your daily and monthly points, session time and flap rate', icon: 'heartbeat',     group: 'analytics' },
+  { value: 'projects',                  label: 'Projects Status',           desc: 'Folder-of-tasks completion, throughput, and projected ETA', icon: 'folder-open-o', group: 'analytics' },
 ];
 
 export default function ReportGeneratorDesktop() {
@@ -115,6 +118,7 @@ export default function ReportGeneratorDesktop() {
   const [pipelines, setPipelines] = useState<any[]>([]);
   const [teams, setTeams]         = useState<any[]>([]);
   const [workers, setWorkers]     = useState<any[]>([]);
+  const [projects, setProjects]   = useState<any[]>([]);
   const [loading, setLoading]         = useState(false);
   const [genError, setGenError]       = useState<string | null>(null);
   const [genProgress, setGenProgress] = useState<{ current: number; total: number } | null>(null);
@@ -132,14 +136,16 @@ export default function ReportGeneratorDesktop() {
   }, [loading]);
 
   const loadFilterOptions = async () => {
-    const [pipeRes, teamRes, workerRes] = await Promise.all([
+    const [pipeRes, teamRes, workerRes, projectRes] = await Promise.all([
       supabase.from('pipelines').select('id, name').is('deleted_at', null).order('name'),
       supabase.from('teams').select('id, name').is('deleted_at', null).order('name'),
       supabase.from('users').select('id, full_name').is('deleted_at', null).order('full_name'),
+      supabase.from('projects').select('id, name').is('deleted_at', null).order('name'),
     ]);
     setPipelines(pipeRes.data || []);
     setTeams(teamRes.data || []);
     setWorkers(workerRes.data || []);
+    setProjects(projectRes.data || []);
   };
 
   const toggleType = (type: ReportType) => {
@@ -162,7 +168,7 @@ export default function ReportGeneratorDesktop() {
   };
 
   // Whether to show the shared date-range picker (any selected type uses range mode)
-  const needsDateRange = selectedTypes.some(t => getTemporalMode(t) === 'range');
+  const needsDateRange = selectedTypes.some(t => getTemporalMode(t, typeParams[t] || {}) === 'range');
 
   const buildTemporalParams = () => {
     let days = 30;
@@ -186,7 +192,7 @@ export default function ReportGeneratorDesktop() {
     const { days, dateStartParam, dateEndParam } = buildTemporalParams();
     const params: Record<string, any> = {};
 
-    const tMode = getTemporalMode(type);
+    const tMode = getTemporalMode(type, tp);
     if (tMode === 'range') {
       params.days       = days;
       params.date_start = dateStartParam;
@@ -221,6 +227,9 @@ export default function ReportGeneratorDesktop() {
       case 'personnel_comparison':
         params.user_ids  = tp.user_ids  || [];
         params.salaries  = tp.salaries  || {};
+        break;
+      case 'projects':
+        params.project_ids = tp.project_ids || [];
         break;
     }
     return params;
@@ -282,16 +291,30 @@ export default function ReportGeneratorDesktop() {
 
       setGenProgress({ current: 0, total: jobs.length });
 
+      const createdJobIds: string[] = [];
       for (let i = 0; i < jobs.length; i++) {
         setGenProgress({ current: i + 1, total: jobs.length });
         const { reportType, parameters } = jobs[i];
+        const taggedParams = { ...parameters, _generated_from: 'desktop' };
         const { data: jobId, error } = await supabase.rpc('rpc_request_report', {
           p_report_type: reportType,
-          p_parameters:  parameters,
+          p_parameters:  taggedParams,
         });
         if (error) throw error;
         if (!jobId) throw new Error('Failed to create report job');
-        await generateAndUploadReport(jobId, reportType, parameters, supabase, user.id, profile.company_id);
+        createdJobIds.push(jobId);
+        await generateAndUploadReport(jobId, reportType, taggedParams, supabase, user.id, profile.company_id);
+      }
+
+      // Post-loop verification: confirm every row is 'completed' in the DB before navigating away.
+      const { data: verifyRows } = await supabase
+        .from('reporting_jobs')
+        .select('id, status')
+        .in('id', createdJobIds);
+      const incomplete = (verifyRows || []).filter(r => r.status !== 'completed');
+      if (incomplete.length > 0) {
+        setGenError(`${incomplete.length} of ${createdJobIds.length} report(s) didn't reach completed status. Check the Reports list — the row may still be processing or failed.`);
+        return;
       }
 
       router.replace('/intelligence/reports');
@@ -511,6 +534,7 @@ export default function ReportGeneratorDesktop() {
                               pipelines={pipelines}
                               teams={teams}
                               workers={workers}
+                              projects={projects}
                             />
                           </View>
                         );
@@ -569,7 +593,7 @@ function TypeCard({ opt, selected, onPress }: { opt: typeof REPORT_TYPES[number]
 // ── TypeParamPanel ─────────────────────────────────────────────────────────────
 
 function TypeParamPanel({
-  type, params, setParam, toggleMultiUser, pipelines, teams, workers,
+  type, params, setParam, toggleMultiUser, pipelines, teams, workers, projects,
 }: {
   type: ReportType;
   params: Record<string, any>;
@@ -578,6 +602,7 @@ function TypeParamPanel({
   pipelines: any[];
   teams: any[];
   workers: any[];
+  projects: any[];
 }) {
   if (type === 'general' || type === 'workflow_analysis') {
     return (
@@ -771,6 +796,59 @@ function TypeParamPanel({
         <Text className="text-typography-muted text-xs leading-5">
           Captures a real-time snapshot of your daily points, monthly points, active session time, and flap rate at the moment of generation.
         </Text>
+      </View>
+    );
+  }
+
+  if (type === 'projects') {
+    const selectedIds: string[] = params.project_ids || [];
+    const dateScoped = !!params.date_scoped;
+    return (
+      <View className="mb-8">
+        <View className="flex-row items-center mb-4">
+          <Text className="text-typography-main text-xs font-semibold uppercase tracking-wide flex-1">Projects</Text>
+          <Text className="text-typography-muted text-[10px]">
+            {selectedIds.length === 0 ? 'All projects (leave empty)' : `${selectedIds.length} selected`}
+          </Text>
+        </View>
+        {projects.length === 0 ? (
+          <Text className="text-typography-muted text-xs italic">No projects yet for this company.</Text>
+        ) : (
+          <View className="flex-row flex-wrap gap-2">
+            {projects.map(p => {
+              const active = selectedIds.includes(p.id);
+              return (
+                <TouchableOpacity
+                  key={p.id}
+                  onPress={() => setParam('project_ids', active ? selectedIds.filter((x: string) => x !== p.id) : [...selectedIds, p.id])}
+                  className={`px-4 py-2.5 rounded-xl border transition-all ${active ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
+                >
+                  <Text className={`text-[11px] font-semibold ${active ? 'text-white' : 'text-typography-main'}`}>
+                    {p.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+        <Text className="text-typography-muted text-[10px] mt-3 leading-4">
+          Snapshot of lifetime project stats by default. Leave empty to include every project.
+        </Text>
+
+        <View className="mt-6 flex-row items-center gap-3">
+          <TouchableOpacity
+            onPress={() => setParam('date_scoped', !dateScoped)}
+            className={`w-10 h-6 rounded-full p-0.5 ${dateScoped ? 'bg-brand-primary' : 'bg-surface-border'}`}
+          >
+            <View className={`h-5 w-5 rounded-full bg-white ${dateScoped ? 'ml-auto' : ''}`} />
+          </TouchableOpacity>
+          <View className="flex-1">
+            <Text className="text-typography-main text-xs font-bold">Scope task throughput to a date range</Text>
+            <Text className="text-typography-muted text-[10px] leading-4">
+              When on, the projected ETA is computed using completion rate inside the shared date range above.
+            </Text>
+          </View>
+        </View>
       </View>
     );
   }

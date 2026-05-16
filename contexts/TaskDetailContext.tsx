@@ -22,6 +22,7 @@ export type StageData = {
   features?: string[];
   requires_submission: boolean;
   requires_timer: boolean;
+  min_timer_seconds: number;
   linked_pipeline_id?: string | null;
   linked_pipeline?: { id: string; name: string } | null;
 };
@@ -73,6 +74,7 @@ export type CommentData = {
 export type WorkSessionData = {
   id: string; user_name: string | null; user_id: string; status: string;
   total_seconds_spent: number; started_at: string; last_heartbeat_at?: string;
+  stage_id: string | null;
 };
 
 export type ChildTaskData = {

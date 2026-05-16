@@ -5,6 +5,7 @@ import React from 'react'
 import { GeneralData, GeneralReport, GeneralReportPages, computeGeneralInsights } from './GeneralReport'
 import { PersonalPulseData, PersonalPulseReport, PersonalPulseReportPages } from './PersonalPulseReport'
 import { PersonnelData, PersonnelReport, PersonnelReportPages } from './PersonnelReport'
+import { ProjectsData, ProjectsReport, ProjectsReportPages, ProjectRow, computeProjectsInsights } from './ProjectsReport'
 import { Footer, Insight, Section, fmtDate } from './shared'
 import { StageDwellData, StageDwellReport, StageDwellReportPages } from './StageDwellReport'
 import { TargetsData, TargetsReport, TargetsReportPages } from './TargetsReport'
@@ -71,7 +72,6 @@ async function fetchGeneral(sb: SupabaseClient, p: any, userId: string, companyN
 async function fetchWorkerComparison(sb: SupabaseClient, p: any, companyName: string): Promise<WorkerComparisonData> {
   const from = p.date_start || new Date(Date.now() - (p.days || 30) * 86400000).toISOString()
   const to   = p.date_end   || new Date().toISOString()
-  // Support both new user_ids array and legacy worker_a_id/worker_b_id pair
   const userIds: string[] = p.user_ids?.length > 0
     ? p.user_ids
     : [p.worker_a_id, p.worker_b_id].filter(Boolean)
@@ -86,7 +86,6 @@ async function fetchTeamComparison(sb: SupabaseClient, p: any, companyName: stri
   const from = p.date_start || new Date(Date.now() - (p.days || 30) * 86400000).toISOString()
   const to   = p.date_end   || new Date().toISOString()
 
-  // Support new team_ids array, legacy team_a_id/team_b_id pair, or all teams if empty
   let teamIds: string[] = p.team_ids?.length > 0
     ? p.team_ids
     : [p.team_a_id, p.team_b_id].filter(Boolean)
@@ -196,6 +195,122 @@ async function fetchPersonalPulse(sb: SupabaseClient, userId: string, companyNam
   }
 }
 
+async function fetchProjects(sb: SupabaseClient, p: any, companyName: string): Promise<ProjectsData> {
+  // Snapshot by default; if date_start/date_end provided, use as a scope label and to filter task completion
+  const projectIds: string[] = Array.isArray(p.project_ids) ? p.project_ids : []
+  const fromIso = p.date_start || null
+  const toIso   = p.date_end   || null
+
+  // Load projects (filter to selected if provided)
+  let projectQuery = sb
+    .from('projects')
+    .select('id, name, status, pipeline_id, created_at, expiry_date')
+    .is('deleted_at', null)
+  if (projectIds.length > 0) projectQuery = projectQuery.in('id', projectIds)
+  const { data: projects, error: pErr } = await projectQuery
+  if (pErr) throw new Error(`Projects fetch: ${pErr.message}`)
+  if (!projects || projects.length === 0) {
+    return {
+      rows: [],
+      company: companyName,
+      dateRange: fromIso && toIso ? `${fmtDate(fromIso)} — ${fmtDate(toIso)}` : null,
+    }
+  }
+
+  // Pipeline names for joining
+  const pipelineIds = [...new Set(projects.map((pr: any) => pr.pipeline_id).filter(Boolean))]
+  const pipelineMap: Record<string, string> = {}
+  if (pipelineIds.length > 0) {
+    const { data: pipes } = await sb.from('pipelines').select('id, name').in('id', pipelineIds)
+    ;(pipes || []).forEach((pp: any) => { pipelineMap[pp.id] = pp.name })
+  }
+
+  // Lifetime stats via the existing RPC (this respects company RLS)
+  const ids = projects.map((pr: any) => pr.id)
+  const { data: stats, error: sErr } = await sb.rpc('rpc_get_project_stats', { p_project_ids: ids })
+  if (sErr) throw new Error(`Project stats: ${sErr.message}`)
+  const statsMap: Record<string, { total_tasks: number; completed_tasks: number; overdue_tasks: number; completion_rate: number }> = {}
+  ;(stats || []).forEach((row: any) => { statsMap[row.project_id] = row })
+
+  // If date range scope is provided, also count tasks completed inside that window per project for the "rate" view
+  let scopedDoneMap: Record<string, number> = {}
+  if (fromIso && toIso) {
+    const { data: scoped } = await sb
+      .from('tasks')
+      .select('project_id, completed_at')
+      .in('project_id', ids)
+      .gte('completed_at', fromIso)
+      .lte('completed_at', toIso)
+      .not('completed_at', 'is', null)
+    ;(scoped || []).forEach((t: any) => {
+      if (!t.project_id) return
+      scopedDoneMap[t.project_id] = (scopedDoneMap[t.project_id] || 0) + 1
+    })
+  }
+
+  const nowMs = Date.now()
+  const sevenDaysMs = 7 * 86400000
+
+  const rows: ProjectRow[] = projects.map((pr: any) => {
+    const st = statsMap[pr.id] || { total_tasks: 0, completed_tasks: 0, overdue_tasks: 0, completion_rate: 0 }
+    const createdMs = pr.created_at ? new Date(pr.created_at).getTime() : nowMs
+    const daysActive = Math.max(1, (nowMs - createdMs) / 86400000)
+
+    const completedForRate = fromIso && toIso ? (scopedDoneMap[pr.id] ?? st.completed_tasks) : st.completed_tasks
+    const windowDays = fromIso && toIso
+      ? Math.max(1, (new Date(toIso).getTime() - new Date(fromIso).getTime()) / 86400000)
+      : daysActive
+    const tasksPerDay = completedForRate / windowDays
+
+    const remaining = Math.max(0, st.total_tasks - st.completed_tasks)
+    const projectedEta = (remaining > 0 && tasksPerDay > 0)
+      ? new Date(nowMs + (remaining / tasksPerDay) * 86400000).toISOString()
+      : null
+
+    let health: ProjectRow['health']
+    const expiryMs = pr.expiry_date ? new Date(pr.expiry_date).getTime() : null
+    if (remaining === 0 && st.total_tasks > 0) {
+      health = 'complete'
+    } else if (expiryMs && expiryMs < nowMs) {
+      health = 'overdue'
+    } else if (tasksPerDay === 0 && st.total_tasks > 0) {
+      health = 'stalled'
+    } else if (expiryMs && projectedEta && new Date(projectedEta).getTime() > expiryMs) {
+      health = 'at_risk'
+    } else if (expiryMs && (expiryMs - nowMs) < sevenDaysMs && (st.completion_rate || 0) < 60) {
+      health = 'at_risk'
+    } else {
+      health = 'on_track'
+    }
+
+    return {
+      id:              pr.id,
+      name:            pr.name || 'Untitled',
+      pipeline_name:   pipelineMap[pr.pipeline_id] || null,
+      status:          pr.status,
+      total_tasks:     st.total_tasks,
+      completed_tasks: st.completed_tasks,
+      overdue_tasks:   st.overdue_tasks,
+      completion_rate: st.completion_rate || 0,
+      days_active:     daysActive,
+      tasks_per_day:   tasksPerDay,
+      expiry_date:     pr.expiry_date,
+      projected_eta:   projectedEta,
+      health,
+    }
+  })
+
+  // Sort by health severity, then by name
+  const order: Record<ProjectRow['health'], number> = { overdue: 0, at_risk: 1, stalled: 2, on_track: 3, complete: 4 }
+  rows.sort((a, b) => (order[a.health] - order[b.health]) || a.name.localeCompare(b.name))
+
+  return {
+    rows,
+    company: companyName,
+    dateRange: fromIso && toIso ? `${fmtDate(fromIso)} — ${fmtDate(toIso)}` : null,
+  }
+}
+
 // ── Multi-report: build pages for a single module ─────────────────────────────
 
 type ModuleResult = {
@@ -257,6 +372,13 @@ async function buildReportSection(
       const data = await fetchPersonalPulse(sb, userId, company)
       return { element: React.createElement(PersonalPulseReportPages, { data, jobId, isModule }), insights: [] }
     }
+    case 'projects': {
+      const data = await fetchProjects(sb, p, company)
+      return {
+        element: React.createElement(ProjectsReportPages, { data, jobId, isModule }),
+        insights: computeProjectsInsights(data),
+      }
+    }
     default: {
       const data = await fetchGeneral(sb, p, userId, company)
       return {
@@ -277,6 +399,12 @@ export async function generateAndUploadReport(
   userId:     string,
   companyId:  string,
 ): Promise<string> {
+  const t0 = Date.now()
+  const log = (label: string) => {
+    console.log(`[report ${jobId.slice(0, 8)}] ${label} +${Date.now() - t0}ms`)
+  }
+
+  log(`start type=${reportType}`)
   await sb.from('reporting_jobs').update({ status: 'processing', updated_at: new Date().toISOString() }).eq('id', jobId)
 
   try {
@@ -286,16 +414,26 @@ export async function generateAndUploadReport(
     let element: React.ReactElement
 
     if (reportType === 'multi_report') {
-      // Fetch all module data in parallel and assemble into one Document
       const modules = (p.modules || []) as Array<{ type: string; parameters: any }>
       if (modules.length === 0) throw new Error('No report modules specified')
 
+      log(`fetching ${modules.length} modules`)
       const results = await Promise.all(
         modules.map(m => buildReportSection(m.type, m.parameters || {}, sb, userId, company, jobId, true))
       )
 
       const sectionElements = results.map(r => r.element)
-      const allInsights = results.flatMap(r => r.insights)
+
+      // Dedupe insights by exact text — picking the first occurrence's color
+      const seen = new Set<string>()
+      const allInsights: { text: string; color: string }[] = []
+      for (const r of results) {
+        for (const ins of r.insights) {
+          if (seen.has(ins.text)) continue
+          seen.add(ins.text)
+          allInsights.push(ins)
+        }
+      }
 
       const children: React.ReactElement[] = [...sectionElements]
 
@@ -366,6 +504,11 @@ export async function generateAndUploadReport(
           element = React.createElement(PersonalPulseReport, { data, jobId })
           break
         }
+        case 'projects': {
+          const data = await fetchProjects(sb, p, company)
+          element = React.createElement(ProjectsReport, { data, jobId })
+          break
+        }
         default: {
           const data = await fetchGeneral(sb, p, userId, company)
           element = React.createElement(GeneralReport, { data, jobId })
@@ -373,22 +516,32 @@ export async function generateAndUploadReport(
       }
     }
 
+    log('data fetched, building blob')
     const blob = await pdf(element as any).toBlob()
-    const path = `${companyId}/${jobId}.pdf`
+    log(`blob built size=${(blob as any).size ?? '?'}b, uploading`)
 
+    const path = `${companyId}/${jobId}.pdf`
     const { error: uploadErr } = await sb.storage.from('reports').upload(path, blob, {
       contentType: 'application/pdf', upsert: true,
     })
     if (uploadErr) throw new Error(`Upload failed: ${uploadErr.message}`)
+    log('uploaded, marking completed')
 
-    await sb.from('reporting_jobs').update({
-      status: 'completed', file_url: path, updated_at: new Date().toISOString(),
+    const completedIso = new Date().toISOString()
+    const { error: dbErr } = await sb.from('reporting_jobs').update({
+      status: 'completed',
+      file_url: path,
+      completed_at: completedIso,
+      updated_at: completedIso,
     }).eq('id', jobId)
+    if (dbErr) throw new Error(`Status update failed: ${dbErr.message}`)
+    log('row completed in DB')
 
     const { data: signed } = await sb.storage.from('reports').createSignedUrl(path, 300)
     return signed?.signedUrl || ''
 
   } catch (err: any) {
+    console.error(`[report ${jobId.slice(0, 8)}] FAILED:`, err?.message || err)
     await sb.from('reporting_jobs').update({
       status: 'failed', error_log: err.message, updated_at: new Date().toISOString(),
     }).eq('id', jobId)

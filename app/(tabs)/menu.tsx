@@ -1,11 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { ScrollView, View, Text, Pressable, Platform, Image } from 'react-native';
-import { Link, usePathname, useLocalSearchParams } from 'expo-router';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { supabase } from '@/lib/supabase';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { Link, useLocalSearchParams, usePathname } from 'expo-router';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Image, Pressable, ScrollView, Text, View } from 'react-native';
 
 type IconName = React.ComponentProps<typeof FontAwesome>['name'];
 
@@ -23,7 +23,7 @@ const SHORTCUTS: Shortcut[] = [
   { id: 'targets', permissionKey: 'target.view', icon: 'crosshairs', label: 'Targets', href: '/intelligence/targets' },
   { id: 'archives', permissionKey: 'archive.view', icon: 'archive', label: 'Archives', href: '/intelligence/archives' },
   { id: 'analytics', permissionKey: 'report.view', icon: 'bar-chart', label: 'Analytics', href: '/analytics' },
-  { id: 'team', permissionKey: 'user.view_all', fallbackPermissionKey: 'role.manage', icon: 'users', label: 'Team', href: '/people?section=teams' },
+  { id: 'team', permissionKey: 'user.view_all', fallbackPermissionKey: 'role.manage', icon: 'users', label: 'Corporate', href: '/people?section=teams' },
 ];
 
 const displayNameFromSession = (session: any) => {

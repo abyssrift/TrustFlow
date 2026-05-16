@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, Modal, TouchableOpacity, TextInput, ScrollView, ActivityIndicator, Platform, KeyboardAvoidingView } from 'react-native';
-import { FontAwesome } from '@expo/vector-icons';
-import { useTaskCreation, type StagedBriefFile } from '@/contexts/TaskCreationContext';
+import { useTaskCreation } from '@/contexts/TaskCreationContext';
 import { supabase } from '@/lib/supabase';
+import { FontAwesome } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import PremiumCalendarPicker from '../common/PremiumCalendarPicker';
 
@@ -58,7 +58,7 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
             <View>
               <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2 ml-1">Title</Text>
               <TextInput 
-                value={draft.title}
+                value={draft.title ?? ''}
                 onChangeText={t => setDraft({ title: t })}
                 placeholder="Deployment Objective"
                 placeholderTextColor="var(--color-text-dim)"
@@ -68,7 +68,7 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
             <View>
               <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2 ml-1">Category</Text>
               <TextInput 
-                value={draft.category}
+                value={draft.category ?? ''}
                 onChangeText={t => setDraft({ category: t })}
                 placeholder="General"
                 placeholderTextColor="var(--color-text-dim)"
@@ -78,7 +78,7 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
             <View>
               <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2 ml-1">Description</Text>
               <TextInput 
-                value={draft.description}
+            value={draft.description ?? ''}
                 onChangeText={t => setDraft({ description: t })}
                 placeholder="Operation details..."
                 placeholderTextColor="var(--color-text-dim)"
@@ -247,12 +247,16 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
         <View className="flex-1 bg-surface-background" style={{ paddingTop: insets.top }}>
           {/* Header */}
           <View className="px-6 py-4 flex-row items-center justify-between border-b border-surface-border">
-             <TouchableOpacity onPress={onClose}>
+             <TouchableOpacity onPress={onClose} disabled={loading} className={loading ? 'opacity-40' : ''}>
                 <Text className="text-typography-muted font-bold">Cancel</Text>
              </TouchableOpacity>
              <Text className="text-typography-main font-black uppercase tracking-widest text-xs">New Task</Text>
-             <TouchableOpacity onPress={handleCreate} disabled={!draft.title}>
-                <Text className={`font-black uppercase tracking-widest text-xs ${!draft.title ? 'text-typography-dim' : 'text-brand-primary'}`}>Create</Text>
+             <TouchableOpacity onPress={handleCreate} disabled={loading || !draft.title}>
+                {loading ? (
+                  <ActivityIndicator size="small" color="var(--color-primary)" />
+                ) : (
+                  <Text className={`font-black uppercase tracking-widest text-xs ${!draft.title ? 'text-typography-dim' : 'text-brand-primary'}`}>Create</Text>
+                )}
              </TouchableOpacity>
           </View>
 
@@ -270,7 +274,7 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
           <View className="p-6 border-t border-surface-border flex-row justify-between items-center" style={{ paddingBottom: insets.bottom + 20 }}>
              <TouchableOpacity 
                onPress={() => setStep(s => Math.max(1, s - 1))}
-               disabled={step === 1}
+              disabled={step === 1 || loading}
                className={`w-14 h-14 items-center justify-center rounded-2xl bg-surface-card border border-surface-border ${step === 1 ? 'opacity-20' : ''}`}
              >
                 <FontAwesome name="chevron-left" size={16} className="text-typography-main" />
@@ -279,6 +283,7 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
              {step < 3 ? (
                <TouchableOpacity 
                  onPress={() => setStep(s => s + 1)}
+                 disabled={loading}
                  className="flex-1 ml-4 h-14 bg-brand-primary items-center justify-center rounded-2xl premium-shadow"
                >
                   <Text className="text-white font-black uppercase tracking-widest text-xs">Next Phase</Text>
@@ -293,6 +298,15 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
                </TouchableOpacity>
              )}
           </View>
+
+          {loading && (
+            <View className="absolute inset-0 z-50 items-center justify-center bg-surface-background/70">
+              <View className="bg-surface-card border border-surface-border rounded-3xl px-6 py-5 items-center premium-shadow">
+                <ActivityIndicator size="large" color="var(--color-primary)" />
+                <Text className="text-typography-main font-black uppercase tracking-[0.25em] text-[10px] mt-3">Creating task</Text>
+              </View>
+            </View>
+          )}
         </View>
       </KeyboardAvoidingView>
     </Modal>

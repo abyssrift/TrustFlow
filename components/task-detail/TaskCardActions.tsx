@@ -306,10 +306,7 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
         onPress={() => {
           if (currentStage.linked_pipeline_id) {
             AsyncStorage.setItem('@TrustFlow_tasks_pipeline', currentStage.linked_pipeline_id);
-            router.push({
-               pathname: '/(tabs)',
-               params: { pipelineId: currentStage.linked_pipeline_id }
-            } as any);
+            router.push(`/tasks?pipelineId=${currentStage.linked_pipeline_id}` as any);
           }
         }}
         className="bg-brand-primary/10 py-2.5 rounded-xl border border-brand-primary/30 items-center justify-center flex-row"

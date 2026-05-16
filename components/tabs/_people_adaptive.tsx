@@ -1,19 +1,24 @@
-import React, { useEffect, useState } from 'react';
-import {
-  View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Modal, Pressable, Platform,
-} from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as Clipboard from 'expo-clipboard';
-import { Alert } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    Platform,
+    ScrollView,
+    Text,
+    TouchableOpacity,
+    View
+} from 'react-native';
 
-import { supabase } from '@/lib/supabase';
+import NotificationRules from '@/components/admin/NotificationRules';
+import RoleBuilder from '@/components/admin/RoleBuilder';
+import TeamAssignmentGrid from '@/components/admin/TeamAssignmentGrid';
+import UserAssignmentGrid from '@/components/admin/UserAssignmentGrid';
 import { useAuth } from '@/contexts/AuthContext';
 import { RoleManagerProvider, useRoleManager } from '@/contexts/RoleManagerContext';
-import UserAssignmentGrid from '@/components/admin/UserAssignmentGrid';
-import TeamAssignmentGrid from '@/components/admin/TeamAssignmentGrid';
-import RoleBuilder from '@/components/admin/RoleBuilder';
-import NotificationRules from '@/components/admin/NotificationRules';
+import { supabase } from '@/lib/supabase';
 
 type PeopleSection = 'members' | 'teams' | 'roles' | 'notifications';
 
@@ -88,7 +93,7 @@ export default function PeopleScreen() {
       <View className="px-6 pb-4" style={{ paddingTop: Platform.OS !== 'web' ? 54 : 16 }}>
         <View className="flex-row items-center justify-between mb-4">
           <View>
-            <Text className="text-typography-main text-3xl font-black">Team</Text>
+            <Text className="text-typography-main text-3xl font-black">Corporate</Text>
             <Text className="text-typography-dim text-xs font-medium">Members, teams, and roles</Text>
           </View>
           <TouchableOpacity className="bg-brand-primary w-11 h-11 rounded-2xl items-center justify-center">

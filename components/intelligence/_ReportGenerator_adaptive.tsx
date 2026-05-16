@@ -71,13 +71,15 @@ type ReportType =
   | 'pipeline_throughput'
   | 'personnel_comparison'
   | 'targets_status'
-  | 'personal_pulse';
+  | 'personal_pulse'
+  | 'projects';
 
 type TemporalMode = 'range' | 'series' | 'none';
 
-function getTemporalMode(type: ReportType): TemporalMode {
+function getTemporalMode(type: ReportType, tp: Record<string, any> = {}): TemporalMode {
   if (type === 'user_performance_series' || type === 'pipeline_throughput') return 'series';
   if (type === 'targets_status' || type === 'personal_pulse') return 'none';
+  if (type === 'projects') return tp.date_scoped ? 'range' : 'none';
   return 'range';
 }
 
@@ -93,6 +95,7 @@ const REPORT_TYPES: { value: ReportType; label: string; desc: string; icon: stri
   { value: 'personnel_comparison',      label: 'People Cost Comparison',       desc: 'Cost, points/hour and efficiency comparison',    icon: 'balance-scale', group: 'analytics' },
   { value: 'targets_status',            label: 'Objectives & SLA Report',       desc: 'All active, hit, and expired targets',           icon: 'bullseye',      group: 'analytics' },
   { value: 'personal_pulse',            label: 'Personal Activity Snapshot',    desc: 'Daily/monthly points & session time',            icon: 'heartbeat',     group: 'analytics' },
+  { value: 'projects',                  label: 'Projects Status',               desc: 'Completion, throughput, projected ETA',          icon: 'folder-open-o', group: 'analytics' },
 ];
 
 interface ReportGeneratorProps {
@@ -117,6 +120,7 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
   const [pipelines, setPipelines] = useState<any[]>([]);
   const [teams, setTeams]         = useState<any[]>([]);
   const [workers, setWorkers]     = useState<any[]>([]);
+  const [projects, setProjects]   = useState<any[]>([]);
   const [loading, setLoading]         = useState(false);
   const [genError, setGenError]       = useState<string | null>(null);
   const [genProgress, setGenProgress] = useState<{ current: number; total: number } | null>(null);
@@ -135,14 +139,16 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
   }, [loading]);
 
   const loadFilterOptions = async () => {
-    const [pipeRes, teamRes, workerRes] = await Promise.all([
+    const [pipeRes, teamRes, workerRes, projectRes] = await Promise.all([
       supabase.from('pipelines').select('id, name').is('deleted_at', null).order('name'),
       supabase.from('teams').select('id, name').is('deleted_at', null).order('name'),
       supabase.from('users').select('id, full_name').is('deleted_at', null).order('full_name'),
+      supabase.from('projects').select('id, name').is('deleted_at', null).order('name'),
     ]);
     setPipelines(pipeRes.data || []);
     setTeams(teamRes.data || []);
     setWorkers(workerRes.data || []);
+    setProjects(projectRes.data || []);
   };
 
   const toggleType = (type: ReportType) => {
@@ -164,7 +170,7 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
     setParam(type, 'user_ids', cur.includes(uid) ? cur.filter(x => x !== uid) : [...cur, uid]);
   };
 
-  const needsDateRange = selectedTypes.some(t => getTemporalMode(t) === 'range');
+  const needsDateRange = selectedTypes.some(t => getTemporalMode(t, typeParams[t] || {}) === 'range');
 
   const buildTemporalParams = () => {
     let days = 30;
@@ -186,7 +192,7 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
     const tp = typeParams[type] || {};
     const { days, dateStartParam, dateEndParam } = buildTemporalParams();
     const params: Record<string, any> = {};
-    const tMode = getTemporalMode(type);
+    const tMode = getTemporalMode(type, tp);
     if (tMode === 'range') {
       params.days = days;
       params.date_start = dateStartParam;
@@ -220,6 +226,9 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
       case 'personnel_comparison':
         params.user_ids = tp.user_ids  || [];
         params.salaries = tp.salaries  || {};
+        break;
+      case 'projects':
+        params.project_ids = tp.project_ids || [];
         break;
     }
     return params;
@@ -275,16 +284,30 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
 
       setGenProgress({ current: 0, total: jobs.length });
 
+      const createdJobIds: string[] = [];
       for (let i = 0; i < jobs.length; i++) {
         setGenProgress({ current: i + 1, total: jobs.length });
         const { reportType, parameters } = jobs[i];
+        const taggedParams = { ...parameters, _generated_from: isPage ? 'mobile' : 'mobile_modal' };
         const { data: jobId, error } = await supabase.rpc('rpc_request_report', {
           p_report_type: reportType,
-          p_parameters:  parameters,
+          p_parameters:  taggedParams,
         });
         if (error) throw error;
         if (!jobId) throw new Error('Failed to create report job');
-        await generateAndUploadReport(jobId, reportType, parameters, supabase, user.id, profile.company_id);
+        createdJobIds.push(jobId);
+        await generateAndUploadReport(jobId, reportType, taggedParams, supabase, user.id, profile.company_id);
+      }
+
+      // Post-loop verification: confirm every row landed in 'completed' before navigating away
+      const { data: verifyRows } = await supabase
+        .from('reporting_jobs')
+        .select('id, status')
+        .in('id', createdJobIds);
+      const incomplete = (verifyRows || []).filter(r => r.status !== 'completed');
+      if (incomplete.length > 0) {
+        setGenError(`${incomplete.length} of ${createdJobIds.length} report(s) didn't reach completed status. Check the Reports list.`);
+        return;
       }
 
       if (isPage) {
@@ -432,6 +455,7 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
                     pipelines={pipelines}
                     teams={teams}
                     workers={workers}
+                    projects={projects}
                   />
                 </View>
               );
@@ -513,7 +537,7 @@ function TypeCard({ opt, selected, onPress }: { opt: typeof REPORT_TYPES[number]
 
 // ── TypeParamPanel ─────────────────────────────────────────────────────────────
 
-function TypeParamPanel({ type, params, setParam, toggleMultiUser, pipelines, teams, workers }: {
+function TypeParamPanel({ type, params, setParam, toggleMultiUser, pipelines, teams, workers, projects }: {
   type: ReportType;
   params: Record<string, any>;
   setParam: (key: string, value: any) => void;
@@ -521,6 +545,7 @@ function TypeParamPanel({ type, params, setParam, toggleMultiUser, pipelines, te
   pipelines: any[];
   teams: any[];
   workers: any[];
+  projects: any[];
 }) {
   if (type === 'general' || type === 'workflow_analysis') {
     return (
@@ -693,6 +718,52 @@ function TypeParamPanel({ type, params, setParam, toggleMultiUser, pipelines, te
       <View className="bg-brand-primary/5 border border-brand-primary/20 p-5 rounded-2xl mb-4">
         <Text className="text-typography-main font-black text-sm mb-2">Your Current Session</Text>
         <Text className="text-typography-muted text-xs leading-5">Captures your real-time daily/monthly points, active session time, and flap rate at generation time.</Text>
+      </View>
+    );
+  }
+
+  if (type === 'projects') {
+    const selectedIds: string[] = params.project_ids || [];
+    const dateScoped = !!params.date_scoped;
+    return (
+      <View className="mb-4">
+        <View className="flex-row items-center mb-3">
+          <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-typography-muted flex-1">Projects</Text>
+          <Text className="text-typography-muted text-[10px]">
+            {selectedIds.length === 0 ? 'All projects' : `${selectedIds.length} selected`}
+          </Text>
+        </View>
+        {projects.length === 0 ? (
+          <Text className="text-typography-muted text-xs italic">No projects yet.</Text>
+        ) : (
+          <HorizontalScroll>
+            {projects.map(p => {
+              const active = selectedIds.includes(p.id);
+              return (
+                <Pressable
+                  key={p.id}
+                  onPress={() => setParam('project_ids', active ? selectedIds.filter((x: string) => x !== p.id) : [...selectedIds, p.id])}
+                  className={`px-4 py-2 mr-2 rounded-xl border ${active ? 'border-brand-primary bg-brand-primary/20' : 'border-surface-border bg-surface-card'}`}
+                >
+                  <Text className={`text-xs font-bold ${active ? 'text-brand-primary' : 'text-typography-muted'}`}>{p.name}</Text>
+                </Pressable>
+              );
+            })}
+          </HorizontalScroll>
+        )}
+        <Text className="text-typography-muted text-[9px] mt-2 leading-4">
+          Snapshot of lifetime stats. Leave empty to include all projects.
+        </Text>
+
+        <Pressable
+          onPress={() => setParam('date_scoped', !dateScoped)}
+          className="mt-4 flex-row items-center gap-3"
+        >
+          <View className={`w-10 h-6 rounded-full p-0.5 ${dateScoped ? 'bg-brand-primary' : 'bg-surface-border'}`}>
+            <View className={`h-5 w-5 rounded-full bg-white ${dateScoped ? 'ml-auto' : ''}`} />
+          </View>
+          <Text className="text-typography-main text-xs font-bold flex-1">Scope rate to date range</Text>
+        </Pressable>
       </View>
     );
   }
