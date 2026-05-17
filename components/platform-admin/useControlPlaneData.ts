@@ -312,6 +312,10 @@ export function useLiveSessions() {
   };
 }
 
+export async function deleteCompany(companyId: string) {
+  return supabase.rpc('rpc_platform_delete_company', { p_company_id: companyId });
+}
+
 export function useCompanyDetail(companyId: string | null) {
   const [detail, setDetail] = useState<CompanyDetail | null>(null);
   const [loading, setLoading] = useState(false);

@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import {
+  Alert,
   View, Text, ScrollView, TouchableOpacity, ActivityIndicator,
   SafeAreaView, RefreshControl, Platform, StatusBar, Modal,
 } from 'react-native';
@@ -7,6 +8,7 @@ import { Stack } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import {
+  deleteCompany,
   useControlPlaneData,
   useTimeline,
   useLiveSessions,
@@ -70,9 +72,31 @@ const SectionPill = ({
 // ── Company Detail Modal ───────────────────────────────────────────────────
 
 const CompanyDetailModal = ({
-  companyId, onClose,
-}: { companyId: string | null; onClose: () => void }) => {
+  companyId, onClose, onDeleted,
+}: { companyId: string | null; onClose: () => void; onDeleted: () => void }) => {
   const { detail, loading } = useCompanyDetail(companyId);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = () => {
+    if (!companyId || !detail) return;
+    Alert.alert(
+      'Delete Workspace',
+      `Permanently delete "${detail.company.name}" and all its data? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            const { error } = await deleteCompany(companyId);
+            setDeleting(false);
+            if (!error) onDeleted();
+          },
+        },
+      ]
+    );
+  };
 
   if (!companyId) return null;
 
@@ -161,6 +185,22 @@ const CompanyDetailModal = ({
                     <HBar value={m.session_minutes_week} max={maxMins} />
                   </View>
                 ))}
+              </View>
+
+              {/* Danger Zone */}
+              <View className="h-px bg-surface-border mx-6 mt-2" />
+              <View className="px-6 py-5">
+                <TouchableOpacity
+                  onPress={handleDelete}
+                  disabled={deleting}
+                  className="flex-row items-center gap-2 self-start px-4 py-2.5 rounded-xl border border-state-danger/30 bg-state-danger/5"
+                >
+                  {deleting
+                    ? <ActivityIndicator size="small" color="var(--color-danger)" />
+                    : <FontAwesome name="trash" size={12} color="var(--color-danger)" />
+                  }
+                  <Text className="text-state-danger text-xs font-bold">Delete Workspace</Text>
+                </TouchableOpacity>
               </View>
 
               <View className="h-8" />
@@ -284,12 +324,13 @@ const CommandSection = ({
 // ── Section: Tenants ───────────────────────────────────────────────────────
 
 const TenantsSection = ({
-  companies, loading, onRefresh, refreshing,
+  companies, loading, onRefresh, refreshing, onCompanyDeleted,
 }: {
   companies: CompanyOverview[];
   loading: boolean;
   onRefresh: () => void;
   refreshing: boolean;
+  onCompanyDeleted: () => void;
 }) => {
   const [sort, setSort] = useState<SortKey>('usage');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -390,7 +431,11 @@ const TenantsSection = ({
         </View>
       </ScrollView>
 
-      <CompanyDetailModal companyId={selectedId} onClose={() => setSelectedId(null)} />
+      <CompanyDetailModal
+        companyId={selectedId}
+        onClose={() => setSelectedId(null)}
+        onDeleted={() => { setSelectedId(null); onCompanyDeleted(); }}
+      />
     </>
   );
 };
@@ -548,7 +593,7 @@ export default function PlatformAdminScreen() {
   const {
     user, initialized, isOwner,
     section, setSection,
-    companies, liveCount, loading, refreshing, onRefresh,
+    companies, liveCount, loading, refreshing, onRefresh, fetchCompanies,
     totalUsers, totalTasks, totalMins,
   } = useControlPlaneData();
 
@@ -622,6 +667,7 @@ export default function PlatformAdminScreen() {
             loading={loading}
             onRefresh={onRefresh}
             refreshing={refreshing}
+            onCompanyDeleted={fetchCompanies}
           />
         )}
         {section === 'signals' && (

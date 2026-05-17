@@ -4,6 +4,7 @@ import {
     fmtNumber,
     healthLabel,
     timeAgo,
+    deleteCompany,
     useCompanyDetail,
     useControlPlaneData,
     useLiveSessions,
@@ -118,8 +119,22 @@ const ChartTooltip = ({ active, payload, label, metricLabel }: any) => {
 
 // ── Company Detail Panel ───────────────────────────────────────────────────
 
-function CompanyDetailPanel({ companyId, onClose }: { companyId: string | null; onClose: () => void }) {
+function CompanyDetailPanel({ companyId, onClose, onDeleted }: { companyId: string | null; onClose: () => void; onDeleted: () => void }) {
   const { detail, loading } = useCompanyDetail(companyId);
+  const [confirmDelete, setConfirmDelete] = React.useState(false);
+  const [deleting, setDeleting] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!companyId) setConfirmDelete(false);
+  }, [companyId]);
+
+  const handleDelete = async () => {
+    if (!companyId) return;
+    setDeleting(true);
+    const { error } = await deleteCompany(companyId);
+    setDeleting(false);
+    if (!error) onDeleted();
+  };
 
   if (!companyId) return null;
 
@@ -182,7 +197,7 @@ function CompanyDetailPanel({ companyId, onClose }: { companyId: string | null; 
               <View className="h-px bg-surface-border mx-8" />
 
               {/* Members */}
-              <View className="px-8 pt-5 pb-8">
+              <View className="px-8 pt-5">
                 <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-4">Members · {detail.members?.length ?? 0}</Text>
                 {detail.members?.length === 0 && (
                   <Text className="text-typography-dim text-sm text-center py-6">No members yet</Text>
@@ -202,6 +217,49 @@ function CompanyDetailPanel({ companyId, onClose }: { companyId: string | null; 
                     <HBar value={m.session_minutes_week} max={maxMins} />
                   </View>
                 ))}
+              </View>
+
+              {/* Danger Zone */}
+              <View className="h-px bg-surface-border mx-8 mt-2" />
+              <View className="px-8 py-6">
+                {!confirmDelete ? (
+                  <TouchableOpacity
+                    onPress={() => setConfirmDelete(true)}
+                    className="flex-row items-center gap-2 self-start px-4 py-2 rounded-xl border border-state-danger/30 bg-state-danger/5 hover:bg-state-danger/10 transition-colors"
+                  >
+                    <FontAwesome name="trash" size={11} className="text-state-danger" />
+                    <Text className="text-state-danger text-xs font-bold">Delete Workspace</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <View className="rounded-2xl border border-state-danger/30 bg-state-danger/5 p-4 gap-3">
+                    <View className="flex-row items-center gap-2">
+                      <FontAwesome name="exclamation-triangle" size={12} className="text-state-danger" />
+                      <Text className="text-state-danger text-xs font-black">This cannot be undone</Text>
+                    </View>
+                    <Text className="text-typography-muted text-xs leading-5">
+                      Deleting <Text className="text-typography-main font-bold">{detail.company.name}</Text> will permanently remove all members, tasks, pipelines, sessions, and data. There is no recovery.
+                    </Text>
+                    <View className="flex-row gap-2 mt-1">
+                      <TouchableOpacity
+                        onPress={() => setConfirmDelete(false)}
+                        disabled={deleting}
+                        className="flex-1 items-center py-2 rounded-xl border border-surface-border bg-surface-card hover:bg-surface-overlay transition-colors"
+                      >
+                        <Text className="text-typography-muted text-xs font-bold">Cancel</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={handleDelete}
+                        disabled={deleting}
+                        className="flex-1 items-center py-2 rounded-xl bg-state-danger hover:opacity-80 transition-opacity"
+                      >
+                        {deleting
+                          ? <ActivityIndicator size="small" color="#fff" />
+                          : <Text className="text-white text-xs font-black">Confirm Delete</Text>
+                        }
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
               </View>
             </ScrollView>
           )}
@@ -355,7 +413,7 @@ function CommandSection({ companies, liveCount, loading, totalUsers, totalTasks,
 
 // ── Tenants Section ────────────────────────────────────────────────────────
 
-function TenantsSection({ companies, loading }: { companies: CompanyOverview[]; loading: boolean }) {
+function TenantsSection({ companies, loading, onCompanyDeleted }: { companies: CompanyOverview[]; loading: boolean; onCompanyDeleted: () => void }) {
   const [sort, setSort] = useState<SortKey>('usage');
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -453,7 +511,11 @@ function TenantsSection({ companies, loading }: { companies: CompanyOverview[]; 
         </View>
       </ScrollView>
 
-      <CompanyDetailPanel companyId={selectedId} onClose={() => setSelectedId(null)} />
+      <CompanyDetailPanel
+        companyId={selectedId}
+        onClose={() => setSelectedId(null)}
+        onDeleted={() => { setSelectedId(null); onCompanyDeleted(); }}
+      />
     </>
   );
 }
@@ -688,7 +750,7 @@ export default function PlatformAdminWebScreen() {
   const {
     user, initialized, isOwner,
     section, setSection,
-    companies, liveCount, loading,
+    companies, liveCount, loading, fetchCompanies,
     totalUsers, totalTasks, totalMins,
   } = useControlPlaneData();
 
@@ -739,7 +801,7 @@ export default function PlatformAdminWebScreen() {
             />
           )}
           {section === 'tenants' && (
-            <TenantsSection companies={companies} loading={loading} />
+            <TenantsSection companies={companies} loading={loading} onCompanyDeleted={fetchCompanies} />
           )}
           {section === 'signals' && <SignalsSection />}
           {section === 'live' && <LiveSection />}
