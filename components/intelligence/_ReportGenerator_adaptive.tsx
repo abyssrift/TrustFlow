@@ -1,4 +1,5 @@
 import HorizontalScroll from '@/components/common/HorizontalScroll';
+import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -113,9 +114,10 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
   const [typeParams, setTypeParams]       = useState<Record<string, Record<string, any>>>({});
 
   // Shared temporal
-  const [timeFrame, setTimeFrame] = useState<'7' | '30' | '90' | 'custom'>('30');
-  const [dateStart, setDateStart] = useState('');
-  const [dateEnd, setDateEnd]     = useState('');
+  const [timeFrame, setTimeFrame]         = useState<'7' | '30' | '90' | 'custom'>('30');
+  const [dateStart, setDateStart]         = useState('');
+  const [dateEnd, setDateEnd]             = useState('');
+  const [activeDateField, setActiveDateField] = useState<'start' | 'end'>('start');
 
   const [pipelines, setPipelines] = useState<any[]>([]);
   const [teams, setTeams]         = useState<any[]>([]);
@@ -424,9 +426,39 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
                     </Pressable>
                   </View>
                   {timeFrame === 'custom' && (
-                    <View className="gap-2">
-                      <RNTextInput placeholder="Start Date (YYYY-MM-DD)" value={dateStart} onChangeText={setDateStart} className="border border-surface-border bg-surface-card rounded-xl p-4 text-typography-main" placeholderTextColor="rgb(var(--text-muted))" />
-                      <RNTextInput placeholder="End Date (YYYY-MM-DD)" value={dateEnd} onChangeText={setDateEnd} className="border border-surface-border bg-surface-card rounded-xl p-4 text-typography-main" placeholderTextColor="rgb(var(--text-muted))" />
+                    <View className="gap-3">
+                      <View className="flex-row gap-2">
+                        <TouchableOpacity
+                          onPress={() => setActiveDateField('start')}
+                          className={`flex-1 py-4 px-4 rounded-2xl border ${activeDateField === 'start' ? 'bg-brand-primary/10 border-brand-primary' : 'border-surface-border bg-surface-card'}`}
+                        >
+                          <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest text-center">From</Text>
+                          <Text className={`text-center font-black text-sm mt-1 ${activeDateField === 'start' ? 'text-brand-primary' : 'text-typography-main'}`} numberOfLines={1}>
+                            {dateStart || 'Select'}
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => setActiveDateField('end')}
+                          className={`flex-1 py-4 px-4 rounded-2xl border ${activeDateField === 'end' ? 'bg-brand-primary/10 border-brand-primary' : 'border-surface-border bg-surface-card'}`}
+                        >
+                          <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest text-center">To</Text>
+                          <Text className={`text-center font-black text-sm mt-1 ${activeDateField === 'end' ? 'text-brand-primary' : 'text-typography-main'}`} numberOfLines={1}>
+                            {dateEnd || 'Select'}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                      <PremiumCalendarPicker
+                        compact
+                        selectedDate={activeDateField === 'start' ? dateStart : dateEnd}
+                        onSelect={(date) => {
+                          if (activeDateField === 'start') {
+                            setDateStart(date);
+                            if (!dateEnd) setActiveDateField('end');
+                          } else {
+                            setDateEnd(date);
+                          }
+                        }}
+                      />
                     </View>
                   )}
                 </View>

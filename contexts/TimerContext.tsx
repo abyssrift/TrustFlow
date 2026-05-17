@@ -55,6 +55,13 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
   const currentPendingTaskIdRef = useRef<string | null>(null);
   const lastFetchTimestampRef = useRef<number>(0);
   const lastActivityTimeRef = useRef<number>(Date.now());
+  // Captured synchronously at mount — before the null-activeSession effect can clear sessionStorage.
+  // restoreAfterReload() reads this ref instead of calling sessionStorage.getItem() again.
+  const pendingReloadIntentRef = useRef<string | null>(
+    Platform.OS === 'web' && typeof window !== 'undefined'
+      ? sessionStorage.getItem(SESSION_STORAGE_KEY)
+      : null
+  );
 
   // NTP Calibration Logic
   const calibrateTime = useCallback(async () => {
@@ -154,11 +161,12 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
   // the same session row (preserving its original started_at).
   const restoreAfterReload = useCallback(async () => {
     if (!user || Platform.OS !== 'web') return;
-    const stored = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    const stored = pendingReloadIntentRef.current;
+    pendingReloadIntentRef.current = null; // consume — prevent double-restore
     if (!stored) return;
 
     let intent: { id: string; task_id: string; started_at: string };
-    try { intent = JSON.parse(stored); } catch { sessionStorage.removeItem(SESSION_STORAGE_KEY); return; }
+    try { intent = JSON.parse(stored); } catch { return; }
 
     const { data: sessionRow } = await supabase
       .from('task_work_sessions')
@@ -185,6 +193,17 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
     }
     // If status is still 'active' (beacon didn't fire / race), fetchActiveSession already restored it
   }, [user, fetchActiveSession]);
+
+  // When Chrome restores a tab from BFCache (e.g. Ctrl+Shift+T), React state is thawed from the
+  // frozen snapshot — including a stale activeSession. Re-sync with the server to reflect reality.
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) fetchActiveSession();
+    };
+    window.addEventListener('pageshow', handlePageShow as EventListener);
+    return () => window.removeEventListener('pageshow', handlePageShow as EventListener);
+  }, [fetchActiveSession]);
 
   useEffect(() => {
     calibrateTime();
