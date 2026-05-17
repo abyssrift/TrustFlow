@@ -6,7 +6,6 @@ import {
   PipelinePointsMiniWeb,
   SLARiskAlertWeb,
   SLARiskAlertMiniWeb,
-  StageDurationChartWeb,
   StageDurationMiniWeb,
   TrendComparisonCardsWeb,
   TrendComparisonMiniWeb,

@@ -1,4 +1,4 @@
-import { QualityLeaderboardWeb, SLARiskAlertWeb, StageDurationChartWeb, StageDwellChartWeb, TrendComparisonCardsWeb, WorkDistributionChartWeb } from '@/components/intelligence/RadarWidgets';
+import { QualityLeaderboardWeb, SLARiskAlertWeb, StageDwellChartWeb, TrendComparisonCardsWeb, WorkDistributionChartWeb } from '@/components/intelligence/RadarWidgets';
 import { PipelinePointsPeriod, StageDwell, ThroughputPeriod, useAnalytics } from '@/contexts/AnalyticsContext';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
@@ -78,7 +78,7 @@ export default function IntelligenceGraphs() {
 
   useEffect(() => { load(); }, [load]);
 
-  const throughputChartData = throughput.map(t => ({
+  const throughputChartData = [...throughput].reverse().map(t => ({
     label:       t.period_label,
     succeeded:   t.tasks_succeeded,
     failed:      t.tasks_failed,
@@ -229,11 +229,6 @@ export default function IntelligenceGraphs() {
               </View>
             );
           })()}
-
-          {/* Stage Duration Chart */}
-          <View className="mb-6">
-            <StageDurationChartWeb data={auditData} />
-          </View>
 
           {/* Performance Trends */}
           <View className="mb-6">

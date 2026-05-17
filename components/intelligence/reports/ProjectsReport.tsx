@@ -112,9 +112,9 @@ export function ProjectsReportPages({ data, jobId, isModule }: { data: ProjectsD
         ]} />
 
         <KpiRow items={[
-          { label: 'Total Tasks',      value: String(totalTasks),                                                  accent: C.primary },
-          { label: 'Completed Tasks',  value: String(doneTasks),                                                   accent: C.success },
-          { label: 'Complete Projects', value: String(complete),                                                   accent: C.primary },
+          { label: 'Total Tasks',      value: String(totalTasks),                       accent: C.primary },
+          { label: 'Completed Tasks',  value: String(doneTasks),                        accent: C.success },
+          { label: 'Complete Projects', value: String(complete),                        accent: C.primary },
         ]} />
 
         <Sub title="Completion Percentage by Project" />
@@ -125,39 +125,37 @@ export function ProjectsReportPages({ data, jobId, isModule }: { data: ProjectsD
           color: healthColor(r.health),
         }))} />
 
-        <Footer jobId={jobId} />
-      </Page>
+        <View break>
+          <Section title="Project Details" />
+          <Table
+            headers={['Project', 'Pipeline', 'Done / Total', '%', 'Tasks/Day', 'Expiry', 'Projected', 'Status']}
+            colFlex={[2.2, 1.8, 1.4, 0.9, 1.1, 1.4, 1.4, 1.2]}
+            rows={rows.map(r => ({
+              cells: [
+                r.name.substring(0, 22),
+                (r.pipeline_name || '—').substring(0, 18),
+                `${r.completed_tasks}/${r.total_tasks}`,
+                `${sf(r.completion_rate, 0)}%`,
+                sf(r.tasks_per_day, 2),
+                r.expiry_date ? fmtDate(r.expiry_date) : '—',
+                r.projected_eta ? fmtDate(r.projected_eta) : (r.tasks_per_day === 0 ? '—' : 'Complete'),
+                healthLabel(r.health),
+              ],
+              colors: [
+                null, null, null,
+                r.completion_rate >= 80 ? C.success : r.completion_rate >= 50 ? C.warning : C.muted,
+                r.tasks_per_day > 0 ? C.primary : C.muted,
+                null, null,
+                healthColor(r.health),
+              ],
+            }))}
+          />
 
-      <Page size="A4" style={s.page}>
-        <Section title="Project Details" />
-        <Table
-          headers={['Project', 'Pipeline', 'Done / Total', '%', 'Tasks/Day', 'Expiry', 'Projected', 'Status']}
-          colFlex={[2.2, 1.8, 1.4, 0.9, 1.1, 1.4, 1.4, 1.2]}
-          rows={rows.map(r => ({
-            cells: [
-              r.name.substring(0, 22),
-              (r.pipeline_name || '—').substring(0, 18),
-              `${r.completed_tasks}/${r.total_tasks}`,
-              `${sf(r.completion_rate, 0)}%`,
-              sf(r.tasks_per_day, 2),
-              r.expiry_date ? fmtDate(r.expiry_date) : '—',
-              r.projected_eta ? fmtDate(r.projected_eta) : (r.tasks_per_day === 0 ? '—' : 'Complete'),
-              healthLabel(r.health),
-            ],
-            colors: [
-              null, null, null,
-              r.completion_rate >= 80 ? C.success : r.completion_rate >= 50 ? C.warning : C.muted,
-              r.tasks_per_day > 0 ? C.primary : C.muted,
-              null, null,
-              healthColor(r.health),
-            ],
-          }))}
-        />
-
-        {/* Inline insights surface only when running standalone — multi-report consolidates them */}
-        {!isModule && computeProjectsInsights(data).map((ins, i) => (
-          <Insight key={i} text={ins.text} color={ins.color} />
-        ))}
+          {/* Inline insights surface only when running standalone — multi-report consolidates them */}
+          {!isModule && computeProjectsInsights(data).map((ins, i) => (
+            <Insight key={i} text={ins.text} color={ins.color} />
+          ))}
+        </View>
 
         <Footer jobId={jobId} />
       </Page>

@@ -10,7 +10,7 @@ import { Footer, Insight, Section, fmtDate } from './shared'
 import { StageDwellData, StageDwellReport, StageDwellReportPages } from './StageDwellReport'
 import { TargetsData, TargetsReport, TargetsReportPages } from './TargetsReport'
 import { TeamComparisonData, TeamComparisonReport, TeamComparisonReportPages } from './TeamComparisonReport'
-import { base } from './theme'
+import { C, base } from './theme'
 import { ThroughputData, ThroughputReport, ThroughputReportPages } from './ThroughputReport'
 import { UserSeriesData, UserSeriesReport, UserSeriesReportPages } from './UserSeriesReport'
 import { UserSummaryData, UserSummaryReport, UserSummaryReportPages } from './UserSummaryReport'
@@ -316,6 +316,37 @@ async function fetchProjects(sb: SupabaseClient, p: any, companyName: string): P
 type ModuleResult = {
   element: React.ReactElement
   insights: { text: string; color: string }[]
+  skipped?: string
+}
+
+const MODULE_DISPLAY_NAMES: Record<string, string> = {
+  general:                  'Performance Audit',
+  workflow_analysis:        'Workflow Analysis',
+  worker_comparison:        'People Comparison',
+  team_comparison:          'Team Comparison',
+  user_performance_series:  'Performance Series',
+  user_performance_summary: 'Performance Summary',
+  pipeline_stage_dwell:     'Stage Dwell Time',
+  pipeline_throughput:      'Pipeline Throughput',
+  personnel_comparison:     'Personnel Comparison',
+  targets_status:           'Targets Status',
+  personal_pulse:           'Personal Pulse',
+  projects:                 'Projects',
+}
+
+function isModuleEmpty(type: string, data: any): boolean {
+  switch (type) {
+    case 'worker_comparison':        return (data.workers  || []).length === 0
+    case 'team_comparison':          return (data.teams    || []).length === 0
+    case 'user_performance_series':  return (data.rows     || []).length === 0
+    case 'user_performance_summary': return !data.summary
+    case 'pipeline_stage_dwell':     return (data.rows     || []).length === 0
+    case 'pipeline_throughput':      return (data.rows     || []).length === 0
+    case 'personnel_comparison':     return (data.rows     || []).length === 0
+    case 'targets_status':           return (data.targets  || []).length === 0
+    case 'projects':                 return (data.rows     || []).length === 0
+    default:                         return false
+  }
 }
 
 async function buildReportSection(
@@ -327,46 +358,48 @@ async function buildReportSection(
   jobId: string,
   isModule = false,
 ): Promise<ModuleResult> {
+  const skip = (data: any): ModuleResult | null => {
+    if (!isModule || !isModuleEmpty(type, data)) return null
+    return { element: React.createElement(React.Fragment), insights: [], skipped: MODULE_DISPLAY_NAMES[type] || type }
+  }
+
   switch (type) {
     case 'general':
     case 'workflow_analysis': {
       const data = await fetchGeneral(sb, p, userId, company)
-      return {
-        element: React.createElement(GeneralReportPages, { data, jobId, isModule }),
-        insights: computeGeneralInsights(data),
-      }
+      return { element: React.createElement(GeneralReportPages, { data, jobId, isModule }), insights: computeGeneralInsights(data) }
     }
     case 'worker_comparison': {
       const data = await fetchWorkerComparison(sb, p, company)
-      return { element: React.createElement(WorkerComparisonReportPages, { data, jobId, isModule }), insights: [] }
+      return skip(data) ?? { element: React.createElement(WorkerComparisonReportPages, { data, jobId, isModule }), insights: [] }
     }
     case 'team_comparison': {
       const data = await fetchTeamComparison(sb, p, company)
-      return { element: React.createElement(TeamComparisonReportPages, { data, jobId, isModule }), insights: [] }
+      return skip(data) ?? { element: React.createElement(TeamComparisonReportPages, { data, jobId, isModule }), insights: [] }
     }
     case 'user_performance_series': {
       const data = await fetchUserSeries(sb, p, userId, company)
-      return { element: React.createElement(UserSeriesReportPages, { data, jobId, isModule }), insights: [] }
+      return skip(data) ?? { element: React.createElement(UserSeriesReportPages, { data, jobId, isModule }), insights: [] }
     }
     case 'user_performance_summary': {
       const data = await fetchUserSummary(sb, p, company)
-      return { element: React.createElement(UserSummaryReportPages, { data, jobId, isModule }), insights: [] }
+      return skip(data) ?? { element: React.createElement(UserSummaryReportPages, { data, jobId, isModule }), insights: [] }
     }
     case 'pipeline_stage_dwell': {
       const data = await fetchStageDwell(sb, p, company)
-      return { element: React.createElement(StageDwellReportPages, { data, jobId, isModule }), insights: [] }
+      return skip(data) ?? { element: React.createElement(StageDwellReportPages, { data, jobId, isModule }), insights: [] }
     }
     case 'pipeline_throughput': {
       const data = await fetchThroughput(sb, p, company)
-      return { element: React.createElement(ThroughputReportPages, { data, jobId, isModule }), insights: [] }
+      return skip(data) ?? { element: React.createElement(ThroughputReportPages, { data, jobId, isModule }), insights: [] }
     }
     case 'personnel_comparison': {
       const data = await fetchPersonnel(sb, p, company)
-      return { element: React.createElement(PersonnelReportPages, { data, jobId, isModule }), insights: [] }
+      return skip(data) ?? { element: React.createElement(PersonnelReportPages, { data, jobId, isModule }), insights: [] }
     }
     case 'targets_status': {
       const data = await fetchTargets(sb, company)
-      return { element: React.createElement(TargetsReportPages, { data, jobId, isModule }), insights: [] }
+      return skip(data) ?? { element: React.createElement(TargetsReportPages, { data, jobId, isModule }), insights: [] }
     }
     case 'personal_pulse': {
       const data = await fetchPersonalPulse(sb, userId, company)
@@ -374,17 +407,11 @@ async function buildReportSection(
     }
     case 'projects': {
       const data = await fetchProjects(sb, p, company)
-      return {
-        element: React.createElement(ProjectsReportPages, { data, jobId, isModule }),
-        insights: computeProjectsInsights(data),
-      }
+      return skip(data) ?? { element: React.createElement(ProjectsReportPages, { data, jobId, isModule }), insights: computeProjectsInsights(data) }
     }
     default: {
       const data = await fetchGeneral(sb, p, userId, company)
-      return {
-        element: React.createElement(GeneralReportPages, { data, jobId, isModule }),
-        insights: computeGeneralInsights(data),
-      }
+      return { element: React.createElement(GeneralReportPages, { data, jobId, isModule }), insights: computeGeneralInsights(data) }
     }
   }
 }
@@ -422,7 +449,8 @@ export async function generateAndUploadReport(
         modules.map(m => buildReportSection(m.type, m.parameters || {}, sb, userId, company, jobId, true))
       )
 
-      const sectionElements = results.map(r => r.element)
+      const skippedNames = results.filter(r => r.skipped).map(r => r.skipped!)
+      const sectionElements = results.filter(r => !r.skipped).map(r => r.element)
 
       // Dedupe insights by exact text — picking the first occurrence's color
       const seen = new Set<string>()
@@ -433,6 +461,12 @@ export async function generateAndUploadReport(
           seen.add(ins.text)
           allInsights.push(ins)
         }
+      }
+      if (skippedNames.length > 0) {
+        allInsights.push({
+          text: `Modules omitted — no data in period: ${skippedNames.join(', ')}.`,
+          color: C.muted,
+        })
       }
 
       const children: React.ReactElement[] = [...sectionElements]

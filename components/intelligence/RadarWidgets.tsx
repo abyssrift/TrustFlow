@@ -11,29 +11,49 @@ import { useState, useEffect, useCallback } from 'react';
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function fmtDwell(s: number): string {
-  if (s <= 0) return '0m';
-  const h = Math.floor(s / 3600);
+  if (s <= 0) return '0s';
+  if (s < 60) return `${Math.round(s)}s`;
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
   const m = Math.floor((s % 3600) / 60);
-  if (h > 0) return `${h}h ${m}m`;
+  if (d > 0) return h > 0 ? `${d}d ${h}h` : `${d}d`;
+  if (h > 0) return m > 0 ? `${h}h ${m}m` : `${h}h`;
   return `${m}m`;
 }
 
-const DwellTooltip = ({ active, payload }: any) => {
+const DwellTooltip = ({ active, payload, mode }: any) => {
   if (!active || !payload?.length) return null;
   const d: StageDwell = payload[0]?.payload;
+  const totalSeconds   = (d.avg_seconds || 0) * (d.sample_count || 0);
+  const observations   = Math.max(d.sample_count || 0, Math.ceil(totalSeconds / 3600));
   return (
     <View className="bg-surface-card border border-surface-border rounded-xl p-3 gap-1 shadow-xl">
       <Text className="text-typography-main font-black text-sm">{d.stage_name}</Text>
       <div className="h-px bg-surface-border my-1" />
-      <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest">Performance Metrics</Text>
-      <Text className="text-typography-main text-xs font-black">Avg: <Text className="text-brand-primary">{fmtDwell(d.avg_seconds)}</Text></Text>
-      <Text className="text-typography-muted text-[10px]">Median: {fmtDwell(d.median_seconds)}</Text>
-      <Text className="text-typography-muted text-[10px]">P75: {fmtDwell(d.p75_seconds)}</Text>
-      <View className="flex-row items-center gap-2 mt-1">
-        <Text className="text-typography-muted text-[9px] font-bold">{d.sample_count} samples</Text>
-        <View className="w-1 h-1 rounded-full bg-surface-border" />
-        <Text className="text-typography-muted text-[9px] font-bold">{d.reversal_count} reversals</Text>
-      </View>
+      {mode === 'snapshot' ? (
+        <>
+          <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest">Accumulated Load</Text>
+          <Text className="text-typography-main text-xs font-black">Total: <Text className="text-brand-primary">{fmtDwell(totalSeconds)}</Text></Text>
+          <Text className="text-typography-muted text-[10px]">Avg per task: {fmtDwell(d.avg_seconds)}</Text>
+          <View className="flex-row items-center gap-2 mt-1">
+            <Text className="text-typography-muted text-[9px] font-bold">{observations} task-hrs</Text>
+            <View className="w-1 h-1 rounded-full bg-surface-border" />
+            <Text className="text-typography-muted text-[9px] font-bold">{d.sample_count} tasks</Text>
+          </View>
+        </>
+      ) : (
+        <>
+          <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest">Performance Metrics</Text>
+          <Text className="text-typography-main text-xs font-black">Avg: <Text className="text-brand-primary">{fmtDwell(d.avg_seconds)}</Text></Text>
+          <Text className="text-typography-muted text-[10px]">Median: {fmtDwell(d.median_seconds)}</Text>
+          <Text className="text-typography-muted text-[10px]">P75: {fmtDwell(d.p75_seconds)}</Text>
+          <View className="flex-row items-center gap-2 mt-1">
+            <Text className="text-typography-muted text-[9px] font-bold">{d.sample_count} samples</Text>
+            <View className="w-1 h-1 rounded-full bg-surface-border" />
+            <Text className="text-typography-muted text-[9px] font-bold">{d.reversal_count} reversals</Text>
+          </View>
+        </>
+      )}
       {d.is_bottleneck && (
         <View className="mt-2 bg-state-warning-dim border border-state-warning/20 px-2 py-1 rounded-md">
           <Text className="text-state-warning text-[9px] font-black uppercase">⚠ Bottleneck Detected</Text>
@@ -46,7 +66,15 @@ const DwellTooltip = ({ active, payload }: any) => {
 
 export const SLARiskAlertWeb = ({ data, className }: { data: any, className?: string }) => {
   const router = useRouter();
+  const [showInfo, setShowInfo] = useState(false);
   if (!data?.sla_risks || data.sla_risks.length === 0) return null;
+
+  const stageBaselines: { name: string; avg: number }[] = Object.values(
+    (data.sla_risks as any[]).reduce((acc: Record<string, { name: string; avg: number }>, r: any) => {
+      if (!acc[r.stage_name] && r.avg_seconds > 0) acc[r.stage_name] = { name: r.stage_name, avg: r.avg_seconds };
+      return acc;
+    }, {})
+  );
 
   return (
     <View className={`mb-8 bg-surface-card border border-state-danger/30 p-8 rounded-[32px] premium-shadow ${className || ''}`}>
@@ -59,12 +87,50 @@ export const SLARiskAlertWeb = ({ data, className }: { data: any, className?: st
             <Text className="text-state-danger font-black text-lg tracking-tight">SLA Risks</Text>
             <Text className="text-typography-muted text-xs font-medium">{data.sla_risks.length} active tasks exceeding tolerance</Text>
           </View>
-          <View className="flex-row items-center gap-2 px-3 py-1.5 bg-surface-background border border-surface-border rounded-xl">
-             <FontAwesome name="info-circle" size={10} color="var(--color-text-dim)" />
-             <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest">SLA: Service Level Agreement (Time Risk)</Text>
-          </View>
+          <TouchableOpacity
+            onPress={() => setShowInfo(v => !v)}
+            className={`w-8 h-8 rounded-full items-center justify-center border transition-all ${showInfo ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
+          >
+            <FontAwesome name="question" size={12} color={showInfo ? 'var(--color-on-primary)' : 'var(--color-text-dim)'} />
+          </TouchableOpacity>
         </View>
       </View>
+
+      {showInfo && (
+        <View className="mb-6 bg-surface-background border border-surface-border rounded-2xl p-5 gap-3">
+          <Text className="text-typography-main font-black text-sm">What is SLA Risk?</Text>
+          <Text className="text-typography-muted text-xs leading-relaxed">
+            Each pipeline stage has a learned baseline from historical data. A task becomes at risk when it has been in its current stage for more than{' '}
+            <Text className="text-state-danger font-bold">1.5× the stage average</Text>.
+            Risk % shows how far past that threshold the task is, capped at 99%.
+          </Text>
+          {stageBaselines.length > 0 && (
+            <>
+              <View className="h-px bg-surface-border" />
+              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Stage Baselines (Affected)</Text>
+              <View className="gap-2">
+                {stageBaselines.map((s, i) => (
+                  <View key={i} className="flex-row justify-between items-center">
+                    <Text className="text-typography-main text-xs font-bold">{s.name}</Text>
+                    <View className="flex-row items-center gap-3">
+                      <View className="flex-row items-center gap-1">
+                        <Text className="text-typography-muted text-[10px]">avg</Text>
+                        <Text className="text-brand-primary font-black text-xs">{fmtDwell(s.avg)}</Text>
+                      </View>
+                      <View className="w-px h-3 bg-surface-border" />
+                      <View className="flex-row items-center gap-1">
+                        <Text className="text-typography-muted text-[10px]">threshold</Text>
+                        <Text className="text-state-danger font-black text-xs">{fmtDwell(s.avg * 1.5)}</Text>
+                      </View>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </>
+          )}
+        </View>
+      )}
+
       <View className="gap-3">
         {data.sla_risks.slice(0, 5).map((r: any, i: number) => (
           <TouchableOpacity 
@@ -90,33 +156,6 @@ export const SLARiskAlertWeb = ({ data, className }: { data: any, className?: st
             </View>
           </TouchableOpacity>
         ))}
-      </View>
-    </View>
-  );
-};
-
-export const StageDurationChartWeb = ({ data, className }: { data: any, className?: string }) => {
-  if (!data?.stage_duration_analysis) return null;
-  const maxDays = Math.max(...data.stage_duration_analysis.map((s: any) => s.avg_duration_days));
-  return (
-    <View className={`bg-surface-card p-8 rounded-[32px] border border-surface-border premium-shadow mb-8 ${className || ''}`}>
-      <Text className="text-typography-main font-black text-xl mb-8">Stage Duration (Days per Stage)</Text>
-      <View className="space-y-6">
-        {data.stage_duration_analysis.map((stage: any, idx: number) => {
-          const percentage = (stage.avg_duration_days / (maxDays || 1)) * 100;
-          const isSlow = stage.avg_duration_days > 2.5;
-          return (
-            <View key={idx}>
-              <View className="flex-row justify-between mb-2">
-                <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">{stage.stage_name}</Text>
-                <Text className={`text-sm font-black ${isSlow ? 'text-state-danger' : 'text-brand-primary'}`}>{stage.avg_duration_days.toFixed(1)} Days</Text>
-              </View>
-              <View className="h-2.5 bg-surface-background rounded-full overflow-hidden border border-surface-border/50">
-                <View className={`h-full ${isSlow ? 'bg-state-danger' : 'bg-brand-primary'} rounded-full`} style={{ width: `${percentage}%` }} />
-              </View>
-            </View>
-          );
-        })}
       </View>
     </View>
   );
@@ -687,6 +726,8 @@ export const TargetsMiniWeb = ({ onViewAll, className }: { onViewAll: () => void
 };
 
 export const StageDwellChartWeb = ({ data, onViewDetails, className }: { data: StageDwell[], onViewDetails?: () => void, className?: string }) => {
+  const [mode, setMode] = useState<'avg' | 'snapshot'>('avg');
+
   if (!data || data.length === 0) {
     return (
       <View className={`bg-surface-card p-8 rounded-[32px] border border-surface-border premium-shadow py-20 items-center justify-center ${className || ''}`}>
@@ -696,7 +737,7 @@ export const StageDwellChartWeb = ({ data, onViewDetails, className }: { data: S
             <Text className="text-typography-muted text-xs">Avg time tasks spend at each stage</Text>
           </View>
           {onViewDetails && (
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={onViewDetails}
               className="flex-row items-center gap-2 bg-surface-overlay border border-surface-border px-4 py-2 rounded-xl active:scale-95 transition-all"
             >
@@ -715,30 +756,55 @@ export const StageDwellChartWeb = ({ data, onViewDetails, className }: { data: S
     .sort((a, b) => a.stage_position - b.stage_position)
     .map(d => ({
       ...d,
-      avg_minutes: parseFloat((d.avg_seconds / 60).toFixed(1)),
+      avg_minutes:   parseFloat((d.avg_seconds / 60).toFixed(1)),
+      total_hours:   parseFloat(((d.avg_seconds * d.sample_count) / 3600).toFixed(2)),
       fill: d.is_bottleneck ? 'var(--color-warning)'
           : (d.is_terminal && d.terminal_type === 'success') ? 'var(--color-success)'
           : d.is_terminal ? 'var(--color-danger)'
           : 'var(--color-primary)',
     }));
 
+  const isSnapshot  = mode === 'snapshot';
+  const barKey      = isSnapshot ? 'total_hours'  : 'avg_minutes';
+  const axisFormatter = isSnapshot
+    ? (v: number) => fmtDwell(v * 3600)
+    : (v: number) => fmtDwell(v * 60);
+
   return (
     <View className={`bg-surface-card p-8 rounded-[32px] border border-surface-border premium-shadow ${className}`}>
       <View className="flex-row items-center justify-between mb-6">
         <View>
           <Text className="text-typography-main font-black text-xl tracking-tight mb-1">Stage Dwell Time</Text>
-          <Text className="text-typography-muted text-xs">Avg time tasks spend at each stage</Text>
+          <Text className="text-typography-muted text-xs">
+            {isSnapshot ? 'Total accumulated task-time per stage' : 'Avg time tasks spend at each stage'}
+          </Text>
         </View>
-        
-        {onViewDetails && (
-          <TouchableOpacity 
-            onPress={onViewDetails}
-            className="flex-row items-center gap-2 bg-surface-overlay border border-surface-border px-4 py-2 rounded-xl active:scale-95 transition-all"
-          >
-            <Text className="text-brand-primary font-black text-[10px] uppercase tracking-wider">Details</Text>
-            <FontAwesome name="external-link" size={10} color="var(--color-primary)" />
-          </TouchableOpacity>
-        )}
+
+        <View className="flex-row items-center gap-2">
+          <View className="flex-row bg-surface-overlay border border-surface-border rounded-xl overflow-hidden">
+            <TouchableOpacity
+              onPress={() => setMode('avg')}
+              className={`px-3 py-1.5 transition-all ${!isSnapshot ? 'bg-brand-primary' : ''}`}
+            >
+              <Text className={`text-[9px] font-black uppercase tracking-wider ${!isSnapshot ? 'text-white' : 'text-typography-muted'}`}>Avg</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setMode('snapshot')}
+              className={`px-3 py-1.5 transition-all ${isSnapshot ? 'bg-brand-primary' : ''}`}
+            >
+              <Text className={`text-[9px] font-black uppercase tracking-wider ${isSnapshot ? 'text-white' : 'text-typography-muted'}`}>Snapshot</Text>
+            </TouchableOpacity>
+          </View>
+          {onViewDetails && (
+            <TouchableOpacity
+              onPress={onViewDetails}
+              className="flex-row items-center gap-2 bg-surface-overlay border border-surface-border px-4 py-2 rounded-xl active:scale-95 transition-all"
+            >
+              <Text className="text-brand-primary font-black text-[10px] uppercase tracking-wider">Details</Text>
+              <FontAwesome name="external-link" size={10} color="var(--color-primary)" />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       <View className="flex-row items-center gap-4 mb-8">
@@ -762,11 +828,11 @@ export const StageDwellChartWeb = ({ data, onViewDetails, className }: { data: S
             <CartesianGrid strokeDasharray="3 3" stroke="var(--color-surface-border)" horizontal={false} opacity={0.3} />
             <XAxis
               type="number"
-              dataKey="avg_minutes"
+              dataKey={barKey}
               tick={{ fill: 'var(--color-text-dim)', fontSize: 10, fontWeight: '700' }}
               axisLine={false}
               tickLine={false}
-              tickFormatter={v => `${v}m`}
+              tickFormatter={axisFormatter}
             />
             <YAxis
               type="category"
@@ -776,8 +842,8 @@ export const StageDwellChartWeb = ({ data, onViewDetails, className }: { data: S
               axisLine={false}
               tickLine={false}
             />
-            <RechartTooltip content={<DwellTooltip />} cursor={{ fill: 'var(--color-surface-overlay)', opacity: 0.1 }} />
-            <Bar dataKey="avg_minutes" radius={[0, 6, 6, 0]} maxBarSize={28}>
+            <RechartTooltip content={(props) => <DwellTooltip {...props} mode={mode} />} cursor={{ fill: 'var(--color-surface-overlay)', opacity: 0.1 }} />
+            <Bar dataKey={barKey} radius={[0, 6, 6, 0]} maxBarSize={28}>
               {chartData.map((entry, i) => (
                 <Cell key={i} fill={entry.fill} />
               ))}

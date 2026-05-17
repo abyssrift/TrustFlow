@@ -226,7 +226,7 @@ const hbarS = StyleSheet.create({
   label: { fontSize: F.xs, color: C.muted, width: 110 },
   track: { flex: 1, height: 14, backgroundColor: C.bg, borderRadius: 3, overflow: 'hidden', borderWidth: 1, borderColor: C.border },
   fill: { height: 14, borderRadius: 3 },
-  valText: { fontSize: F.xs, color: C.text, fontFamily: 'Helvetica-Bold', width: 44, textAlign: 'right' },
+  valText: { fontSize: F.xs, color: C.text, fontFamily: 'Helvetica-Bold', width: 68, textAlign: 'right' },
 })
 
 export function HBar({ data }: {

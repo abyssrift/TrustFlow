@@ -72,31 +72,6 @@ const SLARiskAlert = ({ data }: any) => {
   );
 };
 
-const StageDurationChart = ({ data }: any) => {
-  if (!data?.stage_duration_analysis) return null;
-  return (
-    <View className="bg-surface-card p-6 rounded-3xl border border-surface-border mb-6">
-      <Text className="text-typography-main font-bold text-lg mb-4">Stage Duration Analysis</Text>
-      {data.stage_duration_analysis.map((stage: any, idx: number) => {
-        const maxDays = Math.max(...data.stage_duration_analysis.map((s: any) => s.avg_duration_days));
-        const percentage = (stage.avg_duration_days / (maxDays || 1)) * 100;
-        const isSlow = stage.avg_duration_days > 2.5;
-        return (
-          <View key={idx} className="mb-4">
-            <View className="flex-row justify-between mb-2">
-              <Text className="text-typography-muted text-xs font-medium">{stage.stage_name}</Text>
-              <Text className={`text-xs font-bold ${isSlow ? 'text-state-danger' : 'text-brand-primary'}`}>{stage.avg_duration_days.toFixed(1)} days</Text>
-            </View>
-            <View className="h-2 bg-surface-background rounded-full overflow-hidden">
-              <View className={`h-full ${isSlow ? 'bg-state-danger' : 'bg-brand-primary'}`} style={{ width: `${percentage}%` }} />
-            </View>
-          </View>
-        );
-      })}
-    </View>
-  );
-};
-
 const ConversionFunnelChart = ({ data }: any) => {
   if (!data?.conversion_by_stage) return null;
   return (
@@ -388,7 +363,6 @@ const RadarSection = ({ data, activeWidgets, onEditWidgets }: any) => {
           </View>
         ))}
       </View>
-      <StageDurationChart data={data} />
       <ConversionFunnelChart data={data} />
       <WorkDistributionChart data={data} />
       <QualityLeaderboard data={data} />

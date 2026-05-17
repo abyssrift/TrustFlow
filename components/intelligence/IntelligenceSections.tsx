@@ -19,7 +19,6 @@ import {
     ConversionFunnelChartWeb,
     QualityLeaderboardWeb,
     SLARiskAlertWeb,
-    StageDurationChartWeb,
     TrendComparisonCardsWeb,
     WorkDistributionChartWeb
 } from './RadarWidgets';
@@ -56,7 +55,6 @@ export const RadarSectionWeb = ({ data, activeWidgets, onEditWidgets }: any) => 
       <View className="w-full flex-row gap-8">
         <View className="flex-1">
           <SLARiskAlertWeb data={data} />
-          <StageDurationChartWeb data={data} />
         </View>
         <View className="flex-1">
           <ConversionFunnelChartWeb data={data} />

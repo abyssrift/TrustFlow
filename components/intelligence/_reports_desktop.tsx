@@ -389,22 +389,22 @@ export default function IntelligenceReports() {
                   {/* Duration timer */}
                   <ElapsedTimer createdAt={r.created_at} updatedAt={r.updated_at} completedAt={r.completed_at} status={r.status} />
                   {/* Status badge */}
-                  <View className="w-24 items-center">
+                  <View className="w-28 items-center">
                     <View className={`px-3 py-1 rounded-full ${STATUS_BG[r.status] || 'bg-surface-background'}`}>
-                      <Text className={`text-[9px] font-black uppercase tracking-widest ${STATUS_COLOR[r.status] || 'text-typography-muted'}`}>
+                      <Text className={`text-[9px] font-black uppercase tracking-widest ${STATUS_COLOR[r.status] || 'text-typography-muted'} truncate`} numberOfLines={1}>
                         {r.status}
                       </Text>
                     </View>
                   </View>
                   {/* Action */}
-                  <View className="w-20 items-end">
+                  <View className="w-28 items-end">
                     {r.status === 'completed' && r.file_url ? (
                       <TouchableOpacity
                         onPress={() => handleDownload(r.file_url)}
-                        className="bg-brand-primary/10 border border-brand-primary/20 px-3 py-1.5 rounded-lg flex-row items-center gap-1.5"
+                        className="bg-brand-primary/10 border border-brand-primary/20 px-3 py-1.5 rounded-lg flex-row items-center gap-1.5 max-w-full"
                       >
                         <FontAwesome name="download" size={10} color="var(--color-primary)" />
-                        <Text className="text-brand-primary text-[10px] font-black">Download</Text>
+                        <Text className="text-brand-primary text-[10px] font-black truncate">Download</Text>
                       </TouchableOpacity>
                     ) : (
                       <View className="px-3 py-1.5">
