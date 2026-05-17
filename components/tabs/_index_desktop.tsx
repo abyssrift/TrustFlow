@@ -397,9 +397,8 @@ export default function DashboardScreenWeb() {
               </View>
             )}
 
-            <PendingTimeApprovalsWidget refreshKey={widgetRefreshKey} />
-
             <View className="flex-row flex-wrap gap-6 mb-10">
+              <PendingTimeApprovalsWidget refreshKey={widgetRefreshKey} />
               <KPICard
                 icon="tasks"
                 label="Total Pipeline"

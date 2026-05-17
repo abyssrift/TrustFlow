@@ -1,11 +1,13 @@
 import { QualityLeaderboardWeb, SLARiskAlertWeb, StageDurationChartWeb, StageDwellChartWeb, TrendComparisonCardsWeb, WorkDistributionChartWeb } from '@/components/intelligence/RadarWidgets';
-import { StageDwell, ThroughputPeriod, useAnalytics } from '@/contexts/AnalyticsContext';
+import { PipelinePointsPeriod, StageDwell, ThroughputPeriod, useAnalytics } from '@/contexts/AnalyticsContext';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import {
+    Area,
+    AreaChart,
     Bar,
     CartesianGrid,
     ComposedChart,
@@ -36,13 +38,14 @@ const tooltipStyle = {
 };
 
 export default function IntelligenceGraphs() {
-  const { getPipelineStageDwell, getPipelineThroughput } = useAnalytics();
+  const { getPipelineStageDwell, getPipelineThroughput, getPipelinePointsSeries } = useAnalytics();
 
   const [pipelineId, setPipelineId]     = useState<string | null>(null);
   const [pipelines, setPipelines]       = useState<any[]>([]);
   const [periodOpt, setPeriodOpt]       = useState(PERIOD_OPTS[1]);
   const [dwell, setDwell]               = useState<StageDwell[]>([]);
   const [throughput, setThroughput]     = useState<ThroughputPeriod[]>([]);
+  const [pointsData, setPointsData]     = useState<PipelinePointsPeriod[]>([]);
   const [auditData, setAuditData]       = useState<any>(null);
   const [loading, setLoading]           = useState(true);
 
@@ -59,13 +62,15 @@ export default function IntelligenceGraphs() {
       const nDays   = periodOpt.type === 'week' ? periodOpt.n * 7 : periodOpt.n * 30;
       const from    = new Date(today.getTime() - nDays * 86400000).toISOString().split('T')[0];
       const to      = today.toISOString().split('T')[0];
-      const [d, t, a] = await Promise.all([
+      const [d, t, pts, a] = await Promise.all([
         getPipelineStageDwell(pipelineId, from, to),
         getPipelineThroughput(pipelineId, periodOpt.type, periodOpt.n),
+        getPipelinePointsSeries(pipelineId, periodOpt.type, periodOpt.n).catch(() => []),
         supabase.rpc('rpc_get_organizational_audit', { p_pipeline_id: pipelineId, p_days: nDays }),
       ]);
       setDwell(d || []);
       setThroughput(t || []);
+      setPointsData(pts || []);
       setAuditData(a.data);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
@@ -179,6 +184,51 @@ export default function IntelligenceGraphs() {
               )}
             </View>
           </View>
+
+          {/* ── Points Generated Over Time ── */}
+          {(() => {
+            const ptsChart = [...pointsData].reverse().map(d => ({ label: d.period_label, points: d.weight_points }));
+            const totalPts = pointsData.reduce((s, d) => s + (d.weight_points || 0), 0);
+            return (
+              <View className="bg-surface-card p-8 rounded-[32px] border border-surface-border premium-shadow mb-6">
+                <View className="flex-row justify-between items-start mb-6">
+                  <View>
+                    <Text className="text-typography-main font-black text-xl tracking-tight">Points Generated Over Time</Text>
+                    <Text className="text-typography-muted text-xs mt-1">Weight points earned from completed tasks per period</Text>
+                  </View>
+                  <View className="flex-row items-center gap-2 bg-surface-background border border-surface-border rounded-xl px-4 py-2">
+                    <View className="w-2.5 h-2.5 rounded-full bg-brand-primary" />
+                    <Text className="text-typography-muted text-[10px] font-bold uppercase">Total</Text>
+                    <Text className="text-typography-main text-sm font-black">{totalPts.toLocaleString()} pts</Text>
+                  </View>
+                </View>
+                <View style={{ height: 280 }}>
+                  {ptsChart.length > 0 && ptsChart.some(d => d.points > 0) ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={ptsChart}>
+                        <defs>
+                          <linearGradient id="pointsGradFull" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%"  stopColor="var(--color-primary)" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0.02} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,0.15)" vertical={false} />
+                        <XAxis dataKey="label" stroke="var(--color-text-dim)" fontSize={12} tickLine={false} axisLine={false} />
+                        <YAxis stroke="var(--color-text-dim)" fontSize={12} tickLine={false} axisLine={false} />
+                        <RechartTooltip contentStyle={tooltipStyle} formatter={(v: any) => [`${v} pts`, 'Points']} />
+                        <Area type="monotone" dataKey="points" stroke="var(--color-primary)" strokeWidth={2.5} fill="url(#pointsGradFull)" dot={{ r: 4, fill: 'var(--color-primary)' }} name="Points" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <View className="flex-1 items-center justify-center">
+                      <FontAwesome name="star-o" size={32} color="var(--color-text-dim)" />
+                      <Text className="text-typography-muted text-sm mt-3">No points data for this pipeline/period</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            );
+          })()}
 
           {/* Stage Duration Chart */}
           <View className="mb-6">

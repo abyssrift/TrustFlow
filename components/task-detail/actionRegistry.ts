@@ -10,9 +10,9 @@ export type ActionDescriptor = {
 
 const ACTION_REGISTRY: Record<string, Omit<ActionDescriptor, 'actionType'>> = {
   submit_work: { uiSlot: 'submission', executionRoute: 'submit_work', isComplex: true },
-  review_approve: { uiSlot: 'review', executionRoute: 'review_submission', isComplex: true },
-  review_revise: { uiSlot: 'review', executionRoute: 'review_submission', isComplex: true },
-  review_reject: { uiSlot: 'review', executionRoute: 'review_submission', isComplex: true },
+  review_approve: { uiSlot: 'review', executionRoute: 'generic', isComplex: true },
+  review_revise: { uiSlot: 'review', executionRoute: 'generic', isComplex: true },
+  review_reject: { uiSlot: 'review', executionRoute: 'generic', isComplex: true },
 };
 
 const ACTION_FALLBACK: Omit<ActionDescriptor, 'actionType'> = {

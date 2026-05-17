@@ -78,7 +78,11 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (savedTheme) setThemeState(savedTheme as ThemeType);
         if (savedDensity) setDensityState(savedDensity as DensityType);
         if (savedRoundness) setRoundnessState(savedRoundness as RoundnessType);
-        if (savedKanban) setKanbanState(JSON.parse(savedKanban));
+        if (savedKanban) {
+          const parsed = JSON.parse(savedKanban);
+          if (parsed.backgroundUrl?.startsWith('blob:')) parsed.backgroundUrl = null;
+          setKanbanState(parsed);
+        }
       } catch (e) {
         console.error('Failed to load theme settings', e);
       }

@@ -1,4 +1,6 @@
 import ManualTimeModal from '@/components/common/ManualTimeModal';
+import LockIndicator from '@/components/task-detail/LockIndicator';
+import LockIndicatorWeb from '@/components/task-detail/LockIndicator.web';
 import ManualTimeApprovalCard from '@/components/task-detail/ManualTimeApprovalCard';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubmission } from '@/contexts/SubmissionContext';
@@ -31,7 +33,7 @@ const STATUS_STYLES: Record<string, { bg: string; border: string; text: string; 
 };
 
 export default function StageActions() {
-  const { data, executeAction, submitWork, reviewSubmission, deleteSubmission } = useTaskDetail();
+  const { data, executeAction, submitWork, deleteSubmission } = useTaskDetail();
   const { isActive, activeSession, serverTimeOffset, stopWork, startWork, smartTimer } = useTimer();
   const router = useRouter();
   const { user } = useAuth();
@@ -133,20 +135,22 @@ export default function StageActions() {
   const hasReviewActions = !!(reviewApprove || reviewRevise || reviewReject);
   const reviewActionIds = grouped.review.map((a) => a.id);
   const pendingSubmission = data.submissions.find((s) => s.status === 'pending');
+  const stageRequiresSubmission = !!data.current_stage?.requires_submission;
+  const canSubmitEvidence = data.permissions.is_assigned || data.permissions.is_owner || data.permissions.is_manager || data.permissions.is_creator;
+  const canDirectSubmit = stageRequiresSubmission && canSubmitEvidence;
+  const submitButtonActionId = submitAction?.id || '__submit_work__';
 
   // The submission form shows if:
   // 1. The stage explicitly requires a submission (and we aren't a reviewer just looking at it)
-  // 2. Or there is a specific submit action available for the user.
+  // 2. Or there is an explicit submit_work action for the user.
   const showSubmitForm = !!(
-    (data.current_stage?.requires_submission && (!hasReviewActions || data.permissions.is_assigned)) ||
-    (submitAction && (data.permissions.is_assigned || (data.permissions.is_owner && !hasReviewActions)))
+    canDirectSubmit || submitAction
   );
 
   // The whole section shows if there's a form, or history, or the stage implies it.
   const showSubmissionSection = !!(
     data.submissions.length > 0 || 
     showSubmitForm || 
-    submitAction || 
     data.current_stage?.requires_submission
   );
 
@@ -220,24 +224,6 @@ export default function StageActions() {
         return;
       }
 
-      if (descriptor.executionRoute === 'review_submission') {
-        if (!pendingSubmission) {
-          Alert.alert('No Pending Submission', 'There is no pending submission available for review.');
-          return;
-        }
-        const decision =
-          action.action_type === 'review_approve'
-            ? 'approved'
-            : action.action_type === 'review_revise'
-              ? 'needs_revision'
-              : 'rejected';
-        const targetTransition = action.transition_id
-          ? data.available_transitions.find(t => t.id === action.transition_id)
-          : null;
-        await reviewSubmission(pendingSubmission.id, decision, undefined, targetTransition?.to_stage_id);
-        return;
-      }
-
       await executeAction(action.id);
     } catch (err: any) {
       // Backend safety net for advance gate (fires if frontend check was bypassed)
@@ -263,6 +249,45 @@ export default function StageActions() {
 
       setErrorMsg({ title: 'Action Failed', message: displayMessage });
       setTimeout(() => setErrorMsg(null), 5000);
+    } finally {
+      setLoadingActionId(null);
+    }
+  };
+
+  const handleSubmitEvidence = async () => {
+    const content = submissionContent.trim();
+
+    if (!submitAction && !canDirectSubmit) return;
+
+    setLoadingActionId(submitButtonActionId);
+
+    try {
+      if (activeSession?.task_id === data.task.id) {
+        await stopWork();
+      }
+
+      if (submitAction) {
+        await submitWithEvidence({
+          taskId: data.task.id,
+          taskTitle: data.task.title,
+          companyId: data.task.company_id,
+          content,
+          transitionId: submitAction.transition_id,
+          stagedFiles,
+        });
+      } else {
+        await submitWithEvidence({
+          taskId: data.task.id,
+          taskTitle: data.task.title,
+          companyId: data.task.company_id,
+          content,
+          transitionId: null,
+          stagedFiles,
+        });
+      }
+
+      setSubmissionContent('');
+      setStagedFiles([]);
     } finally {
       setLoadingActionId(null);
     }
@@ -304,19 +329,17 @@ export default function StageActions() {
 
       {/* Worker: locked banner while time declaration is pending */}
       {isMyEntryPending && !errorMsg && (
-        <View className="bg-state-warning/10 border border-state-warning/30 rounded-xl p-3 flex-row items-start gap-3">
-          <View className="w-8 h-8 rounded-lg bg-state-warning/20 items-center justify-center">
-            <FontAwesome name="lock" size={14} color="var(--color-warning)" />
-          </View>
-          <View className="flex-1">
-            <Text className="text-state-warning font-black text-xs uppercase tracking-wider mb-1">
-              Stage Locked — Awaiting Manager Approval
-            </Text>
-            <Text className="text-state-warning text-sm leading-5">
-              You declared {myEntry?.declared_minutes ?? 0} min of work on this stage. Advancement is locked until your manager approves the declaration.
-            </Text>
-          </View>
-        </View>
+        Platform.OS === 'web' ? (
+          <LockIndicatorWeb
+            declaredMinutes={myEntry?.declared_minutes}
+            reason={myEntry?.reason}
+          />
+        ) : (
+          <LockIndicator
+            declaredMinutes={myEntry?.declared_minutes}
+            reason={myEntry?.reason}
+          />
+        )
       )}
 
       {/* Worker: rejected entry banner — prompts re-declaration */}
@@ -506,15 +529,11 @@ export default function StageActions() {
                 </View>
 
                 <TouchableOpacity
-                  onPress={() => {
-                    if (submitAction) {
-                      handleAction(submitAction);
-                    }
-                  }}
-                  disabled={!submitAction || (submissionContent.trim() === '' && stagedFiles.length === 0) || loadingActionId === submitAction.id || isUploading}
-                  className={`bg-brand-primary px-5 py-2.5 rounded-xl ${(!submitAction || (submissionContent.trim() === '' && stagedFiles.length === 0) || loadingActionId === submitAction?.id || isUploading) ? 'opacity-50' : ''}`}
+                  onPress={handleSubmitEvidence}
+                  disabled={(!(submitAction || canDirectSubmit)) || (submissionContent.trim() === '' && stagedFiles.length === 0) || loadingActionId === submitButtonActionId || isUploading}
+                  className={`bg-brand-primary px-5 py-2.5 rounded-xl ${((!(submitAction || canDirectSubmit)) || (submissionContent.trim() === '' && stagedFiles.length === 0) || loadingActionId === submitButtonActionId || isUploading) ? 'opacity-50' : ''}`}
                 >
-                  {loadingActionId === submitAction?.id || isUploading ? (
+                  {loadingActionId === submitButtonActionId || isUploading ? (
                     <View className="flex-row items-center">
                       <ActivityIndicator size="small" color="white" />
                       {activeJob?.currentAction && (
@@ -524,7 +543,7 @@ export default function StageActions() {
                       )}
                     </View>
                   ) : (
-                    <Text className="text-white text-xs font-black uppercase tracking-wider">{submitAction?.label || 'Submit Work'}</Text>
+                    <Text className="text-white text-xs font-black uppercase tracking-wider">{submitAction?.label || 'Submit Evidence'}</Text>
                   )}
                 </TouchableOpacity>
               </View>

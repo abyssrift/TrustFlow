@@ -1,3 +1,4 @@
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import React, { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 
@@ -95,45 +96,59 @@ export function RoleManagerProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const { profile } = useAuth();
+
   const refreshAll = useCallback(async () => {
+    const companyId = profile?.company_id;
     setLoading(true);
     setError(null);
     try {
-      const [
-        usersResult,
-        teamsResult,
-        rolesResult,
-        permsResult,
-        userRolesResult,
-        teamRolesResult,
-        membersResult,
-        rolePermsResult
-      ] = await Promise.all([
-        supabase.from('users').select('id, email, full_name, display_name, avatar_url, job_title, department').is('deleted_at', null).order('full_name'),
-        supabase.from('teams').select('*').is('deleted_at', null).order('name'),
-        supabase.from('roles').select('*').is('deleted_at', null).order('name'),
-        supabase.from('permissions').select('*').order('category, key'),
-        supabase.from('user_roles').select('user_id, role_id, revoked_at').is('revoked_at', null),
-        supabase.from('team_roles').select('team_id, role_id'),
-        supabase.from('team_members').select('team_id, user_id, removed_at').is('removed_at', null),
-        supabase.from('role_permissions').select('role_id, permission_id')
+      if (!companyId) {
+        // If there's no company context yet, clear sensitive state and return
+        setUsers([]);
+        setTeams([]);
+        setRoles([]);
+        setPermissions([]);
+        setUserRoles([]);
+        setTeamRoles([]);
+        setTeamMembers([]);
+        return;
+      }
+
+      // Fetch teams and users scoped to the current company first
+      const [usersResult, teamsResult] = await Promise.all([
+        supabase.from('users').select('id, email, full_name, display_name, avatar_url, job_title, department').is('deleted_at', null).eq('company_id', companyId).order('full_name'),
+        supabase.from('teams').select('*').is('deleted_at', null).eq('company_id', companyId).order('name')
       ]);
 
       if (usersResult.error) throw usersResult.error;
       if (teamsResult.error) throw teamsResult.error;
+
+      const teamIds = (teamsResult.data || []).map((t: any) => t.id);
+
+      // Fetch roles (system + company) and permissions. Also fetch assignments only for this company/teams.
+      const [rolesResult, permsResult, userRolesResult, teamRolesResult, membersResult, rolePermsResult] = await Promise.all([
+        supabase.from('roles').select('*').is('deleted_at', null).or(`company_id.is.null,company_id.eq.${companyId}`).order('name'),
+        supabase.from('permissions').select('*').order('category, key'),
+        supabase.from('user_roles').select('user_id, role_id, revoked_at, company_id').is('revoked_at', null).eq('company_id', companyId),
+        teamIds.length > 0 ? supabase.from('team_roles').select('team_id, role_id').in('team_id', teamIds) : { data: [], error: null },
+        teamIds.length > 0 ? supabase.from('team_members').select('team_id, user_id, removed_at').in('team_id', teamIds).is('removed_at', null) : { data: [], error: null },
+        supabase.from('role_permissions').select('role_id, permission_id')
+      ] as any);
+
       if (rolesResult.error) throw rolesResult.error;
       if (permsResult.error) throw permsResult.error;
       if (userRolesResult.error) throw userRolesResult.error;
-      if (teamRolesResult.error) throw teamRolesResult.error;
-      if (membersResult.error) throw membersResult.error;
+      if ((teamRolesResult as any).error) throw (teamRolesResult as any).error;
+      if ((membersResult as any).error) throw (membersResult as any).error;
       if (rolePermsResult.error) throw rolePermsResult.error;
 
       setUsers(usersResult.data || []);
       setTeams(teamsResult.data || []);
       setPermissions(permsResult.data || []);
       setUserRoles(userRolesResult.data || []);
-      setTeamRoles(teamRolesResult.data || []);
-      setTeamMembers(membersResult.data || []);
+      setTeamRoles((teamRolesResult as any).data || []);
+      setTeamMembers((membersResult as any).data || []);
 
       // Hydrate roles with their permission IDs
       const permissionsByRole = (rolePermsResult.data || []).reduce((acc: any, curr) => {
@@ -142,7 +157,7 @@ export function RoleManagerProvider({ children }: { children: ReactNode }) {
         return acc;
       }, {});
 
-      setRoles((rolesResult.data || []).map(r => ({
+      setRoles((rolesResult.data || []).map((r: any) => ({
         ...r,
         permissionIds: permissionsByRole[r.id] || []
       })));
@@ -153,11 +168,12 @@ export function RoleManagerProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [profile]);
 
   useEffect(() => {
-    refreshAll();
-  }, [refreshAll]);
+    // Refresh when authenticated user's company context becomes available
+    if (profile?.company_id) refreshAll();
+  }, [refreshAll, profile?.company_id]);
 
   const createRole = useCallback(async (name: string, description: string, color: string, permissions: string[]) => {
     setLoading(true);

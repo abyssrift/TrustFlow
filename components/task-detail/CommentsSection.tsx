@@ -157,7 +157,7 @@ export default function CommentsSection() {
         .select('acknowledged_at')
         .eq('task_id', data.task.id)
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
       if (ack) setLastAck(ack.acknowledged_at);
     };
     fetchLastAck();

@@ -24,7 +24,7 @@ function formatMinutes(m: number) {
   return `${min}m`;
 }
 
-function EntryRow({ entry, onReviewed }: { entry: PendingEntry; onReviewed: () => void }) {
+function CompactEntryRow({ entry, onReviewed }: { entry: PendingEntry; onReviewed: () => void }) {
   const colors = useThemeColors();
   const router = useRouter();
   const [loading, setLoading] = useState<'approve' | 'reject' | null>(null);
@@ -77,48 +77,46 @@ function EntryRow({ entry, onReviewed }: { entry: PendingEntry; onReviewed: () =
   };
 
   return (
-    <TouchableOpacity
-      onPress={() => router.push(`/task/${entry.task_id}` as any)}
-      className="bg-surface-overlay rounded-xl p-3 mb-2 last:mb-0 border border-surface-border/50 active:opacity-70"
-    >
-      {/* Task Title + Time Declared */}
-      <View className="flex-row items-start justify-between mb-2">
+    <View className="border-t border-surface-border/40 pt-3">
+      {/* Task title + time badge */}
+      <TouchableOpacity
+        onPress={() => router.push(`/task/${entry.task_id}` as any)}
+        className="flex-row items-center justify-between mb-1.5 active:opacity-70"
+      >
         <Text className="text-typography-main text-xs font-black flex-1 mr-2" numberOfLines={1}>
           {entry.task_title}
         </Text>
-        <View className="bg-state-warning/15 border border-state-warning/30 px-2 py-0.5 rounded-md flex-shrink-0">
+        <View className="bg-state-warning/15 border border-state-warning/30 px-2 py-0.5 rounded-lg flex-shrink-0">
           <Text className="text-state-warning text-[9px] font-black uppercase tracking-wider">
             {formatMinutes(entry.declared_minutes)}
           </Text>
         </View>
-      </View>
+      </TouchableOpacity>
 
-      {/* Worker Info */}
-      <View className="flex-row items-center gap-2 mb-2">
-        <View className="w-5 h-5 rounded-full bg-brand-primary/15 items-center justify-center flex-shrink-0">
-          <FontAwesome name="user-circle" size={10} color={colors.primary} />
-        </View>
-        <Text className="text-typography-dim text-[10px] font-medium flex-1 truncate">
+      {/* Worker */}
+      <View className="flex-row items-center gap-1.5 mb-2">
+        <FontAwesome name="user-circle" size={9} color={colors.primary} />
+        <Text className="text-typography-dim text-[10px] font-medium">
           {entry.worker.full_name ?? 'Unknown'}
         </Text>
       </View>
 
-      {/* Flag reason if present */}
+      {/* Flag */}
       {entry.flag_reason && (
-        <View className="bg-state-danger/8 border border-state-danger/20 rounded-lg px-2 py-1.5 mb-2 flex-row items-start gap-1.5">
-          <FontAwesome name="exclamation-circle" size={9} color={colors.danger} style={{ marginTop: 2 }} />
-          <Text className="text-state-danger text-[9px] leading-3 flex-1">
+        <View className="flex-row items-start gap-1 mb-2">
+          <FontAwesome name="exclamation-circle" size={9} color={colors.danger} style={{ marginTop: 1 }} />
+          <Text className="text-state-danger text-[9px] leading-3 flex-1" numberOfLines={2}>
             {entry.flag_reason}
           </Text>
         </View>
       )}
 
-      {/* Action buttons */}
-      <View className="flex-row gap-1.5">
+      {/* Actions */}
+      <View className="flex-row gap-2">
         <TouchableOpacity
           onPress={handleApprove}
           disabled={!!loading}
-          className={`flex-1 bg-state-success/20 py-1.5 rounded-lg border border-state-success/30 items-center justify-center active:opacity-75 ${loading === 'approve' ? 'opacity-60' : ''}`}
+          className={`flex-1 bg-state-success/15 py-1.5 rounded-xl border border-state-success/25 items-center justify-center active:opacity-75 ${loading === 'approve' ? 'opacity-50' : ''}`}
         >
           {loading === 'approve' ? (
             <ActivityIndicator size="small" color={colors.success} />
@@ -129,7 +127,7 @@ function EntryRow({ entry, onReviewed }: { entry: PendingEntry; onReviewed: () =
         <TouchableOpacity
           onPress={handleReject}
           disabled={!!loading}
-          className={`flex-1 bg-state-danger/20 py-1.5 rounded-lg border border-state-danger/30 items-center justify-center active:opacity-75 ${loading === 'reject' ? 'opacity-60' : ''}`}
+          className={`flex-1 bg-state-danger/15 py-1.5 rounded-xl border border-state-danger/25 items-center justify-center active:opacity-75 ${loading === 'reject' ? 'opacity-50' : ''}`}
         >
           {loading === 'reject' ? (
             <ActivityIndicator size="small" color={colors.danger} />
@@ -138,12 +136,11 @@ function EntryRow({ entry, onReviewed }: { entry: PendingEntry; onReviewed: () =
           )}
         </TouchableOpacity>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 }
 
 type Props = {
-  /** Pass a changing value (e.g. refreshing counter) to trigger a re-fetch from the parent */
   refreshKey?: number;
 };
 
@@ -166,28 +163,33 @@ export default function PendingTimeApprovalsWidget({ refreshKey }: Props) {
 
   useEffect(() => { fetchEntries(); }, [fetchEntries, refreshKey]);
 
-  if (loading) return null;
-  if (entries.length === 0) return null;
+  if (loading || entries.length === 0) return null;
 
   const removeEntry = (id: string) =>
     setEntries(prev => prev.filter(e => e.id !== id));
 
   return (
-    <View className="bg-surface-overlay/30 rounded-lg border border-state-warning/25 p-2.5 mb-4">
-      {/* Compact Header */}
-      <View className="flex-row items-center gap-1.5 mb-2 px-1">
-        <View className="w-4 h-4 rounded-full bg-state-warning/25 items-center justify-center">
-          <FontAwesome name="hourglass-end" size={8} color={colors.warning} />
-        </View>
-        <Text className="text-state-warning text-[8px] font-black uppercase tracking-wider flex-1">
-          {entries.length} {entries.length === 1 ? 'Declaration' : 'Declarations'} Pending
-        </Text>
+    <View className="flex-1 min-w-[240px] bg-surface-card p-8 rounded-[32px] border border-state-warning/35 premium-shadow">
+      {/* Icon */}
+      <View className="w-14 h-14 rounded-2xl bg-state-warning/10 items-center justify-center mb-6 border border-state-warning/20">
+        <FontAwesome name="hourglass-end" size={22} color={colors.warning} />
       </View>
 
+      {/* Label + count */}
+      <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mb-2">
+        Declarations Pending
+      </Text>
+      <Text className="text-typography-main text-5xl font-black tracking-tighter">
+        {entries.length}
+      </Text>
+      <Text className="text-state-warning text-[10px] font-black uppercase tracking-widest mt-3 mb-2">
+        Awaiting review
+      </Text>
+
       {/* Entries */}
-      <View>
+      <View className="gap-3 mt-2">
         {entries.map(entry => (
-          <EntryRow
+          <CompactEntryRow
             key={entry.id}
             entry={entry}
             onReviewed={() => removeEntry(entry.id)}

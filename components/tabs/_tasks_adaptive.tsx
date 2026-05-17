@@ -14,7 +14,7 @@ import { getPrimaryColor } from '@/lib/themeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator, Alert,
     Image,
@@ -55,12 +55,22 @@ type Task = {
   category: string;
   parent_task_id?: string;
   manager_id?: string;
+  project_id?: string;
+  project?: { id: string; name: string } | null;
+  manager?: { id: string; full_name: string } | null;
   assignments?: {
     assignee_user_id: string | null;
     assignee_team_id: string | null;
     team?: { name: string } | null;
     user?: { full_name: string } | null;
   }[];
+};
+
+type FilterState = {
+  priorities: string[];
+  categories: string[];
+  projectIds: string[];
+  managerIds: string[];
 };
 
 type Pipeline = {
@@ -94,6 +104,8 @@ function TasksScreen() {
   const [stageActions, setStageActions] = useState<any[]>([]);
   const [showPersonalizer, setShowPersonalizer] = useState(false);
   const [showCreateSheet, setShowCreateSheet] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState<FilterState>({ priorities: [], categories: [], projectIds: [], managerIds: [] });
   const [archiveModal, setArchiveModal] = useState<{ visible: boolean; taskId: string | null }>({ visible: false, taskId: null });
   const [archiving, setArchiving] = useState(false);
   
@@ -173,6 +185,8 @@ function TasksScreen() {
         .from('tasks')
         .select(`
           *,
+          project:project_id(id, name),
+          manager:manager_id(id, full_name),
           assignments:task_assignments(
             assignee_user_id,
             assignee_team_id,
@@ -356,6 +370,31 @@ function TasksScreen() {
   }, []);
 
 
+  const filterOptions = useMemo(() => {
+    const categories = Array.from(new Set(tasks.map(t => t.category).filter(Boolean)));
+    const projects = Array.from(
+      new Map(tasks.filter(t => t.project).map(t => [t.project!.id, t.project!])).values()
+    );
+    const managers = Array.from(
+      new Map(tasks.filter(t => t.manager).map(t => [t.manager!.id, t.manager!])).values()
+    );
+    return { categories, projects, managers };
+  }, [tasks]);
+
+  const activeFilterCount =
+    filters.priorities.length + filters.categories.length +
+    filters.projectIds.length + filters.managerIds.length;
+
+  const toggleFilter = (key: keyof FilterState, value: string) => {
+    setFilters(prev => {
+      const list = prev[key] as string[];
+      return { ...prev, [key]: list.includes(value) ? list.filter(v => v !== value) : [...list, value] };
+    });
+  };
+
+  const clearFilters = () =>
+    setFilters({ priorities: [], categories: [], projectIds: [], managerIds: [] });
+
   const renderTaskCard = useCallback((task: Task) => {
     const prio = getPriorityInfo(task.priority);
     return (
@@ -454,7 +493,14 @@ function TasksScreen() {
   }, [router, hasPermission, profile?.is_owner, kanban, activeSessions, stages, stageActions, user?.id, handleOpenAssignments, silentRefresh]);
 
   const renderStageColumn = (stage: Stage) => {
-    const stageTasks = tasks.filter(t => t.current_stage_id === stage.id);
+    const stageTasks = tasks.filter(t => {
+      if (t.current_stage_id !== stage.id) return false;
+      if (filters.priorities.length > 0 && !filters.priorities.includes(t.priority)) return false;
+      if (filters.categories.length > 0 && !filters.categories.includes(t.category)) return false;
+      if (filters.projectIds.length > 0 && !filters.projectIds.includes(t.project_id || '')) return false;
+      if (filters.managerIds.length > 0 && !filters.managerIds.includes(t.manager_id || '')) return false;
+      return true;
+    });
     return (
       <View 
         key={stage.id} 
@@ -662,6 +708,17 @@ function TasksScreen() {
              </TouchableOpacity>
            )}
            <TouchableOpacity
+             onPress={() => setShowFilters(v => !v)}
+             className={`p-2.5 rounded-xl border flex-row items-center gap-1.5 ${showFilters || activeFilterCount > 0 ? 'bg-brand-primary/10 border-brand-primary' : 'bg-brand-primary/10 border-brand-primary/20'}`}
+           >
+             <FontAwesome name="sliders" size={15} color={showFilters || activeFilterCount > 0 ? 'var(--color-primary)' : 'var(--color-primary)'} />
+             {activeFilterCount > 0 && (
+               <View className="bg-brand-primary rounded-full w-4 h-4 items-center justify-center">
+                 <Text className="text-white text-[9px] font-black">{activeFilterCount}</Text>
+               </View>
+             )}
+           </TouchableOpacity>
+           <TouchableOpacity
              onPress={() => setShowPersonalizer(true)}
              className="bg-brand-primary/10 p-2.5 rounded-xl border border-brand-primary/20"
            >
@@ -757,6 +814,106 @@ function TasksScreen() {
         onConfirm={handleArchiveTask}
         onCancel={() => setArchiveModal({ visible: false, taskId: null })}
       />
+
+      {/* Filter Panel */}
+      {showFilters && (
+        <View className="mx-4 mb-3 bg-surface-card border border-surface-border rounded-2xl p-4" style={{ maxHeight: 260 }}>
+          <View className="flex-row items-center justify-between mb-3">
+            <Text className="text-typography-main font-black text-xs uppercase tracking-widest">Filters</Text>
+            {activeFilterCount > 0 && (
+              <TouchableOpacity onPress={clearFilters} className="flex-row items-center gap-1 bg-state-danger/10 border border-state-danger/20 px-2.5 py-1 rounded-xl">
+                <FontAwesome name="times" size={9} color="var(--color-danger)" />
+                <Text className="text-state-danger text-[9px] font-black uppercase tracking-wider">Clear</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            {/* Priority */}
+            <View className="mb-3">
+              <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-1.5">Priority</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+                {(['urgent', 'high', 'normal', 'low'] as const).map(p => {
+                  const active = filters.priorities.includes(p);
+                  const colors: Record<string, string> = { urgent: 'text-state-danger', high: 'text-state-warning', normal: 'text-typography-muted', low: 'text-state-success' };
+                  return (
+                    <TouchableOpacity
+                      key={p}
+                      onPress={() => toggleFilter('priorities', p)}
+                      className={`px-3 py-1 rounded-xl border ${active ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border'}`}
+                    >
+                      <Text className={`text-[10px] font-black uppercase tracking-wider ${active ? 'text-brand-primary' : colors[p]}`}>{p.charAt(0).toUpperCase() + p.slice(1)}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+
+            {/* Category */}
+            {filterOptions.categories.length > 0 && (
+              <View className="mb-3">
+                <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-1.5">Category</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+                  {filterOptions.categories.map(cat => {
+                    const active = filters.categories.includes(cat);
+                    return (
+                      <TouchableOpacity
+                        key={cat}
+                        onPress={() => toggleFilter('categories', cat)}
+                        className={`px-3 py-1 rounded-xl border ${active ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border'}`}
+                      >
+                        <Text className={`text-[10px] font-black uppercase tracking-wider ${active ? 'text-brand-primary' : 'text-typography-muted'}`}>{cat}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )}
+
+            {/* Project */}
+            {filterOptions.projects.length > 0 && (
+              <View className="mb-3">
+                <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-1.5">Project</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+                  {filterOptions.projects.map(proj => {
+                    const active = filters.projectIds.includes(proj.id);
+                    return (
+                      <TouchableOpacity
+                        key={proj.id}
+                        onPress={() => toggleFilter('projectIds', proj.id)}
+                        className={`px-3 py-1 rounded-xl border ${active ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border'}`}
+                      >
+                        <Text className={`text-[10px] font-black uppercase tracking-wider ${active ? 'text-brand-primary' : 'text-typography-muted'}`}>{proj.name}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )}
+
+            {/* Manager */}
+            {filterOptions.managers.length > 0 && (
+              <View>
+                <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-1.5">Manager</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+                  {filterOptions.managers.map(mgr => {
+                    const active = filters.managerIds.includes(mgr.id);
+                    return (
+                      <TouchableOpacity
+                        key={mgr.id}
+                        onPress={() => toggleFilter('managerIds', mgr.id)}
+                        className={`px-3 py-1 rounded-xl border ${active ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border'}`}
+                      >
+                        <Text className={`text-[10px] font-black uppercase tracking-wider ${active ? 'text-brand-primary' : 'text-typography-muted'}`}>{mgr.full_name}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )}
+          </ScrollView>
+        </View>
+      )}
 
       <HorizontalScroll
         className="flex-1 px-5"

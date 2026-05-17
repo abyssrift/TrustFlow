@@ -10,16 +10,16 @@ import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-    ActivityIndicator,
-    Image,
-    Platform,
-    ScrollView,
-    Text,
-    TouchableOpacity,
-    useWindowDimensions,
-    View
+  ActivityIndicator,
+  Image,
+  Platform,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  useWindowDimensions,
+  View
 } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
 
@@ -59,6 +59,9 @@ type Task = {
   category: string;
   parent_task_id?: string;
   manager_id?: string;
+  project_id?: string;
+  project?: { id: string; name: string } | null;
+  manager?: { id: string; full_name: string } | null;
   assignments?: {
     assignee_user_id: string | null;
     assignee_team_id: string | null;
@@ -70,6 +73,13 @@ type Task = {
   submission_count?: { count: number }[];
   comment_count?: { count: number }[];
   has_mention?: boolean;
+};
+
+type FilterState = {
+  priorities: string[];
+  categories: string[];
+  projectIds: string[];
+  managerIds: string[];
 };
 
 type Pipeline = {
@@ -96,7 +106,9 @@ export function TasksScreenWeb() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [stageActions, setStageActions] = useState<any[]>([]);
   const [showPersonalizer, setShowPersonalizer] = useState(false);
-  
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState<FilterState>({ priorities: [], categories: [], projectIds: [], managerIds: [] });
+
   // Archival State
   const [archiveModal, setArchiveModal] = useState<{ visible: boolean, taskId: string | null }>({ visible: false, taskId: null });
   const [archiving, setArchiving] = useState(false);
@@ -171,6 +183,8 @@ export function TasksScreenWeb() {
         .from('tasks')
         .select(`
           *,
+          project:project_id(id, name),
+          manager:manager_id(id, full_name),
           assignments:task_assignments(
             assignee_user_id,
             assignee_team_id,
@@ -366,6 +380,36 @@ export function TasksScreenWeb() {
     }
   };
 
+  const filterOptions = useMemo(() => {
+    const categories = Array.from(new Set(tasks.map(t => t.category).filter(Boolean)));
+    const projects = Array.from(
+      new Map(tasks.filter(t => t.project).map(t => [t.project!.id, t.project!])).values()
+    );
+    const managers = Array.from(
+      new Map(tasks.filter(t => t.manager).map(t => [t.manager!.id, t.manager!])).values()
+    );
+    return { categories, projects, managers };
+  }, [tasks]);
+
+  const activeFilterCount =
+    filters.priorities.length +
+    filters.categories.length +
+    filters.projectIds.length +
+    filters.managerIds.length;
+
+  const toggleFilter = (key: keyof FilterState, value: string) => {
+    setFilters(prev => {
+      const list = prev[key] as string[];
+      return {
+        ...prev,
+        [key]: list.includes(value) ? list.filter(v => v !== value) : [...list, value],
+      };
+    });
+  };
+
+  const clearFilters = () =>
+    setFilters({ priorities: [], categories: [], projectIds: [], managerIds: [] });
+
   const getPriorityInfo = (priority: string) => {
     switch (priority) {
       case 'urgent': return { textClass: 'text-state-danger', label: 'Urgent' };
@@ -545,7 +589,7 @@ export function TasksScreenWeb() {
                       </View>
                    </View>
                    <View>
-                      <Text className="text-[10px] text-typography-muted font-black uppercase tracking-widest mb-1">Active Velocity</Text>
+                      <Text className="text-[10px] text-typography-muted font-black uppercase tracking-widest mb-1">Active Time</Text>
                       <View className="flex-row items-baseline">
                          <Text className="text-2xl font-black text-typography-main">{Math.floor(pulse.active_seconds_today / 3600)}h</Text>
                          <Text className="text-xs text-typography-muted ml-1 font-bold">{Math.floor((pulse.active_seconds_today % 3600) / 60)}m</Text>
@@ -582,13 +626,24 @@ export function TasksScreenWeb() {
             </TouchableOpacity>
             
             <View className="flex-row gap-4">
-               <TouchableOpacity 
+               <TouchableOpacity
                  onPress={() => setShowPersonalizer(true)}
                  className="h-14 w-14 items-center justify-center bg-surface-card border border-surface-border rounded-2xl premium-shadow hover:bg-surface-overlay"
                >
                   <FontAwesome name="paint-brush" size={16} color="var(--color-primary)" />
                </TouchableOpacity>
-               <TouchableOpacity 
+               <TouchableOpacity
+                 onPress={() => setShowFilters(v => !v)}
+                 className={`h-14 px-4 items-center justify-center flex-row gap-2 border rounded-2xl premium-shadow transition-all ${showFilters || activeFilterCount > 0 ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-card border-surface-border hover:bg-surface-overlay'}`}
+               >
+                  <FontAwesome name="sliders" size={14} color={showFilters || activeFilterCount > 0 ? 'var(--color-primary)' : 'var(--color-text-muted)'} />
+                  {activeFilterCount > 0 && (
+                    <View className="bg-brand-primary rounded-full w-5 h-5 items-center justify-center">
+                      <Text className="text-white text-[10px] font-black">{activeFilterCount}</Text>
+                    </View>
+                  )}
+               </TouchableOpacity>
+               <TouchableOpacity
                  onPress={onRefresh}
                  className="h-14 w-14 items-center justify-center bg-surface-card border border-surface-border rounded-2xl premium-shadow hover:bg-surface-overlay"
                >
@@ -605,6 +660,108 @@ export function TasksScreenWeb() {
                )}
             </View>
           </View>
+
+          {/* Filter Panel */}
+          {showFilters && (
+            <View className="mb-6 bg-surface-card border border-surface-border rounded-2xl p-5 premium-shadow">
+              <View className="flex-row items-center justify-between mb-4">
+                <Text className="text-typography-main font-black text-sm uppercase tracking-widest">Filters</Text>
+                {activeFilterCount > 0 && (
+                  <TouchableOpacity onPress={clearFilters} className="flex-row items-center gap-1.5 bg-state-danger/10 border border-state-danger/20 px-3 py-1.5 rounded-xl">
+                    <FontAwesome name="times" size={10} color="var(--color-danger)" />
+                    <Text className="text-state-danger text-[10px] font-black uppercase tracking-wider">Clear All</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View className="flex-row gap-8">
+                  {/* Priority */}
+                  <View>
+                    <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Priority</Text>
+                    <View className="flex-row gap-2">
+                      {(['urgent', 'high', 'normal', 'low'] as const).map(p => {
+                        const active = filters.priorities.includes(p);
+                        const info = getPriorityInfo(p);
+                        return (
+                          <TouchableOpacity
+                            key={p}
+                            onPress={() => toggleFilter('priorities', p)}
+                            className={`px-3 py-1.5 rounded-xl border transition-all ${active ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border hover:border-brand-primary/40'}`}
+                          >
+                            <Text className={`text-[11px] font-black uppercase tracking-wider ${active ? 'text-brand-primary' : info.textClass}`}>{info.label}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+
+                  {/* Category */}
+                  {filterOptions.categories.length > 0 && (
+                    <View>
+                      <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Category</Text>
+                      <View className="flex-row gap-2">
+                        {filterOptions.categories.map(cat => {
+                          const active = filters.categories.includes(cat);
+                          return (
+                            <TouchableOpacity
+                              key={cat}
+                              onPress={() => toggleFilter('categories', cat)}
+                              className={`px-3 py-1.5 rounded-xl border transition-all ${active ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border hover:border-brand-primary/40'}`}
+                            >
+                              <Text className={`text-[11px] font-black uppercase tracking-wider ${active ? 'text-brand-primary' : 'text-typography-muted'}`}>{cat}</Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Project */}
+                  {filterOptions.projects.length > 0 && (
+                    <View>
+                      <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Project</Text>
+                      <View className="flex-row gap-2">
+                        {filterOptions.projects.map(proj => {
+                          const active = filters.projectIds.includes(proj.id);
+                          return (
+                            <TouchableOpacity
+                              key={proj.id}
+                              onPress={() => toggleFilter('projectIds', proj.id)}
+                              className={`px-3 py-1.5 rounded-xl border transition-all ${active ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border hover:border-brand-primary/40'}`}
+                            >
+                              <Text className={`text-[11px] font-black uppercase tracking-wider ${active ? 'text-brand-primary' : 'text-typography-muted'}`}>{proj.name}</Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Manager */}
+                  {filterOptions.managers.length > 0 && (
+                    <View>
+                      <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Manager</Text>
+                      <View className="flex-row gap-2">
+                        {filterOptions.managers.map(mgr => {
+                          const active = filters.managerIds.includes(mgr.id);
+                          return (
+                            <TouchableOpacity
+                              key={mgr.id}
+                              onPress={() => toggleFilter('managerIds', mgr.id)}
+                              className={`px-3 py-1.5 rounded-xl border transition-all ${active ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border hover:border-brand-primary/40'}`}
+                            >
+                              <Text className={`text-[11px] font-black uppercase tracking-wider ${active ? 'text-brand-primary' : 'text-typography-muted'}`}>{mgr.full_name}</Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  )}
+                </View>
+              </ScrollView>
+            </View>
+          )}
 
           {loading ? (
             <View className="flex-1 items-center justify-center">
@@ -653,7 +810,14 @@ export function TasksScreenWeb() {
               contentContainerStyle={{ paddingBottom: 40 }}
             >
               {stages.map(stage => {
-                const stageTasks = tasks.filter(t => t.current_stage_id === stage.id);
+                const stageTasks = tasks.filter(t => {
+                  if (t.current_stage_id !== stage.id) return false;
+                  if (filters.priorities.length > 0 && !filters.priorities.includes(t.priority)) return false;
+                  if (filters.categories.length > 0 && !filters.categories.includes(t.category)) return false;
+                  if (filters.projectIds.length > 0 && !filters.projectIds.includes(t.project_id || '')) return false;
+                  if (filters.managerIds.length > 0 && !filters.managerIds.includes(t.manager_id || '')) return false;
+                  return true;
+                });
                 return (
                   <View key={stage.id} className="w-[380px] mr-8 h-full">
                     <View className="flex-row items-center justify-between mb-6 px-3">

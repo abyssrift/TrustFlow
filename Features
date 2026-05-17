@@ -19,6 +19,7 @@ Reports are generated successfully but they arent in the reports screen or shown
 I think when reports are too big, they take longer to upload to the storage and therefore, the user leaves the screen by redirect quicker than the report is uploaded, causing a race condition.
 Also i hope the reports are correctly uploaded with data such as how long they took to generate as well as where they were generated.
 
+
 SOme datepickers on mobile arent using premium calendar.
 
 Insights often have repeated insights and indicies, gotta make sure they do not repeat.
@@ -29,3 +30,7 @@ Projects act like folders, they are a way to process x amount of tasks together,
 
  What if someone requires the pending review for submission, then works for more than 5 mins, allowing him to submit normally, and then his submissions are half ok half not, very weird! we either gotta lock submissions after that.
  
+
+
+ Timer beacon is broken for refresh and tab closing
+

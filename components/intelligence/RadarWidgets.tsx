@@ -2,10 +2,10 @@ import React from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import {
-  Bar, BarChart, CartesianGrid, Cell, ComposedChart, Line, ResponsiveContainer, Tooltip as RechartTooltip, XAxis, YAxis,
+  Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ComposedChart, Line, ResponsiveContainer, Tooltip as RechartTooltip, XAxis, YAxis,
 } from 'recharts';
 import { useRouter } from 'expo-router';
-import { useAnalytics, ThroughputPeriod, StageDwell } from '@/contexts/AnalyticsContext';
+import { useAnalytics, ThroughputPeriod, StageDwell, PipelinePointsPeriod } from '@/contexts/AnalyticsContext';
 import { useState, useEffect, useCallback } from 'react';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -210,110 +210,179 @@ export const WorkDistributionChartWeb = ({ data, className }: { data: any, class
 export const QualityLeaderboardWeb = ({ data, className }: { data: any, className?: string }) => {
   if (!data?.quality_by_worker) return null;
 
-  const workers = data.quality_by_worker
+  const MIN_TASKS = 3;
+
+  const allWorkers = data.quality_by_worker
     .map((w: any) => ({
       ...w,
       integrityScore: Math.max(0, 100 - (w.revision_rate || 0)),
     }))
-    .sort((a: any, b: any) => b.integrityScore - a.integrityScore)
-    .slice(0, 6);
+    // Primary: integrity score desc. Tiebreaker: task volume desc.
+    .sort((a: any, b: any) => b.integrityScore - a.integrityScore || b.total_tasks - a.total_tasks);
+
+  const qualified = allWorkers.filter((w: any) => w.total_tasks >= MIN_TASKS);
+  const workers = qualified.slice(0, 6);
+  const filteredOutCount = allWorkers.length - qualified.length;
+  const allPerfect = workers.length > 0 && workers.every((w: any) => w.integrityScore === 100);
+  const maxTasks = allPerfect ? Math.max(...workers.map((w: any) => w.total_tasks)) : 0;
 
   return (
     <View className={`bg-surface-card p-8 rounded-[32px] border border-surface-border premium-shadow ${className || ''}`}>
-      <View className="flex-row justify-between items-start mb-8">
+      {/* Header */}
+      <View className="flex-row justify-between items-start mb-6">
         <View className="flex-1 mr-4">
           <Text className="text-typography-muted text-xs font-bold tracking-widest uppercase mb-1">Performance Matrix</Text>
           <Text className="text-typography-main text-3xl font-black">Quality Integrity</Text>
           <Text className="text-typography-muted text-[11px] mt-2 leading-relaxed max-w-[480px]">
-            Integrity measures first-pass accuracy. It is calculated as <Text className="text-brand-primary font-bold">100% minus the Rework Rate</Text>. 
-            A higher score indicates tasks were completed successfully without requiring any revisions.
+            Integrity measures first-pass accuracy. It is calculated as{' '}
+            <Text className="text-brand-primary font-bold">100% minus the Rework Rate</Text>.{' '}
+            {allPerfect && workers.length > 0
+              ? 'All contributors are tied — ranked by task volume.'
+              : 'A higher score indicates tasks completed without requiring revisions.'}
           </Text>
         </View>
-        <View className="bg-brand-primary-dim px-4 py-2 rounded-xl border border-brand-primary/20">
-          <Text className="text-brand-primary font-bold text-sm">Top Contributors</Text>
+        <View className="items-end gap-2">
+          <View className="bg-brand-primary-dim px-4 py-2 rounded-xl border border-brand-primary/20">
+            <Text className="text-brand-primary font-bold text-sm">Top Contributors</Text>
+          </View>
+          {filteredOutCount > 0 && (
+            <View className="flex-row items-center gap-1.5 px-3 py-1.5 bg-surface-background border border-surface-border rounded-xl">
+              <FontAwesome name="filter" size={9} color="var(--color-text-dim)" />
+              <Text className="text-typography-dim text-[9px] font-black uppercase tracking-widest">
+                {filteredOutCount} below threshold
+              </Text>
+            </View>
+          )}
         </View>
       </View>
 
-      <View className="flex-row flex-wrap gap-6">
-        {workers.map((worker: any, idx: number) => {
-          const score = worker.integrityScore;
-          const stars = score >= 95 ? 5 : score >= 90 ? 4 : score >= 80 ? 3 : 2;
-          
-          const colorClass = score >= 90 ? 'bg-state-success' : score >= 75 ? 'bg-state-warning' : 'bg-state-danger';
-          const bgDimClass = score >= 90 ? 'bg-state-success-dim' : score >= 75 ? 'bg-state-warning-dim' : 'bg-state-danger-dim';
-          const textClass = score >= 90 ? 'text-state-success' : score >= 75 ? 'text-state-warning' : 'text-state-danger';
-          const borderClass = score >= 90 ? 'border-state-success/20' : score >= 75 ? 'border-state-warning/20' : 'border-state-danger/20';
+      {/* Perfect integrity banner */}
+      {allPerfect && (
+        <View className="flex-row items-center justify-between bg-state-success-dim border border-state-success/20 px-5 py-3 rounded-2xl mb-6">
+          <View className="flex-row items-center gap-3">
+            <FontAwesome name="trophy" size={14} color="var(--color-success)" />
+            <Text className="text-state-success font-black text-sm">
+              Perfect Integrity — Zero rework detected this period.
+            </Text>
+          </View>
+          <Text className="text-state-success/60 text-[10px] font-bold uppercase tracking-widest">
+            Ranked by volume
+          </Text>
+        </View>
+      )}
 
-          return (
-            <View 
-              key={idx} 
-              className="flex-1 min-w-[300px] bg-surface-background p-6 rounded-2xl border border-surface-border/50 hover:border-brand-primary/30 transition-all duration-300"
-            >
-              <View className="flex-row justify-between items-start mb-4">
-                <View className="flex-row items-center gap-3">
-                  <View className={`w-8 h-8 ${bgDimClass} rounded-lg items-center justify-center border ${borderClass}`}>
-                    <Text className={`${textClass} font-black text-xs`}>#{idx + 1}</Text>
-                  </View>
-                  <View className="w-10 h-10 rounded-full bg-surface-card border border-surface-border overflow-hidden">
-                    {worker.avatar_url ? (
-                      <Image source={{ uri: worker.avatar_url }} className="w-full h-full" />
-                    ) : (
-                      <View className="w-full h-full items-center justify-center bg-brand-primary/5">
-                        <Text className="text-brand-primary font-black text-xs">
-                          {(worker.full_name || 'A')[0].toUpperCase()}
+      {/* Empty state */}
+      {workers.length === 0 ? (
+        <View className="py-12 items-center gap-3">
+          <View className="w-14 h-14 rounded-full bg-surface-background border border-surface-border items-center justify-center">
+            <FontAwesome name="bar-chart" size={20} color="var(--color-text-dim)" />
+          </View>
+          <Text className="text-typography-main font-black text-base">Insufficient Data</Text>
+          <Text className="text-typography-muted text-xs text-center max-w-[320px]">
+            No workers have completed at least {MIN_TASKS} tasks in this period. Integrity scores require a minimum sample to be meaningful.
+          </Text>
+        </View>
+      ) : (
+        <View className="flex-row flex-wrap gap-6">
+          {workers.map((worker: any, idx: number) => {
+            const score = worker.integrityScore;
+            const stars = score === 100 ? 5 : score >= 90 ? 4 : score >= 75 ? 3 : score >= 60 ? 2 : 1;
+            const isVolumeLeader = allPerfect && worker.total_tasks === maxTasks;
+
+            const colorClass = score === 100 ? 'bg-state-success' : score >= 75 ? 'bg-state-warning' : 'bg-state-danger';
+            const bgDimClass = score === 100 ? 'bg-state-success-dim' : score >= 75 ? 'bg-state-warning-dim' : 'bg-state-danger-dim';
+            const textClass = score === 100 ? 'text-state-success' : score >= 75 ? 'text-state-warning' : 'text-state-danger';
+            const borderClass = score === 100 ? 'border-state-success/20' : score >= 75 ? 'border-state-warning/20' : 'border-state-danger/20';
+
+            // When all are tied, show task volume bar instead of flat 100% bar
+            const barWidth = allPerfect ? (worker.total_tasks / (maxTasks || 1)) * 100 : score;
+
+            return (
+              <View
+                key={idx}
+                className={`flex-1 min-w-[300px] bg-surface-background p-6 rounded-2xl border transition-all duration-300 ${
+                  isVolumeLeader
+                    ? 'border-state-success/40 hover:border-state-success/60'
+                    : 'border-surface-border/50 hover:border-brand-primary/30'
+                }`}
+              >
+                <View className="flex-row justify-between items-start mb-4">
+                  <View className="flex-row items-center gap-3">
+                    <View className={`w-8 h-8 ${bgDimClass} rounded-lg items-center justify-center border ${borderClass}`}>
+                      <Text className={`${textClass} font-black text-xs`}>#{idx + 1}</Text>
+                    </View>
+                    <View className="w-10 h-10 rounded-full bg-surface-card border border-surface-border overflow-hidden">
+                      {worker.avatar_url ? (
+                        <Image source={{ uri: worker.avatar_url }} className="w-full h-full" />
+                      ) : (
+                        <View className="w-full h-full items-center justify-center bg-brand-primary/5">
+                          <Text className="text-brand-primary font-black text-xs">
+                            {(worker.full_name || 'A')[0].toUpperCase()}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-typography-main font-black text-base" numberOfLines={1}>
+                        {worker.full_name || 'Anonymous User'}
+                      </Text>
+                      {isVolumeLeader && (
+                        <Text className="text-state-success text-[9px] font-black uppercase tracking-widest">
+                          Volume Leader
                         </Text>
-                      </View>
-                    )}
+                      )}
+                    </View>
                   </View>
-                  <Text className="text-typography-main font-black text-base flex-1" numberOfLines={1}>
-                    {worker.full_name || 'Anonymous User'}
-                  </Text>
+
+                  <View className="flex-row gap-1">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <FontAwesome
+                        key={s}
+                        name={s <= stars ? 'star' : 'star-o'}
+                        size={14}
+                        color={s <= stars ? 'var(--color-warning)' : 'var(--color-text-dim)'}
+                      />
+                    ))}
+                  </View>
                 </View>
-                
-                <View className="flex-row gap-1">
-                  {[1, 2, 3, 4, 5].map((s) => (
-                    <FontAwesome 
-                      key={s} 
-                      name={s <= stars ? 'star' : 'star-o'} 
-                      size={14} 
-                      color={s <= stars ? 'var(--color-warning)' : 'var(--color-text-dim)'} 
+
+                <View className="gap-3">
+                  <View className="flex-row justify-between items-end">
+                    <Text className="text-typography-muted text-xs font-bold uppercase">
+                      {allPerfect ? 'Task Volume' : 'Integrity Score'}
+                    </Text>
+                    <Text className={`${textClass} text-xl font-black`}>
+                      {allPerfect ? `${worker.total_tasks} tasks` : `${score.toFixed(1)}%`}
+                    </Text>
+                  </View>
+
+                  <View className="h-2 bg-surface-card rounded-full overflow-hidden">
+                    <View
+                      className={`h-full ${colorClass}`}
+                      style={{ width: `${barWidth}%` }}
                     />
-                  ))}
-                </View>
-              </View>
-
-              <View className="gap-3">
-                <View className="flex-row justify-between items-end">
-                  <Text className="text-typography-muted text-xs font-bold uppercase">Integrity Score</Text>
-                  <Text className={`${textClass} text-xl font-black`}>{score.toFixed(1)}%</Text>
-                </View>
-
-                <View className="h-2 bg-surface-card rounded-full overflow-hidden">
-                  <View 
-                    className={`h-full ${colorClass}`} 
-                    style={{ width: `${score}%` }} 
-                  />
-                </View>
-
-                <View className="flex-row justify-between items-center pt-2">
-                  <View className="flex-row items-center gap-1.5">
-                    <FontAwesome name="wrench" size={10} color="var(--color-text-dim)" />
-                    <Text className="text-typography-muted text-[10px] font-bold uppercase">
-                      {(worker.revision_rate || 0).toFixed(1)}% Rework
-                    </Text>
                   </View>
-                  <View className="flex-row items-center gap-1.5">
-                    <FontAwesome name="check-circle" size={10} color="var(--color-text-dim)" />
-                    <Text className="text-typography-muted text-[10px] font-bold uppercase">
-                      {worker.total_tasks || 0} Tasks
-                    </Text>
+
+                  <View className="flex-row justify-between items-center pt-2">
+                    <View className="flex-row items-center gap-1.5">
+                      <FontAwesome name="wrench" size={10} color="var(--color-text-dim)" />
+                      <Text className="text-typography-muted text-[10px] font-bold uppercase">
+                        {(worker.revision_rate || 0).toFixed(1)}% Rework
+                      </Text>
+                    </View>
+                    <View className="flex-row items-center gap-1.5">
+                      <FontAwesome name="check-circle" size={10} color="var(--color-text-dim)" />
+                      <Text className="text-typography-muted text-[10px] font-bold uppercase">
+                        {allPerfect ? `${score.toFixed(0)}% integrity` : `${worker.total_tasks || 0} Tasks`}
+                      </Text>
+                    </View>
                   </View>
                 </View>
               </View>
-            </View>
-          );
-        })}
-      </View>
+            );
+          })}
+        </View>
+      )}
     </View>
   );
 };
@@ -451,18 +520,11 @@ export const TrendComparisonMiniWeb = ({ data, onViewAll, className }: { data: a
   );
 };
 
-export const ThroughputOverTimeMiniWeb = ({ pipelines, onViewAll, className }: { pipelines: any[], onViewAll: () => void, className?: string }) => {
+export const ThroughputOverTimeMiniWeb = ({ pipelines, days, onViewAll, className }: { pipelines: any[], days: number, onViewAll: () => void, className?: string }) => {
   const { getPipelineThroughput } = useAnalytics();
   const [pipelineId, setPipelineId] = useState<string | null>(null);
-  const [periodOpt, setPeriodOpt] = useState({ label: '8W', type: 'week', n: 8 });
   const [throughput, setThroughput] = useState<ThroughputPeriod[]>([]);
   const [loading, setLoading] = useState(false);
-
-  const PERIOD_OPTS = [
-    { label: '4W', type: 'week', n: 4 },
-    { label: '8W', type: 'week', n: 8 },
-    { label: '6M', type: 'month', n: 6 },
-  ];
 
   useEffect(() => {
     if (pipelines.length > 0 && !pipelineId) {
@@ -474,20 +536,21 @@ export const ThroughputOverTimeMiniWeb = ({ pipelines, onViewAll, className }: {
     if (!pipelineId) return;
     setLoading(true);
     try {
-      const t = await getPipelineThroughput(pipelineId, periodOpt.type as any, periodOpt.n);
+      const { periodType, nPeriods } = daysToParams(days);
+      const t = await getPipelineThroughput(pipelineId, periodType, nPeriods);
       setThroughput(t || []);
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
     }
-  }, [pipelineId, periodOpt]);
+  }, [pipelineId, days]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const chartData = throughput.map(t => ({
+  const chartData = [...throughput].reverse().map(t => ({
     label: t.period_label,
     succeeded: t.tasks_succeeded,
     failed: t.tasks_failed,
@@ -515,33 +578,18 @@ export const ThroughputOverTimeMiniWeb = ({ pipelines, onViewAll, className }: {
       </View>
 
       <View className="flex-row justify-between items-center mb-8">
-        <View className="flex-row gap-2">
-          <View className="flex-row bg-surface-background border border-surface-border rounded-lg p-0.5">
-            {pipelines.slice(0, 3).map(p => (
-              <TouchableOpacity
-                key={p.id}
-                onPress={() => setPipelineId(p.id)}
-                className={`px-3 py-1.5 rounded-md transition-all ${pipelineId === p.id ? 'bg-brand-primary premium-shadow' : ''}`}
-              >
-                <Text className={`text-[9px] font-black uppercase ${pipelineId === p.id ? 'text-brand-on-primary' : 'text-typography-muted'}`}>
-                  {p.name}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          <View className="flex-row bg-surface-background border border-surface-border rounded-lg p-0.5">
-            {PERIOD_OPTS.map(opt => (
-              <TouchableOpacity
-                key={opt.label}
-                onPress={() => setPeriodOpt(opt)}
-                className={`px-3 py-1.5 rounded-md transition-all ${periodOpt.label === opt.label ? 'bg-brand-primary premium-shadow' : ''}`}
-              >
-                <Text className={`text-[9px] font-black uppercase ${periodOpt.label === opt.label ? 'text-brand-on-primary' : 'text-typography-muted'}`}>
-                  {opt.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+        <View className="flex-row bg-surface-background border border-surface-border rounded-lg p-0.5">
+          {pipelines.slice(0, 3).map(p => (
+            <TouchableOpacity
+              key={p.id}
+              onPress={() => setPipelineId(p.id)}
+              className={`px-3 py-1.5 rounded-md transition-all ${pipelineId === p.id ? 'bg-brand-primary premium-shadow' : ''}`}
+            >
+              <Text className={`text-[9px] font-black uppercase ${pipelineId === p.id ? 'text-brand-on-primary' : 'text-typography-muted'}`}>
+                {p.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
         <View className="flex-row gap-4 items-center">
@@ -736,6 +784,128 @@ export const StageDwellChartWeb = ({ data, onViewDetails, className }: { data: S
             </Bar>
           </BarChart>
         </ResponsiveContainer>
+      </View>
+    </View>
+  );
+};
+
+// ─── Pipeline Points Over Time Mini Widget ────────────────────────────────────
+
+function daysToParams(days: number): { periodType: string; nPeriods: number } {
+  if (days <= 7)  return { periodType: 'week',  nPeriods: 2 };
+  if (days <= 30) return { periodType: 'week',  nPeriods: 5 };
+  if (days <= 60) return { periodType: 'week',  nPeriods: 9 };
+  return           { periodType: 'month', nPeriods: 3 };
+}
+
+export const PipelinePointsMiniWeb = ({
+  pipelines,
+  days,
+  onViewAll,
+  className,
+}: {
+  pipelines: any[];
+  days: number;
+  onViewAll: () => void;
+  className?: string;
+}) => {
+  const { getPipelinePointsSeries } = useAnalytics();
+  const [pipelineId, setPipelineId] = useState<string | null>(null);
+  const [data, setData]             = useState<PipelinePointsPeriod[]>([]);
+  const [loading, setLoading]       = useState(false);
+
+  useEffect(() => {
+    if (pipelines.length > 0 && !pipelineId) setPipelineId(pipelines[0].id);
+  }, [pipelines]);
+
+  const load = useCallback(async () => {
+    if (!pipelineId) return;
+    setLoading(true);
+    try {
+      const { periodType, nPeriods } = daysToParams(days);
+      const result = await getPipelinePointsSeries(pipelineId, periodType, nPeriods);
+      setData(result || []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  }, [pipelineId, days]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const chartData   = [...data].reverse().map(d => ({ label: d.period_label, points: d.weight_points }));
+  const totalPoints = data.reduce((sum, d) => sum + (d.weight_points || 0), 0);
+
+  const tooltipStyle = {
+    backgroundColor: 'var(--color-card)',
+    border: '1px solid var(--color-border)',
+    borderRadius: 12,
+    fontSize: 10,
+    color: 'var(--color-text-main)',
+  };
+
+  return (
+    <View className={`bg-surface-card p-8 rounded-[32px] border border-surface-border premium-shadow mb-4 ${className || ''}`}>
+      <View className="flex-row justify-between items-start mb-6">
+        <View>
+          <Text className="text-typography-main font-black text-xl tracking-tight">Points Generated</Text>
+          <Text className="text-typography-muted text-xs mt-1">Weight points earned by pipeline completions</Text>
+        </View>
+        <TouchableOpacity onPress={onViewAll} className="bg-surface-overlay border border-surface-border px-5 py-2 rounded-xl active:scale-95 transition-all">
+          <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest">View All</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View className="flex-row justify-between items-center mb-6">
+        <View className="flex-row bg-surface-background border border-surface-border rounded-lg p-0.5">
+          {pipelines.slice(0, 3).map(p => (
+            <TouchableOpacity
+              key={p.id}
+              onPress={() => setPipelineId(p.id)}
+              className={`px-3 py-1.5 rounded-md transition-all ${pipelineId === p.id ? 'bg-brand-primary premium-shadow' : ''}`}
+            >
+              <Text className={`text-[9px] font-black uppercase ${pipelineId === p.id ? 'text-brand-on-primary' : 'text-typography-muted'}`}>
+                {p.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <View className="flex-row items-center gap-2 bg-surface-background border border-surface-border rounded-xl px-4 py-2">
+          <View className="w-2 h-2 rounded-full bg-brand-primary" />
+          <Text className="text-typography-muted text-[9px] font-bold uppercase">Total</Text>
+          <Text className="text-typography-main text-[11px] font-black">{totalPoints.toLocaleString()} pts</Text>
+        </View>
+      </View>
+
+      <View style={{ height: 200 }}>
+        {loading ? (
+          <View className="flex-1 items-center justify-center">
+            <ActivityIndicator size="small" color="var(--color-primary)" />
+          </View>
+        ) : chartData.length > 0 && chartData.some(d => d.points > 0) ? (
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={chartData}>
+              <defs>
+                <linearGradient id="pointsGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor="var(--color-primary)" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0.02} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-surface-border)" vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 9, fill: 'var(--color-text-dim)' }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 9, fill: 'var(--color-text-dim)' }} axisLine={false} tickLine={false} />
+              <RechartTooltip contentStyle={tooltipStyle} cursor={{ fill: 'var(--color-surface-overlay)', opacity: 0.05 }} formatter={(v: any) => [`${v} pts`, 'Points']} />
+              <Area type="monotone" dataKey="points" stroke="var(--color-primary)" strokeWidth={2} fill="url(#pointsGrad)" dot={{ r: 3, fill: 'var(--color-primary)' }} name="Points" />
+            </AreaChart>
+          </ResponsiveContainer>
+        ) : (
+          <View className="flex-1 items-center justify-center opacity-50">
+            <FontAwesome name="star-o" size={24} color="var(--color-text-dim)" />
+            <Text className="text-typography-muted text-xs mt-2">No points data for this period</Text>
+          </View>
+        )}
       </View>
     </View>
   );

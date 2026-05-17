@@ -3,6 +3,7 @@ import { KPIBoxWeb } from '@/components/intelligence/IntelligenceCommon';
 import {
   ConversionFunnelChartWeb,
   ConversionFunnelMiniWeb,
+  PipelinePointsMiniWeb,
   SLARiskAlertWeb,
   SLARiskAlertMiniWeb,
   StageDurationChartWeb,
@@ -160,7 +161,9 @@ export default function IntelligenceOverview() {
 
           {/* ── Mini Widgets Row ── */}
           <View className="px-10 flex-col gap-4">
-            <ThroughputOverTimeMiniWeb pipelines={pipelines} onViewAll={() => router.push('/intelligence/graphs')} />
+            <ThroughputOverTimeMiniWeb pipelines={pipelines} days={days} onViewAll={() => router.push('/intelligence/graphs')} />
+
+            <PipelinePointsMiniWeb pipelines={pipelines} days={days} onViewAll={() => router.push('/intelligence/graphs')} />
 
             <SLARiskAlertMiniWeb data={data} onViewAll={() => router.push('/intelligence/graphs')} />
             
