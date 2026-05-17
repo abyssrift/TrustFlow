@@ -1,11 +1,11 @@
 import { ReportConfigModal } from '@/components/intelligence/IntelligenceModals';
 import ReportFiltersModal, {
-  applyReportFilters,
-  countActiveFilters,
-  describeDateRange,
-  EMPTY_FILTERS,
-  REPORT_TYPE_OPTIONS,
-  type ReportFilters,
+    applyReportFilters,
+    countActiveFilters,
+    describeDateRange,
+    EMPTY_FILTERS,
+    REPORT_TYPE_OPTIONS,
+    type ReportFilters,
 } from '@/components/intelligence/ReportFiltersModal';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';

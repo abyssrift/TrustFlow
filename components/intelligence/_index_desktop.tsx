@@ -1,21 +1,18 @@
-import { ReportConfigModal, WidgetConfigModal } from '@/components/intelligence/IntelligenceModals';
 import { KPIBoxWeb } from '@/components/intelligence/IntelligenceCommon';
+import { ReportConfigModal, WidgetConfigModal } from '@/components/intelligence/IntelligenceModals';
 import {
-  ConversionFunnelChartWeb,
-  ConversionFunnelMiniWeb,
-  PipelinePointsMiniWeb,
-  SLARiskAlertWeb,
-  SLARiskAlertMiniWeb,
-  StageDurationMiniWeb,
-  TrendComparisonCardsWeb,
-  TrendComparisonMiniWeb,
-  ThroughputOverTimeMiniWeb,
+    ConversionFunnelMiniWeb,
+    PipelinePointsMiniWeb,
+    SLARiskAlertMiniWeb,
+    StageDurationMiniWeb,
+    ThroughputOverTimeMiniWeb,
+    TrendComparisonMiniWeb
 } from '@/components/intelligence/RadarWidgets';
-import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 

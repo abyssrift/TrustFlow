@@ -1,12 +1,14 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
+import { PipelinePointsPeriod, StageDwell, ThroughputPeriod, useAnalytics } from '@/contexts/AnalyticsContext';
 import { FontAwesome } from '@expo/vector-icons';
-import {
-  Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ComposedChart, Line, ResponsiveContainer, Tooltip as RechartTooltip, XAxis, YAxis,
-} from 'recharts';
 import { useRouter } from 'expo-router';
-import { useAnalytics, ThroughputPeriod, StageDwell, PipelinePointsPeriod } from '@/contexts/AnalyticsContext';
-import { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Image, Text, TouchableOpacity, View } from 'react-native';
+import {
+    Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ComposedChart, Line,
+    Tooltip as RechartTooltip,
+    ResponsiveContainer,
+    XAxis, YAxis,
+} from 'recharts';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

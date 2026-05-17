@@ -6,15 +6,15 @@ import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import {
-    Area,
-    AreaChart,
-    Bar,
-    CartesianGrid,
-    ComposedChart,
-    Line,
-    Tooltip as RechartTooltip,
-    ResponsiveContainer,
-    XAxis, YAxis
+  Area,
+  AreaChart,
+  Bar,
+  CartesianGrid,
+  ComposedChart,
+  Line,
+  Tooltip as RechartTooltip,
+  ResponsiveContainer,
+  XAxis, YAxis
 } from 'recharts';
 
 const PERIOD_OPTS = [
