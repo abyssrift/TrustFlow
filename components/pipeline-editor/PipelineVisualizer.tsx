@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
-import { FontAwesome } from '@expo/vector-icons';
 import { usePipelineEditor } from '@/contexts/PipelineEditorContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
+import { FontAwesome } from '@expo/vector-icons';
+import React, { useState } from 'react';
+import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { resolveNativeColorToken } from './colorCompat';
 
 export default function PipelineVisualizer() {
+  const colors = useThemeColors();
   const { 
     stages, transitions, permissions, selectedPipeline,
     addTransition, deleteTransition, loading, error
@@ -18,7 +21,7 @@ export default function PipelineVisualizer() {
   if (stages.length === 0) {
     return (
       <View className="flex-1 items-center justify-center py-20">
-        <FontAwesome name="sitemap" size={48} color="var(--color-border)" />
+        <FontAwesome name="sitemap" size={48} color={colors.border} />
         <Text className="text-typography-muted text-base font-bold mt-4">Empty Pipeline</Text>
         <Text className="text-typography-dim text-sm mt-1">Add stages to visualize the flow.</Text>
       </View>
@@ -84,7 +87,7 @@ export default function PipelineVisualizer() {
       {isAdding && (
         <View className="bg-brand-primary/10 border border-brand-primary/30 p-3 rounded-2xl mb-4">
           <View className="flex-row items-center mb-1">
-            <FontAwesome name="magic" size={12} color="var(--color-primary)" />
+            <FontAwesome name="magic" size={12} color={colors.primary} />
             <Text className="text-brand-primary font-black text-xs ml-2">DESIGN MODE: CONNECTING STAGES</Text>
           </View>
           <Text className="text-typography-main text-[10px] mb-3">
@@ -94,7 +97,7 @@ export default function PipelineVisualizer() {
             value={transitionLabel}
             onChangeText={setTransitionLabel}
             placeholder="Enter Action Label (e.g. 'Approve')"
-            placeholderTextColor="var(--color-text-muted)"
+            placeholderTextColor={colors.textMuted}
             className="bg-surface-background text-typography-main px-3 py-2.5 rounded-lg border border-brand-primary/50 text-xs font-bold"
             autoFocus
           />
@@ -114,14 +117,14 @@ export default function PipelineVisualizer() {
           const canBeTarget = isAdding && !isSource;
           
           const borderColor = isSource 
-            ? 'var(--color-primary)' // Brand primary for active source
+            ? colors.primary // Brand primary for active source
             : canBeTarget 
-              ? 'var(--color-success)' // Green for potential targets
+              ? colors.success // Green for potential targets
               : stage.is_initial
-                ? 'var(--color-info)'
+                ? colors.info
                 : stage.is_terminal
-                  ? stage.terminal_type === 'success' ? 'var(--color-success)' : 'var(--color-danger)'
-                  : (stage.color || 'var(--color-border)');
+                  ? stage.terminal_type === 'success' ? colors.success : colors.danger
+                  : resolveNativeColorToken(stage.color, colors);
           
           return (
             <View key={stage.id} className="mb-1">
@@ -135,14 +138,14 @@ export default function PipelineVisualizer() {
               >
                 <View className="flex-row items-center justify-between">
                   <View className="flex-row items-center flex-1 flex-wrap">
-                    <View className="w-7 h-7 rounded-lg items-center justify-center mr-3" style={{ backgroundColor: stage.color || '#6B7280' }}>
+                    <View className="w-7 h-7 rounded-lg items-center justify-center mr-3" style={{ backgroundColor: resolveNativeColorToken(stage.color, colors) }}>
                       <Text className="text-white font-black text-[10px]">{stage.position}</Text>
                     </View>
                     <Text className="text-typography-main font-bold text-base mr-2">{stage.name}</Text>
-                    {stage.is_initial && <FontAwesome name="sign-in" size={12} color="var(--color-info)" style={{ marginRight: 4 }} />}
-                    {stage.is_terminal && <FontAwesome name="flag-checkered" size={12} color={stage.terminal_type === 'success' ? 'var(--color-success)' : 'var(--color-danger)'} style={{ marginRight: 4 }} />}
-                    {stage.requires_submission && <FontAwesome name="upload" size={10} color="var(--color-accent)" style={{ marginRight: 4 }} />}
-                    {stage.linked_pipeline_id && <FontAwesome name="bolt" size={12} color="var(--color-primary)" />}
+                    {stage.is_initial && <FontAwesome name="sign-in" size={12} color={colors.info} style={{ marginRight: 4 }} />}
+                    {stage.is_terminal && <FontAwesome name="flag-checkered" size={12} color={stage.terminal_type === 'success' ? colors.success : colors.danger} style={{ marginRight: 4 }} />}
+                    {stage.requires_submission && <FontAwesome name="upload" size={10} color={colors.accent} style={{ marginRight: 4 }} />}
+                    {stage.linked_pipeline_id && <FontAwesome name="bolt" size={12} color={colors.primary} />}
                   </View>
 
                   {/* Action Buttons */}
@@ -151,7 +154,7 @@ export default function PipelineVisualizer() {
                       onPress={() => handleStartAdd(stage.id)}
                       className="bg-brand-primary/10 w-8 h-8 rounded-full items-center justify-center"
                     >
-                      <FontAwesome name="plus" size={12} color="var(--color-primary)" />
+                      <FontAwesome name="plus" size={12} color={colors.primary} />
                     </TouchableOpacity>
                   )}
                   {canBeTarget && (
@@ -174,7 +177,7 @@ export default function PipelineVisualizer() {
                           <FontAwesome
                             name={isBackward ? 'reply' : 'long-arrow-right'}
                             size={10}
-                            color={isBackward ? 'var(--color-warning)' : 'var(--color-text-muted)'}
+                            color={isBackward ? colors.warning : colors.textMuted}
                             style={{ width: 16 }}
                           />
                           <View className={`px-2 py-0.5 rounded-md mr-2 ${isBackward ? 'bg-state-warning/10' : 'bg-brand-primary/10'}`}>
@@ -183,7 +186,7 @@ export default function PipelineVisualizer() {
                             </Text>
                           </View>
                           <View className="flex-row items-center flex-1">
-                            <View className="w-2 h-2 rounded-full mr-1" style={{ backgroundColor: target?.color || '#6B7280' }} />
+                            <View className="w-2 h-2 rounded-full mr-1" style={{ backgroundColor: resolveNativeColorToken(target?.color, colors) }} />
                             <Text className="text-typography-muted text-[10px] font-bold">
                               {target?.name || 'Unknown'}
                             </Text>
@@ -202,7 +205,7 @@ export default function PipelineVisualizer() {
                               </View>
                             ) : (
                               <TouchableOpacity onPress={() => setConfirmDeleteId(t.id)} className="p-1">
-                                <FontAwesome name="times-circle" size={10} color="var(--color-text-muted)" />
+                                <FontAwesome name="times-circle" size={10} color={colors.textMuted} />
                               </TouchableOpacity>
                             )
                           )}
@@ -217,7 +220,7 @@ export default function PipelineVisualizer() {
               {index < sortedStages.length - 1 && (
                 <View className="items-center my-0.5">
                   <View className="w-0.5 h-3 bg-surface-border" />
-                  <FontAwesome name="chevron-down" size={8} color="var(--color-text-muted)" />
+                  <FontAwesome name="chevron-down" size={8} color={colors.textMuted} />
                   <View className="w-0.5 h-1 bg-surface-border" />
                 </View>
               )}
@@ -230,7 +233,7 @@ export default function PipelineVisualizer() {
       {/* Loading Overlay */}
       {loading && (
         <View className="absolute inset-0 bg-surface-background/50 items-center justify-center">
-          <ActivityIndicator color="var(--color-primary)" />
+          <ActivityIndicator color={colors.primary} />
         </View>
       )}
     </View>

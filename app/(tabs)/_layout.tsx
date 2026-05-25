@@ -109,48 +109,6 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="intelligence/index"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="intelligence/analytics"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="intelligence/archives"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="intelligence/graphs"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="intelligence/reports"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="intelligence/targets"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="intelligence/ReportGenerator"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
         name="intelligence"
         options={{
           href: null,

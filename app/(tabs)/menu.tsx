@@ -6,6 +6,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Link, useLocalSearchParams, usePathname } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type IconName = React.ComponentProps<typeof FontAwesome>['name'];
 
@@ -22,7 +23,7 @@ const SHORTCUTS: Shortcut[] = [
   { id: 'radar', permissionKey: 'report.view', icon: 'bullseye', label: 'Intelligence', href: '/intelligence' },
   { id: 'targets', permissionKey: 'target.view', icon: 'crosshairs', label: 'Targets', href: '/intelligence/targets' },
   { id: 'archives', permissionKey: 'archive.view', icon: 'archive', label: 'Archives', href: '/intelligence/archives' },
-  { id: 'analytics', permissionKey: 'report.view', icon: 'bar-chart', label: 'Analytics', href: '/analytics' },
+  { id: 'analytics', permissionKey: 'report.view', icon: 'bar-chart', label: 'Analytics', href: '/intelligence/analytics' },
   { id: 'team', permissionKey: 'user.view_all', fallbackPermissionKey: 'role.manage', icon: 'users', label: 'Corporate', href: '/people?section=teams' },
 ];
 
@@ -40,6 +41,7 @@ const initials = (value: string) => {
 export default function MenuScreen() {
   const { theme, setTheme } = useTheme();
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
   const { session, user, hasPermission } = useAuth();
   const pathname = usePathname();
   const params = useLocalSearchParams();
@@ -100,7 +102,9 @@ export default function MenuScreen() {
 
   return (
     <View className="flex-1 bg-surface-background">
-      <ScrollView className="flex-1 px-4 pt-4">
+      <ScrollView
+        className="flex-1 px-4"
+        contentContainerStyle={{ paddingTop: insets.top + 8 }}>
         
         {/* Profile Card */}
         <Link href="/profile" asChild>

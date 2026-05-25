@@ -1,16 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
-import { FontAwesome } from '@expo/vector-icons';
-import { usePipelineEditor, Pipeline } from '@/contexts/PipelineEditorContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { Pipeline, usePipelineEditor } from '@/contexts/PipelineEditorContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
+import { FontAwesome } from '@expo/vector-icons';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import DeadlockAlert from './DeadlockAlert';
 import PipelineSettingsForm from './PipelineSettingsForm';
 
-const STAGE_PRESETS = [
-  { name: 'PENDING', color: 'var(--color-text-dim)', is_initial: true },
-  { name: 'IN PROGRESS', color: 'var(--color-primary)' },
-  { name: 'REVIEW', color: 'var(--color-warning)', requires_submission: true },
-  { name: 'COMPLETED', color: 'var(--color-success)', is_terminal: true, terminal_type: 'success' },
+const STAGE_PRESET_TEMPLATES = [
+  { name: 'PENDING', is_initial: true },
+  { name: 'IN PROGRESS' },
+  { name: 'REVIEW', requires_submission: true },
+  { name: 'COMPLETED', is_terminal: true, terminal_type: 'success' },
 ];
 
 const TRANSITION_PRESETS = [
@@ -21,6 +22,7 @@ const TRANSITION_PRESETS = [
 ];
 
 export default function PipelineList() {
+  const colors = useThemeColors();
   const {
     pipelines, loading, error,
     refreshPipelines, selectPipeline,
@@ -43,9 +45,15 @@ export default function PipelineList() {
 
   const handleCreate = async (data: any) => {
     if (!canEdit) return;
+    const stagePresets = [
+      { ...STAGE_PRESET_TEMPLATES[0], color: colors.textDim },
+      { ...STAGE_PRESET_TEMPLATES[1], color: colors.primary },
+      { ...STAGE_PRESET_TEMPLATES[2], color: colors.warning },
+      { ...STAGE_PRESET_TEMPLATES[3], color: colors.success },
+    ];
     const stgs = isQuickCreate
-      ? STAGE_PRESETS.map((s, i) => ({ ...s, position: i + 1, is_initial: s.is_initial || false, is_terminal: s.is_terminal || false, requires_submission: s.requires_submission || false }))
-      : [{ name: 'START', color: 'var(--color-text-dim)', position: 1, is_initial: true, is_terminal: false, requires_submission: false }];
+      ? stagePresets.map((s, i) => ({ ...s, position: i + 1, is_initial: s.is_initial || false, is_terminal: s.is_terminal || false, requires_submission: s.requires_submission || false }))
+      : [{ name: 'START', color: colors.textDim, position: 1, is_initial: true, is_terminal: false, requires_submission: false }];
     const trans = isQuickCreate ? TRANSITION_PRESETS : [];
 
     const id = await createPipeline(data.name, data.description, stgs, trans, data.visibility_permissions, data.task_visibility_mode);
@@ -110,7 +118,7 @@ export default function PipelineList() {
       >
         {loading && pipelines.length === 0 ? (
           <View className="py-20 items-center">
-            <ActivityIndicator color="var(--color-primary)" size="large" />
+            <ActivityIndicator color={colors.primary} size="large" />
           </View>
         ) : pipelines.length === 0 ? (
           <View className="py-20 items-center px-6">

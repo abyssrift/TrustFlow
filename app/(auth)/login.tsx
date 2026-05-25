@@ -1,3 +1,4 @@
+import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Link } from 'expo-router';
 import React, { useState } from 'react';
@@ -6,6 +7,7 @@ import { getErrorMessage, isValidEmail } from '../../lib/auth-errors';
 import { supabase } from '../../lib/supabase';
 
 export default function LoginScreen() {
+  const colors = useThemeColors();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -69,7 +71,7 @@ export default function LoginScreen() {
 
         {error && (
           <View className="mb-6 bg-state-danger/10 border border-state-danger/20 p-4 rounded-xl flex-row items-center">
-            <FontAwesome name="exclamation-circle" size={16} className="text-state-danger" />
+            <FontAwesome name="exclamation-circle" size={16} color={colors.danger} />
             <Text className="text-state-danger text-xs font-bold ml-3 flex-1">{error}</Text>
           </View>
         )}
@@ -80,7 +82,7 @@ export default function LoginScreen() {
             <TextInput
               className="w-full bg-surface-card border border-surface-border rounded-2xl px-5 py-4 text-typography-main font-medium"
               placeholder="name@company.com"
-              placeholderTextColor="var(--color-text-dim)"
+              placeholderTextColor={colors.textDim}
               keyboardType="email-address"
               autoCapitalize="none"
               value={email}
@@ -98,7 +100,7 @@ export default function LoginScreen() {
             <TextInput
               className="w-full bg-surface-card border border-surface-border rounded-2xl px-5 py-4 text-typography-main font-medium"
               placeholder="••••••••"
-              placeholderTextColor="var(--color-text-dim)"
+              placeholderTextColor={colors.textDim}
               secureTextEntry
               value={password}
               onChangeText={setPassword}
@@ -111,7 +113,7 @@ export default function LoginScreen() {
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color="white" />
+              <ActivityIndicator color={colors.textMain} />
             ) : (
               <Text className="text-typography-main font-bold text-lg">Sign In</Text>
             )}

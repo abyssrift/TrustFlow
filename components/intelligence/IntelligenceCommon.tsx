@@ -1,3 +1,5 @@
+import { useTheme } from '@/contexts/ThemeContext';
+import { NATIVE_THEME_COLORS } from '@/lib/layout';
 import { FontAwesome } from '@expo/vector-icons';
 import React from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
@@ -126,6 +128,8 @@ const getStatusInfo = (target: any) => {
 };
 
 export const CircularTargetCard = ({ target, onEdit, onClear }: any) => {
+  const { theme } = useTheme();
+  const palette = NATIVE_THEME_COLORS[theme];
   const isVolume = target.target_type === 'volume';
   const progress = isVolume 
     ? Math.min(((target.current_count || 0) / (target.target_quantity || 1)) * 100, 100)
@@ -171,7 +175,7 @@ export const CircularTargetCard = ({ target, onEdit, onClear }: any) => {
               cy={60} 
               r={35} 
               fill="none" 
-              stroke="var(--color-background)" 
+              stroke={palette.background}
               strokeWidth={10} 
               strokeOpacity={0.5}
             />
@@ -252,7 +256,7 @@ export const CircularTargetCard = ({ target, onEdit, onClear }: any) => {
                   className="bg-state-success px-4 py-1.5 rounded-lg premium-shadow hover:scale-105 transition-all"
                 >
                   <View className="flex-row items-center">
-                    <FontAwesome name="check" size={9} color="var(--color-on-primary)" />
+                    <FontAwesome name="check" size={9} color="white" />
                     <Text className="text-brand-on-primary text-[9px] font-black uppercase tracking-widest ml-1.5">Complete</Text>
                   </View>
                 </TouchableOpacity>
@@ -262,7 +266,7 @@ export const CircularTargetCard = ({ target, onEdit, onClear }: any) => {
                   className="bg-state-danger px-4 py-1.5 rounded-lg premium-shadow hover:scale-105 transition-all"
                 >
                   <View className="flex-row items-center">
-                    <FontAwesome name="times" size={9} color="var(--color-on-primary)" />
+                    <FontAwesome name="times" size={9} color="white" />
                     <Text className="text-brand-on-primary text-[9px] font-black uppercase tracking-widest ml-1.5">Clear</Text>
                   </View>
                 </TouchableOpacity>
@@ -272,7 +276,7 @@ export const CircularTargetCard = ({ target, onEdit, onClear }: any) => {
                   className="bg-brand-primary/10 px-3 py-1.5 rounded-lg border border-brand-primary/20 hover:bg-brand-primary/20 transition-all"
                 >
                   <View className="flex-row items-center">
-                    <FontAwesome name="pencil" size={9} color="var(--color-primary)" />
+                    <FontAwesome name="pencil" size={9} color={palette.primary} />
                     <Text className="text-brand-primary text-[9px] font-black uppercase tracking-widest ml-1.5">Tune</Text>
                   </View>
                 </TouchableOpacity>
@@ -291,6 +295,8 @@ export const CircularTargetCard = ({ target, onEdit, onClear }: any) => {
 };
 
 export const CircularTargetCardMobile = ({ target, onEdit, onAction }: any) => {
+  const { theme } = useTheme();
+  const palette = NATIVE_THEME_COLORS[theme];
   const isCompleted = target.status === 'completed';
   const isVolume = target.target_type === 'volume';
   const progress = isVolume 
@@ -305,7 +311,7 @@ export const CircularTargetCardMobile = ({ target, onEdit, onAction }: any) => {
   const isMet = progress >= 100 && target.status === 'active';
 
   // Reward/Punishment Styles
-  const stateColor = isCompleted ? 'rgb(var(--state-success))' : isExpired ? 'rgb(var(--state-danger))' : 'rgb(var(--brand-primary))';
+  const stateColor = isCompleted ? palette.success : isExpired ? palette.danger : palette.primary;
   const stateLabel = isCompleted ? 'ACHIEVED' : isExpired ? 'MISSED' : 'ACTIVE';
 
   return (

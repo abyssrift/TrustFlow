@@ -1,15 +1,16 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, SafeAreaView, Platform, StatusBar } from 'react-native';
-import HorizontalScroll from '@/components/common/HorizontalScroll';
-import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
-import { FontAwesome } from '@expo/vector-icons';
-import { RoleManagerProvider, useRoleManager } from '@/contexts/RoleManagerContext';
-import { useAuth } from '@/contexts/AuthContext';
-import UserAssignmentGrid from '@/components/admin/UserAssignmentGrid';
-import TeamAssignmentGrid from '@/components/admin/TeamAssignmentGrid';
 import RoleBuilder from '@/components/admin/RoleBuilder';
+import TeamAssignmentGrid from '@/components/admin/TeamAssignmentGrid';
+import UserAssignmentGrid from '@/components/admin/UserAssignmentGrid';
+import { useAuth } from '@/contexts/AuthContext';
+import { RoleManagerProvider, useRoleManager } from '@/contexts/RoleManagerContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
+import { FontAwesome } from '@expo/vector-icons';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import { ActivityIndicator, SafeAreaView, Text, TouchableOpacity, View } from 'react-native';
 
 function RolesLayout() {
+  const colors = useThemeColors();
   const { tab } = useLocalSearchParams();
   const { hasPermission, initialized: authInitialized } = useAuth();
   const { loading, error } = useRoleManager();
@@ -25,7 +26,7 @@ function RolesLayout() {
   if (!authInitialized || loading) {
     return (
       <View className="flex-1 bg-surface-background items-center justify-center">
-        <ActivityIndicator size="large" color="var(--color-primary)" />
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text className="text-typography-muted mt-4 font-bold">Synchronizing RBAC...</Text>
       </View>
     );
@@ -35,7 +36,7 @@ function RolesLayout() {
     return (
       <View className="flex-1 bg-surface-background items-center justify-center p-6">
         <View className="bg-state-danger-dim p-8 rounded-full mb-8 border border-state-danger/20">
-          <FontAwesome name="lock" size={64} color="var(--color-danger)" />
+          <FontAwesome name="lock" size={64} color={colors.danger} />
         </View>
         <Text className="text-typography-main font-black text-3xl mt-4 tracking-tighter text-center">Security Gated Content</Text>
         <Text className="text-typography-muted text-center mt-3 leading-6">
@@ -62,7 +63,7 @@ function RolesLayout() {
             onPress={() => router.back()}
             className="flex-row items-center h-11 pr-4"
           >
-            <FontAwesome name="chevron-left" size={14} color="var(--color-text-muted)" />
+            <FontAwesome name="chevron-left" size={14} color={colors.textMuted} />
             <Text className="text-typography-muted font-bold text-sm ml-2">Back</Text>
           </TouchableOpacity>
           <View className="bg-brand-primary-dim px-3 py-1.5 rounded-full border border-brand-primary/20">
@@ -97,7 +98,7 @@ function RolesLayout() {
                 <FontAwesome 
                   name={tab.icon as any} 
                   size={12} 
-                  color={isActive ? 'var(--color-primary)' : 'var(--color-text-muted)'} 
+                  color={isActive ? colors.primary : colors.textMuted} 
                 />
                 <Text className={`font-black text-[10px] uppercase tracking-wider ml-2 ${isActive ? 'text-typography-main' : 'text-typography-muted'}`}>
                   {tab.label}

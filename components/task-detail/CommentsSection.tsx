@@ -1,10 +1,11 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert, FlatList } from 'react-native';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { useTaskDetail, CommentData } from '@/contexts/TaskDetailContext';
-import { useTimer } from '@/contexts/TimerContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { CommentData, useTaskDetail } from '@/contexts/TaskDetailContext';
+import { useTimer } from '@/contexts/TimerContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import PermissionGate from './PermissionGate';
 
 type CommentTree = CommentData & { children: CommentTree[] };
@@ -75,7 +76,7 @@ function CommentNode({ comment, depth, onReply, onDelete, canComment, currentUse
           {/* Delete button (only for own comments) */}
           {currentUserId === comment.author?.id && (
             <TouchableOpacity onPress={() => onDelete(comment.id)} className="p-1">
-              <FontAwesome name="trash-o" size={10} color="#64748b" />
+              <FontAwesome name="trash-o" size={10} color={colors.textMuted} />
             </TouchableOpacity>
           )}
         </View>
@@ -115,6 +116,7 @@ export default function CommentsSection() {
   const { data, addComment, deleteComment } = useTaskDetail();
   const { smartTimer } = useTimer();
   const { user, profile } = useAuth();
+  const colors = useThemeColors();
   
   // Calculate user variants for mention highlighting
   const userVariants = useMemo(() => {
@@ -303,7 +305,7 @@ export default function CommentsSection() {
       {/* Comment tree */}
       {tree.length === 0 ? (
         <View className="py-4 items-center opacity-40">
-          <FontAwesome name="comments-o" size={20} color="#64748b" />
+          <FontAwesome name="comments-o" size={20} color={colors.textMuted} />
           <Text className="text-typography-muted text-xs mt-2">No comments yet. Start the conversation!</Text>
         </View>
       ) : (
@@ -327,12 +329,12 @@ export default function CommentsSection() {
           {/* Reply indicator */}
           {replyComment && (
             <View className="flex-row items-center bg-surface-background rounded-lg px-3 py-2 mb-2 border border-surface-border/50">
-              <FontAwesome name="reply" size={9} color="var(--color-primary)" />
+              <FontAwesome name="reply" size={9} color={colors.primary} />
               <Text className="text-typography-muted text-[10px] ml-2 flex-1" numberOfLines={1}>
                 Replying to {replyComment.author?.full_name}: {replyComment.content}
               </Text>
               <TouchableOpacity onPress={() => setReplyTo(null)}>
-                <FontAwesome name="times" size={10} color="var(--color-text-muted)" />
+                <FontAwesome name="times" size={10} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
           )}
@@ -372,7 +374,7 @@ export default function CommentsSection() {
               onChangeText={handleInputChange}
               onSelectionChange={(e) => handleSelectionChange(e.nativeEvent.selection.start)}
               placeholder={replyTo ? 'Write a reply...' : 'Write a comment...'}
-              placeholderTextColor="var(--color-text-muted)"
+              placeholderTextColor={colors.textMuted}
               multiline
               className="flex-1 bg-surface-background border border-surface-border rounded-xl px-3 py-2.5 text-typography-main text-sm max-h-[100px]"
             />
@@ -382,9 +384,9 @@ export default function CommentsSection() {
               className={`bg-brand-primary p-2.5 rounded-xl ${(!input.trim() || sending) ? 'opacity-50' : ''}`}
             >
               {sending ? (
-                <ActivityIndicator size="small" color="white" />
+                <ActivityIndicator size="small" color={colors.textMain} />
               ) : (
-                <FontAwesome name="paper-plane" size={14} color="white" />
+                <FontAwesome name="paper-plane" size={14} color={colors.textMain} />
               )}
             </TouchableOpacity>
           </View>

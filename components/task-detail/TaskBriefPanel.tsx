@@ -1,5 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
 import { openStorageFile, TASK_BRIEF_BUCKET } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -9,13 +10,13 @@ import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
 import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 
-function getFileIcon(mimeType: string | null): { name: string; color: string } {
+function getFileIcon(mimeType: string | null, colors: ReturnType<typeof useThemeColors>): { name: string; color: string } {
   const t = (mimeType || '').toLowerCase();
-  if (t.includes('image')) return { name: 'file-image-o', color: 'var(--color-warning)' };
-  if (t.includes('pdf')) return { name: 'file-pdf-o', color: 'var(--color-danger)' };
-  if (t.includes('spreadsheet') || t.includes('excel') || t.includes('csv')) return { name: 'file-excel-o', color: 'var(--color-success)' };
-  if (t.includes('word') || t.includes('document') || t.includes('text')) return { name: 'file-text-o', color: 'var(--color-info)' };
-  return { name: 'file-o', color: 'var(--color-text-muted)' };
+  if (t.includes('image')) return { name: 'file-image-o', color: colors.warning };
+  if (t.includes('pdf')) return { name: 'file-pdf-o', color: colors.danger };
+  if (t.includes('spreadsheet') || t.includes('excel') || t.includes('csv')) return { name: 'file-excel-o', color: colors.success };
+  if (t.includes('word') || t.includes('document') || t.includes('text')) return { name: 'file-text-o', color: colors.info };
+  return { name: 'file-o', color: colors.textMuted };
 }
 
 function formatSize(bytes: number | null) {
@@ -37,6 +38,7 @@ function getCategory(mimeType: string): string {
 export default function TaskBriefPanel() {
   const { data, refresh } = useTaskDetail();
   const { user } = useAuth();
+  const colors = useThemeColors();
   const [uploading, setUploading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -153,7 +155,7 @@ export default function TaskBriefPanel() {
       {hasFiles && (
         <View className="gap-2 mb-3">
           {data.task_attachments.map((att) => {
-            const { name: iconName, color: iconColor } = getFileIcon(att.mime_type);
+            const { name: iconName, color: iconColor } = getFileIcon(att.mime_type, colors);
             const size = formatSize(att.file_size);
             return (
               <TouchableOpacity
@@ -177,7 +179,7 @@ export default function TaskBriefPanel() {
                     ) : null}
                   </View>
                 </View>
-                <FontAwesome name="external-link" size={10} color="var(--color-text-muted)" />
+                <FontAwesome name="external-link" size={10} color={colors.textMuted} />
               </TouchableOpacity>
             );
           })}
@@ -186,7 +188,7 @@ export default function TaskBriefPanel() {
 
       {!hasFiles && canUpload && (
         <View className="py-4 items-center opacity-40 mb-2">
-          <FontAwesome name="folder-open-o" size={20} color="var(--color-text-dim)" />
+          <FontAwesome name="folder-open-o" size={20} color={colors.textDim} />
           <Text className="text-typography-muted text-xs mt-2 text-center">
             No brief files yet. Add reference materials for the assignee.
           </Text>
@@ -200,7 +202,7 @@ export default function TaskBriefPanel() {
             disabled={uploading}
             className="flex-row items-center bg-surface-background px-3 py-2 rounded-xl border border-surface-border active:opacity-70"
           >
-            <FontAwesome name="camera" size={11} color="var(--color-primary)" />
+            <FontAwesome name="camera" size={11} color={colors.primary} />
             <Text className="text-brand-primary text-[10px] font-black uppercase ml-1.5">Add Photo</Text>
           </TouchableOpacity>
 
@@ -209,13 +211,13 @@ export default function TaskBriefPanel() {
             disabled={uploading}
             className="flex-row items-center bg-surface-background px-3 py-2 rounded-xl border border-surface-border active:opacity-70"
           >
-            <FontAwesome name="paperclip" size={11} color="var(--color-primary)" />
+            <FontAwesome name="paperclip" size={11} color={colors.primary} />
             <Text className="text-brand-primary text-[10px] font-black uppercase ml-1.5">Attach File</Text>
           </TouchableOpacity>
 
           {uploading && (
             <View className="flex-row items-center ml-auto">
-              <ActivityIndicator size="small" color="var(--color-primary)" />
+              <ActivityIndicator size="small" color={colors.primary} />
               <Text className="text-typography-muted text-[10px] ml-2">Uploading...</Text>
             </View>
           )}

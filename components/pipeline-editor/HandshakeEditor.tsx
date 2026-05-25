@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
-import HorizontalScroll from '../common/HorizontalScroll';
-import { FontAwesome } from '@expo/vector-icons';
-import { usePipelineEditor, Stage, LinkedOutcome, Pipeline } from '@/contexts/PipelineEditorContext';
+import { Stage, usePipelineEditor } from '@/contexts/PipelineEditorContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
+import { FontAwesome } from '@expo/vector-icons';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import HorizontalScroll from '../common/HorizontalScroll';
 
 export default function HandshakeEditor() {
+  const colors = useThemeColors();
   const {
     selectedPipeline, stages, linkedOutcomes, loading, error, pipelines,
     upsertLinkedOutcome, deleteLinkedOutcome
@@ -65,7 +67,7 @@ export default function HandshakeEditor() {
   if (!stages || !pipelines || !linkedOutcomes) {
     return (
       <View className="flex-1 items-center justify-center py-20">
-        <ActivityIndicator size="large" color="var(--color-primary)" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -116,7 +118,7 @@ export default function HandshakeEditor() {
                 className={`px-3 py-2 rounded-xl border mr-2 ${childTerminalStageId === s.id ? 'bg-brand-primary-dim border-brand-primary/40' : 'bg-surface-background border-surface-border'}`}
               >
                 <View className="flex-row items-center">
-                   <View className="w-1.5 h-1.5 rounded-full mr-1.5" style={{ backgroundColor: s.terminal_type === 'success' ? 'var(--color-success)' : 'var(--color-danger)' }} />
+                   <View className="w-1.5 h-1.5 rounded-full mr-1.5" style={{ backgroundColor: s.terminal_type === 'success' ? colors.success : colors.danger }} />
                    <Text className={`text-xs font-bold ${childTerminalStageId === s.id ? 'text-brand-primary' : 'text-typography-muted'}`}>{s.name}</Text>
                 </View>
               </TouchableOpacity>
@@ -144,10 +146,10 @@ export default function HandshakeEditor() {
           className={`py-3 rounded-sm flex-row items-center h-12 justify-center ${(!parentStageId || !childTerminalStageId || !parentTargetStageId) ? 'bg-surface-overlay border border-surface-border' : 'bg-brand-primary shadow-sm'}`}
         >
           {loading ? (
-            <ActivityIndicator size="small" color="var(--color-text-main)" />
+            <ActivityIndicator size="small" color={colors.textMain} />
           ) : (
             <>
-              <FontAwesome name="plus" size={12} color={(!parentStageId || !childTerminalStageId || !parentTargetStageId) ? 'var(--color-text-dim)' : 'var(--color-text-main)'} />
+              <FontAwesome name="plus" size={12} color={(!parentStageId || !childTerminalStageId || !parentTargetStageId) ? colors.textDim : colors.textMain} />
               <Text className={`font-black text-xs ml-2 uppercase tracking-widest ${(!parentStageId || !childTerminalStageId || !parentTargetStageId) ? 'text-typography-muted' : 'text-typography-main'}`}>Forge Handshake</Text>
             </>
           )}
@@ -178,11 +180,11 @@ export default function HandshakeEditor() {
                     <View className="bg-brand-primary-dim px-2 py-1 rounded border border-brand-primary/20">
                       <Text className="text-brand-primary text-[10px] font-bold">{parentStage?.name || 'Unknown'}</Text>
                     </View>
-                    <FontAwesome name="long-arrow-right" size={10} color="var(--color-text-dim)" />
+                    <FontAwesome name="long-arrow-right" size={10} color={colors.textDim} />
                     <View className="bg-surface-background px-2 py-1 rounded border border-surface-border">
                       <Text className="text-typography-muted text-[10px] font-bold italic">Child Resolution</Text>
                     </View>
-                    <FontAwesome name="long-arrow-right" size={10} color="var(--color-text-dim)" />
+                    <FontAwesome name="long-arrow-right" size={10} color={colors.textDim} />
                     <View className="bg-state-info-dim px-2 py-1 rounded border border-info/20">
                       <Text className="text-state-info text-[10px] font-bold">{targetStage?.name || 'Unknown'}</Text>
                     </View>
@@ -192,7 +194,7 @@ export default function HandshakeEditor() {
                   onPress={() => deleteLinkedOutcome(lk.id)}
                   className="w-10 h-10 items-center justify-center bg-state-danger-dim rounded-xl border border-state-danger/10 ml-2"
                 >
-                  <FontAwesome name="trash-o" size={14} color="var(--color-danger)" />
+                  <FontAwesome name="trash-o" size={14} color={colors.danger} />
                 </TouchableOpacity>
               </View>
             );

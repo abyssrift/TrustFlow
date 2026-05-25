@@ -1,10 +1,12 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
-import { FontAwesome } from '@expo/vector-icons';
 import NotificationRules from '@/components/admin/NotificationRules';
+import { useThemeColors } from '@/hooks/useThemeColors';
+import { FontAwesome } from '@expo/vector-icons';
+import { Stack, useRouter } from 'expo-router';
+import React from 'react';
+import { SafeAreaView, Text, TouchableOpacity, View } from 'react-native';
 
 export default function AdminNotificationsScreen() {
+  const colors = useThemeColors();
   const router = useRouter();
 
   return (
@@ -18,7 +20,7 @@ export default function AdminNotificationsScreen() {
             onPress={() => router.back()}
             className="flex-row items-center h-11 pr-4"
           >
-            <FontAwesome name="chevron-left" size={14} color="var(--color-text-muted)" />
+            <FontAwesome name="chevron-left" size={14} color={colors.textMuted} />
             <Text className="text-typography-muted font-bold text-sm ml-2">Back</Text>
           </TouchableOpacity>
           <View className="bg-brand-primary/10 px-3 py-1.5 rounded-full border border-brand-primary/20">

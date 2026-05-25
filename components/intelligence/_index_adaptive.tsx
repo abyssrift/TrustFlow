@@ -1,7 +1,6 @@
 import ConfirmModal from '@/components/common/ConfirmModal';
 import { IntelligencePicker } from '@/components/intelligence/IntelligenceCommon';
 
-import { StageDwell, ThroughputPeriod, useAnalytics } from '@/contexts/AnalyticsContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
@@ -194,133 +193,6 @@ const TrendComparisonCards = ({ data }: any) => {
   );
 };
 
-const NativeAnalyticsSection = ({ pipelines }: { pipelines: any[] }) => {
-  const { getPipelineStageDwell, getPipelineThroughput } = useAnalytics();
-  const router = useRouter();
-
-  const today   = new Date();
-  const defFrom = new Date(today);
-  defFrom.setDate(today.getDate() - 30);
-
-  const [pipelineId, setPipelineId] = useState<string | null>(pipelines[0]?.id ?? null);
-  const [from]                      = useState(defFrom.toISOString().split('T')[0]);
-  const [to]                        = useState(today.toISOString().split('T')[0]);
-  const [dwell, setDwell]           = useState<StageDwell[]>([]);
-  const [throughput, setThroughput] = useState<ThroughputPeriod[]>([]);
-  const [loading, setLoading]       = useState(false);
-
-  useEffect(() => {
-    if (pipelines.length && !pipelineId) setPipelineId(pipelines[0].id);
-  }, [pipelines]);
-
-  const load = useCallback(async () => {
-    if (!pipelineId) return;
-    setLoading(true);
-    try {
-      const [d, t] = await Promise.all([
-        getPipelineStageDwell(pipelineId, from, to),
-        getPipelineThroughput(pipelineId, 'month', 6),
-      ]);
-      setDwell(d);
-      setThroughput(t);
-    } finally {
-      setLoading(false);
-    }
-  }, [pipelineId, from, to]);
-
-  useEffect(() => { load(); }, [load]);
-
-  const maxSec = Math.max(1, ...dwell.map(d => d.avg_seconds));
-
-  const fmtS = (s: number) => {
-    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
-    return h > 0 ? `${h}h ${m}m` : `${m}m`;
-  };
-
-  return (
-    <View className="px-6 gap-6">
-      {/* Pipeline selector */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        <View className="flex-row gap-2 pb-1">
-          {pipelines.map(p => (
-            <TouchableOpacity
-              key={p.id}
-              onPress={() => setPipelineId(p.id)}
-              className={`px-4 py-2 rounded-xl border ${pipelineId === p.id ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border'}`}
-            >
-              <Text className={`text-xs font-bold ${pipelineId === p.id ? 'text-white' : 'text-typography-main'}`}>{p.name}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </ScrollView>
-
-      {loading ? (
-        <View className="py-16 items-center">
-          <ActivityIndicator color="var(--color-primary)" />
-        </View>
-      ) : (
-        <>
-          {/* Stage dwell */}
-          <View className="bg-surface-card border border-surface-border rounded-2xl p-5">
-            <Text className="text-typography-main font-black text-base mb-4">Stage Dwell Times</Text>
-            {dwell.length === 0 ? (
-              <Text className="text-typography-muted text-sm">No stage activity in this period.</Text>
-            ) : (
-              dwell.slice().sort((a, b) => a.stage_position - b.stage_position).map(s => {
-                const pct = (s.avg_seconds / maxSec) * 100;
-                const color = s.is_bottleneck ? '#f59e0b' : s.is_terminal && s.terminal_type === 'success' ? '#22c55e' : s.is_terminal ? '#ef4444' : 'rgb(99,102,241)';
-                return (
-                  <View key={s.stage_id} className="mb-3">
-                    <View className="flex-row justify-between mb-1">
-                      <Text className="text-typography-main text-xs font-bold flex-1 mr-3" numberOfLines={1}>
-                        {s.stage_name}{s.is_bottleneck ? ' ⚠' : ''}
-                      </Text>
-                      <Text className="text-typography-muted text-xs">{fmtS(s.avg_seconds)}</Text>
-                    </View>
-                    <View className="h-2 bg-surface-overlay rounded-full overflow-hidden">
-                      <View style={{ width: `${pct}%`, backgroundColor: color }} className="h-full rounded-full" />
-                    </View>
-                  </View>
-                );
-              })
-            )}
-          </View>
-
-          {/* Throughput summary */}
-          <View className="bg-surface-card border border-surface-border rounded-2xl p-5">
-            <Text className="text-typography-main font-black text-base mb-4">Recent Throughput</Text>
-            {throughput.length === 0 ? (
-              <Text className="text-typography-muted text-sm">No throughput data.</Text>
-            ) : (
-              [...throughput].reverse().slice(0, 5).map((t, i, arr) => (
-                <View key={i} className={`flex-row justify-between items-center py-2.5 ${i < arr.length - 1 ? 'border-b border-surface-border/50' : ''}`}>
-                  <Text className="text-typography-muted text-xs">{t.period_label}</Text>
-                  <View className="flex-row gap-3">
-                    <Text className="text-state-success text-xs font-bold">↑ {t.tasks_succeeded}</Text>
-                    <Text className="text-state-danger text-xs font-bold">↓ {t.tasks_failed}</Text>
-                    {t.success_rate !== null && (
-                      <Text className="text-typography-dim text-xs">{t.success_rate.toFixed(0)}%</Text>
-                    )}
-                  </View>
-                </View>
-              ))
-            )}
-          </View>
-
-          {/* CTA */}
-          <TouchableOpacity
-            onPress={() => router.push('/intelligence/analytics' as any)}
-            className="bg-brand-primary py-4 rounded-2xl items-center flex-row justify-center gap-3"
-          >
-            <FontAwesome name="bar-chart" size={14} color="white" />
-            <Text className="text-white font-black uppercase tracking-widest text-xs">Full Analytics Hub</Text>
-          </TouchableOpacity>
-        </>
-      )}
-    </View>
-  );
-};
-
 const RadarSection = ({ data, activeWidgets, onEditWidgets }: any) => {
   if (!data) return <View className="py-20"><ActivityIndicator color="var(--color-primary)" /></View>;
   const curThr = data.current?.throughput || 0;
@@ -351,17 +223,24 @@ const RadarSection = ({ data, activeWidgets, onEditWidgets }: any) => {
       <SLARiskAlert data={data} />
       <Text className="text-typography-main font-bold text-lg mb-4">Pipeline Load Distribution</Text>
       <View className="bg-surface-card p-6 rounded-3xl border border-surface-border mb-6">
-        {data.funnel?.map((f: any, i: number) => (
-          <View key={i} className="mb-4">
-            <View className="flex-row justify-between mb-2">
-              <Text className="text-typography-muted text-xs font-medium">{f.stage_name}</Text>
-              <Text className="text-typography-main text-xs font-bold">{f.task_count}</Text>
-            </View>
-            <View className="h-2 bg-surface-background rounded-full overflow-hidden">
-              <View className="h-full bg-brand-primary" style={{ width: `${Math.min((f.task_count / (curThr || 10)) * 100, 100)}%` }} />
-            </View>
-          </View>
-        ))}
+        {!data.conversion_by_stage || data.conversion_by_stage.length === 0 ? (
+          <Text className="text-typography-muted text-sm text-center py-4">No stage activity data available.</Text>
+        ) : (
+          data.conversion_by_stage.map((f: any, i: number) => {
+            const maxCount = Math.max(1, ...data.conversion_by_stage.map((s: any) => s.task_count || 0));
+            return (
+              <View key={i} className="mb-4">
+                <View className="flex-row justify-between mb-2">
+                  <Text className="text-typography-muted text-xs font-medium flex-1 mr-2" numberOfLines={1}>{f.stage_name}</Text>
+                  <Text className="text-typography-main text-xs font-bold">{f.task_count ?? 0}</Text>
+                </View>
+                <View className="h-2 bg-surface-background rounded-full overflow-hidden">
+                  <View className="h-full bg-brand-primary rounded-full" style={{ width: `${Math.min(((f.task_count || 0) / maxCount) * 100, 100)}%` }} />
+                </View>
+              </View>
+            );
+          })
+        )}
       </View>
       <ConversionFunnelChart data={data} />
       <WorkDistributionChart data={data} />
@@ -819,7 +698,14 @@ export default function IntelligenceScreen() {
         </View>
 
         {/* Section Toggle */}
-        <SectionToggle active={activeSection} onSelect={setActiveSection} hasPermission={hasPermission} />
+        <SectionToggle
+          active={activeSection}
+          onSelect={(s) => {
+            if (s === 'analytics') { router.push('/intelligence/analytics' as any); return; }
+            setActiveSection(s);
+          }}
+          hasPermission={hasPermission}
+        />
 
         {/* Main Sections */}
         <View className="px-6">
@@ -862,8 +748,6 @@ export default function IntelligenceScreen() {
             </View>
           ) : activeSection === 'radar' ? (
             <RadarSection data={data} activeWidgets={activeWidgets} onEditWidgets={() => setShowWidgetModal(true)} />
-          ) : activeSection === 'analytics' ? (
-            <NativeAnalyticsSection pipelines={pipelines} />
           ) : activeSection === 'archives' && (
             <ArchivesSection
               reports={reports}

@@ -1,15 +1,18 @@
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
 import { openStorageFile, SUBMISSION_BUCKET } from '@/lib/storage';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useMemo, useState } from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
-const CATEGORY_UI: Record<string, { icon: string; color: string; label: string }> = {
-  'image': { icon: 'file-image-o', color: 'var(--color-primary)', label: 'Images' },
-  'document': { icon: 'file-pdf-o', color: 'var(--color-danger)', label: 'Documents' },
-  'spreadsheet': { icon: 'file-excel-o', color: 'var(--color-success)', label: 'Spreadsheets' },
-  'other': { icon: 'file-o', color: 'var(--color-text-muted)', label: 'Other' },
-};
+function getCategoryUI(colors: ReturnType<typeof useThemeColors>): Record<string, { icon: string; color: string; label: string }> {
+  return {
+    image: { icon: 'file-image-o', color: colors.primary, label: 'Images' },
+    document: { icon: 'file-pdf-o', color: colors.danger, label: 'Documents' },
+    spreadsheet: { icon: 'file-excel-o', color: colors.success, label: 'Spreadsheets' },
+    other: { icon: 'file-o', color: colors.textMuted, label: 'Other' },
+  };
+}
 
 function formatSize(bytes: number) {
   if (bytes === 0) return '0 B';
@@ -23,11 +26,13 @@ type FilterType = 'all' | 'image' | 'document' | 'spreadsheet';
 
 export default function EvidencePanel() {
   const { data } = useTaskDetail();
+  const colors = useThemeColors();
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [showPendingReview, setShowPendingReview] = useState(true);
 
   const { groupedEvidence, stats } = useMemo(() => {
     if (!data?.submissions) return { groupedEvidence: {}, stats: { all: 0, image: 0, document: 0, spreadsheet: 0 } };
+    const categoryUI = getCategoryUI(colors);
 
     const filteredByStatus = showPendingReview
       ? data.submissions
@@ -37,7 +42,7 @@ export default function EvidencePanel() {
       (s.attachments || []).map(a => {
         // Fallback for legacy items without a category column
         const cat = a.category || 'other';
-        const ui = CATEGORY_UI[cat] || CATEGORY_UI['other'];
+        const ui = categoryUI[cat] || categoryUI.other;
 
         return {
           ...a,
@@ -69,7 +74,7 @@ export default function EvidencePanel() {
     };
 
     return { groupedEvidence: groups, stats: currentStats };
-  }, [data?.submissions, activeFilter, showPendingReview]);
+  }, [data?.submissions, activeFilter, showPendingReview, colors]);
 
   if (!data || stats.all === 0) return null;
 
@@ -103,7 +108,7 @@ export default function EvidencePanel() {
             className={`mx-1 px-3 py-1.5 rounded-lg border ${activeFilter === f ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
           >
             <Text className={`text-[10px] font-black uppercase ${activeFilter === f ? 'text-white' : 'text-typography-muted'}`}>
-              {f === 'all' ? 'All' : CATEGORY_UI[f]?.label} ({stats[f]})
+              {f === 'all' ? 'All' : getCategoryUI(colors)[f]?.label} ({stats[f]})
             </Text>
           </TouchableOpacity>
         ))}
@@ -148,7 +153,7 @@ export default function EvidencePanel() {
                       </View>
                     </View>
 
-                    <FontAwesome name="external-link" size={10} color="var(--color-text-muted)" />
+                    <FontAwesome name="external-link" size={10} color={colors.textMuted} />
                   </TouchableOpacity>
                 );
               })}

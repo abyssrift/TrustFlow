@@ -6,13 +6,21 @@ import {
   Switch,
   TouchableOpacity,
   ActivityIndicator,
-  SafeAreaView,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
+import { cssInterop } from 'react-native-css-interop';
 import { supabase } from '@/lib/supabase';
 import { useAlert } from '@/contexts/AlertContext';
+
+cssInterop(FontAwesome, {
+  className: {
+    target: 'style',
+    nativeStyleToProp: { color: true, size: true },
+  },
+} as any);
 
 type Prefs = {
   email_enabled: boolean;
@@ -124,7 +132,7 @@ export default function NotificationPreferencesScreen() {
   if (loading) {
     return (
       <SafeAreaView className="flex-1 bg-surface-background items-center justify-center">
-        <ActivityIndicator size="large" color="var(--color-primary)" />
+        <ActivityIndicator size="large" color="#6366f1" />
       </SafeAreaView>
     );
   }
@@ -146,7 +154,7 @@ export default function NotificationPreferencesScreen() {
             onPress={() => router.back()}
             className="flex-row items-center h-11 pr-4"
           >
-            <FontAwesome name="chevron-left" size={14} color="var(--color-text-muted)" />
+            <FontAwesome name="chevron-left" size={14} className="text-typography-muted" />
             <Text className="text-typography-muted font-bold text-sm ml-2">Back</Text>
           </TouchableOpacity>
           <View className="bg-brand-primary/10 px-3 py-1.5 rounded-full border border-brand-primary/20">
@@ -192,7 +200,7 @@ export default function NotificationPreferencesScreen() {
                 <FontAwesome
                   name={ch.icon}
                   size={15}
-                  color="var(--color-primary)"
+                  className="text-brand-primary"
                 />
               </View>
               <View className="flex-1 mr-3">
@@ -221,7 +229,7 @@ export default function NotificationPreferencesScreen() {
               <FontAwesome
                 name={group.icon}
                 size={11}
-                color="var(--color-text-muted)"
+                className="text-typography-muted"
               />
               <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-typography-muted">
                 {group.label} Events

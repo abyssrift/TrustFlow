@@ -1,7 +1,9 @@
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 import { TargetCreationModal } from '@/components/intelligence/IntelligenceModals';
 import { useAuth } from '@/contexts/AuthContext';
+import type { ThemeType } from '@/contexts/ThemeContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { NATIVE_THEME_COLORS } from '@/lib/layout';
 import { supabase } from '@/lib/supabase';
 import { getMutedColor, getPrimaryColor } from '@/lib/themeColors';
 import { FontAwesome } from '@expo/vector-icons';
@@ -161,8 +163,9 @@ const TargetCircle = ({
   target: any;
   onEdit: () => void;
   onClear: (status: string) => void;
-  activeTheme: string;
+  activeTheme: ThemeType;
 }) => {
+  const palette = NATIVE_THEME_COLORS[activeTheme];
   const isVolume = target.target_type === 'volume';
   const progress = isVolume
     ? Math.min(((target.current_count ?? 0) / (target.target_quantity || 1)) * 100, 100)
@@ -176,12 +179,12 @@ const TargetCircle = ({
   const isMet = isVolume && target.status === 'active' && (target.current_count ?? 0) >= (target.target_quantity ?? 1);
 
   const ringColor = target.status !== 'active'
-    ? 'var(--color-text-dim)'
+    ? palette.textDim
     : isMet
-      ? 'var(--color-success)'
+      ? palette.success
       : isExpired
-        ? 'var(--color-danger)'
-        : 'var(--color-primary)';
+        ? palette.danger
+        : palette.primary;
 
   const innerPad = STROKE + 14;
   const innerSize = CIRCLE_SIZE - innerPad * 2;
@@ -200,7 +203,7 @@ const TargetCircle = ({
         <Circle
           cx={CX} cy={CX} r={R}
           fill="none"
-          stroke="var(--color-surface-border)"
+          stroke={palette.border}
           strokeWidth={STROKE}
         />
         {/* Progress */}
@@ -215,7 +218,7 @@ const TargetCircle = ({
           style={{ transform: `rotate(-90deg)`, transformOrigin: `${CX}px ${CX}px` }}
         />
         {/* Filled inner background */}
-        <Circle cx={CX} cy={CX} r={R - STROKE / 2 - 1} fill="var(--color-surface-card)" />
+        <Circle cx={CX} cy={CX} r={R - STROKE / 2 - 1} fill={palette.card} />
       </Svg>
 
       {/* Content */}
@@ -289,7 +292,7 @@ const TargetCircle = ({
               onPress={onEdit}
               className="bg-brand-primary/10 border border-brand-primary/20 px-3 py-1.5 rounded-full flex-row items-center gap-1.5 hover:bg-brand-primary/20 transition-colors"
             >
-              <FontAwesome name="pencil" size={9} color="var(--color-primary)" />
+              <FontAwesome name="pencil" size={9} color={palette.primary} />
               <Text className="text-brand-primary text-[8px] font-black uppercase tracking-widest">Edit</Text>
             </TouchableOpacity>
           )}

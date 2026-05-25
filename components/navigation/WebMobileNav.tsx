@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { View, Text, Pressable, ScrollView, Modal } from 'react-native';
-import { Link, usePathname, useLocalSearchParams } from 'expo-router';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { Link, useLocalSearchParams, usePathname } from 'expo-router';
+import React, { useState } from 'react';
+import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type IconName = React.ComponentProps<typeof FontAwesome>['name'];
 
@@ -37,6 +38,7 @@ export default function WebMobileNav({
   const pathname = usePathname();
   const params = useLocalSearchParams();
   const { theme, setTheme } = useTheme();
+  const colors = useThemeColors();
   const { session } = useAuth();
 
   const { bottom } = useSafeAreaInsets();
@@ -56,7 +58,7 @@ export default function WebMobileNav({
           return (
             <Link key={tab.id} href={tab.href as any} asChild>
               <Pressable className="flex-1 items-center justify-center py-2 h-full">
-                <FontAwesome name={tab.icon} size={22} color={isActive ? 'var(--color-primary)' : 'var(--color-text-dim)'} style={{ marginBottom: 4 }} />
+                <FontAwesome name={tab.icon} size={22} color={isActive ? colors.primary : colors.textDim} style={{ marginBottom: 4 }} />
                 <Text className={`text-[10px] font-bold ${isActive ? 'text-brand-primary' : 'text-typography-muted'}`}>{tab.label}</Text>
               </Pressable>
             </Link>
@@ -64,7 +66,7 @@ export default function WebMobileNav({
         })}
         
         <Pressable onPress={() => setDrawerOpen(true)} className="flex-1 items-center justify-center py-2 h-full">
-          <FontAwesome name="navicon" size={22} color="var(--color-text-dim)" style={{ marginBottom: 4 }} />
+          <FontAwesome name="navicon" size={22} color={colors.textDim} style={{ marginBottom: 4 }} />
           <Text className="text-[10px] font-bold text-typography-muted">Menu</Text>
         </Pressable>
       </View>
@@ -79,7 +81,7 @@ export default function WebMobileNav({
           <View className="h-16 flex-row items-center justify-between px-6 border-b border-surface-border">
             <Text className="text-xl font-black text-typography-main">Menu</Text>
             <Pressable onPress={handleClose} className="h-10 w-10 items-center justify-center rounded-full bg-surface-card border border-surface-border">
-              <FontAwesome name="times" size={16} color="var(--color-text-main)" />
+              <FontAwesome name="times" size={16} color={colors.textMain} />
             </Pressable>
           </View>
           
@@ -90,7 +92,7 @@ export default function WebMobileNav({
               return (
                 <Link key={s.id} href={s.href as any} asChild onPress={handleClose}>
                   <Pressable className={`flex-row items-center p-4 rounded-xl mb-2 border ${isActive ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-card border-surface-border'}`}>
-                    <FontAwesome name={s.icon} size={18} color={isActive ? 'var(--color-primary)' : 'var(--color-text-main)'} className="w-8" />
+                    <FontAwesome name={s.icon} size={18} color={isActive ? colors.primary : colors.textMain} className="w-8" />
                     <Text className={`font-bold ml-2 ${isActive ? 'text-brand-primary' : 'text-typography-main'}`}>{s.label}</Text>
                   </Pressable>
                 </Link>
@@ -102,7 +104,7 @@ export default function WebMobileNav({
                 <Text className="mb-2 ml-2 text-[10px] font-black uppercase tracking-widest text-brand-primary/50">System</Text>
                 <Link href="/platform-admin" asChild onPress={handleClose}>
                   <Pressable className={`flex-row items-center p-4 rounded-xl mb-2 border ${pathname.startsWith('/platform-admin') ? 'bg-brand-primary-dim border-brand-primary/30' : 'bg-brand-primary/5 border-brand-primary/10'}`}>
-                    <FontAwesome name="shield" size={18} color={pathname.startsWith('/platform-admin') ? 'var(--color-primary)' : 'var(--color-primary-dim)'} className="w-8" />
+                    <FontAwesome name="shield" size={18} color={pathname.startsWith('/platform-admin') ? colors.primary : colors.textDim} className="w-8" />
                     <Text className={`font-bold ml-2 ${pathname.startsWith('/platform-admin') ? 'text-brand-primary' : 'text-brand-primary/70'}`}>Control Plane</Text>
                   </Pressable>
                 </Link>
@@ -119,7 +121,7 @@ export default function WebMobileNav({
                   return (
                     <Link key={p.id} href={`/tasks?pipelineId=${p.id}`} asChild onPress={handleClose}>
                       <Pressable className={`flex-row items-center p-4 rounded-xl mb-2 border ${isActive ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-card border-surface-border'}`}>
-                        <FontAwesome name={icon} size={18} color={isActive ? 'var(--color-primary)' : 'var(--color-text-main)'} className="w-8" />
+                        <FontAwesome name={icon} size={18} color={isActive ? colors.primary : colors.textMain} className="w-8" />
                         <Text className={`font-bold ml-2 ${isActive ? 'text-brand-primary' : 'text-typography-main'}`}>{p.name}</Text>
                       </Pressable>
                     </Link>
@@ -134,20 +136,20 @@ export default function WebMobileNav({
                 onPress={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
                 className="flex-row items-center p-4 rounded-xl mb-2 border bg-surface-card border-surface-border"
               >
-                <FontAwesome name={theme === 'dark' ? 'sun-o' : 'moon-o'} size={18} color="var(--color-text-main)" className="w-8" />
+                <FontAwesome name={theme === 'dark' ? 'sun-o' : 'moon-o'} size={18} color={colors.textMain} className="w-8" />
                 <Text className="font-bold ml-2 text-typography-main">Toggle Theme</Text>
               </Pressable>
 
               <Link href="/modal" asChild onPress={handleClose}>
                 <Pressable className="flex-row items-center p-4 rounded-xl mb-2 border bg-surface-card border-surface-border">
-                  <FontAwesome name="bell" size={18} color="var(--color-text-main)" className="w-8" />
+                  <FontAwesome name="bell" size={18} color={colors.textMain} className="w-8" />
                   <Text className="font-bold ml-2 text-typography-main">Notifications</Text>
                 </Pressable>
               </Link>
               
               <Link href="/profile" asChild onPress={handleClose}>
                 <Pressable className="flex-row items-center p-4 rounded-xl border bg-surface-card border-surface-border">
-                  <FontAwesome name="user" size={18} color="var(--color-text-main)" className="w-8" />
+                  <FontAwesome name="user" size={18} color={colors.textMain} className="w-8" />
                   <Text className="font-bold ml-2 text-typography-main">Profile</Text>
                 </Pressable>
               </Link>

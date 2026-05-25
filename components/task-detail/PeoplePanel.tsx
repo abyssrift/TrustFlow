@@ -1,9 +1,9 @@
-import React from 'react';
-import { View, Text } from 'react-native';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { getPrimaryColor, getMutedColor } from '@/lib/themeColors';
+import { getMutedColor, getPrimaryColor } from '@/lib/themeColors';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import React from 'react';
+import { Text, View } from 'react-native';
 
 function Avatar({ name, size = 32 }: { name: string | null; size?: number }) {
   const initial = (name || '?').charAt(0).toUpperCase();
@@ -57,7 +57,7 @@ export default function PeoplePanel() {
         <View className="mt-2 pt-2 border-t border-surface-border/30">
           {teamAssignments.map(a => (
             <View key={a.id} className="flex-row items-center mb-2">
-              <View style={{ backgroundColor: a.team?.color || 'var(--color-primary)' }} className="w-3 h-3 rounded-full mr-2.5" />
+              <View style={{ backgroundColor: a.team?.color || getPrimaryColor(activeTheme) }} className="w-3 h-3 rounded-full mr-2.5" />
               <Text className="text-typography-main text-sm font-bold">{a.team?.name}</Text>
               <View className="ml-2 bg-surface-overlay px-1.5 py-0.5 rounded-md">
                 <Text className="text-typography-muted text-[8px] font-bold uppercase">Team</Text>

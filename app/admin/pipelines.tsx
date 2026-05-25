@@ -1,17 +1,18 @@
-import React, { useEffect } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, SafeAreaView, Platform, StatusBar } from 'react-native';
-console.log('Admin Pipelines Loading - Platform check:', Platform?.OS);
 import HorizontalScroll from '@/components/common/HorizontalScroll';
-import { useRouter } from 'expo-router';
-import { FontAwesome } from '@expo/vector-icons';
-import { PipelineEditorProvider, usePipelineEditor } from '@/contexts/PipelineEditorContext';
-import PipelineList from '@/components/pipeline-editor/PipelineList';
-import StageBuilder from '@/components/pipeline-editor/StageBuilder';
-import TransitionEditor from '@/components/pipeline-editor/TransitionEditor';
 import AutomationEditor from '@/components/pipeline-editor/AutomationEditor';
 import HandshakeEditor from '@/components/pipeline-editor/HandshakeEditor';
-import SubpipelineEditor from '@/components/pipeline-editor/SubpipelineEditor';
+import PipelineList from '@/components/pipeline-editor/PipelineList';
 import PipelineVisualizer from '@/components/pipeline-editor/PipelineVisualizer';
+import StageBuilder from '@/components/pipeline-editor/StageBuilder';
+import SubpipelineEditor from '@/components/pipeline-editor/SubpipelineEditor';
+import TransitionEditor from '@/components/pipeline-editor/TransitionEditor';
+import { PipelineEditorProvider, usePipelineEditor } from '@/contexts/PipelineEditorContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
+import { FontAwesome } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import React, { useEffect } from 'react';
+import { ActivityIndicator, Platform, SafeAreaView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
+console.log('Admin Pipelines Loading - Platform check:', Platform?.OS);
 
 // ── Section Tab Config ──────────────────────────────────────
 const SECTIONS = [
@@ -24,6 +25,7 @@ const SECTIONS = [
 ] as const;
 
 function PipelineEditorInner() {
+  const colors = useThemeColors();
   const router = useRouter();
   const {
     selectedPipeline, activeSection, setActiveSection,
@@ -48,7 +50,7 @@ function PipelineEditorInner() {
                 onPress={() => router.back()}
                 className="flex-row items-center h-11 pr-4"
               >
-                <FontAwesome name="chevron-left" size={14} color="var(--color-text-muted)" />
+                <FontAwesome name="chevron-left" size={14} color={colors.textMuted} />
                 <Text className="text-typography-muted font-bold text-sm ml-2">Back</Text>
               </TouchableOpacity>
               <View className="bg-brand-primary/10 px-3 py-1 rounded-full border border-brand-primary/20">
@@ -76,7 +78,7 @@ function PipelineEditorInner() {
               onPress={deselectPipeline}
               className="flex-row items-center h-11 pr-4"
             >
-              <FontAwesome name="chevron-left" size={14} color="var(--color-text-muted)" />
+              <FontAwesome name="chevron-left" size={14} color={colors.textMuted} />
               <Text className="text-typography-muted font-bold text-sm ml-2">Pipelines</Text>
             </TouchableOpacity>
             <View className="bg-brand-primary-dim px-3 py-1 rounded-full border border-brand-primary/20">
@@ -119,7 +121,7 @@ function PipelineEditorInner() {
                     <FontAwesome
                       name={s.icon as any}
                       size={12}
-                      color={isActive ? 'white' : 'var(--color-text-muted)'}
+                      color={isActive ? '#ffffff' : colors.textMuted}
                     />
                     <Text
                       className={`text-xs font-bold ml-2 ${
@@ -138,7 +140,7 @@ function PipelineEditorInner() {
         {/* Loading Overlay */}
         {loading && (
           <View className="absolute top-0 right-0 z-50 p-4">
-            <ActivityIndicator color="var(--color-primary)" size="small" />
+            <ActivityIndicator color={colors.primary} size="small" />
           </View>
         )}
 

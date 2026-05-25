@@ -1,34 +1,35 @@
+import { AppNotification, useNotifications } from '@/contexts/NotificationsContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
+import { FontAwesome } from '@expo/vector-icons';
+import { Stack, useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import React, { useCallback } from 'react';
 import {
-  View,
-  Text,
-  FlatList,
-  Pressable,
-  RefreshControl,
-  ActivityIndicator,
-  Platform,
-  TouchableOpacity,
+    ActivityIndicator,
+    FlatList,
+    Platform,
+    RefreshControl,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-import { useRouter } from 'expo-router';
-import { FontAwesome } from '@expo/vector-icons';
-import { useNotifications, AppNotification } from '@/contexts/NotificationsContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // ── Notification type → icon + color ────────────────────────────────────────
-type IconSpec = { name: React.ComponentProps<typeof FontAwesome>['name']; color: string };
+type ThemeColors = ReturnType<typeof useThemeColors>;
 
-function getIconSpec(type: string): { name: React.ComponentProps<typeof FontAwesome>['name']; iconClass: string; bgClass: string } {
+function getIconSpec(type: string, colors: ThemeColors): { name: React.ComponentProps<typeof FontAwesome>['name']; color: string; bgClass: string } {
   switch (type) {
-    case 'task.assigned':       return { name: 'user-plus',         iconClass: 'text-brand-primary', bgClass: 'bg-brand-primary/10' };
-    case 'task.mentioned':      return { name: 'at',                iconClass: 'text-state-warning', bgClass: 'bg-state-warning/10' };
-    case 'task.commented':      return { name: 'comment',           iconClass: 'text-typography-muted', bgClass: 'bg-surface-overlay' };
-    case 'task.created':        return { name: 'plus-square',       iconClass: 'text-state-success', bgClass: 'bg-state-success/10' };
-    case 'task.completed':      return { name: 'check-circle',      iconClass: 'text-state-success', bgClass: 'bg-state-success/10' };
-    case 'task.stage_transition': return { name: 'exchange',        iconClass: 'text-brand-primary', bgClass: 'bg-brand-primary/10' };
-    case 'task.status_changed': return { name: 'refresh',           iconClass: 'text-brand-primary', bgClass: 'bg-brand-primary/10' };
-    case 'task.due_soon':       return { name: 'clock-o',           iconClass: 'text-state-warning', bgClass: 'bg-state-warning/10' };
-    case 'task.overdue':        return { name: 'exclamation-circle',iconClass: 'text-state-danger', bgClass: 'bg-state-danger/10' };
-    default:                    return { name: 'bell',              iconClass: 'text-brand-primary', bgClass: 'bg-brand-primary/10' };
+    case 'task.assigned':       return { name: 'user-plus', color: colors.primary, bgClass: 'bg-brand-primary/10' };
+    case 'task.mentioned':      return { name: 'at', color: colors.warning, bgClass: 'bg-state-warning/10' };
+    case 'task.commented':      return { name: 'comment', color: colors.textMuted, bgClass: 'bg-surface-overlay' };
+    case 'task.created':        return { name: 'plus-square', color: colors.success, bgClass: 'bg-state-success/10' };
+    case 'task.completed':      return { name: 'check-circle', color: colors.success, bgClass: 'bg-state-success/10' };
+    case 'task.stage_transition': return { name: 'exchange', color: colors.primary, bgClass: 'bg-brand-primary/10' };
+    case 'task.status_changed': return { name: 'refresh', color: colors.primary, bgClass: 'bg-brand-primary/10' };
+    case 'task.due_soon':       return { name: 'clock-o', color: colors.warning, bgClass: 'bg-state-warning/10' };
+    case 'task.overdue':        return { name: 'exclamation-circle', color: colors.danger, bgClass: 'bg-state-danger/10' };
+    default:                    return { name: 'bell', color: colors.primary, bgClass: 'bg-brand-primary/10' };
   }
 }
 
@@ -61,11 +62,13 @@ function sectionLabel(iso: string): string {
 function NotificationItem({
   item,
   onPress,
+  colors,
 }: {
   item: AppNotification;
   onPress: (item: AppNotification) => void;
+  colors: ThemeColors;
 }) {
-  const { name: iconName, iconClass, bgClass } = getIconSpec(item.type);
+  const { name: iconName, color: iconColor, bgClass } = getIconSpec(item.type, colors);
   const isUnread = !item.read_at;
 
   return (
@@ -80,7 +83,7 @@ function NotificationItem({
       <View
         className={`w-10 h-10 rounded-full items-center justify-center mr-3 mt-0.5 flex-shrink-0 ${bgClass}`}
       >
-        <FontAwesome name={iconName} size={16} className={iconClass} />
+        <FontAwesome name={iconName} size={16} color={iconColor} />
       </View>
 
       {/* Content */}
@@ -113,10 +116,12 @@ function NotificationItem({
 
 // ── Empty state ──────────────────────────────────────────────────────────────
 function EmptyState() {
+
+  const colors = useThemeColors();
   return (
     <View className="flex-1 items-center justify-center px-8 py-24">
       <View className="bg-brand-primary/10 p-6 rounded-full mb-6 border border-brand-primary/20">
-        <FontAwesome name="bell-o" size={40} className="text-brand-primary" />
+        <FontAwesome name="bell-o" size={40} color={colors.primary} />
       </View>
       <Text className="text-typography-main font-black text-2xl tracking-tight text-center mb-2">
         All Clear
@@ -131,8 +136,10 @@ function EmptyState() {
 // ── Main screen ──────────────────────────────────────────────────────────────
 export default function NotificationsModal() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { notifications, unreadCount, loading, refresh, markRead, markAllRead } =
     useNotifications();
+  const colors = useThemeColors();
 
   const handleItemPress = useCallback(
     async (item: AppNotification) => {
@@ -173,24 +180,36 @@ export default function NotificationsModal() {
       );
     }
     return (
-      <NotificationItem item={item.notification} onPress={handleItemPress} />
+      <NotificationItem item={item.notification} onPress={handleItemPress} colors={colors} />
     );
   };
 
   return (
     <View className="flex-1 bg-surface-background">
+      <Stack.Screen options={{ headerShown: false }} />
       <StatusBar style={Platform.OS === 'ios' ? 'light' : 'auto'} />
 
       {/* Header */}
-      <View className="bg-surface-card px-4 pt-4 pb-4 border-b border-surface-border">
+      <View
+        className="bg-surface-card px-4 pb-4 border-b border-surface-border"
+        style={{ paddingTop: insets.top + 16 }}
+      >
         <View className="flex-row items-center justify-between">
-          <View>
-            <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-typography-muted mb-0.5">
-              Signal Feed
-            </Text>
-            <Text className="text-2xl font-black tracking-tight text-typography-main">
-              Notifications
-            </Text>
+          <View className="flex-row items-center gap-3">
+            <TouchableOpacity
+              onPress={() => router.dismiss()}
+              className="w-9 h-9 bg-surface-overlay rounded-xl border border-surface-border items-center justify-center"
+            >
+              <FontAwesome name="chevron-down" size={14} className="text-typography-muted" />
+            </TouchableOpacity>
+            <View>
+              <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-typography-muted mb-0.5">
+                Signal Feed
+              </Text>
+              <Text className="text-2xl font-black tracking-tight text-typography-main">
+                Notifications
+              </Text>
+            </View>
           </View>
 
           <View className="flex-row items-center gap-2">
@@ -206,13 +225,9 @@ export default function NotificationsModal() {
             )}
             <TouchableOpacity
               onPress={() => router.push('/notifications/preferences' as any)}
-              className="bg-surface-background p-2.5 rounded-xl border border-surface-border"
+              className="w-9 h-9 bg-surface-overlay rounded-xl border border-surface-border items-center justify-center"
             >
-              <FontAwesome
-                name="sliders"
-                size={15}
-                className="text-typography-muted"
-              />
+              <FontAwesome name="sliders" size={14} className="text-typography-muted" />
             </TouchableOpacity>
           </View>
         </View>
@@ -230,7 +245,7 @@ export default function NotificationsModal() {
 
       {loading && notifications.length === 0 ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="var(--color-primary)" />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : notifications.length === 0 ? (
         <EmptyState />
@@ -243,7 +258,7 @@ export default function NotificationsModal() {
             <RefreshControl
               refreshing={loading}
               onRefresh={refresh}
-              tintColor="var(--color-primary)"
+              tintColor={colors.primary}
             />
           }
           contentContainerStyle={{ paddingBottom: 40 }}

@@ -1,9 +1,12 @@
 import { usePipelineEditor } from '@/contexts/PipelineEditorContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
 import { FontAwesome } from '@expo/vector-icons';
 import React from 'react';
 import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { resolveNativeColorToken } from './colorCompat';
 
 export default function SubpipelineEditor() {
+  const colors = useThemeColors();
   const { stages, pipelines, loading, selectedPipeline, updateStage, updateStageSpawnConfig } = usePipelineEditor();
 
   const spawningStages = (stages || []).filter(s => !!s.linked_pipeline_id);
@@ -37,7 +40,7 @@ export default function SubpipelineEditor() {
                 <View className="flex-row items-center mb-2">
                   <View
                     className="w-2.5 h-2.5 rounded-full mr-2"
-                    style={{ backgroundColor: stage.color || 'var(--color-text-dim)' }}
+                    style={{ backgroundColor: resolveNativeColorToken(stage.color, colors) }}
                   />
                   <Text className="text-typography-main font-bold text-xs flex-1">{stage.name}</Text>
                   {stage.linked_pipeline_id && (
@@ -79,7 +82,7 @@ export default function SubpipelineEditor() {
 
       {spawningStages.length === 0 ? (
         <View className="flex-1 items-center justify-center py-20">
-          <FontAwesome name="sitemap" size={48} color="var(--color-surface-overlay)" />
+          <FontAwesome name="sitemap" size={48} color={colors.border} />
           <Text className="text-typography-muted text-sm font-bold mt-4">No spawning stages configured.</Text>
           <Text className="text-typography-dim text-xs mt-1 text-center px-8">
             Assign a target pipeline above to configure inheritance settings below.
@@ -102,11 +105,11 @@ export default function SubpipelineEditor() {
                 <View className="flex-row items-center px-4 py-3 border-b border-surface-border bg-surface-background">
                   <View
                     className="w-3 h-3 rounded-full mr-2.5"
-                    style={{ backgroundColor: stage.color || 'var(--color-text-dim)' }}
+                    style={{ backgroundColor: resolveNativeColorToken(stage.color, colors) }}
                   />
                   <Text className="text-typography-main font-black text-sm flex-1">{stage.name}</Text>
                   <View className="flex-row items-center bg-brand-primary-dim px-2.5 py-1 rounded-lg border border-brand-primary/20">
-                    <FontAwesome name="bolt" size={9} color="var(--color-brand-primary)" />
+                    <FontAwesome name="bolt" size={9} color={colors.primary} />
                     <Text className="text-brand-primary text-[9px] font-black ml-1.5 uppercase tracking-wider">
                       {linkedPipeline?.name || 'Linked Pipeline'}
                     </Text>
@@ -123,7 +126,7 @@ export default function SubpipelineEditor() {
                     label="Inherit Submission Work"
                     desc="The spawned child task receives the parent's submitted files and notes as its initial content."
                     icon="upload"
-                    color="var(--color-brand-accent)"
+                    color={colors.accent}
                     active={stage.child_inherits_submission}
                     loading={loading}
                     onToggle={() =>
@@ -152,6 +155,7 @@ function SpawnToggle({
   loading: boolean;
   onToggle: () => void;
 }) {
+  const colors = useThemeColors();
   return (
     <TouchableOpacity
       onPress={onToggle}
@@ -162,9 +166,9 @@ function SpawnToggle({
     >
       <View
         className="w-9 h-9 rounded-lg items-center justify-center mr-3"
-        style={{ backgroundColor: active ? color : 'rgb(var(--surface-overlay))', opacity: active ? 0.85 : 0.5 }}
+        style={{ backgroundColor: active ? color : colors.border, opacity: active ? 0.85 : 0.5 }}
       >
-        <FontAwesome name={icon as any} size={14} color={active ? 'white' : 'var(--color-text-dim)'} />
+        <FontAwesome name={icon as any} size={14} color={active ? '#ffffff' : colors.textDim} />
       </View>
       <View className="flex-1">
         <Text className={`font-bold text-sm ${active ? 'text-typography-main' : 'text-typography-muted'}`}>
@@ -174,7 +178,7 @@ function SpawnToggle({
       </View>
       <View className="ml-3">
         {loading ? (
-          <ActivityIndicator size="small" color="var(--color-brand-primary)" />
+          <ActivityIndicator size="small" color={colors.primary} />
         ) : (
           <View
             className={`w-11 h-6 rounded-full border-2 items-center justify-center relative ${

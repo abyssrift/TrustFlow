@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Platform } from 'react-native';
-import { FontAwesome } from '@expo/vector-icons';
 import { usePipelineEditor } from '@/contexts/PipelineEditorContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
+import { FontAwesome } from '@expo/vector-icons';
+import React, { useState } from 'react';
+import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { resolveNativeColorToken } from './colorCompat';
 
 const CONDITION_TYPES = [
   { value: 'overdue', label: 'Overdue', desc: 'Task past its due date', icon: 'clock-o', color: '#ef4444' },
@@ -10,6 +12,7 @@ const CONDITION_TYPES = [
 ];
 
 export default function AutomationEditor() {
+  const colors = useThemeColors();
   const {
     stages, automations, loading, error,
     createAutomation, updateAutomation, deleteAutomation,
@@ -38,7 +41,7 @@ export default function AutomationEditor() {
   };
 
   const stageName = (id: string) => stages.find(s => s.id === id)?.name || '—';
-  const stageColor = (id: string) => stages.find(s => s.id === id)?.color || '#6B7280';
+  const stageColor = (id: string) => resolveNativeColorToken(stages.find(s => s.id === id)?.color || colors.textDim, colors);
 
   const handleCreate = async () => {
     if (!formSource || !formTarget) return;
@@ -84,7 +87,7 @@ export default function AutomationEditor() {
             className="bg-brand-primary-dim px-4 py-2 rounded-sm border border-brand-primary/20 active:bg-brand-primary-dim active:scale-95 transition-all"
           >
             <View className="flex-row items-center">
-              <FontAwesome name="plus" size={10} color="rgb(var(--brand-primary))" />
+              <FontAwesome name="plus" size={10} color={colors.primary} />
               <Text className="text-brand-primary font-bold text-xs ml-2 uppercase tracking-wide">Add Rule</Text>
             </View>
           </TouchableOpacity>
@@ -245,7 +248,7 @@ export default function AutomationEditor() {
                 disabled={!formSource || !formTarget || loading}
               >
                 {loading ? (
-                  <ActivityIndicator color="rgb(var(--text-main))" size="small" />
+                  <ActivityIndicator color={colors.textMain} size="small" />
                 ) : (
                   <Text className="text-typography-main font-black text-sm uppercase tracking-wide">Create Rule</Text>
                 )}
@@ -302,7 +305,7 @@ export default function AutomationEditor() {
                       <View className="flex-row items-center mt-0.5">
                         <View className="w-2 h-2 rounded-full mr-1" style={{ backgroundColor: stageColor(a.source_stage_id) }} />
                         <Text className="text-typography-dim text-[10px] font-bold">{stageName(a.source_stage_id)}</Text>
-                        <FontAwesome name="long-arrow-right" size={8} color="#334155" style={{ marginHorizontal: 4 }} />
+                        <FontAwesome name="long-arrow-right" size={8} color={colors.textDim} style={{ marginHorizontal: 4 }} />
                         <View className="w-2 h-2 rounded-full mr-1" style={{ backgroundColor: stageColor(a.target_stage_id) }} />
                         <Text className="text-typography-dim text-[10px] font-bold">{stageName(a.target_stage_id)}</Text>
                       </View>
@@ -320,7 +323,7 @@ export default function AutomationEditor() {
                         onPress={() => setConfirmDeleteId(a.id)}
                         className="p-2 rounded-lg border border-surface-border bg-surface-background"
                       >
-                        <FontAwesome name="trash-o" size={10} color="#64748b" />
+                        <FontAwesome name="trash-o" size={10} color={colors.textDim} />
                       </TouchableOpacity>
                     </View>
                   </View>

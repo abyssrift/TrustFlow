@@ -96,6 +96,12 @@ export interface PersonnelRow {
   activity_count: number;
 }
 
+export interface CompanyHistoryEntry {
+  company_id: string;
+  company_name: string;
+  company_slug: string;
+}
+
 export interface PipelinePointsPeriod {
   period_label: string;
   period_start: string;
@@ -116,7 +122,8 @@ export interface ActivityEntry {
 
 interface AnalyticsContextType {
   getPersonalPulse: () => Promise<PersonalPulse>;
-  getUserPerformanceSeries: (userId: string, periodType: string, nPeriods: number) => Promise<PerformancePeriod[]>;
+  getUserCompanyHistory: (userId: string) => Promise<CompanyHistoryEntry[]>;
+  getUserPerformanceSeries: (userId: string, periodType: string, nPeriods: number, companyId?: string | null) => Promise<PerformancePeriod[]>;
   getUserPerformanceSummary: (userId: string, from: string, to: string) => Promise<PerformanceSummary>;
   getPipelineStageDwell: (pipelineId: string, from: string, to: string) => Promise<StageDwell[]>;
   getPipelineThroughput: (pipelineId: string, periodType: string, nPeriods: number) => Promise<ThroughputPeriod[]>;
@@ -188,18 +195,33 @@ export const AnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       PULSE_TTL_MS,
     );
 
+  const getUserCompanyHistory = (userId: string): Promise<CompanyHistoryEntry[]> =>
+    fetchWithDedup(
+      `company_history:${userId}`,
+      async () => {
+        const { data, error } = await supabase.rpc('rpc_get_user_company_history', {
+          p_user_id: userId,
+        });
+        if (error) throw error;
+        return (data ?? []) as CompanyHistoryEntry[];
+      },
+      SERIES_TTL_MS,
+    );
+
   const getUserPerformanceSeries = (
     userId: string,
     periodType: string,
     nPeriods: number,
+    companyId?: string | null,
   ): Promise<PerformancePeriod[]> =>
     fetchWithDedup(
-      `series:${userId}:${periodType}:${nPeriods}`,
+      `series:${userId}:${periodType}:${nPeriods}:${companyId ?? 'all'}`,
       async () => {
         const { data, error } = await supabase.rpc('rpc_get_user_performance_series', {
           p_user_id:     userId,
           p_period_type: periodType,
           p_n_periods:   nPeriods,
+          p_company_id:  companyId ?? null,
         });
         if (error) throw error;
         return (data ?? []) as PerformancePeriod[];
@@ -365,6 +387,7 @@ export const AnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   return (
     <AnalyticsContext.Provider value={{
       getPersonalPulse,
+      getUserCompanyHistory,
       getUserPerformanceSeries,
       getUserPerformanceSummary,
       getPipelineStageDwell,

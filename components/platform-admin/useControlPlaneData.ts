@@ -12,7 +12,7 @@ export const PLATFORM_OWNERS = [
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-export type Section = 'command' | 'tenants' | 'signals' | 'live';
+export type Section = 'command' | 'tenants' | 'signals' | 'live' | 'users';
 
 export type CompanyOverview = {
   id: string;
@@ -63,6 +63,24 @@ export type CompanyDetail = {
 
 export type SortKey = 'usage' | 'users' | 'tasks' | 'age';
 export type SignalMetric = 'tasks' | 'sessions' | 'users';
+
+export type PlatformUser = {
+  id: string;
+  email: string;
+  full_name: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+  phone: string | null;
+  job_title: string | null;
+  department: string | null;
+  is_active: boolean;
+  is_owner: boolean;
+  work_status: string | null;
+  company_id: string | null;
+  company_name: string | null;
+  created_at: string;
+  last_seen_at: string | null;
+};
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -333,4 +351,80 @@ export function useCompanyDetail(companyId: string | null) {
   }, [companyId]);
 
   return { detail, loading };
+}
+
+export function useUsersData() {
+  const [query, setQueryState] = useState('');
+  const [companyFilter, setCompanyFilterState] = useState<string | null>(null);
+  const [users, setUsers] = useState<PlatformUser[]>([]);
+  const [loading, setLoading] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const queryRef = useRef('');
+  const filterRef = useRef<string | null>(null);
+
+  const fetchUsers = useCallback(async (q: string, cid: string | null) => {
+    setLoading(true);
+    const { data, error } = await supabase.rpc('rpc_platform_search_users', {
+      p_query: q,
+      p_company_id: cid,
+      p_limit: 100,
+    });
+    if (!error && data) setUsers(data as PlatformUser[]);
+    setLoading(false);
+  }, []);
+
+  const setQuery = useCallback((q: string) => {
+    queryRef.current = q;
+    setQueryState(q);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => fetchUsers(q, filterRef.current), 350);
+  }, [fetchUsers]);
+
+  const setCompanyFilter = useCallback((cid: string | null) => {
+    filterRef.current = cid;
+    setCompanyFilterState(cid);
+    fetchUsers(queryRef.current, cid);
+  }, [fetchUsers]);
+
+  const refetch = useCallback(() => {
+    fetchUsers(queryRef.current, filterRef.current);
+  }, [fetchUsers]);
+
+  useEffect(() => {
+    fetchUsers('', null);
+  }, [fetchUsers]);
+
+  return { query, setQuery, companyFilter, setCompanyFilter, users, loading, refetch };
+}
+
+export async function updateUser(userId: string, fields: {
+  full_name: string;
+  display_name: string;
+  phone: string;
+  job_title: string;
+  department: string;
+  work_status: string;
+  is_active: boolean;
+}) {
+  return supabase.rpc('rpc_platform_update_user', {
+    p_user_id: userId,
+    p_full_name: fields.full_name,
+    p_display_name: fields.display_name,
+    p_phone: fields.phone,
+    p_job_title: fields.job_title,
+    p_department: fields.department,
+    p_work_status: fields.work_status,
+    p_is_active: fields.is_active,
+  });
+}
+
+export async function moveUser(userId: string, companyId: string) {
+  return supabase.rpc('rpc_platform_move_user', {
+    p_user_id: userId,
+    p_company_id: companyId,
+  });
+}
+
+export async function deleteUser(userId: string) {
+  return supabase.rpc('rpc_platform_delete_user', { p_user_id: userId });
 }

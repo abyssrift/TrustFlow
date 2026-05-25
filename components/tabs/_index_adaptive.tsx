@@ -1,12 +1,13 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, ScrollView, RefreshControl, ActivityIndicator, TouchableOpacity, Modal, Platform } from 'react-native';
+import PendingTimeApprovalsWidget from '@/components/common/PendingTimeApprovalsWidget';
+import { useAuth } from '@/contexts/AuthContext';
+import { useNotifications } from '@/contexts/NotificationsContext';
+import { TAB_BAR_HEIGHT } from '@/lib/layout';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { useAuth } from '@/contexts/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { TAB_BAR_HEIGHT } from '@/lib/layout';
-import PendingTimeApprovalsWidget from '@/components/common/PendingTimeApprovalsWidget';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Modal, Platform, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -73,6 +74,7 @@ export default function DashboardScreen() {
   const [widgetRefreshKey, setWidgetRefreshKey] = useState(0);
 
   const { user, profile } = useAuth();
+  const { unreadCount } = useNotifications();
   const router = useRouter();
 
   const displayName = useMemo(() => {
@@ -187,8 +189,8 @@ export default function DashboardScreen() {
         .map((h: any) => ({
           id: h.id,
           taskTitle: h.task?.title || 'Unknown Task',
-          fromStage: h.from_stage?.name || '—',
-          toStage: h.to_stage?.name || '—',
+          fromStage: h.from_stage?.name || '-',
+          toStage: h.from_stage ? (h.to_stage?.name || '—') : 'created',
           movedBy: h.transitioned_by_user?.display_name || h.transitioned_by_user?.full_name || 'System',
           movedAt: h.transitioned_at,
         }));
@@ -243,12 +245,30 @@ export default function DashboardScreen() {
             {getGreeting()}, {firstName}
           </Text>
         </View>
-        <TouchableOpacity
-          onPress={() => setShowSettings(true)}
-          className="w-10 h-10 bg-surface-card rounded-full items-center justify-center border border-surface-border flex-shrink-0"
-        >
-          <FontAwesome name="cog" size={16} color="var(--color-primary)" />
-        </TouchableOpacity>
+        <View className="flex-row items-center gap-2">
+          <TouchableOpacity
+            onPress={() => router.push('/modal' as any)}
+            className="w-10 h-10 bg-surface-card rounded-full items-center justify-center border border-surface-border flex-shrink-0"
+          >
+            <FontAwesome name="bell" size={15} color="var(--color-primary)" />
+            {unreadCount > 0 && (
+              <View
+                className="absolute -top-1 -right-1 bg-state-danger rounded-full items-center justify-center"
+                style={{ minWidth: 16, height: 16, paddingHorizontal: 3 }}
+              >
+                <Text className="text-white text-[9px] font-black leading-none">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setShowSettings(true)}
+            className="w-10 h-10 bg-surface-card rounded-full items-center justify-center border border-surface-border flex-shrink-0"
+          >
+            <FontAwesome name="cog" size={16} color="var(--color-primary)" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {loading && !refreshing ? (
@@ -293,51 +313,51 @@ export default function DashboardScreen() {
           <PendingTimeApprovalsWidget refreshKey={widgetRefreshKey} />
 
           <View className="flex-row flex-wrap justify-between mb-4">
-            <View className="w-[48%] bg-surface-card p-5 rounded-2xl border border-surface-border mb-4 premium-shadow">
+            <TouchableOpacity onPress={() => router.push('/tasks' as any)} activeOpacity={0.75} className="w-[48%] bg-surface-card p-5 rounded-2xl border border-surface-border mb-4 premium-shadow">
               <View className="w-10 h-10 rounded-xl bg-brand-primary/10 items-center justify-center mb-3 border border-brand-primary/20">
                 <FontAwesome name="tasks" size={16} color="var(--color-primary)" />
               </View>
               <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-1">Total</Text>
               <Text className="text-typography-main text-3xl font-black">{stats.totalTasks}</Text>
               <Text className="text-brand-primary text-[9px] font-black uppercase tracking-widest mt-1">Across all stages</Text>
-            </View>
+            </TouchableOpacity>
 
-            <View className="w-[48%] bg-surface-card p-5 rounded-2xl border border-surface-border mb-4 premium-shadow">
+            <TouchableOpacity onPress={() => router.push('/tasks' as any)} activeOpacity={0.75} className="w-[48%] bg-surface-card p-5 rounded-2xl border border-surface-border mb-4 premium-shadow">
               <View className="w-10 h-10 rounded-xl bg-state-warning/10 items-center justify-center mb-3 border border-[var(--color-warning)]/20">
                 <FontAwesome name="hourglass-half" size={14} color="var(--color-warning)" />
               </View>
               <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-1">In Progress</Text>
               <Text className="text-typography-main text-3xl font-black">{stats.activeNow}</Text>
               <Text className="text-state-warning text-[9px] font-black uppercase tracking-widest mt-1">Non-terminal stages</Text>
-            </View>
+            </TouchableOpacity>
 
-            <View className="w-[48%] bg-surface-card p-5 rounded-2xl border border-surface-border mb-4 premium-shadow">
+            <TouchableOpacity onPress={() => router.push('/intelligence/archives' as any)} activeOpacity={0.75} className="w-[48%] bg-surface-card p-5 rounded-2xl border border-surface-border mb-4 premium-shadow">
               <View className="w-10 h-10 rounded-xl bg-state-success/10 items-center justify-center mb-3 border border-state-success/20">
                 <FontAwesome name="check-circle" size={16} color="var(--color-text-muted)" />
               </View>
               <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-1">Completed</Text>
               <Text className="text-typography-main text-3xl font-black">{stats.completed}</Text>
               <Text className="text-state-success text-[9px] font-black uppercase tracking-widest mt-1">{completionRate}% rate</Text>
-            </View>
+            </TouchableOpacity>
 
             {stats.failed > 0 ? (
-              <View className="w-[48%] bg-surface-card p-5 rounded-2xl border border-surface-border mb-4 premium-shadow">
+              <TouchableOpacity onPress={() => router.push('/intelligence/archives' as any)} activeOpacity={0.75} className="w-[48%] bg-surface-card p-5 rounded-2xl border border-surface-border mb-4 premium-shadow">
                 <View className="w-10 h-10 rounded-xl bg-state-danger/10 items-center justify-center mb-3 border border-[var(--color-danger)]/20">
                   <FontAwesome name="times-circle" size={16} color="var(--color-danger)" />
                 </View>
                 <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-1">Failed</Text>
                 <Text className="text-typography-main text-3xl font-black">{stats.failed}</Text>
                 <Text className="text-state-danger text-[9px] font-black uppercase tracking-widest mt-1">{failedRate}% of total</Text>
-              </View>
+              </TouchableOpacity>
             ) : (
-              <View className="w-[48%] bg-surface-card p-5 rounded-2xl border border-surface-border mb-4 premium-shadow">
+              <TouchableOpacity onPress={() => router.push('/tasks' as any)} activeOpacity={0.75} className="w-[48%] bg-surface-card p-5 rounded-2xl border border-surface-border mb-4 premium-shadow">
                 <View className="w-10 h-10 rounded-xl bg-state-info/10 items-center justify-center mb-3 border border-[var(--color-info)]/20">
                   <FontAwesome name="bolt" size={16} color="var(--color-info)" />
                 </View>
                 <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-1">Live Sessions</Text>
                 <Text className="text-typography-main text-3xl font-black">{stats.activeSessions}</Text>
                 <Text className="text-state-info text-[9px] font-black uppercase tracking-widest mt-1">Working now</Text>
-              </View>
+              </TouchableOpacity>
             )}
           </View>
 

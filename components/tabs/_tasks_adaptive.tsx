@@ -1,13 +1,14 @@
 import ConfirmModal from '@/components/common/ConfirmModal';
-import SkeletonBlock, { SkeletonList } from '@/components/Skeleton';
 import HorizontalScroll from '@/components/common/HorizontalScroll';
 import KanbanPersonalizer from '@/components/kanban/KanbanPersonalizer';
+import SkeletonBlock, { SkeletonList } from '@/components/Skeleton';
 import TaskCardActions, { type ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
 import AssignmentModal from '@/components/tasks/AssignmentModal';
 import CreateTaskSheet from '@/components/tasks/CreateTaskSheet';
 import { useAuth } from '@/contexts/AuthContext';
 import { TaskCreationProvider } from '@/contexts/TaskCreationContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useSuppressRouteLoading } from '@/contexts/RouteLoadingContext';
 import { TAB_BAR_HEIGHT } from '@/lib/layout';
 import { supabase } from '@/lib/supabase';
 import { getPrimaryColor } from '@/lib/themeColors';
@@ -16,11 +17,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    ActivityIndicator, Alert,
+    Alert,
     Image,
+    Keyboard,
     Platform,
     ScrollView,
     Text,
+    TextInput,
     TouchableOpacity,
     useWindowDimensions,
     View
@@ -108,13 +111,20 @@ function TasksScreen() {
   const [filters, setFilters] = useState<FilterState>({ priorities: [], categories: [], projectIds: [], managerIds: [] });
   const [archiveModal, setArchiveModal] = useState<{ visible: boolean; taskId: string | null }>({ visible: false, taskId: null });
   const [archiving, setArchiving] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [mineOnly, setMineOnly] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [showTools, setShowTools] = useState(false);
+  const [myTeamIds, setMyTeamIds] = useState<string[]>([]);
+  const [skeletonBg, setSkeletonBg] = useState<string | null>(null);
   
   const { kanban } = useTheme();
-  
+
    const { width } = useWindowDimensions();
    const { theme: activeTheme } = useTheme();
    const router = useRouter();
    const { user, hasPermission, profile } = useAuth();
+   const { suppressNext } = useSuppressRouteLoading();
    const { pipelineId: paramPipelineId } = useLocalSearchParams();
    const isLargeScreen = width > 768;
 
@@ -179,6 +189,7 @@ function TasksScreen() {
         .eq('user_id', user?.id)
         .is('removed_at', null);
       const myTeamIds = myTeams?.map(mt => mt.team_id) || [];
+      setMyTeamIds(myTeamIds);
 
       // 5. Get tasks with assignments
       const { data: tasksData, error: tError } = await supabase
@@ -275,6 +286,26 @@ function TasksScreen() {
     fetchData();
   }, []);
 
+  // Load locally-stored kanban settings early for skeleton background
+  useEffect(() => {
+    let mounted = true;
+    const loadLocalKanban = async () => {
+      try {
+        const saved = await AsyncStorage.getItem('kanban_settings');
+        if (!saved) return;
+        const parsed = JSON.parse(saved);
+        // ThemeContext filters out blob: URIs — follow same rule
+        if (parsed.backgroundUrl && typeof parsed.backgroundUrl === 'string' && !parsed.backgroundUrl.startsWith('blob:')) {
+          if (mounted) setSkeletonBg(parsed.backgroundUrl);
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+    loadLocalKanban();
+    return () => { mounted = false; };
+  }, []);
+
   // Refresh when the screen regains focus (e.g. returning from task detail).
   // Replaces the old realtime subscription — cheaper and avoids the
   // "Cannot add postgres_changes callbacks after subscribe()" crash.
@@ -300,11 +331,11 @@ function TasksScreen() {
 
     let intervalId: NodeJS.Timeout | null = null;
     const startPolling = () => {
-      // Poll every 12 seconds while focused
+      // Poll every 60 seconds while focused
       if (intervalId) return;
       intervalId = setInterval(() => {
         if (isFocusedRef.current) fetchDataRef.current();
-      }, 12000);
+      }, 60000);
     };
 
     startPolling();
@@ -499,6 +530,11 @@ function TasksScreen() {
       if (filters.categories.length > 0 && !filters.categories.includes(t.category)) return false;
       if (filters.projectIds.length > 0 && !filters.projectIds.includes(t.project_id || '')) return false;
       if (filters.managerIds.length > 0 && !filters.managerIds.includes(t.manager_id || '')) return false;
+      if (searchQuery && !t.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+      if (mineOnly && t.manager_id !== user?.id && !t.assignments?.some(a =>
+        a.assignee_user_id === user?.id ||
+        (a.assignee_team_id && myTeamIds.includes(a.assignee_team_id))
+      )) return false;
       return true;
     });
     return (
@@ -528,7 +564,15 @@ function TasksScreen() {
                </View>
             )}
 
-            <TouchableOpacity>
+            <TouchableOpacity
+              onPress={async () => {
+                if (pipeline?.id) {
+                  await AsyncStorage.setItem('@TrustFlow_selected_pipeline', pipeline.id);
+                }
+                router.push('/admin/pipelines' as any);
+              }}
+              className="p-1.5"
+            >
                <FontAwesome name="ellipsis-h" size={14} className="text-typography-muted" />
             </TouchableOpacity>
         </View>
@@ -554,21 +598,41 @@ function TasksScreen() {
 
   if (loading && !refreshing) {
     return (
-      <View className="flex-1 bg-surface-background px-4 pt-6">
-        <View className="flex-row gap-4 mb-4">
-          <SkeletonBlock height={20} style={{ width: 120 }} />
-          <SkeletonBlock height={20} style={{ width: 80 }} />
-          <SkeletonBlock height={20} style={{ width: 40 }} />
+      <>
+        {(skeletonBg || kanban.backgroundUrl) && (
+          <View className="absolute inset-0 overflow-hidden">
+            <Image 
+              source={{ uri: skeletonBg || kanban.backgroundUrl }} 
+              className="absolute inset-0 w-full h-full"
+              resizeMode="cover"
+              style={{ opacity: 1 }}
+            />
+            <View 
+              className="absolute inset-0" 
+              style={{ 
+                backgroundColor: `rgba(0,0,0,${kanban.bgOverlay})`,
+                ...(Platform.OS === 'web' ? { backdropFilter: `blur(${kanban.bgBlur}px)` } : {})
+              } as any} 
+            />
+          </View>
+        )}
+
+        <View className="flex-1 bg-surface-background px-4 pt-6">
+          <View className="flex-row gap-4 mb-4">
+            <SkeletonBlock height={20} style={{ width: 120 }} />
+            <SkeletonBlock height={20} style={{ width: 80 }} />
+            <SkeletonBlock height={20} style={{ width: 40 }} />
+          </View>
+          <HorizontalScroll className="px-1">
+            {[0,1,2].map(col => (
+              <View key={col} style={{ width: 260, marginRight: 12 }}>
+                <SkeletonBlock height={18} borderRadius={8} style={{ width: '60%', marginBottom: 12 }} />
+                <SkeletonList count={3} itemHeight={110} />
+              </View>
+            ))}
+          </HorizontalScroll>
         </View>
-        <HorizontalScroll className="px-1">
-          {[0,1,2].map(col => (
-            <View key={col} style={{ width: 260, marginRight: 12 }}>
-              <SkeletonBlock height={18} borderRadius={8} style={{ width: '60%', marginBottom: 12 }} />
-              <SkeletonList count={3} itemHeight={110} />
-            </View>
-          ))}
-        </HorizontalScroll>
-      </View>
+      </>
     );
   }
 
@@ -674,74 +738,125 @@ function TasksScreen() {
          </View>
       )}
 
-      <View className="flex-row items-center px-4 pt-3 pb-3 gap-3">
-        {/* Pipeline title — takes available space, never pushes buttons off screen */}
-        <TouchableOpacity onPress={() => setShowPipelinePicker(true)} className="flex-1 min-w-0">
-          <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-wider mb-0.5" numberOfLines={1}>
-            {pipeline?.name || 'Pipeline'}  ▾
-          </Text>
-          <Text className="text-typography-main text-2xl font-black" numberOfLines={1}>Board</Text>
-        </TouchableOpacity>
+      <View className="px-4 pt-3 pb-3">
+        {/* Row 1: Pipeline title + tools toggle */}
+        <View className="flex-row items-center gap-3">
+          <TouchableOpacity onPress={() => setShowPipelinePicker(true)} className="flex-1 min-w-0">
+            <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-wider mb-0.5" numberOfLines={1}>
+              {pipeline?.name || 'Pipeline'}  ▾
+            </Text>
+            <Text className="text-typography-main text-2xl font-black" numberOfLines={1}>Board</Text>
+          </TouchableOpacity>
 
-        {/* Action buttons — horizontal scroll if too many appear */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ gap: 8, alignItems: 'center' }}
-          style={{ flexShrink: 0 }}
-        >
+          {/* Tools toggle */}
+          <TouchableOpacity
+            onPressIn={suppressNext}
+            onPress={() => setShowTools(v => !v)}
+            className={`p-2.5 rounded-xl border ${showTools ? 'bg-brand-primary border-brand-primary' : 'bg-brand-primary/10 border-brand-primary/20'}`}
+          >
+            <FontAwesome name="wrench" size={15} color={showTools ? 'white' : 'var(--color-primary)'} />
+          </TouchableOpacity>
+        </View>
 
-           {hasPermission('manage_notifications') && (
-             <TouchableOpacity
-               onPress={() => router.push('/admin/notifications' as any)}
-               className="bg-brand-primary/10 p-2.5 rounded-xl border border-brand-primary/20"
-             >
-               <FontAwesome name="bell" size={15} className="text-brand-primary" />
-             </TouchableOpacity>
-           )}
-           {hasPermission('role.manage') && (
-             <TouchableOpacity
-               onPress={() => router.push('/admin/roles')}
-               className="bg-brand-primary/10 p-2.5 rounded-xl border border-brand-primary/20"
-             >
-               <FontAwesome name="shield" size={15} className="text-brand-primary" />
-             </TouchableOpacity>
-           )}
-           <TouchableOpacity
-             onPress={() => setShowFilters(v => !v)}
-             className={`p-2.5 rounded-xl border flex-row items-center gap-1.5 ${showFilters || activeFilterCount > 0 ? 'bg-brand-primary/10 border-brand-primary' : 'bg-brand-primary/10 border-brand-primary/20'}`}
-           >
-             <FontAwesome name="sliders" size={15} color={showFilters || activeFilterCount > 0 ? 'var(--color-primary)' : 'var(--color-primary)'} />
-             {activeFilterCount > 0 && (
-               <View className="bg-brand-primary rounded-full w-4 h-4 items-center justify-center">
-                 <Text className="text-white text-[9px] font-black">{activeFilterCount}</Text>
-               </View>
-             )}
-           </TouchableOpacity>
-           <TouchableOpacity
-             onPress={() => setShowPersonalizer(true)}
-             className="bg-brand-primary/10 p-2.5 rounded-xl border border-brand-primary/20"
-           >
-             <FontAwesome name="paint-brush" size={15} className="text-brand-primary" />
-           </TouchableOpacity>
-           {hasPermission('pipeline.edit') && (
-             <TouchableOpacity
-               onPress={() => router.push('/admin/pipelines')}
-               className="bg-brand-primary/10 p-2.5 rounded-xl border border-brand-primary/20"
-             >
-               <FontAwesome name="cog" size={15} className="text-brand-primary" />
-             </TouchableOpacity>
-           )}
-           {hasPermission('task.create') && (
-             <TouchableOpacity
-               onPress={handleCreateTask}
-               className="bg-brand-primary w-9 h-9 rounded-xl items-center justify-center"
-             >
-               <FontAwesome name="plus" size={15} color="white" />
-             </TouchableOpacity>
-           )}
-        </ScrollView>
+        {/* Row 2: tools tray — only visible when toggled */}
+        {showTools && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ gap: 8, alignItems: 'center', paddingTop: 10 }}
+          >
+            {hasPermission('manage_notifications') && (
+              <TouchableOpacity
+                onPress={() => router.push('/admin/notifications' as any)}
+                className="bg-brand-primary/10 p-2.5 rounded-xl border border-brand-primary/20"
+              >
+                <FontAwesome name="bell" size={15} className="text-brand-primary" />
+              </TouchableOpacity>
+            )}
+            {hasPermission('role.manage') && (
+              <TouchableOpacity
+                onPress={() => router.push('/admin/roles')}
+                className="bg-brand-primary/10 p-2.5 rounded-xl border border-brand-primary/20"
+              >
+                <FontAwesome name="shield" size={15} className="text-brand-primary" />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              onPress={() => setMineOnly(v => !v)}
+              className={`p-2.5 rounded-xl border ${mineOnly ? 'bg-brand-primary border-brand-primary' : 'bg-brand-primary/10 border-brand-primary/20'}`}
+            >
+              <FontAwesome name="user" size={13} color={mineOnly ? 'white' : 'var(--color-primary)'} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {
+                const next = !showSearch;
+                setShowSearch(next);
+                if (!next) { setSearchQuery(''); Keyboard.dismiss(); }
+              }}
+              className={`p-2.5 rounded-xl border ${showSearch || searchQuery ? 'bg-brand-primary/10 border-brand-primary' : 'bg-brand-primary/10 border-brand-primary/20'}`}
+            >
+              <FontAwesome name="search" size={13} color={showSearch || searchQuery ? 'var(--color-primary)' : 'var(--color-text-muted)'} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setShowFilters(v => !v)}
+              className={`p-2.5 rounded-xl border flex-row items-center gap-1.5 ${showFilters || activeFilterCount > 0 ? 'bg-brand-primary/10 border-brand-primary' : 'bg-brand-primary/10 border-brand-primary/20'}`}
+            >
+              <FontAwesome name="sliders" size={15} color="var(--color-primary)" />
+              {activeFilterCount > 0 && (
+                <View className="bg-brand-primary rounded-full w-4 h-4 items-center justify-center">
+                  <Text className="text-white text-[9px] font-black">{activeFilterCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setShowPersonalizer(true)}
+              className="bg-brand-primary/10 p-2.5 rounded-xl border border-brand-primary/20"
+            >
+              <FontAwesome name="paint-brush" size={15} className="text-brand-primary" />
+            </TouchableOpacity>
+            {hasPermission('pipeline.edit') && (
+              <TouchableOpacity
+                onPress={() => router.push('/admin/pipelines')}
+                className="bg-brand-primary/10 p-2.5 rounded-xl border border-brand-primary/20"
+              >
+                <FontAwesome name="cog" size={15} className="text-brand-primary" />
+              </TouchableOpacity>
+            )}
+            {hasPermission('task.create') && (
+              <TouchableOpacity
+                onPress={handleCreateTask}
+                className="bg-brand-primary w-9 h-9 rounded-xl items-center justify-center"
+              >
+                <FontAwesome name="plus" size={15} color="white" />
+              </TouchableOpacity>
+            )}
+          </ScrollView>
+        )}
       </View>
+
+      {/* Search Bar — only shown when toggled */}
+      {showSearch && (
+        <View className="mx-4 mb-2 flex-row items-center bg-surface-card border border-surface-border rounded-xl px-4 py-2.5 gap-3">
+          <FontAwesome name="search" size={13} className="text-typography-muted" />
+          <TextInput
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Search tasks..."
+            placeholderTextColor="var(--color-text-dim)"
+            className="flex-1 text-typography-main text-sm font-bold"
+            returnKeyType="search"
+            clearButtonMode="while-editing"
+            autoFocus
+            onBlur={() => { if (!searchQuery) setShowSearch(false); }}
+          />
+          {searchQuery.length > 0 && Platform.OS !== 'ios' && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <FontAwesome name="times-circle" size={14} className="text-typography-muted" />
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
 
       {/* PIPELINE PICKER MODAL */}
       {showPipelinePicker && (

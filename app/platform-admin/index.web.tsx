@@ -5,12 +5,17 @@ import {
     healthLabel,
     timeAgo,
     deleteCompany,
+    deleteUser,
+    moveUser,
+    updateUser,
     useCompanyDetail,
     useControlPlaneData,
     useLiveSessions,
     useTimeline,
+    useUsersData,
     workspaceAge,
     type CompanyOverview,
+    type PlatformUser,
     type Section,
     type SignalMetric,
     type SortKey,
@@ -681,11 +686,502 @@ function LiveSection() {
   );
 }
 
+// ── Users Section ─────────────────────────────────────────────────────────
+
+const WORK_STATUSES = ['available', 'busy', 'away', 'do_not_disturb', 'offline'];
+
+function UserAvatar({ user, size = 40 }: { user: PlatformUser; size?: number }) {
+  const initials = (user.display_name || user.full_name || user.email)
+    .split(/\s+/)
+    .slice(0, 2)
+    .map(w => w[0]?.toUpperCase() ?? '')
+    .join('');
+  if (user.avatar_url) {
+    return (
+      <View style={{ width: size, height: size, borderRadius: size / 2, overflow: 'hidden', backgroundColor: 'rgba(99,102,241,0.2)' }}>
+        {/* eslint-disable-next-line @typescript-eslint/no-require-imports */}
+        <img src={user.avatar_url} style={{ width: size, height: size, objectFit: 'cover' } as any} />
+      </View>
+    );
+  }
+  return (
+    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: 'rgba(99,102,241,0.2)', alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={{ color: 'rgb(99,102,241)', fontWeight: '900', fontSize: size * 0.35 }}>{initials || '?'}</Text>
+    </View>
+  );
+}
+
+function EditField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <View className="mb-3">
+      <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-1">{label}</Text>
+      <View className="bg-surface-overlay border border-surface-border rounded-xl px-3 py-2">
+        {/* @ts-ignore — web-only input */}
+        <input
+          value={value}
+          onChange={(e: any) => onChange(e.target.value)}
+          style={{ background: 'transparent', border: 'none', outline: 'none', color: 'inherit', fontSize: 13, fontWeight: '600', width: '100%' } as any}
+        />
+      </View>
+    </View>
+  );
+}
+
+function UserDetailPanel({
+  user,
+  companies,
+  onClose,
+  onDeleted,
+  onUpdated,
+}: {
+  user: PlatformUser | null;
+  companies: CompanyOverview[];
+  onClose: () => void;
+  onDeleted: () => void;
+  onUpdated: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [showMoveDropdown, setShowMoveDropdown] = useState(false);
+  const [moving, setMoving] = useState(false);
+  const [form, setForm] = useState({ full_name: '', display_name: '', phone: '', job_title: '', department: '', work_status: '', is_active: true });
+
+  React.useEffect(() => {
+    if (user) {
+      setForm({
+        full_name:    user.full_name    ?? '',
+        display_name: user.display_name ?? '',
+        phone:        user.phone        ?? '',
+        job_title:    user.job_title    ?? '',
+        department:   user.department   ?? '',
+        work_status:  user.work_status  ?? '',
+        is_active:    user.is_active,
+      });
+      setEditing(false);
+      setConfirmDelete(false);
+      setShowMoveDropdown(false);
+    }
+  }, [user?.id]);
+
+  const handleSave = async () => {
+    if (!user) return;
+    setSaving(true);
+    await updateUser(user.id, form);
+    setSaving(false);
+    setEditing(false);
+    onUpdated();
+  };
+
+  const handleDelete = async () => {
+    if (!user) return;
+    setDeleting(true);
+    await deleteUser(user.id);
+    setDeleting(false);
+    onDeleted();
+  };
+
+  const handleMove = async (companyId: string) => {
+    if (!user) return;
+    setMoving(true);
+    setShowMoveDropdown(false);
+    await moveUser(user.id, companyId);
+    setMoving(false);
+    onUpdated();
+  };
+
+  if (!user) return null;
+
+  const otherCompanies = companies.filter(c => c.id !== user.company_id);
+
+  return (
+    <Modal visible={!!user} transparent animationType="fade">
+      <Pressable className="flex-1 bg-black/60" onPress={onClose}>
+        <Pressable
+          className="absolute right-0 top-0 bottom-0 bg-surface-background border-l border-surface-border"
+          style={{ width: 480 }}
+          onPress={e => e.stopPropagation()}
+        >
+          {/* Header */}
+          <View className="px-8 pt-8 pb-5 border-b border-surface-border flex-row items-center gap-4">
+            <UserAvatar user={user} size={48} />
+            <View className="flex-1">
+              <Text className="text-typography-main font-black text-xl tracking-tight" numberOfLines={1}>
+                {user.display_name || user.full_name || 'Unnamed User'}
+              </Text>
+              <Text className="text-typography-muted text-xs mt-0.5" numberOfLines={1}>{user.email}</Text>
+            </View>
+            <View className="flex-row items-center gap-2">
+              {!editing ? (
+                <TouchableOpacity
+                  onPress={() => setEditing(true)}
+                  className="flex-row items-center gap-2 px-3 py-2 bg-surface-card border border-surface-border rounded-xl hover:bg-surface-overlay transition-colors"
+                >
+                  <FontAwesome name="pencil" size={11} className="text-typography-muted" />
+                  <Text className="text-typography-muted text-xs font-bold">Edit</Text>
+                </TouchableOpacity>
+              ) : (
+                <View className="flex-row gap-2">
+                  <TouchableOpacity
+                    onPress={() => setEditing(false)}
+                    disabled={saving}
+                    className="px-3 py-2 bg-surface-card border border-surface-border rounded-xl hover:bg-surface-overlay transition-colors"
+                  >
+                    <Text className="text-typography-muted text-xs font-bold">Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={handleSave}
+                    disabled={saving}
+                    className="flex-row items-center gap-2 px-3 py-2 bg-brand-primary rounded-xl hover:opacity-80 transition-opacity"
+                  >
+                    {saving
+                      ? <ActivityIndicator size="small" color="#fff" />
+                      : <Text className="text-white text-xs font-black">Save</Text>
+                    }
+                  </TouchableOpacity>
+                </View>
+              )}
+              <TouchableOpacity
+                onPress={onClose}
+                className="w-9 h-9 bg-surface-card border border-surface-border rounded-full items-center justify-center"
+              >
+                <FontAwesome name="times" size={13} className="text-typography-muted" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+            {/* Status badges */}
+            <View className="flex-row items-center gap-2 px-8 pt-5 pb-3">
+              <View className={`px-2.5 py-1 rounded-full ${user.is_active ? 'bg-state-success/10' : 'bg-state-danger/10'}`}>
+                <Text className={`text-[10px] font-black uppercase tracking-wide ${user.is_active ? 'text-state-success' : 'text-state-danger'}`}>
+                  {user.is_active ? 'Active' : 'Inactive'}
+                </Text>
+              </View>
+              {user.is_owner && (
+                <View className="bg-brand-primary-dim px-2.5 py-1 rounded-full border border-brand-primary/20">
+                  <Text className="text-brand-primary text-[10px] font-black uppercase tracking-wide">Owner</Text>
+                </View>
+              )}
+              {user.work_status && !editing && (
+                <View className="bg-surface-overlay px-2.5 py-1 rounded-full">
+                  <Text className="text-typography-muted text-[10px] font-bold capitalize">{user.work_status.replace(/_/g, ' ')}</Text>
+                </View>
+              )}
+            </View>
+
+            <View className="h-px bg-surface-border mx-8" />
+
+            {/* Fields */}
+            <View className="px-8 pt-5">
+              {editing ? (
+                <>
+                  <EditField label="Full Name" value={form.full_name} onChange={v => setForm(f => ({ ...f, full_name: v }))} />
+                  <EditField label="Display Name" value={form.display_name} onChange={v => setForm(f => ({ ...f, display_name: v }))} />
+                  <EditField label="Phone" value={form.phone} onChange={v => setForm(f => ({ ...f, phone: v }))} />
+                  <EditField label="Job Title" value={form.job_title} onChange={v => setForm(f => ({ ...f, job_title: v }))} />
+                  <EditField label="Department" value={form.department} onChange={v => setForm(f => ({ ...f, department: v }))} />
+
+                  <View className="mb-3">
+                    <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-1">Work Status</Text>
+                    <View className="flex-row flex-wrap gap-2">
+                      {WORK_STATUSES.map(s => (
+                        <TouchableOpacity
+                          key={s}
+                          onPress={() => setForm(f => ({ ...f, work_status: s }))}
+                          className={`px-3 py-1.5 rounded-xl border transition-colors ${form.work_status === s ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border hover:bg-surface-overlay'}`}
+                        >
+                          <Text className={`text-[11px] font-bold capitalize ${form.work_status === s ? 'text-white' : 'text-typography-muted'}`}>
+                            {s.replace(/_/g, ' ')}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+
+                  <View className="mb-4">
+                    <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Account Status</Text>
+                    <TouchableOpacity
+                      onPress={() => setForm(f => ({ ...f, is_active: !f.is_active }))}
+                      className={`flex-row items-center gap-3 px-4 py-3 rounded-xl border transition-colors ${form.is_active ? 'bg-state-success/10 border-state-success/20' : 'bg-state-danger/10 border-state-danger/20'}`}
+                    >
+                      <View className={`w-4 h-4 rounded-full border-2 items-center justify-center ${form.is_active ? 'border-state-success bg-state-success' : 'border-state-danger bg-state-danger'}`}>
+                        {form.is_active && <FontAwesome name="check" size={8} className="text-white" />}
+                      </View>
+                      <Text className={`text-xs font-bold ${form.is_active ? 'text-state-success' : 'text-state-danger'}`}>
+                        {form.is_active ? 'Account is active' : 'Account is disabled'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              ) : (
+                <>
+                  {[
+                    { icon: 'building-o', label: 'Workspace', value: user.company_name ?? 'No workspace' },
+                    { icon: 'briefcase', label: 'Job Title', value: user.job_title ?? '—' },
+                    { icon: 'sitemap', label: 'Department', value: user.department ?? '—' },
+                    { icon: 'phone', label: 'Phone', value: user.phone ?? '—' },
+                    { icon: 'calendar', label: 'Joined', value: new Date(user.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) },
+                    { icon: 'clock-o', label: 'Last Seen', value: timeAgo(user.last_seen_at) },
+                  ].map((row, idx, arr) => (
+                    <View key={row.label}>
+                      <View className="flex-row items-center py-3 gap-3">
+                        <FontAwesome name={row.icon as any} size={11} className="text-brand-accent/40" style={{ width: 14 }} />
+                        <Text className="text-typography-muted text-sm w-24">{row.label}</Text>
+                        <Text className="text-typography-main font-bold text-sm flex-1" numberOfLines={1}>{row.value}</Text>
+                      </View>
+                      {idx < arr.length - 1 && <View className="h-px bg-surface-border" />}
+                    </View>
+                  ))}
+                </>
+              )}
+            </View>
+
+            {!editing && (
+              <>
+                <View className="h-px bg-surface-border mx-8 mt-2" />
+
+                {/* Move to workspace */}
+                <View className="px-8 py-5">
+                  <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-3">Move to Workspace</Text>
+                  {moving ? (
+                    <View className="flex-row items-center gap-2 py-2">
+                      <ActivityIndicator size="small" color="var(--color-primary)" />
+                      <Text className="text-typography-muted text-xs">Moving user...</Text>
+                    </View>
+                  ) : showMoveDropdown ? (
+                    <View className="bg-surface-card rounded-2xl border border-surface-border overflow-hidden">
+                      <View className="px-4 py-3 border-b border-surface-border flex-row items-center justify-between">
+                        <Text className="text-typography-main font-bold text-xs">Select destination workspace</Text>
+                        <TouchableOpacity onPress={() => setShowMoveDropdown(false)}>
+                          <FontAwesome name="times" size={11} className="text-typography-muted" />
+                        </TouchableOpacity>
+                      </View>
+                      <ScrollView style={{ maxHeight: 200 }}>
+                        {otherCompanies.length === 0 && (
+                          <Text className="text-typography-dim text-xs text-center py-4">No other workspaces available</Text>
+                        )}
+                        {otherCompanies.map(c => (
+                          <TouchableOpacity
+                            key={c.id}
+                            onPress={() => handleMove(c.id)}
+                            className="flex-row items-center justify-between px-4 py-3 border-b border-surface-border hover:bg-surface-overlay transition-colors"
+                          >
+                            <View>
+                              <Text className="text-typography-main font-bold text-sm">{c.name}</Text>
+                              <Text className="text-typography-dim text-[10px]">{c.user_count} members</Text>
+                            </View>
+                            <FontAwesome name="chevron-right" size={9} className="text-typography-dim" />
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      onPress={() => setShowMoveDropdown(true)}
+                      className="flex-row items-center gap-2 self-start px-4 py-2 rounded-xl border border-surface-border bg-surface-card hover:bg-surface-overlay transition-colors"
+                    >
+                      <FontAwesome name="exchange" size={11} className="text-typography-muted" />
+                      <Text className="text-typography-muted text-xs font-bold">Change Workspace</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                <View className="h-px bg-surface-border mx-8" />
+
+                {/* Danger zone */}
+                <View className="px-8 py-6">
+                  {!confirmDelete ? (
+                    <TouchableOpacity
+                      onPress={() => setConfirmDelete(true)}
+                      className="flex-row items-center gap-2 self-start px-4 py-2 rounded-xl border border-state-danger/30 bg-state-danger/5 hover:bg-state-danger/10 transition-colors"
+                    >
+                      <FontAwesome name="trash" size={11} className="text-state-danger" />
+                      <Text className="text-state-danger text-xs font-bold">Delete User</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <View className="rounded-2xl border border-state-danger/30 bg-state-danger/5 p-4 gap-3">
+                      <View className="flex-row items-center gap-2">
+                        <FontAwesome name="exclamation-triangle" size={12} className="text-state-danger" />
+                        <Text className="text-state-danger text-xs font-black">This cannot be undone</Text>
+                      </View>
+                      <Text className="text-typography-muted text-xs leading-5">
+                        Deleting <Text className="text-typography-main font-bold">{user.display_name || user.full_name || user.email}</Text> will permanently remove their account, all tasks, sessions, and data.
+                      </Text>
+                      <View className="flex-row gap-2 mt-1">
+                        <TouchableOpacity
+                          onPress={() => setConfirmDelete(false)}
+                          disabled={deleting}
+                          className="flex-1 items-center py-2 rounded-xl border border-surface-border bg-surface-card hover:bg-surface-overlay transition-colors"
+                        >
+                          <Text className="text-typography-muted text-xs font-bold">Cancel</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={handleDelete}
+                          disabled={deleting}
+                          className="flex-1 items-center py-2 rounded-xl bg-state-danger hover:opacity-80 transition-opacity"
+                        >
+                          {deleting
+                            ? <ActivityIndicator size="small" color="#fff" />
+                            : <Text className="text-white text-xs font-black">Confirm Delete</Text>
+                          }
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
+                </View>
+              </>
+            )}
+          </ScrollView>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+function UsersSection({ companies, onUserDeleted }: { companies: CompanyOverview[]; onUserDeleted: () => void }) {
+  const { query, setQuery, companyFilter, setCompanyFilter, users, loading, refetch } = useUsersData();
+  const [selectedUser, setSelectedUser] = useState<PlatformUser | null>(null);
+
+  const activeCount = users.filter(u => u.is_active).length;
+
+  return (
+    <>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 32, paddingBottom: 48 }}>
+        {/* Search + filter bar */}
+        <View className="flex-row items-center gap-3 mb-6">
+          <View className="flex-1 flex-row items-center gap-2 bg-surface-card border border-surface-border rounded-xl px-4 py-2.5">
+            <FontAwesome name="search" size={12} className="text-typography-muted" />
+            {/* @ts-ignore */}
+            <input
+              value={query}
+              onChange={(e: any) => setQuery(e.target.value)}
+              placeholder="Search by name or email…"
+              style={{ background: 'transparent', border: 'none', outline: 'none', color: 'inherit', fontSize: 13, flex: 1, fontWeight: '500' } as any}
+            />
+            {query.length > 0 && (
+              <TouchableOpacity onPress={() => setQuery('')}>
+                <FontAwesome name="times-circle" size={12} className="text-typography-dim" />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Company filter */}
+          <View className="relative">
+            <TouchableOpacity
+              onPress={() => setCompanyFilter(null)}
+              className={`flex-row items-center gap-2 px-4 py-2.5 rounded-xl border transition-colors ${!companyFilter ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border hover:bg-surface-overlay'}`}
+            >
+              <Text className={`text-xs font-bold ${!companyFilter ? 'text-white' : 'text-typography-muted'}`}>All Workspaces</Text>
+            </TouchableOpacity>
+          </View>
+
+          {loading && <ActivityIndicator size="small" color="var(--color-primary)" />}
+        </View>
+
+        {/* Workspace filter pills */}
+        {companies.length > 0 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
+            <View className="flex-row gap-2">
+              {companies.map(c => (
+                <TouchableOpacity
+                  key={c.id}
+                  onPress={() => setCompanyFilter(companyFilter === c.id ? null : c.id)}
+                  className={`flex-row items-center gap-1.5 px-3 py-1.5 rounded-xl border transition-colors ${companyFilter === c.id ? 'bg-brand-primary/20 border-brand-primary/40' : 'bg-surface-card border-surface-border hover:bg-surface-overlay'}`}
+                >
+                  <Text className={`text-[11px] font-bold ${companyFilter === c.id ? 'text-brand-primary' : 'text-typography-muted'}`}>{c.name}</Text>
+                  <Text className={`text-[10px] ${companyFilter === c.id ? 'text-brand-primary/70' : 'text-typography-dim'}`}>{c.user_count}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </ScrollView>
+        )}
+
+        {/* Summary */}
+        <View className="flex-row gap-4 mb-6">
+          <View className="flex-1 bg-surface-card rounded-2xl border border-surface-border px-5 py-4 flex-row items-center gap-3">
+            <FontAwesome name="users" size={14} className="text-brand-accent/40" />
+            <View>
+              <Text className="text-typography-main font-black text-2xl">{fmtNumber(users.length)}</Text>
+              <Text className="text-typography-muted text-[10px] uppercase tracking-wide">total users</Text>
+            </View>
+          </View>
+          <View className="flex-1 bg-surface-card rounded-2xl border border-surface-border px-5 py-4 flex-row items-center gap-3">
+            <View className="w-3 h-3 rounded-full bg-state-success" />
+            <View>
+              <Text className="text-typography-main font-black text-2xl">{fmtNumber(activeCount)}</Text>
+              <Text className="text-typography-muted text-[10px] uppercase tracking-wide">active</Text>
+            </View>
+          </View>
+          <View className="flex-1 bg-surface-card rounded-2xl border border-surface-border px-5 py-4 flex-row items-center gap-3">
+            <View className="w-3 h-3 rounded-full bg-state-danger" />
+            <View>
+              <Text className="text-typography-main font-black text-2xl">{fmtNumber(users.length - activeCount)}</Text>
+              <Text className="text-typography-muted text-[10px] uppercase tracking-wide">inactive</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* User rows */}
+        {users.length === 0 && !loading && (
+          <View className="items-center py-20">
+            <FontAwesome name="user-o" size={36} className="text-typography-dim" />
+            <Text className="text-typography-dim mt-4 text-sm">
+              {query ? 'No users match your search' : 'No users found'}
+            </Text>
+          </View>
+        )}
+
+        <View className="bg-surface-card rounded-2xl border border-surface-border overflow-hidden">
+          {users.map((u, idx) => (
+            <TouchableOpacity
+              key={u.id}
+              onPress={() => setSelectedUser(u)}
+              className={`flex-row items-center gap-4 px-5 py-4 hover:bg-surface-overlay transition-colors ${idx < users.length - 1 ? 'border-b border-surface-border' : ''}`}
+            >
+              <UserAvatar user={u} size={36} />
+              <View className="flex-1 min-w-0">
+                <View className="flex-row items-center gap-2 mb-0.5">
+                  <Text className="text-typography-main font-bold text-sm" numberOfLines={1}>
+                    {u.display_name || u.full_name || 'Unnamed'}
+                  </Text>
+                  {u.is_owner && (
+                    <View className="bg-brand-primary-dim px-1.5 py-0.5 rounded-md">
+                      <Text className="text-brand-primary text-[9px] font-black uppercase">Owner</Text>
+                    </View>
+                  )}
+                </View>
+                <Text className="text-typography-muted text-xs" numberOfLines={1}>{u.email}</Text>
+              </View>
+              <View className="items-end gap-1">
+                <Text className="text-typography-dim text-xs" numberOfLines={1}>{u.company_name ?? '—'}</Text>
+                {u.job_title && <Text className="text-typography-dim text-[10px]" numberOfLines={1}>{u.job_title}</Text>}
+              </View>
+              <View className={`w-2 h-2 rounded-full ml-2 ${u.is_active ? 'bg-state-success' : 'bg-surface-border'}`} />
+              <FontAwesome name="chevron-right" size={9} className="text-typography-dim" />
+            </TouchableOpacity>
+          ))}
+        </View>
+      </ScrollView>
+
+      <UserDetailPanel
+        user={selectedUser}
+        companies={companies}
+        onClose={() => setSelectedUser(null)}
+        onDeleted={() => { setSelectedUser(null); refetch(); onUserDeleted(); }}
+        onUpdated={() => { refetch(); setSelectedUser(null); }}
+      />
+    </>
+  );
+}
+
 // ── Sidebar ────────────────────────────────────────────────────────────────
 
 const NAV_ITEMS: { id: Section; label: string; icon: string }[] = [
   { id: 'command', label: 'Command', icon: 'tachometer' },
   { id: 'tenants', label: 'Tenants', icon: 'building' },
+  { id: 'users',   label: 'Users',   icon: 'users' },
   { id: 'signals', label: 'Signals', icon: 'line-chart' },
   { id: 'live',    label: 'Live',    icon: 'circle' },
 ];
@@ -802,6 +1298,9 @@ export default function PlatformAdminWebScreen() {
           )}
           {section === 'tenants' && (
             <TenantsSection companies={companies} loading={loading} onCompanyDeleted={fetchCompanies} />
+          )}
+          {section === 'users' && (
+            <UsersSection companies={companies} onUserDeleted={fetchCompanies} />
           )}
           {section === 'signals' && <SignalsSection />}
           {section === 'live' && <LiveSection />}

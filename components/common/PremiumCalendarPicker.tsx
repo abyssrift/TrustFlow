@@ -91,7 +91,7 @@ export default function PremiumCalendarPicker({ selectedDate, onSelect, accentCo
   };
 
   const MonthGrid = ({ days, y, m, title }: { days: (number | null)[], y: number, m: number, title: string }) => (
-    <View className={`flex-1 ${isDesktop ? 'px-6' : 'p-4'}`}>
+    <View className={`${isDesktop ? 'flex-1 px-6' : 'p-4'}`}>
       <View className="items-center mb-6">
         <Text className="text-typography-main font-black text-sm uppercase tracking-[0.2em]">{title}</Text>
         <Text className="text-typography-muted text-[10px] font-bold mt-1 opacity-60">{y}</Text>
@@ -137,7 +137,7 @@ export default function PremiumCalendarPicker({ selectedDate, onSelect, accentCo
   );
 
   return (
-    <View className={`bg-surface-card rounded-[2.5rem] border border-surface-border overflow-hidden premium-shadow ${isDesktop ? 'flex-row' : 'flex-col'}`}>
+    <View className={`bg-surface-card rounded-[2.5rem] border border-surface-border ${compact ? '' : 'overflow-hidden'} premium-shadow ${isDesktop ? 'flex-row' : 'flex-col'}`}>
       
       {/* Sidebar - Desktop Only */}
       {isDesktop && (
@@ -163,7 +163,7 @@ export default function PremiumCalendarPicker({ selectedDate, onSelect, accentCo
       )}
 
       {/* Main Calendar Area */}
-      <View className="flex-1">
+      <View className={compact ? undefined : 'flex-1'}>
         {/* Header (Nav Controls) */}
         <View className="bg-surface-background/30 p-5 flex-row items-center justify-between border-b border-surface-border">
           <TouchableOpacity 

@@ -11,6 +11,7 @@ type AuthContextType = {
   /** UUIDs of the roles assigned to the current user */
   roleIds: string[];
   initialized: boolean;
+  permissionsLoaded: boolean;
   hasPermission: (key: string) => boolean;
   /** Returns true if the user holds the given role UUID */
   hasRole: (roleId: string) => boolean;
@@ -25,6 +26,7 @@ const AuthContext = createContext<AuthContextType>({
   permissions: [],
   roleIds: [],
   initialized: false,
+  permissionsLoaded: false,
   hasPermission: () => false,
   hasRole: () => false,
   signOut: async () => {},
@@ -38,6 +40,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<any | null>(null);
   const [permissions, setPermissions] = useState<string[]>([]);
+  const [permissionsLoaded, setPermissionsLoaded] = useState<boolean>(false);
   const [roleIds, setRoleIds] = useState<string[]>([]);
   const [initialized, setInitialized] = useState<boolean>(false);
 
@@ -169,6 +172,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setPermissions(perms);
     } catch (err) {
       console.error('[AuthContext] Unexpected permissions error:', err);
+    } finally {
+      setPermissionsLoaded(true);
     }
   };
 
@@ -198,6 +203,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUser(null);
       setProfile(null);
       setPermissions([]);
+      setPermissionsLoaded(false);
       setRoleIds([]);
       setInitialized(true);
     } catch (err) {
@@ -206,6 +212,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUser(null);
       setProfile(null);
       setPermissions([]);
+      setPermissionsLoaded(false);
       setRoleIds([]);
       setInitialized(true);
     }
@@ -218,6 +225,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         user,
         profile,
         permissions,
+        permissionsLoaded,
         roleIds,
         initialized,
         hasPermission,

@@ -89,7 +89,7 @@ export default function PeopleScreen() {
 
   return (
     <View className="flex-1 bg-surface-background">
-      <View>
+      <View className="flex-1">
       <View className="px-6 pb-4" style={{ paddingTop: Platform.OS !== 'web' ? 54 : 16 }}>
         <View className="flex-row items-center justify-between mb-4">
           <View>
@@ -178,12 +178,11 @@ export default function PeopleScreen() {
           </View>
         </View>
       ) : (
-        <ScrollView className="flex-1 px-6">
+        <View className="flex-1 px-6">
           <RoleManagerProvider>
             <TeamWorkspaceContent section={activeSection} />
           </RoleManagerProvider>
-          <View className="h-6" />
-        </ScrollView>
+        </View>
       )}
     </View>
     </View>

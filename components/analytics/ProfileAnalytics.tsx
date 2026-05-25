@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ActivityIndicator } from 'react-native';
-import { useAnalytics, PerformancePeriod } from '@/contexts/AnalyticsContext';
+import { View, Text, ActivityIndicator, ScrollView, TouchableOpacity } from 'react-native';
+import { useAnalytics, PerformancePeriod, CompanyHistoryEntry } from '@/contexts/AnalyticsContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { PerformanceChart } from './PerformanceChart';
 import { TimerDeliverabilityChart } from './TimerDeliverabilityChart';
 import { PeriodToggle } from './PeriodToggle';
@@ -44,27 +45,42 @@ function buildConclusion(
 }
 
 export function ProfileAnalytics({ userId }: ProfileAnalyticsProps) {
-  const { getUserPerformanceSeries, invalidate } = useAnalytics();
+  const { getUserPerformanceSeries, getUserCompanyHistory, invalidate } = useAnalytics();
+  const { profile } = useAuth();
   const [period, setPeriod] = useState('month');
+  const [companies, setCompanies] = useState<CompanyHistoryEntry[]>([]);
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(profile?.company_id ?? null);
   const [series, setSeries] = useState<PerformancePeriod[]>([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!userId) return;
+    getUserCompanyHistory(userId).then(data => {
+      setCompanies(data ?? []);
+    });
+  }, [userId]);
 
   const load = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
     try {
-      const data = await getUserPerformanceSeries(userId, period, 6);
+      const data = await getUserPerformanceSeries(userId, period, 6, selectedCompanyId);
       setSeries(data ?? []);
     } finally {
       setLoading(false);
     }
-  }, [userId, period]);
+  }, [userId, period, selectedCompanyId]);
 
   useEffect(() => { load(); }, [load]);
 
   const handlePeriodChange = (p: string) => {
     setPeriod(p);
     invalidate(`series:${userId}:${p}`);
+  };
+
+  const handleCompanyChange = (id: string | null) => {
+    setSelectedCompanyId(id);
+    invalidate(`series:${userId}`);
   };
 
   const current = series.find(r => r.is_current_period) ?? series[0];
@@ -103,6 +119,32 @@ export function ProfileAnalytics({ userId }: ProfileAnalyticsProps) {
 
   return (
     <View className="gap-6">
+      {companies.length > 1 && (
+        <View className="gap-2">
+          <Text className="text-[9px] font-black uppercase tracking-widest text-typography-dim ml-1">Workspace</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="flex-row gap-2">
+            <TouchableOpacity
+              onPress={() => handleCompanyChange(null)}
+              className={`px-4 py-2 rounded-xl border ${selectedCompanyId === null ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border'}`}
+            >
+              <Text className={`text-xs font-black uppercase tracking-widest ${selectedCompanyId === null ? 'text-white' : 'text-typography-muted'}`}>
+                All
+              </Text>
+            </TouchableOpacity>
+            {companies.map(c => (
+              <TouchableOpacity
+                key={c.company_id}
+                onPress={() => handleCompanyChange(c.company_id)}
+                className={`px-4 py-2 rounded-xl border ${selectedCompanyId === c.company_id ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border'}`}
+              >
+                <Text className={`text-xs font-black uppercase tracking-widest ${selectedCompanyId === c.company_id ? 'text-white' : 'text-typography-muted'}`}>
+                  {c.company_name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
       <PeriodToggle value={period} onChange={handlePeriodChange} />
 
       {isAllZero ? (

@@ -989,8 +989,16 @@ function PersonnelTab() {
 // ─── Root Screen ──────────────────────────────────────────────────────────────
 
 export default function AdminAnalyticsWeb() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, permissionsLoaded } = useAuth();
   const [activeTab, setActiveTab] = useState<AdminTab>('pipeline');
+
+  if (!permissionsLoaded) {
+    return (
+      <View className="flex-1 bg-surface-background items-center justify-center">
+        <ActivityIndicator size="large" color="var(--color-primary)" />
+      </View>
+    );
+  }
 
   if (!hasPermission('analytics.view')) {
     return (

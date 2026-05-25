@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, ActivityIndicator } from 'react-native';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
+import { supabase } from '@/lib/supabase';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Text, View } from 'react-native';
 
 type StatItem = {
   label: string;
@@ -13,6 +14,7 @@ type StatItem = {
 
 export default function StatsGrid() {
   const { user } = useAuth();
+  const colors = useThemeColors();
   const [stats, setStats] = useState<StatItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -46,10 +48,10 @@ export default function StatsGrid() {
         const totalHours = (totalSeconds / 3600).toFixed(1);
 
         setStats([
-          { label: 'Tasks Completed', value: completedCount || 0, icon: 'check-circle', color: 'text-state-success' },
-          { label: 'Active Tasks', value: activeCount || 0, icon: 'clock-o', color: 'text-brand-primary' },
-          { label: 'Work Hours', value: `${totalHours}h`, icon: 'hourglass-half', color: 'text-brand-accent' },
-          { label: 'Projects', value: 3, icon: 'briefcase', color: 'text-state-info' }, // Mocked for now
+          { label: 'Tasks Completed', value: completedCount || 0, icon: 'check-circle', color: colors.success },
+          { label: 'Active Tasks', value: activeCount || 0, icon: 'clock-o', color: colors.primary },
+          { label: 'Work Hours', value: `${totalHours}h`, icon: 'hourglass-half', color: colors.accent },
+          { label: 'Projects', value: 3, icon: 'briefcase', color: colors.info }, // Mocked for now
         ]);
       } catch (err) {
         console.error('Error fetching stats:', err);
@@ -64,7 +66,7 @@ export default function StatsGrid() {
   if (loading) {
     return (
       <View className="h-40 items-center justify-center">
-        <ActivityIndicator color="var(--color-primary)" />
+        <ActivityIndicator color={colors.primary} />
       </View>
     );
   }
@@ -78,7 +80,7 @@ export default function StatsGrid() {
         >
           <View className="flex-row items-center justify-between mb-2">
             <View className={`h-8 w-8 items-center justify-center rounded-lg bg-surface-background`}>
-              <FontAwesome name={stat.icon} size={14} className={stat.color} />
+              <FontAwesome name={stat.icon} size={14} color={stat.color} />
             </View>
           </View>
           <Text className="text-2xl font-black text-typography-main">{stat.value}</Text>

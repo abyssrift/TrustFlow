@@ -17,6 +17,7 @@ import {
   Platform,
   ScrollView,
   Text,
+  TextInput,
   TouchableOpacity,
   useWindowDimensions,
   View
@@ -108,6 +109,9 @@ export function TasksScreenWeb() {
   const [showPersonalizer, setShowPersonalizer] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<FilterState>({ priorities: [], categories: [], projectIds: [], managerIds: [] });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [mineOnly, setMineOnly] = useState(false);
+  const [myTeamIds, setMyTeamIds] = useState<string[]>([]);
 
   // Archival State
   const [archiveModal, setArchiveModal] = useState<{ visible: boolean, taskId: string | null }>({ visible: false, taskId: null });
@@ -177,6 +181,7 @@ export function TasksScreenWeb() {
         .eq('user_id', user?.id)
         .is('removed_at', null);
       const myTeamIds = myTeams?.map(mt => mt.team_id) || [];
+      setMyTeamIds(myTeamIds);
 
       // 5. Get tasks with time metrics
       const { data: tasksData } = await supabase
@@ -470,7 +475,7 @@ export function TasksScreenWeb() {
             )}
             {displayMySeconds > 0 && (
               <View className="bg-brand-primary/10 px-2.5 py-1 rounded-lg border border-brand-primary/20 flex-row items-center gap-1">
-                <FontAwesome name="clock-o" size={9} color="var(--color-primary)" />
+                <FontAwesome name="clock-o" size={9} className="text-brand-primary" />
                 <Text className="text-brand-primary text-[10px] font-black">{formatSeconds(displayMySeconds)}</Text>
               </View>
             )}
@@ -500,7 +505,7 @@ export function TasksScreenWeb() {
                 onPress={() => handleOpenAssignments(task)}
                 className="w-7 h-7 items-center justify-center rounded-xl bg-surface-background border border-surface-border hover:bg-brand-primary/10 transition-colors"
               >
-                <FontAwesome name="user-plus" size={10} color="var(--color-text-muted)" />
+                <FontAwesome name="user-plus" size={10} className="text-typography-muted" />
               </TouchableOpacity>
             )}
             {(profile?.is_owner || hasPermission('archive:create') || hasPermission('pipeline.edit')) && (
@@ -516,7 +521,7 @@ export function TasksScreenWeb() {
                 }}
                 className={`w-7 h-7 items-center justify-center rounded-xl border border-surface-border transition-colors ${activeSession?.task_id === task.id ? 'opacity-30 cursor-not-allowed bg-surface-card' : 'bg-surface-background hover:bg-state-warning/10'}`}
               >
-                <FontAwesome name="archive" size={10} color="var(--color-text-muted)" />
+                <FontAwesome name="archive" size={10} className="text-typography-muted" />
               </TouchableOpacity>
             )}
           </View>
@@ -625,37 +630,61 @@ export function TasksScreenWeb() {
               </View>
             </TouchableOpacity>
             
-            <View className="flex-row gap-4">
+            <View className="flex-row gap-4 items-center">
+               {/* Search */}
+               <View className="h-14 px-4 flex-row items-center bg-surface-card border border-surface-border rounded-2xl premium-shadow gap-2" style={{ minWidth: 340 }}>
+                 <FontAwesome name="search" size={14} className="text-typography-muted" />
+                 <TextInput
+                   value={searchQuery}
+                   onChangeText={setSearchQuery}
+                   placeholder="Search tasks..."
+                   placeholderTextColor="var(--color-text-dim)"
+                   className="flex-1 text-typography-main text-sm font-bold"
+                 />
+                 {searchQuery.length > 0 && (
+                   <TouchableOpacity onPress={() => setSearchQuery('')}>
+                     <FontAwesome name="times" size={12} className="text-typography-muted" />
+                   </TouchableOpacity>
+                 )}
+               </View>
+               {/* Mine toggle */}
+               <TouchableOpacity
+                 onPress={() => setMineOnly(v => !v)}
+                 className={`h-14 px-5 items-center justify-center flex-row gap-2 border rounded-2xl premium-shadow transition-all ${mineOnly ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border hover:bg-surface-overlay'}`}
+               >
+                 <FontAwesome name="user" size={14} className={mineOnly ? 'text-white' : 'text-typography-muted'} />
+                 <Text className={`font-black text-xs uppercase tracking-widest ${mineOnly ? 'text-white' : 'text-typography-muted'}`}>Mine</Text>
+               </TouchableOpacity>
                <TouchableOpacity
                  onPress={() => setShowPersonalizer(true)}
                  className="h-14 w-14 items-center justify-center bg-surface-card border border-surface-border rounded-2xl premium-shadow hover:bg-surface-overlay"
                >
-                  <FontAwesome name="paint-brush" size={16} color="var(--color-primary)" />
+                 <FontAwesome name="paint-brush" size={16} className="text-brand-primary" />
                </TouchableOpacity>
                <TouchableOpacity
                  onPress={() => setShowFilters(v => !v)}
                  className={`h-14 px-4 items-center justify-center flex-row gap-2 border rounded-2xl premium-shadow transition-all ${showFilters || activeFilterCount > 0 ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-card border-surface-border hover:bg-surface-overlay'}`}
                >
-                  <FontAwesome name="sliders" size={14} color={showFilters || activeFilterCount > 0 ? 'var(--color-primary)' : 'var(--color-text-muted)'} />
-                  {activeFilterCount > 0 && (
-                    <View className="bg-brand-primary rounded-full w-5 h-5 items-center justify-center">
-                      <Text className="text-white text-[10px] font-black">{activeFilterCount}</Text>
-                    </View>
-                  )}
+                 <FontAwesome name="sliders" size={14} className={showFilters || activeFilterCount > 0 ? 'text-brand-primary' : 'text-typography-muted'} />
+                 {activeFilterCount > 0 && (
+                   <View className="bg-brand-primary rounded-full w-5 h-5 items-center justify-center">
+                     <Text className="text-white text-[10px] font-black">{activeFilterCount}</Text>
+                   </View>
+                 )}
                </TouchableOpacity>
                <TouchableOpacity
                  onPress={onRefresh}
                  className="h-14 w-14 items-center justify-center bg-surface-card border border-surface-border rounded-2xl premium-shadow hover:bg-surface-overlay"
                >
-                  <FontAwesome name="refresh" size={16} color="var(--color-primary)" />
+                 <FontAwesome name="refresh" size={16} className="text-brand-primary" />
                </TouchableOpacity>
                {hasPermission('task.create') && (
-                 <TouchableOpacity 
+                 <TouchableOpacity
                    onPress={handleCreateTask}
-                   className="bg-brand-primary px-8 py-4 rounded-2xl premium-shadow active:scale-95 transition-transform flex-row items-center"
+                   className="bg-brand-primary h-14 px-8 rounded-2xl premium-shadow active:scale-95 transition-transform flex-row items-center gap-2"
                  >
-                    <FontAwesome name="plus" size={12} color="white" />
-                    <Text className="text-white font-black uppercase tracking-widest text-xs">Create Task</Text>
+                   <FontAwesome name="plus" size={12} className="text-white" />
+                   <Text className="text-white font-black uppercase tracking-widest text-xs">Create Task</Text>
                  </TouchableOpacity>
                )}
             </View>
@@ -668,7 +697,7 @@ export function TasksScreenWeb() {
                 <Text className="text-typography-main font-black text-sm uppercase tracking-widest">Filters</Text>
                 {activeFilterCount > 0 && (
                   <TouchableOpacity onPress={clearFilters} className="flex-row items-center gap-1.5 bg-state-danger/10 border border-state-danger/20 px-3 py-1.5 rounded-xl">
-                    <FontAwesome name="times" size={10} color="var(--color-danger)" />
+                    <FontAwesome name="times" size={10} className="text-state-danger" />
                     <Text className="text-state-danger text-[10px] font-black uppercase tracking-wider">Clear All</Text>
                   </TouchableOpacity>
                 )}
@@ -771,7 +800,7 @@ export function TasksScreenWeb() {
             <View className="flex-1 items-center justify-center">
               <View className="bg-surface-card p-12 rounded-[3rem] border border-surface-border items-center max-w-[600px] premium-shadow">
                 <View className="w-20 h-20 bg-brand-primary/10 rounded-full items-center justify-center mb-6">
-                  <FontAwesome name="sitemap" size={32} color="var(--color-primary)" />
+                  <FontAwesome name="sitemap" size={32} className="text-brand-primary" />
                 </View>
                 
                 {hasPermission('pipeline.edit') ? (
@@ -790,7 +819,7 @@ export function TasksScreenWeb() {
                 ) : (
                   <View className="bg-state-info-dim border border-state-info/20 p-8 rounded-3xl w-full">
                     <View className="flex-row items-start">
-                      <FontAwesome name="info-circle" size={20} color="var(--color-info)" style={{ marginTop: 4 }} />
+                      <FontAwesome name="info-circle" size={20} className="text-state-info" style={{ marginTop: 4 }} />
                       <View className="ml-5 flex-1">
                          <Text className="text-typography-main text-lg font-black mb-1">Access Restricted</Text>
                          <Text className="text-typography-muted text-sm font-bold leading-relaxed">
@@ -816,6 +845,11 @@ export function TasksScreenWeb() {
                   if (filters.categories.length > 0 && !filters.categories.includes(t.category)) return false;
                   if (filters.projectIds.length > 0 && !filters.projectIds.includes(t.project_id || '')) return false;
                   if (filters.managerIds.length > 0 && !filters.managerIds.includes(t.manager_id || '')) return false;
+                  if (searchQuery && !t.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+                  if (mineOnly && t.manager_id !== user?.id && !t.assignments?.some((a: any) =>
+                    a.assignee_user_id === user?.id ||
+                    (a.assignee_team_id && myTeamIds.includes(a.assignee_team_id))
+                  )) return false;
                   return true;
                 });
                 return (
@@ -833,7 +867,7 @@ export function TasksScreenWeb() {
                       
                       {stage.linked_pipeline && (
                          <View className="flex-row items-center border border-brand-primary/30 bg-brand-primary/10 px-2 py-0.5 rounded-full">
-                            <FontAwesome name="bolt" size={8} color="var(--color-primary)" />
+                            <FontAwesome name="bolt" size={8} className="text-brand-primary" />
                             <Text className="text-brand-primary text-[8px] font-black ml-1 uppercase">Pushes to {stage.linked_pipeline.name}</Text>
                          </View>
                       )}
@@ -847,7 +881,7 @@ export function TasksScreenWeb() {
                     >
                       {stageTasks.length === 0 ? (
                         <View className="py-20 items-center justify-center opacity-20">
-                           <FontAwesome name="inbox" size={48} color="var(--color-text-muted)" />
+                           <FontAwesome name="inbox" size={48} className="text-typography-muted" />
                            <Text className="text-typography-muted text-xs mt-6 font-black uppercase tracking-widest">No Active Tasks</Text>
                         </View>
                       ) : (
@@ -941,7 +975,7 @@ export function TasksScreenWeb() {
 
       {archiveError && (
         <View className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-state-danger/10 border border-state-danger/30 rounded-2xl px-6 py-4 flex-row items-center gap-3 premium-shadow">
-          <FontAwesome name="exclamation-circle" size={14} color="var(--color-danger)" />
+          <FontAwesome name="exclamation-circle" size={14} className="text-state-danger" />
           <Text className="text-state-danger font-bold text-sm">
             <Text className="font-black uppercase tracking-wider">Archival Failed: </Text>
             {archiveError}

@@ -1,9 +1,12 @@
+import { usePipelineEditor } from '@/contexts/PipelineEditorContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
+import { FontAwesome } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { ActivityIndicator, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { FontAwesome } from '@expo/vector-icons';
-import { usePipelineEditor } from '@/contexts/PipelineEditorContext';
+import { resolveNativeColorToken } from './colorCompat';
 
 export default function TransitionEditor() {
+  const colors = useThemeColors();
   const {
     stages, transitions, permissions, loading, error,
     addTransition, updateTransition, deleteTransition,
@@ -31,7 +34,7 @@ export default function TransitionEditor() {
   };
 
   const stageName = (id: string) => stages.find(s => s.id === id)?.name || '—';
-  const stageColor = (id: string) => stages.find(s => s.id === id)?.color || 'var(--color-text-dim)';
+  const stageColor = (id: string) => resolveNativeColorToken(stages.find(s => s.id === id)?.color || colors.textDim, colors);
 
   // DB stores 'revision'/'failure'; UI buttons use 'warning'/'danger'
   const toUiType = (dbType: string | null): string => {
@@ -41,11 +44,11 @@ export default function TransitionEditor() {
   };
 
   const TYPE_DISPLAY: Record<string, { icon: string; color: string }> = {
-    success:  { icon: 'check-circle',       color: 'var(--color-success)' },
-    warning:  { icon: 'exclamation-circle', color: 'var(--color-warning)' },
-    revision: { icon: 'exclamation-circle', color: 'var(--color-warning)' },
-    danger:   { icon: 'times-circle',       color: 'var(--color-danger)' },
-    failure:  { icon: 'times-circle',       color: 'var(--color-danger)' },
+    success:  { icon: 'check-circle',       color: colors.success },
+    warning:  { icon: 'exclamation-circle', color: colors.warning },
+    revision: { icon: 'exclamation-circle', color: colors.warning },
+    danger:   { icon: 'times-circle',       color: colors.danger },
+    failure:  { icon: 'times-circle',       color: colors.danger },
   };
 
   const handleAdd = async () => {
@@ -90,7 +93,7 @@ export default function TransitionEditor() {
             className="bg-brand-primary-dim px-4 py-2 rounded-sm border border-brand-primary/20 active:bg-brand-primary-dim active:scale-95 transition-all"
           >
             <View className="flex-row items-center">
-              <FontAwesome name="plus" size={10} color="rgb(var(--brand-primary))" />
+              <FontAwesome name="plus" size={10} color={colors.primary} />
               <Text className="text-brand-primary font-bold text-xs ml-2 uppercase tracking-wide">Add Rule</Text>
             </View>
           </TouchableOpacity>
@@ -107,7 +110,7 @@ export default function TransitionEditor() {
       {disconnectedStages.length > 0 && (
         <View className="bg-state-warning-dim border border-state-warning/20 p-3 rounded-xl mb-4">
           <View className="flex-row items-center mb-1">
-            <FontAwesome name="exclamation-triangle" size={12} color="rgb(var(--state-warning))" />
+            <FontAwesome name="exclamation-triangle" size={12} color={colors.warning} />
             <Text className="text-state-warning text-xs font-bold ml-2 uppercase tracking-wide">Disconnected Stages</Text>
           </View>
           <Text className="text-typography-muted text-xs leading-4">
@@ -135,7 +138,7 @@ export default function TransitionEditor() {
                   className={`px-3 py-2 rounded-lg border ${formFrom === s.id ? 'border-brand-primary/40 bg-brand-primary-dim' : 'border-surface-border bg-surface-background'}`}
                 >
                   <View className="flex-row items-center">
-                    <View className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: s.color || 'var(--color-text-dim)' }} />
+                    <View className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: resolveNativeColorToken(s.color, colors) }} />
                     <Text className={`text-xs font-bold ${formFrom === s.id ? 'text-brand-primary' : 'text-typography-muted'}`}>
                       {s.name}
                     </Text>
@@ -169,7 +172,7 @@ export default function TransitionEditor() {
               value={formLabel}
               onChangeText={setFormLabel}
               placeholder="e.g. Approve, Reject, Start Work"
-              placeholderTextColor="var(--color-text-dim)"
+              placeholderTextColor={colors.textDim}
               className="bg-surface-background text-typography-main px-4 py-2.5 rounded-lg border border-surface-border mb-3"
             />
 
@@ -213,10 +216,10 @@ export default function TransitionEditor() {
             <Text className="text-typography-label text-[10px] font-bold uppercase tracking-wider mb-2 mt-2">Visual Style</Text>
             <View className="flex-row gap-2 mb-4">
               {[
-                { id: 'neutral', icon: 'circle-o', color: 'var(--color-text-dim)' },
-                { id: 'success', icon: 'check-circle', color: 'var(--color-success)' },
-                { id: 'warning', icon: 'exclamation-circle', color: 'var(--color-warning)' },
-                { id: 'danger', icon: 'times-circle', color: 'var(--color-danger)' }
+                { id: 'neutral', icon: 'circle-o', color: colors.textDim },
+                { id: 'success', icon: 'check-circle', color: colors.success },
+                { id: 'warning', icon: 'exclamation-circle', color: colors.warning },
+                { id: 'danger', icon: 'times-circle', color: colors.danger }
               ].map(t => (
                 <TouchableOpacity
                   key={t.id}
@@ -245,7 +248,7 @@ export default function TransitionEditor() {
                 disabled={!formFrom || !formTo || !formLabel.trim() || loading}
               >
                 {loading ? (
-                  <ActivityIndicator color="rgb(var(--text-main))" size="small" />
+                  <ActivityIndicator color={colors.textMain} size="small" />
                 ) : (
                   <Text className="text-typography-main font-black text-sm uppercase tracking-wide">Add Rule</Text>
                 )}
@@ -258,7 +261,7 @@ export default function TransitionEditor() {
         {groupedByFromStage.map(({ stage, transitions: trans }) => (
           <View key={stage.id} className="mb-4">
             <View className="flex-row items-center mb-2">
-              <View className="w-2.5 h-2.5 rounded-full mr-2" style={{ backgroundColor: stage.color || 'var(--color-text-dim)' }} />
+              <View className="w-2.5 h-2.5 rounded-full mr-2" style={{ backgroundColor: resolveNativeColorToken(stage.color, colors) }} />
               <Text className="text-typography-label text-xs font-bold uppercase tracking-wider">
                 From {stage.name}
               </Text>
@@ -286,7 +289,7 @@ export default function TransitionEditor() {
                       <Text className={`text-sm ${formPerm ? 'text-typography-main font-bold' : 'text-typography-dim'}`}>
                         {formPerm ? permissions.find(p => p.key === formPerm)?.label || formPerm : 'Anyone can trigger'}
                       </Text>
-                      <FontAwesome name={showPermPicker ? 'chevron-up' : 'chevron-down'} size={10} color="var(--color-text-dim)" />
+                      <FontAwesome name={showPermPicker ? 'chevron-up' : 'chevron-down'} size={10} color={colors.textDim} />
                     </TouchableOpacity>
                     {showPermPicker && (
                       <View className="bg-surface-background border border-surface-border rounded-lg mb-3 max-h-40">
@@ -314,10 +317,10 @@ export default function TransitionEditor() {
                     <Text className="text-typography-label text-[10px] font-bold uppercase tracking-wider mb-2 mt-1">Visual Style</Text>
                     <View className="flex-row gap-2 mb-4">
                       {[
-                        { id: 'neutral', icon: 'circle-o', color: 'var(--color-text-dim)' },
-                        { id: 'success', icon: 'check-circle', color: 'var(--color-success)' },
-                        { id: 'warning', icon: 'exclamation-circle', color: 'var(--color-warning)' },
-                        { id: 'danger', icon: 'times-circle', color: 'var(--color-danger)' }
+                        { id: 'neutral', icon: 'circle-o', color: colors.textDim },
+                        { id: 'success', icon: 'check-circle', color: colors.success },
+                        { id: 'warning', icon: 'exclamation-circle', color: colors.warning },
+                        { id: 'danger', icon: 'times-circle', color: colors.danger }
                       ].map(ty => (
                         <TouchableOpacity
                           key={ty.id}
@@ -344,7 +347,7 @@ export default function TransitionEditor() {
                         className="flex-1 bg-brand-primary py-2 rounded-xl items-center"
                         disabled={loading}
                       >
-                        {loading ? <ActivityIndicator size="small" color="rgb(var(--text-main))" /> : <Text className="text-typography-main font-bold text-sm">Save</Text>}
+                        {loading ? <ActivityIndicator size="small" color={colors.textMain} /> : <Text className="text-typography-main font-bold text-sm">Save</Text>}
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -382,7 +385,7 @@ export default function TransitionEditor() {
                           )}
                           <Text className="text-brand-primary text-xs font-black">{t.label}</Text>
                         </View>
-                        <FontAwesome name="long-arrow-right" size={10} color="rgb(var(--text-dim))" />
+                        <FontAwesome name="long-arrow-right" size={10} color={colors.textDim} />
                         <View className="flex-row items-center">
                           <View className="w-2 h-2 rounded-full mr-1" style={{ backgroundColor: stageColor(t.to_stage_id) }} />
                           <Text className="text-typography-muted text-xs font-bold">{stageName(t.to_stage_id)}</Text>
@@ -390,7 +393,7 @@ export default function TransitionEditor() {
                       </View>
                       {t.required_permission && (
                         <View className="flex-row items-center mt-1.5">
-                          <FontAwesome name="lock" size={8} color="var(--color-warning)" />
+                          <FontAwesome name="lock" size={8} color={colors.warning} />
                           <Text className="text-typography-dim text-[10px] ml-1.5">
                             Requires: {permissions.find(p => p.key === t.required_permission)?.label || t.required_permission}
                           </Text>
@@ -414,7 +417,7 @@ export default function TransitionEditor() {
                         onPress={() => setConfirmDeleteId(t.id)}
                         className="p-2 rounded-lg border border-surface-border bg-surface-background"
                       >
-                        <FontAwesome name="trash-o" size={10} color="var(--color-text-dim)" />
+                        <FontAwesome name="trash-o" size={10} color={colors.textDim} />
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -426,7 +429,7 @@ export default function TransitionEditor() {
 
         {transitions.length === 0 && !showAdd && (
           <View className="py-16 items-center">
-            <FontAwesome name="random" size={40} color="var(--color-surface-border)" />
+            <FontAwesome name="random" size={40} color={colors.border} />
             <Text className="text-typography-muted text-base font-bold mt-4">No Transitions</Text>
             <Text className="text-typography-dim text-sm mt-1 text-center px-8">
               Add transitions to define how tasks can move between stages.

@@ -162,7 +162,7 @@ export default function TaskHeader() {
           {/* Stage badge */}
           {current_stage && (
             <View className="flex-row items-center bg-brand-primary/10 px-2.5 py-0.5 rounded-full border border-brand-primary/30">
-              <View style={{ backgroundColor: current_stage.color || 'var(--color-primary)' }} className="w-1.5 h-1.5 rounded-full mr-1.5" />
+              <View style={{ backgroundColor: current_stage.color || getPrimaryColor(activeTheme) }} className="w-1.5 h-1.5 rounded-full mr-1.5" />
               <Text className="text-brand-primary text-[9px] font-black uppercase tracking-wider">
                 {current_stage.name}
               </Text>
@@ -307,4 +307,3 @@ export default function TaskHeader() {
     </View>
   );
 }
-

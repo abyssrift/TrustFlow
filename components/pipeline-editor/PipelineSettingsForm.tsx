@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, TouchableOpacity, TextInput, ScrollView, ActivityIndicator } from 'react-native';
-import { FontAwesome } from '@expo/vector-icons';
 import { Role } from '@/contexts/PipelineEditorContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
+import { FontAwesome } from '@expo/vector-icons';
+import React, { useMemo, useState } from 'react';
+import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 type PipelineFormData = {
   id?: string;
@@ -39,6 +40,7 @@ export default function PipelineSettingsForm({
   onDelete,
   onClearError
 }: Props) {
+  const colors = useThemeColors();
   // Accept either prop name
   const roles = rolesProp ?? permissions ?? [];
 
@@ -127,7 +129,7 @@ export default function PipelineSettingsForm({
           value={name}
           onChangeText={setName}
           placeholder="Pipeline Name"
-          placeholderTextColor="var(--color-text-dim)"
+          placeholderTextColor={colors.textDim}
           className="bg-surface-background border border-surface-border rounded-xl px-4 py-3 text-typography-main font-bold"
         />
       </View>
@@ -137,7 +139,7 @@ export default function PipelineSettingsForm({
           value={desc}
           onChangeText={setDesc}
           placeholder="Description (optional)"
-          placeholderTextColor="var(--color-text-dim)"
+          placeholderTextColor={colors.textDim}
           className="bg-surface-background border border-surface-border rounded-xl px-4 py-3 text-typography-main text-sm"
           multiline
           numberOfLines={2}
@@ -160,13 +162,13 @@ export default function PipelineSettingsForm({
           {/* Search */}
           <View className="relative mb-3">
             <View className="absolute left-3 top-2.5 z-10">
-              <FontAwesome name="search" size={10} color="var(--color-text-dim)" />
+              <FontAwesome name="search" size={10} color={colors.textDim} />
             </View>
             <TextInput
               value={searchTerm}
               onChangeText={setSearchTerm}
               placeholder="Search roles..."
-              placeholderTextColor="var(--color-text-dim)"
+              placeholderTextColor={colors.textDim}
               className="bg-surface-background border border-surface-border rounded-lg pl-8 pr-3 py-2 text-[11px] text-typography-main"
             />
           </View>
@@ -188,7 +190,7 @@ export default function PipelineSettingsForm({
                           isSelected ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border'
                         }`}
                       >
-                        {isSelected && <FontAwesome name="check" size={8} color="var(--color-brand-on-primary)" style={{ marginRight: 6 }} />}
+                        {isSelected && <FontAwesome name="check" size={8} color={colors.textMain} style={{ marginRight: 6 }} />}
                         {/* Role colour dot */}
                         {role.color && (
                           <View
@@ -213,7 +215,7 @@ export default function PipelineSettingsForm({
 
           {selectedRoleIds.length === 0 && (
             <View className="mt-2 px-1 flex-row items-center">
-              <FontAwesome name="globe" size={9} color="var(--color-info)" />
+              <FontAwesome name="globe" size={9} color={colors.info} />
               <Text className="text-state-info text-[9px] ml-1.5 italic">
                 No role restriction — all workspace members can access this pipeline.
               </Text>
@@ -237,7 +239,7 @@ export default function PipelineSettingsForm({
                 taskVisibilityMode === 'all' ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'
               }`}
             >
-              <FontAwesome name="globe" size={10} color={taskVisibilityMode === 'all' ? 'var(--color-brand-on-primary)' : 'var(--color-text-muted)'} />
+              <FontAwesome name="globe" size={10} color={taskVisibilityMode === 'all' ? colors.textMain : colors.textMuted} />
               <Text className={`text-[10px] font-black uppercase tracking-tighter ${taskVisibilityMode === 'all' ? 'text-brand-on-primary' : 'text-typography-muted'}`}>
                 All Tasks
               </Text>
@@ -249,7 +251,7 @@ export default function PipelineSettingsForm({
                 taskVisibilityMode === 'assigned_only' ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'
               }`}
             >
-              <FontAwesome name="user-secret" size={10} color={taskVisibilityMode === 'assigned_only' ? 'var(--color-brand-on-primary)' : 'var(--color-text-muted)'} />
+              <FontAwesome name="user-secret" size={10} color={taskVisibilityMode === 'assigned_only' ? colors.textMain : colors.textMuted} />
               <Text className={`text-[10px] font-black uppercase tracking-tighter ${taskVisibilityMode === 'assigned_only' ? 'text-brand-on-primary' : 'text-typography-muted'}`}>
                 Assigned Only
               </Text>
@@ -288,14 +290,14 @@ export default function PipelineSettingsForm({
               <View className="mt-4 p-4 bg-surface-card rounded-xl border border-state-danger/30">
                 {error && (
                   <View className="bg-state-danger/10 border border-state-danger/30 p-3 rounded-lg mb-4 flex-row items-center gap-2">
-                    <FontAwesome name="exclamation-circle" size={12} color="var(--color-danger)" />
+                    <FontAwesome name="exclamation-circle" size={12} color={colors.danger} />
                     <Text className="text-state-danger text-[10px] font-bold flex-1">{error}</Text>
                   </View>
                 )}
 
                 {taskCount !== null && taskCount > 0 && (
                   <View className="bg-state-warning/10 border border-state-warning/30 p-3 rounded-lg mb-4 flex-row items-center gap-2">
-                    <FontAwesome name="exclamation-triangle" size={12} color="var(--color-warning)" />
+                    <FontAwesome name="exclamation-triangle" size={12} color={colors.warning} />
                     <View className="flex-1">
                       <Text className="text-state-warning text-[10px] font-bold">Warning: Active Tasks Detected</Text>
                       <Text className="text-typography-muted text-[9px]">Deletion will archive {taskCount} tasks. This cannot be undone.</Text>
@@ -309,7 +311,7 @@ export default function PipelineSettingsForm({
                   value={deleteInput}
                   onChangeText={setDeleteInput}
                   placeholder="Type pipeline name..."
-                  placeholderTextColor="var(--color-text-dim)"
+                  placeholderTextColor={colors.textDim}
                   className="bg-surface-background border border-surface-border rounded-lg px-3 py-2 text-xs text-typography-main mb-3"
                 />
                 <View className="flex-row gap-2">
@@ -331,7 +333,7 @@ export default function PipelineSettingsForm({
                     }`}
                   >
                     {deleting ? (
-                      <ActivityIndicator size="small" color="var(--color-brand-on-primary)" />
+                      <ActivityIndicator size="small" color={colors.textMain} />
                     ) : (
                       <Text className="text-brand-on-primary font-black text-[10px] uppercase">Confirm Delete</Text>
                     )}
@@ -359,7 +361,7 @@ export default function PipelineSettingsForm({
           }`}
         >
           {loading ? (
-            <ActivityIndicator color="var(--color-brand-on-primary)" size="small" />
+            <ActivityIndicator color={colors.textMain} size="small" />
           ) : (
             <Text className="text-brand-on-primary font-black uppercase tracking-widest text-sm">{submitLabel}</Text>
           )}

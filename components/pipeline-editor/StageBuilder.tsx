@@ -1,15 +1,11 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Alert, Platform, ScrollView } from 'react-native';
-import HorizontalScroll from '../common/HorizontalScroll';
-import { FontAwesome } from '@expo/vector-icons';
-import { usePipelineEditor, Stage } from '@/contexts/PipelineEditorContext';
 import { useAlert } from '@/contexts/AlertContext';
-
-const COLOR_PALETTE = [
-  'var(--color-text-dim)', 'var(--color-primary)', 'var(--color-brand-secondary)', 'var(--color-brand-accent)',
-  'var(--color-state-danger)', 'var(--color-danger)', 'var(--color-warning)', 'var(--color-state-warning)',
-  'var(--color-success)', 'var(--color-state-success)', 'var(--color-info)', 'var(--color-state-info)',
-];
+import { Stage, usePipelineEditor } from '@/contexts/PipelineEditorContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
+import { FontAwesome } from '@expo/vector-icons';
+import React, { useState } from 'react';
+import { ActivityIndicator, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import HorizontalScroll from '../common/HorizontalScroll';
+import { resolveNativeColorToken } from './colorCompat';
 
 export default function StageBuilder() {
   const {
@@ -20,6 +16,12 @@ export default function StageBuilder() {
   } = usePipelineEditor();
 
   const { showAlert } = useAlert();
+  const colors = useThemeColors();
+
+  const colorPalette = [
+    colors.textDim, colors.primary, colors.secondary, colors.accent,
+    colors.danger, colors.warning, colors.success, colors.info,
+  ];
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingStage, setEditingStage] = useState<string | null>(null);
@@ -27,7 +29,7 @@ export default function StageBuilder() {
 
   // Form state
   const [formName, setFormName] = useState('');
-  const [formColor, setFormColor] = useState('var(--color-text-dim)');
+  const [formColor, setFormColor] = useState(colors.textDim);
   const [formDesc, setFormDesc] = useState('');
   const [formIsInitial, setFormIsInitial] = useState(false);
   const [formIsTerminal, setFormIsTerminal] = useState(false);
@@ -42,7 +44,7 @@ export default function StageBuilder() {
 
   const resetForm = () => {
     setFormName('');
-    setFormColor('var(--color-text-dim)');
+    setFormColor(colors.textDim);
     setFormDesc('');
     setFormIsInitial(false);
     setFormIsTerminal(false);
@@ -58,7 +60,7 @@ export default function StageBuilder() {
 
   const populateForm = (s: Stage) => {
     setFormName(s.name);
-    setFormColor(s.color || 'var(--color-text-dim)');
+    setFormColor(resolveNativeColorToken(s.color, colors));
     setFormDesc(s.description || '');
     setFormIsInitial(s.is_initial);
     setFormIsTerminal(s.is_terminal);
@@ -191,7 +193,7 @@ export default function StageBuilder() {
         value={formName}
         onChangeText={setFormName}
         placeholder="e.g. REVIEWING"
-        placeholderTextColor="var(--color-text-dim)"
+        placeholderTextColor={colors.textDim}
         className="bg-surface-background text-typography-main px-4 py-2.5 rounded-lg border border-surface-border mb-3"
         autoCapitalize="characters"
       />
@@ -202,14 +204,14 @@ export default function StageBuilder() {
         value={formDesc}
         onChangeText={setFormDesc}
         placeholder="What happens in this stage?"
-        placeholderTextColor="var(--color-text-dim)"
+        placeholderTextColor={colors.textDim}
         className="bg-surface-background text-typography-main px-4 py-2.5 rounded-lg border border-surface-border mb-3 text-sm"
       />
 
       {/* Color Picker */}
       <Text className="text-typography-label text-[10px] font-bold uppercase tracking-wider mb-2">Color</Text>
       <View className="flex-row flex-wrap gap-2 mb-4">
-        {COLOR_PALETTE.map(c => (
+        {colorPalette.map(c => (
           <TouchableOpacity
             key={c}
             onPress={() => setFormColor(c)}
@@ -228,7 +230,7 @@ export default function StageBuilder() {
           active={formIsInitial}
           onToggle={() => setFormIsInitial(!formIsInitial)}
           icon="sign-in"
-          color="var(--color-info)"
+          color={colors.info}
         />
         <FlagToggle
           label="Requires Submission"
@@ -236,7 +238,7 @@ export default function StageBuilder() {
           active={formRequiresSub}
           onToggle={() => setFormRequiresSub(!formRequiresSub)}
           icon="upload"
-          color="var(--color-brand-accent)"
+          color={colors.accent}
         />
         <FlagToggle
           label="Requires Timer"
@@ -244,7 +246,7 @@ export default function StageBuilder() {
           active={formRequiresTimer}
           onToggle={() => setFormRequiresTimer(!formRequiresTimer)}
           icon="clock-o"
-          color="var(--color-warning)"
+          color={colors.warning}
         />
         {formRequiresTimer && (
           <View className="ml-4 pl-4 border-l-2 border-state-warning/30 py-2">
@@ -275,7 +277,7 @@ export default function StageBuilder() {
           active={formUseBus}
           onToggle={() => setFormUseBus(!formUseBus)}
           icon="calendar"
-          color="var(--color-state-success)"
+          color={colors.success}
         />
         <FlagToggle
           label="Terminal Stage"
@@ -286,7 +288,7 @@ export default function StageBuilder() {
             if (!!formIsTerminal) setFormTerminalType('');
           }}
           icon="flag-checkered"
-          color="var(--color-state-warning)"
+          color={colors.warning}
         />
       </View>
 
@@ -322,7 +324,7 @@ export default function StageBuilder() {
                value={formManagerRouting}
                onChangeText={setFormManagerRouting}
                placeholder="INHERIT, TEAM_LEAD, etc."
-               placeholderTextColor="var(--color-text-dim)"
+               placeholderTextColor={colors.textDim}
                className="bg-surface-background text-typography-main px-4 py-2 rounded-lg border border-surface-border text-xs"
             />
          </View>
@@ -391,7 +393,7 @@ export default function StageBuilder() {
           disabled={!formName.trim() || loading}
         >
           {loading ? (
-            <ActivityIndicator color="var(--color-brand-on-primary)" size="small" />
+            <ActivityIndicator color={colors.textMain} size="small" />
           ) : (
             <Text className="text-brand-on-primary font-black text-sm uppercase tracking-wide">{isEdit ? 'Update' : 'Add Stage'}</Text>
           )}
@@ -413,7 +415,7 @@ export default function StageBuilder() {
             className="bg-brand-primary-dim px-4 py-2 rounded-xl border border-brand-primary/20 active:bg-brand-primary-dim active:scale-95 transition-all"
           >
             <View className="flex-row items-center">
-              <FontAwesome name="plus" size={10} color="rgb(var(--brand-primary))" />
+              <FontAwesome name="plus" size={10} color={colors.primary} />
               <Text className="text-brand-primary font-bold text-xs ml-2 uppercase tracking-wide">Add Stage</Text>
             </View>
           </TouchableOpacity>
@@ -465,19 +467,19 @@ export default function StageBuilder() {
                   {/* Position & Color */}
                   <View className="mr-3 items-center">
                     <TouchableOpacity onPress={() => handleMoveToTop(index)} disabled={isOperationInFlight || index === 0} className="py-1 px-3 items-center justify-center">
-                      <FontAwesome name="angle-double-up" size={18} color={isOperationInFlight || index === 0 ? 'var(--color-surface-overlay)' : 'var(--color-text-dim)'} />
+                      <FontAwesome name="angle-double-up" size={18} color={isOperationInFlight || index === 0 ? colors.border : colors.textDim} />
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => handleMoveUp(index)} disabled={isOperationInFlight || index === 0} className="py-1 px-3 items-center justify-center mb-1">
-                      <FontAwesome name="caret-up" size={24} color={isOperationInFlight || index === 0 ? 'var(--color-surface-overlay)' : 'var(--color-text-dim)'} />
+                      <FontAwesome name="caret-up" size={24} color={isOperationInFlight || index === 0 ? colors.border : colors.textDim} />
                     </TouchableOpacity>
-                    <View className={`w-9 h-9 rounded-lg items-center justify-center ${isOperationInFlight ? 'opacity-50' : ''}`} style={{ backgroundColor: s.color || 'var(--color-text-dim)' }}>
+                    <View className={`w-9 h-9 rounded-lg items-center justify-center ${isOperationInFlight ? 'opacity-50' : ''}`} style={{ backgroundColor: resolveNativeColorToken(s.color, colors) }}>
                       <Text className="text-brand-on-primary font-black text-sm">{s.position}</Text>
                     </View>
                     <TouchableOpacity onPress={() => handleMoveDown(index)} disabled={isOperationInFlight || index === stages.length - 1} className="py-1 px-3 items-center justify-center mt-1">
-                      <FontAwesome name="caret-down" size={24} color={isOperationInFlight || index === stages.length - 1 ? 'var(--color-surface-overlay)' : 'var(--color-text-dim)'} />
+                      <FontAwesome name="caret-down" size={24} color={isOperationInFlight || index === stages.length - 1 ? colors.border : colors.textDim} />
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => handleMoveToEnd(index)} disabled={isOperationInFlight || index === stages.length - 1} className="py-1 px-3 items-center justify-center">
-                      <FontAwesome name="angle-double-down" size={18} color={isOperationInFlight || index === stages.length - 1 ? 'var(--color-surface-overlay)' : 'var(--color-text-dim)'} />
+                      <FontAwesome name="angle-double-down" size={18} color={isOperationInFlight || index === stages.length - 1 ? colors.border : colors.textDim} />
                     </TouchableOpacity>
                   </View>
 
@@ -540,13 +542,13 @@ export default function StageBuilder() {
                       onPress={() => { populateForm(s); setEditingStage(s.id); }}
                       className="p-2 rounded-lg border border-surface-border bg-surface-background"
                     >
-                      <FontAwesome name="pencil" size={12} color="var(--color-text-dim)" />
+                      <FontAwesome name="pencil" size={12} color={colors.textDim} />
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => setConfirmDeleteId(s.id)}
                       className="p-2 rounded-lg border border-surface-border bg-surface-background"
                     >
-                      <FontAwesome name="trash-o" size={12} color="var(--color-text-dim)" />
+                      <FontAwesome name="trash-o" size={12} color={colors.textDim} />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -574,7 +576,7 @@ export default function StageBuilder() {
             {index < stages.length - 1 && editingStage !== s.id && confirmDeleteId !== s.id && (
               <View className="items-center my-0">
                 <View className="w-0.5 h-3 bg-surface-border" />
-                <FontAwesome name="chevron-down" size={8} color="var(--color-text-dim)" />
+                <FontAwesome name="chevron-down" size={8} color={colors.textDim} />
               </View>
             )}
           </View>
@@ -603,6 +605,7 @@ const ACTION_STYLES = [
 
 function StageActionManager({ stageId }: { stageId: string }) {
   const { stageActions, addStageAction, updateStageAction, deleteStageAction, reorderStageActions, stages, transitions } = usePipelineEditor();
+  const colors = useThemeColors();
   const actions = stageActions.filter(a => a.stage_id === stageId).sort((a, b) => a.position - b.position);
   const availableTransitions = transitions.filter(t => t.from_stage_id === stageId);
 
@@ -692,7 +695,7 @@ function StageActionManager({ stageId }: { stageId: string }) {
         placeholder="e.g. Approve, Reject, Start Work"
         value={form.label}
         onChangeText={v => patch({ label: v })}
-        placeholderTextColor="rgb(var(--text-dim))"
+        placeholderTextColor={colors.textDim}
         className="bg-surface-background border border-surface-border rounded-md px-3 py-2 text-xs text-typography-main mb-3"
       />
 
@@ -721,7 +724,7 @@ function StageActionManager({ stageId }: { stageId: string }) {
             onPress={() => patch({ style: s.id })}
             className={`flex-1 py-2 rounded-lg border items-center ${form.style === s.id ? 'border-brand-primary bg-brand-primary/10' : 'border-surface-border bg-surface-background'}`}
           >
-            <View className="w-3 h-3 rounded-full mb-1" style={{ backgroundColor: s.color }} />
+            <View className="w-3 h-3 rounded-full mb-1" style={{ backgroundColor: resolveNativeColorToken(s.color, colors) }} />
             <Text className={`text-[8px] font-bold capitalize ${form.style === s.id ? 'text-brand-primary' : 'text-typography-dim'}`}>{s.id}</Text>
           </TouchableOpacity>
         ))}
@@ -756,13 +759,13 @@ function StageActionManager({ stageId }: { stageId: string }) {
         placeholder="Precondition (optional)"
         value={form.precondition}
         onChangeText={v => patch({ precondition: v })}
-        placeholderTextColor="rgb(var(--text-dim))"
+        placeholderTextColor={colors.textDim}
         className="bg-surface-background border border-surface-border rounded-md px-3 py-2 text-xs text-typography-main mb-2"
       />
 
       <View className="mb-2 gap-1">
-        <FlagToggle label="Requires Timer" desc="Forces work session for this action" active={form.requiresTimer} onToggle={() => patch({ requiresTimer: !form.requiresTimer })} icon="clock-o" color="var(--color-warning)" />
-        <FlagToggle label="Use Business Hours" desc="Filter session via business window" active={form.useBus} onToggle={() => patch({ useBus: !form.useBus })} icon="calendar" color="var(--color-state-success)" />
+        <FlagToggle label="Requires Timer" desc="Forces work session for this action" active={form.requiresTimer} onToggle={() => patch({ requiresTimer: !form.requiresTimer })} icon="clock-o" color={colors.warning} />
+        <FlagToggle label="Use Business Hours" desc="Filter session via business window" active={form.useBus} onToggle={() => patch({ useBus: !form.useBus })} icon="calendar" color={colors.success} />
       </View>
 
       <View className="flex-row gap-2 mt-1">
@@ -815,10 +818,10 @@ function StageActionManager({ stageId }: { stageId: string }) {
               </View>
             </View>
           ) : (
-            <View className="flex-row items-center border-b border-surface-border/50 py-2 last:border-0">
+            <View className={`flex-row items-center py-2 ${idx < actions.length - 1 ? 'border-b border-surface-border/50' : ''}`}>
               <View className="flex-1">
                 <View className="flex-row items-center gap-1.5">
-                  <View className="w-2 h-2 rounded-full" style={{ backgroundColor: ACTION_STYLES.find(s => s.id === act.style)?.color || 'var(--color-text-dim)' }} />
+                  <View className="w-2 h-2 rounded-full" style={{ backgroundColor: resolveNativeColorToken(ACTION_STYLES.find(s => s.id === act.style)?.color || colors.textDim, colors) }} />
                   <Text className="text-typography-main text-xs font-bold">{act.label}</Text>
                 </View>
                 <Text className="text-typography-dim text-[10px] mt-0.5">
@@ -838,7 +841,7 @@ function StageActionManager({ stageId }: { stageId: string }) {
                   <FontAwesome name="pencil" size={10} color="#64748b" />
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => setConfirmDeleteId(act.id)} className="p-1.5 bg-state-danger-dim rounded-lg border border-state-danger/20">
-                  <FontAwesome name="times" size={10} color="rgb(var(--state-danger))" />
+                  <FontAwesome name="times" size={10} color={colors.danger} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -855,20 +858,21 @@ function StageActionManager({ stageId }: { stageId: string }) {
 function FlagToggle({ label, desc, active, onToggle, icon, color }: {
   label: string; desc: string; active: boolean; onToggle: () => void; icon: string; color: string;
 }) {
+  const colors = useThemeColors();
   return (
     <TouchableOpacity
       onPress={onToggle}
       className={`flex-row items-center p-3 rounded-xl border ${active ? 'border-brand-primary/30 bg-brand-primary-dim' : 'border-surface-border bg-surface-background'}`}
     >
-      <View className="w-8 h-8 rounded-lg items-center justify-center mr-3" style={{ backgroundColor: active ? color : 'rgb(var(--surface-overlay))', opacity: active ? 0.2 : 0.8 }}>
-        <FontAwesome name={icon as any} size={14} color={active ? color : 'rgb(var(--text-dim))'} />
+      <View className="w-8 h-8 rounded-lg items-center justify-center mr-3" style={{ backgroundColor: active ? color : colors.border, opacity: active ? 0.2 : 0.8 }}>
+        <FontAwesome name={icon as any} size={14} color={active ? color : colors.textDim} />
       </View>
       <View className="flex-1">
         <Text className={`font-bold text-sm ${active ? 'text-typography-main' : 'text-typography-muted'}`}>{label}</Text>
         <Text className="text-typography-dim text-[10px] italic">{desc}</Text>
       </View>
       <View className={`w-5 h-5 rounded-md border-2 items-center justify-center ${active ? 'bg-brand-primary border-brand-primary' : 'border-surface-border'}`}>
-        {active && <FontAwesome name="check" size={10} color="rgb(var(--text-main))" />}
+        {active && <FontAwesome name="check" size={10} color={colors.textMain} />}
       </View>
     </TouchableOpacity>
   );

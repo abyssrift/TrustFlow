@@ -199,6 +199,7 @@ function RootLayoutNav() {
 }
 
 import LoadingOverlay from '@/components/LoadingOverlay';
+import { RouteLoadingProvider } from '@/contexts/RouteLoadingContext';
 
 function ThemedRoot() {
   const { themeVariables, isLoading } = useTheme();
@@ -209,6 +210,7 @@ function ThemedRoot() {
   const [showRouteLoading, setShowRouteLoading] = useState(false);
   const touchTimeoutRef = useRef<any>(null);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const suppressRouteLoadingRef = useRef(false);
 
   useEffect(() => {
     if (initialPathRef.current === null) {
@@ -231,6 +233,7 @@ function ThemedRoot() {
   }, [pathname]);
 
   return (
+    <RouteLoadingProvider suppressRef={suppressRouteLoadingRef}>
     <View style={themeVariables} className="flex-1">
       <View
         className="flex-1 bg-surface-background"
@@ -255,7 +258,7 @@ function ThemedRoot() {
           }
         } : undefined}
         onTouchEnd={Platform.OS !== 'web' ? () => {
-          if (touchStartRef.current !== null) {
+          if (touchStartRef.current !== null && !suppressRouteLoadingRef.current) {
             setShowRouteLoading(true);
             if (touchTimeoutRef.current) clearTimeout(touchTimeoutRef.current);
             touchTimeoutRef.current = setTimeout(() => {
@@ -263,6 +266,7 @@ function ThemedRoot() {
               touchTimeoutRef.current = null;
             }, 300);
           }
+          suppressRouteLoadingRef.current = false;
           touchStartRef.current = null;
         } : undefined}
       >
@@ -270,8 +274,8 @@ function ThemedRoot() {
         {session && Platform.OS !== 'web' && <PushRegistrationGuard />}
 
         {/* Global Loading Overlay */}
-        {(!initialized || isLoading || showRouteLoading) && (
-          <LoadingOverlay message={showRouteLoading ? 'Opening page...' : undefined} />
+        {(!initialized || isLoading /* || showRouteLoading */) && (
+          <LoadingOverlay message={/* showRouteLoading ? 'Opening page...' : */ undefined} />
         )}
 
         <Stack>
@@ -292,5 +296,6 @@ function ThemedRoot() {
         </View>
       </View>
     </View>
+    </RouteLoadingProvider>
   );
 }

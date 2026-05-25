@@ -1,6 +1,8 @@
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 import { CompletionVelocityMobile, IntelligencePicker } from '@/components/intelligence/IntelligenceCommon';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import { NATIVE_THEME_COLORS } from '@/lib/layout';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
@@ -260,12 +262,15 @@ const TargetCircle = ({
   size,
   onEdit,
   onAction,
+  activeTheme,
 }: {
   target: any;
   size: number;
   onEdit: () => void;
   onAction: (action: string) => void;
+  activeTheme: keyof typeof NATIVE_THEME_COLORS;
 }) => {
+  const palette = NATIVE_THEME_COLORS[activeTheme];
   const r = (size - STROKE) / 2;
   const cx = size / 2;
   const circumference = 2 * Math.PI * r;
@@ -283,12 +288,12 @@ const TargetCircle = ({
   const isMet = isVolume && target.status === 'active' && (target.current_count ?? 0) >= (target.target_quantity ?? 1);
 
   const ringColor = target.status !== 'active'
-    ? 'var(--color-text-dim)'
+    ? palette.textDim
     : isMet
-      ? 'var(--color-success)'
+      ? palette.success
       : isExpired
-        ? 'var(--color-danger)'
-        : 'var(--color-primary)';
+        ? palette.danger
+        : palette.primary;
 
   const innerPad = STROKE + 12;
   const innerSize = size - innerPad * 2;
@@ -304,7 +309,7 @@ const TargetCircle = ({
           </LinearGradient>
         </Defs>
         {/* Track */}
-        <Circle cx={cx} cy={cx} r={r} fill="none" stroke="var(--color-surface-border)" strokeWidth={STROKE} />
+        <Circle cx={cx} cy={cx} r={r} fill="none" stroke={palette.border} strokeWidth={STROKE} />
         {/* Progress */}
         <Circle
           cx={cx} cy={cx} r={r}
@@ -317,7 +322,7 @@ const TargetCircle = ({
           style={{ transform: `rotate(-90deg)`, transformOrigin: `${cx}px ${cx}px` }}
         />
         {/* Inner fill */}
-        <Circle cx={cx} cy={cx} r={r - STROKE / 2 - 1} fill="var(--color-surface-card)" />
+        <Circle cx={cx} cy={cx} r={r - STROKE / 2 - 1} fill={palette.card} />
       </Svg>
 
       <View
@@ -364,7 +369,7 @@ const TargetCircle = ({
               onPress={onEdit}
               className="bg-brand-primary/10 border border-brand-primary/20 px-2.5 py-1 rounded-full flex-row items-center gap-1"
             >
-              <FontAwesome name="pencil" size={8} color="var(--color-primary)" />
+              <FontAwesome name="pencil" size={8} color={palette.primary} />
               <Text className="text-brand-primary font-black uppercase" style={{ fontSize: 7 }}>Edit</Text>
             </TouchableOpacity>
           )}
@@ -401,6 +406,7 @@ const TargetCircle = ({
 
 export default function IntelligenceTargetsNative() {
   const { profile } = useAuth();
+  const { theme: activeTheme } = useTheme();
   const { width: screenWidth } = useWindowDimensions();
   const [targets, setTargets]     = useState<any[]>([]);
   const [pipelines, setPipelines] = useState<any[]>([]);
@@ -553,6 +559,7 @@ export default function IntelligenceTargetsNative() {
                   size={circleSize}
                   onEdit={() => setEditTarget(t)}
                   onAction={(action: any) => handleAction(t.id, action)}
+                  activeTheme={activeTheme}
                 />
               ))}
             </View>
@@ -575,6 +582,7 @@ export default function IntelligenceTargetsNative() {
                     size={circleSize}
                     onEdit={() => setEditTarget(t)}
                     onAction={(action: any) => handleAction(t.id, action)}
+                    activeTheme={activeTheme}
                   />
                 ))}
               </View>

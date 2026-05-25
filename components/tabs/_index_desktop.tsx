@@ -195,8 +195,8 @@ export default function DashboardScreenWeb() {
         .map((h: any) => ({
           id: h.id,
           taskTitle: h.task?.title || 'Unknown Task',
-          fromStage: h.from_stage?.name || '—',
-          toStage: h.to_stage?.name || '—',
+          fromStage: h.from_stage?.name || '-',
+          toStage: h.from_stage ? (h.to_stage?.name || '—') : 'created',
           movedBy: h.transitioned_by_user?.display_name || h.transitioned_by_user?.full_name || 'System',
           movedAt: h.transitioned_at,
         }));

@@ -1,48 +1,303 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View, Text, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, Platform,
-} from 'react-native';
+import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
+import { PersonnelRow, StageDwell, ThroughputPeriod, useAnalytics } from '@/contexts/AnalyticsContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack } from 'expo-router';
-import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/AuthContext';
-import { useAnalytics, StageDwell, ThroughputPeriod, PersonnelRow } from '@/contexts/AnalyticsContext';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Image,
+  Modal,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
 type AdminTab = 'pipeline' | 'personnel';
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 function fmtSeconds(s: number): string {
   if (s <= 0) return '0m';
-  const h = Math.floor(s / 3600);
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
   const m = Math.floor((s % 3600) / 60);
-  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  if (d > 0) return h > 0 ? `${d}d ${h}h` : `${d}d`;
+  if (h > 0) return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  return `${m}m`;
 }
 
-// ─── Simple horizontal bar ────────────────────────────────────────────────────
+function fmtDate(iso: string) {
+  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
 
-function DwellBar({ stage, maxSeconds }: { stage: StageDwell; maxSeconds: number }) {
-  const pct = maxSeconds > 0 ? (stage.avg_seconds / maxSeconds) * 100 : 0;
-  const color =
-    stage.is_bottleneck ? '#f59e0b' :
-    stage.is_terminal && stage.terminal_type === 'success' ? '#22c55e' :
-    stage.is_terminal && stage.terminal_type === 'failure' ? '#ef4444' :
-    'rgb(99,102,241)';
+const PRESETS = [
+  { label: '7D',  days: 7  },
+  { label: '30D', days: 30 },
+  { label: '90D', days: 90 },
+];
+
+// ─── Calendar Modal ───────────────────────────────────────────────────────────
+
+function CalendarModal({ visible, title, value, onSelect, onClose }: {
+  visible: boolean; title: string; value: string; onSelect: (d: string) => void; onClose: () => void;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      {/* Full-screen dimmed backdrop — tap anywhere outside the card to close */}
+      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', paddingHorizontal: 16 }}>
+        {/* Invisible full-screen tap target that closes the modal */}
+        <TouchableOpacity
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+          activeOpacity={1}
+          onPress={onClose}
+        />
+        {/* Card — onStartShouldSetResponder stops touches bubbling to the backdrop */}
+        <View
+          className="bg-surface-card border border-surface-border rounded-[32px] overflow-hidden"
+          onStartShouldSetResponder={() => true}
+        >
+          <View className="px-6 pt-5 pb-4 flex-row justify-between items-center border-b border-surface-border">
+            <Text className="text-typography-main font-black text-lg">{title}</Text>
+            <TouchableOpacity onPress={onClose} className="w-8 h-8 rounded-full bg-surface-background border border-surface-border items-center justify-center">
+              <FontAwesome name="times" size={12} color="var(--color-text-dim)" />
+            </TouchableOpacity>
+          </View>
+          <PremiumCalendarPicker
+            selectedDate={value}
+            onSelect={d => { onSelect(d); onClose(); }}
+            compact
+          />
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// ─── Date Range Controls ──────────────────────────────────────────────────────
+
+function DateRangeControls({ from, to, setFrom, setTo }: {
+  from: string; to: string; setFrom: (d: string) => void; setTo: (d: string) => void;
+}) {
+  const [activePreset, setActivePreset] = useState<number | null>(30);
+  const [showFrom, setShowFrom] = useState(false);
+  const [showTo, setShowTo] = useState(false);
+
+  const applyPreset = (days: number) => {
+    const today = new Date();
+    const start = new Date(today.getTime() - days * 86400000);
+    setFrom(start.toISOString().split('T')[0]);
+    setTo(today.toISOString().split('T')[0]);
+    setActivePreset(days);
+  };
 
   return (
-    <View className="mb-4">
-      <View className="flex-row justify-between mb-1">
-        <Text className="text-typography-main text-xs font-bold flex-1 mr-4" numberOfLines={1}>
-          {stage.stage_name}
-          {stage.is_bottleneck ? ' ⚠' : ''}
-        </Text>
-        <Text className="text-typography-muted text-xs">{fmtSeconds(stage.avg_seconds)}</Text>
+    <View className="gap-3">
+      {/* Quick presets */}
+      <View className="flex-row gap-2">
+        {PRESETS.map(p => (
+          <TouchableOpacity
+            key={p.label}
+            onPress={() => applyPreset(p.days)}
+            className={`px-4 py-2 rounded-xl border ${activePreset === p.days ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border'}`}
+          >
+            <Text className={`text-xs font-black ${activePreset === p.days ? 'text-white' : 'text-typography-muted'}`}>{p.label}</Text>
+          </TouchableOpacity>
+        ))}
+        <TouchableOpacity
+          onPress={() => { setActivePreset(null); setShowFrom(true); }}
+          className={`px-4 py-2 rounded-xl border flex-row items-center gap-2 ${activePreset === null ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border'}`}
+        >
+          <FontAwesome name="calendar" size={11} color={activePreset === null ? '#fff' : 'var(--color-text-muted)'} />
+          <Text className={`text-xs font-black ${activePreset === null ? 'text-white' : 'text-typography-muted'}`}>Custom</Text>
+        </TouchableOpacity>
       </View>
-      <View className="h-2 bg-surface-overlay rounded-full overflow-hidden">
-        <View style={{ width: `${pct}%`, backgroundColor: color }} className="h-full rounded-full" />
+
+      {/* Date buttons — visible when custom is active */}
+      {activePreset === null && (
+        <View className="flex-row gap-2 items-center">
+          <TouchableOpacity
+            onPress={() => setShowFrom(true)}
+            className="flex-1 bg-surface-card border border-surface-border rounded-xl px-4 py-2.5 flex-row items-center gap-2"
+          >
+            <FontAwesome name="calendar-o" size={12} color="var(--color-text-muted)" />
+            <Text className="text-typography-main text-sm">{fmtDate(from)}</Text>
+          </TouchableOpacity>
+          <Text className="text-typography-dim font-bold">→</Text>
+          <TouchableOpacity
+            onPress={() => setShowTo(true)}
+            className="flex-1 bg-surface-card border border-surface-border rounded-xl px-4 py-2.5 flex-row items-center gap-2"
+          >
+            <FontAwesome name="calendar-o" size={12} color="var(--color-text-muted)" />
+            <Text className="text-typography-main text-sm">{fmtDate(to)}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      <CalendarModal visible={showFrom} title="Start Date" value={from} onSelect={v => { setFrom(v); setActivePreset(null); }} onClose={() => setShowFrom(false)} />
+      <CalendarModal visible={showTo}   title="End Date"   value={to}   onSelect={v => { setTo(v);   setActivePreset(null); }} onClose={() => setShowTo(false)} />
+    </View>
+  );
+}
+
+// ─── Throughput SVG Bar Chart ─────────────────────────────────────────────────
+
+function ThroughputChart({ data }: { data: ThroughputPeriod[] }) {
+  const [width, setWidth] = useState(0);
+  const chartData = [...data].reverse().slice(0, 10);
+  const chartH = 180;
+  if (!chartData.length) return (
+    <View className="h-32 items-center justify-center">
+      <Text className="text-typography-muted text-sm">No throughput data in this period.</Text>
+    </View>
+  );
+
+  const maxVal = Math.max(1, ...chartData.map(d => d.tasks_succeeded + d.tasks_failed));
+  const colW = width > 0 ? width / chartData.length : 0;
+  const barW = colW * 0.3;
+
+  return (
+    <View onStartShouldSetResponder={() => true}>
+      <View style={{ height: chartH }} onLayout={e => setWidth(e.nativeEvent.layout.width)}>
+        {width > 0 && (
+          <Svg height={chartH} width={width}>
+            <Defs>
+              <LinearGradient id="thrSuccess" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor="rgb(34,197,94)"  stopOpacity="1" />
+                <Stop offset="1" stopColor="rgb(34,197,94)"  stopOpacity="0.5" />
+              </LinearGradient>
+              <LinearGradient id="thrFail" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor="rgb(239,68,68)" stopOpacity="1" />
+                <Stop offset="1" stopColor="rgb(239,68,68)" stopOpacity="0.5" />
+              </LinearGradient>
+            </Defs>
+            {chartData.map((d, i) => {
+              const cx = i * colW + colW / 2;
+              const sH = Math.max(d.tasks_succeeded > 0 ? 2 : 0, (d.tasks_succeeded / maxVal) * (chartH - 20) * 0.9);
+              const fH = Math.max(d.tasks_failed    > 0 ? 2 : 0, (d.tasks_failed    / maxVal) * (chartH - 20) * 0.9);
+              return (
+                <React.Fragment key={i}>
+                  {d.tasks_succeeded > 0 && (
+                    <Rect x={cx - barW - 1} y={chartH - 20 - sH} width={barW} height={sH} fill="url(#thrSuccess)" rx={3} />
+                  )}
+                  {d.tasks_failed > 0 && (
+                    <Rect x={cx + 1}        y={chartH - 20 - fH} width={barW} height={fH} fill="url(#thrFail)"    rx={3} />
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </Svg>
+        )}
       </View>
-      <Text className="text-typography-dim text-[10px] mt-0.5">
-        {stage.sample_count} samples · {stage.reversal_count} reversals
-      </Text>
+
+      {/* X-axis labels */}
+      <View className="flex-row" style={{ width }}>
+        {chartData.map((d, i) => (
+          <View key={i} style={{ width: colW }} className="items-center">
+            <Text className="text-typography-dim text-[8px] font-bold" numberOfLines={1}>{d.period_label}</Text>
+          </View>
+        ))}
+      </View>
+
+      {/* Legend + summary row */}
+      <View className="flex-row justify-between items-center mt-3">
+        <View className="flex-row gap-4">
+          <View className="flex-row items-center gap-1.5">
+            <View className="w-3 h-3 rounded-sm" style={{ backgroundColor: 'rgb(34,197,94)' }} />
+            <Text className="text-typography-dim text-[9px] font-bold uppercase">Success</Text>
+          </View>
+          <View className="flex-row items-center gap-1.5">
+            <View className="w-3 h-3 rounded-sm" style={{ backgroundColor: 'rgb(239,68,68)' }} />
+            <Text className="text-typography-dim text-[9px] font-bold uppercase">Failed</Text>
+          </View>
+        </View>
+        <View className="flex-row gap-3">
+          {chartData.slice(-3).reverse().map((d, i) => {
+            if (d.success_rate === null) return null;
+            const good = d.success_rate >= 75;
+            return (
+              <View key={i} className={`px-2.5 py-1 rounded-xl ${good ? 'bg-state-success/10' : 'bg-state-danger/10'}`}>
+                <Text className="text-typography-dim text-[8px] font-bold uppercase">{d.period_label}</Text>
+                <Text className={`font-black text-sm ${good ? 'text-state-success' : 'text-state-danger'}`}>{d.success_rate.toFixed(0)}%</Text>
+              </View>
+            );
+          })}
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// ─── Stage Dwell Horizontal Bar Chart ────────────────────────────────────────
+
+function DwellChart({ data }: { data: StageDwell[] }) {
+  const [width, setWidth] = useState(0);
+  const sorted = [...data].sort((a, b) => a.stage_position - b.stage_position);
+  const maxSec = Math.max(1, ...sorted.map(s => s.avg_seconds));
+  const rowH = 22;
+  const labelW = 90;
+  const timeW  = 52;
+  const gap    = 8;    // total horizontal gaps between the 3 columns
+  const barAreaW = Math.max(4, width - labelW - timeW - gap);
+
+  if (!sorted.length) return (
+    <View className="h-20 items-center justify-center">
+      <Text className="text-typography-muted text-sm">No stage history in this period.</Text>
+    </View>
+  );
+
+  return (
+    // onStartShouldSetResponder absorbs taps so they don't leak to the tab navigator
+    <View onLayout={e => setWidth(e.nativeEvent.layout.width)} onStartShouldSetResponder={() => true}>
+      {width > 0 && sorted.map((s, i) => {
+        const pct = s.avg_seconds / maxSec;
+        const barW = Math.max(4, pct * barAreaW);
+        const color =
+          s.is_bottleneck ? 'rgb(245,158,11)' :
+          (s.is_terminal && s.terminal_type === 'success') ? 'rgb(34,197,94)' :
+          s.is_terminal ? 'rgb(239,68,68)' :
+          'rgb(99,102,241)';
+        const colorFaded = color.replace('rgb', 'rgba').replace(')', ', 0.45)');
+
+        return (
+          <View key={s.stage_id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+            <Text style={{ width: labelW, fontSize: 9, fontWeight: '700', color: 'var(--color-text-muted)' }} numberOfLines={1}>
+              {s.stage_name}{s.is_bottleneck ? ' ⚠' : ''}
+            </Text>
+            <Svg height={rowH} width={barAreaW}>
+              <Defs>
+                <LinearGradient id={`dg${i}`} x1="0" y1="0" x2="1" y2="0">
+                  <Stop offset="0" stopColor={color}      stopOpacity="1" />
+                  <Stop offset="1" stopColor={colorFaded} stopOpacity="1" />
+                </LinearGradient>
+              </Defs>
+              <Rect x={0} y={4} width={barW} height={rowH - 8} fill={`url(#dg${i})`} rx={4} />
+            </Svg>
+            <Text style={{ width: timeW, fontSize: 9, fontWeight: '900', textAlign: 'right', color: 'var(--color-text-main)' }} numberOfLines={1}>
+              {fmtSeconds(s.avg_seconds)}
+            </Text>
+          </View>
+        );
+      })}
+      {/* Legend */}
+      <View className="flex-row gap-3 flex-wrap mt-1">
+        {[
+          { color: 'rgb(245,158,11)', label: 'Bottleneck' },
+          { color: 'rgb(34,197,94)',  label: 'Success' },
+          { color: 'rgb(239,68,68)', label: 'Failure' },
+          { color: 'rgb(99,102,241)', label: 'Normal' },
+        ].map(l => (
+          <View key={l.label} className="flex-row items-center gap-1">
+            <View className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: l.color }} />
+            <Text className="text-typography-dim text-[8px] font-bold uppercase">{l.label}</Text>
+          </View>
+        ))}
+      </View>
     </View>
   );
 }
@@ -51,13 +306,12 @@ function DwellBar({ stage, maxSeconds }: { stage: StageDwell; maxSeconds: number
 
 function PipelineTab() {
   const { getPipelineStageDwell, getPipelineThroughput } = useAnalytics();
-  const [pipelines, setPipelines] = useState<any[]>([]);
-  const [selectedPipeline, setSelectedPipeline] = useState<string | null>(null);
-  const [period, setPeriod] = useState('month');
+  const [pipelines, setPipelines]       = useState<any[]>([]);
+  const [selectedPipeline, setSelected] = useState<string | null>(null);
+  const [period, setPeriod]             = useState<'week' | 'month'>('month');
 
   const today = new Date();
-  const defaultFrom = new Date(today);
-  defaultFrom.setDate(today.getDate() - 30);
+  const defaultFrom = new Date(today.getTime() - 30 * 86400000);
   const [from, setFrom] = useState(defaultFrom.toISOString().split('T')[0]);
   const [to, setTo]     = useState(today.toISOString().split('T')[0]);
 
@@ -66,121 +320,86 @@ function PipelineTab() {
   const [loading, setLoading]       = useState(false);
 
   useEffect(() => {
-    supabase
-      .from('pipelines')
-      .select('id, name')
-      .is('deleted_at', null)
-      .order('name')
-      .order('created_at')
-      .then(({ data }) => {
-        if (data?.length) {
-          setPipelines(data);
-          setSelectedPipeline(data[0].id);
-        }
-      });
+    supabase.from('pipelines').select('id, name').is('deleted_at', null).order('name')
+      .then(({ data }) => { if (data?.length) { setPipelines(data); setSelected(data[0].id); } });
   }, []);
 
   const load = useCallback(async () => {
     if (!selectedPipeline) return;
     setLoading(true);
     try {
+      const nPeriods = period === 'week' ? 12 : 8;
       const [d, t] = await Promise.all([
         getPipelineStageDwell(selectedPipeline, from, to),
-        getPipelineThroughput(selectedPipeline, period, 8),
+        getPipelineThroughput(selectedPipeline, period, nPeriods),
       ]);
       setDwell(d);
       setThroughput(t);
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }, [selectedPipeline, from, to, period]);
 
   useEffect(() => { load(); }, [load]);
 
-  const maxDwellSeconds = Math.max(1, ...dwell.map(d => d.avg_seconds));
-
   return (
     <View className="gap-6">
+      {/* Date Range */}
+      <View className="gap-2">
+        <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">Time Frame</Text>
+        <DateRangeControls from={from} to={to} setFrom={setFrom} setTo={setTo} />
+      </View>
+
       {/* Pipeline selector */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        <View className="flex-row gap-2 pb-2">
-          {pipelines.map(p => (
+      {pipelines.length > 1 && (
+        <View className="gap-2">
+          <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">Pipeline</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View className="flex-row gap-2">
+              {pipelines.map(p => (
+                <TouchableOpacity
+                  key={p.id}
+                  onPress={() => setSelected(p.id)}
+                  className={`px-4 py-2 rounded-xl border ${selectedPipeline === p.id ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border'}`}
+                >
+                  <Text className={`text-xs font-bold ${selectedPipeline === p.id ? 'text-white' : 'text-typography-main'}`}>{p.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </ScrollView>
+        </View>
+      )}
+
+      {/* Throughput granularity */}
+      <View className="gap-2">
+        <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">Throughput Granularity</Text>
+        <View className="flex-row gap-2">
+          {(['week', 'month'] as const).map(p => (
             <TouchableOpacity
-              key={p.id}
-              onPress={() => setSelectedPipeline(p.id)}
-              className={`px-4 py-2 rounded-xl border ${
-                selectedPipeline === p.id ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border'
-              }`}
+              key={p}
+              onPress={() => setPeriod(p)}
+              className={`px-5 py-2 rounded-xl border ${period === p ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border'}`}
             >
-              <Text className={`text-xs font-bold ${selectedPipeline === p.id ? 'text-white' : 'text-typography-main'}`}>
-                {p.name}
-              </Text>
+              <Text className={`text-xs font-black uppercase ${period === p ? 'text-white' : 'text-typography-muted'}`}>{p}</Text>
             </TouchableOpacity>
           ))}
-        </View>
-      </ScrollView>
-
-      {/* Date range */}
-      <View className="gap-2">
-        <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">Date Range</Text>
-        <View className="flex-row flex-wrap gap-3 items-center">
-          <TextInput
-            value={from}
-            onChangeText={setFrom}
-            placeholder="YYYY-MM-DD"
-            className="flex-1 bg-surface-card border border-surface-border rounded-xl px-4 py-2 text-typography-main text-sm"
-          />
-          <Text className="text-typography-dim">→</Text>
-          <TextInput
-            value={to}
-            onChangeText={setTo}
-            placeholder="YYYY-MM-DD"
-            className="flex-1 bg-surface-card border border-surface-border rounded-xl px-4 py-2 text-typography-main text-sm"
-          />
         </View>
       </View>
 
       {loading ? (
-        <View className="py-16 items-center">
-          <ActivityIndicator color="var(--color-primary)" />
-        </View>
+        <View className="py-16 items-center"><ActivityIndicator color="var(--color-primary)" /></View>
       ) : (
         <>
-          {/* Stage dwell */}
+          {/* Throughput chart */}
           <View className="bg-surface-card border border-surface-border rounded-2xl p-5">
-            <Text className="text-typography-main font-black text-base mb-5">Stage Dwell Times</Text>
-            {dwell.length === 0 ? (
-              <Text className="text-typography-muted text-sm">No activity in this period.</Text>
-            ) : (
-              dwell
-                .slice()
-                .sort((a, b) => a.stage_position - b.stage_position)
-                .map(s => <DwellBar key={s.stage_id} stage={s} maxSeconds={maxDwellSeconds} />)
-            )}
+            <Text className="text-typography-main font-black text-base mb-1">Throughput Over Time</Text>
+            <Text className="text-typography-muted text-[10px] mb-5">Tasks completed vs failed per period</Text>
+            <ThroughputChart data={throughput} />
           </View>
 
-          {/* Throughput summary */}
+          {/* Stage dwell chart */}
           <View className="bg-surface-card border border-surface-border rounded-2xl p-5">
-            <Text className="text-typography-main font-black text-base mb-4">Recent Throughput</Text>
-            {throughput.length === 0 ? (
-              <Text className="text-typography-muted text-sm">No throughput data.</Text>
-            ) : (
-              [...throughput].reverse().slice(0, 6).map((t, i) => (
-                <View
-                  key={i}
-                  className={`flex-row justify-between items-center py-3 ${i < Math.min(throughput.length, 6) - 1 ? 'border-b border-surface-border/50' : ''}`}
-                >
-                  <Text className="text-typography-muted text-xs">{t.period_label}</Text>
-                  <View className="flex-row flex-wrap justify-end gap-4 flex-1">
-                    <Text className="text-[var(--color-success)] text-xs font-bold">↑ {t.tasks_succeeded}</Text>
-                    <Text className="text-[var(--color-danger)] text-xs font-bold">↓ {t.tasks_failed}</Text>
-                    {t.success_rate !== null && (
-                      <Text className="text-typography-dim text-xs">{t.success_rate.toFixed(0)}%</Text>
-                    )}
-                  </View>
-                </View>
-              ))
-            )}
+            <Text className="text-typography-main font-black text-base mb-1">Stage Dwell Times</Text>
+            <Text className="text-typography-muted text-[10px] mb-5">Avg time tasks spend per stage</Text>
+            <DwellChart data={dwell} />
           </View>
         </>
       )}
@@ -203,36 +422,18 @@ function PersonnelTab() {
   const STORAGE_KEY = 'trustflow_personnel_salaries';
 
   const today = new Date();
-  const defaultFrom = new Date(today);
-  defaultFrom.setDate(today.getDate() - 30);
+  const defaultFrom = new Date(today.getTime() - 30 * 86400000);
   const [from, setFrom] = useState(defaultFrom.toISOString().split('T')[0]);
   const [to, setTo]     = useState(today.toISOString().split('T')[0]);
 
   useEffect(() => {
-    supabase
-      .from('users')
-      .select('id, full_name')
-      .is('deleted_at', null)
-      .order('full_name')
+    supabase.from('users').select('id, full_name, avatar_url').is('deleted_at', null).order('full_name')
       .then(({ data }) => setUsers(data ?? []));
-
-    // Load persisted salaries
-    const loadSalaries = async () => {
-      try {
-        const saved = await AsyncStorage.getItem(STORAGE_KEY);
-        if (saved) setSalaries(JSON.parse(saved));
-      } catch (e) {
-        console.error('Failed to load salaries', e);
-      }
-    };
-    loadSalaries();
+    AsyncStorage.getItem(STORAGE_KEY).then(s => { if (s) setSalaries(JSON.parse(s)); }).catch(() => {});
   }, []);
 
-  // Persist salaries
   useEffect(() => {
-    if (Object.keys(salaries).length > 0) {
-      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(salaries));
-    }
+    if (Object.keys(salaries).length > 0) AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(salaries)).catch(() => {});
   }, [salaries]);
 
   const toggleUser = (id: string) =>
@@ -251,20 +452,23 @@ function PersonnelTab() {
       const data = await comparePersonnel(selected, from, to, salaryMap);
       setResults(data);
       setRan(true);
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
+
+  const filteredUsers = users.filter(u => u.full_name?.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <View className="gap-6">
+      {/* Date Range */}
+      <View className="gap-2">
+        <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">Time Frame</Text>
+        <DateRangeControls from={from} to={to} setFrom={setFrom} setTo={setTo} />
+      </View>
+
       {/* User selector */}
       <View className="gap-3">
-        <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">
-        </Text>
-        
-        {/* Search */}
-        <View className="mb-2 bg-surface-card border border-surface-border rounded-xl px-3 flex-row items-center">
+        <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">Select Personnel (min 2)</Text>
+        <View className="bg-surface-card border border-surface-border rounded-xl px-3 flex-row items-center">
           <FontAwesome name="search" size={12} color="rgb(100,116,139)" />
           <TextInput
             value={search}
@@ -274,58 +478,37 @@ function PersonnelTab() {
             className="flex-1 ml-2 py-2 text-typography-main text-xs"
           />
         </View>
-
         <View className="flex-row flex-wrap gap-2">
-          {users
-            .filter(u => u.full_name.toLowerCase().includes(search.toLowerCase()))
-            .map(u => {
-              const isSelected = selected.includes(u.id);
-              return (
-                <TouchableOpacity
-                  key={u.id}
-                  onPress={() => toggleUser(u.id)}
-                  className={`px-3 py-2 rounded-xl border ${
-                    isSelected ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border'
-                  }`}
-                >
-                  <Text className={`text-xs font-bold ${isSelected ? 'text-white' : 'text-typography-main'}`}>
-                    {u.full_name}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-        </View>
-      </View>
-
-      {/* Date range */}
-      <View className="gap-2">
-        <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">Date Range</Text>
-        <View className="flex-row flex-wrap gap-3 items-center">
-          <TextInput
-            value={from}
-            onChangeText={setFrom}
-            className="flex-1 bg-surface-card border border-surface-border rounded-xl px-4 py-2 text-typography-main text-sm"
-          />
-          <Text className="text-typography-dim">→</Text>
-          <TextInput
-            value={to}
-            onChangeText={setTo}
-            className="flex-1 bg-surface-card border border-surface-border rounded-xl px-4 py-2 text-typography-main text-sm"
-          />
+          {filteredUsers.map(u => {
+            const isSel = selected.includes(u.id);
+            return (
+              <TouchableOpacity
+                key={u.id}
+                onPress={() => toggleUser(u.id)}
+                className={`flex-row items-center gap-2 px-3 py-2 rounded-xl border ${isSel ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border'}`}
+              >
+                {u.avatar_url
+                  ? <Image source={{ uri: u.avatar_url }} className="w-5 h-5 rounded-full" />
+                  : <View className="w-5 h-5 rounded-full bg-surface-background border border-surface-border items-center justify-center">
+                      <Text className="text-[8px] font-black text-brand-primary">{(u.full_name || 'A')[0]}</Text>
+                    </View>
+                }
+                <Text className={`text-xs font-bold ${isSel ? 'text-white' : 'text-typography-main'}`}>{u.full_name}</Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </View>
 
       {/* Salary inputs */}
       {selected.length > 0 && (
         <View className="gap-3">
-          <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">
-            Daily Rates (USD) — Persisted Locally
-          </Text>
+          <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">Daily Rates (USD) — Persisted Locally</Text>
           {selected.map(uid => {
             const u = users.find(x => x.id === uid);
             if (!u) return null;
             return (
-              <View key={uid} className="flex-row flex-wrap items-center gap-3">
+              <View key={uid} className="flex-row items-center gap-3">
                 <Text className="text-typography-main text-sm font-bold flex-1" numberOfLines={1}>{u.full_name}</Text>
                 <View className="flex-row items-center border border-surface-border bg-surface-card rounded-xl overflow-hidden">
                   <Text className="px-3 text-typography-dim text-sm">$</Text>
@@ -346,7 +529,7 @@ function PersonnelTab() {
       <TouchableOpacity
         onPress={handleRun}
         disabled={selected.length < 2 || loading}
-        className={`py-3 rounded-2xl items-center ${selected.length < 2 ? 'bg-surface-border' : 'bg-brand-primary'}`}
+        className={`py-3.5 rounded-2xl items-center ${selected.length < 2 ? 'bg-surface-border' : 'bg-brand-primary'}`}
       >
         {loading
           ? <ActivityIndicator size="small" color="white" />
@@ -361,7 +544,7 @@ function PersonnelTab() {
               <Text className="text-typography-main font-black text-base mb-4">{row.full_name}</Text>
               {[
                 { label: 'Results (Pts)',  value: `${row.weight_points}` },
-                { label: 'Effort (OPS)',    value: `${row.activity_count}` },
+                { label: 'Effort (OPS)',   value: `${row.activity_count}` },
                 { label: 'Active Hours',   value: `${row.active_hours.toFixed(1)}h` },
                 { label: 'Completed',      value: `${row.completed_tasks}` },
                 { label: 'On-Time Rate',   value: row.on_time_rate !== null ? `${row.on_time_rate.toFixed(1)}%` : '—' },
@@ -369,10 +552,7 @@ function PersonnelTab() {
                 { label: 'Cost/Point',     value: row.cost_per_point !== null ? `$${row.cost_per_point.toFixed(2)}/pt` : '—' },
                 { label: 'Points/Hour',    value: row.points_per_hour !== null ? `${row.points_per_hour.toFixed(1)}/hr` : '—' },
               ].map((item, i, arr) => (
-                <View
-                  key={item.label}
-                  className={`flex-row justify-between py-2 ${i < arr.length - 1 ? 'border-b border-surface-border/50' : ''}`}
-                >
+                <View key={item.label} className={`flex-row justify-between py-2 ${i < arr.length - 1 ? 'border-b border-surface-border/50' : ''}`}>
                   <Text className="text-typography-muted text-sm">{item.label}</Text>
                   <Text className="text-typography-main font-bold text-sm">{item.value}</Text>
                 </View>
@@ -388,8 +568,17 @@ function PersonnelTab() {
 // ─── Root Screen ──────────────────────────────────────────────────────────────
 
 export default function AdminAnalyticsNative() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, permissionsLoaded } = useAuth();
   const [activeTab, setActiveTab] = useState<AdminTab>('pipeline');
+
+  if (!permissionsLoaded) {
+    return (
+      <View className="flex-1 bg-surface-background items-center justify-center">
+        <Stack.Screen options={{ title: 'Analytics' }} />
+        <ActivityIndicator size="large" color="var(--color-primary)" />
+      </View>
+    );
+  }
 
   if (!hasPermission('analytics.view')) {
     return (
@@ -407,38 +596,37 @@ export default function AdminAnalyticsNative() {
   const canCompare = hasPermission('analytics.compare');
 
   return (
-    <ScrollView className="flex-1 bg-surface-background">
+    <ScrollView className="flex-1 bg-surface-background" contentContainerStyle={{ paddingBottom: 40 }}>
       <Stack.Screen options={{ title: 'Analytics Hub' }} />
-      <View className="p-6" style={{ paddingTop: Platform.OS !== 'web' ? 54 : 24 }}>
-        {/* Header */}
-        <View className="mb-6">
-          <Text className="text-brand-primary font-black uppercase tracking-[0.3em] text-[10px] mb-1">
-            Operations Intelligence
+
+      {/* Header */}
+      <View className="px-6 pt-14 pb-6">
+        <Text className="text-brand-primary font-black uppercase tracking-[4px] text-[10px] mb-1">Operations Intelligence</Text>
+        <Text className="text-typography-main text-3xl font-black tracking-tighter">Analytics Hub</Text>
+      </View>
+
+      {/* Tab switcher */}
+      <View className="flex-row bg-surface-card border border-surface-border rounded-2xl p-1 mx-6 mb-6">
+        <TouchableOpacity
+          onPress={() => setActiveTab('pipeline')}
+          className={`flex-1 py-2.5 rounded-xl items-center ${activeTab === 'pipeline' ? 'bg-brand-primary' : ''}`}
+        >
+          <Text className={`text-xs font-black uppercase tracking-widest ${activeTab === 'pipeline' ? 'text-white' : 'text-typography-muted'}`}>
+            Pipeline
           </Text>
-          <Text className="text-typography-main text-3xl font-black tracking-tighter">Analytics Hub</Text>
-        </View>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => canCompare && setActiveTab('personnel')}
+          disabled={!canCompare}
+          className={`flex-1 py-2.5 rounded-xl items-center ${activeTab === 'personnel' ? 'bg-brand-primary' : ''} ${!canCompare ? 'opacity-40' : ''}`}
+        >
+          <Text className={`text-xs font-black uppercase tracking-widest ${activeTab === 'personnel' ? 'text-white' : 'text-typography-muted'}`}>
+            Personnel
+          </Text>
+        </TouchableOpacity>
+      </View>
 
-        {/* Tab switcher */}
-        <View className="flex-row bg-surface-card border border-surface-border rounded-2xl p-1 mb-8">
-          <TouchableOpacity
-            onPress={() => setActiveTab('pipeline')}
-            className={`flex-1 py-2.5 rounded-xl items-center ${activeTab === 'pipeline' ? 'bg-brand-primary' : 'bg-transparent'}`}
-          >
-            <Text className={`text-xs font-black uppercase tracking-widest ${activeTab === 'pipeline' ? 'text-white' : 'text-typography-muted'}`}>
-              Pipeline
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => canCompare && setActiveTab('personnel')}
-            disabled={!canCompare}
-            className={`flex-1 py-2.5 rounded-xl items-center ${activeTab === 'personnel' ? 'bg-brand-primary' : 'bg-transparent'} ${!canCompare ? 'opacity-40' : ''}`}
-          >
-            <Text className={`text-xs font-black uppercase tracking-widest ${activeTab === 'personnel' ? 'text-white' : 'text-typography-muted'}`}>
-              Personnel
-            </Text>
-          </TouchableOpacity>
-        </View>
-
+      <View className="px-6">
         {activeTab === 'pipeline' && <PipelineTab />}
         {activeTab === 'personnel' && canCompare && <PersonnelTab />}
         {activeTab === 'personnel' && !canCompare && (

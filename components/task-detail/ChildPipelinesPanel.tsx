@@ -1,8 +1,9 @@
-import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { useTaskDetail } from '@/contexts/TaskDetailContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
-import { useTaskDetail } from '@/contexts/TaskDetailContext';
+import React from 'react';
+import { Text, TouchableOpacity, View } from 'react-native';
 
 const STATUS_STYLES: Record<string, { dot: string; label: string }> = {
   completed: { dot: 'bg-state-success', label: 'Completed' },
@@ -24,6 +25,7 @@ function getStatusStyle(status: string) {
 export default function ChildPipelinesPanel() {
   const { data } = useTaskDetail();
   const router = useRouter();
+  const colors = useThemeColors();
 
   if (!data || !data.child_tasks || data.child_tasks.length === 0) return null;
 
@@ -32,7 +34,7 @@ export default function ChildPipelinesPanel() {
       {/* Header */}
       <View className="flex-row items-center mb-3 gap-2">
         <View className="bg-brand-primary/10 p-1.5 rounded-lg border border-brand-primary/20">
-          <FontAwesome name="code-fork" size={11} color="var(--color-primary)" />
+          <FontAwesome name="code-fork" size={11} color={colors.primary} />
         </View>
         <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em]">
           Spawned Sub-Pipelines ({data.child_tasks.length})
@@ -86,7 +88,7 @@ export default function ChildPipelinesPanel() {
                 </Text>
               </View>
 
-              <FontAwesome name="chevron-right" size={10} color="var(--color-text-muted)" style={{ marginLeft: 8 }} />
+              <FontAwesome name="chevron-right" size={10} color={colors.textMuted} style={{ marginLeft: 8 }} />
             </TouchableOpacity>
           );
         })}

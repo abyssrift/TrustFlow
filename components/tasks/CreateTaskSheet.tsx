@@ -1,10 +1,11 @@
 import { useTaskCreation } from '@/contexts/TaskCreationContext';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import PremiumCalendarPicker from '../common/PremiumCalendarPicker';
 
@@ -14,6 +15,17 @@ type Props = {
   initialPipelineId?: string | null;
 };
 
+type TaskTemplate = {
+  name: string;
+  title: string;
+  description: string;
+  category: string;
+  priority: 'low' | 'normal' | 'high' | 'urgent';
+  weight: number;
+};
+
+const TEMPLATES_KEY = '@TrustFlow_task_templates';
+
 export default function CreateTaskSheet({ visible, onClose, initialPipelineId }: Props) {
   const insets = useSafeAreaInsets();
   const { draft, setDraft, createTask, loading, recentTasks, loadRecentTasks, briefFiles, setBriefFiles } = useTaskCreation();
@@ -21,10 +33,53 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
   const [users, setUsers] = useState<any[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
   const [showCalendar, setShowCalendar] = useState(false);
+  const [templates, setTemplates] = useState<TaskTemplate[]>([]);
+
+  const loadTemplates = async () => {
+    try {
+      const saved = await AsyncStorage.getItem(TEMPLATES_KEY);
+      if (saved) setTemplates(JSON.parse(saved));
+    } catch {}
+  };
+
+  const saveAsTemplate = async () => {
+    if (!draft.title.trim()) {
+      Alert.alert('No Title', 'Add a title first to save it as a template.');
+      return;
+    }
+    const template: TaskTemplate = {
+      name: draft.title.trim(),
+      title: draft.title,
+      description: draft.description,
+      category: draft.category,
+      priority: draft.priority,
+      weight: draft.weight,
+    };
+    const updated = [...templates, template];
+    setTemplates(updated);
+    await AsyncStorage.setItem(TEMPLATES_KEY, JSON.stringify(updated));
+  };
+
+  const loadTemplate = (template: TaskTemplate) => {
+    setDraft({
+      title: template.title,
+      description: template.description,
+      category: template.category,
+      priority: template.priority,
+      weight: template.weight,
+    });
+  };
+
+  const deleteTemplate = async (index: number) => {
+    const updated = templates.filter((_, i) => i !== index);
+    setTemplates(updated);
+    await AsyncStorage.setItem(TEMPLATES_KEY, JSON.stringify(updated));
+  };
 
   useEffect(() => {
     if (visible) {
       loadRecentTasks();
+      loadTemplates();
       fetchResources();
       if (initialPipelineId && !draft.pipelineId) {
         setDraft({ pipelineId: initialPipelineId });
@@ -55,6 +110,70 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
       case 1:
         return (
           <View className="gap-6">
+            {/* Quick Start — Recent Tasks & Templates */}
+            <View className="pb-6 border-b border-surface-border/50">
+              {recentTasks.length > 0 && (
+                <View className="mb-5">
+                  <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2 ml-1">Copy Recent</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <View className="flex-row gap-2 pr-2">
+                      {recentTasks.slice(0, 6).map(t => (
+                        <TouchableOpacity
+                          key={t.id}
+                          onPress={() => setDraft({
+                            title: t.title,
+                            description: t.description || '',
+                            category: t.category || 'General',
+                            priority: t.priority === 'medium' ? 'normal' : (t.priority || 'normal'),
+                          })}
+                          className="bg-surface-card border border-surface-border rounded-xl px-4 py-3"
+                          style={{ maxWidth: 140 }}
+                        >
+                          <Text className="text-typography-main font-bold text-xs" numberOfLines={1}>{t.title}</Text>
+                          <Text className="text-typography-muted text-[9px] font-bold uppercase mt-0.5">{t.category || 'General'}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </ScrollView>
+                </View>
+              )}
+
+              <View>
+                <View className="flex-row items-center justify-between mb-2">
+                  <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest ml-1">Templates</Text>
+                  <TouchableOpacity onPress={saveAsTemplate} className="flex-row items-center gap-1">
+                    <FontAwesome name="bookmark-o" size={10} color="var(--color-primary)" />
+                    <Text className="text-brand-primary text-[10px] font-black uppercase">Save Current</Text>
+                  </TouchableOpacity>
+                </View>
+                {templates.length > 0 ? (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <View className="flex-row gap-2 pr-2">
+                      {templates.map((t, i) => (
+                        <TouchableOpacity
+                          key={i}
+                          onPress={() => loadTemplate(t)}
+                          onLongPress={() =>
+                            Alert.alert('Delete Template', `Remove "${t.name}"?`, [
+                              { text: 'Cancel', style: 'cancel' },
+                              { text: 'Delete', style: 'destructive', onPress: () => deleteTemplate(i) },
+                            ])
+                          }
+                          className="bg-brand-primary/10 border border-brand-primary/30 rounded-xl px-4 py-3"
+                          style={{ maxWidth: 140 }}
+                        >
+                          <Text className="text-brand-primary font-bold text-xs" numberOfLines={1}>{t.name}</Text>
+                          <Text className="text-brand-primary/60 text-[9px] font-bold uppercase mt-0.5">Hold to delete</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </ScrollView>
+                ) : (
+                  <Text className="text-typography-muted text-[10px] ml-1 font-medium">No templates yet. Fill in details and tap Save.</Text>
+                )}
+              </View>
+            </View>
+
             <View>
               <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2 ml-1">Title</Text>
               <TextInput 

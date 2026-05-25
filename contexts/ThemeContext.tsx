@@ -60,7 +60,7 @@ const hexToRgb = (hex: string) => {
 };
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [theme, setThemeState] = useState<ThemeType>('indigo');
+  const [theme, setThemeState] = useState<ThemeType>('light');
   const [density, setDensityState] = useState<DensityType>('normal');
   const [roundness, setRoundnessState] = useState<RoundnessType>('normal');
   const [kanban, setKanbanState] = useState<KanbanSettings>(DEFAULT_KANBAN);
