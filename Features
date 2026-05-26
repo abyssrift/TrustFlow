@@ -10,3 +10,16 @@ if something is big, it goes from year, to month to week to day to hour to minut
 
  Timer beacon is broken for refresh and tab closing
 
+
+
+Iam a big fan of the filehub so far! but there are some fixes, bugs and features that i require.
+1. I asked for 1 on 1 file sharing but i was also hoping to have a "Group" Folder, where multiple people can send and share folders and they persist in that folder. it would also show you how many people and who 
+exists in this folder, think of it sort of like a whatsapp group? ish deal. members may add people into groups and so on.
+2. Download button broken, with this precise error: [Storage] Failed to generate signed URL: StorageApiError: The database schema is invalid or incompatible.
+    at http://localhost:8081/node_modules/expo-router/entry.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:116840:16
+3. I really like the current UI but there are alot of missing features that were supposed to be delivered, such as tags, Categories, Activity, etc. lets elaborate on these features and formulate a thorough phased plans to implement them.
+4. Implementing QOL changes such as a count next to the inbox and the sent showing if there are any new files. notifications related to sending and receiving and integrating the new triggers into the notification engine.
+
+5. Mobile UX on web. currently the inbox and sent buttons and other features dont scale too well, and actually are super tall in height for some reason?
+
+6. Big picture, security and future features.

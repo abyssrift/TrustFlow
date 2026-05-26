@@ -41,7 +41,7 @@ self.addEventListener('push', (event) => {
 
   const options = {
     body: data.body ?? '',
-    icon: '/android-chrome-192x192.png',
+    icon: '/notification-icon.png',
     badge: '/badge-72.png',
     image: data.data?.image ?? undefined,
     data: data.data ?? {},

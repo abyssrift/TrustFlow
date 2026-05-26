@@ -1,5 +1,5 @@
 [build]
-  command = "npx expo export -p web && cp public/sw.js dist/sw.js"
+  command = "npx expo export -p web && cp -r public/. dist/"
   publish = "dist"
 
 [[redirects]]

@@ -141,6 +141,14 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="filehub"
+        options={{
+          href: null,
+          title: 'File Hub',
+          tabBarIcon: ({ color }) => <TabBarIcon name="folder-open" color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="menu"
         options={{
           title: 'Menu',
