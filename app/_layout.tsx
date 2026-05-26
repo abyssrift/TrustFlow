@@ -91,9 +91,16 @@ import { AnalyticsProvider } from '@/contexts/AnalyticsContext';
 import { NotificationsProvider } from '@/contexts/NotificationsContext';
 import { ThemeProvider as AppThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import { usePushRegistration } from '@/hooks/usePushRegistration';
+import { usePushAutoSubscribe } from '@/hooks/usePushAutoSubscribe';
+import WebPushPrompt from '@/components/WebPushPrompt';
 
 function PushRegistrationGuard() {
   usePushRegistration();
+  return null;
+}
+
+function WebPushAutoSubscribeGuard() {
+  usePushAutoSubscribe();
   return null;
 }
 
@@ -272,6 +279,8 @@ function ThemedRoot() {
       >
         {/* Register for push notifications on native once user is signed in */}
         {session && Platform.OS !== 'web' && <PushRegistrationGuard />}
+        {/* Auto-subscribe to web push on every login if not already active */}
+        {session && Platform.OS === 'web' && <WebPushAutoSubscribeGuard />}
 
         {/* Global Loading Overlay */}
         {(!initialized || isLoading /* || showRouteLoading */) && (
@@ -294,6 +303,7 @@ function ThemedRoot() {
           <NetworkStatusBanner />
           <GlobalUploadBanner />
         </View>
+        {session && <WebPushPrompt />}
       </View>
     </View>
     </RouteLoadingProvider>

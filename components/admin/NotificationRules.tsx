@@ -3,203 +3,339 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-    ActivityIndicator,
-    Modal,
-    ScrollView,
-    Switch,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    useWindowDimensions,
-    View,
+  ActivityIndicator,
+  Modal,
+  ScrollView,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
 } from 'react-native';
 
-// Types and Constants
+// ── Types ─────────────────────────────────────────────────────────────
 type NotificationRule = {
   id: string;
   name: string;
   description: string | null;
   event_type: string;
+  conditions: Record<string, unknown>;
   recipient_strategies: string[];
+  recipient_config: Record<string, unknown>;
+  channels_override: Record<string, unknown> | null;
   is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+type Delivery = {
+  id: string;
+  user_id: string;
+  recipient_name: string;
+  title: string;
+  body: string;
+  channels_sent: string[] | null;
+  read_at: string | null;
   created_at: string;
 };
 
-const EVENT_META: Record<string, { label: string; cat: string; icon: any; colorKey: any }> = {
-  'task.assigned': { label: 'Task Assigned', cat: 'Tasks', icon: 'user-plus', colorKey: 'primary' },
-  'task.commented': { label: 'New Comment', cat: 'Comments', icon: 'comment', colorKey: 'warning' },
-  'task.due_soon': { label: 'Due Soon', cat: 'Deadlines', icon: 'clock-o', colorKey: 'danger' },
-  'task.mentioned': { label: 'Mention', cat: 'Comments', icon: 'at', colorKey: 'warning' },
-  'task.overdue': { label: 'Task Overdue', cat: 'Deadlines', icon: 'exclamation-circle', colorKey: 'danger' },
+type SimulationResult = {
+  rule_id: string;
+  event_type: string;
+  conditions_match: boolean;
+  strategy_log: { strategy: string; resolved_count: number; user_ids: string[] }[];
+  recipients: { user_id: string; display_name: string; email: string }[];
+  recipient_count: number;
+};
+
+// ── Constants ─────────────────────────────────────────────────────────
+const EVENT_META: Record<string, { label: string; cat: string; icon: any; colorKey: string }> = {
+  'task.assigned':              { label: 'Task Assigned',          cat: 'Tasks',     icon: 'user-plus',          colorKey: 'primary' },
+  'task.commented':             { label: 'New Comment',            cat: 'Comments',  icon: 'comment',            colorKey: 'warning' },
+  'task.due_soon':              { label: 'Due Soon',               cat: 'Deadlines', icon: 'clock-o',            colorKey: 'danger'  },
+  'task.mentioned':             { label: 'Mention',                cat: 'Comments',  icon: 'at',                 colorKey: 'warning' },
+  'task.overdue':               { label: 'Task Overdue',           cat: 'Deadlines', icon: 'exclamation-circle', colorKey: 'danger'  },
+  'task.created':               { label: 'Task Created',           cat: 'Tasks',     icon: 'plus-circle',        colorKey: 'primary' },
+  'task.completed':             { label: 'Task Completed',         cat: 'Tasks',     icon: 'check-circle',       colorKey: 'primary' },
+  'task.status_changed':        { label: 'Status Changed',         cat: 'Tasks',     icon: 'exchange',           colorKey: 'primary' },
+  'task.stage_transition':      { label: 'Stage Transition',       cat: 'Pipelines', icon: 'arrow-right',        colorKey: 'primary' },
+  'task.manual_time_flagged':   { label: 'Manual Time Flagged',    cat: 'Time',      icon: 'flag',               colorKey: 'warning' },
+  'task.manual_time_approved':  { label: 'Manual Time Approved',   cat: 'Time',      icon: 'thumbs-up',          colorKey: 'primary' },
+  'task.manual_time_rejected':  { label: 'Manual Time Rejected',   cat: 'Time',      icon: 'thumbs-down',        colorKey: 'danger'  },
+  'pipeline.member_added':      { label: 'Pipeline Member Added',  cat: 'Pipelines', icon: 'user-plus',          colorKey: 'primary' },
+  'pipeline.archived':          { label: 'Pipeline Archived',      cat: 'Pipelines', icon: 'archive',            colorKey: 'textMuted' },
 };
 
 const STRATEGY_LABELS: Record<string, string> = {
-  assignee: 'Assignees',
-  task_owner: 'Owner',
-  watchers: 'Watchers',
-  specific_users: 'Specific Users',
+  assignee:         'Assignees',
+  task_owner:       'Task Owner',
+  watchers:         'Watchers',
+  specific_users:   'Specific Users',
+  pipeline_members: 'Pipeline Members',
+  role:             'By Role',
+  payload_user:     'Payload User',
 };
 
-const EVENT_TYPE_LABELS = {
-  'task.assigned': { label: 'Task Assigned', category: 'Tasks' },
-  'task.commented': { label: 'New Comment', category: 'Comments' },
-  'task.due_soon': { label: 'Due Soon', category: 'Deadlines' },
-  'task.mentioned': { label: 'User Mentioned', category: 'Comments' },
-  'task.overdue': { label: 'Task Overdue', category: 'Deadlines' },
+const STRATEGY_HELP: Record<string, string> = {
+  assignee:         'All users assigned to the task',
+  task_owner:       'The user who created the task',
+  watchers:         'Users watching the task',
+  specific_users:   'Explicit user IDs (or mentioned user)',
+  pipeline_members: 'All assignees + participants in the pipeline',
+  role:             'All users holding the named role',
+  payload_user:     'User ID read from a payload field',
 };
 
-// ── Create Rule Modal ────────────────────────────────────────────────────────
-type CreateRuleModalProps = {
+const ALL_EVENT_TYPES = Object.keys(EVENT_META);
+const ALL_STRATEGIES = Object.keys(STRATEGY_LABELS);
+
+// ── Rule Editor Modal (create + edit) ────────────────────────────────
+type RuleEditorModalProps = {
   visible: boolean;
+  existing: NotificationRule | null;
   onClose: () => void;
-  onCreated: () => void;
+  onSaved: () => void;
 };
 
-function CreateRuleModal({ visible, onClose, onCreated }: CreateRuleModalProps) {
+function RuleEditorModal({ visible, existing, onClose, onSaved }: RuleEditorModalProps) {
   const { showAlert } = useAlert();
   const colors = useThemeColors();
+
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [eventType, setEventType] = useState('task.assigned');
   const [strategies, setStrategies] = useState<string[]>(['assignee']);
+  const [conditionsJson, setConditionsJson] = useState('{}');
+  const [recipientConfigJson, setRecipientConfigJson] = useState('{}');
   const [saving, setSaving] = useState(false);
 
-  const knownEventTypes = Object.keys(EVENT_META);
-  const availableStrategies = Object.keys(STRATEGY_LABELS);
-
-  const toggleStrategy = (s: string) => {
-    setStrategies((prev) =>
-      prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]
-    );
-  };
-
-  const submit = async () => {
-    if (!name.trim()) {
-      showAlert('Validation', 'Rule name is required.');
-      return;
-    }
-    if (strategies.length === 0) {
-      showAlert('Validation', 'Select at least one recipient strategy.');
-      return;
-    }
-    setSaving(true);
-    const { error } = await supabase.rpc('rpc_create_notification_rule', {
-      p_name: name.trim(),
-      p_description: description.trim() || null,
-      p_event_type: eventType,
-      p_conditions: {},
-      p_recipient_strategies: strategies,
-      p_recipient_config: {},
-      p_channels_override: null,
-    });
-    setSaving(false);
-    if (error) {
-      showAlert('Error', error.message || 'Failed to create rule.');
+  useEffect(() => {
+    if (!visible) return;
+    if (existing) {
+      setName(existing.name);
+      setDescription(existing.description ?? '');
+      setEventType(existing.event_type);
+      setStrategies(existing.recipient_strategies ?? []);
+      setConditionsJson(JSON.stringify(existing.conditions ?? {}, null, 2));
+      setRecipientConfigJson(JSON.stringify(existing.recipient_config ?? {}, null, 2));
     } else {
       setName('');
       setDescription('');
       setEventType('task.assigned');
       setStrategies(['assignee']);
-      onCreated();
+      setConditionsJson('{}');
+      setRecipientConfigJson('{}');
+    }
+  }, [visible, existing]);
+
+  const toggleStrategy = (s: string) => {
+    setStrategies((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
+  };
+
+  const parseJson = (raw: string, fallback: any): { ok: true; value: any } | { ok: false; err: string } => {
+    const trimmed = raw.trim();
+    if (!trimmed) return { ok: true, value: fallback };
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+        return { ok: false, err: 'Must be a JSON object' };
+      }
+      return { ok: true, value: parsed };
+    } catch (e: any) {
+      return { ok: false, err: e?.message || 'Invalid JSON' };
+    }
+  };
+
+  const submit = async () => {
+    if (!name.trim()) { showAlert('Validation', 'Rule name is required.'); return; }
+    if (strategies.length === 0) { showAlert('Validation', 'Select at least one recipient strategy.'); return; }
+
+    const cond = parseJson(conditionsJson, {});
+    if (!cond.ok) { showAlert('Validation', `Conditions: ${cond.err}`); return; }
+    const cfg = parseJson(recipientConfigJson, {});
+    if (!cfg.ok) { showAlert('Validation', `Recipient config: ${cfg.err}`); return; }
+
+    setSaving(true);
+    const rpc = existing ? 'rpc_update_notification_rule' : 'rpc_create_notification_rule';
+    const params: Record<string, any> = {
+      p_name: name.trim(),
+      p_description: description.trim() || null,
+      p_event_type: eventType,
+      p_conditions: cond.value,
+      p_recipient_strategies: strategies,
+      p_recipient_config: cfg.value,
+      p_channels_override: null,
+    };
+    if (existing) params.p_rule_id = existing.id;
+
+    const { error } = await supabase.rpc(rpc, params);
+    setSaving(false);
+
+    if (error) {
+      showAlert('Error', error.message || `Failed to ${existing ? 'update' : 'create'} rule.`);
+    } else {
+      onSaved();
       onClose();
     }
   };
 
   return (
     <Modal visible={visible} animationType="fade" transparent>
-      <View className="flex-1 items-center justify-center bg-black/60 p-6">
-        <View className="bg-surface-card w-full max-w-md rounded-3xl p-8 border border-surface-border shadow-2xl">
-          <View className="flex-row items-center justify-between mb-8">
-            <Text className="text-typography-main font-black text-2xl tracking-tight">New Rule</Text>
-            <TouchableOpacity onPress={onClose} className="w-8 h-8 bg-surface-background rounded-full items-center justify-center border border-surface-border">
+      <View className="flex-1 items-center justify-center bg-black/60 p-4">
+        <View className="bg-surface-card w-full max-w-lg rounded-3xl border border-surface-border shadow-2xl max-h-[90%]">
+          <View className="flex-row items-center justify-between px-6 pt-6 pb-4 border-b border-surface-border">
+            <Text className="text-typography-main font-black text-xl tracking-tight">
+              {existing ? 'Edit Rule' : 'New Rule'}
+            </Text>
+            <TouchableOpacity
+              onPress={onClose}
+              className="w-8 h-8 bg-surface-background rounded-full items-center justify-center border border-surface-border"
+            >
               <FontAwesome name="times" size={14} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
 
-          {/* Name */}
-          <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Rule Name *</Text>
-          <TextInput
-            value={name}
-            onChangeText={setName}
-            placeholder="e.g. Notify on Assignment"
-            placeholderTextColor={colors.textDim}
-            className="bg-surface-background border border-surface-border rounded-xl px-4 py-3.5 text-typography-main text-sm mb-5 focus:border-brand-primary"
-          />
+          <ScrollView className="px-6 py-5" showsVerticalScrollIndicator={false}>
+            {/* Name */}
+            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Rule Name *</Text>
+            <TextInput
+              value={name}
+              onChangeText={setName}
+              placeholder="e.g. Notify on Assignment"
+              placeholderTextColor={colors.textDim}
+              className="bg-surface-background border border-surface-border rounded-xl px-4 py-3 text-typography-main text-sm mb-4"
+            />
 
-          {/* Event Type */}
-          <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Trigger Event</Text>
-          <View className="flex-row flex-wrap gap-2 mb-5">
-            {knownEventTypes.map((et) => (
-              <TouchableOpacity
-                key={et}
-                onPress={() => setEventType(et)}
-                className={`px-3 py-2 rounded-xl border ${
-                  eventType === et ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'
-                }`}
-              >
-                <Text className={`text-[10px] font-black ${eventType === et ? 'text-white' : 'text-typography-muted'}`}>
-                  {EVENT_META[et]?.label ?? et}
+            {/* Description */}
+            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Description</Text>
+            <TextInput
+              value={description}
+              onChangeText={setDescription}
+              placeholder="Optional, shown in the rule list"
+              placeholderTextColor={colors.textDim}
+              multiline
+              className="bg-surface-background border border-surface-border rounded-xl px-4 py-3 text-typography-main text-sm mb-4"
+              style={{ minHeight: 56 }}
+            />
+
+            {/* Event Type */}
+            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Trigger Event</Text>
+            <View className="flex-row flex-wrap gap-2 mb-4">
+              {ALL_EVENT_TYPES.map((et) => (
+                <TouchableOpacity
+                  key={et}
+                  onPress={() => setEventType(et)}
+                  className={`px-3 py-2 rounded-xl border ${
+                    eventType === et ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'
+                  }`}
+                >
+                  <Text className={`text-[10px] font-black ${eventType === et ? 'text-white' : 'text-typography-muted'}`}>
+                    {EVENT_META[et]?.label ?? et}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Strategies */}
+            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Notify Recipients *</Text>
+            <View className="flex-row flex-wrap gap-2 mb-4">
+              {ALL_STRATEGIES.map((s) => (
+                <TouchableOpacity
+                  key={s}
+                  onPress={() => toggleStrategy(s)}
+                  className={`px-3 py-2 rounded-xl border ${
+                    strategies.includes(s) ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border'
+                  }`}
+                >
+                  <Text className={`text-[10px] font-black ${strategies.includes(s) ? 'text-brand-primary' : 'text-typography-muted'}`}>
+                    {STRATEGY_LABELS[s]}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Recipient Config */}
+            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-1">Recipient Config (JSON)</Text>
+            <Text className="text-typography-muted text-[10px] mb-2">e.g. {`{"payload_field":"manager_id"}`} for payload_user, or {`{"role":"Admin"}`} for role.</Text>
+            <TextInput
+              value={recipientConfigJson}
+              onChangeText={setRecipientConfigJson}
+              multiline
+              autoCapitalize="none"
+              autoCorrect={false}
+              placeholderTextColor={colors.textDim}
+              className="bg-surface-background border border-surface-border rounded-xl px-4 py-3 text-typography-main text-xs mb-4 font-mono"
+              style={{ minHeight: 72, fontFamily: 'monospace' }}
+            />
+
+            {/* Conditions */}
+            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-1">Conditions (JSON)</Text>
+            <Text className="text-typography-muted text-[10px] mb-2">All keys must match the event payload exactly. Leave as {`{}`} to match every event.</Text>
+            <TextInput
+              value={conditionsJson}
+              onChangeText={setConditionsJson}
+              multiline
+              autoCapitalize="none"
+              autoCorrect={false}
+              placeholderTextColor={colors.textDim}
+              className="bg-surface-background border border-surface-border rounded-xl px-4 py-3 text-typography-main text-xs mb-6 font-mono"
+              style={{ minHeight: 72, fontFamily: 'monospace' }}
+            />
+          </ScrollView>
+
+          <View className="px-6 pb-6 pt-2 border-t border-surface-border">
+            <TouchableOpacity
+              onPress={submit}
+              disabled={saving}
+              className="bg-brand-primary py-4 rounded-2xl items-center"
+            >
+              {saving ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <Text className="text-white font-black uppercase tracking-widest text-xs">
+                  {existing ? 'Save Changes' : 'Create Rule'}
                 </Text>
-              </TouchableOpacity>
-            ))}
+              )}
+            </TouchableOpacity>
           </View>
-
-          {/* Strategies */}
-          <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Notify Recipients</Text>
-          <View className="flex-row flex-wrap gap-2 mb-8">
-            {availableStrategies.map((s) => (
-              <TouchableOpacity
-                key={s}
-                onPress={() => toggleStrategy(s)}
-                className={`px-3 py-2 rounded-xl border ${
-                  strategies.includes(s) ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border'
-                }`}
-              >
-                <Text className={`text-[10px] font-black ${strategies.includes(s) ? 'text-brand-primary' : 'text-typography-muted'}`}>
-                  {STRATEGY_LABELS[s]}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <TouchableOpacity
-            onPress={submit}
-            disabled={saving}
-            className="bg-brand-primary py-4 rounded-2xl items-center shadow-lg shadow-brand-primary/20"
-          >
-            {saving ? <ActivityIndicator color="#fff" size="small" /> : <Text className="text-white font-black uppercase tracking-widest text-xs">Create Notification Rule</Text>}
-          </TouchableOpacity>
         </View>
       </View>
     </Modal>
   );
 }
 
-// ── Shared Sub-Components ───────────────────────────────────────────────────
-
-const RuleListItem = ({ rule, isSelected, onSelect, onToggle }: { rule: NotificationRule, isSelected: boolean, onSelect: () => void, onToggle: any }) => {
+// ── Rule list item ────────────────────────────────────────────────────
+const RuleListItem = ({
+  rule, isSelected, onSelect, onToggle,
+}: {
+  rule: NotificationRule;
+  isSelected: boolean;
+  onSelect: () => void;
+  onToggle: (id: string, active: boolean) => void;
+}) => {
   const colors = useThemeColors();
   const meta = EVENT_META[rule.event_type] || { label: rule.event_type, icon: 'bell', colorKey: 'textMuted' };
   return (
-    <TouchableOpacity 
+    <TouchableOpacity
       onPress={onSelect}
       activeOpacity={0.7}
-      className={`p-4 mb-2 rounded-xl border transition-all ${isSelected ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-card border-surface-border hover:bg-surface-overlay'}`}
+      className={`p-4 mb-2 rounded-xl border ${isSelected ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-card border-surface-border'}`}
     >
       <View className="flex-row items-center justify-between">
         <View className="flex-row items-center gap-3 flex-1">
-          <View className={`w-8 h-8 rounded-lg items-center justify-center bg-surface-background border border-surface-border shadow-sm`}>
-            <FontAwesome name={meta.icon} size={14} color={rule.is_active ? (colors[meta.colorKey] || colors.primary) : colors.textMuted} />
+          <View className="w-8 h-8 rounded-lg items-center justify-center bg-surface-background border border-surface-border">
+            <FontAwesome name={meta.icon} size={14} color={rule.is_active ? ((colors as any)[meta.colorKey] || colors.primary) : colors.textMuted} />
           </View>
           <View className="flex-1">
-            <Text className={`font-black text-sm truncate ${isSelected ? 'text-typography-main' : 'text-typography-muted'}`}>{rule.name}</Text>
+            <Text className={`font-black text-sm ${isSelected ? 'text-typography-main' : 'text-typography-muted'}`} numberOfLines={1}>{rule.name}</Text>
             <Text className="text-[10px] text-typography-muted uppercase tracking-widest">{meta.label}</Text>
           </View>
         </View>
-        <Switch 
-          value={rule.is_active} 
+        <Switch
+          value={rule.is_active}
           onValueChange={(v) => onToggle(rule.id, v)}
           trackColor={{ false: colors.border, true: colors.primary }}
           thumbColor="#fff"
@@ -210,77 +346,188 @@ const RuleListItem = ({ rule, isSelected, onSelect, onToggle }: { rule: Notifica
   );
 };
 
-const RuleInspector = ({ rule, onToggle }: { rule: NotificationRule | null, onToggle: any }) => {
+// ── Rule inspector ───────────────────────────────────────────────────
+const RuleInspector = ({
+  rule, isDesktop, onToggle, onEdit, onDelete,
+}: {
+  rule: NotificationRule | null;
+  isDesktop: boolean;
+  onToggle: (id: string, active: boolean) => void;
+  onEdit: (rule: NotificationRule) => void;
+  onDelete: (rule: NotificationRule) => void;
+}) => {
   const colors = useThemeColors();
   const [activeTab, setActiveTab] = useState<'config' | 'test' | 'logs'>('config');
-  const [testing, setTesting] = useState(false);
-  const [testLogs, setTestLogs] = useState<string[]>([]);
-  const [testSummary, setTestSummary] = useState<{ matchedRules?: number; recipients?: string[] } | null>(null);
-  const [simTaskId, setSimTaskId] = useState<string>('');
-  const [simPipelineId, setSimPipelineId] = useState<string>('');
-  const [simMentionedUserId, setSimMentionedUserId] = useState<string>('');
 
-  if (!rule) return (
-    <View className="flex-1 items-center justify-center p-12 bg-surface-background/30">
-      <View className="bg-surface-card p-10 rounded-[40px] border border-dashed border-surface-border items-center">
-        <View className="w-16 h-16 bg-surface-background rounded-full items-center justify-center mb-6">
-          <FontAwesome name="mouse-pointer" size={24} color={colors.textMuted} />
+  // Playground state
+  const [testing, setTesting] = useState(false);
+  const [simTaskId, setSimTaskId] = useState('');
+  const [simPipelineId, setSimPipelineId] = useState('');
+  const [simPayloadJson, setSimPayloadJson] = useState('{}');
+  const [simResult, setSimResult] = useState<SimulationResult | null>(null);
+  const [simError, setSimError] = useState<string | null>(null);
+
+  // Logs state
+  const [logs, setLogs] = useState<Delivery[] | null>(null);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logsError, setLogsError] = useState<string | null>(null);
+
+  // Reset tab-specific state when rule changes
+  useEffect(() => {
+    setActiveTab('config');
+    setSimResult(null);
+    setSimError(null);
+    setSimTaskId('');
+    setSimPipelineId('');
+    setSimPayloadJson('{}');
+    setLogs(null);
+    setLogsError(null);
+  }, [rule?.id]);
+
+  const loadLogs = useCallback(async () => {
+    if (!rule) return;
+    setLogsLoading(true);
+    setLogsError(null);
+    const { data, error } = await supabase.rpc('rpc_list_rule_deliveries', {
+      p_event_type: rule.event_type,
+      p_limit: 50,
+    });
+    setLogsLoading(false);
+    if (error) {
+      setLogsError(error.message);
+      setLogs([]);
+    } else {
+      setLogs((data ?? []) as Delivery[]);
+    }
+  }, [rule?.id, rule?.event_type]);
+
+  useEffect(() => {
+    if (activeTab === 'logs' && logs === null) loadLogs();
+  }, [activeTab, logs, loadLogs]);
+
+  const runSimulation = async () => {
+    if (!rule) return;
+    setTesting(true);
+    setSimError(null);
+    setSimResult(null);
+
+    // Build payload from convenience inputs + JSON
+    let extra: Record<string, unknown> = {};
+    const trimmed = simPayloadJson.trim();
+    if (trimmed) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          extra = parsed as Record<string, unknown>;
+        } else {
+          setSimError('Payload JSON must be an object');
+          setTesting(false);
+          return;
+        }
+      } catch (e: any) {
+        setSimError(`Payload JSON: ${e?.message || 'invalid JSON'}`);
+        setTesting(false);
+        return;
+      }
+    }
+    const payload: Record<string, unknown> = { ...extra };
+    if (simTaskId.trim())     payload.task_id = simTaskId.trim();
+    if (simPipelineId.trim()) payload.pipeline_id = simPipelineId.trim();
+
+    const { data, error } = await supabase.rpc('rpc_simulate_notification_rule', {
+      p_rule_id: rule.id,
+      p_payload: payload,
+    });
+    setTesting(false);
+    if (error) {
+      setSimError(error.message);
+    } else {
+      setSimResult(data as SimulationResult);
+    }
+  };
+
+  if (!rule) {
+    return (
+      <View className="flex-1 items-center justify-center p-8 bg-surface-background/30">
+        <View className="bg-surface-card p-8 rounded-3xl border border-dashed border-surface-border items-center">
+          <View className="w-14 h-14 bg-surface-background rounded-full items-center justify-center mb-4">
+            <FontAwesome name="mouse-pointer" size={22} color={colors.textMuted} />
+          </View>
+          <Text className="text-typography-main text-base font-black tracking-tight">Select a Rule</Text>
+          <Text className="text-typography-muted mt-2 text-center max-w-[220px] leading-5 text-xs">Choose a rule from the left to view configuration and logs.</Text>
         </View>
-        <Text className="text-typography-main text-lg font-black tracking-tight">Select a Rule</Text>
-        <Text className="text-typography-muted mt-2 text-center max-w-[200px] leading-5">Choose a rule from the left to view configuration and logs.</Text>
       </View>
-    </View>
-  );
+    );
+  }
+
+  const meta = EVENT_META[rule.event_type] || { label: rule.event_type };
+  const conditionEntries = Object.entries(rule.conditions ?? {});
+  const cfgEntries = Object.entries(rule.recipient_config ?? {});
+
+  const headerPad = isDesktop ? 32 : 20;
+  const contentPad = isDesktop ? 32 : 20;
+  const titleClass = isDesktop ? 'text-3xl' : 'text-xl';
 
   return (
     <View className="flex-1 bg-surface-card border-l border-surface-border">
       {/* Header */}
-      <View className="p-8 border-b border-surface-border flex-row items-center justify-between bg-surface-background/50">
-        <View className="flex-1 mr-4">
-          <View className="flex-row items-center gap-2 mb-2">
-            <View className="bg-brand-primary/10 px-2 py-0.5 rounded-md border border-brand-primary/20">
-              <Text className="text-brand-primary text-[9px] font-black uppercase tracking-wider">{rule.event_type}</Text>
+      <View style={{ padding: headerPad }} className="border-b border-surface-border bg-surface-background/50">
+        <View className="flex-row items-start justify-between">
+          <View className="flex-1 mr-3">
+            <View className="flex-row items-center gap-2 mb-2 flex-wrap">
+              <View className="bg-brand-primary/10 px-2 py-0.5 rounded-md border border-brand-primary/20">
+                <Text className="text-brand-primary text-[9px] font-black uppercase tracking-wider">{rule.event_type}</Text>
+              </View>
+              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">• ID {rule.id.slice(0, 8)}</Text>
             </View>
-            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">• RULE ID {rule.id.slice(0,8)}</Text>
+            <Text className={`text-typography-main ${titleClass} font-black tracking-tighter leading-none mb-2`} numberOfLines={2}>{rule.name}</Text>
+            <Text className="text-typography-muted text-xs font-medium">{rule.description || 'No description provided.'}</Text>
           </View>
-          <Text className="text-typography-main text-4xl font-black tracking-tighter leading-none mb-2">{rule.name}</Text>
-          <Text className="text-typography-muted text-sm font-medium">{rule.description || 'No additional details provided for this rule.'}</Text>
-        </View>
-        
-        <View className="flex-row items-center gap-3">
-          <View className="items-end mr-2">
+
+          <View className="items-end">
             <Text className="text-typography-muted text-[9px] font-black uppercase mb-1">Status</Text>
-            <View className="flex-row items-center gap-2">
+            <View className="flex-row items-center gap-2 mb-3">
               <Text className={`text-[11px] font-black ${rule.is_active ? 'text-state-success' : 'text-typography-muted'}`}>
                 {rule.is_active ? 'ACTIVE' : 'PAUSED'}
               </Text>
-              <Switch 
-                value={rule.is_active} 
+              <Switch
+                value={rule.is_active}
                 onValueChange={(v) => onToggle(rule.id, v)}
                 trackColor={{ false: colors.border, true: colors.primary }}
                 thumbColor="#fff"
               />
             </View>
+            <View className="flex-row gap-2">
+              <TouchableOpacity
+                onPress={() => onEdit(rule)}
+                className="bg-surface-background w-10 h-10 rounded-xl border border-surface-border items-center justify-center"
+              >
+                <FontAwesome name="pencil" size={14} color={colors.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => onDelete(rule)}
+                className="bg-surface-background w-10 h-10 rounded-xl border border-surface-border items-center justify-center"
+              >
+                <FontAwesome name="trash" size={14} color={colors.danger} />
+              </TouchableOpacity>
+            </View>
           </View>
-          <TouchableOpacity className="bg-surface-background w-12 h-12 rounded-2xl border border-surface-border items-center justify-center hover:bg-state-danger/10">
-            <FontAwesome name="trash" size={16} color={colors.danger} />
-          </TouchableOpacity>
         </View>
       </View>
 
       {/* Tabs */}
-      <View className="flex-row px-8 border-b border-surface-border bg-surface-background/20">
-        {['config', 'test', 'logs'].map((tab) => (
-          <TouchableOpacity 
-            key={tab} 
-            onPress={() => setActiveTab(tab as any)}
-            className={`py-5 mr-10 border-b-2 transition-all ${activeTab === tab ? 'border-brand-primary' : 'border-transparent'}`}
+      <View className="flex-row px-5 border-b border-surface-border bg-surface-background/20">
+        {(['config', 'test', 'logs'] as const).map((tab) => (
+          <TouchableOpacity
+            key={tab}
+            onPress={() => setActiveTab(tab)}
+            className={`py-4 mr-6 border-b-2 ${activeTab === tab ? 'border-brand-primary' : 'border-transparent'}`}
           >
             <View className="flex-row items-center gap-2">
-              <FontAwesome 
-                name={tab === 'config' ? 'sliders' : tab === 'test' ? 'flask' : 'history'} 
-                size={12} 
-                color={activeTab === tab ? colors.primary : colors.textMuted} 
+              <FontAwesome
+                name={tab === 'config' ? 'sliders' : tab === 'test' ? 'flask' : 'history'}
+                size={12}
+                color={activeTab === tab ? colors.primary : colors.textMuted}
               />
               <Text className={`font-black text-[11px] uppercase tracking-[0.15em] ${activeTab === tab ? 'text-typography-main' : 'text-typography-muted'}`}>
                 {tab === 'config' ? 'Configuration' : tab === 'test' ? 'Playground' : 'Activity Logs'}
@@ -290,272 +537,283 @@ const RuleInspector = ({ rule, onToggle }: { rule: NotificationRule | null, onTo
         ))}
       </View>
 
-      <ScrollView className="flex-1" contentContainerStyle={{ padding: 32 }} showsVerticalScrollIndicator={false}>
+      <ScrollView className="flex-1" contentContainerStyle={{ padding: contentPad }} showsVerticalScrollIndicator={false}>
         {activeTab === 'config' && (
-          <View className="gap-8">
-            <View className="bg-surface-background/50 p-6 rounded-3xl border border-surface-border">
-              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-4">Recipient Logic</Text>
-              <View className="flex-row flex-wrap gap-3">
-                {rule.recipient_strategies.map(s => (
-                  <View key={s} className="bg-surface-card border border-surface-border px-5 py-3 rounded-2xl shadow-sm">
+          <View className="gap-5">
+            {/* Recipient Logic */}
+            <View className="bg-surface-background/50 p-5 rounded-2xl border border-surface-border">
+              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-3">Recipient Logic</Text>
+              <View className="flex-row flex-wrap gap-2">
+                {rule.recipient_strategies.map((s) => (
+                  <View key={s} className="bg-surface-card border border-surface-border px-4 py-2.5 rounded-xl">
                     <View className="flex-row items-center gap-2">
                       <View className="w-1.5 h-1.5 rounded-full bg-brand-primary" />
-                      <Text className="text-typography-main font-black text-sm">{STRATEGY_LABELS[s] || s}</Text>
+                      <Text className="text-typography-main font-black text-xs">{STRATEGY_LABELS[s] || s}</Text>
                     </View>
-                    <Text className="text-typography-muted text-[10px] mt-1 font-medium">Automatic Routing</Text>
+                    <Text className="text-typography-muted text-[10px] mt-0.5">{STRATEGY_HELP[s] || 'Custom strategy'}</Text>
                   </View>
                 ))}
               </View>
+
+              {cfgEntries.length > 0 && (
+                <View className="mt-4 pt-4 border-t border-surface-border">
+                  <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Recipient Config</Text>
+                  {cfgEntries.map(([k, v]) => (
+                    <View key={k} className="flex-row items-center gap-3 py-1">
+                      <Text className="text-typography-muted text-xs font-mono" style={{ fontFamily: 'monospace' }}>{k}:</Text>
+                      <Text className="text-typography-main text-xs font-mono" style={{ fontFamily: 'monospace' }} numberOfLines={2}>{JSON.stringify(v)}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
             </View>
 
-            <View className="flex-row gap-6">
-               <View className="flex-1 bg-surface-background/50 p-6 rounded-3xl border border-surface-border">
-                  <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-4">Conditions</Text>
-                  <View className="items-center justify-center py-8">
-                    <FontAwesome name="filter" size={24} color={colors.textMuted} className="opacity-20 mb-3" />
-                    <Text className="text-typography-muted text-xs font-bold">No custom filters applied</Text>
+            {/* Conditions + Channels */}
+            <View className={isDesktop ? 'flex-row gap-4' : 'gap-4'}>
+              <View className="flex-1 bg-surface-background/50 p-5 rounded-2xl border border-surface-border">
+                <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-3">Conditions</Text>
+                {conditionEntries.length === 0 ? (
+                  <View className="items-center justify-center py-6">
+                    <FontAwesome name="filter" size={20} color={colors.textMuted} style={{ opacity: 0.3, marginBottom: 8 }} />
+                    <Text className="text-typography-muted text-xs font-bold">Matches every event</Text>
                   </View>
-               </View>
-               <View className="flex-1 bg-surface-background/50 p-6 rounded-3xl border border-surface-border">
-                  <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-4">Channels</Text>
-                  <View className="flex-row gap-4">
-                    <View className="items-center gap-2">
-                      <View className="w-10 h-10 bg-brand-primary/10 rounded-xl items-center justify-center border border-brand-primary/20">
-                        <FontAwesome name="envelope" size={14} color={colors.primary} />
+                ) : (
+                  <View className="gap-1">
+                    {conditionEntries.map(([k, v]) => (
+                      <View key={k} className="flex-row items-center gap-2 bg-surface-card px-3 py-2 rounded-lg border border-surface-border">
+                        <Text className="text-typography-muted text-[11px] font-mono" style={{ fontFamily: 'monospace' }}>{k}</Text>
+                        <Text className="text-typography-muted text-[11px]">=</Text>
+                        <Text className="text-typography-main text-[11px] font-mono flex-1" style={{ fontFamily: 'monospace' }} numberOfLines={1}>{JSON.stringify(v)}</Text>
                       </View>
-                      <Text className="text-typography-main text-[10px] font-bold">Email</Text>
-                    </View>
-                    <View className="items-center gap-2">
-                      <View className="w-10 h-10 bg-brand-primary/10 rounded-xl items-center justify-center border border-brand-primary/20">
-                        <FontAwesome name="bell" size={14} color={colors.primary} />
-                      </View>
-                      <Text className="text-typography-main text-[10px] font-bold">In-App</Text>
-                    </View>
+                    ))}
                   </View>
-               </View>
+                )}
+              </View>
+
+              <View className="flex-1 bg-surface-background/50 p-5 rounded-2xl border border-surface-border">
+                <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-3">Channels</Text>
+                <View className="flex-row gap-3 mb-3 flex-wrap">
+                  {[
+                    { icon: 'envelope', label: 'Email' },
+                    { icon: 'mobile',   label: 'Mobile' },
+                    { icon: 'globe',    label: 'Web' },
+                  ].map((c) => (
+                    <View key={c.label} className="items-center gap-1.5">
+                      <View className="w-10 h-10 bg-brand-primary/10 rounded-xl items-center justify-center border border-brand-primary/20">
+                        <FontAwesome name={c.icon as any} size={14} color={colors.primary} />
+                      </View>
+                      <Text className="text-typography-main text-[10px] font-bold">{c.label}</Text>
+                    </View>
+                  ))}
+                </View>
+                <Text className="text-typography-muted text-[10px] leading-4">
+                  Each recipient receives this notification on the channels they have enabled in their preferences.
+                </Text>
+              </View>
             </View>
           </View>
         )}
 
         {activeTab === 'test' && (
-          <View>
-            <View className="bg-surface-background p-8 rounded-[32px] border border-surface-border mb-8 overflow-hidden">
-              <View className="absolute top-0 right-0 p-8 opacity-5">
-                <FontAwesome name="flask" size={120} color={colors.primary} />
-              </View>
-              <Text className="text-typography-main text-xl font-black mb-2">Rule Simulator</Text>
-              <Text className="text-typography-muted text-sm leading-6 max-w-md">
-                Trigger a virtual <Text className="text-brand-primary font-black">{rule.event_type}</Text> event. This will simulate the notification flow without actually sending messages to users.
+          <View className="gap-5">
+            <View className="bg-surface-background p-5 rounded-2xl border border-surface-border">
+              <Text className="text-typography-main text-base font-black mb-1">Rule Simulator</Text>
+              <Text className="text-typography-muted text-xs leading-5 mb-4">
+                Run server-side recipient resolution for a synthetic <Text className="text-brand-primary font-black">{rule.event_type}</Text> event. No notifications are sent.
               </Text>
-              
-              <View className="mt-6">
-                <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Simulation Payload (dev)</Text>
-                <View className="flex-row gap-2 mb-4">
-                  <TextInput
-                    placeholder="Task ID (optional)"
-                    value={simTaskId}
-                    onChangeText={setSimTaskId}
-                    placeholderTextColor={colors.textDim}
-                    className="flex-1 bg-surface-background border border-surface-border rounded-xl px-3 py-2 text-typography-main text-sm"
-                  />
-                  <TextInput
-                    placeholder="Mentioned User ID (optional)"
-                    value={simMentionedUserId}
-                    onChangeText={setSimMentionedUserId}
-                    placeholderTextColor={colors.textDim}
-                    className="w-48 bg-surface-background border border-surface-border rounded-xl px-3 py-2 text-typography-main text-sm"
-                  />
-                </View>
-                <TextInput
-                  placeholder="Pipeline ID (optional)"
-                  value={simPipelineId}
-                  onChangeText={setSimPipelineId}
-                  placeholderTextColor={colors.textDim}
-                  className="mb-4 bg-surface-background border border-surface-border rounded-xl px-3 py-2 text-typography-main text-sm"
-                />
 
-                <TouchableOpacity 
-                  onPress={async () => {
-                  setTesting(true);
-                  setTestLogs([]);
-                  setTestSummary(null);
-                  try {
-                    // Run client-side detailed simulation (best-effort; some reads may be restricted by RLS)
-                    const logs: string[] = [];
-                    logs.push(`Starting simulation for event: ${rule.event_type}`);
+              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Task ID</Text>
+              <TextInput
+                value={simTaskId}
+                onChangeText={setSimTaskId}
+                placeholder="UUID — used by assignee, task_owner, watchers"
+                placeholderTextColor={colors.textDim}
+                autoCapitalize="none"
+                autoCorrect={false}
+                className="bg-surface-background border border-surface-border rounded-xl px-3 py-2.5 text-typography-main text-xs mb-3"
+              />
 
-                    // 1. Load rule details (we already have rule object)
-                    logs.push(`Loaded rule: ${rule.name} (id=${rule.id})`);
+              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Pipeline ID</Text>
+              <TextInput
+                value={simPipelineId}
+                onChangeText={setSimPipelineId}
+                placeholder="UUID — used by pipeline_members"
+                placeholderTextColor={colors.textDim}
+                autoCapitalize="none"
+                autoCorrect={false}
+                className="bg-surface-background border border-surface-border rounded-xl px-3 py-2.5 text-typography-main text-xs mb-3"
+              />
 
-                    // 2. Show conditions
-                    logs.push(`Conditions: ${JSON.stringify(rule.conditions || {})}`);
+              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Extra Payload (JSON)</Text>
+              <TextInput
+                value={simPayloadJson}
+                onChangeText={setSimPayloadJson}
+                multiline
+                autoCapitalize="none"
+                autoCorrect={false}
+                placeholderTextColor={colors.textDim}
+                className="bg-surface-background border border-surface-border rounded-xl px-3 py-2.5 text-typography-main text-xs font-mono"
+                style={{ minHeight: 72, fontFamily: 'monospace' }}
+              />
 
-                    // 2b. Determine event payload from user inputs or rule conditions
-                    const payload: any = {};
-                    const taskIdFromRule = (rule.conditions && (rule.conditions as any).task_id) || null;
-                    const taskId = simTaskId || taskIdFromRule || null;
-                    const pipelineId = simPipelineId || (rule.conditions && (rule.conditions as any).pipeline_id) || null;
-                    const mentionedUserId = simMentionedUserId || null;
-                    if (taskId) payload.task_id = taskId;
-                    if (pipelineId) payload.pipeline_id = pipelineId;
-                    if (mentionedUserId) payload.mentioned_user_id = mentionedUserId;
-                    logs.push(`Using payload: ${JSON.stringify(payload)}`);
-
-                    // 3. Attempt to resolve recipients per strategy
-                    const resolved = new Set<string>();
-                    for (const strategy of rule.recipient_strategies) {
-                      logs.push(`Resolving strategy: ${strategy}`);
-                      try {
-                        if (strategy === 'specific_users') {
-                          // Use recipient_config if present
-                          const config = rule.recipient_config || {} as any;
-                          const ids = (config.user_ids as string[] | undefined) || [];
-                          if (ids.length) {
-                            ids.forEach((id) => resolved.add(id));
-                            logs.push(`  specific_users -> explicit ids: ${ids.join(', ')}`);
-                          } else {
-                            logs.push('  specific_users -> no explicit ids; would rely on event payload (server-only)');
-                          }
-                        } else if (strategy === 'assignee') {
-                          // Try to read task_assignments for the entity_id if available in rule.conditions (best-effort)
-                          const taskId = payload.task_id || (rule.conditions && (rule.conditions as any).task_id) || null;
-                          if (!taskId) {
-                            logs.push('  assignee -> no task_id available to resolve (client simulation requires a task id)');
-                          } else {
-                            const { data, error } = await supabase
-                              .from('task_assignments')
-                              .select('assignee_user_id')
-                              .eq('task_id', taskId)
-                              .not('assignee_user_id', 'is', null);
-                            if (error) {
-                              logs.push(`  assignee -> DB read failed: ${error.message}`);
-                            } else {
-                              const ids = (data ?? []).map((r: any) => r.assignee_user_id);
-                              ids.forEach((id: string) => resolved.add(id));
-                              logs.push(`  assignee -> resolved: ${ids.join(', ') || 'none'}`);
-                            }
-                          }
-                        } else if (strategy === 'task_owner') {
-                          const taskId = payload.task_id || (rule.conditions && (rule.conditions as any).task_id) || null;
-                          if (!taskId) {
-                            logs.push('  task_owner -> no task_id available to resolve');
-                          } else {
-                            const { data, error } = await supabase
-                              .from('tasks')
-                              .select('created_by')
-                              .eq('id', taskId)
-                              .single();
-                            if (error) {
-                              logs.push(`  task_owner -> DB read failed: ${error.message}`);
-                            } else if (data?.created_by) {
-                              resolved.add(data.created_by);
-                              logs.push(`  task_owner -> resolved: ${data.created_by}`);
-                            } else {
-                              logs.push('  task_owner -> no owner found');
-                            }
-                          }
-                        } else if (strategy === 'watchers') {
-                          const taskId = payload.task_id || (rule.conditions && (rule.conditions as any).task_id) || null;
-                          if (!taskId) {
-                            logs.push('  watchers -> no task_id available to resolve');
-                          } else {
-                            const { data, error } = await supabase
-                              .from('entity_watchers')
-                              .select('user_id')
-                              .eq('entity_type', 'task')
-                              .eq('entity_id', taskId);
-                            if (error) {
-                              logs.push(`  watchers -> DB read failed (likely RLS): ${error.message}`);
-                            } else {
-                              const ids = (data ?? []).map((r: any) => r.user_id);
-                              ids.forEach((id: string) => resolved.add(id));
-                              logs.push(`  watchers -> resolved: ${ids.join(', ') || 'none'}`);
-                            }
-                          }
-                        } else {
-                          logs.push(`  ${strategy} -> resolution logic not available in client simulation`);
-                        }
-                      } catch (err: any) {
-                        logs.push(`  ${strategy} -> unexpected error: ${err?.message || String(err)}`);
-                      }
-                    }
-
-                    // 4. Exclude actor (unknown in client simulation)
-                    logs.push('Excluding actor: (not available in client simulation)');
-
-                    // 5. Build content preview
-                    const title = rule.event_type === 'task.mentioned' ? 'You Were Mentioned' : `Event: ${rule.event_type}`;
-                    logs.push(`Built preview title: ${title}`);
-
-                    // 6. Summary
-                    setTestSummary({ matchedRules: 1, recipients: [...resolved] });
-                    logs.push(`Simulation complete — ${resolved.size} recipient(s) resolved (client-side)`);
-                    setTestLogs(logs);
-                  } catch (err: any) {
-                    setTestLogs((prev) => [...prev, `Simulation error: ${err?.message || String(err)}`]);
-                  } finally {
-                    setTesting(false);
-                  }
-                }}
+              <TouchableOpacity
+                onPress={runSimulation}
+                disabled={testing}
                 activeOpacity={0.8}
-                className="mt-8 bg-brand-primary py-5 rounded-2xl items-center flex-row justify-center gap-3 premium-shadow"
+                className="mt-5 bg-brand-primary py-4 rounded-2xl items-center flex-row justify-center gap-3"
               >
-                {testing ? <ActivityIndicator color="white" size="small" /> : <FontAwesome name="bolt" size={14} color="white" />}
-                <Text className="text-white font-black uppercase tracking-[0.2em] text-xs">Run Live Simulation</Text>
+                {testing ? (
+                  <ActivityIndicator color="white" size="small" />
+                ) : (
+                  <FontAwesome name="bolt" size={14} color="white" />
+                )}
+                <Text className="text-white font-black uppercase tracking-[0.2em] text-xs">
+                  {testing ? 'Simulating…' : 'Run Simulation'}
+                </Text>
               </TouchableOpacity>
             </View>
-            
-            {testing && (
-              <View className="bg-surface-card p-6 rounded-2xl border border-surface-border">
-                <Text className="text-typography-main font-black">Running simulation…</Text>
-                <Text className="text-typography-muted text-xs mt-2">This runs a best-effort, client-side simulation and may be limited by DB row-level security.</Text>
+
+            {simError && (
+              <View className="bg-state-danger/10 border border-state-danger/30 p-4 rounded-2xl">
+                <View className="flex-row items-start gap-3">
+                  <FontAwesome name="exclamation-triangle" size={16} color={colors.danger} />
+                  <View className="flex-1">
+                    <Text className="text-state-danger font-black text-xs uppercase tracking-widest mb-1">Simulation Error</Text>
+                    <Text className="text-typography-muted text-xs leading-5">{simError}</Text>
+                  </View>
+                </View>
               </View>
             )}
 
-            {!testing && testSummary && (
-              <View className="bg-state-success/10 border border-state-success/20 p-6 rounded-2xl">
-                <View className="flex-row items-start gap-4">
-                  <View className="w-10 h-10 rounded-full bg-state-success items-center justify-center">
-                    <FontAwesome name="check" size={16} color="white" />
-                  </View>
-                  <View className="flex-1">
-                    <Text className="text-typography-main font-black text-base">Simulation Complete</Text>
-                    <Text className="text-typography-muted text-xs mt-1 leading-5">The client-side simulation resolved <Text className="text-state-success font-bold">{testSummary.recipients?.length ?? 0}</Text> recipient(s).</Text>
-                    <Text className="text-typography-muted text-xs mt-2">Details:</Text>
-                    <View className="mt-2">
-                      {testLogs.map((l, i) => (
-                        <Text key={i} className="text-typography-muted text-[12px]">• {l}</Text>
-                      ))}
+            {simResult && (
+              <View className="gap-4">
+                <View className={`p-5 rounded-2xl border ${simResult.conditions_match ? 'bg-state-success/10 border-state-success/30' : 'bg-state-warning/10 border-state-warning/30'}`}>
+                  <View className="flex-row items-center gap-3 mb-2">
+                    <View className={`w-9 h-9 rounded-full items-center justify-center ${simResult.conditions_match ? 'bg-state-success' : 'bg-state-warning'}`}>
+                      <FontAwesome name={simResult.conditions_match ? 'check' : 'times'} size={14} color="white" />
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-typography-main font-black text-sm">
+                        {simResult.conditions_match ? 'Conditions matched' : 'Conditions did not match'}
+                      </Text>
+                      <Text className="text-typography-muted text-[11px]">
+                        {simResult.recipient_count} unique recipient{simResult.recipient_count === 1 ? '' : 's'} resolved (actor not yet excluded)
+                      </Text>
                     </View>
                   </View>
                 </View>
+
+                <View className="bg-surface-background/50 p-5 rounded-2xl border border-surface-border">
+                  <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-3">Per-Strategy Resolution</Text>
+                  {simResult.strategy_log.length === 0 ? (
+                    <Text className="text-typography-muted text-xs">No strategies evaluated.</Text>
+                  ) : (
+                    <View className="gap-2">
+                      {simResult.strategy_log.map((s, idx) => (
+                        <View key={`${s.strategy}-${idx}`} className="flex-row items-center justify-between bg-surface-card px-3 py-2.5 rounded-lg border border-surface-border">
+                          <View>
+                            <Text className="text-typography-main text-xs font-black">{STRATEGY_LABELS[s.strategy] || s.strategy}</Text>
+                            <Text className="text-typography-muted text-[10px]">{STRATEGY_HELP[s.strategy] || ''}</Text>
+                          </View>
+                          <View className="bg-brand-primary/10 px-2.5 py-1 rounded-md">
+                            <Text className="text-brand-primary text-[10px] font-black">{s.resolved_count}</Text>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+
+                <View className="bg-surface-background/50 p-5 rounded-2xl border border-surface-border">
+                  <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-3">Recipients</Text>
+                  {simResult.recipients.length === 0 ? (
+                    <Text className="text-typography-muted text-xs">No users matched.</Text>
+                  ) : (
+                    <View className="gap-2">
+                      {simResult.recipients.map((r) => (
+                        <View key={r.user_id} className="flex-row items-center gap-3 bg-surface-card px-3 py-2.5 rounded-lg border border-surface-border">
+                          <View className="w-8 h-8 rounded-full bg-brand-primary/10 items-center justify-center">
+                            <FontAwesome name="user" size={12} color={colors.primary} />
+                          </View>
+                          <View className="flex-1">
+                            <Text className="text-typography-main text-xs font-black" numberOfLines={1}>{r.display_name}</Text>
+                            <Text className="text-typography-muted text-[10px]" numberOfLines={1}>{r.email}</Text>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
               </View>
             )}
-          </View>
           </View>
         )}
 
         {activeTab === 'logs' && (
           <View className="gap-3">
-            {[1,2,3,4,5].map(i => (
-              <View key={i} className="flex-row items-center justify-between p-5 bg-surface-background/50 rounded-2xl border border-surface-border">
-                <View className="flex-row items-center gap-4">
-                  <View className="w-2 h-2 rounded-full bg-state-success shadow-sm shadow-state-success" />
-                  <View>
-                    <Text className="text-typography-main text-xs font-black">Delivery Success</Text>
-                    <Text className="text-typography-muted text-[10px] font-medium mt-0.5">May 08, 2026 • 04:{10 + i} AM</Text>
-                  </View>
-                </View>
-                <View className="flex-row items-center gap-4 bg-surface-card px-4 py-2 rounded-xl border border-surface-border">
-                  <View className="flex-row gap-3">
-                    <FontAwesome name="envelope" size={10} color={colors.primary} />
-                    <FontAwesome name="mobile" size={12} color={colors.primary} />
-                  </View>
-                  <View className="w-px h-3 bg-surface-border" />
-                  <Text className="text-typography-muted text-[10px] font-black tracking-tighter">3 RCVP</Text>
-                </View>
+            <View className="flex-row items-center justify-between mb-2">
+              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">
+                Recent Deliveries{logs ? ` (${logs.length})` : ''}
+              </Text>
+              <TouchableOpacity
+                onPress={loadLogs}
+                disabled={logsLoading}
+                className="bg-surface-background px-3 py-1.5 rounded-lg border border-surface-border flex-row items-center gap-2"
+              >
+                <FontAwesome name="refresh" size={10} color={colors.textMuted} />
+                <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Refresh</Text>
+              </TouchableOpacity>
+            </View>
+
+            {logsLoading && (
+              <View className="py-12 items-center">
+                <ActivityIndicator size="small" color={colors.primary} />
               </View>
-            ))}
+            )}
+
+            {!logsLoading && logsError && (
+              <View className="bg-state-danger/10 border border-state-danger/30 p-4 rounded-xl">
+                <Text className="text-state-danger text-xs font-black">{logsError}</Text>
+              </View>
+            )}
+
+            {!logsLoading && !logsError && logs && logs.length === 0 && (
+              <View className="bg-surface-background/50 p-8 rounded-2xl border border-dashed border-surface-border items-center">
+                <FontAwesome name="inbox" size={24} color={colors.textMuted} style={{ opacity: 0.4, marginBottom: 8 }} />
+                <Text className="text-typography-main font-black text-sm">No deliveries yet</Text>
+                <Text className="text-typography-muted text-xs mt-1 text-center">This rule has not produced any notifications yet.</Text>
+              </View>
+            )}
+
+            {!logsLoading && !logsError && logs && logs.map((d) => {
+              const channels = d.channels_sent ?? [];
+              const ok = channels.length > 0;
+              return (
+                <View key={d.id} className="p-4 bg-surface-background/50 rounded-2xl border border-surface-border">
+                  <View className="flex-row items-center justify-between mb-2">
+                    <View className="flex-row items-center gap-3 flex-1">
+                      <View className={`w-2 h-2 rounded-full ${ok ? 'bg-state-success' : 'bg-state-warning'}`} />
+                      <View className="flex-1">
+                        <Text className="text-typography-main text-xs font-black" numberOfLines={1}>{d.recipient_name}</Text>
+                        <Text className="text-typography-muted text-[10px]">{formatTimestamp(d.created_at)}</Text>
+                      </View>
+                    </View>
+                    <View className="flex-row items-center gap-3 bg-surface-card px-3 py-1.5 rounded-lg border border-surface-border">
+                      {channels.includes('in_app')      && <FontAwesome name="bell"     size={10} color={colors.primary} />}
+                      {channels.includes('email')       && <FontAwesome name="envelope" size={10} color={colors.primary} />}
+                      {channels.includes('push_mobile') && <FontAwesome name="mobile"   size={12} color={colors.primary} />}
+                      {channels.includes('push_web')    && <FontAwesome name="globe"    size={11} color={colors.primary} />}
+                      {channels.length === 0           && <FontAwesome name="ban"      size={10} color={colors.textMuted} />}
+                      <Text className="text-typography-muted text-[9px] font-black uppercase">
+                        {channels.length === 0 ? 'No channels' : `${channels.length} ch`}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text className="text-typography-main text-xs font-bold" numberOfLines={1}>{d.title}</Text>
+                  <Text className="text-typography-muted text-[11px] mt-0.5" numberOfLines={2}>{d.body}</Text>
+                </View>
+              );
+            })}
           </View>
         )}
       </ScrollView>
@@ -563,160 +821,232 @@ const RuleInspector = ({ rule, onToggle }: { rule: NotificationRule | null, onTo
   );
 };
 
-// ── Main Component ────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────
+function formatTimestamp(iso: string): string {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  } catch {
+    return iso;
+  }
+}
 
+// ── Main Component ────────────────────────────────────────────────────
 export default function NotificationRules() {
   const colors = useThemeColors();
   const { width } = useWindowDimensions();
   const isDesktop = width > 1024;
-  const { hasPermission, initialized } = useAuth();
-  const { showAlert } = useAlert();
-  
+  const { initialized } = useAuth();
+  const { showAlert, showConfirm } = useAlert();
+
   const [rules, setRules] = useState<NotificationRule[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showCreate, setShowCreate] = useState(false);
+  const [editorTarget, setEditorTarget] = useState<NotificationRule | null>(null);
+  const [editorOpen, setEditorOpen] = useState<'closed' | 'create' | 'edit'>('closed');
 
-  const activeRule = useMemo(() => rules.find(r => r.id === selectedId) || null, [rules, selectedId]);
+  const activeRule = useMemo(
+    () => rules.find((r) => r.id === selectedId) || null,
+    [rules, selectedId]
+  );
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase.from('notification_rules').select('*').order('created_at', { ascending: true });
+    const { data, error } = await supabase
+      .from('notification_rules')
+      .select('*')
+      .order('created_at', { ascending: true });
     if (!error && data) {
-      setRules(data as NotificationRule[]);
-      if (isDesktop && data.length > 0 && !selectedId) {
-        setSelectedId(data[0].id);
+      const cast = data as NotificationRule[];
+      setRules(cast);
+      if (isDesktop && cast.length > 0) {
+        setSelectedId((curr) => curr ?? cast[0].id);
       }
     }
     setLoading(false);
-  };
+  }, [isDesktop]);
 
-  useEffect(() => { 
-    if (initialized) load(); 
-  }, [initialized]);
+  useEffect(() => {
+    if (initialized) load();
+  }, [initialized, load]);
 
   const handleToggle = async (id: string, active: boolean) => {
-    // Optimistic update
-    setRules(prev => prev.map(r => r.id === id ? { ...r, is_active: active } : r));
-    
-    const { error } = await supabase.rpc('rpc_toggle_notification_rule', { 
-      p_rule_id: id, 
-      p_is_active: active 
+    setRules((prev) => prev.map((r) => (r.id === id ? { ...r, is_active: active } : r)));
+    const { error } = await supabase.rpc('rpc_toggle_notification_rule', {
+      p_rule_id: id,
+      p_is_active: active,
     });
-    
     if (error) {
       showAlert('Error', error.message);
-      load(); // Rollback
+      load();
     }
   };
 
-  if (loading) return (
-    <View className="py-40 items-center justify-center">
-      <ActivityIndicator size="large" color={colors.primary} />
-      <Text className="text-typography-muted mt-4 font-black text-xs uppercase tracking-widest">Loading Workspace</Text>
-    </View>
-  );
+  const handleDelete = (rule: NotificationRule) => {
+    showConfirm(
+      'Delete Rule',
+      `Are you sure you want to delete "${rule.name}"? This cannot be undone.`,
+      async () => {
+        const { error } = await supabase.rpc('rpc_delete_notification_rule', { p_rule_id: rule.id });
+        if (error) {
+          showAlert('Error', error.message);
+          return;
+        }
+        if (selectedId === rule.id) setSelectedId(null);
+        load();
+      },
+      undefined,
+      'Delete',
+      'Cancel'
+    );
+  };
 
-  // Stats for the top row (can be kept or moved)
-  const activeCount = rules.filter(r => r.is_active).length;
+  const openCreate = () => { setEditorTarget(null); setEditorOpen('create'); };
+  const openEdit   = (rule: NotificationRule) => { setEditorTarget(rule); setEditorOpen('edit'); };
+  const closeEditor = () => { setEditorOpen('closed'); setEditorTarget(null); };
+
+  if (loading) {
+    return (
+      <View className="py-40 items-center justify-center">
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text className="text-typography-muted mt-4 font-black text-xs uppercase tracking-widest">Loading Workspace</Text>
+      </View>
+    );
+  }
+
+  const activeCount = rules.filter((r) => r.is_active).length;
 
   if (!isDesktop) {
     return (
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-         {/* Simple List for Mobile */}
-         <View className="px-4 py-4 gap-4">
-           <TouchableOpacity 
-             onPress={() => setShowCreate(true)}
-             className="w-full h-12 bg-brand-primary rounded-xl items-center justify-center shadow-lg shadow-brand-primary/20 flex-row gap-2"
-           >
-             <FontAwesome name="plus" size={14} color="white" />
-             <Text className="text-white font-black text-xs uppercase tracking-widest">New Rule</Text>
-           </TouchableOpacity>
-          {rules.map(r => (
-            <RuleListItem 
-              key={r.id} 
-              rule={r} 
-              isSelected={false} 
-              onSelect={() => setSelectedId(r.id)} 
-              onToggle={handleToggle} 
-            />
-          ))}
-         </View>
-         
-         <Modal visible={!!selectedId} animationType="slide" onRequestClose={() => setSelectedId(null)}>
-           <View className="flex-1 bg-surface-background">
-             <View className="pt-12 pb-4 px-4 border-b border-surface-border flex-row items-center gap-4 bg-surface-card">
-               <TouchableOpacity onPress={() => setSelectedId(null)} className="w-10 h-10 items-center justify-center bg-surface-background rounded-full border border-surface-border">
-                 <FontAwesome name="arrow-left" size={16} color={colors.textMain} />
-               </TouchableOpacity>
-               <Text className="text-typography-main font-black text-lg">Rule Details</Text>
-             </View>
-             <RuleInspector rule={activeRule} onToggle={handleToggle} />
-           </View>
-         </Modal>
+      <View className="flex-1">
+        <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+          <View className="px-4 py-4 gap-4">
+            <TouchableOpacity
+              onPress={openCreate}
+              className="w-full h-12 bg-brand-primary rounded-xl items-center justify-center flex-row gap-2"
+            >
+              <FontAwesome name="plus" size={14} color="white" />
+              <Text className="text-white font-black text-xs uppercase tracking-widest">New Rule</Text>
+            </TouchableOpacity>
 
-         <CreateRuleModal 
-           visible={showCreate} 
-           onClose={() => setShowCreate(false)} 
-           onCreated={load} 
-         />
-      </ScrollView>
+            <View className="flex-row gap-2">
+              <View className="flex-1 bg-surface-card p-3 rounded-xl items-center border border-surface-border">
+                <Text className="text-state-success font-black text-lg">{activeCount}</Text>
+                <Text className="text-typography-muted text-[9px] uppercase tracking-widest">Active</Text>
+              </View>
+              <View className="flex-1 bg-surface-card p-3 rounded-xl items-center border border-surface-border">
+                <Text className="text-typography-muted font-black text-lg">{rules.length - activeCount}</Text>
+                <Text className="text-typography-muted text-[9px] uppercase tracking-widest">Paused</Text>
+              </View>
+            </View>
+
+            {rules.map((r) => (
+              <RuleListItem
+                key={r.id}
+                rule={r}
+                isSelected={false}
+                onSelect={() => setSelectedId(r.id)}
+                onToggle={handleToggle}
+              />
+            ))}
+          </View>
+        </ScrollView>
+
+        <Modal visible={!!selectedId} animationType="slide" onRequestClose={() => setSelectedId(null)}>
+          <View className="flex-1 bg-surface-background">
+            <View className="pt-12 pb-4 px-4 border-b border-surface-border flex-row items-center gap-4 bg-surface-card">
+              <TouchableOpacity
+                onPress={() => setSelectedId(null)}
+                className="w-10 h-10 items-center justify-center bg-surface-background rounded-full border border-surface-border"
+              >
+                <FontAwesome name="arrow-left" size={16} color={colors.textMain} />
+              </TouchableOpacity>
+              <Text className="text-typography-main font-black text-lg">Rule Details</Text>
+            </View>
+            <RuleInspector
+              rule={activeRule}
+              isDesktop={false}
+              onToggle={handleToggle}
+              onEdit={openEdit}
+              onDelete={(r) => {
+                handleDelete(r);
+              }}
+            />
+          </View>
+        </Modal>
+
+        <RuleEditorModal
+          visible={editorOpen !== 'closed'}
+          existing={editorOpen === 'edit' ? editorTarget : null}
+          onClose={closeEditor}
+          onSaved={load}
+        />
+      </View>
     );
   }
 
   return (
     <View className="flex-1 flex-row bg-surface-background overflow-hidden rounded-[32px] border border-surface-border">
-      {/* Sidebar - Rules Explorer */}
       <View className="w-80 border-r border-surface-border bg-surface-background/40">
         <View className="p-6 border-b border-surface-border flex-row items-center justify-between">
           <View>
             <Text className="text-typography-main font-black text-xl tracking-tight">Notification Rules</Text>
             <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest mt-0.5">{rules.length} Total</Text>
           </View>
-          <TouchableOpacity 
-            onPress={() => setShowCreate(true)}
-            className="w-10 h-10 bg-brand-primary rounded-xl items-center justify-center shadow-lg shadow-brand-primary/20"
+          <TouchableOpacity
+            onPress={openCreate}
+            className="w-10 h-10 bg-brand-primary rounded-xl items-center justify-center"
           >
             <FontAwesome name="plus" size={14} color="white" />
           </TouchableOpacity>
         </View>
 
         <View className="p-4 bg-surface-background/60 border-b border-surface-border flex-row gap-2">
-            <View className="flex-1 bg-surface-card p-2 rounded-lg items-center border border-surface-border">
-              <Text className="text-state-success font-black text-xs">{activeCount}</Text>
-              <Text className="text-typography-muted text-[8px] uppercase">Active</Text>
-            </View>
-            <View className="flex-1 bg-surface-card p-2 rounded-lg items-center border border-surface-border">
-              <Text className="text-typography-muted font-black text-xs">{rules.length - activeCount}</Text>
-              <Text className="text-typography-muted text-[8px] uppercase">Paused</Text>
-            </View>
+          <View className="flex-1 bg-surface-card p-2 rounded-lg items-center border border-surface-border">
+            <Text className="text-state-success font-black text-xs">{activeCount}</Text>
+            <Text className="text-typography-muted text-[8px] uppercase">Active</Text>
+          </View>
+          <View className="flex-1 bg-surface-card p-2 rounded-lg items-center border border-surface-border">
+            <Text className="text-typography-muted font-black text-xs">{rules.length - activeCount}</Text>
+            <Text className="text-typography-muted text-[8px] uppercase">Paused</Text>
+          </View>
         </View>
 
         <ScrollView className="flex-1 p-4" showsVerticalScrollIndicator={false}>
-          {rules.map(r => (
-            <RuleListItem 
-              key={r.id} 
-              rule={r} 
-              isSelected={selectedId === r.id} 
-              onSelect={() => setSelectedId(r.id)} 
-              onToggle={handleToggle} 
+          {rules.map((r) => (
+            <RuleListItem
+              key={r.id}
+              rule={r}
+              isSelected={selectedId === r.id}
+              onSelect={() => setSelectedId(r.id)}
+              onToggle={handleToggle}
             />
           ))}
         </ScrollView>
       </View>
 
-      {/* Main Content Area - Inspector */}
       <View className="flex-1">
-        <RuleInspector rule={activeRule} onToggle={handleToggle} />
+        <RuleInspector
+          rule={activeRule}
+          isDesktop={true}
+          onToggle={handleToggle}
+          onEdit={openEdit}
+          onDelete={handleDelete}
+        />
       </View>
 
-      <CreateRuleModal 
-        visible={showCreate} 
-        onClose={() => setShowCreate(false)} 
-        onCreated={load} 
+      <RuleEditorModal
+        visible={editorOpen !== 'closed'}
+        existing={editorOpen === 'edit' ? editorTarget : null}
+        onClose={closeEditor}
+        onSaved={load}
       />
     </View>
   );
 }
-
-

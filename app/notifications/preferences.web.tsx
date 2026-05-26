@@ -58,7 +58,7 @@ export default function NotificationPreferencesWeb() {
     const { data } = await supabase
       .from('notification_preferences')
       .select('email_enabled, push_mobile_enabled, push_web_enabled')
-      .single();
+      .maybeSingle();
     if (data) {
       setPrefs({
         email_enabled: data.email_enabled,
@@ -75,7 +75,9 @@ export default function NotificationPreferencesWeb() {
   };
 
   const togglePushWeb = async () => {
-    const newValue = !prefs.push_web_enabled;
+    // Visible state is the truth: subscribed AND opted in.
+    const currentlyOn = pushState === 'subscribed' && prefs.push_web_enabled;
+    const newValue = !currentlyOn;
     if (newValue) {
       const ok = await subscribe();
       if (!ok) return;

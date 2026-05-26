@@ -107,12 +107,13 @@ serve(async (req: Request) => {
         ? dispatchExpoPush(db, user_id, title, body, data ?? {})
         : Promise.resolve(null),
       preferences.push_web_enabled
-        ? dispatchWebPush(db, user_id, title, body, data ?? {})
+        ? dispatchWebPush(db, user_id, title, body, { ...(data ?? {}), event_type: type })
         : Promise.resolve(null),
     ])
 
-    // 4. Collect which channels succeeded
-    const channelsSent: string[] = []
+    // 4. Collect which channels succeeded. The in-app row was already written
+    // in step 2 above, so 'in_app' always counts as delivered.
+    const channelsSent: string[] = ['in_app']
     const [emailResult, mobilePushResult, webPushResult] = channelResults
 
     if (emailResult.status === 'fulfilled' && emailResult.value === true) {
@@ -295,7 +296,7 @@ async function dispatchWebPush(
   if (error) throw error
   if (!subs?.length) return false
 
-  const payload = JSON.stringify({ title, body, data })
+  const payload = JSON.stringify({ title, body, type: data?.event_type ?? null, data })
   const staleIds: string[] = []
 
   const sends = await Promise.allSettled(

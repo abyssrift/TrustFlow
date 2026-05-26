@@ -39,10 +39,11 @@ function timeAgo(dateStr: string): string {
   return `${days}d ago`;
 }
 
-function CommentNode({ comment, depth, onReply, onDelete, canComment, currentUserId, checkIfMentioned }: {
+function CommentNode({ comment, depth, onReply, onDelete, canComment, currentUserId, checkIfMentioned, colors }: {
   comment: CommentTree; depth: number; onReply: (id: string) => void;
   onDelete: (id: string) => void; canComment: boolean; currentUserId: string | null;
   checkIfMentioned: (content: string) => boolean;
+  colors: ReturnType<typeof useThemeColors>;
 }) {
   const isMentioned = checkIfMentioned(comment.content);
   const maxIndent = Math.min(depth, 6); // Cap visual indent at 6 levels
@@ -106,6 +107,7 @@ function CommentNode({ comment, depth, onReply, onDelete, canComment, currentUse
           canComment={canComment}
           currentUserId={currentUserId}
           checkIfMentioned={checkIfMentioned}
+          colors={colors}
         />
       ))}
     </View>
@@ -319,6 +321,7 @@ export default function CommentsSection() {
             canComment={data.permissions.can_comment}
             currentUserId={user?.id || null}
             checkIfMentioned={checkIfMentioned}
+            colors={colors}
           />
         ))
       )}
