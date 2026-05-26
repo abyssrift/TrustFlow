@@ -27,10 +27,20 @@
 //                         Used when checking Expo push receipts (DeviceNotRegistered
 //                         cleanup). The push send itself works without it, but
 //                         stale tokens will accumulate without receipt checks.
+//
+// Phase 6 (web push — now implemented):
+//   VAPID_PUBLIC_KEY    — base64url-encoded 65-byte uncompressed EC public key.
+//   VAPID_PRIVATE_KEY   — base64url-encoded 32-byte EC private key.
+//   VAPID_SUBJECT       — mailto: or https: URI identifying the sender,
+//                         e.g.: mailto:admin@trustflow.io
+//
+//   Generate with:  npx web-push generate-vapid-keys
 // ====================================================================
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
+// @deno-types="npm:@types/web-push"
+import webpush from 'npm:web-push'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -39,6 +49,9 @@ const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') ?? ''
 const FROM_EMAIL = Deno.env.get('FROM_EMAIL') ?? 'TrustFlow <notifications@trustflow.io>'
 const APP_URL = Deno.env.get('APP_URL') ?? 'https://app.trustflow.io'
 const EXPO_ACCESS_TOKEN = Deno.env.get('EXPO_ACCESS_TOKEN') ?? ''
+const VAPID_PUBLIC_KEY = Deno.env.get('VAPID_PUBLIC_KEY') ?? ''
+const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY') ?? ''
+const VAPID_SUBJECT = Deno.env.get('VAPID_SUBJECT') ?? 'mailto:admin@trustflow.io'
 
 // ── Entry point ──────────────────────────────────────────────────────
 serve(async (req: Request) => {
@@ -89,12 +102,14 @@ serve(async (req: Request) => {
       preferences.push_mobile_enabled
         ? dispatchExpoPush(db, user_id, title, body, data ?? {})
         : Promise.resolve(null),
-      // push_web: Phase 6 (VAPID)
+      preferences.push_web_enabled
+        ? dispatchWebPush(db, user_id, title, body, data ?? {})
+        : Promise.resolve(null),
     ])
 
     // 4. Collect which channels succeeded
     const channelsSent: string[] = []
-    const [emailResult, mobilePushResult] = channelResults
+    const [emailResult, mobilePushResult, webPushResult] = channelResults
 
     if (emailResult.status === 'fulfilled' && emailResult.value === true) {
       channelsSent.push('email')
@@ -106,6 +121,12 @@ serve(async (req: Request) => {
       channelsSent.push('push_mobile')
     } else if (mobilePushResult.status === 'rejected') {
       console.error('[notify] mobile push channel error:', mobilePushResult.reason)
+    }
+
+    if (webPushResult.status === 'fulfilled' && webPushResult.value === true) {
+      channelsSent.push('push_web')
+    } else if (webPushResult.status === 'rejected') {
+      console.error('[notify] web push channel error:', webPushResult.reason)
     }
 
     // 5. Persist channel outcomes
@@ -245,6 +266,67 @@ async function dispatchExpoPush(
   }
 
   return tickets.some((t) => t.status === 'ok')
+}
+
+// ── Web push channel (VAPID) ─────────────────────────────────────────
+async function dispatchWebPush(
+  db: SupabaseClient,
+  userId: string,
+  title: string,
+  body: string,
+  data: Record<string, unknown>
+): Promise<boolean> {
+  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
+    console.warn('[notify] VAPID keys not configured — skipping web push')
+    return false
+  }
+
+  const { data: subs, error } = await db
+    .from('push_subscriptions')
+    .select('id, token')
+    .eq('user_id', userId)
+    .eq('type', 'web')
+    .is('revoked_at', null)
+
+  if (error) throw error
+  if (!subs?.length) return false
+
+  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY)
+
+  const payload = JSON.stringify({ title, body, data })
+  const staleIds: string[] = []
+
+  const sends = await Promise.allSettled(
+    subs.map(async (sub: { id: string; token: string }) => {
+      let subscription: { endpoint: string; keys: { p256dh: string; auth: string } }
+      try {
+        subscription = JSON.parse(sub.token)
+      } catch {
+        console.error('[notify] invalid web push token for sub', sub.id)
+        return false
+      }
+      try {
+        await webpush.sendNotification(subscription, payload, { TTL: 86400 })
+        return true
+      } catch (err: unknown) {
+        const status = (err as { statusCode?: number })?.statusCode
+        if (status === 410 || status === 404) {
+          staleIds.push(sub.id)
+          return false
+        }
+        throw err
+      }
+    })
+  )
+
+  if (staleIds.length) {
+    await db
+      .from('push_subscriptions')
+      .update({ revoked_at: new Date().toISOString() })
+      .in('id', staleIds)
+  }
+
+  return sends.some((r) => r.status === 'fulfilled' && r.value === true)
 }
 
 // ── Email HTML template ──────────────────────────────────────────────

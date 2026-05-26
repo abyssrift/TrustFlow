@@ -11,40 +11,13 @@ import { Stack, useRouter } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { useAlert } from '@/contexts/AlertContext';
+import { usePushSubscription } from '@/hooks/usePushSubscription';
 
 type Prefs = {
   email_enabled: boolean;
   push_mobile_enabled: boolean;
   push_web_enabled: boolean;
 };
-
-type ChannelRow = {
-  key: keyof Prefs;
-  label: string;
-  description: string;
-  icon: React.ComponentProps<typeof FontAwesome>['name'];
-};
-
-const CHANNELS: ChannelRow[] = [
-  {
-    key: 'email_enabled',
-    label: 'Email',
-    description: 'Get important updates delivered to your email inbox.',
-    icon: 'envelope-o',
-  },
-  {
-    key: 'push_web_enabled',
-    label: 'Browser Push',
-    description: 'Receive push notifications in your web browser.',
-    icon: 'globe',
-  },
-  {
-    key: 'push_mobile_enabled',
-    label: 'Mobile Push',
-    description: 'Receive push notifications on your iOS or Android device.',
-    icon: 'mobile',
-  },
-];
 
 const EVENT_GROUPS = [
   {
@@ -65,6 +38,8 @@ const EVENT_GROUPS = [
 export default function NotificationPreferencesWeb() {
   const router = useRouter();
   const { showAlert } = useAlert();
+  const { state: pushState, subscribe, unsubscribe } = usePushSubscription();
+
   const [prefs, setPrefs] = useState<Prefs>({
     email_enabled: true,
     push_mobile_enabled: true,
@@ -73,6 +48,7 @@ export default function NotificationPreferencesWeb() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
 
   useEffect(() => {
     loadPrefs();
@@ -99,6 +75,27 @@ export default function NotificationPreferencesWeb() {
     setDirty(true);
   };
 
+  const togglePushWeb = async () => {
+    const newValue = !prefs.push_web_enabled;
+    setPushBusy(true);
+    try {
+      if (newValue) {
+        const ok = await subscribe();
+        if (!ok) return;
+      } else {
+        await unsubscribe();
+      }
+      setPrefs((p) => ({ ...p, push_web_enabled: newValue }));
+      await supabase.rpc('rpc_upsert_notification_preferences', {
+        p_email_enabled: prefs.email_enabled,
+        p_push_mobile_enabled: prefs.push_mobile_enabled,
+        p_push_web_enabled: newValue,
+      });
+    } finally {
+      setPushBusy(false);
+    }
+  };
+
   const save = async () => {
     setSaving(true);
     const { error } = await supabase.rpc('rpc_upsert_notification_preferences', {
@@ -123,6 +120,12 @@ export default function NotificationPreferencesWeb() {
     );
   }
 
+  const pushWebDisabled =
+    pushBusy ||
+    pushState === 'loading' ||
+    pushState === 'unsupported' ||
+    pushState === 'denied';
+
   return (
     <ScrollView className="flex-1 bg-surface-background" showsVerticalScrollIndicator={false}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -130,7 +133,7 @@ export default function NotificationPreferencesWeb() {
       <View className="max-w-[800px] mx-auto w-full px-10 py-12">
         {/* Breadcrumb */}
         <View className="flex-row items-center gap-2 mb-10">
-          <TouchableOpacity onPress={() => router.back()} className="flex-row items-center gap-2">
+          <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')} className="flex-row items-center gap-2">
             <FontAwesome name="chevron-left" size={11} color="var(--color-text-muted)" />
             <Text className="text-typography-muted font-bold text-sm">Back</Text>
           </TouchableOpacity>
@@ -180,33 +183,94 @@ export default function NotificationPreferencesWeb() {
             </Text>
           </View>
 
-          {CHANNELS.map((ch, idx) => (
-            <View
-              key={ch.key}
-              className={`flex-row items-center px-8 py-6 ${
-                idx < CHANNELS.length - 1 ? 'border-b border-surface-border' : ''
-              }`}
-            >
-              <View className="bg-brand-primary/10 w-12 h-12 rounded-2xl items-center justify-center mr-5 border border-brand-primary/20">
-                <FontAwesome name={ch.icon} size={18} color="var(--color-primary)" />
-              </View>
-              <View className="flex-1 mr-6">
-                <Text className="text-typography-main font-bold text-base">{ch.label}</Text>
-                <Text className="text-typography-muted text-sm mt-0.5 leading-5">
-                  {ch.description}
-                </Text>
-              </View>
-              <Switch
-                value={prefs[ch.key]}
-                onValueChange={() => toggle(ch.key)}
-                trackColor={{
-                  false: 'var(--color-surface-border)',
-                  true: 'var(--color-primary)',
-                }}
-                thumbColor="#fff"
-              />
+          {/* Email */}
+          <View className="flex-row items-center px-8 py-6 border-b border-surface-border">
+            <View className="bg-brand-primary/10 w-12 h-12 rounded-2xl items-center justify-center mr-5 border border-brand-primary/20">
+              <FontAwesome name="envelope-o" size={18} color="var(--color-primary)" />
             </View>
-          ))}
+            <View className="flex-1 mr-6">
+              <Text className="text-typography-main font-bold text-base">Email</Text>
+              <Text className="text-typography-muted text-sm mt-0.5 leading-5">
+                Get important updates delivered to your email inbox.
+              </Text>
+            </View>
+            <Switch
+              value={prefs.email_enabled}
+              onValueChange={() => toggle('email_enabled')}
+              trackColor={{ false: 'var(--color-surface-border)', true: 'var(--color-primary)' }}
+              thumbColor="#fff"
+            />
+          </View>
+
+          {/* Browser push */}
+          <View className="flex-row items-center px-8 py-6 border-b border-surface-border">
+            <View className="bg-brand-primary/10 w-12 h-12 rounded-2xl items-center justify-center mr-5 border border-brand-primary/20">
+              {pushBusy || pushState === 'loading' ? (
+                <ActivityIndicator size="small" color="var(--color-primary)" />
+              ) : (
+                <FontAwesome name="globe" size={18} color="var(--color-primary)" />
+              )}
+            </View>
+            <View className="flex-1 mr-6">
+              <View className="flex-row items-center gap-2 flex-wrap">
+                <Text className="text-typography-main font-bold text-base">Browser Push</Text>
+                {pushState === 'subscribed' && (
+                  <View className="bg-state-success/10 px-2.5 py-0.5 rounded-full border border-state-success/20">
+                    <Text className="text-state-success text-[10px] font-black uppercase tracking-wider">
+                      Active
+                    </Text>
+                  </View>
+                )}
+                {pushState === 'denied' && (
+                  <View className="bg-state-error/10 px-2.5 py-0.5 rounded-full border border-state-error/20">
+                    <Text className="text-state-error text-[10px] font-black uppercase tracking-wider">
+                      Blocked
+                    </Text>
+                  </View>
+                )}
+                {pushState === 'unsupported' && (
+                  <View className="bg-surface-background px-2.5 py-0.5 rounded-full border border-surface-border">
+                    <Text className="text-typography-muted text-[10px] font-black uppercase tracking-wider">
+                      Unsupported
+                    </Text>
+                  </View>
+                )}
+              </View>
+              <Text className="text-typography-muted text-sm mt-0.5 leading-5">
+                {pushState === 'denied'
+                  ? 'Notifications are blocked. Update your browser site settings to enable.'
+                  : pushState === 'unsupported'
+                  ? 'Your browser does not support push notifications.'
+                  : 'Receive push notifications in your web browser.'}
+              </Text>
+            </View>
+            <Switch
+              value={prefs.push_web_enabled && pushState === 'subscribed'}
+              onValueChange={togglePushWeb}
+              disabled={pushWebDisabled}
+              trackColor={{ false: 'var(--color-surface-border)', true: 'var(--color-primary)' }}
+              thumbColor="#fff"
+            />
+          </View>
+
+          {/* Mobile push */}
+          <View className="flex-row items-center px-8 py-6">
+            <View className="bg-brand-primary/10 w-12 h-12 rounded-2xl items-center justify-center mr-5 border border-brand-primary/20">
+              <FontAwesome name="mobile" size={18} color="var(--color-primary)" />
+            </View>
+            <View className="flex-1 mr-6">
+              <Text className="text-typography-main font-bold text-base">Mobile Push</Text>
+              <Text className="text-typography-muted text-sm mt-0.5 leading-5">
+                Receive push notifications on your iOS or Android device.
+              </Text>
+            </View>
+            <Switch
+              value={prefs.push_mobile_enabled}
+              onValueChange={() => toggle('push_mobile_enabled')}
+              trackColor={{ false: 'var(--color-surface-border)', true: 'var(--color-primary)' }}
+              thumbColor="#fff"
+            />
+          </View>
         </View>
 
         {/* Event types (read-only info) */}

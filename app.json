@@ -19,6 +19,7 @@
       }
     },
     "android": {
+      "package": "com.ancients.trustflow",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -53,6 +54,13 @@
           ]
         }
       ]
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "001f4d3a-9b88-4b1f-bae2-da762aa3a2a1"
+      }
+    },
+    "owner": "ancients"
   }
 }
