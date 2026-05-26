@@ -2,18 +2,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 
-// Trim to guard against accidental whitespace/newlines in .env
 const VAPID_PUBLIC_KEY = (process.env.EXPO_PUBLIC_VAPID_PUBLIC_KEY ?? '').trim();
 const DEVICE_ID_KEY = 'tf_push_device_id';
-
-function getOrCreateDeviceId(): string {
-  let id = localStorage.getItem(DEVICE_ID_KEY);
-  if (!id) {
-    id = crypto.randomUUID();
-    localStorage.setItem(DEVICE_ID_KEY, id);
-  }
-  return id;
-}
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -24,6 +14,35 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
     output[i] = rawData.charCodeAt(i);
   }
   return output;
+}
+
+// Decoded once at module load — avoids re-decoding on every subscribe() call.
+// Null means the key is missing or malformed; subscribe() will bail early.
+const APP_SERVER_KEY: Uint8Array | null = (() => {
+  if (!VAPID_PUBLIC_KEY) return null;
+  try {
+    const key = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+    if (key.length !== 65 || key[0] !== 0x04) {
+      console.error(
+        `[push] Invalid VAPID public key: decoded ${key.length} bytes, first byte 0x${key[0]?.toString(16) ?? '?'}. ` +
+        'Expected 65 bytes starting with 0x04. Check EXPO_PUBLIC_VAPID_PUBLIC_KEY.'
+      );
+      return null;
+    }
+    return key;
+  } catch (e) {
+    console.error('[push] Failed to decode VAPID_PUBLIC_KEY:', e);
+    return null;
+  }
+})();
+
+function getOrCreateDeviceId(): string {
+  let id = localStorage.getItem(DEVICE_ID_KEY);
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem(DEVICE_ID_KEY, id);
+  }
+  return id;
 }
 
 export type PushState = 'unsupported' | 'denied' | 'subscribed' | 'unsubscribed' | 'loading';
@@ -45,8 +64,6 @@ export function usePushSubscription() {
       return;
     }
     try {
-      // getRegistration() resolves immediately with undefined if no SW is registered.
-      // serviceWorker.ready only resolves once a SW is active — never call it for a status check.
       const reg = await navigator.serviceWorker.getRegistration('/');
       if (!reg) {
         setState('unsubscribed');
@@ -64,8 +81,8 @@ export function usePushSubscription() {
   }, [checkState]);
 
   const subscribe = useCallback(async (): Promise<boolean> => {
-    if (!VAPID_PUBLIC_KEY) {
-      console.warn('[push] EXPO_PUBLIC_VAPID_PUBLIC_KEY is not configured');
+    if (!APP_SERVER_KEY) {
+      console.warn('[push] EXPO_PUBLIC_VAPID_PUBLIC_KEY is missing or invalid');
       return false;
     }
     setState('loading');
@@ -77,13 +94,12 @@ export function usePushSubscription() {
       }
 
       // Register the SW inline if +html.tsx hasn't done it yet (e.g. first load in dev).
-      let existing = await navigator.serviceWorker.getRegistration('/');
+      const existing = await navigator.serviceWorker.getRegistration('/');
       if (!existing) {
-        existing = await navigator.serviceWorker.register('/sw.js');
+        await navigator.serviceWorker.register('/sw.js');
       }
 
-      // serviceWorker.ready resolves once activated. Race with a timeout so we
-      // never hang forever if the SW file isn't served (misconfigured dev env).
+      // Race with a timeout so we never hang if /sw.js isn't being served.
       const reg = await Promise.race([
         navigator.serviceWorker.ready,
         new Promise<never>((_, reject) =>
@@ -94,33 +110,13 @@ export function usePushSubscription() {
         ),
       ]);
 
-      // VAPID public key must decode to exactly 65 bytes (uncompressed P-256 point).
-      // If it's 32 bytes you've set the private key. If it's anything else the .env value is wrong.
-      const appServerKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
-      console.log('[push] key length (chars):', VAPID_PUBLIC_KEY.length, '| decoded bytes:', appServerKey.length, '| first byte:', '0x' + appServerKey[0].toString(16));
-      if (appServerKey.length !== 65) {
-        throw new Error(
-          `[push] VAPID public key decoded to ${appServerKey.length} bytes — expected 65. ` +
-          `Check EXPO_PUBLIC_VAPID_PUBLIC_KEY in .env (${VAPID_PUBLIC_KEY.length} chars, should be 87).`
-        );
-      }
-
-      // Confirm it's a valid P-256 EC point before handing it to FCM.
-      // If importKey throws, the key bytes are not a valid curve point.
-      try {
-        await crypto.subtle.importKey('raw', appServerKey, { name: 'ECDH', namedCurve: 'P-256' }, false, []);
-      } catch {
-        throw new Error('[push] VAPID public key is not a valid P-256 point. Regenerate with: npx web-push generate-vapid-keys');
-      }
-
-      // Clear any stale subscription — Chrome throws AbortError if you subscribe
-      // again with a different VAPID key without unsubscribing first.
+      // Clear any stale subscription — Chrome throws AbortError on re-subscribe with a different key.
       const staleSub = await reg.pushManager.getSubscription();
       if (staleSub) await staleSub.unsubscribe();
 
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: appServerKey,
+        applicationServerKey: APP_SERVER_KEY,
       });
       await supabase.rpc('rpc_upsert_push_subscription', {
         p_type: 'web',

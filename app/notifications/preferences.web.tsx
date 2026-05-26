@@ -48,7 +48,6 @@ export default function NotificationPreferencesWeb() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
-  const [pushBusy, setPushBusy] = useState(false);
 
   useEffect(() => {
     loadPrefs();
@@ -77,23 +76,18 @@ export default function NotificationPreferencesWeb() {
 
   const togglePushWeb = async () => {
     const newValue = !prefs.push_web_enabled;
-    setPushBusy(true);
-    try {
-      if (newValue) {
-        const ok = await subscribe();
-        if (!ok) return;
-      } else {
-        await unsubscribe();
-      }
-      setPrefs((p) => ({ ...p, push_web_enabled: newValue }));
-      await supabase.rpc('rpc_upsert_notification_preferences', {
-        p_email_enabled: prefs.email_enabled,
-        p_push_mobile_enabled: prefs.push_mobile_enabled,
-        p_push_web_enabled: newValue,
-      });
-    } finally {
-      setPushBusy(false);
+    if (newValue) {
+      const ok = await subscribe();
+      if (!ok) return;
+    } else {
+      await unsubscribe();
     }
+    setPrefs((p) => ({ ...p, push_web_enabled: newValue }));
+    await supabase.rpc('rpc_upsert_notification_preferences', {
+      p_email_enabled: prefs.email_enabled,
+      p_push_mobile_enabled: prefs.push_mobile_enabled,
+      p_push_web_enabled: newValue,
+    });
   };
 
   const save = async () => {
@@ -121,7 +115,6 @@ export default function NotificationPreferencesWeb() {
   }
 
   const pushWebDisabled =
-    pushBusy ||
     pushState === 'loading' ||
     pushState === 'unsupported' ||
     pushState === 'denied';
@@ -205,7 +198,7 @@ export default function NotificationPreferencesWeb() {
           {/* Browser push */}
           <View className="flex-row items-center px-8 py-6 border-b border-surface-border">
             <View className="bg-brand-primary/10 w-12 h-12 rounded-2xl items-center justify-center mr-5 border border-brand-primary/20">
-              {pushBusy || pushState === 'loading' ? (
+              {pushState === 'loading' ? (
                 <ActivityIndicator size="small" color="var(--color-primary)" />
               ) : (
                 <FontAwesome name="globe" size={18} color="var(--color-primary)" />

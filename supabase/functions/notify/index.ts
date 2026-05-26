@@ -53,6 +53,10 @@ const VAPID_PUBLIC_KEY = Deno.env.get('VAPID_PUBLIC_KEY') ?? ''
 const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY') ?? ''
 const VAPID_SUBJECT = Deno.env.get('VAPID_SUBJECT') ?? 'mailto:admin@trustflow.io'
 
+if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY)
+}
+
 // ── Entry point ──────────────────────────────────────────────────────
 serve(async (req: Request) => {
   // Internal auth — only process-notification-event and trusted callers
@@ -290,8 +294,6 @@ async function dispatchWebPush(
 
   if (error) throw error
   if (!subs?.length) return false
-
-  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY)
 
   const payload = JSON.stringify({ title, body, data })
   const staleIds: string[] = []
