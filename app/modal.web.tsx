@@ -1,8 +1,9 @@
-import React, { useCallback } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, FlatList } from 'react-native';
-import { useRouter, Stack } from 'expo-router';
+import { AppNotification, useNotifications } from '@/contexts/NotificationsContext';
+import { getNotificationRoute } from '@/lib/notificationRouting';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { useNotifications, AppNotification } from '@/contexts/NotificationsContext';
+import { Stack, useRouter } from 'expo-router';
+import React, { useCallback } from 'react';
+import { ActivityIndicator, FlatList, Text, TouchableOpacity, View } from 'react-native';
 
 type IconSpec = { name: React.ComponentProps<typeof FontAwesome>['name']; color: string };
 
@@ -95,10 +96,10 @@ export default function ModalScreenWeb() {
   const handleItemPress = useCallback(
     async (item: AppNotification) => {
       if (!item.read_at) await markRead(item.id);
-      const taskId = item.data?.task_id;
-      if (taskId) {
+      const route = getNotificationRoute(item);
+      if (route) {
         router.dismiss();
-        router.push(`/task/${taskId}` as any);
+        router.push(route as any);
       }
     },
     [markRead, router]

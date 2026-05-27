@@ -4,6 +4,7 @@ import { openStorageFile } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -124,7 +125,7 @@ function FileDetailSheet({
 
   const { icon, color } = getMimeIcon(file.mime_type);
   const isUnread = mode === 'inbox' && !file.recipient_state?.read_at;
-  const isOwner = file.uploaded_by === currentUserId;
+  const isOwner = file.uploader?.id === currentUserId;
 
   const handleDownload = async () => {
     setDownloading(true);
@@ -317,6 +318,30 @@ function FileDetailSheet({
   );
 }
 
+// ─── Upload helpers ───────────────────────────────────────────────────────────
+
+const ALLOWED_EXTENSIONS = new Set([
+  'pdf','doc','docx','xls','xlsx','ppt','pptx','csv','txt','rtf','odt','ods','odp',
+  'jpg','jpeg','png','gif','webp','svg','bmp','tiff','tif','heic','heif','avif',
+  'mp4','mov','avi','mkv','webm','m4v','wmv','flv','ogv',
+  'mp3','wav','aac','ogg','flac','m4a','wma','opus',
+  'zip','rar','7z','tar','gz','tgz','bz2','xz',
+  'json','xml','yaml','yml','toml','sql','md','html','css','js','ts','jsx','tsx',
+]);
+
+const ALLOWED_TYPES_MESSAGE =
+  '• Documents: PDF, Word, Excel, PowerPoint, CSV, TXT, RTF\n' +
+  '• Images: JPG, PNG, GIF, WEBP, SVG, HEIC\n' +
+  '• Video: MP4, MOV, AVI, MKV, WEBM\n' +
+  '• Audio: MP3, WAV, AAC, OGG, FLAC\n' +
+  '• Archives: ZIP, RAR, 7Z, TAR, GZ\n' +
+  '• Data: JSON, XML, YAML, SQL, HTML, JS, TS';
+
+function isAllowedFile(name: string): boolean {
+  const ext = name.split('.').pop()?.toLowerCase() ?? '';
+  return ALLOWED_EXTENSIONS.has(ext);
+}
+
 // ─── Upload Sheet ─────────────────────────────────────────────────────────────
 
 function UploadSheet({
@@ -336,7 +361,10 @@ function UploadSheet({
 }) {
   const { folders, checkDuplicate } = useFileHub();
   const fileInputRef = useRef<any>(null);
-  const [pickedFile, setPickedFile] = useState<{ name: string; size: number; uri: string; type?: string; webFile?: File } | null>(null);
+  const folderInputRef = useRef<any>(null);
+
+  type PickedFile = { name: string; size: number; uri: string; type?: string; webFile?: File };
+  const [pickedFiles, setPickedFiles] = useState<PickedFile[]>([]);
   const [visibility, setVisibility] = useState<'direct' | 'broadcast' | 'group'>('direct');
   const [recipientSearch, setRecipientSearch] = useState('');
   const [memberResults, setMemberResults] = useState<any[]>([]);
@@ -346,13 +374,13 @@ function UploadSheet({
   const [tagInput, setTagInput] = useState('');
   const [caption, setCaption] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [uploadingIndex, setUploadingIndex] = useState(0);
   const [progress, setProgress] = useState(0);
-  const [step, setStep] = useState<1 | 2>(1);
 
   const canBroadcast = hasPermission('filehub:broadcast');
 
   const resetAll = () => {
-    setPickedFile(null);
+    setPickedFiles([]);
     setVisibility(activeGroup ? 'group' : 'direct');
     setRecipientSearch('');
     setMemberResults([]);
@@ -362,8 +390,8 @@ function UploadSheet({
     setTagInput('');
     setCaption('');
     setUploading(false);
+    setUploadingIndex(0);
     setProgress(0);
-    setStep(1);
   };
 
   useEffect(() => {
@@ -391,28 +419,65 @@ function UploadSheet({
     setMemberResults(data || []);
   }, []);
 
+  const processWebFiles = (fileList: FileList | null): PickedFile[] => {
+    if (!fileList || fileList.length === 0) return [];
+    const valid: PickedFile[] = [];
+    const rejected: string[] = [];
+    Array.from(fileList)
+      .filter(f => !f.name.startsWith('.'))
+      .forEach(file => {
+        if (isAllowedFile(file.name)) {
+          valid.push({ name: file.name, size: file.size, uri: '', type: file.type, webFile: file });
+        } else {
+          rejected.push(file.name);
+        }
+      });
+    if (rejected.length > 0) {
+      Alert.alert(
+        'Unsupported File Type',
+        `${rejected.length === 1 ? `"${rejected[0]}" is` : `${rejected.length} files are`} not supported.\n\nSupported types:\n${ALLOWED_TYPES_MESSAGE}`,
+      );
+    }
+    return valid;
+  };
+
   const handleWebFileChange = (e: any) => {
-    const file = e.target?.files?.[0];
-    if (!file) return;
-    setPickedFile({ name: file.name, size: file.size, uri: '', type: file.type, webFile: file });
-    setStep(2);
+    const valid = processWebFiles(e.target?.files);
+    if (valid.length > 0) setPickedFiles(prev => [...prev, ...valid]);
+    e.target.value = '';
+  };
+
+  const handleFolderChange = (e: any) => {
+    const valid = processWebFiles(e.target?.files);
+    if (valid.length > 0) setPickedFiles(prev => [...prev, ...valid]);
+    e.target.value = '';
   };
 
   const pickFile = async () => {
     if (Platform.OS === 'web') {
       fileInputRef.current?.click();
     } else {
-      const result = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true });
-      if (!result.canceled && result.assets?.[0]) {
-        const a = result.assets[0];
-        setPickedFile({ name: a.name, size: a.size ?? 0, uri: a.uri, type: a.mimeType });
-        setStep(2);
+      const result = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true, multiple: true });
+      if (!result.canceled && result.assets) {
+        const valid: PickedFile[] = [];
+        const rejected: string[] = [];
+        result.assets.forEach(a => {
+          if (isAllowedFile(a.name)) {
+            valid.push({ name: a.name, size: a.size ?? 0, uri: a.uri, type: a.mimeType });
+          } else {
+            rejected.push(a.name);
+          }
+        });
+        if (rejected.length > 0) {
+          Alert.alert('Unsupported File Type', `${rejected.length === 1 ? `"${rejected[0]}" is` : `${rejected.length} files are`} not supported.\n\nSupported types:\n${ALLOWED_TYPES_MESSAGE}`);
+        }
+        if (valid.length > 0) setPickedFiles(prev => [...prev, ...valid]);
       }
     }
   };
 
   const handleUpload = async () => {
-    if (!pickedFile || uploading) return;
+    if (pickedFiles.length === 0 || uploading) return;
     const companyId = profile?.company_id;
     if (!companyId) { Alert.alert('Error', 'Company not found.'); return; }
     if (visibility === 'direct' && selectedRecipients.length === 0) {
@@ -420,70 +485,85 @@ function UploadSheet({
       return;
     }
     if (visibility === 'group' && !activeGroup?.id) {
-      Alert.alert('Error', 'No group selected.');
+      Alert.alert('Error', 'No channel selected.');
       return;
     }
 
     setUploading(true);
-    setProgress(10);
-    try {
-      let contentHash = '';
-      if (Platform.OS === 'web' && pickedFile.webFile) {
-        contentHash = await computeSHA256Web(pickedFile.webFile);
-      }
-      setProgress(25);
+    const errors: string[] = [];
 
-      if (contentHash) {
-        const dupes = await checkDuplicate(contentHash);
-        if (dupes.length > 0) {
-          const proceed = await new Promise<boolean>(resolve =>
-            Alert.alert('Possible Duplicate', `"${dupes[0].original_name}" has the same content. Upload anyway?`, [
-              { text: 'Cancel', onPress: () => resolve(false), style: 'cancel' },
-              { text: 'Upload Anyway', onPress: () => resolve(true) },
-            ])
-          );
-          if (!proceed) { setUploading(false); setProgress(0); return; }
+    for (let i = 0; i < pickedFiles.length; i++) {
+      const pf = pickedFiles[i];
+      setUploadingIndex(i);
+      setProgress(5);
+      try {
+        let contentHash = '';
+        if (Platform.OS === 'web' && pf.webFile) {
+          contentHash = await computeSHA256Web(pf.webFile);
         }
+        setProgress(25);
+
+        if (contentHash) {
+          const dupes = await checkDuplicate(contentHash);
+          if (dupes.length > 0) {
+            const proceed = await new Promise<boolean>(resolve =>
+              Alert.alert('Possible Duplicate', `"${dupes[0].original_name}" has the same content as "${pf.name}". Upload anyway?`, [
+                { text: 'Cancel', onPress: () => resolve(false), style: 'cancel' },
+                { text: 'Upload Anyway', onPress: () => resolve(true) },
+              ])
+            );
+            if (!proceed) continue;
+          }
+        }
+
+        const fileId = (crypto as any).randomUUID();
+        const safeName = pf.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const storagePath = `${companyId}/${fileId}/${safeName}`;
+        setProgress(40);
+
+        let storageError;
+        if (Platform.OS === 'web' && pf.webFile) {
+          ({ error: storageError } = await supabase.storage.from('filehub-files').upload(storagePath, pf.webFile));
+        } else {
+          ({ error: storageError } = await supabase.storage.from('filehub-files').upload(storagePath, { uri: pf.uri, name: pf.name, type: pf.type ?? 'application/octet-stream' } as any));
+        }
+        if (storageError) throw storageError;
+        setProgress(80);
+
+        const { error: rpcError } = await supabase.rpc('rpc_filehub_upload_commit', {
+          p_storage_path: storagePath,
+          p_visibility: visibility,
+          p_recipient_ids: visibility === 'direct' ? selectedRecipients.map(r => r.id) : [],
+          p_folder_id: folderId || null,
+          p_tags: tags,
+          p_caption: caption || null,
+          p_original_name: pf.name,
+          p_mime_type: pf.type ?? null,
+          p_size_bytes: pf.size,
+          p_content_hash: contentHash || null,
+          p_replaces_file_id: null,
+          p_group_id: visibility === 'group' ? (activeGroup?.id ?? null) : null,
+        });
+        if (rpcError) throw rpcError;
+        setProgress(100);
+      } catch (e: any) {
+        errors.push(`${pf.name}: ${e.message || 'Unknown error'}`);
       }
-
-      const fileId = (crypto as any).randomUUID();
-      const safeName = pickedFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const storagePath = `${companyId}/${fileId}/${safeName}`;
-      setProgress(40);
-
-      let storageError;
-      if (Platform.OS === 'web' && pickedFile.webFile) {
-        ({ error: storageError } = await supabase.storage.from('filehub-files').upload(storagePath, pickedFile.webFile));
-      } else {
-        ({ error: storageError } = await supabase.storage.from('filehub-files').upload(storagePath, { uri: pickedFile.uri, name: pickedFile.name, type: pickedFile.type ?? 'application/octet-stream' } as any));
-      }
-      if (storageError) throw storageError;
-      setProgress(80);
-
-      const { error: rpcError } = await supabase.rpc('rpc_filehub_upload_commit', {
-        p_storage_path: storagePath,
-        p_visibility: visibility,
-        p_recipient_ids: visibility === 'direct' ? selectedRecipients.map(r => r.id) : [],
-        p_folder_id: folderId || null,
-        p_tags: tags,
-        p_caption: caption || null,
-        p_original_name: pickedFile.name,
-        p_mime_type: pickedFile.type ?? null,
-        p_size_bytes: pickedFile.size,
-        p_content_hash: contentHash || null,
-        p_replaces_file_id: null,
-        p_group_id: visibility === 'group' ? (activeGroup?.id ?? null) : null,
-      });
-      if (rpcError) throw rpcError;
-      setProgress(100);
-      onUploaded();
-      onClose();
-    } catch (e: any) {
-      Alert.alert('Upload Failed', e.message || 'Something went wrong.');
-    } finally {
-      setUploading(false);
-      setProgress(0);
     }
+
+    setUploading(false);
+    setProgress(0);
+
+    const successCount = pickedFiles.length - errors.length;
+    if (errors.length > 0 && successCount > 0) {
+      Alert.alert('Some uploads failed', errors.join('\n'));
+    } else if (errors.length === pickedFiles.length) {
+      Alert.alert('Upload Failed', errors.join('\n'));
+      return;
+    }
+
+    onUploaded();
+    onClose();
   };
 
   return (
@@ -496,44 +576,77 @@ function UploadSheet({
           </View>
 
           {Platform.OS === 'web' && (
-            <input ref={fileInputRef} type="file" style={{ display: 'none' }} onChange={handleWebFileChange} />
+            <>
+              <input ref={fileInputRef} type="file" multiple style={{ display: 'none' }} onChange={handleWebFileChange} />
+              <input ref={folderInputRef} type="file" {...({ webkitdirectory: '', multiple: '' } as any)} style={{ display: 'none' }} onChange={handleFolderChange} />
+            </>
           )}
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40, gap: 20 }}>
             <View className="flex-row items-center justify-between pt-2">
               <Text className="text-typography-main text-xl font-black tracking-tight">
-                {activeGroup ? `Upload to ${activeGroup.name}` : 'Upload File'}
+                {activeGroup ? `Upload to ${activeGroup.name}` : 'Upload Files'}
               </Text>
               <TouchableOpacity onPress={onClose} className="w-8 h-8 bg-surface-background border border-surface-border rounded-xl items-center justify-center">
                 <FontAwesome name="times" size={12} color="var(--color-text-muted)" />
               </TouchableOpacity>
             </View>
 
-            {/* File picker */}
-            {!pickedFile ? (
-              <TouchableOpacity onPress={pickFile} className="border-2 border-dashed border-surface-border rounded-2xl items-center py-10 gap-3">
+            {/* File picker area */}
+            {pickedFiles.length === 0 ? (
+              <View className="border-2 border-dashed border-surface-border rounded-2xl items-center py-10 gap-4">
                 <View className="w-14 h-14 bg-surface-background border border-surface-border rounded-2xl items-center justify-center">
                   <FontAwesome name="cloud-upload" size={24} color="var(--color-text-muted)" />
                 </View>
-                <Text className="text-typography-main font-bold">Choose a file</Text>
-                <Text className="text-typography-muted text-sm">Tap to browse · Up to 500 MB</Text>
-              </TouchableOpacity>
+                <Text className="text-typography-main font-bold">Choose files to upload</Text>
+                <Text className="text-typography-muted text-xs text-center px-4">Up to 500 MB per file</Text>
+                <View className="flex-row gap-3">
+                  <TouchableOpacity onPress={pickFile} className="flex-row items-center gap-2 bg-brand-primary px-5 py-2.5 rounded-xl">
+                    <FontAwesome name="files-o" size={12} color="#fff" />
+                    <Text className="text-white font-black text-sm">Files</Text>
+                  </TouchableOpacity>
+                  {Platform.OS === 'web' && (
+                    <TouchableOpacity onPress={() => folderInputRef.current?.click()} className="flex-row items-center gap-2 bg-surface-background border border-surface-border px-5 py-2.5 rounded-xl">
+                      <FontAwesome name="folder-open" size={12} color="var(--color-text-muted)" />
+                      <Text className="text-typography-muted font-black text-sm">Folder</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
             ) : (
-              <TouchableOpacity onPress={pickFile} className="flex-row items-center bg-surface-background border border-surface-border rounded-2xl px-4 py-4 gap-3">
-                <View className="w-11 h-11 bg-brand-primary/10 rounded-xl items-center justify-center flex-shrink-0">
-                  <FontAwesome name={getMimeIcon(pickedFile.type ?? null).icon as any} size={20} color="var(--color-primary)" />
+              <View className="bg-surface-background border border-surface-border rounded-2xl overflow-hidden">
+                {pickedFiles.map((pf, idx) => (
+                  <View key={idx} className={`flex-row items-center px-4 py-3 gap-3 ${idx < pickedFiles.length - 1 ? 'border-b border-surface-border/50' : ''}`}>
+                    <View className="w-9 h-9 bg-brand-primary/10 rounded-xl items-center justify-center flex-shrink-0">
+                      <FontAwesome name={getMimeIcon(pf.type ?? null).icon as any} size={16} color="var(--color-primary)" />
+                    </View>
+                    <View className="flex-1 min-w-0">
+                      <Text className="text-typography-main text-xs font-bold" numberOfLines={1}>{pf.name}</Text>
+                      <Text className="text-typography-muted text-[10px]">{formatFileSize(pf.size)}</Text>
+                    </View>
+                    <TouchableOpacity onPress={() => setPickedFiles(prev => prev.filter((_, i) => i !== idx))}>
+                      <FontAwesome name="times-circle" size={16} color="var(--color-text-muted)" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+                <View className="flex-row gap-2 p-3 border-t border-surface-border/50">
+                  <TouchableOpacity onPress={pickFile} className="flex-1 flex-row items-center justify-center gap-1.5 py-2 bg-surface-background border border-surface-border rounded-xl">
+                    <FontAwesome name="plus" size={10} color="var(--color-text-muted)" />
+                    <Text className="text-typography-muted text-xs font-bold">Add Files</Text>
+                  </TouchableOpacity>
+                  {Platform.OS === 'web' && (
+                    <TouchableOpacity onPress={() => folderInputRef.current?.click()} className="flex-1 flex-row items-center justify-center gap-1.5 py-2 bg-surface-background border border-surface-border rounded-xl">
+                      <FontAwesome name="folder-open" size={10} color="var(--color-text-muted)" />
+                      <Text className="text-typography-muted text-xs font-bold">Add Folder</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
-                <View className="flex-1 min-w-0">
-                  <Text className="text-typography-main font-bold text-sm" numberOfLines={1}>{pickedFile.name}</Text>
-                  <Text className="text-typography-muted text-xs mt-0.5">{formatFileSize(pickedFile.size)}</Text>
-                </View>
-                <Text className="text-brand-primary text-xs font-bold">Change</Text>
-              </TouchableOpacity>
+              </View>
             )}
 
-            {pickedFile && (
+            {pickedFiles.length > 0 && (
               <>
-                {/* Visibility — only show if NOT in group context, or show all options */}
+                {/* Visibility — only show if NOT in group context */}
                 {!activeGroup && (
                   <View className="gap-2">
                     <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Send as</Text>
@@ -556,14 +669,14 @@ function UploadSheet({
                   </View>
                 )}
 
-                {/* Group badge when uploading to group */}
+                {/* Channel badge when uploading to a channel */}
                 {activeGroup && (
                   <View className="flex-row items-center gap-3 bg-surface-background border border-surface-border rounded-2xl px-4 py-3">
                     <View className="w-8 h-8 rounded-xl items-center justify-center" style={{ backgroundColor: activeGroup.avatar_color + '22' }}>
                       <Text style={{ color: activeGroup.avatar_color, fontSize: 13, fontWeight: '900' }}>{getInitials(activeGroup.name)}</Text>
                     </View>
                     <View className="flex-1">
-                      <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Sharing to group</Text>
+                      <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Sharing to channel</Text>
                       <Text className="text-typography-main font-bold text-sm">{activeGroup.name}</Text>
                     </View>
                   </View>
@@ -691,7 +804,8 @@ function UploadSheet({
                   <View className="bg-surface-background border border-surface-border rounded-2xl px-4 py-3 gap-2">
                     <View className="flex-row justify-between mb-1">
                       <Text className="text-typography-main text-xs font-bold">
-                        {progress < 40 ? 'Preparing…' : progress < 80 ? 'Uploading…' : 'Finishing…'}
+                        {pickedFiles.length > 1 ? `File ${uploadingIndex + 1} of ${pickedFiles.length} · ` : ''}
+                        {progress < 25 ? 'Preparing…' : progress < 80 ? 'Uploading…' : 'Finishing…'}
                       </Text>
                       <Text className="text-brand-primary text-xs font-black">{progress}%</Text>
                     </View>
@@ -710,7 +824,9 @@ function UploadSheet({
                   {uploading
                     ? <ActivityIndicator size="small" color="#fff" />
                     : <Text className="text-white font-black text-base">
-                        {visibility === 'group' ? 'Share to Group' : 'Send File'}
+                        {pickedFiles.length > 1
+                          ? `Send ${pickedFiles.length} Files`
+                          : visibility === 'group' ? 'Share to Channel' : 'Send File'}
                       </Text>
                   }
                 </TouchableOpacity>
@@ -832,7 +948,7 @@ function GroupCreateSheet({
           </View>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40, gap: 20 }}>
             <View className="flex-row items-center justify-between">
-              <Text className="text-typography-main text-xl font-black">New Group</Text>
+              <Text className="text-typography-main text-xl font-black">New Channel</Text>
               <TouchableOpacity onPress={onClose} className="w-8 h-8 bg-surface-background border border-surface-border rounded-xl items-center justify-center">
                 <FontAwesome name="times" size={12} color="var(--color-text-muted)" />
               </TouchableOpacity>
@@ -862,7 +978,7 @@ function GroupCreateSheet({
 
             {/* Name */}
             <View className="gap-2">
-              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Group Name</Text>
+              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Channel Name</Text>
               <TextInput
                 value={name}
                 onChangeText={setName}
@@ -879,7 +995,7 @@ function GroupCreateSheet({
               <TextInput
                 value={description}
                 onChangeText={setDescription}
-                placeholder="What's this group for?"
+                placeholder="What's this channel for?"
                 placeholderTextColor="var(--color-text-dim)"
                 multiline
                 numberOfLines={2}
@@ -942,7 +1058,7 @@ function GroupCreateSheet({
             >
               {creating
                 ? <ActivityIndicator size="small" color="#fff" />
-                : <Text className="text-white font-black text-base">Create Group</Text>
+                : <Text className="text-white font-black text-base">Create Channel</Text>
               }
             </TouchableOpacity>
           </ScrollView>
@@ -1013,8 +1129,8 @@ function GroupMembersSheet({
     if (!group) return;
     const target = members.find(m => m.id === userId);
     Alert.alert(
-      userId === currentUserId ? 'Leave Group' : `Remove ${target?.full_name ?? 'member'}`,
-      userId === currentUserId ? 'Are you sure you want to leave this group?' : `Remove ${target?.full_name ?? 'this member'} from the group?`,
+      userId === currentUserId ? 'Leave Channel' : `Remove ${target?.full_name ?? 'member'}`,
+      userId === currentUserId ? 'Are you sure you want to leave this channel?' : `Remove ${target?.full_name ?? 'this member'} from the channel?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -1332,6 +1448,7 @@ function FileHubAdaptiveInner() {
     search, setSearch,
     selectedTag, setSelectedTag,
     files, loading,
+    inboxUnreadCount,
     refresh,
     groups, groupsLoading,
     activeGroupId, setActiveGroupId,
@@ -1339,22 +1456,29 @@ function FileHubAdaptiveInner() {
     refreshGroups, refreshGroupFiles,
   } = useFileHub();
 
+  const router = useRouter();
+  const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
+
   const [selectedFile, setSelectedFile] = useState<FileHubFile | null>(null);
   const [showUpload, setShowUpload] = useState(false);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [showManageMembers, setShowManageMembers] = useState(false);
   const [showManageTags, setShowManageTags] = useState(false);
 
-  const unreadCount = useMemo(
-    () => files.filter(f => !f.recipient_state?.read_at).length,
-    [files]
-  );
   const canBroadcast = hasPermission('filehub:broadcast');
 
   const activeGroup = useMemo(
     () => groups.find(g => g.id === activeGroupId) ?? null,
     [groups, activeGroupId]
   );
+
+  // Restore tab from URL param on mount
+  useEffect(() => {
+    const validModes: FileHubMode[] = ['inbox', 'sent', 'broadcast', 'groups'];
+    if (tabParam && validModes.includes(tabParam as FileHubMode)) {
+      setMode(tabParam as FileHubMode);
+    }
+  }, []);
 
   // Derive tags from the currently visible file list
   const displayFiles = mode === 'groups' && activeGroupId ? groupFiles : files;
@@ -1367,16 +1491,17 @@ function FileHubAdaptiveInner() {
   }, [displayFiles]);
 
   const tabs: { key: FileHubMode; label: string; count?: number }[] = [
-    { key: 'inbox', label: 'Inbox', count: unreadCount > 0 ? unreadCount : undefined },
+    { key: 'inbox', label: 'Inbox', count: inboxUnreadCount > 0 ? inboxUnreadCount : undefined },
     { key: 'sent', label: 'Sent' },
     ...(canBroadcast ? [{ key: 'broadcast' as FileHubMode, label: 'Broadcast' }] : []),
-    { key: 'groups', label: 'Groups', count: groups.length > 0 ? undefined : undefined },
+    { key: 'groups', label: 'Channels' },
   ];
 
   const handleTabChange = (key: FileHubMode) => {
     setMode(key);
     setActiveGroupId(null);
     setSelectedFile(null);
+    router.setParams({ tab: key });
   };
 
   const handleRefresh = () => {
@@ -1436,7 +1561,7 @@ function FileHubAdaptiveInner() {
           <TextInput
             value={search}
             onChangeText={setSearch}
-            placeholder={mode === 'groups' && activeGroupId ? 'Search group files…' : 'Search files…'}
+            placeholder={mode === 'groups' && activeGroupId ? 'Search channel files…' : 'Search files…'}
             placeholderTextColor="var(--color-text-dim)"
             className="flex-1 text-typography-main text-sm"
           />
@@ -1506,13 +1631,13 @@ function FileHubAdaptiveInner() {
         <>
           {/* Groups list header */}
           <View className="px-6 mb-3 flex-row items-center justify-between">
-            <Text className="text-typography-main font-black text-lg">Your Groups</Text>
+            <Text className="text-typography-main font-black text-lg">Your Channels</Text>
             <TouchableOpacity
               onPress={() => setShowCreateGroup(true)}
               className="flex-row items-center gap-2 bg-brand-primary px-4 py-2 rounded-xl"
             >
               <FontAwesome name="plus" size={11} color="#fff" />
-              <Text className="text-white font-black text-xs">New Group</Text>
+              <Text className="text-white font-black text-xs">New Channel</Text>
             </TouchableOpacity>
           </View>
 
@@ -1526,16 +1651,16 @@ function FileHubAdaptiveInner() {
                 <View className="w-16 h-16 bg-brand-primary/10 rounded-full border border-brand-primary/20 items-center justify-center mb-4">
                   <FontAwesome name="users" size={24} color="var(--color-primary)" />
                 </View>
-                <Text className="text-typography-main text-xl font-black mt-2 mb-2 text-center">No Groups Yet</Text>
+                <Text className="text-typography-main text-xl font-black mt-2 mb-2 text-center">No Channels Yet</Text>
                 <Text className="text-typography-muted text-sm text-center leading-relaxed mb-6">
-                  Create a group to share files with your team in a persistent shared space.
+                  Create a channel to share files with your team in a persistent shared space.
                 </Text>
                 <TouchableOpacity
                   onPress={() => setShowCreateGroup(true)}
                   className="bg-brand-primary px-6 py-3 rounded-2xl flex-row items-center gap-2"
                 >
                   <FontAwesome name="plus" size={12} color="#fff" />
-                  <Text className="text-white font-black">Create First Group</Text>
+                  <Text className="text-white font-black">Create First Channel</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1565,7 +1690,7 @@ function FileHubAdaptiveInner() {
                   {search ? 'No Results' : 'No Files Yet'}
                 </Text>
                 <Text className="text-typography-muted text-sm text-center leading-relaxed">
-                  {search ? `No files match "${search}".` : 'Upload the first file to this group.'}
+                  {search ? `No files match "${search}".` : 'Upload the first file to this channel.'}
                 </Text>
               </View>
             </View>

@@ -3,17 +3,18 @@ import { FileActivity, FileHubFile, FileHubFolder, FileHubGroup, FileHubGroupMem
 import { openStorageFile } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Modal,
-  Platform,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Modal,
+    Platform,
+    ScrollView,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -91,10 +92,34 @@ const ACTIVITY_META: Record<string, { icon: string; color: string; label: string
   share:    { icon: 'share',    color: '#f59e0b', label: 'Shared'     },
 };
 
+// ─── Upload helpers ───────────────────────────────────────────────────────────
+
+const ALLOWED_EXTENSIONS = new Set([
+  'pdf','doc','docx','xls','xlsx','ppt','pptx','csv','txt','rtf','odt','ods','odp',
+  'jpg','jpeg','png','gif','webp','svg','bmp','tiff','tif','heic','heif','avif',
+  'mp4','mov','avi','mkv','webm','m4v','wmv','flv','ogv',
+  'mp3','wav','aac','ogg','flac','m4a','wma','opus',
+  'zip','rar','7z','tar','gz','tgz','bz2','xz',
+  'json','xml','yaml','yml','toml','sql','md','html','css','js','ts','jsx','tsx',
+]);
+
+const ALLOWED_TYPES_MESSAGE =
+  '• Documents: PDF, Word, Excel, PowerPoint, CSV, TXT, RTF\n' +
+  '• Images: JPG, PNG, GIF, WEBP, SVG, HEIC\n' +
+  '• Video: MP4, MOV, AVI, MKV, WEBM\n' +
+  '• Audio: MP3, WAV, AAC, OGG, FLAC\n' +
+  '• Archives: ZIP, RAR, 7Z, TAR, GZ\n' +
+  '• Data: JSON, XML, YAML, SQL, HTML, JS, TS';
+
+function isAllowedFile(name: string): boolean {
+  const ext = name.split('.').pop()?.toLowerCase() ?? '';
+  return ALLOWED_EXTENSIONS.has(ext);
+}
+
 // ─── Upload Modal ─────────────────────────────────────────────────────────────
 
 type UploadDraft = {
-  file: File | null;
+  files: File[];
   visibility: 'direct' | 'broadcast' | 'group';
   recipientIds: string[];
   folderId: string | null;
@@ -104,7 +129,7 @@ type UploadDraft = {
 };
 
 const EMPTY_DRAFT = (defaultVisibility: 'direct' | 'group' = 'direct'): UploadDraft => ({
-  file: null,
+  files: [],
   visibility: defaultVisibility,
   recipientIds: [],
   folderId: null,
@@ -133,8 +158,10 @@ function UploadModal({
   activeGroup?: { id: string; name: string; avatar_color: string } | null;
 }) {
   const fileInputRef = useRef<any>(null);
+  const folderInputRef = useRef<any>(null);
   const [draft, setDraft] = useState<UploadDraft>(EMPTY_DRAFT(activeGroup ? 'group' : 'direct'));
   const [uploading, setUploading] = useState(false);
+  const [uploadingIndex, setUploadingIndex] = useState(0);
   const [progress, setProgress] = useState(0);
   const [recipientSearch, setRecipientSearch] = useState('');
   const [memberResults, setMemberResults] = useState<any[]>([]);
@@ -147,6 +174,7 @@ function UploadModal({
     if (!visible) {
       setDraft(EMPTY_DRAFT(activeGroup ? 'group' : 'direct'));
       setProgress(0);
+      setUploadingIndex(0);
       setRecipientSearch('');
       setMemberResults([]);
     } else if (activeGroup) {
@@ -190,73 +218,113 @@ function UploadModal({
     }
   };
 
-  const handlePickFile = () => {
-    if (Platform.OS === 'web' && fileInputRef.current) fileInputRef.current.click();
+  const processWebFiles = (fileList: FileList | null): File[] => {
+    if (!fileList || fileList.length === 0) return [];
+    const valid: File[] = [];
+    const rejected: string[] = [];
+    Array.from(fileList)
+      .filter(f => !f.name.startsWith('.'))
+      .forEach(file => {
+        if (isAllowedFile(file.name)) {
+          valid.push(file);
+        } else {
+          rejected.push(file.name);
+        }
+      });
+    if (rejected.length > 0) {
+      Alert.alert(
+        'Unsupported File Type',
+        `${rejected.length === 1 ? `"${rejected[0]}" is` : `${rejected.length} files are`} not supported.\n\nSupported types:\n${ALLOWED_TYPES_MESSAGE}`,
+      );
+    }
+    return valid;
   };
 
   const handleFileChange = (e: any) => {
-    const file = e.target?.files?.[0];
-    if (file) patch({ file });
+    const valid = processWebFiles(e.target?.files);
+    if (valid.length > 0) patch({ files: [...draft.files, ...valid] });
+    e.target.value = '';
+  };
+
+  const handleFolderChange = (e: any) => {
+    const valid = processWebFiles(e.target?.files);
+    if (valid.length > 0) patch({ files: [...draft.files, ...valid] });
+    e.target.value = '';
   };
 
   const handleUpload = async () => {
-    if (!draft.file || uploading) return;
+    if (draft.files.length === 0 || uploading) return;
     const companyId = profile?.company_id;
     if (!companyId) { Alert.alert('Error', 'Company not found.'); return; }
     if (draft.visibility === 'group' && !activeGroup?.id) {
-      Alert.alert('Error', 'No group selected.'); return;
+      Alert.alert('Error', 'No channel selected.'); return;
     }
 
     setUploading(true);
-    setProgress(5);
-    try {
-      const contentHash = await computeSHA256(draft.file);
-      setProgress(15);
+    const errors: string[] = [];
 
-      const dupes = await checkDuplicate(contentHash);
-      if (dupes.length > 0) {
-        const proceed = await new Promise<boolean>(resolve =>
-          Alert.alert('Possible Duplicate', `"${dupes[0].original_name}" has the same content. Upload anyway?`, [
-            { text: 'Cancel', onPress: () => resolve(false), style: 'cancel' },
-            { text: 'Upload Anyway', onPress: () => resolve(true) },
-          ])
-        );
-        if (!proceed) { setUploading(false); setProgress(0); return; }
+    for (let i = 0; i < draft.files.length; i++) {
+      const file = draft.files[i];
+      setUploadingIndex(i);
+      setProgress(5);
+      try {
+        const contentHash = await computeSHA256(file);
+        setProgress(15);
+
+        const dupes = await checkDuplicate(contentHash);
+        if (dupes.length > 0) {
+          const proceed = await new Promise<boolean>(resolve =>
+            Alert.alert('Possible Duplicate', `"${dupes[0].original_name}" has the same content as "${file.name}". Upload anyway?`, [
+              { text: 'Cancel', onPress: () => resolve(false), style: 'cancel' },
+              { text: 'Upload Anyway', onPress: () => resolve(true) },
+            ])
+          );
+          if (!proceed) continue;
+        }
+
+        const fileId = (crypto as any).randomUUID();
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const storagePath = `${companyId}/${fileId}/${safeName}`;
+        setProgress(25);
+
+        const { error: storageError } = await supabase.storage.from('filehub-files').upload(storagePath, file);
+        if (storageError) throw storageError;
+        setProgress(80);
+
+        const { error: rpcError } = await supabase.rpc('rpc_filehub_upload_commit', {
+          p_storage_path: storagePath,
+          p_visibility: draft.visibility,
+          p_recipient_ids: draft.visibility === 'direct' ? draft.recipientIds : [],
+          p_folder_id: draft.folderId,
+          p_tags: draft.tags,
+          p_caption: draft.caption || null,
+          p_original_name: file.name,
+          p_mime_type: file.type || null,
+          p_size_bytes: file.size,
+          p_content_hash: contentHash,
+          p_replaces_file_id: null,
+          p_group_id: draft.visibility === 'group' ? (activeGroup?.id ?? null) : null,
+        });
+        if (rpcError) throw rpcError;
+        setProgress(100);
+      } catch (e: any) {
+        errors.push(`${file.name}: ${e.message || 'Unknown error'}`);
       }
-
-      const fileId = (crypto as any).randomUUID();
-      const safeName = draft.file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const storagePath = `${companyId}/${fileId}/${safeName}`;
-      setProgress(25);
-
-      const { error: storageError } = await supabase.storage.from('filehub-files').upload(storagePath, draft.file);
-      if (storageError) throw storageError;
-      setProgress(80);
-
-      const { error: rpcError } = await supabase.rpc('rpc_filehub_upload_commit', {
-        p_storage_path: storagePath,
-        p_visibility: draft.visibility,
-        p_recipient_ids: draft.visibility === 'direct' ? draft.recipientIds : [],
-        p_folder_id: draft.folderId,
-        p_tags: draft.tags,
-        p_caption: draft.caption || null,
-        p_original_name: draft.file.name,
-        p_mime_type: draft.file.type || null,
-        p_size_bytes: draft.file.size,
-        p_content_hash: contentHash,
-        p_replaces_file_id: null,
-        p_group_id: draft.visibility === 'group' ? (activeGroup?.id ?? null) : null,
-      });
-      if (rpcError) throw rpcError;
-      setProgress(100);
-      onUploaded();
-      onClose();
-    } catch (e: any) {
-      Alert.alert('Upload Failed', e.message || 'Something went wrong.');
-    } finally {
-      setUploading(false);
-      setProgress(0);
     }
+
+    setUploading(false);
+    setProgress(0);
+
+    const successCount = draft.files.length - errors.length;
+    if (errors.length > 0 && successCount > 0) {
+      Alert.alert('Some uploads failed', errors.join('\n'));
+    } else if (errors.length === draft.files.length) {
+      Alert.alert('Upload Failed', errors.join('\n'));
+      return;
+    }
+
+    onUploaded();
+    onClose();
   };
 
   const canBroadcast = hasPermission('filehub:broadcast');
@@ -267,7 +335,7 @@ function UploadModal({
         <View className="bg-surface-card rounded-[2rem] border border-surface-border premium-shadow w-full max-w-[560px]" style={{ maxHeight: '100%' }}>
           <View className="flex-row items-center justify-between px-8 pt-7 pb-5 border-b border-surface-border">
             <Text className="text-typography-main text-xl font-black tracking-tight">
-              {activeGroup ? `Upload to ${activeGroup.name}` : 'Upload File'}
+              {activeGroup ? `Upload to ${activeGroup.name}` : 'Upload Files'}
             </Text>
             <TouchableOpacity onPress={onClose} className="w-8 h-8 items-center justify-center rounded-xl bg-surface-background border border-surface-border">
               <FontAwesome name="times" size={12} color="var(--color-text-muted)" />
@@ -276,34 +344,75 @@ function UploadModal({
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 32, gap: 20 }}>
             {Platform.OS === 'web' && (
-              <input ref={fileInputRef} type="file" style={{ display: 'none' }} onChange={handleFileChange} />
+              <>
+                <input ref={fileInputRef} type="file" multiple style={{ display: 'none' }} onChange={handleFileChange} />
+                <input ref={folderInputRef} type="file" {...({ webkitdirectory: '', multiple: '' } as any)} style={{ display: 'none' }} onChange={handleFolderChange} />
+              </>
             )}
 
-            {/* File picker */}
-            <TouchableOpacity
-              onPress={handlePickFile}
-              className="border-2 border-dashed border-surface-border rounded-2xl items-center justify-center py-8 px-4 gap-3"
-              style={{ borderStyle: 'dashed' }}
-            >
-              {draft.file ? (
-                <>
-                  <View className="w-12 h-12 bg-brand-primary/10 rounded-2xl items-center justify-center">
-                    <FontAwesome name={getMimeIcon(draft.file.type).icon as any} size={22} color="var(--color-primary)" />
-                  </View>
-                  <Text className="text-typography-main font-bold text-sm text-center" numberOfLines={2}>{draft.file.name}</Text>
-                  <Text className="text-typography-muted text-xs">{formatFileSize(draft.file.size)}</Text>
-                  <Text className="text-brand-primary text-xs font-bold">Click to change</Text>
-                </>
-              ) : (
-                <>
-                  <View className="w-12 h-12 bg-surface-background rounded-2xl border border-surface-border items-center justify-center">
-                    <FontAwesome name="cloud-upload" size={22} color="var(--color-text-muted)" />
-                  </View>
-                  <Text className="text-typography-main font-bold text-sm">Choose a file</Text>
-                  <Text className="text-typography-muted text-xs">Any file type up to 500 MB</Text>
-                </>
-              )}
-            </TouchableOpacity>
+            {/* File picker area */}
+            {draft.files.length === 0 ? (
+              <View className="border-2 border-dashed border-surface-border rounded-2xl items-center justify-center py-10 px-6 gap-4">
+                <View className="w-14 h-14 bg-surface-background rounded-2xl border border-surface-border items-center justify-center">
+                  <FontAwesome name="cloud-upload" size={24} color="var(--color-text-muted)" />
+                </View>
+                <View className="items-center gap-1">
+                  <Text className="text-typography-main font-bold text-sm">Choose files to upload</Text>
+                  <Text className="text-typography-muted text-xs">Up to 500 MB per file</Text>
+                </View>
+                <View className="flex-row gap-3">
+                  <TouchableOpacity
+                    onPress={() => fileInputRef.current?.click()}
+                    className="flex-row items-center gap-2 bg-brand-primary px-5 py-2.5 rounded-xl"
+                  >
+                    <FontAwesome name="files-o" size={12} color="#fff" />
+                    <Text className="text-white font-black text-sm">Files</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => folderInputRef.current?.click()}
+                    className="flex-row items-center gap-2 bg-surface-background border border-surface-border px-5 py-2.5 rounded-xl"
+                  >
+                    <FontAwesome name="folder-open" size={12} color="var(--color-text-muted)" />
+                    <Text className="text-typography-muted font-black text-sm">Folder</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <View className="bg-surface-background border border-surface-border rounded-2xl overflow-hidden">
+                <ScrollView style={{ maxHeight: 200 }} showsVerticalScrollIndicator={false}>
+                  {draft.files.map((file, idx) => (
+                    <View key={idx} className={`flex-row items-center px-4 py-3 gap-3 ${idx < draft.files.length - 1 ? 'border-b border-surface-border/50' : ''}`}>
+                      <View className="w-9 h-9 bg-brand-primary/10 rounded-xl items-center justify-center flex-shrink-0">
+                        <FontAwesome name={getMimeIcon(file.type).icon as any} size={16} color="var(--color-primary)" />
+                      </View>
+                      <View className="flex-1 min-w-0">
+                        <Text className="text-typography-main text-xs font-bold" numberOfLines={1}>{file.name}</Text>
+                        <Text className="text-typography-muted text-[10px]">{formatFileSize(file.size)}</Text>
+                      </View>
+                      <TouchableOpacity onPress={() => patch({ files: draft.files.filter((_, i) => i !== idx) })}>
+                        <FontAwesome name="times-circle" size={16} color="var(--color-text-muted)" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </ScrollView>
+                <View className="flex-row gap-2 p-3 border-t border-surface-border/50">
+                  <TouchableOpacity
+                    onPress={() => fileInputRef.current?.click()}
+                    className="flex-1 flex-row items-center justify-center gap-1.5 py-2 bg-surface-background border border-surface-border rounded-xl"
+                  >
+                    <FontAwesome name="plus" size={10} color="var(--color-text-muted)" />
+                    <Text className="text-typography-muted text-xs font-bold">Add Files</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => folderInputRef.current?.click()}
+                    className="flex-1 flex-row items-center justify-center gap-1.5 py-2 bg-surface-background border border-surface-border rounded-xl"
+                  >
+                    <FontAwesome name="folder-open" size={10} color="var(--color-text-muted)" />
+                    <Text className="text-typography-muted text-xs font-bold">Add Folder</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
 
             {/* Visibility — hidden when uploading to a group (locked to group) */}
             {!activeGroup ? (
@@ -347,11 +456,11 @@ function UploadModal({
                   </Text>
                 </View>
                 <View className="flex-1">
-                  <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Sharing to group</Text>
+                  <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Sharing to channel</Text>
                   <Text className="text-typography-main font-bold text-sm">{activeGroup.name}</Text>
                 </View>
                 <View className="bg-brand-primary/10 border border-brand-primary/20 rounded-full px-2.5 py-1">
-                  <Text className="text-brand-primary text-[10px] font-black">Group</Text>
+                  <Text className="text-brand-primary text-[10px] font-black">Channel</Text>
                 </View>
               </View>
             )}
@@ -487,7 +596,8 @@ function UploadModal({
               <View className="bg-surface-background border border-surface-border rounded-xl px-4 py-3 gap-2">
                 <View className="flex-row items-center justify-between mb-1">
                   <Text className="text-typography-main text-xs font-bold">
-                    {progress < 25 ? 'Computing hash…' : progress < 80 ? 'Uploading…' : 'Committing…'}
+                    {draft.files.length > 1 ? `File ${uploadingIndex + 1} of ${draft.files.length} · ` : ''}
+                    {progress < 25 ? 'Preparing…' : progress < 80 ? 'Uploading…' : 'Committing…'}
                   </Text>
                   <Text className="text-brand-primary text-xs font-black">{progress}%</Text>
                 </View>
@@ -508,15 +618,17 @@ function UploadModal({
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleUpload}
-                disabled={!draft.file || uploading || (draft.visibility === 'direct' && draft.recipientIds.length === 0)}
+                disabled={draft.files.length === 0 || uploading || (draft.visibility === 'direct' && draft.recipientIds.length === 0)}
                 className="flex-[2] items-center justify-center py-3.5 rounded-xl bg-brand-primary"
-                style={{ opacity: (!draft.file || uploading || (draft.visibility === 'direct' && draft.recipientIds.length === 0)) ? 0.5 : 1 }}
+                style={{ opacity: (draft.files.length === 0 || uploading || (draft.visibility === 'direct' && draft.recipientIds.length === 0)) ? 0.5 : 1 }}
               >
                 {uploading ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
                   <Text className="text-white font-black text-sm">
-                    {draft.visibility === 'group' ? 'Share to Group' : 'Upload File'}
+                    {draft.files.length > 1
+                      ? `Upload ${draft.files.length} Files`
+                      : draft.visibility === 'group' ? 'Share to Channel' : 'Upload File'}
                   </Text>
                 )}
               </TouchableOpacity>
@@ -582,7 +694,7 @@ function GroupCreateModal({
       <View className="flex-1 bg-black/40 items-center justify-center p-8">
         <View className="bg-surface-card rounded-[2rem] border border-surface-border premium-shadow w-full max-w-[480px]">
           <View className="flex-row items-center justify-between px-8 pt-7 pb-5 border-b border-surface-border">
-            <Text className="text-typography-main text-xl font-black">Create Group</Text>
+            <Text className="text-typography-main text-xl font-black">New Channel</Text>
             <TouchableOpacity onPress={onClose} className="w-8 h-8 items-center justify-center rounded-xl bg-surface-background border border-surface-border">
               <FontAwesome name="times" size={12} color="var(--color-text-muted)" />
             </TouchableOpacity>
@@ -613,7 +725,7 @@ function GroupCreateModal({
 
             {/* Name */}
             <View className="gap-2">
-              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Group Name</Text>
+              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Channel Name</Text>
               <TextInput
                 value={name}
                 onChangeText={setName}
@@ -630,7 +742,7 @@ function GroupCreateModal({
               <TextInput
                 value={description}
                 onChangeText={setDescription}
-                placeholder="What's this group for?"
+                placeholder="What's this channel for?"
                 placeholderTextColor="var(--color-text-dim)"
                 multiline
                 numberOfLines={2}
@@ -693,7 +805,7 @@ function GroupCreateModal({
                 className="flex-[2] items-center justify-center py-3.5 rounded-xl bg-brand-primary"
                 style={{ opacity: !name.trim() || creating ? 0.5 : 1 }}
               >
-                {creating ? <ActivityIndicator size="small" color="#fff" /> : <Text className="text-white font-black text-sm">Create Group</Text>}
+                {creating ? <ActivityIndicator size="small" color="#fff" /> : <Text className="text-white font-black text-sm">Create Channel</Text>}
               </TouchableOpacity>
             </View>
           </ScrollView>
@@ -706,12 +818,24 @@ function GroupCreateModal({
 // ─── Folder Panel ─────────────────────────────────────────────────────────────
 
 function FolderPanel() {
-  const { folders, selectedFolderId, setSelectedFolderId, createFolder, renameFolder, deleteFolder } = useFileHub();
+  const { folders, files, mode, selectedFolderId, setSelectedFolderId, createFolder, renameFolder, deleteFolder } = useFileHub();
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [creating, setCreating] = useState(false);
+  // Track which folder IDs have files for the current user+mode when unfiltered
+  const [foldersWithFiles, setFoldersWithFiles] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (!selectedFolderId && mode !== 'groups') {
+      setFoldersWithFiles(new Set(files.map(f => f.folder?.id).filter(Boolean) as string[]));
+    }
+  }, [files, selectedFolderId, mode]);
+  const visibleFolders = useMemo(() => {
+    if (mode === 'groups') return folders;
+    const ids = new Set([...Array.from(foldersWithFiles), ...(selectedFolderId ? [selectedFolderId] : [])]);
+    return folders.filter(f => ids.has(f.id));
+  }, [folders, foldersWithFiles, selectedFolderId, mode]);
 
   const handleCreate = async () => {
     if (!newFolderName.trim()) return;
@@ -749,7 +873,7 @@ function FolderPanel() {
         <Text className={`ml-2.5 text-sm font-bold flex-1 ${!selectedFolderId ? 'text-brand-primary' : 'text-typography-main'}`}>All Files</Text>
       </TouchableOpacity>
 
-      {folders.map(f => (
+      {visibleFolders.map(f => (
         <View key={f.id} className={`flex-row items-center px-3 py-2 rounded-xl mb-1 ${selectedFolderId === f.id ? 'bg-brand-primary/10' : 'hover:bg-surface-overlay'}`}>
           {renamingId === f.id ? (
             <TextInput
@@ -930,7 +1054,7 @@ function DetailPanel({
 
   const { icon, color } = getMimeIcon(file.mime_type);
   const isUnread = mode === 'inbox' && !file.recipient_state?.read_at;
-  const isOwner = file.uploaded_by === currentUserId;
+  const isOwner = file.uploader?.id === currentUserId;
 
   return (
     <View className="flex-1 flex-col" style={{ minHeight: 0 }}>
@@ -1152,8 +1276,8 @@ function GroupMembersPanel({
     const target = members.find(m => m.id === userId);
     const isSelf = userId === currentUserId;
     Alert.alert(
-      isSelf ? 'Leave Group' : `Remove ${target?.full_name ?? 'member'}`,
-      isSelf ? 'Leave this group?' : `Remove ${target?.full_name} from the group?`,
+      isSelf ? 'Leave Channel' : `Remove ${target?.full_name ?? 'member'}`,
+      isSelf ? 'Leave this channel?' : `Remove ${target?.full_name} from the channel?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -1416,6 +1540,7 @@ function FileHubDesktopInner() {
     search, setSearch,
     selectedTag, setSelectedTag,
     files, folders, loading,
+    inboxUnreadCount,
     refresh,
     checkDuplicate,
     groups, groupsLoading,
@@ -1424,10 +1549,19 @@ function FileHubDesktopInner() {
     refreshGroups, refreshGroupFiles,
   } = useFileHub();
 
+  const router = useRouter();
+  const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
+
   const [selectedFile, setSelectedFile] = useState<FileHubFile | null>(null);
+  const [detailPanelFile, setDetailPanelFile] = useState<FileHubFile | null>(null);
+  const [isDetailPanelExpanded, setIsDetailPanelExpanded] = useState(false);
+  const [groupPanelGroup, setGroupPanelGroup] = useState<FileHubGroup | null>(null);
+  const [isGroupPanelExpanded, setIsGroupPanelExpanded] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [showManageTags, setShowManageTags] = useState(false);
+  const detailPanelHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const groupPanelHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const activeGroup = useMemo(() => groups.find(g => g.id === activeGroupId) ?? null, [groups, activeGroupId]);
   const displayFiles = mode === 'groups' && activeGroupId ? groupFiles : files;
@@ -1445,11 +1579,15 @@ function FileHubDesktopInner() {
     return Array.from(set).sort();
   }, [displayFiles]);
 
-  const unreadCount = useMemo(() => {
-    if (mode !== 'inbox') return 0;
-    return files.filter(f => !f.recipient_state?.read_at).length;
-  }, [files, mode]);
   const canBroadcast = hasPermission('filehub:broadcast');
+
+  // Restore tab from URL param on mount
+  useEffect(() => {
+    const validModes: FileHubMode[] = ['inbox', 'sent', 'broadcast', 'groups'];
+    if (tabParam && validModes.includes(tabParam as FileHubMode)) {
+      setMode(tabParam as FileHubMode);
+    }
+  }, []);
 
   useEffect(() => {
     if (!selectedFile) return;
@@ -1457,17 +1595,82 @@ function FileHubDesktopInner() {
     setSelectedFile(updated ?? null);
   }, [displayFiles]);
 
+  useEffect(() => {
+    if (detailPanelHideTimer.current) {
+      clearTimeout(detailPanelHideTimer.current);
+      detailPanelHideTimer.current = null;
+    }
+
+    if (selectedFile) {
+      setDetailPanelFile(selectedFile);
+      setIsDetailPanelExpanded(true);
+      return;
+    }
+
+    if (detailPanelFile) {
+      setIsDetailPanelExpanded(false);
+      detailPanelHideTimer.current = setTimeout(() => {
+        setDetailPanelFile(null);
+        detailPanelHideTimer.current = null;
+      }, 260);
+    }
+
+    return () => {
+      if (detailPanelHideTimer.current) {
+        clearTimeout(detailPanelHideTimer.current);
+        detailPanelHideTimer.current = null;
+      }
+    };
+  }, [mode, selectedFile?.id]);
+
+  useEffect(() => {
+    if (groupPanelHideTimer.current) {
+      clearTimeout(groupPanelHideTimer.current);
+      groupPanelHideTimer.current = null;
+    }
+
+    if (mode !== 'groups' || !activeGroupId || !activeGroup) {
+      if (groupPanelGroup) {
+        setIsGroupPanelExpanded(false);
+        groupPanelHideTimer.current = setTimeout(() => {
+          setGroupPanelGroup(null);
+          groupPanelHideTimer.current = null;
+        }, 260);
+      } else {
+        setIsGroupPanelExpanded(false);
+      }
+
+      return () => {
+        if (groupPanelHideTimer.current) {
+          clearTimeout(groupPanelHideTimer.current);
+          groupPanelHideTimer.current = null;
+        }
+      };
+    }
+
+    setGroupPanelGroup(activeGroup);
+    setIsGroupPanelExpanded(true);
+
+    return () => {
+      if (groupPanelHideTimer.current) {
+        clearTimeout(groupPanelHideTimer.current);
+        groupPanelHideTimer.current = null;
+      }
+    };
+  }, [mode, activeGroupId, activeGroup?.id]);
+
   const tabs: { key: FileHubMode; label: string; count?: number }[] = [
-    { key: 'inbox', label: 'Inbox', count: mode === 'inbox' && unreadCount > 0 ? unreadCount : undefined },
+    { key: 'inbox', label: 'Inbox', count: inboxUnreadCount > 0 ? inboxUnreadCount : undefined },
     { key: 'sent', label: 'Sent' },
     ...(canBroadcast ? [{ key: 'broadcast' as FileHubMode, label: 'Broadcast' }] : []),
-    { key: 'groups', label: 'Groups' },
+    { key: 'groups', label: 'Channels' },
   ];
 
   const handleTabChange = (key: FileHubMode) => {
     setMode(key);
     setActiveGroupId(null);
     setSelectedFile(null);
+    router.setParams({ tab: key });
   };
 
   const handleRefresh = () => {
@@ -1489,7 +1692,7 @@ function FileHubDesktopInner() {
             <TextInput
               value={search}
               onChangeText={setSearch}
-              placeholder={mode === 'groups' && activeGroupId ? 'Search group files...' : 'Search files...'}
+              placeholder={mode === 'groups' && activeGroupId ? 'Search channel files...' : 'Search files...'}
               placeholderTextColor="var(--color-text-dim)"
               className="flex-1 text-typography-main text-sm font-medium outline-none bg-transparent"
             />
@@ -1513,7 +1716,7 @@ function FileHubDesktopInner() {
             >
               <FontAwesome name="upload" size={12} color="#fff" />
               <Text className="text-white font-black text-sm tracking-wide">
-                {mode === 'groups' && activeGroupId ? 'Upload to Group' : 'Upload File'}
+                {mode === 'groups' && activeGroupId ? 'Upload to Channel' : 'Upload Files'}
               </Text>
             </TouchableOpacity>
           )}
@@ -1523,7 +1726,7 @@ function FileHubDesktopInner() {
               className="flex-row items-center gap-2 bg-brand-primary px-5 py-2.5 rounded-xl shrink-0"
             >
               <FontAwesome name="plus" size={12} color="#fff" />
-              <Text className="text-white font-black text-sm tracking-wide">New Group</Text>
+              <Text className="text-white font-black text-sm tracking-wide">New Channel</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -1557,7 +1760,15 @@ function FileHubDesktopInner() {
       <View className="flex-1 flex-row" style={{ minHeight: 0 }}>
 
         {/* ══ LEFT COLUMN ══ */}
-        <View style={{ flex: 0.62 }} className="border-r border-surface-border flex-col">
+        <View
+          style={{
+            width:
+              mode === 'groups'
+                ? activeGroupId && groupPanelGroup ? '62%' : '100%'
+                : isDetailPanelExpanded ? '62%' : '100%',
+          }}
+          className={`flex-col transition-all duration-300 ${((mode === 'groups' && activeGroupId && groupPanelGroup) || isDetailPanelExpanded) ? 'border-r border-surface-border' : ''}`}
+        >
 
           {/* Groups list mode */}
           {mode === 'groups' && !activeGroupId && (
@@ -1572,16 +1783,16 @@ function FileHubDesktopInner() {
                     <View className="w-14 h-14 bg-brand-primary/10 rounded-full border border-brand-primary/20 items-center justify-center mb-4">
                       <FontAwesome name="users" size={24} color="var(--color-primary)" />
                     </View>
-                    <Text className="text-typography-main text-xl font-black mb-2 text-center">No Groups Yet</Text>
+                    <Text className="text-typography-main text-xl font-black mb-2 text-center">No Channels Yet</Text>
                     <Text className="text-typography-muted text-sm text-center leading-relaxed mb-6">
-                      Create a shared group space where team members can upload and access files together.
+                      Create a shared channel where team members can upload and access files together.
                     </Text>
                     <TouchableOpacity
                       onPress={() => setShowCreateGroup(true)}
                       className="bg-brand-primary px-6 py-3 rounded-xl flex-row items-center gap-2"
                     >
                       <FontAwesome name="plus" size={12} color="#fff" />
-                      <Text className="text-white font-black text-sm">Create First Group</Text>
+                      <Text className="text-white font-black text-sm">Create First Channel</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -1696,7 +1907,7 @@ function FileHubDesktopInner() {
                       {search ? 'No Results' : 'No Files Yet'}
                     </Text>
                     <Text className="text-typography-muted text-sm text-center leading-relaxed">
-                      {search ? `No files match "${search}".` : 'Upload the first file to this group.'}
+                      {search ? `No files match "${search}".` : 'Upload the first file to this channel.'}
                     </Text>
                   </View>
                 </View>
@@ -1799,32 +2010,61 @@ function FileHubDesktopInner() {
         </View>
 
         {/* ══ RIGHT COLUMN ══ */}
-        <View style={{ flex: 0.38 }} className="flex-col border-l border-surface-border">
-          {/* Groups list → empty state */}
-          {mode === 'groups' && !activeGroupId && (
-            <View className="flex-1 items-center justify-center px-6">
-              <View className="w-14 h-14 bg-surface-background rounded-full border border-surface-border items-center justify-center mb-4">
-                <FontAwesome name="users" size={20} color="var(--color-text-muted)" />
-              </View>
-              <Text className="text-typography-muted text-sm text-center font-medium">Select a group to view its files and members</Text>
+        <View
+          style={{
+            width:
+              mode === 'groups'
+                ? activeGroupId && groupPanelGroup ? '38%' : '0%'
+                : isDetailPanelExpanded ? '38%' : '0%',
+            opacity:
+              mode === 'groups'
+                ? activeGroupId && groupPanelGroup ? 1 : 0
+                : isDetailPanelExpanded ? 1 : 0,
+          }}
+          pointerEvents={mode === 'groups' ? (activeGroupId && groupPanelGroup ? 'auto' : 'none') : isDetailPanelExpanded ? 'auto' : 'none'}
+          className={`flex-col overflow-hidden transition-all duration-300 ${((mode === 'groups' && activeGroupId && groupPanelGroup) || isDetailPanelExpanded) ? 'border-l border-surface-border' : ''}`}
+        >
+          {/* Groups drill-down → members panel OR file detail */}
+          {mode === 'groups' && activeGroupId && groupPanelGroup && !selectedFile && (
+            <View
+              className="flex-1 overflow-hidden transition-all duration-300"
+              style={{
+                opacity: isGroupPanelExpanded ? 1 : 0,
+                transform: [{ translateX: isGroupPanelExpanded ? 0 : 24 }],
+              }}
+            >
+              <GroupMembersPanel group={groupPanelGroup} currentUserId={user?.id} onGroupChanged={refreshGroups} />
             </View>
           )}
 
-          {/* Groups drill-down → members panel OR file detail */}
-          {mode === 'groups' && activeGroupId && activeGroup && (
-            selectedFile
-              ? <DetailPanel file={selectedFile} mode="groups" currentUserId={user?.id} onClose={() => setSelectedFile(null)} />
-              : <GroupMembersPanel group={activeGroup} currentUserId={user?.id} onGroupChanged={refreshGroups} />
+          {mode === 'groups' && activeGroupId && detailPanelFile && (
+            <View
+              className="flex-1 overflow-hidden transition-all duration-300"
+              style={{
+                opacity: isDetailPanelExpanded ? 1 : 0,
+                transform: [{ translateX: isDetailPanelExpanded ? 0 : 24 }],
+              }}
+            >
+              <DetailPanel file={detailPanelFile} mode="groups" currentUserId={user?.id} onClose={() => setSelectedFile(null)} />
+            </View>
           )}
 
           {/* Inbox / Sent / Broadcast → file detail */}
-          {mode !== 'groups' && (
-            <DetailPanel
-              file={selectedFile}
-              mode={mode}
-              currentUserId={user?.id}
-              onClose={() => setSelectedFile(null)}
-            />
+          {mode !== 'groups' && detailPanelFile && (
+            <View
+              className="flex-1 overflow-hidden transition-all duration-300"
+              style={{
+                opacity: isDetailPanelExpanded ? 1 : 0,
+                transform: [{ translateX: isDetailPanelExpanded ? 0 : 24 }],
+              }}
+            >
+              <DetailPanel
+                file={detailPanelFile}
+                mode={mode}
+                currentUserId={user?.id}
+                onClose={() => setSelectedFile(null)}
+              />
+            </View>
           )}
         </View>
       </View>

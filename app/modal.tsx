@@ -1,5 +1,6 @@
 import { AppNotification, useNotifications } from '@/contexts/NotificationsContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { getNotificationRoute } from '@/lib/notificationRouting';
 import { FontAwesome } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -144,10 +145,10 @@ export default function NotificationsModal() {
   const handleItemPress = useCallback(
     async (item: AppNotification) => {
       if (!item.read_at) await markRead(item.id);
-      const taskId = item.data?.task_id;
-      if (taskId) {
+      const route = getNotificationRoute(item);
+      if (route) {
         router.dismiss();
-        router.push(`/task/${taskId}` as any);
+        router.push(route as any);
       }
     },
     [markRead, router]

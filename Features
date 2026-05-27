@@ -1,14 +1,10 @@
-
-
-More smart timer testing
-Idle tracking seems to be broken on mobile. i click buttons but it doesnt reset.
-
+Idle Timer notifications.
+expanding on the notification system as much as possible in terms of actual possible notifications.
 
 Can we please add a smarter time unit?
 i have this issue where the units are often too big. instead i want a unit that auto scales. but doesnt lose context.
 if something is big, it goes from year, to month to week to day to hour to minute to second. all depending on unit and conversions. but there are SO MANY units througout the app. i want them all to be replaced by this smarter unit.
 
- Timer beacon is broken for refresh and tab closing
 
 
 

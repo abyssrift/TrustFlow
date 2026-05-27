@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 
 export type FileHubMode = 'inbox' | 'sent' | 'broadcast' | 'groups';
@@ -72,6 +72,7 @@ type FileHubContextType = {
   files: FileHubFile[];
   folders: FileHubFolder[];
   loading: boolean;
+  inboxUnreadCount: number;
   refresh: () => void;
   markRead: (fileId: string) => Promise<void>;
   hideFile: (fileId: string) => Promise<void>;
@@ -119,6 +120,7 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
   const [files, setFiles] = useState<FileHubFile[]>([]);
   const [folders, setFolders] = useState<FileHubFolder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [inboxUnreadCount, setInboxUnreadCount] = useState(0);
   // Groups state
   const [groups, setGroups] = useState<FileHubGroup[]>([]);
   const [groupsLoading, setGroupsLoading] = useState(false);
@@ -173,6 +175,26 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => { fetchFiles(); }, [fetchFiles]);
   useEffect(() => { fetchFolders(); }, [fetchFolders]);
+  useEffect(() => {
+    if (mode === 'inbox') {
+      setInboxUnreadCount(files.filter(f => !f.recipient_state?.read_at).length);
+    }
+  }, [files, mode]);
+
+  // Real-time: refresh inbox when a new file is sent to the current user
+  const fetchFilesRef = useRef(fetchFiles);
+  useEffect(() => { fetchFilesRef.current = fetchFiles; }, [fetchFiles]);
+  useEffect(() => {
+    const channel = supabase
+      .channel('filehub-inbox-realtime')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'filehub_recipients' },
+        () => { fetchFilesRef.current(); }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
 
   const refresh = useCallback(() => {
     fetchFiles();
@@ -266,6 +288,7 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
           ? { ...f, recipient_state: { read_at: new Date().toISOString(), archived_at: f.recipient_state?.archived_at ?? null } }
           : f
       ));
+      setInboxUnreadCount(prev => Math.max(0, prev - 1));
     }
   }, []);
 
@@ -350,6 +373,7 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
       selectedFolderId, setSelectedFolderId,
       selectedTag, setSelectedTag,
       files, folders, loading,
+      inboxUnreadCount,
       refresh,
       markRead, hideFile, deleteFile,
       createFolder, renameFolder, deleteFolder,
