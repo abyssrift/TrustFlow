@@ -1,5 +1,6 @@
 import { FileActivity, FileHubFile, FileHubGroup, FileHubGroupMember, FileHubMode, FileHubProvider, useFileHub } from '@/contexts/FileHubContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAlert } from '@/contexts/AlertContext';
 import { openStorageFile } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
@@ -108,6 +109,7 @@ function FileDetailSheet({
   onClose: () => void;
 }) {
   const { markRead, hideFile, deleteFile, logActivity, fileActivity } = useFileHub();
+  const { showConfirm } = useAlert();
   const [downloading, setDownloading] = useState(false);
   const [tab, setTab] = useState<'details' | 'activity'>('details');
   const [activity, setActivity] = useState<FileActivity[]>([]);
@@ -138,10 +140,12 @@ function FileDetailSheet({
   };
 
   const handleDelete = () => {
-    Alert.alert('Delete File', `Delete "${file.original_name}"?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => { await deleteFile(file.id); onClose(); } },
-    ]);
+    showConfirm(
+      'Delete File',
+      `Delete "${file.original_name}"?`,
+      () => { deleteFile(file.id).then(() => onClose()); },
+      undefined, 'Delete', 'Cancel', 'destructive'
+    );
   };
 
   return (
@@ -1308,6 +1312,7 @@ function TagsManageSheet({ visible, onClose, onChanged }: {
   onChanged: () => void;
 }) {
   const { allTagsWithCounts, renameTag, deleteTag } = useFileHub();
+  const { showConfirm } = useAlert();
   const [tags, setTags] = useState<{ tag: string; count: number }[]>([]);
   const [loading, setLoading] = useState(false);
   const [renamingTag, setRenamingTag] = useState<string | null>(null);
@@ -1339,12 +1344,12 @@ function TagsManageSheet({ visible, onClose, onChanged }: {
   };
 
   const handleDelete = (tag: string) => {
-    Alert.alert('Delete Tag', `Remove tag "${tag}" from all files?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
-        try { await deleteTag(tag); await load(); onChanged(); } catch { /* alerted */ }
-      }},
-    ]);
+    showConfirm(
+      'Delete Tag',
+      `Remove tag "${tag}" from all files?`,
+      async () => { try { await deleteTag(tag); await load(); onChanged(); } catch { /* alerted */ } },
+      undefined, 'Delete', 'Cancel', 'destructive'
+    );
   };
 
   return (

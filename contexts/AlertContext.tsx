@@ -3,7 +3,7 @@ import { GlobalAlertOverlay, AlertOptions } from '@/components/common/GlobalAler
 
 interface AlertContextType {
   showAlert: (title: string, message: string, onConfirm?: () => void) => void;
-  showConfirm: (title: string, message: string, onConfirm: () => void, onCancel?: () => void, confirmText?: string, cancelText?: string) => void;
+  showConfirm: (title: string, message: string, onConfirm: () => void, onCancel?: () => void, confirmText?: string, cancelText?: string, confirmStyle?: 'default' | 'destructive') => void;
   hideAlert: () => void;
 }
 
@@ -17,14 +17,15 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const showConfirm = useCallback((
-    title: string, 
-    message: string, 
-    onConfirm: () => void, 
+    title: string,
+    message: string,
+    onConfirm: () => void,
     onCancel?: () => void,
     confirmText?: string,
-    cancelText?: string
+    cancelText?: string,
+    confirmStyle?: 'default' | 'destructive'
   ) => {
-    setAlertOptions({ title, message, type: 'confirm', onConfirm, onCancel, confirmText, cancelText });
+    setAlertOptions({ title, message, type: 'confirm', onConfirm, onCancel, confirmText, cancelText, confirmStyle });
   }, []);
 
   const hideAlert = useCallback(() => {

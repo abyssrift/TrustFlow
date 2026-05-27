@@ -10,6 +10,7 @@ export interface AlertOptions {
   onCancel?: () => void;
   confirmText?: string;
   cancelText?: string;
+  confirmStyle?: 'default' | 'destructive';
 }
 
 interface GlobalAlertOverlayProps {
@@ -64,10 +65,10 @@ export function GlobalAlertOverlay({ options, onClose }: GlobalAlertOverlayProps
                 </Text>
               </TouchableOpacity>
             )}
-            
+
             <TouchableOpacity
               onPress={handleConfirm}
-              className={`flex-1 h-12 items-center justify-center rounded-xl bg-brand-primary`}
+              className={`flex-1 h-12 items-center justify-center rounded-xl ${options.confirmStyle === 'destructive' ? 'bg-state-danger' : 'bg-brand-primary'}`}
             >
               <Text className="text-xs font-black uppercase tracking-widest text-white">
                 {options.confirmText || (options.type === 'confirm' ? 'Confirm' : 'OK')}

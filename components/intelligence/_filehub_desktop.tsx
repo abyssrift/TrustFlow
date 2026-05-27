@@ -1,4 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
+import { useAlert } from '@/contexts/AlertContext';
 import { FileActivity, FileHubFile, FileHubFolder, FileHubGroup, FileHubGroupMember, FileHubMode, FileHubProvider, useFileHub } from '@/contexts/FileHubContext';
 import { openStorageFile } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
@@ -819,6 +820,7 @@ function GroupCreateModal({
 
 function FolderPanel() {
   const { folders, files, mode, selectedFolderId, setSelectedFolderId, createFolder, renameFolder, deleteFolder } = useFileHub();
+  const { showConfirm } = useAlert();
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -855,10 +857,12 @@ function FolderPanel() {
   };
 
   const handleDeleteFolder = (id: string, name: string) => {
-    Alert.alert('Delete Folder', `Delete "${name}"? Files in this folder will stay but lose the folder label.`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => deleteFolder(id) },
-    ]);
+    showConfirm(
+      'Delete Folder',
+      `Delete "${name}"? Files in this folder will stay but lose the folder label.`,
+      () => deleteFolder(id),
+      undefined, 'Delete', 'Cancel', 'destructive'
+    );
   };
 
   return (
@@ -1001,6 +1005,7 @@ function DetailPanel({
   onClose: () => void;
 }) {
   const { markRead, hideFile, deleteFile, logActivity, fileActivity } = useFileHub();
+  const { showConfirm } = useAlert();
   const [downloadLoading, setDownloadLoading] = useState(false);
   const [tab, setTab] = useState<'details' | 'activity'>('details');
   const [activity, setActivity] = useState<FileActivity[]>([]);
@@ -1027,10 +1032,12 @@ function DetailPanel({
 
   const handleDelete = () => {
     if (!file) return;
-    Alert.alert('Delete File', `Delete "${file.original_name}"? This cannot be undone.`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => { await deleteFile(file.id); onClose(); } },
-    ]);
+    showConfirm(
+      'Delete File',
+      `Delete "${file.original_name}"? This cannot be undone.`,
+      () => { deleteFile(file.id).then(() => onClose()); },
+      undefined, 'Delete', 'Cancel', 'destructive'
+    );
   };
 
   const handleHide = () => {
@@ -1404,6 +1411,7 @@ function TagsManageModal({ visible, onClose, onChanged }: {
   onChanged: () => void;
 }) {
   const { allTagsWithCounts, renameTag, deleteTag } = useFileHub();
+  const { showConfirm } = useAlert();
   const [tags, setTags] = useState<{ tag: string; count: number }[]>([]);
   const [loading, setLoading] = useState(false);
   const [renamingTag, setRenamingTag] = useState<string | null>(null);
@@ -1435,12 +1443,12 @@ function TagsManageModal({ visible, onClose, onChanged }: {
   };
 
   const handleDelete = (tag: string) => {
-    Alert.alert('Delete Tag', `Remove tag "${tag}" from all files?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
-        try { await deleteTag(tag); await load(); onChanged(); } catch { /* alerted */ }
-      }},
-    ]);
+    showConfirm(
+      'Delete Tag',
+      `Remove tag "${tag}" from all files?`,
+      async () => { try { await deleteTag(tag); await load(); onChanged(); } catch { /* alerted */ } },
+      undefined, 'Delete', 'Cancel', 'destructive'
+    );
   };
 
   return (

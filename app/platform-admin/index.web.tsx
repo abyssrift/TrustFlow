@@ -2,6 +2,8 @@ import {
     fmtDay,
     fmtMins,
     fmtNumber,
+    fmtBytes,
+    fmtHHMM,
     healthLabel,
     timeAgo,
     deleteCompany,
@@ -10,6 +12,7 @@ import {
     updateUser,
     useCompanyDetail,
     useControlPlaneData,
+    useInfraData,
     useLiveSessions,
     useTimeline,
     useUsersData,
@@ -38,6 +41,7 @@ import {
     ResponsiveContainer,
     Tooltip,
     XAxis, YAxis,
+    ReferenceLine,
 } from 'recharts';
 
 cssInterop(FontAwesome, {
@@ -1176,14 +1180,357 @@ function UsersSection({ companies, onUserDeleted }: { companies: CompanyOverview
   );
 }
 
+// ── Infrastructure Section ─────────────────────────────────────────────────
+
+const SUPABASE_FREE_DB_LIMIT = 500 * 1024 * 1024; // 500 MB
+
+function infraCacheColor(ratio: number): 'success' | 'warning' | 'danger' {
+  if (ratio >= 95) return 'success';
+  if (ratio >= 75) return 'warning';
+  return 'danger';
+}
+
+function infraConnColor(pct: number): 'success' | 'warning' | 'danger' {
+  if (pct < 50) return 'success';
+  if (pct < 80) return 'warning';
+  return 'danger';
+}
+
+function infraStorageColor(pct: number): 'success' | 'warning' | 'danger' {
+  if (pct < 70) return 'success';
+  if (pct < 90) return 'warning';
+  return 'danger';
+}
+
+function InfraStatCard({
+  label, value, sub, icon, pct, pctColor,
+}: {
+  label: string; value: string; sub: string; icon: string;
+  pct?: number; pctColor?: 'success' | 'warning' | 'danger';
+}) {
+  const barColor =
+    pctColor === 'danger'  ? 'bg-state-danger'   :
+    pctColor === 'warning' ? 'bg-state-warning'  :
+                             'bg-state-success';
+  const textColor =
+    pctColor === 'danger'  ? 'text-state-danger'  :
+    pctColor === 'warning' ? 'text-state-warning' :
+                             'text-state-success';
+  return (
+    <View className="flex-1 bg-surface-card rounded-2xl border border-surface-border p-5">
+      <View className="flex-row items-center justify-between mb-1">
+        <Text className="text-[10px] font-black uppercase tracking-widest text-typography-muted">{label}</Text>
+        <FontAwesome name={icon as any} size={11} className="text-brand-accent/40" />
+      </View>
+      <Text className="text-3xl font-black tracking-tight mt-1 text-typography-main">{value}</Text>
+      <Text className="text-typography-dim text-[10px] mt-0.5">{sub}</Text>
+      {pct !== undefined && (
+        <View className="mt-3 gap-1">
+          <View className="flex-row justify-between">
+            <Text className={`text-[9px] font-bold ${textColor}`}>{pct.toFixed(1)}%</Text>
+          </View>
+          <View className="h-1.5 bg-surface-border rounded-full overflow-hidden">
+            <View className={`h-full rounded-full ${barColor}`} style={{ width: `${Math.max(2, Math.min(100, pct))}%` }} />
+          </View>
+        </View>
+      )}
+    </View>
+  );
+}
+
+const InfraChartTooltip = ({ active, payload, label, formatter }: any) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <View className="bg-surface-overlay border border-surface-border rounded-xl px-3 py-2">
+      <Text className="text-typography-dim text-[10px] mb-0.5">{label}</Text>
+      <Text className="text-typography-main font-black text-sm">
+        {formatter ? formatter(payload[0]?.value ?? 0) : payload[0]?.value ?? 0}
+      </Text>
+    </View>
+  );
+};
+
+function InfraSection() {
+  const { metrics, loading, secsAgo, refetch } = useInfraData();
+
+  const storageChartData = useMemo(() =>
+    (metrics?.snapshots ?? []).map(s => ({
+      time: fmtHHMM(s.captured_at),
+      mb:   parseFloat((s.db_size_bytes / (1024 * 1024)).toFixed(2)),
+    })), [metrics?.snapshots]);
+
+  const connChartData = useMemo(() =>
+    (metrics?.snapshots ?? []).map(s => ({
+      time:        fmtHHMM(s.captured_at),
+      connections: s.active_connections,
+    })), [metrics?.snapshots]);
+
+  const cacheChartData = useMemo(() =>
+    (metrics?.snapshots ?? []).map(s => ({
+      time:  fmtHHMM(s.captured_at),
+      ratio: Number(s.cache_hit_ratio),
+    })), [metrics?.snapshots]);
+
+  const peakConn   = useMemo(() => Math.max(0, ...(metrics?.snapshots ?? []).map(s => s.active_connections)), [metrics?.snapshots]);
+  const peakMB     = useMemo(() => Math.max(0, ...(metrics?.snapshots ?? []).map(s => s.db_size_bytes / (1024 * 1024))), [metrics?.snapshots]);
+  const lowestCache = useMemo(() => {
+    const vals = (metrics?.snapshots ?? []).map(s => Number(s.cache_hit_ratio));
+    return vals.length ? Math.min(...vals) : null;
+  }, [metrics?.snapshots]);
+
+  const maxTableSize = useMemo(() =>
+    Math.max(1, ...(metrics?.table_sizes ?? []).map(t => t.size_bytes)), [metrics?.table_sizes]);
+
+  const cur = metrics?.current;
+  const storagePct = cur ? (cur.db_size_bytes / SUPABASE_FREE_DB_LIMIT) * 100 : 0;
+  const snapCount  = (metrics?.snapshots ?? []).length;
+  const hasHistory = snapCount > 1;
+
+  const CHART_HEIGHT = 180;
+  const tickStyle  = { fill: 'rgb(100,116,139)', fontSize: 11 };
+  const gridStroke = 'rgba(51,65,85,0.5)';
+
+  if (loading) {
+    return (
+      <View className="flex-1 items-center justify-center">
+        <ActivityIndicator size="large" color="var(--color-primary)" />
+        <Text className="text-typography-muted mt-4 font-bold text-sm">Loading infrastructure metrics...</Text>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 32, paddingBottom: 48 }}>
+
+      {/* Info banner + refresh */}
+      <View className="flex-row items-center justify-between mb-6">
+        <View className="flex-1 flex-row items-center gap-2 bg-surface-card border border-surface-border rounded-2xl px-4 py-3 mr-4">
+          <FontAwesome name="info-circle" size={12} className="text-brand-primary/60" />
+          <Text className="text-typography-muted text-xs flex-1">
+            Database-level metrics via PostgreSQL. Direct CPU/RAM require server-side infrastructure access.
+          </Text>
+        </View>
+        <TouchableOpacity
+          onPress={refetch}
+          className="flex-row items-center gap-2 bg-surface-card border border-surface-border px-4 py-3 rounded-2xl hover:bg-surface-overlay transition-colors"
+        >
+          <FontAwesome name="refresh" size={11} className="text-typography-muted" />
+          <Text className="text-typography-dim text-xs">{secsAgo}s ago</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Stat cards */}
+      <View className="flex-row gap-4 mb-6">
+        <InfraStatCard
+          label="Storage"
+          value={cur?.db_size_pretty ?? '—'}
+          sub={`of 500 MB free tier · ${cur?.total_tables ?? 0} tables`}
+          icon="database"
+          pct={storagePct}
+          pctColor={infraStorageColor(storagePct)}
+        />
+        <InfraStatCard
+          label="Cache Hit Rate"
+          value={cur ? `${cur.cache_hit_ratio}%` : '—'}
+          sub="data served from memory"
+          icon="bolt"
+          pct={cur?.cache_hit_ratio ?? 0}
+          pctColor={infraCacheColor(cur?.cache_hit_ratio ?? 0)}
+        />
+        <InfraStatCard
+          label="Active Connections"
+          value={cur ? `${cur.active_connections} / ${cur.max_connections}` : '—'}
+          sub={cur ? `${cur.connection_pct}% of pool used` : 'pool capacity'}
+          icon="plug"
+          pct={cur?.connection_pct ?? 0}
+          pctColor={infraConnColor(cur?.connection_pct ?? 0)}
+        />
+        <InfraStatCard
+          label="Query Rate"
+          value={cur ? `${cur.tps}` : '—'}
+          sub="transactions / sec"
+          icon="exchange"
+        />
+      </View>
+
+      {/* Charts row 1 */}
+      <View className="flex-row gap-4 mb-6">
+
+        {/* Storage timeline */}
+        <View className="flex-1 bg-surface-card rounded-2xl border border-surface-border p-6">
+          <View className="flex-row items-start justify-between mb-5">
+            <View>
+              <Text className="text-typography-main font-black text-base">Storage Usage</Text>
+              <Text className="text-typography-muted text-xs mt-0.5">Database size over time · MB</Text>
+            </View>
+            {peakMB > 0 && (
+              <View className="bg-surface-overlay px-3 py-1.5 rounded-xl">
+                <Text className="text-typography-dim text-[10px]">Peak <Text className="text-typography-main font-black">{peakMB.toFixed(1)} MB</Text></Text>
+              </View>
+            )}
+          </View>
+          {!hasHistory ? (
+            <View className="items-center py-10 gap-1">
+              <Text className="text-typography-main font-bold text-sm">
+                {snapCount === 0 ? 'Capturing first snapshot…' : 'First snapshot captured'}
+              </Text>
+              <Text className="text-typography-dim text-xs">
+                {snapCount === 0 ? 'Refresh in a moment' : 'Trend charts appear after the next reading — auto-refreshes in ~5 min'}
+              </Text>
+            </View>
+          ) : (
+            <View style={{ height: CHART_HEIGHT }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={storageChartData} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="infraStorageGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="rgb(99,102,241)" stopOpacity={0.25} />
+                      <stop offset="100%" stopColor="rgb(99,102,241)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} vertical={false} />
+                  <XAxis dataKey="time" tick={tickStyle} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                  <YAxis tick={tickStyle} axisLine={false} tickLine={false} tickFormatter={v => `${v}`} unit=" MB" />
+                  <Tooltip content={<InfraChartTooltip formatter={(v: number) => `${v.toFixed(2)} MB`} />} />
+                  <Area type="monotone" dataKey="mb" stroke="rgb(99,102,241)" fill="url(#infraStorageGrad)" strokeWidth={2} dot={false} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </View>
+          )}
+        </View>
+
+        {/* Connection load */}
+        <View className="flex-1 bg-surface-card rounded-2xl border border-surface-border p-6">
+          <View className="flex-row items-start justify-between mb-5">
+            <View>
+              <Text className="text-typography-main font-black text-base">Connection Load</Text>
+              <Text className="text-typography-muted text-xs mt-0.5">Active connections over time</Text>
+            </View>
+            {peakConn > 0 && (
+              <View className="bg-surface-overlay px-3 py-1.5 rounded-xl">
+                <Text className="text-typography-dim text-[10px]">Peak <Text className="text-typography-main font-black">{peakConn}</Text></Text>
+              </View>
+            )}
+          </View>
+          {!hasHistory ? (
+            <View className="items-center py-10 gap-1">
+              <Text className="text-typography-main font-bold text-sm">
+                {snapCount === 0 ? 'Capturing first snapshot…' : 'First snapshot captured'}
+              </Text>
+              <Text className="text-typography-dim text-xs">
+                {snapCount === 0 ? 'Refresh in a moment' : 'Trend charts appear after the next reading — auto-refreshes in ~5 min'}
+              </Text>
+            </View>
+          ) : (
+            <View style={{ height: CHART_HEIGHT }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={connChartData} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="infraConnGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="rgb(251,191,36)" stopOpacity={0.25} />
+                      <stop offset="100%" stopColor="rgb(251,191,36)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} vertical={false} />
+                  <XAxis dataKey="time" tick={tickStyle} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                  <YAxis tick={tickStyle} axisLine={false} tickLine={false} allowDecimals={false} />
+                  <Tooltip content={<InfraChartTooltip formatter={(v: number) => `${v} connections`} />} />
+                  <ReferenceLine y={cur?.max_connections} stroke="rgba(239,68,68,0.3)" strokeDasharray="4 4" />
+                  <Area type="monotone" dataKey="connections" stroke="rgb(251,191,36)" fill="url(#infraConnGrad)" strokeWidth={2} dot={false} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </View>
+          )}
+        </View>
+
+      </View>
+
+      {/* Charts row 2 */}
+      <View className="flex-row gap-4">
+
+        {/* Table sizes */}
+        <View className="flex-1 bg-surface-card rounded-2xl border border-surface-border p-6">
+          <Text className="text-typography-main font-black text-base mb-1">Table Sizes</Text>
+          <Text className="text-typography-muted text-xs mb-5">Top tables by total size (data + indexes)</Text>
+          {(metrics?.table_sizes ?? []).length === 0 ? (
+            <Text className="text-typography-dim text-sm text-center py-8">No table data</Text>
+          ) : (
+            (metrics?.table_sizes ?? []).slice(0, 10).map((t, i) => (
+              <View key={t.name} className="mb-4">
+                <View className="flex-row items-center justify-between mb-1.5">
+                  <View className="flex-row items-center gap-2 flex-1 mr-3">
+                    <Text className="text-typography-dim text-[10px] w-4">{i + 1}</Text>
+                    <Text className="text-typography-main font-bold text-sm flex-1" numberOfLines={1}>{t.name}</Text>
+                  </View>
+                  <Text className="text-typography-muted text-xs font-bold">{t.size_pretty}</Text>
+                </View>
+                <View className="flex-row items-center gap-2">
+                  <View className="w-4" />
+                  <HBar value={t.size_bytes} max={maxTableSize} tint="primary" />
+                </View>
+              </View>
+            ))
+          )}
+        </View>
+
+        {/* Cache hit rate history */}
+        <View className="flex-1 bg-surface-card rounded-2xl border border-surface-border p-6">
+          <View className="flex-row items-start justify-between mb-5">
+            <View>
+              <Text className="text-typography-main font-black text-base">Cache Efficiency</Text>
+              <Text className="text-typography-muted text-xs mt-0.5">Buffer cache hit rate — higher is better</Text>
+            </View>
+            {lowestCache !== null && (
+              <View className="bg-surface-overlay px-3 py-1.5 rounded-xl">
+                <Text className="text-typography-dim text-[10px]">Low <Text className="text-typography-main font-black">{Number(lowestCache).toFixed(1)}%</Text></Text>
+              </View>
+            )}
+          </View>
+          {!hasHistory ? (
+            <View className="items-center py-10 gap-1">
+              <Text className="text-typography-main font-bold text-sm">
+                {snapCount === 0 ? 'Capturing first snapshot…' : 'First snapshot captured'}
+              </Text>
+              <Text className="text-typography-dim text-xs">
+                {snapCount === 0 ? 'Refresh in a moment' : 'Trend charts appear after the next reading — auto-refreshes in ~5 min'}
+              </Text>
+            </View>
+          ) : (
+            <View style={{ height: CHART_HEIGHT }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={cacheChartData} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="infraCacheGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="rgb(34,197,94)" stopOpacity={0.25} />
+                      <stop offset="100%" stopColor="rgb(34,197,94)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} vertical={false} />
+                  <XAxis dataKey="time" tick={tickStyle} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                  <YAxis tick={tickStyle} axisLine={false} tickLine={false} domain={[0, 100]} tickFormatter={v => `${v}%`} />
+                  <Tooltip content={<InfraChartTooltip formatter={(v: number) => `${v.toFixed(1)}% cache hit`} />} />
+                  <ReferenceLine y={95} stroke="rgba(34,197,94,0.3)" strokeDasharray="4 4" />
+                  <Area type="monotone" dataKey="ratio" stroke="rgb(34,197,94)" fill="url(#infraCacheGrad)" strokeWidth={2} dot={false} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </View>
+          )}
+        </View>
+
+      </View>
+    </ScrollView>
+  );
+}
+
 // ── Sidebar ────────────────────────────────────────────────────────────────
 
 const NAV_ITEMS: { id: Section; label: string; icon: string }[] = [
-  { id: 'command', label: 'Command', icon: 'tachometer' },
-  { id: 'tenants', label: 'Tenants', icon: 'building' },
-  { id: 'users',   label: 'Users',   icon: 'users' },
-  { id: 'signals', label: 'Signals', icon: 'line-chart' },
-  { id: 'live',    label: 'Live',    icon: 'circle' },
+  { id: 'command', label: 'Command',        icon: 'tachometer' },
+  { id: 'tenants', label: 'Tenants',        icon: 'building' },
+  { id: 'users',   label: 'Users',          icon: 'users' },
+  { id: 'signals', label: 'Signals',        icon: 'line-chart' },
+  { id: 'live',    label: 'Live',           icon: 'circle' },
+  { id: 'infra',   label: 'Infrastructure', icon: 'server' },
 ];
 
 function Sidebar({ section, setSection, liveCount }: {
@@ -1303,7 +1650,8 @@ export default function PlatformAdminWebScreen() {
             <UsersSection companies={companies} onUserDeleted={fetchCompanies} />
           )}
           {section === 'signals' && <SignalsSection />}
-          {section === 'live' && <LiveSection />}
+          {section === 'live'    && <LiveSection />}
+          {section === 'infra'   && <InfraSection />}
         </View>
       </View>
     </View>
