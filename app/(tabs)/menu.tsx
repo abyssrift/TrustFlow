@@ -55,7 +55,10 @@ export default function MenuScreen() {
   const visibleShortcuts = useMemo(
     () =>
       SHORTCUTS.filter(
-        (s) => hasPermission(s.permissionKey) || (!!s.fallbackPermissionKey && hasPermission(s.fallbackPermissionKey))
+        (s) =>
+          s.id === 'filehub' ||
+          hasPermission(s.permissionKey) ||
+          (!!s.fallbackPermissionKey && hasPermission(s.fallbackPermissionKey))
       ),
     [hasPermission]
   );

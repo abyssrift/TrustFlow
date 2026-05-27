@@ -268,6 +268,30 @@ async function resolveStrategy(
       return userId ? [userId] : []
     }
 
+    case 'filehub_group_members': {
+      // Notify all members of the group that received a file.
+      // payload must contain group_id.
+      const groupId = payload.group_id as string | undefined
+      if (!groupId) return []
+      const { data } = await db
+        .from('filehub_group_members')
+        .select('user_id')
+        .eq('group_id', groupId)
+      return (data ?? []).map((r: { user_id: string }) => r.user_id)
+    }
+
+    case 'company_filehub_members': {
+      // Notify all users in the same company (for broadcast files).
+      // payload must contain company_id.
+      const companyId = payload.company_id as string | undefined
+      if (!companyId) return []
+      const { data } = await db
+        .from('users')
+        .select('id')
+        .eq('company_id', companyId)
+      return (data ?? []).map((r: { id: string }) => r.id)
+    }
+
     default:
       console.warn('[process-notification-event] unknown strategy:', strategy)
       return []
@@ -323,6 +347,18 @@ function buildContent(
       return { title: 'Added to Pipeline', body: `You have been added to a pipeline.` }
     case 'pipeline.archived':
       return { title: 'Pipeline Archived', body: `A pipeline has been archived.` }
+    case 'filehub.file_received': {
+      const fileName = (payload.file_name as string | undefined) ?? 'A file'
+      return { title: 'File Received', body: `"${fileName}" has been shared with you.` }
+    }
+    case 'filehub.broadcast_posted': {
+      const fileName = (payload.file_name as string | undefined) ?? 'A file'
+      return { title: 'New Broadcast File', body: `"${fileName}" was posted to the whole company.` }
+    }
+    case 'filehub.group_file_shared': {
+      const fileName = (payload.file_name as string | undefined) ?? 'A file'
+      return { title: 'New File in Group', body: `"${fileName}" was shared in your group.` }
+    }
     default:
       return { title: 'TrustFlow Notification', body: `You have a new notification.` }
   }

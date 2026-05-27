@@ -29,10 +29,12 @@ export default function WebMobileNav({
   visibleShortcuts,
   pipelines,
   isPlatformAdmin,
+  fileHubBadge = 0,
 }: {
   visibleShortcuts: any[];
   pipelines: any[];
   isPlatformAdmin: boolean;
+  fileHubBadge?: number;
 }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const pathname = usePathname();
@@ -89,11 +91,17 @@ export default function WebMobileNav({
             <Text className="mb-2 ml-2 text-[10px] font-black uppercase tracking-widest text-typography-muted">Navigation</Text>
             {visibleShortcuts.map((s) => {
               const isActive = matchesHref(pathname, params, s.href);
+              const badge = s.id === 'filehub' ? fileHubBadge : 0;
               return (
                 <Link key={s.id} href={s.href as any} asChild onPress={handleClose}>
                   <Pressable className={`flex-row items-center p-4 rounded-xl mb-2 border ${isActive ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-card border-surface-border'}`}>
                     <FontAwesome name={s.icon} size={18} color={isActive ? colors.primary : colors.textMain} className="w-8" />
-                    <Text className={`font-bold ml-2 ${isActive ? 'text-brand-primary' : 'text-typography-main'}`}>{s.label}</Text>
+                    <Text className={`font-bold ml-2 flex-1 ${isActive ? 'text-brand-primary' : 'text-typography-main'}`}>{s.label}</Text>
+                    {badge > 0 && (
+                      <View className="min-w-5 h-5 rounded-full bg-red-500 items-center justify-center px-1">
+                        <Text className="text-[10px] font-black text-white leading-none">{badge > 99 ? '99+' : badge}</Text>
+                      </View>
+                    )}
                   </Pressable>
                 </Link>
               );

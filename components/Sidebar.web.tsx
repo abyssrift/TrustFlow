@@ -1,13 +1,13 @@
 import WebMobileNav from '@/components/navigation/WebMobileNav';
+import { useAuth } from '@/contexts/AuthContext';
+import { DensityType, RoundnessType, ThemeType, useTheme } from '@/contexts/ThemeContext';
+import { useFileHubBadge } from '@/hooks/useFileHubBadge';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Link, useLocalSearchParams, usePathname } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Platform, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
-
-import { useAuth } from '@/contexts/AuthContext';
-import { DensityType, RoundnessType, ThemeType, useTheme } from '@/contexts/ThemeContext';
 
 cssInterop(FontAwesome, {
   className: {
@@ -173,12 +173,14 @@ const SidebarItem = ({
   href,
   isActive,
   collapsed,
+  badge,
 }: {
   icon: IconName;
   label: string;
   href: string;
   isActive: boolean;
   collapsed: boolean;
+  badge?: number;
 }) => (
   <Link href={href as any} asChild>
     <Pressable
@@ -187,12 +189,21 @@ const SidebarItem = ({
       accessibilityLabel={label}
     >
       <View className={`absolute left-0 top-2 bottom-2 w-1 rounded-r-full ${isActive ? 'bg-brand-primary' : 'bg-transparent group-hover:bg-surface-border'}`} />
-      <View className={`${collapsed ? 'w-full' : 'w-8'} items-center`}>
-        <FontAwesome 
-          name={icon} 
-          size={18} 
-          color={isActive ? 'var(--color-primary)' : 'var(--color-text-dim)'} 
+      <View className={`${collapsed ? 'w-full' : 'w-8'} items-center`} style={{ position: 'relative' }}>
+        <FontAwesome
+          name={icon}
+          size={18}
+          color={isActive ? 'var(--color-primary)' : 'var(--color-text-dim)'}
         />
+        {collapsed && !!badge && badge > 0 && (
+          <View
+            className="absolute -top-1.5 -right-1.5 min-w-4 h-4 rounded-full bg-red-500 items-center justify-center px-0.5"
+          >
+            <Text className="text-[9px] font-black text-white leading-none">
+              {badge > 99 ? '99+' : badge}
+            </Text>
+          </View>
+        )}
       </View>
       {!collapsed && (
         <Text
@@ -202,7 +213,14 @@ const SidebarItem = ({
           {label}
         </Text>
       )}
-      {isActive && !collapsed && <View className="ml-auto h-2 w-2 rounded-full bg-brand-primary" />}
+      {!collapsed && !!badge && badge > 0 && (
+        <View className="ml-auto min-w-5 h-5 rounded-full bg-red-500 items-center justify-center px-1">
+          <Text className="text-[10px] font-black text-white leading-none">
+            {badge > 99 ? '99+' : badge}
+          </Text>
+        </View>
+      )}
+      {isActive && !collapsed && (!badge || badge === 0) && <View className="ml-auto h-2 w-2 rounded-full bg-brand-primary" />}
     </Pressable>
   </Link>
 );
@@ -214,6 +232,7 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
   const params = useLocalSearchParams();
   const { session, user, hasPermission } = useAuth();
   const isPlatformAdmin = ['adamsamir2005@gmail.com', 'adam.samir@trustedgellc.com', 'adamsamir@hotmail.com'].includes(user?.email || '');
+  const { inboxUnread } = useFileHubBadge();
 
   const [isCollapsed, setIsCollapsed] = useState(() => {
     if (Platform.OS === 'web') {
@@ -252,6 +271,7 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
         (s) =>
           s.id === 'dashboard' ||
           s.id === 'tasks' ||
+          s.id === 'filehub' ||
           hasPermission(s.permissionKey) ||
           (!!s.fallbackPermissionKey && hasPermission(s.fallbackPermissionKey))
       ),
@@ -302,7 +322,7 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
         <View className="flex-1 bg-surface-background">
           {children}
         </View>
-        <WebMobileNav visibleShortcuts={visibleShortcuts} pipelines={pipelines} isPlatformAdmin={isPlatformAdmin} />
+        <WebMobileNav visibleShortcuts={visibleShortcuts} pipelines={pipelines} isPlatformAdmin={isPlatformAdmin} fileHubBadge={inboxUnread} />
       </View>
     );
   }
@@ -358,6 +378,7 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
                         href={s.href}
                         isActive={matchesHref(pathname, params, s.href)}
                         collapsed={!isExpanded}
+                        badge={s.id === 'filehub' ? inboxUnread : undefined}
                       />
                     ))}
                   </View>

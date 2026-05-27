@@ -1,4 +1,4 @@
-import { FileHubFile, FileHubMode, FileHubProvider, useFileHub } from '@/contexts/FileHubContext';
+import { FileActivity, FileHubFile, FileHubGroup, FileHubGroupMember, FileHubMode, FileHubProvider, useFileHub } from '@/contexts/FileHubContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { openStorageFile } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
@@ -57,6 +57,42 @@ async function computeSHA256Web(file: File): Promise<string> {
     .join('');
 }
 
+function getInitials(name: string): string {
+  return name.trim().split(/\s+/).map(w => w[0]?.toUpperCase() ?? '').slice(0, 2).join('');
+}
+
+// ─── Group colors palette ─────────────────────────────────────────────────────
+
+const GROUP_COLORS = [
+  '#6366f1', '#0ea5e9', '#10b981', '#f59e0b',
+  '#ef4444', '#8b5cf6', '#06b6d4', '#f97316',
+];
+
+const TAG_PALETTE = [
+  { bg: '#fef3c7', text: '#92400e', border: '#fde68a' },
+  { bg: '#dcfce7', text: '#166534', border: '#bbf7d0' },
+  { bg: '#dbeafe', text: '#1e40af', border: '#bfdbfe' },
+  { bg: '#f3e8ff', text: '#6b21a8', border: '#e9d5ff' },
+  { bg: '#ffe4e6', text: '#9f1239', border: '#fecdd3' },
+  { bg: '#ccfbf1', text: '#134e4a', border: '#99f6e4' },
+  { bg: '#ffedd5', text: '#7c2d12', border: '#fed7aa' },
+  { bg: '#e0e7ff', text: '#3730a3', border: '#c7d2fe' },
+];
+
+function getTagColor(tag: string): { bg: string; text: string; border: string } {
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) hash = (hash * 31 + tag.charCodeAt(i)) >>> 0;
+  return TAG_PALETTE[hash % TAG_PALETTE.length];
+}
+
+const ACTIVITY_META: Record<string, { icon: string; color: string; label: string }> = {
+  upload:   { icon: 'upload',   color: '#10b981', label: 'Uploaded'   },
+  download: { icon: 'download', color: '#3b82f6', label: 'Downloaded' },
+  view:     { icon: 'eye',      color: '#8b5cf6', label: 'Viewed'     },
+  delete:   { icon: 'trash-o',  color: '#ef4444', label: 'Deleted'    },
+  share:    { icon: 'share',    color: '#f59e0b', label: 'Shared'     },
+};
+
 // ─── File Detail Bottom Sheet ─────────────────────────────────────────────────
 
 function FileDetailSheet({
@@ -70,8 +106,19 @@ function FileDetailSheet({
   currentUserId: string | undefined;
   onClose: () => void;
 }) {
-  const { markRead, hideFile, deleteFile } = useFileHub();
+  const { markRead, hideFile, deleteFile, logActivity, fileActivity } = useFileHub();
   const [downloading, setDownloading] = useState(false);
+  const [tab, setTab] = useState<'details' | 'activity'>('details');
+  const [activity, setActivity] = useState<FileActivity[]>([]);
+  const [activityLoading, setActivityLoading] = useState(false);
+
+  useEffect(() => { setTab('details'); setActivity([]); }, [file?.id]);
+  useEffect(() => { if (file) logActivity(file.id, 'view'); }, [file?.id]);
+  useEffect(() => {
+    if (tab !== 'activity' || !file) return;
+    setActivityLoading(true);
+    fileActivity(file.id).then(setActivity).catch(console.error).finally(() => setActivityLoading(false));
+  }, [tab, file?.id]);
 
   if (!file) return null;
 
@@ -82,6 +129,7 @@ function FileDetailSheet({
   const handleDownload = async () => {
     setDownloading(true);
     try {
+      logActivity(file.id, 'download');
       await openStorageFile(file.bucket || 'filehub-files', file.storage_path);
     } finally {
       setDownloading(false);
@@ -99,35 +147,44 @@ function FileDetailSheet({
     <Modal visible={!!file} transparent animationType="slide" onRequestClose={onClose}>
       <View className="flex-1 justify-end">
         <TouchableOpacity className="flex-1" onPress={onClose} activeOpacity={1} />
-        <View className="bg-surface-card rounded-t-[2rem] border-t border-surface-border" style={{ maxHeight: '80%' }}>
-          {/* Handle */}
+        <View className="bg-surface-card rounded-t-[2rem] border-t border-surface-border" style={{ maxHeight: '85%' }}>
           <View className="items-center pt-3 pb-2">
             <View className="w-10 h-1 bg-surface-border rounded-full" />
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40 }}>
-            {/* File icon */}
-            <View className="items-center py-6">
-              <View className="w-20 h-20 bg-surface-background border border-surface-border rounded-2xl items-center justify-center mb-3">
-                <FontAwesome name={icon as any} size={36} color={color} />
-              </View>
-              <Text className="text-typography-main text-lg font-black text-center" numberOfLines={2}>{file.original_name}</Text>
-              <Text className="text-typography-muted text-sm mt-1">
-                {formatFileSize(file.size_bytes)}{file.mime_type ? ` · ${file.mime_type.split('/').pop()?.toUpperCase()}` : ''}
-              </Text>
+          {/* File header */}
+          <View className="items-center px-6 pt-2 pb-4 border-b border-surface-border/50">
+            <View className="w-20 h-20 bg-surface-background border border-surface-border rounded-2xl items-center justify-center mb-3">
+              <FontAwesome name={icon as any} size={36} color={color} />
             </View>
+            <Text className="text-typography-main text-lg font-black text-center" numberOfLines={2}>{file.original_name}</Text>
+            <Text className="text-typography-muted text-sm mt-1">
+              {formatFileSize(file.size_bytes)}{file.mime_type ? ` · ${file.mime_type.split('/').pop()?.toUpperCase()}` : ''}
+            </Text>
+            <View className="flex-row gap-2 mt-3">
+              {(['details', 'activity'] as const).map(t => (
+                <TouchableOpacity
+                  key={t}
+                  onPress={() => setTab(t)}
+                  className={`px-5 py-2 rounded-2xl border ${tab === t ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}
+                >
+                  <Text className={`text-xs font-black capitalize ${tab === t ? 'text-brand-primary' : 'text-typography-muted'}`}>{t}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
 
-            {/* Metadata rows */}
-            <View className="bg-surface-background rounded-2xl border border-surface-border overflow-hidden mb-4">
+          {tab === 'details' ? (
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40, paddingTop: 16 }}>
+            {/* Metadata */}
+            <View className="bg-surface-background border border-surface-border rounded-2xl overflow-hidden mb-5">
               <View className="flex-row items-center px-4 py-3.5 border-b border-surface-border/50">
-                <Text className="text-typography-muted text-xs w-24">Sent by</Text>
+                <Text className="text-typography-muted text-xs w-24">From</Text>
                 <Text className="text-typography-main text-xs font-bold flex-1">{file.uploader.full_name}</Text>
               </View>
               <View className="flex-row items-center px-4 py-3.5 border-b border-surface-border/50">
                 <Text className="text-typography-muted text-xs w-24">Date</Text>
-                <Text className="text-typography-main text-xs font-bold flex-1">
-                  {new Date(file.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                </Text>
+                <Text className="text-typography-main text-xs font-bold flex-1">{new Date(file.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</Text>
               </View>
               {file.folder && (
                 <View className="flex-row items-center px-4 py-3.5 border-b border-surface-border/50">
@@ -143,46 +200,62 @@ function FileDetailSheet({
               )}
             </View>
 
-            {/* Caption */}
+            {file.tags.length > 0 && (
+              <View className="mb-5">
+                <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Tags</Text>
+                <View className="flex-row flex-wrap gap-2">
+                  {file.tags.map(tag => {
+                    const c = getTagColor(tag);
+                    return (
+                      <View key={tag} style={{ backgroundColor: c.bg, borderColor: c.border, borderWidth: 1 }} className="px-3 py-1 rounded-full">
+                        <Text style={{ color: c.text }} className="text-xs font-bold">{tag}</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+
             {file.caption && (
-              <View className="bg-surface-background rounded-2xl border border-surface-border px-4 py-3.5 mb-4">
-                <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-1.5">Caption</Text>
+              <View className="mb-5 bg-surface-background border border-surface-border rounded-2xl px-4 py-3">
+                <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-1">Note</Text>
                 <Text className="text-typography-main text-sm leading-relaxed">{file.caption}</Text>
               </View>
             )}
 
-            {/* Tags */}
-            {file.tags.length > 0 && (
-              <View className="flex-row flex-wrap gap-2 mb-5">
-                {file.tags.map(tag => (
-                  <View key={tag} className="px-3 py-1 rounded-full bg-surface-background border border-surface-border">
-                    <Text className="text-typography-muted text-xs font-bold">{tag}</Text>
+            {/* Recipients (sent mode) */}
+            {mode === 'sent' && file.recipients && file.recipients.length > 0 && (
+              <View className="mb-5">
+                <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Recipients</Text>
+                {file.recipients.map(r => (
+                  <View key={r.id} className="flex-row items-center gap-3 py-2">
+                    <View className="w-7 h-7 rounded-full bg-surface-background border border-surface-border items-center justify-center">
+                      <FontAwesome name="user" size={10} color="var(--color-text-muted)" />
+                    </View>
+                    <Text className="text-typography-main text-sm font-medium flex-1">{r.full_name}</Text>
+                    {r.read_at && <FontAwesome name="check" size={10} color="var(--color-success, #38a169)" />}
                   </View>
                 ))}
               </View>
             )}
 
-            {/* Actions */}
             <View className="gap-3">
               <TouchableOpacity
                 onPress={handleDownload}
                 disabled={downloading}
                 className="flex-row items-center justify-center bg-brand-primary rounded-2xl py-4 gap-2"
               >
-                {downloading
-                  ? <ActivityIndicator size="small" color="#fff" />
-                  : <FontAwesome name="download" size={14} color="#fff" />
-                }
-                <Text className="text-white font-black">Download</Text>
+                {downloading ? <ActivityIndicator size="small" color="#fff" /> : <FontAwesome name="download" size={14} color="#fff" />}
+                <Text className="text-white font-black text-base">Download</Text>
               </TouchableOpacity>
 
               {isUnread && (
                 <TouchableOpacity
                   onPress={() => { markRead(file.id); onClose(); }}
-                  className="flex-row items-center justify-center bg-surface-card border border-surface-border rounded-2xl py-3.5 gap-2"
+                  className="flex-row items-center justify-center bg-surface-background border border-surface-border rounded-2xl py-3.5 gap-2"
                 >
-                  <FontAwesome name="check" size={14} color="var(--color-primary)" />
-                  <Text className="text-brand-primary font-black">Mark as Read</Text>
+                  <FontAwesome name="check" size={13} color="var(--color-primary)" />
+                  <Text className="text-brand-primary font-black text-sm">Mark as Read</Text>
                 </TouchableOpacity>
               )}
 
@@ -192,8 +265,8 @@ function FileDetailSheet({
                     onPress={() => { hideFile(file.id); onClose(); }}
                     className="flex-1 flex-row items-center justify-center bg-surface-background border border-surface-border rounded-2xl py-3 gap-1.5"
                   >
-                    <FontAwesome name="eye-slash" size={12} color="var(--color-text-muted)" />
-                    <Text className="text-typography-muted font-bold text-sm">Hide</Text>
+                    <FontAwesome name="eye-slash" size={11} color="var(--color-text-muted)" />
+                    <Text className="text-typography-muted font-bold text-xs">Hide</Text>
                   </TouchableOpacity>
                 )}
                 {isOwner && (
@@ -201,20 +274,50 @@ function FileDetailSheet({
                     onPress={handleDelete}
                     className="flex-1 flex-row items-center justify-center bg-state-danger/10 border border-state-danger/20 rounded-2xl py-3 gap-1.5"
                   >
-                    <FontAwesome name="trash-o" size={12} color="var(--color-danger)" />
-                    <Text className="text-state-danger font-bold text-sm">Delete</Text>
+                    <FontAwesome name="trash-o" size={11} color="var(--color-danger)" />
+                    <Text className="text-state-danger font-bold text-xs">Delete</Text>
                   </TouchableOpacity>
                 )}
               </View>
             </View>
           </ScrollView>
+          ) : (
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 16, paddingBottom: 40 }}>
+            {activityLoading ? (
+              <View className="py-10 items-center"><ActivityIndicator color="var(--color-primary)" /></View>
+            ) : activity.length === 0 ? (
+              <View className="py-10 items-center px-8">
+                <FontAwesome name="clock-o" size={28} color="var(--color-text-dim)" />
+                <Text className="text-typography-muted text-sm mt-3 text-center">No activity recorded yet</Text>
+              </View>
+            ) : (
+              activity.map((entry, i) => {
+                const meta = ACTIVITY_META[entry.action] ?? { icon: 'circle', color: '#94a3b8', label: entry.action };
+                return (
+                  <View key={entry.id} className={`flex-row items-start px-6 py-3.5 ${i < activity.length - 1 ? 'border-b border-surface-border/40' : ''}`}>
+                    <View className="w-8 h-8 rounded-full items-center justify-center mr-3 flex-shrink-0 mt-0.5" style={{ backgroundColor: meta.color + '20' }}>
+                      <FontAwesome name={meta.icon as any} size={12} color={meta.color} />
+                    </View>
+                    <View className="flex-1 min-w-0">
+                      <Text className="text-typography-main text-sm font-bold">
+                        {entry.user.full_name}{' '}
+                        <Text className="text-typography-muted font-medium">{meta.label.toLowerCase()}</Text>
+                      </Text>
+                      <Text className="text-typography-dim text-xs mt-0.5">{relativeDate(entry.created_at)}</Text>
+                    </View>
+                  </View>
+                );
+              })
+            )}
+          </ScrollView>
+          )}
         </View>
       </View>
     </Modal>
   );
 }
 
-// ─── Upload Bottom Sheet ──────────────────────────────────────────────────────
+// ─── Upload Sheet ─────────────────────────────────────────────────────────────
 
 function UploadSheet({
   visible,
@@ -222,17 +325,19 @@ function UploadSheet({
   onUploaded,
   hasPermission,
   profile,
+  activeGroup,
 }: {
   visible: boolean;
   onClose: () => void;
   onUploaded: () => void;
   hasPermission: (key: string) => boolean;
   profile: any;
+  activeGroup?: { id: string; name: string; avatar_color: string } | null;
 }) {
   const { folders, checkDuplicate } = useFileHub();
   const fileInputRef = useRef<any>(null);
   const [pickedFile, setPickedFile] = useState<{ name: string; size: number; uri: string; type?: string; webFile?: File } | null>(null);
-  const [visibility, setVisibility] = useState<'direct' | 'broadcast'>('direct');
+  const [visibility, setVisibility] = useState<'direct' | 'broadcast' | 'group'>('direct');
   const [recipientSearch, setRecipientSearch] = useState('');
   const [memberResults, setMemberResults] = useState<any[]>([]);
   const [selectedRecipients, setSelectedRecipients] = useState<any[]>([]);
@@ -248,7 +353,7 @@ function UploadSheet({
 
   const resetAll = () => {
     setPickedFile(null);
-    setVisibility('direct');
+    setVisibility(activeGroup ? 'group' : 'direct');
     setRecipientSearch('');
     setMemberResults([]);
     setSelectedRecipients([]);
@@ -256,32 +361,15 @@ function UploadSheet({
     setTags([]);
     setTagInput('');
     setCaption('');
+    setUploading(false);
     setProgress(0);
     setStep(1);
   };
 
   useEffect(() => {
     if (!visible) resetAll();
-  }, [visible]);
-
-  const searchMembers = useCallback(async (query: string) => {
-    setRecipientSearch(query);
-    if (!query.trim()) { setMemberResults([]); return; }
-    const { data } = await supabase
-      .from('users')
-      .select('id, full_name, avatar_url')
-      .ilike('full_name', `%${query}%`)
-      .limit(6);
-    setMemberResults(data || []);
-  }, []);
-
-  const toggleRecipient = (member: any) => {
-    setSelectedRecipients(prev =>
-      prev.find(r => r.id === member.id)
-        ? prev.filter(r => r.id !== member.id)
-        : [...prev, member]
-    );
-  };
+    else if (activeGroup) setVisibility('group');
+  }, [visible, activeGroup?.id]);
 
   const addTag = (t: string) => {
     const clean = t.trim().toLowerCase().replace(/\s+/g, '-');
@@ -290,24 +378,36 @@ function UploadSheet({
     setTagInput('');
   };
 
-  const pickFile = async () => {
-    if (Platform.OS === 'web') {
-      fileInputRef.current?.click();
-      return;
-    }
-    const result = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true });
-    if (!result.canceled && result.assets?.[0]) {
-      const asset = result.assets[0];
-      setPickedFile({ name: asset.name, size: asset.size ?? 0, uri: asset.uri, type: asset.mimeType });
-      setStep(2);
-    }
+  const toggleRecipient = (m: any) => {
+    setSelectedRecipients(prev =>
+      prev.find(r => r.id === m.id) ? prev.filter(r => r.id !== m.id) : [...prev, m]
+    );
   };
+
+  const searchMembers = useCallback(async (query: string) => {
+    setRecipientSearch(query);
+    if (!query.trim()) { setMemberResults([]); return; }
+    const { data } = await supabase.from('users').select('id, full_name, avatar_url').ilike('full_name', `%${query}%`).limit(8);
+    setMemberResults(data || []);
+  }, []);
 
   const handleWebFileChange = (e: any) => {
     const file = e.target?.files?.[0];
-    if (file) {
-      setPickedFile({ name: file.name, size: file.size, uri: '', type: file.type, webFile: file });
-      setStep(2);
+    if (!file) return;
+    setPickedFile({ name: file.name, size: file.size, uri: '', type: file.type, webFile: file });
+    setStep(2);
+  };
+
+  const pickFile = async () => {
+    if (Platform.OS === 'web') {
+      fileInputRef.current?.click();
+    } else {
+      const result = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true });
+      if (!result.canceled && result.assets?.[0]) {
+        const a = result.assets[0];
+        setPickedFile({ name: a.name, size: a.size ?? 0, uri: a.uri, type: a.mimeType });
+        setStep(2);
+      }
     }
   };
 
@@ -316,52 +416,47 @@ function UploadSheet({
     const companyId = profile?.company_id;
     if (!companyId) { Alert.alert('Error', 'Company not found.'); return; }
     if (visibility === 'direct' && selectedRecipients.length === 0) {
-      Alert.alert('Recipients required', 'Please add at least one recipient for a direct send.');
+      Alert.alert('Error', 'Please select at least one recipient.');
+      return;
+    }
+    if (visibility === 'group' && !activeGroup?.id) {
+      Alert.alert('Error', 'No group selected.');
       return;
     }
 
     setUploading(true);
     setProgress(10);
     try {
-      let contentHash: string | null = null;
-      let uploadBlob: File | Blob | null = null;
-
+      let contentHash = '';
       if (Platform.OS === 'web' && pickedFile.webFile) {
         contentHash = await computeSHA256Web(pickedFile.webFile);
-        uploadBlob = pickedFile.webFile;
-      } else {
-        const response = await fetch(pickedFile.uri);
-        uploadBlob = await response.blob();
       }
       setProgress(25);
 
       if (contentHash) {
         const dupes = await checkDuplicate(contentHash);
         if (dupes.length > 0) {
-          const proceed = await new Promise<boolean>(resolve => {
-            Alert.alert(
-              'Possible Duplicate',
-              `A file with the same content exists: "${dupes[0].original_name}". Upload anyway?`,
-              [
-                { text: 'Cancel', onPress: () => resolve(false), style: 'cancel' },
-                { text: 'Upload', onPress: () => resolve(true) },
-              ]
-            );
-          });
+          const proceed = await new Promise<boolean>(resolve =>
+            Alert.alert('Possible Duplicate', `"${dupes[0].original_name}" has the same content. Upload anyway?`, [
+              { text: 'Cancel', onPress: () => resolve(false), style: 'cancel' },
+              { text: 'Upload Anyway', onPress: () => resolve(true) },
+            ])
+          );
           if (!proceed) { setUploading(false); setProgress(0); return; }
         }
       }
 
-      const fileId = Platform.OS === 'web'
-        ? (crypto as any).randomUUID()
-        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const fileId = (crypto as any).randomUUID();
       const safeName = pickedFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
       const storagePath = `${companyId}/${fileId}/${safeName}`;
       setProgress(40);
 
-      const { error: storageError } = await supabase.storage
-        .from('filehub-files')
-        .upload(storagePath, uploadBlob!);
+      let storageError;
+      if (Platform.OS === 'web' && pickedFile.webFile) {
+        ({ error: storageError } = await supabase.storage.from('filehub-files').upload(storagePath, pickedFile.webFile));
+      } else {
+        ({ error: storageError } = await supabase.storage.from('filehub-files').upload(storagePath, { uri: pickedFile.uri, name: pickedFile.name, type: pickedFile.type ?? 'application/octet-stream' } as any));
+      }
       if (storageError) throw storageError;
       setProgress(80);
 
@@ -369,14 +464,15 @@ function UploadSheet({
         p_storage_path: storagePath,
         p_visibility: visibility,
         p_recipient_ids: visibility === 'direct' ? selectedRecipients.map(r => r.id) : [],
-        p_folder_id: folderId,
+        p_folder_id: folderId || null,
         p_tags: tags,
         p_caption: caption || null,
         p_original_name: pickedFile.name,
-        p_mime_type: pickedFile.type || null,
+        p_mime_type: pickedFile.type ?? null,
         p_size_bytes: pickedFile.size,
-        p_content_hash: contentHash,
+        p_content_hash: contentHash || null,
         p_replaces_file_id: null,
+        p_group_id: visibility === 'group' ? (activeGroup?.id ?? null) : null,
       });
       if (rpcError) throw rpcError;
       setProgress(100);
@@ -395,7 +491,6 @@ function UploadSheet({
       <View className="flex-1 justify-end">
         <TouchableOpacity className="flex-1" onPress={onClose} activeOpacity={1} />
         <View className="bg-surface-card rounded-t-[2rem] border-t border-surface-border" style={{ maxHeight: '90%' }}>
-          {/* Handle */}
           <View className="items-center pt-3 pb-2">
             <View className="w-10 h-1 bg-surface-border rounded-full" />
           </View>
@@ -405,32 +500,26 @@ function UploadSheet({
           )}
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40, gap: 20 }}>
-            {/* Header */}
             <View className="flex-row items-center justify-between pt-2">
-              <Text className="text-typography-main text-xl font-black tracking-tight">Upload File</Text>
+              <Text className="text-typography-main text-xl font-black tracking-tight">
+                {activeGroup ? `Upload to ${activeGroup.name}` : 'Upload File'}
+              </Text>
               <TouchableOpacity onPress={onClose} className="w-8 h-8 bg-surface-background border border-surface-border rounded-xl items-center justify-center">
                 <FontAwesome name="times" size={12} color="var(--color-text-muted)" />
               </TouchableOpacity>
             </View>
 
-            {/* Step 1: File picker */}
-            {step === 1 || !pickedFile ? (
-              <TouchableOpacity
-                onPress={pickFile}
-                className="border-2 border-dashed border-surface-border rounded-2xl items-center py-10 gap-3"
-              >
+            {/* File picker */}
+            {!pickedFile ? (
+              <TouchableOpacity onPress={pickFile} className="border-2 border-dashed border-surface-border rounded-2xl items-center py-10 gap-3">
                 <View className="w-14 h-14 bg-surface-background border border-surface-border rounded-2xl items-center justify-center">
                   <FontAwesome name="cloud-upload" size={24} color="var(--color-text-muted)" />
                 </View>
                 <Text className="text-typography-main font-bold">Choose a file</Text>
-                <Text className="text-typography-muted text-sm">Tap to browse</Text>
+                <Text className="text-typography-muted text-sm">Tap to browse · Up to 500 MB</Text>
               </TouchableOpacity>
             ) : (
-              /* File picked — show details */
-              <TouchableOpacity
-                onPress={pickFile}
-                className="flex-row items-center bg-surface-background border border-surface-border rounded-2xl px-4 py-4 gap-3"
-              >
+              <TouchableOpacity onPress={pickFile} className="flex-row items-center bg-surface-background border border-surface-border rounded-2xl px-4 py-4 gap-3">
                 <View className="w-11 h-11 bg-brand-primary/10 rounded-xl items-center justify-center flex-shrink-0">
                   <FontAwesome name={getMimeIcon(pickedFile.type ?? null).icon as any} size={20} color="var(--color-primary)" />
                 </View>
@@ -444,26 +533,41 @@ function UploadSheet({
 
             {pickedFile && (
               <>
-                {/* Visibility */}
-                <View className="gap-2">
-                  <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Send as</Text>
-                  <View className="flex-row gap-2">
-                    <TouchableOpacity
-                      onPress={() => setVisibility('direct')}
-                      className={`flex-1 items-center py-3 rounded-2xl border ${visibility === 'direct' ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}
-                    >
-                      <Text className={`font-black text-sm ${visibility === 'direct' ? 'text-brand-primary' : 'text-typography-muted'}`}>Direct</Text>
-                    </TouchableOpacity>
-                    {canBroadcast && (
+                {/* Visibility — only show if NOT in group context, or show all options */}
+                {!activeGroup && (
+                  <View className="gap-2">
+                    <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Send as</Text>
+                    <View className="flex-row gap-2">
                       <TouchableOpacity
-                        onPress={() => setVisibility('broadcast')}
-                        className={`flex-1 items-center py-3 rounded-2xl border ${visibility === 'broadcast' ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}
+                        onPress={() => setVisibility('direct')}
+                        className={`flex-1 items-center py-3 rounded-2xl border ${visibility === 'direct' ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}
                       >
-                        <Text className={`font-black text-sm ${visibility === 'broadcast' ? 'text-brand-primary' : 'text-typography-muted'}`}>Broadcast</Text>
+                        <Text className={`font-black text-sm ${visibility === 'direct' ? 'text-brand-primary' : 'text-typography-muted'}`}>Direct</Text>
                       </TouchableOpacity>
-                    )}
+                      {canBroadcast && (
+                        <TouchableOpacity
+                          onPress={() => setVisibility('broadcast')}
+                          className={`flex-1 items-center py-3 rounded-2xl border ${visibility === 'broadcast' ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}
+                        >
+                          <Text className={`font-black text-sm ${visibility === 'broadcast' ? 'text-brand-primary' : 'text-typography-muted'}`}>Broadcast</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
                   </View>
-                </View>
+                )}
+
+                {/* Group badge when uploading to group */}
+                {activeGroup && (
+                  <View className="flex-row items-center gap-3 bg-surface-background border border-surface-border rounded-2xl px-4 py-3">
+                    <View className="w-8 h-8 rounded-xl items-center justify-center" style={{ backgroundColor: activeGroup.avatar_color + '22' }}>
+                      <Text style={{ color: activeGroup.avatar_color, fontSize: 13, fontWeight: '900' }}>{getInitials(activeGroup.name)}</Text>
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Sharing to group</Text>
+                      <Text className="text-typography-main font-bold text-sm">{activeGroup.name}</Text>
+                    </View>
+                  </View>
+                )}
 
                 {/* Recipients */}
                 {visibility === 'direct' && (
@@ -516,24 +620,22 @@ function UploadSheet({
                 {folders.length > 0 && (
                   <View className="gap-2">
                     <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Folder</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                      <View className="flex-row gap-2">
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, flexDirection: 'row', alignItems: 'center' }}>
+                      <TouchableOpacity
+                        onPress={() => setFolderId(null)}
+                        className={`px-4 py-2 rounded-xl border ${!folderId ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}
+                      >
+                        <Text className={`text-xs font-bold ${!folderId ? 'text-brand-primary' : 'text-typography-muted'}`}>None</Text>
+                      </TouchableOpacity>
+                      {folders.map(f => (
                         <TouchableOpacity
-                          onPress={() => setFolderId(null)}
-                          className={`px-4 py-2 rounded-xl border ${!folderId ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}
+                          key={f.id}
+                          onPress={() => setFolderId(f.id)}
+                          className={`px-4 py-2 rounded-xl border ${folderId === f.id ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}
                         >
-                          <Text className={`text-xs font-bold ${!folderId ? 'text-brand-primary' : 'text-typography-muted'}`}>None</Text>
+                          <Text className={`text-xs font-bold ${folderId === f.id ? 'text-brand-primary' : 'text-typography-muted'}`}>{f.name}</Text>
                         </TouchableOpacity>
-                        {folders.map(f => (
-                          <TouchableOpacity
-                            key={f.id}
-                            onPress={() => setFolderId(f.id)}
-                            className={`px-4 py-2 rounded-xl border ${folderId === f.id ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}
-                          >
-                            <Text className={`text-xs font-bold ${folderId === f.id ? 'text-brand-primary' : 'text-typography-muted'}`}>{f.name}</Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
+                      ))}
                     </ScrollView>
                   </View>
                 )}
@@ -599,7 +701,6 @@ function UploadSheet({
                   </View>
                 )}
 
-                {/* Submit */}
                 <TouchableOpacity
                   onPress={handleUpload}
                   disabled={uploading || (visibility === 'direct' && selectedRecipients.length === 0)}
@@ -608,11 +709,429 @@ function UploadSheet({
                 >
                   {uploading
                     ? <ActivityIndicator size="small" color="#fff" />
-                    : <Text className="text-white font-black text-base">Send File</Text>
+                    : <Text className="text-white font-black text-base">
+                        {visibility === 'group' ? 'Share to Group' : 'Send File'}
+                      </Text>
                   }
                 </TouchableOpacity>
               </>
             )}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// ─── Group Card ───────────────────────────────────────────────────────────────
+
+function GroupCard({ group, onPress }: { group: FileHubGroup; onPress: () => void }) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      className="bg-surface-card border border-surface-border rounded-2xl px-4 py-4 mb-3 flex-row items-center gap-4"
+    >
+      {/* Avatar */}
+      <View
+        className="w-12 h-12 rounded-2xl items-center justify-center flex-shrink-0"
+        style={{ backgroundColor: group.avatar_color + '22' }}
+      >
+        <Text style={{ color: group.avatar_color, fontSize: 16, fontWeight: '900' }}>
+          {getInitials(group.name)}
+        </Text>
+      </View>
+
+      {/* Info */}
+      <View className="flex-1 min-w-0">
+        <Text className="text-typography-main font-black text-base mb-0.5" numberOfLines={1}>{group.name}</Text>
+        {group.description ? (
+          <Text className="text-typography-muted text-xs mb-1" numberOfLines={1}>{group.description}</Text>
+        ) : null}
+        <View className="flex-row items-center gap-3">
+          {/* Member count */}
+          <View className="flex-row items-center gap-1.5">
+            <FontAwesome name="users" size={10} color="var(--color-text-muted)" />
+            <Text className="text-typography-dim text-xs">{group.member_count} member{group.member_count !== 1 ? 's' : ''}</Text>
+          </View>
+          {/* File count */}
+          <View className="flex-row items-center gap-1.5">
+            <FontAwesome name="files-o" size={10} color="var(--color-text-muted)" />
+            <Text className="text-typography-dim text-xs">{group.file_count} file{group.file_count !== 1 ? 's' : ''}</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Last activity + chevron */}
+      <View className="items-end gap-1.5">
+        {group.last_activity && (
+          <Text className="text-typography-dim text-xs">{relativeDate(group.last_activity)}</Text>
+        )}
+        <FontAwesome name="chevron-right" size={10} color="var(--color-text-dim)" />
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+// ─── Group Create Sheet ───────────────────────────────────────────────────────
+
+function GroupCreateSheet({
+  visible,
+  onClose,
+  onCreated,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onCreated: (groupId: string) => void;
+}) {
+  const { createGroup } = useFileHub();
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [selectedColor, setSelectedColor] = useState(GROUP_COLORS[0]);
+  const [memberSearch, setMemberSearch] = useState('');
+  const [memberResults, setMemberResults] = useState<any[]>([]);
+  const [selectedMembers, setSelectedMembers] = useState<any[]>([]);
+  const [creating, setCreating] = useState(false);
+
+  useEffect(() => {
+    if (!visible) {
+      setName(''); setDescription(''); setSelectedColor(GROUP_COLORS[0]);
+      setMemberSearch(''); setMemberResults([]); setSelectedMembers([]);
+    }
+  }, [visible]);
+
+  const searchMembers = useCallback(async (query: string) => {
+    setMemberSearch(query);
+    if (!query.trim()) { setMemberResults([]); return; }
+    const { data } = await supabase.from('users').select('id, full_name').ilike('full_name', `%${query}%`).limit(8);
+    setMemberResults(data || []);
+  }, []);
+
+  const toggleMember = (m: any) => {
+    setSelectedMembers(prev => prev.find(r => r.id === m.id) ? prev.filter(r => r.id !== m.id) : [...prev, m]);
+  };
+
+  const handleCreate = async () => {
+    if (!name.trim() || creating) return;
+    setCreating(true);
+    try {
+      const id = await createGroup(name.trim(), description.trim() || null, selectedColor, selectedMembers.map(m => m.id));
+      onCreated(id);
+      onClose();
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View className="flex-1 justify-end">
+        <TouchableOpacity className="flex-1" onPress={onClose} activeOpacity={1} />
+        <View className="bg-surface-card rounded-t-[2rem] border-t border-surface-border" style={{ maxHeight: '85%' }}>
+          <View className="items-center pt-3 pb-2">
+            <View className="w-10 h-1 bg-surface-border rounded-full" />
+          </View>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40, gap: 20 }}>
+            <View className="flex-row items-center justify-between">
+              <Text className="text-typography-main text-xl font-black">New Group</Text>
+              <TouchableOpacity onPress={onClose} className="w-8 h-8 bg-surface-background border border-surface-border rounded-xl items-center justify-center">
+                <FontAwesome name="times" size={12} color="var(--color-text-muted)" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Color + Preview */}
+            <View className="items-center gap-4">
+              <View
+                className="w-20 h-20 rounded-3xl items-center justify-center"
+                style={{ backgroundColor: selectedColor + '22' }}
+              >
+                <Text style={{ color: selectedColor, fontSize: 28, fontWeight: '900' }}>
+                  {name ? getInitials(name) : '?'}
+                </Text>
+              </View>
+              <View className="flex-row gap-3">
+                {GROUP_COLORS.map(c => (
+                  <TouchableOpacity
+                    key={c}
+                    onPress={() => setSelectedColor(c)}
+                    className="w-8 h-8 rounded-full items-center justify-center"
+                    style={{ backgroundColor: c, borderWidth: selectedColor === c ? 3 : 0, borderColor: 'white', opacity: selectedColor === c ? 1 : 0.7 }}
+                  />
+                ))}
+              </View>
+            </View>
+
+            {/* Name */}
+            <View className="gap-2">
+              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Group Name</Text>
+              <TextInput
+                value={name}
+                onChangeText={setName}
+                placeholder="e.g. Design Team"
+                placeholderTextColor="var(--color-text-dim)"
+                maxLength={80}
+                className="bg-surface-background border border-surface-border rounded-2xl px-4 py-3 text-typography-main text-sm font-bold"
+              />
+            </View>
+
+            {/* Description */}
+            <View className="gap-2">
+              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Description (optional)</Text>
+              <TextInput
+                value={description}
+                onChangeText={setDescription}
+                placeholder="What's this group for?"
+                placeholderTextColor="var(--color-text-dim)"
+                multiline
+                numberOfLines={2}
+                maxLength={300}
+                className="bg-surface-background border border-surface-border rounded-2xl px-4 py-3 text-typography-main text-sm"
+                style={{ minHeight: 70, textAlignVertical: 'top' }}
+              />
+            </View>
+
+            {/* Members */}
+            <View className="gap-2">
+              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Invite Members</Text>
+              {selectedMembers.length > 0 && (
+                <View className="flex-row flex-wrap gap-2 mb-1">
+                  {selectedMembers.map(m => (
+                    <TouchableOpacity
+                      key={m.id}
+                      onPress={() => toggleMember(m)}
+                      className="flex-row items-center gap-1.5 bg-brand-primary/10 border border-brand-primary/20 rounded-full px-3 py-1"
+                    >
+                      <Text className="text-brand-primary text-xs font-bold">{m.full_name}</Text>
+                      <FontAwesome name="times" size={9} color="var(--color-primary)" />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+              <View className="flex-row items-center bg-surface-background border border-surface-border rounded-2xl px-4 py-3 gap-2">
+                <FontAwesome name="search" size={12} color="var(--color-text-muted)" />
+                <TextInput
+                  value={memberSearch}
+                  onChangeText={searchMembers}
+                  placeholder="Search team members…"
+                  placeholderTextColor="var(--color-text-dim)"
+                  className="flex-1 text-typography-main text-sm"
+                />
+              </View>
+              {memberResults.length > 0 && (
+                <View className="bg-surface-background border border-surface-border rounded-2xl overflow-hidden">
+                  {memberResults.map((m, i) => (
+                    <TouchableOpacity
+                      key={m.id}
+                      onPress={() => toggleMember(m)}
+                      className={`flex-row items-center px-4 py-3 gap-3 ${i < memberResults.length - 1 ? 'border-b border-surface-border/50' : ''}`}
+                    >
+                      <Text className="flex-1 text-typography-main text-sm font-medium">{m.full_name}</Text>
+                      {selectedMembers.find(r => r.id === m.id) && (
+                        <FontAwesome name="check" size={11} color="var(--color-primary)" />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+
+            <TouchableOpacity
+              onPress={handleCreate}
+              disabled={!name.trim() || creating}
+              className="items-center justify-center bg-brand-primary rounded-2xl py-4"
+              style={{ opacity: !name.trim() || creating ? 0.5 : 1 }}
+            >
+              {creating
+                ? <ActivityIndicator size="small" color="#fff" />
+                : <Text className="text-white font-black text-base">Create Group</Text>
+              }
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// ─── Group Members Sheet ──────────────────────────────────────────────────────
+
+function GroupMembersSheet({
+  visible,
+  group,
+  currentUserId,
+  onClose,
+  onMembersChanged,
+}: {
+  visible: boolean;
+  group: FileHubGroup | null;
+  currentUserId: string | undefined;
+  onClose: () => void;
+  onMembersChanged: () => void;
+}) {
+  const { addGroupMember, removeGroupMember, fetchGroupMembers } = useFileHub();
+  const [members, setMembers] = useState<FileHubGroupMember[]>([]);
+  const [loadingMembers, setLoadingMembers] = useState(false);
+  const [addSearch, setAddSearch] = useState('');
+  const [addResults, setAddResults] = useState<any[]>([]);
+  const [addingId, setAddingId] = useState<string | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!visible || !group) { setMembers([]); setAddSearch(''); setAddResults([]); return; }
+    setLoadingMembers(true);
+    fetchGroupMembers(group.id)
+      .then(setMembers)
+      .catch(console.error)
+      .finally(() => setLoadingMembers(false));
+  }, [visible, group?.id]);
+
+  const searchAdd = useCallback(async (query: string) => {
+    setAddSearch(query);
+    if (!query.trim()) { setAddResults([]); return; }
+    const { data } = await supabase.from('users').select('id, full_name').ilike('full_name', `%${query}%`).limit(6);
+    // Filter out already-members
+    setAddResults((data || []).filter((u: any) => !members.find(m => m.id === u.id)));
+  }, [members]);
+
+  const handleAdd = async (userId: string, fullName: string) => {
+    if (!group) return;
+    setAddingId(userId);
+    try {
+      await addGroupMember(group.id, userId);
+      const updated = await fetchGroupMembers(group.id);
+      setMembers(updated);
+      setAddSearch('');
+      setAddResults([]);
+      onMembersChanged();
+    } catch {
+      // error shown by context
+    } finally {
+      setAddingId(null);
+    }
+  };
+
+  const handleRemove = async (userId: string) => {
+    if (!group) return;
+    const target = members.find(m => m.id === userId);
+    Alert.alert(
+      userId === currentUserId ? 'Leave Group' : `Remove ${target?.full_name ?? 'member'}`,
+      userId === currentUserId ? 'Are you sure you want to leave this group?' : `Remove ${target?.full_name ?? 'this member'} from the group?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: userId === currentUserId ? 'Leave' : 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            setRemovingId(userId);
+            try {
+              await removeGroupMember(group.id, userId);
+              const updated = await fetchGroupMembers(group.id);
+              setMembers(updated);
+              onMembersChanged();
+              if (userId === currentUserId) onClose();
+            } catch {
+              // error shown by context
+            } finally {
+              setRemovingId(null);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  if (!group) return null;
+
+  const myRole = members.find(m => m.id === currentUserId)?.role;
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View className="flex-1 justify-end">
+        <TouchableOpacity className="flex-1" onPress={onClose} activeOpacity={1} />
+        <View className="bg-surface-card rounded-t-[2rem] border-t border-surface-border" style={{ maxHeight: '80%' }}>
+          <View className="items-center pt-3 pb-2">
+            <View className="w-10 h-1 bg-surface-border rounded-full" />
+          </View>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40, gap: 16 }}>
+            <View className="flex-row items-center justify-between">
+              <Text className="text-typography-main text-xl font-black">{group.name}</Text>
+              <TouchableOpacity onPress={onClose} className="w-8 h-8 bg-surface-background border border-surface-border rounded-xl items-center justify-center">
+                <FontAwesome name="times" size={12} color="var(--color-text-muted)" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Add member search */}
+            <View className="gap-2">
+              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Add Member</Text>
+              <View className="flex-row items-center bg-surface-background border border-surface-border rounded-2xl px-4 py-3 gap-2">
+                <FontAwesome name="user-plus" size={12} color="var(--color-text-muted)" />
+                <TextInput
+                  value={addSearch}
+                  onChangeText={searchAdd}
+                  placeholder="Search to add…"
+                  placeholderTextColor="var(--color-text-dim)"
+                  className="flex-1 text-typography-main text-sm"
+                />
+              </View>
+              {addResults.length > 0 && (
+                <View className="bg-surface-background border border-surface-border rounded-2xl overflow-hidden">
+                  {addResults.map((m, i) => (
+                    <TouchableOpacity
+                      key={m.id}
+                      onPress={() => handleAdd(m.id, m.full_name)}
+                      disabled={addingId === m.id}
+                      className={`flex-row items-center px-4 py-3 gap-3 ${i < addResults.length - 1 ? 'border-b border-surface-border/50' : ''}`}
+                    >
+                      <Text className="flex-1 text-typography-main text-sm">{m.full_name}</Text>
+                      {addingId === m.id
+                        ? <ActivityIndicator size="small" color="var(--color-primary)" />
+                        : <FontAwesome name="plus" size={11} color="var(--color-primary)" />
+                      }
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+
+            {/* Members list */}
+            <View className="gap-2">
+              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">
+                Members ({members.length})
+              </Text>
+              {loadingMembers ? (
+                <ActivityIndicator size="small" color="var(--color-primary)" />
+              ) : (
+                <View className="bg-surface-background border border-surface-border rounded-2xl overflow-hidden">
+                  {members.map((m, i) => (
+                    <View
+                      key={m.id}
+                      className={`flex-row items-center px-4 py-3 gap-3 ${i < members.length - 1 ? 'border-b border-surface-border/50' : ''}`}
+                    >
+                      <View className="w-8 h-8 rounded-full bg-brand-primary/10 border border-brand-primary/20 items-center justify-center">
+                        <Text className="text-brand-primary text-[10px] font-black">{getInitials(m.full_name)}</Text>
+                      </View>
+                      <Text className="flex-1 text-typography-main text-sm font-medium">{m.full_name}</Text>
+                      {m.role === 'admin' && (
+                        <View className="bg-brand-primary/10 border border-brand-primary/20 rounded-full px-2 py-0.5 mr-2">
+                          <Text className="text-brand-primary text-[9px] font-black">Admin</Text>
+                        </View>
+                      )}
+                      {(myRole === 'admin' || m.id === currentUserId) && (
+                        <TouchableOpacity
+                          onPress={() => handleRemove(m.id)}
+                          disabled={removingId === m.id}
+                          className="w-7 h-7 items-center justify-center rounded-lg bg-state-danger/10"
+                        >
+                          {removingId === m.id
+                            ? <ActivityIndicator size="small" color="var(--color-danger)" />
+                            : <FontAwesome name={m.id === currentUserId ? 'sign-out' : 'user-times'} size={11} color="var(--color-danger)" />
+                          }
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
           </ScrollView>
         </View>
       </View>
@@ -642,9 +1161,165 @@ function FileCard({ file, mode, onPress }: { file: FileHubFile; mode: FileHubMod
         <Text className="text-typography-muted text-xs" numberOfLines={1}>
           {file.uploader.full_name} · {file.mime_type?.split('/').pop()?.toUpperCase() ?? 'File'} · {formatFileSize(file.size_bytes)}
         </Text>
+        {file.tags.length > 0 && (
+          <View className="flex-row flex-wrap gap-1 mt-1.5">
+            {file.tags.slice(0, 2).map(tag => {
+              const c = getTagColor(tag);
+              return (
+                <View key={tag} style={{ backgroundColor: c.bg, borderColor: c.border, borderWidth: 1 }} className="px-1.5 py-0.5 rounded-full">
+                  <Text style={{ color: c.text }} className="text-[9px] font-bold">{tag}</Text>
+                </View>
+              );
+            })}
+            {file.tags.length > 2 && (
+              <View className="px-1.5 py-0.5 rounded-full bg-surface-background border border-surface-border">
+                <Text className="text-[9px] font-bold text-typography-dim">+{file.tags.length - 2}</Text>
+              </View>
+            )}
+          </View>
+        )}
       </View>
       <Text className="text-typography-dim text-xs flex-shrink-0">{relativeDate(file.created_at)}</Text>
     </TouchableOpacity>
+  );
+}
+
+// ─── Tags Manage Sheet ────────────────────────────────────────────────────────
+
+function TagsManageSheet({ visible, onClose, onChanged }: {
+  visible: boolean;
+  onClose: () => void;
+  onChanged: () => void;
+}) {
+  const { allTagsWithCounts, renameTag, deleteTag } = useFileHub();
+  const [tags, setTags] = useState<{ tag: string; count: number }[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [renamingTag, setRenamingTag] = useState<string | null>(null);
+  const [renameInput, setRenameInput] = useState('');
+  const [savingTag, setSavingTag] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    allTagsWithCounts().then(setTags).catch(console.error).finally(() => setLoading(false));
+  }, [allTagsWithCounts]);
+
+  useEffect(() => {
+    if (visible) load();
+    else { setTags([]); setRenamingTag(null); }
+  }, [visible, load]);
+
+  const handleRenameSave = async (oldTag: string) => {
+    const trimmed = renameInput.trim();
+    if (!trimmed || trimmed === oldTag) { setRenamingTag(null); return; }
+    setSavingTag(oldTag);
+    try {
+      await renameTag(oldTag, trimmed);
+      await load();
+      onChanged();
+    } catch { /* alerted in context */ } finally {
+      setSavingTag(null);
+      setRenamingTag(null);
+    }
+  };
+
+  const handleDelete = (tag: string) => {
+    Alert.alert('Delete Tag', `Remove tag "${tag}" from all files?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: async () => {
+        try { await deleteTag(tag); await load(); onChanged(); } catch { /* alerted */ }
+      }},
+    ]);
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View className="flex-1 justify-end">
+        <TouchableOpacity className="flex-1" onPress={onClose} activeOpacity={1} />
+        <View className="bg-surface-card rounded-t-[2rem] border-t border-surface-border" style={{ maxHeight: '75%' }}>
+          <View className="items-center pt-3 pb-1">
+            <View className="w-10 h-1 bg-surface-border rounded-full" />
+          </View>
+          <View className="flex-row items-center justify-between px-6 py-4 border-b border-surface-border">
+            <View className="flex-row items-center gap-2">
+              <FontAwesome name="tags" size={14} color="var(--color-primary)" />
+              <Text className="text-typography-main font-black text-lg">Manage Tags</Text>
+            </View>
+            <TouchableOpacity onPress={onClose}>
+              <FontAwesome name="times" size={18} color="var(--color-text-muted)" />
+            </TouchableOpacity>
+          </View>
+
+          {loading ? (
+            <View className="py-10 items-center"><ActivityIndicator color="var(--color-primary)" /></View>
+          ) : tags.length === 0 ? (
+            <View className="py-10 items-center">
+              <FontAwesome name="tags" size={28} color="var(--color-text-dim)" />
+              <Text className="text-typography-muted text-sm mt-3">No tags yet</Text>
+            </View>
+          ) : (
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {tags.map(({ tag, count }) => {
+                const c = getTagColor(tag);
+                const isRenaming = renamingTag === tag;
+                return (
+                  <View key={tag} className="flex-row items-center px-5 py-4 border-b border-surface-border/50">
+                    <View style={{ backgroundColor: c.bg, borderColor: c.border, borderWidth: 1 }} className="px-3 py-1 rounded-full mr-3 flex-shrink-0">
+                      <Text style={{ color: c.text }} className="text-xs font-bold">{tag}</Text>
+                    </View>
+
+                    {isRenaming ? (
+                      <TextInput
+                        value={renameInput}
+                        onChangeText={setRenameInput}
+                        autoFocus
+                        className="flex-1 bg-surface-background border border-brand-primary/50 rounded-xl px-3 py-2 text-sm text-typography-main mr-2"
+                        onSubmitEditing={() => handleRenameSave(tag)}
+                      />
+                    ) : (
+                      <Text className="flex-1 text-typography-muted text-xs">{count} file{count !== 1 ? 's' : ''}</Text>
+                    )}
+
+                    {isRenaming ? (
+                      <View className="flex-row gap-2">
+                        <TouchableOpacity
+                          onPress={() => handleRenameSave(tag)}
+                          disabled={!!savingTag}
+                          className="w-9 h-9 bg-brand-primary/10 border border-brand-primary/20 rounded-xl items-center justify-center"
+                        >
+                          {savingTag === tag ? <ActivityIndicator size="small" color="var(--color-primary)" /> : <FontAwesome name="check" size={13} color="var(--color-primary)" />}
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => setRenamingTag(null)}
+                          className="w-9 h-9 bg-surface-background border border-surface-border rounded-xl items-center justify-center"
+                        >
+                          <FontAwesome name="times" size={13} color="var(--color-text-muted)" />
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <View className="flex-row gap-2">
+                        <TouchableOpacity
+                          onPress={() => { setRenamingTag(tag); setRenameInput(tag); }}
+                          className="w-9 h-9 bg-surface-background border border-surface-border rounded-xl items-center justify-center"
+                        >
+                          <FontAwesome name="pencil" size={13} color="var(--color-text-muted)" />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => handleDelete(tag)}
+                          className="w-9 h-9 bg-state-danger/10 border border-state-danger/20 rounded-xl items-center justify-center"
+                        >
+                          <FontAwesome name="trash-o" size={13} color="var(--color-danger)" />
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
+              <View style={{ height: 40 }} />
+            </ScrollView>
+          )}
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -655,14 +1330,20 @@ function FileHubAdaptiveInner() {
   const {
     mode, setMode,
     search, setSearch,
-    selectedFolderId, setSelectedFolderId,
     selectedTag, setSelectedTag,
     files, loading,
     refresh,
+    groups, groupsLoading,
+    activeGroupId, setActiveGroupId,
+    groupFiles, groupFilesLoading,
+    refreshGroups, refreshGroupFiles,
   } = useFileHub();
 
   const [selectedFile, setSelectedFile] = useState<FileHubFile | null>(null);
   const [showUpload, setShowUpload] = useState(false);
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [showManageMembers, setShowManageMembers] = useState(false);
+  const [showManageTags, setShowManageTags] = useState(false);
 
   const unreadCount = useMemo(
     () => files.filter(f => !f.recipient_state?.read_at).length,
@@ -670,25 +1351,83 @@ function FileHubAdaptiveInner() {
   );
   const canBroadcast = hasPermission('filehub:broadcast');
 
+  const activeGroup = useMemo(
+    () => groups.find(g => g.id === activeGroupId) ?? null,
+    [groups, activeGroupId]
+  );
+
+  // Derive tags from the currently visible file list
+  const displayFiles = mode === 'groups' && activeGroupId ? groupFiles : files;
+  const displayLoading = mode === 'groups' && activeGroupId ? groupFilesLoading : loading;
+
   const allTags = useMemo(() => {
     const set = new Set<string>();
-    files.forEach(f => f.tags.forEach(t => set.add(t)));
+    displayFiles.forEach(f => f.tags.forEach(t => set.add(t)));
     return Array.from(set).sort();
-  }, [files]);
+  }, [displayFiles]);
 
   const tabs: { key: FileHubMode; label: string; count?: number }[] = [
-    { key: 'inbox', label: 'Inbox', count: mode === 'inbox' && unreadCount > 0 ? unreadCount : undefined },
+    { key: 'inbox', label: 'Inbox', count: unreadCount > 0 ? unreadCount : undefined },
     { key: 'sent', label: 'Sent' },
     ...(canBroadcast ? [{ key: 'broadcast' as FileHubMode, label: 'Broadcast' }] : []),
+    { key: 'groups', label: 'Groups', count: groups.length > 0 ? undefined : undefined },
   ];
+
+  const handleTabChange = (key: FileHubMode) => {
+    setMode(key);
+    setActiveGroupId(null);
+    setSelectedFile(null);
+  };
+
+  const handleRefresh = () => {
+    if (mode === 'groups') {
+      refreshGroups();
+      if (activeGroupId) refreshGroupFiles();
+    } else {
+      refresh();
+    }
+  };
 
   return (
     <View className="flex-1 bg-surface-background">
       {/* ── Header ── */}
-      <View className="px-6 pt-14 pb-4">
-        <Text className="text-brand-primary font-black uppercase tracking-[4px] text-[10px] mb-1">Intelligence Hub</Text>
-        <Text className="text-typography-main text-3xl font-black">File Hub</Text>
-      </View>
+      {(!activeGroupId || mode !== 'groups') && (
+        <View className={`px-6 pb-4 ${Platform.OS === 'web' ? 'pt-6' : 'pt-14'}`}>
+          <Text className="text-brand-primary font-black uppercase tracking-[4px] text-[10px] mb-1">Intelligence Hub</Text>
+          <Text className="text-typography-main text-3xl font-black">File Hub</Text>
+        </View>
+      )}
+
+      {/* ── Group detail header (replaces main header when in a group) ── */}
+      {mode === 'groups' && activeGroupId && activeGroup && (
+        <View className={`px-4 pb-3 flex-row items-center gap-3 ${Platform.OS === 'web' ? 'pt-4' : 'pt-12'}`}>
+          <TouchableOpacity
+            onPress={() => setActiveGroupId(null)}
+            className="w-9 h-9 bg-surface-card border border-surface-border rounded-xl items-center justify-center flex-shrink-0"
+          >
+            <FontAwesome name="arrow-left" size={13} color="var(--color-text-main)" />
+          </TouchableOpacity>
+          <View
+            className="w-10 h-10 rounded-xl items-center justify-center flex-shrink-0"
+            style={{ backgroundColor: activeGroup.avatar_color + '22' }}
+          >
+            <Text style={{ color: activeGroup.avatar_color, fontSize: 14, fontWeight: '900' }}>
+              {getInitials(activeGroup.name)}
+            </Text>
+          </View>
+          <View className="flex-1 min-w-0">
+            <Text className="text-typography-main font-black text-base" numberOfLines={1}>{activeGroup.name}</Text>
+            <Text className="text-typography-muted text-xs">{activeGroup.member_count} members</Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => setShowManageMembers(true)}
+            className="px-3 py-2 bg-surface-card border border-surface-border rounded-xl flex-row items-center gap-1.5"
+          >
+            <FontAwesome name="users" size={11} color="var(--color-text-muted)" />
+            <Text className="text-typography-muted text-xs font-bold">Members</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* ── Search ── */}
       <View className="px-6 mb-4 flex-row items-center gap-3">
@@ -697,7 +1436,7 @@ function FileHubAdaptiveInner() {
           <TextInput
             value={search}
             onChangeText={setSearch}
-            placeholder="Search files..."
+            placeholder={mode === 'groups' && activeGroupId ? 'Search group files…' : 'Search files…'}
             placeholderTextColor="var(--color-text-dim)"
             className="flex-1 text-typography-main text-sm"
           />
@@ -707,17 +1446,17 @@ function FileHubAdaptiveInner() {
             </TouchableOpacity>
           )}
         </View>
-        <TouchableOpacity onPress={refresh} className="w-11 h-11 bg-surface-card border border-surface-border rounded-2xl items-center justify-center">
+        <TouchableOpacity onPress={handleRefresh} className="w-11 h-11 bg-surface-card border border-surface-border rounded-2xl items-center justify-center">
           <FontAwesome name="refresh" size={13} color="var(--color-primary)" />
         </TouchableOpacity>
       </View>
 
       {/* ── Tabs ── */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-shrink-0 mb-3" contentContainerStyle={{ paddingHorizontal: 24, gap: 8, flexDirection: 'row' }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-shrink-0 mb-3" contentContainerStyle={{ paddingHorizontal: 24, gap: 8, flexDirection: 'row', alignItems: 'center' }}>
         {tabs.map(tab => (
           <TouchableOpacity
             key={tab.key}
-            onPress={() => { setMode(tab.key); }}
+            onPress={() => handleTabChange(tab.key)}
             className={`flex-row items-center gap-1.5 px-5 py-2.5 rounded-2xl border ${
               mode === tab.key
                 ? 'bg-brand-primary/10 border-brand-primary/30'
@@ -734,60 +1473,158 @@ function FileHubAdaptiveInner() {
         ))}
       </ScrollView>
 
-      {/* ── Tag filter ── */}
-      {allTags.length > 0 && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-shrink-0 mb-3" contentContainerStyle={{ paddingHorizontal: 24, gap: 8, flexDirection: 'row' }}>
-          {allTags.map(tag => (
+      {/* ── Tag filter (shown when viewing files) ── */}
+      {(mode !== 'groups' || activeGroupId) && allTags.length > 0 && (
+        <View className="flex-row items-center flex-shrink-0 mb-3">
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 24, gap: 8, flexDirection: 'row', alignItems: 'center' }}>
+            {allTags.map(tag => {
+              const c = getTagColor(tag);
+              const isSelected = selectedTag === tag;
+              return (
+                <TouchableOpacity
+                  key={tag}
+                  onPress={() => setSelectedTag(isSelected ? null : tag)}
+                  style={isSelected ? undefined : { backgroundColor: c.bg, borderColor: c.border }}
+                  className={`px-3 py-1.5 rounded-full border ${isSelected ? 'bg-brand-primary/10 border-brand-primary/30' : ''}`}
+                >
+                  <Text style={isSelected ? undefined : { color: c.text }} className={`text-[11px] font-bold ${isSelected ? 'text-brand-primary' : ''}`}>{tag}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+          <TouchableOpacity
+            onPress={() => setShowManageTags(true)}
+            className="px-3 py-2 flex-shrink-0"
+          >
+            <FontAwesome name="tags" size={14} color="var(--color-text-muted)" />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* ── GROUPS mode — list view ── */}
+      {mode === 'groups' && !activeGroupId && (
+        <>
+          {/* Groups list header */}
+          <View className="px-6 mb-3 flex-row items-center justify-between">
+            <Text className="text-typography-main font-black text-lg">Your Groups</Text>
             <TouchableOpacity
-              key={tag}
-              onPress={() => setSelectedTag(selectedTag === tag ? null : tag)}
-              className={`px-3 py-1.5 rounded-full border ${selectedTag === tag ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-card border-surface-border'}`}
+              onPress={() => setShowCreateGroup(true)}
+              className="flex-row items-center gap-2 bg-brand-primary px-4 py-2 rounded-xl"
             >
-              <Text className={`text-[11px] font-bold ${selectedTag === tag ? 'text-brand-primary' : 'text-typography-muted'}`}>{tag}</Text>
+              <FontAwesome name="plus" size={11} color="#fff" />
+              <Text className="text-white font-black text-xs">New Group</Text>
             </TouchableOpacity>
-          ))}
-        </ScrollView>
-      )}
-
-      {/* ── File list ── */}
-      {loading ? (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="var(--color-primary)" />
-        </View>
-      ) : files.length === 0 ? (
-        <View className="flex-1 items-center justify-center px-6">
-          <View className="bg-surface-card p-10 rounded-[2.5rem] border border-surface-border items-center w-full">
-            <FontAwesome name="inbox" size={32} color="var(--color-text-muted)" />
-            <Text className="text-typography-main text-xl font-black mt-4 mb-2 text-center">
-              {search ? 'No Results' : mode === 'inbox' ? 'Inbox Empty' : mode === 'sent' ? 'Nothing Sent' : 'No Broadcasts'}
-            </Text>
-            <Text className="text-typography-muted text-sm text-center leading-relaxed">
-              {search
-                ? `No files match "${search}".`
-                : mode === 'inbox'
-                ? 'Files sent directly to you will appear here.'
-                : mode === 'sent'
-                ? 'Files you send will appear here.'
-                : 'Company-wide broadcasts will appear here.'}
-            </Text>
           </View>
-        </View>
-      ) : (
-        <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false}>
-          {files.map(file => (
-            <FileCard key={file.id} file={file} mode={mode} onPress={() => setSelectedFile(file)} />
-          ))}
-          <View style={{ height: 100 }} />
-        </ScrollView>
+
+          {groupsLoading ? (
+            <View className="flex-1 items-center justify-center">
+              <ActivityIndicator size="large" color="var(--color-primary)" />
+            </View>
+          ) : groups.length === 0 ? (
+            <View className="flex-1 items-center justify-center px-6">
+              <View className="bg-surface-card p-10 rounded-[2.5rem] border border-surface-border items-center w-full">
+                <View className="w-16 h-16 bg-brand-primary/10 rounded-full border border-brand-primary/20 items-center justify-center mb-4">
+                  <FontAwesome name="users" size={24} color="var(--color-primary)" />
+                </View>
+                <Text className="text-typography-main text-xl font-black mt-2 mb-2 text-center">No Groups Yet</Text>
+                <Text className="text-typography-muted text-sm text-center leading-relaxed mb-6">
+                  Create a group to share files with your team in a persistent shared space.
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setShowCreateGroup(true)}
+                  className="bg-brand-primary px-6 py-3 rounded-2xl flex-row items-center gap-2"
+                >
+                  <FontAwesome name="plus" size={12} color="#fff" />
+                  <Text className="text-white font-black">Create First Group</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false}>
+              {groups.map(g => (
+                <GroupCard key={g.id} group={g} onPress={() => setActiveGroupId(g.id)} />
+              ))}
+              <View style={{ height: 100 }} />
+            </ScrollView>
+          )}
+        </>
       )}
 
-      {/* ── FAB ── */}
-      <TouchableOpacity
-        onPress={() => setShowUpload(true)}
-        className="absolute right-6 bottom-8 w-14 h-14 bg-brand-primary rounded-full items-center justify-center premium-shadow"
-      >
-        <FontAwesome name="plus" size={20} color="#fff" />
-      </TouchableOpacity>
+      {/* ── GROUPS mode — group file list ── */}
+      {mode === 'groups' && activeGroupId && (
+        <>
+          {displayLoading ? (
+            <View className="flex-1 items-center justify-center">
+              <ActivityIndicator size="large" color="var(--color-primary)" />
+            </View>
+          ) : displayFiles.length === 0 ? (
+            <View className="flex-1 items-center justify-center px-6">
+              <View className="bg-surface-card p-10 rounded-[2.5rem] border border-surface-border items-center w-full">
+                <FontAwesome name="files-o" size={32} color="var(--color-text-muted)" />
+                <Text className="text-typography-main text-xl font-black mt-4 mb-2 text-center">
+                  {search ? 'No Results' : 'No Files Yet'}
+                </Text>
+                <Text className="text-typography-muted text-sm text-center leading-relaxed">
+                  {search ? `No files match "${search}".` : 'Upload the first file to this group.'}
+                </Text>
+              </View>
+            </View>
+          ) : (
+            <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false}>
+              {displayFiles.map(file => (
+                <FileCard key={file.id} file={file} mode="groups" onPress={() => setSelectedFile(file)} />
+              ))}
+              <View style={{ height: 100 }} />
+            </ScrollView>
+          )}
+        </>
+      )}
+
+      {/* ── Inbox / Sent / Broadcast file list ── */}
+      {mode !== 'groups' && (
+        <>
+          {displayLoading ? (
+            <View className="flex-1 items-center justify-center">
+              <ActivityIndicator size="large" color="var(--color-primary)" />
+            </View>
+          ) : displayFiles.length === 0 ? (
+            <View className="flex-1 items-center justify-center px-6">
+              <View className="bg-surface-card p-10 rounded-[2.5rem] border border-surface-border items-center w-full">
+                <FontAwesome name="inbox" size={32} color="var(--color-text-muted)" />
+                <Text className="text-typography-main text-xl font-black mt-4 mb-2 text-center">
+                  {search ? 'No Results' : mode === 'inbox' ? 'Inbox Empty' : mode === 'sent' ? 'Nothing Sent' : 'No Broadcasts'}
+                </Text>
+                <Text className="text-typography-muted text-sm text-center leading-relaxed">
+                  {search
+                    ? `No files match "${search}".`
+                    : mode === 'inbox'
+                    ? 'Files sent directly to you will appear here.'
+                    : mode === 'sent'
+                    ? 'Files you send will appear here.'
+                    : 'Company-wide broadcasts will appear here.'}
+                </Text>
+              </View>
+            </View>
+          ) : (
+            <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false}>
+              {displayFiles.map(file => (
+                <FileCard key={file.id} file={file} mode={mode} onPress={() => setSelectedFile(file)} />
+              ))}
+              <View style={{ height: 100 }} />
+            </ScrollView>
+          )}
+        </>
+      )}
+
+      {/* ── FAB — hidden on groups list, shown elsewhere ── */}
+      {(mode !== 'groups' || activeGroupId) && (
+        <TouchableOpacity
+          onPress={() => setShowUpload(true)}
+          className="absolute right-6 bottom-8 w-14 h-14 bg-brand-primary rounded-full items-center justify-center premium-shadow"
+        >
+          <FontAwesome name="plus" size={20} color="#fff" />
+        </TouchableOpacity>
+      )}
 
       {/* ── File detail sheet ── */}
       <FileDetailSheet
@@ -801,9 +1638,33 @@ function FileHubAdaptiveInner() {
       <UploadSheet
         visible={showUpload}
         onClose={() => setShowUpload(false)}
-        onUploaded={refresh}
+        onUploaded={() => { mode === 'groups' && activeGroupId ? refreshGroupFiles() : refresh(); }}
         hasPermission={hasPermission}
         profile={profile}
+        activeGroup={activeGroup ? { id: activeGroup.id, name: activeGroup.name, avatar_color: activeGroup.avatar_color } : null}
+      />
+
+      {/* ── Group create sheet ── */}
+      <GroupCreateSheet
+        visible={showCreateGroup}
+        onClose={() => setShowCreateGroup(false)}
+        onCreated={(id) => { refreshGroups(); setActiveGroupId(id); }}
+      />
+
+      {/* ── Group members sheet ── */}
+      <GroupMembersSheet
+        visible={showManageMembers}
+        group={activeGroup}
+        currentUserId={user?.id}
+        onClose={() => setShowManageMembers(false)}
+        onMembersChanged={refreshGroups}
+      />
+
+      {/* ── Tags manage sheet ── */}
+      <TagsManageSheet
+        visible={showManageTags}
+        onClose={() => setShowManageTags(false)}
+        onChanged={handleRefresh}
       />
     </View>
   );
