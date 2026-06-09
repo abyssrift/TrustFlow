@@ -80,8 +80,9 @@ export default function DashboardScreenWeb() {
   const [config, setConfig] = useState<DashboardConfig | null>(null);
   const [widgetRefreshKey, setWidgetRefreshKey] = useState(0);
 
-  const { user, profile } = useAuth();
+  const { user, profile, hasPermission } = useAuth();
   const router = useRouter();
+  const canViewIntelligence = hasPermission('report.view');
 
   const displayName = useMemo(() => {
     return profile?.display_name || profile?.full_name || user?.user_metadata?.full_name || 'Operator';
@@ -530,9 +531,11 @@ export default function DashboardScreenWeb() {
                     <View className="w-1.5 h-4 bg-brand-primary rounded-full" />
                     <Text className="text-typography-main text-sm font-black uppercase tracking-widest">Recent Activity</Text>
                   </View>
-                  <TouchableOpacity onPress={() => router.push('/pipelines')}>
-                    <FontAwesome name="chevron-right" size={10} color="var(--color-brand-primary)" />
-                  </TouchableOpacity>
+                  {canViewIntelligence && (
+                    <TouchableOpacity onPress={() => router.push('/intelligence' as any)}>
+                      <FontAwesome name="chevron-right" size={10} color="var(--color-brand-primary)" />
+                    </TouchableOpacity>
+                  )}
                 </View>
 
                 {activity.length === 0 ? (

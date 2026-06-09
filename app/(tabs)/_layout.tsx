@@ -6,6 +6,7 @@ import { cssInterop } from 'react-native-css-interop';
 
 import { useNotifications } from '@/contexts/NotificationsContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useUnreadNotificationAttention } from '@/hooks/useUnreadNotificationAttention';
 import { NATIVE_THEME_COLORS, TAB_BAR_HEIGHT } from '@/lib/layout';
 
 // Interop for Icons to support Tailwind colors
@@ -26,6 +27,7 @@ function TabBarIcon(props: {
 
 function NotificationBell() {
   const { unreadCount } = useNotifications();
+  useUnreadNotificationAttention(unreadCount);
   return (
     <Link href="/modal" asChild>
       <Pressable>
@@ -38,7 +40,7 @@ function NotificationBell() {
                 style={{ minWidth: 16, height: 16, paddingHorizontal: 3 }}
               >
                 <Text className="text-white text-[9px] font-black leading-none">
-                  {unreadCount > 99 ? '99+' : unreadCount}
+                  +{unreadCount > 99 ? '99' : unreadCount}
                 </Text>
               </View>
             )}

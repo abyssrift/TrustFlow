@@ -16,6 +16,15 @@ export function useFileHubBadge() {
     fetchCount();
     if (!user?.id) return;
 
+    const handleUnreadCountEvent = (event: Event) => {
+      const customEvent = event as CustomEvent<{ count?: number }>;
+      if (typeof customEvent.detail?.count === 'number') {
+        setInboxUnread(customEvent.detail.count);
+      } else {
+        fetchCount();
+      }
+    };
+
     const channel = supabase
       .channel(`filehub_badge:${user.id}`)
       .on(
@@ -30,7 +39,16 @@ export function useFileHubBadge() {
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('filehub:unread-count', handleUnreadCountEvent);
+    }
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('filehub:unread-count', handleUnreadCountEvent);
+      }
+      supabase.removeChannel(channel);
+    };
   }, [user?.id, fetchCount]);
 
   return { inboxUnread };

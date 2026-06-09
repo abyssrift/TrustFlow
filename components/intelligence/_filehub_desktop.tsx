@@ -1,5 +1,5 @@
-import { useAuth } from '@/contexts/AuthContext';
 import { useAlert } from '@/contexts/AlertContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { FileActivity, FileHubFile, FileHubFolder, FileHubGroup, FileHubGroupMember, FileHubMode, FileHubProvider, useFileHub } from '@/contexts/FileHubContext';
 import { openStorageFile } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
@@ -33,7 +33,7 @@ function relativeDate(dateStr: string): string {
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
   if (diff < 86400 * 7) return `${Math.floor(diff / 86400)}d ago`;
-  if (diff < 86400 * 30) return `${Math.floor(diff / 7)}w ago`;
+  if (diff < 86400 * 30) return `${Math.floor(diff / (86400 * 7))}w ago`;
   return new Date(dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
@@ -1550,6 +1550,7 @@ function FileHubDesktopInner() {
     files, folders, loading,
     inboxUnreadCount,
     refresh,
+    markAllRead,
     checkDuplicate,
     groups, groupsLoading,
     activeGroupId, setActiveGroupId,
@@ -1945,6 +1946,30 @@ function FileHubDesktopInner() {
           {mode !== 'groups' && (
             <>
               <FolderPanel />
+
+              {mode === 'inbox' && inboxUnreadCount > 0 && (
+                <View className="px-6 pt-4 pb-3">
+                  <View className="flex-row items-center justify-between gap-4 rounded-2xl border border-brand-primary/20 bg-brand-primary/5 px-5 py-4">
+                    <View className="min-w-0 flex-1">
+                      <Text className="text-brand-primary text-[10px] font-black uppercase tracking-[0.25em] mb-0.5">
+                        Inbox
+                      </Text>
+                      <Text className="text-typography-main text-base font-black tracking-tight">
+                        {inboxUnreadCount} unread file{inboxUnreadCount === 1 ? '' : 's'}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={markAllRead}
+                      className="flex-row items-center gap-2 bg-brand-primary px-4 py-2.5 rounded-xl shrink-0"
+                    >
+                      <FontAwesome name="check" size={11} color="#fff" />
+                      <Text className="text-white font-black text-xs tracking-wide uppercase">
+                        Read All
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
 
               {allTags.length > 0 && (
                 <View className="flex-row items-center border-b border-surface-border flex-shrink-0">

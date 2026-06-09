@@ -75,6 +75,7 @@ type FileHubContextType = {
   inboxUnreadCount: number;
   refresh: () => void;
   markRead: (fileId: string) => Promise<void>;
+  markAllRead: () => Promise<void>;
   hideFile: (fileId: string) => Promise<void>;
   deleteFile: (fileId: string) => Promise<void>;
   createFolder: (name: string) => Promise<void>;
@@ -144,6 +145,15 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
   const setSelectedFolderId = useCallback((id: string | null) => setSelectedFolderIdState(id), []);
   const setSelectedTag = useCallback((tag: string | null) => setSelectedTagState(tag), []);
   const setActiveGroupId = useCallback((id: string | null) => setActiveGroupIdState(id), []);
+
+  const emitUnreadCount = useCallback((count: number) => {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(
+      new CustomEvent('filehub:unread-count', {
+        detail: { count },
+      })
+    );
+  }, []);
 
   // ── Inbox / Sent / Broadcast ────────────────────────────────────────────────
   const fetchFiles = useCallback(async () => {
@@ -283,13 +293,40 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
   const markRead = useCallback(async (fileId: string) => {
     const { error } = await supabase.rpc('rpc_filehub_mark_read', { p_file_id: fileId });
     if (!error) {
-      setFiles(prev => prev.map(f =>
-        f.id === fileId
-          ? { ...f, recipient_state: { read_at: new Date().toISOString(), archived_at: f.recipient_state?.archived_at ?? null } }
-          : f
-      ));
-      setInboxUnreadCount(prev => Math.max(0, prev - 1));
+      setFiles(prev => prev.map(f => {
+        if (f.id !== fileId) return f;
+        return {
+          ...f,
+          recipient_state: {
+            read_at: new Date().toISOString(),
+            archived_at: f.recipient_state?.archived_at ?? null,
+          },
+        };
+      }));
+      setInboxUnreadCount(prev => {
+        const next = Math.max(0, prev - 1);
+        emitUnreadCount(next);
+        return next;
+      });
     }
+  }, []);
+
+  const markAllRead = useCallback(async () => {
+    const now = new Date().toISOString();
+    setFiles(prev => prev.map(f => (
+      f.recipient_state?.read_at
+        ? f
+        : { ...f, recipient_state: { read_at: now, archived_at: f.recipient_state?.archived_at ?? null } }
+    )));
+    setInboxUnreadCount(0);
+    emitUnreadCount(0);
+
+    const { error } = await supabase.rpc('rpc_filehub_mark_all_read');
+    if (error) {
+      Alert.alert('Error', error.message);
+      return;
+    }
+    refresh();
   }, []);
 
   const hideFile = useCallback(async (fileId: string) => {
@@ -375,7 +412,7 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
       files, folders, loading,
       inboxUnreadCount,
       refresh,
-      markRead, hideFile, deleteFile,
+      markRead, markAllRead, hideFile, deleteFile,
       createFolder, renameFolder, deleteFolder,
       tagSuggestions, checkDuplicate,
       groups, groupsLoading,
