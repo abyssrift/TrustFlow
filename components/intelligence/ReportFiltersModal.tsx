@@ -1,5 +1,6 @@
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 import { FontAwesome } from '@expo/vector-icons';
+import { useThemeColors } from '@/hooks/useThemeColors';
 import React, { useEffect, useState } from 'react';
 import { Modal, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 

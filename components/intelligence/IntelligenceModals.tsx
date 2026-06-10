@@ -1,11 +1,13 @@
 import { FontAwesome } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
+import { useThemeColors } from '@/hooks/useThemeColors';
 import { Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { IntelligencePicker } from './IntelligenceCommon';
 
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 
 export const TargetCreationModal = ({ visible, onClose, onConfirm, pipelines, stages }: any) => {
+  const colors = useThemeColors();
   const [type, setType] = useState('performance');
   const [p, setP] = useState<string | null>(null);
   const [s, setS] = useState<string | null>(null);
@@ -106,6 +108,7 @@ const QUICK_REPORT_TYPES = [
 ];
 
 export const ReportConfigModal = ({ visible, onClose, onConfirm, pipelines, teams, users, initialDays }: any) => {
+  const colors = useThemeColors();
   const [d, setD]       = useState(initialDays);
   const [p, setP]       = useState<string | null>(null);
   const [t, setT]       = useState<string | null>(null);
@@ -149,7 +152,7 @@ export const ReportConfigModal = ({ visible, onClose, onConfirm, pipelines, team
                   onPress={() => setType(rt.value)}
                   className={`flex-row items-center gap-2 px-4 py-3 rounded-2xl border transition-all ${type === rt.value ? 'bg-brand-primary border-brand-primary' : 'border-surface-border bg-surface-background hover:bg-surface-overlay'}`}
                 >
-                  <FontAwesome name={rt.icon as any} size={12} color={type === rt.value ? 'white' : 'rgb(var(--text-muted))'} />
+                  <FontAwesome name={rt.icon as any} size={12} color={type === rt.value ? 'white' : colors.textMuted} />
                   <Text className={`text-[10px] font-black uppercase tracking-widest ${type === rt.value ? 'text-white' : 'text-typography-muted'}`}>{rt.label}</Text>
                 </TouchableOpacity>
               ))}
@@ -252,6 +255,7 @@ export const ReportConfigModal = ({ visible, onClose, onConfirm, pipelines, team
 };
 
 export const WidgetConfigModal = ({ visible, onClose, onSave, currentWidgets }: any) => {
+  const colors = useThemeColors();
   const [selected, setSelected] = useState<string[]>(currentWidgets || []);
   useEffect(() => { if (visible) setSelected(currentWidgets || []); }, [visible, currentWidgets]);
   const library = [
@@ -304,6 +308,7 @@ export const WidgetConfigModal = ({ visible, onClose, onSave, currentWidgets }: 
 };
 
 export const SnapshotDetailModal = ({ visible, onClose, data }: any) => {
+  const colors = useThemeColors();
   if (!data) return null;
   const maskData = (obj: any): any => {
     if (!obj || typeof obj !== 'object') return obj;

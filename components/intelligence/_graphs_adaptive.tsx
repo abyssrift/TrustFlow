@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
+import { useThemeColors } from '@/lib/themeColors';
 import { ActivityIndicator, Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 const PERIOD_OPTS = [
@@ -25,6 +26,7 @@ const fmtSec = (s: number) => {
 // ─── SLA Risk Section ─────────────────────────────────────────────────────────
 
 function SLARiskSection({ data }: { data: any }) {
+  const colors = useThemeColors();
   const router = useRouter();
   if (!data?.sla_risks || data.sla_risks.length === 0) return null;
   return (
@@ -56,6 +58,7 @@ function SLARiskSection({ data }: { data: any }) {
 // ─── Points Over Time Section ─────────────────────────────────────────────────
 
 function PointsSection({ data }: { data: PipelinePointsPeriod[] }) {
+  const colors = useThemeColors();
   const totalPts = data.reduce((s, d) => s + (d.weight_points || 0), 0);
   const maxPts = Math.max(1, ...data.map(d => d.weight_points || 0));
 
@@ -96,6 +99,7 @@ function PointsSection({ data }: { data: PipelinePointsPeriod[] }) {
 // ─── Performance Trends Section ───────────────────────────────────────────────
 
 function TrendsSection({ data }: { data: any }) {
+  const colors = useThemeColors();
   if (!data?.current || !data?.comparison) return null;
   const metrics = [
     { label: 'Throughput Delta',  val: data.current.throughput,              prev: data.comparison.throughput,              suffix: ' units', hBetter: true  },
@@ -135,6 +139,7 @@ function TrendsSection({ data }: { data: any }) {
 // ─── Work Distribution Section ────────────────────────────────────────────────
 
 function WorkDistributionSection({ data }: { data: any }) {
+  const colors = useThemeColors();
   if (!data?.worker_engagement || data.worker_engagement.length === 0) return null;
   const workers = [...data.worker_engagement].sort((a: any, b: any) => b.action_count - a.action_count).slice(0, 6);
   const maxCount = Math.max(1, ...workers.map((w: any) => w.action_count));
@@ -175,6 +180,7 @@ function WorkDistributionSection({ data }: { data: any }) {
 // ─── Quality Integrity Section ────────────────────────────────────────────────
 
 function QualitySection({ data }: { data: any }) {
+  const colors = useThemeColors();
   if (!data?.quality_by_worker || data.quality_by_worker.length === 0) return null;
   const MIN_TASKS = 3;
   const workers = data.quality_by_worker
@@ -227,6 +233,7 @@ function QualitySection({ data }: { data: any }) {
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function IntelligenceGraphsNative() {
+  const colors = useThemeColors();
   const { getPipelineStageDwell, getPipelineThroughput, getPipelinePointsSeries } = useAnalytics();
 
   const [pipelineId, setPipelineId] = useState<string | null>(null);
@@ -308,7 +315,7 @@ export default function IntelligenceGraphsNative() {
 
       {loading ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
         <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false}>
@@ -328,7 +335,7 @@ export default function IntelligenceGraphsNative() {
                 const color = s.is_bottleneck ? '#F59E0B'
                   : (s.is_terminal && s.terminal_type === 'success') ? '#10B981'
                   : s.is_terminal ? '#EF4444'
-                  : 'rgb(var(--brand-primary))';
+                  : colors.primary;
                 return (
                   <View key={s.stage_id} className="mb-3">
                     <View className="flex-row flex-wrap justify-between items-end mb-1 gap-x-2">

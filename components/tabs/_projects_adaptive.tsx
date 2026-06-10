@@ -16,6 +16,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import ProjectFolderModal from '@/components/projects/ProjectFolderModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { TAB_BAR_HEIGHT } from '@/lib/layout';
+import { useThemeColors } from '@/lib/themeColors';
 
 type Project = {
   id: string;
@@ -31,6 +32,7 @@ type Project = {
 };
 
 export default function ProjectsScreen() {
+  const colors = useThemeColors();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -130,7 +132,7 @@ export default function ProjectsScreen() {
       >
         <View className="flex-row items-center justify-between mb-4">
            <View className={`w-12 h-12 rounded-2xl items-center justify-center ${isOverdue ? 'bg-state-danger/10' : 'bg-brand-primary/10'}`}>
-              <FontAwesome name="folder-open" size={20} color={isOverdue ? 'var(--color-danger)' : 'var(--color-primary)'} />
+              <FontAwesome name="folder-open" size={20} color={isOverdue ? colors.danger : colors.primary} />
            </View>
            <View className={`px-3 py-1 rounded-full border ${project.status === 'active' ? 'bg-state-success/10 border-color-success/30' : 'bg-surface-background border-surface-border'}`}>
               <Text className={`text-[10px] font-bold uppercase ${project.status === 'active' ? 'text-state-success' : 'text-typography-muted'}`}>
@@ -140,7 +142,7 @@ export default function ProjectsScreen() {
         </View>
 
         <View className="flex-row items-center gap-2 mb-1">
-          {project.is_featured && <FontAwesome name="star" size={14} color="var(--color-warning)" />}
+          {project.is_featured && <FontAwesome name="star" size={14} color={colors.warning} />}
           <Text className="text-typography-main text-xl font-bold flex-1" numberOfLines={1}>{project.name}</Text>
         </View>
         
@@ -173,7 +175,7 @@ export default function ProjectsScreen() {
 
         {project.expiry_date && (
            <View className="flex-row items-center mt-4 pt-4 border-t border-surface-border/50">
-              <FontAwesome name="calendar" size={12} color={isOverdue ? 'var(--color-danger)' : 'var(--color-text-muted)'} />
+              <FontAwesome name="calendar" size={12} color={isOverdue ? colors.danger : colors.textMuted} />
               <Text className={`ml-2 text-[10px] font-medium ${isOverdue ? 'text-state-danger' : 'text-typography-muted'}`}>
                 {isOverdue ? 'Expired' : 'Expires'}: {new Date(project.expiry_date).toLocaleDateString()}
               </Text>
@@ -231,7 +233,7 @@ export default function ProjectsScreen() {
             <Switch
               value={showClosed}
               onValueChange={setShowClosed}
-              trackColor={{ false: '#334155', true: 'var(--color-primary)' }}
+              trackColor={{ false: colors.border, true: colors.primary }}
               thumbColor="white"
             />
           </View>
@@ -248,13 +250,13 @@ export default function ProjectsScreen() {
       <ScrollView
         className="flex-1 px-6 pt-6"
         contentContainerStyle={{ paddingBottom: isWeb ? 32 : TAB_BAR_HEIGHT.native + 16 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="var(--color-primary)" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
         <View className={`${isWeb ? 'flex-row flex-wrap mt-2' : ''}`}>
           {filteredProjects.length === 0 ? (
             <View className="w-full items-center justify-center py-24 bg-surface-card rounded-[32px] border border-dashed border-surface-border">
                <View className="w-20 h-20 bg-surface-background rounded-full items-center justify-center mb-4">
-                <FontAwesome name="folder-o" size={32} color="var(--color-text-muted)" style={{ opacity: 0.5 }} />
+                <FontAwesome name="folder-o" size={32} color={colors.textMuted} style={{ opacity: 0.5 }} />
                </View>
                <Text className="text-typography-main text-lg font-bold">No projects available</Text>
                <Text className="text-typography-muted text-sm text-center px-10 mt-2">

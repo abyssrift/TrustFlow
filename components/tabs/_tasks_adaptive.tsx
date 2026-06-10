@@ -11,7 +11,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useSuppressRouteLoading } from '@/contexts/RouteLoadingContext';
 import { TAB_BAR_HEIGHT } from '@/lib/layout';
 import { supabase } from '@/lib/supabase';
-import { getPrimaryColor } from '@/lib/themeColors';
+import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -83,12 +83,12 @@ type Pipeline = {
   is_default?: boolean;
 };
 
-function getPriorityInfo(priority: string) {
+function getPriorityInfo(priority: string, colors: ReturnType<typeof useThemeColors>) {
   switch (priority) {
-    case 'urgent': return { color: 'var(--color-danger)', label: 'Urgent' };
-    case 'high':   return { color: 'var(--color-warning)', label: 'High' };
-    case 'low':    return { color: 'var(--color-success)', label: 'Low' };
-    default:       return { color: 'var(--color-text-muted)', label: 'Normal' };
+    case 'urgent': return { color: colors.danger, label: 'Urgent' };
+    case 'high':   return { color: colors.warning, label: 'High' };
+    case 'low':    return { color: colors.success, label: 'Low' };
+    default:       return { color: colors.textMuted, label: 'Normal' };
   }
 }
 
@@ -122,6 +122,7 @@ function TasksScreen() {
 
    const { width } = useWindowDimensions();
    const { theme: activeTheme } = useTheme();
+   const colors = useThemeColors();
    const router = useRouter();
    const { user, hasPermission, profile } = useAuth();
    const { suppressNext } = useSuppressRouteLoading();
@@ -427,7 +428,7 @@ function TasksScreen() {
     setFilters({ priorities: [], categories: [], projectIds: [], managerIds: [] });
 
   const renderTaskCard = useCallback((task: Task) => {
-    const prio = getPriorityInfo(task.priority);
+    const prio = getPriorityInfo(task.priority, colors);
     return (
       <TouchableOpacity
         key={task.id}
@@ -493,7 +494,7 @@ function TasksScreen() {
                       <Image source={{ uri: activeSessions[task.id][0].avatar || undefined }} className="w-full h-full" />
                    ) : (
                       <View className="flex-1 items-center justify-center bg-brand-primary/20">
-                         <Text className="text-brand-primary text-[8px] font-black">{activeSessions[task.id][0].name.charAt(0)}</Text>
+                          <Text className="text-brand-primary text-[8px] font-black">{activeSessions[task.id][0].name.charAt(0)}</Text>
                       </View>
                    )}
                 </View>
@@ -521,7 +522,7 @@ function TasksScreen() {
         </View>
       </TouchableOpacity>
     );
-  }, [router, hasPermission, profile?.is_owner, kanban, activeSessions, stages, stageActions, user?.id, handleOpenAssignments, silentRefresh]);
+  }, [router, hasPermission, profile?.is_owner, kanban, activeSessions, stages, stageActions, user?.id, handleOpenAssignments, silentRefresh, colors]);
 
   const renderStageColumn = (stage: Stage) => {
     const stageTasks = tasks.filter(t => {
@@ -643,7 +644,7 @@ function TasksScreen() {
       <View className="flex-1 bg-surface-background items-center justify-center px-6">
         <View className="bg-surface-card w-full p-8 rounded-[32px] border border-surface-border items-center premium-shadow">
           <View className="w-20 h-20 bg-brand-primary/10 rounded-full items-center justify-center mb-6">
-            <FontAwesome name="sitemap" size={32} color="var(--color-primary)" />
+            <FontAwesome name="sitemap" size={32} color={colors.primary} />
           </View>
           
           {canManage ? (
@@ -662,7 +663,7 @@ function TasksScreen() {
           ) : (
             <View className="bg-state-info-dim border border-state-info/20 p-5 rounded-2xl w-full">
               <View className="flex-row items-start">
-                <FontAwesome name="info-circle" size={16} color="var(--color-info)" style={{ marginTop: 2 }} />
+                <FontAwesome name="info-circle" size={16} color={colors.info} style={{ marginTop: 2 }} />
                 <Text className="text-typography-main text-sm font-bold ml-3 flex-1 leading-5">
                   Either no pipelines exist now, or they're not privileged enough to see them, contact company Admin
                 </Text>
@@ -754,7 +755,7 @@ function TasksScreen() {
             onPress={() => setShowTools(v => !v)}
             className={`p-2.5 rounded-xl border ${showTools ? 'bg-brand-primary border-brand-primary' : 'bg-brand-primary/10 border-brand-primary/20'}`}
           >
-            <FontAwesome name="wrench" size={15} color={showTools ? 'white' : 'var(--color-primary)'} />
+            <FontAwesome name="wrench" size={15} color={showTools ? 'white' : colors.primary} />
           </TouchableOpacity>
         </View>
 
@@ -786,7 +787,7 @@ function TasksScreen() {
               onPress={() => setMineOnly(v => !v)}
               className={`p-2.5 rounded-xl border ${mineOnly ? 'bg-brand-primary border-brand-primary' : 'bg-brand-primary/10 border-brand-primary/20'}`}
             >
-              <FontAwesome name="user" size={13} color={mineOnly ? 'white' : 'var(--color-primary)'} />
+              <FontAwesome name="user" size={13} color={mineOnly ? 'white' : colors.primary} />
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => {
@@ -796,13 +797,13 @@ function TasksScreen() {
               }}
               className={`p-2.5 rounded-xl border ${showSearch || searchQuery ? 'bg-brand-primary/10 border-brand-primary' : 'bg-brand-primary/10 border-brand-primary/20'}`}
             >
-              <FontAwesome name="search" size={13} color={showSearch || searchQuery ? 'var(--color-primary)' : 'var(--color-text-muted)'} />
+              <FontAwesome name="search" size={13} color={showSearch || searchQuery ? colors.primary : colors.textMuted} />
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setShowFilters(v => !v)}
               className={`p-2.5 rounded-xl border flex-row items-center gap-1.5 ${showFilters || activeFilterCount > 0 ? 'bg-brand-primary/10 border-brand-primary' : 'bg-brand-primary/10 border-brand-primary/20'}`}
             >
-              <FontAwesome name="sliders" size={15} color="var(--color-primary)" />
+              <FontAwesome name="sliders" size={15} color={colors.primary} />
               {activeFilterCount > 0 && (
                 <View className="bg-brand-primary rounded-full w-4 h-4 items-center justify-center">
                   <Text className="text-white text-[9px] font-black">{activeFilterCount}</Text>
@@ -843,7 +844,7 @@ function TasksScreen() {
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholder="Search tasks..."
-            placeholderTextColor="var(--color-text-dim)"
+            placeholderTextColor={colors.textDim}
             className="flex-1 text-typography-main text-sm font-bold"
             returnKeyType="search"
             clearButtonMode="while-editing"
@@ -890,7 +891,7 @@ function TasksScreen() {
                             <FontAwesome
                               name={p.is_default ? 'star' : 'star-o'}
                               size={16}
-                              color={p.is_default ? 'var(--color-primary)' : 'var(--color-text-muted)'}
+                              color={p.is_default ? colors.primary : colors.textMuted}
                             />
                           </TouchableOpacity>
                         )}
@@ -937,7 +938,7 @@ function TasksScreen() {
             <Text className="text-typography-main font-black text-xs uppercase tracking-widest">Filters</Text>
             {activeFilterCount > 0 && (
               <TouchableOpacity onPress={clearFilters} className="flex-row items-center gap-1 bg-state-danger/10 border border-state-danger/20 px-2.5 py-1 rounded-xl">
-                <FontAwesome name="times" size={9} color="var(--color-danger)" />
+                <FontAwesome name="times" size={9} color={colors.danger} />
                 <Text className="text-state-danger text-[9px] font-black uppercase tracking-wider">Clear</Text>
               </TouchableOpacity>
             )}

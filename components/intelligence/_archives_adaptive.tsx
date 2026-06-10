@@ -5,9 +5,11 @@ import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
+import { useThemeColors } from '@/lib/themeColors';
 import { ActivityIndicator, Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function IntelligenceArchivesNative() {
+  const colors = useThemeColors();
   const { hasPermission } = useAuth();
   const router = useRouter();
   const [archives, setArchives] = useState<any[]>([]);
@@ -77,33 +79,33 @@ export default function IntelligenceArchivesNative() {
 
       <View className="px-6 mb-4 flex-row flex-wrap items-center gap-3">
         <View className="flex-1 flex-row items-center bg-surface-card border border-surface-border rounded-2xl px-4 py-3 gap-3">
-          <FontAwesome name="search" size={12} color="rgb(var(--text-muted))" />
+          <FontAwesome name="search" size={12} color={colors.textMuted} />
           <TextInput
             value={search}
             onChangeText={setSearch}
             placeholder="Search archives..."
-            placeholderTextColor="rgb(var(--text-dim))"
+            placeholderTextColor={colors.textDim}
             className="flex-1 text-typography-main text-sm"
           />
           {search.length > 0 && (
             <TouchableOpacity onPress={() => setSearch('')}>
-              <FontAwesome name="times-circle" size={12} color="rgb(var(--text-muted))" />
+              <FontAwesome name="times-circle" size={12} color={colors.textMuted} />
             </TouchableOpacity>
           )}
         </View>
         <TouchableOpacity onPress={fetchArchives} className="w-11 h-11 items-center justify-center bg-surface-card border border-surface-border rounded-2xl">
-          <FontAwesome name="refresh" size={13} color="rgb(var(--brand-primary))" />
+          <FontAwesome name="refresh" size={13} color={colors.primary} />
         </TouchableOpacity>
       </View>
 
       {loading ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : archives.length === 0 ? (
         <View className="flex-1 items-center justify-center px-6">
           <View className="bg-surface-card p-10 rounded-[2.5rem] border border-surface-border items-center w-full">
-            <FontAwesome name="archive" size={32} color="rgb(var(--text-muted))" />
+            <FontAwesome name="archive" size={32} color={colors.textMuted} />
             <Text className="text-typography-main text-xl font-black mt-4 mb-2">
               {search ? 'No Results' : 'Empty Archive'}
             </Text>
@@ -124,7 +126,7 @@ export default function IntelligenceArchivesNative() {
                   <FontAwesome
                     name={archive.entity_type === 'project' ? 'briefcase' : 'tasks'}
                     size={16}
-                    color={isRestored ? 'rgb(var(--state-success))' : 'rgb(var(--brand-primary))'}
+                    color={isRestored ? colors.success : colors.primary}
                   />
                 </View>
                 <View className="flex-1 mr-3">
@@ -136,7 +138,7 @@ export default function IntelligenceArchivesNative() {
                       {new Date(archive.archived_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                     </Text>
                     {isRestored && <View className="bg-state-success/10 px-1.5 py-0.5 rounded"><Text className="text-state-success text-[8px] font-black uppercase">Restored</Text></View>}
-                    {hasIssue && <View className="bg-state-danger/10 px-1.5 py-0.5 rounded flex-row items-center gap-1"><FontAwesome name="warning" size={7} color="rgb(var(--state-danger))" /><Text className="text-state-danger text-[8px] font-black uppercase">Issue</Text></View>}
+                    {hasIssue && <View className="bg-state-danger/10 px-1.5 py-0.5 rounded flex-row items-center gap-1"><FontAwesome name="warning" size={7} color={colors.danger} /><Text className="text-state-danger text-[8px] font-black uppercase">Issue</Text></View>}
                   </View>
                 </View>
                 {!isRestored && !hasIssue && hasPermission('archive.restore') && (

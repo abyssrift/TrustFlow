@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '@/contexts/NotificationsContext';
 import { TAB_BAR_HEIGHT } from '@/lib/layout';
 import { supabase } from '@/lib/supabase';
+import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
@@ -76,6 +77,7 @@ export default function DashboardScreen() {
   const { user, profile } = useAuth();
   const { unreadCount } = useNotifications();
   const router = useRouter();
+  const colors = useThemeColors();
 
   const displayName = useMemo(() => {
     return profile?.display_name || profile?.full_name || user?.user_metadata?.full_name || 'Operator';
@@ -236,7 +238,7 @@ export default function DashboardScreen() {
       className="flex-1 bg-surface-background p-5"
       showsVerticalScrollIndicator={false}
       contentContainerStyle={{ paddingTop: Platform.OS !== 'web' ? 54 : 0, paddingBottom: Platform.OS !== 'web' ? TAB_BAR_HEIGHT.native + 16 : 32 }}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="var(--color-primary)" />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
     >
       <View className="mb-6 mt-4 flex-row justify-between items-start">
         <View className="flex-1 mr-3">
@@ -250,7 +252,7 @@ export default function DashboardScreen() {
             onPress={() => router.push('/modal' as any)}
             className="w-10 h-10 bg-surface-card rounded-full items-center justify-center border border-surface-border flex-shrink-0"
           >
-            <FontAwesome name="bell" size={15} color="var(--color-primary)" />
+            <FontAwesome name="bell" size={15} color={colors.primary} />
             {unreadCount > 0 && (
               <View
                 className="absolute -top-1 -right-1 bg-state-danger rounded-full items-center justify-center"
@@ -266,14 +268,14 @@ export default function DashboardScreen() {
             onPress={() => setShowSettings(true)}
             className="w-10 h-10 bg-surface-card rounded-full items-center justify-center border border-surface-border flex-shrink-0"
           >
-            <FontAwesome name="cog" size={16} color="var(--color-primary)" />
+            <FontAwesome name="cog" size={16} color={colors.primary} />
           </TouchableOpacity>
         </View>
       </View>
 
       {loading && !refreshing ? (
         <View className="items-center justify-center py-24">
-          <ActivityIndicator size="large" color="var(--color-primary)" />
+          <ActivityIndicator size="large" color={colors.primary} />
           <Text className="text-typography-muted mt-3 font-bold uppercase tracking-widest text-[10px]">Loading data...</Text>
         </View>
       ) : (
@@ -283,7 +285,7 @@ export default function DashboardScreen() {
               <View className="flex-row items-center justify-between mb-3">
                 <Text className="text-[10px] text-brand-primary font-black uppercase tracking-widest">Your Pulse</Text>
                 {pulse.is_working && (
-                  <View className="flex-row items-center bg-[var(--color-success)]/10 px-3 py-1.5 rounded-full border border-state-success/20">
+                  <View className="flex-row items-center bg-state-success/10 px-3 py-1.5 rounded-full border border-state-success/20">
                     <View className="w-2 h-2 rounded-full bg-state-success mr-2" />
                     <Text className="text-state-success text-[9px] font-black uppercase tracking-widest">Active</Text>
                   </View>
@@ -315,7 +317,7 @@ export default function DashboardScreen() {
           <View className="flex-row flex-wrap justify-between mb-4">
             <TouchableOpacity onPress={() => router.push('/tasks' as any)} activeOpacity={0.75} className="w-[48%] bg-surface-card p-5 rounded-2xl border border-surface-border mb-4 premium-shadow">
               <View className="w-10 h-10 rounded-xl bg-brand-primary/10 items-center justify-center mb-3 border border-brand-primary/20">
-                <FontAwesome name="tasks" size={16} color="var(--color-primary)" />
+                <FontAwesome name="tasks" size={16} color={colors.primary} />
               </View>
               <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-1">Total</Text>
               <Text className="text-typography-main text-3xl font-black">{stats.totalTasks}</Text>
@@ -323,8 +325,8 @@ export default function DashboardScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity onPress={() => router.push('/tasks' as any)} activeOpacity={0.75} className="w-[48%] bg-surface-card p-5 rounded-2xl border border-surface-border mb-4 premium-shadow">
-              <View className="w-10 h-10 rounded-xl bg-state-warning/10 items-center justify-center mb-3 border border-[var(--color-warning)]/20">
-                <FontAwesome name="hourglass-half" size={14} color="var(--color-warning)" />
+              <View className="w-10 h-10 rounded-xl bg-state-warning/10 items-center justify-center mb-3 border border-state-warning/20">
+                <FontAwesome name="hourglass-half" size={14} color={colors.warning} />
               </View>
               <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-1">In Progress</Text>
               <Text className="text-typography-main text-3xl font-black">{stats.activeNow}</Text>
@@ -333,7 +335,7 @@ export default function DashboardScreen() {
 
             <TouchableOpacity onPress={() => router.push('/intelligence/archives' as any)} activeOpacity={0.75} className="w-[48%] bg-surface-card p-5 rounded-2xl border border-surface-border mb-4 premium-shadow">
               <View className="w-10 h-10 rounded-xl bg-state-success/10 items-center justify-center mb-3 border border-state-success/20">
-                <FontAwesome name="check-circle" size={16} color="var(--color-text-muted)" />
+                <FontAwesome name="check-circle" size={16} color={colors.textMuted} />
               </View>
               <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-1">Completed</Text>
               <Text className="text-typography-main text-3xl font-black">{stats.completed}</Text>
@@ -342,8 +344,8 @@ export default function DashboardScreen() {
 
             {stats.failed > 0 ? (
               <TouchableOpacity onPress={() => router.push('/intelligence/archives' as any)} activeOpacity={0.75} className="w-[48%] bg-surface-card p-5 rounded-2xl border border-surface-border mb-4 premium-shadow">
-                <View className="w-10 h-10 rounded-xl bg-state-danger/10 items-center justify-center mb-3 border border-[var(--color-danger)]/20">
-                  <FontAwesome name="times-circle" size={16} color="var(--color-danger)" />
+                <View className="w-10 h-10 rounded-xl bg-state-danger/10 items-center justify-center mb-3 border border-state-danger/20">
+                  <FontAwesome name="times-circle" size={16} color={colors.danger} />
                 </View>
                 <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-1">Failed</Text>
                 <Text className="text-typography-main text-3xl font-black">{stats.failed}</Text>
@@ -351,8 +353,8 @@ export default function DashboardScreen() {
               </TouchableOpacity>
             ) : (
               <TouchableOpacity onPress={() => router.push('/tasks' as any)} activeOpacity={0.75} className="w-[48%] bg-surface-card p-5 rounded-2xl border border-surface-border mb-4 premium-shadow">
-                <View className="w-10 h-10 rounded-xl bg-state-info/10 items-center justify-center mb-3 border border-[var(--color-info)]/20">
-                  <FontAwesome name="bolt" size={16} color="var(--color-info)" />
+                <View className="w-10 h-10 rounded-xl bg-state-info/10 items-center justify-center mb-3 border border-state-info/20">
+                  <FontAwesome name="bolt" size={16} color={colors.info} />
                 </View>
                 <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-1">Live Sessions</Text>
                 <Text className="text-typography-main text-3xl font-black">{stats.activeSessions}</Text>
@@ -427,7 +429,7 @@ export default function DashboardScreen() {
                 <Text className="text-typography-main text-sm font-black uppercase tracking-widest">Recent Activity</Text>
               </View>
               <TouchableOpacity onPress={() => router.push('/intelligence' as any)}>
-                <FontAwesome name="chevron-right" size={10} color="var(--color-primary)" />
+                <FontAwesome name="chevron-right" size={10} color={colors.primary} />
               </TouchableOpacity>
             </View>
 
@@ -443,7 +445,7 @@ export default function DashboardScreen() {
                     className={`flex-row items-center p-3 ${idx !== activity.length - 1 ? 'border-b border-surface-border/30' : ''}`}
                   >
                     <View className="w-8 h-8 rounded-lg bg-surface-background items-center justify-center mr-3 border border-surface-border">
-                      <FontAwesome name="exchange" size={12} color="var(--color-primary)" />
+                      <FontAwesome name="exchange" size={12} color={colors.primary} />
                     </View>
                     <View className="flex-1">
                       <Text className="text-typography-main font-bold text-[11px]" numberOfLines={1}>
@@ -451,7 +453,7 @@ export default function DashboardScreen() {
                       </Text>
                       <View className="flex-row items-center gap-1">
                         <Text className="text-typography-muted text-[9px] font-black uppercase tracking-tighter" numberOfLines={1}>{entry.fromStage}</Text>
-                        <FontAwesome name="long-arrow-right" size={8} color="var(--color-primary)" />
+                        <FontAwesome name="long-arrow-right" size={8} color={colors.primary} />
                         <Text className="text-brand-primary text-[9px] font-black uppercase tracking-tighter" numberOfLines={1}>{entry.toStage}</Text>
                       </View>
                     </View>
@@ -498,6 +500,7 @@ function DashboardSettingsModal({ visible, onClose, config, onSave }: {
   const [selectedSuccessStages, setSelectedSuccessStages] = useState<string[]>([]);
   const [useAllPipelines, setUseAllPipelines] = useState(true);
   const [loading, setLoading] = useState(false);
+  const colors = useThemeColors();
 
   useEffect(() => {
     if (visible) {
@@ -567,13 +570,13 @@ function DashboardSettingsModal({ visible, onClose, config, onSave }: {
               <Text className="text-typography-muted text-[10px] font-bold uppercase">Pipeline Source Settings</Text>
             </View>
             <TouchableOpacity onPress={onClose} className="w-10 h-10 rounded-full bg-surface-background items-center justify-center border border-surface-border">
-              <FontAwesome name="times" size={14} color="var(--color-text-dim)" />
+              <FontAwesome name="times" size={14} color={colors.textDim} />
             </TouchableOpacity>
           </View>
 
           <ScrollView className="flex-1 p-5">
             {loading ? (
-              <ActivityIndicator size="large" color="var(--color-primary)" className="mt-10" />
+              <ActivityIndicator size="large" color={colors.primary} className="mt-10" />
             ) : (
               <View className="pb-20">
                 {/* All Pipelines Toggle */}
@@ -602,7 +605,7 @@ function DashboardSettingsModal({ visible, onClose, config, onSave }: {
                 {useAllPipelines && (
                   <View className="bg-surface-card p-4 rounded-2xl border border-surface-border mb-6">
                     <View className="flex-row items-center mb-2">
-                      <FontAwesome name="check-circle" size={12} color="var(--color-primary)" />
+                      <FontAwesome name="check-circle" size={12} color={colors.primary} />
                       <Text className="text-brand-primary font-black text-[10px] ml-2 uppercase tracking-widest">Auto Mode Active</Text>
                     </View>
                     <Text className="text-typography-muted text-xs font-medium leading-relaxed">
@@ -660,7 +663,7 @@ function DashboardSettingsModal({ visible, onClose, config, onSave }: {
                                       <FontAwesome
                                         name={isSelected ? "check-circle" : "circle-o"} 
                                         size={18} 
-                                        color={isSelected ? 'var(--color-success)' : 'var(--color-text-dim)'} 
+                                        color={isSelected ? colors.success : colors.textDim} 
                                         style={{ marginRight: 6 }}
                                       />
                                       <Text className={`text-[10px] font-bold mr-1.5 ${isSelected ? 'text-state-success' : 'text-typography-muted'}`}>{s.name}</Text>

@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
+import { useThemeColors } from '@/lib/themeColors';
 import {
   Modal,
   Pressable,
@@ -17,7 +18,7 @@ import {
 import Svg, { Circle } from 'react-native-svg';
 import { generateAndUploadReport } from './reports/generate';
 
-const BRAND = 'rgb(99,102,241)';
+const BRAND = colors.primary;
 const BRAND_DIM = 'rgba(99,102,241,0.15)';
 
 function fmt(s: number) {
@@ -25,6 +26,7 @@ function fmt(s: number) {
 }
 
 function GenerationProgress({ current, total, elapsed }: { current: number; total: number; elapsed: number }) {
+  const colors = useThemeColors();
   const size = 110;
   const stroke = 8;
   const r = (size - stroke) / 2;
@@ -107,6 +109,7 @@ interface ReportGeneratorProps {
 }
 
 export default function ReportGenerator({ visible, onClose, onReportGenerated, isPage = false }: ReportGeneratorProps) {
+  const colors = useThemeColors();
   const { hasPermission, user, profile } = useAuth();
   const router = useRouter();
 
@@ -346,7 +349,7 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
         </View>
         {!isPage && (
           <Pressable onPress={onClose} className="h-10 w-10 items-center justify-center rounded-full bg-surface-background border border-surface-border active:scale-90">
-            <FontAwesome name="close" size={16} color="rgb(var(--brand-accent))" />
+            <FontAwesome name="close" size={16} color={colors.primary} />
           </Pressable>
         )}
       </View>
@@ -356,7 +359,7 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
           <View className="py-10">
             <View className="bg-surface-card p-8 rounded-[2rem] border border-surface-border items-center">
               <View className="w-16 h-16 bg-brand-primary/10 rounded-full items-center justify-center mb-6">
-                <FontAwesome name="file-text-o" size={24} color="rgb(var(--brand-primary))" />
+                <FontAwesome name="file-text-o" size={24} color={colors.primary} />
               </View>
               {hasPermission('pipeline.edit') ? (
                 <>
@@ -375,10 +378,10 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
           <>
             {genError && (
               <View className="bg-state-danger/10 border border-state-danger/30 rounded-2xl px-5 py-4 mb-5 flex-row items-center gap-3">
-                <FontAwesome name="exclamation-circle" size={16} color="rgb(var(--state-danger))" />
+                <FontAwesome name="exclamation-circle" size={16} color={colors.danger} />
                 <Text className="text-state-danger font-bold flex-1 text-sm">{genError}</Text>
                 <TouchableOpacity onPress={() => setGenError(null)}>
-                  <FontAwesome name="times" size={14} color="rgb(var(--state-danger))" />
+                  <FontAwesome name="times" size={14} color={colors.danger} />
                 </TouchableOpacity>
               </View>
             )}
@@ -500,7 +503,7 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
       {/* Leave warning */}
       {loading && (
         <View className="mx-6 mb-0 mt-2 bg-state-warning/10 border border-state-warning/30 rounded-2xl px-5 py-3 flex-row items-center gap-3">
-          <FontAwesome name="warning" size={13} color="rgb(var(--state-warning))" />
+          <FontAwesome name="warning" size={13} color={colors.warning} />
           <Text className="text-state-warning font-semibold text-xs flex-1">
             Don't close this — reports are being generated. Leaving will cancel the remaining jobs.
           </Text>
@@ -550,6 +553,7 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
 // ── TypeCard ──────────────────────────────────────────────────────────────────
 
 function TypeCard({ opt, selected, onPress }: { opt: typeof REPORT_TYPES[number]; selected: boolean; onPress: () => void }) {
+  const colors = useThemeColors();
   return (
     <Pressable onPress={onPress} className={`p-4 mb-3 rounded-2xl border flex-row items-center ${selected ? 'border-brand-primary bg-brand-primary/10' : 'border-surface-border bg-surface-card active:bg-surface-overlay'}`}>
       <View className={`h-10 w-10 items-center justify-center rounded-xl ${selected ? 'bg-brand-primary' : 'bg-surface-background'}`}>
@@ -579,6 +583,7 @@ function TypeParamPanel({ type, params, setParam, toggleMultiUser, pipelines, te
   workers: any[];
   projects: any[];
 }) {
+  const colors = useThemeColors();
   if (type === 'general' || type === 'workflow_analysis') {
     return (
       <>
@@ -662,7 +667,7 @@ function TypeParamPanel({ type, params, setParam, toggleMultiUser, pipelines, te
               ))}
             </View>
             <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-typography-muted mb-2">Periods</Text>
-            <RNTextInput value={params.n_periods || '12'} onChangeText={v => setParam('n_periods', v)} keyboardType="numeric" placeholder="12" className="border border-surface-border bg-surface-card rounded-xl p-4 text-typography-main mb-4" placeholderTextColor="rgb(var(--text-muted))" />
+            <RNTextInput value={params.n_periods || '12'} onChangeText={v => setParam('n_periods', v)} keyboardType="numeric" placeholder="12" className="border border-surface-border bg-surface-card rounded-xl p-4 text-typography-main mb-4" placeholderTextColor={colors.textMuted} />
           </>
         )}
       </>
@@ -686,7 +691,7 @@ function TypeParamPanel({ type, params, setParam, toggleMultiUser, pipelines, te
           ))}
         </View>
         <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-typography-muted mb-2">Periods</Text>
-        <RNTextInput value={params.n_periods || '12'} onChangeText={v => setParam('n_periods', v)} keyboardType="numeric" placeholder="12" className="border border-surface-border bg-surface-card rounded-xl p-4 text-typography-main mb-4" placeholderTextColor="rgb(var(--text-muted))" />
+        <RNTextInput value={params.n_periods || '12'} onChangeText={v => setParam('n_periods', v)} keyboardType="numeric" placeholder="12" className="border border-surface-border bg-surface-card rounded-xl p-4 text-typography-main mb-4" placeholderTextColor={colors.textMuted} />
       </>
     );
   }
@@ -725,7 +730,7 @@ function TypeParamPanel({ type, params, setParam, toggleMultiUser, pipelines, te
                     keyboardType="numeric"
                     placeholder="0.00"
                     className="border border-surface-border bg-surface-card rounded-xl px-3 py-2 text-typography-main text-xs w-24 text-right"
-                    placeholderTextColor="rgb(var(--text-muted))"
+                    placeholderTextColor={colors.textMuted}
                   />
                 </View>
               );
@@ -806,6 +811,7 @@ function TypeParamPanel({ type, params, setParam, toggleMultiUser, pipelines, te
 // ── ChipRow ───────────────────────────────────────────────────────────────────
 
 function ChipRow({ label, options, value, onSelect, placeholder, labelKey = 'name' }: any) {
+  const colors = useThemeColors();
   return (
     <View className="mb-4">
       <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-typography-muted mb-2">{label}</Text>

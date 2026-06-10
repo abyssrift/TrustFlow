@@ -1,4 +1,5 @@
 import { useTheme } from '@/contexts/ThemeContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
 import { NATIVE_THEME_COLORS } from '@/lib/layout';
 import { FontAwesome } from '@expo/vector-icons';
 import React from 'react';
@@ -30,6 +31,7 @@ const SECTION_ICONS: Record<string, React.ComponentProps<typeof FontAwesome>['na
 };
 
 export const SectionToggle = ({ active, onSelect, hasPermission }: { active: string, onSelect: (s: string) => void, hasPermission: (p: string) => boolean }) => {
+  const colors = useThemeColors();
   const sections = ['Radar', 'Targets', 'Archives', 'Analytics'].filter(s => {
     if (s === 'Archives') return hasPermission('archive.view');
     if (s === 'Analytics') return hasPermission('analytics.view');
@@ -47,7 +49,7 @@ export const SectionToggle = ({ active, onSelect, hasPermission }: { active: str
             <FontAwesome
               name={SECTION_ICONS[s] ?? 'circle'}
               size={13}
-              color={active === s.toLowerCase() ? 'white' : 'rgb(var(--text-muted))'}
+              color={active === s.toLowerCase() ? 'white' : colors.textMuted}
             />
           </View>
           <Text className={`font-black text-[10px] uppercase tracking-widest text-center ${active === s.toLowerCase() ? 'text-white' : 'text-typography-muted'}`} numberOfLines={1}>
@@ -75,7 +77,7 @@ export const KPIBoxWeb = ({ label, val, delta }: any) => (
   </View>
 );
 
-const getStatusInfo = (target: any) => {
+const getStatusInfo = (target: any, colors: any) => {
   if (target.status === 'completed') {
     return {
       color: 'var(--color-success)',
@@ -87,7 +89,7 @@ const getStatusInfo = (target: any) => {
   if (target.status === 'expired') {
     return {
       color: 'var(--color-text-dim)',
-      bg: 'rgba(var(--surface-border), 0.2)',
+      bg: (colors.border + '33'),
       label: 'EXPIRED',
       gradient: ['var(--color-text-dim)', 'var(--color-text-muted)']
     };
@@ -128,6 +130,7 @@ const getStatusInfo = (target: any) => {
 };
 
 export const CircularTargetCard = ({ target, onEdit, onClear }: any) => {
+  const colors = useThemeColors();
   const { theme } = useTheme();
   const palette = NATIVE_THEME_COLORS[theme];
   const isVolume = target.target_type === 'volume';
@@ -135,7 +138,7 @@ export const CircularTargetCard = ({ target, onEdit, onClear }: any) => {
     ? Math.min(((target.current_count || 0) / (target.target_quantity || 1)) * 100, 100)
     : 50; // Performance goals currently static 50% for visual
   
-  const status = getStatusInfo(target);
+  const status = getStatusInfo(target, colors);
   const circumference = 2 * Math.PI * 35;
   const strokeDashoffset = circumference - (progress / 100) * circumference;
   const isExpired = status.label === 'EXPIRED' && target.status === 'active';
@@ -303,7 +306,7 @@ export const CircularTargetCardMobile = ({ target, onEdit, onAction }: any) => {
     ? Math.min(((target.current_count || 0) / (target.target_quantity || 1)) * 100, 100)
     : Math.min(((target.active_seconds || 0) / (target.target_active_seconds || 1)) * 100, 100);
   
-  const status = getStatusInfo(target);
+  const status = getStatusInfo(target, colors);
   const circumference = 2 * Math.PI * 35;
   const strokeDashoffset = circumference - (progress / 100) * circumference;
   

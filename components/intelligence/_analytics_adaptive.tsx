@@ -6,6 +6,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
+import { useThemeColors } from '@/lib/themeColors';
 import {
   ActivityIndicator,
   Image,
@@ -47,6 +48,7 @@ const PRESETS = [
 function CalendarModal({ visible, title, value, onSelect, onClose }: {
   visible: boolean; title: string; value: string; onSelect: (d: string) => void; onClose: () => void;
 }) {
+  const colors = useThemeColors();
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       {/* Full-screen dimmed backdrop — tap anywhere outside the card to close */}
@@ -84,6 +86,7 @@ function CalendarModal({ visible, title, value, onSelect, onClose }: {
 function DateRangeControls({ from, to, setFrom, setTo }: {
   from: string; to: string; setFrom: (d: string) => void; setTo: (d: string) => void;
 }) {
+  const colors = useThemeColors();
   const [activePreset, setActivePreset] = useState<number | null>(30);
   const [showFrom, setShowFrom] = useState(false);
   const [showTo, setShowTo] = useState(false);
@@ -148,6 +151,7 @@ function DateRangeControls({ from, to, setFrom, setTo }: {
 // ─── Throughput SVG Bar Chart ─────────────────────────────────────────────────
 
 function ThroughputChart({ data }: { data: ThroughputPeriod[] }) {
+  const colors = useThemeColors();
   const [width, setWidth] = useState(0);
   const chartData = [...data].reverse().slice(0, 10);
   const chartH = 180;
@@ -236,6 +240,7 @@ function ThroughputChart({ data }: { data: ThroughputPeriod[] }) {
 // ─── Stage Dwell Horizontal Bar Chart ────────────────────────────────────────
 
 function DwellChart({ data }: { data: StageDwell[] }) {
+  const colors = useThemeColors();
   const [width, setWidth] = useState(0);
   const sorted = [...data].sort((a, b) => a.stage_position - b.stage_position);
   const maxSec = Math.max(1, ...sorted.map(s => s.avg_seconds));
@@ -261,7 +266,7 @@ function DwellChart({ data }: { data: StageDwell[] }) {
           s.is_bottleneck ? 'rgb(245,158,11)' :
           (s.is_terminal && s.terminal_type === 'success') ? 'rgb(34,197,94)' :
           s.is_terminal ? 'rgb(239,68,68)' :
-          'rgb(99,102,241)';
+          colors.primary;
         const colorFaded = color.replace('rgb', 'rgba').replace(')', ', 0.45)');
 
         return (
@@ -290,7 +295,7 @@ function DwellChart({ data }: { data: StageDwell[] }) {
           { color: 'rgb(245,158,11)', label: 'Bottleneck' },
           { color: 'rgb(34,197,94)',  label: 'Success' },
           { color: 'rgb(239,68,68)', label: 'Failure' },
-          { color: 'rgb(99,102,241)', label: 'Normal' },
+          { color: colors.primary, label: 'Normal' },
         ].map(l => (
           <View key={l.label} className="flex-row items-center gap-1">
             <View className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: l.color }} />
@@ -305,6 +310,7 @@ function DwellChart({ data }: { data: StageDwell[] }) {
 // ─── Pipeline Tab ─────────────────────────────────────────────────────────────
 
 function PipelineTab() {
+  const colors = useThemeColors();
   const { getPipelineStageDwell, getPipelineThroughput } = useAnalytics();
   const [pipelines, setPipelines]       = useState<any[]>([]);
   const [selectedPipeline, setSelected] = useState<string | null>(null);
@@ -410,6 +416,7 @@ function PipelineTab() {
 // ─── Personnel Tab ────────────────────────────────────────────────────────────
 
 function PersonnelTab() {
+  const colors = useThemeColors();
   const { comparePersonnel } = useAnalytics();
   const [users, setUsers]       = useState<any[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
@@ -568,6 +575,7 @@ function PersonnelTab() {
 // ─── Root Screen ──────────────────────────────────────────────────────────────
 
 export default function AdminAnalyticsNative() {
+  const colors = useThemeColors();
   const { hasPermission, permissionsLoaded } = useAuth();
   const [activeTab, setActiveTab] = useState<AdminTab>('pipeline');
 

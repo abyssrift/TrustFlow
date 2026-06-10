@@ -12,6 +12,7 @@ import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useThemeColors } from '@/lib/themeColors';
 import { ActivityIndicator, Alert, Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 const STATUS_COLOR: Record<string, string> = {
@@ -38,6 +39,7 @@ const Picker = ({ items, selectedId, onSelect, labelKey = 'name' }: any) => (
 );
 
 const GenerateModal = ({ visible, onClose, onConfirm, pipelines, teams, users }: any) => {
+  const colors = useThemeColors();
   const [days, setDays] = useState(30);
   const [pipeline, setPipeline] = useState<string | null>(null);
   const [team, setTeam]         = useState<string | null>(null);
@@ -85,6 +87,7 @@ const GenerateModal = ({ visible, onClose, onConfirm, pipelines, teams, users }:
 };
 
 export default function IntelligenceReportsNative() {
+  const colors = useThemeColors();
   const router = useRouter();
   const [reports, setReports]   = useState<any[]>([]);
   const [loading, setLoading]   = useState(true);
@@ -162,7 +165,7 @@ export default function IntelligenceReportsNative() {
             <FontAwesome
               name="filter"
               size={13}
-              color={activeFilterCount > 0 ? 'rgb(var(--brand-primary))' : 'rgb(var(--text-muted))'}
+              color={activeFilterCount > 0 ? colors.primary : colors.textMuted}
             />
             {activeFilterCount > 0 && (
               <View className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-brand-primary items-center justify-center">
@@ -171,7 +174,7 @@ export default function IntelligenceReportsNative() {
             )}
           </TouchableOpacity>
           <TouchableOpacity onPress={fetchReports} className="w-11 h-11 items-center justify-center bg-surface-card border border-surface-border rounded-2xl">
-            <FontAwesome name="refresh" size={13} color="rgb(var(--brand-primary))" />
+            <FontAwesome name="refresh" size={13} color={colors.primary} />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.push('/intelligence/ReportGenerator')} className="bg-brand-primary px-5 py-3 rounded-2xl flex-row items-center gap-2">
             <FontAwesome name="file-pdf-o" size={11} color="white" />
@@ -194,7 +197,7 @@ export default function IntelligenceReportsNative() {
               className="flex-row items-center gap-2 bg-brand-primary/10 border border-brand-primary/30 px-3 py-1.5 rounded-full"
             >
               <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest capitalize">{s}</Text>
-              <FontAwesome name="close" size={9} color="rgb(var(--brand-primary))" />
+              <FontAwesome name="close" size={9} color={colors.primary} />
             </TouchableOpacity>
           ))}
           {filters.types.map(t => (
@@ -204,7 +207,7 @@ export default function IntelligenceReportsNative() {
               className="flex-row items-center gap-2 bg-brand-primary/10 border border-brand-primary/30 px-3 py-1.5 rounded-full"
             >
               <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest">{typeLabel(t)}</Text>
-              <FontAwesome name="close" size={9} color="rgb(var(--brand-primary))" />
+              <FontAwesome name="close" size={9} color={colors.primary} />
             </TouchableOpacity>
           ))}
           {describeDateRange(filters) && (
@@ -212,9 +215,9 @@ export default function IntelligenceReportsNative() {
               onPress={() => setFilters(f => ({ ...f, dateFrom: null, dateTo: null }))}
               className="flex-row items-center gap-2 bg-brand-primary/10 border border-brand-primary/30 px-3 py-1.5 rounded-full"
             >
-              <FontAwesome name="calendar" size={9} color="rgb(var(--brand-primary))" />
+              <FontAwesome name="calendar" size={9} color={colors.primary} />
               <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest">{describeDateRange(filters)}</Text>
-              <FontAwesome name="close" size={9} color="rgb(var(--brand-primary))" />
+              <FontAwesome name="close" size={9} color={colors.primary} />
             </TouchableOpacity>
           )}
           <TouchableOpacity
@@ -228,13 +231,13 @@ export default function IntelligenceReportsNative() {
 
       {loading ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : reports.length === 0 ? (
         <View className="flex-1 items-center justify-center px-6">
           <View className="bg-surface-card p-10 rounded-[2.5rem] border border-surface-border items-center w-full">
             <View className="w-16 h-16 bg-brand-primary/10 rounded-full items-center justify-center mb-4">
-              <FontAwesome name="file-pdf-o" size={28} color="rgb(var(--brand-primary))" />
+              <FontAwesome name="file-pdf-o" size={28} color={colors.primary} />
             </View>
             <Text className="text-typography-main text-xl font-black mb-2">No Reports Yet</Text>
             <Text className="text-typography-muted text-center text-sm leading-relaxed mb-6">
@@ -249,7 +252,7 @@ export default function IntelligenceReportsNative() {
         <View className="flex-1 items-center justify-center px-6">
           <View className="bg-surface-card p-10 rounded-[2.5rem] border border-surface-border items-center w-full">
             <View className="w-16 h-16 bg-surface-background rounded-full items-center justify-center mb-4">
-              <FontAwesome name="filter" size={24} color="rgb(var(--text-muted))" />
+              <FontAwesome name="filter" size={24} color={colors.textMuted} />
             </View>
             <Text className="text-typography-main text-xl font-black mb-2">No Matches</Text>
             <Text className="text-typography-muted text-center text-sm leading-relaxed mb-6">
@@ -269,7 +272,7 @@ export default function IntelligenceReportsNative() {
               className="bg-surface-card border border-surface-border rounded-2xl p-5 mb-3 flex-row items-center"
             >
               <View className={`w-11 h-11 rounded-xl items-center justify-center mr-4 ${r.status === 'completed' ? 'bg-state-success/10' : 'bg-surface-background border border-surface-border'}`}>
-                <FontAwesome name="file-text-o" size={16} color={r.status === 'completed' ? 'rgb(var(--state-success))' : 'rgb(var(--brand-primary))'} />
+                <FontAwesome name="file-text-o" size={16} color={r.status === 'completed' ? colors.success : colors.primary} />
               </View>
               <View className="flex-1">
                 <Text className="text-typography-main font-black text-sm">Report #{r.id.substring(0, 8).toUpperCase()}</Text>
@@ -282,7 +285,7 @@ export default function IntelligenceReportsNative() {
                 </View>
               </View>
               {r.status === 'completed' && r.file_url && (
-                <FontAwesome name="download" size={14} color="rgb(var(--brand-primary))" />
+                <FontAwesome name="download" size={14} color={colors.primary} />
               )}
             </TouchableOpacity>
           ))}

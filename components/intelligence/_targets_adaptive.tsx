@@ -6,6 +6,7 @@ import { NATIVE_THEME_COLORS } from '@/lib/layout';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
+import { useThemeColors } from '@/lib/themeColors';
 import {
     ActivityIndicator, Alert, Modal, ScrollView, Text, TextInput,
     TouchableOpacity, View, useWindowDimensions,
@@ -15,6 +16,7 @@ import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 // ── Create Modal ───────────────────────────────────────────────────────────────
 
 const CreateModal = ({ visible, onClose, onConfirm, pipelines, stages }: any) => {
+  const colors = useThemeColors();
   const [type, setType]           = useState('performance');
   const [pipeline, setPipeline]   = useState<string | null>(null);
   const [stage, setStage]         = useState<string | null>(null);
@@ -405,6 +407,7 @@ const TargetCircle = ({
 // ── Main Screen ────────────────────────────────────────────────────────────────
 
 export default function IntelligenceTargetsNative() {
+  const colors = useThemeColors();
   const { profile } = useAuth();
   const { theme: activeTheme } = useTheme();
   const { width: screenWidth } = useWindowDimensions();
@@ -509,7 +512,7 @@ export default function IntelligenceTargetsNative() {
         </View>
         <View className="flex-row flex-wrap justify-end gap-2 max-w-full">
           <TouchableOpacity onPress={fetchTargets} className="w-11 h-11 items-center justify-center bg-surface-card border border-surface-border rounded-2xl">
-            <FontAwesome name="refresh" size={13} color="rgb(var(--brand-primary))" />
+            <FontAwesome name="refresh" size={13} color={colors.primary} />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => setShowCreate(true)} className="bg-brand-primary px-5 py-3 rounded-2xl flex-row items-center gap-2">
             <FontAwesome name="plus" size={11} color="white" />
@@ -520,13 +523,13 @@ export default function IntelligenceTargetsNative() {
 
       {loading ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : targets.length === 0 ? (
         <View className="flex-1 items-center justify-center px-6">
           <View className="bg-surface-card p-10 rounded-[2.5rem] border border-surface-border items-center w-full">
             <View className="w-16 h-16 bg-brand-primary/10 rounded-full items-center justify-center mb-4">
-              <FontAwesome name="bullseye" size={28} color="rgb(var(--brand-primary))" />
+              <FontAwesome name="bullseye" size={28} color={colors.primary} />
             </View>
             <Text className="text-typography-main text-xl font-black mb-2">No Targets Yet</Text>
             <Text className="text-typography-muted text-center text-sm leading-relaxed mb-6">

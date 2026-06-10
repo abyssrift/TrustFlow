@@ -1,9 +1,12 @@
 import { ThemeType } from '@/contexts/ThemeContext';
+import { Platform } from 'react-native';
+import { NATIVE_THEME_COLORS } from '@/lib/layout';
 
 /**
  * Theme color palette system
  * Provides semantic tokens for icons and components
- * These rely on CSS variables defined in global.css
+ * These rely on CSS variables defined in global.css on web,
+ * and NATIVE_THEME_COLORS on native.
  */
 
 type ThemeColorMap = {
@@ -21,9 +24,6 @@ type ThemeColorMap = {
   };
 };
 
-// We map all theme options to the central CSS variables.
-// This ensures that regardless of which theme is selected in TS logic,
-// the actual color rendered is controlled by the global CSS theme state.
 const SEMANTIC_MAP = {
   primary: 'var(--color-primary)',
   secondary: 'var(--color-secondary)',
@@ -37,13 +37,33 @@ const SEMANTIC_MAP = {
   overlay: 'rgb(var(--surface-overlay))',
 };
 
+const buildThemeColors = (theme: ThemeType) => {
+  if (Platform.OS === 'web') {
+    return { ...SEMANTIC_MAP };
+  } else {
+    const colors = NATIVE_THEME_COLORS[theme];
+    return {
+      primary: colors.primary,
+      secondary: colors.secondary,
+      accent: colors.accent,
+      danger: colors.danger,
+      success: colors.success,
+      warning: colors.warning,
+      info: colors.info,
+      muted: colors.textMuted,
+      border: colors.border,
+      overlay: colors.card,
+    };
+  }
+};
+
 export const THEME_COLORS: ThemeColorMap = {
-  indigo: { ...SEMANTIC_MAP },
-  emerald: { ...SEMANTIC_MAP },
-  amber: { ...SEMANTIC_MAP },
-  amethyst: { ...SEMANTIC_MAP },
-  light: { ...SEMANTIC_MAP },
-  dark: { ...SEMANTIC_MAP },
+  indigo: buildThemeColors('indigo'),
+  emerald: buildThemeColors('emerald'),
+  amber: buildThemeColors('amber'),
+  amethyst: buildThemeColors('amethyst'),
+  light: buildThemeColors('light'),
+  dark: buildThemeColors('dark'),
 };
 
 /**
