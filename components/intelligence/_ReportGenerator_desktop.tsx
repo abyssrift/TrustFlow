@@ -442,7 +442,7 @@ export default function ReportGeneratorDesktop() {
                         <TypeCard key={opt.value} opt={opt} selected={selectedTypes.includes(opt.value)} onPress={() => toggleType(opt.value)} />
                       ))}
                     </View>
-                    {/*
+{/*
                     <View className="flex-row items-center gap-3 mb-4">
                       <Text className="text-typography-dim text-[9px] font-semibold uppercase tracking-[0.18em]">Analytics Engine</Text>
                       <View className="flex-1 h-px bg-brand-primary/20" />
@@ -455,9 +455,8 @@ export default function ReportGeneratorDesktop() {
                         <TypeCard key={opt.value} opt={opt} selected={selectedTypes.includes(opt.value)} onPress={() => toggleType(opt.value)} />
                       ))}
                     </View>
-                    */}
+*/}
                   </View>
-
                   {/* Step 2 — Temporal Scope (shown when any selected type uses a date range) */}
                   {needsDateRange && (
                     <View className="bg-surface-card p-10 rounded-[48px] border border-surface-border">

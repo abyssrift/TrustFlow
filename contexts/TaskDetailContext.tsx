@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { taskFlowDebug, taskFlowError } from '@/lib/taskDebug';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useToast } from './ToastContext';
@@ -176,6 +177,7 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
 
   const fetchDetails = useCallback(async () => {
     try {
+      taskFlowDebug('task-detail.fetch:start', { taskId });
       setError(null);
       const [{ data: result, error: rpcError }, { data: childRows }] = await Promise.all([
         supabase.rpc('rpc_get_task_details', { p_task_id: taskId }),
@@ -212,8 +214,27 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
         pending_time_approvals: (result as any).pending_time_approvals ?? [],
         my_manual_time_entry: (result as any).my_manual_time_entry ?? null,
       });
+
+      const payload = result as any;
+      taskFlowDebug('task-detail.fetch:loaded', {
+        taskId,
+        currentStage: payload?.current_stage ? {
+          id: payload.current_stage.id,
+          name: payload.current_stage.name,
+          requires_submission: payload.current_stage.requires_submission,
+          requires_timer: payload.current_stage.requires_timer,
+          is_initial: payload.current_stage.is_initial,
+          is_terminal: payload.current_stage.is_terminal,
+          min_timer_seconds: payload.current_stage.min_timer_seconds,
+        } : null,
+        transitionCount: Array.isArray(payload?.available_transitions) ? payload.available_transitions.length : 0,
+        actionCount: Array.isArray(payload?.stage_actions) ? payload.stage_actions.length : 0,
+        submissionCount: Array.isArray(payload?.submissions) ? payload.submissions.length : 0,
+        workSessionCount: Array.isArray(payload?.work_sessions) ? payload.work_sessions.length : 0,
+        pendingApprovalCount: Array.isArray(payload?.pending_time_approvals) ? payload.pending_time_approvals.length : 0,
+      });
     } catch (err: any) {
-      console.error('[TaskDetail] Fetch error:', err);
+      taskFlowError('task-detail.fetch:error', err, { taskId });
       setError(err.message || 'Failed to load task details');
     } finally {
       setLoading(false);
@@ -222,13 +243,20 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
 
   const executeAction = useCallback(async (actionId: string, payload?: any) => {
     try {
+      taskFlowDebug('task-detail.executeAction:start', {
+        taskId,
+        actionId,
+        payloadKeys: payload ? Object.keys(payload) : [],
+      });
       const { error } = await supabase.rpc('rpc_execute_stage_action', {
         p_task_id: taskId, p_action_id: actionId, p_payload: payload ?? {},
       });
       if (error) throw error;
       await fetchDetails();
+      taskFlowDebug('task-detail.executeAction:success', { taskId, actionId });
       successToast('Task action completed.');
     } catch (err: any) {
+      taskFlowError('task-detail.executeAction:error', err, { taskId, actionId });
       errorToast(err.message || 'Could not complete task action.');
       throw err;
     }
@@ -236,6 +264,12 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
 
   const submitWork = useCallback(async (content: string, transitionId?: string | null, attachments: any[] = []) => {
     try {
+      taskFlowDebug('task-detail.submitWork:start', {
+        taskId,
+        contentLength: content.length,
+        attachmentCount: attachments.length,
+        transitionId: transitionId || null,
+      });
       const { error } = await supabase.rpc('rpc_submit_work', { 
         p_task_id: taskId, 
         p_content: content, 
@@ -244,8 +278,19 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
       });
       if (error) throw error;
       await fetchDetails();
+      taskFlowDebug('task-detail.submitWork:success', {
+        taskId,
+        attachmentCount: attachments.length,
+        transitionId: transitionId || null,
+      });
       successToast('Submission sent.');
     } catch (err: any) {
+      taskFlowError('task-detail.submitWork:error', err, {
+        taskId,
+        contentLength: content.length,
+        attachmentCount: attachments.length,
+        transitionId: transitionId || null,
+      });
       errorToast(err.message || 'Could not submit work.');
       throw err;
     }
@@ -278,11 +323,14 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
 
   const advanceStage = useCallback(async (toStageId: string) => {
     try {
+      taskFlowDebug('task-detail.advanceStage:start', { taskId, toStageId });
       const { error } = await supabase.rpc('rpc_advance_stage', { p_task_id: taskId, p_to_stage_id: toStageId });
       if (error) throw error;
       await fetchDetails();
+      taskFlowDebug('task-detail.advanceStage:success', { taskId, toStageId });
       successToast('Task advanced.');
     } catch (err: any) {
+      taskFlowError('task-detail.advanceStage:error', err, { taskId, toStageId });
       errorToast(err.message || 'Could not advance task.');
       throw err;
     }
@@ -290,14 +338,33 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
 
   const reviewSubmission = useCallback(async (submissionId: string, decision: string, notes?: string, advanceStageId?: string) => {
     try {
+      taskFlowDebug('task-detail.reviewSubmission:start', {
+        taskId,
+        submissionId,
+        decision,
+        advanceStageId: advanceStageId || null,
+        hasNotes: !!notes,
+      });
       const { error } = await supabase.rpc('rpc_review_submission', {
         p_submission_id: submissionId, p_decision: decision,
         p_notes: notes || null, p_advance_stage_id: advanceStageId || null,
       });
       if (error) throw error;
       await fetchDetails();
+      taskFlowDebug('task-detail.reviewSubmission:success', {
+        taskId,
+        submissionId,
+        decision,
+        advanceStageId: advanceStageId || null,
+      });
       successToast(decision === 'approved' ? 'Submission approved.' : decision === 'needs_revision' ? 'Revision requested.' : 'Submission rejected.');
     } catch (err: any) {
+      taskFlowError('task-detail.reviewSubmission:error', err, {
+        taskId,
+        submissionId,
+        decision,
+        advanceStageId: advanceStageId || null,
+      });
       errorToast(err.message || 'Could not review submission.');
       throw err;
     }
@@ -329,6 +396,12 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
 
   const reviewManualTime = useCallback(async (entryId: string, approve: boolean, rejectionReason?: string) => {
     try {
+      taskFlowDebug('task-detail.reviewManualTime:start', {
+        taskId,
+        entryId,
+        approve,
+        hasRejectionReason: !!rejectionReason,
+      });
       const { error } = await supabase.rpc('rpc_review_manual_time', {
         p_entry_id: entryId,
         p_approve: approve,
@@ -336,8 +409,10 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
       });
       if (error) throw error;
       await fetchDetails();
+      taskFlowDebug('task-detail.reviewManualTime:success', { taskId, entryId, approve });
       successToast(approve ? 'Time approved.' : 'Time rejected.');
     } catch (err: any) {
+      taskFlowError('task-detail.reviewManualTime:error', err, { taskId, entryId, approve });
       errorToast(err.message || 'Could not review time entry.');
       throw err;
     }

@@ -1,3 +1,4 @@
+import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { FileActivity, FileHubFile, FileHubFolder, FileHubGroup, FileHubGroupMember, FileHubMode, FileHubProvider, useFileHub } from '@/contexts/FileHubContext';
 import { openStorageFile } from '@/lib/storage';
@@ -32,7 +33,7 @@ function relativeDate(dateStr: string): string {
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
   if (diff < 86400 * 7) return `${Math.floor(diff / 86400)}d ago`;
-  if (diff < 86400 * 30) return `${Math.floor(diff / 7)}w ago`;
+  if (diff < 86400 * 30) return `${Math.floor(diff / (86400 * 7))}w ago`;
   return new Date(dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
@@ -819,6 +820,7 @@ function GroupCreateModal({
 
 function FolderPanel() {
   const { folders, files, mode, selectedFolderId, setSelectedFolderId, createFolder, renameFolder, deleteFolder } = useFileHub();
+  const { showConfirm } = useAlert();
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -855,10 +857,12 @@ function FolderPanel() {
   };
 
   const handleDeleteFolder = (id: string, name: string) => {
-    Alert.alert('Delete Folder', `Delete "${name}"? Files in this folder will stay but lose the folder label.`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => deleteFolder(id) },
-    ]);
+    showConfirm(
+      'Delete Folder',
+      `Delete "${name}"? Files in this folder will stay but lose the folder label.`,
+      () => deleteFolder(id),
+      undefined, 'Delete', 'Cancel', 'destructive'
+    );
   };
 
   return (
@@ -1001,6 +1005,7 @@ function DetailPanel({
   onClose: () => void;
 }) {
   const { markRead, hideFile, deleteFile, logActivity, fileActivity } = useFileHub();
+  const { showConfirm } = useAlert();
   const [downloadLoading, setDownloadLoading] = useState(false);
   const [tab, setTab] = useState<'details' | 'activity'>('details');
   const [activity, setActivity] = useState<FileActivity[]>([]);
@@ -1027,10 +1032,12 @@ function DetailPanel({
 
   const handleDelete = () => {
     if (!file) return;
-    Alert.alert('Delete File', `Delete "${file.original_name}"? This cannot be undone.`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => { await deleteFile(file.id); onClose(); } },
-    ]);
+    showConfirm(
+      'Delete File',
+      `Delete "${file.original_name}"? This cannot be undone.`,
+      () => { deleteFile(file.id).then(() => onClose()); },
+      undefined, 'Delete', 'Cancel', 'destructive'
+    );
   };
 
   const handleHide = () => {
@@ -1404,6 +1411,7 @@ function TagsManageModal({ visible, onClose, onChanged }: {
   onChanged: () => void;
 }) {
   const { allTagsWithCounts, renameTag, deleteTag } = useFileHub();
+  const { showConfirm } = useAlert();
   const [tags, setTags] = useState<{ tag: string; count: number }[]>([]);
   const [loading, setLoading] = useState(false);
   const [renamingTag, setRenamingTag] = useState<string | null>(null);
@@ -1435,12 +1443,12 @@ function TagsManageModal({ visible, onClose, onChanged }: {
   };
 
   const handleDelete = (tag: string) => {
-    Alert.alert('Delete Tag', `Remove tag "${tag}" from all files?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
-        try { await deleteTag(tag); await load(); onChanged(); } catch { /* alerted */ }
-      }},
-    ]);
+    showConfirm(
+      'Delete Tag',
+      `Remove tag "${tag}" from all files?`,
+      async () => { try { await deleteTag(tag); await load(); onChanged(); } catch { /* alerted */ } },
+      undefined, 'Delete', 'Cancel', 'destructive'
+    );
   };
 
   return (
@@ -1542,6 +1550,7 @@ function FileHubDesktopInner() {
     files, folders, loading,
     inboxUnreadCount,
     refresh,
+    markAllRead,
     checkDuplicate,
     groups, groupsLoading,
     activeGroupId, setActiveGroupId,
@@ -1937,6 +1946,30 @@ function FileHubDesktopInner() {
           {mode !== 'groups' && (
             <>
               <FolderPanel />
+
+              {mode === 'inbox' && inboxUnreadCount > 0 && (
+                <View className="px-6 pt-4 pb-3">
+                  <View className="flex-row items-center justify-between gap-4 rounded-2xl border border-brand-primary/20 bg-brand-primary/5 px-5 py-4">
+                    <View className="min-w-0 flex-1">
+                      <Text className="text-brand-primary text-[10px] font-black uppercase tracking-[0.25em] mb-0.5">
+                        Inbox
+                      </Text>
+                      <Text className="text-typography-main text-base font-black tracking-tight">
+                        {inboxUnreadCount} unread file{inboxUnreadCount === 1 ? '' : 's'}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={markAllRead}
+                      className="flex-row items-center gap-2 bg-brand-primary px-4 py-2.5 rounded-xl shrink-0"
+                    >
+                      <FontAwesome name="check" size={11} color="#fff" />
+                      <Text className="text-white font-black text-xs tracking-wide uppercase">
+                        Read All
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
 
               {allTags.length > 0 && (
                 <View className="flex-row items-center border-b border-surface-border flex-shrink-0">

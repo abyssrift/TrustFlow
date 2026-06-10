@@ -1,3 +1,4 @@
+import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { FileActivity, FileHubFile, FileHubGroup, FileHubGroupMember, FileHubMode, FileHubProvider, useFileHub } from '@/contexts/FileHubContext';
 import { openStorageFile } from '@/lib/storage';
@@ -7,15 +8,15 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Modal,
-    Platform,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -108,6 +109,7 @@ function FileDetailSheet({
   onClose: () => void;
 }) {
   const { markRead, hideFile, deleteFile, logActivity, fileActivity } = useFileHub();
+  const { showConfirm } = useAlert();
   const [downloading, setDownloading] = useState(false);
   const [tab, setTab] = useState<'details' | 'activity'>('details');
   const [activity, setActivity] = useState<FileActivity[]>([]);
@@ -138,10 +140,12 @@ function FileDetailSheet({
   };
 
   const handleDelete = () => {
-    Alert.alert('Delete File', `Delete "${file.original_name}"?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => { await deleteFile(file.id); onClose(); } },
-    ]);
+    showConfirm(
+      'Delete File',
+      `Delete "${file.original_name}"?`,
+      () => { deleteFile(file.id).then(() => onClose()); },
+      undefined, 'Delete', 'Cancel', 'destructive'
+    );
   };
 
   return (
@@ -1308,6 +1312,7 @@ function TagsManageSheet({ visible, onClose, onChanged }: {
   onChanged: () => void;
 }) {
   const { allTagsWithCounts, renameTag, deleteTag } = useFileHub();
+  const { showConfirm } = useAlert();
   const [tags, setTags] = useState<{ tag: string; count: number }[]>([]);
   const [loading, setLoading] = useState(false);
   const [renamingTag, setRenamingTag] = useState<string | null>(null);
@@ -1339,12 +1344,12 @@ function TagsManageSheet({ visible, onClose, onChanged }: {
   };
 
   const handleDelete = (tag: string) => {
-    Alert.alert('Delete Tag', `Remove tag "${tag}" from all files?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
-        try { await deleteTag(tag); await load(); onChanged(); } catch { /* alerted */ }
-      }},
-    ]);
+    showConfirm(
+      'Delete Tag',
+      `Remove tag "${tag}" from all files?`,
+      async () => { try { await deleteTag(tag); await load(); onChanged(); } catch { /* alerted */ } },
+      undefined, 'Delete', 'Cancel', 'destructive'
+    );
   };
 
   return (
@@ -1450,6 +1455,7 @@ function FileHubAdaptiveInner() {
     files, loading,
     inboxUnreadCount,
     refresh,
+    markAllRead,
     groups, groupsLoading,
     activeGroupId, setActiveGroupId,
     groupFiles, groupFilesLoading,
@@ -1623,6 +1629,29 @@ function FileHubAdaptiveInner() {
           >
             <FontAwesome name="tags" size={14} color="var(--color-text-muted)" />
           </TouchableOpacity>
+        </View>
+      )}
+
+      {mode === 'inbox' && inboxUnreadCount > 0 && (
+        <View className="px-6 mb-3">
+          <View className="flex-row items-center justify-between gap-3 rounded-2xl border border-brand-primary/20 bg-brand-primary/5 px-4 py-3">
+            <View className="flex-1 min-w-0">
+              <Text className="text-brand-primary text-[10px] font-black uppercase tracking-[0.2em] mb-0.5">
+                Inbox
+              </Text>
+              <Text className="text-typography-main text-sm font-semibold">
+                {inboxUnreadCount} unread file{inboxUnreadCount === 1 ? '' : 's'}
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={markAllRead}
+              className="h-10 px-4 bg-brand-primary rounded-xl items-center justify-center"
+            >
+              <Text className="text-white text-[10px] font-black uppercase tracking-widest">
+                Read All
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       )}
 

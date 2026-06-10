@@ -6,6 +6,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { useElapsedTime } from '@/hooks/useElapsedTime';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
+import { taskFlowDebug, taskFlowError } from '@/lib/taskDebug';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
@@ -121,6 +122,16 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
 
   // Execute a stage action via RPC
   const handleExecuteAction = async (action: StageAction) => {
+    taskFlowDebug('task-card.executeAction:start', {
+      taskId: task.id,
+      actionId: action.id,
+      actionType: action.action_type,
+      stageId: action.stage_id,
+      stageRequiresTimer,
+      isInitialStage,
+      isTerminal,
+    });
+
     // Complex actions → navigate to task details page
     if (['submit_work', 'review_approve', 'review_revise', 'review_reject'].includes(action.action_type)) {
       router.push(`/task/${task.id}`);
@@ -154,8 +165,19 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
           setShowManualTimeModal(true);
           return;
         }
+        taskFlowError('task-card.executeAction:rpc-error', error, {
+          taskId: task.id,
+          actionId: action.id,
+          actionType: action.action_type,
+          stageId: action.stage_id,
+        });
         throw error;
       }
+      taskFlowDebug('task-card.executeAction:success', {
+        taskId: task.id,
+        actionId: action.id,
+        actionType: action.action_type,
+      });
       onRefresh();
       // Show success toast for card-level actions
       successToast(action.label || 'Action completed');
@@ -166,6 +188,13 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
       if (err.code === 'P0001' && err.message?.includes('Mandatory evidence missing')) {
         displayMessage = 'This stage requires a submission with text or attachments to proceed.';
       }
+
+      taskFlowError('task-card.executeAction:error', err, {
+        taskId: task.id,
+        actionId: action.id,
+        actionType: action.action_type,
+        stageId: action.stage_id,
+      });
       
       setErrorMsg({
         title: 'Action Error',
@@ -188,6 +217,14 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
       return;
     }
     const nextStage = stages[currentIndex + 1];
+    taskFlowDebug('task-card.fallbackAdvance:start', {
+      taskId: task.id,
+      currentStageId: task.current_stage_id,
+      nextStageId: nextStage.id,
+      nextStageRequiresTimer: nextStage.requires_timer ?? false,
+      nextStageIsInitial: nextStage.is_initial ?? false,
+      nextStageIsTerminal: nextStage.is_terminal ?? false,
+    });
     setLoadingAction('__advance__');
     try {
       const { error } = await supabase.rpc('rpc_advance_stage', {
@@ -195,9 +232,18 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
         p_to_stage_id: nextStage.id,
       });
       if (error) throw error;
+      taskFlowDebug('task-card.fallbackAdvance:success', {
+        taskId: task.id,
+        nextStageId: nextStage.id,
+      });
       onRefresh();
       successToast('Task advanced.');
     } catch (err: any) {
+      taskFlowError('task-card.fallbackAdvance:error', err, {
+        taskId: task.id,
+        currentStageId: task.current_stage_id,
+        nextStageId: nextStage.id,
+      });
       errorToast(err.message || 'Could not advance task.');
     } finally {
       setLoadingAction(null);

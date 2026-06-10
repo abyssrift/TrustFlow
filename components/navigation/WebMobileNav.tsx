@@ -1,6 +1,8 @@
 import { useAuth } from '@/contexts/AuthContext';
+import { useNotifications } from '@/contexts/NotificationsContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { useUnreadNotificationAttention } from '@/hooks/useUnreadNotificationAttention';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Link, useLocalSearchParams, usePathname } from 'expo-router';
 import React, { useState } from 'react';
@@ -42,9 +44,12 @@ export default function WebMobileNav({
   const { theme, setTheme } = useTheme();
   const colors = useThemeColors();
   const { session } = useAuth();
+  const { unreadCount } = useNotifications();
 
   const { bottom } = useSafeAreaInsets();
   const handleClose = () => setDrawerOpen(false);
+
+  useUnreadNotificationAttention(unreadCount);
 
   // 56px is the visible icon+label area; bottom inset handles iPhone notch/home bar
   const navHeight = 56 + bottom;
@@ -152,6 +157,13 @@ export default function WebMobileNav({
                 <Pressable className="flex-row items-center p-4 rounded-xl mb-2 border bg-surface-card border-surface-border">
                   <FontAwesome name="bell" size={18} color={colors.textMain} className="w-8" />
                   <Text className="font-bold ml-2 text-typography-main">Notifications</Text>
+                  {unreadCount > 0 && (
+                    <View className="ml-auto min-w-5 h-5 rounded-full bg-state-danger items-center justify-center px-1">
+                      <Text className="text-[10px] font-black text-white leading-none">
+                        +{unreadCount > 99 ? '99' : unreadCount}
+                      </Text>
+                    </View>
+                  )}
                 </Pressable>
               </Link>
               

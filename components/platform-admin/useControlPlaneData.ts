@@ -12,7 +12,7 @@ export const PLATFORM_OWNERS = [
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-export type Section = 'command' | 'tenants' | 'signals' | 'live' | 'users';
+export type Section = 'command' | 'tenants' | 'signals' | 'live' | 'users' | 'infra';
 
 export type CompanyOverview = {
   id: string;
@@ -63,6 +63,34 @@ export type CompanyDetail = {
 
 export type SortKey = 'usage' | 'users' | 'tasks' | 'age';
 export type SignalMetric = 'tasks' | 'sessions' | 'users';
+
+export type InfraSnapshot = {
+  captured_at: string;
+  db_size_bytes: number;
+  active_connections: number;
+  cache_hit_ratio: number;
+};
+
+export type InfraTableSize = {
+  name: string;
+  size_bytes: number;
+  size_pretty: string;
+};
+
+export type InfraMetrics = {
+  current: {
+    db_size_bytes: number;
+    db_size_pretty: string;
+    active_connections: number;
+    max_connections: number;
+    connection_pct: number;
+    cache_hit_ratio: number;
+    total_tables: number;
+    tps: number;
+  };
+  snapshots: InfraSnapshot[];
+  table_sizes: InfraTableSize[];
+};
 
 export type PlatformUser = {
   id: string;
@@ -125,6 +153,21 @@ export function workspaceAge(dateStr: string): string {
   if (days < 30) return `${days} days`;
   const months = Math.floor(days / 30);
   return `${months} month${months > 1 ? 's' : ''}`;
+}
+
+export function fmtBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+export function fmtHHMM(dateStr: string): string {
+  return new Date(dateStr).toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
 }
 
 export function healthLabel(minsPerUser: number): {
@@ -427,4 +470,34 @@ export async function moveUser(userId: string, companyId: string) {
 
 export async function deleteUser(userId: string) {
   return supabase.rpc('rpc_platform_delete_user', { p_user_id: userId });
+}
+
+export function useInfraData() {
+  const [metrics, setMetrics] = useState<InfraMetrics | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [lastRefreshed, setLastRefreshed] = useState(new Date());
+  const [secsAgo, setSecsAgo] = useState(0);
+
+  const fetch = useCallback(async () => {
+    const { data, error } = await supabase.rpc('rpc_platform_infra_metrics', { p_limit: 96 });
+    if (!error && data) setMetrics(data as InfraMetrics);
+    setLastRefreshed(new Date());
+    setSecsAgo(0);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    fetch();
+    const poll = setInterval(fetch, 60000);
+    return () => clearInterval(poll);
+  }, [fetch]);
+
+  useEffect(() => {
+    const tick = setInterval(() => {
+      setSecsAgo(Math.floor((Date.now() - lastRefreshed.getTime()) / 1000));
+    }, 1000);
+    return () => clearInterval(tick);
+  }, [lastRefreshed]);
+
+  return { metrics, loading, secsAgo, refetch: fetch };
 }

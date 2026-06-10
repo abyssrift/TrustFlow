@@ -1,7 +1,9 @@
 import WebMobileNav from '@/components/navigation/WebMobileNav';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNotifications } from '@/contexts/NotificationsContext';
 import { DensityType, RoundnessType, ThemeType, useTheme } from '@/contexts/ThemeContext';
 import { useFileHubBadge } from '@/hooks/useFileHubBadge';
+import { useUnreadNotificationAttention } from '@/hooks/useUnreadNotificationAttention';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Link, useLocalSearchParams, usePathname } from 'expo-router';
@@ -231,8 +233,11 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const params = useLocalSearchParams();
   const { session, user, hasPermission } = useAuth();
+  const { unreadCount } = useNotifications();
   const isPlatformAdmin = ['adamsamir2005@gmail.com', 'adam.samir@trustedgellc.com', 'adamsamir@hotmail.com'].includes(user?.email || '');
   const { inboxUnread } = useFileHubBadge();
+
+  useUnreadNotificationAttention(unreadCount);
 
   const [isCollapsed, setIsCollapsed] = useState(() => {
     if (Platform.OS === 'web') {
@@ -490,10 +495,28 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
                     className={`mb-2 min-h-11 flex-row items-center rounded-xl border border-transparent p-3 hover:bg-surface-card ${isExpanded ? '' : 'justify-center'
                       }`}
                   >
-                    <View className={`${isExpanded ? 'w-8' : ''} items-center`}>
+                    <View className={`${isExpanded ? 'w-8' : 'relative'} items-center`}>
                       <FontAwesome name="bell" size={18} color="var(--color-primary)" />
+                      {unreadCount > 0 && !isExpanded && (
+                        <View className="absolute -top-1.5 -right-1.5 min-w-4 h-4 rounded-full bg-state-danger items-center justify-center px-0.5">
+                          <Text className="text-[9px] font-black text-white leading-none">
+                            +{unreadCount > 99 ? '99' : unreadCount}
+                          </Text>
+                        </View>
+                      )}
                     </View>
-                    {isExpanded && <Text className="ml-2 font-bold text-typography-main">Notifications</Text>}
+                    {isExpanded && (
+                      <>
+                        <Text className="ml-2 font-bold text-typography-main">Notifications</Text>
+                        {unreadCount > 0 && (
+                          <View className="ml-auto min-w-5 h-5 rounded-full bg-state-danger items-center justify-center px-1">
+                            <Text className="text-[10px] font-black text-white leading-none">
+                              +{unreadCount > 99 ? '99' : unreadCount}
+                            </Text>
+                          </View>
+                        )}
+                      </>
+                    )}
                   </Pressable>
                 </Link>
 

@@ -1,5 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { taskFlowDebug, taskFlowError } from '@/lib/taskDebug';
 import * as ImageManipulator from 'expo-image-manipulator';
 import React, { createContext, useCallback, useContext, useState } from 'react';
 import { Alert } from 'react-native';
@@ -88,6 +89,13 @@ export function SubmissionProvider({ children }: { children: React.ReactNode }) 
   }) => {
     if (!user) throw new Error('Auth required');
 
+    taskFlowDebug('submission.submitWithEvidence:start', {
+      taskId,
+      contentLength: content.length,
+      attachmentCount: stagedFiles.length,
+      transitionId: transitionId || null,
+    });
+
     // Initialize job
     const initialJob: UploadJob = {
       taskId,
@@ -160,6 +168,10 @@ export function SubmissionProvider({ children }: { children: React.ReactNode }) 
 
       // Parallel Upload with Concurrency Limit 3
       if (stagedFiles.length > 0) {
+        taskFlowDebug('submission.upload:queued', {
+          taskId,
+          fileCount: stagedFiles.length,
+        });
         const queue = [...stagedFiles];
         const workers = Array(Math.min(3, queue.length)).fill(null).map(async () => {
           while (queue.length > 0) {
@@ -189,6 +201,12 @@ export function SubmissionProvider({ children }: { children: React.ReactNode }) 
 
       if (rpcError) throw rpcError;
 
+      taskFlowDebug('submission.submitWithEvidence:success', {
+        taskId,
+        uploadedAttachmentCount: uploadedAttachments.length,
+        transitionId: transitionId || null,
+      });
+
       updateJob(taskId, { 
         status: 'completed', 
         progress: 100, 
@@ -199,7 +217,12 @@ export function SubmissionProvider({ children }: { children: React.ReactNode }) 
       setTimeout(() => clearJob(taskId), 4000);
 
     } catch (err: any) {
-      console.error('Submission Engine Error:', err);
+      taskFlowError('submission.submitWithEvidence:error', err, {
+        taskId,
+        contentLength: content.length,
+        attachmentCount: stagedFiles.length,
+        transitionId: transitionId || null,
+      });
 
       // Timer gate errors must surface to the caller so the manual-time modal
       // can be shown. Don't alert and don't swallow.
