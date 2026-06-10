@@ -1,5 +1,5 @@
-import { FileActivity, FileHubFile, FileHubGroup, FileHubGroupMember, FileHubMode, FileHubProvider, useFileHub } from '@/contexts/FileHubContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { FileActivity, FileHubFile, FileHubGroup, FileHubGroupMember, FileHubMode, FileHubProvider, useFileHub } from '@/contexts/FileHubContext';
 import { openStorageFile } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
@@ -7,15 +7,15 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Modal,
-  Platform,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Modal,
+    Platform,
+    ScrollView,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -1577,21 +1577,21 @@ function FileHubAdaptiveInner() {
       </View>
 
       {/* ── Tabs ── */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-shrink-0 mb-3" contentContainerStyle={{ paddingHorizontal: 24, gap: 8, flexDirection: 'row', alignItems: 'center' }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-shrink-0 mb-3" contentContainerStyle={{ paddingHorizontal: 20, gap: 6, flexDirection: 'row', alignItems: 'center' }}>
         {tabs.map(tab => (
           <TouchableOpacity
             key={tab.key}
             onPress={() => handleTabChange(tab.key)}
-            className={`flex-row items-center gap-1.5 px-5 py-2.5 rounded-2xl border ${
+            className={`flex-row items-center gap-1 px-3.5 py-2 rounded-xl border ${
               mode === tab.key
                 ? 'bg-brand-primary/10 border-brand-primary/30'
                 : 'bg-surface-card border-surface-border'
             }`}
           >
-            <Text className={`text-sm font-black ${mode === tab.key ? 'text-brand-primary' : 'text-typography-muted'}`}>{tab.label}</Text>
+            <Text className={`text-xs font-black ${mode === tab.key ? 'text-brand-primary' : 'text-typography-muted'}`}>{tab.label}</Text>
             {tab.count !== undefined && (
-              <View className="bg-brand-primary rounded-full px-1.5 py-0.5 min-w-[18px] items-center">
-                <Text className="text-white text-[9px] font-black">{tab.count}</Text>
+              <View className="bg-brand-primary rounded-full px-1.5 py-0.5 min-w-[16px] items-center">
+                <Text className="text-white text-[8px] font-black">{tab.count}</Text>
               </View>
             )}
           </TouchableOpacity>

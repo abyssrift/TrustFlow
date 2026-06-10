@@ -6,13 +6,13 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-    Modal,
-    Pressable,
-    TextInput as RNTextInput,
-    ScrollView,
-    Text,
-    TouchableOpacity,
-    View,
+  Modal,
+  Pressable,
+  TextInput as RNTextInput,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { generateAndUploadReport } from './reports/generate';
@@ -396,7 +396,7 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
               {REPORT_TYPES.filter(t => t.group === 'legacy').map(opt => (
                 <TypeCard key={opt.value} opt={opt} selected={selectedTypes.includes(opt.value)} onPress={() => toggleType(opt.value)} />
               ))}
-
+              
               <View className="flex-row items-center gap-3 mt-5 mb-3">
                 <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-typography-muted">Analytics Engine</Text>
                 <View className="bg-brand-primary/10 px-2 py-0.5 rounded-full">

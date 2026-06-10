@@ -4,11 +4,11 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Stack, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-    TextInput as RNTextInput,
-    ScrollView,
-    Text,
-    TouchableOpacity,
-    View
+  TextInput as RNTextInput,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { generateAndUploadReport } from './reports/generate';
@@ -442,7 +442,7 @@ export default function ReportGeneratorDesktop() {
                         <TypeCard key={opt.value} opt={opt} selected={selectedTypes.includes(opt.value)} onPress={() => toggleType(opt.value)} />
                       ))}
                     </View>
-
+                    {/*
                     <View className="flex-row items-center gap-3 mb-4">
                       <Text className="text-typography-dim text-[9px] font-semibold uppercase tracking-[0.18em]">Analytics Engine</Text>
                       <View className="flex-1 h-px bg-brand-primary/20" />
@@ -455,6 +455,7 @@ export default function ReportGeneratorDesktop() {
                         <TypeCard key={opt.value} opt={opt} selected={selectedTypes.includes(opt.value)} onPress={() => toggleType(opt.value)} />
                       ))}
                     </View>
+                    */}
                   </View>
 
                   {/* Step 2 — Temporal Scope (shown when any selected type uses a date range) */}
