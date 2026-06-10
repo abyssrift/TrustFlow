@@ -11,6 +11,7 @@ import UserAssignmentGrid from '@/components/admin/UserAssignmentGrid';
 import { useAuth } from '@/contexts/AuthContext';
 import { RoleManagerProvider, useRoleManager } from '@/contexts/RoleManagerContext';
 import { supabase } from '@/lib/supabase';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 type PeopleSection = 'members' | 'teams' | 'roles' | 'notifications';
 
@@ -24,12 +25,13 @@ function resolveSection(param: string | undefined, canViewMembers: boolean, canM
 }
 
 function TeamWorkspaceContent({ section }: { section: PeopleSection }) {
+  const colors = useThemeColors();
   const { loading, error } = useRoleManager();
 
   if (loading) {
     return (
       <View className="py-40 items-center justify-center">
-        <ActivityIndicator size="large" color="var(--color-primary)" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -37,7 +39,7 @@ function TeamWorkspaceContent({ section }: { section: PeopleSection }) {
   if (error) {
     return (
       <View className="w-full items-center justify-center py-32 bg-state-danger/10 rounded-[40px] border border-dashed border-state-danger/30">
-        <FontAwesome name="exclamation-triangle" size={42} color="var(--color-danger)" />
+        <FontAwesome name="exclamation-triangle" size={42} color={colors.danger} />
         <Text className="text-typography-main text-xl font-black mt-6">Unable to load team workspace</Text>
         <Text className="text-typography-muted mt-2 text-center max-w-xl">{error}</Text>
       </View>
@@ -51,6 +53,7 @@ function TeamWorkspaceContent({ section }: { section: PeopleSection }) {
 }
 
 export default function PeopleScreenWeb() {
+  const colors = useThemeColors();
   const params = useLocalSearchParams<{ section?: string | string[] }>();
   const sectionParam = Array.isArray(params.section) ? params.section[0] : params.section;
 
@@ -99,7 +102,7 @@ export default function PeopleScreenWeb() {
                 onPress={() => Clipboard.setStringAsync(joinCode)}
                 className="ml-6 w-10 h-10 bg-brand-primary/10 rounded-xl items-center justify-center hover:bg-brand-primary/20 transition-colors"
               >
-                <FontAwesome name="copy" size={14} color="var(--color-primary)" />
+                <FontAwesome name="copy" size={14} color={colors.primary} />
               </TouchableOpacity>
             </View>
           )}
@@ -107,7 +110,7 @@ export default function PeopleScreenWeb() {
 
         {!hasWorkspaceAccess ? (
           <View className="w-full items-center justify-center py-40 bg-state-danger/10 rounded-[48px] border border-dashed border-state-danger/30">
-            <FontAwesome name="lock" size={48} color="var(--color-danger)" className="mb-6" />
+            <FontAwesome name="lock" size={48} color={colors.danger} className="mb-6" />
             <Text className="text-typography-main text-2xl font-black">Access Restricted</Text>
             <Text className="text-typography-muted mt-2 text-center max-w-md">
               You do not have permission to view members or manage teams.

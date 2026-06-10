@@ -8,8 +8,10 @@ import { EfficiencyIndicator } from '@/components/analytics/EfficiencyIndicator'
 import { PerformanceChart } from '@/components/analytics/PerformanceChart';
 import { TimerDeliverabilityChart } from '@/components/analytics/TimerDeliverabilityChart';
 import { FontAwesome } from '@expo/vector-icons';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 export default function PersonalAnalyticsWeb() {
+  const colors = useThemeColors();
   const { user } = useAuth();
   const { getPersonalPulse, getUserPerformanceSeries, invalidate } = useAnalytics();
 
@@ -106,7 +108,7 @@ export default function PersonalAnalyticsWeb() {
 
         {loading ? (
           <View className="items-center py-24">
-            <ActivityIndicator size="large" color="var(--color-primary)" />
+            <ActivityIndicator size="large" color={colors.primary} />
             <Text className="text-typography-muted text-sm mt-4">Computing your metrics…</Text>
           </View>
         ) : (

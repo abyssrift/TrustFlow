@@ -15,11 +15,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 const DAY_OPTS = [7, 30, 60, 90];
 const DEFAULT_WIDGETS = ['throughput', 'efficiency', 'flow_ratio', 'first_pass_yield'];
 
 export default function IntelligenceOverview() {
+  const colors = useThemeColors();
   const { hasPermission, profile } = useAuth();
   const [data, setData]           = useState<any>(null);
   const [loading, setLoading]     = useState(true);
@@ -123,7 +125,7 @@ export default function IntelligenceOverview() {
             ))}
           </View>
           <TouchableOpacity onPress={fetchAudit} className="h-10 w-10 items-center justify-center bg-surface-card border border-surface-border rounded-xl">
-            <FontAwesome name="refresh" size={13} color="rgb(var(--brand-primary))" />
+            <FontAwesome name="refresh" size={13} color={colors.primary} />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => setShowReportModal(true)} className="bg-brand-primary px-6 py-2.5 rounded-xl flex-row items-center gap-2">
             <FontAwesome name="file-pdf-o" size={12} color="white" />
@@ -134,7 +136,7 @@ export default function IntelligenceOverview() {
 
       {loading ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="rgb(var(--brand-primary))" />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : !data ? (
         <View className="flex-1 items-center justify-center">

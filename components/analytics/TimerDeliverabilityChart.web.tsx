@@ -13,12 +13,14 @@ import {
   ReferenceLine,
 } from 'recharts';
 import { PerformancePeriod } from '@/contexts/AnalyticsContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 interface Props {
   data: PerformancePeriod[];
 }
 
 const ChartTooltip = ({ active, payload, label }: any) => {
+  const colors = useThemeColors();
   if (!active || !payload?.length) return null;
   const within  = payload.find((p: any) => p.dataKey === 'within_budget_tasks');
   const over    = payload.find((p: any) => p.dataKey === 'over_budget_tasks');
@@ -46,6 +48,7 @@ const ChartTooltip = ({ active, payload, label }: any) => {
 };
 
 export const TimerDeliverabilityChart = ({ data }: Props) => {
+  const colors = useThemeColors();
   const chartData = [...data].reverse().map(r => ({
     ...r,
     deliverability_rate:
@@ -78,17 +81,17 @@ export const TimerDeliverabilityChart = ({ data }: Props) => {
         <View style={{ height: 300, width: '100%' }}>
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={chartData} margin={{ top: 5, right: 40, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} opacity={0.5} />
+              <CartesianGrid strokeDasharray="3 3" stroke={colors.border} vertical={false} opacity={0.5} />
               <XAxis
                 dataKey="period_label"
-                tick={{ fill: 'var(--color-text-dim)', fontSize: 11 }}
+                tick={{ fill: colors.textDim, fontSize: 11 }}
                 axisLine={false}
                 tickLine={false}
               />
               {/* Left axis: task counts */}
               <YAxis
                 yAxisId="tasks"
-                tick={{ fill: 'var(--color-text-dim)', fontSize: 11 }}
+                tick={{ fill: colors.textDim, fontSize: 11 }}
                 axisLine={false}
                 tickLine={false}
                 allowDecimals={false}
@@ -98,7 +101,7 @@ export const TimerDeliverabilityChart = ({ data }: Props) => {
                 yAxisId="rate"
                 orientation="right"
                 domain={[0, 100]}
-                tick={{ fill: 'var(--color-text-dim)', fontSize: 11 }}
+                tick={{ fill: colors.textDim, fontSize: 11 }}
                 axisLine={false}
                 tickLine={false}
                 tickFormatter={(v) => `${v}%`}
@@ -107,7 +110,7 @@ export const TimerDeliverabilityChart = ({ data }: Props) => {
               <ReferenceLine
                 yAxisId="rate"
                 y={100}
-                stroke="var(--color-success)"
+                stroke={colors.success}
                 strokeDasharray="4 4"
                 strokeOpacity={0.4}
               />
@@ -115,7 +118,7 @@ export const TimerDeliverabilityChart = ({ data }: Props) => {
                 yAxisId="tasks"
                 dataKey="within_budget_tasks"
                 name="Within budget"
-                fill="var(--color-success)"
+                fill={colors.success}
                 fillOpacity={0.85}
                 radius={[4, 4, 0, 0]}
                 maxBarSize={40}
@@ -124,7 +127,7 @@ export const TimerDeliverabilityChart = ({ data }: Props) => {
                 yAxisId="tasks"
                 dataKey="over_budget_tasks"
                 name="Over budget"
-                fill="var(--color-danger)"
+                fill={colors.danger}
                 fillOpacity={0.85}
                 radius={[4, 4, 0, 0]}
                 maxBarSize={40}
@@ -134,9 +137,9 @@ export const TimerDeliverabilityChart = ({ data }: Props) => {
                 type="monotone"
                 dataKey="deliverability_rate"
                 name="Deliverability %"
-                stroke="var(--color-primary)"
+                stroke={colors.primary}
                 strokeWidth={2.5}
-                dot={{ r: 4, fill: 'var(--color-primary)', strokeWidth: 2, stroke: 'var(--color-surface-card)' }}
+                dot={{ r: 4, fill: colors.primary, strokeWidth: 2, stroke: colors.card }}
                 activeDot={{ r: 6, strokeWidth: 0 }}
                 connectNulls={false}
               />

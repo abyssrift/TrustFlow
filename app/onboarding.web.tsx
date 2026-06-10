@@ -4,8 +4,10 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 export default function OnboardingScreen() {
+  const colors = useThemeColors();
   const [mode, setMode] = useState<'selection' | 'join' | 'create'>('selection');
   const [joinCode, setJoinCode] = useState('');
   const [companyName, setCompanyName] = useState('');
@@ -86,13 +88,13 @@ export default function OnboardingScreen() {
         className="w-full bg-surface-card border border-surface-border rounded-2xl p-6 flex-row items-center premium-shadow hover:border-brand-primary transition-all"
       >
         <View className="w-14 h-14 bg-brand-primary/10 rounded-xl items-center justify-center mr-5">
-          <FontAwesome name="users" size={24} color="var(--color-primary)" />
+          <FontAwesome name="users" size={24} color={colors.primary} />
         </View>
         <View className="flex-1">
           <Text className="text-xl font-bold text-typography-main">Join an Existing Team</Text>
           <Text className="text-typography-muted text-sm mt-1">If your company is already using TrustFlow, enter your team's join code.</Text>
         </View>
-        <FontAwesome name="chevron-right" size={16} color="var(--color-text-dim)" />
+        <FontAwesome name="chevron-right" size={16} color={colors.textDim} />
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -100,13 +102,13 @@ export default function OnboardingScreen() {
         className="w-full bg-surface-card border border-surface-border rounded-2xl p-6 flex-row items-center premium-shadow hover:border-brand-primary transition-all"
       >
         <View className="w-14 h-14 bg-brand-primary/10 rounded-xl items-center justify-center mr-5">
-          <FontAwesome name="plus-circle" size={24} color="var(--color-primary)" />
+          <FontAwesome name="plus-circle" size={24} color={colors.primary} />
         </View>
         <View className="flex-1">
           <Text className="text-xl font-bold text-typography-main">Set Up a New Workspace</Text>
           <Text className="text-typography-muted text-sm mt-1">Start fresh and invite your team to a new secure organization.</Text>
         </View>
-        <FontAwesome name="chevron-right" size={16} color="var(--color-text-dim)" />
+        <FontAwesome name="chevron-right" size={16} color={colors.textDim} />
       </TouchableOpacity>
     </View>
   );
@@ -118,7 +120,7 @@ export default function OnboardingScreen() {
         <TextInput
           className="w-full bg-surface-card border border-surface-border rounded-2xl px-6 py-5 text-typography-main font-bold text-2xl tracking-[0.5em] text-center focus:border-brand-primary transition-all"
           placeholder="XXXXXX"
-          placeholderTextColor="rgba(var(--text-muted), 0.3)"
+          placeholderTextColor={(colors.textMuted + '4d')}
           autoCapitalize="characters"
           maxLength={6}
           value={joinCode}
@@ -151,7 +153,7 @@ export default function OnboardingScreen() {
         <TextInput
           className="w-full bg-surface-card border border-surface-border rounded-2xl px-6 py-5 text-typography-main font-bold text-lg focus:border-brand-primary transition-all"
           placeholder="e.g. Acme Corp"
-          placeholderTextColor="rgba(var(--text-muted), 0.3)"
+          placeholderTextColor={(colors.textMuted + '4d')}
           autoCapitalize="words"
           value={companyName}
           onChangeText={setCompanyName}
@@ -181,7 +183,7 @@ export default function OnboardingScreen() {
       <View className="flex-1 max-w-2xl mx-auto w-full justify-center px-8 py-20">
         <View className="mb-12 items-center">
           <View className="w-20 h-20 bg-brand-primary/10 rounded-3xl items-center justify-center mb-6">
-            <FontAwesome name="rocket" size={32} color="var(--color-primary)" />
+            <FontAwesome name="rocket" size={32} color={colors.primary} />
           </View>
           <Text className="text-4xl font-black text-typography-main tracking-tighter text-center">
             Welcome to TrustFlow

@@ -12,7 +12,7 @@ import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useThemeColors } from '@/lib/themeColors';
+import { useThemeColors } from '@/hooks/useThemeColors';
 import { ActivityIndicator, Alert, Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 const STATUS_COLOR: Record<string, string> = {

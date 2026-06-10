@@ -15,6 +15,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { FontAwesome } from '@expo/vector-icons';
 import { Stage } from '@/contexts/PipelineEditorContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 interface StageNodeProps {
   stage: Stage;
@@ -33,6 +34,7 @@ const NODE_WIDTH = 256; // w-64
 const NODE_HEIGHT = 160;
 
 export default function StageNode({ 
+  const colors = useThemeColors();
   stage, index, onPositionChange, onEdit, onDelete,
   onStartConnection, onUpdateConnection, onEndConnection,
   isConnecting 
@@ -111,7 +113,7 @@ export default function StageNode({
     return {
       transform: [{ scale: scaleValue }],
       opacity: opacityValue,
-      shadowColor: stage.color || 'rgb(var(--brand-primary))',
+      shadowColor: stage.color || colors.primary,
       shadowOffset: { width: 0, height: 0 },
       shadowOpacity: isConnecting.value ? 0.8 : 0,
       shadowRadius: 10,
@@ -125,7 +127,7 @@ export default function StageNode({
         { scale: isConnecting.value ? withSpring(0.98) : withSpring(1) }
       ],
       borderWidth: isConnecting.value ? 3 : 2,
-      borderColor: isConnecting.value ? 'rgb(var(--brand-primary))' : 'rgb(var(--surface-border))',
+      borderColor: isConnecting.value ? colors.primary : colors.border,
     };
   });
 
@@ -148,7 +150,7 @@ export default function StageNode({
           style={[
             styles.card,
             connectionHighlightStyle,
-            { borderTopColor: stage.color || 'rgb(var(--text-muted))', borderTopWidth: 6 }
+            { borderTopColor: stage.color || colors.textMuted, borderTopWidth: 6 }
           ]}
         >
           {/* Header (Draggable, but buttons take priority) */}
@@ -156,7 +158,7 @@ export default function StageNode({
             <View className="flex-row items-center gap-2">
               <View 
                 className="w-2 h-2 rounded-full" 
-                style={{ backgroundColor: stage.color || 'rgb(var(--text-muted))' }} 
+                style={{ backgroundColor: stage.color || colors.textMuted }} 
               />
               <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">
                 {stage.is_initial ? 'Entry' : stage.is_terminal ? 'Terminal' : 'Logic Block'}
@@ -167,13 +169,13 @@ export default function StageNode({
                 onPress={onEdit}
                 className="p-1 hover:bg-surface-overlay rounded-md transition-all"
               >
-                <FontAwesome name="pencil" size={10} color={stage.color || "rgb(var(--text-dim))"} />
+                <FontAwesome name="pencil" size={10} color={stage.color || colors.textDim} />
               </TouchableOpacity>
               <TouchableOpacity 
                 onPress={onDelete}
                 className="p-1 hover:bg-surface-overlay rounded-md transition-all"
               >
-                <FontAwesome name="trash" size={10} color="rgb(var(--state-danger))" />
+                <FontAwesome name="trash" size={10} color={colors.danger} />
               </TouchableOpacity>
             </View>
           </View>
@@ -193,17 +195,17 @@ export default function StageNode({
               <View className="flex-row gap-1.5 mt-4">
                 {stage.requires_submission && (
                   <View className="bg-surface-background/40 px-2 py-0.5 rounded border border-surface-border">
-                    <FontAwesome name="upload" size={8} color={stage.color || "rgb(var(--state-warning))"} />
+                    <FontAwesome name="upload" size={8} color={stage.color || colors.warning} />
                   </View>
                 )}
                 {stage.requires_timer && (
                   <View className="bg-surface-background/40 px-2 py-0.5 rounded border border-surface-border">
-                    <FontAwesome name="clock-o" size={8} color={stage.color || "rgb(var(--state-info))"} />
+                    <FontAwesome name="clock-o" size={8} color={stage.color || colors.info} />
                   </View>
                 )}
                 {!!stage.linked_pipeline_id && (
                   <View className="bg-surface-background/40 px-2 py-0.5 rounded border border-surface-border">
-                    <FontAwesome name="bolt" size={8} color={stage.color || "rgb(var(--brand-primary))"} />
+                    <FontAwesome name="bolt" size={8} color={stage.color || colors.primary} />
                   </View>
                 )}
               </View>
@@ -217,11 +219,11 @@ export default function StageNode({
         <Animated.View style={[styles.inputPortContainer, inputPortStyle]} pointerEvents="none">
            <View 
             className="bg-surface-background border-2 items-center justify-center rounded-full" 
-            style={[styles.inputPortDot, { borderColor: stage.color || 'rgb(var(--surface-border))' }]}
+            style={[styles.inputPortDot, { borderColor: stage.color || colors.border }]}
            >
               <View 
                 className="rounded-full" 
-                style={[styles.inputPortInner, { backgroundColor: stage.color || 'rgb(var(--surface-border))' }]} 
+                style={[styles.inputPortInner, { backgroundColor: stage.color || colors.border }]} 
               />
            </View>
         </Animated.View>
@@ -233,11 +235,11 @@ export default function StageNode({
           <View style={styles.outputPortContainer}>
             <View 
               className="bg-surface-background border-2 shadow-xl items-center justify-center rounded-full" 
-              style={[styles.outputPortDot, { borderColor: stage.color || 'rgb(var(--brand-primary))' }]}
+              style={[styles.outputPortDot, { borderColor: stage.color || colors.primary }]}
             >
               <View 
                 className="rounded-full" 
-                style={[styles.outputPortInner, { backgroundColor: stage.color || 'rgb(var(--brand-primary))' }]} 
+                style={[styles.outputPortInner, { backgroundColor: stage.color || colors.primary }]} 
               />
             </View>
           </View>

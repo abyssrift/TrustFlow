@@ -12,15 +12,18 @@ import {
 } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { generateAndUploadReport } from './reports/generate';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 const BRAND = 'rgb(99,102,241)';
 const BRAND_DIM = 'rgba(99,102,241,0.15)';
 
 function fmt(s: number) {
+  const colors = useThemeColors();
   return `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
 }
 
 function GenerationProgress({ current, total, elapsed }: { current: number; total: number; elapsed: number }) {
+  const colors = useThemeColors();
   const size = 148;
   const stroke = 10;
   const r = (size - stroke) / 2;
@@ -102,6 +105,7 @@ const REPORT_TYPES: {
 ];
 
 export default function ReportGeneratorDesktop() {
+  const colors = useThemeColors();
   const router = useRouter();
   const { hasPermission, user, profile } = useAuth();
 
@@ -341,7 +345,7 @@ export default function ReportGeneratorDesktop() {
             <View className="py-20 items-center justify-center">
               <View className="bg-surface-card p-12 rounded-[3rem] border border-surface-border items-center max-w-[600px] premium-shadow">
                 <View className="w-20 h-20 bg-brand-primary/10 rounded-full items-center justify-center mb-6">
-                  <FontAwesome name="file-text-o" size={32} color="rgb(var(--brand-primary))" />
+                  <FontAwesome name="file-text-o" size={32} color={colors.primary} />
                 </View>
                 {hasPermission('pipeline.edit') ? (
                   <>
@@ -359,7 +363,7 @@ export default function ReportGeneratorDesktop() {
                 ) : (
                   <View className="bg-state-info-dim border border-state-info/20 p-8 rounded-3xl w-full">
                     <View className="flex-row items-start">
-                      <FontAwesome name="info-circle" size={20} color="rgb(var(--state-info))" style={{ marginTop: 4 }} />
+                      <FontAwesome name="info-circle" size={20} color={colors.info} style={{ marginTop: 4 }} />
                       <View className="ml-5 flex-1">
                         <Text className="text-typography-main text-lg font-black mb-1">Access Restricted</Text>
                         <Text className="text-typography-muted text-sm font-bold leading-relaxed">
@@ -403,7 +407,7 @@ export default function ReportGeneratorDesktop() {
 
               {loading && (
                 <View className="bg-state-warning/10 border border-state-warning/30 rounded-2xl px-8 py-4 mb-4 flex-row items-center gap-4">
-                  <FontAwesome name="warning" size={15} color="rgb(var(--state-warning))" />
+                  <FontAwesome name="warning" size={15} color={colors.warning} />
                   <Text className="text-state-warning font-semibold text-sm flex-1">
                     Don't close or navigate away — reports are actively being generated. Leaving will cancel the remaining jobs.
                   </Text>
@@ -412,10 +416,10 @@ export default function ReportGeneratorDesktop() {
 
               {genError && (
                 <View className="bg-state-danger/10 border border-state-danger/30 rounded-2xl px-8 py-5 mb-8 flex-row items-center gap-4">
-                  <FontAwesome name="exclamation-circle" size={18} color="rgb(var(--state-danger))" />
+                  <FontAwesome name="exclamation-circle" size={18} color={colors.danger} />
                   <Text className="text-state-danger font-bold flex-1">{genError}</Text>
                   <TouchableOpacity onPress={() => setGenError(null)}>
-                    <FontAwesome name="times" size={16} color="rgb(var(--state-danger))" />
+                    <FontAwesome name="times" size={16} color={colors.danger} />
                   </TouchableOpacity>
                 </View>
               )}
@@ -430,7 +434,7 @@ export default function ReportGeneratorDesktop() {
                       <Text className="text-typography-muted text-xs font-black uppercase tracking-[0.2em] opacity-60">01. Architecture Type</Text>
                       {isMulti && (
                         <View className="bg-brand-primary/10 border border-brand-primary/30 px-3 py-1 rounded-full flex-row items-center gap-2">
-                          <FontAwesome name="files-o" size={10} color="rgb(var(--brand-primary))" />
+                          <FontAwesome name="files-o" size={10} color={colors.primary} />
                           <Text className="text-brand-primary text-[9px] font-black uppercase tracking-widest">{selectedTypes.length} Combined</Text>
                         </View>
                       )}
@@ -488,7 +492,7 @@ export default function ReportGeneratorDesktop() {
                               value={dateStart}
                               onChangeText={setDateStart}
                               className="border border-surface-border bg-surface-background rounded-2xl p-5 text-typography-main font-bold"
-                              placeholderTextColor="rgb(var(--text-muted))"
+                              placeholderTextColor={colors.textMuted}
                             />
                           </View>
                           <View className="flex-1">
@@ -498,7 +502,7 @@ export default function ReportGeneratorDesktop() {
                               value={dateEnd}
                               onChangeText={setDateEnd}
                               className="border border-surface-border bg-surface-background rounded-2xl p-5 text-typography-main font-bold"
-                              placeholderTextColor="rgb(var(--text-muted))"
+                              placeholderTextColor={colors.textMuted}
                             />
                           </View>
                         </View>
@@ -545,7 +549,7 @@ export default function ReportGeneratorDesktop() {
                     <View className="mt-10 pt-10 border-t border-surface-border">
                       <View className="bg-surface-background p-6 rounded-3xl border border-surface-border">
                         <View className="flex-row items-center mb-4">
-                          <FontAwesome name="shield" size={14} color="var(--color-primary)" style={{ marginRight: 10 }} />
+                          <FontAwesome name="shield" size={14} color={colors.primary} style={{ marginRight: 10 }} />
                           <Text className="text-[10px] font-black uppercase tracking-widest text-typography-main">Data Sovereignty</Text>
                         </View>
                         <Text className="text-typography-muted text-xs leading-5 font-medium">
@@ -570,6 +574,7 @@ export default function ReportGeneratorDesktop() {
 // ── TypeCard ──────────────────────────────────────────────────────────────────
 
 function TypeCard({ opt, selected, onPress }: { opt: typeof REPORT_TYPES[number]; selected: boolean; onPress: () => void }) {
+  const colors = useThemeColors();
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -593,6 +598,7 @@ function TypeCard({ opt, selected, onPress }: { opt: typeof REPORT_TYPES[number]
 // ── TypeParamPanel ─────────────────────────────────────────────────────────────
 
 function TypeParamPanel({
+  const colors = useThemeColors();
   type, params, setParam, toggleMultiUser, pipelines, teams, workers, projects,
 }: {
   type: ReportType;
@@ -761,7 +767,7 @@ function TypeParamPanel({
                     keyboardType="numeric"
                     placeholder="0.00"
                     className="border border-surface-border bg-surface-background rounded-xl px-4 py-3 text-typography-main font-bold w-28 text-right"
-                    placeholderTextColor="rgb(var(--text-muted))"
+                    placeholderTextColor={colors.textMuted}
                   />
                 </View>
               );
@@ -776,7 +782,7 @@ function TypeParamPanel({
     return (
       <View className="bg-brand-primary/5 border border-brand-primary/20 p-6 rounded-3xl">
         <View className="flex-row items-center gap-3 mb-3">
-          <FontAwesome name="bullseye" size={16} color="var(--color-primary)" />
+          <FontAwesome name="bullseye" size={16} color={colors.primary} />
           <Text className="text-typography-main font-black text-sm">Company-Wide Scope</Text>
         </View>
         <Text className="text-typography-muted text-xs leading-5">
@@ -790,7 +796,7 @@ function TypeParamPanel({
     return (
       <View className="bg-brand-primary/5 border border-brand-primary/20 p-6 rounded-3xl">
         <View className="flex-row items-center gap-3 mb-3">
-          <FontAwesome name="heartbeat" size={16} color="var(--color-primary)" />
+          <FontAwesome name="heartbeat" size={16} color={colors.primary} />
           <Text className="text-typography-main font-black text-sm">Your Current Session</Text>
         </View>
         <Text className="text-typography-muted text-xs leading-5">
@@ -859,6 +865,7 @@ function TypeParamPanel({
 // ── SeriesControls ─────────────────────────────────────────────────────────────
 
 function SeriesControls({ periodType, nPeriods, onPeriodType, onNPeriods }: {
+  const colors = useThemeColors();
   periodType: string;
   nPeriods: string;
   onPeriodType: (v: string) => void;
@@ -885,7 +892,7 @@ function SeriesControls({ periodType, nPeriods, onPeriodType, onNPeriods }: {
         keyboardType="numeric"
         placeholder="12"
         className="border border-surface-border bg-surface-background rounded-2xl p-5 text-typography-main font-bold mb-8"
-        placeholderTextColor="rgb(var(--text-muted))"
+        placeholderTextColor={colors.textMuted}
       />
     </>
   );
@@ -894,6 +901,7 @@ function SeriesControls({ periodType, nPeriods, onPeriodType, onNPeriods }: {
 // ── ParameterSection ───────────────────────────────────────────────────────────
 
 function ParameterSection({ title, options, value, onSelect, placeholder, labelKey = 'name', required = false }: any) {
+  const colors = useThemeColors();
   return (
     <View className="mb-8">
       <View className="flex-row items-center mb-4">

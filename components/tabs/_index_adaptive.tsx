@@ -1,9 +1,9 @@
 import PendingTimeApprovalsWidget from '@/components/common/PendingTimeApprovalsWidget';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '@/contexts/NotificationsContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
 import { TAB_BAR_HEIGHT } from '@/lib/layout';
 import { supabase } from '@/lib/supabase';
-import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
@@ -229,6 +229,8 @@ export default function DashboardScreen() {
     fetchPulse();
     setWidgetRefreshKey(k => k + 1);
   };
+
+  
 
   const completionRate = stats.totalTasks > 0 ? Math.round((stats.completed / stats.totalTasks) * 100) : 0;
   const failedRate = stats.totalTasks > 0 ? Math.round((stats.failed / stats.totalTasks) * 100) : 0;

@@ -11,6 +11,7 @@ import { ProfileAnalytics } from '@/components/analytics/ProfileAnalytics';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTheme, ThemeType, DensityType, RoundnessType } from '@/contexts/ThemeContext';
 import { RecentActivitySidebar } from '@/components/intelligence/RecentActivitySidebar';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 const THEME_OPTIONS: { id: ThemeType; label: string; icon: string }[] = [
   { id: 'indigo', label: 'Indigo Night', icon: 'moon-o' },
@@ -24,6 +25,7 @@ const THEME_OPTIONS: { id: ThemeType; label: string; icon: string }[] = [
 type TabType = 'general' | 'security' | 'stats' | 'appearance';
 
 export default function ProfilePageWeb() {
+  const colors = useThemeColors();
   const { user, signOut, refreshProfile } = useAuth();
   const { theme: activeTheme, setTheme, density, setDensity, roundness, setRoundness } = useTheme();
   const [activeTab, setActiveTab] = useState<TabType>('general');
@@ -92,7 +94,7 @@ export default function ProfilePageWeb() {
   if (loading) {
     return (
       <View className="flex-1 items-center justify-center bg-[var(--color-surface-background)]">
-        <ActivityIndicator size="large" color="var(--color-brand-primary)" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -180,7 +182,7 @@ export default function ProfilePageWeb() {
             onPress={() => signOut()}
             className="h-12 flex-row items-center rounded-xl border border-typography-dim/20 bg-surface-overlay px-4 hover:bg-surface-border transition-colors"
           >
-            <FontAwesome name="sign-out" size={14} color="var(--color-text-muted)" style={{ marginRight: 12 }} />
+            <FontAwesome name="sign-out" size={14} color={colors.textMuted} style={{ marginRight: 12 }} />
             <Text className="text-xs font-black uppercase tracking-widest text-typography-main">Sign Out</Text>
           </Pressable>
         </View>
@@ -234,7 +236,7 @@ export default function ProfilePageWeb() {
                           <FontAwesome 
                             name={option.icon as any} 
                             size={18} 
-                            color={activeTheme === option.id ? 'var(--color-primary)' : 'var(--color-text-dim)'} 
+                            color={activeTheme === option.id ? colors.primary : colors.textDim} 
                           />
                         </View>
                         <Text className={`mt-3 text-[10px] font-black uppercase tracking-widest ${
@@ -295,6 +297,7 @@ export default function ProfilePageWeb() {
 }
 
 function TabButton({ active, onPress, icon, label, description }: { 
+  const colors = useThemeColors();
   active: boolean, 
   onPress: () => void, 
   icon: any, 
@@ -309,7 +312,7 @@ function TabButton({ active, onPress, icon, label, description }: {
       }`}
     >
       <View className={`h-10 w-10 items-center justify-center rounded-xl ${active ? 'bg-brand-primary/20' : 'bg-surface-overlay'}`}>
-        <FontAwesome name={icon} size={16} color={active ? 'var(--color-primary)' : 'var(--color-text-dim)'} />
+        <FontAwesome name={icon} size={16} color={active ? colors.primary : colors.textDim} />
       </View>
       <View className="ml-4">
         <Text className={`text-sm font-black ${active ? 'text-brand-primary' : 'text-typography-main'}`}>{label}</Text>

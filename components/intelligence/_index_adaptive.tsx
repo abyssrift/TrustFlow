@@ -9,10 +9,12 @@ import * as Linking from 'expo-linking';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Modal, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 // --- UTILITIES & SUB-COMPONENTS (Defined BEFORE main screen to avoid non-hoisted variable errors) ---
 
 const SectionToggle = ({ active, onSelect, hasPermission }: { active: string, onSelect: (s: string) => void, hasPermission: (p: string) => boolean }) => {
+  const colors = useThemeColors();
   const sections = ['Radar', 'Archives', 'Analytics'].filter(s => {
     if (s === 'Archives') return hasPermission('archive.view');
     if (s === 'Analytics') return hasPermission('analytics.view');
@@ -54,11 +56,12 @@ const KPIBox = ({ label, val, delta }: any) => (
 );
 
 const SLARiskAlert = ({ data }: any) => {
+  const colors = useThemeColors();
   if (!data?.sla_risks || data.sla_risks.length === 0) return null;
   return (
     <View className="mb-6 bg-state-danger/5 border border-state-danger/20 p-5 rounded-3xl">
       <View className="flex-row items-center mb-4">
-        <FontAwesome name="warning" size={14} color="var(--color-danger)" className="mr-2" />
+        <FontAwesome name="warning" size={14} color={colors.danger} className="mr-2" />
         <Text className="text-state-danger font-bold">SLA Breach Risks</Text>
       </View>
       {data.sla_risks.slice(0, 3).map((r: any, i: number) => (
@@ -72,6 +75,7 @@ const SLARiskAlert = ({ data }: any) => {
 };
 
 const ConversionFunnelChart = ({ data }: any) => {
+  const colors = useThemeColors();
   if (!data?.conversion_by_stage) return null;
   return (
     <View className="bg-surface-card p-6 rounded-3xl border border-surface-border mb-6">
@@ -95,6 +99,7 @@ const ConversionFunnelChart = ({ data }: any) => {
 };
 
 const WorkDistributionChart = ({ data }: any) => {
+  const colors = useThemeColors();
   if (!data?.worker_engagement) return null;
   const top = data.worker_engagement.sort((a: any, b: any) => b.action_count - a.action_count).slice(0, 5);
   return (
@@ -131,6 +136,7 @@ const WorkDistributionChart = ({ data }: any) => {
 };
 
 const QualityLeaderboard = ({ data }: any) => {
+  const colors = useThemeColors();
   if (!data?.quality_by_worker) return null;
   const best = data.quality_by_worker.sort((a: any, b: any) => a.revision_rate - b.revision_rate).slice(0, 5);
   return (
@@ -156,7 +162,7 @@ const QualityLeaderboard = ({ data }: any) => {
             <View className="bg-state-success/10 px-2 py-0.5 rounded-lg mr-2">
               <Text className="text-state-success text-[10px] font-black">{Math.round(100 - (w.revision_rate || 0))}%</Text>
             </View>
-            <FontAwesome name="star" size={10} color="var(--color-warning)" />
+            <FontAwesome name="star" size={10} color={colors.warning} />
           </View>
         </View>
       ))}
@@ -165,6 +171,7 @@ const QualityLeaderboard = ({ data }: any) => {
 };
 
 const TrendComparisonCards = ({ data }: any) => {
+  const colors = useThemeColors();
   if (!data?.current || !data?.comparison) return null;
   const c = data.current;
   const p = data.comparison;
@@ -194,7 +201,8 @@ const TrendComparisonCards = ({ data }: any) => {
 };
 
 const RadarSection = ({ data, activeWidgets, onEditWidgets }: any) => {
-  if (!data) return <View className="py-20"><ActivityIndicator color="var(--color-primary)" /></View>;
+  const colors = useThemeColors();
+  if (!data) return <View className="py-20"><ActivityIndicator color={colors.primary} /></View>;
   const curThr = data.current?.throughput || 0;
   const prevThr = data.comparison?.throughput || 0;
   const adv = data.radar_advanced || {};
@@ -265,19 +273,19 @@ const ArchivesSection = ({ reports, onDownload, onNew, coldArchives, activeSchem
     {currentSubSection === 'reports' ? (
       <>
         <TouchableOpacity onPress={onNew} className="bg-surface-card p-6 rounded-3xl border border-dashed border-brand-primary/40 mb-6 items-center flex-row justify-center">
-          <FontAwesome name="plus-circle" size={16} color="var(--color-primary)" className="mr-3" />
+          <FontAwesome name="plus-circle" size={16} color={colors.primary} className="mr-3" />
           <Text className="text-brand-primary font-bold text-sm">Generate Report</Text>
         </TouchableOpacity>
         {reports.map((r: any, i: number) => (
           <TouchableOpacity key={i} onPress={() => r.file_url && onDownload(r.file_url)} className="bg-surface-card p-5 rounded-2xl border border-surface-border mb-4 flex-row items-center">
             <View className={`w-12 h-12 rounded-xl items-center justify-center mr-4 ${r.status === 'completed' ? 'bg-state-success/10' : 'bg-state-info/10'}`}>
-              <FontAwesome name="file-text-o" size={18} color={r.status === 'completed' ? 'var(--color-success)' : 'var(--color-primary)'} />
+              <FontAwesome name="file-text-o" size={18} color={r.status === 'completed' ? colors.success : colors.primary} />
             </View>
             <View className="flex-1">
               <Text className="text-typography-main font-bold">Report #{r.id.substring(0, 6)}</Text>
               <Text className="text-typography-muted text-xs">{new Date(r.created_at).toLocaleDateString()} • {r.status}</Text>
             </View>
-            <FontAwesome name="chevron-right" size={12} color="var(--color-text-muted)" />
+            <FontAwesome name="chevron-right" size={12} color={colors.textMuted} />
           </TouchableOpacity>
         ))}
       </>
@@ -316,7 +324,7 @@ const ArchivesSection = ({ reports, onDownload, onNew, coldArchives, activeSchem
                     )}
                   </View>
                 </View>
-                <FontAwesome name="chevron-right" size={12} color="var(--color-text-muted)" />
+                <FontAwesome name="chevron-right" size={12} color={colors.textMuted} />
               </TouchableOpacity>
             );
           })
@@ -327,6 +335,7 @@ const ArchivesSection = ({ reports, onDownload, onNew, coldArchives, activeSchem
 );
 
 const ReportConfigModal = ({ visible, onClose, onConfirm, pipelines, teams, users, initialDays }: any) => {
+  const colors = useThemeColors();
   const [d, setD] = useState(initialDays);
   const [p, setP] = useState<string | null>(null);
   const [t, setT] = useState<string | null>(null);
@@ -372,6 +381,7 @@ const ReportConfigModal = ({ visible, onClose, onConfirm, pipelines, teams, user
 };
 
 const WidgetConfigModal = ({ visible, onClose, onSave, currentWidgets }: any) => {
+  const colors = useThemeColors();
   const [selected, setSelected] = useState<string[]>(currentWidgets || []);
   useEffect(() => { if (visible) setSelected(currentWidgets || []); }, [visible, currentWidgets]);
   const library = [
@@ -424,6 +434,7 @@ const WidgetConfigModal = ({ visible, onClose, onSave, currentWidgets }: any) =>
 };
 
 const DataTree = ({ data, level = 0 }: { data: any; level?: number }) => {
+  const colors = useThemeColors();
   if (!data || typeof data !== 'object') return <Text className="text-typography-main font-mono text-[10px]">{String(data)}</Text>;
   const maskData = (obj: any): any => {
     if (!obj || typeof obj !== 'object') return obj;
@@ -460,6 +471,7 @@ const DataTree = ({ data, level = 0 }: { data: any; level?: number }) => {
 };
 
 const ArchiveDetailModal = ({ visible, onClose, archive, activeSchema, onRestore, hasPermission }: any) => {
+  const colors = useThemeColors();
   if (!archive) return null;
   const pipelineId = archive.snapshot?.pipeline_id || archive.snapshot?.child_tasks?.[0]?.pipeline_id;
   const hasIntegrityIssue = pipelineId && !activeSchema.pipelines.has(pipelineId);
@@ -485,7 +497,7 @@ const ArchiveDetailModal = ({ visible, onClose, archive, activeSchema, onRestore
             {hasIntegrityIssue && (
               <View className="bg-state-danger/10 border border-state-danger/20 p-5 rounded-2xl mb-8">
                 <View className="flex-row items-center mb-2">
-                   <FontAwesome name="warning" size={16} color="var(--color-danger)" className="mr-3" />
+                   <FontAwesome name="warning" size={16} color={colors.danger} className="mr-3" />
                    <Text className="text-state-danger font-black">Integrity Breach Detected</Text>
                 </View>
                 <Text className="text-state-danger/70 text-xs font-bold leading-relaxed">
@@ -516,6 +528,7 @@ const ArchiveDetailModal = ({ visible, onClose, archive, activeSchema, onRestore
 // --- MAIN SCREEN COMPONENT ---
 
 export default function IntelligenceScreen() {
+  const colors = useThemeColors();
   const { section } = useLocalSearchParams();
   const router = useRouter();
   const { hasPermission, profile } = useAuth();
@@ -550,6 +563,7 @@ export default function IntelligenceScreen() {
   const [showWidgetModal, setShowWidgetModal] = useState(false);
 
   useEffect(() => {
+    const colors = useThemeColors();
     AsyncStorage.getItem('@TrustFlow_radar_widgets').then(val => {
       if (val) setActiveWidgets(JSON.parse(val));
     });
@@ -710,12 +724,12 @@ export default function IntelligenceScreen() {
         {/* Main Sections */}
         <View className="px-6">
           {loading ? (
-            <View className="py-20"><ActivityIndicator color="var(--color-primary)" /></View>
+            <View className="py-20"><ActivityIndicator color={colors.primary} /></View>
           ) : pipelines.length === 0 ? (
             <View className="py-10 items-center justify-center">
               <View className="bg-surface-card p-8 rounded-[2rem] border border-surface-border items-center w-full premium-shadow">
                 <View className="w-16 h-16 bg-brand-primary/10 rounded-full items-center justify-center mb-6">
-                  <FontAwesome name="line-chart" size={24} color="var(--color-primary)" />
+                  <FontAwesome name="line-chart" size={24} color={colors.primary} />
                 </View>
 
                 {hasPermission('pipeline.edit') ? (
@@ -734,7 +748,7 @@ export default function IntelligenceScreen() {
                 ) : (
                   <View className="bg-state-info-dim border border-state-info/20 p-6 rounded-2xl w-full">
                     <View className="flex-row items-start">
-                      <FontAwesome name="info-circle" size={16} color="var(--color-info)" style={{ marginTop: 2 }} />
+                      <FontAwesome name="info-circle" size={16} color={colors.info} style={{ marginTop: 2 }} />
                       <View className="ml-4 flex-1">
                          <Text className="text-typography-main text-sm font-black mb-1">Access Restricted</Text>
                          <Text className="text-typography-muted text-[11px] font-bold leading-relaxed">

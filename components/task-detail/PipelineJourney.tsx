@@ -4,7 +4,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import PermissionGate from './PermissionGate';
 import { useTheme } from '@/contexts/ThemeContext';
-import { getPrimaryColor, getMutedColor } from '@/lib/themeColors';
+import { getPrimaryColor, getMutedColor } from '@/hooks/useThemeColors';
 
 function timeAgo(dateStr: string): string {
   const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);

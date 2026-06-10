@@ -12,6 +12,7 @@ import { FontAwesome } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { useAlert } from '@/contexts/AlertContext';
 import { usePushSubscription } from '@/hooks/usePushSubscription';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 type Prefs = {
   email_enabled: boolean;
@@ -21,6 +22,7 @@ type Prefs = {
 
 const EVENT_GROUPS = [
   {
+    const colors = useThemeColors();
     label: 'Tasks',
     icon: 'check-square-o' as const,
     events: [
@@ -36,6 +38,7 @@ const EVENT_GROUPS = [
 ];
 
 export default function NotificationPreferencesWeb() {
+  const colors = useThemeColors();
   const router = useRouter();
   const { showAlert } = useAlert();
   const { state: pushState, subscribe, unsubscribe } = usePushSubscription();
@@ -111,7 +114,7 @@ export default function NotificationPreferencesWeb() {
   if (loading) {
     return (
       <View className="flex-1 bg-surface-background items-center justify-center">
-        <ActivityIndicator size="large" color="var(--color-primary)" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -129,7 +132,7 @@ export default function NotificationPreferencesWeb() {
         {/* Breadcrumb */}
         <View className="flex-row items-center gap-2 mb-10">
           <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')} className="flex-row items-center gap-2">
-            <FontAwesome name="chevron-left" size={11} color="var(--color-text-muted)" />
+            <FontAwesome name="chevron-left" size={11} color={colors.textMuted} />
             <Text className="text-typography-muted font-bold text-sm">Back</Text>
           </TouchableOpacity>
           <Text className="text-typography-muted text-sm">/</Text>
@@ -181,7 +184,7 @@ export default function NotificationPreferencesWeb() {
           {/* Email */}
           <View className="flex-row items-center px-8 py-6 border-b border-surface-border">
             <View className="bg-brand-primary/10 w-12 h-12 rounded-2xl items-center justify-center mr-5 border border-brand-primary/20">
-              <FontAwesome name="envelope-o" size={18} color="var(--color-primary)" />
+              <FontAwesome name="envelope-o" size={18} color={colors.primary} />
             </View>
             <View className="flex-1 mr-6">
               <Text className="text-typography-main font-bold text-base">Email</Text>
@@ -192,7 +195,7 @@ export default function NotificationPreferencesWeb() {
             <Switch
               value={prefs.email_enabled}
               onValueChange={() => toggle('email_enabled')}
-              trackColor={{ false: 'var(--color-surface-border)', true: 'var(--color-primary)' }}
+              trackColor={{ false: colors.border, true: colors.primary }}
               thumbColor="#fff"
             />
           </View>
@@ -201,9 +204,9 @@ export default function NotificationPreferencesWeb() {
           <View className="flex-row items-center px-8 py-6 border-b border-surface-border">
             <View className="bg-brand-primary/10 w-12 h-12 rounded-2xl items-center justify-center mr-5 border border-brand-primary/20">
               {pushState === 'loading' ? (
-                <ActivityIndicator size="small" color="var(--color-primary)" />
+                <ActivityIndicator size="small" color={colors.primary} />
               ) : (
-                <FontAwesome name="globe" size={18} color="var(--color-primary)" />
+                <FontAwesome name="globe" size={18} color={colors.primary} />
               )}
             </View>
             <View className="flex-1 mr-6">
@@ -243,7 +246,7 @@ export default function NotificationPreferencesWeb() {
               value={prefs.push_web_enabled && pushState === 'subscribed'}
               onValueChange={togglePushWeb}
               disabled={pushWebDisabled}
-              trackColor={{ false: 'var(--color-surface-border)', true: 'var(--color-primary)' }}
+              trackColor={{ false: colors.border, true: colors.primary }}
               thumbColor="#fff"
             />
           </View>
@@ -251,7 +254,7 @@ export default function NotificationPreferencesWeb() {
           {/* Mobile push */}
           <View className="flex-row items-center px-8 py-6">
             <View className="bg-brand-primary/10 w-12 h-12 rounded-2xl items-center justify-center mr-5 border border-brand-primary/20">
-              <FontAwesome name="mobile" size={18} color="var(--color-primary)" />
+              <FontAwesome name="mobile" size={18} color={colors.primary} />
             </View>
             <View className="flex-1 mr-6">
               <Text className="text-typography-main font-bold text-base">Mobile Push</Text>
@@ -262,7 +265,7 @@ export default function NotificationPreferencesWeb() {
             <Switch
               value={prefs.push_mobile_enabled}
               onValueChange={() => toggle('push_mobile_enabled')}
-              trackColor={{ false: 'var(--color-surface-border)', true: 'var(--color-primary)' }}
+              trackColor={{ false: colors.border, true: colors.primary }}
               thumbColor="#fff"
             />
           </View>
@@ -272,7 +275,7 @@ export default function NotificationPreferencesWeb() {
         {EVENT_GROUPS.map((group) => (
           <View key={group.label} className="bg-surface-card rounded-[32px] border border-surface-border overflow-hidden premium-shadow mb-8">
             <View className="px-8 py-6 border-b border-surface-border flex-row items-center gap-3">
-              <FontAwesome name={group.icon} size={14} color="var(--color-text-muted)" />
+              <FontAwesome name={group.icon} size={14} color={colors.textMuted} />
               <Text className="text-typography-main font-black text-lg tracking-tight">
                 {group.label} Events
               </Text>

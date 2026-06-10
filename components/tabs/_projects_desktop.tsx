@@ -32,6 +32,7 @@ type Project = {
 };
 
 export default function ProjectsScreenWeb() {
+  const colors = useThemeColors();
   const { hasPermission } = useAuth();
   const { activeSession, lastStoppedAt } = useTimer();
   const { width } = useWindowDimensions();
@@ -156,7 +157,7 @@ export default function ProjectsScreenWeb() {
       >
         <View className="flex-row items-center justify-between mb-6">
            <View className={`w-14 h-14 rounded-2xl items-center justify-center ${isOverdue ? 'bg-state-danger/10' : 'bg-brand-primary/10'} group-hover:scale-110 transition-transform`}>
-              <FontAwesome name="folder-open" size={24} color={isOverdue ? 'var(--color-danger)' : 'var(--color-primary)'} />
+              <FontAwesome name="folder-open" size={24} color={isOverdue ? colors.danger : colors.primary} />
            </View>
            <View className="flex-row items-center gap-2">
               {hasPermission('archive:create') && (
@@ -183,7 +184,7 @@ export default function ProjectsScreenWeb() {
         </View>
 
         <View className="flex-row items-center gap-3 mb-2">
-          {project.is_featured && <FontAwesome name="star" size={16} color="var(--color-warning)" />}
+          {project.is_featured && <FontAwesome name="star" size={16} color={colors.warning} />}
           <Text className="text-typography-main text-2xl font-black tracking-tight flex-1" numberOfLines={1}>{project.name}</Text>
         </View>
         
@@ -222,7 +223,7 @@ export default function ProjectsScreenWeb() {
 
         {project.expiry_date && (
            <View className="flex-row items-center mt-6 pt-6 border-t border-surface-border/50">
-              <FontAwesome name="calendar" size={12} color={isOverdue ? 'var(--color-danger)' : 'var(--color-text-muted)'} />
+              <FontAwesome name="calendar" size={12} color={isOverdue ? colors.danger : colors.textMuted} />
               <Text className={`ml-3 text-[10px] font-black uppercase tracking-widest ${isOverdue ? 'text-state-danger' : 'text-typography-muted'}`}>
                 {isOverdue ? 'Overdue' : 'Deadline'}: {new Date(project.expiry_date).toLocaleDateString()}
               </Text>
@@ -248,7 +249,7 @@ export default function ProjectsScreenWeb() {
               <Switch 
                 value={showClosed} 
                 onValueChange={setShowClosed}
-                trackColor={{ false: 'var(--color-surface-border)', true: 'var(--color-primary)' }}
+                trackColor={{ false: colors.border, true: colors.primary }}
                 thumbColor="white"
               />
             </View>
@@ -265,12 +266,12 @@ export default function ProjectsScreenWeb() {
 
         {loading ? (
           <View className="py-20 items-center justify-center">
-            <ActivityIndicator size="large" color="var(--color-primary)" />
+            <ActivityIndicator size="large" color={colors.primary} />
           </View>
         ) : (
           <ScrollView 
             showsVerticalScrollIndicator={false}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="var(--color-primary)" />}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
           >
             <View className="flex-row flex-wrap gap-x-[30px]">
               {filteredProjects.length === 0 ? (
@@ -320,3 +321,4 @@ export default function ProjectsScreenWeb() {
 }
 
 import ConfirmModal from '@/components/common/ConfirmModal';
+import { useThemeColors } from '@/hooks/useThemeColors';

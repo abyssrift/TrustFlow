@@ -10,6 +10,7 @@ import { Link, useLocalSearchParams, usePathname } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Platform, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 cssInterop(FontAwesome, {
   className: {
@@ -74,6 +75,7 @@ const initials = (value: string) => {
 };
 
 const ThemePopover = ({
+  const colors = useThemeColors();
   visible,
   onClose,
   sidebarExpanded,
@@ -119,12 +121,12 @@ const ThemePopover = ({
                 }`}
             >
               <View className={`h-8 w-8 items-center justify-center rounded-lg ${theme === option.id ? 'bg-brand-primary/20' : 'bg-surface-overlay'}`}>
-                <FontAwesome name={option.icon} size={14} color={theme === option.id ? 'var(--color-primary)' : 'var(--color-text-dim)'} />
+                <FontAwesome name={option.icon} size={14} color={theme === option.id ? colors.primary : colors.textDim} />
               </View>
               <Text className={`ml-3 text-xs font-bold ${theme === option.id ? 'text-brand-primary' : 'text-typography-muted'}`}>{option.label}</Text>
               {theme === option.id && (
                 <View className="ml-auto">
-                  <FontAwesome name="check-circle" size={14} color="var(--color-primary)" />
+                  <FontAwesome name="check-circle" size={14} color={colors.primary} />
                 </View>
               )}
             </Pressable>
@@ -170,6 +172,7 @@ const ThemePopover = ({
 };
 
 const SidebarItem = ({
+  const colors = useThemeColors();
   icon,
   label,
   href,
@@ -195,7 +198,7 @@ const SidebarItem = ({
         <FontAwesome
           name={icon}
           size={18}
-          color={isActive ? 'var(--color-primary)' : 'var(--color-text-dim)'}
+          color={isActive ? colors.primary : colors.textDim}
         />
         {collapsed && !!badge && badge > 0 && (
           <View
@@ -228,6 +231,7 @@ const SidebarItem = ({
 );
 
 export default function Sidebar({ children }: { children: React.ReactNode }) {
+  const colors = useThemeColors();
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
   const pathname = usePathname();
@@ -362,7 +366,7 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
                   <FontAwesome
                     name={isCollapsed ? 'indent' : 'outdent'}
                     size={16}
-                    color="var(--color-primary)"
+                    color={colors.primary}
                   />
                 </Pressable>
               </View>
@@ -409,7 +413,7 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
                             <FontAwesome 
                               name="shield" 
                               size={18} 
-                              color={pathname.startsWith('/platform-admin') ? 'var(--color-primary)' : 'var(--color-primary-dim)'} 
+                              color={pathname.startsWith('/platform-admin') ? colors.primary : (colors.primary + '26')} 
                             />
                           </View>
                           {isExpanded && (
@@ -438,7 +442,7 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
                             <FontAwesome 
                               name="wrench" 
                               size={18} 
-                              color={pathname === '/admin/dev-tools' ? 'var(--color-primary)' : 'var(--color-primary-dim)'} 
+                              color={pathname === '/admin/dev-tools' ? colors.primary : (colors.primary + '26')} 
                             />
                           </View>
                           {isExpanded && (
@@ -485,7 +489,7 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
                   accessibilityLabel="Theme settings"
                 >
                   <View className={`${isExpanded ? 'w-8' : ''} items-center`}>
-                    <FontAwesome name="paint-brush" size={18} color="var(--color-text-dim)" />
+                    <FontAwesome name="paint-brush" size={18} color={colors.textDim} />
                   </View>
                   {isExpanded && <Text className="ml-2 font-bold text-typography-main">Theme</Text>}
                 </Pressable>
@@ -496,7 +500,7 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
                       }`}
                   >
                     <View className={`${isExpanded ? 'w-8' : 'relative'} items-center`}>
-                      <FontAwesome name="bell" size={18} color="var(--color-primary)" />
+                      <FontAwesome name="bell" size={18} color={colors.primary} />
                       {unreadCount > 0 && !isExpanded && (
                         <View className="absolute -top-1.5 -right-1.5 min-w-4 h-4 rounded-full bg-state-danger items-center justify-center px-0.5">
                           <Text className="text-[9px] font-black text-white leading-none">

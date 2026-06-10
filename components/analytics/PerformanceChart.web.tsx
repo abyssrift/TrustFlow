@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 interface PerformanceChartProps {
   data: any[];
@@ -9,6 +10,7 @@ interface PerformanceChartProps {
 }
 
 const ChartTooltip = ({ active, payload, label }: any) => {
+  const colors = useThemeColors();
   if (!active || !payload?.length) return null;
   return (
     <View className="bg-surface-overlay border border-surface-border rounded-xl px-3 py-2">
@@ -19,6 +21,7 @@ const ChartTooltip = ({ active, payload, label }: any) => {
 };
 
 export const PerformanceChart = ({ data, metricKey, label }: PerformanceChartProps) => {
+  const colors = useThemeColors();
   const chartData = [...data].reverse();
 
   return (
@@ -29,19 +32,19 @@ export const PerformanceChart = ({ data, metricKey, label }: PerformanceChartPro
           <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
             <defs>
               <linearGradient id="colorMetric" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.2} />
-                <stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0} />
+                <stop offset="0%" stopColor={colors.primary} stopOpacity={0.2} />
+                <stop offset="100%" stopColor={colors.primary} stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} opacity={0.5} />
+            <CartesianGrid strokeDasharray="3 3" stroke={colors.border} vertical={false} opacity={0.5} />
             <XAxis 
               dataKey="period_label" 
-              tick={{ fill: 'var(--color-text-dim)', fontSize: 11 }} 
+              tick={{ fill: colors.textDim, fontSize: 11 }} 
               axisLine={false} 
               tickLine={false} 
             />
             <YAxis 
-              tick={{ fill: 'var(--color-text-dim)', fontSize: 11 }} 
+              tick={{ fill: colors.textDim, fontSize: 11 }} 
               axisLine={false} 
               tickLine={false} 
             />
@@ -49,10 +52,10 @@ export const PerformanceChart = ({ data, metricKey, label }: PerformanceChartPro
             <Area 
               type="monotone" 
               dataKey={metricKey} 
-              stroke="var(--color-primary)" 
+              stroke={colors.primary} 
               fill="url(#colorMetric)" 
               strokeWidth={3} 
-              dot={{ r: 4, fill: 'var(--color-primary)', strokeWidth: 2, stroke: 'var(--color-text-main)' }} 
+              dot={{ r: 4, fill: colors.primary, strokeWidth: 2, stroke: colors.textMain }} 
               activeDot={{ r: 6, strokeWidth: 0 }}
             />
           </AreaChart>

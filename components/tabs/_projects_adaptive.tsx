@@ -16,7 +16,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import ProjectFolderModal from '@/components/projects/ProjectFolderModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { TAB_BAR_HEIGHT } from '@/lib/layout';
-import { useThemeColors } from '@/lib/themeColors';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 type Project = {
   id: string;

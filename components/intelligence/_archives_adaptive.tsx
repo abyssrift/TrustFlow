@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { useThemeColors } from '@/lib/themeColors';
+import { useThemeColors } from '@/hooks/useThemeColors';
 import { ActivityIndicator, Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function IntelligenceArchivesNative() {

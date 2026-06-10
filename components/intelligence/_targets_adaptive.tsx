@@ -6,7 +6,7 @@ import { NATIVE_THEME_COLORS } from '@/lib/layout';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
-import { useThemeColors } from '@/lib/themeColors';
+import { useThemeColors } from '@/hooks/useThemeColors';
 import {
     ActivityIndicator, Alert, Modal, ScrollView, Text, TextInput,
     TouchableOpacity, View, useWindowDimensions,
@@ -50,7 +50,7 @@ const CreateModal = ({ visible, onClose, onConfirm, pipelines, stages }: any) =>
                   <FontAwesome
                     name={t === 'performance' ? 'bolt' : 'database'}
                     size={10}
-                    color={type === t ? 'white' : 'var(--color-text-muted)'}
+                    color={type === t ? 'white' : colors.textMuted}
                     style={{ marginRight: 8 }}
                   />
                   <Text className={`font-black text-[10px] uppercase tracking-widest ${type === t ? 'text-white' : 'text-typography-muted'}`}>{t}</Text>
@@ -80,7 +80,7 @@ const CreateModal = ({ visible, onClose, onConfirm, pipelines, stages }: any) =>
                     value={activeGoal}
                     onChangeText={setActiveGoal}
                     keyboardType="numeric"
-                    placeholderTextColor="var(--color-text-dim)"
+                    placeholderTextColor={colors.textDim}
                     className="bg-surface-background border border-surface-border text-typography-main p-4 rounded-2xl font-black text-lg"
                   />
                 </View>
@@ -90,7 +90,7 @@ const CreateModal = ({ visible, onClose, onConfirm, pipelines, stages }: any) =>
                     value={lifeGoal}
                     onChangeText={setLifeGoal}
                     keyboardType="numeric"
-                    placeholderTextColor="var(--color-text-dim)"
+                    placeholderTextColor={colors.textDim}
                     className="bg-surface-background border border-surface-border text-typography-main p-4 rounded-2xl font-black text-lg"
                   />
                 </View>
@@ -103,7 +103,7 @@ const CreateModal = ({ visible, onClose, onConfirm, pipelines, stages }: any) =>
                     value={quantity}
                     onChangeText={setQuantity}
                     keyboardType="numeric"
-                    placeholderTextColor="var(--color-text-dim)"
+                    placeholderTextColor={colors.textDim}
                     className="bg-surface-background border border-surface-border text-typography-main p-4 rounded-2xl font-black text-lg"
                   />
                 </View>
@@ -198,7 +198,7 @@ const EditModal = ({ target, onClose, onSave }: { target: any; onClose: () => vo
                     value={quantity}
                     onChangeText={setQuantity}
                     keyboardType="numeric"
-                    placeholderTextColor="var(--color-text-dim)"
+                    placeholderTextColor={colors.textDim}
                     className="bg-surface-background border border-surface-border text-typography-main p-5 rounded-2xl font-black text-xl"
                   />
                 </View>
@@ -219,7 +219,7 @@ const EditModal = ({ target, onClose, onSave }: { target: any; onClose: () => vo
                     value={activeMins}
                     onChangeText={setActiveMins}
                     keyboardType="numeric"
-                    placeholderTextColor="var(--color-text-dim)"
+                    placeholderTextColor={colors.textDim}
                     className="bg-surface-background border border-surface-border text-typography-main p-5 rounded-2xl font-black text-xl"
                   />
                 </View>
@@ -229,7 +229,7 @@ const EditModal = ({ target, onClose, onSave }: { target: any; onClose: () => vo
                     value={lifecycleHours}
                     onChangeText={setLifecycleHours}
                     keyboardType="numeric"
-                    placeholderTextColor="var(--color-text-dim)"
+                    placeholderTextColor={colors.textDim}
                     className="bg-surface-background border border-surface-border text-typography-main p-5 rounded-2xl font-black text-xl"
                   />
                 </View>

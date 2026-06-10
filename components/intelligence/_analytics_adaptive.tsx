@@ -6,7 +6,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { useThemeColors } from '@/lib/themeColors';
+import { useThemeColors } from '@/hooks/useThemeColors';
 import {
   ActivityIndicator,
   Image,
@@ -67,7 +67,7 @@ function CalendarModal({ visible, title, value, onSelect, onClose }: {
           <View className="px-6 pt-5 pb-4 flex-row justify-between items-center border-b border-surface-border">
             <Text className="text-typography-main font-black text-lg">{title}</Text>
             <TouchableOpacity onPress={onClose} className="w-8 h-8 rounded-full bg-surface-background border border-surface-border items-center justify-center">
-              <FontAwesome name="times" size={12} color="var(--color-text-dim)" />
+              <FontAwesome name="times" size={12} color={colors.textDim} />
             </TouchableOpacity>
           </View>
           <PremiumCalendarPicker
@@ -116,7 +116,7 @@ function DateRangeControls({ from, to, setFrom, setTo }: {
           onPress={() => { setActivePreset(null); setShowFrom(true); }}
           className={`px-4 py-2 rounded-xl border flex-row items-center gap-2 ${activePreset === null ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border'}`}
         >
-          <FontAwesome name="calendar" size={11} color={activePreset === null ? '#fff' : 'var(--color-text-muted)'} />
+          <FontAwesome name="calendar" size={11} color={activePreset === null ? '#fff' : colors.textMuted} />
           <Text className={`text-xs font-black ${activePreset === null ? 'text-white' : 'text-typography-muted'}`}>Custom</Text>
         </TouchableOpacity>
       </View>
@@ -128,7 +128,7 @@ function DateRangeControls({ from, to, setFrom, setTo }: {
             onPress={() => setShowFrom(true)}
             className="flex-1 bg-surface-card border border-surface-border rounded-xl px-4 py-2.5 flex-row items-center gap-2"
           >
-            <FontAwesome name="calendar-o" size={12} color="var(--color-text-muted)" />
+            <FontAwesome name="calendar-o" size={12} color={colors.textMuted} />
             <Text className="text-typography-main text-sm">{fmtDate(from)}</Text>
           </TouchableOpacity>
           <Text className="text-typography-dim font-bold">→</Text>
@@ -136,7 +136,7 @@ function DateRangeControls({ from, to, setFrom, setTo }: {
             onPress={() => setShowTo(true)}
             className="flex-1 bg-surface-card border border-surface-border rounded-xl px-4 py-2.5 flex-row items-center gap-2"
           >
-            <FontAwesome name="calendar-o" size={12} color="var(--color-text-muted)" />
+            <FontAwesome name="calendar-o" size={12} color={colors.textMuted} />
             <Text className="text-typography-main text-sm">{fmtDate(to)}</Text>
           </TouchableOpacity>
         </View>
@@ -271,7 +271,7 @@ function DwellChart({ data }: { data: StageDwell[] }) {
 
         return (
           <View key={s.stage_id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-            <Text style={{ width: labelW, fontSize: 9, fontWeight: '700', color: 'var(--color-text-muted)' }} numberOfLines={1}>
+            <Text style={{ width: labelW, fontSize: 9, fontWeight: '700', color: colors.textMuted }} numberOfLines={1}>
               {s.stage_name}{s.is_bottleneck ? ' ⚠' : ''}
             </Text>
             <Svg height={rowH} width={barAreaW}>
@@ -283,7 +283,7 @@ function DwellChart({ data }: { data: StageDwell[] }) {
               </Defs>
               <Rect x={0} y={4} width={barW} height={rowH - 8} fill={`url(#dg${i})`} rx={4} />
             </Svg>
-            <Text style={{ width: timeW, fontSize: 9, fontWeight: '900', textAlign: 'right', color: 'var(--color-text-main)' }} numberOfLines={1}>
+            <Text style={{ width: timeW, fontSize: 9, fontWeight: '900', textAlign: 'right', color: colors.textMain }} numberOfLines={1}>
               {fmtSeconds(s.avg_seconds)}
             </Text>
           </View>
@@ -391,7 +391,7 @@ function PipelineTab() {
       </View>
 
       {loading ? (
-        <View className="py-16 items-center"><ActivityIndicator color="var(--color-primary)" /></View>
+        <View className="py-16 items-center"><ActivityIndicator color={colors.primary} /></View>
       ) : (
         <>
           {/* Throughput chart */}
@@ -583,7 +583,7 @@ export default function AdminAnalyticsNative() {
     return (
       <View className="flex-1 bg-surface-background items-center justify-center">
         <Stack.Screen options={{ title: 'Analytics' }} />
-        <ActivityIndicator size="large" color="var(--color-primary)" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -592,7 +592,7 @@ export default function AdminAnalyticsNative() {
     return (
       <View className="flex-1 bg-surface-background items-center justify-center p-10">
         <Stack.Screen options={{ title: 'Analytics' }} />
-        <FontAwesome name="lock" size={40} color="var(--color-primary)" />
+        <FontAwesome name="lock" size={40} color={colors.primary} />
         <Text className="text-typography-main font-black text-xl mt-6 mb-2 text-center">Access Restricted</Text>
         <Text className="text-typography-muted text-center">
           You need the analytics.view permission to access this screen.
@@ -639,7 +639,7 @@ export default function AdminAnalyticsNative() {
         {activeTab === 'personnel' && canCompare && <PersonnelTab />}
         {activeTab === 'personnel' && !canCompare && (
           <View className="bg-surface-card border border-surface-border rounded-2xl p-10 items-center gap-3">
-            <FontAwesome name="lock" size={28} color="var(--color-primary)" />
+            <FontAwesome name="lock" size={28} color={colors.primary} />
             <Text className="text-typography-main font-black">Permission Required</Text>
             <Text className="text-typography-muted text-sm text-center">
               You need analytics.compare to access personnel benchmarking.

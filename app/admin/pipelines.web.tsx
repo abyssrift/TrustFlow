@@ -27,10 +27,12 @@ import HandshakeEditor from '@/components/pipeline-editor/HandshakeEditor';
 import SubpipelineEditor from '@/components/pipeline-editor/SubpipelineEditor';
 import PipelineVisualizer from '@/components/pipeline-editor/PipelineVisualizer';
 import PipelineSettingsForm from '@/components/pipeline-editor/PipelineSettingsForm';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 type Section = 'stages' | 'visualizer' | 'transitions' | 'automations' | 'handshakes' | 'settings' | 'subpipelines';
 
 function PipelinesWebInner() {
+  const colors = useThemeColors();
   const { 
     pipelines, 
     selectedPipeline, 
@@ -163,7 +165,7 @@ function PipelinesWebInner() {
 
           <ScrollView className="flex-1 p-4">
             {loading && pipelines.length === 0 ? (
-              <ActivityIndicator className="mt-10" color="var(--color-primary)" />
+              <ActivityIndicator className="mt-10" color={colors.primary} />
             ) : (
               pipelines.map((p) => (
                 <TouchableOpacity
@@ -185,7 +187,7 @@ function PipelinesWebInner() {
                           <FontAwesome 
                             name="lock" 
                             size={10} 
-                            color={selectedPipeline?.id === p.id ? 'white' : 'var(--color-danger)'} 
+                            color={selectedPipeline?.id === p.id ? 'white' : colors.danger} 
                             style={{ opacity: selectedPipeline?.id === p.id ? 0.7 : 1 }}
                           />
                         )}
@@ -193,7 +195,7 @@ function PipelinesWebInner() {
                           <FontAwesome 
                             name="user-secret" 
                             size={10} 
-                            color={selectedPipeline?.id === p.id ? 'white' : 'var(--color-primary)'} 
+                            color={selectedPipeline?.id === p.id ? 'white' : colors.primary} 
                             style={{ opacity: selectedPipeline?.id === p.id ? 0.7 : 1 }}
                           />
                         )}
@@ -274,7 +276,7 @@ function PipelinesWebInner() {
                 }}
                 className="w-10 h-10 bg-surface-background rounded-full items-center justify-center border border-surface-border"
               >
-                <FontAwesome name="times" size={14} color="var(--color-text-muted)" />
+                <FontAwesome name="times" size={14} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
 
@@ -285,7 +287,7 @@ function PipelinesWebInner() {
                   value={newName}
                   onChangeText={setNewName}
                   placeholder="e.g. Standard Workflow"
-                  placeholderTextColor="rgba(var(--text-muted), 0.5)"
+                  placeholderTextColor={(colors.textMuted + '80')}
                   className="bg-surface-background text-typography-main px-6 py-4 rounded-2xl border border-surface-border text-lg font-bold focus:border-brand-primary"
                   autoFocus
                 />
@@ -297,7 +299,7 @@ function PipelinesWebInner() {
                   value={newDesc}
                   onChangeText={setNewDesc}
                   placeholder="Operational scope and purpose..."
-                  placeholderTextColor="rgba(var(--text-muted), 0.5)"
+                  placeholderTextColor={(colors.textMuted + '80')}
                   className="bg-surface-background text-typography-main px-6 py-4 rounded-2xl border border-surface-border min-h-[100px] text-base"
                   multiline
                   numberOfLines={3}
@@ -369,6 +371,7 @@ function PipelinesWebInner() {
 }
 
 export default function PipelinesWebScreen() {
+  const colors = useThemeColors();
   return (
     <PipelineEditorProvider>
       <PipelinesWebInner />

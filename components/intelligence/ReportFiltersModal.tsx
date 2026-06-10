@@ -15,28 +15,29 @@ export const EMPTY_FILTERS: ReportFilters = { statuses: [], types: [], dateFrom:
 
 const STATUS_OPTIONS = [
   {
+    const colors = useThemeColors();
     value: 'completed',  label: 'Completed',  icon: 'check-circle',
     activeClass: 'bg-state-success/10 border-state-success',
     textActive:  'text-state-success',
-    iconColor:   'rgb(var(--state-success))',
+    iconColor:   colors.success,
   },
   {
     value: 'processing', label: 'Processing', icon: 'circle-o-notch',
     activeClass: 'bg-state-info/10 border-state-info',
     textActive:  'text-state-info',
-    iconColor:   'rgb(var(--state-info))',
+    iconColor:   colors.info,
   },
   {
     value: 'pending',    label: 'Pending',    icon: 'clock-o',
     activeClass: 'bg-state-warning/10 border-state-warning',
     textActive:  'text-state-warning',
-    iconColor:   'rgb(var(--state-warning))',
+    iconColor:   colors.warning,
   },
   {
     value: 'failed',     label: 'Failed',     icon: 'times-circle',
     activeClass: 'bg-state-danger/10 border-state-danger',
     textActive:  'text-state-danger',
-    iconColor:   'rgb(var(--state-danger))',
+    iconColor:   colors.danger,
   },
 ];
 
@@ -107,6 +108,7 @@ type Props = {
 };
 
 export default function ReportFiltersModal({ visible, onClose, onApply, initial }: Props) {
+  const colors = useThemeColors();
   const { width, height } = useWindowDimensions();
   const isCompact = width < 768;
 
@@ -182,7 +184,7 @@ export default function ReportFiltersModal({ visible, onClose, onApply, initial 
               onPress={onClose}
               className="w-10 h-10 items-center justify-center bg-surface-background border border-surface-border rounded-xl"
             >
-              <FontAwesome name="close" size={14} color="rgb(var(--text-muted))" />
+              <FontAwesome name="close" size={14} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
 
@@ -208,7 +210,7 @@ export default function ReportFiltersModal({ visible, onClose, onApply, initial 
                     <FontAwesome
                       name={opt.icon as any}
                       size={11}
-                      color={active ? opt.iconColor : 'rgb(var(--text-muted))'}
+                      color={active ? opt.iconColor : colors.textMuted}
                     />
                     <Text
                       className={`text-[10px] font-black uppercase tracking-widest ${
@@ -240,7 +242,7 @@ export default function ReportFiltersModal({ visible, onClose, onApply, initial 
                     <FontAwesome
                       name={opt.icon as any}
                       size={11}
-                      color={active ? 'white' : 'rgb(var(--text-muted))'}
+                      color={active ? 'white' : colors.textMuted}
                     />
                     <Text
                       className={`text-[10px] font-black uppercase tracking-widest ${

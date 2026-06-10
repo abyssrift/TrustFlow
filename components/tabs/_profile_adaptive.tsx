@@ -10,6 +10,7 @@ import SecurityForm from '@/components/profile/SecurityForm';
 import { ProfileAnalytics } from '@/components/analytics/ProfileAnalytics';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTheme, ThemeType } from '@/contexts/ThemeContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 const THEME_OPTIONS: { id: ThemeType; label: string; icon: string }[] = [
   { id: 'indigo', label: 'Indigo', icon: 'moon-o' },
@@ -21,6 +22,7 @@ const THEME_OPTIONS: { id: ThemeType; label: string; icon: string }[] = [
 ];
 
 export default function ProfilePage() {
+  const colors = useThemeColors();
   const router = useRouter();
   const { showConfirm, showAlert } = useAlert();
   const { user, signOut, refreshProfile, hasPermission } = useAuth();
@@ -95,7 +97,7 @@ export default function ProfilePage() {
   if (!profileData) {
     return (
       <View className="flex-1 bg-surface-background items-center justify-center">
-        <ActivityIndicator size="large" color="var(--color-primary)" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -104,7 +106,7 @@ export default function ProfilePage() {
     <ScrollView
       className="flex-1 bg-surface-background"
       contentContainerStyle={{ padding: 20, paddingTop: Platform.OS !== 'web' ? 58 : 20, paddingBottom: 100 }}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="var(--color-primary)" />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
     >
       <Stack.Screen options={{ title: 'My Profile', headerLargeTitle: true }} />
 
@@ -175,7 +177,7 @@ export default function ProfilePage() {
                   <FontAwesome 
                     name={option.icon as any} 
                     size={20} 
-                    color={activeTheme === option.id ? 'var(--color-primary)' : 'var(--color-text-dim)'} 
+                    color={activeTheme === option.id ? colors.primary : colors.textDim} 
                   />
                   <Text className={`mt-2 text-[10px] font-black uppercase tracking-widest ${
                     activeTheme === option.id ? 'text-brand-primary' : 'text-typography-muted'
@@ -184,7 +186,7 @@ export default function ProfilePage() {
                   </Text>
                   {activeTheme === option.id && (
                     <View className="absolute top-1 right-1">
-                      <FontAwesome name="check-circle" size={10} color="var(--color-primary)" />
+                      <FontAwesome name="check-circle" size={10} color={colors.primary} />
                     </View>
                   )}
                 </Pressable>
@@ -200,18 +202,18 @@ export default function ProfilePage() {
               onPress={() => router.push('/notifications/preferences' as any)}
               className={`h-14 flex-row items-center px-5 active:bg-surface-overlay ${hasPermission('manage_notifications') || hasPermission('role.manage') ? 'border-b border-surface-border' : ''}`}
             >
-              <FontAwesome name="bell" size={16} color="var(--color-primary)" style={{ marginRight: 12 }} />
+              <FontAwesome name="bell" size={16} color={colors.primary} style={{ marginRight: 12 }} />
               <Text className="flex-1 text-sm font-bold text-typography-main">Notification Preferences</Text>
-              <FontAwesome name="chevron-right" size={12} color="var(--color-text-muted)" />
+              <FontAwesome name="chevron-right" size={12} color={colors.textMuted} />
             </Pressable>
             {(hasPermission('manage_notifications') || hasPermission('role.manage')) && (
               <Pressable
                 onPress={() => router.push('/admin/notifications' as any)}
                 className="h-14 flex-row items-center px-5 active:bg-surface-overlay"
               >
-                <FontAwesome name="gear" size={16} color="var(--color-primary)" style={{ marginRight: 12 }} />
+                <FontAwesome name="gear" size={16} color={colors.primary} style={{ marginRight: 12 }} />
                 <Text className="flex-1 text-sm font-bold text-typography-main">Workspace Notification Rules</Text>
-                <FontAwesome name="chevron-right" size={12} color="var(--color-text-muted)" />
+                <FontAwesome name="chevron-right" size={12} color={colors.textMuted} />
               </Pressable>
             )}
           </View>
@@ -243,7 +245,7 @@ export default function ProfilePage() {
           onPress={() => signOut()}
           className="h-14 flex-row items-center justify-center rounded-2xl border border-typography-dim/30 bg-surface-overlay active:bg-surface-border"
         >
-          <FontAwesome name="sign-out" size={18} color="var(--color-text-main)" style={{ marginRight: 12 }} />
+          <FontAwesome name="sign-out" size={18} color={colors.textMain} style={{ marginRight: 12 }} />
           <Text className="text-sm font-black uppercase tracking-widest text-typography-main">Sign Out of Account</Text>
         </Pressable>
       </View>

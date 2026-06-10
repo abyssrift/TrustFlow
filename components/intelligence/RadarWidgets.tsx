@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Text, TouchableOpacity, View } from 'react-native';
 import {
+import { useThemeColors } from '@/hooks/useThemeColors';
     Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ComposedChart, Line,
     Tooltip as RechartTooltip,
     ResponsiveContainer,
@@ -24,6 +25,7 @@ function fmtDwell(s: number): string {
 }
 
 const DwellTooltip = ({ active, payload, mode }: any) => {
+  const colors = useThemeColors();
   if (!active || !payload?.length) return null;
   const d: StageDwell = payload[0]?.payload;
   const totalSeconds   = (d.avg_seconds || 0) * (d.sample_count || 0);
@@ -67,6 +69,7 @@ const DwellTooltip = ({ active, payload, mode }: any) => {
 
 
 export const SLARiskAlertWeb = ({ data, className }: { data: any, className?: string }) => {
+  const colors = useThemeColors();
   const router = useRouter();
   const [showInfo, setShowInfo] = useState(false);
   if (!data?.sla_risks || data.sla_risks.length === 0) return null;
@@ -82,7 +85,7 @@ export const SLARiskAlertWeb = ({ data, className }: { data: any, className?: st
     <View className={`mb-8 bg-surface-card border border-state-danger/30 p-8 rounded-[32px] premium-shadow ${className || ''}`}>
       <View className="flex-row items-center mb-6">
         <View className="w-10 h-10 rounded-full bg-state-danger-dim items-center justify-center mr-4 border border-state-danger/20">
-          <FontAwesome name="warning" size={16} color="var(--color-danger)" />
+          <FontAwesome name="warning" size={16} color={colors.danger} />
         </View>
         <View className="flex-1 flex-row items-center justify-between">
           <View>
@@ -93,7 +96,7 @@ export const SLARiskAlertWeb = ({ data, className }: { data: any, className?: st
             onPress={() => setShowInfo(v => !v)}
             className={`w-8 h-8 rounded-full items-center justify-center border transition-all ${showInfo ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
           >
-            <FontAwesome name="question" size={12} color={showInfo ? 'var(--color-on-primary)' : 'var(--color-text-dim)'} />
+            <FontAwesome name="question" size={12} color={showInfo ? 'var(--color-on-primary)' : colors.textDim} />
           </TouchableOpacity>
         </View>
       </View>
@@ -164,6 +167,7 @@ export const SLARiskAlertWeb = ({ data, className }: { data: any, className?: st
 };
 
 export const ConversionFunnelChartWeb = ({ data, className }: { data: any, className?: string }) => {
+  const colors = useThemeColors();
   if (!data?.conversion_by_stage) return null;
   return (
     <View className={`bg-surface-card p-8 rounded-[32px] border border-surface-border premium-shadow ${className || ''}`}>
@@ -191,7 +195,7 @@ export const ConversionFunnelChartWeb = ({ data, className }: { data: any, class
               </View>
               {idx < data.conversion_by_stage.length - 1 && (
                 <View className="py-2 opacity-30">
-                  <FontAwesome name="long-arrow-down" size={20} color="var(--color-text-dim)" />
+                  <FontAwesome name="long-arrow-down" size={20} color={colors.textDim} />
                 </View>
               )}
             </View>
@@ -203,6 +207,7 @@ export const ConversionFunnelChartWeb = ({ data, className }: { data: any, class
 };
 
 export const WorkDistributionChartWeb = ({ data, className }: { data: any, className?: string }) => {
+  const colors = useThemeColors();
   if (!data?.worker_engagement) return null;
   const workers = data.worker_engagement.sort((a: any, b: any) => b.action_count - a.action_count).slice(0, 6);
   const maxCount = Math.max(...workers.map((w: any) => w.action_count));
@@ -249,12 +254,14 @@ export const WorkDistributionChartWeb = ({ data, className }: { data: any, class
 };
 
 export const QualityLeaderboardWeb = ({ data, className }: { data: any, className?: string }) => {
+  const colors = useThemeColors();
   if (!data?.quality_by_worker) return null;
 
   const MIN_TASKS = 3;
 
   const allWorkers = data.quality_by_worker
     .map((w: any) => ({
+      const colors = useThemeColors();
       ...w,
       integrityScore: Math.max(0, 100 - (w.revision_rate || 0)),
     }))
@@ -288,7 +295,7 @@ export const QualityLeaderboardWeb = ({ data, className }: { data: any, classNam
           </View>
           {filteredOutCount > 0 && (
             <View className="flex-row items-center gap-1.5 px-3 py-1.5 bg-surface-background border border-surface-border rounded-xl">
-              <FontAwesome name="filter" size={9} color="var(--color-text-dim)" />
+              <FontAwesome name="filter" size={9} color={colors.textDim} />
               <Text className="text-typography-dim text-[9px] font-black uppercase tracking-widest">
                 {filteredOutCount} below threshold
               </Text>
@@ -301,7 +308,7 @@ export const QualityLeaderboardWeb = ({ data, className }: { data: any, classNam
       {allPerfect && (
         <View className="flex-row items-center justify-between bg-state-success-dim border border-state-success/20 px-5 py-3 rounded-2xl mb-6">
           <View className="flex-row items-center gap-3">
-            <FontAwesome name="trophy" size={14} color="var(--color-success)" />
+            <FontAwesome name="trophy" size={14} color={colors.success} />
             <Text className="text-state-success font-black text-sm">
               Perfect Integrity — Zero rework detected this period.
             </Text>
@@ -316,7 +323,7 @@ export const QualityLeaderboardWeb = ({ data, className }: { data: any, classNam
       {workers.length === 0 ? (
         <View className="py-12 items-center gap-3">
           <View className="w-14 h-14 rounded-full bg-surface-background border border-surface-border items-center justify-center">
-            <FontAwesome name="bar-chart" size={20} color="var(--color-text-dim)" />
+            <FontAwesome name="bar-chart" size={20} color={colors.textDim} />
           </View>
           <Text className="text-typography-main font-black text-base">Insufficient Data</Text>
           <Text className="text-typography-muted text-xs text-center max-w-[320px]">
@@ -381,7 +388,7 @@ export const QualityLeaderboardWeb = ({ data, className }: { data: any, classNam
                         key={s}
                         name={s <= stars ? 'star' : 'star-o'}
                         size={14}
-                        color={s <= stars ? 'var(--color-warning)' : 'var(--color-text-dim)'}
+                        color={s <= stars ? colors.warning : colors.textDim}
                       />
                     ))}
                   </View>
@@ -406,13 +413,13 @@ export const QualityLeaderboardWeb = ({ data, className }: { data: any, classNam
 
                   <View className="flex-row justify-between items-center pt-2">
                     <View className="flex-row items-center gap-1.5">
-                      <FontAwesome name="wrench" size={10} color="var(--color-text-dim)" />
+                      <FontAwesome name="wrench" size={10} color={colors.textDim} />
                       <Text className="text-typography-muted text-[10px] font-bold uppercase">
                         {(worker.revision_rate || 0).toFixed(1)}% Rework
                       </Text>
                     </View>
                     <View className="flex-row items-center gap-1.5">
-                      <FontAwesome name="check-circle" size={10} color="var(--color-text-dim)" />
+                      <FontAwesome name="check-circle" size={10} color={colors.textDim} />
                       <Text className="text-typography-muted text-[10px] font-bold uppercase">
                         {allPerfect ? `${score.toFixed(0)}% integrity` : `${worker.total_tasks || 0} Tasks`}
                       </Text>
@@ -429,6 +436,7 @@ export const QualityLeaderboardWeb = ({ data, className }: { data: any, classNam
 };
 
 export const TrendComparisonCardsWeb = ({ data, className }: { data: any, className?: string }) => {
+  const colors = useThemeColors();
   if (!data?.current || !data?.comparison) return null;
   const metrics = [
     { label: 'Throughput Delta', val: data.current.throughput, prev: data.comparison.throughput, suffix: ' units', hBetter: true },
@@ -449,7 +457,7 @@ export const TrendComparisonCardsWeb = ({ data, className }: { data: any, classN
               <View className="flex-row items-baseline justify-between">
                 <Text className="text-typography-main text-3xl font-black">{Math.round(m.val || 0)}{m.suffix}</Text>
                 <View className={`flex-row items-center px-3 py-1 rounded-full ${isPositive ? 'bg-state-success-dim' : 'bg-state-danger-dim'}`}>
-                  <FontAwesome name={change >= 0 ? 'caret-up' : 'caret-down'} size={12} color={isPositive ? 'var(--color-success)' : 'var(--color-danger)'} style={{ marginRight: 8 }} />
+                  <FontAwesome name={change >= 0 ? 'caret-up' : 'caret-down'} size={12} color={isPositive ? colors.success : colors.danger} style={{ marginRight: 8 }} />
                   <Text className={`text-[10px] font-black ${isPositive ? 'text-state-success' : 'text-state-danger'}`}>
                     {Math.abs(Math.round(change))}{m.suffix}
                   </Text>
@@ -464,6 +472,7 @@ export const TrendComparisonCardsWeb = ({ data, className }: { data: any, classN
 };
 
 export const SLARiskAlertMiniWeb = ({ data, onViewAll, className }: { data: any, onViewAll: () => void, className?: string }) => {
+  const colors = useThemeColors();
   const count = data?.sla_risks?.length || 0;
   if (count === 0) return null;
 
@@ -471,7 +480,7 @@ export const SLARiskAlertMiniWeb = ({ data, onViewAll, className }: { data: any,
     <View className={`bg-state-danger-dim border border-state-danger/20 p-6 rounded-2xl flex-row items-center justify-between mb-4 ${className || ''}`}>
       <View className="flex-row items-center gap-4">
         <View className="w-10 h-10 rounded-full bg-state-danger-dim items-center justify-center border border-state-danger/10">
-          <FontAwesome name="warning" size={16} color="var(--color-danger)" />
+          <FontAwesome name="warning" size={16} color={colors.danger} />
         </View>
         <View>
           <Text className="text-state-danger font-black text-sm">SLA Risks</Text>
@@ -486,13 +495,14 @@ export const SLARiskAlertMiniWeb = ({ data, onViewAll, className }: { data: any,
 };
 
 export const StageDurationMiniWeb = ({ data, onViewAll, className }: { data: any, onViewAll: () => void, className?: string }) => {
+  const colors = useThemeColors();
   const slowStages = data?.stage_duration_analysis?.filter((s: any) => s.avg_duration_days > 2.5).length || 0;
   
   return (
     <View className={`bg-surface-card p-6 rounded-2xl border border-surface-border flex-row items-center justify-between mb-4 ${className || ''}`}>
       <View className="flex-row items-center gap-4">
         <View className="w-10 h-10 rounded-full bg-brand-primary-dim items-center justify-center">
-          <FontAwesome name="clock-o" size={16} color="var(--color-primary)" />
+          <FontAwesome name="clock-o" size={16} color={colors.primary} />
         </View>
         <View>
           <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Stage Durations</Text>
@@ -509,6 +519,7 @@ export const StageDurationMiniWeb = ({ data, onViewAll, className }: { data: any
 };
 
 export const ConversionFunnelMiniWeb = ({ data, onViewAll, className }: { data: any, onViewAll: () => void, className?: string }) => {
+  const colors = useThemeColors();
   const stages = data?.conversion_by_stage || [];
   const overallRetention = stages.length > 0 ? (stages[stages.length - 1].completion_rate * 100).toFixed(0) : '0';
   
@@ -516,7 +527,7 @@ export const ConversionFunnelMiniWeb = ({ data, onViewAll, className }: { data: 
     <View className={`bg-surface-card p-6 rounded-2xl border border-surface-border flex-row items-center justify-between mb-4 ${className || ''}`}>
       <View className="flex-row items-center gap-4">
         <View className="w-10 h-10 rounded-full bg-state-success-dim items-center justify-center">
-          <FontAwesome name="filter" size={16} color="var(--color-success)" />
+          <FontAwesome name="filter" size={16} color={colors.success} />
         </View>
         <View>
           <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Task Funnel</Text>
@@ -531,6 +542,7 @@ export const ConversionFunnelMiniWeb = ({ data, onViewAll, className }: { data: 
 };
 
 export const TrendComparisonMiniWeb = ({ data, onViewAll, className }: { data: any, onViewAll: () => void, className?: string }) => {
+  const colors = useThemeColors();
   const curThr = data?.current?.throughput || 0;
   const prevThr = data?.comparison?.throughput || 0;
   const change = curThr - prevThr;
@@ -540,7 +552,7 @@ export const TrendComparisonMiniWeb = ({ data, onViewAll, className }: { data: a
     <View className={`bg-surface-card p-6 rounded-2xl border border-surface-border flex-row items-center justify-between ${className || ''}`}>
       <View className="flex-row items-center gap-4">
         <View className="w-10 h-10 rounded-full bg-brand-primary-dim items-center justify-center">
-          <FontAwesome name="line-chart" size={16} color="var(--color-primary)" />
+          <FontAwesome name="line-chart" size={16} color={colors.primary} />
         </View>
         <View>
           <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Performance Trends</Text>
@@ -562,6 +574,7 @@ export const TrendComparisonMiniWeb = ({ data, onViewAll, className }: { data: a
 };
 
 export const ThroughputOverTimeMiniWeb = ({ pipelines, days, onViewAll, className }: { pipelines: any[], days: number, onViewAll: () => void, className?: string }) => {
+  const colors = useThemeColors();
   const { getPipelineThroughput } = useAnalytics();
   const [pipelineId, setPipelineId] = useState<string | null>(null);
   const [throughput, setThroughput] = useState<ThroughputPeriod[]>([]);
@@ -599,11 +612,11 @@ export const ThroughputOverTimeMiniWeb = ({ pipelines, days, onViewAll, classNam
   }));
 
   const tooltipStyle = {
-    backgroundColor: 'var(--color-card)',
+    backgroundColor: colors.card,
     border: '1px solid var(--color-border)',
     borderRadius: 12,
     fontSize: 10,
-    color: 'var(--color-text-main)',
+    color: colors.textMain,
   };
 
   return (
@@ -652,24 +665,24 @@ export const ThroughputOverTimeMiniWeb = ({ pipelines, days, onViewAll, classNam
       <View style={{ height: 220 }}>
         {loading ? (
           <View className="flex-1 items-center justify-center">
-            <ActivityIndicator size="small" color="var(--color-primary)" />
+            <ActivityIndicator size="small" color={colors.primary} />
           </View>
         ) : chartData.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={chartData} barGap={4}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-surface-border)" vertical={false} />
-              <XAxis dataKey="label" tick={{ fontSize: 9, fill: 'var(--color-text-dim)' }} axisLine={false} tickLine={false} />
-              <YAxis yAxisId="l" tick={{ fontSize: 9, fill: 'var(--color-text-dim)' }} axisLine={false} tickLine={false} />
-              <YAxis yAxisId="r" orientation="right" domain={[0, 100]} tick={{ fontSize: 9, fill: 'var(--color-text-dim)' }} axisLine={false} tickLine={false} unit="%" />
-              <RechartTooltip contentStyle={tooltipStyle} cursor={{ fill: 'var(--color-surface-overlay)', opacity: 0.05 }} />
-              <Bar yAxisId="l" dataKey="succeeded" fill="var(--color-success)" name="Success" radius={[3, 3, 0, 0]} maxBarSize={30} />
-              <Bar yAxisId="l" dataKey="failed"    fill="var(--color-danger)" name="Failed"  radius={[3, 3, 0, 0]} maxBarSize={30} />
-              <Line yAxisId="r" type="monotone" dataKey="success_rate" stroke="var(--color-primary)" strokeWidth={2} dot={{ r: 3, fill: 'var(--color-primary)' }} name="Rate" />
+              <CartesianGrid strokeDasharray="3 3" stroke={colors.border} vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 9, fill: colors.textDim }} axisLine={false} tickLine={false} />
+              <YAxis yAxisId="l" tick={{ fontSize: 9, fill: colors.textDim }} axisLine={false} tickLine={false} />
+              <YAxis yAxisId="r" orientation="right" domain={[0, 100]} tick={{ fontSize: 9, fill: colors.textDim }} axisLine={false} tickLine={false} unit="%" />
+              <RechartTooltip contentStyle={tooltipStyle} cursor={{ fill: colors.card, opacity: 0.05 }} />
+              <Bar yAxisId="l" dataKey="succeeded" fill={colors.success} name="Success" radius={[3, 3, 0, 0]} maxBarSize={30} />
+              <Bar yAxisId="l" dataKey="failed"    fill={colors.danger} name="Failed"  radius={[3, 3, 0, 0]} maxBarSize={30} />
+              <Line yAxisId="r" type="monotone" dataKey="success_rate" stroke={colors.primary} strokeWidth={2} dot={{ r: 3, fill: colors.primary }} name="Rate" />
             </ComposedChart>
           </ResponsiveContainer>
         ) : (
             <View className="flex-1 items-center justify-center opacity-50">
-              <FontAwesome name="bar-chart" size={24} color="var(--color-text-dim)" />
+              <FontAwesome name="bar-chart" size={24} color={colors.textDim} />
               <Text className="text-typography-muted text-xs mt-2">No throughput data recorded</Text>
             </View>
         )}
@@ -679,6 +692,7 @@ export const ThroughputOverTimeMiniWeb = ({ pipelines, days, onViewAll, classNam
 };
 
 export const TargetsMiniWeb = ({ onViewAll, className }: { onViewAll: () => void, className?: string }) => {
+  const colors = useThemeColors();
   const { getTargetsStatus } = useAnalytics();
   const [targets, setTargets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -707,7 +721,7 @@ export const TargetsMiniWeb = ({ onViewAll, className }: { onViewAll: () => void
     <View className={`bg-surface-card p-6 rounded-2xl border border-surface-border flex-row items-center justify-between mb-4 ${className || ''}`}>
       <View className="flex-row items-center gap-4">
         <View className={`w-10 h-10 rounded-full items-center justify-center ${expiredCount > 0 ? 'bg-state-danger-dim' : 'bg-state-success-dim'}`}>
-          <FontAwesome name="bullseye" size={16} color={expiredCount > 0 ? 'var(--color-danger)' : 'var(--color-success)'} />
+          <FontAwesome name="bullseye" size={16} color={expiredCount > 0 ? colors.danger : colors.success} />
         </View>
         <View>
           <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Active Targets</Text>
@@ -728,6 +742,7 @@ export const TargetsMiniWeb = ({ onViewAll, className }: { onViewAll: () => void
 };
 
 export const StageDwellChartWeb = ({ data, onViewDetails, className }: { data: StageDwell[], onViewDetails?: () => void, className?: string }) => {
+  const colors = useThemeColors();
   const [mode, setMode] = useState<'avg' | 'snapshot'>('avg');
 
   if (!data || data.length === 0) {
@@ -744,11 +759,11 @@ export const StageDwellChartWeb = ({ data, onViewDetails, className }: { data: S
               className="flex-row items-center gap-2 bg-surface-overlay border border-surface-border px-4 py-2 rounded-xl active:scale-95 transition-all"
             >
               <Text className="text-brand-primary font-black text-[10px] uppercase tracking-wider">Details</Text>
-              <FontAwesome name="external-link" size={10} color="var(--color-primary)" />
+              <FontAwesome name="external-link" size={10} color={colors.primary} />
             </TouchableOpacity>
           )}
         </View>
-        <FontAwesome name="hourglass-o" size={24} color="var(--color-text-dim)" style={{ marginBottom: 16, opacity: 0.2 }} />
+        <FontAwesome name="hourglass-o" size={24} color={colors.textDim} style={{ marginBottom: 16, opacity: 0.2 }} />
         <Text className="text-typography-muted text-sm font-bold">No stage activity in this period</Text>
       </View>
     );
@@ -760,10 +775,10 @@ export const StageDwellChartWeb = ({ data, onViewDetails, className }: { data: S
       ...d,
       avg_minutes:   parseFloat((d.avg_seconds / 60).toFixed(1)),
       total_hours:   parseFloat(((d.avg_seconds * d.sample_count) / 3600).toFixed(2)),
-      fill: d.is_bottleneck ? 'var(--color-warning)'
-          : (d.is_terminal && d.terminal_type === 'success') ? 'var(--color-success)'
-          : d.is_terminal ? 'var(--color-danger)'
-          : 'var(--color-primary)',
+      fill: d.is_bottleneck ? colors.warning
+          : (d.is_terminal && d.terminal_type === 'success') ? colors.success
+          : d.is_terminal ? colors.danger
+          : colors.primary,
     }));
 
   const isSnapshot  = mode === 'snapshot';
@@ -803,7 +818,7 @@ export const StageDwellChartWeb = ({ data, onViewDetails, className }: { data: S
               className="flex-row items-center gap-2 bg-surface-overlay border border-surface-border px-4 py-2 rounded-xl active:scale-95 transition-all"
             >
               <Text className="text-brand-primary font-black text-[10px] uppercase tracking-wider">Details</Text>
-              <FontAwesome name="external-link" size={10} color="var(--color-primary)" />
+              <FontAwesome name="external-link" size={10} color={colors.primary} />
             </TouchableOpacity>
           )}
         </View>
@@ -827,11 +842,11 @@ export const StageDwellChartWeb = ({ data, onViewDetails, className }: { data: S
       <View style={{ height: 260, width: '100%' }}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData} layout="vertical" margin={{ top: 0, right: 40, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-surface-border)" horizontal={false} opacity={0.3} />
+            <CartesianGrid strokeDasharray="3 3" stroke={colors.border} horizontal={false} opacity={0.3} />
             <XAxis
               type="number"
               dataKey={barKey}
-              tick={{ fill: 'var(--color-text-dim)', fontSize: 10, fontWeight: '700' }}
+              tick={{ fill: colors.textDim, fontSize: 10, fontWeight: '700' }}
               axisLine={false}
               tickLine={false}
               tickFormatter={axisFormatter}
@@ -840,11 +855,11 @@ export const StageDwellChartWeb = ({ data, onViewDetails, className }: { data: S
               type="category"
               dataKey="stage_name"
               width={120}
-              tick={{ fill: 'var(--color-text-dim)', fontSize: 10, fontWeight: '700' }}
+              tick={{ fill: colors.textDim, fontSize: 10, fontWeight: '700' }}
               axisLine={false}
               tickLine={false}
             />
-            <RechartTooltip content={(props) => <DwellTooltip {...props} mode={mode} />} cursor={{ fill: 'var(--color-surface-overlay)', opacity: 0.1 }} />
+            <RechartTooltip content={(props) => <DwellTooltip {...props} mode={mode} />} cursor={{ fill: colors.card, opacity: 0.1 }} />
             <Bar dataKey={barKey} radius={[0, 6, 6, 0]} maxBarSize={28}>
               {chartData.map((entry, i) => (
                 <Cell key={i} fill={entry.fill} />
@@ -867,6 +882,7 @@ function daysToParams(days: number): { periodType: string; nPeriods: number } {
 }
 
 export const PipelinePointsMiniWeb = ({
+  const colors = useThemeColors();
   pipelines,
   days,
   onViewAll,
@@ -906,11 +922,11 @@ export const PipelinePointsMiniWeb = ({
   const totalPoints = data.reduce((sum, d) => sum + (d.weight_points || 0), 0);
 
   const tooltipStyle = {
-    backgroundColor: 'var(--color-card)',
+    backgroundColor: colors.card,
     border: '1px solid var(--color-border)',
     borderRadius: 12,
     fontSize: 10,
-    color: 'var(--color-text-main)',
+    color: colors.textMain,
   };
 
   return (
@@ -950,27 +966,27 @@ export const PipelinePointsMiniWeb = ({
       <View style={{ height: 200 }}>
         {loading ? (
           <View className="flex-1 items-center justify-center">
-            <ActivityIndicator size="small" color="var(--color-primary)" />
+            <ActivityIndicator size="small" color={colors.primary} />
           </View>
         ) : chartData.length > 0 && chartData.some(d => d.points > 0) ? (
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={chartData}>
               <defs>
                 <linearGradient id="pointsGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="var(--color-primary)" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0.02} />
+                  <stop offset="5%"  stopColor={colors.primary} stopOpacity={0.3} />
+                  <stop offset="95%" stopColor={colors.primary} stopOpacity={0.02} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-surface-border)" vertical={false} />
-              <XAxis dataKey="label" tick={{ fontSize: 9, fill: 'var(--color-text-dim)' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 9, fill: 'var(--color-text-dim)' }} axisLine={false} tickLine={false} />
-              <RechartTooltip contentStyle={tooltipStyle} cursor={{ fill: 'var(--color-surface-overlay)', opacity: 0.05 }} formatter={(v: any) => [`${v} pts`, 'Points']} />
-              <Area type="monotone" dataKey="points" stroke="var(--color-primary)" strokeWidth={2} fill="url(#pointsGrad)" dot={{ r: 3, fill: 'var(--color-primary)' }} name="Points" />
+              <CartesianGrid strokeDasharray="3 3" stroke={colors.border} vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 9, fill: colors.textDim }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 9, fill: colors.textDim }} axisLine={false} tickLine={false} />
+              <RechartTooltip contentStyle={tooltipStyle} cursor={{ fill: colors.card, opacity: 0.05 }} formatter={(v: any) => [`${v} pts`, 'Points']} />
+              <Area type="monotone" dataKey="points" stroke={colors.primary} strokeWidth={2} fill="url(#pointsGrad)" dot={{ r: 3, fill: colors.primary }} name="Points" />
             </AreaChart>
           </ResponsiveContainer>
         ) : (
           <View className="flex-1 items-center justify-center opacity-50">
-            <FontAwesome name="star-o" size={24} color="var(--color-text-dim)" />
+            <FontAwesome name="star-o" size={24} color={colors.textDim} />
             <Text className="text-typography-muted text-xs mt-2">No points data for this period</Text>
           </View>
         )}

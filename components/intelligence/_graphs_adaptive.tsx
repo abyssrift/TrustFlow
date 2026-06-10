@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { useThemeColors } from '@/lib/themeColors';
+import { useThemeColors } from '@/hooks/useThemeColors';
 import { ActivityIndicator, Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 const PERIOD_OPTS = [
@@ -32,7 +32,7 @@ function SLARiskSection({ data }: { data: any }) {
   return (
     <View className="bg-state-danger/5 border border-state-danger/20 p-5 rounded-2xl mb-4">
       <View className="flex-row items-center mb-4 gap-2">
-        <FontAwesome name="warning" size={14} color="var(--color-danger)" />
+        <FontAwesome name="warning" size={14} color={colors.danger} />
         <Text className="text-state-danger font-black text-sm">SLA Breach Risks</Text>
         <View className="ml-auto bg-state-danger px-2 py-0.5 rounded-full">
           <Text className="text-white text-[9px] font-black">{data.sla_risks.length}</Text>
@@ -122,7 +122,7 @@ function TrendsSection({ data }: { data: any }) {
                 <FontAwesome
                   name={change >= 0 ? 'caret-up' : 'caret-down'}
                   size={10}
-                  color={isPositive ? 'var(--color-success)' : 'var(--color-danger)'}
+                  color={isPositive ? colors.success : colors.danger}
                 />
                 <Text className={`text-[9px] font-black ${isPositive ? 'text-state-success' : 'text-state-danger'}`}>
                   {Math.abs(Math.round(change))}{m.suffix}
@@ -214,7 +214,7 @@ function QualitySection({ data }: { data: any }) {
               <Text className="text-typography-main text-xs font-bold flex-1" numberOfLines={1}>{w.full_name || 'Agent'}</Text>
               <View className="flex-row gap-0.5">
                 {[1, 2, 3, 4, 5].map(s => (
-                  <FontAwesome key={s} name={s <= stars ? 'star' : 'star-o'} size={10} color={s <= stars ? 'var(--color-warning)' : 'var(--color-text-dim)'} />
+                  <FontAwesome key={s} name={s <= stars ? 'star' : 'star-o'} size={10} color={s <= stars ? colors.warning : colors.textDim} />
                 ))}
               </View>
               <Text className={`text-sm font-black ${textColor} ml-1`}>{score.toFixed(0)}%</Text>

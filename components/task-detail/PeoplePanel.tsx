@@ -1,6 +1,6 @@
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { getMutedColor, getPrimaryColor } from '@/lib/themeColors';
+import { getMutedColor, getPrimaryColor } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React from 'react';
 import { Text, View } from 'react-native';

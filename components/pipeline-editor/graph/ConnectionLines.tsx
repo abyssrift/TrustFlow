@@ -12,6 +12,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { FontAwesome } from '@expo/vector-icons';
 import { usePipelineEditor, Stage, Transition } from '@/contexts/PipelineEditorContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 const AnimatedView = Animated.createAnimatedComponent(View);
@@ -20,16 +21,19 @@ const NODE_WIDTH = 256;
 const NODE_HEIGHT = 160;
 
 interface ConnectionLinesProps {
+  const colors = useThemeColors();
   stages: Stage[];
   transitions: Transition[];
   onEditTransition?: (id: string) => void;
 }
 
 export default function ConnectionLines({ stages, transitions, onEditTransition }: ConnectionLinesProps) {
+  const colors = useThemeColors();
   const NODE_WIDTH = 256; 
   const NODE_HEIGHT = 160;
 
   const stagePositions = useMemo(() => {
+    const colors = useThemeColors();
     return stages.reduce((acc, s, index) => {
       const x = s.ui_metadata?.x ?? 50 + (index * 300) % 1200;
       const y = s.ui_metadata?.y ?? 50 + Math.floor(index / 4) * 200;
@@ -109,7 +113,7 @@ export default function ConnectionLines({ stages, transitions, onEditTransition 
             refY="3.5"
             orient="auto"
           >
-            <Path d="M0,0 L0,7 L10,3.5 Z" fill="rgb(var(--brand-primary))" />
+            <Path d="M0,0 L0,7 L10,3.5 Z" fill={colors.primary} />
           </Marker>
         </Defs>
 
@@ -120,14 +124,14 @@ export default function ConnectionLines({ stages, transitions, onEditTransition 
               <Path
                 d={item.pathData}
                 fill="none"
-                stroke="rgb(var(--brand-primary))"
+                stroke={colors.primary}
                 strokeWidth="6"
                 strokeOpacity="0.05"
               />
               <AnimatedPath
                 d={item.pathData}
                 fill="none"
-                stroke="rgb(var(--brand-primary))"
+                stroke={colors.primary}
                 strokeWidth="2.5"
                 strokeOpacity="0.6"
                 strokeDasharray="8,6"
@@ -160,14 +164,14 @@ export default function ConnectionLines({ stages, transitions, onEditTransition 
               onPress={() => onEditTransition?.(item.id)}
               className="w-6 h-6 rounded-full bg-surface-card border border-brand-primary items-center justify-center shadow-lg hover:bg-brand-primary/10 transition-all active:scale-90"
             >
-              <FontAwesome name="pencil" size={10} color="rgb(var(--brand-primary))" />
+              <FontAwesome name="pencil" size={10} color={colors.primary} />
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() => deleteTransition(item.id)}
               className="w-6 h-6 rounded-full bg-surface-card border border-state-danger items-center justify-center shadow-lg hover:bg-state-danger/10 transition-all active:scale-90"
             >
-              <FontAwesome name="times" size={11} color="rgb(var(--state-danger))" />
+              <FontAwesome name="times" size={11} color={colors.danger} />
             </TouchableOpacity>
           </View>
         );

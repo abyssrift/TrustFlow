@@ -4,8 +4,10 @@ import { Link, useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { getErrorMessage, isValidEmail } from '../../lib/auth-errors';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 export default function LoginScreenWeb() {
+  const colors = useThemeColors();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -103,7 +105,7 @@ export default function LoginScreenWeb() {
               <TextInput
                 className="w-full bg-surface-card border border-surface-border rounded-2xl px-6 py-4 text-typography-main font-bold focus:border-brand-primary transition-all"
                 placeholder="name@company.com"
-                placeholderTextColor="rgba(var(--text-muted), 0.5)"
+                placeholderTextColor={(colors.textMuted + '80')}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 value={email}
@@ -121,7 +123,7 @@ export default function LoginScreenWeb() {
               <TextInput
                 className="w-full bg-surface-card border border-surface-border rounded-2xl px-6 py-4 text-typography-main font-bold focus:border-brand-primary transition-all"
                 placeholder="••••••••"
-                placeholderTextColor="rgba(var(--text-muted), 0.5)"
+                placeholderTextColor={(colors.textMuted + '80')}
                 secureTextEntry
                 value={password}
                 onChangeText={setPassword}

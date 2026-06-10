@@ -7,6 +7,7 @@ import { FontAwesome } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+import { useThemeColors } from '@/hooks/useThemeColors';
     ActivityIndicator,
     Alert,
     Modal,
@@ -113,6 +114,7 @@ const ALLOWED_TYPES_MESSAGE =
   '• Data: JSON, XML, YAML, SQL, HTML, JS, TS';
 
 function isAllowedFile(name: string): boolean {
+  const colors = useThemeColors();
   const ext = name.split('.').pop()?.toLowerCase() ?? '';
   return ALLOWED_EXTENSIONS.has(ext);
 }
@@ -130,6 +132,7 @@ type UploadDraft = {
 };
 
 const EMPTY_DRAFT = (defaultVisibility: 'direct' | 'group' = 'direct'): UploadDraft => ({
+  const colors = useThemeColors();
   files: [],
   visibility: defaultVisibility,
   recipientIds: [],
@@ -140,6 +143,7 @@ const EMPTY_DRAFT = (defaultVisibility: 'direct' | 'group' = 'direct'): UploadDr
 });
 
 function UploadModal({
+  const colors = useThemeColors();
   visible,
   folders,
   onClose,
@@ -339,7 +343,7 @@ function UploadModal({
               {activeGroup ? `Upload to ${activeGroup.name}` : 'Upload Files'}
             </Text>
             <TouchableOpacity onPress={onClose} className="w-8 h-8 items-center justify-center rounded-xl bg-surface-background border border-surface-border">
-              <FontAwesome name="times" size={12} color="var(--color-text-muted)" />
+              <FontAwesome name="times" size={12} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
 
@@ -355,7 +359,7 @@ function UploadModal({
             {draft.files.length === 0 ? (
               <View className="border-2 border-dashed border-surface-border rounded-2xl items-center justify-center py-10 px-6 gap-4">
                 <View className="w-14 h-14 bg-surface-background rounded-2xl border border-surface-border items-center justify-center">
-                  <FontAwesome name="cloud-upload" size={24} color="var(--color-text-muted)" />
+                  <FontAwesome name="cloud-upload" size={24} color={colors.textMuted} />
                 </View>
                 <View className="items-center gap-1">
                   <Text className="text-typography-main font-bold text-sm">Choose files to upload</Text>
@@ -373,7 +377,7 @@ function UploadModal({
                     onPress={() => folderInputRef.current?.click()}
                     className="flex-row items-center gap-2 bg-surface-background border border-surface-border px-5 py-2.5 rounded-xl"
                   >
-                    <FontAwesome name="folder-open" size={12} color="var(--color-text-muted)" />
+                    <FontAwesome name="folder-open" size={12} color={colors.textMuted} />
                     <Text className="text-typography-muted font-black text-sm">Folder</Text>
                   </TouchableOpacity>
                 </View>
@@ -384,14 +388,14 @@ function UploadModal({
                   {draft.files.map((file, idx) => (
                     <View key={idx} className={`flex-row items-center px-4 py-3 gap-3 ${idx < draft.files.length - 1 ? 'border-b border-surface-border/50' : ''}`}>
                       <View className="w-9 h-9 bg-brand-primary/10 rounded-xl items-center justify-center flex-shrink-0">
-                        <FontAwesome name={getMimeIcon(file.type).icon as any} size={16} color="var(--color-primary)" />
+                        <FontAwesome name={getMimeIcon(file.type).icon as any} size={16} color={colors.primary} />
                       </View>
                       <View className="flex-1 min-w-0">
                         <Text className="text-typography-main text-xs font-bold" numberOfLines={1}>{file.name}</Text>
                         <Text className="text-typography-muted text-[10px]">{formatFileSize(file.size)}</Text>
                       </View>
                       <TouchableOpacity onPress={() => patch({ files: draft.files.filter((_, i) => i !== idx) })}>
-                        <FontAwesome name="times-circle" size={16} color="var(--color-text-muted)" />
+                        <FontAwesome name="times-circle" size={16} color={colors.textMuted} />
                       </TouchableOpacity>
                     </View>
                   ))}
@@ -401,14 +405,14 @@ function UploadModal({
                     onPress={() => fileInputRef.current?.click()}
                     className="flex-1 flex-row items-center justify-center gap-1.5 py-2 bg-surface-background border border-surface-border rounded-xl"
                   >
-                    <FontAwesome name="plus" size={10} color="var(--color-text-muted)" />
+                    <FontAwesome name="plus" size={10} color={colors.textMuted} />
                     <Text className="text-typography-muted text-xs font-bold">Add Files</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => folderInputRef.current?.click()}
                     className="flex-1 flex-row items-center justify-center gap-1.5 py-2 bg-surface-background border border-surface-border rounded-xl"
                   >
-                    <FontAwesome name="folder-open" size={10} color="var(--color-text-muted)" />
+                    <FontAwesome name="folder-open" size={10} color={colors.textMuted} />
                     <Text className="text-typography-muted text-xs font-bold">Add Folder</Text>
                   </TouchableOpacity>
                 </View>
@@ -436,7 +440,7 @@ function UploadModal({
                       <FontAwesome
                         name={opt.icon as any}
                         size={12}
-                        color={draft.visibility === opt.value ? 'var(--color-primary)' : 'var(--color-text-muted)'}
+                        color={draft.visibility === opt.value ? colors.primary : colors.textMuted}
                       />
                       <Text className={`text-sm font-black ${draft.visibility === opt.value ? 'text-brand-primary' : 'text-typography-muted'}`}>
                         {opt.label}
@@ -478,22 +482,22 @@ function UploadModal({
                         <View key={m.id} className="flex-row items-center gap-1.5 bg-brand-primary/10 border border-brand-primary/20 rounded-full px-3 py-1">
                           <Text className="text-brand-primary text-xs font-bold">{m.full_name}</Text>
                           <TouchableOpacity onPress={() => toggleRecipient(m.id)}>
-                            <FontAwesome name="times" size={9} color="var(--color-primary)" />
+                            <FontAwesome name="times" size={9} color={colors.primary} />
                           </TouchableOpacity>
                         </View>
                       ))}
                   </View>
                 )}
                 <View className="flex-row items-center bg-surface-background border border-surface-border rounded-xl px-4 py-2.5 gap-2">
-                  <FontAwesome name="search" size={11} color="var(--color-text-muted)" />
+                  <FontAwesome name="search" size={11} color={colors.textMuted} />
                   <TextInput
                     value={recipientSearch}
                     onChangeText={searchMembers}
                     placeholder="Search team members..."
-                    placeholderTextColor="var(--color-text-dim)"
+                    placeholderTextColor={colors.textDim}
                     className="flex-1 text-typography-main text-sm outline-none bg-transparent"
                   />
-                  {searchingMembers && <ActivityIndicator size="small" color="var(--color-primary)" />}
+                  {searchingMembers && <ActivityIndicator size="small" color={colors.primary} />}
                 </View>
                 {memberResults.length > 0 && (
                   <View className="bg-surface-card border border-surface-border rounded-xl overflow-hidden">
@@ -504,10 +508,10 @@ function UploadModal({
                         className={`flex-row items-center px-4 py-3 gap-3 ${i < memberResults.length - 1 ? 'border-b border-surface-border/50' : ''}`}
                       >
                         <View className="w-7 h-7 rounded-full bg-surface-background border border-surface-border items-center justify-center">
-                          <FontAwesome name="user" size={11} color="var(--color-text-muted)" />
+                          <FontAwesome name="user" size={11} color={colors.textMuted} />
                         </View>
                         <Text className="flex-1 text-typography-main text-sm font-medium">{m.full_name}</Text>
-                        {draft.recipientIds.includes(m.id) && <FontAwesome name="check" size={11} color="var(--color-primary)" />}
+                        {draft.recipientIds.includes(m.id) && <FontAwesome name="check" size={11} color={colors.primary} />}
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -548,21 +552,21 @@ function UploadModal({
                     <View key={tag} className="flex-row items-center gap-1.5 bg-surface-background border border-surface-border rounded-full px-3 py-1">
                       <Text className="text-typography-muted text-xs font-bold">{tag}</Text>
                       <TouchableOpacity onPress={() => patch({ tags: draft.tags.filter(t => t !== tag) })}>
-                        <FontAwesome name="times" size={9} color="var(--color-text-muted)" />
+                        <FontAwesome name="times" size={9} color={colors.textMuted} />
                       </TouchableOpacity>
                     </View>
                   ))}
                 </View>
               )}
               <View className="flex-row items-center bg-surface-background border border-surface-border rounded-xl px-4 py-2.5 gap-2">
-                <FontAwesome name="tag" size={11} color="var(--color-text-muted)" />
+                <FontAwesome name="tag" size={11} color={colors.textMuted} />
                 <TextInput
                   value={draft.tagInput}
                   onChangeText={v => { patch({ tagInput: v }); fetchTagSuggestions(v); }}
                   onKeyPress={handleTagKeyPress}
                   onSubmitEditing={() => addTag(draft.tagInput)}
                   placeholder="Add tag and press Enter..."
-                  placeholderTextColor="var(--color-text-dim)"
+                  placeholderTextColor={colors.textDim}
                   className="flex-1 text-typography-main text-sm outline-none bg-transparent"
                 />
               </View>
@@ -584,7 +588,7 @@ function UploadModal({
                 value={draft.caption}
                 onChangeText={v => patch({ caption: v })}
                 placeholder="Add a note or description..."
-                placeholderTextColor="var(--color-text-dim)"
+                placeholderTextColor={colors.textDim}
                 multiline
                 numberOfLines={3}
                 className="bg-surface-background border border-surface-border rounded-xl px-4 py-3 text-typography-main text-sm outline-none"
@@ -644,6 +648,7 @@ function UploadModal({
 // ─── Group Create Modal ───────────────────────────────────────────────────────
 
 function GroupCreateModal({
+  const colors = useThemeColors();
   visible,
   onClose,
   onCreated,
@@ -697,7 +702,7 @@ function GroupCreateModal({
           <View className="flex-row items-center justify-between px-8 pt-7 pb-5 border-b border-surface-border">
             <Text className="text-typography-main text-xl font-black">New Channel</Text>
             <TouchableOpacity onPress={onClose} className="w-8 h-8 items-center justify-center rounded-xl bg-surface-background border border-surface-border">
-              <FontAwesome name="times" size={12} color="var(--color-text-muted)" />
+              <FontAwesome name="times" size={12} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
 
@@ -731,7 +736,7 @@ function GroupCreateModal({
                 value={name}
                 onChangeText={setName}
                 placeholder="e.g. Design Team"
-                placeholderTextColor="var(--color-text-dim)"
+                placeholderTextColor={colors.textDim}
                 maxLength={80}
                 className="bg-surface-background border border-surface-border rounded-xl px-4 py-3 text-typography-main text-sm font-bold outline-none"
               />
@@ -744,7 +749,7 @@ function GroupCreateModal({
                 value={description}
                 onChangeText={setDescription}
                 placeholder="What's this channel for?"
-                placeholderTextColor="var(--color-text-dim)"
+                placeholderTextColor={colors.textDim}
                 multiline
                 numberOfLines={2}
                 maxLength={300}
@@ -765,18 +770,18 @@ function GroupCreateModal({
                       className="flex-row items-center gap-1.5 bg-brand-primary/10 border border-brand-primary/20 rounded-full px-3 py-1"
                     >
                       <Text className="text-brand-primary text-xs font-bold">{m.full_name}</Text>
-                      <FontAwesome name="times" size={9} color="var(--color-primary)" />
+                      <FontAwesome name="times" size={9} color={colors.primary} />
                     </TouchableOpacity>
                   ))}
                 </View>
               )}
               <View className="flex-row items-center bg-surface-background border border-surface-border rounded-xl px-4 py-2.5 gap-2">
-                <FontAwesome name="search" size={11} color="var(--color-text-muted)" />
+                <FontAwesome name="search" size={11} color={colors.textMuted} />
                 <TextInput
                   value={memberSearch}
                   onChangeText={searchMembers}
                   placeholder="Search team members..."
-                  placeholderTextColor="var(--color-text-dim)"
+                  placeholderTextColor={colors.textDim}
                   className="flex-1 text-typography-main text-sm outline-none bg-transparent"
                 />
               </View>
@@ -789,7 +794,7 @@ function GroupCreateModal({
                       className={`flex-row items-center px-4 py-3 gap-3 ${i < memberResults.length - 1 ? 'border-b border-surface-border/50' : ''}`}
                     >
                       <Text className="flex-1 text-typography-main text-sm font-medium">{m.full_name}</Text>
-                      {selectedMembers.find(r => r.id === m.id) && <FontAwesome name="check" size={11} color="var(--color-primary)" />}
+                      {selectedMembers.find(r => r.id === m.id) && <FontAwesome name="check" size={11} color={colors.primary} />}
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -819,6 +824,7 @@ function GroupCreateModal({
 // ─── Folder Panel ─────────────────────────────────────────────────────────────
 
 function FolderPanel() {
+  const colors = useThemeColors();
   const { folders, files, mode, selectedFolderId, setSelectedFolderId, createFolder, renameFolder, deleteFolder } = useFileHub();
   const { showConfirm } = useAlert();
   const [showNewFolder, setShowNewFolder] = useState(false);
@@ -873,7 +879,7 @@ function FolderPanel() {
         onPress={() => setSelectedFolderId(null)}
         className={`flex-row items-center px-3 py-2 rounded-xl mb-1 ${!selectedFolderId ? 'bg-brand-primary/10' : 'hover:bg-surface-overlay'}`}
       >
-        <FontAwesome name="folder-open-o" size={12} color={!selectedFolderId ? 'var(--color-primary)' : 'var(--color-text-muted)'} />
+        <FontAwesome name="folder-open-o" size={12} color={!selectedFolderId ? colors.primary : colors.textMuted} />
         <Text className={`ml-2.5 text-sm font-bold flex-1 ${!selectedFolderId ? 'text-brand-primary' : 'text-typography-main'}`}>All Files</Text>
       </TouchableOpacity>
 
@@ -890,16 +896,16 @@ function FolderPanel() {
             />
           ) : (
             <TouchableOpacity className="flex-1 flex-row items-center gap-2.5" onPress={() => setSelectedFolderId(f.id)}>
-              <FontAwesome name="folder-o" size={12} color={selectedFolderId === f.id ? 'var(--color-primary)' : 'var(--color-text-muted)'} />
+              <FontAwesome name="folder-o" size={12} color={selectedFolderId === f.id ? colors.primary : colors.textMuted} />
               <Text className={`text-sm font-bold flex-1 ${selectedFolderId === f.id ? 'text-brand-primary' : 'text-typography-main'}`} numberOfLines={1}>{f.name}</Text>
             </TouchableOpacity>
           )}
           <View className="flex-row gap-1 ml-1">
             <TouchableOpacity onPress={() => startRename(f)} className="w-6 h-6 items-center justify-center rounded-lg hover:bg-surface-overlay">
-              <FontAwesome name="pencil" size={9} color="var(--color-text-muted)" />
+              <FontAwesome name="pencil" size={9} color={colors.textMuted} />
             </TouchableOpacity>
             <TouchableOpacity onPress={() => handleDeleteFolder(f.id, f.name)} className="w-6 h-6 items-center justify-center rounded-lg hover:bg-surface-overlay">
-              <FontAwesome name="trash-o" size={9} color="var(--color-text-muted)" />
+              <FontAwesome name="trash-o" size={9} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
         </View>
@@ -913,7 +919,7 @@ function FolderPanel() {
             onSubmitEditing={handleCreate}
             onBlur={() => { if (!newFolderName.trim()) setShowNewFolder(false); }}
             placeholder="Folder name"
-            placeholderTextColor="var(--color-text-dim)"
+            placeholderTextColor={colors.textDim}
             autoFocus
             className="flex-1 text-typography-main text-sm border border-brand-primary/40 bg-brand-primary/5 rounded-xl px-3 py-1.5 outline-none"
           />
@@ -926,7 +932,7 @@ function FolderPanel() {
           onPress={() => setShowNewFolder(true)}
           className="flex-row items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-surface-overlay mt-1"
         >
-          <FontAwesome name="plus" size={10} color="var(--color-text-muted)" />
+          <FontAwesome name="plus" size={10} color={colors.textMuted} />
           <Text className="text-typography-muted text-sm">New folder</Text>
         </TouchableOpacity>
       )}
@@ -937,6 +943,7 @@ function FolderPanel() {
 // ─── File Row ─────────────────────────────────────────────────────────────────
 
 function FileRow({
+  const colors = useThemeColors();
   file,
   selected,
   mode,
@@ -994,6 +1001,7 @@ function FileRow({
 // ─── Detail Panel ─────────────────────────────────────────────────────────────
 
 function DetailPanel({
+  const colors = useThemeColors();
   file,
   mode,
   currentUserId,
@@ -1052,7 +1060,7 @@ function DetailPanel({
     return (
       <View className="flex-1 items-center justify-center px-8">
         <View className="w-16 h-16 bg-surface-background rounded-full border border-surface-border items-center justify-center mb-4">
-          <FontAwesome name="file-o" size={24} color="var(--color-text-muted)" />
+          <FontAwesome name="file-o" size={24} color={colors.textMuted} />
         </View>
         <Text className="text-typography-muted text-sm text-center font-medium">Select a file to view details</Text>
       </View>
@@ -1103,7 +1111,7 @@ function DetailPanel({
               {file.recipients.slice(0, 5).map(r => (
                 <View key={r.id} className="flex-row items-center gap-2 mb-1.5">
                   <View className="w-6 h-6 rounded-full bg-surface-background border border-surface-border items-center justify-center">
-                    <FontAwesome name="user" size={9} color="var(--color-text-muted)" />
+                    <FontAwesome name="user" size={9} color={colors.textMuted} />
                   </View>
                   <Text className="text-typography-main text-xs font-medium flex-1">{r.full_name}</Text>
                   {r.read_at && <FontAwesome name="check" size={9} color="var(--color-success, #38a169)" />}
@@ -1126,7 +1134,7 @@ function DetailPanel({
             <View className="mb-4 pb-4 border-b border-surface-border/50">
               <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-1">Folder</Text>
               <View className="flex-row items-center gap-2">
-                <FontAwesome name="folder" size={12} color="var(--color-text-muted)" />
+                <FontAwesome name="folder" size={12} color={colors.textMuted} />
                 <Text className="text-typography-main text-sm font-bold">{file.folder.name}</Text>
               </View>
             </View>
@@ -1170,7 +1178,7 @@ function DetailPanel({
                 onPress={() => markRead(file.id)}
                 className="flex-row items-center justify-center bg-surface-card border border-surface-border rounded-xl px-4 py-3 gap-2"
               >
-                <FontAwesome name="check" size={13} color="var(--color-primary)" />
+                <FontAwesome name="check" size={13} color={colors.primary} />
                 <Text className="text-brand-primary font-black text-sm">Mark as Read</Text>
               </TouchableOpacity>
             )}
@@ -1181,7 +1189,7 @@ function DetailPanel({
                   onPress={handleHide}
                   className="flex-1 flex-row items-center justify-center bg-surface-background border border-surface-border rounded-xl px-3 py-2.5 gap-1.5"
                 >
-                  <FontAwesome name="eye-slash" size={11} color="var(--color-text-muted)" />
+                  <FontAwesome name="eye-slash" size={11} color={colors.textMuted} />
                   <Text className="text-typography-muted font-bold text-xs">Hide</Text>
                 </TouchableOpacity>
               )}
@@ -1190,7 +1198,7 @@ function DetailPanel({
                   onPress={handleDelete}
                   className="flex-1 flex-row items-center justify-center bg-state-danger/10 border border-state-danger/20 rounded-xl px-3 py-2.5 gap-1.5"
                 >
-                  <FontAwesome name="trash-o" size={11} color="var(--color-danger)" />
+                  <FontAwesome name="trash-o" size={11} color={colors.danger} />
                   <Text className="text-state-danger font-bold text-xs">Delete</Text>
                 </TouchableOpacity>
               )}
@@ -1201,11 +1209,11 @@ function DetailPanel({
         <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 16 }}>
           {activityLoading ? (
             <View className="py-10 items-center">
-              <ActivityIndicator color="var(--color-primary)" />
+              <ActivityIndicator color={colors.primary} />
             </View>
           ) : activity.length === 0 ? (
             <View className="py-10 items-center px-8">
-              <FontAwesome name="clock-o" size={24} color="var(--color-text-dim)" />
+              <FontAwesome name="clock-o" size={24} color={colors.textDim} />
               <Text className="text-typography-muted text-sm mt-3 text-center">No activity recorded yet</Text>
             </View>
           ) : (
@@ -1236,6 +1244,7 @@ function DetailPanel({
 // ─── Group Members Panel (right panel in groups mode) ─────────────────────────
 
 function GroupMembersPanel({
+  const colors = useThemeColors();
   group,
   currentUserId,
   onGroupChanged,
@@ -1324,11 +1333,11 @@ function GroupMembersPanel({
         )}
         <View className="flex-row items-center gap-4 mt-3">
           <View className="flex-row items-center gap-1.5">
-            <FontAwesome name="users" size={11} color="var(--color-text-muted)" />
+            <FontAwesome name="users" size={11} color={colors.textMuted} />
             <Text className="text-typography-dim text-xs">{group.member_count} members</Text>
           </View>
           <View className="flex-row items-center gap-1.5">
-            <FontAwesome name="files-o" size={11} color="var(--color-text-muted)" />
+            <FontAwesome name="files-o" size={11} color={colors.textMuted} />
             <Text className="text-typography-dim text-xs">{group.file_count} files</Text>
           </View>
         </View>
@@ -1337,12 +1346,12 @@ function GroupMembersPanel({
       {/* Add member */}
       <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-3">Add Member</Text>
       <View className="flex-row items-center bg-surface-background border border-surface-border rounded-xl px-4 py-2.5 gap-2 mb-2">
-        <FontAwesome name="user-plus" size={11} color="var(--color-text-muted)" />
+        <FontAwesome name="user-plus" size={11} color={colors.textMuted} />
         <TextInput
           value={addSearch}
           onChangeText={searchAdd}
           placeholder="Search to invite..."
-          placeholderTextColor="var(--color-text-dim)"
+          placeholderTextColor={colors.textDim}
           className="flex-1 text-typography-main text-sm outline-none bg-transparent"
         />
       </View>
@@ -1356,7 +1365,7 @@ function GroupMembersPanel({
               className={`flex-row items-center px-4 py-3 gap-3 ${i < addResults.length - 1 ? 'border-b border-surface-border/50' : ''}`}
             >
               <Text className="flex-1 text-typography-main text-sm">{m.full_name}</Text>
-              {addingId === m.id ? <ActivityIndicator size="small" color="var(--color-primary)" /> : <FontAwesome name="plus" size={11} color="var(--color-primary)" />}
+              {addingId === m.id ? <ActivityIndicator size="small" color={colors.primary} /> : <FontAwesome name="plus" size={11} color={colors.primary} />}
             </TouchableOpacity>
           ))}
         </View>
@@ -1365,7 +1374,7 @@ function GroupMembersPanel({
       {/* Members list */}
       <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-3">Members ({members.length})</Text>
       {loadingMembers ? (
-        <ActivityIndicator size="small" color="var(--color-primary)" />
+        <ActivityIndicator size="small" color={colors.primary} />
       ) : (
         <View className="bg-surface-background border border-surface-border rounded-xl overflow-hidden">
           {members.map((m, i) => (
@@ -1389,9 +1398,9 @@ function GroupMembersPanel({
                   className="w-7 h-7 items-center justify-center rounded-lg bg-state-danger/10"
                 >
                   {removingId === m.id ? (
-                    <ActivityIndicator size="small" color="var(--color-danger)" />
+                    <ActivityIndicator size="small" color={colors.danger} />
                   ) : (
-                    <FontAwesome name={m.id === currentUserId ? 'sign-out' : 'user-times'} size={11} color="var(--color-danger)" />
+                    <FontAwesome name={m.id === currentUserId ? 'sign-out' : 'user-times'} size={11} color={colors.danger} />
                   )}
                 </TouchableOpacity>
               )}
@@ -1406,6 +1415,7 @@ function GroupMembersPanel({
 // ─── Tags Manage Modal ────────────────────────────────────────────────────────
 
 function TagsManageModal({ visible, onClose, onChanged }: {
+  const colors = useThemeColors();
   visible: boolean;
   onClose: () => void;
   onChanged: () => void;
@@ -1457,19 +1467,19 @@ function TagsManageModal({ visible, onClose, onChanged }: {
         <View className="bg-surface-card rounded-2xl border border-surface-border w-full max-w-md" style={{ maxHeight: '70%' }}>
           <View className="flex-row items-center justify-between px-6 py-4 border-b border-surface-border">
             <View className="flex-row items-center gap-2">
-              <FontAwesome name="tags" size={14} color="var(--color-primary)" />
+              <FontAwesome name="tags" size={14} color={colors.primary} />
               <Text className="text-typography-main font-black text-lg">Manage Tags</Text>
             </View>
             <TouchableOpacity onPress={onClose} className="w-8 h-8 items-center justify-center">
-              <FontAwesome name="times" size={16} color="var(--color-text-muted)" />
+              <FontAwesome name="times" size={16} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
 
           {loading ? (
-            <View className="py-10 items-center"><ActivityIndicator color="var(--color-primary)" /></View>
+            <View className="py-10 items-center"><ActivityIndicator color={colors.primary} /></View>
           ) : tags.length === 0 ? (
             <View className="py-10 items-center">
-              <FontAwesome name="tags" size={24} color="var(--color-text-dim)" />
+              <FontAwesome name="tags" size={24} color={colors.textDim} />
               <Text className="text-typography-muted text-sm mt-3">No tags yet</Text>
             </View>
           ) : (
@@ -1502,13 +1512,13 @@ function TagsManageModal({ visible, onClose, onChanged }: {
                           disabled={!!savingTag}
                           className="w-8 h-8 bg-brand-primary/10 border border-brand-primary/20 rounded-lg items-center justify-center"
                         >
-                          {savingTag === tag ? <ActivityIndicator size="small" color="var(--color-primary)" /> : <FontAwesome name="check" size={12} color="var(--color-primary)" />}
+                          {savingTag === tag ? <ActivityIndicator size="small" color={colors.primary} /> : <FontAwesome name="check" size={12} color={colors.primary} />}
                         </TouchableOpacity>
                         <TouchableOpacity
                           onPress={() => setRenamingTag(null)}
                           className="w-8 h-8 bg-surface-background border border-surface-border rounded-lg items-center justify-center"
                         >
-                          <FontAwesome name="times" size={12} color="var(--color-text-muted)" />
+                          <FontAwesome name="times" size={12} color={colors.textMuted} />
                         </TouchableOpacity>
                       </View>
                     ) : (
@@ -1517,13 +1527,13 @@ function TagsManageModal({ visible, onClose, onChanged }: {
                           onPress={() => { setRenamingTag(tag); setRenameInput(tag); }}
                           className="w-8 h-8 bg-surface-background border border-surface-border rounded-lg items-center justify-center"
                         >
-                          <FontAwesome name="pencil" size={12} color="var(--color-text-muted)" />
+                          <FontAwesome name="pencil" size={12} color={colors.textMuted} />
                         </TouchableOpacity>
                         <TouchableOpacity
                           onPress={() => handleDelete(tag)}
                           className="w-8 h-8 bg-state-danger/10 border border-state-danger/20 rounded-lg items-center justify-center"
                         >
-                          <FontAwesome name="trash-o" size={12} color="var(--color-danger)" />
+                          <FontAwesome name="trash-o" size={12} color={colors.danger} />
                         </TouchableOpacity>
                       </View>
                     )}
@@ -1542,6 +1552,7 @@ function TagsManageModal({ visible, onClose, onChanged }: {
 // ─── Main Desktop Component ───────────────────────────────────────────────────
 
 function FileHubDesktopInner() {
+  const colors = useThemeColors();
   const { hasPermission, user, profile } = useAuth();
   const {
     mode, setMode,
@@ -1697,17 +1708,17 @@ function FileHubDesktopInner() {
         </View>
         <View className="flex-row items-center gap-3 flex-wrap justify-end">
           <View className="flex-row items-center bg-surface-card border border-surface-border rounded-xl px-4 py-2.5 gap-3 w-full max-w-[320px] min-w-[200px]">
-            <FontAwesome name="search" size={12} color="var(--color-text-muted)" />
+            <FontAwesome name="search" size={12} color={colors.textMuted} />
             <TextInput
               value={search}
               onChangeText={setSearch}
               placeholder={mode === 'groups' && activeGroupId ? 'Search channel files...' : 'Search files...'}
-              placeholderTextColor="var(--color-text-dim)"
+              placeholderTextColor={colors.textDim}
               className="flex-1 text-typography-main text-sm font-medium outline-none bg-transparent"
             />
             {search.length > 0 && (
               <TouchableOpacity onPress={() => setSearch('')}>
-                <FontAwesome name="times-circle" size={12} color="var(--color-text-muted)" />
+                <FontAwesome name="times-circle" size={12} color={colors.textMuted} />
               </TouchableOpacity>
             )}
           </View>
@@ -1715,7 +1726,7 @@ function FileHubDesktopInner() {
             onPress={handleRefresh}
             className="h-10 w-10 items-center justify-center bg-surface-card border border-surface-border rounded-xl shrink-0"
           >
-            <FontAwesome name="refresh" size={13} color="var(--color-primary)" />
+            <FontAwesome name="refresh" size={13} color={colors.primary} />
           </TouchableOpacity>
           {/* Upload button — show if not on groups list (no activeGroupId in groups mode) */}
           {(mode !== 'groups' || activeGroupId) && (
@@ -1784,13 +1795,13 @@ function FileHubDesktopInner() {
             <>
               {groupsLoading ? (
                 <View className="flex-1 items-center justify-center">
-                  <ActivityIndicator size="large" color="var(--color-primary)" />
+                  <ActivityIndicator size="large" color={colors.primary} />
                 </View>
               ) : groups.length === 0 ? (
                 <View className="flex-1 items-center justify-center px-8">
                   <View className="bg-surface-card p-10 rounded-[2.5rem] border border-surface-border items-center w-full max-w-sm premium-shadow">
                     <View className="w-14 h-14 bg-brand-primary/10 rounded-full border border-brand-primary/20 items-center justify-center mb-4">
-                      <FontAwesome name="users" size={24} color="var(--color-primary)" />
+                      <FontAwesome name="users" size={24} color={colors.primary} />
                     </View>
                     <Text className="text-typography-main text-xl font-black mb-2 text-center">No Channels Yet</Text>
                     <Text className="text-typography-muted text-sm text-center leading-relaxed mb-6">
@@ -1826,18 +1837,18 @@ function FileHubDesktopInner() {
                         )}
                         <View className="flex-row items-center gap-4">
                           <View className="flex-row items-center gap-1.5">
-                            <FontAwesome name="users" size={10} color="var(--color-text-muted)" />
+                            <FontAwesome name="users" size={10} color={colors.textMuted} />
                             <Text className="text-typography-dim text-xs">{g.member_count} members</Text>
                           </View>
                           <View className="flex-row items-center gap-1.5">
-                            <FontAwesome name="files-o" size={10} color="var(--color-text-muted)" />
+                            <FontAwesome name="files-o" size={10} color={colors.textMuted} />
                             <Text className="text-typography-dim text-xs">{g.file_count} files</Text>
                           </View>
                         </View>
                       </View>
                       <View className="items-end gap-1">
                         {g.last_activity && <Text className="text-typography-dim text-xs">{relativeDate(g.last_activity)}</Text>}
-                        <FontAwesome name="chevron-right" size={10} color="var(--color-text-dim)" />
+                        <FontAwesome name="chevron-right" size={10} color={colors.textDim} />
                       </View>
                     </TouchableOpacity>
                   ))}
@@ -1856,7 +1867,7 @@ function FileHubDesktopInner() {
                   onPress={() => { setActiveGroupId(null); setSelectedFile(null); }}
                   className="w-8 h-8 bg-surface-background border border-surface-border rounded-lg items-center justify-center flex-shrink-0"
                 >
-                  <FontAwesome name="arrow-left" size={12} color="var(--color-text-main)" />
+                  <FontAwesome name="arrow-left" size={12} color={colors.textMain} />
                 </TouchableOpacity>
                 {activeGroup && (
                   <View
@@ -1900,18 +1911,18 @@ function FileHubDesktopInner() {
                     onPress={() => setShowManageTags(true)}
                     className="px-3 py-2.5 border-l border-surface-border flex-shrink-0"
                   >
-                    <FontAwesome name="tags" size={13} color="var(--color-text-muted)" />
+                    <FontAwesome name="tags" size={13} color={colors.textMuted} />
                   </TouchableOpacity>
                 </View>
               )}
 
               {/* Group file list */}
               {displayLoading ? (
-                <View className="flex-1 items-center justify-center"><ActivityIndicator size="large" color="var(--color-primary)" /></View>
+                <View className="flex-1 items-center justify-center"><ActivityIndicator size="large" color={colors.primary} /></View>
               ) : displayFiles.length === 0 ? (
                 <View className="flex-1 items-center justify-center px-8">
                   <View className="bg-surface-card p-10 rounded-[2.5rem] border border-surface-border items-center w-full max-w-sm premium-shadow">
-                    <FontAwesome name="files-o" size={24} color="var(--color-text-muted)" />
+                    <FontAwesome name="files-o" size={24} color={colors.textMuted} />
                     <Text className="text-typography-main text-xl font-black mt-4 mb-2 text-center">
                       {search ? 'No Results' : 'No Files Yet'}
                     </Text>
@@ -1998,18 +2009,18 @@ function FileHubDesktopInner() {
                     onPress={() => setShowManageTags(true)}
                     className="px-3 py-2.5 border-l border-surface-border flex-shrink-0"
                   >
-                    <FontAwesome name="tags" size={13} color="var(--color-text-muted)" />
+                    <FontAwesome name="tags" size={13} color={colors.textMuted} />
                   </TouchableOpacity>
                 </View>
               )}
 
               {displayLoading ? (
-                <View className="flex-1 items-center justify-center"><ActivityIndicator size="large" color="var(--color-primary)" /></View>
+                <View className="flex-1 items-center justify-center"><ActivityIndicator size="large" color={colors.primary} /></View>
               ) : displayFiles.length === 0 ? (
                 <View className="flex-1 items-center justify-center px-8">
                   <View className="bg-surface-card p-10 rounded-[2.5rem] border border-surface-border items-center w-full max-w-sm premium-shadow">
                     <View className="w-14 h-14 bg-surface-background rounded-full border border-surface-border items-center justify-center mb-4">
-                      <FontAwesome name="inbox" size={24} color="var(--color-text-muted)" />
+                      <FontAwesome name="inbox" size={24} color={colors.textMuted} />
                     </View>
                     <Text className="text-typography-main text-xl font-black mb-2 text-center">
                       {search ? 'No Results' : mode === 'inbox' ? 'Inbox Empty' : mode === 'sent' ? 'Nothing Sent' : 'No Broadcasts'}
@@ -2132,6 +2143,7 @@ function FileHubDesktopInner() {
 }
 
 export default function FileHubDesktop() {
+  const colors = useThemeColors();
   return (
     <FileHubProvider>
       <FileHubDesktopInner />

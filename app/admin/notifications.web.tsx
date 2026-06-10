@@ -3,8 +3,10 @@ import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
 import NotificationRules from '@/components/admin/NotificationRules';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 export default function AdminNotificationsScreenWeb() {
+  const colors = useThemeColors();
   const router = useRouter();
 
   return (
@@ -15,7 +17,7 @@ export default function AdminNotificationsScreenWeb() {
         {/* Breadcrumb */}
         <View className="flex-row items-center gap-2 mb-10">
           <TouchableOpacity onPress={() => router.back()} className="flex-row items-center gap-2">
-            <FontAwesome name="chevron-left" size={11} color="var(--color-text-muted)" />
+            <FontAwesome name="chevron-left" size={11} color={colors.textMuted} />
             <Text className="text-typography-muted font-bold text-sm">Back</Text>
           </TouchableOpacity>
           <Text className="text-typography-muted text-sm">/</Text>

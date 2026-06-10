@@ -80,18 +80,18 @@ export const KPIBoxWeb = ({ label, val, delta }: any) => (
 const getStatusInfo = (target: any, colors: any) => {
   if (target.status === 'completed') {
     return {
-      color: 'var(--color-success)',
-      bg: 'var(--color-success-dim)',
+      color: colors.success,
+      bg: (colors.success + '26'),
       label: 'COMPLETED',
-      gradient: ['var(--color-success)', 'var(--color-primary)']
+      gradient: [colors.success, colors.primary]
     };
   }
   if (target.status === 'expired') {
     return {
-      color: 'var(--color-text-dim)',
+      color: colors.textDim,
       bg: (colors.border + '33'),
       label: 'EXPIRED',
-      gradient: ['var(--color-text-dim)', 'var(--color-text-muted)']
+      gradient: [colors.textDim, colors.textMuted]
     };
   }
 
@@ -101,31 +101,31 @@ const getStatusInfo = (target: any, colors: any) => {
 
   if (daysUntil !== null && daysUntil <= 0) {
     return { 
-      color: 'var(--color-danger)', 
-      bg: 'var(--color-danger-dim)',
+      color: colors.danger, 
+      bg: (colors.danger + '26'),
       label: 'EXPIRED', 
-      gradient: ['var(--color-danger)', 'var(--color-danger)'] 
+      gradient: [colors.danger, colors.danger] 
     };
   } else if (daysUntil !== null && daysUntil <= 1) {
     return { 
-      color: 'var(--color-danger)', 
-      bg: 'var(--color-danger-dim)',
+      color: colors.danger, 
+      bg: (colors.danger + '26'),
       label: 'EXPIRES SOON', 
-      gradient: ['var(--color-danger)', 'var(--color-danger)'] 
+      gradient: [colors.danger, colors.danger] 
     };
   } else if (daysUntil !== null && daysUntil <= 3) {
     return { 
-      color: 'var(--color-warning)', 
-      bg: 'var(--color-warning-dim)',
+      color: colors.warning, 
+      bg: (colors.warning + '26'),
       label: 'EXPIRING SOON', 
-      gradient: ['var(--color-warning)', 'var(--color-accent)'] 
+      gradient: [colors.warning, colors.accent] 
     };
   }
   return { 
-    color: 'var(--color-success)', 
-    bg: 'var(--color-success-dim)',
+    color: colors.success, 
+    bg: (colors.success + '26'),
     label: 'ON TRACK', 
-    gradient: ['var(--color-success)', 'var(--color-primary)'] 
+    gradient: [colors.success, colors.primary] 
   };
 };
 
@@ -243,7 +243,7 @@ export const CircularTargetCard = ({ target, onEdit, onClear }: any) => {
       <View className="mt-6 flex-row items-center justify-between">
         <View className="flex-row items-center">
           <View className="mr-1.5">
-            <FontAwesome name="calendar" size={9} color="var(--color-text-dim)" />
+            <FontAwesome name="calendar" size={9} color={colors.textDim} />
           </View>
           <Text className="text-typography-muted text-[9px] font-bold">
             {target.target_deadline ? new Date(target.target_deadline).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'No Limit'}
@@ -326,7 +326,7 @@ export const CircularTargetCardMobile = ({ target, onEdit, onAction }: any) => {
             {isVolume ? 'Volume Quota' : 'SLA Performance Goal'}
           </Text>
         </View>
-        <View style={{ backgroundColor: isCompleted ? 'rgba(var(--state-success), 0.1)' : isExpired ? 'rgba(var(--state-danger), 0.1)' : status.bg, borderColor: stateColor }} className="px-2.5 py-1 rounded-full border border-opacity-50">
+        <View style={{ backgroundColor: isCompleted ? (colors.success + '1a') : isExpired ? (colors.danger + '1a') : status.bg, borderColor: stateColor }} className="px-2.5 py-1 rounded-full border border-opacity-50">
           <Text style={{ color: stateColor }} className="text-[7px] font-black uppercase tracking-widest">
             {stateLabel}
           </Text>
@@ -341,7 +341,7 @@ export const CircularTargetCardMobile = ({ target, onEdit, onAction }: any) => {
               cy={50} 
               r={35} 
               fill="none" 
-              stroke="rgba(var(--surface-border), 0.3)" 
+              stroke={(colors.border + '4d')} 
               strokeWidth={8} 
             />
             <Circle
@@ -391,7 +391,7 @@ export const CircularTargetCardMobile = ({ target, onEdit, onAction }: any) => {
           </View>
 
           <View className="flex-row items-center mb-4">
-            <FontAwesome name="calendar" size={8} color="var(--color-text-dim)" />
+            <FontAwesome name="calendar" size={8} color={colors.textDim} />
             <Text className="text-typography-muted text-[8px] font-bold ml-1.5">
               {target.target_deadline ? new Date(target.target_deadline).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'No Limit'}
             </Text>
@@ -420,7 +420,7 @@ export const CircularTargetCardMobile = ({ target, onEdit, onAction }: any) => {
                   onPress={onEdit}
                   className="flex-1 flex-row items-center justify-center bg-brand-primary/10 py-2.5 rounded-xl border border-brand-primary/20"
                 >
-                  <FontAwesome name="pencil" size={10} color="rgb(var(--brand-primary))" />
+                  <FontAwesome name="pencil" size={10} color={colors.primary} />
                   <Text className="text-brand-primary text-[9px] font-black uppercase tracking-widest ml-2">Edit</Text>
                 </TouchableOpacity>
               )}
@@ -452,7 +452,7 @@ export const CompletionVelocityMobile = ({ data }: { data: { date: string, count
           <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest">Completed Objectives / Week</Text>
         </View>
         <View className="w-8 h-8 rounded-full bg-brand-primary/10 items-center justify-center">
-          <FontAwesome name="bolt" size={12} color="rgb(var(--brand-primary))" />
+          <FontAwesome name="bolt" size={12} color={colors.primary} />
         </View>
       </View>
 

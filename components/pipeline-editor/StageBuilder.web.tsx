@@ -4,6 +4,7 @@ import { FontAwesome } from '@expo/vector-icons';
 import { usePipelineEditor, Stage } from '@/contexts/PipelineEditorContext';
 import { useAlert } from '@/contexts/AlertContext';
 import GraphCanvas from './graph/GraphCanvas';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 const COLOR_PALETTE = [
   '#64748b', '#3b82f6', '#6366f1', '#8b5cf6',
@@ -12,6 +13,7 @@ const COLOR_PALETTE = [
 ];
 
 export default function StageBuilder() {
+  const colors = useThemeColors();
   const {
     stages, loading, error, pipelines, isOperationInFlight,
     addStage, updateStage, deleteStage, reorderStages,
@@ -159,14 +161,14 @@ export default function StageBuilder() {
               onPress={() => setViewMode('graph')}
               className={`px-3 py-1.5 rounded-lg flex-row items-center gap-2 transition-all ${viewMode === 'graph' ? 'bg-brand-primary shadow-sm' : 'hover:bg-surface-overlay active:scale-95'}`}
             >
-              <FontAwesome name="th-large" size={12} color={viewMode === 'graph' ? 'white' : 'rgb(var(--text-muted))'} />
+              <FontAwesome name="th-large" size={12} color={viewMode === 'graph' ? 'white' : colors.textMuted} />
               <Text className={`text-xs font-bold ${viewMode === 'graph' ? 'text-white' : 'text-typography-muted'}`}>Canvas</Text>
             </TouchableOpacity>
             <TouchableOpacity 
               onPress={() => setViewMode('list')}
               className={`px-3 py-1.5 rounded-lg flex-row items-center gap-2 transition-all ${viewMode === 'list' ? 'bg-brand-primary shadow-sm' : 'hover:bg-surface-overlay active:scale-95'}`}
             >
-              <FontAwesome name="list" size={12} color={viewMode === 'list' ? 'white' : 'rgb(var(--text-muted))'} />
+              <FontAwesome name="list" size={12} color={viewMode === 'list' ? 'white' : colors.textMuted} />
               <Text className={`text-xs font-bold ${viewMode === 'list' ? 'text-white' : 'text-typography-muted'}`}>List</Text>
             </TouchableOpacity>
           </View>
@@ -207,7 +209,7 @@ export default function StageBuilder() {
                    className="bg-surface-card border border-surface-border p-4 rounded-2xl mb-3 flex-row items-center justify-between"
                  >
                    <View className="flex-row items-center gap-4">
-                     <View className="w-10 h-10 rounded-xl items-center justify-center border border-white/20" style={{ backgroundColor: s.color || 'rgb(var(--brand-primary))' }}>
+                     <View className="w-10 h-10 rounded-xl items-center justify-center border border-white/20" style={{ backgroundColor: s.color || colors.primary }}>
                         <Text className="text-white font-black">{s.position}</Text>
                      </View>
                      <View>
@@ -215,7 +217,7 @@ export default function StageBuilder() {
                         <Text className="text-typography-muted text-xs">{s.description || 'No description'}</Text>
                      </View>
                    </View>
-                   <FontAwesome name="chevron-right" size={12} color="rgb(var(--text-muted))" />
+                   <FontAwesome name="chevron-right" size={12} color={colors.textMuted} />
                  </TouchableOpacity>
                ))}
             </ScrollView>
@@ -233,7 +235,7 @@ export default function StageBuilder() {
                 onPress={() => { setEditingStageId(null); setShowAddForm(false); }}
                 className="p-2 hover:bg-surface-overlay rounded-lg transition-all"
               >
-                 <FontAwesome name="times" size={16} color="rgb(var(--text-muted))" />
+                 <FontAwesome name="times" size={16} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
 
@@ -374,7 +376,7 @@ export default function StageBuilder() {
                   if (stageActionList.length === 0) {
                     return (
                       <View className="py-5 items-center bg-surface-background rounded-xl border border-dashed border-surface-border mb-3">
-                        <FontAwesome name="share-alt" size={20} color="rgb(var(--text-dim))" />
+                        <FontAwesome name="share-alt" size={20} color={colors.textDim} />
                         <Text className="text-typography-dim text-xs font-bold mt-2">No Actions Yet</Text>
                         <Text className="text-typography-dim text-[10px] mt-1 text-center px-4">Draw connections from this stage on the canvas to create action buttons</Text>
                       </View>
@@ -415,19 +417,19 @@ export default function StageBuilder() {
                             </View>
                             {targetStage && (
                               <View className="flex-row items-center gap-1">
-                                <FontAwesome name="long-arrow-right" size={8} color="rgb(var(--text-dim))" />
+                                <FontAwesome name="long-arrow-right" size={8} color={colors.textDim} />
                                 <View className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: targetStage.color || '#6B7280' }} />
                                 <Text className="text-typography-dim text-[10px] font-bold">{targetStage.name}</Text>
                               </View>
                             )}
-                            {action.requires_timer && <FontAwesome name="clock-o" size={9} color="rgb(var(--state-warning))" />}
+                            {action.requires_timer && <FontAwesome name="clock-o" size={9} color={colors.warning} />}
                             {!isCanvas && (
                               <View className="bg-surface-overlay px-1.5 py-0.5 rounded">
                                 <Text className="text-typography-dim text-[8px] uppercase font-bold">Custom</Text>
                               </View>
                             )}
                           </View>
-                          <FontAwesome name={isExpanded ? 'chevron-up' : 'chevron-down'} size={9} color="rgb(var(--text-dim))" />
+                          <FontAwesome name={isExpanded ? 'chevron-up' : 'chevron-down'} size={9} color={colors.textDim} />
                         </TouchableOpacity>
 
                         {/* Inline Editor */}
@@ -439,7 +441,7 @@ export default function StageBuilder() {
                               value={actionForm.label}
                               onChangeText={(v) => setActionForm(prev => ({ ...prev, label: v }))}
                               className="bg-surface-background border border-surface-border p-2.5 rounded-lg text-typography-main text-xs mb-3"
-                              placeholderTextColor="rgb(var(--text-dim))"
+                              placeholderTextColor={colors.textDim}
                             />
 
                             {/* Style */}
@@ -503,7 +505,7 @@ export default function StageBuilder() {
                                   onPress={async () => { await deleteStageAction(action.id); setEditingActionId(null); }}
                                   className="p-2 rounded-xl border border-state-danger/30 bg-state-danger/5 items-center justify-center"
                                 >
-                                  <FontAwesome name="trash-o" size={12} color="rgb(var(--state-danger))" />
+                                  <FontAwesome name="trash-o" size={12} color={colors.danger} />
                                 </TouchableOpacity>
                               )}
                             </View>
@@ -563,7 +565,7 @@ export default function StageBuilder() {
                 onPress={() => setEditingTransitionId(null)}
                 className="p-2 hover:bg-surface-overlay rounded-lg transition-all"
               >
-                 <FontAwesome name="times" size={16} color="rgb(var(--text-muted))" />
+                 <FontAwesome name="times" size={16} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
 
@@ -589,7 +591,7 @@ export default function StageBuilder() {
                   <Text className={`text-sm ${transForm.required_permission ? 'text-typography-main font-bold' : 'text-typography-dim'}`}>
                     {transForm.required_permission ? (permissions.find(p => p.key === transForm.required_permission)?.label || transForm.required_permission) : 'Anyone can trigger'}
                   </Text>
-                  <FontAwesome name={showPermPicker ? 'chevron-up' : 'chevron-down'} size={10} color="rgb(var(--text-dim))" />
+                  <FontAwesome name={showPermPicker ? 'chevron-up' : 'chevron-down'} size={10} color={colors.textDim} />
                 </TouchableOpacity>
 
                 {showPermPicker && (
@@ -618,10 +620,10 @@ export default function StageBuilder() {
                 <Text className="text-typography-muted text-[10px] font-bold uppercase mb-1.5 mt-4">Visual Style</Text>
                 <View className="flex-row gap-2 mb-4">
                   {[
-                    { id: 'neutral', icon: 'circle-o', color: 'rgb(var(--text-muted))' },
-                    { id: 'success', icon: 'check-circle', color: 'rgb(var(--state-success))' },
-                    { id: 'warning', icon: 'exclamation-circle', color: 'rgb(var(--state-warning))' },
-                    { id: 'danger', icon: 'times-circle', color: 'rgb(var(--state-danger))' }
+                    { id: 'neutral', icon: 'circle-o', color: colors.textMuted },
+                    { id: 'success', icon: 'check-circle', color: colors.success },
+                    { id: 'warning', icon: 'exclamation-circle', color: colors.warning },
+                    { id: 'danger', icon: 'times-circle', color: colors.danger }
                   ].map(t => (
                     <TouchableOpacity
                       key={t.id}
@@ -637,7 +639,7 @@ export default function StageBuilder() {
                 </View>
                 <View className="bg-brand-primary/5 p-4 rounded-xl border border-brand-primary/20">
                    <View className="flex-row items-center gap-2 mb-2">
-                      <FontAwesome name="info-circle" size={14} color="rgb(var(--brand-primary))" />
+                      <FontAwesome name="info-circle" size={14} color={colors.primary} />
                       <Text className="text-brand-primary font-bold text-xs">Branching Logic</Text>
                    </View>
                    <Text className="text-typography-muted text-[10px] leading-tight">
@@ -678,6 +680,7 @@ export default function StageBuilder() {
 }
 
 function Section({ label, children, last }: { label: string, children: any, last?: boolean }) {
+  const colors = useThemeColors();
   return (
     <View className={`mb-8 ${last ? '' : 'border-b border-surface-border pb-6'}`}>
       <Text className="text-typography-label text-[10px] font-black uppercase tracking-tighter mb-4 opacity-50">{label}</Text>
@@ -687,12 +690,13 @@ function Section({ label, children, last }: { label: string, children: any, last
 }
 
 function Input({ label, ...props }: any) {
+  const colors = useThemeColors();
   return (
     <View className="mb-4">
       <Text className="text-typography-muted text-[10px] font-bold uppercase mb-1">{label}</Text>
       <TextInput 
         className="bg-surface-background border border-surface-border p-3 rounded-lg text-typography-main text-sm focus:border-brand-primary/40 transition-all"
-        placeholderTextColor="rgb(var(--text-dim))"
+        placeholderTextColor={colors.textDim}
         {...props}
       />
     </View>
@@ -700,6 +704,7 @@ function Input({ label, ...props }: any) {
 }
 
 function Toggle({ label, desc, active, onToggle }: any) {
+  const colors = useThemeColors();
   return (
     <View className="flex-row items-center justify-between mb-4">
       <View className="flex-1 pr-4">
@@ -709,7 +714,7 @@ function Toggle({ label, desc, active, onToggle }: any) {
       <Switch 
         value={active}
         onValueChange={onToggle}
-        trackColor={{ false: '#334155', true: 'rgb(var(--brand-primary))' }}
+        trackColor={{ false: '#334155', true: colors.primary }}
         thumbColor="white"
       />
     </View>

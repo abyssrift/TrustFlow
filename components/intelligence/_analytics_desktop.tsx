@@ -4,7 +4,7 @@ import { PersonnelRow, StageDwell, ThroughputPeriod, useAnalytics } from '@/cont
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/supabase';
-import { getMutedColor, getPrimaryColor } from '@/lib/themeColors';
+import { getMutedColor, getPrimaryColor } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack } from 'expo-router';
@@ -45,6 +45,7 @@ function fmtUSD(v: number | null): string {
 // ─── Throughput Chart ─────────────────────────────────────────────────────────
 
 const ThroughputTooltip = ({ active, payload, label }: any) => {
+  const colors = useThemeColors();
   if (!active || !payload?.length) return null;
   return (
     <View className="bg-surface-overlay border border-surface-border rounded-xl p-3 gap-1">
@@ -59,6 +60,7 @@ const ThroughputTooltip = ({ active, payload, label }: any) => {
 };
 
 function ThroughputChart({ data }: { data: ThroughputPeriod[] }) {
+  const colors = useThemeColors();
   if (!data.length) {
     return (
       <View className="h-40 items-center justify-center">
@@ -73,16 +75,16 @@ function ThroughputChart({ data }: { data: ThroughputPeriod[] }) {
     <View style={{ height: 280, width: '100%' }}>
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={chartData} margin={{ top: 5, right: 30, left: -20, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} opacity={0.4} />
+          <CartesianGrid strokeDasharray="3 3" stroke={colors.border} vertical={false} opacity={0.4} />
           <XAxis
             dataKey="period_label"
-            tick={{ fill: 'var(--color-text-dim)', fontSize: 11 }}
+            tick={{ fill: colors.textDim, fontSize: 11 }}
             axisLine={false}
             tickLine={false}
           />
           <YAxis
             yAxisId="tasks"
-            tick={{ fill: 'var(--color-text-dim)', fontSize: 11 }}
+            tick={{ fill: colors.textDim, fontSize: 11 }}
             axisLine={false}
             tickLine={false}
           />
@@ -90,23 +92,23 @@ function ThroughputChart({ data }: { data: ThroughputPeriod[] }) {
             yAxisId="rate"
             orientation="right"
             domain={[0, 100]}
-            tick={{ fill: 'var(--color-text-dim)', fontSize: 11 }}
+            tick={{ fill: colors.textDim, fontSize: 11 }}
             axisLine={false}
             tickLine={false}
             tickFormatter={v => `${v}%`}
           />
           <Tooltip content={<ThroughputTooltip />} />
-          <Legend wrapperStyle={{ fontSize: 11, color: 'var(--color-text-dim)' }} />
-          <Bar yAxisId="tasks" dataKey="tasks_succeeded" name="Succeeded" fill="var(--color-success)" radius={[4, 4, 0, 0]} maxBarSize={32} />
-          <Bar yAxisId="tasks" dataKey="tasks_failed" name="Failed" fill="var(--color-danger)" radius={[4, 4, 0, 0]} maxBarSize={32} />
+          <Legend wrapperStyle={{ fontSize: 11, color: colors.textDim }} />
+          <Bar yAxisId="tasks" dataKey="tasks_succeeded" name="Succeeded" fill={colors.success} radius={[4, 4, 0, 0]} maxBarSize={32} />
+          <Bar yAxisId="tasks" dataKey="tasks_failed" name="Failed" fill={colors.danger} radius={[4, 4, 0, 0]} maxBarSize={32} />
           <Line
             yAxisId="rate"
             type="monotone"
             dataKey="success_rate"
             name="Success Rate %"
-            stroke="var(--color-primary)"
+            stroke={colors.primary}
             strokeWidth={2}
-            dot={{ r: 3, fill: 'var(--color-primary)', strokeWidth: 0 }}
+            dot={{ r: 3, fill: colors.primary, strokeWidth: 0 }}
           />
         </ComposedChart>
       </ResponsiveContainer>
@@ -117,6 +119,7 @@ function ThroughputChart({ data }: { data: ThroughputPeriod[] }) {
 // ─── Pipeline Analytics Tab ───────────────────────────────────────────────────
 
 function PipelineTab() {
+  const colors = useThemeColors();
   const { getPipelineStageDwell, getPipelineThroughput } = useAnalytics();
   const { theme: activeTheme } = useTheme();
   const [pipelines, setPipelines] = useState<any[]>([]);
@@ -351,6 +354,7 @@ function PipelineTab() {
 type SortDir = 'asc' | 'desc';
 
 function PersonnelTab() {
+  const colors = useThemeColors();
   const { comparePersonnel } = useAnalytics();
   const { theme: activeTheme } = useTheme();
   const [users, setUsers] = useState<any[]>([]);
@@ -393,6 +397,7 @@ function PersonnelTab() {
   const [sortDir, setSortDir]   = useState<SortDir>('desc');
 
   const STORAGE_KEYS = {
+    const colors = useThemeColors();
     SALARIES: 'trustflow_personnel_salaries',
     SELECTED: 'trustflow_personnel_selected',
   };
@@ -573,6 +578,7 @@ function PersonnelTab() {
 
   // --- QOL: Live Insights Component ---
   const ComparisonInsights = () => {
+    const colors = useThemeColors();
     if (selected.length === 0) {
       return (
         <View className="flex-1 items-center justify-center p-8 bg-surface-overlay/20 rounded-[32px] border border-dashed border-surface-border">
@@ -620,13 +626,13 @@ function PersonnelTab() {
         <View style={{ height: 240, width: '100%' }}>
           <ResponsiveContainer width="100%" height="100%">
             <RadarChart cx="50%" cy="50%" outerRadius="80%" data={previewData}>
-              <PolarGrid stroke="var(--color-surface-border)" />
-              <PolarAngleAxis dataKey="subject" tick={{ fill: 'var(--color-text-dim)', fontSize: 10 }} />
+              <PolarGrid stroke={colors.border} />
+              <PolarAngleAxis dataKey="subject" tick={{ fill: colors.textDim, fontSize: 10 }} />
               <Radar
                 name="Group Mean"
                 dataKey="A"
-                stroke="var(--color-primary)"
-                fill="var(--color-primary)"
+                stroke={colors.primary}
+                fill={colors.primary}
                 fillOpacity={0.3}
               />
             </RadarChart>
@@ -834,7 +840,7 @@ function PersonnelTab() {
               onPress={exportCSV}
               className="flex-row items-center gap-2 bg-surface-card border border-surface-border px-4 py-2 rounded-xl"
             >
-              <FontAwesome name="download" size={14} color="var(--color-primary)" />
+              <FontAwesome name="download" size={14} color={colors.primary} />
               <Text className="text-typography-main text-xs font-black uppercase">Export CSV</Text>
             </TouchableOpacity>
           </View>
@@ -989,13 +995,14 @@ function PersonnelTab() {
 // ─── Root Screen ──────────────────────────────────────────────────────────────
 
 export default function AdminAnalyticsWeb() {
+  const colors = useThemeColors();
   const { hasPermission, permissionsLoaded } = useAuth();
   const [activeTab, setActiveTab] = useState<AdminTab>('pipeline');
 
   if (!permissionsLoaded) {
     return (
       <View className="flex-1 bg-surface-background items-center justify-center">
-        <ActivityIndicator size="large" color="var(--color-primary)" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -1003,7 +1010,7 @@ export default function AdminAnalyticsWeb() {
   if (!hasPermission('analytics.view')) {
     return (
       <View className="flex-1 bg-surface-background items-center justify-center p-10">
-        <FontAwesome name="lock" size={40} color="var(--color-primary)" />
+        <FontAwesome name="lock" size={40} color={colors.primary} />
         <Text className="text-typography-main font-black text-xl mt-6 mb-2">Access Restricted</Text>
         <Text className="text-typography-muted text-center">
           You need the <Text className="font-black">analytics.view</Text> permission to access this dashboard.
@@ -1071,7 +1078,7 @@ export default function AdminAnalyticsWeb() {
           {activeTab === 'personnel' && canCompare && <PersonnelTab />}
           {activeTab === 'personnel' && !canCompare && (
             <View className="bg-surface-card border border-surface-border rounded-2xl p-10 items-center gap-3">
-              <FontAwesome name="lock" size={32} color="var(--color-primary)" />
+              <FontAwesome name="lock" size={32} color={colors.primary} />
               <Text className="text-typography-main font-black text-lg">Permission Required</Text>
               <Text className="text-typography-muted text-sm text-center">
                 You need <Text className="font-black">analytics.compare</Text> to access personnel benchmarking.

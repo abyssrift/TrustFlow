@@ -17,6 +17,7 @@ import Svg, { Circle, Line, Defs, Pattern, Rect } from 'react-native-svg';
 import { usePipelineEditor, Stage } from '@/contexts/PipelineEditorContext';
 import StageNode from './StageNode';
 import ConnectionLines from './ConnectionLines';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 interface GraphCanvasProps {
   onEditStage: (s: Stage) => void;
@@ -32,6 +33,7 @@ const AnimatedLine = Animated.createAnimatedComponent(Line);
 const AnimatedRect = Animated.createAnimatedComponent(Rect);
 
 export default function GraphCanvas({ onEditStage, onDeleteStage, onEditTransition }: GraphCanvasProps) {
+  const colors = useThemeColors();
   const { stages, transitions, updateStagePosition, addTransition } = usePipelineEditor();
 
   const translateX = useSharedValue(0);
@@ -164,7 +166,7 @@ export default function GraphCanvas({ onEditStage, onDeleteStage, onEditTransiti
                 height={GRID_SIZE * 2}
                 patternUnits="userSpaceOnUse"
               >
-                <Circle cx="2" cy="2" r="1" fill="rgb(var(--surface-border))" opacity="0.5" />
+                <Circle cx="2" cy="2" r="1" fill={colors.border} opacity="0.5" />
               </Pattern>
             </Defs>
             <Rect 
@@ -234,6 +236,7 @@ export default function GraphCanvas({ onEditStage, onDeleteStage, onEditTransiti
 
 // Sub-component for the live rubber band path
 function LineRubberBand({ startShared, endShared }: any) {
+  const colors = useThemeColors();
   const animatedProps = useAnimatedProps(() => ({
     x1: startShared.value.x,
     y1: startShared.value.y,
@@ -244,7 +247,7 @@ function LineRubberBand({ startShared, endShared }: any) {
   return (
     <AnimatedLine 
        animatedProps={animatedProps}
-       stroke="rgb(var(--brand-primary))"
+       stroke={colors.primary}
        strokeWidth="2"
        strokeDasharray="5,5"
     />

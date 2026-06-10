@@ -335,7 +335,7 @@ export const SnapshotDetailModal = ({ visible, onClose, data }: any) => {
               <Text className="text-typography-muted text-xs">Deep-inspecting historical data trace (PII Masked)</Text>
             </View>
             <TouchableOpacity onPress={onClose} className="w-12 h-12 rounded-full bg-surface-background border border-surface-border items-center justify-center">
-              <FontAwesome name="times" size={16} color="var(--color-text-dim)" />
+              <FontAwesome name="times" size={16} color={colors.textDim} />
             </TouchableOpacity>
           </View>
           <ScrollView className="p-10 bg-surface-background">

@@ -4,6 +4,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cssInterop } from 'react-native-css-interop';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 cssInterop(FontAwesome, {
   className: {
@@ -17,6 +18,7 @@ interface Props {
 }
 
 export default function KanbanPersonalizer({ onClose }: Props) {
+  const colors = useThemeColors();
   const { kanban, updateKanban } = useTheme();
 
   const handlePickImage = async () => {
@@ -45,7 +47,7 @@ export default function KanbanPersonalizer({ onClose }: Props) {
       <Switch 
         value={value} 
         onValueChange={onToggle}
-        trackColor={{ false: 'var(--color-surface-border)', true: 'var(--color-primary)' }}
+        trackColor={{ false: colors.border, true: colors.primary }}
       />
     </View>
   );

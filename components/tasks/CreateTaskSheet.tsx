@@ -8,6 +8,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import PremiumCalendarPicker from '../common/PremiumCalendarPicker';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 type Props = {
   visible: boolean;
@@ -27,6 +28,7 @@ type TaskTemplate = {
 const TEMPLATES_KEY = '@TrustFlow_task_templates';
 
 export default function CreateTaskSheet({ visible, onClose, initialPipelineId }: Props) {
+  const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const { draft, setDraft, createTask, loading, recentTasks, loadRecentTasks, briefFiles, setBriefFiles } = useTaskCreation();
   const [step, setStep] = useState(1);
@@ -142,7 +144,7 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
                 <View className="flex-row items-center justify-between mb-2">
                   <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest ml-1">Templates</Text>
                   <TouchableOpacity onPress={saveAsTemplate} className="flex-row items-center gap-1">
-                    <FontAwesome name="bookmark-o" size={10} color="var(--color-primary)" />
+                    <FontAwesome name="bookmark-o" size={10} color={colors.primary} />
                     <Text className="text-brand-primary text-[10px] font-black uppercase">Save Current</Text>
                   </TouchableOpacity>
                 </View>
@@ -180,7 +182,7 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
                 value={draft.title ?? ''}
                 onChangeText={t => setDraft({ title: t })}
                 placeholder="Deployment Objective"
-                placeholderTextColor="var(--color-text-dim)"
+                placeholderTextColor={colors.textDim}
                 className="bg-surface-background border border-surface-border rounded-xl px-5 py-4 text-typography-main font-bold text-base"
               />
             </View>
@@ -190,7 +192,7 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
                 value={draft.category ?? ''}
                 onChangeText={t => setDraft({ category: t })}
                 placeholder="General"
-                placeholderTextColor="var(--color-text-dim)"
+                placeholderTextColor={colors.textDim}
                 className="bg-surface-background border border-surface-border rounded-xl px-5 py-4 text-typography-main font-bold"
               />
             </View>
@@ -200,7 +202,7 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
             value={draft.description ?? ''}
                 onChangeText={t => setDraft({ description: t })}
                 placeholder="Operation details..."
-                placeholderTextColor="var(--color-text-dim)"
+                placeholderTextColor={colors.textDim}
                 multiline
                 numberOfLines={4}
                 className="bg-surface-background border border-surface-border rounded-xl px-5 py-4 text-typography-main text-sm h-32"
@@ -273,10 +275,10 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
                  <View className="gap-1.5 mb-3">
                    {briefFiles.map(f => (
                      <View key={f.id} className="flex-row items-center bg-surface-background px-3 py-2 rounded-lg border border-surface-border/50">
-                       <FontAwesome name={f.type.startsWith('image/') ? 'file-image-o' : 'file-o'} size={11} color="var(--color-primary)" />
+                       <FontAwesome name={f.type.startsWith('image/') ? 'file-image-o' : 'file-o'} size={11} color={colors.primary} />
                        <Text className="text-typography-main text-[11px] font-bold ml-2 flex-1" numberOfLines={1}>{f.name}</Text>
                        <TouchableOpacity onPress={() => setBriefFiles(prev => prev.filter(x => x.id !== f.id))} className="ml-2 p-1">
-                         <FontAwesome name="times-circle" size={12} color="var(--color-danger)" />
+                         <FontAwesome name="times-circle" size={12} color={colors.danger} />
                        </TouchableOpacity>
                      </View>
                    ))}
@@ -290,7 +292,7 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
                    }}
                    className="flex-row items-center bg-surface-background px-3 py-2 rounded-xl border border-surface-border"
                  >
-                   <FontAwesome name="camera" size={11} color="var(--color-primary)" />
+                   <FontAwesome name="camera" size={11} color={colors.primary} />
                    <Text className="text-brand-primary text-[10px] font-black uppercase ml-1.5">Add Photo</Text>
                  </TouchableOpacity>
                  <TouchableOpacity
@@ -300,7 +302,7 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
                    }}
                    className="flex-row items-center bg-surface-background px-3 py-2 rounded-xl border border-surface-border"
                  >
-                   <FontAwesome name="paperclip" size={11} color="var(--color-primary)" />
+                   <FontAwesome name="paperclip" size={11} color={colors.primary} />
                    <Text className="text-brand-primary text-[10px] font-black uppercase ml-1.5">Attach File</Text>
                  </TouchableOpacity>
                </View>
@@ -372,7 +374,7 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
              <Text className="text-typography-main font-black uppercase tracking-widest text-xs">New Task</Text>
              <TouchableOpacity onPress={handleCreate} disabled={loading || !draft.title}>
                 {loading ? (
-                  <ActivityIndicator size="small" color="var(--color-primary)" />
+                  <ActivityIndicator size="small" color={colors.primary} />
                 ) : (
                   <Text className={`font-black uppercase tracking-widest text-xs ${!draft.title ? 'text-typography-dim' : 'text-brand-primary'}`}>Create</Text>
                 )}
@@ -421,7 +423,7 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
           {loading && (
             <View className="absolute inset-0 z-50 items-center justify-center bg-surface-background/70">
               <View className="bg-surface-card border border-surface-border rounded-3xl px-6 py-5 items-center premium-shadow">
-                <ActivityIndicator size="large" color="var(--color-primary)" />
+                <ActivityIndicator size="large" color={colors.primary} />
                 <Text className="text-typography-main font-black uppercase tracking-[0.25em] text-[10px] mt-3">Creating task</Text>
               </View>
             </View>

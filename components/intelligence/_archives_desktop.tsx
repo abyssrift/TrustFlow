@@ -7,8 +7,10 @@ import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 export default function IntelligenceArchives() {
+  const colors = useThemeColors();
   const { hasPermission }           = useAuth();
   const router                      = useRouter();
   const [archives, setArchives]     = useState<any[]>([]);
@@ -84,35 +86,35 @@ export default function IntelligenceArchives() {
         <View className="flex-row flex-wrap items-center justify-end gap-3 max-w-full">
           {/* Search */}
           <View className="flex-row items-center bg-surface-card border border-surface-border rounded-xl px-4 py-2.5 gap-3 w-full max-w-[320px] min-w-[220px]">
-            <FontAwesome name="search" size={12} color="var(--color-text-muted)" />
+            <FontAwesome name="search" size={12} color={colors.textMuted} />
             <TextInput
               value={search}
               onChangeText={setSearch}
               placeholder="Search archives..."
-              placeholderTextColor="var(--color-text-dim)"
+              placeholderTextColor={colors.textDim}
               className="flex-1 text-typography-main text-sm font-medium outline-none bg-transparent"
             />
             {search.length > 0 && (
               <TouchableOpacity onPress={() => setSearch('')}>
-                <FontAwesome name="times-circle" size={12} color="var(--color-text-muted)" />
+                <FontAwesome name="times-circle" size={12} color={colors.textMuted} />
               </TouchableOpacity>
             )}
           </View>
           <TouchableOpacity onPress={fetchArchives} className="h-10 w-10 items-center justify-center bg-surface-card border border-surface-border rounded-xl shrink-0">
-            <FontAwesome name="refresh" size={13} color="var(--color-primary)" />
+            <FontAwesome name="refresh" size={13} color={colors.primary} />
           </TouchableOpacity>
         </View>
       </View>
 
       {loading ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="var(--color-primary)" />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : archives.length === 0 ? (
         <View className="flex-1 items-center justify-center">
           <View className="bg-surface-card p-12 rounded-[3rem] border border-surface-border items-center max-w-[480px] premium-shadow">
             <View className="w-16 h-16 bg-surface-background rounded-full items-center justify-center mb-5 border border-surface-border">
-              <FontAwesome name="archive" size={28} color="var(--color-text-muted)" />
+              <FontAwesome name="archive" size={28} color={colors.textMuted} />
             </View>
             <Text className="text-typography-main text-2xl font-black mb-2 text-center">
               {search ? 'No Results' : 'Empty Archive'}
@@ -149,14 +151,14 @@ export default function IntelligenceArchives() {
                       <FontAwesome
                         name={archive.entity_type === 'project' ? 'briefcase' : 'tasks'}
                         size={16}
-                        color={isRestored ? 'var(--color-success)' : 'var(--color-primary)'}
+                        color={isRestored ? colors.success : colors.primary}
                       />
                     </View>
                     <View className="flex-1">
                       <Text className="text-typography-main font-black text-sm" numberOfLines={1}>{title}</Text>
                       {hasIssue && (
                         <View className="flex-row items-center gap-1.5 mt-0.5">
-                          <FontAwesome name="warning" size={9} color="var(--color-danger)" />
+                          <FontAwesome name="warning" size={9} color={colors.danger} />
                           <Text className="text-state-danger text-[9px] font-black uppercase">Integrity Issue</Text>
                         </View>
                       )}
@@ -182,7 +184,7 @@ export default function IntelligenceArchives() {
                       onPress={() => setSnapshotModal({ visible: true, data: archive.snapshot })}
                       className="bg-surface-background border border-surface-border px-3 py-1.5 rounded-lg flex-row items-center gap-1.5"
                     >
-                      <FontAwesome name="eye" size={10} color="var(--color-text-muted)" />
+                      <FontAwesome name="eye" size={10} color={colors.textMuted} />
                       <Text className="text-typography-muted text-[10px] font-bold">Snapshot</Text>
                     </TouchableOpacity>
                     {!isRestored && !hasIssue && hasPermission('archive.restore') && (
@@ -190,7 +192,7 @@ export default function IntelligenceArchives() {
                         onPress={() => setRestoreModal({ visible: true, archive })}
                         className="bg-brand-primary/10 border border-brand-primary/20 px-3 py-1.5 rounded-lg flex-row items-center gap-1.5"
                       >
-                        <FontAwesome name="undo" size={10} color="var(--color-primary)" />
+                        <FontAwesome name="undo" size={10} color={colors.primary} />
                         <Text className="text-brand-primary text-[10px] font-black">Restore</Text>
                       </TouchableOpacity>
                     )}

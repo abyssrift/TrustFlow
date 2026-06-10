@@ -91,6 +91,7 @@ type Pipeline = {
 };
 
 export function TasksScreenWeb() {
+  const colors = useThemeColors();
   const { activeSession, lastStoppedAt } = useTimer();
 
   const [pipeline, setPipeline] = useState<Pipeline | null>(null);
@@ -638,7 +639,7 @@ export function TasksScreenWeb() {
                    value={searchQuery}
                    onChangeText={setSearchQuery}
                    placeholder="Search tasks..."
-                   placeholderTextColor="var(--color-text-dim)"
+                   placeholderTextColor={colors.textDim}
                    className="flex-1 text-typography-main text-sm font-bold"
                  />
                  {searchQuery.length > 0 && (
@@ -794,7 +795,7 @@ export function TasksScreenWeb() {
 
           {loading ? (
             <View className="flex-1 items-center justify-center">
-              <ActivityIndicator size="large" color="var(--color-primary)" />
+              <ActivityIndicator size="large" color={colors.primary} />
             </View>
           ) : availablePipelines.length === 0 ? (
             <View className="flex-1 items-center justify-center">
@@ -930,7 +931,7 @@ export function TasksScreenWeb() {
                              <FontAwesome
                                name={p.is_default ? 'star' : 'star-o'}
                                size={16}
-                               color={p.is_default ? 'var(--color-primary)' : 'var(--color-text-muted)'}
+                               color={p.is_default ? colors.primary : colors.textMuted}
                              />
                            </TouchableOpacity>
                          )}
@@ -998,8 +999,10 @@ export function TasksScreenWeb() {
 }
 
 import ConfirmModal from '@/components/common/ConfirmModal';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 export default function TasksScreenWebWrapper() {
+  const colors = useThemeColors();
   return (
     <TaskCreationProvider>
       <TasksScreenWeb />

@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { PerformanceChart } from './PerformanceChart';
 import { TimerDeliverabilityChart } from './TimerDeliverabilityChart';
 import { PeriodToggle } from './PeriodToggle';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 interface ProfileAnalyticsProps {
   userId: string;
@@ -45,6 +46,7 @@ function buildConclusion(
 }
 
 export function ProfileAnalytics({ userId }: ProfileAnalyticsProps) {
+  const colors = useThemeColors();
   const { getUserPerformanceSeries, getUserCompanyHistory, invalidate } = useAnalytics();
   const { profile } = useAuth();
   const [period, setPeriod] = useState('month');
@@ -106,7 +108,7 @@ export function ProfileAnalytics({ userId }: ProfileAnalyticsProps) {
   if (loading) {
     return (
       <View className="py-12 items-center">
-        <ActivityIndicator color="var(--color-primary)" />
+        <ActivityIndicator color={colors.primary} />
         <Text className="text-typography-muted text-xs mt-3">Loading performance data…</Text>
       </View>
     );

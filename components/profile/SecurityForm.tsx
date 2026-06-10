@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, Pressable, ActivityIndicator } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 export default function SecurityForm() {
+  const colors = useThemeColors();
   const { user } = useAuth();
   const [email, setEmail] = useState(user?.email || '');
   const [password, setPassword] = useState('');
@@ -60,7 +62,7 @@ export default function SecurityForm() {
           keyboardType="email-address"
           className="h-12 rounded-lg border border-surface-border bg-surface-background px-4 text-sm font-bold text-typography-main focus:border-brand-primary"
           placeholder="New email address"
-          placeholderTextColor="var(--color-text-dim)"
+          placeholderTextColor={colors.textDim}
         />
         <Pressable
           onPress={handleUpdateEmail}
@@ -82,7 +84,7 @@ export default function SecurityForm() {
           secureTextEntry
           className="h-12 rounded-lg border border-surface-border bg-surface-background px-4 text-sm font-bold text-typography-main focus:border-brand-primary"
           placeholder="New password (min 6 chars)"
-          placeholderTextColor="var(--color-text-dim)"
+          placeholderTextColor={colors.textDim}
         />
         <TextInput
           value={confirmPassword}
@@ -90,7 +92,7 @@ export default function SecurityForm() {
           secureTextEntry
           className="h-12 rounded-lg border border-surface-border bg-surface-background px-4 text-sm font-bold text-typography-main focus:border-brand-primary"
           placeholder="Confirm new password"
-          placeholderTextColor="var(--color-text-dim)"
+          placeholderTextColor={colors.textDim}
         />
         <Pressable
           onPress={handleUpdatePassword}

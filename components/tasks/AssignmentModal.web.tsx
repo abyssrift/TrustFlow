@@ -6,6 +6,7 @@ import {
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 interface AssignmentModalProps {
   visible: boolean;
@@ -17,6 +18,7 @@ interface AssignmentModalProps {
 }
 
 export default function AssignmentModal({
+  const colors = useThemeColors();
   visible,
   taskId,
   pipelineId,
@@ -139,13 +141,13 @@ export default function AssignmentModal({
             onPress={onClose}
             className="w-12 h-12 bg-surface-background rounded-full items-center justify-center border border-surface-border hover:bg-surface-overlay transition-colors"
           >
-            <FontAwesome name="times" size={20} color="var(--color-text-muted)" />
+            <FontAwesome name="times" size={20} color={colors.textMuted} />
           </TouchableOpacity>
         </View>
 
         {loading ? (
           <View className="flex-1 items-center justify-center p-20">
-            <ActivityIndicator size="large" color="var(--color-primary)" />
+            <ActivityIndicator size="large" color={colors.primary} />
             <Text className="text-typography-muted font-bold mt-4 uppercase tracking-widest text-[10px]">Synchronizing Registry...</Text>
           </View>
         ) : (
@@ -157,11 +159,11 @@ export default function AssignmentModal({
                 <Text className="text-typography-dim text-[10px] font-black uppercase tracking-[0.2em] mb-4 ml-1">Tactical Teams ({filteredTeams.length})</Text>
                 <View className="relative">
                   <View className="absolute left-4 top-3.5 z-10">
-                    <FontAwesome name="search" size={14} color="var(--color-text-muted)" />
+                    <FontAwesome name="search" size={14} color={colors.textMuted} />
                   </View>
                   <TextInput 
                     placeholder="Search teams..."
-                    placeholderTextColor="var(--color-text-dim)"
+                    placeholderTextColor={colors.textDim}
                     value={teamSearch}
                     onChangeText={setTeamSearch}
                     className="bg-surface-background border border-surface-border rounded-xl px-12 py-3.5 text-typography-main font-medium focus:border-brand-primary transition-all"
@@ -191,7 +193,7 @@ export default function AssignmentModal({
                       >
                         <View className="flex-row items-center flex-1">
                           <View className={`w-10 h-10 rounded-xl items-center justify-center mr-4 ${isSelected ? 'bg-brand-primary text-white' : 'bg-surface-overlay border border-surface-border'}`}>
-                            <FontAwesome name="users" size={16} color={isSelected ? 'white' : 'var(--color-primary)'} />
+                            <FontAwesome name="users" size={16} color={isSelected ? 'white' : colors.primary} />
                           </View>
                           <View>
                             <Text className={`font-bold ${isSelected ? 'text-typography-main' : 'text-typography-label'}`}>{t.name}</Text>
@@ -211,7 +213,7 @@ export default function AssignmentModal({
                   })}
                   {filteredTeams.length === 0 && (
                     <View className="items-center justify-center py-10 opacity-30">
-                      <FontAwesome name="users" size={32} color="var(--color-text-muted)" />
+                      <FontAwesome name="users" size={32} color={colors.textMuted} />
                       <Text className="text-typography-muted text-xs font-black uppercase tracking-widest mt-4">No Teams Found</Text>
                     </View>
                   )}
@@ -225,11 +227,11 @@ export default function AssignmentModal({
                 <Text className="text-typography-dim text-[10px] font-black uppercase tracking-[0.2em] mb-4 ml-1">Individual Agents ({filteredUsers.length})</Text>
                 <View className="relative">
                   <View className="absolute left-4 top-3.5 z-10">
-                    <FontAwesome name="search" size={14} color="var(--color-text-muted)" />
+                    <FontAwesome name="search" size={14} color={colors.textMuted} />
                   </View>
                   <TextInput 
                     placeholder="Filter by name or email..."
-                    placeholderTextColor="var(--color-text-dim)"
+                    placeholderTextColor={colors.textDim}
                     value={userSearch}
                     onChangeText={setUserSearch}
                     className="bg-surface-background border border-surface-border rounded-xl px-12 py-3.5 text-typography-main font-medium focus:border-brand-primary transition-all"
@@ -281,7 +283,7 @@ export default function AssignmentModal({
                   })}
                   {filteredUsers.length === 0 && (
                     <View className="items-center justify-center py-10 opacity-30">
-                      <FontAwesome name="user" size={32} color="var(--color-text-muted)" />
+                      <FontAwesome name="user" size={32} color={colors.textMuted} />
                       <Text className="text-typography-muted text-xs font-black uppercase tracking-widest mt-4">No Agents Found</Text>
                     </View>
                   )}

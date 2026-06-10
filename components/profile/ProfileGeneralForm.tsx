@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, Pressable, ActivityIndicator } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 interface ProfileGeneralFormProps {
   initialData: {
@@ -15,6 +16,7 @@ interface ProfileGeneralFormProps {
 }
 
 export default function ProfileGeneralForm({ initialData, onSuccess }: ProfileGeneralFormProps) {
+  const colors = useThemeColors();
   const { user } = useAuth();
   const [formData, setFormData] = useState(initialData);
   const [loading, setLoading] = useState(false);
@@ -56,7 +58,7 @@ export default function ProfileGeneralForm({ initialData, onSuccess }: ProfileGe
           onChangeText={(text) => setFormData(prev => ({ ...prev, full_name: text }))}
           className="h-12 rounded-lg border border-surface-border bg-surface-background px-4 text-sm font-bold text-typography-main focus:border-brand-primary"
           placeholder="Enter your full name"
-          placeholderTextColor="var(--color-text-dim)"
+          placeholderTextColor={colors.textDim}
         />
       </View>
 
@@ -67,7 +69,7 @@ export default function ProfileGeneralForm({ initialData, onSuccess }: ProfileGe
           onChangeText={(text) => setFormData(prev => ({ ...prev, display_name: text }))}
           className="h-12 rounded-lg border border-surface-border bg-surface-background px-4 text-sm font-bold text-typography-main focus:border-brand-primary"
           placeholder="How should we call you?"
-          placeholderTextColor="var(--color-text-dim)"
+          placeholderTextColor={colors.textDim}
         />
       </View>
 
@@ -89,7 +91,7 @@ export default function ProfileGeneralForm({ initialData, onSuccess }: ProfileGe
             onChangeText={(text) => setFormData(prev => ({ ...prev, department: text }))}
             className="h-12 rounded-lg border border-surface-border bg-surface-background px-4 text-sm font-bold text-typography-main focus:border-brand-primary"
             placeholder="e.g. Operations"
-            placeholderTextColor="var(--color-text-dim)"
+            placeholderTextColor={colors.textDim}
           />
         </View>
       </View>

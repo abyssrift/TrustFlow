@@ -14,6 +14,7 @@ import { FontAwesome } from '@expo/vector-icons';
 import { cssInterop } from 'react-native-css-interop';
 import { supabase } from '@/lib/supabase';
 import { useAlert } from '@/contexts/AlertContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 cssInterop(FontAwesome, {
   className: {
@@ -62,6 +63,7 @@ const CHANNELS: ChannelRow[] = [
 // Groups of notification types for display (read-only — admins control the rules)
 const EVENT_GROUPS = [
   {
+    const colors = useThemeColors();
     label: 'Tasks',
     icon: 'check-square-o' as const,
     events: [
@@ -77,6 +79,7 @@ const EVENT_GROUPS = [
 ];
 
 export default function NotificationPreferencesScreen() {
+  const colors = useThemeColors();
   const router = useRouter();
   const { showAlert } = useAlert();
   const [prefs, setPrefs] = useState<Prefs>({
@@ -213,8 +216,8 @@ export default function NotificationPreferencesScreen() {
                 value={prefs[ch.key]}
                 onValueChange={() => toggle(ch.key)}
                 trackColor={{
-                  false: 'var(--color-surface-border)',
-                  true: 'var(--color-primary)',
+                  false: colors.border,
+                  true: colors.primary,
                 }}
                 thumbColor="#fff"
               />

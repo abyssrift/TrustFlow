@@ -16,6 +16,7 @@ import {
 } from 'recharts';
 import { CircularTargetCard, KPIBoxWeb } from './IntelligenceCommon';
 import {
+import { useThemeColors } from '@/hooks/useThemeColors';
     ConversionFunnelChartWeb,
     QualityLeaderboardWeb,
     SLARiskAlertWeb,
@@ -24,6 +25,7 @@ import {
 } from './RadarWidgets';
 
 export const RadarSectionWeb = ({ data, activeWidgets, onEditWidgets }: any) => {
+  const colors = useThemeColors();
   if (!data) return null;
   const curThr = data.current?.throughput || 0;
   const prevThr = data.comparison?.throughput || 0;
@@ -76,6 +78,7 @@ export const RadarSectionWeb = ({ data, activeWidgets, onEditWidgets }: any) => 
 };
 
 export const TargetsSectionWeb = ({ targets, onUpdate, onNew }: any) => {
+  const colors = useThemeColors();
   const handleEditTarget = (target: any) => {
     const newVal = window.prompt('Enter new target value:', target.target_type === 'volume' ? target.target_quantity : target.target_active_seconds);
     if (newVal) onUpdate(target.id, target.target_type === 'volume' ? 'target_quantity' : 'target_active_seconds', newVal);
@@ -107,6 +110,7 @@ export const TargetsSectionWeb = ({ targets, onUpdate, onNew }: any) => {
 };
 
 export const ArchivesSectionWeb = ({ reports, archives, search, activeSchema, onSearch, onDownload, onNew, onRefresh, onRestore, onViewSnapshot, hasPermission }: any) => {
+  const colors = useThemeColors();
   const [subSection, setSubSection] = useState<'reports' | 'cold_storage'>('reports');
 
   useEffect(() => {
@@ -145,7 +149,7 @@ export const ArchivesSectionWeb = ({ reports, archives, search, activeSchema, on
             {reports.map((r: any, i: number) => (
               <TouchableOpacity key={i} onPress={() => r.file_url && onDownload(r.file_url)} className="w-full md:w-[calc(50%-12px)] lg:w-[calc(33.33%-16px)] xl:w-[calc(20%-20px)] bg-surface-card p-5 rounded-2xl border border-surface-border premium-shadow hover:border-brand-primary transition-all">
                 <View className={`w-10 h-10 rounded-xl items-center justify-center mb-4 ${r.status === 'completed' ? 'bg-state-success/10' : 'bg-state-info/10'}`}>
-                  <FontAwesome name="file-pdf-o" size={16} color={r.status === 'completed' ? 'var(--color-success)' : 'var(--color-primary)'} />
+                  <FontAwesome name="file-pdf-o" size={16} color={r.status === 'completed' ? colors.success : colors.primary} />
                 </View>
                 <Text className="text-typography-main font-black text-sm mb-1" numberOfLines={1}>Audit Report #{r.id.substring(0, 8).toUpperCase()}</Text>
                 <View className="flex-row items-center justify-between mt-3 pt-3 border-t border-surface-border/50">
@@ -165,13 +169,13 @@ export const ArchivesSectionWeb = ({ reports, archives, search, activeSchema, on
               <Text className="text-typography-main font-black text-3xl tracking-tight mb-4">Cold Storage Browser</Text>
               <View className="flex-row bg-surface-card rounded-2xl border border-surface-border px-6 py-4 items-center focus-within:border-brand-primary transition-all">
                 <View className="mr-4">
-                  <FontAwesome name="search" size={16} color="var(--color-text-dim)" />
+                  <FontAwesome name="search" size={16} color={colors.textDim} />
                 </View>
-                <TextInput value={search} onChangeText={onSearch} placeholder="Search snapshots by ID, metadata, or title..." className="flex-1 text-typography-main font-bold outline-none" placeholderTextColor="var(--color-text-muted)" />
+                <TextInput value={search} onChangeText={onSearch} placeholder="Search snapshots by ID, metadata, or title..." className="flex-1 text-typography-main font-bold outline-none" placeholderTextColor={colors.textMuted} />
               </View>
             </View>
             <TouchableOpacity onPress={onRefresh} className="h-14 w-14 items-center justify-center bg-surface-card border border-surface-border rounded-2xl premium-shadow hover:border-brand-primary">
-              <FontAwesome name="refresh" size={16} color="var(--color-primary)" />
+              <FontAwesome name="refresh" size={16} color={colors.primary} />
             </TouchableOpacity>
           </View>
           <View className="flex-row flex-wrap gap-4">
@@ -182,12 +186,12 @@ export const ArchivesSectionWeb = ({ reports, archives, search, activeSchema, on
                 <View key={archive.id} className="w-full md:w-[calc(50%-8px)] lg:w-[calc(33.33%-11px)] xl:w-[calc(16.66%-14px)] bg-surface-card p-4 rounded-2xl border border-surface-border premium-shadow">
                   <View className="flex-row justify-between mb-3">
                     <View className={`w-9 h-9 rounded-lg items-center justify-center ${archive.restored_at ? 'bg-state-success/10' : 'bg-surface-background'}`}>
-                      <FontAwesome name={archive.entity_type === 'project' ? 'briefcase' : 'tasks'} size={14} color={archive.restored_at ? 'var(--color-success)' : 'var(--color-primary)'} />
+                      <FontAwesome name={archive.entity_type === 'project' ? 'briefcase' : 'tasks'} size={14} color={archive.restored_at ? colors.success : colors.primary} />
                     </View>
                     <View className="flex-row gap-1">
                        {hasIntegrityIssue && (
                          <View className="bg-state-danger/10 px-1.5 py-0.5 rounded-md">
-                           <FontAwesome name="warning" size={8} color="var(--color-danger)" />
+                           <FontAwesome name="warning" size={8} color={colors.danger} />
                          </View>
                        )}
                        <View className="bg-surface-background px-2 py-0.5 rounded-md border border-surface-border">
@@ -238,6 +242,7 @@ function fmtSec(s: number): string {
 }
 
 const DwellTip = ({ active, payload }: any) => {
+  const colors = useThemeColors();
   if (!active || !payload?.length) return null;
   const d: StageDwell = payload[0]?.payload;
   return (
@@ -251,6 +256,7 @@ const DwellTip = ({ active, payload }: any) => {
 };
 
 const ThroughputTip = ({ active, payload, label }: any) => {
+  const colors = useThemeColors();
   if (!active || !payload?.length) return null;
   return (
     <View className="bg-surface-overlay border border-surface-border rounded-xl p-3">
@@ -263,6 +269,7 @@ const ThroughputTip = ({ active, payload, label }: any) => {
 };
 
 export const AnalyticsSectionWeb = ({ pipelines }: { pipelines: any[] }) => {
+  const colors = useThemeColors();
   const { getPipelineStageDwell, getPipelineThroughput } = useAnalytics();
 
   const today   = new Date();
@@ -305,10 +312,10 @@ export const AnalyticsSectionWeb = ({ pipelines }: { pipelines: any[] }) => {
   const throughputData = [...throughput].reverse();
 
   const getDwellColor = (d: StageDwell) => {
-    if (d.is_bottleneck) return 'var(--color-warning)';
-    if (d.is_terminal && d.terminal_type === 'success') return 'var(--color-success)';
-    if (d.is_terminal && d.terminal_type === 'failure') return 'var(--color-danger)';
-    return 'var(--color-primary)';
+    if (d.is_bottleneck) return colors.warning;
+    if (d.is_terminal && d.terminal_type === 'success') return colors.success;
+    if (d.is_terminal && d.terminal_type === 'failure') return colors.danger;
+    return colors.primary;
   };
 
   return (
@@ -373,7 +380,7 @@ export const AnalyticsSectionWeb = ({ pipelines }: { pipelines: any[] }) => {
 
       {loading ? (
         <View className="py-20 items-center">
-          <ActivityIndicator size="large" color="var(--color-primary)" />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
         <View className="gap-8">
@@ -382,7 +389,7 @@ export const AnalyticsSectionWeb = ({ pipelines }: { pipelines: any[] }) => {
             <View className="flex-row items-center justify-between mb-6">
               <Text className="text-typography-main font-black text-xl">Stage Dwell Times</Text>
               <View className="flex-row gap-4">
-                {[['var(--color-warning)','Bottleneck'],['var(--color-success)','Success'],['var(--color-danger)','Failure']].map(([c,l]) => (
+                {[[colors.warning,'Bottleneck'],[colors.success,'Success'],[colors.danger,'Failure']].map(([c,l]) => (
                   <View key={l} className="flex-row items-center gap-1.5">
                     <View className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: c }} />
                     <Text className="text-typography-dim text-[10px]">{l}</Text>
@@ -397,8 +404,8 @@ export const AnalyticsSectionWeb = ({ pipelines }: { pipelines: any[] }) => {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={dwellData} layout="vertical" margin={{ top: 0, right: 40, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(51,65,85,0.4)" horizontal={false} />
-                    <XAxis type="number" dataKey="avg_min" tick={{ fill: 'var(--color-text-dim)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `${v}m`} />
-                    <YAxis type="category" dataKey="stage_name" width={130} tick={{ fill: 'var(--color-text-dim)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <XAxis type="number" dataKey="avg_min" tick={{ fill: colors.textDim, fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `${v}m`} />
+                    <YAxis type="category" dataKey="stage_name" width={130} tick={{ fill: colors.textDim, fontSize: 11 }} axisLine={false} tickLine={false} />
                     <RechartTooltip content={<DwellTip />} />
                     <Bar dataKey="avg_min" radius={[0, 6, 6, 0]} maxBarSize={24}>
                       {dwellData.map((e, i) => <Cell key={i} fill={getDwellColor(e)} />)}
@@ -419,14 +426,14 @@ export const AnalyticsSectionWeb = ({ pipelines }: { pipelines: any[] }) => {
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={throughputData} margin={{ top: 5, right: 30, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(51,65,85,0.4)" vertical={false} />
-                    <XAxis dataKey="period_label" tick={{ fill: 'var(--color-text-dim)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                    <YAxis yAxisId="tasks" tick={{ fill: 'var(--color-text-dim)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                    <YAxis yAxisId="rate" orientation="right" domain={[0, 100]} tick={{ fill: 'var(--color-text-dim)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `${v}%`} />
+                    <XAxis dataKey="period_label" tick={{ fill: colors.textDim, fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <YAxis yAxisId="tasks" tick={{ fill: colors.textDim, fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <YAxis yAxisId="rate" orientation="right" domain={[0, 100]} tick={{ fill: colors.textDim, fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `${v}%`} />
                     <RechartTooltip content={<ThroughputTip />} />
-                    <Legend wrapperStyle={{ fontSize: 11, color: 'var(--color-text-dim)' }} />
-                    <Bar yAxisId="tasks" dataKey="tasks_succeeded" name="Succeeded" fill="var(--color-success)" radius={[4, 4, 0, 0]} maxBarSize={28} />
-                    <Bar yAxisId="tasks" dataKey="tasks_failed" name="Failed" fill="var(--color-danger)" radius={[4, 4, 0, 0]} maxBarSize={28} />
-                    <Line yAxisId="rate" type="monotone" dataKey="success_rate" name="Success Rate %" stroke="var(--color-primary)" strokeWidth={2} dot={{ r: 3, fill: 'var(--color-primary)', strokeWidth: 0 }} />
+                    <Legend wrapperStyle={{ fontSize: 11, color: colors.textDim }} />
+                    <Bar yAxisId="tasks" dataKey="tasks_succeeded" name="Succeeded" fill={colors.success} radius={[4, 4, 0, 0]} maxBarSize={28} />
+                    <Bar yAxisId="tasks" dataKey="tasks_failed" name="Failed" fill={colors.danger} radius={[4, 4, 0, 0]} maxBarSize={28} />
+                    <Line yAxisId="rate" type="monotone" dataKey="success_rate" name="Success Rate %" stroke={colors.primary} strokeWidth={2} dot={{ r: 3, fill: colors.primary, strokeWidth: 0 }} />
                   </ComposedChart>
                 </ResponsiveContainer>
               </View>

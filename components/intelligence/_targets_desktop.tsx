@@ -5,7 +5,7 @@ import type { ThemeType } from '@/contexts/ThemeContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { NATIVE_THEME_COLORS } from '@/lib/layout';
 import { supabase } from '@/lib/supabase';
-import { getMutedColor, getPrimaryColor } from '@/lib/themeColors';
+import { getMutedColor, getPrimaryColor } from '@/hooks/useThemeColors';
 import { FontAwesome } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -20,6 +20,7 @@ import {
 // ── Edit Modal ────────────────────────────────────────────────────────────────
 
 const EditTargetModal = ({
+  const colors = useThemeColors();
   target,
   onClose,
   onSave,
@@ -68,7 +69,7 @@ const EditTargetModal = ({
               onPress={onClose}
               className="w-9 h-9 rounded-full bg-surface-background border border-surface-border items-center justify-center"
             >
-              <FontAwesome name="times" size={13} color="var(--color-text-dim)" />
+              <FontAwesome name="times" size={13} color={colors.textDim} />
             </TouchableOpacity>
           </View>
 
@@ -84,7 +85,7 @@ const EditTargetModal = ({
                       value={quantity}
                       onChangeText={setQuantity}
                       keyboardType="numeric"
-                      placeholderTextColor="var(--color-text-dim)"
+                      placeholderTextColor={colors.textDim}
                       className="bg-surface-background border border-surface-border text-typography-main font-black text-xl p-5 rounded-2xl focus:border-brand-primary"
                     />
                   </View>
@@ -105,7 +106,7 @@ const EditTargetModal = ({
                       value={activeMins}
                       onChangeText={setActiveMins}
                       keyboardType="numeric"
-                      placeholderTextColor="var(--color-text-dim)"
+                      placeholderTextColor={colors.textDim}
                       className="bg-surface-background border border-surface-border text-typography-main font-black text-xl p-5 rounded-2xl focus:border-brand-primary"
                     />
                   </View>
@@ -117,7 +118,7 @@ const EditTargetModal = ({
                       value={lifecycleHours}
                       onChangeText={setLifecycleHours}
                       keyboardType="numeric"
-                      placeholderTextColor="var(--color-text-dim)"
+                      placeholderTextColor={colors.textDim}
                       className="bg-surface-background border border-surface-border text-typography-main font-black text-xl p-5 rounded-2xl focus:border-brand-primary"
                     />
                   </View>
@@ -155,6 +156,7 @@ const CX = CIRCLE_SIZE / 2;
 const CIRCUMFERENCE = 2 * Math.PI * R;
 
 const TargetCircle = ({
+  const colors = useThemeColors();
   target,
   onEdit,
   onClear,
@@ -330,6 +332,7 @@ const TargetCircle = ({
 // ── Main Screen ───────────────────────────────────────────────────────────────
 
 export default function IntelligenceTargets() {
+  const colors = useThemeColors();
   const { profile } = useAuth();
   const { theme: activeTheme } = useTheme();
   const [targets, setTargets]       = useState<any[]>([]);
@@ -533,11 +536,11 @@ export default function IntelligenceTargets() {
                   <View style={{ height: 320 }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.1} />
+                        <CartesianGrid strokeDasharray="3 3" stroke={colors.border} opacity={0.1} />
                         <XAxis
                           type="number" dataKey="x" name="time" domain={['auto', 'auto']}
                           tickFormatter={t => new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                          stroke="var(--color-text-dim)" fontSize={10} fontWeight="bold"
+                          stroke={colors.textDim} fontSize={10} fontWeight="bold"
                           axisLine={false} tickLine={false} dy={10}
                         />
                         <YAxis
@@ -545,7 +548,7 @@ export default function IntelligenceTargets() {
                           domain={[-1, timelineCategories.length]}
                           ticks={timelineCategories.map((_, i) => i)}
                           tickFormatter={i => timelineCategories[i]}
-                          stroke="var(--color-text-dim)" fontSize={10}
+                          stroke={colors.textDim} fontSize={10}
                           axisLine={false} tickLine={false}
                         />
                         <ZAxis type="number" range={[100, 100]} />
@@ -567,7 +570,7 @@ export default function IntelligenceTargets() {
                         />
                         <Scatter name="Successes" data={timelineData}>
                           {timelineData.map((_, index) => (
-                            <Cell key={`cell-${index}`} fill="var(--color-primary)" />
+                            <Cell key={`cell-${index}`} fill={colors.primary} />
                           ))}
                         </Scatter>
                       </ScatterChart>
@@ -588,7 +591,7 @@ export default function IntelligenceTargets() {
               <FontAwesome name="search" size={12} color={getMutedColor(activeTheme)} style={{ marginRight: 10 }} />
               <TextInput
                 placeholder="Search stage targets..."
-                placeholderTextColor="var(--color-text-muted)"
+                placeholderTextColor={colors.textMuted}
                 className="flex-1 text-typography-main text-xs font-bold outline-none"
                 value={searchQuery}
                 onChangeText={setSearchQuery}
@@ -630,22 +633,22 @@ export default function IntelligenceTargets() {
                 {filteredHistory.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={chartData} margin={{ bottom: 20 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} opacity={0.1} />
+                      <CartesianGrid strokeDasharray="3 3" stroke={colors.border} vertical={false} opacity={0.1} />
                       <XAxis
-                        dataKey="date" stroke="var(--color-text-dim)" fontSize={10} fontWeight="bold"
+                        dataKey="date" stroke={colors.textDim} fontSize={10} fontWeight="bold"
                         axisLine={false} tickLine={false} dy={10}
                       />
                       <YAxis hide />
                       <Tooltip
-                        cursor={{ fill: 'var(--color-primary)', fillOpacity: 0.05 }}
+                        cursor={{ fill: colors.primary, fillOpacity: 0.05 }}
                         contentStyle={{
-                          backgroundColor: 'var(--color-surface-card)',
+                          backgroundColor: colors.card,
                           border: '1px solid var(--color-surface-border)',
                           borderRadius: '12px',
                         }}
                       />
-                      <Bar dataKey="met" stackId="a" fill="var(--color-primary)" radius={[0, 0, 0, 0]} maxBarSize={40} />
-                      <Bar dataKey="missed" stackId="a" fill="var(--color-danger)" radius={[8, 8, 0, 0]} maxBarSize={40} />
+                      <Bar dataKey="met" stackId="a" fill={colors.primary} radius={[0, 0, 0, 0]} maxBarSize={40} />
+                      <Bar dataKey="missed" stackId="a" fill={colors.danger} radius={[8, 8, 0, 0]} maxBarSize={40} />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
@@ -695,7 +698,7 @@ export default function IntelligenceTargets() {
                         <FontAwesome
                           name={h.status === 'completed' ? 'check' : 'times'}
                           size={10}
-                          color={h.status === 'completed' ? 'var(--color-success)' : 'var(--color-danger)'}
+                          color={h.status === 'completed' ? colors.success : colors.danger}
                         />
                       </View>
                       <View className="flex-1">

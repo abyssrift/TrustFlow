@@ -596,11 +596,11 @@ const ACTION_TYPES = [
 ];
 
 const ACTION_STYLES = [
-  { id: 'neutral', color: 'var(--color-text-dim)' },
-  { id: 'success', color: 'var(--color-success)' },
-  { id: 'warning', color: 'var(--color-warning)' },
-  { id: 'danger',  color: 'var(--color-danger)' },
-  { id: 'primary', color: 'var(--color-brand-primary)' },
+  { id: 'neutral', color: colors.textDim },
+  { id: 'success', color: colors.success },
+  { id: 'warning', color: colors.warning },
+  { id: 'danger',  color: colors.danger },
+  { id: 'primary', color: colors.primary },
 ];
 
 function StageActionManager({ stageId }: { stageId: string }) {

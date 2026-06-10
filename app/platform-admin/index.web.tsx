@@ -35,6 +35,7 @@ import {
 } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
 import {
+import { useThemeColors } from '@/hooks/useThemeColors';
     Area,
     AreaChart,
     CartesianGrid,
@@ -51,6 +52,7 @@ cssInterop(FontAwesome, {
 // ── Sparkline ──────────────────────────────────────────────────────────────
 
 function Sparkline({ data, color = 'rgb(99,102,241)' }: { data: number[]; color?: string }) {
+  const colors = useThemeColors();
   const chartData = data.map((v, i) => ({ i, v }));
   return (
     <ResponsiveContainer width="100%" height={40}>
@@ -78,6 +80,7 @@ function Sparkline({ data, color = 'rgb(99,102,241)' }: { data: number[]; color?
 // ── Stat Card with sparkline ───────────────────────────────────────────────
 
 function StatCard({
+  const colors = useThemeColors();
   label, value, sub, icon, accent, sparkData,
 }: {
   label: string; value: string | number; sub?: string; icon: string;
@@ -104,6 +107,7 @@ function StatCard({
 // ── HBar ──────────────────────────────────────────────────────────────────
 
 function HBar({ value, max, tint = 'primary' }: { value: number; max: number; tint?: 'primary' | 'success' | 'warning' }) {
+  const colors = useThemeColors();
   const pct = max > 0 ? Math.max(2, (value / max) * 100) : 2;
   const colorClass = tint === 'success' ? 'bg-state-success' : tint === 'warning' ? 'bg-state-warning' : 'bg-brand-primary';
   return (
@@ -116,6 +120,7 @@ function HBar({ value, max, tint = 'primary' }: { value: number; max: number; ti
 // ── Custom tooltip for recharts ────────────────────────────────────────────
 
 const ChartTooltip = ({ active, payload, label, metricLabel }: any) => {
+  const colors = useThemeColors();
   if (!active || !payload?.length) return null;
   return (
     <View className="bg-surface-overlay border border-surface-border rounded-xl px-3 py-2">
@@ -129,6 +134,7 @@ const ChartTooltip = ({ active, payload, label, metricLabel }: any) => {
 // ── Company Detail Panel ───────────────────────────────────────────────────
 
 function CompanyDetailPanel({ companyId, onClose, onDeleted }: { companyId: string | null; onClose: () => void; onDeleted: () => void }) {
+  const colors = useThemeColors();
   const { detail, loading } = useCompanyDetail(companyId);
   const [confirmDelete, setConfirmDelete] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
@@ -176,7 +182,7 @@ function CompanyDetailPanel({ companyId, onClose, onDeleted }: { companyId: stri
 
           {loading || !detail ? (
             <View className="flex-1 items-center justify-center">
-              <ActivityIndicator size="large" color="var(--color-primary)" />
+              <ActivityIndicator size="large" color={colors.primary} />
             </View>
           ) : (
             <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
@@ -281,6 +287,7 @@ function CompanyDetailPanel({ companyId, onClose, onDeleted }: { companyId: stri
 // ── Command Section ────────────────────────────────────────────────────────
 
 function CommandSection({ companies, liveCount, loading, totalUsers, totalTasks, totalMins }: {
+  const colors = useThemeColors();
   companies: CompanyOverview[]; liveCount: number; loading: boolean;
   totalUsers: number; totalTasks: number; totalMins: number;
 }) {
@@ -302,7 +309,7 @@ function CommandSection({ companies, liveCount, loading, totalUsers, totalTasks,
   if (loading) {
     return (
       <View className="flex-1 items-center justify-center">
-        <ActivityIndicator size="large" color="var(--color-primary)" />
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text className="text-typography-muted mt-4 font-bold text-sm">Fetching platform data...</Text>
       </View>
     );
@@ -423,6 +430,7 @@ function CommandSection({ companies, liveCount, loading, totalUsers, totalTasks,
 // ── Tenants Section ────────────────────────────────────────────────────────
 
 function TenantsSection({ companies, loading, onCompanyDeleted }: { companies: CompanyOverview[]; loading: boolean; onCompanyDeleted: () => void }) {
+  const colors = useThemeColors();
   const [sort, setSort] = useState<SortKey>('usage');
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -437,7 +445,7 @@ function TenantsSection({ companies, loading, onCompanyDeleted }: { companies: C
   if (loading) {
     return (
       <View className="flex-1 items-center justify-center">
-        <ActivityIndicator size="large" color="var(--color-primary)" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -532,6 +540,7 @@ function TenantsSection({ companies, loading, onCompanyDeleted }: { companies: C
 // ── Signals Section ────────────────────────────────────────────────────────
 
 function SignalsSection() {
+  const colors = useThemeColors();
   const { days, setDays, metric, setMetric, timeline, fetching, getValue, totalVal, metricLabel } = useTimeline(30);
 
   const chartData = useMemo(() =>
@@ -573,7 +582,7 @@ function SignalsSection() {
             </TouchableOpacity>
           ))}
         </View>
-        {fetching && <ActivityIndicator size="small" color="var(--color-primary)" />}
+        {fetching && <ActivityIndicator size="small" color={colors.primary} />}
       </View>
 
       {/* Summary stat */}
@@ -618,12 +627,13 @@ function SignalsSection() {
 // ── Live Section ───────────────────────────────────────────────────────────
 
 function LiveSection() {
+  const colors = useThemeColors();
   const { sessions, loading, secsAgo, companiesLive, fetchSessions } = useLiveSessions();
 
   if (loading) {
     return (
       <View className="flex-1 items-center justify-center">
-        <ActivityIndicator size="large" color="var(--color-primary)" />
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text className="text-typography-muted mt-4 font-bold text-sm">Connecting...</Text>
       </View>
     );
@@ -695,6 +705,7 @@ function LiveSection() {
 const WORK_STATUSES = ['available', 'busy', 'away', 'do_not_disturb', 'offline'];
 
 function UserAvatar({ user, size = 40 }: { user: PlatformUser; size?: number }) {
+  const colors = useThemeColors();
   const initials = (user.display_name || user.full_name || user.email)
     .split(/\s+/)
     .slice(0, 2)
@@ -716,6 +727,7 @@ function UserAvatar({ user, size = 40 }: { user: PlatformUser; size?: number }) 
 }
 
 function EditField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  const colors = useThemeColors();
   return (
     <View className="mb-3">
       <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-1">{label}</Text>
@@ -732,6 +744,7 @@ function EditField({ label, value, onChange }: { label: string; value: string; o
 }
 
 function UserDetailPanel({
+  const colors = useThemeColors();
   user,
   companies,
   onClose,
@@ -951,7 +964,7 @@ function UserDetailPanel({
                   <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-3">Move to Workspace</Text>
                   {moving ? (
                     <View className="flex-row items-center gap-2 py-2">
-                      <ActivityIndicator size="small" color="var(--color-primary)" />
+                      <ActivityIndicator size="small" color={colors.primary} />
                       <Text className="text-typography-muted text-xs">Moving user...</Text>
                     </View>
                   ) : showMoveDropdown ? (
@@ -1045,6 +1058,7 @@ function UserDetailPanel({
 }
 
 function UsersSection({ companies, onUserDeleted }: { companies: CompanyOverview[]; onUserDeleted: () => void }) {
+  const colors = useThemeColors();
   const { query, setQuery, companyFilter, setCompanyFilter, users, loading, refetch } = useUsersData();
   const [selectedUser, setSelectedUser] = useState<PlatformUser | null>(null);
 
@@ -1081,7 +1095,7 @@ function UsersSection({ companies, onUserDeleted }: { companies: CompanyOverview
             </TouchableOpacity>
           </View>
 
-          {loading && <ActivityIndicator size="small" color="var(--color-primary)" />}
+          {loading && <ActivityIndicator size="small" color={colors.primary} />}
         </View>
 
         {/* Workspace filter pills */}
@@ -1185,6 +1199,7 @@ function UsersSection({ companies, onUserDeleted }: { companies: CompanyOverview
 const SUPABASE_FREE_DB_LIMIT = 500 * 1024 * 1024; // 500 MB
 
 function infraCacheColor(ratio: number): 'success' | 'warning' | 'danger' {
+  const colors = useThemeColors();
   if (ratio >= 95) return 'success';
   if (ratio >= 75) return 'warning';
   return 'danger';
@@ -1203,6 +1218,7 @@ function infraStorageColor(pct: number): 'success' | 'warning' | 'danger' {
 }
 
 function InfraStatCard({
+  const colors = useThemeColors();
   label, value, sub, icon, pct, pctColor,
 }: {
   label: string; value: string; sub: string; icon: string;
@@ -1239,6 +1255,7 @@ function InfraStatCard({
 }
 
 const InfraChartTooltip = ({ active, payload, label, formatter }: any) => {
+  const colors = useThemeColors();
   if (!active || !payload?.length) return null;
   return (
     <View className="bg-surface-overlay border border-surface-border rounded-xl px-3 py-2">
@@ -1251,6 +1268,7 @@ const InfraChartTooltip = ({ active, payload, label, formatter }: any) => {
 };
 
 function InfraSection() {
+  const colors = useThemeColors();
   const { metrics, loading, secsAgo, refetch } = useInfraData();
 
   const storageChartData = useMemo(() =>
@@ -1291,9 +1309,10 @@ function InfraSection() {
   const gridStroke = 'rgba(51,65,85,0.5)';
 
   if (loading) {
+    const colors = useThemeColors();
     return (
       <View className="flex-1 items-center justify-center">
-        <ActivityIndicator size="large" color="var(--color-primary)" />
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text className="text-typography-muted mt-4 font-bold text-sm">Loading infrastructure metrics...</Text>
       </View>
     );
@@ -1534,6 +1553,7 @@ const NAV_ITEMS: { id: Section; label: string; icon: string }[] = [
 ];
 
 function Sidebar({ section, setSection, liveCount }: {
+  const colors = useThemeColors();
   section: Section; setSection: (s: Section) => void; liveCount: number;
 }) {
   return (
@@ -1590,6 +1610,7 @@ function Sidebar({ section, setSection, liveCount }: {
 // ── Root ───────────────────────────────────────────────────────────────────
 
 export default function PlatformAdminWebScreen() {
+  const colors = useThemeColors();
   const {
     user, initialized, isOwner,
     section, setSection,
@@ -1600,7 +1621,7 @@ export default function PlatformAdminWebScreen() {
   if (!initialized) {
     return (
       <View className="flex-1 bg-surface-background items-center justify-center">
-        <ActivityIndicator size="large" color="var(--color-primary)" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }

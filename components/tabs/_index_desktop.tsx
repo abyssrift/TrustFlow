@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Modal, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -70,6 +71,7 @@ const timeAgo = (dateStr: string): string => {
 // ── Component ────────────────────────────────────────────────────────────
 
 export default function DashboardScreenWeb() {
+  const colors = useThemeColors();
   const [stats, setStats] = useState<DashboardStats>({ totalTasks: 0, activeNow: 0, completed: 0, failed: 0, activeSessions: 0 });
   const [pulse, setPulse] = useState<PersonalPulse | null>(null);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
@@ -267,6 +269,7 @@ export default function DashboardScreenWeb() {
   const failedRate = stats.totalTasks > 0 ? Math.round((stats.failed / stats.totalTasks) * 100) : 0;
 
   const KPICard = ({
+    const colors = useThemeColors();
     icon,
     label,
     value,
@@ -325,7 +328,7 @@ export default function DashboardScreenWeb() {
     <ScrollView
       className="flex-1 bg-surface-background"
       showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="var(--color-primary)" />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
     >
       <View className="max-w-[1600px] mx-auto w-full p-10">
         <View className="mb-12 flex-row items-center justify-between">
@@ -360,7 +363,7 @@ export default function DashboardScreenWeb() {
 
         {loading ? (
           <View className="h-96 items-center justify-center bg-surface-card rounded-[32px] border border-surface-border">
-            <ActivityIndicator size="large" color="var(--color-primary)" />
+            <ActivityIndicator size="large" color={colors.primary} />
             <Text className="text-typography-muted mt-4 font-bold uppercase tracking-widest text-[10px]">Loading intelligence...</Text>
           </View>
         ) : (
@@ -533,7 +536,7 @@ export default function DashboardScreenWeb() {
                   </View>
                   {canViewIntelligence && (
                     <TouchableOpacity onPress={() => router.push('/intelligence' as any)}>
-                      <FontAwesome name="chevron-right" size={10} color="var(--color-brand-primary)" />
+                      <FontAwesome name="chevron-right" size={10} color={colors.primary} />
                     </TouchableOpacity>
                   )}
                 </View>
@@ -550,7 +553,7 @@ export default function DashboardScreenWeb() {
                         className={`flex-row items-center py-3 ${idx !== activity.length - 1 ? 'border-b border-surface-border/30' : ''}`}
                       >
                         <View className="w-8 h-8 rounded-lg bg-surface-background items-center justify-center mr-4 border border-surface-border">
-                          <FontAwesome name="exchange" size={12} color="var(--color-brand-primary)" />
+                          <FontAwesome name="exchange" size={12} color={colors.primary} />
                         </View>
                         <View className="flex-1">
                           <Text className="text-typography-main font-bold text-xs" numberOfLines={1}>
@@ -558,7 +561,7 @@ export default function DashboardScreenWeb() {
                           </Text>
                           <View className="flex-row items-center gap-1">
                             <Text className="text-typography-muted text-[9px] font-black uppercase tracking-tighter" numberOfLines={1}>{entry.fromStage}</Text>
-                            <FontAwesome name="long-arrow-right" size={8} color="var(--color-brand-primary)" />
+                            <FontAwesome name="long-arrow-right" size={8} color={colors.primary} />
                             <Text className="text-brand-primary text-[9px] font-black uppercase tracking-tighter" numberOfLines={1}>{entry.toStage}</Text>
                           </View>
                         </View>
@@ -641,6 +644,7 @@ export default function DashboardScreenWeb() {
 // ── Settings Modal ───────────────────────────────────────────────────────
 
 function DashboardSettingsModal({ visible, onClose, config, onSave }: {
+  const colors = useThemeColors();
   visible: boolean;
   onClose: () => void;
   config: DashboardConfig | null;
@@ -730,7 +734,7 @@ function DashboardSettingsModal({ visible, onClose, config, onSave }: {
 
           <ScrollView className="p-10">
             {loading ? (
-              <ActivityIndicator size="large" color="var(--color-primary)" />
+              <ActivityIndicator size="large" color={colors.primary} />
             ) : (
               <View>
                 {/* All Pipelines Toggle */}

@@ -4,6 +4,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import { Picker } from '@react-native-picker/picker';
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 type Props = {
   visible: boolean;
@@ -11,6 +12,7 @@ type Props = {
 };
 
 export default function EditTaskModal({ visible, onClose }: Props) {
+  const colors = useThemeColors();
   const { data, updateTask } = useTaskDetail();
   
   const [title, setTitle] = useState('');
@@ -78,7 +80,7 @@ export default function EditTaskModal({ visible, onClose }: Props) {
           <View className="flex-row items-center justify-between p-5 border-b border-surface-border/50">
             <Text className="text-typography-main text-lg font-black">Edit Task</Text>
             <TouchableOpacity onPress={onClose} className="p-2 rounded-full bg-surface-background">
-              <FontAwesome name="times" size={16} color="var(--color-text-muted)" />
+              <FontAwesome name="times" size={16} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
           
@@ -96,7 +98,7 @@ export default function EditTaskModal({ visible, onClose }: Props) {
                   value={title}
                   onChangeText={setTitle}
                   placeholder="Task title"
-                  placeholderTextColor="var(--color-text-muted)"
+                  placeholderTextColor={colors.textMuted}
                   className="bg-surface-background border border-surface-border text-typography-main px-4 py-3 rounded-xl font-medium"
                 />
               </View>
@@ -107,7 +109,7 @@ export default function EditTaskModal({ visible, onClose }: Props) {
                   value={description}
                   onChangeText={setDescription}
                   placeholder="Details about this task..."
-                  placeholderTextColor="var(--color-text-muted)"
+                  placeholderTextColor={colors.textMuted}
                   multiline
                   numberOfLines={4}
                   textAlignVertical="top"
@@ -122,8 +124,8 @@ export default function EditTaskModal({ visible, onClose }: Props) {
                     <Picker
                       selectedValue={priority}
                       onValueChange={setPriority}
-                      style={{ color: 'var(--color-text-main)', ...Platform.select({ web: { outlineStyle: 'none' }, default: {} }) } as any}
-                      dropdownIconColor="var(--color-text-muted)"
+                      style={{ color: colors.textMain, ...Platform.select({ web: { outlineStyle: 'none' }, default: {} }) } as any}
+                      dropdownIconColor={colors.textMuted}
                     >
                       <Picker.Item label="Urgent" value="urgent" />
                       <Picker.Item label="High" value="high" />
@@ -139,7 +141,7 @@ export default function EditTaskModal({ visible, onClose }: Props) {
                     value={category}
                     onChangeText={setCategory}
                     placeholder="e.g. Bug, Feature"
-                    placeholderTextColor="var(--color-text-muted)"
+                    placeholderTextColor={colors.textMuted}
                     className="bg-surface-background border border-surface-border text-typography-main px-4 py-3 rounded-xl font-medium h-12"
                   />
                 </View>
@@ -156,14 +158,14 @@ export default function EditTaskModal({ visible, onClose }: Props) {
                       <Text className={`font-medium text-sm ${dueDate ? 'text-typography-main' : 'text-typography-muted'}`}>
                         {dueDate ? new Date(dueDate + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'Set date'}
                       </Text>
-                      <FontAwesome name="calendar" size={12} color="var(--color-text-muted)" />
+                      <FontAwesome name="calendar" size={12} color={colors.textMuted} />
                     </TouchableOpacity>
                     {dueDate && (
                       <TouchableOpacity
                         onPress={() => { setDueDate(null); setShowCalendar(false); }}
                         className="w-12 h-12 bg-surface-background border border-surface-border rounded-xl items-center justify-center"
                       >
-                        <FontAwesome name="times" size={12} color="var(--color-text-muted)" />
+                        <FontAwesome name="times" size={12} color={colors.textMuted} />
                       </TouchableOpacity>
                     )}
                   </View>
@@ -176,7 +178,7 @@ export default function EditTaskModal({ visible, onClose }: Props) {
                     onChangeText={setWeight}
                     keyboardType="numeric"
                     placeholder="1"
-                    placeholderTextColor="var(--color-text-muted)"
+                    placeholderTextColor={colors.textMuted}
                     className="bg-surface-background border border-surface-border text-typography-main px-4 py-3 rounded-xl font-medium h-12"
                   />
                 </View>

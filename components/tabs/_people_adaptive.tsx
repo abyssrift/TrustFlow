@@ -19,6 +19,7 @@ import UserAssignmentGrid from '@/components/admin/UserAssignmentGrid';
 import { useAuth } from '@/contexts/AuthContext';
 import { RoleManagerProvider, useRoleManager } from '@/contexts/RoleManagerContext';
 import { supabase } from '@/lib/supabase';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 type PeopleSection = 'members' | 'teams' | 'roles' | 'notifications';
 
@@ -32,12 +33,13 @@ function resolveSection(param: string | undefined, canViewMembers: boolean, canM
 }
 
 function TeamWorkspaceContent({ section }: { section: PeopleSection }) {
+  const colors = useThemeColors();
   const { loading, error } = useRoleManager();
 
   if (loading) {
     return (
       <View className="py-20 items-center justify-center">
-        <ActivityIndicator size="large" color="var(--color-primary)" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -45,7 +47,7 @@ function TeamWorkspaceContent({ section }: { section: PeopleSection }) {
   if (error) {
     return (
       <View className="w-full items-center justify-center py-16 bg-state-danger/10 rounded-3xl border border-dashed border-state-danger/30 mx-4">
-        <FontAwesome name="exclamation-triangle" size={32} color="var(--color-danger)" />
+        <FontAwesome name="exclamation-triangle" size={32} color={colors.danger} />
         <Text className="text-typography-main font-black mt-4 text-center px-4">{error}</Text>
       </View>
     );
@@ -58,6 +60,7 @@ function TeamWorkspaceContent({ section }: { section: PeopleSection }) {
 }
 
 export default function PeopleScreen() {
+  const colors = useThemeColors();
   const params = useLocalSearchParams<{ section?: string | string[] }>();
   const sectionParam = Array.isArray(params.section) ? params.section[0] : params.section;
 
@@ -170,7 +173,7 @@ export default function PeopleScreen() {
       {!hasWorkspaceAccess ? (
         <View className="flex-1 px-6 pb-6">
           <View className="flex-1 items-center justify-center bg-state-danger/10 rounded-3xl border border-state-danger/20">
-            <FontAwesome name="lock" size={32} color="var(--color-danger)" />
+            <FontAwesome name="lock" size={32} color={colors.danger} />
             <Text className="text-typography-main font-black mt-4">Access Restricted</Text>
             <Text className="text-typography-muted text-xs mt-2 text-center px-8">
               You do not have permission to view members or manage teams.

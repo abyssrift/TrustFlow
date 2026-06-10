@@ -357,7 +357,7 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
         }}
         className="bg-brand-primary/10 py-2.5 rounded-xl border border-brand-primary/30 items-center justify-center flex-row"
       >
-        <FontAwesome name="bolt" size={12} color="var(--color-primary)" />
+        <FontAwesome name="bolt" size={12} color={colors.primary} />
         <Text className="text-brand-primary font-black text-[10px] uppercase tracking-widest ml-2">
           Navigate to {linkedPipelineName}
         </Text>
@@ -373,7 +373,7 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
       <View>
         <View className={`py-2.5 rounded-xl items-center justify-center border ${isSuccess ? 'bg-state-success/10 border-state-success/20' : 'bg-state-danger/10 border-state-danger/20'}`}>
           <View className="flex-row items-center">
-            <FontAwesome name={isSuccess ? 'check-circle' : 'times-circle'} size={12} color={isSuccess ? 'var(--color-success)' : 'var(--color-danger)'} />
+            <FontAwesome name={isSuccess ? 'check-circle' : 'times-circle'} size={12} color={isSuccess ? colors.success : colors.danger} />
             <Text className={`${isSuccess ? 'text-state-success' : 'text-state-danger'} font-black text-[10px] uppercase tracking-widest ml-2`}>
               {isSuccess ? 'Completed' : 'Failed'}
             </Text>

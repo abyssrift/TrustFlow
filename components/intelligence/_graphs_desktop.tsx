@@ -6,6 +6,7 @@ import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import {
+import { useThemeColors } from '@/hooks/useThemeColors';
   Area,
   AreaChart,
   Bar,
@@ -25,19 +26,21 @@ const PERIOD_OPTS = [
 ];
 
 const fmtSec = (s: number) => {
+  const colors = useThemeColors();
   const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 };
 
 const tooltipStyle = {
-  backgroundColor: 'var(--color-card)',
+  backgroundColor: colors.card,
   border: '1px solid var(--color-border)',
   borderRadius: '8px',
-  color: 'var(--color-text-main)',
+  color: colors.textMain,
   boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
 };
 
 export default function IntelligenceGraphs() {
+  const colors = useThemeColors();
   const { getPipelineStageDwell, getPipelineThroughput, getPipelinePointsSeries } = useAnalytics();
 
   const [pipelineId, setPipelineId]     = useState<string | null>(null);
@@ -126,14 +129,14 @@ export default function IntelligenceGraphs() {
             ))}
           </View>
           <TouchableOpacity onPress={load} className="h-10 w-10 items-center justify-center bg-surface-card border border-surface-border rounded-xl">
-            <FontAwesome name="refresh" size={13} color="var(--color-primary)" />
+            <FontAwesome name="refresh" size={13} color={colors.primary} />
           </TouchableOpacity>
         </View>
       </View>
 
       {loading ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="var(--color-primary)" />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
         <ScrollView className="flex-1" contentContainerStyle={{ paddingHorizontal: 32, paddingVertical: 40, paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
@@ -167,18 +170,18 @@ export default function IntelligenceGraphs() {
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={throughputChartData} barGap={4}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,0.15)" vertical={false} />
-                    <XAxis dataKey="label" stroke="var(--color-text-dim)" fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis yAxisId="l" stroke="var(--color-text-dim)" fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis yAxisId="r" orientation="right" domain={[0, 100]} stroke="var(--color-text-dim)" fontSize={12} tickLine={false} axisLine={false} unit="%" />
+                    <XAxis dataKey="label" stroke={colors.textDim} fontSize={12} tickLine={false} axisLine={false} />
+                    <YAxis yAxisId="l" stroke={colors.textDim} fontSize={12} tickLine={false} axisLine={false} />
+                    <YAxis yAxisId="r" orientation="right" domain={[0, 100]} stroke={colors.textDim} fontSize={12} tickLine={false} axisLine={false} unit="%" />
                     <RechartTooltip contentStyle={tooltipStyle} />
-                    <Bar yAxisId="l" dataKey="succeeded" fill="var(--color-success)" name="Completed" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                    <Bar yAxisId="l" dataKey="failed"    fill="var(--color-danger)" name="Failed"    radius={[4, 4, 0, 0]} maxBarSize={40} />
-                    <Line yAxisId="r" type="monotone" dataKey="success_rate" stroke="var(--color-primary)" strokeWidth={2.5} dot={{ r: 4, fill: 'var(--color-primary)' }} name="Success %" />
+                    <Bar yAxisId="l" dataKey="succeeded" fill={colors.success} name="Completed" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                    <Bar yAxisId="l" dataKey="failed"    fill={colors.danger} name="Failed"    radius={[4, 4, 0, 0]} maxBarSize={40} />
+                    <Line yAxisId="r" type="monotone" dataKey="success_rate" stroke={colors.primary} strokeWidth={2.5} dot={{ r: 4, fill: colors.primary }} name="Success %" />
                   </ComposedChart>
                 </ResponsiveContainer>
               ) : (
                 <View className="flex-1 items-center justify-center">
-                  <FontAwesome name="bar-chart" size={32} color="var(--color-text-dim)" />
+                  <FontAwesome name="bar-chart" size={32} color={colors.textDim} />
                   <Text className="text-typography-muted text-sm mt-3">No throughput data for this pipeline/period</Text>
                 </View>
               )}
@@ -208,20 +211,20 @@ export default function IntelligenceGraphs() {
                       <AreaChart data={ptsChart}>
                         <defs>
                           <linearGradient id="pointsGradFull" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%"  stopColor="var(--color-primary)" stopOpacity={0.3} />
-                            <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0.02} />
+                            <stop offset="5%"  stopColor={colors.primary} stopOpacity={0.3} />
+                            <stop offset="95%" stopColor={colors.primary} stopOpacity={0.02} />
                           </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,0.15)" vertical={false} />
-                        <XAxis dataKey="label" stroke="var(--color-text-dim)" fontSize={12} tickLine={false} axisLine={false} />
-                        <YAxis stroke="var(--color-text-dim)" fontSize={12} tickLine={false} axisLine={false} />
+                        <XAxis dataKey="label" stroke={colors.textDim} fontSize={12} tickLine={false} axisLine={false} />
+                        <YAxis stroke={colors.textDim} fontSize={12} tickLine={false} axisLine={false} />
                         <RechartTooltip contentStyle={tooltipStyle} formatter={(v: any) => [`${v} pts`, 'Points']} />
-                        <Area type="monotone" dataKey="points" stroke="var(--color-primary)" strokeWidth={2.5} fill="url(#pointsGradFull)" dot={{ r: 4, fill: 'var(--color-primary)' }} name="Points" />
+                        <Area type="monotone" dataKey="points" stroke={colors.primary} strokeWidth={2.5} fill="url(#pointsGradFull)" dot={{ r: 4, fill: colors.primary }} name="Points" />
                       </AreaChart>
                     </ResponsiveContainer>
                   ) : (
                     <View className="flex-1 items-center justify-center">
-                      <FontAwesome name="star-o" size={32} color="var(--color-text-dim)" />
+                      <FontAwesome name="star-o" size={32} color={colors.textDim} />
                       <Text className="text-typography-muted text-sm mt-3">No points data for this pipeline/period</Text>
                     </View>
                   )}

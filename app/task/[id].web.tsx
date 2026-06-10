@@ -11,7 +11,7 @@ import TaskMetadata from '@/components/task-detail/TaskMetadata';
 import TimerPanel from '@/components/task-detail/TimerPanel';
 import { TaskDetailProvider, useTaskDetail } from '@/contexts/TaskDetailContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { getDangerColor, getPrimaryColor, getWarningColor } from '@/lib/themeColors';
+import { getDangerColor, getPrimaryColor, getWarningColor } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';

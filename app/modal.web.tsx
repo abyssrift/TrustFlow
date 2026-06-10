@@ -4,21 +4,22 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Stack, useRouter } from 'expo-router';
 import React, { useCallback } from 'react';
 import { ActivityIndicator, FlatList, Text, TouchableOpacity, View } from 'react-native';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 type IconSpec = { name: React.ComponentProps<typeof FontAwesome>['name']; color: string };
 
 function getIconSpec(type: string): IconSpec {
   switch (type) {
-    case 'task.assigned':       return { name: 'user-plus',         color: 'var(--color-primary)' };
-    case 'task.mentioned':      return { name: 'at',                color: 'var(--color-warning)' };
-    case 'task.commented':      return { name: 'comment',           color: 'var(--color-text-muted)' };
-    case 'task.created':        return { name: 'plus-square',       color: 'var(--color-success)' };
-    case 'task.completed':      return { name: 'check-circle',      color: 'var(--color-success)' };
-    case 'task.stage_transition': return { name: 'exchange',        color: 'var(--color-primary)' };
-    case 'task.status_changed': return { name: 'refresh',           color: 'var(--color-primary)' };
-    case 'task.due_soon':       return { name: 'clock-o',           color: 'var(--color-warning)' };
-    case 'task.overdue':        return { name: 'exclamation-circle',color: 'var(--color-danger)' };
-    default:                    return { name: 'bell',              color: 'var(--color-primary)' };
+    case 'task.assigned':       return { name: 'user-plus',         color: colors.primary };
+    case 'task.mentioned':      return { name: 'at',                color: colors.warning };
+    case 'task.commented':      return { name: 'comment',           color: colors.textMuted };
+    case 'task.created':        return { name: 'plus-square',       color: colors.success };
+    case 'task.completed':      return { name: 'check-circle',      color: colors.success };
+    case 'task.stage_transition': return { name: 'exchange',        color: colors.primary };
+    case 'task.status_changed': return { name: 'refresh',           color: colors.primary };
+    case 'task.due_soon':       return { name: 'clock-o',           color: colors.warning };
+    case 'task.overdue':        return { name: 'exclamation-circle',color: colors.danger };
+    default:                    return { name: 'bell',              color: colors.primary };
   }
 }
 
@@ -46,6 +47,7 @@ function sectionLabel(iso: string): string {
 }
 
 function NotificationItem({ item, onPress }: { item: AppNotification; onPress: (item: AppNotification) => void; }) {
+  const colors = useThemeColors();
   const { name: iconName, color: iconColor } = getIconSpec(item.type);
   const isUnread = !item.read_at;
 
@@ -90,6 +92,7 @@ function NotificationItem({ item, onPress }: { item: AppNotification; onPress: (
 }
 
 export default function ModalScreenWeb() {
+  const colors = useThemeColors();
   const router = useRouter();
   const { notifications, unreadCount, loading, markRead, markAllRead } = useNotifications();
 
@@ -174,12 +177,12 @@ export default function ModalScreenWeb() {
         <View className="flex-1 min-h-[400px]">
           {loading && notifications.length === 0 ? (
             <View className="flex-1 items-center justify-center">
-              <ActivityIndicator size="large" color="var(--color-primary)" />
+              <ActivityIndicator size="large" color={colors.primary} />
             </View>
           ) : notifications.length === 0 ? (
             <View className="flex-1 items-center justify-center px-10 py-20">
               <View className="bg-brand-primary/10 p-8 rounded-[32px] mb-8 border border-brand-primary/20">
-                <FontAwesome name="bell-o" size={48} color="var(--color-primary)" />
+                <FontAwesome name="bell-o" size={48} color={colors.primary} />
               </View>
               <Text className="text-typography-main font-black text-2xl tracking-tight text-center mb-3">
                 All Clear

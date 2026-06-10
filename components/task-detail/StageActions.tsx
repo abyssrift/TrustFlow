@@ -15,14 +15,15 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, AppState, Platform, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { getActionDescriptor, splitStageActions } from './actionRegistry';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 function getFileIcon(mimeType: string | null): { name: string; color: string } {
   const t = (mimeType || '').toLowerCase();
-  if (t.includes('image')) return { name: 'file-image-o', color: 'var(--color-warning)' };
-  if (t.includes('pdf')) return { name: 'file-pdf-o', color: 'var(--color-danger)' };
-  if (t.includes('spreadsheet') || t.includes('excel') || t.includes('csv')) return { name: 'file-excel-o', color: 'var(--color-success)' };
-  if (t.includes('word') || t.includes('document') || t.includes('text')) return { name: 'file-text-o', color: 'var(--color-info)' };
-  return { name: 'file-o', color: 'var(--color-text-muted)' };
+  if (t.includes('image')) return { name: 'file-image-o', color: colors.warning };
+  if (t.includes('pdf')) return { name: 'file-pdf-o', color: colors.danger };
+  if (t.includes('spreadsheet') || t.includes('excel') || t.includes('csv')) return { name: 'file-excel-o', color: colors.success };
+  if (t.includes('word') || t.includes('document') || t.includes('text')) return { name: 'file-text-o', color: colors.info };
+  return { name: 'file-o', color: colors.textMuted };
 }
 
 const STATUS_STYLES: Record<string, { bg: string; border: string; text: string; label: string }> = {
@@ -33,6 +34,7 @@ const STATUS_STYLES: Record<string, { bg: string; border: string; text: string; 
 };
 
 export default function StageActions() {
+  const colors = useThemeColors();
   const { data, executeAction, submitWork, deleteSubmission } = useTaskDetail();
   const { isActive, activeSession, serverTimeOffset, stopWork, startWork, smartTimer } = useTimer();
   const router = useRouter();
@@ -314,7 +316,7 @@ export default function StageActions() {
             }}
             className="bg-brand-primary/10 py-3 rounded-xl border border-brand-primary/30 items-center justify-center flex-row"
           >
-            <FontAwesome name="bolt" size={14} color="var(--color-primary)" />
+            <FontAwesome name="bolt" size={14} color={colors.primary} />
             <Text className="text-brand-primary font-black text-xs uppercase tracking-widest ml-2">
               Navigate to {linkedPipelineName}
             </Text>
@@ -477,7 +479,7 @@ export default function StageActions() {
                 }}
 
                 placeholder="Describe your work submission..."
-                placeholderTextColor="var(--color-text-dim)"
+                placeholderTextColor={colors.textDim}
                 multiline
                 numberOfLines={3}
                 className="bg-surface-background border border-surface-border rounded-xl p-3 text-typography-main text-sm mb-3 min-h-[80px]"
@@ -490,16 +492,16 @@ export default function StageActions() {
                       <FontAwesome 
                         name={file.type.includes('image') ? 'file-image-o' : 'file-o'} 
                         size={12} 
-                        color="var(--color-primary)" 
+                        color={colors.primary} 
                       />
                       <Text className="text-typography-main text-[11px] font-bold ml-2 flex-1" numberOfLines={1}>
                         {file.name}
                       </Text>
                       {isUploading ? (
-                        <ActivityIndicator size="small" color="var(--color-primary)" className="scale-75" />
+                        <ActivityIndicator size="small" color={colors.primary} className="scale-75" />
                       ) : (
                         <TouchableOpacity onPress={() => removeFile(file.id)} className="ml-2 p-1">
-                          <FontAwesome name="times-circle" size={12} color="var(--color-danger)" />
+                          <FontAwesome name="times-circle" size={12} color={colors.danger} />
                         </TouchableOpacity>
                       )}
                     </View>
@@ -514,7 +516,7 @@ export default function StageActions() {
                     disabled={isUploading}
                     className="flex-row items-center bg-surface-background px-3 py-2 rounded-xl border border-surface-border active:opacity-70"
                   >
-                    <FontAwesome name="camera" size={11} color="var(--color-primary)" />
+                    <FontAwesome name="camera" size={11} color={colors.primary} />
                     <Text className="text-brand-primary text-[10px] font-black uppercase ml-1.5">Add Photo</Text>
                   </TouchableOpacity>
 
@@ -523,7 +525,7 @@ export default function StageActions() {
                     disabled={isUploading}
                     className="flex-row items-center bg-surface-background px-3 py-2 rounded-xl border border-surface-border active:opacity-70"
                   >
-                    <FontAwesome name="paperclip" size={11} color="var(--color-primary)" />
+                    <FontAwesome name="paperclip" size={11} color={colors.primary} />
                     <Text className="text-brand-primary text-[10px] font-black uppercase ml-1.5">Attach File</Text>
                   </TouchableOpacity>
                 </View>
@@ -552,7 +554,7 @@ export default function StageActions() {
 
           {data.submissions.length === 0 ? (
             <View className="py-4 items-center opacity-40">
-              <FontAwesome name="inbox" size={20} color="var(--color-text-dim)" />
+              <FontAwesome name="inbox" size={20} color={colors.textDim} />
               <Text className="text-typography-muted text-xs mt-2">No submissions yet</Text>
             </View>
           ) : (
@@ -586,7 +588,7 @@ export default function StageActions() {
                             <Text className="text-typography-main text-[11px] font-bold ml-2 flex-1" numberOfLines={1}>
                               {a.file_name}
                             </Text>
-                            <FontAwesome name="external-link" size={9} color="var(--color-text-muted)" />
+                            <FontAwesome name="external-link" size={9} color={colors.textMuted} />
                           </TouchableOpacity>
                         );
                       })}
@@ -608,7 +610,7 @@ export default function StageActions() {
                         )}
                         className="ml-auto p-1"
                       >
-                        <FontAwesome name="trash-o" size={11} color="var(--color-danger)" />
+                        <FontAwesome name="trash-o" size={11} color={colors.danger} />
                       </TouchableOpacity>
                     )}
                   </View>
