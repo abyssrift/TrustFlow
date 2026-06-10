@@ -1,8 +1,8 @@
+import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Link, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { useThemeColors } from '../../hooks/useThemeColors';
 import { getErrorMessage, isStrongPassword, isValidEmail } from '../../lib/auth-errors';
 import { supabase } from '../../lib/supabase';
 
@@ -70,12 +70,10 @@ export default function SignUpScreenWeb() {
           },
         },
       });
-      try{
+
       if (signUpError) {
         setError(getErrorMessage(signUpError));
         setLoading(false);
-      } else {
-        if (!data?.session) {
       } else {
         if (!data?.session) {
           // Success but needs email confirmation
@@ -86,12 +84,11 @@ export default function SignUpScreenWeb() {
           router.replace('/onboarding');
         }
       }
-    }
     } catch (err) {
       setError('An unexpected error occurred. Please try again.');
       setLoading(false);
     }
-  }finally {}
+  };
 
   if (isSuccess) {
     return (
@@ -245,5 +242,4 @@ export default function SignUpScreenWeb() {
       </View>
     </View>
   );
-}
 }
