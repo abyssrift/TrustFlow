@@ -1,14 +1,15 @@
 import { AppNotification, useNotifications } from '@/contexts/NotificationsContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
 import { getNotificationRoute } from '@/lib/notificationRouting';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Stack, useRouter } from 'expo-router';
 import React, { useCallback } from 'react';
 import { ActivityIndicator, FlatList, Text, TouchableOpacity, View } from 'react-native';
-import { useThemeColors } from '@/hooks/useThemeColors';
 
 type IconSpec = { name: React.ComponentProps<typeof FontAwesome>['name']; color: string };
 
 function getIconSpec(type: string): IconSpec {
+  const colors = useThemeColors();
   switch (type) {
     case 'task.assigned':       return { name: 'user-plus',         color: colors.primary };
     case 'task.mentioned':      return { name: 'at',                color: colors.warning };

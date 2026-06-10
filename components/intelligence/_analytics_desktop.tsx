@@ -3,33 +3,33 @@ import { ConversionFunnelChartWeb, StageDwellChartWeb } from '@/components/intel
 import { PersonnelRow, StageDwell, ThroughputPeriod, useAnalytics } from '@/contexts/AnalyticsContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
-import { getMutedColor, getPrimaryColor } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Image,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Image,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import {
-    Bar,
-    CartesianGrid,
-    ComposedChart,
-    Legend,
-    Line,
-    PolarAngleAxis,
-    PolarGrid,
-    Radar, RadarChart,
-    ResponsiveContainer,
-    Tooltip,
-    XAxis, YAxis
+  Bar,
+  CartesianGrid,
+  ComposedChart,
+  Legend,
+  Line,
+  PolarAngleAxis,
+  PolarGrid,
+  Radar, RadarChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis, YAxis
 } from 'recharts';
 
 type AdminTab = 'pipeline' | 'personnel';
@@ -232,7 +232,7 @@ function PipelineTab() {
               onPress={() => openOverlay(fromRef, setFromPos, setShowFromCalendar)}
               className="bg-surface-card border border-surface-border rounded-xl px-4 py-2 flex-row items-center w-full max-w-[11rem]"
             >
-              <FontAwesome name="calendar" size={12} color={getMutedColor(activeTheme)} className="mr-3" />
+              <FontAwesome name="calendar" size={12} color={colors.muted} className="mr-3" />
               <Text className="text-typography-main text-sm flex-1">
                 {from ? new Date(from).toLocaleDateString(undefined, { dateStyle: 'medium' }) : 'Start Date'}
               </Text>
@@ -243,7 +243,7 @@ function PipelineTab() {
               onPress={() => openOverlay(toRef, setToPos, setShowToCalendar)}
               className="bg-surface-card border border-surface-border rounded-xl px-4 py-2 flex-row items-center w-full max-w-[11rem]"
             >
-              <FontAwesome name="calendar" size={12} color={getMutedColor(activeTheme)} className="mr-3" />
+              <FontAwesome name="calendar" size={12} color={colors.muted} className="mr-3" />
               <Text className="text-typography-main text-sm flex-1">
                 {to ? new Date(to).toLocaleDateString(undefined, { dateStyle: 'medium' }) : 'End Date'}
               </Text>
@@ -270,7 +270,7 @@ function PipelineTab() {
 
       {loading ? (
         <View className="py-16 items-center">
-          <ActivityIndicator size="large" color={getPrimaryColor(activeTheme)} />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : pipelines.length === 0 ? (
         <View className="bg-surface-card border border-surface-border rounded-2xl p-10 items-center gap-3">
@@ -559,7 +559,7 @@ function PersonnelTab() {
         <FontAwesome
           name={sortDir === 'asc' ? 'chevron-up' : 'chevron-down'}
           size={8}
-          color={getPrimaryColor(activeTheme)}
+          color={sortDir === 'asc' ? colors.primary : colors.muted}
         />
       )}
     </TouchableOpacity>
@@ -582,7 +582,7 @@ function PersonnelTab() {
       return (
         <View className="flex-1 items-center justify-center p-8 bg-surface-overlay/20 rounded-[32px] border border-dashed border-surface-border">
           <View className="w-16 h-16 rounded-full bg-surface-card items-center justify-center mb-4 border border-surface-border">
-            <FontAwesome name="users" size={24} color={getMutedColor(activeTheme)} />
+            <FontAwesome name="users" size={24} color={colors.muted} />
           </View>
           <Text className="text-typography-main font-black text-lg mb-2">Ready to Compare</Text>
           <Text className="text-typography-muted text-xs text-center">Select personnel from the roster to begin live analysis.</Text>
@@ -594,7 +594,7 @@ function PersonnelTab() {
       return (
         <View className="flex-1 items-center justify-center p-8 bg-surface-overlay/20 rounded-[32px] border border-dashed border-surface-border">
           <View className="w-16 h-16 rounded-full bg-brand-primary/10 items-center justify-center mb-4 border border-brand-primary/20">
-            <FontAwesome name="plus" size={20} color={getPrimaryColor(activeTheme)} />
+            <FontAwesome name="plus" size={20} color={colors.primary} />
           </View>
           <Text className="text-typography-main font-black text-lg mb-2">Add One More</Text>
           <Text className="text-typography-muted text-xs text-center">Comparative intelligence requires at least two individuals.</Text>
@@ -618,7 +618,7 @@ function PersonnelTab() {
             <Text className="text-typography-muted text-[10px] uppercase font-bold tracking-widest">{selected.length} Personnel Linked</Text>
           </View>
           <View className="w-8 h-8 rounded-full bg-brand-primary/10 items-center justify-center">
-            <FontAwesome name="bolt" size={14} color={getPrimaryColor(activeTheme)} />
+            <FontAwesome name="bolt" size={14} color={colors.primary} />
           </View>
         </View>
 
@@ -675,12 +675,12 @@ function PersonnelTab() {
           </View>
 
           <View className="flex-row items-center bg-surface-background border border-surface-border rounded-xl px-4 py-2 mb-4">
-            <FontAwesome name="search" size={12} color={getMutedColor(activeTheme)} className="mr-3" />
+            <FontAwesome name="search" size={12} color={colors.muted} className="mr-3" />
             <TextInput
               value={search}
               onChangeText={setSearch}
               placeholder="Search by name..."
-              placeholderTextColor={getMutedColor(activeTheme)}
+              placeholderTextColor={colors.muted}
               className="flex-1 text-typography-main text-sm outline-none"
             />
           </View>
@@ -736,7 +736,7 @@ function PersonnelTab() {
                     onPress={() => openOverlay(fromRef, setFromPos, setShowFromCalendar)}
                     className="flex-1 bg-surface-background border border-surface-border rounded-xl px-4 py-2 flex-row items-center"
                   >
-                    <FontAwesome name="calendar" size={10} color={getMutedColor(activeTheme)} className="mr-2" />
+                    <FontAwesome name="calendar" size={10} color={colors.muted} className="mr-2" />
                     <Text className="text-typography-main text-xs flex-1">
                       {from ? new Date(from).toLocaleDateString(undefined, { dateStyle: 'medium' }) : 'Start Date'}
                     </Text>
@@ -747,7 +747,7 @@ function PersonnelTab() {
                     onPress={() => openOverlay(toRef, setToPos, setShowToCalendar)}
                     className="flex-1 bg-surface-background border border-surface-border rounded-xl px-4 py-2 flex-row items-center"
                   >
-                    <FontAwesome name="calendar" size={10} color={getMutedColor(activeTheme)} className="mr-2" />
+                    <FontAwesome name="calendar" size={10} color={colors.muted} className="mr-2" />
                     <Text className="text-typography-main text-xs flex-1">
                       {to ? new Date(to).toLocaleDateString(undefined, { dateStyle: 'medium' }) : 'End Date'}
                     </Text>

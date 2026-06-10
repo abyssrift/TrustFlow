@@ -1,17 +1,17 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, Pressable, ScrollView, ActivityIndicator } from 'react-native';
-import { Stack } from 'expo-router';
-import { useAuth } from '@/contexts/AuthContext';
-import { useAlert } from '@/contexts/AlertContext';
-import { supabase } from '@/lib/supabase';
+import { ProfileAnalytics } from '@/components/analytics/ProfileAnalytics';
+import { RecentActivitySidebar } from '@/components/intelligence/RecentActivitySidebar';
 import ProfileAvatar from '@/components/profile/ProfileAvatar';
 import ProfileGeneralForm from '@/components/profile/ProfileGeneralForm';
 import SecurityForm from '@/components/profile/SecurityForm';
-import { ProfileAnalytics } from '@/components/analytics/ProfileAnalytics';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { useTheme, ThemeType, DensityType, RoundnessType } from '@/contexts/ThemeContext';
-import { RecentActivitySidebar } from '@/components/intelligence/RecentActivitySidebar';
+import { useAlert } from '@/contexts/AlertContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { DensityType, RoundnessType, ThemeType, useTheme } from '@/contexts/ThemeContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { supabase } from '@/lib/supabase';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { Stack } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 
 const THEME_OPTIONS: { id: ThemeType; label: string; icon: string }[] = [
   { id: 'indigo', label: 'Indigo Night', icon: 'moon-o' },
@@ -303,6 +303,7 @@ function TabButton({ active, onPress, icon, label, description }: {
   label: string,
   description: string 
 }) {
+    const colors = useThemeColors();
   return (
     <Pressable
       onPress={onPress}

@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
-import PermissionGate from './PermissionGate';
 import { useTheme } from '@/contexts/ThemeContext';
-import { getPrimaryColor, getMutedColor } from '@/hooks/useThemeColors';
+import { useThemeColors } from '@/hooks/useThemeColors';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import React, { useState } from 'react';
+import { Text, TouchableOpacity, View } from 'react-native';
+import PermissionGate from './PermissionGate';
 
 function timeAgo(dateStr: string): string {
   const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
@@ -21,7 +21,7 @@ export default function PipelineJourney() {
   const { data } = useTaskDetail();
   const [expanded, setExpanded] = useState(true);
   const { theme: activeTheme } = useTheme();
-
+  const colors = useThemeColors();
   if (!data) return null;
 
   return (
@@ -30,12 +30,12 @@ export default function PipelineJourney() {
         {/* Header with stats */}
         <TouchableOpacity onPress={() => setExpanded(!expanded)} className="flex-row items-center justify-between mb-3">
           <View className="flex-row items-center">
-            <FontAwesome name="history" size={12} color={getPrimaryColor(activeTheme)} />
+            <FontAwesome name="history" size={12} color={colors.primary} />
             <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em] ml-2">
               Pipeline Journey
             </Text>
           </View>
-          <FontAwesome name={expanded ? 'chevron-up' : 'chevron-down'} size={10} color={getMutedColor(activeTheme)} />
+          <FontAwesome name={expanded ? 'chevron-up' : 'chevron-down'} size={10} color={colors.muted} />
         </TouchableOpacity>
 
         {/* Stats row */}
@@ -73,7 +73,7 @@ export default function PipelineJourney() {
                   <View className="flex-1 pb-4">
                     <View className="flex-row items-center flex-wrap gap-1">
                       <Text className="text-typography-muted text-[10px] font-bold">{h.from_stage_name || 'Start'}</Text>
-                      <FontAwesome name="long-arrow-right" size={8} color={getMutedColor(activeTheme)} />
+                      <FontAwesome name="long-arrow-right" size={8} color={colors.muted} />
                       <Text className="text-typography-main text-[10px] font-black">{h.to_stage_name}</Text>
                       {h.is_reversal && (
                         <View className="bg-state-warning/20 px-1 rounded-sm">

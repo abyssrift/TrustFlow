@@ -3,18 +3,18 @@ import { TargetCreationModal } from '@/components/intelligence/IntelligenceModal
 import { useAuth } from '@/contexts/AuthContext';
 import type { ThemeType } from '@/contexts/ThemeContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
 import { NATIVE_THEME_COLORS } from '@/lib/layout';
 import { supabase } from '@/lib/supabase';
-import { getMutedColor, getPrimaryColor } from '@/hooks/useThemeColors';
 import { FontAwesome } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import {
-    Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer,
-    Scatter,
-    ScatterChart,
-    Tooltip, XAxis, YAxis, ZAxis,
+  Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer,
+  Scatter,
+  ScatterChart,
+  Tooltip, XAxis, YAxis, ZAxis,
 } from 'recharts';
 
 // ── Edit Modal ────────────────────────────────────────────────────────────────
@@ -36,6 +36,7 @@ const EditTargetModal = ({
   const [deadline, setDeadline] = useState<string | null>(
     target.target_deadline ? new Date(target.target_deadline).toISOString().split('T')[0] : null
   );
+  const colors = useThemeColors();
 
   const handleSave = () => {
     if (isVolume) {
@@ -476,14 +477,14 @@ export default function IntelligenceTargets() {
                 showRightSidebar ? 'bg-brand-primary border-brand-primary premium-shadow' : 'bg-surface-card border-surface-border hover:bg-surface-overlay'
               }`}
             >
-              <FontAwesome name="columns" size={14} color={showRightSidebar ? 'white' : getMutedColor(activeTheme)} />
+              <FontAwesome name="columns" size={14} color={showRightSidebar ? 'white' : colors.muted} />
             </TouchableOpacity>
           </View>
         </View>
 
         {loading ? (
           <View className="flex-1 items-center justify-center">
-            <ActivityIndicator size="large" color={getPrimaryColor(activeTheme)} />
+            <ActivityIndicator size="large" color={colors.primary} />
           </View>
         ) : (
           <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
@@ -492,7 +493,7 @@ export default function IntelligenceTargets() {
               {/* Active Targets — Circle Grid */}
               {filteredTargets.length === 0 ? (
                 <View className="w-full bg-surface-card/30 p-20 rounded-[3rem] border border-surface-border border-dashed items-center mb-12">
-                  <FontAwesome name="bullseye" size={40} color={getMutedColor(activeTheme)} style={{ opacity: 0.2, marginBottom: 12 }} />
+                  <FontAwesome name="bullseye" size={40} color={colors.muted} style={{ opacity: 0.2, marginBottom: 12 }} />
                   <Text className="text-typography-muted font-bold text-sm">No active targets found.</Text>
                   <TouchableOpacity
                     onPress={() => setShowModal(true)}
@@ -586,7 +587,7 @@ export default function IntelligenceTargets() {
         <View className="w-[480px] border-l border-surface-border bg-surface-card/10">
           <View className="p-8 pb-0">
             <View className="bg-surface-card border border-surface-border rounded-xl px-4 py-3 flex-row items-center w-full mb-6 premium-shadow">
-              <FontAwesome name="search" size={12} color={getMutedColor(activeTheme)} style={{ marginRight: 10 }} />
+              <FontAwesome name="search" size={12} color={colors.muted} style={{ marginRight: 10 }} />
               <TextInput
                 placeholder="Search stage targets..."
                 placeholderTextColor={colors.textMuted}
@@ -676,7 +677,7 @@ export default function IntelligenceTargets() {
                   <Text className="text-typography-main font-black uppercase tracking-[0.2em] text-[10px]">Recent Activity</Text>
                 </View>
                 <TouchableOpacity onPress={fetchTargets}>
-                  <FontAwesome name="refresh" size={10} color={getMutedColor(activeTheme)} />
+                  <FontAwesome name="refresh" size={10} color={colors.muted} />
                 </TouchableOpacity>
               </View>
 

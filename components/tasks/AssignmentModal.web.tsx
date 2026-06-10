@@ -1,12 +1,16 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  View, Text, ScrollView, TouchableOpacity, 
-  TextInput, ActivityIndicator, Alert, Platform 
-} from 'react-native';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { supabase } from '@/lib/supabase';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator, Alert,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
 
 interface AssignmentModalProps {
   visible: boolean;
@@ -34,6 +38,7 @@ export default function AssignmentModal({
   const [selectedIds, setSelectedIds] = useState(initialSelectedIds);
   const [teamSearch, setTeamSearch] = useState('');
   const [userSearch, setUserSearch] = useState('');
+  const colors = useThemeColors();
 
   const { user: currentUser } = useAuth();
 

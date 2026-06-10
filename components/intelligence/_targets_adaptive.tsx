@@ -2,16 +2,17 @@ import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 import { CompletionVelocityMobile, IntelligencePicker } from '@/components/intelligence/IntelligenceCommon';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
 import { NATIVE_THEME_COLORS } from '@/lib/layout';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
-import { useThemeColors } from '@/hooks/useThemeColors';
 import {
-    ActivityIndicator, Alert, Modal, ScrollView, Text, TextInput,
-    TouchableOpacity, View, useWindowDimensions,
+  ActivityIndicator, Alert, Modal, ScrollView, Text, TextInput,
+  TouchableOpacity, View, useWindowDimensions,
 } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
+const colors = useThemeColors();
 
 // ── Create Modal ───────────────────────────────────────────────────────────────
 

@@ -523,6 +523,8 @@ function DashboardSettingsModal({ visible, onClose, config, onSave }: {
     }
   }, [visible, config]);
 
+  
+
   const fetchData = async () => {
     setLoading(true);
     const { data: p } = await supabase.from('pipelines').select('id, name').is('deleted_at', null);

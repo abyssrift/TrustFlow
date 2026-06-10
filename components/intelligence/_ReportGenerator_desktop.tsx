@@ -1,4 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Stack, useRouter } from 'expo-router';
@@ -12,8 +13,7 @@ import {
 } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { generateAndUploadReport } from './reports/generate';
-import { useThemeColors } from '@/hooks/useThemeColors';
-
+const colors = useThemeColors();
 const BRAND = 'rgb(99,102,241)';
 const BRAND_DIM = 'rgba(99,102,241,0.15)';
 

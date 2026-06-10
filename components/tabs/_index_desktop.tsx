@@ -1,12 +1,12 @@
 import PendingTimeApprovalsWidget from '@/components/common/PendingTimeApprovalsWidget';
 import { useAuth } from '@/contexts/AuthContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Modal, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import { useThemeColors } from '@/hooks/useThemeColors';
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -654,6 +654,7 @@ function DashboardSettingsModal({ visible, onClose, config, onSave }: {
   const [selectedSuccessStages, setSelectedSuccessStages] = useState<string[]>([]);
   const [useAllPipelines, setUseAllPipelines] = useState(true);
   const [loading, setLoading] = useState(false);
+  const colors = useThemeColors();
 
   useEffect(() => {
     if (visible) {

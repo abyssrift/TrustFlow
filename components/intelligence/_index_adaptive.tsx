@@ -2,14 +2,16 @@ import ConfirmModal from '@/components/common/ConfirmModal';
 import { IntelligencePicker } from '@/components/intelligence/IntelligenceCommon';
 
 import { useAuth } from '@/contexts/AuthContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Modal, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import { useThemeColors } from '@/hooks/useThemeColors';
+
+
 
 // --- UTILITIES & SUB-COMPONENTS (Defined BEFORE main screen to avoid non-hoisted variable errors) ---
 
@@ -258,6 +260,9 @@ const RadarSection = ({ data, activeWidgets, onEditWidgets }: any) => {
   );
 };
 
+
+
+const colors = useThemeColors();
 const ArchivesSection = ({ reports, onDownload, onNew, coldArchives, activeSchema, currentSubSection, setSubSection, onSelectArchive, hasPermission }: any) => (
   <View>
     <View className="flex-row bg-surface-background p-1 rounded-xl mb-6">
@@ -332,7 +337,8 @@ const ArchivesSection = ({ reports, onDownload, onNew, coldArchives, activeSchem
       </>
     )}
   </View>
-);
+  )
+;
 
 const ReportConfigModal = ({ visible, onClose, onConfirm, pipelines, teams, users, initialDays }: any) => {
   const colors = useThemeColors();

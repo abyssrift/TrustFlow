@@ -1,23 +1,23 @@
 import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { FileActivity, FileHubFile, FileHubFolder, FileHubGroup, FileHubGroupMember, FileHubMode, FileHubProvider, useFileHub } from '@/contexts/FileHubContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
 import { openStorageFile } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Modal,
-    Platform,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { useThemeColors } from '@/hooks/useThemeColors';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -331,6 +331,7 @@ function UploadModal({
   };
 
   const canBroadcast = hasPermission('filehub:broadcast');
+  const colors = useThemeColors();
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -662,6 +663,7 @@ function GroupCreateModal({
   const [memberResults, setMemberResults] = useState<any[]>([]);
   const [selectedMembers, setSelectedMembers] = useState<any[]>([]);
   const [creating, setCreating] = useState(false);
+  const colors = useThemeColors();
 
   useEffect(() => {
     if (!visible) {
@@ -1013,6 +1015,7 @@ function DetailPanel({
   const [tab, setTab] = useState<'details' | 'activity'>('details');
   const [activity, setActivity] = useState<FileActivity[]>([]);
   const [activityLoading, setActivityLoading] = useState(false);
+    const colors = useThemeColors();
 
   useEffect(() => { setTab('details'); setActivity([]); }, [file?.id]);
   useEffect(() => { if (file) logActivity(file.id, 'view'); }, [file?.id]);
@@ -1065,6 +1068,7 @@ function DetailPanel({
   const { icon, color } = getMimeIcon(file.mime_type);
   const isUnread = mode === 'inbox' && !file.recipient_state?.read_at;
   const isOwner = file.uploader?.id === currentUserId;
+
 
   return (
     <View className="flex-1 flex-col" style={{ minHeight: 0 }}>
@@ -1254,7 +1258,7 @@ function GroupMembersPanel({
   const [addResults, setAddResults] = useState<any[]>([]);
   const [addingId, setAddingId] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
-
+  const colors = useThemeColors();
   const loadMembers = useCallback(async () => {
     setLoadingMembers(true);
     fetchGroupMembers(group.id).then(setMembers).catch(console.error).finally(() => setLoadingMembers(false));
@@ -1420,6 +1424,7 @@ function TagsManageModal({ visible, onClose, onChanged }: {
   const [renamingTag, setRenamingTag] = useState<string | null>(null);
   const [renameInput, setRenameInput] = useState('');
   const [savingTag, setSavingTag] = useState<string | null>(null);
+  const colors = useThemeColors();
 
   const load = useCallback(async () => {
     setLoading(true);

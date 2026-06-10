@@ -1,9 +1,10 @@
+import { useThemeColors } from '@/hooks/useThemeColors';
+import { Stack } from 'expo-router';
 import React from 'react';
 import { useWindowDimensions } from 'react-native';
-import ReportGeneratorDesktop from './_ReportGenerator_desktop';
 import ReportGeneratorAdaptive from './_ReportGenerator_adaptive';
-import { Stack } from 'expo-router';
-
+import ReportGeneratorDesktop from './_ReportGenerator_desktop';
+const colors = useThemeColors();
 export default function ReportGeneratorWeb() {
   const { width } = useWindowDimensions();
   const isDesktop = width >= 1024;

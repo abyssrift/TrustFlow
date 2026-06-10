@@ -1,5 +1,6 @@
 import { QualityLeaderboardWeb, SLARiskAlertWeb, StageDwellChartWeb, TrendComparisonCardsWeb, WorkDistributionChartWeb } from '@/components/intelligence/RadarWidgets';
 import { PipelinePointsPeriod, StageDwell, ThroughputPeriod, useAnalytics } from '@/contexts/AnalyticsContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -16,7 +17,6 @@ import {
   ResponsiveContainer,
   XAxis, YAxis
 } from 'recharts';
-import { useThemeColors } from '@/hooks/useThemeColors';
 
 const PERIOD_OPTS = [
   { label: '4W',   type: 'week',  n: 4  },
@@ -30,6 +30,8 @@ const fmtSec = (s: number) => {
   const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 };
+
+const colors = useThemeColors();
 
 const tooltipStyle = {
   backgroundColor: colors.card,

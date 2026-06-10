@@ -6,27 +6,27 @@ import TaskCardActions, { type ActiveSessionUser } from '@/components/task-detai
 import AssignmentModal from '@/components/tasks/AssignmentModal';
 import CreateTaskSheet from '@/components/tasks/CreateTaskSheet';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSuppressRouteLoading } from '@/contexts/RouteLoadingContext';
 import { TaskCreationProvider } from '@/contexts/TaskCreationContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useSuppressRouteLoading } from '@/contexts/RouteLoadingContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
 import { TAB_BAR_HEIGHT } from '@/lib/layout';
 import { supabase } from '@/lib/supabase';
-import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    Alert,
-    Image,
-    Keyboard,
-    Platform,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    useWindowDimensions,
-    View
+  Alert,
+  Image,
+  Keyboard,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useWindowDimensions,
+  View
 } from 'react-native';
 
 type Stage = {
@@ -560,7 +560,7 @@ function TasksScreen() {
            {/* STAGE PUSH BADGE */}
             {stage.linked_pipeline && (
                <View className="flex-row items-center border border-brand-primary/30 bg-brand-primary/10 px-2 py-0.5 rounded-full">
-                  <FontAwesome name="bolt" size={8} color={getPrimaryColor(activeTheme)} />
+                  <FontAwesome name="bolt" size={8} color={colors.primary} />
                   <Text className="text-brand-primary text-[8px] font-black ml-1 uppercase">Pushes to {stage.linked_pipeline.name}</Text>
                </View>
             )}

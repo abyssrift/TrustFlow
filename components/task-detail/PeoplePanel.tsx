@@ -1,6 +1,5 @@
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
-import { useTheme } from '@/contexts/ThemeContext';
-import { getMutedColor, getPrimaryColor } from '@/hooks/useThemeColors';
+import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React from 'react';
 import { Text, View } from 'react-native';
@@ -16,7 +15,7 @@ function Avatar({ name, size = 32 }: { name: string | null; size?: number }) {
 
 export default function PeoplePanel() {
   const { data } = useTaskDetail();
-  const { theme: activeTheme } = useTheme();
+  const colors = useThemeColors();
   if (!data) return null;
 
   const { assignments, manager, creator } = data;
@@ -37,7 +36,7 @@ export default function PeoplePanel() {
             <Text className="text-typography-main text-sm font-bold">{manager.full_name}</Text>
             <Text className="text-brand-primary text-[9px] font-black uppercase tracking-wider">Manager</Text>
           </View>
-           <FontAwesome name="briefcase" size={12} color={getPrimaryColor(activeTheme)} />
+           <FontAwesome name="briefcase" size={12} color={colors.primary} />
         </View>
       )}
 
@@ -57,7 +56,7 @@ export default function PeoplePanel() {
         <View className="mt-2 pt-2 border-t border-surface-border/30">
           {teamAssignments.map(a => (
             <View key={a.id} className="flex-row items-center mb-2">
-              <View style={{ backgroundColor: a.team?.color || getPrimaryColor(activeTheme) }} className="w-3 h-3 rounded-full mr-2.5" />
+              <View style={{ backgroundColor: a.team?.color || colors.primary }} className="w-3 h-3 rounded-full mr-2.5" />
               <Text className="text-typography-main text-sm font-bold">{a.team?.name}</Text>
               <View className="ml-2 bg-surface-overlay px-1.5 py-0.5 rounded-md">
                 <Text className="text-typography-muted text-[8px] font-bold uppercase">Team</Text>
@@ -69,7 +68,7 @@ export default function PeoplePanel() {
 
        {assignments.length === 0 && (
          <View className="py-4 items-center opacity-40">
-           <FontAwesome name="user-plus" size={20} color={getMutedColor(activeTheme)} />
+           <FontAwesome name="user-plus" size={20} color={colors.muted} />
            <Text className="text-typography-muted text-xs mt-2">No assignees yet</Text>
          </View>
        )}

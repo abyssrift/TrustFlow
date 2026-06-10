@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSubmission } from '@/contexts/SubmissionContext';
 import { useTaskDetail, type StageActionData } from '@/contexts/TaskDetailContext';
 import { useTimer } from '@/contexts/TimerContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
 import { openStorageFile, SUBMISSION_BUCKET } from '@/lib/storage';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -15,9 +16,9 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, AppState, Platform, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { getActionDescriptor, splitStageActions } from './actionRegistry';
-import { useThemeColors } from '@/hooks/useThemeColors';
 
 function getFileIcon(mimeType: string | null): { name: string; color: string } {
+  const colors = useThemeColors();
   const t = (mimeType || '').toLowerCase();
   if (t.includes('image')) return { name: 'file-image-o', color: colors.warning };
   if (t.includes('pdf')) return { name: 'file-pdf-o', color: colors.danger };

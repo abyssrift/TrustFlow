@@ -1,49 +1,48 @@
 import {
-    fmtDay,
-    fmtMins,
-    fmtNumber,
-    fmtBytes,
-    fmtHHMM,
-    healthLabel,
-    timeAgo,
-    deleteCompany,
-    deleteUser,
-    moveUser,
-    updateUser,
-    useCompanyDetail,
-    useControlPlaneData,
-    useInfraData,
-    useLiveSessions,
-    useTimeline,
-    useUsersData,
-    workspaceAge,
-    type CompanyOverview,
-    type PlatformUser,
-    type Section,
-    type SignalMetric,
-    type SortKey,
+  deleteCompany,
+  deleteUser,
+  fmtDay,
+  fmtHHMM,
+  fmtMins,
+  fmtNumber,
+  healthLabel,
+  moveUser,
+  timeAgo,
+  updateUser,
+  useCompanyDetail,
+  useControlPlaneData,
+  useInfraData,
+  useLiveSessions,
+  useTimeline,
+  useUsersData,
+  workspaceAge,
+  type CompanyOverview,
+  type PlatformUser,
+  type Section,
+  type SignalMetric,
+  type SortKey
 } from '@/components/platform-admin/useControlPlaneData';
+import { useThemeColors } from '@/hooks/useThemeColors';
 import { FontAwesome } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
-    ActivityIndicator, Modal, Pressable,
-    ScrollView,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator, Modal, Pressable,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
 import {
-    Area,
-    AreaChart,
-    CartesianGrid,
-    ResponsiveContainer,
-    Tooltip,
-    XAxis, YAxis,
-    ReferenceLine,
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis, YAxis,
 } from 'recharts';
-import { useThemeColors } from '@/hooks/useThemeColors';
 
 cssInterop(FontAwesome, {
   className: { target: 'style', nativeStyleToProp: { color: true, size: true } },
@@ -292,6 +291,7 @@ function CommandSection({ companies, liveCount, loading, totalUsers, totalTasks,
   const { timeline } = useTimeline(7);
   const maxMins = Math.max(1, ...companies.map(c => c.session_minutes_week));
   const top5 = companies.slice(0, 5);
+  const colors = useThemeColors();
 
   const chartData = useMemo(() =>
     [...timeline].reverse().map(e => ({
@@ -761,6 +761,7 @@ function UserDetailPanel({
   const [showMoveDropdown, setShowMoveDropdown] = useState(false);
   const [moving, setMoving] = useState(false);
   const [form, setForm] = useState({ full_name: '', display_name: '', phone: '', job_title: '', department: '', work_status: '', is_active: true });
+  const colors = useThemeColors();
 
   React.useEffect(() => {
     if (user) {

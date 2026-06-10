@@ -1,36 +1,41 @@
-import React, { useState, useCallback } from 'react';
-import {
-  Alert,
-  View, Text, ScrollView, TouchableOpacity, ActivityIndicator,
-  SafeAreaView, RefreshControl, Platform, StatusBar, Modal,
-} from 'react-native';
-import { Stack } from 'expo-router';
-import { FontAwesome } from '@expo/vector-icons';
-import { supabase } from '@/lib/supabase';
 import {
   deleteCompany,
-  useControlPlaneData,
-  useTimeline,
-  useLiveSessions,
-  useCompanyDetail,
+  fmtDay,
   fmtMins,
   fmtNumber,
-  timeAgo,
-  fmtDay,
-  workspaceAge,
   healthLabel,
+  timeAgo,
+  useCompanyDetail,
+  useControlPlaneData,
+  useLiveSessions,
+  useTimeline,
+  workspaceAge,
   type CompanyOverview,
-  type Section,
-  type SortKey,
   type SignalMetric,
-  type CompanyDetail,
+  type SortKey
 } from '@/components/platform-admin/useControlPlaneData';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { FontAwesome } from '@expo/vector-icons';
+import { Stack } from 'expo-router';
+import React, { useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Platform,
+  RefreshControl,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 // ── Reusable UI ────────────────────────────────────────────────────────────
 
 const Divider = () => <View className="h-px bg-surface-border mx-4" />;
-
+const colors = useThemeColors();
 const StatTile = ({
   label, value, sub, icon, accent = false,
 }: {

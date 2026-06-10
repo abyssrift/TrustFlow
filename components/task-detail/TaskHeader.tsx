@@ -5,8 +5,8 @@ import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTimer } from '@/contexts/TimerContext';
 import { useToast } from '@/contexts/ToastContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
-import { getMutedColor, getPrimaryColor } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
 import React from 'react';
@@ -42,6 +42,7 @@ export default function TaskHeader() {
   const [pendingAction, setPendingAction] = React.useState<any | null>(null);
   const router = useRouter();
   const { successToast, errorToast } = useToast();
+  const colors = useThemeColors();
 
   const handleArchive = async () => {
     if (!data) return;
@@ -162,7 +163,7 @@ export default function TaskHeader() {
           {/* Stage badge */}
           {current_stage && (
             <View className="flex-row items-center bg-brand-primary/10 px-2.5 py-0.5 rounded-full border border-brand-primary/30">
-              <View style={{ backgroundColor: current_stage.color || getPrimaryColor(activeTheme) }} className="w-1.5 h-1.5 rounded-full mr-1.5" />
+              <View style={{ backgroundColor: current_stage.color || colors.primary }} className="w-1.5 h-1.5 rounded-full mr-1.5" />
               <Text className="text-brand-primary text-[9px] font-black uppercase tracking-wider">
                 {current_stage.name}
               </Text>
@@ -234,7 +235,7 @@ export default function TaskHeader() {
                 } ${isLoading ? 'opacity-50' : ''}`}
               >
                 {isLoading ? (
-                  <ActivityIndicator size="small" color={getPrimaryColor(activeTheme)} />
+                  <ActivityIndicator size="small" color={colors.primary} />
                 ) : isLocked ? (
                   <>
                     <FontAwesome name="lock" size={10} className="text-state-warning" />
@@ -257,7 +258,7 @@ export default function TaskHeader() {
               className={`flex-row items-center px-4 py-2 rounded-xl border border-surface-border bg-surface-overlay ${archiving ? 'opacity-50' : ''}`}
             >
               {archiving ? (
-                <ActivityIndicator size="small" color={getMutedColor(activeTheme)} />
+                <ActivityIndicator size="small" color={colors.muted} />
               ) : (
                 <>
                   <FontAwesome name="archive" size={10} className="text-typography-muted" />
