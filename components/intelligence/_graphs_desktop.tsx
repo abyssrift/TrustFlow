@@ -6,7 +6,6 @@ import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import {
-import { useThemeColors } from '@/hooks/useThemeColors';
   Area,
   AreaChart,
   Bar,
@@ -17,6 +16,7 @@ import { useThemeColors } from '@/hooks/useThemeColors';
   ResponsiveContainer,
   XAxis, YAxis
 } from 'recharts';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 const PERIOD_OPTS = [
   { label: '4W',   type: 'week',  n: 4  },

@@ -8,7 +8,6 @@ import { Stack } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import {
-import { useThemeColors } from '@/hooks/useThemeColors';
   deleteCompany,
   useControlPlaneData,
   useTimeline,
@@ -26,13 +25,13 @@ import { useThemeColors } from '@/hooks/useThemeColors';
   type SignalMetric,
   type CompanyDetail,
 } from '@/components/platform-admin/useControlPlaneData';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 // ── Reusable UI ────────────────────────────────────────────────────────────
 
 const Divider = () => <View className="h-px bg-surface-border mx-4" />;
 
 const StatTile = ({
-  const colors = useThemeColors();
   label, value, sub, icon, accent = false,
 }: {
   label: string; value: string | number; sub?: string; icon: string; accent?: boolean;
@@ -59,7 +58,6 @@ const HBar = ({ value, max, tint = 'primary' }: { value: number; max: number; ti
 };
 
 const SectionPill = ({
-  const colors = useThemeColors();
   label, active, onPress, dot,
 }: { label: string; active: boolean; onPress: () => void; dot?: boolean }) => (
   <TouchableOpacity
@@ -76,7 +74,6 @@ const SectionPill = ({
 // ── Company Detail Modal ───────────────────────────────────────────────────
 
 const CompanyDetailModal = ({
-  const colors = useThemeColors();
   companyId, onClose, onDeleted,
 }: { companyId: string | null; onClose: () => void; onDeleted: () => void }) => {
   const { detail, loading } = useCompanyDetail(companyId);
@@ -220,7 +217,6 @@ const CompanyDetailModal = ({
 // ── Section: Command ───────────────────────────────────────────────────────
 
 const CommandSection = ({
-  const colors = useThemeColors();
   companies, liveCount, loading, onRefresh, refreshing, totalUsers, totalTasks, totalMins,
 }: {
   companies: CompanyOverview[];
@@ -330,7 +326,6 @@ const CommandSection = ({
 // ── Section: Tenants ───────────────────────────────────────────────────────
 
 const TenantsSection = ({
-  const colors = useThemeColors();
   companies, loading, onRefresh, refreshing, onCompanyDeleted,
 }: {
   companies: CompanyOverview[];
@@ -450,7 +445,6 @@ const TenantsSection = ({
 // ── Section: Signals ───────────────────────────────────────────────────────
 
 const SignalsSection = ({
-  const colors = useThemeColors();
   loading, onRefresh, refreshing,
 }: { loading: boolean; onRefresh: () => void; refreshing: boolean }) => {
   const { days, setDays, metric, setMetric, timeline, fetching, load, getValue, maxVal, totalVal, metricLabel } = useTimeline(30);

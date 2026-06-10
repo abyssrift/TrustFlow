@@ -297,7 +297,6 @@ export default function ProfilePageWeb() {
 }
 
 function TabButton({ active, onPress, icon, label, description }: { 
-  const colors = useThemeColors();
   active: boolean, 
   onPress: () => void, 
   icon: any, 

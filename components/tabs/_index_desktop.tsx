@@ -269,7 +269,6 @@ export default function DashboardScreenWeb() {
   const failedRate = stats.totalTasks > 0 ? Math.round((stats.failed / stats.totalTasks) * 100) : 0;
 
   const KPICard = ({
-    const colors = useThemeColors();
     icon,
     label,
     value,
@@ -644,7 +643,6 @@ export default function DashboardScreenWeb() {
 // ── Settings Modal ───────────────────────────────────────────────────────
 
 function DashboardSettingsModal({ visible, onClose, config, onSave }: {
-  const colors = useThemeColors();
   visible: boolean;
   onClose: () => void;
   config: DashboardConfig | null;

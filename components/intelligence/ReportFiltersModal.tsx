@@ -15,7 +15,6 @@ export const EMPTY_FILTERS: ReportFilters = { statuses: [], types: [], dateFrom:
 
 const STATUS_OPTIONS = [
   {
-    const colors = useThemeColors();
     value: 'completed',  label: 'Completed',  icon: 'check-circle',
     activeClass: 'bg-state-success/10 border-state-success',
     textActive:  'text-state-success',

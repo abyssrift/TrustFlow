@@ -397,7 +397,6 @@ function PersonnelTab() {
   const [sortDir, setSortDir]   = useState<SortDir>('desc');
 
   const STORAGE_KEYS = {
-    const colors = useThemeColors();
     SALARIES: 'trustflow_personnel_salaries',
     SELECTED: 'trustflow_personnel_selected',
   };

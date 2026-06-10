@@ -34,7 +34,6 @@ const NODE_WIDTH = 256; // w-64
 const NODE_HEIGHT = 160;
 
 export default function StageNode({ 
-  const colors = useThemeColors();
   stage, index, onPositionChange, onEdit, onDelete,
   onStartConnection, onUpdateConnection, onEndConnection,
   isConnecting 

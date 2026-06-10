@@ -18,7 +18,6 @@ interface AssignmentModalProps {
 }
 
 export default function AssignmentModal({
-  const colors = useThemeColors();
   visible,
   taskId,
   pipelineId,

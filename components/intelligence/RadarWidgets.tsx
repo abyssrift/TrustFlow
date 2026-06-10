@@ -4,12 +4,12 @@ import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Text, TouchableOpacity, View } from 'react-native';
 import {
-import { useThemeColors } from '@/hooks/useThemeColors';
     Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ComposedChart, Line,
     Tooltip as RechartTooltip,
     ResponsiveContainer,
     XAxis, YAxis,
 } from 'recharts';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -261,7 +261,6 @@ export const QualityLeaderboardWeb = ({ data, className }: { data: any, classNam
 
   const allWorkers = data.quality_by_worker
     .map((w: any) => ({
-      const colors = useThemeColors();
       ...w,
       integrityScore: Math.max(0, 100 - (w.revision_rate || 0)),
     }))
@@ -882,7 +881,6 @@ function daysToParams(days: number): { periodType: string; nPeriods: number } {
 }
 
 export const PipelinePointsMiniWeb = ({
-  const colors = useThemeColors();
   pipelines,
   days,
   onViewAll,

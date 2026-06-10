@@ -63,7 +63,6 @@ const CHANNELS: ChannelRow[] = [
 // Groups of notification types for display (read-only — admins control the rules)
 const EVENT_GROUPS = [
   {
-    const colors = useThemeColors();
     label: 'Tasks',
     icon: 'check-square-o' as const,
     events: [

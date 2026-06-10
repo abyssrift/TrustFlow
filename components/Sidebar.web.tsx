@@ -75,7 +75,6 @@ const initials = (value: string) => {
 };
 
 const ThemePopover = ({
-  const colors = useThemeColors();
   visible,
   onClose,
   sidebarExpanded,
@@ -172,7 +171,6 @@ const ThemePopover = ({
 };
 
 const SidebarItem = ({
-  const colors = useThemeColors();
   icon,
   label,
   href,

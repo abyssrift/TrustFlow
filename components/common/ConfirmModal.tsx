@@ -16,7 +16,6 @@ interface ConfirmModalProps {
 }
 
 export default function ConfirmModal({
-  const colors = useThemeColors();
   visible,
   title,
   description,

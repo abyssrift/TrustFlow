@@ -42,7 +42,6 @@ const QUICK_DATES = [
 const HOUR_PRESETS = [1, 2, 4, 8, 16];
 
 const PRIORITY_COLORS: Record<string, string> = {
-  const colors = useThemeColors();
   urgent: 'text-state-danger',
   high:   'text-state-warning',
   normal: 'text-brand-primary',

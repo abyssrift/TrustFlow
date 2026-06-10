@@ -21,7 +21,6 @@ const NODE_WIDTH = 256;
 const NODE_HEIGHT = 160;
 
 interface ConnectionLinesProps {
-  const colors = useThemeColors();
   stages: Stage[];
   transitions: Transition[];
   onEditTransition?: (id: string) => void;

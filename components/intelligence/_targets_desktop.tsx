@@ -20,7 +20,6 @@ import {
 // ── Edit Modal ────────────────────────────────────────────────────────────────
 
 const EditTargetModal = ({
-  const colors = useThemeColors();
   target,
   onClose,
   onSave,
@@ -156,7 +155,6 @@ const CX = CIRCLE_SIZE / 2;
 const CIRCUMFERENCE = 2 * Math.PI * R;
 
 const TargetCircle = ({
-  const colors = useThemeColors();
   target,
   onEdit,
   onClear,

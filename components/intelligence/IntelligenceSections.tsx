@@ -16,13 +16,13 @@ import {
 } from 'recharts';
 import { CircularTargetCard, KPIBoxWeb } from './IntelligenceCommon';
 import {
-import { useThemeColors } from '@/hooks/useThemeColors';
     ConversionFunnelChartWeb,
     QualityLeaderboardWeb,
     SLARiskAlertWeb,
     TrendComparisonCardsWeb,
     WorkDistributionChartWeb
 } from './RadarWidgets';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 export const RadarSectionWeb = ({ data, activeWidgets, onEditWidgets }: any) => {
   const colors = useThemeColors();

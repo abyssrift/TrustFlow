@@ -598,7 +598,6 @@ function TypeCard({ opt, selected, onPress }: { opt: typeof REPORT_TYPES[number]
 // ── TypeParamPanel ─────────────────────────────────────────────────────────────
 
 function TypeParamPanel({
-  const colors = useThemeColors();
   type, params, setParam, toggleMultiUser, pipelines, teams, workers, projects,
 }: {
   type: ReportType;
@@ -865,7 +864,6 @@ function TypeParamPanel({
 // ── SeriesControls ─────────────────────────────────────────────────────────────
 
 function SeriesControls({ periodType, nPeriods, onPeriodType, onNPeriods }: {
-  const colors = useThemeColors();
   periodType: string;
   nPeriods: string;
   onPeriodType: (v: string) => void;

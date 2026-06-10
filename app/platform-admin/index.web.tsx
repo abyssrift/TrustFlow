@@ -35,7 +35,6 @@ import {
 } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
 import {
-import { useThemeColors } from '@/hooks/useThemeColors';
     Area,
     AreaChart,
     CartesianGrid,
@@ -44,6 +43,7 @@ import { useThemeColors } from '@/hooks/useThemeColors';
     XAxis, YAxis,
     ReferenceLine,
 } from 'recharts';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 cssInterop(FontAwesome, {
   className: { target: 'style', nativeStyleToProp: { color: true, size: true } },
@@ -80,7 +80,6 @@ function Sparkline({ data, color = 'rgb(99,102,241)' }: { data: number[]; color?
 // ── Stat Card with sparkline ───────────────────────────────────────────────
 
 function StatCard({
-  const colors = useThemeColors();
   label, value, sub, icon, accent, sparkData,
 }: {
   label: string; value: string | number; sub?: string; icon: string;
@@ -287,7 +286,6 @@ function CompanyDetailPanel({ companyId, onClose, onDeleted }: { companyId: stri
 // ── Command Section ────────────────────────────────────────────────────────
 
 function CommandSection({ companies, liveCount, loading, totalUsers, totalTasks, totalMins }: {
-  const colors = useThemeColors();
   companies: CompanyOverview[]; liveCount: number; loading: boolean;
   totalUsers: number; totalTasks: number; totalMins: number;
 }) {
@@ -744,7 +742,6 @@ function EditField({ label, value, onChange }: { label: string; value: string; o
 }
 
 function UserDetailPanel({
-  const colors = useThemeColors();
   user,
   companies,
   onClose,
@@ -1218,7 +1215,6 @@ function infraStorageColor(pct: number): 'success' | 'warning' | 'danger' {
 }
 
 function InfraStatCard({
-  const colors = useThemeColors();
   label, value, sub, icon, pct, pctColor,
 }: {
   label: string; value: string; sub: string; icon: string;
@@ -1553,7 +1549,6 @@ const NAV_ITEMS: { id: Section; label: string; icon: string }[] = [
 ];
 
 function Sidebar({ section, setSection, liveCount }: {
-  const colors = useThemeColors();
   section: Section; setSection: (s: Section) => void; liveCount: number;
 }) {
   return (

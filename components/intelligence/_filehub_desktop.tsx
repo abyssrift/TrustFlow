@@ -7,7 +7,6 @@ import { FontAwesome } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-import { useThemeColors } from '@/hooks/useThemeColors';
     ActivityIndicator,
     Alert,
     Modal,
@@ -18,6 +17,7 @@ import { useThemeColors } from '@/hooks/useThemeColors';
     TouchableOpacity,
     View,
 } from 'react-native';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -132,7 +132,6 @@ type UploadDraft = {
 };
 
 const EMPTY_DRAFT = (defaultVisibility: 'direct' | 'group' = 'direct'): UploadDraft => ({
-  const colors = useThemeColors();
   files: [],
   visibility: defaultVisibility,
   recipientIds: [],
@@ -143,7 +142,6 @@ const EMPTY_DRAFT = (defaultVisibility: 'direct' | 'group' = 'direct'): UploadDr
 });
 
 function UploadModal({
-  const colors = useThemeColors();
   visible,
   folders,
   onClose,
@@ -648,7 +646,6 @@ function UploadModal({
 // ─── Group Create Modal ───────────────────────────────────────────────────────
 
 function GroupCreateModal({
-  const colors = useThemeColors();
   visible,
   onClose,
   onCreated,
@@ -943,7 +940,6 @@ function FolderPanel() {
 // ─── File Row ─────────────────────────────────────────────────────────────────
 
 function FileRow({
-  const colors = useThemeColors();
   file,
   selected,
   mode,
@@ -1001,7 +997,6 @@ function FileRow({
 // ─── Detail Panel ─────────────────────────────────────────────────────────────
 
 function DetailPanel({
-  const colors = useThemeColors();
   file,
   mode,
   currentUserId,
@@ -1244,7 +1239,6 @@ function DetailPanel({
 // ─── Group Members Panel (right panel in groups mode) ─────────────────────────
 
 function GroupMembersPanel({
-  const colors = useThemeColors();
   group,
   currentUserId,
   onGroupChanged,
@@ -1415,7 +1409,6 @@ function GroupMembersPanel({
 // ─── Tags Manage Modal ────────────────────────────────────────────────────────
 
 function TagsManageModal({ visible, onClose, onChanged }: {
-  const colors = useThemeColors();
   visible: boolean;
   onClose: () => void;
   onChanged: () => void;

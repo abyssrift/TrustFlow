@@ -22,7 +22,6 @@ type Prefs = {
 
 const EVENT_GROUPS = [
   {
-    const colors = useThemeColors();
     label: 'Tasks',
     icon: 'check-square-o' as const,
     events: [
