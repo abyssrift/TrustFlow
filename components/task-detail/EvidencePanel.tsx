@@ -4,6 +4,7 @@ import { openStorageFile, SUBMISSION_BUCKET } from '@/lib/storage';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useMemo, useState } from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import CollapsibleCard from './CollapsibleCard';
 
 function getCategoryUI(colors: ReturnType<typeof useThemeColors>): Record<string, { icon: string; color: string; label: string }> {
   return {
@@ -79,11 +80,9 @@ export default function EvidencePanel() {
   if (!data || stats.all === 0) return null;
 
   return (
-    <View className="bg-surface-card rounded-2xl border border-surface-border p-4">
-      <View className="flex-row items-center justify-between mb-4">
-        <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em]">
-          Evidence & Proofs
-        </Text>
+    <CollapsibleCard
+      title="Evidence & Proofs"
+      headerRight={
         <View className="flex-row items-center gap-3">
           <TouchableOpacity
             onPress={() => setShowPendingReview(!showPendingReview)}
@@ -97,8 +96,8 @@ export default function EvidencePanel() {
             <Text className="text-brand-primary text-[8px] font-black uppercase tracking-tighter">Verified Assets</Text>
           </View>
         </View>
-      </View>
-
+      }
+    >
       {/* Filters */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4 -mx-1">
         {(['all', 'image', 'document', 'spreadsheet'] as FilterType[]).map((f) => (
@@ -161,6 +160,6 @@ export default function EvidencePanel() {
           </View>
         ))}
       </View>
-    </View>
+    </CollapsibleCard>
   );
 }

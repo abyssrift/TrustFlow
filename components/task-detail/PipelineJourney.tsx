@@ -2,8 +2,9 @@ import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import React, { useState } from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
+import React from 'react';
+import { Text, View } from 'react-native';
+import CollapsibleCard from './CollapsibleCard';
 import PermissionGate from './PermissionGate';
 
 function timeAgo(dateStr: string): string {
@@ -19,25 +20,13 @@ function timeAgo(dateStr: string): string {
 
 export default function PipelineJourney() {
   const { data } = useTaskDetail();
-  const [expanded, setExpanded] = useState(true);
   const { theme: activeTheme } = useTheme();
   const colors = useThemeColors();
   if (!data) return null;
 
   return (
     <PermissionGate allowed={data.permissions.can_view_history}>
-      <View className="bg-surface-card rounded-2xl border border-surface-border p-4">
-        {/* Header with stats */}
-        <TouchableOpacity onPress={() => setExpanded(!expanded)} className="flex-row items-center justify-between mb-3">
-          <View className="flex-row items-center">
-            <FontAwesome name="history" size={12} color={colors.primary} />
-            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em] ml-2">
-              Pipeline Journey
-            </Text>
-          </View>
-          <FontAwesome name={expanded ? 'chevron-up' : 'chevron-down'} size={10} color={colors.muted} />
-        </TouchableOpacity>
-
+      <CollapsibleCard icon="history" title="Pipeline Journey" defaultCollapsed>
         {/* Stats row */}
         <View className="flex-row gap-3 mb-4">
           <View className="bg-state-success/10 px-2 py-1 rounded-lg border border-state-success/20">
@@ -52,8 +41,7 @@ export default function PipelineJourney() {
         </View>
 
         {/* Timeline */}
-        {expanded && (
-          <View className="ml-2">
+        <View className="ml-2">
             {data.stage_history.length === 0 ? (
               <View className="py-4 items-center opacity-40">
                 <Text className="text-typography-muted text-xs">No transitions recorded yet</Text>
@@ -88,15 +76,14 @@ export default function PipelineJourney() {
                 </View>
               ))
             )}
-          </View>
-        )}
+        </View>
 
         {/* Total time */}
         <View className="mt-2 pt-2 border-t border-surface-border/30 flex-row justify-between">
           <Text className="text-typography-dim text-[10px] font-bold">Total transitions</Text>
           <Text className="text-typography-main text-[10px] font-black">{data.stats.total_transitions}</Text>
         </View>
-      </View>
+      </CollapsibleCard>
     </PermissionGate>
   );
 }

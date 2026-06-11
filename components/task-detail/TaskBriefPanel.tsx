@@ -9,6 +9,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
 import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
+import CollapsibleCard from './CollapsibleCard';
 
 function getFileIcon(mimeType: string | null, colors: ReturnType<typeof useThemeColors>): { name: string; color: string } {
   const t = (mimeType || '').toLowerCase();
@@ -134,18 +135,16 @@ export default function TaskBriefPanel() {
   };
 
   return (
-    <View className="bg-surface-card rounded-2xl border border-surface-border p-4">
-      <View className="flex-row items-center justify-between mb-3">
-        <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em]">
-          Task Brief
-        </Text>
+    <CollapsibleCard
+      title="Task Brief"
+      headerRight={
         <View className="bg-brand-primary/10 px-2 py-0.5 rounded-md border border-brand-primary/20">
           <Text className="text-brand-primary text-[8px] font-black uppercase tracking-tighter">
             {data.task_attachments.length} {data.task_attachments.length === 1 ? 'File' : 'Files'}
           </Text>
         </View>
-      </View>
-
+      }
+    >
       {errorMsg && (
         <View className="bg-state-danger/10 border border-state-danger/30 rounded-xl p-3 mb-3">
           <Text className="text-state-danger text-xs">{errorMsg}</Text>
@@ -223,6 +222,6 @@ export default function TaskBriefPanel() {
           )}
         </View>
       )}
-    </View>
+    </CollapsibleCard>
   );
 }

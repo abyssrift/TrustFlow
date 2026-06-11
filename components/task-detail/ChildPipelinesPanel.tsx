@@ -4,6 +4,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
+import CollapsibleCard from './CollapsibleCard';
 
 const STATUS_STYLES: Record<string, { dot: string; label: string }> = {
   completed: { dot: 'bg-state-success', label: 'Completed' },
@@ -30,17 +31,11 @@ export default function ChildPipelinesPanel() {
   if (!data || !data.child_tasks || data.child_tasks.length === 0) return null;
 
   return (
-    <View className="bg-surface-card rounded-2xl border border-surface-border p-4">
-      {/* Header */}
-      <View className="flex-row items-center mb-3 gap-2">
-        <View className="bg-brand-primary/10 p-1.5 rounded-lg border border-brand-primary/20">
-          <FontAwesome name="code-fork" size={11} color={colors.primary} />
-        </View>
-        <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em]">
-          Spawned Sub-Pipelines ({data.child_tasks.length})
-        </Text>
-      </View>
-
+    <CollapsibleCard
+      icon="code-fork"
+      title={`Spawned Sub-Pipelines (${data.child_tasks.length})`}
+      defaultCollapsed
+    >
       <View className="gap-2">
         {data.child_tasks.map((child) => {
           const statusStyle = getStatusStyle(child.status);
@@ -93,6 +88,6 @@ export default function ChildPipelinesPanel() {
           );
         })}
       </View>
-    </View>
+    </CollapsibleCard>
   );
 }

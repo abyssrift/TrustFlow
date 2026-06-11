@@ -99,15 +99,18 @@ function TaskDetailContent() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
         <View className="gap-4 pb-32">
-          <TaskMetadata />
-          <PeoplePanel />
-          <ChildPipelinesPanel />
+          {/* Priority: what the assignee needs first — brief, the work itself, proofs, discussion */}
           <TaskBriefPanel />
           <StageActions />
-          <PipelineJourney />
           <EvidencePanel />
           <CommentsSection />
+
+          {/* Secondary: collapsed by default to keep the screen calm */}
+          <PeoplePanel />
+          <ChildPipelinesPanel />
+          <PipelineJourney />
           <ActivityLog />
+          <TaskMetadata />
         </View>
       </ScrollView>
 

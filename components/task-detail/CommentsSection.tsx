@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import CollapsibleCard from './CollapsibleCard';
 import PermissionGate from './PermissionGate';
 
 type CommentTree = CommentData & { children: CommentTree[] };
@@ -291,19 +292,15 @@ export default function CommentsSection() {
   };
 
   return (
-    <View className="bg-surface-card rounded-2xl border border-surface-border p-4">
-      <View className="flex-row items-center justify-between mb-3">
-        <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em]">
-          Comments ({data.comments.length})
-        </Text>
-        {data.comments.some(c => checkIfMentioned(c.content)) && (
-          <View className="flex-row items-center">
-            <FontAwesome name="check-circle" size={10} color="#10b981" />
-            <Text className="text-state-success text-[9px] font-bold ml-1 uppercase">Mentions Cleared</Text>
-          </View>
-        )}
-      </View>
-
+    <CollapsibleCard
+      title={`Comments (${data.comments.length})`}
+      headerRight={data.comments.some(c => checkIfMentioned(c.content)) ? (
+        <View className="flex-row items-center">
+          <FontAwesome name="check-circle" size={10} color="#10b981" />
+          <Text className="text-state-success text-[9px] font-bold ml-1 uppercase">Mentions Cleared</Text>
+        </View>
+      ) : undefined}
+    >
       {/* Comment tree */}
       {tree.length === 0 ? (
         <View className="py-4 items-center opacity-40">
@@ -395,6 +392,6 @@ export default function CommentsSection() {
           </View>
         </View>
       </PermissionGate>
-    </View>
+    </CollapsibleCard>
   );
 }

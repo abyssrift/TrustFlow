@@ -3,6 +3,7 @@ import { View, Text } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import CollapsibleCard from './CollapsibleCard';
 
 function timeAgo(dateStr: string): string {
   const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
@@ -48,9 +49,7 @@ export default function ActivityLog() {
   if (!data || data.activity.length === 0) return null;
 
   return (
-    <View className="bg-surface-card rounded-2xl border border-color-surface-border p-4">
-      <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em] mb-3">Activity</Text>
-
+    <CollapsibleCard title="Activity" defaultCollapsed>
       {data.activity.slice(0, 20).map(a => {
         const ev = getEventStyle(a.event_type);
         return (
@@ -67,6 +66,6 @@ export default function ActivityLog() {
           </View>
         );
       })}
-    </View>
+    </CollapsibleCard>
   );
 }

@@ -3,6 +3,7 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React from 'react';
 import { Text, View } from 'react-native';
+import CollapsibleCard from './CollapsibleCard';
 
 function Avatar({ name, size = 32 }: { name: string | null; size?: number }) {
   const initial = (name || '?').charAt(0).toUpperCase();
@@ -23,11 +24,7 @@ export default function PeoplePanel() {
   const teamAssignments = assignments.filter(a => a.team);
 
   return (
-    <View className="bg-surface-card rounded-2xl border border-surface-border p-4">
-      <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em] mb-3">
-        People ({assignments.length})
-      </Text>
-
+    <CollapsibleCard title={`People (${assignments.length})`} defaultCollapsed>
       {/* Manager */}
       {manager && (
         <View className="flex-row items-center mb-3 pb-3 border-b border-surface-border/30">
@@ -72,6 +69,6 @@ export default function PeoplePanel() {
            <Text className="text-typography-muted text-xs mt-2">No assignees yet</Text>
          </View>
        )}
-    </View>
+    </CollapsibleCard>
   );
 }
