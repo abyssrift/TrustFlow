@@ -1,4 +1,5 @@
-import React, { Platform } from 'react';
+import React from 'react';
+import { Platform } from 'react-native';
 import { type ManualTimeApprovalEntry } from '@/contexts/TaskDetailContext';
 import MobileCard from './ManualTimeApprovalCard.mobile';
 import WebCard from './ManualTimeApprovalCard.web';

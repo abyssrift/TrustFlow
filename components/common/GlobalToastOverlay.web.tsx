@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
   },
   stack: {
     width: 380,
-    maxWidth: 'calc(100vw - 32px)',
+    maxWidth: 'calc(100vw - 32px)' as any,
     gap: 10,
   },
 });

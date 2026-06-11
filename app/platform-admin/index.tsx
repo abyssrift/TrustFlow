@@ -634,7 +634,7 @@ export default function PlatformAdminScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       {/* Header */}
-      <View className="bg-surface-card border-b border-surface-border px-4 pt-4 pb-3">
+      <View className="bg-surface-card border-b border-surface-border px-4 pt-6 pb-3">
         <View className="flex-row items-center justify-between mb-4">
           <View className="flex-1 mr-3">
             <View className="flex-row items-center gap-2 mb-2">

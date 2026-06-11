@@ -24,7 +24,7 @@ export function BackButton({ label = 'Back', onPress }: BackButtonProps) {
   return (
     <TouchableOpacity
       onPress={handlePress}
-      className="flex-row items-center h-11 pr-4"
+      className="flex-row items-center h-11 pr-4 pt-1"
     >
       <FontAwesome name="chevron-left" size={14} className="text-typography-muted" />
       <Text className="text-typography-muted font-bold text-sm ml-2">{label}</Text>

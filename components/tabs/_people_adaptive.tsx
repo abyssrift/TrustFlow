@@ -16,6 +16,7 @@ import NotificationRules from '@/components/admin/NotificationRules';
 import RoleBuilder from '@/components/admin/RoleBuilder';
 import TeamAssignmentGrid from '@/components/admin/TeamAssignmentGrid';
 import UserAssignmentGrid from '@/components/admin/UserAssignmentGrid';
+import { BackButton } from '@/components/common/BackButton';
 import { useAuth } from '@/contexts/AuthContext';
 import { RoleManagerProvider, useRoleManager } from '@/contexts/RoleManagerContext';
 import { supabase } from '@/lib/supabase';
@@ -94,6 +95,11 @@ export default function PeopleScreen() {
     <View className="flex-1 bg-surface-background">
       <View className="flex-1">
       <View className="px-6 pb-4" style={{ paddingTop: Platform.OS !== 'web' ? 54 : 16 }}>
+        {Platform.OS !== 'web' && (
+          <View className="mb-4">
+            <BackButton />
+          </View>
+        )}
         <View className="flex-row items-center justify-between mb-4">
           <View>
             <Text className="text-typography-main text-3xl font-black">Corporate</Text>

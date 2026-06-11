@@ -151,7 +151,7 @@ export function RoleManagerProvider({ children }: { children: ReactNode }) {
       setTeamMembers((membersResult as any).data || []);
 
       // Hydrate roles with their permission IDs
-      const permissionsByRole = (rolePermsResult.data || []).reduce((acc: any, curr) => {
+      const permissionsByRole = (rolePermsResult.data || []).reduce((acc: any, curr: any) => {
         if (!acc[curr.role_id]) acc[curr.role_id] = [];
         acc[curr.role_id].push(curr.permission_id);
         return acc;

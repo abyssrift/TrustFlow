@@ -116,7 +116,7 @@ export function usePushSubscription() {
 
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: APP_SERVER_KEY,
+        applicationServerKey: APP_SERVER_KEY as any,
       });
       await supabase.rpc('rpc_upsert_push_subscription', {
         p_type: 'web',

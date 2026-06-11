@@ -588,12 +588,12 @@ function TypeParamPanel({ type, params, setParam, toggleMultiUser, pipelines, te
   if (type === 'general' || type === 'workflow_analysis') {
     return (
       <>
-        <ChipRow label="Pipeline" options={pipelines} value={params.pipeline_id || ''} onSelect={v => setParam('pipeline_id', v)} placeholder="All Pipelines" />
-        <ChipRow label="Team"     options={teams}     value={params.team_id     || ''} onSelect={v => setParam('team_id', v)}     placeholder="All Teams" />
-        <ChipRow label="Person"   options={workers}   value={params.worker_id   || ''} onSelect={v => setParam('worker_id', v)}   placeholder="All People" labelKey="full_name" />
+        <ChipRow label="Pipeline" options={pipelines} value={params.pipeline_id || ''} onSelect={(v: string) => setParam('pipeline_id', v)} placeholder="All Pipelines" />
+        <ChipRow label="Team"     options={teams}     value={params.team_id     || ''} onSelect={(v: string) => setParam('team_id', v)}     placeholder="All Teams" />
+        <ChipRow label="Person"   options={workers}   value={params.worker_id   || ''} onSelect={(v: string) => setParam('worker_id', v)}   placeholder="All People" labelKey="full_name" />
         <ChipRow label="Priority"
           options={[{id:'low',name:'Low'},{id:'medium',name:'Medium'},{id:'high',name:'High'},{id:'critical',name:'Critical'}]}
-          value={params.priority || ''} onSelect={v => setParam('priority', v)} placeholder="All"
+          value={params.priority || ''} onSelect={(v: string) => setParam('priority', v)} placeholder="All"
         />
       </>
     );
@@ -656,7 +656,7 @@ function TypeParamPanel({ type, params, setParam, toggleMultiUser, pipelines, te
   if (type === 'user_performance_series' || type === 'user_performance_summary') {
     return (
       <>
-        <ChipRow label="Person" options={workers} value={params.user_id || ''} onSelect={v => setParam('user_id', v)} labelKey="full_name" />
+        <ChipRow label="Person" options={workers} value={params.user_id || ''} onSelect={(v: string) => setParam('user_id', v)} labelKey="full_name" />
         {type === 'user_performance_series' && (
           <>
             <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-typography-muted mb-2 mt-2">Period Granularity</Text>
@@ -676,13 +676,13 @@ function TypeParamPanel({ type, params, setParam, toggleMultiUser, pipelines, te
   }
 
   if (type === 'pipeline_stage_dwell') {
-    return <ChipRow label="Pipeline" options={pipelines} value={params.pipeline_id || ''} onSelect={v => setParam('pipeline_id', v)} />;
+    return <ChipRow label="Pipeline" options={pipelines} value={params.pipeline_id || ''} onSelect={(v: string) => setParam('pipeline_id', v)} />;
   }
 
   if (type === 'pipeline_throughput') {
     return (
       <>
-        <ChipRow label="Pipeline" options={pipelines} value={params.pipeline_id || ''} onSelect={v => setParam('pipeline_id', v)} />
+        <ChipRow label="Pipeline" options={pipelines} value={params.pipeline_id || ''} onSelect={(v: string) => setParam('pipeline_id', v)} />
         <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-typography-muted mb-2 mt-2">Period Granularity</Text>
         <View className="flex-row gap-2 mb-4">
           {(['week', 'month', 'year'] as const).map(p => (

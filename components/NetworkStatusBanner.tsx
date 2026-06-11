@@ -24,10 +24,11 @@ function useWebConnectionInfo() {
     if (Platform.OS !== 'web') return;
 
     const updateConnectionInfo = () => {
+      const nav = navigator as any;
       const navigatorConnection =
-        navigator.connection ||
-        navigator.mozConnection ||
-        navigator.webkitConnection;
+        nav.connection ||
+        nav.mozConnection ||
+        nav.webkitConnection;
 
       setConnectionInfo({
         online: navigator.onLine,
@@ -41,10 +42,11 @@ function useWebConnectionInfo() {
     window.addEventListener('online', updateConnectionInfo);
     window.addEventListener('offline', updateConnectionInfo);
 
+    const nav = navigator as any;
     const navigatorConnection =
-      navigator.connection ||
-      navigator.mozConnection ||
-      navigator.webkitConnection;
+      nav.connection ||
+      nav.mozConnection ||
+      nav.webkitConnection;
 
     navigatorConnection?.addEventListener?.('change', updateConnectionInfo);
 
@@ -95,8 +97,9 @@ function useBannerState(): BannerState | null {
 
     const reachable = netInfo.isInternetReachable;
     const connected = netInfo.isConnected;
-    const generation = netInfo.details?.cellularGeneration;
-    const expensive = netInfo.details?.isConnectionExpensive;
+    const details = netInfo.details as any;
+    const generation = details?.cellularGeneration;
+    const expensive = details?.isConnectionExpensive;
 
     if (connected === null && reachable === null) return null;
 
@@ -121,7 +124,7 @@ function useBannerState(): BannerState | null {
     }
 
     return null;
-  }, [netInfo.details?.cellularGeneration, netInfo.details?.isConnectionExpensive, netInfo.isConnected, netInfo.isInternetReachable, webConnectionInfo]);
+  }, [(netInfo.details as any)?.cellularGeneration, (netInfo.details as any)?.isConnectionExpensive, netInfo.isConnected, netInfo.isInternetReachable, webConnectionInfo]);
 }
 
 export default function NetworkStatusBanner() {

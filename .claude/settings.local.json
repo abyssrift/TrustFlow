@@ -64,7 +64,9 @@
       "Bash(sed -n '100,140p' components/Sidebar.web.tsx)",
       "Bash(sed -n '190,205p' components/Sidebar.web.tsx)",
       "Bash(sed -n '80,100p' components/Sidebar.web.tsx)",
-      "Bash(grep -n \"^function\\\\|^const.*=.*=>.*{$\\\\|^export function\\\\|^export const.*=.*=>\" components/Sidebar.web.tsx)"
+      "Bash(grep -n \"^function\\\\|^const.*=.*=>.*{$\\\\|^export function\\\\|^export const.*=.*=>\" components/Sidebar.web.tsx)",
+      "Bash(sed -n '1,30p' components/NetworkStatusBanner.tsx)",
+      "Bash(sed -n '90,130p' components/NetworkStatusBanner.tsx)"
     ],
     "additionalDirectories": [
       "C:\\Users\\PC\\.claude",

@@ -111,7 +111,7 @@ const CreateModal = ({ visible, onClose, onConfirm, pipelines, stages }: any) =>
                 <View>
                   <Text className="text-typography-muted text-[9px] font-black uppercase mb-3">Expiration Deadline</Text>
                   <PremiumCalendarPicker
-                    selectedDate={deadline ? (typeof deadline === 'string' ? deadline : deadline.toISOString().split('T')[0]) : null}
+                    selectedDate={deadline ?? null}
                     onSelect={(d) => setDeadline(d)}
 
                   />
@@ -315,16 +315,13 @@ const TargetCircle = ({
         {/* Track */}
         <Circle cx={cx} cy={cx} r={r} fill="none" stroke={palette.border} strokeWidth={STROKE} />
         {/* Progress */}
-        <Circle
-          cx={cx} cy={cx} r={r}
-          fill="none"
-          stroke={`url(#${gradId})`}
-          strokeWidth={STROKE}
-          strokeDasharray={circumference}
-          strokeDashoffset={strokeDashoffset}
-          strokeLinecap="round"
-          style={{ transform: `rotate(-90deg)`, transformOrigin: `${cx}px ${cx}px` }}
-        />
+        <Circle {...{
+          cx, cy: cx, r, fill: 'none',
+          stroke: `url(#${gradId})`,
+          strokeWidth: STROKE, strokeDasharray: circumference,
+          strokeDashoffset, strokeLinecap: 'round',
+          style: { transform: `rotate(-90deg)`, transformOrigin: `${cx}px ${cx}px` },
+        } as any} />
         {/* Inner fill */}
         <Circle cx={cx} cy={cx} r={r - STROKE / 2 - 1} fill={palette.card} />
       </Svg>
@@ -508,14 +505,14 @@ export default function IntelligenceTargetsNative() {
   return (
     <View className="flex-1 bg-surface-background">
       <View className="px-6 pt-14 pb-4">
-        <View className="flex-row items-start justify-between mb-4 gap-3">
+        <View className="flex-row items-start justify-between mb-3">
           <View className="flex-1">
             <Text className="text-brand-primary font-black uppercase tracking-[4px] text-[10px] mb-1">Intelligence Hub</Text>
             <Text className="text-typography-main text-3xl font-black">Targets</Text>
           </View>
           <BackButton label="" />
         </View>
-        <View className="flex-row flex-wrap justify-end gap-2">
+        <View className="flex-row flex-wrap justify-end gap-2 mt-3">
           <TouchableOpacity onPress={fetchTargets} className="w-11 h-11 items-center justify-center bg-surface-card border border-surface-border rounded-2xl">
             <FontAwesome name="refresh" size={13} color={colors.primary} />
           </TouchableOpacity>

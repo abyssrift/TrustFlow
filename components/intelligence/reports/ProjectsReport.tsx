@@ -1,4 +1,4 @@
-import { Document, Page, StyleSheet } from '@react-pdf/renderer'
+import { Document, Page, StyleSheet, View } from '@react-pdf/renderer'
 import React from 'react'
 import { C, base } from './theme'
 import { Cover, Empty, Footer, HBar, Insight, KpiRow, Section, SectionDivider, Sub, Table, fmtDate, sf } from './shared'

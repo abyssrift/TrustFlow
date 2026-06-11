@@ -6,6 +6,7 @@ import ReportFiltersModal, {
   REPORT_TYPE_OPTIONS,
   type ReportFilters,
 } from '@/components/intelligence/ReportFiltersModal';
+import { BackButton } from '@/components/common/BackButton';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
@@ -148,12 +149,15 @@ export default function IntelligenceReportsNative() {
 
   return (
     <View className="flex-1 bg-surface-background">
-      <View className="px-6 pt-14 pb-4 flex-row items-end justify-between">
-        <View className="flex-1">
-          <Text className="text-brand-primary font-black uppercase tracking-[4px] text-[10px] mb-1">Intelligence Hub</Text>
-          <Text className="text-typography-main text-3xl font-black">Reports</Text>
+      <View className="px-6 pt-14 pb-4">
+        <View className="flex-row items-start justify-between mb-3">
+          <View className="flex-1">
+            <Text className="text-brand-primary font-black uppercase tracking-[4px] text-[10px] mb-1">Intelligence Hub</Text>
+            <Text className="text-typography-main text-3xl font-black">Reports</Text>
+          </View>
+          <BackButton label="" />
         </View>
-        <View className="flex-row gap-2">
+        <View className="flex-row gap-2 mt-3">
           <TouchableOpacity
             onPress={() => setShowFilters(true)}
             className={`w-11 h-11 items-center justify-center rounded-2xl border ${

@@ -162,7 +162,7 @@ export default function DevToolsScreen() {
     <SafeAreaView className="flex-1 bg-surface-background" style={Platform.OS === 'android' ? { paddingTop: StatusBar.currentHeight } : {}}>
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {/* Header */}
-        <View className="bg-surface-card border-b border-surface-border px-4 py-4">
+        <View className="bg-surface-card border-b border-surface-border px-4 pt-6 pb-4">
           <View className="flex-row items-center justify-between mb-2">
             <View className="flex-row items-center gap-3 flex-1">
               <BackButton />

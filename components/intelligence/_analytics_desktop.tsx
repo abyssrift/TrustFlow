@@ -464,7 +464,7 @@ function PersonnelTab() {
       r.completed_tasks,
       fmtPct(r.on_time_rate),
       fmtPct(r.timer_efficiency),
-      (r.daily_rate_usd * 30).toFixed(2),
+      ((r.daily_rate_usd ?? 0) * 30).toFixed(2),
       r.total_cost_usd,
       r.cost_per_point?.toFixed(2) ?? '',
       r.points_per_hour?.toFixed(2) ?? '',
@@ -915,7 +915,7 @@ function PersonnelTab() {
                     </CellBadgeText>
                   </View>
                   <View style={{ width: 110 }}>
-                    <Text className="text-typography-main text-sm">{fmtUSD(row.daily_rate_usd * 30)}</Text>
+                    <Text className="text-typography-main text-sm">{fmtUSD((row.daily_rate_usd ?? 0) * 30)}</Text>
                   </View>
                   <View style={{ width: 110 }}>
                     <CellBadgeText badge={cellBadge('total_cost_usd', row.total_cost_usd)}>

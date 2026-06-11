@@ -612,12 +612,12 @@ function TypeParamPanel({
   if (type === 'general' || type === 'workflow_analysis') {
     return (
       <>
-        <ParameterSection title="Pipeline Focus"   options={pipelines} value={params.pipeline_id || ''} onSelect={v => setParam('pipeline_id', v)} placeholder="All Pipelines" />
-        <ParameterSection title="Unit Allocation"  options={teams}     value={params.team_id     || ''} onSelect={v => setParam('team_id', v)}     placeholder="All Teams" />
-        <ParameterSection title="Individual Asset" options={workers}   value={params.worker_id   || ''} onSelect={v => setParam('worker_id', v)}   placeholder="All Personnel" labelKey="full_name" />
+        <ParameterSection title="Pipeline Focus"   options={pipelines} value={params.pipeline_id || ''} onSelect={(v: string) => setParam('pipeline_id', v)} placeholder="All Pipelines" />
+        <ParameterSection title="Unit Allocation"  options={teams}     value={params.team_id     || ''} onSelect={(v: string) => setParam('team_id', v)}     placeholder="All Teams" />
+        <ParameterSection title="Individual Asset" options={workers}   value={params.worker_id   || ''} onSelect={(v: string) => setParam('worker_id', v)}   placeholder="All Personnel" labelKey="full_name" />
         <ParameterSection title="Priority Tier"
           options={[{ id: 'low', name: 'Low' }, { id: 'medium', name: 'Medium' }, { id: 'high', name: 'High' }, { id: 'critical', name: 'Critical' }]}
-          value={params.priority || ''} onSelect={v => setParam('priority', v)} placeholder="All Tiers"
+          value={params.priority || ''} onSelect={(v: string) => setParam('priority', v)} placeholder="All Tiers"
         />
       </>
     );
@@ -692,7 +692,7 @@ function TypeParamPanel({
   if (type === 'user_performance_series' || type === 'user_performance_summary') {
     return (
       <>
-        <ParameterSection title="Person" options={workers} value={params.user_id || ''} onSelect={v => setParam('user_id', v)} placeholder="Select Person" labelKey="full_name" required />
+        <ParameterSection title="Person" options={workers} value={params.user_id || ''} onSelect={(v: string) => setParam('user_id', v)} placeholder="Select Person" labelKey="full_name" required />
         {type === 'user_performance_series' && (
           <SeriesControls
             periodType={params.period_type || 'month'}
@@ -706,13 +706,13 @@ function TypeParamPanel({
   }
 
   if (type === 'pipeline_stage_dwell') {
-    return <ParameterSection title="Pipeline" options={pipelines} value={params.pipeline_id || ''} onSelect={v => setParam('pipeline_id', v)} placeholder="Select Pipeline" required />;
+    return <ParameterSection title="Pipeline" options={pipelines} value={params.pipeline_id || ''} onSelect={(v: string) => setParam('pipeline_id', v)} placeholder="Select Pipeline" required />;
   }
 
   if (type === 'pipeline_throughput') {
     return (
       <>
-        <ParameterSection title="Pipeline" options={pipelines} value={params.pipeline_id || ''} onSelect={v => setParam('pipeline_id', v)} placeholder="Select Pipeline" required />
+        <ParameterSection title="Pipeline" options={pipelines} value={params.pipeline_id || ''} onSelect={(v: string) => setParam('pipeline_id', v)} placeholder="Select Pipeline" required />
         <SeriesControls
           periodType={params.period_type || 'month'}
           nPeriods={params.n_periods || '12'}

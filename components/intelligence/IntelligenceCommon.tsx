@@ -184,18 +184,13 @@ export const CircularTargetCard = ({ target, onEdit, onClear }: any) => {
             />
             
             {/* Progress Stroke */}
-            <Circle
-              cx={60}
-              cy={60}
-              r={35}
-              fill="none"
-              stroke={`url(#grad-${target.id})`}
-              strokeWidth={10}
-              strokeDasharray={circumference}
-              strokeDashoffset={strokeDashoffset}
-              strokeLinecap="round"
-              style={{ transform: 'rotate(-90deg)', transformOrigin: '60px 60px' }}
-            />
+            <Circle {...{
+              cx: 60, cy: 60, r: 35, fill: 'none',
+              stroke: `url(#grad-${target.id})`,
+              strokeWidth: 10, strokeDasharray: circumference,
+              strokeDashoffset: strokeDashoffset, strokeLinecap: 'round',
+              style: { transform: 'rotate(-90deg)', transformOrigin: '60px 60px' },
+            } as any} />
           </Svg>
 
           {/* Center Analytics */}

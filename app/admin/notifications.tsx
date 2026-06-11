@@ -15,7 +15,7 @@ export default function AdminNotificationsScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       {/* Header */}
-      <View className="bg-surface-card px-4 pt-4 pb-6 border-b border-surface-border rounded-b-3xl">
+      <View className="bg-surface-card px-4 pt-6 pb-6 border-b border-surface-border rounded-b-3xl">
         <View className="flex-row items-center justify-between mb-6">
           <BackButton />
           <View className="bg-brand-primary/10 px-3 py-1.5 rounded-full border border-brand-primary/20">

@@ -237,7 +237,7 @@ export function HBar({ data }: {
     <View style={hbarS.wrap}>
       {data.map((item, i) => (
         <View key={i} style={hbarS.row}>
-          <Text style={hbarS.label} numberOfLines={1}>{item.label}</Text>
+          <Text style={hbarS.label}>{item.label}</Text>
           <View style={hbarS.track}>
             <View style={[hbarS.fill, { width: `${(item.value / max) * 100}%`, backgroundColor: item.color || C.primary }]} />
           </View>
@@ -280,7 +280,7 @@ export function VBar({ data, height = 80, color = C.primary }: {
       </Svg>
       <View style={vbarS.labels}>
         {data.map((item, i) => (
-          <Text key={i} style={[vbarS.labelTxt, { width: gapW }]} numberOfLines={1}>
+          <Text key={i} style={[vbarS.labelTxt, { width: gapW }]}>
             {item.label}
           </Text>
         ))}
@@ -292,7 +292,8 @@ export function VBar({ data, height = 80, color = C.primary }: {
 // ── Stacked Bar (success/fail) ────────────────────────────────────────────────
 
 export function StackedVBar({ data, height = 80 }: {
-  data: { label: string; success: number; fail: number }[]
+  data: { label: string; success: number; fail: number }[];
+  height?: number;
 }) {
   const maxTotal = Math.max(...data.map(d => d.success + d.fail), 1)
   const chartW = 523
@@ -320,7 +321,7 @@ export function StackedVBar({ data, height = 80 }: {
       </Svg>
       <View style={vbarS.labels}>
         {data.map((item, i) => (
-          <Text key={i} style={[vbarS.labelTxt, { width: gapW }]} numberOfLines={1}>
+          <Text key={i} style={[vbarS.labelTxt, { width: gapW }]}>
             {item.label}
           </Text>
         ))}

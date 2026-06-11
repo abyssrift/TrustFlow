@@ -335,12 +335,12 @@ export default function StageActions() {
         Platform.OS === 'web' ? (
           <LockIndicatorWeb
             declaredMinutes={myEntry?.declared_minutes}
-            reason={myEntry?.reason}
+            reason={myEntry?.rejection_reason ?? undefined}
           />
         ) : (
           <LockIndicator
             declaredMinutes={myEntry?.declared_minutes}
-            reason={myEntry?.reason}
+            reason={myEntry?.rejection_reason ?? undefined}
           />
         )
       )}

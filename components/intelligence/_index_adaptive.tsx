@@ -714,12 +714,14 @@ export default function IntelligenceScreen() {
     <View className="flex-1 bg-surface-background">
       <ScrollView className="flex-1" stickyHeaderIndices={[1]} refreshControl={<RefreshControl refreshing={false} onRefresh={fetchAudit} />}>
         {/* Header */}
-        <View className="px-6 pt-12 pb-6 flex-row items-start justify-between">
-          <View className="flex-1">
-            <Text className="text-brand-primary font-black uppercase tracking-[4px] text-[10px] mb-1">Intelligence Center</Text>
-            <Text className="text-typography-main text-3xl font-black">Audit Hub</Text>
+        <View className="px-6 pt-12 pb-6">
+          <View className="flex-row items-start justify-between mb-4">
+            <View className="flex-1">
+              <Text className="text-brand-primary font-black uppercase tracking-[4px] text-[10px] mb-1">Intelligence Center</Text>
+              <Text className="text-typography-main text-3xl font-black">Audit Hub</Text>
+            </View>
+            <BackButton label="" />
           </View>
-          <BackButton label="" />
         </View>
 
         {/* Section Toggle */}

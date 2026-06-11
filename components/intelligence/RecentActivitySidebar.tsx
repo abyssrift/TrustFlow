@@ -50,7 +50,7 @@ export const RecentActivitySidebar = () => {
 
       <ScrollView contentContainerStyle={{ padding: 24, gap: 32 }}>
         {/* Live Submissions Section */}
-        {activeJobs.length > 0 && (
+        {Object.values(activeJobs).length > 0 && (
           <View>
             <View className="flex-row items-center justify-between mb-4">
               <View className="flex-row items-center gap-2">
@@ -58,15 +58,15 @@ export const RecentActivitySidebar = () => {
                 <Text className="text-sm font-semibold text-typography-main uppercase tracking-wider">Live Submissions</Text>
               </View>
               <View className="bg-brand-primary/10 px-2 py-0.5 rounded-full">
-                <Text className="text-[10px] font-bold text-brand-primary">{activeJobs.length}</Text>
+                <Text className="text-[10px] font-bold text-brand-primary">{Object.values(activeJobs).length}</Text>
               </View>
             </View>
             <View className="gap-3">
-              {activeJobs.map((job) => (
-                <View key={job.id} className="bg-surface-card border border-surface-border rounded-2xl p-4 premium-shadow">
+              {Object.values(activeJobs).map((job) => (
+                <View key={job.taskId} className="bg-surface-card border border-surface-border rounded-2xl p-4 premium-shadow">
                   <View className="flex-row items-center justify-between mb-2">
                     <Text className="text-sm font-medium text-typography-main flex-1 mr-2" numberOfLines={1}>
-                      {job.title}
+                      {job.taskTitle}
                     </Text>
                     <Text className="text-[10px] text-typography-muted font-mono">{Math.round(job.progress * 100)}%</Text>
                   </View>

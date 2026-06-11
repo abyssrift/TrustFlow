@@ -218,7 +218,7 @@ function TasksScreen() {
       if (pipelineData?.task_visibility_mode === 'assigned_only' && !canViewAll) {
         filteredTasks = filteredTasks.filter(t => {
           const isManager = t.manager_id === user?.id;
-          const isAssigned = t.assignments?.some(a => 
+          const isAssigned = t.assignments?.some((a: any) =>
             (a.assignee_user_id && a.assignee_user_id === user?.id) || 
             (a.assignee_team_id && myTeamIds.includes(a.assignee_team_id))
           );
@@ -603,7 +603,7 @@ function TasksScreen() {
         {(skeletonBg || kanban.backgroundUrl) && (
           <View className="absolute inset-0 overflow-hidden">
             <Image 
-              source={{ uri: skeletonBg || kanban.backgroundUrl }} 
+              source={{ uri: skeletonBg || kanban.backgroundUrl || undefined }} 
               className="absolute inset-0 w-full h-full"
               resizeMode="cover"
               style={{ opacity: 1 }}

@@ -1542,12 +1542,14 @@ function FileHubAdaptiveInner() {
     <View className="flex-1 bg-surface-background">
       {/* ── Header ── */}
       {(!activeGroupId || mode !== 'groups') && (
-        <View className={`px-6 pb-4 flex-row items-start justify-between ${Platform.OS === 'web' ? 'pt-6' : 'pt-14'}`}>
-          <View className="flex-1">
-            <Text className="text-brand-primary font-black uppercase tracking-[4px] text-[10px] mb-1">Intelligence Hub</Text>
-            <Text className="text-typography-main text-3xl font-black">File Hub</Text>
+        <View className={`px-6 pb-4 ${Platform.OS === 'web' ? 'pt-6' : 'pt-14'}`}>
+          <View className="flex-row items-start justify-between mb-4">
+            <View className="flex-1">
+              <Text className="text-brand-primary font-black uppercase tracking-[4px] text-[10px] mb-1">Intelligence Hub</Text>
+              <Text className="text-typography-main text-3xl font-black">File Hub</Text>
+            </View>
+            <BackButton label="" />
           </View>
-          <BackButton label="" />
         </View>
       )}
 

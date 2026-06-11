@@ -1,4 +1,5 @@
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
+import { BackButton } from '@/components/common/BackButton';
 import { PersonnelRow, StageDwell, ThroughputPeriod, useAnalytics } from '@/contexts/AnalyticsContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -609,8 +610,13 @@ export default function AdminAnalyticsNative() {
 
       {/* Header */}
       <View className="px-6 pt-14 pb-6">
-        <Text className="text-brand-primary font-black uppercase tracking-[4px] text-[10px] mb-1">Operations Intelligence</Text>
-        <Text className="text-typography-main text-3xl font-black tracking-tighter">Analytics Hub</Text>
+        <View className="flex-row items-start justify-between mb-4">
+          <View className="flex-1">
+            <Text className="text-brand-primary font-black uppercase tracking-[4px] text-[10px] mb-1">Operations Intelligence</Text>
+            <Text className="text-typography-main text-3xl font-black tracking-tighter">Analytics Hub</Text>
+          </View>
+          <BackButton label="" />
+        </View>
       </View>
 
       {/* Tab switcher */}

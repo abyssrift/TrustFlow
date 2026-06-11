@@ -122,11 +122,7 @@ export default function StageBuilder() {
   const handleMoveUp = (index: number) => {
     if (index <= 0) return;
     if (stages[index].is_initial || (index === 1 && stages[0]?.is_initial)) {
-      showAlert({
-        title: 'Invalid Move',
-        message: 'Entry Stage must remain first.',
-        type: 'info'
-      });
+      showAlert('Invalid Move', 'Entry Stage must remain first.');
       return;
     }
     const ids = stages.map(s => s.id);
@@ -137,11 +133,7 @@ export default function StageBuilder() {
   const handleMoveDown = (index: number) => {
     if (index >= stages.length - 1) return;
     if (stages[index].is_initial) {
-      showAlert({
-        title: 'Invalid Move',
-        message: 'Entry Stage must remain first.',
-        type: 'info'
-      });
+      showAlert('Invalid Move', 'Entry Stage must remain first.');
       return;
     }
     const ids = stages.map(s => s.id);
@@ -152,11 +144,7 @@ export default function StageBuilder() {
   const handleMoveToTop = (index: number) => {
     if (index <= 0) return;
     if (stages[0]?.is_initial && !stages[index].is_initial) {
-      showAlert({
-        title: 'Invalid Move',
-        message: 'Entry Stage must remain first.',
-        type: 'info'
-      });
+      showAlert('Invalid Move', 'Entry Stage must remain first.');
       return;
     }
     const ids = stages.map(s => s.id);
@@ -168,11 +156,7 @@ export default function StageBuilder() {
   const handleMoveToEnd = (index: number) => {
     if (index >= stages.length - 1) return;
     if (stages[index].is_initial) {
-      showAlert({
-        title: 'Invalid Move',
-        message: 'Entry Stage must remain first.',
-        type: 'info'
-      });
+      showAlert('Invalid Move', 'Entry Stage must remain first.');
       return;
     }
     const ids = stages.map(s => s.id);

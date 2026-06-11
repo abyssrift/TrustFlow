@@ -45,7 +45,7 @@ function PipelineEditorInner() {
       <SafeAreaView className="flex-1" style={Platform.OS === 'android' ? { paddingTop: StatusBar.currentHeight } : {}}>
         <View className="flex-1 bg-surface-background" style={Platform.OS === 'web' ? ({ minHeight: '100vh' } as any) : {}}>
           {/* Top Bar */}
-          <View className="bg-surface-card px-4 pt-4 pb-6 border-b border-surface-border">
+          <View className="bg-surface-card px-4 pt-6 pb-6 border-b border-surface-border">
             <View className="flex-row items-center justify-between">
               <BackButton />
               <View className="bg-brand-primary/10 px-3 py-1 rounded-full border border-brand-primary/20">
@@ -67,15 +67,9 @@ function PipelineEditorInner() {
     <SafeAreaView className="flex-1" style={Platform.OS === 'android' ? { paddingTop: StatusBar.currentHeight } : {}}>
       <View className="flex-1 bg-surface-background" style={Platform.OS === 'web' ? ({ minHeight: '100vh' } as any) : {}}>
         {/* Header with back button */}
-        <View className="bg-surface-card px-4 pt-4 pb-4 border-b border-surface-border">
+        <View className="bg-surface-card px-4 pt-6 pb-4 border-b border-surface-border">
           <View className="flex-row items-center justify-between mb-4">
-            <TouchableOpacity
-              onPress={deselectPipeline}
-              className="flex-row items-center h-11 pr-4"
-            >
-              <FontAwesome name="chevron-left" size={14} color={colors.textMuted} />
-              <Text className="text-typography-muted font-bold text-sm ml-2">Pipelines</Text>
-            </TouchableOpacity>
+            <BackButton label="Pipelines" onPress={deselectPipeline} />
             <View className="bg-brand-primary-dim px-3 py-1 rounded-full border border-brand-primary/20">
               <Text className="text-brand-primary text-[9px] font-black uppercase tracking-widest">Editor</Text>
             </View>

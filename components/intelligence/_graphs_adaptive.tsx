@@ -279,12 +279,14 @@ export default function IntelligenceGraphsNative() {
 
   return (
     <View className="flex-1 bg-surface-background">
-      <View className="px-6 pt-14 pb-4 flex-row items-start justify-between">
-        <View className="flex-1">
-          <Text className="text-brand-primary font-black uppercase tracking-[4px] text-[10px] mb-1">Intelligence Hub</Text>
-          <Text className="text-typography-main text-3xl font-black">Performance</Text>
+      <View className="px-6 pt-14 pb-4">
+        <View className="flex-row items-start justify-between mb-4">
+          <View className="flex-1">
+            <Text className="text-brand-primary font-black uppercase tracking-[4px] text-[10px] mb-1">Intelligence Hub</Text>
+            <Text className="text-typography-main text-3xl font-black">Performance</Text>
+          </View>
+          <BackButton label="" />
         </View>
-        <BackButton label="" />
       </View>
 
       {/* Controls */}

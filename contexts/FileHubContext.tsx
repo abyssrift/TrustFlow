@@ -378,7 +378,7 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
       p_file_id: fileId,
       p_action: action,
       p_metadata: metadata ?? null,
-    }).then(() => {}).catch(() => {});
+    }).then(() => {}, () => {});
   }, []);
 
   const fileActivity = useCallback(async (fileId: string): Promise<FileActivity[]> => {

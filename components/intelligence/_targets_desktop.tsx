@@ -208,16 +208,13 @@ const TargetCircle = ({
           strokeWidth={STROKE}
         />
         {/* Progress */}
-        <Circle
-          cx={CX} cy={CX} r={R}
-          fill="none"
-          stroke={`url(#grad-${target.id})`}
-          strokeWidth={STROKE}
-          strokeDasharray={CIRCUMFERENCE}
-          strokeDashoffset={strokeDashoffset}
-          strokeLinecap="round"
-          style={{ transform: `rotate(-90deg)`, transformOrigin: `${CX}px ${CX}px` }}
-        />
+        <Circle {...{
+          cx: CX, cy: CX, r: R, fill: 'none',
+          stroke: `url(#grad-${target.id})`,
+          strokeWidth: STROKE, strokeDasharray: CIRCUMFERENCE,
+          strokeDashoffset, strokeLinecap: 'round',
+          style: { transform: `rotate(-90deg)`, transformOrigin: `${CX}px ${CX}px` },
+        } as any} />
         {/* Filled inner background */}
         <Circle cx={CX} cy={CX} r={R - STROKE / 2 - 1} fill={palette.card} />
       </Svg>
