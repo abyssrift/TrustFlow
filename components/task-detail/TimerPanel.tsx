@@ -1,8 +1,8 @@
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React from 'react';
 import { Text, View } from 'react-native';
+import CollapsibleCard from './CollapsibleCard';
 
 function formatDuration(seconds: number) {
   if (seconds <= 0) return '0s';
@@ -19,7 +19,6 @@ function formatDuration(seconds: number) {
 
 export default function TimerPanel() {
   const { data } = useTaskDetail();
-  const colors = useThemeColors();
   if (!data) return null;
 
   const totalSpent = data.stats.total_time_spent_seconds || 0;
@@ -29,18 +28,12 @@ export default function TimerPanel() {
     .slice(0, 5);
 
   return (
-    <View className="bg-surface-card rounded-2xl border border-surface-border p-5">
-      {/* Aggregate Header */}
-      <View className="flex-row items-center justify-between mb-5">
-        <View>
-          <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-1">Total Effort</Text>
-          <Text className="text-typography-main text-xl font-black">{formatDuration(totalSpent)}</Text>
-        </View>
-        <View className="w-10 h-10 rounded-full bg-brand-primary/10 items-center justify-center">
-          <FontAwesome name="history" size={16} color={colors.primary} />
-        </View>
-      </View>
-
+    <CollapsibleCard
+      icon="history"
+      title="Total Effort"
+      defaultCollapsed
+      headerRight={<Text className="text-typography-main text-sm font-black">{formatDuration(totalSpent)}</Text>}
+    >
       {/* Sessions List */}
       <View className="gap-1">
         <Text className="text-typography-muted text-[8px] font-black uppercase tracking-widest mb-2">Recent Sessions</Text>
@@ -62,6 +55,6 @@ export default function TimerPanel() {
           ))
         )}
       </View>
-    </View>
+    </CollapsibleCard>
   );
 }

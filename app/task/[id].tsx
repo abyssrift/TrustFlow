@@ -98,7 +98,7 @@ function TaskDetailContent() {
         className="flex-1 px-4 py-4"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
-        <View className="gap-4 pb-32">
+        <View className="gap-4 pb-8">
           {/* Priority: what the assignee needs first — brief, the work itself, proofs, discussion */}
           <TaskBriefPanel />
           <StageActions />
@@ -109,15 +109,11 @@ function TaskDetailContent() {
           <PeoplePanel />
           <ChildPipelinesPanel />
           <PipelineJourney />
+          <TimerPanel />
           <ActivityLog />
           <TaskMetadata />
         </View>
       </ScrollView>
-
-      {/* Floating Timer Panel for Mobile Ergonomics */}
-      <View className="absolute bottom-6 left-0 right-0 px-4">
-        <TimerPanel />
-      </View>
     </View>
   );
 }
