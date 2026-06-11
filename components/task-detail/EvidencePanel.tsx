@@ -129,7 +129,7 @@ export default function EvidencePanel() {
                   <TouchableOpacity
                     key={`${ev.id}-${idx}`}
                     onPress={async () => {
-                      openStorageFile(SUBMISSION_BUCKET, ev.storage_path || ev.file_url);
+                      openStorageFile(SUBMISSION_BUCKET, ev.storage_path || ev.file_url, ev.file_name);
                     }}
                     className="flex-row items-center bg-surface-background p-3 rounded-xl border border-surface-border/50 active:opacity-75"
                   >

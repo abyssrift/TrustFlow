@@ -53,7 +53,8 @@
             }
           ]
         }
-      ]
+      ],
+      "expo-audio"
     ],
     "extra": {
       "router": {},

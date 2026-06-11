@@ -5,13 +5,12 @@ import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTimer } from '@/contexts/TimerContext';
 import { useToast } from '@/contexts/ToastContext';
-import { usePingNotification } from '@/hooks/usePingNotification';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
 import { splitStageActions, TYPE_STYLES } from './actionRegistry';
 
@@ -33,8 +32,7 @@ export default function TaskHeader() {
   const { data, executeAction } = useTaskDetail();
   const { isActive, activeSession, startWork, stopWork } = useTimer();
   const { theme: activeTheme } = useTheme();
-  const { hasPermission, profile } = useAuth();
-  const { playPingSound } = usePingNotification(data?.task.id || '');
+  const { hasPermission } = useAuth();
   const [busy, setBusy] = React.useState(false);
   const [loadingActionId, setLoadingActionId] = React.useState<string | null>(null);
   const [pingLoading, setPingLoading] = React.useState(false);
@@ -73,7 +71,6 @@ export default function TaskHeader() {
       const { error } = await supabase.rpc('rpc_ping_task', { p_task_id: data.task.id });
       if (error) throw error;
       successToast('Task pinged! 📢');
-      playPingSound();
     } catch (err: any) {
       errorToast(err.message || 'Could not ping task.');
     } finally {
@@ -205,29 +202,29 @@ export default function TaskHeader() {
         </View>
       </View>
 
-      {/* Title & Actions Row */}
-      <View className="flex-row items-center justify-between mt-1">
-        <View className="flex-1 mr-4">
-          <Text className="text-typography-main text-2xl font-black tracking-tight">
-            {task.title}
-          </Text>
-          {/* Muted info row */}
-          <View className="flex-row items-center gap-4 mt-1">
-            {task.category && (
-              <Text className="text-typography-dim text-[10px] font-bold uppercase tracking-wider">{task.category}</Text>
-            )}
-            {data.pipeline && (
-              <View className="flex-row items-center">
-                <FontAwesome name="code-fork" size={9} className="text-typography-dim" />
-                <Text className="text-typography-dim text-[10px] font-bold ml-1">{data.pipeline.name}</Text>
-              </View>
-            )}
-          </View>
+      {/* Title Row — full width */}
+      <View className="mt-1 mb-2">
+        <Text className="text-typography-main text-2xl font-black tracking-tight" numberOfLines={3}>
+          {task.title}
+        </Text>
+        {/* Muted info row */}
+        <View className="flex-row items-center gap-4 mt-1">
+          {task.category && (
+            <Text className="text-typography-dim text-[10px] font-bold uppercase tracking-wider">{task.category}</Text>
+          )}
+          {data.pipeline && (
+            <View className="flex-row items-center">
+              <FontAwesome name="code-fork" size={9} className="text-typography-dim" />
+              <Text className="text-typography-dim text-[10px] font-bold ml-1">{data.pipeline.name}</Text>
+            </View>
+          )}
         </View>
+      </View>
 
-        {/* Stage Actions Buttons (Swapped from middle) */}
-        <View className="flex-row items-center gap-2">
-          {buttonActions.map((a) => {
+      {/* Actions Row */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 2 }}>
+        {/* Stage Actions Buttons */}
+        {buttonActions.map((a) => {
             const style = TYPE_STYLES[a.style] || TYPE_STYLES.neutral;
             const isLoading = loadingActionId === a.id;
             const isLocked = advancementGateLocked && isAdvancementAction(a);
@@ -303,8 +300,7 @@ export default function TaskHeader() {
               )}
             </TouchableOpacity>
           )}
-        </View>
-      </View>
+      </ScrollView>
 
       {/* Error Message Display */}
       {errorMsg && (

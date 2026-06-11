@@ -1,6 +1,5 @@
 import ManualTimeModal from '@/components/common/ManualTimeModal';
 import LockIndicator from '@/components/task-detail/LockIndicator';
-import LockIndicatorWeb from '@/components/task-detail/LockIndicator.web';
 import ManualTimeApprovalCard from '@/components/task-detail/ManualTimeApprovalCard';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubmission } from '@/contexts/SubmissionContext';
@@ -331,17 +330,10 @@ export default function StageActions() {
 
       {/* Worker: locked banner while time declaration is pending */}
       {isMyEntryPending && !errorMsg && (
-        Platform.OS === 'web' ? (
-          <LockIndicatorWeb
-            declaredMinutes={myEntry?.declared_minutes}
-            reason={myEntry?.rejection_reason ?? undefined}
-          />
-        ) : (
-          <LockIndicator
-            declaredMinutes={myEntry?.declared_minutes}
-            reason={myEntry?.rejection_reason ?? undefined}
-          />
-        )
+        <LockIndicator
+          declaredMinutes={myEntry?.declared_minutes}
+          reason={myEntry?.rejection_reason ?? undefined}
+        />
       )}
 
       {/* Worker: rejected entry banner — prompts re-declaration */}
@@ -581,7 +573,7 @@ export default function StageActions() {
                         return (
                           <TouchableOpacity
                             key={a.id}
-                            onPress={() => openStorageFile(SUBMISSION_BUCKET, a.storage_path || a.file_url)}
+                            onPress={() => openStorageFile(SUBMISSION_BUCKET, a.storage_path || a.file_url, a.file_name)}
                             className="flex-row items-center bg-surface-background px-2.5 py-2 rounded-lg border border-surface-border/50 active:opacity-70"
                           >
                             <FontAwesome name={iconName as any} size={12} color={iconColor} />

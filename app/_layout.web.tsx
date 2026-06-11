@@ -20,6 +20,7 @@ import { SubmissionProvider } from '@/contexts/SubmissionContext';
 import { ThemeProvider as AppThemeProvider } from '@/contexts/ThemeContext';
 import { TimerProvider } from '@/contexts/TimerContext';
 import { ToastProvider } from '@/contexts/ToastContext';
+import { useGlobalPingListener } from '@/hooks/useGlobalPingListener';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 
@@ -75,6 +76,11 @@ export default function RootLayout() {
   );
 }
 
+function GlobalPingGuard() {
+  useGlobalPingListener();
+  return null;
+}
+
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
   const { session, profile, initialized } = useAuth();
@@ -108,6 +114,8 @@ function RootLayoutNav() {
       <AnalyticsProvider>
         <NotificationsProvider>
           <View className="flex-1 bg-surface-background">
+            {/* Always-on ping listener — one WebSocket channel for the current user */}
+            {session && <GlobalPingGuard />}
             <TimerIsland />
             <View className="absolute top-0 left-0 right-0 z-[999]">
               <NetworkStatusBanner />

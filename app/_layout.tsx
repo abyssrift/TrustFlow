@@ -92,6 +92,7 @@ import { NotificationsProvider } from '@/contexts/NotificationsContext';
 import { ThemeProvider as AppThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import { usePushRegistration } from '@/hooks/usePushRegistration';
 import { usePushAutoSubscribe } from '@/hooks/usePushAutoSubscribe';
+import { useGlobalPingListener } from '@/hooks/useGlobalPingListener';
 import WebPushPrompt from '@/components/WebPushPrompt';
 
 function PushRegistrationGuard() {
@@ -101,6 +102,11 @@ function PushRegistrationGuard() {
 
 function WebPushAutoSubscribeGuard() {
   usePushAutoSubscribe();
+  return null;
+}
+
+function GlobalPingGuard() {
+  useGlobalPingListener();
   return null;
 }
 
@@ -222,6 +228,8 @@ function ThemedRoot() {
         {session && Platform.OS !== 'web' && <PushRegistrationGuard />}
         {/* Auto-subscribe to web push on every login if not already active */}
         {session && Platform.OS === 'web' && <WebPushAutoSubscribeGuard />}
+        {/* Always-on ping listener — one WebSocket channel for the current user */}
+        {session && <GlobalPingGuard />}
 
         {/* Global Loading Overlay */}
         {(!initialized || isLoading) && <LoadingOverlay />}

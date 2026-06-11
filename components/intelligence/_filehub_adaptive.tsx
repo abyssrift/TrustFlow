@@ -2,7 +2,7 @@ import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { FileActivity, FileHubFile, FileHubGroup, FileHubGroupMember, FileHubMode, FileHubProvider, useFileHub } from '@/contexts/FileHubContext';
 import { BackButton } from '@/components/common/BackButton';
-import { openStorageFile } from '@/lib/storage';
+import { downloadFilesAsZip, openStorageFile } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
@@ -140,7 +140,7 @@ function FileDetailSheet({
     setDownloading(true);
     try {
       logActivity(file.id, 'download');
-      await openStorageFile(file.bucket || 'filehub-files', file.storage_path);
+      await openStorageFile(file.bucket || 'filehub-files', file.storage_path, file.original_name);
     } finally {
       setDownloading(false);
     }
@@ -1272,19 +1272,45 @@ function GroupMembersSheet({
 
 // ─── File Card ────────────────────────────────────────────────────────────────
 
-function FileCard({ file, mode, onPress }: { file: FileHubFile; mode: FileHubMode; onPress: () => void }) {
+function FileCard({
+  file,
+  mode,
+  onPress,
+  selectionMode = false,
+  isFileSelected = false,
+  onToggleSelect,
+}: {
+  file: FileHubFile;
+  mode: FileHubMode;
+  onPress: () => void;
+  selectionMode?: boolean;
+  isFileSelected?: boolean;
+  onToggleSelect?: () => void;
+}) {
   const { icon, color } = getMimeIcon(file.mime_type);
   const isUnread = mode === 'inbox' && !file.recipient_state?.read_at;
   const colors = useThemeColors();
 
   return (
     <TouchableOpacity
-      onPress={onPress}
-      className="bg-surface-card border border-surface-border rounded-2xl px-4 py-4 mb-3 flex-row items-center gap-3"
+      onPress={selectionMode ? onToggleSelect : onPress}
+      className={`border rounded-2xl px-4 py-4 mb-3 flex-row items-center gap-3 ${
+        isFileSelected
+          ? 'bg-brand-primary/10 border-brand-primary/40'
+          : 'bg-surface-card border-surface-border'
+      }`}
     >
-      <View className="w-11 h-11 bg-surface-background border border-surface-border rounded-xl items-center justify-center flex-shrink-0">
-        <FontAwesome name={icon as any} size={20} color={colors.textMain} />
-      </View>
+      {selectionMode ? (
+        <View className={`w-11 h-11 rounded-xl items-center justify-center flex-shrink-0 border-2 ${
+          isFileSelected ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'
+        }`}>
+          {isFileSelected && <FontAwesome name="check" size={16} color="#fff" />}
+        </View>
+      ) : (
+        <View className="w-11 h-11 bg-surface-background border border-surface-border rounded-xl items-center justify-center flex-shrink-0">
+          <FontAwesome name={icon as any} size={20} color={colors.textMain} />
+        </View>
+      )}
       <View className="flex-1 min-w-0">
         <View className="flex-row items-center gap-2 mb-0.5">
           {isUnread && <View className="w-2 h-2 rounded-full bg-brand-primary flex-shrink-0" />}
@@ -1482,6 +1508,9 @@ function FileHubAdaptiveInner() {
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [showManageMembers, setShowManageMembers] = useState(false);
   const [showManageTags, setShowManageTags] = useState(false);
+  const [zipDownloading, setZipDownloading] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set());
 
   const canBroadcast = hasPermission('filehub:broadcast');
 
@@ -1508,6 +1537,51 @@ function FileHubAdaptiveInner() {
   // Derive tags from the currently visible file list
   const displayFiles = mode === 'groups' && activeGroupId ? groupFiles : files;
   const displayLoading = mode === 'groups' && activeGroupId ? groupFilesLoading : loading;
+
+  const exitSelection = useCallback(() => {
+    setSelectionMode(false);
+    setSelectedFileIds(new Set());
+  }, []);
+
+  useEffect(() => { exitSelection(); }, [mode, activeGroupId]);
+
+  const toggleFileSelect = useCallback((fileId: string) => {
+    setSelectedFileIds(prev => {
+      const next = new Set(prev);
+      if (next.has(fileId)) next.delete(fileId); else next.add(fileId);
+      return next;
+    });
+  }, []);
+
+  const toggleSelectAll = useCallback(() => {
+    setSelectedFileIds(prev =>
+      prev.size === displayFiles.length
+        ? new Set()
+        : new Set(displayFiles.map(f => f.id))
+    );
+  }, [displayFiles]);
+
+  const handleDownloadAll = async (name: string) => {
+    if (zipDownloading || displayFiles.length === 0) return;
+    setZipDownloading(true);
+    try {
+      await downloadFilesAsZip(displayFiles, name);
+    } finally {
+      setZipDownloading(false);
+    }
+  };
+
+  const handleDownloadSelected = async () => {
+    const filesToDownload = displayFiles.filter(f => selectedFileIds.has(f.id));
+    if (filesToDownload.length === 0 || zipDownloading) return;
+    setZipDownloading(true);
+    try {
+      await downloadFilesAsZip(filesToDownload, 'Selected Files');
+      exitSelection();
+    } finally {
+      setZipDownloading(false);
+    }
+  };
 
   const allTags = useMemo(() => {
     const set = new Set<string>();
@@ -1581,6 +1655,30 @@ function FileHubAdaptiveInner() {
             <FontAwesome name="users" size={11} color={colors.textMuted} />
             <Text className="text-typography-muted text-xs font-bold">Members</Text>
           </TouchableOpacity>
+          {displayFiles.length > 0 && (
+            <>
+              <TouchableOpacity
+                onPress={() => setSelectionMode(s => !s)}
+                className={`w-10 h-10 rounded-xl items-center justify-center border ${
+                  selectionMode
+                    ? 'bg-brand-primary/10 border-brand-primary/30'
+                    : 'bg-surface-card border-surface-border'
+                }`}
+              >
+                <FontAwesome name="check-square-o" size={13} color={selectionMode ? colors.primary : colors.textMuted} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => handleDownloadAll(activeGroup?.name ?? 'Channel Files')}
+                disabled={zipDownloading}
+                className="w-10 h-10 bg-surface-card border border-surface-border rounded-xl items-center justify-center"
+              >
+                {zipDownloading
+                  ? <ActivityIndicator size="small" color={colors.primary} />
+                  : <FontAwesome name="download" size={13} color={colors.textMuted} />
+                }
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       )}
 
@@ -1604,7 +1702,17 @@ function FileHubAdaptiveInner() {
         <TouchableOpacity onPress={handleRefresh} className="w-11 h-11 bg-surface-card border border-surface-border rounded-2xl items-center justify-center">
           <FontAwesome name="refresh" size={13} color={colors.primary} />
         </TouchableOpacity>
-      </View>   
+        {(mode !== 'groups' || activeGroupId) && displayFiles.length > 0 && !activeGroupId && (
+          <TouchableOpacity
+            onPress={() => setSelectionMode(s => !s)}
+            className={`w-11 h-11 rounded-2xl items-center justify-center border ${
+              selectionMode ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-card border-surface-border'
+            }`}
+          >
+            <FontAwesome name="check-square-o" size={14} color={selectionMode ? colors.primary : colors.textMuted} />
+          </TouchableOpacity>
+        )}
+      </View>
 
       {/* ── Tabs ── */}
      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ height: 44, flexGrow: 0, flexShrink: 0, marginBottom: 12 }} contentContainerStyle={{ paddingHorizontal: 20, gap: 6, flexDirection: 'row', alignItems: 'center' }}>
@@ -1750,9 +1858,17 @@ function FileHubAdaptiveInner() {
           ) : (
             <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false}>
               {displayFiles.map(file => (
-                <FileCard key={file.id} file={file} mode="groups" onPress={() => setSelectedFile(file)} />
+                <FileCard
+                  key={file.id}
+                  file={file}
+                  mode="groups"
+                  onPress={() => setSelectedFile(file)}
+                  selectionMode={selectionMode}
+                  isFileSelected={selectedFileIds.has(file.id)}
+                  onToggleSelect={() => toggleFileSelect(file.id)}
+                />
               ))}
-              <View style={{ height: 100 }} />
+              <View style={{ height: selectionMode ? 140 : 100 }} />
             </ScrollView>
           )}
         </>
@@ -1786,22 +1902,64 @@ function FileHubAdaptiveInner() {
           ) : (
             <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false}>
               {displayFiles.map(file => (
-                <FileCard key={file.id} file={file} mode={mode} onPress={() => setSelectedFile(file)} />
+                <FileCard
+                  key={file.id}
+                  file={file}
+                  mode={mode}
+                  onPress={() => setSelectedFile(file)}
+                  selectionMode={selectionMode}
+                  isFileSelected={selectedFileIds.has(file.id)}
+                  onToggleSelect={() => toggleFileSelect(file.id)}
+                />
               ))}
-              <View style={{ height: 100 }} />
+              <View style={{ height: selectionMode ? 140 : 100 }} />
             </ScrollView>
           )}
         </>
       )}
 
-      {/* ── FAB — hidden on groups list, shown elsewhere ── */}
-      {(mode !== 'groups' || activeGroupId) && (
-        <TouchableOpacity
-          onPress={() => setShowUpload(true)}
-          className="absolute right-6 bottom-8 w-14 h-14 bg-brand-primary rounded-full items-center justify-center premium-shadow"
-        >
-          <FontAwesome name="plus" size={20} color="#fff" />
-        </TouchableOpacity>
+      {/* ── Selection toolbar (replaces FAB when in selection mode) ── */}
+      {selectionMode ? (
+        <View className="absolute bottom-6 left-5 right-5 bg-surface-card border border-surface-border rounded-2xl px-4 py-3 flex-row items-center gap-3 premium-shadow">
+          <TouchableOpacity
+            onPress={toggleSelectAll}
+            className={`w-9 h-9 rounded-xl items-center justify-center border-2 flex-shrink-0 ${
+              selectedFileIds.size === displayFiles.length && displayFiles.length > 0
+                ? 'bg-brand-primary border-brand-primary'
+                : selectedFileIds.size > 0 ? 'border-brand-primary bg-surface-background' : 'border-surface-border bg-surface-background'
+            }`}
+          >
+            {selectedFileIds.size === displayFiles.length && displayFiles.length > 0
+              ? <FontAwesome name="check" size={13} color="#fff" />
+              : selectedFileIds.size > 0 ? <View className="w-3 h-0.5 bg-brand-primary rounded-full" /> : null
+            }
+          </TouchableOpacity>
+          <Text className="flex-1 text-typography-main text-sm font-bold">
+            {selectedFileIds.size === 0 ? 'Tap to select' : `${selectedFileIds.size} selected`}
+          </Text>
+          {selectedFileIds.size > 0 && (
+            <TouchableOpacity
+              onPress={handleDownloadSelected}
+              disabled={zipDownloading}
+              className="flex-row items-center gap-1.5 bg-brand-primary px-4 py-2.5 rounded-xl"
+            >
+              {zipDownloading ? <ActivityIndicator size="small" color="#fff" /> : <FontAwesome name="download" size={13} color="#fff" />}
+              <Text className="text-white font-black text-sm">Download {selectedFileIds.size}</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity onPress={exitSelection} className="w-9 h-9 items-center justify-center flex-shrink-0">
+            <FontAwesome name="times" size={15} color={colors.textMuted} />
+          </TouchableOpacity>
+        </View>
+      ) : (
+        (mode !== 'groups' || activeGroupId) && (
+          <TouchableOpacity
+            onPress={() => setShowUpload(true)}
+            className="absolute right-6 bottom-8 w-14 h-14 bg-brand-primary rounded-full items-center justify-center premium-shadow"
+          >
+            <FontAwesome name="plus" size={20} color="#fff" />
+          </TouchableOpacity>
+        )
       )}
 
       {/* ── File detail sheet ── */}

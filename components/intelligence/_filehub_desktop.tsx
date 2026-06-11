@@ -2,7 +2,7 @@ import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { FileActivity, FileHubFile, FileHubFolder, FileHubGroup, FileHubGroupMember, FileHubMode, FileHubProvider, useFileHub } from '@/contexts/FileHubContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { openStorageFile } from '@/lib/storage';
+import { downloadFilesAsZip, openStorageFile } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -830,6 +830,17 @@ function FolderPanel() {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [creating, setCreating] = useState(false);
+  const [zipDownloading, setZipDownloading] = useState(false);
+
+  const handleFolderDownload = async (name: string) => {
+    if (zipDownloading || files.length === 0) return;
+    setZipDownloading(true);
+    try {
+      await downloadFilesAsZip(files, name);
+    } finally {
+      setZipDownloading(false);
+    }
+  };
   // Track which folder IDs have files for the current user+mode when unfiltered
   const [foldersWithFiles, setFoldersWithFiles] = useState<Set<string>>(new Set());
   useEffect(() => {
@@ -873,13 +884,24 @@ function FolderPanel() {
     <View className="px-5 py-4 border-b border-surface-border">
       <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-3">Folders</Text>
 
-      <TouchableOpacity
-        onPress={() => setSelectedFolderId(null)}
-        className={`flex-row items-center px-3 py-2 rounded-xl mb-1 ${!selectedFolderId ? 'bg-brand-primary/10' : 'hover:bg-surface-overlay'}`}
-      >
-        <FontAwesome name="folder-open-o" size={12} color={!selectedFolderId ? colors.primary : colors.textMuted} />
-        <Text className={`ml-2.5 text-sm font-bold flex-1 ${!selectedFolderId ? 'text-brand-primary' : 'text-typography-main'}`}>All Files</Text>
-      </TouchableOpacity>
+      <View className={`flex-row items-center px-3 py-2 rounded-xl mb-1 ${!selectedFolderId ? 'bg-brand-primary/10' : 'hover:bg-surface-overlay'}`}>
+        <TouchableOpacity className="flex-1 flex-row items-center" onPress={() => setSelectedFolderId(null)}>
+          <FontAwesome name="folder-open-o" size={12} color={!selectedFolderId ? colors.primary : colors.textMuted} />
+          <Text className={`ml-2.5 text-sm font-bold flex-1 ${!selectedFolderId ? 'text-brand-primary' : 'text-typography-main'}`}>All Files</Text>
+        </TouchableOpacity>
+        {!selectedFolderId && files.length > 0 && (
+          <TouchableOpacity
+            onPress={() => handleFolderDownload(mode === 'inbox' ? 'Inbox Files' : mode === 'sent' ? 'Sent Files' : 'Files')}
+            disabled={zipDownloading}
+            className="w-5 h-5 items-center justify-center ml-1"
+          >
+            {zipDownloading
+              ? <ActivityIndicator size="small" color={colors.primary} style={{ transform: [{ scale: 0.6 }] }} />
+              : <FontAwesome name="download" size={9} color={colors.primary} />
+            }
+          </TouchableOpacity>
+        )}
+      </View>
 
       {visibleFolders.map(f => (
         <View key={f.id} className={`flex-row items-center px-3 py-2 rounded-xl mb-1 ${selectedFolderId === f.id ? 'bg-brand-primary/10' : 'hover:bg-surface-overlay'}`}>
@@ -899,6 +921,18 @@ function FolderPanel() {
             </TouchableOpacity>
           )}
           <View className="flex-row gap-1 ml-1">
+            {selectedFolderId === f.id && files.length > 0 && (
+              <TouchableOpacity
+                onPress={() => handleFolderDownload(f.name)}
+                disabled={zipDownloading}
+                className="w-6 h-6 items-center justify-center rounded-lg hover:bg-surface-overlay"
+              >
+                {zipDownloading
+                  ? <ActivityIndicator size="small" color={colors.primary} style={{ transform: [{ scale: 0.6 }] }} />
+                  : <FontAwesome name="download" size={9} color={colors.primary} />
+                }
+              </TouchableOpacity>
+            )}
             <TouchableOpacity onPress={() => startRename(f)} className="w-6 h-6 items-center justify-center rounded-lg hover:bg-surface-overlay">
               <FontAwesome name="pencil" size={9} color={colors.textMuted} />
             </TouchableOpacity>
@@ -945,25 +979,41 @@ function FileRow({
   selected,
   mode,
   onPress,
+  selectionMode = false,
+  isFileSelected = false,
+  onToggleSelect,
 }: {
   file: FileHubFile;
   selected: boolean;
   mode: FileHubMode;
   onPress: () => void;
+  selectionMode?: boolean;
+  isFileSelected?: boolean;
+  onToggleSelect?: () => void;
 }) {
   const { icon, color } = getMimeIcon(file.mime_type);
   const isUnread = mode === 'inbox' && !file.recipient_state?.read_at;
 
   return (
     <TouchableOpacity
-      onPress={onPress}
+      onPress={selectionMode ? onToggleSelect : onPress}
       className={`flex-row items-center px-6 py-4 border-b border-surface-border/40 transition-colors ${
-        selected ? 'bg-brand-primary/5 border-l-2 border-l-brand-primary' : 'hover:bg-surface-overlay/60'
+        isFileSelected
+          ? 'bg-brand-primary/10'
+          : selected ? 'bg-brand-primary/5 border-l-2 border-l-brand-primary' : 'hover:bg-surface-overlay/60'
       }`}
     >
-      <View className="w-9 h-9 rounded-xl bg-surface-background border border-surface-border items-center justify-center mr-3.5 flex-shrink-0">
-        <FontAwesome name={icon as any} size={16} color={color} />
-      </View>
+      {selectionMode ? (
+        <View className={`w-9 h-9 rounded-xl items-center justify-center mr-3.5 flex-shrink-0 border-2 ${
+          isFileSelected ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'
+        }`}>
+          {isFileSelected && <FontAwesome name="check" size={14} color="#fff" />}
+        </View>
+      ) : (
+        <View className="w-9 h-9 rounded-xl bg-surface-background border border-surface-border items-center justify-center mr-3.5 flex-shrink-0">
+          <FontAwesome name={icon as any} size={16} color={color} />
+        </View>
+      )}
       <View className="flex-1 min-w-0 mr-3">
         <View className="flex-row items-center gap-2 mb-0.5">
           {isUnread && <View className="w-2 h-2 rounded-full bg-brand-primary flex-shrink-0" />}
@@ -1029,7 +1079,7 @@ function DetailPanel({
     setDownloadLoading(true);
     try {
       logActivity(file.id, 'download');
-      await openStorageFile(file.bucket || 'filehub-files', file.storage_path);
+      await openStorageFile(file.bucket || 'filehub-files', file.storage_path, file.original_name);
     } finally {
       setDownloadLoading(false);
     }
@@ -1577,11 +1627,61 @@ function FileHubDesktopInner() {
   const [showUpload, setShowUpload] = useState(false);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [showManageTags, setShowManageTags] = useState(false);
+  const [zipDownloading, setZipDownloading] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set());
+
+  const exitSelection = useCallback(() => {
+    setSelectionMode(false);
+    setSelectedFileIds(new Set());
+    setSelectedFile(null);
+  }, []);
+
+  useEffect(() => { exitSelection(); }, [mode, activeGroupId]);
+
+  const toggleFileSelect = useCallback((fileId: string) => {
+    setSelectedFileIds(prev => {
+      const next = new Set(prev);
+      if (next.has(fileId)) next.delete(fileId); else next.add(fileId);
+      return next;
+    });
+  }, []);
+
   const detailPanelHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const groupPanelHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const activeGroup = useMemo(() => groups.find(g => g.id === activeGroupId) ?? null, [groups, activeGroupId]);
   const displayFiles = mode === 'groups' && activeGroupId ? groupFiles : files;
+
+  const toggleSelectAll = useCallback(() => {
+    setSelectedFileIds(prev =>
+      prev.size === displayFiles.length
+        ? new Set()
+        : new Set(displayFiles.map(f => f.id))
+    );
+  }, [displayFiles]);
+
+  const handleDownloadAll = async (name: string) => {
+    if (zipDownloading || displayFiles.length === 0) return;
+    setZipDownloading(true);
+    try {
+      await downloadFilesAsZip(displayFiles, name);
+    } finally {
+      setZipDownloading(false);
+    }
+  };
+
+  const handleDownloadSelected = async () => {
+    const filesToDownload = displayFiles.filter(f => selectedFileIds.has(f.id));
+    if (filesToDownload.length === 0 || zipDownloading) return;
+    setZipDownloading(true);
+    try {
+      await downloadFilesAsZip(filesToDownload, 'Selected Files');
+      exitSelection();
+    } finally {
+      setZipDownloading(false);
+    }
+  };
 
   const uploadFolders = useMemo(() => {
     if (!activeGroupId) return folders;
@@ -1878,6 +1978,19 @@ function FileHubDesktopInner() {
                   <Text className="text-typography-main font-black text-sm" numberOfLines={1}>{activeGroup?.name}</Text>
                   <Text className="text-typography-dim text-[11px]">{activeGroup?.member_count} members · {activeGroup?.file_count} files</Text>
                 </View>
+                {displayFiles.length > 0 && (
+                  <TouchableOpacity
+                    onPress={() => handleDownloadAll(activeGroup?.name ?? 'Channel Files')}
+                    disabled={zipDownloading}
+                    className="flex-row items-center gap-1.5 px-3 py-2 bg-surface-background border border-surface-border rounded-lg flex-shrink-0"
+                  >
+                    {zipDownloading
+                      ? <ActivityIndicator size="small" color={colors.primary} />
+                      : <FontAwesome name="download" size={11} color={colors.textMuted} />
+                    }
+                    <Text className="text-typography-muted text-xs font-bold">ZIP</Text>
+                  </TouchableOpacity>
+                )}
               </View>
 
               {/* Tag filter */}
@@ -1930,18 +2043,58 @@ function FileHubDesktopInner() {
                 </View>
               ) : (
                 <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-                  <View className="flex-row items-center px-6 py-3 bg-surface-background/60 border-b border-surface-border/60">
-                    <View className="w-9 mr-3.5" />
-                    <Text className="flex-1 text-typography-muted text-[9px] font-black uppercase tracking-widest">File</Text>
-                    <Text className="w-20 text-right text-typography-muted text-[9px] font-black uppercase tracking-widest">Date</Text>
-                  </View>
+                  {selectionMode ? (
+                    <View className="flex-row items-center px-6 py-3 bg-brand-primary/5 border-b border-brand-primary/20 gap-2">
+                      <TouchableOpacity
+                        onPress={toggleSelectAll}
+                        className={`w-9 h-9 rounded-xl items-center justify-center border-2 mr-0 flex-shrink-0 ${
+                          selectedFileIds.size === displayFiles.length && displayFiles.length > 0
+                            ? 'bg-brand-primary border-brand-primary'
+                            : selectedFileIds.size > 0 ? 'border-brand-primary bg-surface-background' : 'border-surface-border bg-surface-background'
+                        }`}
+                      >
+                        {selectedFileIds.size === displayFiles.length && displayFiles.length > 0
+                          ? <FontAwesome name="check" size={13} color="#fff" />
+                          : selectedFileIds.size > 0 ? <View className="w-3 h-0.5 bg-brand-primary rounded-full" /> : null
+                        }
+                      </TouchableOpacity>
+                      <Text className="flex-1 text-brand-primary text-xs font-black ml-2">
+                        {selectedFileIds.size === 0 ? 'Tap to select' : `${selectedFileIds.size} of ${displayFiles.length} selected`}
+                      </Text>
+                      {selectedFileIds.size > 0 && (
+                        <TouchableOpacity
+                          onPress={handleDownloadSelected}
+                          disabled={zipDownloading}
+                          className="flex-row items-center gap-1.5 bg-brand-primary px-3 py-1.5 rounded-lg"
+                        >
+                          {zipDownloading ? <ActivityIndicator size="small" color="#fff" /> : <FontAwesome name="download" size={10} color="#fff" />}
+                          <Text className="text-white text-xs font-black">Download {selectedFileIds.size}</Text>
+                        </TouchableOpacity>
+                      )}
+                      <TouchableOpacity onPress={exitSelection} className="w-7 h-7 items-center justify-center ml-1">
+                        <FontAwesome name="times" size={13} color={colors.textMuted} />
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <View className="flex-row items-center px-6 py-3 bg-surface-background/60 border-b border-surface-border/60">
+                      <View className="w-9 mr-3.5" />
+                      <Text className="flex-1 text-typography-muted text-[9px] font-black uppercase tracking-widest">File</Text>
+                      <TouchableOpacity onPress={() => setSelectionMode(true)} className="w-7 h-7 items-center justify-center mr-1">
+                        <FontAwesome name="check-square-o" size={11} color={colors.textMuted} />
+                      </TouchableOpacity>
+                      <Text className="w-16 text-right text-typography-muted text-[9px] font-black uppercase tracking-widest">Date</Text>
+                    </View>
+                  )}
                   {displayFiles.map(file => (
                     <FileRow
                       key={file.id}
                       file={file}
-                      selected={selectedFile?.id === file.id}
+                      selected={!selectionMode && selectedFile?.id === file.id}
                       mode="groups"
                       onPress={() => setSelectedFile(prev => prev?.id === file.id ? null : file)}
+                      selectionMode={selectionMode}
+                      isFileSelected={selectedFileIds.has(file.id)}
+                      onToggleSelect={() => toggleFileSelect(file.id)}
                     />
                   ))}
                   <View style={{ height: 40 }} />
@@ -2029,18 +2182,58 @@ function FileHubDesktopInner() {
                 </View>
               ) : (
                 <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-                  <View className="flex-row items-center px-6 py-3 bg-surface-background/60 border-b border-surface-border/60">
-                    <View className="w-9 mr-3.5" />
-                    <Text className="flex-1 text-typography-muted text-[9px] font-black uppercase tracking-widest">File</Text>
-                    <Text className="w-20 text-right text-typography-muted text-[9px] font-black uppercase tracking-widest">Date</Text>
-                  </View>
+                  {selectionMode ? (
+                    <View className="flex-row items-center px-6 py-3 bg-brand-primary/5 border-b border-brand-primary/20 gap-2">
+                      <TouchableOpacity
+                        onPress={toggleSelectAll}
+                        className={`w-9 h-9 rounded-xl items-center justify-center border-2 mr-0 flex-shrink-0 ${
+                          selectedFileIds.size === displayFiles.length && displayFiles.length > 0
+                            ? 'bg-brand-primary border-brand-primary'
+                            : selectedFileIds.size > 0 ? 'border-brand-primary bg-surface-background' : 'border-surface-border bg-surface-background'
+                        }`}
+                      >
+                        {selectedFileIds.size === displayFiles.length && displayFiles.length > 0
+                          ? <FontAwesome name="check" size={13} color="#fff" />
+                          : selectedFileIds.size > 0 ? <View className="w-3 h-0.5 bg-brand-primary rounded-full" /> : null
+                        }
+                      </TouchableOpacity>
+                      <Text className="flex-1 text-brand-primary text-xs font-black ml-2">
+                        {selectedFileIds.size === 0 ? 'Tap to select' : `${selectedFileIds.size} of ${displayFiles.length} selected`}
+                      </Text>
+                      {selectedFileIds.size > 0 && (
+                        <TouchableOpacity
+                          onPress={handleDownloadSelected}
+                          disabled={zipDownloading}
+                          className="flex-row items-center gap-1.5 bg-brand-primary px-3 py-1.5 rounded-lg"
+                        >
+                          {zipDownloading ? <ActivityIndicator size="small" color="#fff" /> : <FontAwesome name="download" size={10} color="#fff" />}
+                          <Text className="text-white text-xs font-black">Download {selectedFileIds.size}</Text>
+                        </TouchableOpacity>
+                      )}
+                      <TouchableOpacity onPress={exitSelection} className="w-7 h-7 items-center justify-center ml-1">
+                        <FontAwesome name="times" size={13} color={colors.textMuted} />
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <View className="flex-row items-center px-6 py-3 bg-surface-background/60 border-b border-surface-border/60">
+                      <View className="w-9 mr-3.5" />
+                      <Text className="flex-1 text-typography-muted text-[9px] font-black uppercase tracking-widest">File</Text>
+                      <TouchableOpacity onPress={() => setSelectionMode(true)} className="w-7 h-7 items-center justify-center mr-1">
+                        <FontAwesome name="check-square-o" size={11} color={colors.textMuted} />
+                      </TouchableOpacity>
+                      <Text className="w-16 text-right text-typography-muted text-[9px] font-black uppercase tracking-widest">Date</Text>
+                    </View>
+                  )}
                   {displayFiles.map(file => (
                     <FileRow
                       key={file.id}
                       file={file}
-                      selected={selectedFile?.id === file.id}
+                      selected={!selectionMode && selectedFile?.id === file.id}
                       mode={mode}
                       onPress={() => setSelectedFile(prev => prev?.id === file.id ? null : file)}
+                      selectionMode={selectionMode}
+                      isFileSelected={selectedFileIds.has(file.id)}
+                      onToggleSelect={() => toggleFileSelect(file.id)}
                     />
                   ))}
                   <View style={{ height: 40 }} />

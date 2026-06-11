@@ -315,13 +315,13 @@ const TargetCircle = ({
         {/* Track */}
         <Circle cx={cx} cy={cx} r={r} fill="none" stroke={palette.border} strokeWidth={STROKE} />
         {/* Progress */}
-        <Circle {...{
-          cx, cy: cx, r, fill: 'none',
-          stroke: `url(#${gradId})`,
-          strokeWidth: STROKE, strokeDasharray: circumference,
-          strokeDashoffset, strokeLinecap: 'round',
-          style: { transform: `rotate(-90deg)`, transformOrigin: `${cx}px ${cx}px` },
-        } as any} />
+        <Circle
+          cx={cx} cy={cx} r={r} fill="none"
+          stroke={`url(#${gradId})`}
+          strokeWidth={STROKE} strokeDasharray={circumference}
+          strokeDashoffset={strokeDashoffset} strokeLinecap="round"
+          rotation={-90} originX={cx} originY={cx}
+        />
         {/* Inner fill */}
         <Circle cx={cx} cy={cx} r={r - STROKE / 2 - 1} fill={palette.card} />
       </Svg>

@@ -159,7 +159,7 @@ export default function TaskBriefPanel() {
             return (
               <TouchableOpacity
                 key={att.id}
-                onPress={() => openStorageFile(TASK_BRIEF_BUCKET, att.storage_path || att.file_url)}
+                onPress={() => openStorageFile(TASK_BRIEF_BUCKET, att.storage_path || att.file_url, att.file_name)}
                 className="flex-row items-center bg-surface-background px-3 py-2.5 rounded-xl border border-surface-border/50 active:opacity-70"
               >
                 <View className="w-8 h-8 rounded-lg bg-surface-card items-center justify-center mr-3">

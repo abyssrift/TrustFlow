@@ -42,25 +42,29 @@ export default function CollapsibleCard({
 
   return (
     <View className="bg-surface-card rounded-2xl border border-surface-border p-4">
-      <TouchableOpacity
-        activeOpacity={0.7}
-        onPress={toggle}
-        className={`flex-row items-center justify-between ${collapsed ? '' : 'mb-3'}`}
-      >
-        <View className="flex-row items-center flex-1 mr-2">
+      <View className={`flex-row items-center justify-between ${collapsed ? '' : 'mb-3'}`}>
+        {/* Title area — tapping this toggles the card */}
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={toggle}
+          className="flex-row items-center flex-1 mr-2 py-0.5"
+        >
           {icon && (
             <FontAwesome name={icon as any} size={12} color={colors.primary} style={{ marginRight: 8 }} />
           )}
           <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em]" numberOfLines={1}>
             {title}
           </Text>
-        </View>
+        </TouchableOpacity>
 
-        <View className="flex-row items-center gap-3">
+        {/* Right area — headerRight has its own touch target; chevron also toggles */}
+        <View className="flex-row items-center gap-2">
           {headerRight}
-          <FontAwesome name={collapsed ? 'chevron-down' : 'chevron-up'} size={10} color={colors.muted} />
+          <TouchableOpacity onPress={toggle} activeOpacity={0.6} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}>
+            <FontAwesome name={collapsed ? 'chevron-down' : 'chevron-up'} size={10} color={colors.muted} />
+          </TouchableOpacity>
         </View>
-      </TouchableOpacity>
+      </View>
 
       {!collapsed && children}
     </View>

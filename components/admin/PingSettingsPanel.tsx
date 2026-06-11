@@ -52,11 +52,12 @@ export default function PingSettingsPanel() {
         copyToCacheDirectory: true,
       });
 
-      if (result.type === 'success') {
+      if (!result.canceled && result.assets?.[0]) {
+        const asset = result.assets[0];
         setSoundFile({
-          name: result.name,
-          size: result.size || 0,
-          uri: result.uri,
+          name: asset.name,
+          size: asset.size || 0,
+          uri: asset.uri,
         });
       }
     } catch (err) {
@@ -70,41 +71,25 @@ export default function PingSettingsPanel() {
     try {
       setUploading(true);
 
-      // Upload to Supabase storage
       const fileExt = soundFile.name.split('.').pop();
-      const storagePath = `ping-sounds/${profile.company_id}/ping-sound.${fileExt}`;
+      const storagePath = `${profile.company_id}/ping-sound.${fileExt}`;
 
-      // Convert URI to blob for upload
       const response = await fetch(soundFile.uri);
       const blob = await response.blob();
 
-      // Try to upload to 'public' bucket (fallback to other options if needed)
-      let soundUrl: string | null = null;
+      const { error: uploadError } = await supabase.storage
+        .from('ping-sounds')
+        .upload(storagePath, blob, { upsert: true, contentType: `audio/${fileExt}` });
 
-      try {
-        const { error: uploadError } = await supabase.storage
-          .from('public')
-          .upload(storagePath, blob, { upsert: true });
+      if (uploadError) throw uploadError;
 
-        if (!uploadError) {
-          const { data } = supabase.storage.from('public').getPublicUrl(storagePath);
-          soundUrl = data?.publicUrl || null;
-        }
-      } catch (storageErr) {
-        console.warn('Storage upload attempt 1 failed, trying alternative...');
-      }
+      const { data: urlData } = supabase.storage
+        .from('ping-sounds')
+        .getPublicUrl(storagePath);
 
-      // If that didn't work, try uploading with a different approach
-      if (!soundUrl) {
-        // Store the file as a data URL if storage is unavailable
-        const reader = new FileReader();
-        soundUrl = await new Promise<string>((resolve) => {
-          reader.onload = () => resolve(reader.result as string);
-          reader.readAsDataURL(blob);
-        });
-      }
-
-      if (!soundUrl) throw new Error('Failed to store sound');
+      // Version param busts the CDN cache when the sound is replaced at the same path
+      const soundUrl = urlData?.publicUrl ? `${urlData.publicUrl}?v=${Date.now()}` : null;
+      if (!soundUrl) throw new Error('Failed to get public URL for sound');
 
       // Update or insert company_ping_sounds record
       const { error: dbError } = await supabase

@@ -1,26 +1,25 @@
 Idle Timer notifications.
 expanding on the notification system as much as possible in terms of actual possible notifications.
 
-Can we please add a smarter time unit?
+(adding ping notifications as well)
+
+ a smarter time unit
 i have this issue where the units are often too big. instead i want a unit that auto scales. but doesnt lose context.
-if something is big, it goes from year, to month to week to day to hour to minute to second. all depending on unit and conversions. but there are SO MANY units througout the app. i want them all to be replaced by this smarter unit.
+if something is big, it goes from year, to month to week to day to hour to minute to second. all depending on unit and conversions. but there are SO MANY units througout the app. i want them all to be replaced by this smarter unit. (it will need refactoring in almost every component, needs preciseness. and backend syncronization)
 
 
-
-
-Iam a big fan of the filehub so far! but there are some fixes, bugs and features that i require.
-exists in this folder, think of it sort of like a whatsapp group? ish deal. members may add people into groups and so on.
-2. Download button broken, with this precise error: [Storage] Failed to generate signed URL: StorageApiError: The database schema is invalid or incompatible.
-    at http://localhost:8081/node_modules/expo-router/entry.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:116840:16
-3. I really like the current UI but there are alot of missing features that were supposed to be delivered, such as tags, Categories, Activity, etc. lets elaborate on these features and formulate a thorough phased plans to implement them.
-4. Implementing QOL changes such as a count next to the inbox and the sent showing if there are any new files. notifications related to sending and receiving and integrating the new triggers into the notification engine.
 
 5. Mobile UX on web. currently the inbox and sent buttons and other features dont scale too well, and actually are super tall in height for some reason?
 
-6. Big picture, security and future features.
+Mobile UX on web is terrible for iphone users and safari users.
 
-submission lock for stages is broken, requires more testing and making sure everything is working smoothly.
+Dont allow those without permission to access the role assignment modal in the corporate screen in the roles tab.
+
+add in the admin dashboard tracking to see which companies are using the most resources, with alerts.
 
 
+delete notifications after a week of the user reading them.
 
-files are downloaded without their original names.
+Mobile's switching between pages is kinda terrible.
+its slow, takes so long to switch pages, i assume its because pages are rendered everytime and we dont usememo?
+
