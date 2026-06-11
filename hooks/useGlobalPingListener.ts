@@ -7,23 +7,64 @@ import { useAuth } from '@/contexts/AuthContext';
 // Mounted once at app root (both _layout.tsx and _layout.web.tsx). Keeps a
 // single WebSocket channel alive for the current user and plays the ping
 // sound whenever they are targeted.
+//
+// The sound is preloaded when the session starts: on web via a persistent
+// HTMLAudioElement, on native by downloading to the cache directory once per
+// uploaded version (the ?v= param changes on re-upload) and keeping a loaded
+// player. Pings then play instantly with no network fetch.
 export const useGlobalPingListener = () => {
   const { session } = useAuth();
   const { successToast } = useToast();
-  const soundUrlRef = useRef<string | null>(null);
-  const soundRef = useRef<any>(null);
+  const playerRef = useRef<any>(null);
 
-  // Fetch the company ping sound URL once and keep it in a ref (no re-subscribe on load)
+  // Preload the company ping sound once per session
   useEffect(() => {
     if (!session) return;
-    supabase
-      .from('company_ping_sounds')
-      .select('sound_url')
-      .single()
-      .then(({ data, error }) => {
-        soundUrlRef.current = data?.sound_url ?? null;
-        console.log('[PingListener] sound url loaded:', data?.sound_url?.slice(0, 80) ?? null, 'error:', error?.message ?? null);
-      });
+    let cancelled = false;
+
+    const preload = async () => {
+      const { data, error } = await supabase
+        .from('company_ping_sounds')
+        .select('sound_url')
+        .single();
+
+      const url = data?.sound_url ?? null;
+      console.log('[PingListener] sound url loaded:', url?.slice(0, 80) ?? null, 'error:', error?.message ?? null);
+      if (!url || cancelled) return;
+
+      try {
+        if (Platform.OS === 'web') {
+          const audio = new Audio(url);
+          audio.preload = 'auto';
+          playerRef.current = audio;
+          console.log('[PingListener] web audio preloaded');
+          return;
+        }
+
+        // Native: cache the file locally, keyed by upload version
+        const version = url.split('?v=')[1]?.split('&')[0] ?? 'default';
+        const { File, Paths } = await import('expo-file-system') as any;
+        const file = new File(Paths.cache, `ping-sound-${version}.mp3`);
+
+        if (!file.exists) {
+          console.log('[PingListener] downloading sound to cache...');
+          await File.downloadFileAsync(url, file);
+        }
+        if (cancelled) return;
+
+        const ExpoAudio = await import('expo-audio') as any;
+        await ExpoAudio.setAudioModeAsync({ playsInSilentMode: true }).catch(() => {});
+        const player = ExpoAudio.createAudioPlayer({ uri: file.uri });
+        player.volume = 1.0;
+        playerRef.current = player;
+        console.log('[PingListener] native audio preloaded from:', file.uri);
+      } catch (err: any) {
+        console.warn('[PingListener] sound preload failed:', err?.message);
+      }
+    };
+
+    preload();
+    return () => { cancelled = true; };
   }, [session]);
 
   useEffect(() => {
@@ -49,49 +90,19 @@ export const useGlobalPingListener = () => {
           console.log('[PingListener] ping event received:', JSON.stringify(payload.new));
           successToast('You have been pinged! 📢');
 
-          const url = soundUrlRef.current;
-          if (!url) {
-            console.log('[PingListener] no sound url — skipping audio');
+          const player = playerRef.current;
+          if (!player) {
+            console.log('[PingListener] no preloaded player — skipping audio');
             return;
           }
 
           try {
             if (Platform.OS === 'web') {
-              // Web: use native HTMLAudioElement
-              if (soundRef.current) {
-                soundRef.current.pause();
-                soundRef.current.currentTime = 0;
-              }
-              const audio = new Audio(url);
-              soundRef.current = audio;
-              await audio.play();
-              console.log('[PingListener] web audio playing');
+              player.currentTime = 0;
+              await player.play();
             } else {
-              // Native: expo-audio (expo-av was removed from Expo Go in SDK 54+)
-              const ExpoAudio = await import('expo-audio') as any;
-              // Play through the iOS silent-mode switch
-              await ExpoAudio.setAudioModeAsync({ playsInSilentMode: true }).catch((e: any) => {
-                console.warn('[PingListener] setAudioModeAsync failed:', e?.message);
-              });
-              if (soundRef.current) {
-                soundRef.current.remove();
-                soundRef.current = null;
-              }
-              const player = ExpoAudio.createAudioPlayer({ uri: url });
-              soundRef.current = player;
-              player.volume = 1.0;
-              player.addListener('playbackStatusUpdate', (status: any) => {
-                console.log('[PingListener] player status:', JSON.stringify({
-                  isLoaded: status?.isLoaded,
-                  playing: status?.playing,
-                  didJustFinish: status?.didJustFinish,
-                  duration: status?.duration,
-                  currentTime: status?.currentTime,
-                  reasonForWaitingToPlay: status?.reasonForWaitingToPlay,
-                }));
-              });
+              await player.seekTo(0);
               player.play();
-              console.log('[PingListener] player.play() called for:', url.slice(0, 80));
             }
           } catch (err: any) {
             console.warn('[PingListener] sound playback failed:', err?.name, err?.message);
@@ -108,14 +119,12 @@ export const useGlobalPingListener = () => {
     };
   }, [session?.user?.id, successToast]);
 
+  // Release the player on unmount
   useEffect(() => {
     return () => {
       try {
-        if (Platform.OS === 'web') {
-          soundRef.current?.pause();
-        } else {
-          soundRef.current?.remove();
-        }
+        if (Platform.OS === 'web') playerRef.current?.pause();
+        else playerRef.current?.remove();
       } catch { /* already released */ }
     };
   }, []);

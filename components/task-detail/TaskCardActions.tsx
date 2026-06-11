@@ -91,6 +91,7 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [showManualTimeModal, setShowManualTimeModal] = useState(false);
   const [pendingAction, setPendingAction] = useState<StageAction | null>(null);
+  const [pingLoading, setPingLoading] = useState(false);
 
   // ─── Derived State ───────────────────────────────────────
   const isAssignedToUser = (task.assignments || []).some(a => a.assignee_user_id !== null);
@@ -107,6 +108,9 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
   const taskSessions = activeSessions[task.id] || [];
   const mySession = taskSessions.find(s => s.userId === userId);
   const isTimerActive = !!mySession;
+
+  // Permission checks
+  const canPing = hasPermission('task.ping') || hasPermission('system.manage') || profile?.is_owner;
 
   // Live counter for the active session (mine or someone else's — whichever is first)
   const activeSession = mySession || taskSessions[0] || null;
@@ -281,6 +285,20 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
       errorToast(err.message || 'Could not claim task.');
     } finally {
       setLoadingAction(null);
+    }
+  };
+
+  // Ping task
+  const handlePingTask = async () => {
+    setPingLoading(true);
+    try {
+      const { error } = await supabase.rpc('rpc_ping_task', { p_task_id: task.id });
+      if (error) throw error;
+      successToast('Task pinged! 📢');
+    } catch (err: any) {
+      errorToast(err.message || 'Could not ping task.');
+    } finally {
+      setPingLoading(false);
     }
   };
 
@@ -496,6 +514,24 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
   return (
     <View>
       {isTimerActive && renderTimerBadge()}
+
+      {/* Ping button */}
+      {canPing && (
+        <TouchableOpacity
+          onPress={handlePingTask}
+          disabled={pingLoading}
+          className={`mb-2 bg-brand-primary/10 py-2.5 rounded-xl border border-brand-primary/20 items-center justify-center flex-row ${pingLoading ? 'opacity-50' : ''}`}
+        >
+          {pingLoading ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : (
+            <>
+              <FontAwesome name="bell" size={11} color={colors.primary} />
+              <Text className="text-brand-primary font-black text-[10px] uppercase tracking-widest ml-2">Ping Task</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      )}
 
       {/* Error / Warning Message Display */}
       {errorMsg && (
