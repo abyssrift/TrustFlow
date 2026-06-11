@@ -33,12 +33,13 @@ const GRID_SIZE = 20;
 const NODE_WIDTH = 256; // w-64
 const NODE_HEIGHT = 160;
 
-export default function StageNode({ 
+export default function StageNode({
   stage, index, onPositionChange, onEdit, onDelete,
   onStartConnection, onUpdateConnection, onEndConnection,
-  isConnecting 
+  isConnecting
 }: StageNodeProps) {
-  
+  const colors = useThemeColors();
+
   // Layout Logic
   const calcInitialX = () => stage.ui_metadata?.x ?? 50 + (index * 300) % 1200;
   const calcInitialY = () => stage.ui_metadata?.y ?? 50 + Math.floor(index / 4) * 200;

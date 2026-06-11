@@ -595,17 +595,17 @@ const ACTION_TYPES = [
   { id: 'review_reject',  label: 'Reject Submission',    desc: 'Hard-reject the submission' },
 ];
 
-const ACTION_STYLES = [
-  { id: 'neutral', color: colors.textDim },
-  { id: 'success', color: colors.success },
-  { id: 'warning', color: colors.warning },
-  { id: 'danger',  color: colors.danger },
-  { id: 'primary', color: colors.primary },
-];
-
 function StageActionManager({ stageId }: { stageId: string }) {
   const { stageActions, addStageAction, updateStageAction, deleteStageAction, reorderStageActions, stages, transitions } = usePipelineEditor();
   const colors = useThemeColors();
+
+  const ACTION_STYLES = [
+    { id: 'neutral', color: colors.textDim },
+    { id: 'success', color: colors.success },
+    { id: 'warning', color: colors.warning },
+    { id: 'danger',  color: colors.danger },
+    { id: 'primary', color: colors.primary },
+  ];
   const actions = stageActions.filter(a => a.stage_id === stageId).sort((a, b) => a.position - b.position);
   const availableTransitions = transitions.filter(t => t.from_stage_id === stageId);
 

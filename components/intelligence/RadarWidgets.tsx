@@ -895,6 +895,7 @@ export const PipelinePointsMiniWeb = ({
   const [pipelineId, setPipelineId] = useState<string | null>(null);
   const [data, setData]             = useState<PipelinePointsPeriod[]>([]);
   const [loading, setLoading]       = useState(false);
+  const colors = useThemeColors();
 
   useEffect(() => {
     if (pipelines.length > 0 && !pipelineId) setPipelineId(pipelines[0].id);

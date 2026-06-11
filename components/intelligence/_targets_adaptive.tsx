@@ -1,4 +1,5 @@
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
+import { BackButton } from '@/components/common/BackButton';
 import { CompletionVelocityMobile, IntelligencePicker } from '@/components/intelligence/IntelligenceCommon';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -152,6 +153,7 @@ const CreateModal = ({ visible, onClose, onConfirm, pipelines, stages }: any) =>
 
 const EditModal = ({ target, onClose, onSave }: { target: any; onClose: () => void; onSave: (id: string, updates: Record<string, any>) => void }) => {
   if (!target) return null;
+  const colors = useThemeColors();
   const isVolume = target.target_type === 'volume';
   const [quantity, setQuantity]   = useState(String(target.target_quantity ?? ''));
   const [activeMins, setActiveMins] = useState(String(Math.round((target.target_active_seconds ?? 0) / 60)));
@@ -505,12 +507,15 @@ export default function IntelligenceTargetsNative() {
 
   return (
     <View className="flex-1 bg-surface-background">
-      <View className="px-6 pt-14 pb-4 flex-row flex-wrap items-end justify-between gap-4">
-        <View className="min-w-0">
-          <Text className="text-brand-primary font-black uppercase tracking-[4px] text-[10px] mb-1">Intelligence Hub</Text>
-          <Text className="text-typography-main text-3xl font-black">Targets</Text>
+      <View className="px-6 pt-14 pb-4">
+        <View className="flex-row items-start justify-between mb-4 gap-3">
+          <View className="flex-1">
+            <Text className="text-brand-primary font-black uppercase tracking-[4px] text-[10px] mb-1">Intelligence Hub</Text>
+            <Text className="text-typography-main text-3xl font-black">Targets</Text>
+          </View>
+          <BackButton label="" />
         </View>
-        <View className="flex-row flex-wrap justify-end gap-2 max-w-full">
+        <View className="flex-row flex-wrap justify-end gap-2">
           <TouchableOpacity onPress={fetchTargets} className="w-11 h-11 items-center justify-center bg-surface-card border border-surface-border rounded-2xl">
             <FontAwesome name="refresh" size={13} color={colors.primary} />
           </TouchableOpacity>

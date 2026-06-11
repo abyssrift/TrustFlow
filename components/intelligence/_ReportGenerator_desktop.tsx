@@ -608,6 +608,7 @@ function TypeParamPanel({
   workers: any[];
   projects: any[];
 }) {
+  const colors = useThemeColors();
   if (type === 'general' || type === 'workflow_analysis') {
     return (
       <>
@@ -868,6 +869,7 @@ function SeriesControls({ periodType, nPeriods, onPeriodType, onNPeriods }: {
   onPeriodType: (v: string) => void;
   onNPeriods: (v: string) => void;
 }) {
+  const colors = useThemeColors();
   return (
     <>
       <Text className="text-typography-muted text-[10px] font-bold uppercase mb-3 ml-1">Period Granularity</Text>

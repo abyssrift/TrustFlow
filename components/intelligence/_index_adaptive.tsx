@@ -1,4 +1,5 @@
 import ConfirmModal from '@/components/common/ConfirmModal';
+import { BackButton } from '@/components/common/BackButton';
 import { IntelligencePicker } from '@/components/intelligence/IntelligenceCommon';
 
 import { useAuth } from '@/contexts/AuthContext';
@@ -262,7 +263,9 @@ const RadarSection = ({ data, activeWidgets, onEditWidgets }: any) => {
 
 
 
-const ArchivesSection = ({ reports, onDownload, onNew, coldArchives, activeSchema, currentSubSection, setSubSection, onSelectArchive, hasPermission }: any) => (
+const ArchivesSection = ({ reports, onDownload, onNew, coldArchives, activeSchema, currentSubSection, setSubSection, onSelectArchive, hasPermission }: any) => {
+  const colors = useThemeColors();
+  return (
   <View>
     <View className="flex-row bg-surface-background p-1 rounded-xl mb-6">
       <TouchableOpacity onPress={() => setSubSection('reports')} className={`flex-1 py-2 rounded-lg items-center ${currentSubSection === 'reports' ? 'bg-brand-primary' : ''}`}>
@@ -336,8 +339,8 @@ const ArchivesSection = ({ reports, onDownload, onNew, coldArchives, activeSchem
       </>
     )}
   </View>
-  )
-;
+  );
+};
 
 const ReportConfigModal = ({ visible, onClose, onConfirm, pipelines, teams, users, initialDays }: any) => {
   const colors = useThemeColors();
@@ -711,9 +714,12 @@ export default function IntelligenceScreen() {
     <View className="flex-1 bg-surface-background">
       <ScrollView className="flex-1" stickyHeaderIndices={[1]} refreshControl={<RefreshControl refreshing={false} onRefresh={fetchAudit} />}>
         {/* Header */}
-        <View className="px-6 pt-12 pb-6">
-          <Text className="text-brand-primary font-black uppercase tracking-[4px] text-[10px] mb-1">Intelligence Center</Text>
-          <Text className="text-typography-main text-3xl font-black">Audit Hub</Text>
+        <View className="px-6 pt-12 pb-6 flex-row items-start justify-between">
+          <View className="flex-1">
+            <Text className="text-brand-primary font-black uppercase tracking-[4px] text-[10px] mb-1">Intelligence Center</Text>
+            <Text className="text-typography-main text-3xl font-black">Audit Hub</Text>
+          </View>
+          <BackButton label="" />
         </View>
 
         {/* Section Toggle */}

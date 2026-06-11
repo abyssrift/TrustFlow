@@ -14,6 +14,7 @@ import {
   type SignalMetric,
   type SortKey
 } from '@/components/platform-admin/useControlPlaneData';
+import { BackButton } from '@/components/common/BackButton';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { FontAwesome } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
@@ -80,6 +81,7 @@ const SectionPill = ({
 const CompanyDetailModal = ({
   companyId, onClose, onDeleted,
 }: { companyId: string | null; onClose: () => void; onDeleted: () => void }) => {
+  const colors = useThemeColors();
   const { detail, loading } = useCompanyDetail(companyId);
   const [deleting, setDeleting] = useState(false);
 
@@ -232,6 +234,7 @@ const CommandSection = ({
   totalTasks: number;
   totalMins: number;
 }) => {
+  const colors = useThemeColors();
   const maxMins = Math.max(1, ...companies.map(c => c.session_minutes_week));
   const top5    = companies.slice(0, 5);
 
@@ -338,6 +341,7 @@ const TenantsSection = ({
   refreshing: boolean;
   onCompanyDeleted: () => void;
 }) => {
+  const colors = useThemeColors();
   const [sort, setSort] = useState<SortKey>('usage');
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -451,6 +455,7 @@ const TenantsSection = ({
 const SignalsSection = ({
   loading, onRefresh, refreshing,
 }: { loading: boolean; onRefresh: () => void; refreshing: boolean }) => {
+  const colors = useThemeColors();
   const { days, setDays, metric, setMetric, timeline, fetching, load, getValue, maxVal, totalVal, metricLabel } = useTimeline(30);
 
   return (
@@ -631,8 +636,9 @@ export default function PlatformAdminScreen() {
       {/* Header */}
       <View className="bg-surface-card border-b border-surface-border px-4 pt-4 pb-3">
         <View className="flex-row items-center justify-between mb-4">
-          <View>
-            <View className="flex-row items-center gap-2 mb-0.5">
+          <View className="flex-1 mr-3">
+            <View className="flex-row items-center gap-2 mb-2">
+              <BackButton label="" />
               <FontAwesome name="shield" size={11} color={colors.primary} />
               <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest">TrustFlow</Text>
             </View>

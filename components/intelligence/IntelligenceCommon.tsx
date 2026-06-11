@@ -298,6 +298,7 @@ export const CircularTargetCard = ({ target, onEdit, onClear }: any) => {
 };
 
 export const CircularTargetCardMobile = ({ target, onEdit, onAction }: any) => {
+  const colors = useThemeColors();
   const { theme } = useTheme();
   const palette = NATIVE_THEME_COLORS[theme];
   const isCompleted = target.status === 'completed';
@@ -439,6 +440,7 @@ export const CircularTargetCardMobile = ({ target, onEdit, onAction }: any) => {
   );
 };
 export const CompletionVelocityMobile = ({ data }: { data: { date: string, count: number }[] }) => {
+  const colors = useThemeColors();
   const max = Math.max(...data.map(d => d.count), 5);
   const chartHeight = 120;
   const barWidth = 30;

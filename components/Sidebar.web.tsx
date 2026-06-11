@@ -83,6 +83,7 @@ const ThemePopover = ({
   onClose: () => void;
   sidebarExpanded: boolean;
 }) => {
+  const colors = useThemeColors();
   const { theme, setTheme, density, setDensity, roundness, setRoundness } = useTheme();
 
   if (!visible) return null;
@@ -184,49 +185,52 @@ const SidebarItem = ({
   isActive: boolean;
   collapsed: boolean;
   badge?: number;
-}) => (
-  <Link href={href as any} asChild>
-    <Pressable
-      className={`group relative mb-2 min-h-11 flex-row items-center overflow-hidden rounded-xl border p-3 ${isActive ? 'border-brand-primary/30 bg-brand-primary/10' : 'border-transparent hover:bg-surface-card'
-        }`}
-      accessibilityLabel={label}
-    >
-      <View className={`absolute left-0 top-2 bottom-2 w-1 rounded-r-full ${isActive ? 'bg-brand-primary' : 'bg-transparent group-hover:bg-surface-border'}`} />
-      <View className={`${collapsed ? 'w-full' : 'w-8'} items-center`} style={{ position: 'relative' }}>
-        <FontAwesome
-          name={icon}
-          size={18}
-          color={isActive ? colors.primary : colors.textDim}
-        />
-        {collapsed && !!badge && badge > 0 && (
-          <View
-            className="absolute -top-1.5 -right-1.5 min-w-4 h-4 rounded-full bg-red-500 items-center justify-center px-0.5"
+}) => {
+  const colors = useThemeColors();
+  return (
+    <Link href={href as any} asChild>
+      <Pressable
+        className={`group relative mb-2 min-h-11 flex-row items-center overflow-hidden rounded-xl border p-3 ${isActive ? 'border-brand-primary/30 bg-brand-primary/10' : 'border-transparent hover:bg-surface-card'
+          }`}
+        accessibilityLabel={label}
+      >
+        <View className={`absolute left-0 top-2 bottom-2 w-1 rounded-r-full ${isActive ? 'bg-brand-primary' : 'bg-transparent group-hover:bg-surface-border'}`} />
+        <View className={`${collapsed ? 'w-full' : 'w-8'} items-center`} style={{ position: 'relative' }}>
+          <FontAwesome
+            name={icon}
+            size={18}
+            color={isActive ? colors.primary : colors.textDim}
+          />
+          {collapsed && !!badge && badge > 0 && (
+            <View
+              className="absolute -top-1.5 -right-1.5 min-w-4 h-4 rounded-full bg-red-500 items-center justify-center px-0.5"
+            >
+              <Text className="text-[9px] font-black text-white leading-none">
+                {badge > 99 ? '99+' : badge}
+              </Text>
+            </View>
+          )}
+        </View>
+        {!collapsed && (
+          <Text
+            className={`ml-2 font-bold ${isActive ? 'text-brand-primary' : 'text-typography-muted'} whitespace-nowrap`}
+            numberOfLines={1}
           >
-            <Text className="text-[9px] font-black text-white leading-none">
+            {label}
+          </Text>
+        )}
+        {!collapsed && !!badge && badge > 0 && (
+          <View className="ml-auto min-w-5 h-5 rounded-full bg-red-500 items-center justify-center px-1">
+            <Text className="text-[10px] font-black text-white leading-none">
               {badge > 99 ? '99+' : badge}
             </Text>
           </View>
         )}
-      </View>
-      {!collapsed && (
-        <Text
-          className={`ml-2 font-bold ${isActive ? 'text-brand-primary' : 'text-typography-muted'} whitespace-nowrap`}
-          numberOfLines={1}
-        >
-          {label}
-        </Text>
-      )}
-      {!collapsed && !!badge && badge > 0 && (
-        <View className="ml-auto min-w-5 h-5 rounded-full bg-red-500 items-center justify-center px-1">
-          <Text className="text-[10px] font-black text-white leading-none">
-            {badge > 99 ? '99+' : badge}
-          </Text>
-        </View>
-      )}
-      {isActive && !collapsed && (!badge || badge === 0) && <View className="ml-auto h-2 w-2 rounded-full bg-brand-primary" />}
-    </Pressable>
-  </Link>
-);
+        {isActive && !collapsed && (!badge || badge === 0) && <View className="ml-auto h-2 w-2 rounded-full bg-brand-primary" />}
+      </Pressable>
+    </Link>
+  );
+};
 
 export default function Sidebar({ children }: { children: React.ReactNode }) {
   const colors = useThemeColors();
