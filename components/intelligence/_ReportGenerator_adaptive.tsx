@@ -1,5 +1,6 @@
 import HorizontalScroll from '@/components/common/HorizontalScroll';
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
+import { BackButton } from '@/components/common/BackButton';
 import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
@@ -337,9 +338,10 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
 
       {/* Header */}
       <View className={`px-6 py-5 border-b border-surface-border flex-row items-center justify-between ${isPage ? 'bg-surface-card' : 'bg-surface-card/50'}`}>
-        <View className="flex-row items-center min-w-0">
+        <View className="flex-row items-center min-w-0 flex-1">
+          {isPage && <BackButton label="" />}
           <View className="h-10 w-1 rounded-full bg-brand-primary mr-4" />
-          <View>
+          <View className="flex-1 min-w-0">
             <Text className="text-lg font-black uppercase tracking-widest text-typography-main">Report Architect</Text>
             <Text className="text-[10px] font-bold text-brand-primary uppercase tracking-tighter">
               {isMulti ? `${selectedTypes.length} Reports Combined` : 'Intelligence Engine'}

@@ -7,6 +7,7 @@ import StageBuilder from '@/components/pipeline-editor/StageBuilder';
 import SubpipelineEditor from '@/components/pipeline-editor/SubpipelineEditor';
 import TransitionEditor from '@/components/pipeline-editor/TransitionEditor';
 import { PipelineEditorProvider, usePipelineEditor } from '@/contexts/PipelineEditorContext';
+import { BackButton } from '@/components/common/BackButton';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -46,13 +47,7 @@ function PipelineEditorInner() {
           {/* Top Bar */}
           <View className="bg-surface-card px-4 pt-4 pb-6 border-b border-surface-border">
             <View className="flex-row items-center justify-between">
-              <TouchableOpacity
-                onPress={() => router.back()}
-                className="flex-row items-center h-11 pr-4"
-              >
-                <FontAwesome name="chevron-left" size={14} color={colors.textMuted} />
-                <Text className="text-typography-muted font-bold text-sm ml-2">Back</Text>
-              </TouchableOpacity>
+              <BackButton />
               <View className="bg-brand-primary/10 px-3 py-1 rounded-full border border-brand-primary/20">
                 <Text className="text-brand-primary text-[9px] font-black uppercase tracking-widest">Pipeline Editor</Text>
               </View>

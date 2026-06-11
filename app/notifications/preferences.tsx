@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
 import { cssInterop } from 'react-native-css-interop';
+import { BackButton } from '@/components/common/BackButton';
 import { supabase } from '@/lib/supabase';
 import { useAlert } from '@/contexts/AlertContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -152,13 +153,7 @@ export default function NotificationPreferencesScreen() {
       {/* Header */}
       <View className="bg-surface-card px-4 pt-4 pb-6 border-b border-surface-border rounded-b-3xl">
         <View className="flex-row items-center justify-between mb-6">
-          <TouchableOpacity
-            onPress={() => router.back()}
-            className="flex-row items-center h-11 pr-4"
-          >
-            <FontAwesome name="chevron-left" size={14} className="text-typography-muted" />
-            <Text className="text-typography-muted font-bold text-sm ml-2">Back</Text>
-          </TouchableOpacity>
+          <BackButton />
           <View className="bg-brand-primary/10 px-3 py-1.5 rounded-full border border-brand-primary/20">
             <Text className="text-brand-primary text-[9px] font-black uppercase tracking-widest">
               Signal Config

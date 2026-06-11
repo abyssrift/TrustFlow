@@ -60,7 +60,11 @@
       "Bash(npx tsc *)",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(sed -n '100,140p' components/Sidebar.web.tsx)",
+      "Bash(sed -n '190,205p' components/Sidebar.web.tsx)",
+      "Bash(sed -n '80,100p' components/Sidebar.web.tsx)",
+      "Bash(grep -n \"^function\\\\|^const.*=.*=>.*{$\\\\|^export function\\\\|^export const.*=.*=>\" components/Sidebar.web.tsx)"
     ],
     "additionalDirectories": [
       "C:\\Users\\PC\\.claude",

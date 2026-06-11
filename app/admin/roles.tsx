@@ -1,6 +1,7 @@
 import RoleBuilder from '@/components/admin/RoleBuilder';
 import TeamAssignmentGrid from '@/components/admin/TeamAssignmentGrid';
 import UserAssignmentGrid from '@/components/admin/UserAssignmentGrid';
+import { BackButton } from '@/components/common/BackButton';
 import { useAuth } from '@/contexts/AuthContext';
 import { RoleManagerProvider, useRoleManager } from '@/contexts/RoleManagerContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -59,13 +60,7 @@ function RolesLayout() {
       {/* Header */}
       <View className="bg-surface-card px-4 pt-4 pb-6 border-b border-surface-border rounded-b-3xl premium-shadow">
         <View className="flex-row items-center justify-between mb-6">
-          <TouchableOpacity
-            onPress={() => router.back()}
-            className="flex-row items-center h-11 pr-4"
-          >
-            <FontAwesome name="chevron-left" size={14} color={colors.textMuted} />
-            <Text className="text-typography-muted font-bold text-sm ml-2">Back</Text>
-          </TouchableOpacity>
+          <BackButton />
           <View className="bg-brand-primary-dim px-3 py-1.5 rounded-full border border-brand-primary/20">
             <Text className="text-brand-primary text-[9px] font-black uppercase tracking-widest">Access Manager</Text>
           </View>

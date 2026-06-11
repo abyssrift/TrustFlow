@@ -1,4 +1,5 @@
 import ConfirmModal from '@/components/common/ConfirmModal';
+import { BackButton } from '@/components/common/BackButton';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDebounce } from '@/hooks/useDebounce';
 import { supabase } from '@/lib/supabase';
@@ -72,9 +73,12 @@ export default function IntelligenceArchivesNative() {
 
   return (
     <View className="flex-1 bg-surface-background">
-      <View className="px-6 pt-14 pb-4">
-        <Text className="text-brand-primary font-black uppercase tracking-[4px] text-[10px] mb-1">Intelligence Hub</Text>
-        <Text className="text-typography-main text-3xl font-black">Cold Storage</Text>
+      <View className="px-6 pt-14 pb-4 flex-row items-start justify-between">
+        <View className="flex-1">
+          <Text className="text-brand-primary font-black uppercase tracking-[4px] text-[10px] mb-1">Intelligence Hub</Text>
+          <Text className="text-typography-main text-3xl font-black">Cold Storage</Text>
+        </View>
+        <BackButton label="" />
       </View>
 
       <View className="px-6 mb-4 flex-row flex-wrap items-center gap-3">

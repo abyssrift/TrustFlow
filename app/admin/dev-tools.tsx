@@ -1,3 +1,4 @@
+import { BackButton } from '@/components/common/BackButton';
 import { useAlert } from '@/contexts/AlertContext';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
@@ -164,9 +165,7 @@ export default function DevToolsScreen() {
         <View className="bg-surface-card border-b border-surface-border px-4 py-4">
           <View className="flex-row items-center justify-between mb-2">
             <View className="flex-row items-center gap-3 flex-1">
-              <TouchableOpacity onPress={() => router.back()} className="w-10 h-10 items-center justify-center">
-                <FontAwesome name="chevron-left" size={18} color="#64748b" />
-              </TouchableOpacity>
+              <BackButton />
               <View>
                 <Text className="text-typography-main font-black text-lg">Dev Tools</Text>
                 <Text className="text-typography-muted text-xs">Seeding & Data Management</Text>
