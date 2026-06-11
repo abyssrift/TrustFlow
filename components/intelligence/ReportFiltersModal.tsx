@@ -18,25 +18,25 @@ const STATUS_OPTIONS = [
     value: 'completed',  label: 'Completed',  icon: 'check-circle',
     activeClass: 'bg-state-success/10 border-state-success',
     textActive:  'text-state-success',
-    iconColor:   colors.success,
+    iconColor:   '#22c55e',
   },
   {
     value: 'processing', label: 'Processing', icon: 'circle-o-notch',
     activeClass: 'bg-state-info/10 border-state-info',
     textActive:  'text-state-info',
-    iconColor:   colors.info,
+    iconColor:   '#3b82f6',
   },
   {
     value: 'pending',    label: 'Pending',    icon: 'clock-o',
     activeClass: 'bg-state-warning/10 border-state-warning',
     textActive:  'text-state-warning',
-    iconColor:   colors.warning,
+    iconColor:   '#fbbf24',
   },
   {
     value: 'failed',     label: 'Failed',     icon: 'times-circle',
     activeClass: 'bg-state-danger/10 border-state-danger',
     textActive:  'text-state-danger',
-    iconColor:   colors.danger,
+    iconColor:   '#ef4444',
   },
 ];
 

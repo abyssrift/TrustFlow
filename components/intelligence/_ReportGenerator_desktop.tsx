@@ -13,12 +13,11 @@ import {
 } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { generateAndUploadReport } from './reports/generate';
-const colors = useThemeColors();
+
 const BRAND = 'rgb(99,102,241)';
 const BRAND_DIM = 'rgba(99,102,241,0.15)';
 
 function fmt(s: number) {
-  const colors = useThemeColors();
   return `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
 }
 

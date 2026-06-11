@@ -262,7 +262,6 @@ const RadarSection = ({ data, activeWidgets, onEditWidgets }: any) => {
 
 
 
-const colors = useThemeColors();
 const ArchivesSection = ({ reports, onDownload, onNew, coldArchives, activeSchema, currentSubSection, setSubSection, onSelectArchive, hasPermission }: any) => (
   <View>
     <View className="flex-row bg-surface-background p-1 rounded-xl mb-6">

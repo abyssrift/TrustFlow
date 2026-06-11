@@ -26,23 +26,19 @@ const PERIOD_OPTS = [
 ];
 
 const fmtSec = (s: number) => {
-  const colors = useThemeColors();
   const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 };
 
-const colors = useThemeColors();
-
-const tooltipStyle = {
-  backgroundColor: colors.card,
-  border: '1px solid var(--color-border)',
-  borderRadius: '8px',
-  color: colors.textMain,
-  boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
-};
-
 export default function IntelligenceGraphs() {
   const colors = useThemeColors();
+  const tooltipStyle = {
+    backgroundColor: colors.card,
+    border: `1px solid rgb(var(--surface-border))`,
+    borderRadius: '8px',
+    color: colors.textMain,
+    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+  };
   const { getPipelineStageDwell, getPipelineThroughput, getPipelinePointsSeries } = useAnalytics();
 
   const [pipelineId, setPipelineId]     = useState<string | null>(null);

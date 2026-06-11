@@ -17,8 +17,7 @@ import {
 } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { generateAndUploadReport } from './reports/generate';
-const colors = useThemeColors();
-const BRAND = colors.primary;
+
 const BRAND_DIM = 'rgba(99,102,241,0.15)';
 
 function fmt(s: number) {
@@ -41,7 +40,7 @@ function GenerationProgress({ current, total, elapsed }: { current: number; tota
           <Circle cx={size / 2} cy={size / 2} r={r} stroke={BRAND_DIM} strokeWidth={stroke} fill="none" />
           <Circle
             cx={size / 2} cy={size / 2} r={r}
-            stroke={BRAND} strokeWidth={stroke} fill="none"
+            stroke={colors.primary} strokeWidth={stroke} fill="none"
             strokeDasharray={circ} strokeDashoffset={circ * (1 - pct)}
             strokeLinecap="round" rotation="-90" origin={`${size / 2}, ${size / 2}`}
           />

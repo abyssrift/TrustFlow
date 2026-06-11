@@ -12,7 +12,6 @@ import {
   TouchableOpacity, View, useWindowDimensions,
 } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
-const colors = useThemeColors();
 
 // ── Create Modal ───────────────────────────────────────────────────────────────
 

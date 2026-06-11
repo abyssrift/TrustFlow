@@ -35,7 +35,6 @@ import {
 // ── Reusable UI ────────────────────────────────────────────────────────────
 
 const Divider = () => <View className="h-px bg-surface-border mx-4" />;
-const colors = useThemeColors();
 const StatTile = ({
   label, value, sub, icon, accent = false,
 }: {
@@ -44,7 +43,7 @@ const StatTile = ({
   <View className={`flex-1 rounded-2xl p-4 border ${accent ? 'bg-brand-primary-dim border-brand-primary/20' : 'bg-surface-card border-surface-border'}`}>
     <View className="flex-row items-center justify-between mb-3">
       <Text className={`text-[10px] font-black uppercase tracking-widest ${accent ? 'text-brand-primary' : 'text-typography-muted'}`}>{label}</Text>
-      <FontAwesome name={icon as any} size={12} color={accent ? colors.primary : colors.textMuted} />
+      <FontAwesome name={icon as any} size={12} className={accent ? 'text-brand-primary' : 'text-typography-muted'} />
     </View>
     <Text className={`text-2xl font-black tracking-tight ${accent ? 'text-brand-primary' : 'text-typography-main'}`}>{value}</Text>
     {sub && <Text className="text-typography-dim text-[10px] mt-1">{sub}</Text>}
