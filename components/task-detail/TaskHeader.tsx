@@ -5,6 +5,7 @@ import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTimer } from '@/contexts/TimerContext';
 import { useToast } from '@/contexts/ToastContext';
+import { usePingNotification } from '@/hooks/usePingNotification';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -33,8 +34,10 @@ export default function TaskHeader() {
   const { isActive, activeSession, startWork, stopWork } = useTimer();
   const { theme: activeTheme } = useTheme();
   const { hasPermission, profile } = useAuth();
+  const { playPingSound } = usePingNotification(data?.task.id || '');
   const [busy, setBusy] = React.useState(false);
   const [loadingActionId, setLoadingActionId] = React.useState<string | null>(null);
+  const [pingLoading, setPingLoading] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState<{ title: string; message: string } | null>(null);
   const [showArchiveConfirm, setShowArchiveConfirm] = React.useState(false);
   const [archiving, setArchiving] = React.useState(false);
@@ -63,11 +66,27 @@ export default function TaskHeader() {
     }
   };
 
+  const handlePingTask = async () => {
+    if (!data) return;
+    try {
+      setPingLoading(true);
+      const { error } = await supabase.rpc('rpc_ping_task', { p_task_id: data.task.id });
+      if (error) throw error;
+      successToast('Task pinged! 📢');
+      playPingSound();
+    } catch (err: any) {
+      errorToast(err.message || 'Could not ping task.');
+    } finally {
+      setPingLoading(false);
+    }
+  };
+
   if (!data) return null;
 
   const { task, current_stage } = data;
   const prio = PRIORITY_MAP[task.priority?.toLowerCase()] || PRIORITY_MAP.medium;
   const canArchive = data.permissions.is_owner || hasPermission('archive:create') || hasPermission('pipeline.edit');
+  const canPing = data.permissions.is_manager || hasPermission('task.ping') || data.permissions.is_owner;
 
   const handleBack = () => {
     if (data.pipeline?.id) {
@@ -250,6 +269,23 @@ export default function TaskHeader() {
               </TouchableOpacity>
             );
           })}
+
+          {canPing && (
+            <TouchableOpacity
+              onPress={handlePingTask}
+              disabled={pingLoading}
+              className={`flex-row items-center px-4 py-2 rounded-xl border border-brand-primary/40 bg-brand-primary/10 ${pingLoading ? 'opacity-50' : ''}`}
+            >
+              {pingLoading ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <>
+                  <FontAwesome name="bell" size={10} className="text-brand-primary" />
+                  <Text className="text-brand-primary text-[10px] font-black uppercase tracking-wider ml-2">Ping</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
 
           {canArchive && (
             <TouchableOpacity

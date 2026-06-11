@@ -8,14 +8,16 @@ import NotificationRules from '@/components/admin/NotificationRules';
 import RoleBuilder from '@/components/admin/RoleBuilder';
 import TeamAssignmentGrid from '@/components/admin/TeamAssignmentGrid';
 import UserAssignmentGrid from '@/components/admin/UserAssignmentGrid';
+import WorkspaceSettings from '@/components/profile/WorkspaceSettings';
 import { useAuth } from '@/contexts/AuthContext';
 import { RoleManagerProvider, useRoleManager } from '@/contexts/RoleManagerContext';
 import { supabase } from '@/lib/supabase';
 import { useThemeColors } from '@/hooks/useThemeColors';
 
-type PeopleSection = 'members' | 'teams' | 'roles' | 'notifications';
+type PeopleSection = 'members' | 'teams' | 'roles' | 'notifications' | 'workspace';
 
 function resolveSection(param: string | undefined, canViewMembers: boolean, canManageTeams: boolean, canManageNotifications: boolean): PeopleSection {
+  if (param === 'workspace' && canManageNotifications) return 'workspace';
   if (param === 'notifications' && canManageNotifications) return 'notifications';
   if (param === 'roles' && canManageTeams) return 'roles';
   if (param === 'teams' && canManageTeams) return 'teams';
@@ -46,6 +48,7 @@ function TeamWorkspaceContent({ section }: { section: PeopleSection }) {
     );
   }
 
+  if (section === 'workspace') return <WorkspaceSettings />;
   if (section === 'roles') return <RoleBuilder />;
   if (section === 'teams') return <TeamAssignmentGrid />;
   if (section === 'notifications') return <NotificationRules />;
@@ -156,6 +159,16 @@ export default function PeopleScreenWeb() {
                 >
                   <Text className={`font-black text-xs uppercase tracking-widest ${activeSection === 'notifications' ? 'text-white' : 'text-typography-muted'}`}>
                     Alert Rules
+                  </Text>
+                </TouchableOpacity>
+              )}
+              {canManageNotifications && (
+                <TouchableOpacity
+                  onPress={() => setActiveSection('workspace')}
+                  className={`px-8 py-3 rounded-xl ${activeSection === 'workspace' ? 'bg-brand-primary' : ''}`}
+                >
+                  <Text className={`font-black text-xs uppercase tracking-widest ${activeSection === 'workspace' ? 'text-white' : 'text-typography-muted'}`}>
+                    Workspace
                   </Text>
                 </TouchableOpacity>
               )}

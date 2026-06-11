@@ -17,8 +17,7 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Alert, AppState, Platform, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { getActionDescriptor, splitStageActions } from './actionRegistry';
 
-function getFileIcon(mimeType: string | null): { name: string; color: string } {
-  const colors = useThemeColors();
+function getFileIcon(mimeType: string | null, colors: ReturnType<typeof useThemeColors>): { name: string; color: string } {
   const t = (mimeType || '').toLowerCase();
   if (t.includes('image')) return { name: 'file-image-o', color: colors.warning };
   if (t.includes('pdf')) return { name: 'file-pdf-o', color: colors.danger };
@@ -578,7 +577,7 @@ export default function StageActions() {
                   {s.attachments.length > 0 && (
                     <View className="mb-2 gap-1.5">
                       {s.attachments.map((a) => {
-                        const { name: iconName, color: iconColor } = getFileIcon(a.mime_type);
+                        const { name: iconName, color: iconColor } = getFileIcon(a.mime_type, colors);
                         return (
                           <TouchableOpacity
                             key={a.id}

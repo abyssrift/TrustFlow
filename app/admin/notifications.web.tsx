@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
 import NotificationRules from '@/components/admin/NotificationRules';
+import PingSettingsPanel from '@/components/admin/PingSettingsPanel';
 import { useThemeColors } from '@/hooks/useThemeColors';
 
 export default function AdminNotificationsScreenWeb() {
@@ -48,8 +49,13 @@ export default function AdminNotificationsScreenWeb() {
         </View>
 
         {/* Rules component */}
-        <View className="bg-surface-card rounded-[32px] border border-surface-border p-8 premium-shadow">
+        <View className="bg-surface-card rounded-[32px] border border-surface-border p-8 premium-shadow mb-8">
           <NotificationRules />
+        </View>
+
+        {/* Ping settings component */}
+        <View className="bg-surface-card rounded-[32px] border border-surface-border p-8 premium-shadow">
+          <PingSettingsPanel />
         </View>
       </View>
     </ScrollView>

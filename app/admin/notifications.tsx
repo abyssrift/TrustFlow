@@ -1,10 +1,11 @@
 import NotificationRules from '@/components/admin/NotificationRules';
+import PingSettingsPanel from '@/components/admin/PingSettingsPanel';
 import { BackButton } from '@/components/common/BackButton';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { FontAwesome } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import React from 'react';
-import { SafeAreaView, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 export default function AdminNotificationsScreen() {
   const colors = useThemeColors();
@@ -38,9 +39,10 @@ export default function AdminNotificationsScreen() {
         </View>
       </View>
 
-      <View className="flex-1 pt-4">
+      <ScrollView className="flex-1 pt-4 px-4 pb-6" contentContainerStyle={{ gap: 16 }}>
         <NotificationRules />
-      </View>
+        <PingSettingsPanel />
+      </ScrollView>
     </SafeAreaView>
   );
 }

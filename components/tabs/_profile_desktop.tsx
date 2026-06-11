@@ -146,11 +146,11 @@ export default function ProfilePageWeb() {
             label="Security" 
             description="Password and email settings"
           />
-          <TabButton 
-            active={activeTab === 'appearance'} 
-            onPress={() => setActiveTab('appearance')} 
-            icon="paint-brush" 
-            label="Appearance" 
+          <TabButton
+            active={activeTab === 'appearance'}
+            onPress={() => setActiveTab('appearance')}
+            icon="paint-brush"
+            label="Appearance"
             description="Themes and interface settings"
           />
         </View>
@@ -196,8 +196,8 @@ export default function ProfilePageWeb() {
                {activeTab === 'general' ? 'Account Settings' : activeTab === 'stats' ? 'Your Intelligence' : activeTab === 'security' ? 'Security Suite' : 'Interface Design'}
              </Text>
              <Text className="text-typography-muted font-bold text-sm">
-               {activeTab === 'appearance' 
-                 ? 'Customize the visual identity and interaction density of your workspace.' 
+               {activeTab === 'appearance'
+                 ? 'Customize the visual identity and interaction density of your workspace.'
                  : 'Manage your account preferences and view system-level metrics associated with your identity.'}
              </Text>
           </View>
@@ -227,16 +227,16 @@ export default function ProfilePageWeb() {
                         key={option.id}
                         onPress={() => setTheme(option.id)}
                         className={`h-24 w-32 items-center justify-center rounded-2xl border transition-all ${
-                          activeTheme === option.id 
-                            ? 'border-brand-primary bg-brand-primary/10' 
+                          activeTheme === option.id
+                            ? 'border-brand-primary bg-brand-primary/10'
                             : 'border-surface-border bg-surface-background/50 hover:bg-surface-overlay'
                         }`}
                       >
                         <View className={`h-10 w-10 items-center justify-center rounded-xl ${activeTheme === option.id ? 'bg-brand-primary/20' : 'bg-surface-overlay'}`}>
-                          <FontAwesome 
-                            name={option.icon as any} 
-                            size={18} 
-                            color={activeTheme === option.id ? colors.primary : colors.textDim} 
+                          <FontAwesome
+                            name={option.icon as any}
+                            size={18}
+                            color={activeTheme === option.id ? colors.primary : colors.textDim}
                           />
                         </View>
                         <Text className={`mt-3 text-[10px] font-black uppercase tracking-widest ${

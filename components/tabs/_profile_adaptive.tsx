@@ -169,15 +169,15 @@ export default function ProfilePage() {
                   key={option.id}
                   onPress={() => setTheme(option.id)}
                   className={`h-20 w-[30%] items-center justify-center rounded-xl border transition-all ${
-                    activeTheme === option.id 
-                      ? 'border-brand-primary bg-brand-primary/10' 
+                    activeTheme === option.id
+                      ? 'border-brand-primary bg-brand-primary/10'
                       : 'border-surface-border bg-surface-background/50'
                   }`}
                 >
-                  <FontAwesome 
-                    name={option.icon as any} 
-                    size={20} 
-                    color={activeTheme === option.id ? colors.primary : colors.textDim} 
+                  <FontAwesome
+                    name={option.icon as any}
+                    size={20}
+                    color={activeTheme === option.id ? colors.primary : colors.textDim}
                   />
                   <Text className={`mt-2 text-[10px] font-black uppercase tracking-widest ${
                     activeTheme === option.id ? 'text-brand-primary' : 'text-typography-muted'
@@ -194,6 +194,7 @@ export default function ProfilePage() {
             </View>
           </View>
         </View>
+
 
         <View>
           <Text className="mb-4 text-[10px] font-black uppercase tracking-[0.3em] text-typography-dim">Notifications</Text>
