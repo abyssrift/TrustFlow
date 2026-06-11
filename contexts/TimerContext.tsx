@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useCallback, useState, useRef, useEffect } from 'react';
+import React, { createContext, useContext, useCallback, useMemo, useState, useRef, useEffect } from 'react';
 import { Platform, AppState, AppStateStatus, DeviceEventEmitter } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, supabaseUrl, supabaseAnonKey } from '@/lib/supabase';
@@ -367,18 +367,41 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
     startedAt: activeSession?.started_at || null,
   });
 
+  // Memoized so taps (which call recordActivity) and unrelated parent renders
+  // don't cascade a new context value to every useTimer() consumer.
+  const contextValue = useMemo<TimerContextType>(() => ({
+    isActive: !!activeSession,
+    activeSession,
+    isCommitting,
+    serverTimeOffset,
+    startWork,
+    stopWork,
+    passiveStart,
+    lastStoppedAt,
+    smartTimer: {
+      showIdleModal: smartTimer.showIdleModal,
+      setShowIdleModal: smartTimer.setShowIdleModal,
+      recordActivity: () => { lastActivityTimeRef.current = Date.now(); smartTimer.recordActivity(); },
+      lastHeartbeat: smartTimer.lastHeartbeat,
+      lastActivityTime: lastActivityTimeRef.current,
+      getLastActivityTime: () => lastActivityTimeRef.current,
+    },
+  }), [
+    activeSession,
+    isCommitting,
+    serverTimeOffset,
+    startWork,
+    stopWork,
+    passiveStart,
+    lastStoppedAt,
+    smartTimer.showIdleModal,
+    smartTimer.setShowIdleModal,
+    smartTimer.recordActivity,
+    smartTimer.lastHeartbeat,
+  ]);
+
   return (
-    <TimerContext.Provider value={{ 
-      isActive: !!activeSession, 
-      activeSession,
-      isCommitting,
-      serverTimeOffset,
-      startWork, 
-      stopWork, 
-      passiveStart,
-      lastStoppedAt,
-      smartTimer: { ...smartTimer, recordActivity: () => { lastActivityTimeRef.current = Date.now(); smartTimer.recordActivity(); }, lastActivityTime: lastActivityTimeRef.current, getLastActivityTime: () => lastActivityTimeRef.current }
-    }}>
+    <TimerContext.Provider value={contextValue}>
       {children}
     </TimerContext.Provider>
   );

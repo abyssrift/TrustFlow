@@ -7,13 +7,19 @@ import EditTaskModal from './EditTaskModal';
 
 function MetaRow({ icon, label, value, valueColor }: { icon: string; label: string; value: string; valueColor?: string }) {
   const colors = useThemeColors();
+  const getValueColor = () => {
+    if (valueColor === 'text-brand-primary') return colors.primary;
+    if (valueColor === 'text-state-danger') return colors.danger;
+    if (valueColor === 'text-state-success') return colors.success;
+    return colors.textMain;
+  };
   return (
-    <View className="flex-row items-center justify-between py-2.5 border-b border-surface-border/30">
-      <View className="flex-row items-center">
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255, 255, 255, 0.1)' }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
         <FontAwesome name={icon as any} size={11} color={colors.textMuted} />
-        <Text className="text-typography-muted text-xs font-bold ml-2.5 uppercase tracking-wider">{label}</Text>
+        <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: '700', marginLeft: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</Text>
       </View>
-      <Text className={`text-xs font-black ${valueColor || 'text-typography-main'}`}>{value}</Text>
+      <Text style={{ fontSize: 12, fontWeight: '900', color: getValueColor() }}>{value}</Text>
     </View>
   );
 }
@@ -27,6 +33,18 @@ export default function TaskMetadata() {
 
   const { task, pipeline, current_stage, creator, manager, stats, permissions } = data;
 
+  // Map theme colors to common UI colors
+  const themeColors = {
+    surfaceCard: colors.card,
+    borderMain: colors.border,
+    textLabel: colors.textMuted,
+    surfaceBackground: colors.background,
+    warningLight: 'rgba(251, 191, 36, 0.1)',
+    warningBorder: 'rgba(251, 191, 36, 0.3)',
+    surfaceOverlay: 'rgba(255, 255, 255, 0.05)',
+    borderLight: 'rgba(255, 255, 255, 0.1)',
+  };
+
   const formatDate = (d: string | null) => {
     if (!d) return '—';
     return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -35,23 +53,23 @@ export default function TaskMetadata() {
   const isOverdue = task.due_date && new Date(task.due_date) < new Date() && !task.completed_at;
 
   return (
-    <View className="bg-surface-card rounded-2xl border border-surface-border p-4">
-      <View className="flex-row items-center justify-between mb-3">
-        <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em]">Task Info</Text>
+    <View style={{ backgroundColor: themeColors.surfaceCard, borderRadius: 16, borderWidth: 1, borderColor: themeColors.borderMain, padding: 16 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <Text style={{ color: colors.textMuted, fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1.5 }}>Task Info</Text>
         {permissions.can_edit && (
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => setIsEditModalVisible(true)}
-            className="flex-row items-center bg-surface-background px-2.5 py-1.5 rounded-lg border border-surface-border active:opacity-75"
+            style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: themeColors.surfaceBackground, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: themeColors.borderMain }}
           >
             <FontAwesome name="pencil" size={10} color={colors.primary} />
-            <Text className="text-brand-primary text-[10px] font-bold ml-1.5 uppercase tracking-wider">Edit</Text>
+            <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '700', marginLeft: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Edit</Text>
           </TouchableOpacity>
         )}
       </View>
 
       {/* Description */}
       {task.description && (
-        <Text className="text-typography-label text-sm leading-5 mb-4">
+        <Text style={{ color: colors.textMuted, fontSize: 14, lineHeight: 20, marginBottom: 16 }}>
           {task.description}
         </Text>
       )}
@@ -78,12 +96,12 @@ export default function TaskMetadata() {
       <MetaRow icon="balance-scale" label="Weight" value={task.weight?.toString() || '1'} />
       {task.is_recurring && <MetaRow icon="repeat" label="Recurring" value="Yes" valueColor="text-brand-primary" />}
       {task.quarantine_reason && (
-        <View className="mt-3 p-3 bg-state-warning/10 border border-state-warning/30 rounded-xl">
-          <View className="flex-row items-center mb-1">
+        <View style={{ marginTop: 12, padding: 12, backgroundColor: themeColors.warningLight, borderWidth: 1, borderColor: themeColors.warningBorder, borderRadius: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
             <FontAwesome name="warning" size={10} color={colors.warning} />
-            <Text className="text-state-warning text-[10px] font-black uppercase ml-1.5 tracking-wider">Quarantined</Text>
+            <Text style={{ color: colors.warning, fontSize: 10, fontWeight: '900', textTransform: 'uppercase', marginLeft: 6, letterSpacing: 0.5 }}>Quarantined</Text>
           </View>
-          <Text className="text-typography-main text-xs font-medium leading-4 italic">
+          <Text style={{ color: colors.textMain, fontSize: 12, fontWeight: '500', lineHeight: 16, fontStyle: 'italic' }}>
             "{task.quarantine_reason}"
           </Text>
         </View>
@@ -91,13 +109,13 @@ export default function TaskMetadata() {
 
       {/* Progress bar */}
       {task.progress > 0 && (
-        <View className="mt-3">
-          <View className="flex-row justify-between mb-1">
-            <Text className="text-typography-muted text-[10px] font-bold uppercase">Progress</Text>
-            <Text className="text-brand-primary text-[10px] font-black">{task.progress}%</Text>
+        <View style={{ marginTop: 12 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+            <Text style={{ color: colors.textMuted, fontSize: 10, fontWeight: '700', textTransform: 'uppercase' }}>Progress</Text>
+            <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '900' }}>{task.progress}%</Text>
           </View>
-          <View className="h-1.5 bg-surface-overlay rounded-full overflow-hidden">
-            <View style={{ width: `${task.progress}%`, backgroundColor: colors.primary }} className="h-full rounded-full" />
+          <View style={{ height: 6, backgroundColor: themeColors.surfaceOverlay, borderRadius: 999, overflow: 'hidden' }}>
+            <View style={{ width: `${task.progress}%`, backgroundColor: colors.primary, height: '100%', borderRadius: 999 }} />
           </View>
         </View>
       )}

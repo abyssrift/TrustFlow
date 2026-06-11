@@ -32,7 +32,6 @@ export default function ConnectionLines({ stages, transitions, onEditTransition 
   const NODE_HEIGHT = 160;
 
   const stagePositions = useMemo(() => {
-    const colors = useThemeColors();
     return stages.reduce((acc, s, index) => {
       const x = s.ui_metadata?.x ?? 50 + (index * 300) % 1200;
       const y = s.ui_metadata?.y ?? 50 + Math.floor(index / 4) * 200;

@@ -6,7 +6,6 @@ import TaskCardActions, { type ActiveSessionUser } from '@/components/task-detai
 import AssignmentModal from '@/components/tasks/AssignmentModal';
 import CreateTaskSheet from '@/components/tasks/CreateTaskSheet';
 import { useAuth } from '@/contexts/AuthContext';
-import { useSuppressRouteLoading } from '@/contexts/RouteLoadingContext';
 import { TaskCreationProvider } from '@/contexts/TaskCreationContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -125,7 +124,6 @@ function TasksScreen() {
    const colors = useThemeColors();
    const router = useRouter();
    const { user, hasPermission, profile } = useAuth();
-   const { suppressNext } = useSuppressRouteLoading();
    const { pipelineId: paramPipelineId } = useLocalSearchParams();
    const isLargeScreen = width > 768;
 
@@ -751,7 +749,6 @@ function TasksScreen() {
 
           {/* Tools toggle */}
           <TouchableOpacity
-            onPressIn={suppressNext}
             onPress={() => setShowTools(v => !v)}
             className={`p-2.5 rounded-xl border ${showTools ? 'bg-brand-primary border-brand-primary' : 'bg-brand-primary/10 border-brand-primary/20'}`}
           >

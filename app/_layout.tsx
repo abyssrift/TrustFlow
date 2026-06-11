@@ -2,9 +2,9 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { Stack, usePathname } from 'expo-router';
+import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect } from 'react';
 import { Platform, Text, View } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
 import 'react-native-reanimated';
@@ -206,76 +206,17 @@ function RootLayoutNav() {
 }
 
 import LoadingOverlay from '@/components/LoadingOverlay';
-import { RouteLoadingProvider } from '@/contexts/RouteLoadingContext';
 
 function ThemedRoot() {
   const { themeVariables, isLoading } = useTheme();
   const { session, initialized } = useAuth();
   const { smartTimer } = useTimer();
-  const pathname = usePathname();
-  const initialPathRef = useRef<string | null>(null);
-  const [showRouteLoading, setShowRouteLoading] = useState(false);
-  const touchTimeoutRef = useRef<any>(null);
-  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
-  const suppressRouteLoadingRef = useRef(false);
-
-  useEffect(() => {
-    if (initialPathRef.current === null) {
-      initialPathRef.current = pathname;
-      return;
-    }
-
-    if (initialPathRef.current === pathname) {
-      return;
-    }
-
-    initialPathRef.current = pathname;
-    setShowRouteLoading(true);
-
-    const hideLoading = setTimeout(() => {
-      setShowRouteLoading(false);
-    }, Platform.OS === 'web' ? 400 : 500);
-
-    return () => clearTimeout(hideLoading);
-  }, [pathname]);
 
   return (
-    <RouteLoadingProvider suppressRef={suppressRouteLoadingRef}>
     <View style={themeVariables} className="flex-1">
       <View
         className="flex-1 bg-surface-background"
-        onTouchStart={Platform.OS !== 'web' ? (e) => {
-          smartTimer.recordActivity();
-          touchStartRef.current = {
-            x: e.nativeEvent.pageX,
-            y: e.nativeEvent.pageY,
-          };
-        } : undefined}
-        onTouchMove={Platform.OS !== 'web' ? (e) => {
-          if (!touchStartRef.current) return;
-          const dx = Math.abs(e.nativeEvent.pageX - touchStartRef.current.x);
-          const dy = Math.abs(e.nativeEvent.pageY - touchStartRef.current.y);
-          if (dx > 10 || dy > 10) {
-            touchStartRef.current = null;
-            if (touchTimeoutRef.current) {
-              clearTimeout(touchTimeoutRef.current);
-              touchTimeoutRef.current = null;
-            }
-            setShowRouteLoading(false);
-          }
-        } : undefined}
-        onTouchEnd={Platform.OS !== 'web' ? () => {
-          if (touchStartRef.current !== null && !suppressRouteLoadingRef.current) {
-            setShowRouteLoading(true);
-            if (touchTimeoutRef.current) clearTimeout(touchTimeoutRef.current);
-            touchTimeoutRef.current = setTimeout(() => {
-              setShowRouteLoading(false);
-              touchTimeoutRef.current = null;
-            }, 300);
-          }
-          suppressRouteLoadingRef.current = false;
-          touchStartRef.current = null;
-        } : undefined}
+        onTouchStart={Platform.OS !== 'web' ? () => smartTimer.recordActivity() : undefined}
       >
         {/* Register for push notifications on native once user is signed in */}
         {session && Platform.OS !== 'web' && <PushRegistrationGuard />}
@@ -283,9 +224,7 @@ function ThemedRoot() {
         {session && Platform.OS === 'web' && <WebPushAutoSubscribeGuard />}
 
         {/* Global Loading Overlay */}
-        {(!initialized || isLoading /* || showRouteLoading */) && (
-          <LoadingOverlay message={/* showRouteLoading ? 'Opening page...' : */ undefined} />
-        )}
+        {(!initialized || isLoading) && <LoadingOverlay />}
 
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -306,6 +245,5 @@ function ThemedRoot() {
         {session && <WebPushPrompt />}
       </View>
     </View>
-    </RouteLoadingProvider>
   );
 }
