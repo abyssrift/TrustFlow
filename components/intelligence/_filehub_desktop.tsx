@@ -114,7 +114,6 @@ const ALLOWED_TYPES_MESSAGE =
   '• Data: JSON, XML, YAML, SQL, HTML, JS, TS';
 
 function isAllowedFile(name: string): boolean {
-  const colors = useThemeColors();
   const ext = name.split('.').pop()?.toLowerCase() ?? '';
   return ALLOWED_EXTENSIONS.has(ext);
 }
