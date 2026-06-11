@@ -53,7 +53,14 @@
       "mcp__plugin_supabase_supabase__apply_migration",
       "mcp__plugin_supabase_supabase__get_logs",
       "mcp__plugin_supabase_supabase__get_edge_function",
-      "mcp__claude_ai_Supabase__execute_sql"
+      "mcp__claude_ai_Supabase__execute_sql",
+      "Bash(grep -E \"\\\\.\\(tsx|ts|jsx|js\\)$\")",
+      "Bash(Get-Content -Path \"C:\\\\Users\\\\j\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-j-Documents-Github-TrustFlow\\\\0eec315f-abcd-4398-a83f-5d2b18ab6e50\\\\tasks\\\\bog0kofiw.output\")",
+      "Bash(node -e \"const fs=require\\('fs'\\);const path=require\\('path'\\);function walk\\(d\\){const r=[];try{fs.readdirSync\\(d\\).forEach\\(f=>{const p=path.join\\(d,f\\);if\\(fs.statSync\\(p\\).isDirectory\\(\\)&&!['node_modules','.git','scripts','.expo'].includes\\(f\\)\\)r.push\\(...walk\\(p\\)\\);else if\\(f.match\\(/\\\\.\\(tsx|ts\\)$/\\)&&!f.endsWith\\('.d.ts'\\)\\)r.push\\(p\\);}\\);}catch\\(e\\){}return r;}walk\\('.'\\).forEach\\(fp=>{try{const lines=fs.readFileSync\\(fp,'utf8'\\).split\\('\\\\n'\\);const modScope=[];lines.forEach\\(\\(l,i\\)=>{const s=l.trimStart\\(\\);const ind=l.length-s.length;if\\(ind<=2&&/colors\\\\./.test\\(l\\)&&!/^\\\\s*\\(\\\\/\\\\*|\\\\/\\\\/|const colors|import\\)/.test\\(l\\)&&!/=>\\\\s*\\\\\\(/.test\\(l\\)\\){modScope.push\\(i+1+': '+l.trim\\(\\).slice\\(0,80\\)\\);}}\\);if\\(modScope.length>0\\){console.log\\('FILE: '+fp\\);modScope.forEach\\(m=>console.log\\('  '+m\\)\\);}}catch\\(e\\){}}\\);\")",
+      "Bash(npx tsc *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\PC\\.claude",
