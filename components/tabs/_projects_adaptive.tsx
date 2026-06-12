@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  InteractionManager,
   Platform,
   Switch
 } from 'react-native';
@@ -89,7 +90,10 @@ export default function ProjectsScreen() {
   };
 
   useEffect(() => {
-    fetchProjects();
+    const task = InteractionManager.runAfterInteractions(() => {
+      fetchProjects();
+    });
+    return () => task.cancel();
   }, []);
 
   const onRefresh = () => {

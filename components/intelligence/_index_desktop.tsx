@@ -47,7 +47,13 @@ export default function IntelligenceOverview() {
     });
   }, []);
 
-  useEffect(() => { fetchAudit(); }, [days, pipelineId]);
+  const canViewAnalytics = hasPermission('analytics.view');
+  const canViewReports   = hasPermission('report.view') || hasPermission('report.generate');
+
+  useEffect(() => {
+    if (canViewAnalytics) fetchAudit();
+    else setLoading(false);
+  }, [days, pipelineId, canViewAnalytics]);
 
   const fetchAudit = async () => {
     setLoading(true);
@@ -112,37 +118,42 @@ export default function IntelligenceOverview() {
           </View>
         </View>
         <View className="flex-row flex-wrap items-center gap-3">
-          {/* Timeframe */}
-          <View className="flex-row bg-surface-card border border-surface-border rounded-xl p-1 gap-0.5">
-            {DAY_OPTS.map(d => (
-              <TouchableOpacity
-                key={d}
-                onPress={() => setDays(d)}
-                className={`px-4 py-2 rounded-lg ${days === d ? 'bg-brand-primary' : ''}`}
-              >
-                <Text className={`text-[11px] font-black ${days === d ? 'text-white' : 'text-typography-muted'}`}>{d}d</Text>
+          {canViewAnalytics && (
+            <>
+              <View className="flex-row bg-surface-card border border-surface-border rounded-xl p-1 gap-0.5">
+                {DAY_OPTS.map(d => (
+                  <TouchableOpacity
+                    key={d}
+                    onPress={() => setDays(d)}
+                    className={`px-4 py-2 rounded-lg ${days === d ? 'bg-brand-primary' : ''}`}
+                  >
+                    <Text className={`text-[11px] font-black ${days === d ? 'text-white' : 'text-typography-muted'}`}>{d}d</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <TouchableOpacity onPress={fetchAudit} className="h-10 w-10 items-center justify-center bg-surface-card border border-surface-border rounded-xl">
+                <FontAwesome name="refresh" size={13} color={colors.primary} />
               </TouchableOpacity>
-            ))}
-          </View>
-          <TouchableOpacity onPress={fetchAudit} className="h-10 w-10 items-center justify-center bg-surface-card border border-surface-border rounded-xl">
-            <FontAwesome name="refresh" size={13} color={colors.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setShowReportModal(true)} className="bg-brand-primary px-6 py-2.5 rounded-xl flex-row items-center gap-2">
-            <FontAwesome name="file-pdf-o" size={12} color="white" />
-            <Text className="text-white font-black uppercase tracking-widest text-[11px]">Generate Report</Text>
-          </TouchableOpacity>
+            </>
+          )}
+          {canViewReports && (
+            <TouchableOpacity onPress={() => setShowReportModal(true)} className="bg-brand-primary px-6 py-2.5 rounded-xl flex-row items-center gap-2">
+              <FontAwesome name="file-pdf-o" size={12} color="white" />
+              <Text className="text-white font-black uppercase tracking-widest text-[11px]">Generate Report</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
-      {loading ? (
+      {canViewAnalytics && loading ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
-      ) : !data ? (
+      ) : canViewAnalytics && !data ? (
         <View className="flex-1 items-center justify-center">
           <Text className="text-typography-muted text-sm">No data available for this period.</Text>
         </View>
-      ) : (
+      ) : canViewAnalytics ? (
         <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
           {/* ── KPI Row ── */}
           <View className="px-10 pt-6 pb-0 flex-shrink-0">
@@ -164,7 +175,7 @@ export default function IntelligenceOverview() {
             <PipelinePointsMiniWeb pipelines={pipelines} days={days} onViewAll={() => router.push('/intelligence/graphs')} />
 
             <SLARiskAlertMiniWeb data={data} onViewAll={() => router.push('/intelligence/graphs')} />
-            
+
             <View className="flex-row flex-wrap gap-6">
               <View className="flex-1">
                 <StageDurationMiniWeb data={data} onViewAll={() => router.push('/intelligence/graphs')} />
@@ -177,6 +188,16 @@ export default function IntelligenceOverview() {
             <TrendComparisonMiniWeb data={data} onViewAll={() => router.push('/intelligence/graphs')} />
           </View>
         </ScrollView>
+      ) : (
+        <View className="flex-1 items-center justify-center px-10">
+          <View className="bg-surface-card border border-surface-border rounded-3xl p-10 items-center max-w-sm w-full">
+            <FontAwesome name="bullseye" size={32} color={colors.textDim} style={{ marginBottom: 16 }} />
+            <Text className="text-typography-main font-black text-lg mb-2 text-center">Intelligence Hub</Text>
+            <Text className="text-typography-muted text-sm text-center leading-relaxed">
+              Use the navigation on the left to access the sections available to you.
+            </Text>
+          </View>
+        </View>
       )}
 
       <ReportConfigModal

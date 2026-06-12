@@ -3,6 +3,7 @@ import TaskCardActions, { type ActiveSessionUser } from '@/components/task-detai
 import AssignmentModal from '@/components/tasks/AssignmentModal';
 import CreateTaskModal from '@/components/tasks/CreateTaskModal.web';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePingHighlight } from '@/contexts/PingHighlightContext';
 import { TaskCreationProvider } from '@/contexts/TaskCreationContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTimer } from '@/contexts/TimerContext';
@@ -90,6 +91,31 @@ type Pipeline = {
   is_default?: boolean;
 };
 
+function PingTimeBadge({ pingedAt }: { pingedAt: number }) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick(n => n + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
+  const secs = Math.floor((Date.now() - pingedAt) / 1000);
+  const label = secs < 60 ? 'just now' : secs < 3600 ? `${Math.floor(secs / 60)}m ago` : `${Math.floor(secs / 3600)}h ago`;
+  return (
+    <View
+      pointerEvents="none"
+      style={{
+        position: 'absolute', top: -10, right: 10, zIndex: 20,
+        flexDirection: 'row', alignItems: 'center', gap: 3,
+        backgroundColor: 'rgba(224, 120, 0, 0.95)',
+        paddingHorizontal: 7, paddingVertical: 2.5, borderRadius: 20,
+        borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.25)',
+      }}
+    >
+      <FontAwesome name="bullhorn" size={7} color="white" />
+      <Text style={{ color: 'white', fontSize: 8, fontWeight: '900' }}>{label}</Text>
+    </View>
+  );
+}
+
 export function TasksScreenWeb() {
   const colors = useThemeColors();
   const { activeSession, lastStoppedAt } = useTimer();
@@ -124,6 +150,8 @@ export function TasksScreenWeb() {
   const router = useRouter();
   const { user, hasPermission, profile } = useAuth();
   const { pipelineId: paramPipelineId } = useLocalSearchParams();
+
+  const { pingedTasks, removePingedTask } = usePingHighlight();
 
   const fetchData = async () => {
     try {
@@ -451,12 +479,39 @@ export function TasksScreenWeb() {
       }
     });
 
+    const pingedAt = pingedTasks.get(task.id);
+    const isPinged = pingedAt !== undefined;
     return (
       <TouchableOpacity
         key={task.id}
-        onPress={() => router.push(`/task/${task.id}`)}
-        className="bg-surface-card p-5 rounded-2xl border border-surface-border mb-4 premium-shadow hover:border-brand-primary/50 transition-all relative"
+        onPress={() => {
+          if (isPinged) removePingedTask(task.id);
+          router.push(`/task/${task.id}`);
+        }}
+        className="bg-surface-card p-5 rounded-2xl mb-4 premium-shadow hover:border-brand-primary/50 transition-all relative"
+        style={isPinged ? {
+          borderWidth: 1.5,
+          borderColor: 'rgba(255, 140, 0, 0.6)',
+        } : {
+          borderWidth: 1,
+          borderColor: 'rgba(128,128,128,0.15)',
+        }}
       >
+        {isPinged && (
+          <>
+            <View
+              pointerEvents="none"
+              style={{
+                position: 'absolute',
+                top: 0, left: 0, right: 0, bottom: 0,
+                borderRadius: 14,
+                backgroundColor: 'rgba(255, 140, 0, 0.09)',
+                zIndex: 0,
+              }}
+            />
+            <PingTimeBadge pingedAt={pingedAt} />
+          </>
+        )}
         {task.has_mention && (
           <View className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-state-danger items-center justify-center border-2 border-surface-card z-[60] animate-vibrate shadow-lg">
             <Text className="text-white text-[10px] font-black">@</Text>

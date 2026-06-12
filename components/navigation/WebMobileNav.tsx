@@ -6,7 +6,7 @@ import { useUnreadNotificationAttention } from '@/hooks/useUnreadNotificationAtt
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Link, useLocalSearchParams, usePathname } from 'expo-router';
 import React, { useState } from 'react';
-import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type IconName = React.ComponentProps<typeof FontAwesome>['name'];
@@ -51,13 +51,19 @@ export default function WebMobileNav({
 
   useUnreadNotificationAttention(unreadCount);
 
-  // 56px is the visible icon+label area; bottom inset handles iPhone notch/home bar
-  const navHeight = 56 + bottom;
+  // On web: use CSS env(safe-area-inset-bottom) so the iPhone home bar is respected
+  // even before react-native-safe-area-context picks it up from the DOM.
+  // minHeight lets the bar grow beyond 56px to fit the safe area without squishing icons.
+  // On native: fixed height = 56px + useSafeAreaInsets().bottom.
+  const isWeb = Platform.OS === 'web';
+  const navStyle = isWeb
+    ? { minHeight: 56, paddingBottom: 'env(safe-area-inset-bottom, 0px)' as any }
+    : { height: 56 + bottom, paddingBottom: bottom };
 
   return (
     <>
       <View
-        style={{ height: navHeight, paddingBottom: bottom }}
+        style={navStyle}
         className="w-full border-t border-surface-border bg-surface-background flex-row items-center justify-around px-2"
       >
         {MAIN_TABS.map((tab) => {

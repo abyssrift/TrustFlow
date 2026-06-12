@@ -9,6 +9,7 @@ export type ToastInput = {
   message: string;
   type?: ToastType;
   duration?: number;
+  onPress?: () => void;
 };
 
 type ToastItem = ToastInput & {

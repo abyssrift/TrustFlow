@@ -78,6 +78,12 @@ const ACTION_STYLES: Record<string, { bg: string; border: string; text: string }
 };
 
 
+function formatPingedNames(names: string[]): string {
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return `${names[0]} and ${names[1]}`;
+  return `${names[0]}, ${names[1]} +${names.length - 2} more`;
+}
+
 // ─── Component ────────────────────────────────────────────────
 export default function TaskCardActions({ task, stages, stageActions, activeSessions, userId, onRefresh }: Props) {
   const router = useRouter();
@@ -290,11 +296,19 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
 
   // Ping task
   const handlePingTask = async () => {
+    const targets = (task.assignments || []).filter(
+      a => a.assignee_user_id !== null && a.assignee_user_id !== userId
+    );
+    if (targets.length === 0) {
+      infoToast('No one was pinged — this task has no other assignees.');
+      return;
+    }
     setPingLoading(true);
     try {
       const { error } = await supabase.rpc('rpc_ping_task', { p_task_id: task.id });
       if (error) throw error;
-      successToast('Task pinged! 📢');
+      const names = targets.map(a => a.user?.full_name || 'Someone');
+      successToast(`Pinged ${formatPingedNames(names)} 📢`);
     } catch (err: any) {
       errorToast(err.message || 'Could not ping task.');
     } finally {

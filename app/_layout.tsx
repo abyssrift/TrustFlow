@@ -93,6 +93,7 @@ import { ThemeProvider as AppThemeProvider, useTheme } from '@/contexts/ThemeCon
 import { usePushRegistration } from '@/hooks/usePushRegistration';
 import { usePushAutoSubscribe } from '@/hooks/usePushAutoSubscribe';
 import { useGlobalPingListener } from '@/hooks/useGlobalPingListener';
+import { PingHighlightProvider } from '@/contexts/PingHighlightContext';
 import WebPushPrompt from '@/components/WebPushPrompt';
 
 function PushRegistrationGuard() {
@@ -201,7 +202,9 @@ function RootLayoutNav() {
           <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
             <NotificationsProvider>
               <ToastProvider>
-                <ThemedRoot />
+                <PingHighlightProvider>
+                  <ThemedRoot />
+                </PingHighlightProvider>
               </ToastProvider>
             </NotificationsProvider>
           </ThemeProvider>

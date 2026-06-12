@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- viewport-fit=cover exposes iPhone safe area insets (home bar, notch) to CSS and RN -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover" />
+
+    <!-- PWA / mobile web chrome -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="TrustFlow" />
+    <meta name="theme-color" content="#080d18" />
+
+    <title>TrustFlow</title>
+
+    <!-- react-native-web recommended style reset (https://necolas.github.io/react-native-web/docs/setup/#root-element) -->
+    <style id="expo-reset">
+      /* Full-height layout foundation */
+      html,
+      body {
+        height: 100%;
+      }
+      /* Disable document-level scrolling — ScrollView handles scrolling within the app */
+      body {
+        overflow: hidden;
+      }
+      /* Root flex container fills the viewport */
+      #root {
+        display: flex;
+        height: 100%;
+        flex: 1;
+      }
+    </style>
+  </head>
+
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+  </body>
+</html>

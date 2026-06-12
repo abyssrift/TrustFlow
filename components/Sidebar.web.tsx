@@ -24,6 +24,7 @@ type IconName = React.ComponentProps<typeof FontAwesome>['name'];
 type Shortcut = {
   id: string;
   permissionKey: string;
+  anyPermissions?: string[];
   fallbackPermissionKey?: string;
   icon: IconName;
   label: string;
@@ -41,11 +42,13 @@ const THEME_OPTIONS: { id: ThemeType; label: string; icon: IconName }[] = [
 
 const PIPELINE_ICONS: IconName[] = ['bolt', 'sitemap', 'random', 'sliders', 'exchange', 'cogs'];
 
+const INTELLIGENCE_PERMISSIONS = ['analytics.view', 'analytics.compare', 'report.view', 'target.view', 'archive.view'];
+
 const SHORTCUTS: Shortcut[] = [
   { id: 'dashboard', permissionKey: 'dashboard', icon: 'th-large', label: 'Dashboard', href: '/' },
   { id: 'tasks', permissionKey: '', icon: 'check-square-o', label: 'Tasks', href: '/tasks' },
   { id: 'projects', permissionKey: 'project.edit', icon: 'folder-o', label: 'Projects', href: '/projects' },
-  { id: 'radar', permissionKey: 'report.view', icon: 'bullseye', label: 'Intelligence', href: '/intelligence' },
+  { id: 'radar', permissionKey: '', anyPermissions: INTELLIGENCE_PERMISSIONS, icon: 'bullseye', label: 'Intelligence', href: '/intelligence' },
   { id: 'targets', permissionKey: 'target.view', icon: 'crosshairs', label: 'Targets', href: '/intelligence/targets' },
   { id: 'archives', permissionKey: 'archive.view', icon: 'archive', label: 'Archives', href: '/intelligence/archives' },
   { id: 'filehub', permissionKey: 'filehub:view', icon: 'folder-open', label: 'File Hub', href: '/filehub' },
@@ -282,8 +285,8 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
         (s) =>
           s.id === 'dashboard' ||
           s.id === 'tasks' ||
-          s.id === 'filehub' ||
-          hasPermission(s.permissionKey) ||
+          (s.anyPermissions ? s.anyPermissions.some((p) => hasPermission(p)) : false) ||
+          (!!s.permissionKey && hasPermission(s.permissionKey)) ||
           (!!s.fallbackPermissionKey && hasPermission(s.fallbackPermissionKey))
       ),
     [hasPermission]
@@ -329,8 +332,8 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
 
   if (isMobile) {
     return (
-      <View className="flex-1 bg-surface-background w-full h-full">
-        <View className="flex-1 bg-surface-background">
+      <View style={{ flex: 1, overflow: 'hidden' }} className="bg-surface-background">
+        <View style={{ flex: 1, overflow: 'hidden' }} className="bg-surface-background">
           {children}
         </View>
         <WebMobileNav visibleShortcuts={visibleShortcuts} pipelines={pipelines} isPlatformAdmin={isPlatformAdmin} fileHubBadge={inboxUnread} />

@@ -3,6 +3,8 @@ import { Platform } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/contexts/ToastContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePingHighlight } from '@/contexts/PingHighlightContext';
+import { useRouter } from 'expo-router';
 
 // Mounted once at app root (both _layout.tsx and _layout.web.tsx). Keeps a
 // single WebSocket channel alive for the current user and plays the ping
@@ -14,7 +16,9 @@ import { useAuth } from '@/contexts/AuthContext';
 // player. Pings then play instantly with no network fetch.
 export const useGlobalPingListener = () => {
   const { session } = useAuth();
-  const { successToast } = useToast();
+  const { showToast } = useToast();
+  const { addPingedTask } = usePingHighlight();
+  const router = useRouter();
   const playerRef = useRef<any>(null);
 
   // Preload the company ping sound once per session
@@ -88,25 +92,44 @@ export const useGlobalPingListener = () => {
         },
         async (payload) => {
           console.log('[PingListener] ping event received:', JSON.stringify(payload.new));
-          successToast('You have been pinged! 📢');
 
+          // Play sound immediately — don't wait for the title fetch
           const player = playerRef.current;
           if (!player) {
             console.log('[PingListener] no preloaded player — skipping audio');
-            return;
+          } else {
+            try {
+              if (Platform.OS === 'web') {
+                player.currentTime = 0;
+                player.play().catch((err: any) => console.warn('[PingListener] sound playback failed:', err?.name, err?.message));
+              } else {
+                player.seekTo(0).then(() => player.play()).catch((err: any) => console.warn('[PingListener] sound playback failed:', err?.name, err?.message));
+              }
+            } catch (err: any) {
+              console.warn('[PingListener] sound playback failed:', err?.name, err?.message);
+            }
           }
 
+          // Fetch task title for a descriptive toast (non-blocking from audio perspective)
+          let taskTitle: string | null = null;
           try {
-            if (Platform.OS === 'web') {
-              player.currentTime = 0;
-              await player.play();
-            } else {
-              await player.seekTo(0);
-              player.play();
-            }
-          } catch (err: any) {
-            console.warn('[PingListener] sound playback failed:', err?.name, err?.message);
-          }
+            const { data } = await supabase
+              .from('tasks')
+              .select('title')
+              .eq('id', payload.new.task_id)
+              .single();
+            taskTitle = data?.title ?? null;
+          } catch { /* show generic toast if lookup fails */ }
+
+          const taskId = payload.new.task_id;
+          addPingedTask(taskId);
+          showToast({
+            type: 'success',
+            title: 'Pinged!',
+            message: taskTitle ? `You were pinged on "${taskTitle}"` : 'You have been pinged on a task',
+            duration: 6000,
+            onPress: () => router.push(`/task/${taskId}` as any),
+          });
         }
       )
       .subscribe((status, err) => {
@@ -117,7 +140,7 @@ export const useGlobalPingListener = () => {
       console.log('[PingListener] unsubscribing');
       supabase.removeChannel(channel);
     };
-  }, [session?.user?.id, successToast]);
+  }, [session?.user?.id, showToast]);
 
   // Release the player on unmount
   useEffect(() => {

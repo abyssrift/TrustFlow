@@ -61,19 +61,58 @@ const CHANNELS: ChannelRow[] = [
   },
 ];
 
-// Groups of notification types for display (read-only — admins control the rules)
-const EVENT_GROUPS = [
+// Groups of notification types for display (read-only — admins control the rules).
+// channel: 'rule_engine' → respects your channel toggles above.
+// channel: 'in_app'      → always in-app only; channel toggles do not apply.
+type EventRow = { type: string; label: string; channel?: 'in_app' };
+
+const EVENT_GROUPS: { label: string; icon: React.ComponentProps<typeof FontAwesome>['name']; events: EventRow[] }[] = [
   {
     label: 'Tasks',
-    icon: 'check-square-o' as const,
+    icon: 'check-square-o',
     events: [
-      { type: 'task.assigned',         label: 'Assigned to you' },
-      { type: 'task.mentioned',        label: 'Mentioned in a comment' },
-      { type: 'task.commented',        label: 'New comment on watched task' },
-      { type: 'task.completed',        label: 'Task completed' },
-      { type: 'task.stage_transition', label: 'Task moved to a new stage' },
-      { type: 'task.due_soon',         label: 'Task due within 24 hours' },
-      { type: 'task.overdue',          label: 'Task past due date' },
+      { type: 'task.assigned',               label: 'Assigned to you' },
+      { type: 'task.mentioned',              label: 'Mentioned in a comment' },
+      { type: 'task.commented',              label: 'New comment on watched task' },
+      { type: 'task.completed',             label: 'Task completed' },
+      { type: 'task.stage_transition',       label: 'Task moved to a new stage' },
+      { type: 'task.status_changed',         label: 'Task status changed' },
+      { type: 'task.due_soon',              label: 'Task due within 24 hours' },
+      { type: 'task.overdue',               label: 'Task past due date' },
+      { type: 'task.manual_time_flagged',   label: 'Logged time flagged for review' },
+      { type: 'task.manual_time_approved',  label: 'Logged time approved' },
+      { type: 'task.manual_time_rejected',  label: 'Logged time rejected' },
+    ],
+  },
+  {
+    label: 'Pings',
+    icon: 'bullhorn',
+    events: [
+      { type: 'task.pinged', label: 'Someone pinged you on a task', channel: 'in_app' },
+    ],
+  },
+  {
+    label: 'Timer',
+    icon: 'clock-o',
+    events: [
+      { type: 'timer.auto_stopped', label: 'Timer stopped due to inactivity', channel: 'in_app' },
+    ],
+  },
+  {
+    label: 'Pipelines',
+    icon: 'sitemap',
+    events: [
+      { type: 'pipeline.member_added', label: 'Added to a pipeline' },
+      { type: 'pipeline.archived',     label: 'Pipeline archived' },
+    ],
+  },
+  {
+    label: 'File Hub',
+    icon: 'folder-open-o',
+    events: [
+      { type: 'filehub.file_received',     label: 'File sent to your inbox' },
+      { type: 'filehub.broadcast_posted',  label: 'New broadcast posted' },
+      { type: 'filehub.group_file_shared', label: 'File shared in a group' },
     ],
   },
 ];
@@ -245,17 +284,27 @@ export default function NotificationPreferencesScreen() {
                 >
                   <View className="w-1.5 h-1.5 rounded-full bg-brand-primary/50 mr-3" />
                   <Text className="text-typography-muted text-sm flex-1">{ev.label}</Text>
-                  <View className="bg-[var(--color-success)]/10 px-2 py-0.5 rounded-full border-[var(--color-success)]/20">
-                    <Text className="text-state-success text-[9px] font-black uppercase tracking-wider">
-                      Active
-                    </Text>
-                  </View>
+                  {ev.channel === 'in_app' ? (
+                    <View className="bg-brand-primary/10 px-2 py-0.5 rounded-full border border-brand-primary/20">
+                      <Text className="text-brand-primary text-[9px] font-black uppercase tracking-wider">
+                        In-App
+                      </Text>
+                    </View>
+                  ) : (
+                    <View className="bg-[var(--color-success)]/10 px-2 py-0.5 rounded-full border-[var(--color-success)]/20">
+                      <Text className="text-state-success text-[9px] font-black uppercase tracking-wider">
+                        Active
+                      </Text>
+                    </View>
+                  )}
                 </View>
               ))}
             </View>
 
             <Text className="text-typography-muted text-[11px] mx-4 mt-2 leading-4">
-              Event rules are configured by your workspace admin.
+              {group.events.some((e) => e.channel === 'in_app')
+                ? 'In-App events always appear in your feed. They are not affected by channel toggles.'
+                : 'Event rules are configured by your workspace admin.'}
             </Text>
           </View>
         ))}

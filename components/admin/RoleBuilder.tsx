@@ -2,10 +2,13 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert, Modal } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRoleManager, Role } from '@/contexts/RoleManagerContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 
 export default function RoleBuilder() {
   const colors = useThemeColors();
+  const { hasPermission } = useAuth();
+  const canManageRoles = hasPermission('role.manage');
   const { roles, permissions, createRole, updateRole, deleteRole, loading } = useRoleManager();
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -16,6 +19,7 @@ export default function RoleBuilder() {
   const [selectedPerms, setSelectedPerms] = useState<string[]>([]);
 
   const handleEditRole = (role: Role) => {
+    if (!canManageRoles) return;
     setEditingRole(role);
     setName(role.name);
     setDescription(role.description || '');
@@ -25,6 +29,7 @@ export default function RoleBuilder() {
   };
 
   const handleStartCreate = () => {
+    if (!canManageRoles) return;
     setEditingRole(null);
     setName('');
     setDescription('');
@@ -76,12 +81,14 @@ export default function RoleBuilder() {
             <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.25em] mb-1">Structural Paradigms</Text>
             <Text className="text-typography-main text-2xl font-black tracking-tight">Role Registry</Text>
           </View>
-          <TouchableOpacity
-            onPress={handleStartCreate}
-            className="bg-brand-primary px-4 py-3 rounded-xl active:scale-[0.98]"
-          >
-            <Text className="text-white font-black text-[10px] uppercase tracking-widest">+ New Role</Text>
-          </TouchableOpacity>
+          {canManageRoles && (
+            <TouchableOpacity
+              onPress={handleStartCreate}
+              className="bg-brand-primary px-4 py-3 rounded-xl active:scale-[0.98]"
+            >
+              <Text className="text-white font-black text-[10px] uppercase tracking-widest">+ New Role</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <View className="gap-3 pb-32">
@@ -104,7 +111,7 @@ export default function RoleBuilder() {
                     </View>
                   )}
                 </View>
-                {!role.is_system && (
+                {!role.is_system && canManageRoles && (
                   <TouchableOpacity
                     onPress={(e) => {
                       e.stopPropagation();

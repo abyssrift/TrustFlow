@@ -53,6 +53,7 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
   
   const commitTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const currentPendingTaskIdRef = useRef<string | null>(null);
+  const activeSessionRef = useRef<WorkSession | null>(null);
   const lastFetchTimestampRef = useRef<number>(0);
   const lastActivityTimeRef = useRef<number>(Date.now());
   // Captured synchronously at mount — before the null-activeSession effect can clear sessionStorage.
@@ -62,6 +63,10 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
       ? sessionStorage.getItem(SESSION_STORAGE_KEY)
       : null
   );
+
+  // Keep a ref to the latest session so handleAutoStop can read it without
+  // adding activeSession to its dep array (which would re-register the smart timer).
+  useEffect(() => { activeSessionRef.current = activeSession; }, [activeSession]);
 
   // NTP Calibration Logic
   const calibrateTime = useCallback(async () => {
@@ -351,8 +356,19 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
   }, [activeSession, session, serverTimeOffset]);
 
   const handleAutoStop = useCallback(async () => {
+    const snapshot = activeSessionRef.current;
     const truncatedTime = new Date(lastActivityTimeRef.current + serverTimeOffset).toISOString();
     await stopWork(undefined, truncatedTime);
+    if (snapshot?.task_id && snapshot.id !== 'pending') {
+      const durationSecs = Math.max(0, Math.round(
+        (lastActivityTimeRef.current - new Date(snapshot.started_at).getTime()) / 1000
+      ));
+      supabase.rpc('rpc_notify_timer_auto_stopped', {
+        p_task_id: snapshot.task_id,
+        p_task_title: snapshot.task?.title ?? '',
+        p_duration_seconds: durationSecs,
+      }).catch(() => {});
+    }
   }, [stopWork, serverTimeOffset]);
 
   const handleAutoStart = useCallback(async () => {}, []);

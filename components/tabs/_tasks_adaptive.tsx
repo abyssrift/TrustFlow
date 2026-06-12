@@ -6,6 +6,7 @@ import TaskCardActions, { type ActiveSessionUser } from '@/components/task-detai
 import AssignmentModal from '@/components/tasks/AssignmentModal';
 import CreateTaskSheet from '@/components/tasks/CreateTaskSheet';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePingHighlight } from '@/contexts/PingHighlightContext';
 import { TaskCreationProvider } from '@/contexts/TaskCreationContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -18,6 +19,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,
   Image,
+  InteractionManager,
   Keyboard,
   Platform,
   ScrollView,
@@ -91,6 +93,31 @@ function getPriorityInfo(priority: string, colors: ReturnType<typeof useThemeCol
   }
 }
 
+function PingTimeBadge({ pingedAt }: { pingedAt: number }) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick(n => n + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
+  const secs = Math.floor((Date.now() - pingedAt) / 1000);
+  const label = secs < 60 ? 'just now' : secs < 3600 ? `${Math.floor(secs / 60)}m ago` : `${Math.floor(secs / 3600)}h ago`;
+  return (
+    <View
+      pointerEvents="none"
+      style={{
+        position: 'absolute', top: -10, right: 10, zIndex: 20,
+        flexDirection: 'row', alignItems: 'center', gap: 3,
+        backgroundColor: 'rgba(224, 120, 0, 0.95)',
+        paddingHorizontal: 7, paddingVertical: 2.5, borderRadius: 20,
+        borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.25)',
+      }}
+    >
+      <FontAwesome name="bullhorn" size={7} color="white" />
+      <Text style={{ color: 'white', fontSize: 8, fontWeight: '900' }}>{label}</Text>
+    </View>
+  );
+}
+
 function TasksScreen() {
   const [pipeline, setPipeline] = useState<Pipeline | null>(null);
   const [stages, setStages] = useState<Stage[]>([]);
@@ -127,6 +154,8 @@ function TasksScreen() {
    const { pipelineId: paramPipelineId } = useLocalSearchParams();
    const isLargeScreen = width > 768;
 
+  const { pingedTasks, removePingedTask } = usePingHighlight();
+
 
 
   const fetchData = async () => {
@@ -158,58 +187,61 @@ function TasksScreen() {
       }
 
       setPipeline(pipelineData);
-      
-      const { data: allPipes } = await supabase.from('pipelines').select('id, name, task_visibility_mode, is_default').is('deleted_at', null);
-      setAvailablePipelines(allPipes as Pipeline[] || []);
 
       if (!targetPipelineId) return;
 
-      // 2. Get stages
-      const { data: stagesData, error: sError } = await supabase
-        .from('pipeline_stages')
-        .select('*, linked_pipeline:linked_pipeline_id(id, name)')
-        .eq('pipeline_id', targetPipelineId)
-        .order('position', { ascending: true });
+      // Wave 2: all queries that only depend on the pipeline ID run in parallel
+      const [
+        { data: allPipes },
+        { data: stagesData, error: sError },
+        { data: myTeams },
+        { data: tasksData, error: tError },
+        { data: sessions },
+      ] = await Promise.all([
+        supabase.from('pipelines').select('id, name, task_visibility_mode, is_default').is('deleted_at', null),
+        supabase.from('pipeline_stages')
+          .select('*, linked_pipeline:linked_pipeline_id(id, name)')
+          .eq('pipeline_id', targetPipelineId)
+          .order('position', { ascending: true }),
+        supabase.from('team_members')
+          .select('team_id')
+          .eq('user_id', user?.id)
+          .is('removed_at', null),
+        supabase.from('tasks')
+          .select(`
+            *,
+            project:project_id(id, name),
+            manager:manager_id(id, full_name),
+            assignments:task_assignments(
+              assignee_user_id,
+              assignee_team_id,
+              team:assignee_team_id(name),
+              user:assignee_user_id(full_name)
+            )
+          `)
+          .eq('pipeline_id', targetPipelineId)
+          .order('created_at', { ascending: false }),
+        supabase.from('task_work_sessions')
+          .select('task_id, user_id, started_at, user:user_id(full_name, avatar_url)')
+          .eq('status', 'active'),
+      ]);
 
       if (sError) throw sError;
+      if (tError) throw tError;
+
+      setAvailablePipelines(allPipes as Pipeline[] || []);
       setStages(stagesData || []);
 
-      // 3. Get stage actions
+      // Wave 3: stage actions depend on stage IDs from wave 2
       const { data: actionsData } = await supabase
         .from('pipeline_stage_actions')
         .select('*')
         .in('stage_id', (stagesData || []).map(s => s.id));
       setStageActions(actionsData || []);
 
-      // 4. Get User Teams (for filtering)
-      const { data: myTeams } = await supabase
-        .from('team_members')
-        .select('team_id')
-        .eq('user_id', user?.id)
-        .is('removed_at', null);
-      const myTeamIds = myTeams?.map(mt => mt.team_id) || [];
-      setMyTeamIds(myTeamIds);
+      const resolvedTeamIds = myTeams?.map(mt => mt.team_id) || [];
+      setMyTeamIds(resolvedTeamIds);
 
-      // 5. Get tasks with assignments
-      const { data: tasksData, error: tError } = await supabase
-        .from('tasks')
-        .select(`
-          *,
-          project:project_id(id, name),
-          manager:manager_id(id, full_name),
-          assignments:task_assignments(
-            assignee_user_id,
-            assignee_team_id,
-            team:assignee_team_id(name),
-            user:assignee_user_id(full_name)
-          )
-        `)
-        .eq('pipeline_id', targetPipelineId)
-        .order('created_at', { ascending: false });
-
-      if (tError) throw tError;
-
-      // Filter tasks based on visibility mode
       let filteredTasks = tasksData || [];
       const canViewAll = hasPermission('task.view_all') || hasPermission('tasks.view_all') || hasPermission('system.view_all_data') || hasPermission('pipeline.edit');
 
@@ -217,39 +249,25 @@ function TasksScreen() {
         filteredTasks = filteredTasks.filter(t => {
           const isManager = t.manager_id === user?.id;
           const isAssigned = t.assignments?.some((a: any) =>
-            (a.assignee_user_id && a.assignee_user_id === user?.id) || 
-            (a.assignee_team_id && myTeamIds.includes(a.assignee_team_id))
+            (a.assignee_user_id && a.assignee_user_id === user?.id) ||
+            (a.assignee_team_id && resolvedTeamIds.includes(a.assignee_team_id))
           );
           return isManager || isAssigned;
         });
       }
-
       setTasks(filteredTasks as any);
 
-      // 6. Get Active Work Sessions with User details
-      const { data: sessions } = await supabase
-        .from('task_work_sessions')
-        .select(`
-          task_id,
-          user_id,
-          started_at,
-          user:user_id(full_name, avatar_url)
-        `)
-        .eq('status', 'active');
-      
       const sessionMap: Record<string, ActiveSessionUser[]> = {};
       sessions?.forEach(s => {
-         if (!sessionMap[s.task_id]) sessionMap[s.task_id] = [];
-         sessionMap[s.task_id].push({ 
-           userId: s.user_id,
-           name: (s.user as any)?.full_name || 'User', 
-           avatar: (s.user as any)?.avatar_url,
-           startedAt: s.started_at,
-         });
+        if (!sessionMap[s.task_id]) sessionMap[s.task_id] = [];
+        sessionMap[s.task_id].push({
+          userId: s.user_id,
+          name: (s.user as any)?.full_name || 'User',
+          avatar: (s.user as any)?.avatar_url,
+          startedAt: s.started_at,
+        });
       });
       setActiveSessions(sessionMap);
-
-      console.log('Successfully fetched pipeline, stages, actions, and tasks.');
     } catch (err: any) {
       console.error('[DATABASE ERROR] Error fetching task data:', err);
     } finally {
@@ -259,9 +277,11 @@ function TasksScreen() {
   };
 
   useEffect(() => {
-    if (paramPipelineId) {
-      fetchData();
-    }
+    if (!paramPipelineId) return;
+    const task = InteractionManager.runAfterInteractions(() => {
+      fetchDataRef.current();
+    });
+    return () => task.cancel();
   }, [paramPipelineId]);
 
   const fetchPulse = async () => {
@@ -281,8 +301,11 @@ function TasksScreen() {
   const isFocusedRef = useRef(false);
 
   useEffect(() => {
-    fetchPulse();
-    fetchData();
+    const task = InteractionManager.runAfterInteractions(() => {
+      fetchPulse();
+      fetchData();
+    });
+    return () => task.cancel();
   }, []);
 
   // Load locally-stored kanban settings early for skeleton background
@@ -427,13 +450,40 @@ function TasksScreen() {
 
   const renderTaskCard = useCallback((task: Task) => {
     const prio = getPriorityInfo(task.priority, colors);
+    const pinggedAt = pingedTasks.get(task.id);
+    const isPinged = pinggedAt !== undefined;
     return (
       <TouchableOpacity
         key={task.id}
-        onPress={() => router.push(`/task/${task.id}`)}
+        onPress={() => {
+          if (isPinged) removePingedTask(task.id);
+          router.push(`/task/${task.id}`);
+        }}
         activeOpacity={0.7}
-        className="bg-surface-card p-4 rounded-2xl border border-surface-border mb-3 premium-shadow"
+        className="bg-surface-card p-4 rounded-2xl mb-3 premium-shadow"
+        style={isPinged ? {
+          borderWidth: 1.5,
+          borderColor: 'rgba(255, 140, 0, 0.6)',
+        } : {
+          borderWidth: 1,
+          borderColor: 'rgba(128,128,128,0.15)',
+        }}
       >
+        {isPinged && (
+          <>
+            <View
+              pointerEvents="none"
+              style={{
+                position: 'absolute',
+                top: 0, left: 0, right: 0, bottom: 0,
+                borderRadius: 14,
+                backgroundColor: 'rgba(255, 140, 0, 0.09)',
+                zIndex: 0,
+              }}
+            />
+            <PingTimeBadge pingedAt={pinggedAt} />
+          </>
+        )}
         <View className="flex-row items-center justify-between mb-3">
           <View className="flex-row items-center gap-2">
             <View className="bg-surface-background px-2 py-0.5 rounded-md border border-surface-border">
@@ -520,7 +570,7 @@ function TasksScreen() {
         </View>
       </TouchableOpacity>
     );
-  }, [router, hasPermission, profile?.is_owner, kanban, activeSessions, stages, stageActions, user?.id, handleOpenAssignments, silentRefresh, colors]);
+  }, [router, hasPermission, profile?.is_owner, kanban, activeSessions, stages, stageActions, user?.id, handleOpenAssignments, silentRefresh, colors, pingedTasks, removePingedTask]);
 
   const renderStageColumn = (stage: Stage) => {
     const stageTasks = tasks.filter(t => {

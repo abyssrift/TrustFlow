@@ -20,6 +20,16 @@ function getIconSpec(type: string): IconSpec {
     case 'task.status_changed': return { name: 'refresh',           color: colors.primary };
     case 'task.due_soon':       return { name: 'clock-o',           color: colors.warning };
     case 'task.overdue':        return { name: 'exclamation-circle',color: colors.danger };
+    case 'task.pinged':         return { name: 'bullhorn',          color: colors.warning };
+    case 'task.manual_time_flagged':  return { name: 'flag',        color: colors.warning };
+    case 'task.manual_time_approved': return { name: 'thumbs-up',   color: colors.success };
+    case 'task.manual_time_rejected': return { name: 'thumbs-down', color: colors.danger };
+    case 'pipeline.member_added': return { name: 'users',           color: colors.primary };
+    case 'pipeline.archived':   return { name: 'archive',           color: colors.textMuted };
+    case 'filehub.file_received':    return { name: 'file-text-o',  color: colors.primary };
+    case 'filehub.broadcast_posted': return { name: 'rss',          color: colors.warning };
+    case 'filehub.group_file_shared': return { name: 'share-alt',   color: colors.primary };
+    case 'timer.auto_stopped':  return { name: 'hourglass-end',     color: colors.danger };
     default:                    return { name: 'bell',              color: colors.primary };
   }
 }

@@ -5,11 +5,25 @@
 html, body, #root {
   background-color: rgb(var(--surface-background)) !important;
   color: rgb(var(--text-main));
-  min-height: 100vh;
   margin: 0;
   padding: 0;
+}
+
+/* Mobile browser viewport fix: 100vh on iOS Safari includes the address bar and tab bar,
+   causing the bottom nav to render below the visible area. Use fill-available/dvh instead. */
+html {
+  height: -webkit-fill-available;
+}
+body {
+  min-height: -webkit-fill-available;
+  min-height: 100dvh;
+  overflow: hidden;
+}
+#root {
+  height: 100%;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 /* --- CORE DESIGN TOKENS --- */

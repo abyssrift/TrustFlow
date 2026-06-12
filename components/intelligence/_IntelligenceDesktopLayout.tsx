@@ -4,11 +4,13 @@ import { Link, Slot, usePathname } from 'expo-router';
 import React from 'react';
 import { Text, TouchableOpacity, View, ScrollView, useWindowDimensions } from 'react-native';
 
+const INTELLIGENCE_PERMISSIONS = ['analytics.view', 'analytics.compare', 'report.view', 'target.view', 'archive.view'];
+
 const NAV = [
-  { href: '/intelligence',          label: 'Overview',      icon: 'th-large'    as const, exact: true },
-  { href: '/intelligence/graphs',   label: 'Performance',   icon: 'line-chart'  as const },
-  { href: '/intelligence/targets',  label: 'Targets',       icon: 'bullseye'    as const },
-  { href: '/intelligence/reports',  label: 'Reports',       icon: 'file-pdf-o'  as const },
+  { href: '/intelligence',          label: 'Overview',      icon: 'th-large'    as const, exact: true, anyPermissions: INTELLIGENCE_PERMISSIONS },
+  { href: '/intelligence/graphs',   label: 'Performance',   icon: 'line-chart'  as const, permission: 'analytics.view' },
+  { href: '/intelligence/targets',  label: 'Targets',       icon: 'bullseye'    as const, permission: 'target.view' },
+  { href: '/intelligence/reports',  label: 'Reports',       icon: 'file-pdf-o'  as const, permission: 'report.view' },
   { href: '/intelligence/analytics', label: 'Analytics',   icon: 'bar-chart'   as const, permission: 'analytics.view' },
   { href: '/intelligence/ReportGenerator', label: 'Report Architect', icon: 'magic' as const, permission: 'report.view' },
   { href: '/intelligence/archives', label: 'Cold Storage',  icon: 'archive'     as const, permission: 'archive.view' },
@@ -18,7 +20,10 @@ export default function IntelligenceLayout() {
   const pathname = usePathname();
   const { hasPermission } = useAuth();
   const { width } = useWindowDimensions();
-  const items = NAV.filter(i => !i.permission || hasPermission(i.permission));
+  const items = NAV.filter(i => {
+    if ('anyPermissions' in i && i.anyPermissions) return i.anyPermissions.some(p => hasPermission(p));
+    return !i.permission || hasPermission(i.permission);
+  });
 
   // Sidebar narrows on smaller desktops so content area stays usable
   const sidebarWidth = width >= 1536 ? 320 : width >= 1280 ? 256 : 200;

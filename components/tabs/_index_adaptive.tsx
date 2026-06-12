@@ -8,7 +8,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Modal, Platform, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, InteractionManager, Modal, Platform, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -130,12 +130,35 @@ export default function DashboardScreen() {
         return;
       }
 
-      // Fetch all terminal stages for the selected pipelines
-      const { data: terminalStages } = await supabase
-        .from('pipeline_stages')
-        .select('id, terminal_type')
-        .in('pipeline_id', targetPipelineIds)
-        .eq('is_terminal', true);
+      // Run all pipeline-dependent queries in parallel
+      const [
+        { data: terminalStages },
+        { data: tasks },
+        { count: sessionCount },
+        { data: historyData },
+      ] = await Promise.all([
+        supabase.from('pipeline_stages')
+          .select('id, terminal_type')
+          .in('pipeline_id', targetPipelineIds)
+          .eq('is_terminal', true),
+        supabase.from('tasks')
+          .select('id, current_stage_id')
+          .in('pipeline_id', targetPipelineIds),
+        supabase.from('task_work_sessions')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'active'),
+        supabase.from('pipeline_stage_history')
+          .select(`
+            id,
+            transitioned_at,
+            task:task_id(title, pipeline_id),
+            from_stage:from_stage_id(name),
+            to_stage:to_stage_id(name),
+            transitioned_by_user:users!transitioned_by(full_name, display_name)
+          `)
+          .order('transitioned_at', { ascending: false })
+          .limit(4),
+      ]);
 
       terminalStageIds = (terminalStages || []).map((s: any) => s.id);
 
@@ -148,21 +171,10 @@ export default function DashboardScreen() {
           .map((s: any) => s.id);
       }
 
-      const { data: tasks } = await supabase
-        .from('tasks')
-        .select('id, current_stage_id')
-        .in('pipeline_id', targetPipelineIds);
-
       const total = tasks?.length || 0;
       const completed = tasks?.filter((t: any) => successStageIds.includes(t.current_stage_id)).length || 0;
       const activeNow = tasks?.filter((t: any) => !terminalStageIds.includes(t.current_stage_id)).length || 0;
-      // Tasks in a terminal stage that isn't a success stage (failed, rejected, cancelled)
       const failed = total - completed - activeNow;
-
-      const { count: sessionCount } = await supabase
-        .from('task_work_sessions')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'active');
 
       setStats({
         totalTasks: total,
@@ -171,19 +183,6 @@ export default function DashboardScreen() {
         failed,
         activeSessions: sessionCount || 0,
       });
-
-      const { data: historyData } = await supabase
-        .from('pipeline_stage_history')
-        .select(`
-          id,
-          transitioned_at,
-          task:task_id(title, pipeline_id),
-          from_stage:from_stage_id(name),
-          to_stage:to_stage_id(name),
-          transitioned_by_user:users!transitioned_by(full_name, display_name)
-        `)
-        .order('transitioned_at', { ascending: false })
-        .limit(4);
 
       const activityEntries: ActivityEntry[] = (historyData || [])
         .filter((h: any) => targetPipelineIds.includes(h.task?.pipeline_id))
@@ -215,12 +214,12 @@ export default function DashboardScreen() {
   };
 
   useEffect(() => {
-    const init = async () => {
+    const task = InteractionManager.runAfterInteractions(async () => {
       const loadedConfig = await loadConfig();
       fetchDashboardData(loadedConfig);
       fetchPulse();
-    };
-    init();
+    });
+    return () => task.cancel();
   }, []);
 
   const onRefresh = () => {

@@ -37,30 +37,42 @@ export default function GlobalToastOverlay({ toasts, onDismiss }: Props) {
               accent: (type === 'success' && colors.success) || (type === 'error' && colors.danger) || (type === 'warning' && colors.warning) || (type === 'info' && colors.info) || colors.accent,
               background: addAlpha((type === 'success' && colors.success) || (type === 'error' && colors.danger) || (type === 'warning' && colors.warning) || (type === 'info' && colors.info) || colors.accent, 0.12),
             };
+            const BodyWrapper = toast.onPress ? TouchableOpacity : View;
             return (
               <View
                 key={toast.id}
-                className="w-full max-w-[420px] rounded-3xl border border-surface-border bg-surface-card px-4 py-3 premium-shadow"
+                className="w-full max-w-[420px] rounded-3xl border border-surface-border bg-surface-card premium-shadow overflow-hidden"
                 style={{
                   backgroundColor: Platform.OS === 'web' ? addAlpha(colors.card, 0.96) : undefined,
                   borderLeftWidth: 4,
                   borderLeftColor: palette.accent,
                 }}
               >
-                <View className="flex-row items-start gap-3">
-                  <View
-                    className="h-10 w-10 items-center justify-center rounded-2xl"
-                    style={{ backgroundColor: palette.background }}
+                <View className="flex-row items-start gap-3 px-4 py-3">
+                  <BodyWrapper
+                    className="flex-1 flex-row items-start gap-3"
+                    {...(toast.onPress ? {
+                      activeOpacity: 0.75,
+                      onPress: () => { toast.onPress!(); onDismiss(toast.id); },
+                    } : {})}
                   >
-                    <FontAwesome name={palette.icon as any} size={18} color={palette.accent} />
-                  </View>
+                    <View
+                      className="h-10 w-10 items-center justify-center rounded-2xl"
+                      style={{ backgroundColor: palette.background }}
+                    >
+                      <FontAwesome name={palette.icon as any} size={18} color={palette.accent} />
+                    </View>
 
-                  <View className="flex-1 pr-2">
-                    {toast.title ? (
-                      <Text style={{ color: colors.textMain }} className="text-sm font-black mb-0.5">{toast.title}</Text>
-                    ) : null}
-                    <Text style={{ color: colors.textMuted }} className="text-xs font-semibold leading-4">{toast.message}</Text>
-                  </View>
+                    <View className="flex-1 pr-1">
+                      {toast.title ? (
+                        <Text style={{ color: colors.textMain }} className="text-sm font-black mb-0.5">{toast.title}</Text>
+                      ) : null}
+                      <Text style={{ color: colors.textMuted }} className="text-xs font-semibold leading-4">{toast.message}</Text>
+                      {toast.onPress && (
+                        <Text style={{ color: palette.accent }} className="text-[10px] font-black mt-1 uppercase tracking-wider">Tap to view →</Text>
+                      )}
+                    </View>
+                  </BodyWrapper>
 
                   <TouchableOpacity onPress={() => onDismiss(toast.id)} className="rounded-full p-1">
                     <FontAwesome name="close" size={16} color={colors.textDim} />

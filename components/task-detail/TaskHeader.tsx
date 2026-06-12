@@ -28,11 +28,17 @@ const PRIORITY_MAP: Record<string, { textClass: string; label: string }> = {
   low:    { textClass: 'text-state-success', label: 'LOW' },
 };
 
+function formatPingedNames(names: string[]): string {
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return `${names[0]} and ${names[1]}`;
+  return `${names[0]}, ${names[1]} +${names.length - 2} more`;
+}
+
 export default function TaskHeader() {
   const { data, executeAction } = useTaskDetail();
   const { isActive, activeSession, startWork, stopWork } = useTimer();
   const { theme: activeTheme } = useTheme();
-  const { hasPermission } = useAuth();
+  const { hasPermission, user } = useAuth();
   const [busy, setBusy] = React.useState(false);
   const [loadingActionId, setLoadingActionId] = React.useState<string | null>(null);
   const [pingLoading, setPingLoading] = React.useState(false);
@@ -42,7 +48,7 @@ export default function TaskHeader() {
   const [showManualTimeModal, setShowManualTimeModal] = React.useState(false);
   const [pendingAction, setPendingAction] = React.useState<any | null>(null);
   const router = useRouter();
-  const { successToast, errorToast } = useToast();
+  const { successToast, errorToast, infoToast } = useToast();
   const colors = useThemeColors();
 
   const handleArchive = async () => {
@@ -66,11 +72,19 @@ export default function TaskHeader() {
 
   const handlePingTask = async () => {
     if (!data) return;
+    const targets = (data.assignments || []).filter(
+      a => a.user !== null && a.user?.id !== user?.id
+    );
+    if (targets.length === 0) {
+      infoToast('No one was pinged — this task has no other assignees.');
+      return;
+    }
     try {
       setPingLoading(true);
       const { error } = await supabase.rpc('rpc_ping_task', { p_task_id: data.task.id });
       if (error) throw error;
-      successToast('Task pinged! 📢');
+      const names = targets.map(a => a.user?.full_name || 'Someone');
+      successToast(`Pinged ${formatPingedNames(names)} 📢`);
     } catch (err: any) {
       errorToast(err.message || 'Could not ping task.');
     } finally {

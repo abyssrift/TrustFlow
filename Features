@@ -1,7 +1,3 @@
-Idle Timer notifications.
-expanding on the notification system as much as possible in terms of actual possible notifications.
-
-(adding ping notifications as well)
 
  a smarter time unit
 i have this issue where the units are often too big. instead i want a unit that auto scales. but doesnt lose context.
@@ -13,13 +9,5 @@ if something is big, it goes from year, to month to week to day to hour to minut
 
 Mobile UX on web is terrible for iphone users and safari users.
 
-Dont allow those without permission to access the role assignment modal in the corporate screen in the roles tab.
-
 add in the admin dashboard tracking to see which companies are using the most resources, with alerts.
-
-
-delete notifications after a week of the user reading them.
-
-Mobile's switching between pages is kinda terrible.
-its slow, takes so long to switch pages, i assume its because pages are rendered everytime and we dont usememo?
 

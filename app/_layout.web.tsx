@@ -21,6 +21,7 @@ import { ThemeProvider as AppThemeProvider } from '@/contexts/ThemeContext';
 import { TimerProvider } from '@/contexts/TimerContext';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { useGlobalPingListener } from '@/hooks/useGlobalPingListener';
+import { PingHighlightProvider } from '@/contexts/PingHighlightContext';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 
@@ -113,6 +114,7 @@ function RootLayoutNav() {
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AnalyticsProvider>
         <NotificationsProvider>
+          <PingHighlightProvider>
           <View className="flex-1 bg-surface-background">
             {/* Always-on ping listener — one WebSocket channel for the current user */}
             {session && <GlobalPingGuard />}
@@ -128,6 +130,7 @@ function RootLayoutNav() {
               <Slot />
             )}
           </View>
+          </PingHighlightProvider>
         </NotificationsProvider>
       </AnalyticsProvider>
     </ThemeProvider>
