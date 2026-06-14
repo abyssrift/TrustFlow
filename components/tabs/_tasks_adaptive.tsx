@@ -725,7 +725,7 @@ function TasksScreen() {
 
    return (
      <View className="flex-1 bg-surface-background">
-      {Platform.OS !== 'web' && <View style={{ height: 54 }} />}
+      {(Platform.OS !== 'web' || !isLargeScreen) && <View style={{ height: Platform.OS === 'web' ? TAB_BAR_HEIGHT.web : TAB_BAR_HEIGHT.native }} />}
 
       {/* KANBAN BACKGROUND LAYER */}
       {kanban.backgroundUrl && (
