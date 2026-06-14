@@ -1,5 +1,6 @@
 import {
   deleteCompany,
+  deriveAlerts,
   fmtDay,
   fmtMins,
   fmtNumber,
@@ -10,7 +11,9 @@ import {
   useLiveSessions,
   useTimeline,
   workspaceAge,
+  type AlertSeverity,
   type CompanyOverview,
+  type PlatformAlert,
   type SignalMetric,
   type SortKey
 } from '@/components/platform-admin/useControlPlaneData';
@@ -18,7 +21,7 @@ import { BackButton } from '@/components/common/BackButton';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { FontAwesome } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -599,6 +602,161 @@ const LiveSection = () => {
   );
 };
 
+// ── Alerts Section ─────────────────────────────────────────────────────────
+
+const ALERT_COLORS: Record<AlertSeverity, { icon: string; textClass: string; bgClass: string; borderClass: string }> = {
+  critical: { icon: 'exclamation-triangle', textClass: 'text-state-danger',  bgClass: 'bg-state-danger/5',     borderClass: 'border-state-danger/30' },
+  warning:  { icon: 'exclamation',          textClass: 'text-state-warning', bgClass: 'bg-state-warning/5',    borderClass: 'border-state-warning/30' },
+  info:     { icon: 'info-circle',           textClass: 'text-brand-primary', bgClass: 'bg-brand-primary-dim', borderClass: 'border-brand-primary/20' },
+};
+
+const AlertsSection = ({
+  companies, totalMins, loading, onRefresh, refreshing, onCompanyDeleted,
+}: {
+  companies: CompanyOverview[];
+  totalMins: number;
+  loading: boolean;
+  onRefresh: () => void;
+  refreshing: boolean;
+  onCompanyDeleted: () => void;
+}) => {
+  const colors = useThemeColors();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const alerts = useMemo(() => deriveAlerts(companies), [companies]);
+  const sortedByUsage = useMemo(
+    () => [...companies].sort((a, b) => b.session_minutes_week - a.session_minutes_week),
+    [companies]
+  );
+  const maxMins = Math.max(1, ...sortedByUsage.map(c => c.session_minutes_week));
+
+  const criticalCount = alerts.filter(a => a.severity === 'critical').length;
+  const warningCount  = alerts.filter(a => a.severity === 'warning').length;
+
+  if (loading) {
+    return (
+      <View className="flex-1 items-center justify-center">
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  return (
+    <>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      >
+        {/* Summary row */}
+        <View className="flex-row gap-2 px-4 pt-4 pb-3">
+          <View className="flex-1 flex-row items-center gap-1.5 bg-state-danger/10 border border-state-danger/20 rounded-xl px-3 py-2.5">
+            <FontAwesome name="exclamation-triangle" size={10} color={colors.danger} />
+            <Text className="text-state-danger font-black text-sm">{criticalCount}</Text>
+            <Text className="text-state-danger/70 text-[10px] font-bold">critical</Text>
+          </View>
+          <View className="flex-1 flex-row items-center gap-1.5 bg-state-warning/10 border border-state-warning/20 rounded-xl px-3 py-2.5">
+            <FontAwesome name="exclamation" size={10} color={colors.warning} />
+            <Text className="text-state-warning font-black text-sm">{warningCount}</Text>
+            <Text className="text-state-warning/70 text-[10px] font-bold">warnings</Text>
+          </View>
+          <View className="flex-1 flex-row items-center gap-1.5 bg-surface-card border border-surface-border rounded-xl px-3 py-2.5">
+            <FontAwesome name="info-circle" size={10} color={colors.primary} />
+            <Text className="text-typography-main font-black text-sm">{alerts.length - criticalCount - warningCount}</Text>
+            <Text className="text-typography-muted text-[10px] font-bold">info</Text>
+          </View>
+        </View>
+
+        <Divider />
+
+        {/* Alert cards */}
+        <View className="px-4 pt-4 pb-2">
+          <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-3">Active Alerts</Text>
+          {alerts.length === 0 && (
+            <View className="items-center py-8 gap-2">
+              <FontAwesome name="check-circle" size={28} color={colors.success} />
+              <Text className="text-typography-main font-black text-base mt-1">All clear</Text>
+              <Text className="text-typography-muted text-sm">No alerts on this platform</Text>
+            </View>
+          )}
+          {alerts.map(a => {
+            const cfg = ALERT_COLORS[a.severity];
+            return (
+              <View key={a.id} className={`rounded-2xl border p-4 mb-3 ${cfg.bgClass} ${cfg.borderClass}`}>
+                <View className="flex-row items-start gap-2.5 mb-2">
+                  <FontAwesome name={cfg.icon as any} size={12} color={
+                    a.severity === 'critical' ? colors.danger :
+                    a.severity === 'warning'  ? colors.warning : colors.primary
+                  } style={{ marginTop: 1 }} />
+                  <View className="flex-1">
+                    <Text className={`text-xs font-black mb-1 ${cfg.textClass}`}>{a.title}</Text>
+                    <Text className="text-typography-muted text-xs leading-5">{a.body}</Text>
+                  </View>
+                </View>
+                <View className="flex-row items-center justify-between">
+                  {a.tag ? (
+                    <View className={`px-2 py-0.5 rounded-full ${cfg.bgClass} border ${cfg.borderClass}`}>
+                      <Text className={`text-[10px] font-black ${cfg.textClass}`}>{a.tag}</Text>
+                    </View>
+                  ) : <View />}
+                  {a.companyId && (
+                    <TouchableOpacity
+                      onPress={() => setSelectedId(a.companyId!)}
+                      className="flex-row items-center gap-1 bg-surface-card border border-surface-border rounded-lg px-2.5 py-1"
+                    >
+                      <Text className="text-typography-muted text-[10px] font-bold">View</Text>
+                      <FontAwesome name="chevron-right" size={7} color={colors.textDim} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            );
+          })}
+        </View>
+
+        <Divider />
+
+        {/* Resource leaderboard */}
+        <View className="px-4 pt-4 pb-6">
+          <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-3">Resource Usage</Text>
+          {sortedByUsage.map((co, i) => {
+            const usagePct = totalMins > 0 ? (co.session_minutes_week / totalMins) * 100 : 0;
+            return (
+              <TouchableOpacity
+                key={co.id}
+                onPress={() => setSelectedId(co.id)}
+                className="bg-surface-card rounded-2xl p-4 mb-3 border border-surface-border"
+              >
+                <View className="flex-row items-center justify-between mb-2">
+                  <View className="flex-row items-center gap-2 flex-1 mr-2">
+                    <Text className="text-typography-dim text-[10px] w-4">{i + 1}</Text>
+                    <Text className="text-typography-main font-black text-sm flex-1" numberOfLines={1}>{co.name}</Text>
+                  </View>
+                  <Text className="text-typography-muted text-xs font-bold">{usagePct.toFixed(0)}%</Text>
+                </View>
+                <View className="flex-row items-center gap-2 mb-1">
+                  <View className="w-4" />
+                  <HBar value={co.session_minutes_week} max={maxMins} />
+                  <Text className="text-typography-dim text-[10px] w-12 text-right">{fmtMins(co.session_minutes_week)}</Text>
+                </View>
+                <View className="flex-row items-center gap-3 ml-6">
+                  <Text className="text-typography-dim text-[10px]">{fmtNumber(co.user_count)} users</Text>
+                  <Text className="text-typography-dim text-[10px]">·</Text>
+                  <Text className="text-typography-dim text-[10px]">{fmtNumber(co.task_count)} tasks</Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </ScrollView>
+
+      <CompanyDetailModal
+        companyId={selectedId}
+        onClose={() => setSelectedId(null)}
+        onDeleted={() => { setSelectedId(null); onCompanyDeleted(); }}
+      />
+    </>
+  );
+};
+
 // ── Root screen ────────────────────────────────────────────────────────────
 
 export default function PlatformAdminScreen() {
@@ -609,6 +767,9 @@ export default function PlatformAdminScreen() {
     companies, liveCount, loading, refreshing, onRefresh, fetchCompanies,
     totalUsers, totalTasks, totalMins,
   } = useControlPlaneData();
+
+  const alerts = useMemo(() => deriveAlerts(companies), [companies]);
+  const alertCount = alerts.filter(a => a.severity === 'critical' || a.severity === 'warning').length;
 
   if (!initialized) {
     return (
@@ -659,6 +820,7 @@ export default function PlatformAdminScreen() {
           <SectionPill label="Tenants" active={section === 'tenants'} onPress={() => setSection('tenants')} />
           <SectionPill label="Signals" active={section === 'signals'} onPress={() => setSection('signals')} />
           <SectionPill label="Live"    active={section === 'live'}    onPress={() => setSection('live')} dot={liveCount > 0} />
+          <SectionPill label={alertCount > 0 ? `Alerts (${alertCount})` : 'Alerts'} active={section === 'alerts'} onPress={() => setSection('alerts')} dot={alertCount > 0} />
         </ScrollView>
       </View>
 
@@ -688,6 +850,16 @@ export default function PlatformAdminScreen() {
           <SignalsSection loading={loading} onRefresh={onRefresh} refreshing={refreshing} />
         )}
         {section === 'live' && <LiveSection />}
+        {section === 'alerts' && (
+          <AlertsSection
+            companies={companies}
+            totalMins={totalMins}
+            loading={loading}
+            onRefresh={onRefresh}
+            refreshing={refreshing}
+            onCompanyDeleted={fetchCompanies}
+          />
+        )}
       </View>
     </SafeAreaView>
   );

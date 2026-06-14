@@ -12,7 +12,7 @@ export const PLATFORM_OWNERS = [
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-export type Section = 'command' | 'tenants' | 'signals' | 'live' | 'users' | 'infra';
+export type Section = 'command' | 'tenants' | 'signals' | 'live' | 'users' | 'infra' | 'alerts';
 
 export type CompanyOverview = {
   id: string;
@@ -63,6 +63,17 @@ export type CompanyDetail = {
 
 export type SortKey = 'usage' | 'users' | 'tasks' | 'age';
 export type SignalMetric = 'tasks' | 'sessions' | 'users';
+export type AlertSeverity = 'critical' | 'warning' | 'info';
+
+export type PlatformAlert = {
+  id: string;
+  severity: AlertSeverity;
+  title: string;
+  body: string;
+  companyId?: string;
+  companyName?: string;
+  tag?: string;
+};
 
 export type InfraSnapshot = {
   captured_at: string;
@@ -204,6 +215,88 @@ export function healthLabel(minsPerUser: number): {
     color: 'text-typography-dim',
     dimColor: 'bg-surface-border/30',
   };
+}
+
+// ── Alert derivation ────────────────────────────────────────────────────────
+
+export function deriveAlerts(companies: CompanyOverview[]): PlatformAlert[] {
+  const alerts: PlatformAlert[] = [];
+  const totalMins = companies.reduce((s, c) => s + c.session_minutes_week, 0);
+  const sorted = [...companies].sort((a, b) => b.session_minutes_week - a.session_minutes_week);
+
+  for (const co of sorted) {
+    const pct = totalMins > 0 ? (co.session_minutes_week / totalMins) * 100 : 0;
+
+    if (companies.length > 1 && pct > 40) {
+      alerts.push({
+        id: `dominant-${co.id}`,
+        severity: 'critical',
+        title: 'Dominant Resource Consumer',
+        body: `${co.name} is consuming ${pct.toFixed(0)}% of all platform session time this week (${fmtMins(co.session_minutes_week)}).`,
+        companyId: co.id,
+        companyName: co.name,
+        tag: `${pct.toFixed(0)}% of load`,
+      });
+    }
+
+    if (co.user_count > 0 && co.last_active_at) {
+      const daysSince = Math.floor(
+        (Date.now() - new Date(co.last_active_at).getTime()) / 86400000
+      );
+      if (daysSince > 14) {
+        alerts.push({
+          id: `dormant-${co.id}`,
+          severity: 'warning',
+          title: 'Dormant Workspace',
+          body: `${co.name} has ${co.user_count} member${co.user_count !== 1 ? 's' : ''} but hasn't been active in ${daysSince} days.`,
+          companyId: co.id,
+          companyName: co.name,
+          tag: `${daysSince}d inactive`,
+        });
+      }
+    }
+
+    if (co.user_count > 0 && co.session_minutes_week === 0 && !co.last_active_at) {
+      alerts.push({
+        id: `no-activity-${co.id}`,
+        severity: 'warning',
+        title: 'No Sessions Recorded',
+        body: `${co.name} has ${co.user_count} member${co.user_count !== 1 ? 's' : ''} but no work sessions have ever been tracked.`,
+        companyId: co.id,
+        companyName: co.name,
+        tag: 'never active',
+      });
+    }
+
+    if (co.user_count === 0) {
+      alerts.push({
+        id: `empty-${co.id}`,
+        severity: 'info',
+        title: 'Empty Workspace',
+        body: `${co.name} has no members. Consider deleting it if it was created by mistake.`,
+        companyId: co.id,
+        companyName: co.name,
+        tag: '0 members',
+      });
+    }
+  }
+
+  if (sorted.length > 3 && totalMins > 0) {
+    const top3Mins = sorted.slice(0, 3).reduce((s, c) => s + c.session_minutes_week, 0);
+    const top3Pct = (top3Mins / totalMins) * 100;
+    if (top3Pct > 80) {
+      alerts.push({
+        id: 'concentration',
+        severity: 'info',
+        title: 'Usage Concentration',
+        body: `Top 3 workspaces account for ${top3Pct.toFixed(0)}% of all platform activity this week. Load is heavily concentrated.`,
+        tag: `${top3Pct.toFixed(0)}% in top 3`,
+      });
+    }
+  }
+
+  const order: Record<AlertSeverity, number> = { critical: 0, warning: 1, info: 2 };
+  return alerts.sort((a, b) => order[a.severity] - order[b.severity]);
 }
 
 // ── Hooks ──────────────────────────────────────────────────────────────────
