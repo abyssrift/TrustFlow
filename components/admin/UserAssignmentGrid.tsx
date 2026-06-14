@@ -45,41 +45,30 @@ export default function UserAssignmentGrid() {
     if (!companyId) return;
     setActivityLoading(true);
     try {
-      const last30Days = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-
-      const [tasksRes, sessionsRes, commentsRes, activityRes] = await Promise.all([
-        supabase.from('task_assignments').select('*', { count: 'exact' }).eq('assignee_user_id', userId).eq('company_id', companyId).gte('created_at', last30Days),
-        supabase.from('task_work_sessions').select('*').eq('user_id', userId).eq('company_id', companyId).gte('created_at', last30Days),
-        supabase.from('task_comments').select('*', { count: 'exact' }).eq('author_id', userId).eq('company_id', companyId).gte('created_at', last30Days),
-        supabase.from('activity_log').select('*').eq('user_id', userId).eq('company_id', companyId).gte('logged_at', last30Days).order('logged_at', { ascending: false }).limit(10),
+      const [summaryRes, seriesRes, activityRes] = await Promise.all([
+        supabase.rpc('rpc_get_user_performance_summary', { p_user_id: userId, p_start_ts: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), p_end_ts: new Date().toISOString() }),
+        supabase.rpc('rpc_get_user_performance_series', { p_user_id: userId, p_period_type: 'day', p_days: 7 }),
+        supabase.from('activity_log').select('*').eq('user_id', userId).eq('company_id', companyId).order('logged_at', { ascending: false }).limit(10),
       ]);
 
-      const tasksCount = tasksRes.count || 0;
-      const commentsCount = commentsRes.count || 0;
-      const sessions = sessionsRes.data || [];
+      const summary = summaryRes.data || {};
+      const series = seriesRes.data || [];
       const activities = activityRes.data || [];
 
-      const totalHours = sessions.reduce((sum, session) => sum + (session.total_seconds_spent || 0), 0) / 3600;
-      const avgTime = sessions.length > 0 ? totalHours / sessions.length : 0;
-
-      const chartData = Array.from({ length: 7 }, (_, i) => {
-        const date = new Date(Date.now() - (6 - i) * 24 * 60 * 60 * 1000);
-        const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        return {
-          date: dateStr,
-          tasks: Math.floor(Math.random() * 5),
-          hours: parseFloat((Math.random() * 8).toFixed(1)),
-        };
-      });
+      const chartData = series.map((item: any) => ({
+        date: new Date(item.period_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        tasks: item.task_submissions_count || 0,
+        hours: parseFloat((((item.total_tracked_seconds || 0) / 3600) * 24).toFixed(1)),
+      }));
 
       setActivityData({
-        tasksCompleted: tasksCount,
-        hoursWorked: parseFloat(totalHours.toFixed(1)),
-        averageCompletionTime: parseFloat(avgTime.toFixed(1)),
+        tasksCompleted: summary.task_submissions_count || 0,
+        hoursWorked: parseFloat((((summary.total_tracked_seconds || 0) / 3600)).toFixed(1)),
+        averageCompletionTime: parseFloat((summary.avg_cycle_time_hours || 0).toFixed(1)),
         recentActivities: activities.map(a => ({
           id: a.id,
-          type: a.action || 'unknown',
-          description: `${a.action} on task`,
+          type: a.action || 'activity',
+          description: `${a.action}`,
           timestamp: a.logged_at,
         })),
         chartData,
