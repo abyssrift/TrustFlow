@@ -82,7 +82,8 @@ export default function UserAssignmentGrid() {
               <TouchableOpacity
                 key={user.id}
                 onPress={() => handleOpenUser(user)}
-                className={`bg-surface-card w-full sm:w-[48%] lg:w-[32%] p-5 rounded-2xl border border-surface-border premium-shadow transition-all active:scale-[0.98]`}
+                className="w-full sm:w-[48%] lg:w-[32%] p-5 rounded-2xl border premium-shadow transition-all active:scale-[0.98]"
+                style={{ backgroundColor: colors.card, borderColor: colors.border }}
               >
                 <View className="flex-row items-center mb-5">
                   <View className="w-12 h-12 rounded-xl bg-brand-primary/10 items-center justify-center border border-brand-primary/20 overflow-hidden">
@@ -105,11 +106,11 @@ export default function UserAssignmentGrid() {
                 </View>
 
                 <View className="flex-row items-center gap-3">
-                  <View className="bg-surface-background px-3 py-2 rounded-lg border border-surface-border flex-1 items-center">
-                    <Text className="text-typography-label text-[9px] font-black uppercase tracking-widest">{userRoleCount} Roles</Text>
+                  <View className="px-3 py-2 rounded-lg border flex-1 items-center" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
+                    <Text className="text-[9px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>{userRoleCount} Roles</Text>
                   </View>
-                  <View className="bg-surface-background px-3 py-2 rounded-lg border border-surface-border flex-1 items-center">
-                    <Text className="text-typography-label text-[9px] font-black uppercase tracking-widest">{teamCount} Teams</Text>
+                  <View className="px-3 py-2 rounded-lg border flex-1 items-center" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
+                    <Text className="text-[9px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>{teamCount} Teams</Text>
                   </View>
                 </View>
               </TouchableOpacity>
@@ -127,7 +128,7 @@ export default function UserAssignmentGrid() {
         {Platform.OS === 'web' ? (
           /* Desktop: centered card */
           <View className="flex-1 bg-black/60 justify-center items-center p-6">
-            <View className="bg-surface-card w-full max-w-3xl rounded-3xl border border-surface-border premium-shadow overflow-hidden" style={{ maxHeight: '90%' }}>
+            <View className="w-full max-w-3xl rounded-3xl border premium-shadow overflow-hidden" style={{ backgroundColor: colors.card, borderColor: colors.border, maxHeight: '90%' }}>
               {/* Header with Profile Summary */}
               {selectedUser && (
                 <View className="px-8 pt-8 pb-6 border-b" style={{ borderColor: colors.border, backgroundColor: `${colors.accent}08` }}>
@@ -354,8 +355,8 @@ export default function UserAssignmentGrid() {
           </View>
         ) : (
           /* Mobile: bottom sheet with tabs */
-          <View className="flex-1 bg-black/60 justify-end">
-            <View className="bg-surface-card w-full rounded-t-3xl border-t border-x border-surface-border" style={{ maxHeight: '90%' }}>
+          <View className="flex-1 justify-end" style={{ backgroundColor: 'rgba(0, 0, 0, 0.6)' }}>
+            <View className="w-full rounded-t-3xl border-t border-x" style={{ backgroundColor: colors.card, borderColor: colors.border, maxHeight: '90%' }}>
               {/* Handle */}
               <View className="items-center pt-3 pb-1">
                 <View className="w-10 h-1 rounded-full bg-surface-border" />
