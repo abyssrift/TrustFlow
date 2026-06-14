@@ -12,6 +12,13 @@ export type User = {
   avatar_url: string | null;
   job_title: string | null;
   department: string | null;
+  phone: string | null;
+  is_active: boolean;
+  work_status: string | null;
+  created_at: string;
+  last_seen_at: string | null;
+  onboarded_at: string | null;
+  reports_to: string | null;
 };
 
 export type Team = {
@@ -73,6 +80,7 @@ type RoleManagerState = {
   updateUserAssignments: (userId: string, roleIds: string[], teamIds: string[]) => Promise<boolean>;
   updateTeamAssignments: (teamId: string, roleIds: string[]) => Promise<boolean>;
   createTeam: (name: string, description: string, color: string) => Promise<string | null>;
+  removeUserFromCompany: (userId: string) => Promise<boolean>;
 };
 
 const RoleManagerContext = createContext<RoleManagerState | null>(null);
@@ -117,7 +125,7 @@ export function RoleManagerProvider({ children }: { children: ReactNode }) {
 
       // Fetch teams and users scoped to the current company first
       const [usersResult, teamsResult] = await Promise.all([
-        supabase.from('users').select('id, email, full_name, display_name, avatar_url, job_title, department').is('deleted_at', null).eq('company_id', companyId).order('full_name'),
+        supabase.from('users').select('id, email, full_name, display_name, avatar_url, job_title, department, phone, is_active, work_status, created_at, last_seen_at, onboarded_at, reports_to').is('deleted_at', null).eq('company_id', companyId).order('full_name'),
         supabase.from('teams').select('*').is('deleted_at', null).eq('company_id', companyId).order('name')
       ]);
 
@@ -290,6 +298,21 @@ export function RoleManagerProvider({ children }: { children: ReactNode }) {
     }
   }, [refreshAll]);
 
+  const removeUserFromCompany = useCallback(async (userId: string) => {
+    setLoading(true);
+    try {
+      const { error: e } = await supabase.from('users').update({ company_id: null }).eq('id', userId);
+      if (e) throw e;
+      await refreshAll();
+      return true;
+    } catch (e: any) {
+      setError(e.message);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [refreshAll]);
+
   return (
     <RoleManagerContext.Provider
       value={{
@@ -297,7 +320,7 @@ export function RoleManagerProvider({ children }: { children: ReactNode }) {
         loading, error,
         refreshAll,
         createRole, updateRole, deleteRole,
-        updateUserAssignments, updateTeamAssignments, createTeam
+        updateUserAssignments, updateTeamAssignments, createTeam, removeUserFromCompany
       }}
     >
       {children}
