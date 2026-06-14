@@ -34,7 +34,7 @@ BEGIN
   END IF;
 
   -- Get caller's company
-  SELECT company_id INTO v_company_id FROM public.profiles WHERE id = auth.uid();
+  SELECT company_id INTO v_company_id FROM public.users WHERE id = auth.uid();
   IF v_company_id IS NULL THEN
     RETURN jsonb_build_object('error', 'No company found');
   END IF;

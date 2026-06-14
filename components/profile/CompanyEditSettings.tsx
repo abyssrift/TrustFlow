@@ -3,14 +3,21 @@ import { useToast } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import * as ImagePicker from 'expo-image-picker';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Image, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 
 interface CompanyData {
   name: string;
   description: string | null;
   logo_url: string | null;
   website: string | null;
+}
+
+interface SelectedImage {
+  uri: string;
+  name: string;
+  size: number;
 }
 
 export default function CompanyEditSettings() {
@@ -22,6 +29,8 @@ export default function CompanyEditSettings() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [selectedLogo, setSelectedLogo] = useState<SelectedImage | null>(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [company, setCompany] = useState<CompanyData>({
     name: '',
     description: null,
@@ -62,6 +71,67 @@ export default function CompanyEditSettings() {
 
     fetchCompanyData();
   }, [profile?.company_id]);
+
+  const pickAndUploadLogo = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (result.canceled) return;
+
+      const asset = result.assets[0];
+      setSelectedLogo({
+        uri: asset.uri,
+        name: asset.fileName || 'logo.jpg',
+        size: asset.fileSize || 0,
+      });
+
+      // Upload to storage
+      setUploadingLogo(true);
+      try {
+        if (!profile?.company_id) {
+          errorToast('No company found');
+          return;
+        }
+
+        const fileExt = asset.fileName?.split('.').pop() || 'jpg';
+        const storagePath = `${profile.company_id}/logo.${fileExt}`;
+
+        const response = await fetch(asset.uri);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch image: ${response.statusText}`);
+        }
+        const blob = await response.blob();
+
+        const { error: uploadError } = await supabase.storage
+          .from('company-logos')
+          .upload(storagePath, blob, { upsert: true, contentType: `image/${fileExt}` });
+
+        if (uploadError) throw uploadError;
+
+        const { data: urlData } = supabase.storage.from('company-logos').getPublicUrl(storagePath);
+        const logoUrl = urlData?.publicUrl ? `${urlData.publicUrl}?v=${Date.now()}` : null;
+
+        if (logoUrl) {
+          setFormData({ ...formData, logo_url: logoUrl });
+          successToast('Logo selected!');
+        }
+      } catch (err: any) {
+        console.error('Upload error:', err);
+        errorToast(err.message || 'Failed to upload logo');
+        setSelectedLogo(null);
+      } finally {
+        setUploadingLogo(false);
+      }
+    } catch (err: any) {
+      console.error('Image picker error:', err);
+      errorToast('Failed to pick image');
+    }
+  };
 
   const handleSave = async () => {
     if (!profile?.company_id) {
@@ -177,19 +247,47 @@ export default function CompanyEditSettings() {
             />
           </View>
 
-          {/* Logo URL */}
+          {/* Logo Upload */}
           <View className="mb-5">
-            <Text className="text-typography-muted text-xs font-bold uppercase mb-2">Logo URL</Text>
-            <TextInput
-              value={formData.logo_url || ''}
-              onChangeText={(text) => setFormData({ ...formData, logo_url: text || null })}
-              placeholder="https://cdn.example.com/logo.png"
-              placeholderTextColor={colors.textMuted}
-              className="border border-surface-border rounded-xl px-4 py-3 bg-surface-background text-typography-main"
-              style={{ color: colors.textMain }}
-              keyboardType="url"
-              editable={!saving}
-            />
+            <Text className="text-typography-muted text-xs font-bold uppercase mb-2">Company Logo</Text>
+
+            {/* Logo Preview */}
+            {formData.logo_url && (
+              <View className="mb-3 bg-surface-background rounded-xl p-3 border border-surface-border items-center justify-center h-32">
+                <Image
+                  source={{ uri: formData.logo_url }}
+                  style={{ width: 100, height: 100, borderRadius: 8 }}
+                  resizeMode="contain"
+                />
+              </View>
+            )}
+
+            {/* Upload Button */}
+            <TouchableOpacity
+              onPress={pickAndUploadLogo}
+              disabled={uploadingLogo || saving}
+              className={`border-2 border-dashed rounded-lg p-4 items-center justify-center ${
+                uploadingLogo ? 'opacity-60' : 'border-surface-border'
+              }`}
+              style={{ borderColor: colors.textMuted }}
+            >
+              {uploadingLogo ? (
+                <>
+                  <ActivityIndicator color={colors.primary} />
+                  <Text className="text-typography-muted text-xs mt-2">Uploading...</Text>
+                </>
+              ) : (
+                <>
+                  <FontAwesome name="image" size={16} className="text-typography-muted mb-2" />
+                  <Text className="text-typography-main font-bold text-sm text-center">
+                    Tap to select logo
+                  </Text>
+                  <Text className="text-typography-muted text-xs text-center mt-1">
+                    JPG, PNG, or GIF
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
           </View>
         </View>
       </View>
