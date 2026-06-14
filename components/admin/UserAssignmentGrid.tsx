@@ -1,6 +1,5 @@
 import { User, useRoleManager } from '@/contexts/RoleManagerContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useState } from 'react';
 import { Image, Modal, Platform, ScrollView, Text, TouchableOpacity, View, Alert } from 'react-native';
@@ -18,7 +17,6 @@ type TabType = 'profile' | 'activity' | 'roles';
 export default function UserAssignmentGrid() {
   const { users, roles, teams, userRoles, teamMembers, teamRoles, updateUserAssignments, removeUserFromCompany, loading } = useRoleManager();
   const { hasPermission } = useAuth();
-  const colors = useThemeColors();
   const canAssignRoles = hasPermission('role.manage');
   const canRemoveUsers = hasPermission('company.manage');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -130,14 +128,14 @@ export default function UserAssignmentGrid() {
             <View className="bg-surface-card w-full max-w-3xl rounded-3xl border border-surface-border premium-shadow overflow-hidden" style={{ maxHeight: '90%' }}>
               {/* Header with Profile Summary */}
               {selectedUser && (
-                <View className="px-8 pt-8 pb-6 border-b" style={{ borderColor: `${colors.accent}33`, backgroundColor: `${colors.accent}0a` }}>
+                <View className="px-8 pt-8 pb-6 border-b border-brand-accent/20 bg-brand-accent/5">
                   <View className="flex-row items-start justify-between mb-6">
                     <View className="flex-row items-center flex-1">
-                      <View className="w-16 h-16 rounded-2xl items-center justify-center border overflow-hidden mr-4" style={{ backgroundColor: colors.accent, borderColor: `${colors.accent}4d` }}>
+                      <View className="w-16 h-16 rounded-2xl bg-brand-accent border border-brand-accent/30 items-center justify-center overflow-hidden mr-4">
                         {selectedUser.avatar_url ? (
                           <Image source={{ uri: selectedUser.avatar_url }} className="w-full h-full" />
                         ) : (
-                          <Text className="font-black text-3xl" style={{ color: colors.background }}>
+                          <Text className="text-white font-black text-3xl">
                             {selectedUser.full_name?.charAt(0) || selectedUser.email.charAt(0).toUpperCase()}
                           </Text>
                         )}
@@ -149,13 +147,13 @@ export default function UserAssignmentGrid() {
                         <Text className="text-typography-muted text-sm mb-2">
                           {selectedUser.job_title || 'No role'}
                         </Text>
-                        <Text className="text-xs font-semibold" style={{ color: colors.accent }}>
+                        <Text className="text-brand-accent text-xs font-semibold">
                           Joined {getTenure(selectedUser.created_at)} ago
                         </Text>
                       </View>
                     </View>
-                    <TouchableOpacity onPress={() => setSelectedUser(null)} className="w-10 h-10 items-center justify-center rounded-full border" style={{ backgroundColor: `${colors.accent}1a`, borderColor: `${colors.accent}33` }}>
-                      <FontAwesome name="times" size={16} color={colors.accent} />
+                    <TouchableOpacity onPress={() => setSelectedUser(null)} className="w-10 h-10 items-center justify-center rounded-full bg-brand-accent/10 border border-brand-accent/20">
+                      <FontAwesome name="times" size={16} className="text-brand-accent" />
                     </TouchableOpacity>
                   </View>
 
@@ -165,16 +163,9 @@ export default function UserAssignmentGrid() {
                       <TouchableOpacity
                         key={tab}
                         onPress={() => setActiveTab(tab)}
-                        className="px-4 py-2.5 rounded-lg border"
-                        style={{
-                          backgroundColor: activeTab === tab ? colors.accent : colors.card,
-                          borderColor: activeTab === tab ? colors.accent : `${colors.accent}33`
-                        }}
+                        className={`px-4 py-2.5 rounded-lg border transition-all ${activeTab === tab ? 'bg-brand-accent border-brand-accent' : 'bg-surface-card border-brand-accent/20'}`}
                       >
-                        <Text
-                          className="text-[11px] font-black uppercase tracking-tight"
-                          style={{ color: activeTab === tab ? colors.background : colors.accent }}
-                        >
+                        <Text className={`text-[11px] font-black uppercase tracking-tight ${activeTab === tab ? 'text-white' : 'text-brand-accent'}`}>
                           {tab === 'profile' ? 'Profile' : tab === 'activity' ? 'Activity' : 'Access'}
                         </Text>
                       </TouchableOpacity>
@@ -189,15 +180,15 @@ export default function UserAssignmentGrid() {
                   <View>
                     {/* Contact Info */}
                     <View className="mb-8">
-                      <Text className="text-[11px] font-black uppercase tracking-[0.15em] mb-4" style={{ color: colors.accent }}>Contact Information</Text>
+                      <Text className="text-brand-accent text-[11px] font-black uppercase tracking-[0.15em] mb-4">Contact Information</Text>
                       <View className="gap-3">
                         <View className="flex-row items-center">
-                          <FontAwesome name="envelope" size={13} color={colors.textMuted} className="w-6" />
+                          <FontAwesome name="envelope" size={13} className="text-typography-muted w-6" />
                           <Text className="text-typography-main ml-3 text-sm">{selectedUser.email}</Text>
                         </View>
                         {selectedUser.phone && (
                           <View className="flex-row items-center">
-                            <FontAwesome name="phone" size={13} color={colors.textMuted} className="w-6" />
+                            <FontAwesome name="phone" size={13} className="text-typography-muted w-6" />
                             <Text className="text-typography-main ml-3 text-sm">{selectedUser.phone}</Text>
                           </View>
                         )}
@@ -206,7 +197,7 @@ export default function UserAssignmentGrid() {
 
                     {/* Work Information */}
                     <View className="mb-8">
-                      <Text className="text-[11px] font-black uppercase tracking-[0.15em] mb-4" style={{ color: colors.accent }}>Work Information</Text>
+                      <Text className="text-brand-accent text-[11px] font-black uppercase tracking-[0.15em] mb-4">Work Information</Text>
                       <View className="gap-3">
                         {selectedUser.job_title && (
                           <View>
@@ -238,13 +229,13 @@ export default function UserAssignmentGrid() {
                     {/* Teams */}
                     {teamMembers.filter(tm => tm.user_id === selectedUser.id).length > 0 && (
                       <View>
-                        <Text className="text-[11px] font-black uppercase tracking-[0.15em] mb-4" style={{ color: colors.accent }}>Teams</Text>
+                        <Text className="text-brand-accent text-[11px] font-black uppercase tracking-[0.15em] mb-4">Teams</Text>
                         <View className="flex-row flex-wrap gap-2">
                           {teams
                             .filter(t => teamMembers.find(tm => tm.user_id === selectedUser.id && tm.team_id === t.id))
                             .map(team => (
-                              <View key={team.id} className="border px-3 py-2 rounded-lg" style={{ backgroundColor: `${colors.accent}0a`, borderColor: `${colors.accent}33` }}>
-                                <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.accent }}>
+                              <View key={team.id} className="bg-brand-accent/10 border border-brand-accent/20 px-3 py-2 rounded-lg">
+                                <Text className="text-brand-accent text-[10px] font-black uppercase tracking-widest">
                                   {team.name}
                                 </Text>
                               </View>
@@ -268,8 +259,8 @@ export default function UserAssignmentGrid() {
                     {/* Direct Roles */}
                     <View className="mb-8">
                       <View className="flex-row items-center mb-4">
-                        <FontAwesome name="shield" size={13} color={colors.accent} />
-                        <Text className="text-[11px] font-black uppercase ml-3 tracking-[0.15em]" style={{ color: colors.accent }}>Direct Roles</Text>
+                        <FontAwesome name="shield" size={13} className="text-brand-accent" />
+                        <Text className="text-brand-accent text-[11px] font-black uppercase ml-3 tracking-[0.15em]">Direct Roles</Text>
                       </View>
                       <View className="flex-row flex-wrap gap-2">
                         {(() => {
@@ -306,8 +297,8 @@ export default function UserAssignmentGrid() {
                     {/* Teams */}
                     <View>
                       <View className="flex-row items-center mb-4">
-                        <FontAwesome name="users" size={13} color={colors.accent} />
-                        <Text className="text-[11px] font-black uppercase ml-3 tracking-[0.15em]" style={{ color: colors.accent }}>Team Membership</Text>
+                        <FontAwesome name="users" size={13} className="text-brand-accent" />
+                        <Text className="text-brand-accent text-[11px] font-black uppercase ml-3 tracking-[0.15em]">Team Membership</Text>
                       </View>
                       <View className="flex-row flex-wrap gap-2">
                         {teams.map(team => {
@@ -338,18 +329,18 @@ export default function UserAssignmentGrid() {
               </ScrollView>
 
               {/* Footer */}
-              <View className="flex-row gap-3 px-8 py-6 border-t" style={{ borderColor: `${colors.accent}33` }}>
-                <TouchableOpacity onPress={() => setSelectedUser(null)} className="flex-1 py-4 rounded-xl border items-center" style={{ backgroundColor: colors.card, borderColor: `${colors.accent}33` }}>
+              <View className="flex-row gap-3 px-8 py-6 border-t border-brand-accent/20">
+                <TouchableOpacity onPress={() => setSelectedUser(null)} className="flex-1 bg-surface-card border border-brand-accent/20 py-4 rounded-xl items-center">
                   <Text className="text-typography-muted font-black text-[11px] uppercase tracking-widest">Close</Text>
                 </TouchableOpacity>
                 {activeTab === 'roles' && canAssignRoles && (
-                  <TouchableOpacity onPress={handleSave} disabled={loading} className="flex-1 py-4 rounded-xl items-center active:scale-[0.98]" style={{ backgroundColor: colors.accent }}>
-                    <Text className="font-black text-[11px] uppercase tracking-widest" style={{ color: colors.background }}>Save Changes</Text>
+                  <TouchableOpacity onPress={handleSave} disabled={loading} className="flex-1 bg-brand-accent py-4 rounded-xl items-center premium-shadow active:scale-[0.98]">
+                    <Text className="text-white font-black text-[11px] uppercase tracking-widest">Save Changes</Text>
                   </TouchableOpacity>
                 )}
                 {canRemoveUsers && (
-                  <TouchableOpacity onPress={handleRemoveUser} className="flex-1 border py-4 rounded-xl items-center active:scale-[0.98]" style={{ backgroundColor: `${colors.danger}1a`, borderColor: `${colors.danger}66` }}>
-                    <Text className="font-black text-[11px] uppercase tracking-widest" style={{ color: colors.danger }}>Remove</Text>
+                  <TouchableOpacity onPress={handleRemoveUser} className="flex-1 bg-state-danger/20 border border-state-danger/30 py-4 rounded-xl items-center active:scale-[0.98]">
+                    <Text className="text-state-danger font-black text-[11px] uppercase tracking-widest">Remove</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -366,14 +357,14 @@ export default function UserAssignmentGrid() {
 
               {/* Header with Profile Summary */}
               {selectedUser && (
-                <View className="px-5 pt-3 pb-4 border-b" style={{ borderColor: `${colors.accent}33` }}>
+                <View className="px-5 pt-3 pb-4 border-b border-brand-accent/20">
                   <View className="flex-row items-start justify-between mb-4">
                     <View className="flex-row items-center flex-1 mr-3">
-                      <View className="w-14 h-14 rounded-xl items-center justify-center border overflow-hidden mr-3 flex-shrink-0" style={{ backgroundColor: colors.accent, borderColor: `${colors.accent}4d` }}>
+                      <View className="w-14 h-14 rounded-xl bg-brand-accent border border-brand-accent/30 items-center justify-center overflow-hidden mr-3 flex-shrink-0">
                         {selectedUser.avatar_url ? (
                           <Image source={{ uri: selectedUser.avatar_url }} className="w-full h-full" />
                         ) : (
-                          <Text className="font-black text-2xl" style={{ color: colors.background }}>
+                          <Text className="text-white font-black text-2xl">
                             {selectedUser.full_name?.charAt(0) || selectedUser.email.charAt(0).toUpperCase()}
                           </Text>
                         )}
@@ -382,13 +373,13 @@ export default function UserAssignmentGrid() {
                         <Text className="text-typography-main font-black text-lg mb-1" numberOfLines={1}>
                           {selectedUser.full_name || selectedUser.email}
                         </Text>
-                        <Text className="text-[10px] font-semibold" style={{ color: colors.accent }}>
+                        <Text className="text-brand-accent text-[10px] font-semibold">
                           Joined {getTenure(selectedUser.created_at)} ago
                         </Text>
                       </View>
                     </View>
-                    <TouchableOpacity onPress={() => setSelectedUser(null)} className="w-9 h-9 items-center justify-center rounded-full border flex-shrink-0" style={{ backgroundColor: `${colors.accent}1a`, borderColor: `${colors.accent}33` }}>
-                      <FontAwesome name="times" size={14} color={colors.accent} />
+                    <TouchableOpacity onPress={() => setSelectedUser(null)} className="w-9 h-9 items-center justify-center rounded-full bg-brand-accent/10 border border-brand-accent/20 flex-shrink-0">
+                      <FontAwesome name="times" size={14} className="text-brand-accent" />
                     </TouchableOpacity>
                   </View>
 
@@ -398,16 +389,9 @@ export default function UserAssignmentGrid() {
                       <TouchableOpacity
                         key={tab}
                         onPress={() => setActiveTab(tab)}
-                        className="flex-1 px-3 py-2 rounded-lg border"
-                        style={{
-                          backgroundColor: activeTab === tab ? colors.accent : colors.card,
-                          borderColor: activeTab === tab ? colors.accent : `${colors.accent}33`
-                        }}
+                        className={`flex-1 px-3 py-2 rounded-lg border transition-all ${activeTab === tab ? 'bg-brand-accent border-brand-accent' : 'bg-surface-card border-brand-accent/20'}`}
                       >
-                        <Text
-                          className="text-[10px] font-black uppercase tracking-tight text-center"
-                          style={{ color: activeTab === tab ? colors.background : colors.accent }}
-                        >
+                        <Text className={`text-[10px] font-black uppercase tracking-tight text-center ${activeTab === tab ? 'text-white' : 'text-brand-accent'}`}>
                           {tab === 'profile' ? 'Profile' : tab === 'activity' ? 'Activity' : 'Access'}
                         </Text>
                       </TouchableOpacity>
@@ -422,7 +406,7 @@ export default function UserAssignmentGrid() {
                   <View className="pt-4">
                     {/* Contact Info */}
                     <View className="mb-6">
-                      <Text className="text-[10px] font-black uppercase tracking-[0.15em] mb-3" style={{ color: colors.accent }}>Contact</Text>
+                      <Text className="text-brand-accent text-[10px] font-black uppercase tracking-[0.15em] mb-3">Contact</Text>
                       <View className="gap-2">
                         <View className="flex-row items-center bg-surface-background p-3 rounded-lg border border-surface-border">
                           <FontAwesome name="envelope" size={11} className="text-typography-muted mr-3 w-5" />
@@ -441,7 +425,7 @@ export default function UserAssignmentGrid() {
 
                     {/* Work Info */}
                     <View className="mb-6">
-                      <Text className="text-[10px] font-black uppercase tracking-[0.15em] mb-3" style={{ color: colors.accent }}>Work Info</Text>
+                      <Text className="text-brand-accent text-[10px] font-black uppercase tracking-[0.15em] mb-3">Work Info</Text>
                       <View className="gap-2">
                         {selectedUser.job_title && (
                           <View className="bg-surface-background p-3 rounded-lg border border-surface-border">
@@ -461,13 +445,13 @@ export default function UserAssignmentGrid() {
                     {/* Teams */}
                     {teamMembers.filter(tm => tm.user_id === selectedUser.id).length > 0 && (
                       <View>
-                        <Text className="text-[10px] font-black uppercase tracking-[0.15em] mb-3" style={{ color: colors.accent }}>Teams</Text>
+                        <Text className="text-brand-accent text-[10px] font-black uppercase tracking-[0.15em] mb-3">Teams</Text>
                         <View className="flex-row flex-wrap gap-2">
                           {teams
                             .filter(t => teamMembers.find(tm => tm.user_id === selectedUser.id && tm.team_id === t.id))
                             .map(team => (
-                              <View key={team.id} className="border px-3 py-2 rounded-lg" style={{ backgroundColor: `${colors.accent}0a`, borderColor: `${colors.accent}33` }}>
-                                <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.accent }}>
+                              <View key={team.id} className="bg-brand-accent/10 border border-brand-accent/20 px-3 py-2 rounded-lg">
+                                <Text className="text-brand-accent text-[10px] font-black uppercase tracking-widest">
                                   {team.name}
                                 </Text>
                               </View>
@@ -491,8 +475,8 @@ export default function UserAssignmentGrid() {
                     {/* Direct Roles */}
                     <View className="mb-6">
                       <View className="flex-row items-center mb-3">
-                        <FontAwesome name="shield" size={11} color={colors.accent} />
-                        <Text className="text-[10px] font-black uppercase ml-2 tracking-widest" style={{ color: colors.accent }}>Direct Roles</Text>
+                        <FontAwesome name="shield" size={11} className="text-brand-accent" />
+                        <Text className="text-brand-accent text-[10px] font-black uppercase ml-2 tracking-widest">Direct Roles</Text>
                       </View>
                       <View className="gap-2">
                         {(() => {
@@ -535,8 +519,8 @@ export default function UserAssignmentGrid() {
                     {/* Teams */}
                     <View>
                       <View className="flex-row items-center mb-3">
-                        <FontAwesome name="users" size={11} color={colors.accent} />
-                        <Text className="text-[10px] font-black uppercase ml-2 tracking-widest" style={{ color: colors.accent }}>Team Membership</Text>
+                        <FontAwesome name="users" size={11} className="text-brand-accent" />
+                        <Text className="text-brand-accent text-[10px] font-black uppercase ml-2 tracking-widest">Team Membership</Text>
                       </View>
                       <View className="gap-2">
                         {teams.map(team => {
@@ -572,18 +556,18 @@ export default function UserAssignmentGrid() {
               </ScrollView>
 
               {/* Footer */}
-              <View className="flex-row gap-2 px-5 py-4 border-t" style={{ borderColor: `${colors.accent}33` }}>
-                <TouchableOpacity onPress={() => setSelectedUser(null)} className="flex-1 py-3 rounded-lg border items-center" style={{ backgroundColor: colors.card, borderColor: `${colors.accent}33` }}>
+              <View className="flex-row gap-2 px-5 py-4 border-t border-brand-accent/20">
+                <TouchableOpacity onPress={() => setSelectedUser(null)} className="flex-1 bg-surface-card border border-brand-accent/20 py-3 rounded-lg items-center">
                   <Text className="text-typography-muted font-black text-[10px] uppercase tracking-widest">Close</Text>
                 </TouchableOpacity>
                 {activeTab === 'roles' && canAssignRoles && (
-                  <TouchableOpacity onPress={handleSave} disabled={loading} className="flex-1 py-3 rounded-lg items-center active:scale-[0.98]" style={{ backgroundColor: colors.accent }}>
-                    <Text className="font-black text-[10px] uppercase tracking-widest" style={{ color: colors.background }}>Save</Text>
+                  <TouchableOpacity onPress={handleSave} disabled={loading} className="flex-1 bg-brand-accent py-3 rounded-lg items-center active:scale-[0.98]">
+                    <Text className="text-white font-black text-[10px] uppercase tracking-widest">Save</Text>
                   </TouchableOpacity>
                 )}
                 {canRemoveUsers && (
-                  <TouchableOpacity onPress={handleRemoveUser} className="flex-1 border py-3 rounded-lg items-center active:scale-[0.98]" style={{ backgroundColor: `${colors.danger}1a`, borderColor: `${colors.danger}66` }}>
-                    <Text className="font-black text-[10px] uppercase tracking-widest" style={{ color: colors.danger }}>Remove</Text>
+                  <TouchableOpacity onPress={handleRemoveUser} className="flex-1 bg-state-danger/20 border border-state-danger/30 py-3 rounded-lg items-center active:scale-[0.98]">
+                    <Text className="text-state-danger font-black text-[10px] uppercase tracking-widest">Remove</Text>
                   </TouchableOpacity>
                 )}
               </View>
