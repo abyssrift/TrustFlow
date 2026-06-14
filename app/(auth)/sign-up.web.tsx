@@ -1,3 +1,4 @@
+import { PasswordInput } from '@/components/sharedutility/passoword_visibilty';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Link, useRouter } from 'expo-router';
@@ -5,6 +6,7 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { getErrorMessage, isStrongPassword, isValidEmail } from '../../lib/auth-errors';
 import { supabase } from '../../lib/supabase';
+
 
 export default function SignUpScreenWeb() {
   const colors = useThemeColors();
@@ -205,13 +207,11 @@ export default function SignUpScreenWeb() {
 
             <View>
               <Text className="text-typography-dim text-[10px] font-black uppercase tracking-[0.2em] mb-3 ml-1">Secure Password</Text>
-              <TextInput
-                className="w-full bg-surface-card border border-surface-border rounded-2xl px-6 py-4 text-typography-main font-bold focus:border-brand-primary transition-all"
-                placeholder="Min. 8 characters"
-                placeholderTextColor={(colors.textMuted + '80')}
-                secureTextEntry
+              <PasswordInput
                 value={password}
                 onChangeText={setPassword}
+                placeholderTextColor={(colors.textMuted + '80')}
+                colors={colors}
               />
             </View>
 

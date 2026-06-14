@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { TextInput, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 
 interface PasswordInputProps {
@@ -19,10 +19,6 @@ export function PasswordInput({
 
   return (
     <View>
-      <Text className="text-typography-dim text-[10px] font-black uppercase tracking-[0.2em] mb-3 ml-1">
-        Secure Password
-      </Text>
-      
       <View className="relative justify-center">
         <TextInput
           className="w-full bg-surface-card border border-surface-border rounded-2xl px-6 py-4 text-typography-main font-bold focus:border-brand-primary pr-14"
