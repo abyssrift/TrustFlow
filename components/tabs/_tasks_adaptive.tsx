@@ -160,15 +160,24 @@ function TasksScreen() {
 
   const fetchData = async () => {
     try {
+      console.log('[TasksScreen] fetchData started');
+
       // 1. Resolve Pipeline
       let targetPipelineId = paramPipelineId;
       let pipelineData: any = null;
 
+      console.log('[TasksScreen] paramPipelineId:', paramPipelineId);
+
       if (!targetPipelineId) {
+        console.log('[TasksScreen] No paramPipelineId, trying storage...');
         // Try to restore from storage
         const savedPipelineId = await AsyncStorage.getItem('@TrustFlow_tasks_pipeline');
+        console.log('[TasksScreen] savedPipelineId from storage:', savedPipelineId);
+
         if (savedPipelineId) {
+          console.log('[TasksScreen] Fetching saved pipeline...');
           const { data: pSaved } = await supabase.from('pipelines').select('id, name, task_visibility_mode, is_default').eq('id', savedPipelineId).single();
+          console.log('[TasksScreen] Saved pipeline data:', pSaved);
           if (pSaved) {
             targetPipelineId = pSaved.id;
             pipelineData = pSaved;
@@ -176,21 +185,30 @@ function TasksScreen() {
         }
         // Fall back to default if saved pipeline not found
         if (!targetPipelineId) {
+          console.log('[TasksScreen] Fetching default pipeline...');
           const { data: pDefault } = await supabase.from('pipelines').select('id, name, task_visibility_mode, is_default').eq('is_default', true).limit(1).single();
+          console.log('[TasksScreen] Default pipeline data:', pDefault);
           targetPipelineId = pDefault?.id;
           pipelineData = pDefault;
         }
       } else {
+        console.log('[TasksScreen] Using paramPipelineId, fetching specific pipeline...');
         const { data: pSpecific } = await supabase.from('pipelines').select('id, name, task_visibility_mode, is_default').eq('id', targetPipelineId).single();
+        console.log('[TasksScreen] Specific pipeline data:', pSpecific);
         targetPipelineId = pSpecific?.id;
         pipelineData = pSpecific;
       }
 
+      console.log('[TasksScreen] Pipeline resolved:', { targetPipelineId, pipelineData });
       setPipeline(pipelineData);
 
-      if (!targetPipelineId) return;
+      if (!targetPipelineId) {
+        console.log('[TasksScreen] No targetPipelineId found, returning early');
+        return;
+      }
 
       // Wave 2: all queries that only depend on the pipeline ID run in parallel
+      console.log('[TasksScreen] Starting Promise.all for parallel queries...');
       const [
         { data: allPipes },
         { data: stagesData, error: sError },
@@ -226,26 +244,34 @@ function TasksScreen() {
           .eq('status', 'active'),
       ]);
 
+      console.log('[TasksScreen] Promise.all completed:', { stagesData: stagesData?.length, tasksData: tasksData?.length, sError, tError });
+
       if (sError) throw sError;
       if (tError) throw tError;
 
       setAvailablePipelines(allPipes as Pipeline[] || []);
       setStages(stagesData || []);
+      console.log('[TasksScreen] Stages and pipelines set');
 
       // Wave 3: stage actions depend on stage IDs from wave 2
+      console.log('[TasksScreen] Fetching stage actions...');
       const { data: actionsData } = await supabase
         .from('pipeline_stage_actions')
         .select('*')
         .in('stage_id', (stagesData || []).map(s => s.id));
+      console.log('[TasksScreen] Stage actions fetched:', actionsData?.length);
       setStageActions(actionsData || []);
 
       const resolvedTeamIds = myTeams?.map(mt => mt.team_id) || [];
       setMyTeamIds(resolvedTeamIds);
+      console.log('[TasksScreen] Team IDs resolved:', resolvedTeamIds);
 
       let filteredTasks = tasksData || [];
       const canViewAll = hasPermission('task.view_all') || hasPermission('tasks.view_all') || hasPermission('system.view_all_data') || hasPermission('pipeline.edit');
+      console.log('[TasksScreen] Can view all tasks:', canViewAll);
 
       if (pipelineData?.task_visibility_mode === 'assigned_only' && !canViewAll) {
+        console.log('[TasksScreen] Filtering tasks by assignment...');
         filteredTasks = filteredTasks.filter(t => {
           const isManager = t.manager_id === user?.id;
           const isAssigned = t.assignments?.some((a: any) =>
@@ -255,6 +281,7 @@ function TasksScreen() {
           return isManager || isAssigned;
         });
       }
+      console.log('[TasksScreen] Tasks filtered:', filteredTasks.length);
       setTasks(filteredTasks as any);
 
       const sessionMap: Record<string, ActiveSessionUser[]> = {};
@@ -267,18 +294,27 @@ function TasksScreen() {
           startedAt: s.started_at,
         });
       });
+      console.log('[TasksScreen] Session map created');
       setActiveSessions(sessionMap);
+
+      console.log('[TasksScreen] fetchData completed successfully');
     } catch (err: any) {
-      console.error('[DATABASE ERROR] Error fetching task data:', err);
+      console.error('[TasksScreen] ERROR fetching task data:', err);
     } finally {
+      console.log('[TasksScreen] finally block: setting loading=false');
       setLoading(false);
       setRefreshing(false);
     }
   };
 
   useEffect(() => {
-    if (!paramPipelineId) return;
+    console.log('[TasksScreen] useEffect with paramPipelineId:', paramPipelineId);
+    if (!paramPipelineId) {
+      console.log('[TasksScreen] No paramPipelineId, skipping');
+      return;
+    }
     const task = InteractionManager.runAfterInteractions(() => {
+      console.log('[TasksScreen] InteractionManager calling fetchData');
       fetchDataRef.current();
     });
     return () => task.cancel();
@@ -301,7 +337,9 @@ function TasksScreen() {
   const isFocusedRef = useRef(false);
 
   useEffect(() => {
+    console.log('[TasksScreen] Initial mount useEffect');
     const task = InteractionManager.runAfterInteractions(() => {
+      console.log('[TasksScreen] Initial mount: InteractionManager calling fetchPulse and fetchData');
       fetchPulse();
       fetchData();
     });
