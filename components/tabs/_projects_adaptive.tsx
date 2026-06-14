@@ -10,7 +10,8 @@ import {
   Alert,
   InteractionManager,
   Platform,
-  Switch
+  Switch,
+  useWindowDimensions
 } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -34,16 +35,18 @@ type Project = {
 
 export default function ProjectsScreen() {
   const colors = useThemeColors();
+  const { width } = useWindowDimensions();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showClosed, setShowClosed] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | undefined>();
-  
+
 
   const { hasPermission } = useAuth();
   const isWeb = Platform.OS === 'web';
+  const isLargeScreen = width > 768;
 
   const fetchProjects = async () => {
     try {
@@ -221,7 +224,7 @@ export default function ProjectsScreen() {
   return (
     <View className="flex-1 bg-surface-background">
       {/* Header */}
-      <View className={`flex-row items-center justify-between px-6 ${isWeb ? 'py-8 border-b border-surface-border' : 'pb-3'}`} style={!isWeb ? { paddingTop: Platform.OS !== 'web' ? 54 : 16 } : undefined}>
+      <View className={`flex-row items-center justify-between px-6 ${isWeb ? 'py-8 border-b border-surface-border' : 'pb-3'}`} style={(Platform.OS !== 'web' || !isLargeScreen) ? { paddingTop: Platform.OS === 'web' ? TAB_BAR_HEIGHT.web : TAB_BAR_HEIGHT.native } : undefined}>
         <View className="flex-1 mr-3">
           <Text className={`${isWeb ? 'text-5xl' : 'text-2xl'} text-typography-main font-black tracking-tighter`}>Projects</Text>
           {isWeb && (
