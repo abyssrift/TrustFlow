@@ -1,3 +1,4 @@
+import { PasswordInput } from '@/components/sharedutility/passoword_visibilty';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Link, useRouter } from 'expo-router';
@@ -147,14 +148,11 @@ export default function SignUpScreen() {
 
           <View>
             <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest mb-2 ml-1">Work Email</Text>
-            <TextInput
-              className="w-full bg-surface-card border border-surface-border rounded-2xl px-5 py-4 text-typography-main font-medium"
-              placeholder="jane@acme.com"
-              placeholderTextColor={colors.textDim}
-              keyboardType="email-address"
-              autoCapitalize="none"
+           <PasswordInput
               value={email}
               onChangeText={setEmail}
+              placeholderTextColor={colors.textDim}
+              colors={colors}
             />
           </View>
 
