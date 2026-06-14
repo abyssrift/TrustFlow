@@ -1,5 +1,5 @@
 [build]
-  command = "npx expo export -p web && cp -r public/. dist/"
+  command = "npx expo export -p web && find public -type f ! -name 'index.html' -exec cp --parents {} dist/ \\;"
   publish = "dist"
 
 [[redirects]]
