@@ -367,7 +367,7 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
         p_task_id: snapshot.task_id,
         p_task_title: snapshot.task?.title ?? '',
         p_duration_seconds: durationSecs,
-      }).catch(() => {});
+      });
     }
   }, [stopWork, serverTimeOffset]);
 
