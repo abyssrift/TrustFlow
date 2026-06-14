@@ -309,6 +309,18 @@ export default function UserAssignmentGrid() {
                 )}
 
                 {selectedUser && activeTab === 'activity' && (
+                  activityLoading ? (
+                    <View className="py-12 items-center">
+                      <Text style={{ color: colors.textMuted }}>Loading activity data...</Text>
+                    </View>
+                  ) : !activityData || (activityData.tasksCompleted === 0 && activityData.hoursWorked === 0 && activityData.recentActivities.length === 0) ? (
+                    <View className="py-12 items-center">
+                      <FontAwesome name="inbox" size={32} color={colors.textMuted} style={{ marginBottom: 12 }} />
+                      <Text className="text-center text-sm" style={{ color: colors.textMuted }}>
+                        This user currently has no activity data
+                      </Text>
+                    </View>
+                  ) : (
                   <View className={isDesktop ? 'flex-row gap-6' : ''}>
                     {/* Graphs Section */}
                     <View className={isDesktop ? 'flex-1' : 'w-full mb-6'}>
@@ -392,7 +404,7 @@ export default function UserAssignmentGrid() {
                       </View>
                     </View>
                   </View>
-                )}
+                ))}
 
                 {selectedUser && activeTab === 'roles' && canAssignRoles && (
                   <View>
