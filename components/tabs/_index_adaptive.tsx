@@ -8,7 +8,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, InteractionManager, Modal, Platform, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, InteractionManager, Modal, Platform, RefreshControl, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -65,6 +65,7 @@ const timeAgo = (dateStr: string): string => {
 // ── Component ────────────────────────────────────────────────────────────
 
 export default function DashboardScreen() {
+  const { width } = useWindowDimensions();
   const [stats, setStats] = useState<DashboardStats>({ totalTasks: 0, activeNow: 0, completed: 0, failed: 0, activeSessions: 0 });
   const [pulse, setPulse] = useState<PersonalPulse | null>(null);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
@@ -78,6 +79,7 @@ export default function DashboardScreen() {
   const { unreadCount } = useNotifications();
   const router = useRouter();
   const colors = useThemeColors();
+  const isLargeScreen = width > 768;
 
   const displayName = useMemo(() => {
     return profile?.display_name || profile?.full_name || user?.user_metadata?.full_name || 'Operator';
@@ -238,7 +240,7 @@ export default function DashboardScreen() {
     <ScrollView
       className="flex-1 bg-surface-background p-5"
       showsVerticalScrollIndicator={false}
-      contentContainerStyle={{ paddingTop: Platform.OS !== 'web' ? 54 : 0, paddingBottom: Platform.OS !== 'web' ? TAB_BAR_HEIGHT.native + 16 : 32 }}
+      contentContainerStyle={{ paddingTop: (Platform.OS !== 'web' || !isLargeScreen) ? (Platform.OS === 'web' ? TAB_BAR_HEIGHT.web : TAB_BAR_HEIGHT.native) : 0, paddingBottom: (Platform.OS !== 'web' || !isLargeScreen) ? TAB_BAR_HEIGHT.native + 16 : 32 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
     >
       <View className="mb-6 mt-4 flex-row justify-between items-start">
