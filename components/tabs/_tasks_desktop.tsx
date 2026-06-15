@@ -199,6 +199,10 @@ export function TasksScreenWeb() {
   const [recentlyUsedBoards, setRecentlyUsedBoards] = useState<Array<{ id: string; timestamp: number }>>([]);
   const [boardTaskCounts, setBoardTaskCounts] = useState<Record<string, number>>({});
   const [boardPickerSearchQuery, setBoardPickerSearchQuery] = useState('');
+
+  // Refs for event handlers
+  const boardPickerButtonRef = React.useRef<any>(null);
+  const wheelTimeoutRef = React.useRef<ReturnType<typeof setTimeout>>();
   
   const { kanban, theme: activeTheme } = useTheme();
   const { width } = useWindowDimensions();
@@ -571,73 +575,85 @@ export function TasksScreenWeb() {
     return getSortedBoards().findIndex(b => b.id === pipeline.id);
   };
 
-  const navigateToBoard = (direction: 'next' | 'prev') => {
-    const sorted = getSortedBoards();
-    if (sorted.length === 0) return;
-
-    const currentIndex = getCurrentBoardIndex();
-    let nextIndex: number;
-
-    if (direction === 'next') {
-      nextIndex = (currentIndex + 1) % sorted.length;
-    } else {
-      nextIndex = currentIndex === 0 ? sorted.length - 1 : currentIndex - 1;
-    }
-
-    const nextBoard = sorted[nextIndex];
-    if (nextBoard) {
-      router.push({ pathname: '/tasks', params: { pipelineId: nextBoard.id } });
-      handleSelectBoard(nextBoard.id);
-    }
-  };
-
-  const wheelTimeoutRef = React.useRef<ReturnType<typeof setTimeout>>();
-
   // Keyboard shortcuts: Ctrl+] (next board), Ctrl+[ (prev board)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === ']') {
+      // Check if it's actually the bracket keys (not affected by keyboard layout)
+      const isCloseBracket = e.key === ']' || e.code === 'BracketRight';
+      const isOpenBracket = e.key === '[' || e.code === 'BracketLeft';
+
+      if ((e.ctrlKey || e.metaKey) && isCloseBracket) {
         e.preventDefault();
-        navigateToBoard('next');
-      } else if ((e.ctrlKey || e.metaKey) && e.key === '[') {
+        const sorted = getSortedBoards();
+        if (sorted.length === 0) return;
+        const currentIndex = getCurrentBoardIndex();
+        const nextIndex = (currentIndex + 1) % sorted.length;
+        const nextBoard = sorted[nextIndex];
+        if (nextBoard) {
+          router.push({ pathname: '/tasks', params: { pipelineId: nextBoard.id } });
+          handleSelectBoard(nextBoard.id);
+        }
+      } else if ((e.ctrlKey || e.metaKey) && isOpenBracket) {
         e.preventDefault();
-        navigateToBoard('prev');
+        const sorted = getSortedBoards();
+        if (sorted.length === 0) return;
+        const currentIndex = getCurrentBoardIndex();
+        const nextIndex = currentIndex === 0 ? sorted.length - 1 : currentIndex - 1;
+        const nextBoard = sorted[nextIndex];
+        if (nextBoard) {
+          router.push({ pathname: '/tasks', params: { pipelineId: nextBoard.id } });
+          handleSelectBoard(nextBoard.id);
+        }
       }
     };
 
     if (Platform.OS === 'web') {
-      window.addEventListener('keydown', handleKeyDown);
-      return () => window.removeEventListener('keydown', handleKeyDown);
+      window.addEventListener('keydown', handleKeyDown, true);
+      return () => window.removeEventListener('keydown', handleKeyDown, true);
     }
-  }, [pipeline, availablePipelines, recentlyUsedBoards, favoriteBoardIds]);
+  }, []);
 
   // Wheel navigation: scroll on board picker button to cycle boards
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
-      const boardPickerButton = document.querySelector('[data-board-picker="true"]');
-      if (!boardPickerButton) return;
+      if (!boardPickerButtonRef.current) return;
 
-      const rect = boardPickerButton.getBoundingClientRect();
-      const isOverButton = e.clientX >= rect.left && e.clientX <= rect.right &&
-                          e.clientY >= rect.top && e.clientY <= rect.bottom;
+      // Check if wheel event target is the board picker button or a child
+      const boardPickerElement = boardPickerButtonRef.current;
+      const target = e.target as Node;
 
-      if (!isOverButton) return;
+      if (!boardPickerElement.contains?.(target) && boardPickerElement !== target) return;
 
       e.preventDefault();
 
       if (wheelTimeoutRef.current) clearTimeout(wheelTimeoutRef.current);
 
       wheelTimeoutRef.current = setTimeout(() => {
+        const sorted = getSortedBoards();
+        if (sorted.length === 0) return;
+        const currentIndex = getCurrentBoardIndex();
         const direction = e.deltaY > 0 ? 'next' : 'prev';
-        navigateToBoard(direction);
+        let nextIndex: number;
+
+        if (direction === 'next') {
+          nextIndex = (currentIndex + 1) % sorted.length;
+        } else {
+          nextIndex = currentIndex === 0 ? sorted.length - 1 : currentIndex - 1;
+        }
+
+        const nextBoard = sorted[nextIndex];
+        if (nextBoard) {
+          router.push({ pathname: '/tasks', params: { pipelineId: nextBoard.id } });
+          handleSelectBoard(nextBoard.id);
+        }
       }, 50);
     };
 
     if (Platform.OS === 'web') {
-      window.addEventListener('wheel', handleWheel, { passive: false });
-      return () => window.removeEventListener('wheel', handleWheel);
+      window.addEventListener('wheel', handleWheel, { passive: false, capture: true });
+      return () => window.removeEventListener('wheel', handleWheel, true);
     }
-  }, [pipeline, availablePipelines, recentlyUsedBoards, favoriteBoardIds]);
+  }, []);
 
   // Update task counts for each board when picker is open
   useEffect(() => {
@@ -922,12 +938,41 @@ export function TasksScreenWeb() {
 
           {/* Header */}
           <View className="mb-10 flex-row items-center justify-between">
-            <TouchableOpacity onPress={() => setShowPipelinePicker(true)} data-board-picker="true">
+            <TouchableOpacity
+              ref={boardPickerButtonRef}
+              onPress={() => setShowPipelinePicker(true)}
+              onWheel={(e: any) => {
+                const event = e as WheelEvent;
+                if (!boardPickerButtonRef.current) return;
+                const sorted = getSortedBoards();
+                if (sorted.length === 0) return;
+                const currentIndex = getCurrentBoardIndex();
+                const direction = event.deltaY > 0 ? 'next' : 'prev';
+                let nextIndex: number;
+
+                if (direction === 'next') {
+                  nextIndex = (currentIndex + 1) % sorted.length;
+                } else {
+                  nextIndex = currentIndex === 0 ? sorted.length - 1 : currentIndex - 1;
+                }
+
+                const nextBoard = sorted[nextIndex];
+                if (nextBoard) {
+                  router.push({ pathname: '/tasks', params: { pipelineId: nextBoard.id } });
+                  handleSelectBoard(nextBoard.id);
+                }
+              }}
+            >
               <View>
                 <View className="flex-row items-center mb-2">
-                   <View className="bg-brand-primary/10 px-3 py-1 rounded-full border border-brand-primary/20 flex-row items-center">
+                   <View className="bg-brand-primary/10 px-3 py-1 rounded-full border border-brand-primary/20 flex-row items-center relative">
                       <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest mr-2">{pipeline?.name || 'Pipeline'}</Text>
                       <FontAwesome name="chevron-down" size={8} className="text-brand-primary" />
+                      {boardTaskCounts[pipeline?.id || ''] && boardTaskCounts[pipeline?.id || ''] > 0 && (
+                        <View className="absolute -top-1 -right-1 bg-state-danger rounded-full w-4 h-4 items-center justify-center border border-surface-card">
+                          <Text className="text-white text-[9px] font-black">{boardTaskCounts[pipeline?.id || '']}</Text>
+                        </View>
+                      )}
                    </View>
                 </View>
                 <Text className="text-typography-main text-5xl font-black tracking-tighter">Task Board</Text>
@@ -1232,11 +1277,13 @@ export function TasksScreenWeb() {
                        const isCurrent = pipeline?.id === p.id;
                        const isFavorite = favoriteBoardIds.has(p.id);
                        const isRecent = recentlyUsedBoards.some(r => r.id === p.id);
+                       const taskCount = boardTaskCounts[p.id] || 0;
+                       const hasActivity = taskCount > 0;
 
                        return (
                          <View
                            key={p.id}
-                           className={`flex-row items-center mb-3 rounded-2xl border overflow-hidden transition-all ${isCurrent ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border hover:border-brand-primary/50'}`}
+                           className={`flex-row items-center mb-3 rounded-2xl border overflow-hidden transition-all ${isCurrent ? 'bg-brand-primary/10 border-brand-primary' : hasActivity ? 'bg-surface-background border-state-warning/50 hover:border-state-warning' : 'bg-surface-background border-surface-border hover:border-brand-primary/50'}`}
                          >
                            <TouchableOpacity
                              className="flex-1 p-4"
@@ -1248,7 +1295,12 @@ export function TasksScreenWeb() {
                            >
                              <View className="flex-row items-center justify-between">
                                <View className="flex-1">
-                                 <Text className={`font-black text-base ${isCurrent ? 'text-brand-primary' : 'text-typography-main'}`}>{p.name}</Text>
+                                 <View className="flex-row items-center gap-2">
+                                   {hasActivity && !isCurrent && (
+                                     <View className="w-2 h-2 rounded-full bg-state-warning pulse-animation" />
+                                   )}
+                                   <Text className={`font-black text-base ${isCurrent ? 'text-brand-primary' : 'text-typography-main'}`}>{p.name}</Text>
+                                 </View>
                                  <View className="flex-row gap-2 mt-1.5">
                                    {isFavorite && (
                                      <View className="bg-brand-primary/10 px-2 py-0.5 rounded-full border border-brand-primary/20">
@@ -1273,8 +1325,8 @@ export function TasksScreenWeb() {
                                  </View>
                                </View>
                                {boardTaskCounts[p.id] !== undefined && (
-                                 <View className="ml-3 bg-brand-primary/10 px-3 py-1 rounded-full border border-brand-primary/20">
-                                   <Text className="text-brand-primary text-[11px] font-black">{boardTaskCounts[p.id]}</Text>
+                                 <View className={`ml-3 px-3 py-1 rounded-full border ${hasActivity ? 'bg-state-warning/10 border-state-warning/30' : 'bg-brand-primary/10 border-brand-primary/20'}`}>
+                                   <Text className={`text-[11px] font-black ${hasActivity ? 'text-state-warning' : 'text-brand-primary'}`}>{boardTaskCounts[p.id]}</Text>
                                  </View>
                                )}
                              </View>
