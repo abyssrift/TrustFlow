@@ -578,14 +578,15 @@ export function TasksScreenWeb() {
   // Keyboard shortcuts: Ctrl+] (next board), Ctrl+[ (prev board)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const sorted = getSortedBoards();
+      if (sorted.length <= 1) return; // Don't navigate if only one board
+
       // Check if it's actually the bracket keys (not affected by keyboard layout)
       const isCloseBracket = e.key === ']' || e.code === 'BracketRight';
       const isOpenBracket = e.key === '[' || e.code === 'BracketLeft';
 
       if ((e.ctrlKey || e.metaKey) && isCloseBracket) {
         e.preventDefault();
-        const sorted = getSortedBoards();
-        if (sorted.length === 0) return;
         const currentIndex = getCurrentBoardIndex();
         const nextIndex = (currentIndex + 1) % sorted.length;
         const nextBoard = sorted[nextIndex];
@@ -595,8 +596,6 @@ export function TasksScreenWeb() {
         }
       } else if ((e.ctrlKey || e.metaKey) && isOpenBracket) {
         e.preventDefault();
-        const sorted = getSortedBoards();
-        if (sorted.length === 0) return;
         const currentIndex = getCurrentBoardIndex();
         const nextIndex = currentIndex === 0 ? sorted.length - 1 : currentIndex - 1;
         const nextBoard = sorted[nextIndex];
@@ -618,6 +617,9 @@ export function TasksScreenWeb() {
     const handleWheel = (e: WheelEvent) => {
       if (!boardPickerButtonRef.current) return;
 
+      const sorted = getSortedBoards();
+      if (sorted.length <= 1) return; // Don't navigate if only one board
+
       // Check if wheel event target is the board picker button or a child
       const boardPickerElement = boardPickerButtonRef.current;
       const target = e.target as Node;
@@ -629,8 +631,6 @@ export function TasksScreenWeb() {
       if (wheelTimeoutRef.current) clearTimeout(wheelTimeoutRef.current);
 
       wheelTimeoutRef.current = setTimeout(() => {
-        const sorted = getSortedBoards();
-        if (sorted.length === 0) return;
         const currentIndex = getCurrentBoardIndex();
         const direction = e.deltaY > 0 ? 'next' : 'prev';
         let nextIndex: number;
