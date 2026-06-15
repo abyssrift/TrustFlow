@@ -258,6 +258,13 @@ export function TasksScreenWeb() {
       const { data: allPipes } = await supabase.from('pipelines').select('id, name, task_visibility_mode, is_default').is('deleted_at', null);
       setAvailablePipelines(allPipes as Pipeline[] || []);
 
+      // If still no pipeline, default to first available board
+      if (!targetPipelineId && allPipes && allPipes.length > 0) {
+        targetPipelineId = allPipes[0].id;
+        pipelineData = allPipes[0];
+        setPipeline(allPipes[0]);
+      }
+
       if (!targetPipelineId) return;
 
       // 2. Get stages
