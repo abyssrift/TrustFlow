@@ -332,7 +332,6 @@ export default function DashboardScreenWeb() {
       <View className="max-w-[1600px] mx-auto w-full p-10">
         <View className="mb-12 flex-row items-center justify-between">
           <View>
-            <Text className="text-brand-primary font-black uppercase tracking-[0.3em] text-[10px] mb-2">Command Center</Text>
             <Text className="text-typography-main text-5xl font-black tracking-tighter">
               {getGreeting()}, {firstName}
             </Text>

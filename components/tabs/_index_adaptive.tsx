@@ -245,7 +245,6 @@ export default function DashboardScreen() {
     >
       <View className="mb-6 mt-4 flex-row justify-between items-start">
         <View className="flex-1 mr-3">
-          <Text className="text-brand-primary font-bold uppercase tracking-widest text-[10px] mb-1">Command Center</Text>
           <Text className="text-typography-main text-2xl font-black tracking-tight" numberOfLines={2}>
             {getGreeting()}, {firstName}
           </Text>
