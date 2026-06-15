@@ -678,6 +678,46 @@ export function TasksScreenWeb() {
     updateTaskCounts();
   }, [availablePipelines]);
 
+  // Real-time task count updates - listen to task creation/deletion across all pipelines
+  useEffect(() => {
+    if (availablePipelines.length === 0) return;
+
+    const countChannelName = `board-task-counts-${Date.now()}`;
+    const countChannel = supabase
+      .channel(countChannelName)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'tasks' },
+        (payload) => {
+          setBoardTaskCounts(prev => {
+            const pipelineId = (payload.new as any).pipeline_id;
+            return {
+              ...prev,
+              [pipelineId]: (prev[pipelineId] || 0) + 1
+            };
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'tasks' },
+        (payload) => {
+          setBoardTaskCounts(prev => {
+            const pipelineId = (payload.old as any).pipeline_id;
+            return {
+              ...prev,
+              [pipelineId]: Math.max(0, (prev[pipelineId] || 0) - 1)
+            };
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(countChannel);
+    };
+  }, [availablePipelines]);
+
   const filterOptions = useMemo(() => {
     const categories = Array.from(new Set(tasks.map(t => t.category).filter(Boolean)));
     const projects = Array.from(
