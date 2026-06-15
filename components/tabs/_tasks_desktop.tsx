@@ -559,6 +559,79 @@ export function TasksScreenWeb() {
     });
   };
 
+  const getCurrentBoardIndex = () => {
+    if (!pipeline) return -1;
+    return getSortedBoards().findIndex(b => b.id === pipeline.id);
+  };
+
+  const navigateToBoard = (direction: 'next' | 'prev') => {
+    const sorted = getSortedBoards();
+    if (sorted.length === 0) return;
+
+    const currentIndex = getCurrentBoardIndex();
+    let nextIndex: number;
+
+    if (direction === 'next') {
+      nextIndex = (currentIndex + 1) % sorted.length;
+    } else {
+      nextIndex = currentIndex === 0 ? sorted.length - 1 : currentIndex - 1;
+    }
+
+    const nextBoard = sorted[nextIndex];
+    if (nextBoard) {
+      router.push({ pathname: '/tasks', params: { pipelineId: nextBoard.id } });
+      handleSelectBoard(nextBoard.id);
+    }
+  };
+
+  const wheelTimeoutRef = React.useRef<ReturnType<typeof setTimeout>>();
+
+  // Keyboard shortcuts: Ctrl+] (next board), Ctrl+[ (prev board)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === ']') {
+        e.preventDefault();
+        navigateToBoard('next');
+      } else if ((e.ctrlKey || e.metaKey) && e.key === '[') {
+        e.preventDefault();
+        navigateToBoard('prev');
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [pipeline, availablePipelines, recentlyUsedBoards, favoriteBoardIds]);
+
+  // Wheel navigation: scroll on board picker button to cycle boards
+  useEffect(() => {
+    const handleWheel = (e: WheelEvent) => {
+      const boardPickerButton = document.querySelector('[data-board-picker="true"]');
+      if (!boardPickerButton) return;
+
+      const rect = boardPickerButton.getBoundingClientRect();
+      const isOverButton = e.clientX >= rect.left && e.clientX <= rect.right &&
+                          e.clientY >= rect.top && e.clientY <= rect.bottom;
+
+      if (!isOverButton) return;
+
+      e.preventDefault();
+
+      if (wheelTimeoutRef.current) clearTimeout(wheelTimeoutRef.current);
+
+      wheelTimeoutRef.current = setTimeout(() => {
+        const direction = e.deltaY > 0 ? 'next' : 'prev';
+        navigateToBoard(direction);
+      }, 50);
+    };
+
+    if (Platform.OS === 'web') {
+      window.addEventListener('wheel', handleWheel, { passive: false });
+      return () => window.removeEventListener('wheel', handleWheel);
+    }
+  }, [pipeline, availablePipelines, recentlyUsedBoards, favoriteBoardIds]);
+
   const filterOptions = useMemo(() => {
     const categories = Array.from(new Set(tasks.map(t => t.category).filter(Boolean)));
     const projects = Array.from(
@@ -819,7 +892,7 @@ export function TasksScreenWeb() {
 
           {/* Header */}
           <View className="mb-10 flex-row items-center justify-between">
-            <TouchableOpacity onPress={() => setShowPipelinePicker(true)}>
+            <TouchableOpacity onPress={() => setShowPipelinePicker(true)} data-board-picker="true">
               <View>
                 <View className="flex-row items-center mb-2">
                    <View className="bg-brand-primary/10 px-3 py-1 rounded-full border border-brand-primary/20 flex-row items-center">
