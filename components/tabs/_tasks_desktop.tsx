@@ -1371,9 +1371,9 @@ export function TasksScreenWeb() {
                                    )}
                                  </View>
                                </View>
-                               {boardTaskCounts[p.id] !== undefined && (
-                                 <View className={`ml-3 px-3 py-1 rounded-full border ${hasActivity ? 'bg-state-warning/10 border-state-warning/30' : 'bg-brand-primary/10 border-brand-primary/20'}`}>
-                                   <Text className={`text-[11px] font-black ${hasActivity ? 'text-state-warning' : 'text-brand-primary'}`}>{boardTaskCounts[p.id]}</Text>
+                               {boardTaskCounts[p.id] !== undefined && boardTaskCounts[p.id] > 0 && (
+                                 <View className="ml-3 bg-state-warning px-4 py-1.5 rounded-full border-2 border-state-warning">
+                                   <Text className="text-black text-[13px] font-black">{boardTaskCounts[p.id]}</Text>
                                  </View>
                                )}
                              </View>
@@ -1427,10 +1427,29 @@ export function TasksScreenWeb() {
                     })}
                  </ScrollView>
 
+                {/* Icon Legend */}
+                <View className="mt-6 p-4 bg-surface-background rounded-2xl border border-surface-border/50">
+                  <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-3">Icon Guide (Clickable)</Text>
+                  <View className="gap-2">
+                    <View className="flex-row items-center gap-2">
+                      <FontAwesome name="star" size={12} className="text-brand-primary" />
+                      <Text className="text-typography-muted text-[10px] font-medium">Star = Add to favorites (sort to top)</Text>
+                    </View>
+                    <View className="flex-row items-center gap-2">
+                      <FontAwesome name="heart" size={12} className="text-state-success" />
+                      <Text className="text-typography-muted text-[10px] font-medium">Heart = Set as your personal default</Text>
+                    </View>
+                    <View className="flex-row items-center gap-2">
+                      <FontAwesome name="flag" size={12} className="text-brand-primary" />
+                      <Text className="text-typography-muted text-[10px] font-medium">Flag = Set as workspace default (admin)</Text>
+                    </View>
+                  </View>
+                </View>
+
                 <TouchableOpacity onPress={() => {
                   setShowPipelinePicker(false);
                   setBoardPickerSearchQuery('');
-                }} className="mt-6 py-4 items-center bg-surface-background border border-surface-border rounded-2xl hover:border-brand-primary/30 transition-colors">
+                }} className="mt-4 py-4 items-center bg-surface-background border border-surface-border rounded-2xl hover:border-brand-primary/30 transition-colors">
                    <Text className="text-typography-muted font-black uppercase tracking-widest text-xs">Close</Text>
                 </TouchableOpacity>
             </View>
