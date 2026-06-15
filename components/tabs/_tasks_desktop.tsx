@@ -1170,44 +1170,106 @@ export function TasksScreenWeb() {
         </View>
       </View>
 
-      {/* PIPELINE PICKER */}
+      {/* PIPELINE PICKER - SMART BOARD SELECTOR */}
       {showPipelinePicker && (
          <View className="absolute inset-0 bg-surface-background/80 z-[100] items-center justify-center backdrop-blur-md">
-            <View className="bg-surface-card w-[500px] rounded-[3rem] border border-surface-border p-10 premium-shadow">
-                <Text className="text-typography-main font-black text-3xl mb-2 tracking-tighter">Switch Pipeline</Text>
-                <Text className="text-typography-muted text-sm mb-8 font-medium">Select a pipeline to reconfigure the dashboard.</Text>
-                
-                 <ScrollView className="max-h-[400px]">
-                    {availablePipelines.map(p => (
-                       <View
-                         key={p.id}
-                         className={`flex-row items-center mb-3 rounded-2xl border overflow-hidden transition-all ${pipeline?.id === p.id ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border'}`}
-                       >
-                         <TouchableOpacity
-                           className="flex-1 p-6"
-                           onPress={async () => {
-                              await AsyncStorage.setItem('@TrustFlow_tasks_pipeline', p.id);
-                              router.setParams({ pipelineId: p.id });
-                              setShowPipelinePicker(false);
-                           }}
+            <View className="bg-surface-card w-[500px] rounded-[3rem] border border-surface-border p-10 premium-shadow max-h-[90vh]">
+                <View className="mb-6">
+                  <Text className="text-typography-main font-black text-3xl mb-2 tracking-tighter">Switch Board</Text>
+                  <Text className="text-typography-muted text-sm font-medium">Tip: Use Ctrl+] / Ctrl+[ or scroll on the board name to switch</Text>
+                </View>
+
+                {/* Search Input */}
+                <View className="mb-6 h-11 px-4 flex-row items-center bg-surface-background border border-surface-border rounded-2xl">
+                  <FontAwesome name="search" size={12} className="text-typography-muted" />
+                  <TextInput
+                    value={boardPickerSearchQuery}
+                    onChangeText={setBoardPickerSearchQuery}
+                    placeholder="Search boards..."
+                    placeholderTextColor={colors.textDim}
+                    className="flex-1 ml-3 text-typography-main text-sm font-bold"
+                  />
+                  {boardPickerSearchQuery.length > 0 && (
+                    <TouchableOpacity onPress={() => setBoardPickerSearchQuery('')}>
+                      <FontAwesome name="times" size={10} className="text-typography-muted" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {/* Boards List */}
+                <ScrollView className="max-h-[500px]">
+                    {getSortedBoards().map((p, index) => {
+                       const isCurrent = pipeline?.id === p.id;
+                       const isFavorite = favoriteBoardIds.has(p.id);
+                       const isRecent = recentlyUsedBoards.some(r => r.id === p.id);
+
+                       return (
+                         <View
+                           key={p.id}
+                           className={`flex-row items-center mb-3 rounded-2xl border overflow-hidden transition-all ${isCurrent ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border hover:border-brand-primary/50'}`}
                          >
-                           <Text className={`font-black text-lg ${pipeline?.id === p.id ? 'text-brand-primary' : 'text-typography-main'}`}>{p.name}</Text>
-                           <View className="flex-row gap-2 mt-1">
-                             {p.is_default && (
-                               <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-wider">Workspace Default</Text>
-                             )}
-                             {myDefaultPipelineId === p.id && (
-                               <Text className="text-state-success text-[10px] font-bold uppercase tracking-wider">My Default</Text>
-                             )}
-                           </View>
-                         </TouchableOpacity>
-                         <View className="flex-row items-center border-l border-surface-border/50">
+                           <TouchableOpacity
+                             className="flex-1 p-4"
+                             onPress={async () => {
+                                await AsyncStorage.setItem('@TrustFlow_tasks_pipeline', p.id);
+                                router.push({ pathname: '/tasks', params: { pipelineId: p.id } });
+                                await handleSelectBoard(p.id);
+                             }}
+                           >
+                             <View className="flex-row items-center justify-between">
+                               <View className="flex-1">
+                                 <Text className={`font-black text-base ${isCurrent ? 'text-brand-primary' : 'text-typography-main'}`}>{p.name}</Text>
+                                 <View className="flex-row gap-2 mt-1.5">
+                                   {isFavorite && (
+                                     <View className="bg-brand-primary/10 px-2 py-0.5 rounded-full border border-brand-primary/20">
+                                       <Text className="text-brand-primary text-[9px] font-black uppercase">⭐ Favorited</Text>
+                                     </View>
+                                   )}
+                                   {isRecent && (
+                                     <View className="bg-state-info/10 px-2 py-0.5 rounded-full border border-state-info/20">
+                                       <Text className="text-state-info text-[9px] font-black uppercase">📌 Recent</Text>
+                                     </View>
+                                   )}
+                                   {p.is_default && (
+                                     <View className="bg-surface-overlay px-2 py-0.5 rounded-full border border-surface-border">
+                                       <Text className="text-typography-muted text-[9px] font-bold uppercase">Workspace Default</Text>
+                                     </View>
+                                   )}
+                                   {myDefaultPipelineId === p.id && (
+                                     <View className="bg-state-success/10 px-2 py-0.5 rounded-full border border-state-success/20">
+                                       <Text className="text-state-success text-[9px] font-bold uppercase">My Default</Text>
+                                     </View>
+                                   )}
+                                 </View>
+                               </View>
+                               {boardTaskCounts[p.id] !== undefined && (
+                                 <View className="ml-3 bg-brand-primary/10 px-3 py-1 rounded-full border border-brand-primary/20">
+                                   <Text className="text-brand-primary text-[11px] font-black">{boardTaskCounts[p.id]}</Text>
+                                 </View>
+                               )}
+                             </View>
+                           </TouchableOpacity>
+
+                           {/* Star/Favorite Button */}
+                           <TouchableOpacity
+                             onPress={() => toggleFavoriteBoard(p.id)}
+                             className="px-3 py-4 items-center justify-center hover:bg-surface-overlay transition-colors"
+                             title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                           >
+                             <FontAwesome
+                               name={isFavorite ? 'star' : 'star-o'}
+                               size={14}
+                               color={isFavorite ? colors.primary : colors.textMuted}
+                             />
+                           </TouchableOpacity>
+
+                           {/* Personal Default Heart */}
                            <TouchableOpacity
                              onPress={async () => {
                                await AsyncStorage.setItem('@TrustFlow_my_default_pipeline', p.id);
                                setMyDefaultPipelineId(p.id);
                              }}
-                             className={`px-4 py-6 items-center justify-center hover:bg-surface-overlay transition-colors`}
+                             className="px-3 py-4 items-center justify-center border-l border-surface-border/50 hover:bg-surface-overlay transition-colors"
                              title="Set as my default"
                            >
                              <FontAwesome
@@ -1216,26 +1278,31 @@ export function TasksScreenWeb() {
                                color={myDefaultPipelineId === p.id ? colors.success : colors.textMuted}
                              />
                            </TouchableOpacity>
+
+                           {/* Workspace Default Star */}
                            {hasPermission('pipeline.edit') && (
                              <TouchableOpacity
                                onPress={() => handleSetDefault(p.id)}
-                               className={`px-4 py-6 items-center justify-center border-l border-surface-border/50 hover:bg-brand-primary/10 transition-colors`}
+                               className="px-3 py-4 items-center justify-center border-l border-surface-border/50 hover:bg-brand-primary/10 transition-colors"
                                title="Set as workspace default"
                              >
                                <FontAwesome
-                                 name={p.is_default ? 'star' : 'star-o'}
+                                 name={p.is_default ? 'flag' : 'flag-o'}
                                  size={14}
                                  color={p.is_default ? colors.primary : colors.textMuted}
                                />
                              </TouchableOpacity>
                            )}
                          </View>
-                       </View>
-                    ))}
+                       );
+                    })}
                  </ScrollView>
-                
-                <TouchableOpacity onPress={() => setShowPipelinePicker(false)} className="mt-8 py-4 items-center bg-surface-background border border-surface-border rounded-2xl">
-                   <Text className="text-typography-muted font-black uppercase tracking-widest text-xs">Cancel Navigation</Text>
+
+                <TouchableOpacity onPress={() => {
+                  setShowPipelinePicker(false);
+                  setBoardPickerSearchQuery('');
+                }} className="mt-6 py-4 items-center bg-surface-background border border-surface-border rounded-2xl hover:border-brand-primary/30 transition-colors">
+                   <Text className="text-typography-muted font-black uppercase tracking-widest text-xs">Close</Text>
                 </TouchableOpacity>
             </View>
          </View>
