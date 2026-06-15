@@ -965,14 +965,9 @@ export function TasksScreenWeb() {
             >
               <View>
                 <View className="flex-row items-center mb-2">
-                   <View className="bg-brand-primary/10 px-3 py-1 rounded-full border border-brand-primary/20 flex-row items-center relative">
+                   <View className="bg-brand-primary/10 px-3 py-1 rounded-full border border-brand-primary/20 flex-row items-center">
                       <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest mr-2">{pipeline?.name || 'Pipeline'}</Text>
                       <FontAwesome name="chevron-down" size={8} className="text-brand-primary" />
-                      {boardTaskCounts[pipeline?.id || ''] && boardTaskCounts[pipeline?.id || ''] > 0 && (
-                        <View className="absolute -top-1 -right-1 bg-state-danger rounded-full w-4 h-4 items-center justify-center border border-surface-card">
-                          <Text className="text-white text-[9px] font-black">{boardTaskCounts[pipeline?.id || '']}</Text>
-                        </View>
-                      )}
                    </View>
                 </View>
                 <Text className="text-typography-main text-5xl font-black tracking-tighter">Task Board</Text>
