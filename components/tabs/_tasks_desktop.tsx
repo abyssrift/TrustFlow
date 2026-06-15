@@ -632,6 +632,29 @@ export function TasksScreenWeb() {
     }
   }, [pipeline, availablePipelines, recentlyUsedBoards, favoriteBoardIds]);
 
+  // Update task counts for each board when picker is open
+  useEffect(() => {
+    if (!showPipelinePicker) return;
+
+    const updateTaskCounts = async () => {
+      try {
+        const counts: Record<string, number> = {};
+        for (const board of availablePipelines) {
+          const { count } = await supabase
+            .from('tasks')
+            .select('id', { count: 'exact', head: true })
+            .eq('pipeline_id', board.id);
+          counts[board.id] = count || 0;
+        }
+        setBoardTaskCounts(counts);
+      } catch (e) {
+        console.error('Failed to fetch task counts:', e);
+      }
+    };
+
+    updateTaskCounts();
+  }, [showPipelinePicker, availablePipelines]);
+
   const filterOptions = useMemo(() => {
     const categories = Array.from(new Set(tasks.map(t => t.category).filter(Boolean)));
     const projects = Array.from(
