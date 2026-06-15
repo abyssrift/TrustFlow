@@ -133,8 +133,14 @@ export default function UserAssignmentGrid() {
       <ScrollView showsVerticalScrollIndicator={false}>
         <View className="flex-row flex-wrap gap-4 pb-32">
           {users.map(user => {
-            const userRoleCount = userRoles.filter(ur => ur.user_id === user.id).length;
-            const teamCount = teamMembers.filter(tm => tm.user_id === user.id).length;
+            const directRoleIds = userRoles.filter(ur => ur.user_id === user.id).map(ur => ur.role_id);
+            const teamIds = teamMembers.filter(tm => tm.user_id === user.id).map(tm => tm.team_id);
+            const inheritedRoleIds = teamIds.flatMap(teamId =>
+              teamRoles.filter(tr => tr.team_id === teamId).map(tr => tr.role_id)
+            );
+            const allRoleIds = [...new Set([...directRoleIds, ...inheritedRoleIds])];
+            const userRoleCount = allRoleIds.length;
+            const teamCount = teamIds.length;
 
             return (
               <TouchableOpacity

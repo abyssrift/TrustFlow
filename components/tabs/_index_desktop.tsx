@@ -1,7 +1,7 @@
 import PendingTimeApprovalsWidget from '@/components/common/PendingTimeApprovalsWidget';
 import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { supabase } from '@/lib/supabase';
+import { supabase, isAuthError, triggerAuthError } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
@@ -122,10 +122,14 @@ export default function DashboardScreenWeb() {
         currentConfig.pipelineIds.length === 0;
 
       if (isAllPipelines) {
-        const { data: allPipelines } = await supabase
+        const { data: allPipelines, error: pipelineError } = await supabase
           .from('pipelines')
           .select('id')
           .is('deleted_at', null);
+        if (isAuthError(pipelineError)) {
+          triggerAuthError();
+          return;
+        }
         targetPipelineIds = (allPipelines || []).map((p: any) => p.id);
       } else {
         targetPipelineIds = currentConfig!.pipelineIds;
@@ -138,11 +142,15 @@ export default function DashboardScreenWeb() {
       }
 
       // Fetch all terminal stages for the selected pipelines
-      const { data: terminalStages } = await supabase
+      const { data: terminalStages, error: stageError } = await supabase
         .from('pipeline_stages')
         .select('id, terminal_type')
         .in('pipeline_id', targetPipelineIds)
         .eq('is_terminal', true);
+      if (isAuthError(stageError)) {
+        triggerAuthError();
+        return;
+      }
 
       terminalStageIds = (terminalStages || []).map((s: any) => s.id);
 
@@ -155,10 +163,14 @@ export default function DashboardScreenWeb() {
           .map((s: any) => s.id);
       }
 
-      const { data: tasks } = await supabase
+      const { data: tasks, error: tasksError } = await supabase
         .from('tasks')
         .select('id, current_stage_id')
         .in('pipeline_id', targetPipelineIds);
+      if (isAuthError(tasksError)) {
+        triggerAuthError();
+        return;
+      }
 
       const total = tasks?.length || 0;
       const completed = tasks?.filter((t: any) => successStageIds.includes(t.current_stage_id)).length || 0;
@@ -166,10 +178,14 @@ export default function DashboardScreenWeb() {
       // Tasks in a terminal stage that isn't a success stage (failed, rejected, cancelled)
       const failed = total - completed - activeNow;
 
-      const { count: sessionCount } = await supabase
+      const { count: sessionCount, error: sessionError } = await supabase
         .from('task_work_sessions')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'active');
+      if (isAuthError(sessionError)) {
+        triggerAuthError();
+        return;
+      }
 
       setStats({
         totalTasks: total,
@@ -179,7 +195,7 @@ export default function DashboardScreenWeb() {
         activeSessions: sessionCount || 0,
       });
 
-      const { data: historyData } = await supabase
+      const { data: historyData, error: historyError } = await supabase
         .from('pipeline_stage_history')
         .select(`
           id,
@@ -191,6 +207,10 @@ export default function DashboardScreenWeb() {
         `)
         .order('transitioned_at', { ascending: false })
         .limit(4);
+      if (isAuthError(historyError)) {
+        triggerAuthError();
+        return;
+      }
 
       const activityEntries: ActivityEntry[] = (historyData || [])
         .filter((h: any) => targetPipelineIds.includes(h.task?.pipeline_id))
@@ -205,18 +225,26 @@ export default function DashboardScreenWeb() {
         }));
       setActivity(activityEntries);
 
-      const { data: rawProjects } = await supabase
+      const { data: rawProjects, error: projectsError } = await supabase
         .from('projects')
         .select('id, name')
         .eq('status', 'active')
         .order('is_featured', { ascending: false })
         .limit(4);
+      if (isAuthError(projectsError)) {
+        triggerAuthError();
+        return;
+      }
 
       if (rawProjects && rawProjects.length > 0) {
         const projectIds = rawProjects.map((p: any) => p.id);
-        const { data: projectStats } = await supabase.rpc('rpc_get_project_stats', {
+        const { data: projectStats, error: statsError } = await supabase.rpc('rpc_get_project_stats', {
           p_project_ids: projectIds,
         });
+        if (isAuthError(statsError)) {
+          triggerAuthError();
+          return;
+        }
 
         const merged: ProjectSummary[] = rawProjects.map((p: any) => {
           const s = (projectStats || []).find((stat: any) => stat.project_id === p.id) || {
@@ -242,7 +270,11 @@ export default function DashboardScreenWeb() {
 
   const fetchPulse = async () => {
     try {
-      const { data } = await supabase.rpc('rpc_get_personal_pulse');
+      const { data, error } = await supabase.rpc('rpc_get_personal_pulse');
+      if (isAuthError(error)) {
+        triggerAuthError();
+        return;
+      }
       if (data) setPulse(data);
     } catch (err) {
       console.error('[Dashboard] Pulse fetch error:', err);
@@ -677,8 +709,18 @@ function DashboardSettingsModal({ visible, onClose, config, onSave }: {
 
   const fetchData = async () => {
     setLoading(true);
-    const { data: p } = await supabase.from('pipelines').select('id, name').is('deleted_at', null);
-    const { data: s } = await supabase.from('pipeline_stages').select('id, name, pipeline_id, is_terminal, terminal_type').order('position', { ascending: true });
+    const { data: p, error: pipelineError } = await supabase.from('pipelines').select('id, name').is('deleted_at', null);
+    if (isAuthError(pipelineError)) {
+      triggerAuthError();
+      setLoading(false);
+      return;
+    }
+    const { data: s, error: stageError } = await supabase.from('pipeline_stages').select('id, name, pipeline_id, is_terminal, terminal_type').order('position', { ascending: true });
+    if (isAuthError(stageError)) {
+      triggerAuthError();
+      setLoading(false);
+      return;
+    }
     setPipelines(p || []);
     setStages(s || []);
     setLoading(false);

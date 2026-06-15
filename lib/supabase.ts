@@ -7,8 +7,8 @@ export const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
 export const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 
 // SSR-safe storage selection
-const authStorage = Platform.OS === 'web' && typeof window === 'undefined' 
-  ? undefined 
+const authStorage = Platform.OS === 'web' && typeof window === 'undefined'
+  ? undefined
   : AsyncStorage;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
@@ -19,6 +19,32 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: false,
   },
 });
+
+// Global callback for auth errors (called from AuthContext when 401 detected)
+let authErrorCallback: (() => void) | null = null;
+
+export const setAuthErrorCallback = (callback: () => void) => {
+  authErrorCallback = callback;
+};
+
+export const triggerAuthError = () => {
+  if (authErrorCallback) {
+    authErrorCallback();
+  }
+};
+
+// Check if an error is an auth error (401, invalid token, etc.)
+export const isAuthError = (error: any): boolean => {
+  if (!error) return false;
+  const status = error?.status || error?.statusCode;
+  const message = error?.message || '';
+
+  return status === 401 ||
+         message.includes('Invalid JWT') ||
+         message.includes('JWT expired') ||
+         message.includes('invalid_grant') ||
+         message.includes('session_not_found');
+};
 
 // Tells Supabase Auth to continuously refresh the session automatically
 // if the app is in the foreground. When this is added, you will continue

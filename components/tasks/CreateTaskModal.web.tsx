@@ -26,12 +26,6 @@ type Props = {
 type Pipeline = { id: string; name: string };
 type Project  = { id: string; name: string; color: string | null };
 
-const VISIBILITY_OPTIONS = [
-  { value: null,             label: 'All Agents',    icon: 'globe'       },
-  { value: 'assigned_only', label: 'Assigned Only', icon: 'lock'        },
-  { value: 'managers_only', label: 'Managers Only', icon: 'user-secret' },
-] as const;
-
 const QUICK_DATES = [
   { label: 'Tomorrow', days: 1  },
   { label: '+3 Days',  days: 3  },
@@ -524,28 +518,6 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                           </TouchableOpacity>
                         ))}
                       </View>
-                    </View>
-                  </View>
-
-                  {/* Visibility */}
-                  <View>
-                    <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-3 ml-1">Visibility</Text>
-                    <View className="flex-row gap-3">
-                      {VISIBILITY_OPTIONS.map(opt => {
-                        const active = draft.visibilityPermission === opt.value;
-                        return (
-                          <TouchableOpacity
-                            key={String(opt.value)}
-                            onPress={() => setDraft({ visibilityPermission: opt.value })}
-                            className={`flex-1 flex-row items-center justify-center gap-2 py-3.5 rounded-2xl border transition-all ${active ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border hover:bg-surface-overlay'}`}
-                          >
-                            <FontAwesome name={opt.icon as any} size={11} color={active ? colors.primary : colors.textDim} />
-                            <Text className={`text-[10px] font-black uppercase tracking-wider ${active ? 'text-brand-primary' : 'text-typography-dim'}`}>
-                              {opt.label}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
                     </View>
                   </View>
 

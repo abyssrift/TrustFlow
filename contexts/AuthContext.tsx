@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
-import { supabase } from '../lib/supabase';
+import { supabase, setAuthErrorCallback } from '../lib/supabase';
 
 type AuthContextType = {
   session: Session | null;
@@ -43,6 +43,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [permissionsLoaded, setPermissionsLoaded] = useState<boolean>(false);
   const [roleIds, setRoleIds] = useState<string[]>([]);
   const [initialized, setInitialized] = useState<boolean>(false);
+
+  // Register auth error callback for handling 401/invalid token errors
+  useEffect(() => {
+    setAuthErrorCallback(() => {
+      console.log('[AuthContext] Auth error detected, signing out');
+      handleAuthError();
+    });
+  }, []);
+
+  const handleAuthError = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error('[AuthContext] Error during emergency sign-out:', err);
+    } finally {
+      setSession(null);
+      setUser(null);
+      setProfile(null);
+      setPermissions([]);
+      setPermissionsLoaded(false);
+      setRoleIds([]);
+    }
+  };
 
   useEffect(() => {
     let mounted = true;

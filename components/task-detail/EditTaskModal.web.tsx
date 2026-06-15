@@ -45,12 +45,6 @@ const QUICK_DATES = [
 
 const HOUR_PRESETS = [1, 2, 4, 8, 16, 24];
 
-const VISIBILITY_OPTIONS = [
-  { value: null,              label: 'Everyone',      icon: 'globe'       },
-  { value: 'assigned_only',  label: 'Assigned Only', icon: 'lock'        },
-  { value: 'managers_only',  label: 'Managers Only', icon: 'user-secret' },
-] as const;
-
 function quickDate(days: number): string {
   const d = new Date();
   d.setDate(d.getDate() + days);
@@ -74,7 +68,6 @@ export default function EditTaskModalWeb({ visible, onClose }: Props) {
   const [estimatedHours, setEstimatedHours]     = useState('');
   const [isRecurring, setIsRecurring]           = useState(false);
   const [managerId, setManagerId]               = useState<string | null>(null);
-  const [visibilityPermission, setVisibility]   = useState<string | null>(null);
 
   // Overlay state
   const [showDueCal, setShowDueCal]           = useState(false);
@@ -130,7 +123,6 @@ export default function EditTaskModalWeb({ visible, onClose }: Props) {
       setDueDate(data.task.due_date ? new Date(data.task.due_date).toISOString().split('T')[0] : null);
       setWeight(data.task.weight?.toString() || '1');
       setIsRecurring(!!data.task.is_recurring);
-      setVisibility((data.task as any).visibility_permission ?? null);
       setManagerId((data as any).task.manager_id ?? null);
       const rawStart = (data as any).task.start_date;
       setStartDate(rawStart ? new Date(rawStart).toISOString().split('T')[0] : null);
@@ -174,7 +166,6 @@ export default function EditTaskModalWeb({ visible, onClose }: Props) {
         estimated_hours: estimatedHours ? parseFloat(estimatedHours) : null,
         is_recurring: isRecurring,
         manager_id: managerId || null,
-        visibility_permission: visibilityPermission,
       };
       await updateTask(updates);
       onClose();
@@ -515,25 +506,6 @@ export default function EditTaskModalWeb({ visible, onClose }: Props) {
                       placeholderTextColor={colors.textDim}
                       className="bg-surface-background border border-surface-border rounded-2xl px-5 py-4 text-typography-main font-bold"
                     />
-                  </View>
-
-                  {/* Visibility */}
-                  <View>
-                    <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2.5 ml-1">Visibility</Text>
-                    <View className="flex-row gap-3">
-                      {VISIBILITY_OPTIONS.map(opt => (
-                        <TouchableOpacity
-                          key={String(opt.value)}
-                          onPress={() => setVisibility(opt.value)}
-                          className={`flex-1 flex-row items-center gap-2.5 px-4 py-3.5 rounded-2xl border transition-all ${visibilityPermission === opt.value ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border hover:border-brand-primary/40'}`}
-                        >
-                          <FontAwesome name={opt.icon as any} size={12} color={visibilityPermission === opt.value ? colors.primary : colors.textDim} />
-                          <Text className={`font-black text-[10px] uppercase tracking-wider ${visibilityPermission === opt.value ? 'text-brand-primary' : 'text-typography-muted'}`}>
-                            {opt.label}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
                   </View>
 
                 </View>

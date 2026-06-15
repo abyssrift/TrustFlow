@@ -1338,7 +1338,7 @@ export function TasksScreenWeb() {
       {/* PIPELINE PICKER - SMART BOARD SELECTOR */}
       {showPipelinePicker && (
          <View className="absolute inset-0 bg-surface-background/80 z-[100] items-center justify-center backdrop-blur-md p-6">
-            <View className="bg-surface-card w-full max-w-[900px] rounded-[3rem] border border-surface-border p-10 premium-shadow max-h-[90vh] overflow-hidden flex flex-col">
+            <View className="bg-surface-card w-full max-w-[1200px] rounded-[3rem] border border-surface-border p-10 premium-shadow max-h-[90vh] overflow-hidden flex flex-col">
                 <View className="mb-6">
                   <Text className="text-typography-main font-black text-3xl mb-2 tracking-tighter">Switch Board</Text>
                   <Text className="text-typography-muted text-sm font-medium">Tip: Use Ctrl+] / Ctrl+[ or scroll on the board name to switch</Text>
@@ -1361,95 +1361,239 @@ export function TasksScreenWeb() {
                   )}
                 </View>
 
-                {/* Boards List */}
-                <ScrollView className="flex-1 min-h-[400px]">
-                    {getSortedBoards().map((p, index) => {
-                       const isCurrent = pipeline?.id === p.id;
-                       const isFavorite = favoriteBoardIds.has(p.id);
-                       const isRecent = recentlyUsedBoards.some(r => r.id === p.id);
-                       const taskCount = boardTaskCounts[p.id] || 0;
-                       const hasActivity = taskCount > 0;
+                {/* Two-Column Layout (Only if many boards) or Single Column */}
+                {getSortedBoards().length > 6 ? (
+                  <View className="flex-1 flex-row gap-6 min-h-[400px] overflow-hidden">
+                    {/* LEFT: Recent Boards */}
+                    <View className="w-64 flex flex-col border-r border-surface-border pr-6">
+                      <Text className="text-typography-main font-black text-sm mb-3 tracking-tighter">RECENT</Text>
+                      <ScrollView className="flex-1">
+                        {recentlyUsedBoards.length === 0 ? (
+                          <Text className="text-typography-muted text-xs font-medium text-center mt-4">No recent boards</Text>
+                        ) : (
+                          recentlyUsedBoards.map((p) => {
+                            const isCurrent = pipeline?.id === p.id;
+                            const isFavorite = favoriteBoardIds.has(p.id);
+                            const taskCount = boardTaskCounts[p.id] || 0;
+                            const hasActivity = taskCount > 0;
 
-                       return (
-                         <View
-                           key={p.id}
-                           className={`flex-row items-center mb-3 rounded-2xl border overflow-hidden transition-all ${isCurrent ? 'bg-brand-primary/10 border-brand-primary' : hasActivity ? 'bg-surface-background border-state-warning/50 hover:border-state-warning' : 'bg-surface-background border-surface-border hover:border-brand-primary/50'}`}
-                         >
-                           <TouchableOpacity
-                             className="flex-1 p-4"
-                             onPress={async () => {
+                            return (
+                              <View
+                                key={p.id}
+                                className={`flex-row items-center mb-2 rounded-xl border overflow-hidden transition-all ${isCurrent ? 'bg-brand-primary/10 border-brand-primary' : hasActivity ? 'bg-surface-background border-state-warning/50 hover:border-state-warning' : 'bg-surface-background border-surface-border hover:border-brand-primary/50'}`}
+                              >
+                                <TouchableOpacity
+                                  className="flex-1 p-3"
+                                  onPress={async () => {
+                                    await AsyncStorage.setItem('@TrustFlow_tasks_pipeline', p.id);
+                                    router.push({ pathname: '/tasks', params: { pipelineId: p.id } });
+                                    await handleSelectBoard(p.id);
+                                  }}
+                                >
+                                  <View className="flex-row items-center gap-1.5">
+                                    {hasActivity && !isCurrent && (
+                                      <View className="w-2 h-2 rounded-full bg-state-warning pulse-animation" />
+                                    )}
+                                    <Text className={`font-bold text-xs ${isCurrent ? 'text-brand-primary' : 'text-typography-main'}`}>{p.name}</Text>
+                                  </View>
+                                </TouchableOpacity>
+                                {!isCurrent && taskCount > 0 && (
+                                  <View className={`ml-1 px-2 py-0.5 rounded-lg border ${boardNewTaskCount[p.id] && boardNewTaskCount[p.id] > 0 ? 'bg-state-danger border-state-danger' : 'bg-state-warning border-state-warning'}`}>
+                                    <Text className={`text-[10px] font-black ${boardNewTaskCount[p.id] && boardNewTaskCount[p.id] > 0 ? 'text-white' : 'text-black'}`}>{taskCount}</Text>
+                                  </View>
+                                )}
+                              </View>
+                            );
+                          })
+                        )}
+                      </ScrollView>
+                    </View>
+
+                    {/* RIGHT: All Boards */}
+                    <View className="flex-1 flex flex-col">
+                    <Text className="text-typography-main font-black text-sm mb-3 tracking-tighter">ALL BOARDS</Text>
+                    <ScrollView className="flex-1">
+                      {getSortedBoards().map((p, index) => {
+                        const isCurrent = pipeline?.id === p.id;
+                        const isFavorite = favoriteBoardIds.has(p.id);
+                        const isRecent = recentlyUsedBoards.some(r => r.id === p.id);
+                        const taskCount = boardTaskCounts[p.id] || 0;
+                        const hasActivity = taskCount > 0;
+
+                        return (
+                          <View
+                            key={p.id}
+                            className={`flex-row items-center mb-3 rounded-2xl border overflow-hidden transition-all ${isCurrent ? 'bg-brand-primary/10 border-brand-primary' : hasActivity ? 'bg-surface-background border-state-warning/50 hover:border-state-warning' : 'bg-surface-background border-surface-border hover:border-brand-primary/50'}`}
+                          >
+                            <TouchableOpacity
+                              className="flex-1 p-4"
+                              onPress={async () => {
                                 await AsyncStorage.setItem('@TrustFlow_tasks_pipeline', p.id);
                                 router.push({ pathname: '/tasks', params: { pipelineId: p.id } });
                                 await handleSelectBoard(p.id);
-                             }}
-                           >
-                             <View className="flex-row items-center justify-between">
-                               <View className="flex-1">
-                                 <View className="flex-row items-center gap-2">
-                                   {hasActivity && !isCurrent && (
-                                     <View className="w-2 h-2 rounded-full bg-state-warning pulse-animation" />
-                                   )}
-                                   <Text className={`font-black text-base ${isCurrent ? 'text-brand-primary' : 'text-typography-main'}`}>{p.name}</Text>
-                                 </View>
-                                 <View className="flex-row gap-2 mt-1.5">
-                                   {isFavorite && (
-                                     <View className="bg-brand-primary/10 px-2 py-0.5 rounded-full border border-brand-primary/20">
-                                       <Text className="text-brand-primary text-[9px] font-black uppercase">⭐ Favorited</Text>
-                                     </View>
-                                   )}
-                                   {p.is_default && (
-                                     <View className="bg-surface-overlay px-2 py-0.5 rounded-full border border-surface-border">
-                                       <Text className="text-typography-muted text-[9px] font-bold uppercase">Workspace Default</Text>
-                                     </View>
-                                   )}
-                                   {myDefaultPipelineId === p.id && (
-                                     <View className="bg-state-success/10 px-2 py-0.5 rounded-full border border-state-success/20">
-                                       <Text className="text-state-success text-[9px] font-bold uppercase">My Default</Text>
-                                     </View>
-                                   )}
-                                 </View>
-                               </View>
-                               {!isCurrent && boardTaskCounts[p.id] !== undefined && boardTaskCounts[p.id] > 0 && (
-                                 <View className={`ml-3 px-4 py-1.5 rounded-full border-2 ${boardNewTaskCount[p.id] && boardNewTaskCount[p.id] > 0 ? 'bg-state-danger border-state-danger' : 'bg-state-warning border-state-warning'}`}>
-                                   <Text className={`text-[13px] font-black ${boardNewTaskCount[p.id] && boardNewTaskCount[p.id] > 0 ? 'text-white' : 'text-black'}`}>{boardTaskCounts[p.id]}</Text>
-                                 </View>
-                               )}
-                             </View>
-                           </TouchableOpacity>
+                              }}
+                            >
+                              <View className="flex-row items-center justify-between">
+                                <View className="flex-1">
+                                  <View className="flex-row items-center gap-2">
+                                    {hasActivity && !isCurrent && (
+                                      <View className="w-2 h-2 rounded-full bg-state-warning pulse-animation" />
+                                    )}
+                                    <Text className={`font-black text-base ${isCurrent ? 'text-brand-primary' : 'text-typography-main'}`}>{p.name}</Text>
+                                  </View>
+                                  <View className="flex-row gap-2 mt-1.5">
+                                    {isFavorite && (
+                                      <View className="bg-brand-primary/10 px-2 py-0.5 rounded-full border border-brand-primary/20">
+                                        <Text className="text-brand-primary text-[9px] font-black uppercase">⭐ Favorited</Text>
+                                      </View>
+                                    )}
+                                    {p.is_default && (
+                                      <View className="bg-surface-overlay px-2 py-0.5 rounded-full border border-surface-border">
+                                        <Text className="text-typography-muted text-[9px] font-bold uppercase">Workspace Default</Text>
+                                      </View>
+                                    )}
+                                    {myDefaultPipelineId === p.id && (
+                                      <View className="bg-state-success/10 px-2 py-0.5 rounded-full border border-state-success/20">
+                                        <Text className="text-state-success text-[9px] font-bold uppercase">My Default</Text>
+                                      </View>
+                                    )}
+                                  </View>
+                                </View>
+                                {!isCurrent && boardTaskCounts[p.id] !== undefined && boardTaskCounts[p.id] > 0 && (
+                                  <View className={`ml-3 px-4 py-1.5 rounded-full border-2 ${boardNewTaskCount[p.id] && boardNewTaskCount[p.id] > 0 ? 'bg-state-danger border-state-danger' : 'bg-state-warning border-state-warning'}`}>
+                                    <Text className={`text-[13px] font-black ${boardNewTaskCount[p.id] && boardNewTaskCount[p.id] > 0 ? 'text-white' : 'text-black'}`}>{boardTaskCounts[p.id]}</Text>
+                                  </View>
+                                )}
+                              </View>
+                            </TouchableOpacity>
 
-                           {/* Star/Favorite Button */}
-                           <TouchableOpacity
-                             onPress={() => toggleFavoriteBoard(p.id)}
-                             className="px-3 py-4 items-center justify-center hover:bg-surface-overlay transition-colors"
-                             title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-                           >
-                             <FontAwesome
-                               name={isFavorite ? 'star' : 'star-o'}
-                               size={14}
-                               color={isFavorite ? colors.primary : colors.textMuted}
-                             />
-                           </TouchableOpacity>
+                            {/* Star/Favorite Button */}
+                            <TouchableOpacity
+                              onPress={() => toggleFavoriteBoard(p.id)}
+                              className="px-3 py-4 items-center justify-center hover:bg-surface-overlay transition-colors"
+                              title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                            >
+                              <FontAwesome
+                                name={isFavorite ? 'star' : 'star-o'}
+                                size={14}
+                                color={isFavorite ? colors.primary : colors.textMuted}
+                              />
+                            </TouchableOpacity>
 
-                           {/* Personal Default Heart */}
-                           <TouchableOpacity
-                             onPress={async () => {
-                               await AsyncStorage.setItem('@TrustFlow_my_default_pipeline', p.id);
-                               setMyDefaultPipelineId(p.id);
-                             }}
-                             className="px-3 py-4 items-center justify-center border-l border-surface-border/50 hover:bg-surface-overlay transition-colors"
-                             title="Set as my default"
-                           >
-                             <FontAwesome
-                               name={myDefaultPipelineId === p.id ? 'heart' : 'heart-o'}
-                               size={14}
-                               color={myDefaultPipelineId === p.id ? colors.success : colors.textMuted}
-                             />
-                           </TouchableOpacity>
+                            {/* Personal Default Heart */}
+                            <TouchableOpacity
+                              onPress={async () => {
+                                await AsyncStorage.setItem('@TrustFlow_my_default_pipeline', p.id);
+                                setMyDefaultPipelineId(p.id);
+                              }}
+                              className="px-3 py-4 items-center justify-center border-l border-surface-border/50 hover:bg-surface-overlay transition-colors"
+                              title="Set as my default"
+                            >
+                              <FontAwesome
+                                name={myDefaultPipelineId === p.id ? 'heart' : 'heart-o'}
+                                size={14}
+                                color={myDefaultPipelineId === p.id ? colors.success : colors.textMuted}
+                              />
+                            </TouchableOpacity>
 
-                         </View>
-                       );
-                    })}
-                 </ScrollView>
+                          </View>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                </View>
+                ) : (
+                  /* Single Column Layout (for ≤6 boards) */
+                  <View className="flex-1 flex flex-col min-h-[400px] overflow-hidden">
+                    <ScrollView className="flex-1">
+                      {getSortedBoards().map((p, index) => {
+                        const isCurrent = pipeline?.id === p.id;
+                        const isFavorite = favoriteBoardIds.has(p.id);
+                        const taskCount = boardTaskCounts[p.id] || 0;
+                        const hasActivity = taskCount > 0;
+
+                        return (
+                          <View
+                            key={p.id}
+                            className={`flex-row items-center mb-3 rounded-2xl border overflow-hidden transition-all ${isCurrent ? 'bg-brand-primary/10 border-brand-primary' : hasActivity ? 'bg-surface-background border-state-warning/50 hover:border-state-warning' : 'bg-surface-background border-surface-border hover:border-brand-primary/50'}`}
+                          >
+                            <TouchableOpacity
+                              className="flex-1 p-4"
+                              onPress={async () => {
+                                await AsyncStorage.setItem('@TrustFlow_tasks_pipeline', p.id);
+                                router.push({ pathname: '/tasks', params: { pipelineId: p.id } });
+                                await handleSelectBoard(p.id);
+                              }}
+                            >
+                              <View className="flex-row items-center justify-between">
+                                <View className="flex-1">
+                                  <View className="flex-row items-center gap-2">
+                                    {hasActivity && !isCurrent && (
+                                      <View className="w-2 h-2 rounded-full bg-state-warning pulse-animation" />
+                                    )}
+                                    <Text className={`font-black text-base ${isCurrent ? 'text-brand-primary' : 'text-typography-main'}`}>{p.name}</Text>
+                                  </View>
+                                  <View className="flex-row gap-2 mt-1.5">
+                                    {isFavorite && (
+                                      <View className="bg-brand-primary/10 px-2 py-0.5 rounded-full border border-brand-primary/20">
+                                        <Text className="text-brand-primary text-[9px] font-black uppercase">⭐ Favorited</Text>
+                                      </View>
+                                    )}
+                                    {p.is_default && (
+                                      <View className="bg-surface-overlay px-2 py-0.5 rounded-full border border-surface-border">
+                                        <Text className="text-typography-muted text-[9px] font-bold uppercase">Workspace Default</Text>
+                                      </View>
+                                    )}
+                                    {myDefaultPipelineId === p.id && (
+                                      <View className="bg-state-success/10 px-2 py-0.5 rounded-full border border-state-success/20">
+                                        <Text className="text-state-success text-[9px] font-bold uppercase">My Default</Text>
+                                      </View>
+                                    )}
+                                  </View>
+                                </View>
+                                {!isCurrent && boardTaskCounts[p.id] !== undefined && boardTaskCounts[p.id] > 0 && (
+                                  <View className={`ml-3 px-4 py-1.5 rounded-full border-2 ${boardNewTaskCount[p.id] && boardNewTaskCount[p.id] > 0 ? 'bg-state-danger border-state-danger' : 'bg-state-warning border-state-warning'}`}>
+                                    <Text className={`text-[13px] font-black ${boardNewTaskCount[p.id] && boardNewTaskCount[p.id] > 0 ? 'text-white' : 'text-black'}`}>{boardTaskCounts[p.id]}</Text>
+                                  </View>
+                                )}
+                              </View>
+                            </TouchableOpacity>
+
+                            {/* Star/Favorite Button */}
+                            <TouchableOpacity
+                              onPress={() => toggleFavoriteBoard(p.id)}
+                              className="px-3 py-4 items-center justify-center hover:bg-surface-overlay transition-colors"
+                              title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                            >
+                              <FontAwesome
+                                name={isFavorite ? 'star' : 'star-o'}
+                                size={14}
+                                color={isFavorite ? colors.primary : colors.textMuted}
+                              />
+                            </TouchableOpacity>
+
+                            {/* Personal Default Heart */}
+                            <TouchableOpacity
+                              onPress={async () => {
+                                await AsyncStorage.setItem('@TrustFlow_my_default_pipeline', p.id);
+                                setMyDefaultPipelineId(p.id);
+                              }}
+                              className="px-3 py-4 items-center justify-center border-l border-surface-border/50 hover:bg-surface-overlay transition-colors"
+                              title="Set as my default"
+                            >
+                              <FontAwesome
+                                name={myDefaultPipelineId === p.id ? 'heart' : 'heart-o'}
+                                size={14}
+                                color={myDefaultPipelineId === p.id ? colors.success : colors.textMuted}
+                              />
+                            </TouchableOpacity>
+
+                          </View>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                )}
 
                 {/* Icon Legend */}
                 <View className="mt-6 p-4 bg-surface-background rounded-2xl border border-surface-border/50">

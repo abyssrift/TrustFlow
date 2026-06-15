@@ -89,17 +89,13 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
     }
   }, [visible]);
 
-  const [permissions, setPermissions] = useState<any[]>([]);
-
   const fetchResources = async () => {
-    const [{ data: userData }, { data: teamData }, { data: permData }] = await Promise.all([
+    const [{ data: userData }, { data: teamData }] = await Promise.all([
       supabase.from('users').select('id, full_name').is('deleted_at', null),
       supabase.from('teams').select('id, name, color').is('deleted_at', null),
-      supabase.from('permissions').select('key, label').order('label')
     ]);
     setUsers(userData || []);
     setTeams(teamData || []);
-    setPermissions(permData || []);
   };
 
   const handleCreate = async () => {
@@ -331,26 +327,6 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
                        className={`px-4 py-2 rounded-lg border ${draft.assigneeTeamIds.includes(t.id) ? 'bg-brand-accent border-brand-accent' : 'bg-surface-background border-surface-border'}`}
                      >
                        <Text className={`text-[10px] font-bold ${draft.assigneeTeamIds.includes(t.id) ? 'text-white' : 'text-typography-main'}`}>{t.name}</Text>
-                     </TouchableOpacity>
-                   ))}
-                </View>
-
-                <Text className="text-state-warning text-[10px] font-black uppercase mb-3">Visibility Restriction</Text>
-                <Text className="text-typography-muted text-[10px] mb-3">Limit task visibility to users with a specific permission. If none selected, pipeline defaults apply.</Text>
-                <View className="flex-row flex-wrap gap-2">
-                   <TouchableOpacity 
-                     onPress={() => setDraft({ visibilityPermission: null })}
-                     className={`px-4 py-2 rounded-lg border ${draft.visibilityPermission === null ? 'bg-surface-border border-typography-muted' : 'bg-surface-background border-surface-border'}`}
-                   >
-                     <Text className={`text-[10px] font-bold ${draft.visibilityPermission === null ? 'text-typography-main' : 'text-typography-muted'}`}>No Restriction</Text>
-                   </TouchableOpacity>
-                   {permissions.map(p => (
-                     <TouchableOpacity 
-                       key={p.key} 
-                       onPress={() => setDraft({ visibilityPermission: p.key })}
-                       className={`px-4 py-2 rounded-lg border ${draft.visibilityPermission === p.key ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
-                     >
-                       <Text className={`text-[10px] font-bold ${draft.visibilityPermission === p.key ? 'text-white' : 'text-typography-main'}`}>{p.label}</Text>
                      </TouchableOpacity>
                    ))}
                 </View>

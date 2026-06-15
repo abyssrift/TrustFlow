@@ -19,7 +19,6 @@ export type TaskDraft = {
   projectId: string | null;
   assigneeUserIds: string[];
   assigneeTeamIds: string[];
-  visibilityPermission: string | null;
 };
 
 const INITIAL_DRAFT: TaskDraft = {
@@ -35,7 +34,6 @@ const INITIAL_DRAFT: TaskDraft = {
   projectId: null,
   assigneeUserIds: [],
   assigneeTeamIds: [],
-  visibilityPermission: null,
 };
 
 export type StagedBriefFile = {
@@ -83,7 +81,6 @@ const normalizeDraft = (draft: Partial<TaskDraft> | null | undefined): TaskDraft
     projectId: merged.projectId ?? null,
     assigneeUserIds: Array.isArray(merged.assigneeUserIds) ? merged.assigneeUserIds : [],
     assigneeTeamIds: Array.isArray(merged.assigneeTeamIds) ? merged.assigneeTeamIds : [],
-    visibilityPermission: merged.visibilityPermission ?? null,
   };
 };
 
@@ -164,7 +161,6 @@ export const TaskCreationProvider = ({ children }: { children: React.ReactNode }
         p_weight: draft.weight,
         p_pipeline_id: draft.pipelineId,
         p_project_id: draft.projectId,
-        p_visibility_permission: draft.visibilityPermission,
         p_start_date: draft.startDate,
         p_estimated_hours: draft.estimatedHours,
       });

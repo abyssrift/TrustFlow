@@ -38,8 +38,9 @@ export default function AssignmentModal({
   const [activeTab, setActiveTab] = useState<'teams' | 'users'>('teams');
   const [teams, setTeams] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
+  const [teamMembers, setTeamMembers] = useState<Record<string, string[]>>({});
   const [counts, setCounts] = useState<{ users: Record<string, number>, teams: Record<string, number> }>({ users: {}, teams: {} });
-  
+
   const [selectedIds, setSelectedIds] = useState(initialSelectedIds);
   const [search, setSearch] = useState('');
 
@@ -59,6 +60,15 @@ export default function AssignmentModal({
 
       const { data: userData } = await supabase.from('users').select('id, full_name, email, avatar_url').is('deleted_at', null).order('full_name');
       setUsers(userData || []);
+
+      // Fetch team members for each team
+      const { data: memberData } = await supabase.from('team_members').select('team_id, user_id').is('removed_at', null);
+      const membersByTeam: Record<string, string[]> = {};
+      memberData?.forEach((m: any) => {
+        if (!membersByTeam[m.team_id]) membersByTeam[m.team_id] = [];
+        membersByTeam[m.team_id].push(m.user_id);
+      });
+      setTeamMembers(membersByTeam);
 
       const { data: userCounts } = await supabase.rpc('rpc_get_active_task_counts', { p_pipeline_id: pipelineId, p_type: 'user' });
       const { data: teamCounts } = await supabase.rpc('rpc_get_active_task_counts', { p_pipeline_id: pipelineId, p_type: 'team' });
@@ -168,10 +178,23 @@ export default function AssignmentModal({
                         key={item.id}
                         onPress={() => {
                           if (activeTab === 'teams') {
-                            setSelectedIds(prev => ({
-                              ...prev,
-                              teams: isSelected ? prev.teams.filter(id => id !== item.id) : [...prev.teams, item.id]
-                            }));
+                            setSelectedIds(prev => {
+                              const newTeams = isSelected ? prev.teams.filter(id => id !== item.id) : [...prev.teams, item.id];
+                              let newUsers = [...prev.users];
+                              // Auto-select/deselect team members
+                              const teamUserIds = teamMembers[item.id] || [];
+                              if (isSelected) {
+                                // Removing team: remove its members if no other selected team has them
+                                newUsers = newUsers.filter(uid => {
+                                  const remainingTeams = newTeams;
+                                  return remainingTeams.some(tid => (teamMembers[tid] || []).includes(uid));
+                                });
+                              } else {
+                                // Adding team: add its members
+                                newUsers = [...new Set([...newUsers, ...teamUserIds])];
+                              }
+                              return { ...prev, teams: newTeams, users: newUsers };
+                            });
                           } else {
                             setSelectedIds(prev => ({
                               ...prev,

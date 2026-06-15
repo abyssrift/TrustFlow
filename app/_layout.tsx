@@ -139,6 +139,7 @@ function RootLayoutNav() {
     if (Platform.OS === 'web') {
       // Original Web Logic - preserved exactly as requested
       if (!session && !inAuthGroup) {
+        console.log('[RootLayoutNav] [Web] No session, redirecting to login');
         router.replace('/(auth)/login');
       } else if (session) {
         // Wait for profile to load before making redirection decisions
@@ -162,7 +163,7 @@ function RootLayoutNav() {
     });
 
     if (!session && !inAuthGroup) {
-      console.log('[RootLayoutNav] [Native] Redirecting to login');
+      console.log('[RootLayoutNav] [Native] Redirecting to login - no session');
       router.replace('/(auth)/login');
     } else if (session) {
       // CRITICAL: If profile is still null (loading in background), do NOT redirect

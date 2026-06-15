@@ -33,8 +33,9 @@ export default function AssignmentModal({
   const [saving, setSaving] = useState(false);
   const [teams, setTeams] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
+  const [teamMembers, setTeamMembers] = useState<Record<string, string[]>>({});
   const [counts, setCounts] = useState<{ users: Record<string, number>, teams: Record<string, number> }>({ users: {}, teams: {} });
-  
+
   const [selectedIds, setSelectedIds] = useState(initialSelectedIds);
   const [teamSearch, setTeamSearch] = useState('');
   const [userSearch, setUserSearch] = useState('');
@@ -52,7 +53,7 @@ export default function AssignmentModal({
   const fetchData = async () => {
     try {
       setLoading(true);
-      
+
       // 1. Fetch Teams
       const { data: teamData } = await supabase
         .from('teams')
@@ -69,13 +70,21 @@ export default function AssignmentModal({
         .order('full_name');
       setUsers(userData || []);
 
-      // 3. Fetch Task Counts
-      // Using separate queries for clarity and reliability
-      const { data: userCounts } = await supabase.rpc('rpc_get_active_task_counts', { 
+      // 3. Fetch team members for each team
+      const { data: memberData } = await supabase.from('team_members').select('team_id, user_id').is('removed_at', null);
+      const membersByTeam: Record<string, string[]> = {};
+      memberData?.forEach((m: any) => {
+        if (!membersByTeam[m.team_id]) membersByTeam[m.team_id] = [];
+        membersByTeam[m.team_id].push(m.user_id);
+      });
+      setTeamMembers(membersByTeam);
+
+      // 4. Fetch Task Counts
+      const { data: userCounts } = await supabase.rpc('rpc_get_active_task_counts', {
         p_pipeline_id: pipelineId,
         p_type: 'user'
       });
-      const { data: teamCounts } = await supabase.rpc('rpc_get_active_task_counts', { 
+      const { data: teamCounts } = await supabase.rpc('rpc_get_active_task_counts', {
         p_pipeline_id: pipelineId,
         p_type: 'team'
       });
@@ -181,13 +190,26 @@ export default function AssignmentModal({
                     const isSelected = selectedIds.teams.includes(t.id);
                     const taskCount = counts.teams[t.id] || 0;
                     return (
-                      <TouchableOpacity 
+                      <TouchableOpacity
                         key={t.id}
                         onPress={() => {
-                          setSelectedIds(prev => ({
-                            ...prev,
-                            teams: isSelected ? prev.teams.filter(id => id !== t.id) : [...prev.teams, t.id]
-                          }));
+                          setSelectedIds(prev => {
+                            const newTeams = isSelected ? prev.teams.filter(id => id !== t.id) : [...prev.teams, t.id];
+                            let newUsers = [...prev.users];
+                            // Auto-select/deselect team members
+                            const teamUserIds = teamMembers[t.id] || [];
+                            if (isSelected) {
+                              // Removing team: remove its members if no other selected team has them
+                              newUsers = newUsers.filter(uid => {
+                                const remainingTeams = newTeams;
+                                return remainingTeams.some(tid => (teamMembers[tid] || []).includes(uid));
+                              });
+                            } else {
+                              // Adding team: add its members
+                              newUsers = [...new Set([...newUsers, ...teamUserIds])];
+                            }
+                            return { ...prev, teams: newTeams, users: newUsers };
+                          });
                         }}
                         className={`flex-row items-center justify-between p-4 rounded-2xl border transition-all ${
                           isSelected 
