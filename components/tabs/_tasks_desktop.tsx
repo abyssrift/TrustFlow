@@ -655,9 +655,9 @@ export function TasksScreenWeb() {
     }
   }, []);
 
-  // Update task counts for each board when picker is open
+  // Fetch task counts for all boards on page load and when pipelines change
   useEffect(() => {
-    if (!showPipelinePicker) return;
+    if (availablePipelines.length === 0) return;
 
     const updateTaskCounts = async () => {
       try {
@@ -676,7 +676,7 @@ export function TasksScreenWeb() {
     };
 
     updateTaskCounts();
-  }, [showPipelinePicker, availablePipelines]);
+  }, [availablePipelines]);
 
   const filterOptions = useMemo(() => {
     const categories = Array.from(new Set(tasks.map(t => t.category).filter(Boolean)));
