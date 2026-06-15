@@ -301,8 +301,9 @@ export function RoleManagerProvider({ children }: { children: ReactNode }) {
   const removeUserFromCompany = useCallback(async (userId: string) => {
     setLoading(true);
     try {
-      const { error: e } = await supabase.from('users').update({ company_id: null }).eq('id', userId);
+      const { data, error: e } = await supabase.rpc('rpc_remove_user_from_company', { p_user_id: userId });
       if (e) throw e;
+      if (data?.error) throw new Error(data.error);
       await refreshAll();
       return true;
     } catch (e: any) {
