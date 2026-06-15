@@ -91,6 +91,21 @@ type Pipeline = {
   is_default?: boolean;
 };
 
+type BoardPickerState = {
+  favorites: Set<string>;
+  recentlyUsed: Array<{ id: string; timestamp: number }>;
+  taskCounts: Record<string, number>;
+};
+
+const STORAGE_KEYS = {
+  LAST_BOARD: '@TrustFlow_last_board_id',
+  FAVORITE_BOARDS: '@TrustFlow_favorite_boards',
+  RECENTLY_USED_BOARDS: '@TrustFlow_recently_used_boards',
+  BOARD_TASK_COUNTS: '@TrustFlow_board_task_counts',
+} as const;
+
+const MAX_RECENTLY_USED = 5;
+
 function PingTimeBadge({ pingedAt }: { pingedAt: number }) {
   const [, setTick] = useState(0);
   useEffect(() => {
@@ -114,6 +129,39 @@ function PingTimeBadge({ pingedAt }: { pingedAt: number }) {
       <Text style={{ color: 'white', fontSize: 8, fontWeight: '900' }}>{label}</Text>
     </View>
   );
+}
+
+async function loadBoardPickerState() {
+  try {
+    const [favStr, recentStr] = await Promise.all([
+      AsyncStorage.getItem(STORAGE_KEYS.FAVORITE_BOARDS),
+      AsyncStorage.getItem(STORAGE_KEYS.RECENTLY_USED_BOARDS),
+    ]);
+    return {
+      favorites: new Set(favStr ? JSON.parse(favStr) : []),
+      recentlyUsed: recentStr ? JSON.parse(recentStr) : [],
+    };
+  } catch {
+    return { favorites: new Set(), recentlyUsed: [] };
+  }
+}
+
+async function saveBoardPickerState(favorites: Set<string>, recentlyUsed: Array<{ id: string; timestamp: number }>) {
+  try {
+    await Promise.all([
+      AsyncStorage.setItem(STORAGE_KEYS.FAVORITE_BOARDS, JSON.stringify(Array.from(favorites))),
+      AsyncStorage.setItem(STORAGE_KEYS.RECENTLY_USED_BOARDS, JSON.stringify(recentlyUsed)),
+    ]);
+  } catch (e) {
+    console.error('Failed to save board picker state:', e);
+  }
+}
+
+function trackBoardSelection(boardId: string, current: Array<{ id: string; timestamp: number }>) {
+  const now = Date.now();
+  const filtered = current.filter(b => b.id !== boardId);
+  const updated = [{ id: boardId, timestamp: now }, ...filtered].slice(0, MAX_RECENTLY_USED);
+  return updated;
 }
 
 export function TasksScreenWeb() {
@@ -145,6 +193,12 @@ export function TasksScreenWeb() {
   const [archiveModal, setArchiveModal] = useState<{ visible: boolean, taskId: string | null }>({ visible: false, taskId: null });
   const [archiving, setArchiving] = useState(false);
   const [archiveError, setArchiveError] = useState<string | null>(null);
+
+  // Smart Board Picker State
+  const [favoriteBoardIds, setFavoriteBoardIds] = useState<Set<string>>(new Set());
+  const [recentlyUsedBoards, setRecentlyUsedBoards] = useState<Array<{ id: string; timestamp: number }>>([]);
+  const [boardTaskCounts, setBoardTaskCounts] = useState<Record<string, number>>({});
+  const [boardPickerSearchQuery, setBoardPickerSearchQuery] = useState('');
   
   const { kanban, theme: activeTheme } = useTheme();
   const { width } = useWindowDimensions();
@@ -369,6 +423,16 @@ export function TasksScreenWeb() {
     loadPersonalDefault();
   }, []);
 
+  // Load board picker state on mount
+  useEffect(() => {
+    const initBoardPicker = async () => {
+      const state = await loadBoardPickerState();
+      setFavoriteBoardIds(state.favorites);
+      setRecentlyUsedBoards(state.recentlyUsed);
+    };
+    initBoardPicker();
+  }, []);
+
   useEffect(() => {
     fetchPulse();
     fetchData();
@@ -431,7 +495,7 @@ export function TasksScreenWeb() {
       setArchiving(true);
       const { error } = await supabase.rpc('rpc_archive_task', { p_task_id: taskId });
       if (error) throw error;
-      
+
       setArchiveModal({ visible: false, taskId: null });
       fetchData();
     } catch (err: any) {
@@ -441,6 +505,58 @@ export function TasksScreenWeb() {
     } finally {
       setArchiving(false);
     }
+  };
+
+  const handleSelectBoard = async (boardId: string) => {
+    try {
+      const updated = trackBoardSelection(boardId, recentlyUsedBoards);
+      setRecentlyUsedBoards(updated);
+      await saveBoardPickerState(favoriteBoardIds, updated);
+      await AsyncStorage.setItem(STORAGE_KEYS.LAST_BOARD, boardId);
+      setShowPipelinePicker(false);
+    } catch (e) {
+      console.error('Failed to track board selection:', e);
+    }
+  };
+
+  const toggleFavoriteBoard = async (boardId: string) => {
+    try {
+      const updated = new Set(favoriteBoardIds);
+      if (updated.has(boardId)) {
+        updated.delete(boardId);
+      } else {
+        updated.add(boardId);
+      }
+      setFavoriteBoardIds(updated);
+      await saveBoardPickerState(updated, recentlyUsedBoards);
+    } catch (e) {
+      console.error('Failed to toggle favorite:', e);
+    }
+  };
+
+  const getSortedBoards = () => {
+    let sorted = [...availablePipelines];
+
+    // Filter by search
+    if (boardPickerSearchQuery) {
+      const query = boardPickerSearchQuery.toLowerCase();
+      sorted = sorted.filter(b => b.name.toLowerCase().includes(query));
+    }
+
+    // Sort: favorites first, then recently used, then by name
+    return sorted.sort((a, b) => {
+      const aFav = favoriteBoardIds.has(a.id) ? 0 : 1;
+      const bFav = favoriteBoardIds.has(b.id) ? 0 : 1;
+      if (aFav !== bFav) return aFav - bFav;
+
+      const aRecent = recentlyUsedBoards.findIndex(r => r.id === a.id);
+      const bRecent = recentlyUsedBoards.findIndex(r => r.id === b.id);
+      const aRecentVal = aRecent >= 0 ? aRecent : Infinity;
+      const bRecentVal = bRecent >= 0 ? bRecent : Infinity;
+      if (aRecentVal !== bRecentVal) return aRecentVal - bRecentVal;
+
+      return a.name.localeCompare(b.name);
+    });
   };
 
   const filterOptions = useMemo(() => {

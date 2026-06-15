@@ -36,6 +36,17 @@ export default function ProjectsScreenWeb() {
   const { hasPermission } = useAuth();
   const { activeSession, lastStoppedAt } = useTimer();
   const { width } = useWindowDimensions();
+
+  // Permission check: user must have project.view permission
+  if (!hasPermission('project.view')) {
+    return (
+      <View className="flex-1 bg-surface-background items-center justify-center p-10">
+        <FontAwesome name="lock" size={48} color={colors.textMuted} />
+        <Text className="text-typography-main text-xl font-black mt-4">Access Denied</Text>
+        <Text className="text-typography-muted text-sm text-center mt-2">You don't have permission to view projects.</Text>
+      </View>
+    );
+  }
   // Switch to 2-col grid on smaller desktops (sidebar eats ~256px of the viewport)
   const cardWidth = width >= 1280 ? 'w-[calc(33.33%-20px)]' : 'w-[calc(50%-15px)]';
   

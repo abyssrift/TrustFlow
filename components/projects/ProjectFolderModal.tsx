@@ -84,14 +84,13 @@ export default function ProjectFolderModal({
           .update(projectData)
           .eq('id', project.id));
       } else {
-        const { data: userData } = await supabase.auth.getUser();
-        ({ error } = await supabase.from('projects').insert([
-          {
-            ...projectData,
-            company_id: (await supabase.rpc('my_company_id')).data,
-            created_by: userData.user?.id,
-          },
-        ]));
+        const { data, error: rpcError } = await supabase.rpc('rpc_create_project', {
+          p_name: projectData.name,
+          p_description: projectData.description,
+          p_expiry_date: projectData.expiry_date,
+          p_status: projectData.status,
+        });
+        error = rpcError;
       }
 
       if (error) throw error;

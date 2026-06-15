@@ -43,10 +43,20 @@ export default function ProjectsScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | undefined>();
 
-
   const { hasPermission } = useAuth();
   const isWeb = Platform.OS === 'web';
   const isLargeScreen = width > 768;
+
+  // Permission check: user must have project.view permission
+  if (!hasPermission('project.view')) {
+    return (
+      <View className="flex-1 bg-surface-background items-center justify-center p-10">
+        <FontAwesome name="lock" size={48} color={colors.textMuted} />
+        <Text className="text-typography-main text-xl font-black mt-4">Access Denied</Text>
+        <Text className="text-typography-muted text-sm text-center mt-2">You don't have permission to view projects.</Text>
+      </View>
+    );
+  }
 
   const fetchProjects = async () => {
     try {
