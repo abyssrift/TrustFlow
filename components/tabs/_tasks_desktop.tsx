@@ -198,6 +198,8 @@ export function TasksScreenWeb() {
   const [favoriteBoardIds, setFavoriteBoardIds] = useState<Set<string>>(new Set());
   const [recentlyUsedBoards, setRecentlyUsedBoards] = useState<Array<{ id: string; timestamp: number }>>([]);
   const [boardTaskCounts, setBoardTaskCounts] = useState<Record<string, number>>({});
+  const [boardLastVisitedTime, setBoardLastVisitedTime] = useState<Record<string, number>>({});
+  const [boardNewTaskCount, setBoardNewTaskCount] = useState<Record<string, number>>({});
   const [boardPickerSearchQuery, setBoardPickerSearchQuery] = useState('');
 
   // Refs for event handlers
@@ -536,6 +538,13 @@ export function TasksScreenWeb() {
       setRecentlyUsedBoards(updated);
       await saveBoardPickerState(favoriteBoardIds, updated);
       await AsyncStorage.setItem(STORAGE_KEYS.LAST_BOARD, boardId);
+
+      // Track when this board was last visited
+      setBoardLastVisitedTime(prev => ({
+        ...prev,
+        [boardId]: Date.now()
+      }));
+
       setShowPipelinePicker(false);
     } catch (e) {
       console.error('Failed to track board selection:', e);
@@ -674,21 +683,35 @@ export function TasksScreenWeb() {
     const updateTaskCounts = async () => {
       try {
         const counts: Record<string, number> = {};
+        const newCounts: Record<string, number> = {};
+
         for (const board of availablePipelines) {
           const { count } = await supabase
             .from('tasks')
             .select('id', { count: 'exact', head: true })
             .eq('pipeline_id', board.id);
           counts[board.id] = count || 0;
+
+          // Count new tasks created after last visit
+          const lastVisit = boardLastVisitedTime[board.id] || 0;
+          if (lastVisit > 0) {
+            const { count: newCount } = await supabase
+              .from('tasks')
+              .select('id', { count: 'exact', head: true })
+              .eq('pipeline_id', board.id)
+              .gt('created_at', new Date(lastVisit).toISOString());
+            newCounts[board.id] = newCount || 0;
+          }
         }
         setBoardTaskCounts(counts);
+        setBoardNewTaskCount(newCounts);
       } catch (e) {
         console.error('Failed to fetch task counts:', e);
       }
     };
 
     updateTaskCounts();
-  }, [availablePipelines]);
+  }, [availablePipelines, boardLastVisitedTime]);
 
   // Real-time task count updates - listen to task creation/deletion across all pipelines
   useEffect(() => {
@@ -1017,9 +1040,17 @@ export function TasksScreenWeb() {
             >
               <View>
                 <View className="flex-row items-center mb-2">
-                   <View className="bg-brand-primary/10 px-3 py-1 rounded-full border border-brand-primary/20 flex-row items-center">
+                   <View className="bg-brand-primary/10 px-3 py-1 rounded-full border border-brand-primary/20 flex-row items-center relative">
                       <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest mr-2">{pipeline?.name || 'Pipeline'}</Text>
                       <FontAwesome name="chevron-down" size={8} className="text-brand-primary" />
+                      {Object.values(boardTaskCounts).some((count, idx) => {
+                        const boardId = availablePipelines[idx]?.id;
+                        return boardId !== pipeline?.id && count > 0;
+                      }) && (
+                        <View className="absolute -top-2 -right-2 bg-state-danger rounded-full w-5 h-5 items-center justify-center border-2 border-surface-card">
+                          <Text className="text-white text-[9px] font-black">!</Text>
+                        </View>
+                      )}
                    </View>
                 </View>
                 <Text className="text-typography-main text-5xl font-black tracking-tighter">Task Board</Text>
@@ -1354,11 +1385,6 @@ export function TasksScreenWeb() {
                                        <Text className="text-brand-primary text-[9px] font-black uppercase">⭐ Favorited</Text>
                                      </View>
                                    )}
-                                   {isRecent && (
-                                     <View className="bg-state-info/10 px-2 py-0.5 rounded-full border border-state-info/20">
-                                       <Text className="text-state-info text-[9px] font-black uppercase">📌 Recent</Text>
-                                     </View>
-                                   )}
                                    {p.is_default && (
                                      <View className="bg-surface-overlay px-2 py-0.5 rounded-full border border-surface-border">
                                        <Text className="text-typography-muted text-[9px] font-bold uppercase">Workspace Default</Text>
@@ -1371,9 +1397,9 @@ export function TasksScreenWeb() {
                                    )}
                                  </View>
                                </View>
-                               {boardTaskCounts[p.id] !== undefined && boardTaskCounts[p.id] > 0 && (
-                                 <View className="ml-3 bg-state-warning px-4 py-1.5 rounded-full border-2 border-state-warning">
-                                   <Text className="text-black text-[13px] font-black">{boardTaskCounts[p.id]}</Text>
+                               {!isCurrent && boardTaskCounts[p.id] !== undefined && boardTaskCounts[p.id] > 0 && (
+                                 <View className={`ml-3 px-4 py-1.5 rounded-full border-2 ${boardNewTaskCount[p.id] && boardNewTaskCount[p.id] > 0 ? 'bg-state-danger border-state-danger' : 'bg-state-warning border-state-warning'}`}>
+                                   <Text className={`text-[13px] font-black ${boardNewTaskCount[p.id] && boardNewTaskCount[p.id] > 0 ? 'text-white' : 'text-black'}`}>{boardTaskCounts[p.id]}</Text>
                                  </View>
                                )}
                              </View>
