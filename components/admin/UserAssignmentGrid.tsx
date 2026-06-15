@@ -1,10 +1,11 @@
 import { User, useRoleManager } from '@/contexts/RoleManagerContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { useAlert } from '@/contexts/AlertContext';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useState, useEffect } from 'react';
-import { Image, Modal, Platform, ScrollView, Text, TouchableOpacity, View, Alert, useWindowDimensions } from 'react-native';
+import { Image, Modal, Platform, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -28,6 +29,7 @@ type ActivityData = {
 export default function UserAssignmentGrid() {
   const { users, roles, teams, userRoles, teamMembers, teamRoles, updateUserAssignments, removeUserFromCompany, loading } = useRoleManager();
   const { hasPermission, profile } = useAuth();
+  const { showConfirm } = useAlert();
   const colors = useThemeColors();
   const { width } = useWindowDimensions();
   const isDesktop = width > 1024;
@@ -98,17 +100,18 @@ export default function UserAssignmentGrid() {
 
   const handleRemoveUser = async () => {
     if (!selectedUser || !canRemoveUsers) return;
-    Alert.alert('Remove User from Company', `Are you sure you want to remove ${selectedUser.full_name || selectedUser.email} from this company? They will lose access to all company resources.`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: async () => {
-          const success = await removeUserFromCompany(selectedUser.id);
-          if (success) setSelectedUser(null);
-        }
-      }
-    ]);
+    showConfirm(
+      'Remove User from Company',
+      `Are you sure you want to remove ${selectedUser.full_name || selectedUser.email} from this company? They will lose access to all company resources.`,
+      async () => {
+        const success = await removeUserFromCompany(selectedUser.id);
+        if (success) setSelectedUser(null);
+      },
+      undefined,
+      'Remove',
+      'Cancel',
+      'destructive'
+    );
   };
 
   const getTenure = (createdAt: string) => {
@@ -290,7 +293,7 @@ export default function UserAssignmentGrid() {
 
                     {/* Teams */}
                     {teamMembers.filter(tm => tm.user_id === selectedUser.id).length > 0 && (
-                      <View>
+                      <View className="mb-8">
                         <Text className="text-[11px] font-black uppercase tracking-[0.15em] mb-4" style={{ color: colors.primary }}>Teams</Text>
                         <View className="flex-row flex-wrap gap-2">
                           {teams
@@ -303,6 +306,30 @@ export default function UserAssignmentGrid() {
                               </View>
                             ))}
                         </View>
+                      </View>
+                    )}
+
+                    {/* Danger Zone */}
+                    {canRemoveUsers && (
+                      <View className="mt-8 pt-8 border-t" style={{ borderColor: colors.border }}>
+                        <View className="flex-row items-start mb-4">
+                          <FontAwesome name="warning" size={16} color={colors.danger} style={{ marginRight: 8, marginTop: 2 }} />
+                          <View className="flex-1">
+                            <Text className="text-[11px] font-black uppercase tracking-[0.15em]" style={{ color: colors.danger }}>Danger Zone</Text>
+                            <Text className="text-[10px] mt-1" style={{ color: colors.textMuted }}>Irreversible actions</Text>
+                          </View>
+                        </View>
+                        <TouchableOpacity
+                          onPress={handleRemoveUser}
+                          className="border px-4 py-3 rounded-lg flex-row items-center justify-between"
+                          style={{ backgroundColor: `${colors.danger}10`, borderColor: colors.danger }}
+                        >
+                          <View className="flex-1">
+                            <Text className="font-black text-sm" style={{ color: colors.danger }}>Remove from Company</Text>
+                            <Text className="text-[10px] mt-1" style={{ color: colors.textMuted }}>User will lose all access</Text>
+                          </View>
+                          <FontAwesome name="arrow-right" size={14} color={colors.danger} style={{ marginLeft: 12 }} />
+                        </TouchableOpacity>
                       </View>
                     )}
                   </View>
@@ -498,11 +525,6 @@ export default function UserAssignmentGrid() {
                     <Text className="font-black text-[11px] uppercase tracking-widest" style={{ color: colors.background }}>Save Changes</Text>
                   </TouchableOpacity>
                 )}
-                {canRemoveUsers && (
-                  <TouchableOpacity onPress={handleRemoveUser} className="flex-1 border py-4 rounded-xl items-center active:scale-[0.98]" style={{ backgroundColor: `${colors.danger}20`, borderColor: `${colors.danger}66` }}>
-                    <Text className="font-black text-[11px] uppercase tracking-widest" style={{ color: colors.danger }}>Remove</Text>
-                  </TouchableOpacity>
-                )}
               </View>
             </View>
           </View>
@@ -608,7 +630,7 @@ export default function UserAssignmentGrid() {
 
                     {/* Teams */}
                     {teamMembers.filter(tm => tm.user_id === selectedUser.id).length > 0 && (
-                      <View>
+                      <View className="mb-6">
                         <Text className="text-[10px] font-black uppercase tracking-[0.15em] mb-3" style={{ color: colors.primary }}>Teams</Text>
                         <View className="flex-row flex-wrap gap-2">
                           {teams
@@ -621,6 +643,30 @@ export default function UserAssignmentGrid() {
                               </View>
                             ))}
                         </View>
+                      </View>
+                    )}
+
+                    {/* Danger Zone */}
+                    {canRemoveUsers && (
+                      <View className="mt-6 pt-6 border-t" style={{ borderColor: colors.border }}>
+                        <View className="flex-row items-start mb-4">
+                          <FontAwesome name="warning" size={14} color={colors.danger} style={{ marginRight: 8, marginTop: 2 }} />
+                          <View className="flex-1">
+                            <Text className="text-[10px] font-black uppercase tracking-[0.15em]" style={{ color: colors.danger }}>Danger Zone</Text>
+                            <Text className="text-[9px] mt-1" style={{ color: colors.textMuted }}>Irreversible actions</Text>
+                          </View>
+                        </View>
+                        <TouchableOpacity
+                          onPress={handleRemoveUser}
+                          className="border px-3 py-3 rounded-lg flex-row items-center justify-between"
+                          style={{ backgroundColor: `${colors.danger}10`, borderColor: colors.danger }}
+                        >
+                          <View className="flex-1">
+                            <Text className="font-black text-xs" style={{ color: colors.danger }}>Remove from Company</Text>
+                            <Text className="text-[9px] mt-0.5" style={{ color: colors.textMuted }}>User loses all access</Text>
+                          </View>
+                          <FontAwesome name="arrow-right" size={12} color={colors.danger} style={{ marginLeft: 12 }} />
+                        </TouchableOpacity>
                       </View>
                     )}
                   </View>
@@ -762,11 +808,6 @@ export default function UserAssignmentGrid() {
                 {activeTab === 'roles' && canAssignRoles && (
                   <TouchableOpacity onPress={handleSave} disabled={loading} className="flex-1 py-3 rounded-lg items-center active:scale-[0.98]" style={{ backgroundColor: colors.primary }}>
                     <Text className="font-black text-[10px] uppercase tracking-widest" style={{ color: colors.background }}>Save</Text>
-                  </TouchableOpacity>
-                )}
-                {canRemoveUsers && (
-                  <TouchableOpacity onPress={handleRemoveUser} className="flex-1 border py-3 rounded-lg items-center active:scale-[0.98]" style={{ backgroundColor: `${colors.danger}20`, borderColor: `${colors.danger}66` }}>
-                    <Text className="font-black text-[10px] uppercase tracking-widest" style={{ color: colors.danger }}>Remove</Text>
                   </TouchableOpacity>
                 )}
               </View>
