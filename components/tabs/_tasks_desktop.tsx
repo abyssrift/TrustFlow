@@ -458,6 +458,18 @@ export function TasksScreenWeb() {
     initBoardPicker();
   }, []);
 
+  // Initialize last visit time for current board when it changes
+  useEffect(() => {
+    if (pipeline?.id) {
+      setBoardLastVisitedTime(prev => {
+        if (!prev[pipeline.id]) {
+          return { ...prev, [pipeline.id]: Date.now() };
+        }
+        return prev;
+      });
+    }
+  }, [pipeline?.id]);
+
   useEffect(() => {
     fetchPulse();
     fetchData();
@@ -1326,7 +1338,7 @@ export function TasksScreenWeb() {
       {/* PIPELINE PICKER - SMART BOARD SELECTOR */}
       {showPipelinePicker && (
          <View className="absolute inset-0 bg-surface-background/80 z-[100] items-center justify-center backdrop-blur-md p-6">
-            <View className="bg-surface-card w-full max-w-[900px] rounded-[3rem] border border-surface-border p-10 premium-shadow max-h-[90vh] flex-1 flex-col">
+            <View className="bg-surface-card w-full max-w-[900px] rounded-[3rem] border border-surface-border p-10 premium-shadow max-h-[90vh] overflow-hidden flex flex-col">
                 <View className="mb-6">
                   <Text className="text-typography-main font-black text-3xl mb-2 tracking-tighter">Switch Board</Text>
                   <Text className="text-typography-muted text-sm font-medium">Tip: Use Ctrl+] / Ctrl+[ or scroll on the board name to switch</Text>
