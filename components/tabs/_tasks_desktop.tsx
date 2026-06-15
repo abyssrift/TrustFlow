@@ -247,16 +247,28 @@ export function TasksScreenWeb() {
         }
         // Fall back to workspace default if nothing found
         if (!targetPipelineId) {
-          const { data: pDefault } = await supabase.from('pipelines').select('id, name, task_visibility_mode, is_default').eq('is_default', true).limit(1).single();
-          targetPipelineId = pDefault?.id;
-          pipelineData = pDefault;
-          setPipeline(pDefault);
+          try {
+            const { data: pDefault } = await supabase.from('pipelines').select('id, name, task_visibility_mode, is_default').eq('is_default', true).limit(1).single();
+            if (pDefault) {
+              targetPipelineId = pDefault.id;
+              pipelineData = pDefault;
+              setPipeline(pDefault);
+            }
+          } catch (e) {
+            // No default pipeline set, will use first available board
+          }
         }
       } else {
-        const { data: pSpecific } = await supabase.from('pipelines').select('id, name, task_visibility_mode, is_default').eq('id', targetPipelineId).single();
-        targetPipelineId = pSpecific?.id;
-        pipelineData = pSpecific;
-        setPipeline(pSpecific);
+        try {
+          const { data: pSpecific } = await supabase.from('pipelines').select('id, name, task_visibility_mode, is_default').eq('id', targetPipelineId).single();
+          if (pSpecific) {
+            targetPipelineId = pSpecific.id;
+            pipelineData = pSpecific;
+            setPipeline(pSpecific);
+          }
+        } catch (e) {
+          console.error('Failed to load specified pipeline:', e);
+        }
       }
 
       const { data: allPipes } = await supabase.from('pipelines').select('id, name, task_visibility_mode, is_default').is('deleted_at', null);
