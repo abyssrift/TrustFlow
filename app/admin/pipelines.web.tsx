@@ -106,13 +106,14 @@ function PipelinesWebInner() {
         return (
           <ScrollView className="flex-1 bg-surface-background/30" contentContainerStyle={{ padding: 40 }}>
             <View className="max-w-2xl mx-auto w-full">
-              <PipelineSettingsForm 
+              <PipelineSettingsForm
                 initialData={{
                   id: selectedPipeline.id,
                   name: selectedPipeline.name,
                   description: selectedPipeline.description,
                   visibility_permissions: selectedPipeline.visibility_permissions || [],
-                  task_visibility_mode: selectedPipeline.task_visibility_mode || 'all'
+                  task_visibility_mode: selectedPipeline.task_visibility_mode || 'all',
+                  is_default: selectedPipeline.is_default || false
                 }}
                 roles={roles}
                 error={error}
@@ -124,11 +125,11 @@ function PipelinesWebInner() {
                 onClearError={clearError}
                 onSubmit={async (data) => {
                   await pipelineActions.update(
-                    selectedPipeline.id, 
-                    data.name, 
-                    data.description, 
-                    undefined, 
-                    data.visibility_permissions, 
+                    selectedPipeline.id,
+                    data.name,
+                    data.description,
+                    data.is_default,
+                    data.visibility_permissions,
                     data.task_visibility_mode
                   );
                 }}

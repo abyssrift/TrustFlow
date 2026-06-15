@@ -11,6 +11,7 @@ type PipelineFormData = {
   description: string | null;
   visibility_permissions: string[];   // stores role UUIDs
   task_visibility_mode: 'all' | 'assigned_only';
+  is_default?: boolean;
 };
 
 type Props = {
@@ -53,6 +54,7 @@ export default function PipelineSettingsForm({
   const [taskVisibilityMode, setTaskVisibilityMode] = useState<'all' | 'assigned_only'>(
     initialData?.task_visibility_mode || 'all'
   );
+  const [isDefault, setIsDefault] = useState(initialData?.is_default || false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteInput, setDeleteInput] = useState('');
@@ -100,7 +102,8 @@ export default function PipelineSettingsForm({
       name: name.trim(),
       description: desc,
       visibility_permissions: selectedRoleIds,
-      task_visibility_mode: taskVisibilityMode
+      task_visibility_mode: taskVisibilityMode,
+      is_default: isDefault
     });
   };
 
@@ -233,7 +236,7 @@ export default function PipelineSettingsForm({
         <View>
           <Text className="text-typography-main font-bold text-xs mb-3 px-1">Task Visibility Mode</Text>
           <View className="flex-row gap-2">
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => setTaskVisibilityMode('all')}
               className={`flex-1 py-2.5 rounded-xl border items-center flex-row justify-center gap-2 ${
                 taskVisibilityMode === 'all' ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'
@@ -244,8 +247,8 @@ export default function PipelineSettingsForm({
                 All Tasks
               </Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               onPress={() => setTaskVisibilityMode('assigned_only')}
               className={`flex-1 py-2.5 rounded-xl border items-center flex-row justify-center gap-2 ${
                 taskVisibilityMode === 'assigned_only' ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'
@@ -258,10 +261,28 @@ export default function PipelineSettingsForm({
             </TouchableOpacity>
           </View>
           <Text className="text-typography-muted text-[9px] mt-2 ml-1 leading-3 italic">
-            {taskVisibilityMode === 'all' 
-              ? 'Members can see all tasks in this pipeline.' 
+            {taskVisibilityMode === 'all'
+              ? 'Members can see all tasks in this pipeline.'
               : 'Members only see tasks assigned to them or their team.'}
           </Text>
+        </View>
+
+        {/* Default Pipeline Toggle */}
+        <View className="mt-4 pt-4 border-t border-surface-border">
+          <View className="flex-row items-center justify-between">
+            <View className="flex-1 mr-4">
+              <Text className="text-typography-main font-bold text-xs">Set as Default</Text>
+              <Text className="text-typography-muted text-[9px] mt-1 leading-3">
+                New members will be directed to this pipeline when they first log in.
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => setIsDefault(!isDefault)}
+              className={`w-12 h-7 rounded-full flex-row items-center px-1 transition-all ${isDefault ? 'bg-brand-primary justify-end' : 'bg-surface-overlay justify-start'}`}
+            >
+              <View className="w-5 h-5 rounded-full bg-white shadow-sm" />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 

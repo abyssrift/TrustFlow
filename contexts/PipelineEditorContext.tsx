@@ -581,10 +581,11 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
       if (e) throw e;
       await refreshPipelines();
       if (selectedPipeline?.id === id) {
-        setSelectedPipeline(prev => prev ? { 
-          ...prev, 
-          name: name ?? prev.name, 
+        setSelectedPipeline(prev => prev ? {
+          ...prev,
+          name: name ?? prev.name,
           description: desc ?? prev.description,
+          is_default: isDefault ?? prev.is_default,
           visibility_permissions: visibility_permissions ?? prev.visibility_permissions,
           task_visibility_mode: (task_visibility_mode as any) ?? prev.task_visibility_mode
         } : null);

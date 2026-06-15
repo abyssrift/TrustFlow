@@ -139,6 +139,7 @@ export function TasksScreenWeb() {
   const [searchQuery, setSearchQuery] = useState('');
   const [mineOnly, setMineOnly] = useState(false);
   const [myTeamIds, setMyTeamIds] = useState<string[]>([]);
+  const [myDefaultPipelineId, setMyDefaultPipelineId] = useState<string | null>(null);
 
   // Archival State
   const [archiveModal, setArchiveModal] = useState<{ visible: boolean, taskId: string | null }>({ visible: false, taskId: null });
@@ -159,17 +160,34 @@ export function TasksScreenWeb() {
       let targetPipelineId = paramPipelineId;
       let pipelineData: any = null;
       if (!targetPipelineId) {
-        // Try to restore from storage
-        const savedPipelineId = await AsyncStorage.getItem('@TrustFlow_tasks_pipeline');
-        if (savedPipelineId) {
-          const { data: pSaved } = await supabase.from('pipelines').select('id, name, task_visibility_mode, is_default').eq('id', savedPipelineId).single();
-          if (pSaved) {
-            targetPipelineId = pSaved.id;
-            pipelineData = pSaved;
-            setPipeline(pSaved);
+        // Try to restore personal default first
+        if (!myDefaultPipelineId) {
+          const savedMyDefault = await AsyncStorage.getItem('@TrustFlow_my_default_pipeline');
+          if (savedMyDefault) {
+            setMyDefaultPipelineId(savedMyDefault);
           }
         }
-        // Fall back to default if saved pipeline not found
+        if (myDefaultPipelineId) {
+          const { data: pMyDefault } = await supabase.from('pipelines').select('id, name, task_visibility_mode, is_default').eq('id', myDefaultPipelineId).single();
+          if (pMyDefault) {
+            targetPipelineId = pMyDefault.id;
+            pipelineData = pMyDefault;
+            setPipeline(pMyDefault);
+          }
+        }
+        // Fall back to last selected pipeline
+        if (!targetPipelineId) {
+          const savedPipelineId = await AsyncStorage.getItem('@TrustFlow_tasks_pipeline');
+          if (savedPipelineId) {
+            const { data: pSaved } = await supabase.from('pipelines').select('id, name, task_visibility_mode, is_default').eq('id', savedPipelineId).single();
+            if (pSaved) {
+              targetPipelineId = pSaved.id;
+              pipelineData = pSaved;
+              setPipeline(pSaved);
+            }
+          }
+        }
+        // Fall back to workspace default if nothing found
         if (!targetPipelineId) {
           const { data: pDefault } = await supabase.from('pipelines').select('id, name, task_visibility_mode, is_default').eq('is_default', true).limit(1).single();
           targetPipelineId = pDefault?.id;
@@ -339,6 +357,17 @@ export function TasksScreenWeb() {
     const { data } = await supabase.rpc('rpc_get_personal_pulse');
     if (data) setPulse(data);
   };
+
+  // Load personal default pipeline on mount
+  useEffect(() => {
+    const loadPersonalDefault = async () => {
+      const saved = await AsyncStorage.getItem('@TrustFlow_my_default_pipeline');
+      if (saved) {
+        setMyDefaultPipelineId(saved);
+      }
+    };
+    loadPersonalDefault();
+  }, []);
 
   useEffect(() => {
     fetchPulse();
@@ -974,22 +1003,44 @@ export function TasksScreenWeb() {
                            }}
                          >
                            <Text className={`font-black text-lg ${pipeline?.id === p.id ? 'text-brand-primary' : 'text-typography-main'}`}>{p.name}</Text>
-                           {p.is_default && (
-                             <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-wider mt-1">Default Pipeline</Text>
-                           )}
+                           <View className="flex-row gap-2 mt-1">
+                             {p.is_default && (
+                               <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-wider">Workspace Default</Text>
+                             )}
+                             {myDefaultPipelineId === p.id && (
+                               <Text className="text-state-success text-[10px] font-bold uppercase tracking-wider">My Default</Text>
+                             )}
+                           </View>
                          </TouchableOpacity>
-                         {hasPermission('pipeline.edit') && (
+                         <View className="flex-row items-center border-l border-surface-border/50">
                            <TouchableOpacity
-                             onPress={() => handleSetDefault(p.id)}
-                             className={`px-5 py-6 items-center justify-center border-l border-surface-border/50 hover:bg-brand-primary/10 transition-colors`}
+                             onPress={async () => {
+                               await AsyncStorage.setItem('@TrustFlow_my_default_pipeline', p.id);
+                               setMyDefaultPipelineId(p.id);
+                             }}
+                             className={`px-4 py-6 items-center justify-center hover:bg-surface-overlay transition-colors`}
+                             title="Set as my default"
                            >
                              <FontAwesome
-                               name={p.is_default ? 'star' : 'star-o'}
-                               size={16}
-                               color={p.is_default ? colors.primary : colors.textMuted}
+                               name={myDefaultPipelineId === p.id ? 'heart' : 'heart-o'}
+                               size={14}
+                               color={myDefaultPipelineId === p.id ? colors.success : colors.textMuted}
                              />
                            </TouchableOpacity>
-                         )}
+                           {hasPermission('pipeline.edit') && (
+                             <TouchableOpacity
+                               onPress={() => handleSetDefault(p.id)}
+                               className={`px-4 py-6 items-center justify-center border-l border-surface-border/50 hover:bg-brand-primary/10 transition-colors`}
+                               title="Set as workspace default"
+                             >
+                               <FontAwesome
+                                 name={p.is_default ? 'star' : 'star-o'}
+                                 size={14}
+                                 color={p.is_default ? colors.primary : colors.textMuted}
+                               />
+                             </TouchableOpacity>
+                           )}
+                         </View>
                        </View>
                     ))}
                  </ScrollView>
