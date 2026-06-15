@@ -33,7 +33,7 @@ export default function UserAssignmentGrid() {
   const isDesktop = width > 1024;
 
   const canAssignRoles = hasPermission('role.manage');
-  const canRemoveUsers = hasPermission('company.manage');
+  const canRemoveUsers = hasPermission('role.manage');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('profile');
   const [draftRoleIds, setDraftRoleIds] = useState<string[]>([]);
