@@ -1408,20 +1408,6 @@ export function TasksScreenWeb() {
                              />
                            </TouchableOpacity>
 
-                           {/* Workspace Default Star */}
-                           {hasPermission('pipeline.edit') && (
-                             <TouchableOpacity
-                               onPress={() => handleSetDefault(p.id)}
-                               className="px-3 py-4 items-center justify-center border-l border-surface-border/50 hover:bg-brand-primary/10 transition-colors"
-                               title="Set as workspace default"
-                             >
-                               <FontAwesome
-                                 name={p.is_default ? 'flag' : 'flag-o'}
-                                 size={14}
-                                 color={p.is_default ? colors.primary : colors.textMuted}
-                               />
-                             </TouchableOpacity>
-                           )}
                          </View>
                        );
                     })}
@@ -1438,10 +1424,6 @@ export function TasksScreenWeb() {
                     <View className="flex-row items-center gap-2">
                       <FontAwesome name="heart" size={12} className="text-state-success" />
                       <Text className="text-typography-muted text-[10px] font-medium">Heart = Set as your personal default</Text>
-                    </View>
-                    <View className="flex-row items-center gap-2">
-                      <FontAwesome name="flag" size={12} className="text-brand-primary" />
-                      <Text className="text-typography-muted text-[10px] font-medium">Flag = Set as workspace default (admin)</Text>
                     </View>
                   </View>
                 </View>
