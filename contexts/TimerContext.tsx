@@ -363,11 +363,11 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
       const durationSecs = Math.max(0, Math.round(
         (lastActivityTimeRef.current - new Date(snapshot.started_at).getTime()) / 1000
       ));
-      supabase.rpc('rpc_notify_timer_auto_stopped', {
+      void supabase.rpc('rpc_notify_timer_auto_stopped', {
         p_task_id: snapshot.task_id,
         p_task_title: snapshot.task?.title ?? '',
         p_duration_seconds: durationSecs,
-      });
+      }).then(null, () => {});
     }
   }, [stopWork, serverTimeOffset]);
 

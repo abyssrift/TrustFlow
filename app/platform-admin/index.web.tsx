@@ -1,6 +1,7 @@
 import {
   deleteCompany,
   deleteUser,
+  deriveAlerts,
   fmtDay,
   fmtHHMM,
   fmtMins,
@@ -16,7 +17,9 @@ import {
   useTimeline,
   useUsersData,
   workspaceAge,
+  type AlertSeverity,
   type CompanyOverview,
+  type PlatformAlert,
   type PlatformUser,
   type Section,
   type SignalMetric,
@@ -1538,6 +1541,209 @@ function InfraSection() {
   );
 }
 
+// ── Alerts Section ─────────────────────────────────────────────────────────
+
+const ALERT_CONFIG: Record<AlertSeverity, { icon: string; color: string; bgClass: string; borderClass: string; tagClass: string }> = {
+  critical: { icon: 'exclamation-triangle', color: 'text-state-danger', bgClass: 'bg-state-danger/5', borderClass: 'border-state-danger/30', tagClass: 'bg-state-danger/10 text-state-danger' },
+  warning:  { icon: 'exclamation',         color: 'text-state-warning', bgClass: 'bg-state-warning/5', borderClass: 'border-state-warning/30', tagClass: 'bg-state-warning/10 text-state-warning' },
+  info:     { icon: 'info-circle',          color: 'text-brand-primary', bgClass: 'bg-brand-primary-dim', borderClass: 'border-brand-primary/20', tagClass: 'bg-brand-primary/10 text-brand-primary' },
+};
+
+function AlertCard({ alert, onViewCompany }: { alert: PlatformAlert; onViewCompany: (id: string) => void }) {
+  const cfg = ALERT_CONFIG[alert.severity];
+  return (
+    <View className={`rounded-2xl border p-5 mb-3 ${cfg.bgClass} ${cfg.borderClass}`}>
+      <View className="flex-row items-start justify-between gap-3">
+        <View className="flex-row items-start gap-3 flex-1">
+          <FontAwesome name={cfg.icon as any} size={13} className={cfg.color} style={{ marginTop: 1 }} />
+          <View className="flex-1">
+            <Text className={`text-sm font-black mb-1 ${cfg.color}`}>{alert.title}</Text>
+            <Text className="text-typography-muted text-xs leading-5">{alert.body}</Text>
+          </View>
+        </View>
+        <View className="flex-row items-center gap-2 shrink-0">
+          {alert.tag && (
+            <View className={`px-2.5 py-1 rounded-full ${cfg.tagClass}`}>
+              <Text className="text-[10px] font-black">{alert.tag}</Text>
+            </View>
+          )}
+          {alert.companyId && (
+            <TouchableOpacity
+              onPress={() => onViewCompany(alert.companyId!)}
+              className="flex-row items-center gap-1.5 px-3 py-1.5 bg-surface-card border border-surface-border rounded-xl hover:bg-surface-overlay transition-colors"
+            >
+              <Text className="text-typography-muted text-[11px] font-bold">View</Text>
+              <FontAwesome name="chevron-right" size={8} className="text-typography-dim" />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function AlertsSection({
+  companies, totalMins, onCompanyDeleted,
+}: {
+  companies: CompanyOverview[];
+  totalMins: number;
+  onCompanyDeleted: () => void;
+}) {
+  const colors = useThemeColors();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const alerts = useMemo(() => deriveAlerts(companies), [companies]);
+  const criticalCount = alerts.filter(a => a.severity === 'critical').length;
+  const warningCount  = alerts.filter(a => a.severity === 'warning').length;
+
+  const sortedByUsage = useMemo(
+    () => [...companies].sort((a, b) => b.session_minutes_week - a.session_minutes_week),
+    [companies]
+  );
+  const maxMins   = Math.max(1, ...sortedByUsage.map(c => c.session_minutes_week));
+  const maxTasks  = Math.max(1, ...sortedByUsage.map(c => c.task_count));
+  const maxUsers  = Math.max(1, ...sortedByUsage.map(c => c.user_count));
+
+  return (
+    <>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 32, paddingBottom: 48 }}>
+
+        {/* Summary pills */}
+        <View className="flex-row items-center gap-3 mb-6">
+          <View className="flex-row items-center gap-2 bg-state-danger/10 border border-state-danger/20 rounded-2xl px-5 py-3">
+            <FontAwesome name="exclamation-triangle" size={12} className="text-state-danger" />
+            <Text className="text-state-danger font-black text-sm">{criticalCount}</Text>
+            <Text className="text-state-danger/70 text-xs font-bold">critical</Text>
+          </View>
+          <View className="flex-row items-center gap-2 bg-state-warning/10 border border-state-warning/20 rounded-2xl px-5 py-3">
+            <FontAwesome name="exclamation" size={12} className="text-state-warning" />
+            <Text className="text-state-warning font-black text-sm">{warningCount}</Text>
+            <Text className="text-state-warning/70 text-xs font-bold">warnings</Text>
+          </View>
+          <View className="flex-row items-center gap-2 bg-surface-card border border-surface-border rounded-2xl px-5 py-3">
+            <FontAwesome name="info-circle" size={12} className="text-brand-primary/60" />
+            <Text className="text-typography-main font-black text-sm">{alerts.length - criticalCount - warningCount}</Text>
+            <Text className="text-typography-muted text-xs font-bold">info</Text>
+          </View>
+          {alerts.length === 0 && (
+            <View className="flex-row items-center gap-2 bg-state-success/10 border border-state-success/20 rounded-2xl px-5 py-3">
+              <FontAwesome name="check-circle" size={12} className="text-state-success" />
+              <Text className="text-state-success text-xs font-bold">All clear — no alerts</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Alerts list */}
+        {alerts.length > 0 && (
+          <View className="mb-8">
+            <Text className="text-typography-main font-black text-base mb-4">Active Alerts</Text>
+            {alerts.map(a => (
+              <AlertCard key={a.id} alert={a} onViewCompany={setSelectedId} />
+            ))}
+          </View>
+        )}
+
+        {/* Resource leaderboard */}
+        <View className="bg-surface-card rounded-2xl border border-surface-border overflow-hidden">
+          <View className="px-6 py-5 border-b border-surface-border flex-row items-center justify-between">
+            <View>
+              <Text className="text-typography-main font-black text-base">Resource Leaderboard</Text>
+              <Text className="text-typography-muted text-xs mt-0.5">All workspaces · this week</Text>
+            </View>
+            <View className="flex-row items-center gap-4">
+              {[
+                { label: 'Usage', color: 'bg-brand-primary' },
+                { label: 'Tasks', color: 'bg-[rgb(251,191,36)]' },
+                { label: 'Users', color: 'bg-state-success' },
+              ].map(leg => (
+                <View key={leg.label} className="flex-row items-center gap-1.5">
+                  <View className={`w-2 h-2 rounded-full ${leg.color}`} />
+                  <Text className="text-typography-dim text-[10px]">{leg.label}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          {sortedByUsage.length === 0 && (
+            <View className="items-center py-12">
+              <Text className="text-typography-dim text-sm">No tenants yet</Text>
+            </View>
+          )}
+
+          {sortedByUsage.map((co, i) => {
+            const usagePct  = totalMins > 0 ? (co.session_minutes_week / totalMins) * 100 : 0;
+            const health = healthLabel(co.user_count > 0 ? co.session_minutes_week / co.user_count : 0);
+            return (
+              <TouchableOpacity
+                key={co.id}
+                onPress={() => setSelectedId(co.id)}
+                className={`px-6 py-4 hover:bg-surface-overlay transition-colors ${i < sortedByUsage.length - 1 ? 'border-b border-surface-border' : ''}`}
+              >
+                <View className="flex-row items-center gap-4 mb-3">
+                  <Text className="text-typography-dim text-[11px] w-5 text-right shrink-0">{i + 1}</Text>
+                  <Text className="text-typography-main font-black text-sm flex-1" numberOfLines={1}>{co.name}</Text>
+                  <View className="flex-row items-center gap-2">
+                    {co.active_sessions_now > 0 && (
+                      <View className="flex-row items-center bg-state-success/10 px-2 py-0.5 rounded-full">
+                        <View className="w-1 h-1 bg-state-success rounded-full mr-1" />
+                        <Text className="text-state-success text-[9px] font-black">LIVE</Text>
+                      </View>
+                    )}
+                    <View className={`px-2 py-0.5 rounded-full ${health.dimColor}`}>
+                      <Text className={`text-[9px] font-black uppercase ${health.color}`}>{health.label}</Text>
+                    </View>
+                    <Text className="text-typography-dim text-[10px] w-10 text-right">{usagePct.toFixed(0)}%</Text>
+                    <FontAwesome name="chevron-right" size={8} className="text-typography-dim" />
+                  </View>
+                </View>
+
+                {/* 3 metric bars */}
+                <View className="flex-row items-center gap-4 ml-9">
+                  <View className="flex-1 gap-1.5">
+                    <View className="flex-row items-center gap-2">
+                      <View className="w-14 shrink-0">
+                        <Text className="text-typography-dim text-[10px]">Usage</Text>
+                      </View>
+                      <View className="flex-1 h-1.5 bg-surface-border rounded-full overflow-hidden">
+                        <View className="h-full rounded-full bg-brand-primary" style={{ width: `${maxMins > 0 ? Math.max(2, (co.session_minutes_week / maxMins) * 100) : 2}%` }} />
+                      </View>
+                      <Text className="text-typography-muted text-[10px] w-16 text-right shrink-0 font-bold">{fmtMins(co.session_minutes_week)}</Text>
+                    </View>
+                    <View className="flex-row items-center gap-2">
+                      <View className="w-14 shrink-0">
+                        <Text className="text-typography-dim text-[10px]">Tasks</Text>
+                      </View>
+                      <View className="flex-1 h-1.5 bg-surface-border rounded-full overflow-hidden">
+                        <View className="h-full rounded-full bg-[rgb(251,191,36)]" style={{ width: `${maxTasks > 0 ? Math.max(2, (co.task_count / maxTasks) * 100) : 2}%` }} />
+                      </View>
+                      <Text className="text-typography-muted text-[10px] w-16 text-right shrink-0 font-bold">{fmtNumber(co.task_count)}</Text>
+                    </View>
+                    <View className="flex-row items-center gap-2">
+                      <View className="w-14 shrink-0">
+                        <Text className="text-typography-dim text-[10px]">Users</Text>
+                      </View>
+                      <View className="flex-1 h-1.5 bg-surface-border rounded-full overflow-hidden">
+                        <View className="h-full rounded-full bg-state-success" style={{ width: `${maxUsers > 0 ? Math.max(2, (co.user_count / maxUsers) * 100) : 2}%` }} />
+                      </View>
+                      <Text className="text-typography-muted text-[10px] w-16 text-right shrink-0 font-bold">{fmtNumber(co.user_count)}</Text>
+                    </View>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </ScrollView>
+
+      <CompanyDetailPanel
+        companyId={selectedId}
+        onClose={() => setSelectedId(null)}
+        onDeleted={() => { setSelectedId(null); onCompanyDeleted(); }}
+      />
+    </>
+  );
+}
+
 // ── Sidebar ────────────────────────────────────────────────────────────────
 
 const NAV_ITEMS: { id: Section; label: string; icon: string }[] = [
@@ -1546,11 +1752,12 @@ const NAV_ITEMS: { id: Section; label: string; icon: string }[] = [
   { id: 'users',   label: 'Users',          icon: 'users' },
   { id: 'signals', label: 'Signals',        icon: 'line-chart' },
   { id: 'live',    label: 'Live',           icon: 'circle' },
+  { id: 'alerts',  label: 'Alerts',         icon: 'bell' },
   { id: 'infra',   label: 'Infrastructure', icon: 'server' },
 ];
 
-function Sidebar({ section, setSection, liveCount }: {
-  section: Section; setSection: (s: Section) => void; liveCount: number;
+function Sidebar({ section, setSection, liveCount, alertCount }: {
+  section: Section; setSection: (s: Section) => void; liveCount: number; alertCount: number;
 }) {
   return (
     <View className="bg-surface-card border-r border-surface-border" style={{ width: 240 }}>
@@ -1567,7 +1774,8 @@ function Sidebar({ section, setSection, liveCount }: {
       <View className="px-3 pt-4 gap-1">
         {NAV_ITEMS.map(item => {
           const isActive = section === item.id;
-          const showDot = item.id === 'live' && liveCount > 0;
+          const showLiveDot = item.id === 'live' && liveCount > 0;
+          const showAlertBadge = item.id === 'alerts' && alertCount > 0;
           return (
             <TouchableOpacity
               key={item.id}
@@ -1584,8 +1792,13 @@ function Sidebar({ section, setSection, liveCount }: {
               <Text className={`flex-1 font-bold text-sm ${isActive ? 'text-brand-primary' : 'text-typography-muted'}`}>
                 {item.label}
               </Text>
-              {showDot && (
+              {showLiveDot && (
                 <View className={`w-2 h-2 rounded-full ${isActive ? 'bg-brand-primary' : 'bg-state-success'}`} />
+              )}
+              {showAlertBadge && (
+                <View className="bg-state-danger rounded-full min-w-[18px] h-[18px] items-center justify-center px-1">
+                  <Text className="text-white text-[9px] font-black">{alertCount}</Text>
+                </View>
               )}
             </TouchableOpacity>
           );
@@ -1614,6 +1827,9 @@ export default function PlatformAdminWebScreen() {
     totalUsers, totalTasks, totalMins,
   } = useControlPlaneData();
 
+  const alerts = useMemo(() => deriveAlerts(companies), [companies]);
+  const alertCount = alerts.filter(a => a.severity === 'critical' || a.severity === 'warning').length;
+
   if (!initialized) {
     return (
       <View className="flex-1 bg-surface-background items-center justify-center">
@@ -1634,17 +1850,28 @@ export default function PlatformAdminWebScreen() {
     <View className="flex-1 flex-row bg-surface-background">
       <Stack.Screen options={{ headerShown: false }} />
 
-      <Sidebar section={section} setSection={setSection} liveCount={liveCount} />
+      <Sidebar section={section} setSection={setSection} liveCount={liveCount} alertCount={alertCount} />
 
       <View className="flex-1">
         {/* Top bar */}
         <View className="bg-surface-card border-b border-surface-border px-8 py-4 flex-row items-center justify-between">
           <Text className="text-typography-main font-black text-lg tracking-tight capitalize">{section}</Text>
-          <View className="flex-row items-center gap-2 bg-surface-overlay border border-surface-border rounded-xl px-3 py-1.5">
-            <View className={`w-1.5 h-1.5 rounded-full ${liveCount > 0 ? 'bg-state-success' : 'bg-surface-border'}`} />
-            <Text className="text-typography-muted text-[10px] font-bold">
-              {liveCount > 0 ? `${liveCount} live` : 'All quiet'}
-            </Text>
+          <View className="flex-row items-center gap-3">
+            {alertCount > 0 && section !== 'alerts' && (
+              <TouchableOpacity
+                onPress={() => setSection('alerts')}
+                className="flex-row items-center gap-2 bg-state-danger/10 border border-state-danger/20 rounded-xl px-3 py-1.5 hover:bg-state-danger/20 transition-colors"
+              >
+                <FontAwesome name="bell" size={10} className="text-state-danger" />
+                <Text className="text-state-danger text-[10px] font-black">{alertCount} alert{alertCount !== 1 ? 's' : ''}</Text>
+              </TouchableOpacity>
+            )}
+            <View className="flex-row items-center gap-2 bg-surface-overlay border border-surface-border rounded-xl px-3 py-1.5">
+              <View className={`w-1.5 h-1.5 rounded-full ${liveCount > 0 ? 'bg-state-success' : 'bg-surface-border'}`} />
+              <Text className="text-typography-muted text-[10px] font-bold">
+                {liveCount > 0 ? `${liveCount} live` : 'All quiet'}
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -1668,6 +1895,9 @@ export default function PlatformAdminWebScreen() {
           )}
           {section === 'signals' && <SignalsSection />}
           {section === 'live'    && <LiveSection />}
+          {section === 'alerts'  && (
+            <AlertsSection companies={companies} totalMins={totalMins} onCompanyDeleted={fetchCompanies} />
+          )}
           {section === 'infra'   && <InfraSection />}
         </View>
       </View>
