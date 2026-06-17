@@ -30,3 +30,21 @@ fix the damn team selector screen when assigning assignees.
 Task sharing between pipelines.
 
 version control in the filehub.
+
+action buttons in the task.tsx should point towards the stage they will advance you to.
+for example, if we're in stage 2, and there are two action buttons, one advances you to stage 1 and the other advances you to stage 5, the second button should point to the right and look like a right arrow, and the first button should look to the left etc.
+because current action buttons just look like random buttons, not very intuitive.
+
+
+
+
+
+Report generation error
+
+Report generation error: Error: Upload failed: The database schema is invalid or incompatible.
+    at generateAndUploadReport (http://localhost:8081/node_modules/expo-router/entry.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:237885:28)
+    at async handleGenerateReport (http://localhost:8081/node_modules/expo-router/entry.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:343323:11)
+
+    [report d85b0e9c] FAILED: Upload failed: The database schema is invalid or incompatible.
+
+    folder upload button might be broken now thanks to the recent changes.

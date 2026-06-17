@@ -1,6 +1,6 @@
 import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { FileActivity, FileHubFile, FileHubFolder, FileHubGroup, FileHubGroupMember, FileHubMode, FileHubProvider, useFileHub } from '@/contexts/FileHubContext';
+import { FileActivity, FileHubFile, FileHubFolder, FileHubGroup, FileHubGroupMember, FileHubMode, FileHubProvider, FileVersion, useFileHub } from '@/contexts/FileHubContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { downloadFilesAsZip, openStorageFile } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
@@ -10,6 +10,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
+  Image,
   Modal,
   Platform,
   ScrollView,
@@ -36,6 +37,14 @@ function relativeDate(dateStr: string): string {
   if (diff < 86400 * 7) return `${Math.floor(diff / 86400)}d ago`;
   if (diff < 86400 * 30) return `${Math.floor(diff / (86400 * 7))}w ago`;
   return new Date(dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+// Whole days from now until `expires_at`. Returns null when missing/already past.
+function expiresInDays(expiresAt: string | null): number | null {
+  if (!expiresAt) return null;
+  const ms = new Date(expiresAt).getTime() - Date.now();
+  if (ms <= 0) return null;
+  return Math.ceil(ms / (1000 * 60 * 60 * 24));
 }
 
 function getMimeIcon(mimeType: string | null): { icon: string; color: string } {
@@ -116,6 +125,95 @@ const ALLOWED_TYPES_MESSAGE =
 function isAllowedFile(name: string): boolean {
   const ext = name.split('.').pop()?.toLowerCase() ?? '';
   return ALLOWED_EXTENSIONS.has(ext);
+}
+
+// ─── Adaptive File Grid ───────────────────────────────────────────────────────
+
+function AdaptiveFileGrid({
+  files,
+  onRemove,
+  onAddMore
+}: {
+  files: File[];
+  onRemove: (index: number) => void;
+  onAddMore: () => void;
+}) {
+  // Since this renders inside a modal restricted to max-w-[560px] with 32px padding,
+  // we can use a baseline width of ~496px before onLayout accurately fires.
+  const [containerWidth, setContainerWidth] = useState(496); 
+
+  const gap = 12;
+  const minSquareSize = 100;
+
+  let numCols = Math.floor((containerWidth + gap) / (minSquareSize + gap));
+  if (numCols < 2) numCols = 2;
+  const exactSquareSize = Math.floor((containerWidth - (gap * (numCols - 1))) / numCols);
+
+  if (files.length === 0) return null;
+
+  return (
+    <View
+      onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+      className="flex-row flex-wrap w-full bg-surface-card border border-surface-border rounded-2xl p-4"
+      style={{ gap }}
+    >
+      {files.map((pf, idx) => {
+        const isImage = pf.type?.toLowerCase().startsWith('image/');
+        const { icon, color } = getMimeIcon(pf.type || null);
+        
+        // Convert the native DOM File into a temporary blob URL for the web <Image>
+        const imageSource = isImage ? URL.createObjectURL(pf) : '';
+
+        return (
+          <View
+            key={`${pf.name}-${idx}`}
+            style={{ width: exactSquareSize, height: exactSquareSize }}
+            className="rounded-xl overflow-hidden border border-surface-border bg-surface-background relative"
+          >
+            {isImage ? (
+              <Image
+                source={{ uri: imageSource }}
+                style={{ flex: 1, width: '100%', height: '100%', position: 'absolute' }}
+                resizeMode="cover"
+              />
+            ) : (
+              <View className="flex-1 items-center justify-center p-2" style={{ backgroundColor: color + '12' }}>
+                <FontAwesome name={icon as any} size={exactSquareSize > 100 ? 36 : 28} color={color} />
+                <View className="mt-3 bg-surface-background px-2 py-1 rounded-md border border-surface-border shadow-sm">
+                  <Text className="text-[10px] font-black uppercase text-typography-muted" numberOfLines={1}>
+                    {pf.name.split('.').pop() || 'FILE'}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            <TouchableOpacity
+              onPress={() => onRemove(idx)}
+              className="absolute top-1.5 right-1.5 w-6 h-6 bg-black/50 rounded-full items-center justify-center hover:bg-black/70 transition-colors"
+              style={{ cursor: 'pointer' } as any}
+            >
+              <FontAwesome name="times" size={10} color="#fff" />
+            </TouchableOpacity>
+
+            <View className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1 backdrop-blur-md">
+              <Text className="text-white text-[9px] font-bold text-center" numberOfLines={1}>
+                {formatFileSize(pf.size)}
+              </Text>
+            </View>
+          </View>
+        );
+      })}
+
+      <TouchableOpacity
+        onPress={onAddMore}
+        style={{ width: exactSquareSize, height: exactSquareSize }}
+        className="rounded-xl border-2 border-dashed border-surface-border bg-surface-background items-center justify-center hover:bg-surface-overlay transition-colors"
+      >
+        <FontAwesome name="plus" size={20} color="#94a3b8" />
+        <Text className="text-typography-muted text-[10px] font-black mt-2 tracking-wide uppercase">Add More</Text>
+      </TouchableOpacity>
+    </View>
+  );
 }
 
 // ─── Upload Modal ─────────────────────────────────────────────────────────────
@@ -430,40 +528,11 @@ function UploadModal({
                 </View>
               </View>
             ) : (
-              <View className="bg-surface-background border border-surface-border rounded-2xl overflow-hidden">
-                <ScrollView style={{ maxHeight: 200 }} showsVerticalScrollIndicator={false}>
-                  {draft.files.map((file, idx) => (
-                    <View key={idx} className={`flex-row items-center px-4 py-3 gap-3 ${idx < draft.files.length - 1 ? 'border-b border-surface-border/50' : ''}`}>
-                      <View className="w-9 h-9 bg-brand-primary/10 rounded-xl items-center justify-center flex-shrink-0">
-                        <FontAwesome name={getMimeIcon(file.type).icon as any} size={16} color={colors.primary} />
-                      </View>
-                      <View className="flex-1 min-w-0">
-                        <Text className="text-typography-main text-xs font-bold" numberOfLines={1}>{file.name}</Text>
-                        <Text className="text-typography-muted text-[10px]">{formatFileSize(file.size)}</Text>
-                      </View>
-                      <TouchableOpacity onPress={() => patch({ files: draft.files.filter((_, i) => i !== idx) })}>
-                        <FontAwesome name="times-circle" size={16} color={colors.textMuted} />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                </ScrollView>
-                <View className="flex-row gap-2 p-3 border-t border-surface-border/50">
-                  <TouchableOpacity
-                    onPress={() => fileInputRef.current?.click()}
-                    className="flex-1 flex-row items-center justify-center gap-1.5 py-2 bg-surface-background border border-surface-border rounded-xl"
-                  >
-                    <FontAwesome name="plus" size={10} color={colors.textMuted} />
-                    <Text className="text-typography-muted text-xs font-bold">Add Files</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => folderInputRef.current?.click()}
-                    className="flex-1 flex-row items-center justify-center gap-1.5 py-2 bg-surface-background border border-surface-border rounded-xl"
-                  >
-                    <FontAwesome name="folder-open" size={10} color={colors.textMuted} />
-                    <Text className="text-typography-muted text-xs font-bold">Add Folder</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
+              <AdaptiveFileGrid 
+                files={draft.files}
+                onRemove={(idx) => patch({ files: draft.files.filter((_, i) => i !== idx) })}
+                onAddMore={() => fileInputRef.current?.click()}
+              />
             )}
 
             {/* Visibility — hidden when uploading to a group (locked to group) */}
@@ -1107,21 +1176,61 @@ function DetailPanel({
   currentUserId: string | undefined;
   onClose: () => void;
 }) {
-  const { markRead, hideFile, deleteFile, logActivity, fileActivity } = useFileHub();
+  const { markRead, hideFile, deleteFile, logActivity, fileActivity, fileVersions, restoreVersion } = useFileHub();
   const { showConfirm } = useAlert();
   const [downloadLoading, setDownloadLoading] = useState(false);
-  const [tab, setTab] = useState<'details' | 'activity'>('details');
+  const [tab, setTab] = useState<'details' | 'activity' | 'versions'>('details');
   const [activity, setActivity] = useState<FileActivity[]>([]);
   const [activityLoading, setActivityLoading] = useState(false);
+  const [versions, setVersions] = useState<FileVersion[]>([]);
+  const [versionsLoading, setVersionsLoading] = useState(false);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
     const colors = useThemeColors();
 
-  useEffect(() => { setTab('details'); setActivity([]); }, [file?.id]);
+  const hasVersionHistory = !!(file?.version_count && file.version_count > 1);
+
+  useEffect(() => { setTab('details'); setActivity([]); setVersions([]); }, [file?.id]);
   useEffect(() => { if (file) logActivity(file.id, 'view'); }, [file?.id]);
   useEffect(() => {
     if (tab !== 'activity' || !file) return;
     setActivityLoading(true);
     fileActivity(file.id).then(setActivity).catch(console.error).finally(() => setActivityLoading(false));
   }, [tab, file?.id]);
+
+  const loadVersions = useCallback(() => {
+    if (!file) return;
+    setVersionsLoading(true);
+    fileVersions(file.id).then(setVersions).catch(console.error).finally(() => setVersionsLoading(false));
+  }, [file?.id, fileVersions]);
+
+  useEffect(() => {
+    if (tab !== 'versions' || !file) return;
+    loadVersions();
+  }, [tab, file?.id, loadVersions]);
+
+  const handleVersionDownload = async (version: FileVersion) => {
+    if (!file) return;
+    logActivity(file.id, 'download', { version_no: version.version_no });
+    await openStorageFile(version.bucket || 'filehub-files', version.storage_path, version.original_name);
+  };
+
+  const handleRestore = (version: FileVersion) => {
+    if (!file) return;
+    showConfirm(
+      'Restore Version',
+      `Make version ${version.version_no} the current version? The current version will be kept in history.`,
+      async () => {
+        setRestoringId(version.id);
+        try {
+          await restoreVersion(version.id);
+          loadVersions();
+        } finally {
+          setRestoringId(null);
+        }
+      },
+      undefined, 'Restore', 'Cancel'
+    );
+  };
 
   const handleDownload = async () => {
     if (!file) return;
@@ -1180,7 +1289,11 @@ function DetailPanel({
           {formatFileSize(file.size_bytes)}{file.mime_type ? ` · ${file.mime_type.split('/').pop()?.toUpperCase()}` : ''}
         </Text>
         <View className="flex-row gap-2 mt-3">
-          {(['details', 'activity'] as const).map(t => (
+          {([
+            'details',
+            'activity',
+            ...(hasVersionHistory ? (['versions'] as const) : []),
+          ] as const).map(t => (
             <TouchableOpacity
               key={t}
               onPress={() => setTab(t)}
@@ -1302,7 +1415,7 @@ function DetailPanel({
             </View>
           </View>
         </ScrollView>
-      ) : (
+      ) : tab === 'activity' ? (
         <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 16 }}>
           {activityLoading ? (
             <View className="py-10 items-center">
@@ -1327,6 +1440,64 @@ function DetailPanel({
                       <Text className="text-typography-muted font-medium">{meta.label.toLowerCase()}</Text>
                     </Text>
                     <Text className="text-typography-dim text-[10px] mt-0.5">{relativeDate(entry.created_at)}</Text>
+                  </View>
+                </View>
+              );
+            })
+          )}
+        </ScrollView>
+      ) : (
+        <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 16 }}>
+          {versionsLoading ? (
+            <View className="py-10 items-center">
+              <ActivityIndicator color={colors.primary} />
+            </View>
+          ) : versions.length === 0 ? (
+            <View className="py-10 items-center px-8">
+              <FontAwesome name="history" size={24} color={colors.textDim} />
+              <Text className="text-typography-muted text-sm mt-3 text-center">No version history</Text>
+            </View>
+          ) : (
+            versions.map((v, i) => {
+              const days = v.is_current ? null : expiresInDays(v.expires_at);
+              return (
+                <View key={v.id} className={`px-6 py-3.5 ${i < versions.length - 1 ? 'border-b border-surface-border/40' : ''}`}>
+                  <View className="flex-row items-center gap-2 mb-1">
+                    <Text className="text-typography-main text-sm font-black">Version {v.version_no}</Text>
+                    {v.is_current && (
+                      <View className="px-2 py-0.5 rounded-full bg-brand-primary/10 border border-brand-primary/30">
+                        <Text className="text-brand-primary text-[9px] font-black uppercase tracking-wide">Current</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text className="text-typography-muted text-[11px]" numberOfLines={1}>
+                    {v.uploader.full_name} · {formatFileSize(v.size_bytes)} · {relativeDate(v.created_at)}
+                  </Text>
+                  {!v.is_current && (
+                    <Text className="text-typography-dim text-[10px] mt-0.5">
+                      {days != null ? `Expires in ${days} day${days === 1 ? '' : 's'}` : 'Expiring soon'}
+                    </Text>
+                  )}
+                  <View className="flex-row gap-2 mt-2">
+                    <TouchableOpacity
+                      onPress={() => handleVersionDownload(v)}
+                      className="flex-row items-center justify-center bg-surface-background border border-surface-border rounded-xl px-3 py-2 gap-1.5"
+                    >
+                      <FontAwesome name="download" size={11} color={colors.textMuted} />
+                      <Text className="text-typography-muted font-bold text-xs">Download</Text>
+                    </TouchableOpacity>
+                    {!v.is_current && (
+                      <TouchableOpacity
+                        onPress={() => handleRestore(v)}
+                        disabled={restoringId === v.id}
+                        className="flex-row items-center justify-center bg-brand-primary/10 border border-brand-primary/30 rounded-xl px-3 py-2 gap-1.5"
+                      >
+                        {restoringId === v.id
+                          ? <ActivityIndicator size="small" color={colors.primary} />
+                          : <FontAwesome name="undo" size={11} color={colors.primary} />}
+                        <Text className="text-brand-primary font-bold text-xs">Restore</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 </View>
               );

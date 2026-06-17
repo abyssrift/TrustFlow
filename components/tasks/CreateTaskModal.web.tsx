@@ -1,16 +1,16 @@
 import ClipboardControls from '@/components/common/ClipboardControls';
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
-import { getPastedImageFile } from '@/lib/pasteImage';
-import { useTaskCreation } from '@/contexts/TaskCreationContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTaskCreation } from '@/contexts/TaskCreationContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
+import { getPastedImageFile } from '@/lib/pasteImage';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Modal, ScrollView, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Image, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
-import { useThemeColors } from '@/hooks/useThemeColors';
 
 cssInterop(FontAwesome, {
   className: {
@@ -56,6 +56,110 @@ function quickDate(days: number): string {
   d.setDate(d.getDate() + days);
   return d.toISOString().split('T')[0];
 }
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+}
+
+function getFileIcon(mimeType: string | null, colors: ReturnType<typeof useThemeColors>): { name: string; color: string } {
+  const t = (mimeType || '').toLowerCase();
+  if (t.includes('image')) return { name: 'file-image-o', color: colors.warning };
+  if (t.includes('pdf')) return { name: 'file-pdf-o', color: colors.danger };
+  if (t.includes('spreadsheet') || t.includes('excel') || t.includes('csv')) return { name: 'file-excel-o', color: colors.success };
+  if (t.includes('word') || t.includes('document') || t.includes('text')) return { name: 'file-text-o', color: colors.info };
+  return { name: 'file-o', color: colors.textMuted };
+}
+
+// ─── Adaptive File Grid ───────────────────────────────────────────────────────
+
+function AdaptiveFileGrid({
+  files,
+  onRemove,
+  isUploading = false
+}: {
+  files: any[];
+  onRemove: (id: string) => void;
+  isUploading?: boolean;
+}) {
+  const [containerWidth, setContainerWidth] = useState(0);
+  const colors = useThemeColors();
+  
+  const gap = 12;
+  const minSquareSize = 90;
+
+  const availableWidth = containerWidth > 0 ? containerWidth : 300;
+  
+  let numCols = Math.floor((availableWidth + gap) / (minSquareSize + gap));
+  if (numCols < 2) numCols = 2; 
+  const exactSquareSize = Math.floor((availableWidth - (gap * (numCols - 1))) / numCols);
+
+  if (files.length === 0) return null;
+
+  return (
+    <View 
+      onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+      className="flex-row flex-wrap w-full bg-surface-background border border-surface-border rounded-xl p-3 mb-4"
+      style={{ gap }}
+    >
+      {files.map((pf) => {
+        const isImage = pf.type?.toLowerCase().includes('image');
+        const { name: icon, color } = getFileIcon(pf.type || null, colors);
+
+        return (
+          <View 
+            key={pf.id} 
+            style={{ width: exactSquareSize, height: exactSquareSize }}
+            className="rounded-xl overflow-hidden border border-surface-border bg-surface-card relative"
+          >
+            {isImage ? (
+              <Image 
+                source={{ uri: pf.uri }} 
+                style={{ flex: 1, width: '100%', height: '100%', position: 'absolute' }} 
+                resizeMode="cover" 
+              />
+            ) : (
+              <View className="flex-1 items-center justify-center p-2" style={{ backgroundColor: color + '15' }}>
+                <FontAwesome name={icon as any} size={exactSquareSize > 80 ? 32 : 24} color={color} />
+                <View className="mt-2 bg-surface-background px-2 py-0.5 rounded-md border border-surface-border shadow-sm">
+                  <Text className="text-[9px] font-black uppercase text-typography-muted" numberOfLines={1}>
+                    {pf.name.split('.').pop() || 'FILE'}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {isUploading ? (
+              <View className="absolute top-1.5 right-1.5 w-6 h-6 bg-black/60 rounded-full items-center justify-center">
+                <ActivityIndicator size="small" color="#fff" style={{ transform: [{ scale: 0.6 }] }} />
+              </View>
+            ) : (
+              <TouchableOpacity 
+                onPress={() => onRemove(pf.id)}
+                className="absolute top-1.5 right-1.5 w-6 h-6 bg-black/60 rounded-full items-center justify-center hover:bg-black/80 transition-colors"
+                style={Platform.OS === 'web' ? { cursor: 'pointer' } as any : {}}
+              >
+                <FontAwesome name="times" size={10} color="#fff" />
+              </TouchableOpacity>
+            )}
+
+            <View className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1 backdrop-blur-md">
+              <Text className="text-white text-[9px] font-bold text-center" numberOfLines={1}>
+                {formatFileSize(pf.size)}
+              </Text>
+            </View>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function CreateTaskModal({ visible, onClose, initialPipelineId }: Props) {
   const colors = useThemeColors();
@@ -554,19 +658,16 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                   <View>
                     <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-3 ml-1">Brief Files</Text>
                     <Text className="text-typography-muted text-xs mb-4">Attach reference materials, specs, or context files for the assignee.</Text>
+                    
+                    {/* Adaptive File Grid */}
                     {briefFiles.length > 0 && (
-                      <View className="gap-2 mb-4">
-                        {briefFiles.map(f => (
-                          <View key={f.id} className="flex-row items-center bg-surface-background px-4 py-3 rounded-xl border border-surface-border/50">
-                            <FontAwesome name={f.type.startsWith('image/') ? 'file-image-o' : 'file-o'} size={13} color={colors.primary} />
-                            <Text className="text-typography-main text-xs font-bold ml-3 flex-1" numberOfLines={1}>{f.name}</Text>
-                            <TouchableOpacity onPress={() => setBriefFiles(prev => prev.filter(x => x.id !== f.id))} className="ml-3 p-1">
-                              <FontAwesome name="times-circle" size={13} color={colors.danger} />
-                            </TouchableOpacity>
-                          </View>
-                        ))}
-                      </View>
+                      <AdaptiveFileGrid 
+                        files={briefFiles} 
+                        onRemove={(id) => setBriefFiles(prev => prev.filter(x => x.id !== id))} 
+                        isUploading={loading} 
+                      />
                     )}
+
                     <View className="flex-row gap-4">
                       <TouchableOpacity
                         onPress={async () => {

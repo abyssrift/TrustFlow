@@ -1,16 +1,121 @@
 import { useTaskCreation } from '@/contexts/TaskCreationContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
+import { getPastedImageFile } from '@/lib/pasteImage';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getPastedImageFile } from '@/lib/pasteImage';
 import ClipboardControls from '../common/ClipboardControls';
 import PremiumCalendarPicker from '../common/PremiumCalendarPicker';
-import { useThemeColors } from '@/hooks/useThemeColors';
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+}
+
+function getFileIcon(mimeType: string | null, colors: ReturnType<typeof useThemeColors>): { name: string; color: string } {
+  const t = (mimeType || '').toLowerCase();
+  if (t.includes('image')) return { name: 'file-image-o', color: colors.warning };
+  if (t.includes('pdf')) return { name: 'file-pdf-o', color: colors.danger };
+  if (t.includes('spreadsheet') || t.includes('excel') || t.includes('csv')) return { name: 'file-excel-o', color: colors.success };
+  if (t.includes('word') || t.includes('document') || t.includes('text')) return { name: 'file-text-o', color: colors.info };
+  return { name: 'file-o', color: colors.textMuted };
+}
+
+// ─── Adaptive File Grid ───────────────────────────────────────────────────────
+
+function AdaptiveFileGrid({
+  files,
+  onRemove,
+  isUploading = false
+}: {
+  files: any[];
+  onRemove: (id: string) => void;
+  isUploading?: boolean;
+}) {
+  const [containerWidth, setContainerWidth] = useState(0);
+  const colors = useThemeColors();
+  
+  const gap = 12;
+  const minSquareSize = 90; // Slightly smaller for inline forms
+
+  // Fallback width before layout calculation fires
+  const availableWidth = containerWidth > 0 ? containerWidth : 300;
+  
+  let numCols = Math.floor((availableWidth + gap) / (minSquareSize + gap));
+  if (numCols < 2) numCols = 2; 
+  const exactSquareSize = Math.floor((availableWidth - (gap * (numCols - 1))) / numCols);
+
+  if (files.length === 0) return null;
+
+  return (
+    <View 
+      onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+      className="flex-row flex-wrap w-full bg-surface-background border border-surface-border rounded-xl p-3 mb-3"
+      style={{ gap }}
+    >
+      {files.map((pf) => {
+        const isImage = pf.type?.toLowerCase().includes('image');
+        const { name: icon, color } = getFileIcon(pf.type || null, colors);
+
+        return (
+          <View 
+            key={pf.id} 
+            style={{ width: exactSquareSize, height: exactSquareSize }}
+            className="rounded-xl overflow-hidden border border-surface-border bg-surface-card relative"
+          >
+            {isImage ? (
+              <Image 
+                source={{ uri: pf.uri }} 
+                style={{ flex: 1, width: '100%', height: '100%', position: 'absolute' }} 
+                resizeMode="cover" 
+              />
+            ) : (
+              <View className="flex-1 items-center justify-center p-2" style={{ backgroundColor: color + '15' }}>
+                <FontAwesome name={icon as any} size={exactSquareSize > 80 ? 32 : 24} color={color} />
+                <View className="mt-2 bg-surface-background px-2 py-0.5 rounded-md border border-surface-border shadow-sm">
+                  <Text className="text-[9px] font-black uppercase text-typography-muted" numberOfLines={1}>
+                    {pf.name.split('.').pop() || 'FILE'}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {isUploading ? (
+              <View className="absolute top-1.5 right-1.5 w-6 h-6 bg-black/60 rounded-full items-center justify-center">
+                <ActivityIndicator size="small" color="#fff" style={{ transform: [{ scale: 0.6 }] }} />
+              </View>
+            ) : (
+              <TouchableOpacity 
+                onPress={() => onRemove(pf.id)}
+                className="absolute top-1.5 right-1.5 w-6 h-6 bg-black/60 rounded-full items-center justify-center hover:bg-black/80 transition-colors"
+                style={Platform.OS === 'web' ? { cursor: 'pointer' } as any : {}}
+              >
+                <FontAwesome name="times" size={10} color="#fff" />
+              </TouchableOpacity>
+            )}
+
+            <View className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1 backdrop-blur-md">
+              <Text className="text-white text-[9px] font-bold text-center" numberOfLines={1}>
+                {formatFileSize(pf.size)}
+              </Text>
+            </View>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 type Props = {
   visible: boolean;
@@ -103,6 +208,10 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
   const handleCreate = async () => {
     const id = await createTask();
     if (id) onClose();
+  };
+
+  const removeBriefFile = (id: string) => {
+    setBriefFiles(prev => prev.filter(x => x.id !== id));
   };
 
   const renderStep = () => {
@@ -281,20 +390,16 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
              <View>
                <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-3 ml-1">Brief Files</Text>
                <Text className="text-typography-muted text-[10px] mb-3">Attach reference materials for the assignee.</Text>
+               
                {briefFiles.length > 0 && (
-                 <View className="gap-1.5 mb-3">
-                   {briefFiles.map(f => (
-                     <View key={f.id} className="flex-row items-center bg-surface-background px-3 py-2 rounded-lg border border-surface-border/50">
-                       <FontAwesome name={f.type.startsWith('image/') ? 'file-image-o' : 'file-o'} size={11} color={colors.primary} />
-                       <Text className="text-typography-main text-[11px] font-bold ml-2 flex-1" numberOfLines={1}>{f.name}</Text>
-                       <TouchableOpacity onPress={() => setBriefFiles(prev => prev.filter(x => x.id !== f.id))} className="ml-2 p-1">
-                         <FontAwesome name="times-circle" size={12} color={colors.danger} />
-                       </TouchableOpacity>
-                     </View>
-                   ))}
-                 </View>
+                 <AdaptiveFileGrid 
+                   files={briefFiles} 
+                   onRemove={removeBriefFile} 
+                   isUploading={false} 
+                 />
                )}
-               <View className="flex-row gap-3">
+               
+               <View className="flex-row flex-wrap gap-3">
                  <TouchableOpacity
                    onPress={async () => {
                      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsMultipleSelection: true });
@@ -425,7 +530,7 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
             <View className="absolute inset-0 z-50 items-center justify-center bg-surface-background/70">
               <View className="bg-surface-card border border-surface-border rounded-3xl px-6 py-5 items-center premium-shadow">
                 <ActivityIndicator size="large" color={colors.primary} />
-                <Text className="text-typography-main font-black uppercase tracking-[0.25em] text-[10px] mt-3">Creating task</Text>
+                <Text className="text-typography-main font-black uppercase tracking-[0.2em] text-[10px] mt-3">Creating task</Text>
               </View>
             </View>
           )}

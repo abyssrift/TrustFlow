@@ -15,8 +15,17 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, AppState, Platform, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, Image, Platform, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { getActionDescriptor, splitStageActions } from './actionRegistry';
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+}
 
 function getFileIcon(mimeType: string | null, colors: ReturnType<typeof useThemeColors>): { name: string; color: string } {
   const t = (mimeType || '').toLowerCase();
@@ -33,6 +42,93 @@ const STATUS_STYLES: Record<string, { bg: string; border: string; text: string; 
   rejected: { bg: 'bg-state-danger-dim', border: 'border-state-danger/30', text: 'text-state-danger', label: 'Rejected' },
   pending: { bg: 'bg-state-info-dim', border: 'border-state-info/30', text: 'text-state-info', label: 'Pending Review' },
 };
+
+// ─── Adaptive File Grid ───────────────────────────────────────────────────────
+
+function AdaptiveFileGrid({
+  files,
+  onRemove,
+  isUploading
+}: {
+  files: any[];
+  onRemove: (id: string) => void;
+  isUploading: boolean;
+}) {
+  const [containerWidth, setContainerWidth] = useState(0);
+  const colors = useThemeColors();
+  
+  const gap = 12;
+  const minSquareSize = 90; // Slightly smaller for the submission panel
+
+  // Fallback width before layout calculation fires
+  const availableWidth = containerWidth > 0 ? containerWidth : 300;
+  
+  let numCols = Math.floor((availableWidth + gap) / (minSquareSize + gap));
+  if (numCols < 2) numCols = 2; 
+  const exactSquareSize = Math.floor((availableWidth - (gap * (numCols - 1))) / numCols);
+
+  if (files.length === 0) return null;
+
+  return (
+    <View 
+      onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+      className="flex-row flex-wrap w-full bg-surface-background border border-surface-border rounded-xl p-3 mb-3"
+      style={{ gap }}
+    >
+      {files.map((pf) => {
+        const isImage = pf.type?.toLowerCase().includes('image');
+        const { name: icon, color } = getFileIcon(pf.type || null, colors);
+
+        return (
+          <View 
+            key={pf.id} 
+            style={{ width: exactSquareSize, height: exactSquareSize }}
+            className="rounded-xl overflow-hidden border border-surface-border bg-surface-card relative"
+          >
+            {isImage ? (
+              <Image 
+                source={{ uri: pf.uri }} 
+                style={{ flex: 1, width: '100%', height: '100%', position: 'absolute' }} 
+                resizeMode="cover" 
+              />
+            ) : (
+              <View className="flex-1 items-center justify-center p-2" style={{ backgroundColor: color + '15' }}>
+                <FontAwesome name={icon as any} size={exactSquareSize > 80 ? 32 : 24} color={color} />
+                <View className="mt-2 bg-surface-background px-2 py-0.5 rounded-md border border-surface-border shadow-sm">
+                  <Text className="text-[9px] font-black uppercase text-typography-muted" numberOfLines={1}>
+                    {pf.name.split('.').pop() || 'FILE'}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {isUploading ? (
+              <View className="absolute top-1.5 right-1.5 w-6 h-6 bg-black/60 rounded-full items-center justify-center">
+                <ActivityIndicator size="small" color="#fff" style={{ transform: [{ scale: 0.6 }] }} />
+              </View>
+            ) : (
+              <TouchableOpacity 
+                onPress={() => onRemove(pf.id)}
+                className="absolute top-1.5 right-1.5 w-6 h-6 bg-black/60 rounded-full items-center justify-center hover:bg-black/80 transition-colors"
+                style={Platform.OS === 'web' ? { cursor: 'pointer' } as any : {}}
+              >
+                <FontAwesome name="times" size={10} color="#fff" />
+              </TouchableOpacity>
+            )}
+
+            <View className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1 backdrop-blur-md">
+              <Text className="text-white text-[9px] font-bold text-center" numberOfLines={1}>
+                {formatFileSize(pf.size)}
+              </Text>
+            </View>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function StageActions() {
   const colors = useThemeColors();
@@ -493,29 +589,14 @@ export default function StageActions() {
                 numberOfLines={3}
                 className="bg-surface-background border border-surface-border rounded-xl p-3 text-typography-main text-sm mb-3 min-h-[80px]"
               />
-              {/* File Upload Queue */}
+              
+              {/* File Upload Queue -> Adaptive File Grid */}
               {stagedFiles.length > 0 && (
-                <View className="mb-3 gap-2">
-                  {stagedFiles.map((file) => (
-                    <View key={file.id} className="flex-row items-center bg-surface-overlay px-3 py-2 rounded-lg border border-surface-border/50">
-                      <FontAwesome 
-                        name={file.type.includes('image') ? 'file-image-o' : 'file-o'} 
-                        size={12} 
-                        color={colors.primary} 
-                      />
-                      <Text className="text-typography-main text-[11px] font-bold ml-2 flex-1" numberOfLines={1}>
-                        {file.name}
-                      </Text>
-                      {isUploading ? (
-                        <ActivityIndicator size="small" color={colors.primary} className="scale-75" />
-                      ) : (
-                        <TouchableOpacity onPress={() => removeFile(file.id)} className="ml-2 p-1">
-                          <FontAwesome name="times-circle" size={12} color={colors.danger} />
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  ))}
-                </View>
+                <AdaptiveFileGrid 
+                  files={stagedFiles} 
+                  onRemove={removeFile} 
+                  isUploading={isUploading} 
+                />
               )}
 
               <View className="flex-row flex-wrap items-center justify-between gap-3">
