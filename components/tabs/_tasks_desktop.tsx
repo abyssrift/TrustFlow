@@ -1,5 +1,6 @@
 import KanbanPersonalizer from '@/components/kanban/KanbanPersonalizer';
 import TaskCardActions, { type ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
+import TaskPingButton from '@/components/task-detail/TaskPingButton';
 import AssignmentModal from '@/components/tasks/AssignmentModal';
 import CreateTaskModal from '@/components/tasks/CreateTaskModal.web';
 import { useAuth } from '@/contexts/AuthContext';
@@ -987,8 +988,8 @@ export function TasksScreenWeb() {
             <Text className="text-white text-[10px] font-black">@</Text>
           </View>
         )}
-        <View className="flex-row items-center justify-between mb-3">
-          <View className="flex-row items-center gap-2">
+        <View className="flex-row items-start justify-between gap-2 mb-3">
+          <View className="flex-1 flex-row flex-wrap items-center gap-2 min-w-0">
             <View className="bg-surface-background px-3 py-1 rounded-lg border border-surface-border">
               <Text className={`${prio.textClass} text-[10px] font-black uppercase tracking-widest`}>
                 {prio.label}
@@ -1025,7 +1026,8 @@ export function TasksScreenWeb() {
             )}
           </View>
 
-          <View className="flex-row items-center gap-1.5">
+          <View className="flex-row items-center gap-1.5 shrink-0">
+            <TaskPingButton task={task} userId={user?.id || ''} className="hover:bg-brand-primary/10 transition-colors" />
             {hasPermission('task.assign') && (
               <TouchableOpacity
                 onPress={() => handleOpenAssignments(task)}

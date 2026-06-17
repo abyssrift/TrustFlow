@@ -3,6 +3,7 @@ import HorizontalScroll from '@/components/common/HorizontalScroll';
 import KanbanPersonalizer from '@/components/kanban/KanbanPersonalizer';
 import SkeletonBlock, { SkeletonList } from '@/components/Skeleton';
 import TaskCardActions, { type ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
+import TaskPingButton from '@/components/task-detail/TaskPingButton';
 import AssignmentModal from '@/components/tasks/AssignmentModal';
 import CreateTaskSheet from '@/components/tasks/CreateTaskSheet';
 import { useAuth } from '@/contexts/AuthContext';
@@ -668,8 +669,8 @@ function TasksScreen() {
             <PingTimeBadge pingedAt={pinggedAt} />
           </>
         )}
-        <View className="flex-row items-center justify-between mb-3">
-          <View className="flex-row items-center gap-2">
+        <View className="flex-row items-start justify-between gap-2 mb-3">
+          <View className="flex-1 flex-row flex-wrap items-center gap-2 min-w-0">
             <View className="bg-surface-background px-2 py-0.5 rounded-md border border-surface-border">
               <Text style={{ color: prio.color }} className="text-[9px] font-black uppercase tracking-tighter">
                 {prio.label}
@@ -681,7 +682,8 @@ function TasksScreen() {
               </View>
             )}
           </View>
-          <View className="flex-row items-center gap-1.5">
+          <View className="flex-row items-center gap-1.5 shrink-0">
+            <TaskPingButton task={task} userId={user?.id || ''} />
             {hasPermission('task.assign') && (
               <TouchableOpacity
                 onPress={() => handleOpenAssignments(task)}

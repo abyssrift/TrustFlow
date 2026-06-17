@@ -78,26 +78,19 @@ const ACTION_STYLES: Record<string, { bg: string; border: string; text: string }
 };
 
 
-function formatPingedNames(names: string[]): string {
-  if (names.length === 1) return names[0];
-  if (names.length === 2) return `${names[0]} and ${names[1]}`;
-  return `${names[0]}, ${names[1]} +${names.length - 2} more`;
-}
-
 // ─── Component ────────────────────────────────────────────────
 export default function TaskCardActions({ task, stages, stageActions, activeSessions, userId, onRefresh }: Props) {
   const router = useRouter();
   const colors = useThemeColors();
   const { hasPermission, profile } = useAuth();
   const { startWork } = useTimer();
-  const { successToast, errorToast, infoToast } = useToast();
+  const { successToast, errorToast } = useToast();
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [needsTimerActionId, setNeedsTimerActionId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<{ title: string; message: string; variant?: 'danger' | 'warning' } | null>(null);
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [showManualTimeModal, setShowManualTimeModal] = useState(false);
   const [pendingAction, setPendingAction] = useState<StageAction | null>(null);
-  const [pingLoading, setPingLoading] = useState(false);
 
   // ─── Derived State ───────────────────────────────────────
   const isAssignedToUser = (task.assignments || []).some(a => a.assignee_user_id !== null);
@@ -114,9 +107,6 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
   const taskSessions = activeSessions[task.id] || [];
   const mySession = taskSessions.find(s => s.userId === userId);
   const isTimerActive = !!mySession;
-
-  // Permission checks
-  const canPing = hasPermission('task.ping') || hasPermission('system.manage') || profile?.is_owner;
 
   // Live counter for the active session (mine or someone else's — whichever is first)
   const activeSession = mySession || taskSessions[0] || null;
@@ -291,28 +281,6 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
       errorToast(err.message || 'Could not claim task.');
     } finally {
       setLoadingAction(null);
-    }
-  };
-
-  // Ping task
-  const handlePingTask = async () => {
-    const targets = (task.assignments || []).filter(
-      a => a.assignee_user_id !== null && a.assignee_user_id !== userId
-    );
-    if (targets.length === 0) {
-      infoToast('No one was pinged — this task has no other assignees.');
-      return;
-    }
-    setPingLoading(true);
-    try {
-      const { error } = await supabase.rpc('rpc_ping_task', { p_task_id: task.id });
-      if (error) throw error;
-      const names = targets.map(a => a.user?.full_name || 'Someone');
-      successToast(`Pinged ${formatPingedNames(names)} 📢`);
-    } catch (err: any) {
-      errorToast(err.message || 'Could not ping task.');
-    } finally {
-      setPingLoading(false);
     }
   };
 
@@ -528,24 +496,6 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
   return (
     <View>
       {isTimerActive && renderTimerBadge()}
-
-      {/* Ping button */}
-      {canPing && (
-        <TouchableOpacity
-          onPress={handlePingTask}
-          disabled={pingLoading}
-          className={`mb-2 bg-brand-primary/10 py-2.5 rounded-xl border border-brand-primary/20 items-center justify-center flex-row ${pingLoading ? 'opacity-50' : ''}`}
-        >
-          {pingLoading ? (
-            <ActivityIndicator size="small" color={colors.primary} />
-          ) : (
-            <>
-              <FontAwesome name="bell" size={11} color={colors.primary} />
-              <Text className="text-brand-primary font-black text-[10px] uppercase tracking-widest ml-2">Ping Task</Text>
-            </>
-          )}
-        </TouchableOpacity>
-      )}
 
       {/* Error / Warning Message Display */}
       {errorMsg && (

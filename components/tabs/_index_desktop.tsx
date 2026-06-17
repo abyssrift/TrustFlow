@@ -34,6 +34,7 @@ type PersonalPulse = {
 
 type ActivityEntry = {
   id: string;
+  taskId: string;
   taskTitle: string;
   fromStage: string;
   toStage: string;
@@ -200,6 +201,7 @@ export default function DashboardScreenWeb() {
         .select(`
           id,
           transitioned_at,
+          task_id,
           task:task_id(title, pipeline_id),
           from_stage:from_stage_id(name),
           to_stage:to_stage_id(name),
@@ -217,6 +219,7 @@ export default function DashboardScreenWeb() {
         .slice(0, 10)
         .map((h: any) => ({
           id: h.id,
+          taskId: h.task_id,
           taskTitle: h.task?.title || 'Unknown Task',
           fromStage: h.from_stage?.name || '-',
           toStage: h.from_stage ? (h.to_stage?.name || '—') : 'created',
@@ -578,8 +581,11 @@ export default function DashboardScreenWeb() {
                 ) : (
                   <View className="gap-0">
                     {activity.map((entry, idx) => (
-                      <View
+                      <TouchableOpacity
                         key={entry.id}
+                        activeOpacity={0.6}
+                        disabled={!entry.taskId}
+                        onPress={() => entry.taskId && router.push(`/task/${entry.taskId}` as any)}
                         className={`flex-row items-center py-3 ${idx !== activity.length - 1 ? 'border-b border-surface-border/30' : ''}`}
                       >
                         <View className="w-8 h-8 rounded-lg bg-surface-background items-center justify-center mr-4 border border-surface-border">
@@ -601,7 +607,7 @@ export default function DashboardScreenWeb() {
                           </Text>
                           <Text className="text-typography-dim text-[9px] italic">{entry.movedBy}</Text>
                         </View>
-                      </View>
+                      </TouchableOpacity>
                     ))}
                   </View>
                 )}
