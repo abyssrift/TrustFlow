@@ -2,7 +2,6 @@ import HorizontalScroll from '@/components/common/HorizontalScroll';
 import AutomationEditor from '@/components/pipeline-editor/AutomationEditor';
 import HandshakeEditor from '@/components/pipeline-editor/HandshakeEditor';
 import PipelineList from '@/components/pipeline-editor/PipelineList';
-import PipelineVisualizer from '@/components/pipeline-editor/PipelineVisualizer';
 import StageBuilder from '@/components/pipeline-editor/StageBuilder';
 import SubpipelineEditor from '@/components/pipeline-editor/SubpipelineEditor';
 import TransitionEditor from '@/components/pipeline-editor/TransitionEditor';
@@ -18,7 +17,6 @@ console.log('Admin Pipelines Loading - Platform check:', Platform?.OS);
 // ── Section Tab Config ──────────────────────────────────────
 const SECTIONS = [
   { key: 'stages', label: 'Stages', icon: 'th-list' },
-  { key: 'visualizer', label: 'Designer', icon: 'paint-brush' },
   { key: 'transitions', label: 'Flow Rules', icon: 'random' },
   { key: 'automations', label: 'Automations', icon: 'bolt' },
   { key: 'handshakes', label: 'Handshakes', icon: 'handshake-o' },
@@ -140,7 +138,6 @@ function PipelineEditorInner() {
           {activeSection === 'automations' && <AutomationEditor />}
           {activeSection === 'handshakes' && <HandshakeEditor />}
           {activeSection === 'subpipelines' && <SubpipelineEditor />}
-          {activeSection === 'visualizer' && <PipelineVisualizer />}
         </View>
         </View>
       </View>

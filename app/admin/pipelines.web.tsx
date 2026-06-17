@@ -25,11 +25,10 @@ import TransitionEditor from '@/components/pipeline-editor/TransitionEditor';
 import AutomationEditor from '@/components/pipeline-editor/AutomationEditor';
 import HandshakeEditor from '@/components/pipeline-editor/HandshakeEditor';
 import SubpipelineEditor from '@/components/pipeline-editor/SubpipelineEditor';
-import PipelineVisualizer from '@/components/pipeline-editor/PipelineVisualizer';
 import PipelineSettingsForm from '@/components/pipeline-editor/PipelineSettingsForm';
 import { useThemeColors } from '@/hooks/useThemeColors';
 
-type Section = 'stages' | 'visualizer' | 'transitions' | 'automations' | 'handshakes' | 'settings' | 'subpipelines';
+type Section = 'stages' | 'transitions' | 'automations' | 'handshakes' | 'settings' | 'subpipelines';
 
 function PipelinesWebInner() {
   const colors = useThemeColors();
@@ -89,7 +88,6 @@ function PipelinesWebInner() {
     }
 
     switch (activeSection) {
-      case 'visualizer': return <PipelineVisualizer />;
       case 'stages': return <StageBuilder />;
       case 'transitions': return <TransitionEditor />;
       case 'automations': return <AutomationEditor />;
@@ -120,7 +118,7 @@ function PipelinesWebInner() {
                 submitLabel="Update Configuration"
                 onCancel={() => {
                   clearError();
-                  setActiveSection('visualizer');
+                  setActiveSection('stages');
                 }}
                 onClearError={clearError}
                 onSubmit={async (data) => {
@@ -232,7 +230,7 @@ function PipelinesWebInner() {
                 <View className="max-w-full">
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                     <View className="flex-row bg-surface-card p-1.5 rounded-2xl border border-surface-border self-start">
-                      {(['visualizer', 'stages', 'transitions', 'automations', 'handshakes', 'subpipelines', 'settings'] as any[]).map((s) => (
+                      {(['stages', 'transitions', 'automations', 'handshakes', 'subpipelines', 'settings'] as any[]).map((s) => (
                         <TouchableOpacity
                           key={s}
                           onPress={() => setActiveSection(s)}
@@ -243,7 +241,7 @@ function PipelinesWebInner() {
                           <Text className={`text-[10px] font-black uppercase tracking-widest ${
                             activeSection === s ? 'text-white' : 'text-typography-muted'
                           }`}>
-                            {s === 'visualizer' ? 'Designer' : s === 'transitions' ? 'Flow Rules' : s === 'subpipelines' ? 'Subpipelines' : s}
+                            {s === 'transitions' ? 'Flow Rules' : s === 'subpipelines' ? 'Subpipelines' : s}
                           </Text>
                         </TouchableOpacity>
                       ))}

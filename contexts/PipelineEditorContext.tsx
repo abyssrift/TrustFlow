@@ -103,7 +103,7 @@ export type PermissionItem = {
 /** @deprecated Use Role instead */
 export type Permission = Role;
 
-type EditorSection = 'list' | 'stages' | 'transitions' | 'automations' | 'visualizer' | 'handshakes' | 'settings' | 'subpipelines';
+type EditorSection = 'list' | 'stages' | 'transitions' | 'automations' | 'handshakes' | 'settings' | 'subpipelines';
 
 type PipelineEditorState = {
   // Data
