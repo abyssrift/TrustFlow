@@ -11,11 +11,13 @@ import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   Image,
   Platform,
+  Pressable,
   ScrollView,
   Text,
   TextInput,
@@ -162,6 +164,91 @@ function trackBoardSelection(boardId: string, current: Array<{ id: string; times
   const filtered = current.filter(b => b.id !== boardId);
   const updated = [{ id: boardId, timestamp: now }, ...filtered].slice(0, MAX_RECENTLY_USED);
   return updated;
+}
+
+// Hover preview that shows the boards a wheel-scroll (or Ctrl+[ / Ctrl+]) would
+// land on — the previous and next board, wrapping around the sorted list.
+function BoardPeekCard({
+  prevBoard,
+  nextBoard,
+  counts,
+  newCounts,
+  onSelect,
+  onHoverIn,
+  onHoverOut,
+}: {
+  prevBoard: Pipeline | null;
+  nextBoard: Pipeline | null;
+  counts: Record<string, number>;
+  newCounts: Record<string, number>;
+  onSelect: (id: string) => void;
+  onHoverIn: () => void;
+  onHoverOut: () => void;
+}) {
+  const colors = useThemeColors();
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(anim, { toValue: 1, duration: 130, useNativeDriver: true }).start();
+  }, [anim]);
+
+  // Two-board lists collapse prev/next onto the same board — show it once.
+  const sameBoard = !!prevBoard && !!nextBoard && prevBoard.id === nextBoard.id;
+  const showPrev = !sameBoard ? prevBoard : null;
+
+  const renderRow = (board: Pipeline | null, dir: 'prev' | 'next') => {
+    if (!board) return null;
+    const count = counts[board.id];
+    const hasNew = (newCounts[board.id] || 0) > 0;
+    return (
+      <Pressable
+        onPress={() => onSelect(board.id)}
+        className="flex-row items-center px-4 py-3 hover:bg-brand-primary/10"
+      >
+        <View className="w-6 items-center">
+          <FontAwesome name={dir === 'prev' ? 'arrow-up' : 'arrow-down'} size={13} className="text-brand-primary" />
+        </View>
+        <View className="ml-3 flex-1 min-w-0">
+          <Text className="text-typography-muted text-[9px] font-black uppercase tracking-[0.2em] mb-0.5">
+            {dir === 'prev' ? 'Previous Board' : 'Next Board'}
+          </Text>
+          <Text className="text-typography-main text-base font-black tracking-tighter" numberOfLines={1}>{board.name}</Text>
+        </View>
+        {count !== undefined && (
+          <View className={`ml-3 px-3 py-1 rounded-full border ${hasNew ? 'bg-state-danger border-state-danger' : 'bg-surface-overlay border-surface-border'}`}>
+            <Text className={`text-[11px] font-black ${hasNew ? 'text-white' : 'text-typography-muted'}`}>{count}</Text>
+          </View>
+        )}
+      </Pressable>
+    );
+  };
+
+  return (
+    <Animated.View
+      {...({ onHoverIn, onHoverOut } as any)}
+      style={{
+        position: 'absolute',
+        top: '100%',
+        left: 0,
+        marginTop: 12,
+        zIndex: 60,
+        width: 320,
+        backgroundColor: colors.card,
+        borderColor: colors.border,
+        borderWidth: 1,
+        opacity: anim,
+        transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [-8, 0] }) }],
+      }}
+      className="rounded-2xl premium-shadow overflow-hidden"
+    >
+      <View className="px-4 pt-3 pb-1.5 flex-row items-center gap-2">
+        <FontAwesome name="random" size={9} className="text-typography-muted" />
+        <Text className="text-typography-muted text-[8px] font-black uppercase tracking-[0.2em]">Scroll or click to switch</Text>
+      </View>
+      {renderRow(showPrev, 'prev')}
+      {showPrev && nextBoard && <View className="h-px bg-surface-border/60 mx-4" />}
+      {renderRow(nextBoard, 'next')}
+    </Animated.View>
+  );
 }
 
 export function TasksScreenWeb() {
@@ -608,6 +695,38 @@ export function TasksScreenWeb() {
     return getSortedBoards().findIndex(b => b.id === pipeline.id);
   };
 
+  // Board peek: hover the selector to preview the prev/next boards (same order the
+  // wheel-scroll and Ctrl+[ / Ctrl+] shortcuts cycle through), wrapping around.
+  const [showBoardPeek, setShowBoardPeek] = useState(false);
+  const peekCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const boardPeekNeighbours = useMemo(() => {
+    const sorted = getSortedBoards();
+    if (sorted.length <= 1 || !pipeline) return { prev: null as Pipeline | null, next: null as Pipeline | null };
+    const idx = sorted.findIndex(b => b.id === pipeline.id);
+    if (idx < 0) return { prev: null as Pipeline | null, next: null as Pipeline | null };
+    const len = sorted.length;
+    return { next: sorted[(idx + 1) % len], prev: sorted[idx === 0 ? len - 1 : idx - 1] };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availablePipelines, favoriteBoardIds, recentlyUsedBoards, pipeline, boardPickerSearchQuery]);
+
+  const openPeek = () => {
+    if (peekCloseTimer.current) { clearTimeout(peekCloseTimer.current); peekCloseTimer.current = null; }
+    setShowBoardPeek(true);
+  };
+  // Delay close so the cursor can move from the selector onto the card.
+  const closePeekSoon = () => {
+    if (peekCloseTimer.current) clearTimeout(peekCloseTimer.current);
+    peekCloseTimer.current = setTimeout(() => setShowBoardPeek(false), 140);
+  };
+  useEffect(() => () => { if (peekCloseTimer.current) clearTimeout(peekCloseTimer.current); }, []);
+
+  const switchBoardPeek = (id: string) => {
+    setShowBoardPeek(false);
+    router.push({ pathname: '/tasks', params: { pipelineId: id } });
+    handleSelectBoard(id);
+  };
+
   // Keyboard shortcuts: Ctrl+] (next board), Ctrl+[ (prev board)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1024,10 +1143,13 @@ export function TasksScreenWeb() {
           )}
 
           {/* Header */}
-          <View className="mb-10 flex-row items-center justify-between">
+          <View className="mb-10 flex-row items-center justify-between" style={{ zIndex: 50 }}>
+            <View style={{ position: 'relative', zIndex: 50 }}>
             <TouchableOpacity
               ref={boardPickerButtonRef}
               onPress={() => setShowPipelinePicker(true)}
+              onMouseEnter={openPeek}
+              onMouseLeave={closePeekSoon}
               onWheel={(e: any) => {
                 const event = e as WheelEvent;
                 if (!boardPickerButtonRef.current) return;
@@ -1068,7 +1190,20 @@ export function TasksScreenWeb() {
                 <Text className="text-typography-main text-5xl font-black tracking-tighter">Task Board</Text>
               </View>
             </TouchableOpacity>
-            
+
+            {showBoardPeek && (boardPeekNeighbours.prev || boardPeekNeighbours.next) && (
+              <BoardPeekCard
+                prevBoard={boardPeekNeighbours.prev}
+                nextBoard={boardPeekNeighbours.next}
+                counts={boardTaskCounts}
+                newCounts={boardNewTaskCount}
+                onSelect={switchBoardPeek}
+                onHoverIn={openPeek}
+                onHoverOut={closePeekSoon}
+              />
+            )}
+            </View>
+
             <View className="flex-row gap-4 items-center">
                {/* Search */}
                <View className="h-14 px-4 flex-row items-center bg-surface-card border border-surface-border rounded-2xl premium-shadow gap-2" style={{ minWidth: 340 }}>

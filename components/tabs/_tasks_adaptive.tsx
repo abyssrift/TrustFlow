@@ -18,10 +18,12 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  Animated,
   Image,
   InteractionManager,
   Keyboard,
   Platform,
+  Pressable,
   ScrollView,
   Text,
   TextInput,
@@ -118,6 +120,82 @@ function PingTimeBadge({ pingedAt }: { pingedAt: number }) {
   );
 }
 
+// Hover/long-press peek that previews the neighbouring boards (prev/next in the
+// pipeline list, wrapping around) so the user knows where switching lands them.
+function BoardPeekCard({
+  prevBoard,
+  nextBoard,
+  counts,
+  onSelect,
+  onHoverIn,
+  onHoverOut,
+}: {
+  prevBoard: Pipeline | null;
+  nextBoard: Pipeline | null;
+  counts: Record<string, number>;
+  onSelect: (id: string) => void;
+  onHoverIn: () => void;
+  onHoverOut: () => void;
+}) {
+  const colors = useThemeColors();
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(anim, { toValue: 1, duration: 130, useNativeDriver: true }).start();
+  }, [anim]);
+
+  // With only two boards the prev and next neighbour are the same board — show it once.
+  const sameBoard = !!prevBoard && !!nextBoard && prevBoard.id === nextBoard.id;
+  const showPrev = !sameBoard ? prevBoard : null;
+
+  const renderRow = (board: Pipeline | null, dir: 'prev' | 'next') => {
+    if (!board) return null;
+    const count = counts[board.id];
+    return (
+      <Pressable
+        onPress={() => onSelect(board.id)}
+        className="flex-row items-center px-3 py-2.5 active:bg-brand-primary/10"
+      >
+        <View className="w-5 items-center">
+          <FontAwesome name={dir === 'prev' ? 'arrow-up' : 'arrow-down'} size={11} className="text-brand-primary" />
+        </View>
+        <View className="ml-2 flex-1 min-w-0">
+          <Text className="text-typography-muted text-[8px] font-black uppercase tracking-widest mb-0.5">
+            {dir === 'prev' ? 'Previous' : 'Next'}
+          </Text>
+          <Text className="text-typography-main text-sm font-bold" numberOfLines={1}>{board.name}</Text>
+        </View>
+        <Text className="text-typography-muted text-[10px] font-bold ml-2">
+          {count === undefined ? '…' : `${count} ${count === 1 ? 'task' : 'tasks'}`}
+        </Text>
+      </Pressable>
+    );
+  };
+
+  return (
+    <Animated.View
+      {...({ onHoverIn, onHoverOut } as any)}
+      style={{
+        position: 'absolute',
+        top: '100%',
+        left: 0,
+        right: 0,
+        marginTop: 8,
+        zIndex: 60,
+        backgroundColor: colors.card,
+        borderColor: colors.border,
+        borderWidth: 1,
+        opacity: anim,
+        transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [-6, 0] }) }],
+      }}
+      className="rounded-2xl premium-shadow overflow-hidden"
+    >
+      {renderRow(showPrev, 'prev')}
+      {showPrev && nextBoard && <View className="h-px bg-surface-border/60" />}
+      {renderRow(nextBoard, 'next')}
+    </Animated.View>
+  );
+}
+
 function TasksScreen() {
   const [pipeline, setPipeline] = useState<Pipeline | null>(null);
   const [stages, setStages] = useState<Stage[]>([]);
@@ -156,7 +234,59 @@ function TasksScreen() {
 
   const { pingedTasks, removePingedTask } = usePingHighlight();
 
+  // Board peek (hover on web / long-press on native): preview neighbouring boards.
+  const [showBoardPeek, setShowBoardPeek] = useState(false);
+  const [peekCounts, setPeekCounts] = useState<Record<string, number>>({});
+  const peekCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const { prevBoard, nextBoard } = useMemo(() => {
+    if (!pipeline || availablePipelines.length < 2) return { prevBoard: null, nextBoard: null };
+    const idx = availablePipelines.findIndex(p => p.id === pipeline.id);
+    if (idx === -1) return { prevBoard: null, nextBoard: null };
+    const len = availablePipelines.length;
+    return {
+      prevBoard: availablePipelines[(idx - 1 + len) % len],
+      nextBoard: availablePipelines[(idx + 1) % len],
+    };
+  }, [pipeline, availablePipelines]);
+
+  const openPeek = useCallback(() => {
+    if (peekCloseTimer.current) { clearTimeout(peekCloseTimer.current); peekCloseTimer.current = null; }
+    setShowBoardPeek(true);
+  }, []);
+
+  // Delay close so the cursor can travel from the selector onto the card without it vanishing.
+  const closePeekSoon = useCallback(() => {
+    if (peekCloseTimer.current) clearTimeout(peekCloseTimer.current);
+    peekCloseTimer.current = setTimeout(() => setShowBoardPeek(false), 140);
+  }, []);
+
+  useEffect(() => () => { if (peekCloseTimer.current) clearTimeout(peekCloseTimer.current); }, []);
+
+  const switchBoard = useCallback(async (id: string) => {
+    setShowBoardPeek(false);
+    await AsyncStorage.setItem('@TrustFlow_tasks_pipeline', id);
+    router.setParams({ pipelineId: id });
+  }, [router]);
+
+  // Lazily fetch task counts for the two neighbours when the peek opens.
+  useEffect(() => {
+    if (!showBoardPeek) return;
+    const ids = [prevBoard?.id, nextBoard?.id].filter(Boolean) as string[];
+    const missing = ids.filter(id => peekCounts[id] === undefined);
+    if (missing.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const results = await Promise.all(missing.map(async (id) => {
+        const { count } = await supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('pipeline_id', id);
+        return [id, count ?? 0] as const;
+      }));
+      if (!cancelled) setPeekCounts(prev => ({ ...prev, ...Object.fromEntries(results) }));
+    })();
+    return () => { cancelled = true; };
+    // peekCounts intentionally omitted: re-running on its change would loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showBoardPeek, prevBoard?.id, nextBoard?.id]);
 
   const fetchData = async () => {
     try {
@@ -313,6 +443,14 @@ function TasksScreen() {
       console.log('[TasksScreen] No paramPipelineId, skipping');
       return;
     }
+    // On web, InteractionManager.runAfterInteractions can hang indefinitely
+    // (its handle never clears with ongoing subscriptions/animations), so the
+    // callback never fires and loading stays true forever. Run directly on web.
+    if (Platform.OS === 'web') {
+      console.log('[TasksScreen] Web: calling fetchData directly');
+      fetchDataRef.current();
+      return;
+    }
     const task = InteractionManager.runAfterInteractions(() => {
       console.log('[TasksScreen] InteractionManager calling fetchData');
       fetchDataRef.current();
@@ -338,6 +476,14 @@ function TasksScreen() {
 
   useEffect(() => {
     console.log('[TasksScreen] Initial mount useEffect');
+    // See note above: InteractionManager never resolves on web, leaving the
+    // screen stuck on the loading skeleton. Run the initial load directly there.
+    if (Platform.OS === 'web') {
+      console.log('[TasksScreen] Initial mount (web): calling fetchPulse and fetchData directly');
+      fetchPulse();
+      fetchData();
+      return;
+    }
     const task = InteractionManager.runAfterInteractions(() => {
       console.log('[TasksScreen] Initial mount: InteractionManager calling fetchPulse and fetchData');
       fetchPulse();
@@ -827,13 +973,31 @@ function TasksScreen() {
 
       <View className="px-4 pt-3 pb-3">
         {/* Row 1: Pipeline title + tools toggle */}
-        <View className="flex-row items-center gap-3">
-          <TouchableOpacity onPress={() => setShowPipelinePicker(true)} className="flex-1 min-w-0">
-            <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-wider mb-0.5" numberOfLines={1}>
-              {pipeline?.name || 'Pipeline'}  ▾
-            </Text>
-            <Text className="text-typography-main text-2xl font-black" numberOfLines={1}>Board</Text>
-          </TouchableOpacity>
+        <View className="flex-row items-center gap-3" style={{ zIndex: 50 }}>
+          <View className="flex-1 min-w-0" style={{ position: 'relative', zIndex: 50 }}>
+            <Pressable
+              onPress={() => { if (showBoardPeek) setShowBoardPeek(false); else setShowPipelinePicker(true); }}
+              onLongPress={() => { if (prevBoard || nextBoard) setShowBoardPeek(true); }}
+              delayLongPress={300}
+              {...(Platform.OS === 'web' ? ({ onHoverIn: openPeek, onHoverOut: closePeekSoon } as any) : {})}
+            >
+              <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-wider mb-0.5" numberOfLines={1}>
+                {pipeline?.name || 'Pipeline'}  ▾
+              </Text>
+              <Text className="text-typography-main text-2xl font-black" numberOfLines={1}>Board</Text>
+            </Pressable>
+
+            {showBoardPeek && (prevBoard || nextBoard) && (
+              <BoardPeekCard
+                prevBoard={prevBoard}
+                nextBoard={nextBoard}
+                counts={peekCounts}
+                onSelect={switchBoard}
+                onHoverIn={openPeek}
+                onHoverOut={closePeekSoon}
+              />
+            )}
+          </View>
 
           {/* Tools toggle */}
           <TouchableOpacity
@@ -942,6 +1106,15 @@ function TasksScreen() {
             </TouchableOpacity>
           )}
         </View>
+      )}
+
+      {/* Board peek dismiss layer (native only — web closes on hover-out) */}
+      {showBoardPeek && Platform.OS !== 'web' && (
+        <Pressable
+          onPress={() => setShowBoardPeek(false)}
+          className="absolute inset-0"
+          style={{ zIndex: 45 }}
+        />
       )}
 
       {/* PIPELINE PICKER MODAL */}

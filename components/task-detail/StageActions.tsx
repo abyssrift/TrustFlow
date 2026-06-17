@@ -1,3 +1,4 @@
+import ClipboardControls from '@/components/common/ClipboardControls';
 import ManualTimeModal from '@/components/common/ManualTimeModal';
 import LockIndicator from '@/components/task-detail/LockIndicator';
 import ManualTimeApprovalCard from '@/components/task-detail/ManualTimeApprovalCard';
@@ -6,6 +7,7 @@ import { useSubmission } from '@/contexts/SubmissionContext';
 import { useTaskDetail, type StageActionData } from '@/contexts/TaskDetailContext';
 import { useTimer } from '@/contexts/TimerContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { getPastedImageFile } from '@/lib/pasteImage';
 import { openStorageFile, SUBMISSION_BUCKET } from '@/lib/storage';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -100,6 +102,12 @@ export default function StageActions() {
         type: a.mimeType || 'image/jpeg',
       }))]);
     }
+  };
+
+  const pasteImage = async () => {
+    const file = await getPastedImageFile();
+    if (file) setStagedFiles(prev => [...prev, file]);
+    else Alert.alert('No Image', 'There is no image on the clipboard to paste.');
   };
 
   const removeFile = (id: string) => setStagedFiles(prev => prev.filter(f => f.id !== id));
@@ -463,6 +471,15 @@ export default function StageActions() {
 
           {showSubmitForm && (
             <View className="mb-4 pb-4 border-b border-surface-border/30">
+              <View className="flex-row items-center justify-end mb-2">
+                <ClipboardControls
+                  value={submissionContent}
+                  onPaste={(t) => {
+                    setSubmissionContent((prev) => (prev ? `${prev}\n${t}` : t));
+                    smartTimer.recordActivity();
+                  }}
+                />
+              </View>
               <TextInput
                 value={submissionContent}
                 onChangeText={(val) => {
@@ -512,13 +529,22 @@ export default function StageActions() {
                     <Text className="text-brand-primary text-[10px] font-black uppercase ml-1.5">Add Photo</Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     onPress={pickDocument}
                     disabled={isUploading}
                     className="flex-row items-center bg-surface-background px-3 py-2 rounded-xl border border-surface-border active:opacity-70"
                   >
                     <FontAwesome name="paperclip" size={11} color={colors.primary} />
                     <Text className="text-brand-primary text-[10px] font-black uppercase ml-1.5">Attach File</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={pasteImage}
+                    disabled={isUploading}
+                    className="flex-row items-center bg-surface-background px-3 py-2 rounded-xl border border-surface-border active:opacity-70"
+                  >
+                    <FontAwesome name="clipboard" size={11} color={colors.primary} />
+                    <Text className="text-brand-primary text-[10px] font-black uppercase ml-1.5">Paste Image</Text>
                   </TouchableOpacity>
                 </View>
 
@@ -590,6 +616,11 @@ export default function StageActions() {
                   <View className="flex-row items-center gap-2">
                     <Text className="text-typography-dim text-[9px] font-bold">by {s.submitted_by?.full_name || 'Unknown'}</Text>
                     <Text className="text-typography-dim text-[9px]">{new Date(s.submitted_at).toLocaleDateString()}</Text>
+                    {!!s.content && (
+                      <View className="ml-2">
+                        <ClipboardControls value={s.content} onPaste={() => {}} showPaste={false} />
+                      </View>
+                    )}
                     {(s.submitted_by?.id === user?.id || data.permissions.is_manager || data.permissions.is_owner) && (
                       <TouchableOpacity
                         onPress={() => Alert.alert(

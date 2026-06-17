@@ -7,6 +7,8 @@ import * as ImagePicker from 'expo-image-picker';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getPastedImageFile } from '@/lib/pasteImage';
+import ClipboardControls from '../common/ClipboardControls';
 import PremiumCalendarPicker from '../common/PremiumCalendarPicker';
 import { useThemeColors } from '@/hooks/useThemeColors';
 
@@ -173,8 +175,11 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
             </View>
 
             <View>
-              <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2 ml-1">Title</Text>
-              <TextInput 
+              <View className="flex-row items-center justify-between mb-2 ml-1">
+                <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest">Title</Text>
+                <ClipboardControls value={draft.title} onPaste={t => setDraft({ title: t })} />
+              </View>
+              <TextInput
                 value={draft.title ?? ''}
                 onChangeText={t => setDraft({ title: t })}
                 placeholder="Deployment Objective"
@@ -183,8 +188,11 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
               />
             </View>
             <View>
-              <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2 ml-1">Category</Text>
-              <TextInput 
+              <View className="flex-row items-center justify-between mb-2 ml-1">
+                <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest">Category</Text>
+                <ClipboardControls value={draft.category} onPaste={t => setDraft({ category: t })} />
+              </View>
+              <TextInput
                 value={draft.category ?? ''}
                 onChangeText={t => setDraft({ category: t })}
                 placeholder="General"
@@ -193,9 +201,15 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
               />
             </View>
             <View>
-              <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2 ml-1">Description</Text>
-              <TextInput 
-            value={draft.description ?? ''}
+              <View className="flex-row items-center justify-between mb-2 ml-1">
+                <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest">Description</Text>
+                <ClipboardControls
+                  value={draft.description}
+                  onPaste={t => setDraft({ description: draft.description ? `${draft.description}\n${t}` : t })}
+                />
+              </View>
+              <TextInput
+                value={draft.description ?? ''}
                 onChangeText={t => setDraft({ description: t })}
                 placeholder="Operation details..."
                 placeholderTextColor={colors.textDim}
@@ -300,6 +314,17 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
                  >
                    <FontAwesome name="paperclip" size={11} color={colors.primary} />
                    <Text className="text-brand-primary text-[10px] font-black uppercase ml-1.5">Attach File</Text>
+                 </TouchableOpacity>
+                 <TouchableOpacity
+                   onPress={async () => {
+                     const file = await getPastedImageFile();
+                     if (file) setBriefFiles(prev => [...prev, file]);
+                     else Alert.alert('No Image', 'There is no image on the clipboard to paste.');
+                   }}
+                   className="flex-row items-center bg-surface-background px-3 py-2 rounded-xl border border-surface-border"
+                 >
+                   <FontAwesome name="clipboard" size={11} color={colors.primary} />
+                   <Text className="text-brand-primary text-[10px] font-black uppercase ml-1.5">Paste Image</Text>
                  </TouchableOpacity>
                </View>
              </View>

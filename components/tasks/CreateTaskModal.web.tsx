@@ -1,4 +1,6 @@
+import ClipboardControls from '@/components/common/ClipboardControls';
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
+import { getPastedImageFile } from '@/lib/pasteImage';
 import { useTaskCreation } from '@/contexts/TaskCreationContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -301,7 +303,10 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                   <View>
                     <View className="flex-row items-center justify-between mb-3">
                       <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest ml-1">Engagement Title</Text>
-                      <Text className="text-state-danger text-[10px] font-black uppercase tracking-wider mr-1">Required</Text>
+                      <View className="flex-row items-center gap-4 mr-1">
+                        <ClipboardControls value={draft.title} onPaste={t => setDraft({ title: t })} />
+                        <Text className="text-state-danger text-[10px] font-black uppercase tracking-wider">Required</Text>
+                      </View>
                     </View>
                     <TextInput
                       value={draft.title ?? ''}
@@ -481,7 +486,10 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                   {/* Category + Max Hours */}
                   <View className="flex-row gap-8">
                     <View className="flex-1">
-                      <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-3 ml-1">Category Registry</Text>
+                      <View className="flex-row items-center justify-between mb-3 ml-1">
+                        <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest">Category Registry</Text>
+                        <ClipboardControls value={draft.category} onPaste={t => setDraft({ category: t })} />
+                      </View>
                       <TextInput
                         value={draft.category ?? ''}
                         onChangeText={t => setDraft({ category: t })}
@@ -523,7 +531,13 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
 
                   {/* Mandate Documentation */}
                   <View>
-                    <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-3 ml-1">Mandate Documentation</Text>
+                    <View className="flex-row items-center justify-between mb-3 ml-1">
+                      <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest">Mandate Documentation</Text>
+                      <ClipboardControls
+                        value={draft.description}
+                        onPaste={t => setDraft({ description: draft.description ? `${draft.description}\n${t}` : t })}
+                      />
+                    </View>
                     <TextInput
                       value={draft.description ?? ''}
                       onChangeText={t => setDraft({ description: t })}
@@ -573,6 +587,16 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                       >
                         <FontAwesome name="paperclip" size={13} color={colors.primary} />
                         <Text className="text-brand-primary text-xs font-black uppercase ml-2">Attach File</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={async () => {
+                          const file = await getPastedImageFile();
+                          if (file) setBriefFiles(prev => [...prev, file]);
+                        }}
+                        className="flex-row items-center bg-surface-background px-4 py-3 rounded-xl border border-surface-border hover:border-brand-primary transition-colors"
+                      >
+                        <FontAwesome name="clipboard" size={13} color={colors.primary} />
+                        <Text className="text-brand-primary text-xs font-black uppercase ml-2">Paste Image</Text>
                       </TouchableOpacity>
                     </View>
                   </View>
