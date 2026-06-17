@@ -279,6 +279,15 @@ function UploadModal({
   const [memberResults, setMemberResults] = useState<any[]>([]);
   const [searchingMembers, setSearchingMembers] = useState(false);
   const [tagSuggestResults, setTagSuggestResults] = useState<string[]>([]);
+  // Web-safe replacement for Alert.alert multi-button prompts (RN Alert.alert
+  // does not render usable buttons on web, which hung uploads at the conflict
+  // / duplicate check). Renders an in-modal dialog and resolves on press.
+  type DecisionOption = { label: string; value: string; style?: 'primary' | 'cancel' | 'default' };
+  const [pendingDecision, setPendingDecision] = useState<
+    { title: string; message: string; options: DecisionOption[]; resolve: (v: string) => void } | null
+  >(null);
+  const askDecision = (title: string, message: string, options: DecisionOption[]) =>
+    new Promise<string>(resolve => setPendingDecision({ title, message, options, resolve }));
 
   const patch = (updates: Partial<UploadDraft>) => setDraft(prev => ({ ...prev, ...updates }));
 
@@ -385,29 +394,29 @@ function UploadModal({
 
         const dupes = await checkDuplicate(contentHash);
         if (dupes.length > 0) {
-          const proceed = await new Promise<boolean>(resolve =>
-            Alert.alert('Possible Duplicate', `"${dupes[0].original_name}" has the same content as "${file.name}". Upload anyway?`, [
-              { text: 'Cancel', onPress: () => resolve(false), style: 'cancel' },
-              { text: 'Upload Anyway', onPress: () => resolve(true) },
-            ])
+          const proceed = await askDecision(
+            'Possible Duplicate',
+            `"${dupes[0].original_name}" has the same content as "${file.name}". Upload anyway?`,
+            [
+              { label: 'Cancel', value: 'cancel', style: 'cancel' },
+              { label: 'Upload Anyway', value: 'proceed', style: 'primary' },
+            ]
           );
-          if (!proceed) continue;
+          if (proceed !== 'proceed') continue;
         }
 
         // Name-conflict prompt (Replace / Keep Both / Cancel)
         const groupId = draft.visibility === 'group' ? (activeGroup?.id ?? null) : null;
         const conflict = await checkNameConflict(file.name, draft.visibility, groupId, draft.folderId);
         if (conflict) {
-          const choice = await new Promise<'replace' | 'keep' | 'cancel'>(resolve =>
-            Alert.alert(
-              'File already exists',
-              `"${file.name}" already exists here (uploaded by ${conflict.uploader_name}). Replace it with a new version, or keep both?`,
-              [
-                { text: 'Cancel', onPress: () => resolve('cancel'), style: 'cancel' },
-                { text: 'Keep Both', onPress: () => resolve('keep') },
-                { text: 'Replace', onPress: () => resolve('replace') },
-              ]
-            )
+          const choice = await askDecision(
+            'File already exists',
+            `"${file.name}" already exists here (uploaded by ${conflict.uploader_name}). Replace it with a new version, or keep both?`,
+            [
+              { label: 'Cancel', value: 'cancel', style: 'cancel' },
+              { label: 'Keep Both', value: 'keep', style: 'default' },
+              { label: 'Replace', value: 'replace', style: 'primary' },
+            ]
           );
           if (choice === 'cancel') continue;
           if (choice === 'replace') {
@@ -480,6 +489,7 @@ function UploadModal({
   const colors = useThemeColors();
 
   return (
+    <>
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View className="flex-1 bg-black/40 items-center justify-center p-8">
         <View className="bg-surface-card rounded-[2rem] border border-surface-border premium-shadow w-full max-w-[560px]" style={{ maxHeight: '100%' }}>
@@ -758,6 +768,32 @@ function UploadModal({
         </View>
       </View>
     </Modal>
+
+    {/* Web-safe decision dialog (replaces RN Alert.alert multi-button prompts) */}
+    {pendingDecision && (
+      <Modal visible transparent animationType="fade">
+        <View className="flex-1 bg-black/60 items-center justify-center p-8">
+          <View className="bg-surface-card rounded-3xl border border-surface-border premium-shadow w-full max-w-[420px] p-6">
+            <Text className="text-typography-main text-lg font-black tracking-tight mb-2">{pendingDecision.title}</Text>
+            <Text className="text-typography-muted text-sm leading-relaxed mb-5">{pendingDecision.message}</Text>
+            <View className="gap-2">
+              {pendingDecision.options.map(opt => (
+                <TouchableOpacity
+                  key={opt.value}
+                  onPress={() => { const r = pendingDecision.resolve; setPendingDecision(null); r(opt.value); }}
+                  className={`py-3 rounded-xl items-center ${opt.style === 'primary' ? 'bg-brand-primary' : 'bg-surface-background border border-surface-border'}`}
+                >
+                  <Text className={`font-black text-sm ${opt.style === 'primary' ? 'text-white' : opt.style === 'cancel' ? 'text-typography-muted' : 'text-typography-main'}`}>
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </View>
+      </Modal>
+    )}
+    </>
   );
 }
 
