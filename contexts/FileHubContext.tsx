@@ -24,6 +24,23 @@ export type FileHubFile = {
   recipient_state?: { read_at: string | null; archived_at: string | null };
   recipients?: Array<{ id: string; full_name: string; avatar_url: string | null; read_at: string | null }>;
   recipient_count?: number;
+  current_version_id?: string;
+  version_count?: number;
+};
+
+export type FileVersion = {
+  id: string;
+  version_no: number;
+  original_name: string;
+  size_bytes: number;
+  mime_type: string | null;
+  storage_path: string;
+  bucket: string;
+  created_at: string;
+  superseded_at: string | null;
+  is_current: boolean;
+  expires_at: string | null;
+  uploader: { id: string; full_name: string; avatar_url: string | null };
 };
 
 export type FileHubFolder = {
@@ -83,6 +100,19 @@ type FileHubContextType = {
   deleteFolder: (id: string) => Promise<void>;
   tagSuggestions: (prefix: string) => Promise<string[]>;
   checkDuplicate: (hash: string) => Promise<any[]>;
+  // Versioning
+  checkNameConflict: (
+    name: string,
+    visibility: 'direct' | 'broadcast' | 'group',
+    groupId: string | null,
+    folderId: string | null
+  ) => Promise<any | null>;
+  replaceFile: (
+    targetId: string,
+    args: { storagePath: string; size: number; hash: string | null; mime: string | null; caption?: string | null }
+  ) => Promise<void>;
+  fileVersions: (fileId: string) => Promise<FileVersion[]>;
+  restoreVersion: (versionId: string) => Promise<void>;
   // Groups
   groups: FileHubGroup[];
   groupsLoading: boolean;
@@ -373,6 +403,53 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
     return data || [];
   }, []);
 
+  // ── Versioning ────────────────────────────────────────────────────────────────
+  const checkNameConflict = useCallback(async (
+    name: string,
+    visibility: 'direct' | 'broadcast' | 'group',
+    groupId: string | null,
+    folderId: string | null
+  ): Promise<any | null> => {
+    const { data, error } = await supabase.rpc('rpc_filehub_check_name_conflict', {
+      p_name: name,
+      p_visibility: visibility,
+      p_group_id: groupId,
+      p_folder_id: folderId,
+    });
+    if (error) { Alert.alert('Error', error.message); throw error; }
+    return data ?? null;
+  }, []);
+
+  const replaceFile = useCallback(async (
+    targetId: string,
+    args: { storagePath: string; size: number; hash: string | null; mime: string | null; caption?: string | null }
+  ): Promise<void> => {
+    const { error } = await supabase.rpc('rpc_filehub_replace_file', {
+      p_target_id: targetId,
+      p_storage_path: args.storagePath,
+      p_size_bytes: args.size,
+      p_content_hash: args.hash,
+      p_mime_type: args.mime,
+      p_caption: args.caption ?? null,
+    });
+    if (error) { Alert.alert('Error', error.message); throw error; }
+    refresh();
+    fetchGroupFiles();
+  }, [refresh, fetchGroupFiles]);
+
+  const fileVersions = useCallback(async (fileId: string): Promise<FileVersion[]> => {
+    const { data, error } = await supabase.rpc('rpc_filehub_file_versions', { p_file_id: fileId });
+    if (error) { Alert.alert('Error', error.message); throw error; }
+    return data || [];
+  }, []);
+
+  const restoreVersion = useCallback(async (versionId: string): Promise<void> => {
+    const { error } = await supabase.rpc('rpc_filehub_restore_version', { p_version_id: versionId });
+    if (error) { Alert.alert('Error', error.message); throw error; }
+    refresh();
+    fetchGroupFiles();
+  }, [refresh, fetchGroupFiles]);
+
   const logActivity = useCallback((fileId: string, action: string, metadata?: Record<string, any> | null) => {
     supabase.rpc('rpc_filehub_log_activity', {
       p_file_id: fileId,
@@ -415,6 +492,7 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
       markRead, markAllRead, hideFile, deleteFile,
       createFolder, renameFolder, deleteFolder,
       tagSuggestions, checkDuplicate,
+      checkNameConflict, replaceFile, fileVersions, restoreVersion,
       groups, groupsLoading,
       activeGroupId, setActiveGroupId,
       groupFiles, groupFilesLoading,
