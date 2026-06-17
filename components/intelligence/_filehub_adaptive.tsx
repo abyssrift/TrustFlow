@@ -370,7 +370,7 @@ function UploadSheet({
   profile: any;
   activeGroup?: { id: string; name: string; avatar_color: string } | null;
 }) {
-  const { folders, checkDuplicate } = useFileHub();
+  const { folders, checkDuplicate, checkNameConflict, replaceFile } = useFileHub();
   const fileInputRef = useRef<any>(null);
   const folderInputRef = useRef<any>(null);
 
@@ -526,6 +526,48 @@ function UploadSheet({
             );
             if (!proceed) continue;
           }
+        }
+
+        // Name-conflict prompt (Replace / Keep Both / Cancel)
+        const groupId = visibility === 'group' ? (activeGroup?.id ?? null) : null;
+        const conflict = await checkNameConflict(pf.name, visibility, groupId, folderId || null);
+        if (conflict) {
+          const choice = await new Promise<'replace' | 'keep' | 'cancel'>(resolve =>
+            Alert.alert(
+              'File already exists',
+              `"${pf.name}" already exists here (uploaded by ${conflict.uploader_name}). Replace it with a new version, or keep both?`,
+              [
+                { text: 'Cancel', onPress: () => resolve('cancel'), style: 'cancel' },
+                { text: 'Keep Both', onPress: () => resolve('keep') },
+                { text: 'Replace', onPress: () => resolve('replace') },
+              ]
+            )
+          );
+          if (choice === 'cancel') continue;
+          if (choice === 'replace') {
+            const replaceId = (crypto as any).randomUUID();
+            const replaceSafeName = pf.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+            const replacePath = `${companyId}/${replaceId}/${replaceSafeName}`;
+            setProgress(40);
+            let replaceStorageError;
+            if (Platform.OS === 'web' && pf.webFile) {
+              ({ error: replaceStorageError } = await supabase.storage.from('filehub-files').upload(replacePath, pf.webFile));
+            } else {
+              ({ error: replaceStorageError } = await supabase.storage.from('filehub-files').upload(replacePath, { uri: pf.uri, name: pf.name, type: pf.type ?? 'application/octet-stream' } as any));
+            }
+            if (replaceStorageError) throw replaceStorageError;
+            setProgress(80);
+            await replaceFile(conflict.id, {
+              storagePath: replacePath,
+              size: pf.size,
+              hash: contentHash || null,
+              mime: pf.type ?? null,
+              caption: caption || null,
+            });
+            setProgress(100);
+            continue;
+          }
+          // 'keep' falls through to the normal upload_commit path (server auto-renames)
         }
 
         const fileId = (crypto as any).randomUUID();

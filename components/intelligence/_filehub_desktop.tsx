@@ -146,6 +146,8 @@ function UploadModal({
   onClose,
   onUploaded,
   checkDuplicate,
+  checkNameConflict,
+  replaceFile,
   hasPermission,
   profile,
   activeGroup,
@@ -155,6 +157,16 @@ function UploadModal({
   onClose: () => void;
   onUploaded: () => void;
   checkDuplicate: (hash: string) => Promise<any[]>;
+  checkNameConflict: (
+    name: string,
+    visibility: 'direct' | 'broadcast' | 'group',
+    groupId: string | null,
+    folderId: string | null
+  ) => Promise<any | null>;
+  replaceFile: (
+    targetId: string,
+    args: { storagePath: string; size: number; hash: string | null; mime: string | null; caption?: string | null }
+  ) => Promise<void>;
   hasPermission: (key: string) => boolean;
   profile: any;
   activeGroup?: { id: string; name: string; avatar_color: string } | null;
@@ -282,6 +294,43 @@ function UploadModal({
             ])
           );
           if (!proceed) continue;
+        }
+
+        // Name-conflict prompt (Replace / Keep Both / Cancel)
+        const groupId = draft.visibility === 'group' ? (activeGroup?.id ?? null) : null;
+        const conflict = await checkNameConflict(file.name, draft.visibility, groupId, draft.folderId);
+        if (conflict) {
+          const choice = await new Promise<'replace' | 'keep' | 'cancel'>(resolve =>
+            Alert.alert(
+              'File already exists',
+              `"${file.name}" already exists here (uploaded by ${conflict.uploader_name}). Replace it with a new version, or keep both?`,
+              [
+                { text: 'Cancel', onPress: () => resolve('cancel'), style: 'cancel' },
+                { text: 'Keep Both', onPress: () => resolve('keep') },
+                { text: 'Replace', onPress: () => resolve('replace') },
+              ]
+            )
+          );
+          if (choice === 'cancel') continue;
+          if (choice === 'replace') {
+            const replaceId = (crypto as any).randomUUID();
+            const replaceSafeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+            const replacePath = `${companyId}/${replaceId}/${replaceSafeName}`;
+            setProgress(25);
+            const { error: replaceStorageError } = await supabase.storage.from('filehub-files').upload(replacePath, file);
+            if (replaceStorageError) throw replaceStorageError;
+            setProgress(80);
+            await replaceFile(conflict.id, {
+              storagePath: replacePath,
+              size: file.size,
+              hash: contentHash,
+              mime: file.type || null,
+              caption: draft.caption || null,
+            });
+            setProgress(100);
+            continue;
+          }
+          // 'keep' falls through to the normal upload_commit path (server auto-renames)
         }
 
         const fileId = (crypto as any).randomUUID();
@@ -1610,6 +1659,8 @@ function FileHubDesktopInner() {
     refresh,
     markAllRead,
     checkDuplicate,
+    checkNameConflict,
+    replaceFile,
     groups, groupsLoading,
     activeGroupId, setActiveGroupId,
     groupFiles, groupFilesLoading,
@@ -2310,6 +2361,8 @@ function FileHubDesktopInner() {
         onClose={() => setShowUpload(false)}
         onUploaded={() => { mode === 'groups' && activeGroupId ? refreshGroupFiles() : refresh(); }}
         checkDuplicate={checkDuplicate}
+        checkNameConflict={checkNameConflict}
+        replaceFile={replaceFile}
         hasPermission={hasPermission}
         profile={profile}
         activeGroup={activeGroup ? { id: activeGroup.id, name: activeGroup.name, avatar_color: activeGroup.avatar_color } : null}
