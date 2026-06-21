@@ -11,6 +11,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
+  Image,
   Modal,
   Platform,
   ScrollView,
@@ -20,8 +21,10 @@ import {
   View
 } from 'react-native';
 
+import { useImageLightbox } from '@/hooks/useImageLightbox';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import AdaptiveFileGrid from '../common/AdaptiveFileGrid';
+import { FilePreviewModal, FilePreviewTeaser, getPreviewKind } from '../common/FilePreview';
 
 
 
@@ -134,6 +137,32 @@ function FileDetailSheet({
   const [restoringId, setRestoringId] = useState<string | null>(null);
   const colors = useThemeColors();
 
+  // Image preview → tap to open the lightbox (single image, no list navigation).
+  const isImage = !!file?.mime_type?.toLowerCase().includes('image');
+  const previewMedia = useMemo(
+    () =>
+      file && isImage
+        ? [{ id: file.id, name: file.original_name, storagePath: file.storage_path, mimeType: file.mime_type, bucket: file.bucket || 'filehub-files' }]
+        : [],
+    [file?.id, isImage]
+  );
+  const { signedUrls: previewUrls, openImage: openPreview, lightbox: previewLightbox } = useImageLightbox(previewMedia, 'filehub-files');
+
+  // Non-image previews (spreadsheet / pdf / docx / text) → resolve a signed URL
+  // and offer a full-screen viewer.
+  const previewKind = file ? getPreviewKind(file.mime_type, file.original_name) : null;
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  useEffect(() => {
+    if (!file || !previewKind) { setPreviewUrl(null); return; }
+    let cancelled = false;
+    supabase.storage
+      .from(file.bucket || 'filehub-files')
+      .createSignedUrl(file.storage_path, 3600)
+      .then(({ data }) => { if (!cancelled) setPreviewUrl(data?.signedUrl ?? null); });
+    return () => { cancelled = true; };
+  }, [file?.id, previewKind]);
+
   const hasVersionHistory = !!(file?.version_count && file.version_count > 1);
 
   useEffect(() => { setTab('details'); setActivity([]); setVersions([]); }, [file?.id]);
@@ -208,6 +237,7 @@ function FileDetailSheet({
   };
 
   return (
+    <>
     <Modal visible={!!file} transparent animationType="slide" onRequestClose={onClose}>
       <View className="flex-1 justify-end">
         <TouchableOpacity className="flex-1" onPress={onClose} activeOpacity={1} />
@@ -218,9 +248,25 @@ function FileDetailSheet({
 
           {/* File header */}
           <View className="items-center px-6 pt-2 pb-4 border-b border-surface-border/50">
-            <View className="w-20 h-20 bg-surface-background border border-surface-border rounded-2xl items-center justify-center mb-3">
-              <FontAwesome name={icon as any} size={36} color={color} />
-            </View>
+            {isImage && previewUrls[file.id] ? (
+              <TouchableOpacity
+                onPress={() => openPreview(file.id)}
+                activeOpacity={0.85}
+                className="w-28 h-28 rounded-2xl mb-3 overflow-hidden border border-surface-border relative"
+                style={Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : undefined}
+              >
+                <Image source={{ uri: previewUrls[file.id] }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                <View className="absolute bottom-1.5 right-1.5 w-6 h-6 rounded-full bg-black/55 items-center justify-center">
+                  <FontAwesome name="search-plus" size={11} color="#fff" />
+                </View>
+              </TouchableOpacity>
+            ) : previewKind && previewUrl ? (
+              <FilePreviewTeaser uri={previewUrl} kind={previewKind} height={112} onPress={() => setPreviewOpen(true)} />
+            ) : (
+              <View className="w-20 h-20 bg-surface-background border border-surface-border rounded-2xl items-center justify-center mb-3">
+                <FontAwesome name={icon as any} size={36} color={color} />
+              </View>
+            )}
             <Text className="text-typography-main text-lg font-black text-center" numberOfLines={2}>{file.original_name}</Text>
             <Text className="text-typography-muted text-sm mt-1">
               {formatFileSize(file.size_bytes)}{file.mime_type ? ` · ${file.mime_type.split('/').pop()?.toUpperCase()}` : ''}
@@ -438,6 +484,18 @@ function FileDetailSheet({
         </View>
       </View>
     </Modal>
+    {previewLightbox}
+    {previewKind && previewUrl && (
+      <FilePreviewModal
+        visible={previewOpen}
+        uri={previewUrl}
+        kind={previewKind}
+        fileName={file.original_name}
+        onClose={() => setPreviewOpen(false)}
+        onDownload={handleDownload}
+      />
+    )}
+    </>
   );
 }
 
@@ -1410,6 +1468,7 @@ function FileCard({
   selectionMode = false,
   isFileSelected = false,
   onToggleSelect,
+  thumbUri,
 }: {
   file: FileHubFile;
   mode: FileHubMode;
@@ -1417,6 +1476,7 @@ function FileCard({
   selectionMode?: boolean;
   isFileSelected?: boolean;
   onToggleSelect?: () => void;
+  thumbUri?: string;
 }) {
   const { icon, color } = getMimeIcon(file.mime_type);
   const isUnread = mode === 'inbox' && !file.recipient_state?.read_at;
@@ -1438,8 +1498,12 @@ function FileCard({
           {isFileSelected && <FontAwesome name="check" size={16} color="#fff" />}
         </View>
       ) : (
-        <View className="w-11 h-11 bg-surface-background border border-surface-border rounded-xl items-center justify-center flex-shrink-0">
-          <FontAwesome name={icon as any} size={20} color={colors.textMain} />
+        <View className="w-11 h-11 bg-surface-background border border-surface-border rounded-xl items-center justify-center flex-shrink-0 overflow-hidden">
+          {thumbUri ? (
+            <Image source={{ uri: thumbUri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+          ) : (
+            <FontAwesome name={icon as any} size={20} color={colors.textMain} />
+          )}
         </View>
       )}
       <View className="flex-1 min-w-0">
@@ -1668,6 +1732,20 @@ function FileHubAdaptiveInner() {
   // Derive tags from the currently visible file list
   const displayFiles = mode === 'groups' && activeGroupId ? groupFiles : files;
   const displayLoading = mode === 'groups' && activeGroupId ? groupFilesLoading : loading;
+
+  // Signed thumbnails for image rows; clicking any file opens its detail sheet,
+  // where the image preview itself launches the lightbox.
+  const fileMedia = useMemo(
+    () => displayFiles.map(f => ({
+      id: f.id,
+      name: f.original_name,
+      storagePath: f.storage_path,
+      mimeType: f.mime_type,
+      bucket: f.bucket || 'filehub-files',
+    })),
+    [displayFiles]
+  );
+  const { signedUrls: fileThumbs } = useImageLightbox(fileMedia, 'filehub-files');
 
   const exitSelection = useCallback(() => {
     setSelectionMode(false);
@@ -1994,6 +2072,7 @@ function FileHubAdaptiveInner() {
                   file={file}
                   mode="groups"
                   onPress={() => setSelectedFile(file)}
+                  thumbUri={file.mime_type?.toLowerCase().includes('image') ? fileThumbs[file.id] : undefined}
                   selectionMode={selectionMode}
                   isFileSelected={selectedFileIds.has(file.id)}
                   onToggleSelect={() => toggleFileSelect(file.id)}
@@ -2038,6 +2117,7 @@ function FileHubAdaptiveInner() {
                   file={file}
                   mode={mode}
                   onPress={() => setSelectedFile(file)}
+                  thumbUri={file.mime_type?.toLowerCase().includes('image') ? fileThumbs[file.id] : undefined}
                   selectionMode={selectionMode}
                   isFileSelected={selectedFileIds.has(file.id)}
                   onToggleSelect={() => toggleFileSelect(file.id)}

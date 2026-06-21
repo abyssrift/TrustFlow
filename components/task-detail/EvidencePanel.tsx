@@ -1,9 +1,10 @@
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
+import { useImageLightbox } from '@/hooks/useImageLightbox';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { openStorageFile, SUBMISSION_BUCKET } from '@/lib/storage';
+import { SUBMISSION_BUCKET } from '@/lib/storage';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useMemo, useState } from 'react';
-import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import CollapsibleCard from './CollapsibleCard';
 
 function getCategoryUI(colors: ReturnType<typeof useThemeColors>): Record<string, { icon: string; color: string; label: string }> {
@@ -31,8 +32,8 @@ export default function EvidencePanel() {
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [showPendingReview, setShowPendingReview] = useState(true);
 
-  const { groupedEvidence, stats } = useMemo(() => {
-    if (!data?.submissions) return { groupedEvidence: {}, stats: { all: 0, image: 0, document: 0, spreadsheet: 0 } };
+  const { groupedEvidence, stats, mediaItems } = useMemo(() => {
+    if (!data?.submissions) return { groupedEvidence: {}, stats: { all: 0, image: 0, document: 0, spreadsheet: 0 }, mediaItems: [] as { id: string; name: string; storagePath: string; mimeType: string | null }[] };
     const categoryUI = getCategoryUI(colors);
 
     const filteredByStatus = showPendingReview
@@ -40,13 +41,14 @@ export default function EvidencePanel() {
       : data.submissions.filter(s => s.status === 'confirmed');
 
     const all = filteredByStatus.flatMap(s =>
-      (s.attachments || []).map(a => {
+      (s.attachments || []).map((a, ai) => {
         // Fallback for legacy items without a category column
         const cat = a.category || 'other';
         const ui = categoryUI[cat] || categoryUI.other;
 
         return {
           ...a,
+          _key: `${s.id}-${a.id}-${ai}`, // globally unique (legacy ids can repeat)
           submitted_by: s.submitted_by?.full_name,
           submitted_at: s.submitted_at,
           stage_name: s.stage_name || 'Legacy',
@@ -74,8 +76,17 @@ export default function EvidencePanel() {
       spreadsheet: all.filter(a => a.category === 'spreadsheet').length,
     };
 
-    return { groupedEvidence: groups, stats: currentStats };
+    const mediaItems = filtered.map(item => ({
+      id: item._key,
+      name: item.file_name,
+      storagePath: item.storage_path || item.file_url,
+      mimeType: item.mime_type || (item.category === 'image' ? 'image/*' : null),
+    }));
+
+    return { groupedEvidence: groups, stats: currentStats, mediaItems };
   }, [data?.submissions, activeFilter, showPendingReview, colors]);
+
+  const { signedUrls, handlePress, lightbox } = useImageLightbox(mediaItems, SUBMISSION_BUCKET);
 
   if (!data || stats.all === 0) return null;
 
@@ -125,16 +136,20 @@ export default function EvidencePanel() {
             
             <View className="gap-2.5">
               {items.map((ev, idx) => {
+                const thumb = signedUrls[ev._key];
+                const isImage = ev.category === 'image';
                 return (
                   <TouchableOpacity
-                    key={`${ev.id}-${idx}`}
-                    onPress={async () => {
-                      openStorageFile(SUBMISSION_BUCKET, ev.storage_path || ev.file_url, ev.file_name);
-                    }}
+                    key={ev._key || `${ev.id}-${idx}`}
+                    onPress={() => handlePress({ id: ev._key, name: ev.file_name, storagePath: ev.storage_path || ev.file_url, mimeType: ev.mime_type || (isImage ? 'image/*' : null) })}
                     className="flex-row items-center bg-surface-background p-3 rounded-xl border border-surface-border/50 active:opacity-75"
                   >
-                    <View className="w-8 h-8 rounded-lg bg-surface-card items-center justify-center mr-3">
-                      <FontAwesome name={ev.icon as any} size={14} color={ev.color} />
+                    <View className="w-8 h-8 rounded-lg bg-surface-card items-center justify-center mr-3 overflow-hidden">
+                      {thumb ? (
+                        <Image source={{ uri: thumb }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                      ) : (
+                        <FontAwesome name={ev.icon as any} size={14} color={ev.color} />
+                      )}
                     </View>
 
                     <View className="flex-1 mr-2">
@@ -152,7 +167,7 @@ export default function EvidencePanel() {
                       </View>
                     </View>
 
-                    <FontAwesome name="external-link" size={10} color={colors.textMuted} />
+                    <FontAwesome name={isImage ? 'search-plus' : 'external-link'} size={10} color={colors.textMuted} />
                   </TouchableOpacity>
                 );
               })}
@@ -160,6 +175,8 @@ export default function EvidencePanel() {
           </View>
         ))}
       </View>
+
+      {lightbox}
     </CollapsibleCard>
   );
 }

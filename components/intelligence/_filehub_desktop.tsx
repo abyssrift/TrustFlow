@@ -1,7 +1,9 @@
 import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { FileActivity, FileHubFile, FileHubFolder, FileHubGroup, FileHubGroupMember, FileHubMode, FileHubProvider, FileVersion, useFileHub } from '@/contexts/FileHubContext';
+import { useImageLightbox } from '@/hooks/useImageLightbox';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { FilePreviewModal, FilePreviewTeaser, getPreviewKind } from './../common/FilePreview';
 import { downloadFilesAsZip, openStorageFile } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
@@ -1136,6 +1138,7 @@ function FileRow({
   selectionMode = false,
   isFileSelected = false,
   onToggleSelect,
+  thumbUri,
 }: {
   file: FileHubFile;
   selected: boolean;
@@ -1144,6 +1147,7 @@ function FileRow({
   selectionMode?: boolean;
   isFileSelected?: boolean;
   onToggleSelect?: () => void;
+  thumbUri?: string;
 }) {
   const { icon, color } = getMimeIcon(file.mime_type);
   const isUnread = mode === 'inbox' && !file.recipient_state?.read_at;
@@ -1164,8 +1168,12 @@ function FileRow({
           {isFileSelected && <FontAwesome name="check" size={14} color="#fff" />}
         </View>
       ) : (
-        <View className="w-9 h-9 rounded-xl bg-surface-background border border-surface-border items-center justify-center mr-3.5 flex-shrink-0">
-          <FontAwesome name={icon as any} size={16} color={color} />
+        <View className="w-9 h-9 rounded-xl bg-surface-background border border-surface-border items-center justify-center mr-3.5 flex-shrink-0 overflow-hidden">
+          {thumbUri ? (
+            <Image source={{ uri: thumbUri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+          ) : (
+            <FontAwesome name={icon as any} size={16} color={color} />
+          )}
         </View>
       )}
       <View className="flex-1 min-w-0 mr-3">
@@ -1297,6 +1305,32 @@ function DetailPanel({
     ]);
   };
 
+  // Image preview → tap to open the lightbox (single image, no list navigation).
+  const isImage = !!file?.mime_type?.toLowerCase().includes('image');
+  const previewMedia = useMemo(
+    () =>
+      file && isImage
+        ? [{ id: file.id, name: file.original_name, storagePath: file.storage_path, mimeType: file.mime_type, bucket: file.bucket || 'filehub-files' }]
+        : [],
+    [file?.id, isImage]
+  );
+  const { signedUrls: previewUrls, openImage: openPreview, lightbox: previewLightbox } = useImageLightbox(previewMedia, 'filehub-files');
+
+  // Non-image previews (spreadsheet / pdf / docx / text) → resolve a signed URL
+  // and offer a full-screen viewer.
+  const previewKind = file ? getPreviewKind(file.mime_type, file.original_name) : null;
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  useEffect(() => {
+    if (!file || !previewKind) { setPreviewUrl(null); return; }
+    let cancelled = false;
+    supabase.storage
+      .from(file.bucket || 'filehub-files')
+      .createSignedUrl(file.storage_path, 3600)
+      .then(({ data }) => { if (!cancelled) setPreviewUrl(data?.signedUrl ?? null); });
+    return () => { cancelled = true; };
+  }, [file?.id, previewKind]);
+
   if (!file) {
     return (
       <View className="flex-1 items-center justify-center px-8">
@@ -1314,12 +1348,29 @@ function DetailPanel({
 
 
   return (
+    <>
     <View className="flex-1 flex-col" style={{ minHeight: 0 }}>
       {/* File header */}
       <View className="px-7 pt-6 pb-4 border-b border-surface-border/50 flex-shrink-0">
-        <View className="bg-surface-background rounded-2xl border border-surface-border items-center justify-center py-8 mb-4">
-          <FontAwesome name={icon as any} size={44} color={color} />
-        </View>
+        {isImage && previewUrls[file.id] ? (
+          <TouchableOpacity
+            onPress={() => openPreview(file.id)}
+            activeOpacity={0.9}
+            className="rounded-2xl border border-surface-border overflow-hidden mb-4 relative"
+            style={[{ height: 200 }, Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null]}
+          >
+            <Image source={{ uri: previewUrls[file.id] }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+            <View className="absolute bottom-2 right-2 w-7 h-7 rounded-full bg-black/55 items-center justify-center">
+              <FontAwesome name="search-plus" size={12} color="#fff" />
+            </View>
+          </TouchableOpacity>
+        ) : previewKind && previewUrl ? (
+          <FilePreviewTeaser uri={previewUrl} kind={previewKind} height={200} onPress={() => setPreviewOpen(true)} />
+        ) : (
+          <View className="bg-surface-background rounded-2xl border border-surface-border items-center justify-center py-8 mb-4">
+            <FontAwesome name={icon as any} size={44} color={color} />
+          </View>
+        )}
         <Text className="text-typography-main text-base font-black tracking-tight mb-0.5 leading-snug" numberOfLines={2}>{file.original_name}</Text>
         <Text className="text-typography-muted text-xs">
           {formatFileSize(file.size_bytes)}{file.mime_type ? ` · ${file.mime_type.split('/').pop()?.toUpperCase()}` : ''}
@@ -1542,6 +1593,18 @@ function DetailPanel({
         </ScrollView>
       )}
     </View>
+    {previewLightbox}
+    {previewKind && previewUrl && (
+      <FilePreviewModal
+        visible={previewOpen}
+        uri={previewUrl}
+        kind={previewKind}
+        fileName={file.original_name}
+        onClose={() => setPreviewOpen(false)}
+        onDownload={handleDownload}
+      />
+    )}
+    </>
   );
 }
 
@@ -1910,6 +1973,20 @@ function FileHubDesktopInner() {
 
   const activeGroup = useMemo(() => groups.find(g => g.id === activeGroupId) ?? null, [groups, activeGroupId]);
   const displayFiles = mode === 'groups' && activeGroupId ? groupFiles : files;
+
+  // Signed thumbnails for image rows; clicking any file opens its detail panel,
+  // where the image preview itself launches the lightbox.
+  const fileMedia = useMemo(
+    () => displayFiles.map(f => ({
+      id: f.id,
+      name: f.original_name,
+      storagePath: f.storage_path,
+      mimeType: f.mime_type,
+      bucket: f.bucket || 'filehub-files',
+    })),
+    [displayFiles]
+  );
+  const { signedUrls: fileThumbs } = useImageLightbox(fileMedia, 'filehub-files');
 
   const toggleSelectAll = useCallback(() => {
     setSelectedFileIds(prev =>
@@ -2350,6 +2427,7 @@ function FileHubDesktopInner() {
                       selected={!selectionMode && selectedFile?.id === file.id}
                       mode="groups"
                       onPress={() => setSelectedFile(prev => prev?.id === file.id ? null : file)}
+                      thumbUri={file.mime_type?.toLowerCase().includes('image') ? fileThumbs[file.id] : undefined}
                       selectionMode={selectionMode}
                       isFileSelected={selectedFileIds.has(file.id)}
                       onToggleSelect={() => toggleFileSelect(file.id)}
@@ -2489,6 +2567,7 @@ function FileHubDesktopInner() {
                       selected={!selectionMode && selectedFile?.id === file.id}
                       mode={mode}
                       onPress={() => setSelectedFile(prev => prev?.id === file.id ? null : file)}
+                      thumbUri={file.mime_type?.toLowerCase().includes('image') ? fileThumbs[file.id] : undefined}
                       selectionMode={selectionMode}
                       isFileSelected={selectedFileIds.has(file.id)}
                       onToggleSelect={() => toggleFileSelect(file.id)}

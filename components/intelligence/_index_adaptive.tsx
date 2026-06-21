@@ -571,7 +571,6 @@ export default function IntelligenceScreen() {
   const [showWidgetModal, setShowWidgetModal] = useState(false);
 
   useEffect(() => {
-    const colors = useThemeColors();
     AsyncStorage.getItem('@TrustFlow_radar_widgets').then(val => {
       if (val) setActiveWidgets(JSON.parse(val));
     });

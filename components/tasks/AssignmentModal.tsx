@@ -1,3 +1,4 @@
+import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -33,6 +34,7 @@ export default function AssignmentModal({
   onSave
 }: AssignmentModalProps) {
   const colors = useThemeColors();
+  const { profile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'teams' | 'users'>('teams');
@@ -50,24 +52,36 @@ export default function AssignmentModal({
       setSelectedIds(initialSelectedIds);
       setSearch('');
     }
-  }, [visible, pipelineId, initialSelectedIds]);
+  }, [visible, pipelineId, initialSelectedIds, profile?.company_id]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const { data: teamData } = await supabase.from('teams').select('id, name').is('deleted_at', null).order('name');
+      const companyId = profile?.company_id;
+      if (!companyId) {
+        setTeams([]);
+        setUsers([]);
+        setTeamMembers({});
+        setCounts({ users: {}, teams: {} });
+        return;
+      }
+
+      const { data: teamData } = await supabase.from('teams').select('id, name').is('deleted_at', null).eq('company_id', companyId).order('name');
       setTeams(teamData || []);
 
-      const { data: userData } = await supabase.from('users').select('id, full_name, email, avatar_url').is('deleted_at', null).order('full_name');
+      const { data: userData } = await supabase.from('users').select('id, full_name, email, avatar_url').is('deleted_at', null).eq('company_id', companyId).order('full_name');
       setUsers(userData || []);
 
-      // Fetch team members for each team
-      const { data: memberData } = await supabase.from('team_members').select('team_id, user_id').is('removed_at', null);
+      // Fetch team members for this company's teams only
+      const teamIds = (teamData || []).map((t: any) => t.id);
       const membersByTeam: Record<string, string[]> = {};
-      memberData?.forEach((m: any) => {
-        if (!membersByTeam[m.team_id]) membersByTeam[m.team_id] = [];
-        membersByTeam[m.team_id].push(m.user_id);
-      });
+      if (teamIds.length > 0) {
+        const { data: memberData } = await supabase.from('team_members').select('team_id, user_id').is('removed_at', null).in('team_id', teamIds);
+        memberData?.forEach((m: any) => {
+          if (!membersByTeam[m.team_id]) membersByTeam[m.team_id] = [];
+          membersByTeam[m.team_id].push(m.user_id);
+        });
+      }
       setTeamMembers(membersByTeam);
 
       const { data: userCounts } = await supabase.rpc('rpc_get_active_task_counts', { p_pipeline_id: pipelineId, p_type: 'user' });

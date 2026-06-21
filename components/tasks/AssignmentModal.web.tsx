@@ -41,42 +41,56 @@ export default function AssignmentModal({
   const [userSearch, setUserSearch] = useState('');
   const colors = useThemeColors();
 
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, profile } = useAuth();
 
   useEffect(() => {
     if (visible) {
       fetchData();
       setSelectedIds(initialSelectedIds);
     }
-  }, [visible, pipelineId, initialSelectedIds]);
+  }, [visible, pipelineId, initialSelectedIds, profile?.company_id]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
 
-      // 1. Fetch Teams
+      const companyId = profile?.company_id;
+      if (!companyId) {
+        setTeams([]);
+        setUsers([]);
+        setTeamMembers({});
+        setCounts({ users: {}, teams: {} });
+        return;
+      }
+
+      // 1. Fetch Teams (scoped to current company)
       const { data: teamData } = await supabase
         .from('teams')
         .select('id, name')
         .is('deleted_at', null)
+        .eq('company_id', companyId)
         .order('name');
       setTeams(teamData || []);
 
-      // 2. Fetch Users
+      // 2. Fetch Users (scoped to current company)
       const { data: userData } = await supabase
         .from('users')
         .select('id, full_name, email, avatar_url')
         .is('deleted_at', null)
+        .eq('company_id', companyId)
         .order('full_name');
       setUsers(userData || []);
 
-      // 3. Fetch team members for each team
-      const { data: memberData } = await supabase.from('team_members').select('team_id, user_id').is('removed_at', null);
+      // 3. Fetch team members for this company's teams only
+      const teamIds = (teamData || []).map((t: any) => t.id);
       const membersByTeam: Record<string, string[]> = {};
-      memberData?.forEach((m: any) => {
-        if (!membersByTeam[m.team_id]) membersByTeam[m.team_id] = [];
-        membersByTeam[m.team_id].push(m.user_id);
-      });
+      if (teamIds.length > 0) {
+        const { data: memberData } = await supabase.from('team_members').select('team_id, user_id').is('removed_at', null).in('team_id', teamIds);
+        memberData?.forEach((m: any) => {
+          if (!membersByTeam[m.team_id]) membersByTeam[m.team_id] = [];
+          membersByTeam[m.team_id].push(m.user_id);
+        });
+      }
       setTeamMembers(membersByTeam);
 
       // 4. Fetch Task Counts

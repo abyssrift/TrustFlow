@@ -6,9 +6,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSubmission } from '@/contexts/SubmissionContext';
 import { useTaskDetail, type StageActionData } from '@/contexts/TaskDetailContext';
 import { useTimer } from '@/contexts/TimerContext';
+import { useImageLightbox } from '@/hooks/useImageLightbox';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { getPastedImageFile } from '@/lib/pasteImage';
-import { openStorageFile, SUBMISSION_BUCKET } from '@/lib/storage';
+import { SUBMISSION_BUCKET } from '@/lib/storage';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
@@ -148,6 +149,24 @@ export default function StageActions() {
   const [pendingAdvanceAction, setPendingAdvanceAction] = useState<StageActionData | null>(null);
 
   const { submitWithEvidence, activeJobs } = useSubmission();
+
+  // Submission attachments → navigable image lightbox / direct download.
+  const submissionMedia = React.useMemo(
+    () =>
+      (data?.submissions || []).flatMap((s) =>
+        (s.attachments || []).map((a) => ({
+          id: `${s.id}-${a.id}`,
+          name: a.file_name,
+          storagePath: a.storage_path || a.file_url,
+          mimeType: a.mime_type,
+        }))
+      ),
+    [data?.submissions]
+  );
+  const { signedUrls: subSignedUrls, handlePress: handleSubPress, lightbox: subLightbox } = useImageLightbox(
+    submissionMedia,
+    SUBMISSION_BUCKET
+  );
 
   React.useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -676,18 +695,27 @@ export default function StageActions() {
                   {s.attachments.length > 0 && (
                     <View className="mb-2 gap-1.5">
                       {s.attachments.map((a) => {
+                        const mid = `${s.id}-${a.id}`;
+                        const thumb = subSignedUrls[mid];
+                        const isImg = a.mime_type?.toLowerCase().includes('image');
                         const { name: iconName, color: iconColor } = getFileIcon(a.mime_type, colors);
                         return (
                           <TouchableOpacity
                             key={a.id}
-                            onPress={() => openStorageFile(SUBMISSION_BUCKET, a.storage_path || a.file_url, a.file_name)}
+                            onPress={() => handleSubPress({ id: mid, name: a.file_name, storagePath: a.storage_path || a.file_url, mimeType: a.mime_type })}
                             className="flex-row items-center bg-surface-background px-2.5 py-2 rounded-lg border border-surface-border/50 active:opacity-70"
                           >
-                            <FontAwesome name={iconName as any} size={12} color={iconColor} />
+                            {thumb ? (
+                              <View className="w-5 h-5 rounded overflow-hidden">
+                                <Image source={{ uri: thumb }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                              </View>
+                            ) : (
+                              <FontAwesome name={iconName as any} size={12} color={iconColor} />
+                            )}
                             <Text className="text-typography-main text-[11px] font-bold ml-2 flex-1" numberOfLines={1}>
                               {a.file_name}
                             </Text>
-                            <FontAwesome name="external-link" size={9} color={colors.textMuted} />
+                            <FontAwesome name={isImg ? 'search-plus' : 'external-link'} size={9} color={colors.textMuted} />
                           </TouchableOpacity>
                         );
                       })}
@@ -764,6 +792,8 @@ export default function StageActions() {
           )}
         </View>
       )}
+
+      {subLightbox}
     </View>
   );
 }

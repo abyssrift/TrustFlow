@@ -12,8 +12,8 @@ import CompanyEditSettings from '@/components/profile/CompanyEditSettings';
 import WorkspaceSettings from '@/components/profile/WorkspaceSettings';
 import { useAuth } from '@/contexts/AuthContext';
 import { RoleManagerProvider, useRoleManager } from '@/contexts/RoleManagerContext';
-import { supabase } from '@/lib/supabase';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { supabase } from '@/lib/supabase';
 
 type PeopleSection = 'members' | 'teams' | 'roles' | 'notifications' | 'workspace' | 'company';
 
@@ -182,7 +182,7 @@ export default function PeopleScreenWeb() {
                   className={`px-8 py-3 rounded-xl ${activeSection === 'company' ? 'bg-brand-primary' : ''}`}
                 >
                   <Text className={`font-black text-xs uppercase tracking-widest ${activeSection === 'company' ? 'text-white' : 'text-typography-muted'}`}>
-                    Company Edit
+                    Company Info
                   </Text>
                 </TouchableOpacity>
               )}

@@ -14,12 +14,14 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 
 function TaskDetailContentWeb() {
   const { data, loading, error, refresh } = useTaskDetail();
   const colors = useThemeColors();
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isWide = width >= 1024;
   const [refreshing, setRefreshing] = React.useState(false);
 
   const onRefresh = async () => {
@@ -78,37 +80,59 @@ function TaskDetailContentWeb() {
   return (
     <View className="flex-1 bg-surface-background">
       <TaskHeader />
-      <View className="flex-1 flex-row">
-        {/* LEFT: Main Operational Area */}
+      {isWide ? (
+        <View className="flex-1 flex-row">
+          {/* LEFT: Main Operational Area */}
+          <ScrollView
+            className="flex-1"
+            showsVerticalScrollIndicator={false}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+          >
+            <View className="p-10 max-w-[1000px] mx-auto w-full gap-8 pb-20">
+              <TaskBriefPanel />
+              <StageActions />
+              <EvidencePanel />
+              <CommentsSection />
+            </View>
+          </ScrollView>
+
+          {/* RIGHT: Strategic Metadata Sidebar */}
+          <View className="w-[450px] border-l border-surface-border bg-surface-card/30">
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ padding: 32, gap: 32 }}
+            >
+              <TaskMetadata />
+              <TimerPanel />
+              <PeoplePanel />
+              <ChildPipelinesPanel />
+              <PipelineJourney />
+              <ActivityLog />
+              <View className="h-20" />
+            </ScrollView>
+          </View>
+        </View>
+      ) : (
+        /* NARROW / MOBILE WEB: single stacked column (mirrors native layout order) */
         <ScrollView
-          className="flex-1"
+          className="flex-1 px-4 py-4"
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         >
-          <View className="p-10 max-w-[1000px] mx-auto w-full gap-8 pb-20">
+          <View className="gap-4 pb-20">
             <TaskBriefPanel />
             <StageActions />
             <EvidencePanel />
             <CommentsSection />
-          </View>
-        </ScrollView>
-
-        {/* RIGHT: Strategic Metadata Sidebar */}
-        <View className="w-[450px] border-l border-surface-border bg-surface-card/30">
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            className="p-8 space-y-8"
-          >
-            <TaskMetadata />
-            <TimerPanel />
             <PeoplePanel />
             <ChildPipelinesPanel />
             <PipelineJourney />
+            <TimerPanel />
             <ActivityLog />
-            <View className="h-20" />
-          </ScrollView>
-        </View>
-      </View>
+            <TaskMetadata />
+          </View>
+        </ScrollView>
+      )}
     </View>
   );
 }
