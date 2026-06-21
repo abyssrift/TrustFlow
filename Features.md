@@ -1,29 +1,5 @@
 # Project Backlog & Prioritization Matrix
 
-## 🚨 Tier 1: Priority Zero (Critical Fixes & Production Crashes)
-*High urgency items that directly break the application experience or crash active sessions on mobile/native platforms.*
-
-- [ ] **Tasks Mobile Pipeline Fetch Failure (`tasks.tsx`)**
-  - **Issue:** Mobile app is completely broken when loading tasks—no pipelines are fetched.
-  - **Context from Logs:** `savedPipelineId` and `Default pipeline` are both returning `null`. The system hits an early return statement, dropping the user into an unrecoverable blank state (`loading=false`).
-  - **Fix:** Add dynamic fallback logic when storage/default pipeline checks return null.
-
-- [ ] **FileHub Context "Read All" Crash (`FileHubContext.tsx`)**
-  - **Issue:** App crashes when tapping the "Read all" action in the inbox.
-  - **Context from Logs:** `ReferenceError: Property 'CustomEvent' doesn't exist`.
-  - **Fix:** `CustomEvent` is a browser/web DOM API and is undefined globally in React Native. Replace it with a native listener/event emitter pattern or add a global polyfill.
-
-- [ ] **Native Mobile File Preview Crash (Metro Bundler)**
-  - **Issue:** App triggers an unhandled rejection when attempting to preview files on native mobile.
-  - **Context from Logs:** `ERROR [Error: Requiring unknown module "4323". If you are sure the module exists, try restarting Metro...]`
-  - **Fix:** Clear the local bundle cache (`npx expo start -c`) and verify that dynamic asset imports or new code dependencies are fully linked in `package.json`.
-
-- [ ] **Team Selector UI Bug**
-  - **Issue:** The team selector screen breaks or locks up when trying to delegate assignees.
-  - **Fix:** Resolve ui state-locking or missing array indexes that freeze the delegation picker.
-
----
-
 ## ⚡ Tier 2: Priority High (UX Friction & Core Polish)
 *Functional issues that do not crash the app but introduce severe user friction or degrade the baseline experience.*
 
@@ -56,9 +32,6 @@
 
 - [ ] **FileHub Analytics Dashboard**
   - **Feature:** Build a clean, lightweight overview pane aggregating usage metrics: total volume of files sent, top 5 active senders/receivers categorized by company, and an activity ranking of communication channels.
-
-- [ ] **Local Task Reminders**
-  - **Feature:** Build local system notifications that tap into native system clocks to warn users of approaching task deadlines.
 
 - [ ] **Desktop Project Details Screen Expansion**
   - **Feature:** Leverage wide desktop/web screen layouts by introducing a highly descriptive, multi-column dashboard for comprehensive project metrics.
