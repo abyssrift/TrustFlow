@@ -2,6 +2,7 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { loadXlsx } from './loadXlsx';
 
 const isWeb = Platform.OS === 'web';
 
@@ -45,7 +46,7 @@ function useWorkbook(uri: string) {
     (async () => {
       try {
         const buf = await (await fetch(uri)).arrayBuffer();
-        if (!XLSXmod) XLSXmod = await import('xlsx');
+        if (!XLSXmod) XLSXmod = await loadXlsx();
         const wb = XLSXmod.read(buf, { type: 'array' });
         wbObjCache.set(uri, wb);
         wbCache.set(uri, { names: wb.SheetNames });
@@ -226,6 +227,10 @@ function useDocxHtml(uri: string) {
     () => (docxCache.has(uri) ? { loading: false, error: false, html: docxCache.get(uri)! } : { loading: true, error: false, html: '' })
   );
   useEffect(() => {
+    // docx preview is web-only (DocxView renders a download placeholder on
+    // native). Skip the work — and crucially the `import('mammoth')` — on native,
+    // where Metro's async require throws "Requiring unknown module …".
+    if (!isWeb) return;
     if (docxCache.has(uri)) { setState({ loading: false, error: false, html: docxCache.get(uri)! }); return; }
     let cancelled = false;
     setState({ loading: true, error: false, html: '' });

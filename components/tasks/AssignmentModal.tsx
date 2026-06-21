@@ -2,7 +2,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator, Alert,
     Dimensions,
@@ -49,10 +49,21 @@ export default function AssignmentModal({
   useEffect(() => {
     if (visible) {
       fetchData();
+    }
+  }, [visible, pipelineId, profile?.company_id]);
+
+  // Re-sync local selection only when the modal transitions to open. The parent
+  // passes a fresh `initialSelectedIds` object literal on every render, so
+  // depending on it directly would wipe in-progress selections (and re-trigger
+  // fetchData) on any parent re-render — locking up the picker.
+  const wasVisible = useRef(false);
+  useEffect(() => {
+    if (visible && !wasVisible.current) {
       setSelectedIds(initialSelectedIds);
       setSearch('');
     }
-  }, [visible, pipelineId, initialSelectedIds, profile?.company_id]);
+    wasVisible.current = visible;
+  }, [visible, initialSelectedIds]);
 
   const fetchData = async () => {
     try {

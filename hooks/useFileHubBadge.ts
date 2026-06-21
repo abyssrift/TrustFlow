@@ -1,6 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { useCallback, useEffect, useState } from 'react';
+import { DeviceEventEmitter } from 'react-native';
 
 export function useFileHubBadge() {
   const { user } = useAuth();
@@ -16,10 +17,9 @@ export function useFileHubBadge() {
     fetchCount();
     if (!user?.id) return;
 
-    const handleUnreadCountEvent = (event: Event) => {
-      const customEvent = event as CustomEvent<{ count?: number }>;
-      if (typeof customEvent.detail?.count === 'number') {
-        setInboxUnread(customEvent.detail.count);
+    const handleUnreadCountEvent = (payload?: { count?: number }) => {
+      if (typeof payload?.count === 'number') {
+        setInboxUnread(payload.count);
       } else {
         fetchCount();
       }
@@ -39,14 +39,13 @@ export function useFileHubBadge() {
       )
       .subscribe();
 
-    if (typeof window !== 'undefined') {
-      window.addEventListener('filehub:unread-count', handleUnreadCountEvent);
-    }
+    const subscription = DeviceEventEmitter.addListener(
+      'filehub:unread-count',
+      handleUnreadCountEvent
+    );
 
     return () => {
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('filehub:unread-count', handleUnreadCountEvent);
-      }
+      subscription.remove();
       supabase.removeChannel(channel);
     };
   }, [user?.id, fetchCount]);

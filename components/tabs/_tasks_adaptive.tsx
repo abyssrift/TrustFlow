@@ -307,7 +307,7 @@ function TasksScreen() {
 
         if (savedPipelineId) {
           console.log('[TasksScreen] Fetching saved pipeline...');
-          const { data: pSaved } = await supabase.from('pipelines').select('id, name, task_visibility_mode, is_default').eq('id', savedPipelineId).single();
+          const { data: pSaved } = await supabase.from('pipelines').select('id, name, task_visibility_mode, is_default').eq('id', savedPipelineId).is('deleted_at', null).maybeSingle();
           console.log('[TasksScreen] Saved pipeline data:', pSaved);
           if (pSaved) {
             targetPipelineId = pSaved.id;
@@ -317,10 +317,31 @@ function TasksScreen() {
         // Fall back to default if saved pipeline not found
         if (!targetPipelineId) {
           console.log('[TasksScreen] Fetching default pipeline...');
-          const { data: pDefault } = await supabase.from('pipelines').select('id, name, task_visibility_mode, is_default').eq('is_default', true).limit(1).single();
+          const { data: pDefault } = await supabase.from('pipelines').select('id, name, task_visibility_mode, is_default').eq('is_default', true).is('deleted_at', null).limit(1).maybeSingle();
           console.log('[TasksScreen] Default pipeline data:', pDefault);
-          targetPipelineId = pDefault?.id;
-          pipelineData = pDefault;
+          if (pDefault) {
+            targetPipelineId = pDefault.id;
+            pipelineData = pDefault;
+          }
+        }
+        // Final fallback: no param, no saved, no default flagged → use the first
+        // available pipeline so the user is never dropped into a blank state.
+        if (!targetPipelineId) {
+          console.log('[TasksScreen] No default pipeline, falling back to first available...');
+          const { data: pFirst } = await supabase
+            .from('pipelines')
+            .select('id, name, task_visibility_mode, is_default')
+            .is('deleted_at', null)
+            .order('name')
+            .limit(1)
+            .maybeSingle();
+          console.log('[TasksScreen] First available pipeline:', pFirst);
+          if (pFirst) {
+            targetPipelineId = pFirst.id;
+            pipelineData = pFirst;
+            // Persist so subsequent loads restore the same pipeline.
+            try { await AsyncStorage.setItem('@TrustFlow_tasks_pipeline', pFirst.id); } catch {}
+          }
         }
       } else {
         console.log('[TasksScreen] Using paramPipelineId, fetching specific pipeline...');

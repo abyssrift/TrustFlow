@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { Alert } from 'react-native';
+import { Alert, DeviceEventEmitter } from 'react-native';
 
 export type FileHubMode = 'inbox' | 'sent' | 'broadcast' | 'groups';
 
@@ -177,12 +177,10 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
   const setActiveGroupId = useCallback((id: string | null) => setActiveGroupIdState(id), []);
 
   const emitUnreadCount = useCallback((count: number) => {
-    if (typeof window === 'undefined') return;
-    window.dispatchEvent(
-      new CustomEvent('filehub:unread-count', {
-        detail: { count },
-      })
-    );
+    // DeviceEventEmitter works on both native and web (react-native-web),
+    // unlike the browser-only CustomEvent / window.dispatchEvent which crashes
+    // on native ("Property 'CustomEvent' doesn't exist").
+    DeviceEventEmitter.emit('filehub:unread-count', { count });
   }, []);
 
   // ── Inbox / Sent / Broadcast ────────────────────────────────────────────────
