@@ -3,7 +3,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { FileActivity, FileHubFile, FileHubFolder, FileHubGroup, FileHubGroupMember, FileHubMode, FileHubProvider, FileVersion, useFileHub } from '@/contexts/FileHubContext';
 import { useImageLightbox } from '@/hooks/useImageLightbox';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { FilePreviewModal, FilePreviewTeaser, getPreviewKind } from './../common/FilePreview';
+import { FilePreviewModal, FilePreviewTeaser, getPreviewKind, type PreviewKind } from './../common/FilePreview';
+import FileHubAnalytics from './FileHubAnalytics';
 import { downloadFilesAsZip, openStorageFile } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
@@ -1143,7 +1144,7 @@ function FileRow({
   file: FileHubFile;
   selected: boolean;
   mode: FileHubMode;
-  onPress: () => void;
+  onPress: (e?: any) => void;
   selectionMode?: boolean;
   isFileSelected?: boolean;
   onToggleSelect?: () => void;
@@ -1154,7 +1155,7 @@ function FileRow({
 
   return (
     <TouchableOpacity
-      onPress={selectionMode ? onToggleSelect : onPress}
+      onPress={(e) => (selectionMode ? onToggleSelect?.() : onPress(e))}
       className={`flex-row items-center px-6 py-4 border-b border-surface-border/40 transition-colors ${
         isFileSelected
           ? 'bg-brand-primary/10'
@@ -1214,11 +1215,14 @@ function DetailPanel({
   mode,
   currentUserId,
   onClose,
+  autoPreview = false,
 }: {
   file: FileHubFile | null;
   mode: FileHubMode;
   currentUserId: string | undefined;
   onClose: () => void;
+  /** When true (Shift+Click fast-track), jump straight to the fullscreen viewer. */
+  autoPreview?: boolean;
 }) {
   const { markRead, hideFile, deleteFile, logActivity, fileActivity, fileVersions, restoreVersion } = useFileHub();
   const { showConfirm } = useAlert();
@@ -1255,7 +1259,23 @@ function DetailPanel({
   const handleVersionDownload = async (version: FileVersion) => {
     if (!file) return;
     logActivity(file.id, 'download', { version_no: version.version_no });
-    await openStorageFile(version.bucket || 'filehub-files', version.storage_path, version.original_name);
+    await openStorageFile(version.bucket || 'filehub-files', version.storage_path, version.original_name, version.mime_type ?? file.mime_type);
+  };
+
+  // Preview a specific (older) version in the document viewer — selecting a
+  // version resolves its own signed URL and re-renders the viewer canvas.
+  const [versionPreview, setVersionPreview] = useState<{ uri: string; kind: PreviewKind; name: string; versionNo: number } | null>(null);
+  const handleVersionPreview = async (version: FileVersion) => {
+    if (!file) return;
+    const kind = getPreviewKind(version.mime_type ?? file.mime_type, version.original_name);
+    if (!kind) { handleVersionDownload(version); return; }
+    const { data } = await supabase.storage
+      .from(version.bucket || 'filehub-files')
+      .createSignedUrl(version.storage_path, 3600);
+    if (data?.signedUrl) {
+      logActivity(file.id, 'view', { version_no: version.version_no });
+      setVersionPreview({ uri: data.signedUrl, kind, name: version.original_name, versionNo: version.version_no });
+    }
   };
 
   const handleRestore = (version: FileVersion) => {
@@ -1281,7 +1301,7 @@ function DetailPanel({
     setDownloadLoading(true);
     try {
       logActivity(file.id, 'download');
-      await openStorageFile(file.bucket || 'filehub-files', file.storage_path, file.original_name);
+      await openStorageFile(file.bucket || 'filehub-files', file.storage_path, file.original_name, file.mime_type);
     } finally {
       setDownloadLoading(false);
     }
@@ -1330,6 +1350,20 @@ function DetailPanel({
       .then(({ data }) => { if (!cancelled) setPreviewUrl(data?.signedUrl ?? null); });
     return () => { cancelled = true; };
   }, [file?.id, previewKind]);
+
+  // Shift+Click fast-track: open the fullscreen viewer once the signed URL resolves.
+  const autoPreviewedId = useRef<string | null>(null);
+  useEffect(() => { if (!file) autoPreviewedId.current = null; }, [file?.id]);
+  useEffect(() => {
+    if (!autoPreview || !file || autoPreviewedId.current === file.id) return;
+    if (isImage && previewUrls[file.id]) {
+      autoPreviewedId.current = file.id;
+      openPreview(file.id);
+    } else if (previewKind && previewUrl) {
+      autoPreviewedId.current = file.id;
+      setPreviewOpen(true);
+    }
+  }, [autoPreview, file?.id, isImage, previewUrls, previewKind, previewUrl, openPreview]);
 
   if (!file) {
     return (
@@ -1566,6 +1600,15 @@ function DetailPanel({
                     </Text>
                   )}
                   <View className="flex-row gap-2 mt-2">
+                    {getPreviewKind(v.mime_type ?? file.mime_type, v.original_name) && (
+                      <TouchableOpacity
+                        onPress={() => handleVersionPreview(v)}
+                        className="flex-row items-center justify-center bg-surface-background border border-surface-border rounded-xl px-3 py-2 gap-1.5"
+                      >
+                        <FontAwesome name="eye" size={11} color={colors.textMuted} />
+                        <Text className="text-typography-muted font-bold text-xs">Preview</Text>
+                      </TouchableOpacity>
+                    )}
                     <TouchableOpacity
                       onPress={() => handleVersionDownload(v)}
                       className="flex-row items-center justify-center bg-surface-background border border-surface-border rounded-xl px-3 py-2 gap-1.5"
@@ -1602,6 +1645,15 @@ function DetailPanel({
         fileName={file.original_name}
         onClose={() => setPreviewOpen(false)}
         onDownload={handleDownload}
+      />
+    )}
+    {versionPreview && (
+      <FilePreviewModal
+        visible
+        uri={versionPreview.uri}
+        kind={versionPreview.kind}
+        fileName={`${versionPreview.name} (v${versionPreview.versionNo})`}
+        onClose={() => setVersionPreview(null)}
       />
     )}
     </>
@@ -1942,12 +1994,21 @@ function FileHubDesktopInner() {
 
   const [selectedFile, setSelectedFile] = useState<FileHubFile | null>(null);
   const [detailPanelFile, setDetailPanelFile] = useState<FileHubFile | null>(null);
+  const [fastTrackPreview, setFastTrackPreview] = useState(false);
+
+  // Standard click → detail panel (toggles); Shift+Click (web) → fullscreen viewer.
+  const openFile = useCallback((file: FileHubFile, e?: any) => {
+    const shift = !!(e?.shiftKey || e?.nativeEvent?.shiftKey);
+    setFastTrackPreview(shift);
+    setSelectedFile(prev => (prev?.id === file.id && !shift ? null : file));
+  }, []);
   const [isDetailPanelExpanded, setIsDetailPanelExpanded] = useState(false);
   const [groupPanelGroup, setGroupPanelGroup] = useState<FileHubGroup | null>(null);
   const [isGroupPanelExpanded, setIsGroupPanelExpanded] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [showManageTags, setShowManageTags] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
   const [zipDownloading, setZipDownloading] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set());
@@ -2154,6 +2215,13 @@ function FileHubDesktopInner() {
               </TouchableOpacity>
             )}
           </View>
+          <TouchableOpacity
+            onPress={() => setShowAnalytics(true)}
+            className="h-10 flex-row items-center gap-2 px-4 bg-surface-card border border-surface-border rounded-xl shrink-0"
+          >
+            <FontAwesome name="bar-chart" size={12} color={colors.primary} />
+            <Text className="text-typography-main font-black text-sm tracking-wide">Insights</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             onPress={handleRefresh}
             className="h-10 w-10 items-center justify-center bg-surface-card border border-surface-border rounded-xl shrink-0"
@@ -2426,7 +2494,7 @@ function FileHubDesktopInner() {
                       file={file}
                       selected={!selectionMode && selectedFile?.id === file.id}
                       mode="groups"
-                      onPress={() => setSelectedFile(prev => prev?.id === file.id ? null : file)}
+                      onPress={(e) => openFile(file, e)}
                       thumbUri={file.mime_type?.toLowerCase().includes('image') ? fileThumbs[file.id] : undefined}
                       selectionMode={selectionMode}
                       isFileSelected={selectedFileIds.has(file.id)}
@@ -2566,7 +2634,7 @@ function FileHubDesktopInner() {
                       file={file}
                       selected={!selectionMode && selectedFile?.id === file.id}
                       mode={mode}
-                      onPress={() => setSelectedFile(prev => prev?.id === file.id ? null : file)}
+                      onPress={(e) => openFile(file, e)}
                       thumbUri={file.mime_type?.toLowerCase().includes('image') ? fileThumbs[file.id] : undefined}
                       selectionMode={selectionMode}
                       isFileSelected={selectedFileIds.has(file.id)}
@@ -2616,7 +2684,7 @@ function FileHubDesktopInner() {
                 transform: [{ translateX: isDetailPanelExpanded ? 0 : 24 }],
               }}
             >
-              <DetailPanel file={detailPanelFile} mode="groups" currentUserId={user?.id} onClose={() => setSelectedFile(null)} />
+              <DetailPanel file={detailPanelFile} mode="groups" currentUserId={user?.id} autoPreview={fastTrackPreview} onClose={() => { setSelectedFile(null); setFastTrackPreview(false); }} />
             </View>
           )}
 
@@ -2633,7 +2701,8 @@ function FileHubDesktopInner() {
                 file={detailPanelFile}
                 mode={mode}
                 currentUserId={user?.id}
-                onClose={() => setSelectedFile(null)}
+                autoPreview={fastTrackPreview}
+                onClose={() => { setSelectedFile(null); setFastTrackPreview(false); }}
               />
             </View>
           )}
@@ -2667,6 +2736,9 @@ function FileHubDesktopInner() {
         onClose={() => setShowManageTags(false)}
         onChanged={handleRefresh}
       />
+
+      {/* ── Analytics Dashboard ── */}
+      <FileHubAnalytics visible={showAnalytics} onClose={() => setShowAnalytics(false)} />
     </View>
   );
 }

@@ -24,7 +24,8 @@ import {
 import { useImageLightbox } from '@/hooks/useImageLightbox';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import AdaptiveFileGrid from '../common/AdaptiveFileGrid';
-import { FilePreviewModal, FilePreviewTeaser, getPreviewKind } from '../common/FilePreview';
+import { FilePreviewModal, FilePreviewTeaser, getPreviewKind, type PreviewKind } from '../common/FilePreview';
+import FileHubAnalytics from './FileHubAnalytics';
 
 
 
@@ -120,11 +121,14 @@ function FileDetailSheet({
   mode,
   currentUserId,
   onClose,
+  autoPreview = false,
 }: {
   file: FileHubFile | null;
   mode: FileHubMode;
   currentUserId: string | undefined;
   onClose: () => void;
+  /** When true (Shift+Click fast-track), jump straight to the fullscreen viewer. */
+  autoPreview?: boolean;
 }) {
   const { markRead, hideFile, deleteFile, logActivity, fileActivity, fileVersions, restoreVersion } = useFileHub();
   const { showConfirm } = useAlert();
@@ -165,6 +169,21 @@ function FileDetailSheet({
 
   const hasVersionHistory = !!(file?.version_count && file.version_count > 1);
 
+  // Shift+Click fast-track: open the fullscreen viewer as soon as the signed URL
+  // resolves, skipping the metadata browsing step. Fires once per opened file.
+  const autoPreviewedId = useRef<string | null>(null);
+  useEffect(() => { if (!file) autoPreviewedId.current = null; }, [file?.id]);
+  useEffect(() => {
+    if (!autoPreview || !file || autoPreviewedId.current === file.id) return;
+    if (isImage && previewUrls[file.id]) {
+      autoPreviewedId.current = file.id;
+      openPreview(file.id);
+    } else if (previewKind && previewUrl) {
+      autoPreviewedId.current = file.id;
+      setPreviewOpen(true);
+    }
+  }, [autoPreview, file?.id, isImage, previewUrls, previewKind, previewUrl, openPreview]);
+
   useEffect(() => { setTab('details'); setActivity([]); setVersions([]); }, [file?.id]);
   useEffect(() => { if (file) logActivity(file.id, 'view'); }, [file?.id]);
   useEffect(() => {
@@ -194,7 +213,7 @@ function FileDetailSheet({
     setDownloading(true);
     try {
       logActivity(file.id, 'download');
-      await openStorageFile(file.bucket || 'filehub-files', file.storage_path, file.original_name);
+      await openStorageFile(file.bucket || 'filehub-files', file.storage_path, file.original_name, file.mime_type);
     } finally {
       setDownloading(false);
     }
@@ -211,7 +230,22 @@ function FileDetailSheet({
 
   const handleVersionDownload = async (version: FileVersion) => {
     logActivity(file.id, 'download', { version_no: version.version_no });
-    await openStorageFile(version.bucket || 'filehub-files', version.storage_path, version.original_name);
+    await openStorageFile(version.bucket || 'filehub-files', version.storage_path, version.original_name, version.mime_type ?? file.mime_type);
+  };
+
+  // Preview a specific (older) version in the document viewer — selecting a
+  // version resolves its own signed URL and re-renders the viewer canvas.
+  const [versionPreview, setVersionPreview] = useState<{ uri: string; kind: PreviewKind; name: string; versionNo: number } | null>(null);
+  const handleVersionPreview = async (version: FileVersion) => {
+    const kind = getPreviewKind(version.mime_type ?? file.mime_type, version.original_name);
+    if (!kind) { handleVersionDownload(version); return; }
+    const { data } = await supabase.storage
+      .from(version.bucket || 'filehub-files')
+      .createSignedUrl(version.storage_path, 3600);
+    if (data?.signedUrl) {
+      logActivity(file.id, 'view', { version_no: version.version_no });
+      setVersionPreview({ uri: data.signedUrl, kind, name: version.original_name, versionNo: version.version_no });
+    }
   };
 
   const handleRestore = (version: FileVersion) => {
@@ -455,6 +489,15 @@ function FileDetailSheet({
                       </Text>
                     )}
                     <View className="flex-row gap-2 mt-2.5">
+                      {getPreviewKind(v.mime_type ?? file.mime_type, v.original_name) && (
+                        <TouchableOpacity
+                          onPress={() => handleVersionPreview(v)}
+                          className="flex-row items-center justify-center bg-surface-background border border-surface-border rounded-2xl px-4 py-2.5 gap-1.5"
+                        >
+                          <FontAwesome name="eye" size={12} color={colors.textMuted} />
+                          <Text className="text-typography-muted font-bold text-xs">Preview</Text>
+                        </TouchableOpacity>
+                      )}
                       <TouchableOpacity
                         onPress={() => handleVersionDownload(v)}
                         className="flex-row items-center justify-center bg-surface-background border border-surface-border rounded-2xl px-4 py-2.5 gap-1.5"
@@ -493,6 +536,15 @@ function FileDetailSheet({
         fileName={file.original_name}
         onClose={() => setPreviewOpen(false)}
         onDownload={handleDownload}
+      />
+    )}
+    {versionPreview && (
+      <FilePreviewModal
+        visible
+        uri={versionPreview.uri}
+        kind={versionPreview.kind}
+        fileName={`${versionPreview.name} (v${versionPreview.versionNo})`}
+        onClose={() => setVersionPreview(null)}
       />
     )}
     </>
@@ -1472,7 +1524,7 @@ function FileCard({
 }: {
   file: FileHubFile;
   mode: FileHubMode;
-  onPress: () => void;
+  onPress: (e?: any) => void;
   selectionMode?: boolean;
   isFileSelected?: boolean;
   onToggleSelect?: () => void;
@@ -1484,7 +1536,7 @@ function FileCard({
 
   return (
     <TouchableOpacity
-      onPress={selectionMode ? onToggleSelect : onPress}
+      onPress={(e) => (selectionMode ? onToggleSelect?.() : onPress(e))}
       className={`border rounded-2xl px-4 py-4 mb-3 flex-row items-center gap-3 ${
         isFileSelected
           ? 'bg-brand-primary/10 border-brand-primary/40'
@@ -1699,10 +1751,19 @@ function FileHubAdaptiveInner() {
   const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
   const colors = useThemeColors();
   const [selectedFile, setSelectedFile] = useState<FileHubFile | null>(null);
+  const [fastTrackPreview, setFastTrackPreview] = useState(false);
+
+  // Standard click → metadata sheet; Shift+Click (web) → straight to fullscreen viewer.
+  const openFile = useCallback((file: FileHubFile, e?: any) => {
+    const shift = !!(e?.shiftKey || e?.nativeEvent?.shiftKey);
+    setFastTrackPreview(shift);
+    setSelectedFile(file);
+  }, []);
   const [showUpload, setShowUpload] = useState(false);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [showManageMembers, setShowManageMembers] = useState(false);
   const [showManageTags, setShowManageTags] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
   const [zipDownloading, setZipDownloading] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set());
@@ -1908,6 +1969,9 @@ function FileHubAdaptiveInner() {
             </TouchableOpacity>
           )}
         </View>
+        <TouchableOpacity onPress={() => setShowAnalytics(true)} className="w-11 h-11 bg-surface-card border border-surface-border rounded-2xl items-center justify-center">
+          <FontAwesome name="bar-chart" size={13} color={colors.primary} />
+        </TouchableOpacity>
         <TouchableOpacity onPress={handleRefresh} className="w-11 h-11 bg-surface-card border border-surface-border rounded-2xl items-center justify-center">
           <FontAwesome name="refresh" size={13} color={colors.primary} />
         </TouchableOpacity>
@@ -1923,13 +1987,18 @@ function FileHubAdaptiveInner() {
         )}
       </View>
 
-      {/* ── Tabs ── */}
-     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ height: 44, flexGrow: 0, flexShrink: 0, marginBottom: 12 }} contentContainerStyle={{ paddingHorizontal: 20, gap: 6, flexDirection: 'row', alignItems: 'center' }}>
+      {/* ── Tabs ──
+          Fixed-height, non-growing wrapper + explicit per-button heights keep iOS
+          Safari/Webkit from vertically stretching these flex children (which made
+          the Inbox/Sent nav render with exaggerated heights on mobile web). */}
+     <View style={{ height: 44, flexGrow: 0, flexShrink: 0, marginBottom: 12 }}>
+     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0, flexShrink: 0 }} contentContainerStyle={{ paddingHorizontal: 20, gap: 6, flexDirection: 'row', alignItems: 'center', height: 44 }}>
         {tabs.map(tab => (
           <TouchableOpacity
             key={tab.key}
             onPress={() => handleTabChange(tab.key)}
-            className={`flex-row items-center gap-1 px-3.5 py-2 rounded-xl border ${
+            style={{ height: 36, flexShrink: 0, alignSelf: 'center' }}
+            className={`flex-row items-center justify-center gap-1 px-3.5 rounded-xl border ${
               mode === tab.key
                 ? 'bg-brand-primary/10 border-brand-primary/30'
                 : 'bg-surface-card border-surface-border'
@@ -1944,6 +2013,7 @@ function FileHubAdaptiveInner() {
           </TouchableOpacity>
         ))}
       </ScrollView>
+      </View>
 
       {/* ── Tag filter (shown when viewing files) ── */}
       {(mode !== 'groups' || activeGroupId) && allTags.length > 0 && (
@@ -2071,7 +2141,7 @@ function FileHubAdaptiveInner() {
                   key={file.id}
                   file={file}
                   mode="groups"
-                  onPress={() => setSelectedFile(file)}
+                  onPress={(e) => openFile(file, e)}
                   thumbUri={file.mime_type?.toLowerCase().includes('image') ? fileThumbs[file.id] : undefined}
                   selectionMode={selectionMode}
                   isFileSelected={selectedFileIds.has(file.id)}
@@ -2116,7 +2186,7 @@ function FileHubAdaptiveInner() {
                   key={file.id}
                   file={file}
                   mode={mode}
-                  onPress={() => setSelectedFile(file)}
+                  onPress={(e) => openFile(file, e)}
                   thumbUri={file.mime_type?.toLowerCase().includes('image') ? fileThumbs[file.id] : undefined}
                   selectionMode={selectionMode}
                   isFileSelected={selectedFileIds.has(file.id)}
@@ -2178,7 +2248,8 @@ function FileHubAdaptiveInner() {
         file={selectedFile}
         mode={mode}
         currentUserId={user?.id}
-        onClose={() => setSelectedFile(null)}
+        autoPreview={fastTrackPreview}
+        onClose={() => { setSelectedFile(null); setFastTrackPreview(false); }}
       />
 
       {/* ── Upload sheet ── */}
@@ -2213,6 +2284,9 @@ function FileHubAdaptiveInner() {
         onClose={() => setShowManageTags(false)}
         onChanged={handleRefresh}
       />
+
+      {/* ── Analytics Dashboard ── */}
+      <FileHubAnalytics visible={showAnalytics} onClose={() => setShowAnalytics(false)} />
     </View>
   );
 }
