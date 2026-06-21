@@ -17,6 +17,7 @@ import { useTimer } from '@/contexts/TimerContext';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import ProjectFolderModal from '@/components/projects/ProjectFolderModal';
+import ProjectDashboard from '@/components/projects/ProjectDashboard';
 
 type Project = {
   id: string;
@@ -45,6 +46,7 @@ export default function ProjectsScreenWeb() {
   const [selectedProject, setSelectedProject] = useState<Project | undefined>();
   const [archiveModal, setArchiveModal] = useState<{ visible: boolean, projectId: string | null }>({ visible: false, projectId: null });
   const [archiving, setArchiving] = useState(false);
+  const [dashboardProjectId, setDashboardProjectId] = useState<string | null>(null);
 
   // Switch to 2-col grid on smaller desktops (sidebar eats ~256px of the viewport)
   const cardWidth = width >= 1280 ? 'w-[calc(33.33%-20px)]' : 'w-[calc(50%-15px)]';
@@ -158,9 +160,9 @@ export default function ProjectsScreenWeb() {
     const isCoolingDown = lastStoppedAt && (Date.now() - new Date(lastStoppedAt).getTime() < 35000);
     
     return (
-      <TouchableOpacity 
-        key={project.id} 
-        onPress={() => handleEdit(project)}
+      <TouchableOpacity
+        key={project.id}
+        onPress={() => setDashboardProjectId(project.id)}
         className={`${cardWidth} bg-surface-card p-8 rounded-[32px] border border-surface-border mb-8 premium-shadow hover:border-brand-primary/50 transition-all group`}
       >
         <View className="flex-row items-center justify-between mb-6">
@@ -168,8 +170,16 @@ export default function ProjectsScreenWeb() {
               <FontAwesome name="folder-open" size={24} color={isOverdue ? colors.danger : colors.primary} />
            </View>
            <View className="flex-row items-center gap-2">
+              {hasPermission('project.edit') && (
+                <TouchableOpacity
+                  onPress={(e) => { e.stopPropagation(); handleEdit(project); }}
+                  className="w-10 h-10 items-center justify-center rounded-xl border border-surface-border bg-surface-background hover:bg-brand-primary/10"
+                >
+                  <FontAwesome name="pencil" size={13} className="text-typography-muted" />
+                </TouchableOpacity>
+              )}
               {hasPermission('archive:create') && (
-                <TouchableOpacity 
+                <TouchableOpacity
                   onPress={(e) => {
                     e.stopPropagation();
                     if (activeSession || isCoolingDown) {
@@ -307,11 +317,22 @@ export default function ProjectsScreenWeb() {
         )}
       </View>
 
-      <ProjectFolderModal 
+      <ProjectFolderModal
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
         onSuccess={fetchProjects}
         project={selectedProject}
+      />
+
+      <ProjectDashboard
+        visible={!!dashboardProjectId}
+        projectId={dashboardProjectId}
+        onClose={() => setDashboardProjectId(null)}
+        onEdit={() => {
+          const p = projects.find(pr => pr.id === dashboardProjectId);
+          setDashboardProjectId(null);
+          if (p) handleEdit(p);
+        }}
       />
 
       <ConfirmModal
