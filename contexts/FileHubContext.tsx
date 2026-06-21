@@ -26,6 +26,7 @@ export type FileHubFile = {
   recipient_count?: number;
   current_version_id?: string;
   version_count?: number;
+  is_stale_restore?: boolean;
 };
 
 export type FileVersion = {
@@ -39,6 +40,8 @@ export type FileVersion = {
   created_at: string;
   superseded_at: string | null;
   is_current: boolean;
+  pinned: boolean;
+  is_stale_restore: boolean;
   expires_at: string | null;
   uploader: { id: string; full_name: string; avatar_url: string | null };
 };
@@ -113,6 +116,7 @@ type FileHubContextType = {
   ) => Promise<void>;
   fileVersions: (fileId: string) => Promise<FileVersion[]>;
   restoreVersion: (versionId: string) => Promise<void>;
+  pinVersion: (versionId: string, pinned: boolean) => Promise<void>;
   // Groups
   groups: FileHubGroup[];
   groupsLoading: boolean;
@@ -448,6 +452,11 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
     fetchGroupFiles();
   }, [refresh, fetchGroupFiles]);
 
+  const pinVersion = useCallback(async (versionId: string, pinned: boolean): Promise<void> => {
+    const { error } = await supabase.rpc('rpc_filehub_pin_version', { p_version_id: versionId, p_pinned: pinned });
+    if (error) { Alert.alert('Error', error.message); throw error; }
+  }, []);
+
   const logActivity = useCallback((fileId: string, action: string, metadata?: Record<string, any> | null) => {
     supabase.rpc('rpc_filehub_log_activity', {
       p_file_id: fileId,
@@ -490,7 +499,7 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
       markRead, markAllRead, hideFile, deleteFile,
       createFolder, renameFolder, deleteFolder,
       tagSuggestions, checkDuplicate,
-      checkNameConflict, replaceFile, fileVersions, restoreVersion,
+      checkNameConflict, replaceFile, fileVersions, restoreVersion, pinVersion,
       groups, groupsLoading,
       activeGroupId, setActiveGroupId,
       groupFiles, groupFilesLoading,

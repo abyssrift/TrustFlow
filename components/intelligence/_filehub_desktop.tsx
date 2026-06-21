@@ -1181,6 +1181,16 @@ function FileRow({
         <View className="flex-row items-center gap-2 mb-0.5">
           {isUnread && <View className="w-2 h-2 rounded-full bg-brand-primary flex-shrink-0" />}
           <Text className="text-typography-main font-bold text-sm flex-1" numberOfLines={1}>{file.original_name}</Text>
+          {!!file.version_count && file.version_count > 1 && (
+            <View className="px-1.5 py-0.5 rounded-full bg-surface-background border border-surface-border flex-shrink-0">
+              <Text className="text-typography-dim text-[9px] font-bold">v{file.version_count}</Text>
+            </View>
+          )}
+          {file.is_stale_restore && (
+            <View className="px-1.5 py-0.5 rounded-full bg-state-warning/10 border border-state-warning/30 flex-shrink-0">
+              <Text className="text-state-warning text-[9px] font-black uppercase tracking-wide">Outdated</Text>
+            </View>
+          )}
         </View>
         <Text className="text-typography-muted text-[11px]" numberOfLines={1}>
           {file.uploader.full_name} · {formatFileSize(file.size_bytes)}
@@ -1224,7 +1234,7 @@ function DetailPanel({
   /** When true (Shift+Click fast-track), jump straight to the fullscreen viewer. */
   autoPreview?: boolean;
 }) {
-  const { markRead, hideFile, deleteFile, logActivity, fileActivity, fileVersions, restoreVersion } = useFileHub();
+  const { markRead, hideFile, deleteFile, logActivity, fileActivity, fileVersions, restoreVersion, pinVersion } = useFileHub();
   const { showConfirm } = useAlert();
   const [downloadLoading, setDownloadLoading] = useState(false);
   const [tab, setTab] = useState<'details' | 'activity' | 'versions'>('details');
@@ -1233,6 +1243,8 @@ function DetailPanel({
   const [versions, setVersions] = useState<FileVersion[]>([]);
   const [versionsLoading, setVersionsLoading] = useState(false);
   const [restoringId, setRestoringId] = useState<string | null>(null);
+  const [restoringLatest, setRestoringLatest] = useState(false);
+  const [pinningId, setPinningId] = useState<string | null>(null);
     const colors = useThemeColors();
 
   const hasVersionHistory = !!(file?.version_count && file.version_count > 1);
@@ -1294,6 +1306,35 @@ function DetailPanel({
       },
       undefined, 'Restore', 'Cancel'
     );
+  };
+
+  const handleRestoreLatest = () => {
+    if (!file || versions.length === 0) return;
+    const latest = versions.reduce((max, v) => (v.version_no > max.version_no ? v : max), versions[0]);
+    showConfirm(
+      'Restore Latest Version',
+      `Make version ${latest.version_no} (the most recent) the current version?`,
+      async () => {
+        setRestoringLatest(true);
+        try {
+          await restoreVersion(latest.id);
+          loadVersions();
+        } finally {
+          setRestoringLatest(false);
+        }
+      },
+      undefined, 'Restore', 'Cancel'
+    );
+  };
+
+  const handleTogglePin = async (version: FileVersion) => {
+    setPinningId(version.id);
+    try {
+      await pinVersion(version.id, !version.pinned);
+      setVersions(prev => prev.map(v => v.id === version.id ? { ...v, pinned: !v.pinned } : v));
+    } finally {
+      setPinningId(null);
+    }
   };
 
   const handleDownload = async () => {
@@ -1420,7 +1461,12 @@ function DetailPanel({
               onPress={() => setTab(t)}
               className={`px-4 py-1.5 rounded-xl border ${tab === t ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}
             >
-              <Text className={`text-xs font-black capitalize ${tab === t ? 'text-brand-primary' : 'text-typography-muted'}`}>{t}</Text>
+              <View className="relative">
+                <Text className={`text-xs font-black capitalize ${tab === t ? 'text-brand-primary' : 'text-typography-muted'}`}>{t}</Text>
+                {t === 'versions' && file.is_stale_restore && (
+                  <View className="absolute -top-1 -right-1.5 w-2 h-2 rounded-full bg-state-warning" />
+                )}
+              </View>
             </TouchableOpacity>
           ))}
         </View>
@@ -1579,7 +1625,28 @@ function DetailPanel({
               <Text className="text-typography-muted text-sm mt-3 text-center">No version history</Text>
             </View>
           ) : (
-            versions.map((v, i) => {
+            <>
+            {file.is_stale_restore && (
+              <View className="flex-row items-center justify-between px-6 py-3 mb-1 bg-state-warning/10 border-b border-state-warning/20">
+                <View className="flex-row items-center gap-2 flex-1 mr-2">
+                  <FontAwesome name="exclamation-triangle" size={11} color={colors.warning} />
+                  <Text className="text-state-warning text-xs font-bold flex-1">
+                    An older version is current — a newer version exists.
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={handleRestoreLatest}
+                  disabled={restoringLatest}
+                  className="flex-row items-center gap-1.5 bg-state-warning/15 border border-state-warning/30 rounded-xl px-3 py-1.5"
+                >
+                  {restoringLatest
+                    ? <ActivityIndicator size="small" color={colors.warning} />
+                    : <FontAwesome name="arrow-up" size={10} color={colors.warning} />}
+                  <Text className="text-state-warning font-black text-xs">Restore Latest</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            {versions.map((v, i) => {
               const days = v.is_current ? null : expiresInDays(v.expires_at);
               return (
                 <View key={v.id} className={`px-6 py-3.5 ${i < versions.length - 1 ? 'border-b border-surface-border/40' : ''}`}>
@@ -1596,7 +1663,7 @@ function DetailPanel({
                   </Text>
                   {!v.is_current && (
                     <Text className="text-typography-dim text-[10px] mt-0.5">
-                      {days != null ? `Expires in ${days} day${days === 1 ? '' : 's'}` : 'Expiring soon'}
+                      {v.pinned ? 'Pinned — kept forever' : (days != null ? `Expires in ${days} day${days === 1 ? '' : 's'}` : 'Expiring soon')}
                     </Text>
                   )}
                   <View className="flex-row gap-2 mt-2">
@@ -1628,10 +1695,27 @@ function DetailPanel({
                         <Text className="text-brand-primary font-bold text-xs">Restore</Text>
                       </TouchableOpacity>
                     )}
+                    {!v.is_current && (
+                      <TouchableOpacity
+                        onPress={() => handleTogglePin(v)}
+                        disabled={pinningId === v.id}
+                        className={`flex-row items-center justify-center rounded-xl px-3 py-2 gap-1.5 border ${
+                          v.pinned ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'
+                        }`}
+                      >
+                        {pinningId === v.id
+                          ? <ActivityIndicator size="small" color={colors.primary} />
+                          : <FontAwesome name="thumb-tack" size={11} color={v.pinned ? colors.primary : colors.textMuted} />}
+                        <Text className={`font-bold text-xs ${v.pinned ? 'text-brand-primary' : 'text-typography-muted'}`}>
+                          {v.pinned ? 'Pinned' : 'Pin'}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 </View>
               );
-            })
+            })}
+            </>
           )}
         </ScrollView>
       )}

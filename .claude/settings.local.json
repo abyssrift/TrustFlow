@@ -81,8 +81,15 @@
       "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('dependencies',{}\\), indent=2\\)\\)\")",
       "Bash(npm list *)",
       "Bash(npm show *)",
+      "Read(//tmp/**)",
+      "Bash(awk 'NR==1023,NR==1023' components/intelligence/_filehub_adaptive.tsx)",
+      "Bash(awk -F: '$1>=468 && $1<=1100')",
+      "Bash(python3 -c ' *)",
+      "Bash(git fetch *)",
       "Bash(git merge *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(git rm *)",
+      "Bash(git rev-list *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\PC\\.claude",

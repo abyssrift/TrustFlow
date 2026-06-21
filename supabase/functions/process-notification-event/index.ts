@@ -118,6 +118,7 @@ serve(async (req: Request) => {
                 (event.entity_type === 'task' ? event.entity_id : null),
               pipeline_id: event.payload?.pipeline_id ?? null,
               comment_id: event.payload?.comment_id ?? null,
+              file_id: event.payload?.file_id ?? null,
             },
           }),
         })
@@ -358,6 +359,14 @@ function buildContent(
     case 'filehub.group_file_shared': {
       const fileName = (payload.file_name as string | undefined) ?? 'A file'
       return { title: 'New File in Group', body: `"${fileName}" was shared in your group.` }
+    }
+    case 'filehub.file_replaced': {
+      const fileName = (payload.file_name as string | undefined) ?? 'A file'
+      const versionNo = payload.version_no as number | undefined
+      return {
+        title: 'File Updated',
+        body: versionNo ? `"${fileName}" was updated to version ${versionNo}.` : `"${fileName}" has a new version.`,
+      }
     }
     default:
       return { title: 'TrustFlow Notification', body: `You have a new notification.` }
