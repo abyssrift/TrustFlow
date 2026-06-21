@@ -85,7 +85,9 @@
       "Bash(awk 'NR==1023,NR==1023' components/intelligence/_filehub_adaptive.tsx)",
       "Bash(awk -F: '$1>=468 && $1<=1100')",
       "Bash(python3 -c ' *)",
-      "Bash(git fetch *)"
+      "Bash(git fetch *)",
+      "Bash(git merge *)",
+      "Bash(git commit *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\PC\\.claude",
