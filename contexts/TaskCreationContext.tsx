@@ -47,6 +47,7 @@ type TaskCreationContextType = {
   recentTasks: any[];
   loadRecentTasks: () => Promise<void>;
   createTask: () => Promise<string | null>;
+  createBulkTasks: (titles: string[]) => Promise<number>;
   loading: boolean;
   briefFiles: StagedBriefFile[];
   setBriefFiles: React.Dispatch<React.SetStateAction<StagedBriefFile[]>>;
@@ -244,11 +245,68 @@ export const TaskCreationProvider = ({ children }: { children: React.ReactNode }
     }
   };
 
+  // Bulk quick-add: create one task per provided title, sharing all of the
+  // draft's common fields (pipeline, project, priority, dates, assignees…).
+  // Brief-file attachments are a per-task concept and are intentionally skipped
+  // here — bulk mode is for rapidly capturing a list of titles.
+  const createBulkTasks = async (titles: string[]): Promise<number> => {
+    const clean = Array.from(
+      new Set(titles.map(t => t.trim()).filter(Boolean))
+    );
+    if (clean.length === 0) return 0;
+    setLoading(true);
+    let created = 0;
+    try {
+      const dbPriority = draft.priority === 'normal' ? 'medium' : draft.priority;
+      for (const title of clean) {
+        const { data: taskId, error } = await supabase.rpc('rpc_create_task', {
+          p_title: title,
+          p_description: draft.description,
+          p_priority: dbPriority,
+          p_due_date: draft.dueDate,
+          p_category: draft.category,
+          p_weight: draft.weight,
+          p_pipeline_id: draft.pipelineId,
+          p_project_id: draft.projectId,
+          p_start_date: draft.startDate,
+          p_estimated_hours: draft.estimatedHours,
+        });
+        if (error) { console.error('Bulk create error:', error); continue; }
+
+        if (draft.assigneeUserIds.length > 0 || draft.assigneeTeamIds.length > 0) {
+          const { error: assignError } = await supabase.rpc('rpc_update_task_assignments', {
+            p_task_id: taskId,
+            p_user_ids: draft.assigneeUserIds,
+            p_team_ids: draft.assigneeTeamIds,
+          });
+          if (assignError) console.error('Bulk assignment error:', assignError);
+        }
+        created++;
+      }
+
+      await resetDraft();
+      await loadRecentTasks();
+      if (created > 0) {
+        successToast(`Created ${created} task${created === 1 ? '' : 's'}.`, 'Bulk creation');
+      }
+      if (created < clean.length) {
+        errorToast(`${clean.length - created} task${clean.length - created === 1 ? '' : 's'} failed to create.`);
+      }
+      return created;
+    } catch (err) {
+      console.error('Bulk creation error:', err);
+      errorToast(err instanceof Error ? err.message : 'Could not create tasks.');
+      return created;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <TaskCreationContext.Provider value={{
       draft, setDraft, resetDraft,
       recentTasks, loadRecentTasks,
-      createTask, loading,
+      createTask, createBulkTasks, loading,
       briefFiles, setBriefFiles,
     }}>
       {children}

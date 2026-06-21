@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
 
@@ -165,8 +165,15 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
   const colors = useThemeColors();
   const { width } = useWindowDimensions();
   const { hasPermission } = useAuth();
-  const { draft, setDraft, createTask, loading, recentTasks, loadRecentTasks, briefFiles, setBriefFiles } = useTaskCreation();
+  const { draft, setDraft, createTask, createBulkTasks, loading, recentTasks, loadRecentTasks, briefFiles, setBriefFiles } = useTaskCreation();
   const [activeTab, setActiveTab] = useState<'details' | 'assignments'>('details');
+  // Bulk quick-add: one task title per line, sharing all other draft fields.
+  const [bulkMode, setBulkMode] = useState(false);
+  const [bulkText, setBulkText] = useState('');
+  const bulkTitles = useMemo(
+    () => bulkText.split('\n').map(t => t.trim()).filter(Boolean),
+    [bulkText]
+  );
   const [users, setUsers]         = useState<any[]>([]);
   const [teams, setTeams]         = useState<any[]>([]);
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
@@ -214,26 +221,36 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
   }, []);
 
   const handleCreate = useCallback(async () => {
+    if (bulkMode) {
+      const n = await createBulkTasks(bulkTitles);
+      if (n > 0) { setBulkText(''); onClose(); }
+      return;
+    }
     const id = await createTask();
     if (id) onClose();
-  }, [createTask, onClose]);
+  }, [bulkMode, bulkTitles, createBulkTasks, createTask, onClose]);
+
+  const canSubmit = bulkMode ? bulkTitles.length > 0 : !!draft.title;
 
   // Keyboard: Escape closes overlays, ⌘/Ctrl+Enter submits
   useEffect(() => {
     if (!visible) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') closeAllOverlays();
-      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && draft.title && !loading) handleCreate();
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && canSubmit && !loading) handleCreate();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [visible, draft.title, loading, closeAllOverlays, handleCreate]);
+  }, [visible, canSubmit, loading, closeAllOverlays, handleCreate]);
 
   useEffect(() => {
     if (visible) {
       loadRecentTasks();
       fetchResources();
       if (initialPipelineId && !draft.pipelineId) setDraft({ pipelineId: initialPipelineId });
+    } else {
+      setBulkMode(false);
+      setBulkText('');
     }
   }, [visible]);
 
@@ -406,19 +423,51 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                   {/* Title */}
                   <View>
                     <View className="flex-row items-center justify-between mb-3">
-                      <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest ml-1">Engagement Title</Text>
+                      <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest ml-1">
+                        {bulkMode ? 'Engagement Titles' : 'Engagement Title'}
+                      </Text>
                       <View className="flex-row items-center gap-4 mr-1">
-                        <ClipboardControls value={draft.title} onPaste={t => setDraft({ title: t })} />
+                        {/* Single ⇆ Bulk toggle — bulk shares all other fields across every task */}
+                        <TouchableOpacity
+                          onPress={() => setBulkMode(b => !b)}
+                          className={`flex-row items-center gap-1.5 px-2.5 py-1 rounded-lg border transition-all ${bulkMode ? 'bg-brand-primary/10 border-brand-primary' : 'border-surface-border hover:bg-surface-overlay'}`}
+                        >
+                          <FontAwesome name="list-ul" size={10} color={bulkMode ? colors.primary : colors.textMuted} />
+                          <Text className={`text-[9px] font-black uppercase tracking-wider ${bulkMode ? 'text-brand-primary' : 'text-typography-muted'}`}>Bulk</Text>
+                        </TouchableOpacity>
+                        <ClipboardControls
+                          value={bulkMode ? bulkText : draft.title}
+                          onPaste={t => bulkMode
+                            ? setBulkText(prev => prev ? `${prev}\n${t}` : t)
+                            : setDraft({ title: t })}
+                        />
                         <Text className="text-state-danger text-[10px] font-black uppercase tracking-wider">Required</Text>
                       </View>
                     </View>
-                    <TextInput
-                      value={draft.title ?? ''}
-                      onChangeText={t => setDraft({ title: t })}
-                      placeholder="e.g. Critical Infrastructure Audit"
-                      placeholderTextColor={colors.textDim}
-                      className={`bg-surface-background border rounded-2xl px-6 py-5 text-typography-main font-black text-lg transition-colors ${draft.title ? 'border-surface-border' : 'border-state-danger/30'}`}
-                    />
+                    {bulkMode ? (
+                      <>
+                        <TextInput
+                          value={bulkText}
+                          onChangeText={setBulkText}
+                          multiline
+                          placeholder={'One task per line, e.g.\nAudit firewall rules\nRotate API keys\nReview access logs'}
+                          placeholderTextColor={colors.textDim}
+                          style={{ minHeight: 132, textAlignVertical: 'top' }}
+                          className={`bg-surface-background border rounded-2xl px-6 py-4 text-typography-main font-bold text-base leading-6 transition-colors ${bulkTitles.length ? 'border-surface-border' : 'border-state-danger/30'}`}
+                        />
+                        <Text className="text-typography-dim text-[10px] font-bold mt-2 ml-1 tracking-wide">
+                          {bulkTitles.length} task{bulkTitles.length === 1 ? '' : 's'} · all share the fields below
+                        </Text>
+                      </>
+                    ) : (
+                      <TextInput
+                        value={draft.title ?? ''}
+                        onChangeText={t => setDraft({ title: t })}
+                        placeholder="e.g. Critical Infrastructure Audit"
+                        placeholderTextColor={colors.textDim}
+                        className={`bg-surface-background border rounded-2xl px-6 py-5 text-typography-main font-black text-lg transition-colors ${draft.title ? 'border-surface-border' : 'border-state-danger/30'}`}
+                      />
+                    )}
                   </View>
 
                   {/* Priority + Weight */}
@@ -654,11 +703,12 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                     />
                   </View>
 
-                  {/* Brief Files */}
+                  {/* Brief Files — per-task attachments, hidden in bulk mode */}
+                  {!bulkMode && (
                   <View>
                     <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-3 ml-1">Brief Files</Text>
                     <Text className="text-typography-muted text-xs mb-4">Attach reference materials, specs, or context files for the assignee.</Text>
-                    
+
                     {/* Adaptive File Grid */}
                     {briefFiles.length > 0 && (
                       <AdaptiveFileGrid 
@@ -701,6 +751,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                       </TouchableOpacity>
                     </View>
                   </View>
+                  )}
 
                 </View>
               ) : (
@@ -779,13 +830,15 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
               <View className="flex-[2] gap-1.5">
                 <TouchableOpacity
                   onPress={handleCreate}
-                  disabled={loading || !draft.title}
-                  className={`py-5 rounded-2xl items-center premium-shadow transition-all ${loading || !draft.title ? 'bg-surface-border opacity-50' : 'bg-brand-primary hover:scale-[1.01] active:scale-[0.98]'}`}
+                  disabled={loading || !canSubmit}
+                  className={`py-5 rounded-2xl items-center premium-shadow transition-all ${loading || !canSubmit ? 'bg-surface-border opacity-50' : 'bg-brand-primary hover:scale-[1.01] active:scale-[0.98]'}`}
                 >
                   {loading ? (
                     <ActivityIndicator color="white" />
                   ) : (
-                    <Text className="text-white font-black uppercase tracking-[0.3em] text-xs">Authorize Deployment</Text>
+                    <Text className="text-white font-black uppercase tracking-[0.3em] text-xs">
+                      {bulkMode ? `Deploy ${bulkTitles.length} Task${bulkTitles.length === 1 ? '' : 's'}` : 'Authorize Deployment'}
+                    </Text>
                   )}
                 </TouchableOpacity>
                 <Text className="text-typography-dim text-[9px] font-bold text-center tracking-wider">⌘ + Enter to submit</Text>

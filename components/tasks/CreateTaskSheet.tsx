@@ -6,7 +6,7 @@ import { FontAwesome } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ClipboardControls from '../common/ClipboardControls';
@@ -137,8 +137,16 @@ const TEMPLATES_KEY = '@TrustFlow_task_templates';
 export default function CreateTaskSheet({ visible, onClose, initialPipelineId }: Props) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
-  const { draft, setDraft, createTask, loading, recentTasks, loadRecentTasks, briefFiles, setBriefFiles } = useTaskCreation();
+  const { draft, setDraft, createTask, createBulkTasks, loading, recentTasks, loadRecentTasks, briefFiles, setBriefFiles } = useTaskCreation();
   const [step, setStep] = useState(1);
+  // Bulk quick-add: one task title per line, sharing all other draft fields.
+  const [bulkMode, setBulkMode] = useState(false);
+  const [bulkText, setBulkText] = useState('');
+  const bulkTitles = useMemo(
+    () => bulkText.split('\n').map(t => t.trim()).filter(Boolean),
+    [bulkText]
+  );
+  const canSubmit = bulkMode ? bulkTitles.length > 0 : !!draft.title;
   const [users, setUsers] = useState<any[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
   const [showCalendar, setShowCalendar] = useState(false);
@@ -193,6 +201,9 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
       if (initialPipelineId && !draft.pipelineId) {
         setDraft({ pipelineId: initialPipelineId });
       }
+    } else {
+      setBulkMode(false);
+      setBulkText('');
     }
   }, [visible]);
 
@@ -206,6 +217,11 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
   };
 
   const handleCreate = async () => {
+    if (bulkMode) {
+      const n = await createBulkTasks(bulkTitles);
+      if (n > 0) { setBulkText(''); onClose(); }
+      return;
+    }
     const id = await createTask();
     if (id) onClose();
   };
@@ -285,16 +301,49 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
 
             <View>
               <View className="flex-row items-center justify-between mb-2 ml-1">
-                <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest">Title</Text>
-                <ClipboardControls value={draft.title} onPaste={t => setDraft({ title: t })} />
+                <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest">
+                  {bulkMode ? 'Titles' : 'Title'}
+                </Text>
+                <View className="flex-row items-center gap-3">
+                  <TouchableOpacity
+                    onPress={() => setBulkMode(b => !b)}
+                    className={`flex-row items-center gap-1.5 px-2.5 py-1 rounded-lg border ${bulkMode ? 'bg-brand-primary/10 border-brand-primary' : 'border-surface-border'}`}
+                  >
+                    <FontAwesome name="list-ul" size={10} color={bulkMode ? colors.primary : colors.textMuted} />
+                    <Text className={`text-[9px] font-black uppercase tracking-wider ${bulkMode ? 'text-brand-primary' : 'text-typography-muted'}`}>Bulk</Text>
+                  </TouchableOpacity>
+                  <ClipboardControls
+                    value={bulkMode ? bulkText : draft.title}
+                    onPaste={t => bulkMode
+                      ? setBulkText(prev => prev ? `${prev}\n${t}` : t)
+                      : setDraft({ title: t })}
+                  />
+                </View>
               </View>
-              <TextInput
-                value={draft.title ?? ''}
-                onChangeText={t => setDraft({ title: t })}
-                placeholder="Deployment Objective"
-                placeholderTextColor={colors.textDim}
-                className="bg-surface-background border border-surface-border rounded-xl px-5 py-4 text-typography-main font-bold text-base"
-              />
+              {bulkMode ? (
+                <>
+                  <TextInput
+                    value={bulkText}
+                    onChangeText={setBulkText}
+                    placeholder={'One task per line'}
+                    placeholderTextColor={colors.textDim}
+                    multiline
+                    textAlignVertical="top"
+                    className="bg-surface-background border border-surface-border rounded-xl px-5 py-4 text-typography-main font-bold text-base h-32"
+                  />
+                  <Text className="text-typography-dim text-[10px] font-bold mt-1.5 ml-1">
+                    {bulkTitles.length} task{bulkTitles.length === 1 ? '' : 's'} · all share the fields in the next steps
+                  </Text>
+                </>
+              ) : (
+                <TextInput
+                  value={draft.title ?? ''}
+                  onChangeText={t => setDraft({ title: t })}
+                  placeholder="Deployment Objective"
+                  placeholderTextColor={colors.textDim}
+                  className="bg-surface-background border border-surface-border rounded-xl px-5 py-4 text-typography-main font-bold text-base"
+                />
+              )}
             </View>
             <View>
               <View className="flex-row items-center justify-between mb-2 ml-1">
@@ -478,11 +527,13 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
                 <Text className="text-typography-muted font-bold">Cancel</Text>
              </TouchableOpacity>
              <Text className="text-typography-main font-black uppercase tracking-widest text-xs">New Task</Text>
-             <TouchableOpacity onPress={handleCreate} disabled={loading || !draft.title}>
+             <TouchableOpacity onPress={handleCreate} disabled={loading || !canSubmit}>
                 {loading ? (
                   <ActivityIndicator size="small" color={colors.primary} />
                 ) : (
-                  <Text className={`font-black uppercase tracking-widest text-xs ${!draft.title ? 'text-typography-dim' : 'text-brand-primary'}`}>Create</Text>
+                  <Text className={`font-black uppercase tracking-widest text-xs ${!canSubmit ? 'text-typography-dim' : 'text-brand-primary'}`}>
+                    {bulkMode && bulkTitles.length > 0 ? `Create ${bulkTitles.length}` : 'Create'}
+                  </Text>
                 )}
              </TouchableOpacity>
           </View>
@@ -516,12 +567,12 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
                   <Text className="text-white font-black uppercase tracking-widest text-xs">Next Phase</Text>
                </TouchableOpacity>
              ) : (
-               <TouchableOpacity 
+               <TouchableOpacity
                  onPress={handleCreate}
-                 disabled={loading}
-                 className="flex-1 ml-4 h-14 bg-brand-primary items-center justify-center rounded-2xl premium-shadow"
+                 disabled={loading || !canSubmit}
+                 className={`flex-1 ml-4 h-14 bg-brand-primary items-center justify-center rounded-2xl premium-shadow ${!canSubmit ? 'opacity-50' : ''}`}
                >
-                  {loading ? <ActivityIndicator color="white" /> : <Text className="text-white font-black uppercase tracking-widest text-xs">Deploy Now</Text>}
+                  {loading ? <ActivityIndicator color="white" /> : <Text className="text-white font-black uppercase tracking-widest text-xs">{bulkMode ? `Deploy ${bulkTitles.length}` : 'Deploy Now'}</Text>}
                </TouchableOpacity>
              )}
           </View>
