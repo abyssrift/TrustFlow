@@ -219,6 +219,17 @@ export default function DashboardScreen() {
   };
 
   useEffect(() => {
+    // On web, InteractionManager.runAfterInteractions can hang indefinitely
+    // (its handle never clears with ongoing subscriptions/animations), so the
+    // callback never fires and loading stays true forever. Run directly on web.
+    if (Platform.OS === 'web') {
+      (async () => {
+        const loadedConfig = await loadConfig();
+        fetchDashboardData(loadedConfig);
+        fetchPulse();
+      })();
+      return;
+    }
     const task = InteractionManager.runAfterInteractions(async () => {
       const loadedConfig = await loadConfig();
       fetchDashboardData(loadedConfig);

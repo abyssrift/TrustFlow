@@ -103,6 +103,13 @@ export default function ProjectsScreen() {
   };
 
   useEffect(() => {
+    // On web, InteractionManager.runAfterInteractions can hang indefinitely
+    // (its handle never clears with ongoing subscriptions/animations), so the
+    // callback never fires and loading stays true forever. Run directly on web.
+    if (Platform.OS === 'web') {
+      fetchProjects();
+      return;
+    }
     const task = InteractionManager.runAfterInteractions(() => {
       fetchProjects();
     });
@@ -145,7 +152,7 @@ export default function ProjectsScreen() {
       <TouchableOpacity 
         key={project.id} 
         onPress={() => handleEdit(project)}
-        className={`${isWeb ? 'w-[31%] mx-[1%]' : 'w-full'} bg-surface-card p-6 rounded-[24px] border border-surface-border mb-6 premium-shadow`}
+        className={`${isWeb && isLargeScreen ? 'w-[48%] mx-[1%]' : 'w-full'} bg-surface-card p-6 rounded-[24px] border border-surface-border mb-6 premium-shadow`}
       >
         <View className="flex-row items-center justify-between mb-4">
            <View className={`w-12 h-12 rounded-2xl items-center justify-center ${isOverdue ? 'bg-state-danger/10' : 'bg-brand-primary/10'}`}>
@@ -236,7 +243,7 @@ export default function ProjectsScreen() {
       {/* Header */}
       <View className={`flex-row items-center justify-between px-6 ${isWeb ? 'py-8 border-b border-surface-border' : 'pb-3'}`} style={(Platform.OS !== 'web' || !isLargeScreen) ? { paddingTop: Platform.OS === 'web' ? TAB_BAR_HEIGHT.web : TAB_BAR_HEIGHT.native } : undefined}>
         <View className="flex-1 mr-3">
-          <Text className={`${isWeb ? 'text-5xl' : 'text-2xl'} text-typography-main font-black tracking-tighter`}>Projects</Text>
+          <Text className={`${isWeb ? (isLargeScreen ? 'text-5xl' : 'text-3xl') : 'text-2xl'} text-typography-main font-black tracking-tighter`}>Projects</Text>
           {isWeb && (
             <Text className="text-typography-muted text-sm font-medium">Manage your projects and team initiatives</Text>
           )}
@@ -269,7 +276,7 @@ export default function ProjectsScreen() {
         contentContainerStyle={{ paddingBottom: isWeb ? 32 : TAB_BAR_HEIGHT.native + 16 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
-        <View className={`${isWeb ? 'flex-row flex-wrap mt-2' : ''}`}>
+        <View className={`${isWeb && isLargeScreen ? 'flex-row flex-wrap mt-2' : ''}`}>
           {filteredProjects.length === 0 ? (
             <View className="w-full items-center justify-center py-24 bg-surface-card rounded-[32px] border border-dashed border-surface-border">
                <View className="w-20 h-20 bg-surface-background rounded-full items-center justify-center mb-4">
