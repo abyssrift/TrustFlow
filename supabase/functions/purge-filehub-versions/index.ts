@@ -10,10 +10,12 @@
 // Purge predicate (the ONLY rows this function ever touches):
 //     superseded_at IS NOT NULL
 //     AND superseded_at < now() - interval '30 days'
+//     AND pinned = false
 //
 // The CURRENT version of every file has superseded_at IS NULL and is NEVER
 // selected — guarded both by the SQL predicate and by an explicit in-code
-// assertion before any delete.
+// assertion before any delete. Versions marked `pinned = true` are likewise
+// never purged, regardless of age — guarded the same way.
 //
 // !! SECRETS — set in Supabase Dashboard:
 //    Project Settings → Edge Functions → Secrets
@@ -48,6 +50,7 @@ interface VersionRow {
   bucket: string
   storage_path: string
   superseded_at: string | null
+  pinned: boolean
 }
 
 serve(async (req: Request) => {
@@ -76,8 +79,9 @@ serve(async (req: Request) => {
     for (;;) {
       const { data, error } = await db
         .from('filehub_file_versions')
-        .select('id, file_id, bucket, storage_path, superseded_at')
+        .select('id, file_id, bucket, storage_path, superseded_at, pinned')
         .not('superseded_at', 'is', null)        // superseded_at IS NOT NULL
+        .eq('pinned', false)                      // never touch pinned versions
         .lt('superseded_at', cutoffIso)          // superseded_at < now() - 30d
         .order('superseded_at', { ascending: true })
         .limit(BATCH_SIZE)
@@ -94,6 +98,11 @@ serve(async (req: Request) => {
         // Hard guard: never act on a current version, regardless of the query.
         if (row.superseded_at === null) {
           summary.errors.push(`skip current version ${row.id} (superseded_at NULL)`)
+          continue
+        }
+        // Hard guard: never act on a pinned version, regardless of the query.
+        if (row.pinned) {
+          summary.errors.push(`skip pinned version ${row.id}`)
           continue
         }
 
@@ -119,6 +128,7 @@ serve(async (req: Request) => {
           .delete()
           .eq('id', row.id)
           .not('superseded_at', 'is', null)
+          .eq('pinned', false)
           .lt('superseded_at', cutoffIso)
           .select('id')
 

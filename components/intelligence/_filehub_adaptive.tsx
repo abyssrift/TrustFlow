@@ -123,7 +123,7 @@ function FileDetailSheet({
   currentUserId: string | undefined;
   onClose: () => void;
 }) {
-  const { markRead, hideFile, deleteFile, logActivity, fileActivity, fileVersions, restoreVersion } = useFileHub();
+  const { markRead, hideFile, deleteFile, logActivity, fileActivity, fileVersions, restoreVersion, pinVersion } = useFileHub();
   const { showConfirm } = useAlert();
   const [downloading, setDownloading] = useState(false);
   const [tab, setTab] = useState<'details' | 'activity' | 'versions'>('details');
@@ -132,6 +132,8 @@ function FileDetailSheet({
   const [versions, setVersions] = useState<FileVersion[]>([]);
   const [versionsLoading, setVersionsLoading] = useState(false);
   const [restoringId, setRestoringId] = useState<string | null>(null);
+  const [restoringLatest, setRestoringLatest] = useState(false);
+  const [pinningId, setPinningId] = useState<string | null>(null);
   const colors = useThemeColors();
 
   const hasVersionHistory = !!(file?.version_count && file.version_count > 1);
@@ -186,25 +188,49 @@ function FileDetailSheet({
   };
 
   const handleRestore = (version: FileVersion) => {
-    Alert.alert(
+    showConfirm(
       'Restore Version',
       `Make version ${version.version_no} the current version? The current version will be kept in history.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Restore',
-          onPress: async () => {
-            setRestoringId(version.id);
-            try {
-              await restoreVersion(version.id);
-              loadVersions();
-            } finally {
-              setRestoringId(null);
-            }
-          },
-        },
-      ]
+      async () => {
+        setRestoringId(version.id);
+        try {
+          await restoreVersion(version.id);
+          loadVersions();
+        } finally {
+          setRestoringId(null);
+        }
+      },
+      undefined, 'Restore', 'Cancel'
     );
+  };
+
+  const handleRestoreLatest = () => {
+    if (!file || versions.length === 0) return;
+    const latest = versions.reduce((max, v) => (v.version_no > max.version_no ? v : max), versions[0]);
+    showConfirm(
+      'Restore Latest Version',
+      `Make version ${latest.version_no} (the most recent) the current version?`,
+      async () => {
+        setRestoringLatest(true);
+        try {
+          await restoreVersion(latest.id);
+          loadVersions();
+        } finally {
+          setRestoringLatest(false);
+        }
+      },
+      undefined, 'Restore', 'Cancel'
+    );
+  };
+
+  const handleTogglePin = async (version: FileVersion) => {
+    setPinningId(version.id);
+    try {
+      await pinVersion(version.id, !version.pinned);
+      setVersions(prev => prev.map(v => v.id === version.id ? { ...v, pinned: !v.pinned } : v));
+    } finally {
+      setPinningId(null);
+    }
   };
 
   return (
@@ -236,7 +262,12 @@ function FileDetailSheet({
                   onPress={() => setTab(t)}
                   className={`px-5 py-2 rounded-2xl border ${tab === t ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}
                 >
-                  <Text className={`text-xs font-black capitalize ${tab === t ? 'text-brand-primary' : 'text-typography-muted'}`}>{t}</Text>
+                  <View className="relative">
+                    <Text className={`text-xs font-black capitalize ${tab === t ? 'text-brand-primary' : 'text-typography-muted'}`}>{t}</Text>
+                    {t === 'versions' && file.is_stale_restore && (
+                      <View className="absolute -top-1 -right-1.5 w-2 h-2 rounded-full bg-state-warning" />
+                    )}
+                  </View>
                 </TouchableOpacity>
               ))}
             </View>
@@ -388,7 +419,28 @@ function FileDetailSheet({
                 <Text className="text-typography-muted text-sm mt-3 text-center">No version history</Text>
               </View>
             ) : (
-              versions.map((v, i) => {
+              <>
+              {file.is_stale_restore && (
+                <View className="flex-row items-center justify-between px-6 py-3 mb-1 bg-state-warning/10 border-b border-state-warning/20">
+                  <View className="flex-row items-center gap-2 flex-1 mr-2">
+                    <FontAwesome name="exclamation-triangle" size={12} color={colors.warning} />
+                    <Text className="text-state-warning text-xs font-bold flex-1">
+                      An older version is current — a newer version exists.
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={handleRestoreLatest}
+                    disabled={restoringLatest}
+                    className="flex-row items-center gap-1.5 bg-state-warning/15 border border-state-warning/30 rounded-2xl px-3 py-2"
+                  >
+                    {restoringLatest
+                      ? <ActivityIndicator size="small" color={colors.warning} />
+                      : <FontAwesome name="arrow-up" size={11} color={colors.warning} />}
+                    <Text className="text-state-warning font-black text-xs">Restore Latest</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              {versions.map((v, i) => {
                 const days = v.is_current ? null : expiresInDays(v.expires_at);
                 return (
                   <View key={v.id} className={`px-6 py-4 ${i < versions.length - 1 ? 'border-b border-surface-border/40' : ''}`}>
@@ -405,7 +457,7 @@ function FileDetailSheet({
                     </Text>
                     {!v.is_current && (
                       <Text className="text-typography-dim text-[11px] mt-0.5">
-                        {days != null ? `Expires in ${days} day${days === 1 ? '' : 's'}` : 'Expiring soon'}
+                        {v.pinned ? 'Pinned — kept forever' : (days != null ? `Expires in ${days} day${days === 1 ? '' : 's'}` : 'Expiring soon')}
                       </Text>
                     )}
                     <View className="flex-row gap-2 mt-2.5">
@@ -428,10 +480,27 @@ function FileDetailSheet({
                           <Text className="text-brand-primary font-bold text-xs">Restore</Text>
                         </TouchableOpacity>
                       )}
+                      {!v.is_current && (
+                        <TouchableOpacity
+                          onPress={() => handleTogglePin(v)}
+                          disabled={pinningId === v.id}
+                          className={`flex-row items-center justify-center rounded-2xl px-4 py-2.5 gap-1.5 border ${
+                            v.pinned ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'
+                          }`}
+                        >
+                          {pinningId === v.id
+                            ? <ActivityIndicator size="small" color={colors.primary} />
+                            : <FontAwesome name="thumb-tack" size={12} color={v.pinned ? colors.primary : colors.textMuted} />}
+                          <Text className={`font-bold text-xs ${v.pinned ? 'text-brand-primary' : 'text-typography-muted'}`}>
+                            {v.pinned ? 'Pinned' : 'Pin'}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
                   </View>
                 );
-              })
+              })}
+              </>
             )}
           </ScrollView>
           )}
@@ -500,6 +569,16 @@ function UploadSheet({
   const [uploadingIndex, setUploadingIndex] = useState(0);
   const [progress, setProgress] = useState(0);
   const colors = useThemeColors();
+
+  // Web-safe replacement for Alert.alert multi-button prompts (RN Alert.alert
+  // does not render usable buttons on web, which hung uploads at the conflict
+  // / duplicate check). Renders an in-sheet dialog and resolves on press.
+  type DecisionOption = { label: string; value: string; style?: 'primary' | 'cancel' | 'default' };
+  const [pendingDecision, setPendingDecision] = useState<
+    { title: string; message: string; options: DecisionOption[]; resolve: (v: string) => void } | null
+  >(null);
+  const askDecision = (title: string, message: string, options: DecisionOption[]) =>
+    new Promise<string>(resolve => setPendingDecision({ title, message, options, resolve }));
 
   const canBroadcast = hasPermission('filehub:broadcast');
 
@@ -630,13 +709,15 @@ function UploadSheet({
         if (contentHash) {
           const dupes = await checkDuplicate(contentHash);
           if (dupes.length > 0) {
-            const proceed = await new Promise<boolean>(resolve =>
-              Alert.alert('Possible Duplicate', `"${dupes[0].original_name}" has the same content as "${pf.name}". Upload anyway?`, [
-                { text: 'Cancel', onPress: () => resolve(false), style: 'cancel' },
-                { text: 'Upload Anyway', onPress: () => resolve(true) },
-              ])
+            const proceed = await askDecision(
+              'Possible Duplicate',
+              `"${dupes[0].original_name}" has the same content as "${pf.name}". Upload anyway?`,
+              [
+                { label: 'Cancel', value: 'cancel', style: 'cancel' },
+                { label: 'Upload Anyway', value: 'proceed', style: 'primary' },
+              ]
             );
-            if (!proceed) continue;
+            if (proceed !== 'proceed') continue;
           }
         }
 
@@ -644,16 +725,14 @@ function UploadSheet({
         const groupId = visibility === 'group' ? (activeGroup?.id ?? null) : null;
         const conflict = await checkNameConflict(pf.name, visibility, groupId, folderId || null);
         if (conflict) {
-          const choice = await new Promise<'replace' | 'keep' | 'cancel'>(resolve =>
-            Alert.alert(
-              'File already exists',
-              `"${pf.name}" already exists here (uploaded by ${conflict.uploader_name}). Replace it with a new version, or keep both?`,
-              [
-                { text: 'Cancel', onPress: () => resolve('cancel'), style: 'cancel' },
-                { text: 'Keep Both', onPress: () => resolve('keep') },
-                { text: 'Replace', onPress: () => resolve('replace') },
-              ]
-            )
+          const choice = await askDecision(
+            'File already exists',
+            `"${pf.name}" already exists here (uploaded by ${conflict.uploader_name}). Replace it with a new version, or keep both?`,
+            [
+              { label: 'Cancel', value: 'cancel', style: 'cancel' },
+              { label: 'Keep Both', value: 'keep', style: 'default' },
+              { label: 'Replace', value: 'replace', style: 'primary' },
+            ]
           );
           if (choice === 'cancel') continue;
           if (choice === 'replace') {
@@ -733,6 +812,7 @@ function UploadSheet({
   };
 
   return (
+    <>
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View className="flex-1 justify-end">
         <TouchableOpacity className="flex-1" onPress={onClose} activeOpacity={1} />
@@ -979,6 +1059,32 @@ function UploadSheet({
         </View>
       </View>
     </Modal>
+
+    {/* Web-safe decision dialog (replaces RN Alert.alert multi-button prompts) */}
+    {pendingDecision && (
+      <Modal visible transparent animationType="fade">
+        <View className="flex-1 bg-black/60 items-center justify-center p-8">
+          <View className="bg-surface-card rounded-3xl border border-surface-border premium-shadow w-full max-w-[420px] p-6">
+            <Text className="text-typography-main text-lg font-black tracking-tight mb-2">{pendingDecision.title}</Text>
+            <Text className="text-typography-muted text-sm leading-relaxed mb-5">{pendingDecision.message}</Text>
+            <View className="gap-2">
+              {pendingDecision.options.map(opt => (
+                <TouchableOpacity
+                  key={opt.value}
+                  onPress={() => { const r = pendingDecision.resolve; setPendingDecision(null); r(opt.value); }}
+                  className={`py-3 rounded-xl items-center ${opt.style === 'primary' ? 'bg-brand-primary' : 'bg-surface-background border border-surface-border'}`}
+                >
+                  <Text className={`font-black text-sm ${opt.style === 'primary' ? 'text-white' : opt.style === 'cancel' ? 'text-typography-muted' : 'text-typography-main'}`}>
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </View>
+      </Modal>
+    )}
+    </>
   );
 }
 
@@ -1446,6 +1552,16 @@ function FileCard({
         <View className="flex-row items-center gap-2 mb-0.5">
           {isUnread && <View className="w-2 h-2 rounded-full bg-brand-primary flex-shrink-0" />}
           <Text className="text-typography-main font-black text-sm flex-1" numberOfLines={1}>{file.original_name}</Text>
+          {!!file.version_count && file.version_count > 1 && (
+            <View className="px-1.5 py-0.5 rounded-full bg-surface-background border border-surface-border flex-shrink-0">
+              <Text className="text-typography-dim text-[9px] font-bold">v{file.version_count}</Text>
+            </View>
+          )}
+          {file.is_stale_restore && (
+            <View className="px-1.5 py-0.5 rounded-full bg-state-warning/10 border border-state-warning/30 flex-shrink-0">
+              <Text className="text-state-warning text-[9px] font-black uppercase tracking-wide">Outdated</Text>
+            </View>
+          )}
         </View>
         <Text className="text-typography-muted text-xs" numberOfLines={1}>
           {file.uploader.full_name} · {file.mime_type?.split('/').pop()?.toUpperCase() ?? 'File'} · {formatFileSize(file.size_bytes)}
