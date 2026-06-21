@@ -35,6 +35,36 @@ export function isComplexActionType(actionType: string): boolean {
   return getActionDescriptor(actionType).isComplex;
 }
 
+// ─── Directional advancement ──────────────────────────────────────────────────
+// A stage action that moves the task to a *later* stage points forward (right);
+// one routing back to an *earlier* stage points backward (left). Used to render
+// contextual arrows on stage-action buttons. Returns null when there is no
+// transition target or the target sits at the same position (no clear direction).
+export type StageDirection = 'forward' | 'backward' | null;
+
+export function stageDirection(
+  currentPosition: number | null | undefined,
+  targetPosition: number | null | undefined
+): StageDirection {
+  if (currentPosition == null || targetPosition == null) return null;
+  if (targetPosition > currentPosition) return 'forward';
+  if (targetPosition < currentPosition) return 'backward';
+  return null;
+}
+
+/** Build transitionId → target-stage-position lookup from transitions + stages. */
+export function buildTransitionTargetMap(
+  transitions: { id: string; to_stage_id: string }[],
+  stagePositionById: Map<string, number>
+): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const t of transitions) {
+    const pos = stagePositionById.get(t.to_stage_id);
+    if (pos != null) map.set(t.id, pos);
+  }
+  return map;
+}
+
 export function splitStageActions<T extends { action_type: string }>(actions: T[]) {
     const grouped: { buttons: T[]; review: T[]; submission: T[] } = {
       buttons: [],

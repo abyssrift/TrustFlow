@@ -12,7 +12,8 @@ import { useRouter } from 'expo-router';
 import React from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
-import { splitStageActions, TYPE_STYLES } from './actionRegistry';
+import { buildTransitionTargetMap, splitStageActions, stageDirection, TYPE_STYLES } from './actionRegistry';
+import { DirectionalActionButton } from './DirectionalActionButton';
 
 cssInterop(FontAwesome, {
   className: {
@@ -111,6 +112,20 @@ export default function TaskHeader() {
 
   const actionable = data.stage_actions.filter((a) => a.can_perform && a.precondition_met);
   const { buttons: buttonActions } = splitStageActions(actionable);
+
+  // Map each action's transition to its target stage position so buttons can show
+  // a directional arrow (back = left, forward = right).
+  const stagePositionById = new Map((data.all_stages || []).map((s) => [s.id, s.position]));
+  const transitionTargetPos = buildTransitionTargetMap(data.available_transitions || [], stagePositionById);
+  const currentPosition = data.current_stage?.position ?? null;
+  const directionOf = (a: { transition_id: string | null }) =>
+    stageDirection(currentPosition, a.transition_id ? transitionTargetPos.get(a.transition_id) ?? null : null);
+  const toneColor = (s: string) =>
+    s === 'success' ? colors.success
+      : s === 'warning' ? colors.warning
+      : s === 'danger' ? colors.danger
+      : s === 'primary' ? colors.primary
+      : colors.muted;
 
   const isMyEntryPending = data.my_manual_time_entry?.approval_status === 'pending';
   const advancementGateLocked =
@@ -242,22 +257,42 @@ export default function TaskHeader() {
             const style = TYPE_STYLES[a.style] || TYPE_STYLES.neutral;
             const isLoading = loadingActionId === a.id;
             const isLocked = advancementGateLocked && isAdvancementAction(a);
+            const direction = directionOf(a);
+
+            const onAct = () => {
+              if (isLocked) {
+                setErrorMsg({
+                  title: 'Locked — Awaiting Manager Approval',
+                  message: 'Your time declaration is pending review. This action will unlock once your manager approves it.',
+                });
+                setTimeout(() => setErrorMsg(null), 6000);
+                return;
+              }
+              handleAction(a);
+            };
+
+            // Directional transitions render as an arrow-shaped button; everything
+            // else keeps the standard rounded pill.
+            if (direction) {
+              return (
+                <DirectionalActionButton
+                  key={a.id}
+                  direction={direction}
+                  color={isLocked ? colors.warning : toneColor(a.style)}
+                  label={a.label}
+                  icon={isLocked ? 'lock' : (a.icon || style.icon)}
+                  loading={isLoading}
+                  disabled={isLocked}
+                  onPress={onAct}
+                />
+              );
+            }
 
             return (
               <TouchableOpacity
                 key={a.id}
                 disabled={isLoading || isLocked}
-                onPress={() => {
-                  if (isLocked) {
-                    setErrorMsg({
-                      title: 'Locked — Awaiting Manager Approval',
-                      message: 'Your time declaration is pending review. This action will unlock once your manager approves it.',
-                    });
-                    setTimeout(() => setErrorMsg(null), 6000);
-                    return;
-                  }
-                  handleAction(a);
-                }}
+                onPress={onAct}
                 className={`flex-row items-center px-4 py-2 rounded-xl border ${
                   isLocked
                     ? 'bg-surface-overlay border-state-warning/40 opacity-70'

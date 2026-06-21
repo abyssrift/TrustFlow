@@ -269,6 +269,7 @@ export function TasksScreenWeb() {
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [stageActions, setStageActions] = useState<any[]>([]);
+  const [stageTransitions, setStageTransitions] = useState<{ id: string; to_stage_id: string }[]>([]);
   const [showPersonalizer, setShowPersonalizer] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<FilterState>({ priorities: [], categories: [], projectIds: [], managerIds: [] });
@@ -387,6 +388,13 @@ export function TasksScreenWeb() {
         .select('*')
         .in('stage_id', (stagesData || []).map(s => s.id));
       setStageActions(actionsData || []);
+
+      // Transitions let card buttons resolve their target stage (for directional arrows).
+      const { data: transitionsData } = await supabase
+        .from('pipeline_stage_transitions')
+        .select('id, to_stage_id')
+        .in('from_stage_id', (stagesData || []).map(s => s.id));
+      setStageTransitions(transitionsData || []);
 
       // 4. Get User Teams (for filtering)
       const { data: myTeams } = await supabase
@@ -1077,6 +1085,7 @@ export function TasksScreenWeb() {
             task={task}
             stages={stages}
             stageActions={stageActions}
+            transitions={stageTransitions}
             activeSessions={activeSessions}
             userId={user?.id || ''}
             onRefresh={fetchData}

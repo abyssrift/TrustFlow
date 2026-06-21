@@ -1,4 +1,5 @@
 import ClipboardControls from '@/components/common/ClipboardControls';
+import { FilePreviewGrid } from '@/components/common/FilePreviewCard';
 import ManualTimeModal from '@/components/common/ManualTimeModal';
 import LockIndicator from '@/components/task-detail/LockIndicator';
 import ManualTimeApprovalCard from '@/components/task-detail/ManualTimeApprovalCard';
@@ -6,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSubmission } from '@/contexts/SubmissionContext';
 import { useTaskDetail, type StageActionData } from '@/contexts/TaskDetailContext';
 import { useTimer } from '@/contexts/TimerContext';
-import { useImageLightbox } from '@/hooks/useImageLightbox';
+import { useFileViewer } from '@/hooks/useFileViewer';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { getPastedImageFile } from '@/lib/pasteImage';
 import { SUBMISSION_BUCKET } from '@/lib/storage';
@@ -163,7 +164,7 @@ export default function StageActions() {
       ),
     [data?.submissions]
   );
-  const { signedUrls: subSignedUrls, handlePress: handleSubPress, lightbox: subLightbox } = useImageLightbox(
+  const { signedUrls: subSignedUrls, previewUrls: subPreviewUrls, handlePress: handleSubPress, viewer: subViewer } = useFileViewer(
     submissionMedia,
     SUBMISSION_BUCKET
   );
@@ -693,32 +694,20 @@ export default function StageActions() {
                   {s.content && <Text className="text-typography-label text-sm leading-5 mb-2">{s.content}</Text>}
 
                   {s.attachments.length > 0 && (
-                    <View className="mb-2 gap-1.5">
-                      {s.attachments.map((a) => {
-                        const mid = `${s.id}-${a.id}`;
-                        const thumb = subSignedUrls[mid];
-                        const isImg = a.mime_type?.toLowerCase().includes('image');
-                        const { name: iconName, color: iconColor } = getFileIcon(a.mime_type, colors);
-                        return (
-                          <TouchableOpacity
-                            key={a.id}
-                            onPress={() => handleSubPress({ id: mid, name: a.file_name, storagePath: a.storage_path || a.file_url, mimeType: a.mime_type })}
-                            className="flex-row items-center bg-surface-background px-2.5 py-2 rounded-lg border border-surface-border/50 active:opacity-70"
-                          >
-                            {thumb ? (
-                              <View className="w-5 h-5 rounded overflow-hidden">
-                                <Image source={{ uri: thumb }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-                              </View>
-                            ) : (
-                              <FontAwesome name={iconName as any} size={12} color={iconColor} />
-                            )}
-                            <Text className="text-typography-main text-[11px] font-bold ml-2 flex-1" numberOfLines={1}>
-                              {a.file_name}
-                            </Text>
-                            <FontAwesome name={isImg ? 'search-plus' : 'external-link'} size={9} color={colors.textMuted} />
-                          </TouchableOpacity>
-                        );
-                      })}
+                    <View className="mb-2">
+                      <FilePreviewGrid
+                        items={s.attachments.map((a) => {
+                          const mid = `${s.id}-${a.id}`;
+                          return {
+                            key: a.id,
+                            fileName: a.file_name,
+                            mimeType: a.mime_type,
+                            imageUri: subSignedUrls[mid],
+                            previewUri: subPreviewUrls[mid],
+                            onPress: () => handleSubPress({ id: mid, name: a.file_name, storagePath: a.storage_path || a.file_url, mimeType: a.mime_type }),
+                          };
+                        })}
+                      />
                     </View>
                   )}
 
@@ -793,7 +782,7 @@ export default function StageActions() {
         </View>
       )}
 
-      {subLightbox}
+      {subViewer}
     </View>
   );
 }

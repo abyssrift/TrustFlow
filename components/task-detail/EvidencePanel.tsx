@@ -1,10 +1,10 @@
+import { FilePreviewGrid } from '@/components/common/FilePreviewCard';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
-import { useImageLightbox } from '@/hooks/useImageLightbox';
+import { useFileViewer } from '@/hooks/useFileViewer';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { SUBMISSION_BUCKET } from '@/lib/storage';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useMemo, useState } from 'react';
-import { Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import CollapsibleCard from './CollapsibleCard';
 
 function getCategoryUI(colors: ReturnType<typeof useThemeColors>): Record<string, { icon: string; color: string; label: string }> {
@@ -86,7 +86,7 @@ export default function EvidencePanel() {
     return { groupedEvidence: groups, stats: currentStats, mediaItems };
   }, [data?.submissions, activeFilter, showPendingReview, colors]);
 
-  const { signedUrls, handlePress, lightbox } = useImageLightbox(mediaItems, SUBMISSION_BUCKET);
+  const { signedUrls, previewUrls, handlePress, viewer } = useFileViewer(mediaItems, SUBMISSION_BUCKET);
 
   if (!data || stats.all === 0) return null;
 
@@ -134,49 +134,26 @@ export default function EvidencePanel() {
               <View className="h-[1px] flex-1 bg-surface-border" />
             </View>
             
-            <View className="gap-2.5">
-              {items.map((ev, idx) => {
-                const thumb = signedUrls[ev._key];
+            <FilePreviewGrid
+              items={items.map((ev, idx) => {
                 const isImage = ev.category === 'image';
-                return (
-                  <TouchableOpacity
-                    key={ev._key || `${ev.id}-${idx}`}
-                    onPress={() => handlePress({ id: ev._key, name: ev.file_name, storagePath: ev.storage_path || ev.file_url, mimeType: ev.mime_type || (isImage ? 'image/*' : null) })}
-                    className="flex-row items-center bg-surface-background p-3 rounded-xl border border-surface-border/50 active:opacity-75"
-                  >
-                    <View className="w-8 h-8 rounded-lg bg-surface-card items-center justify-center mr-3 overflow-hidden">
-                      {thumb ? (
-                        <Image source={{ uri: thumb }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-                      ) : (
-                        <FontAwesome name={ev.icon as any} size={14} color={ev.color} />
-                      )}
-                    </View>
-
-                    <View className="flex-1 mr-2">
-                      <Text className="text-typography-main text-xs font-bold" numberOfLines={1}>
-                        {ev.file_name}
-                      </Text>
-                      <View className="flex-row items-center mt-0.5">
-                        <Text className="text-typography-muted text-[9px] uppercase font-black">
-                          {formatSize(ev.file_size || 0)}
-                        </Text>
-                        <Text className="text-typography-muted text-[9px] mx-1.5 opacity-30">|</Text>
-                        <Text className="text-typography-muted text-[9px]">
-                          {ev.submitted_by}
-                        </Text>
-                      </View>
-                    </View>
-
-                    <FontAwesome name={isImage ? 'search-plus' : 'external-link'} size={10} color={colors.textMuted} />
-                  </TouchableOpacity>
-                );
+                const mime = ev.mime_type || (isImage ? 'image/*' : null);
+                return {
+                  key: ev._key || `${ev.id}-${idx}`,
+                  fileName: ev.file_name,
+                  mimeType: mime,
+                  subtitle: `${formatSize(ev.file_size || 0)} · ${ev.submitted_by || 'Unknown'}`,
+                  imageUri: signedUrls[ev._key],
+                  previewUri: previewUrls[ev._key],
+                  onPress: () => handlePress({ id: ev._key, name: ev.file_name, storagePath: ev.storage_path || ev.file_url, mimeType: mime }),
+                };
               })}
-            </View>
+            />
           </View>
         ))}
       </View>
 
-      {lightbox}
+      {viewer}
     </CollapsibleCard>
   );
 }

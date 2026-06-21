@@ -4,11 +4,42 @@ import { supabase } from './supabase';
 export const SUBMISSION_BUCKET = 'submission-attachments';
 export const TASK_BRIEF_BUCKET = 'task-attachments';
 
+// Media that mobile devices can render inline in their native previewer / camera
+// roll. For these we DON'T force an attachment download (the `&download=` param),
+// which mobile browsers otherwise save as an opaque file instead of opening.
+const INLINE_PREVIEW_EXTS = new Set([
+  'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'heic', 'heif', 'avif', 'svg',
+  'mp4', 'mov', 'm4v', 'webm', 'pdf',
+]);
+
+function isMobileDevice(): boolean {
+  if (Platform.OS === 'ios' || Platform.OS === 'android') return true;
+  if (Platform.OS === 'web' && typeof navigator !== 'undefined') {
+    return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+  }
+  return false;
+}
+
+function isInlinePreviewable(filename?: string, mimeType?: string | null): boolean {
+  const m = (mimeType || '').toLowerCase();
+  if (m.startsWith('image/') || m.startsWith('video/') || m === 'application/pdf') return true;
+  const ext = (filename || '').split('.').pop()?.toLowerCase() || '';
+  return INLINE_PREVIEW_EXTS.has(ext);
+}
+
 /**
  * Opens a storage file. Uses signed URLs for private buckets.
  * Falls back to direct URL open for legacy records that stored full http URLs.
+ *
+ * On mobile, previewable media (images / video / PDFs) open inline in the device's
+ * native viewer rather than being forced to download as an opaque attachment.
  */
-export async function openStorageFile(bucket: string, storagePath: string, filename?: string): Promise<void> {
+export async function openStorageFile(
+  bucket: string,
+  storagePath: string,
+  filename?: string,
+  mimeType?: string | null,
+): Promise<void> {
   if (!storagePath) return;
 
   // Legacy records stored full public URLs — open directly (will 404 for private buckets,
@@ -28,7 +59,10 @@ export async function openStorageFile(bucket: string, storagePath: string, filen
   }
 
   let url = data.signedUrl;
-  if (filename) {
+  // Stream previewable media inline on mobile; otherwise request an attachment
+  // download with the original filename.
+  const openInline = isMobileDevice() && isInlinePreviewable(filename, mimeType);
+  if (filename && !openInline) {
     url += `&download=${encodeURIComponent(filename)}`;
   }
 

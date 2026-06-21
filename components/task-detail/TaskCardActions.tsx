@@ -12,7 +12,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Text, TouchableOpacity, View } from 'react-native';
-import { isComplexActionType } from './actionRegistry';
+import { buildTransitionTargetMap, isComplexActionType, stageDirection } from './actionRegistry';
+import { DirectionalActionButton } from './DirectionalActionButton';
 
 // ─── Types ────────────────────────────────────────────────────
 export type ActiveSessionUser = {
@@ -63,6 +64,7 @@ type Props = {
   task: Task;
   stages: Stage[];
   stageActions: StageAction[];
+  transitions?: { id: string; to_stage_id: string }[];
   activeSessions: Record<string, ActiveSessionUser[]>;
   userId: string;
   onRefresh: () => void;
@@ -79,7 +81,7 @@ const ACTION_STYLES: Record<string, { bg: string; border: string; text: string }
 
 
 // ─── Component ────────────────────────────────────────────────
-export default function TaskCardActions({ task, stages, stageActions, activeSessions, userId, onRefresh }: Props) {
+export default function TaskCardActions({ task, stages, stageActions, transitions = [], activeSessions, userId, onRefresh }: Props) {
   const router = useRouter();
   const colors = useThemeColors();
   const { hasPermission, profile } = useAuth();
@@ -117,6 +119,20 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
     .filter(a => a.stage_id === task.current_stage_id)
     .filter(a => (a as any).is_active !== false)
     .sort((a, b) => a.position - b.position);
+
+  // Resolve each action's target stage so buttons can show a directional arrow
+  // (back = left, forward = right). Falls back to no arrow when unresolved.
+  const stagePositionById = new Map(stages.map(s => [s.id, s.position]));
+  const transitionTargetPos = buildTransitionTargetMap(transitions, stagePositionById);
+  const currentPosition = currentStage?.position ?? null;
+  const directionOf = (action: StageAction) =>
+    stageDirection(currentPosition, action.transition_id ? transitionTargetPos.get(action.transition_id) ?? null : null);
+  const toneColor = (s: string) =>
+    s === 'success' ? colors.success
+      : s === 'warning' ? colors.warning
+      : s === 'danger' ? colors.danger
+      : s === 'primary' ? colors.primary
+      : colors.muted;
 
   // ─── Handlers ────────────────────────────────────────────
 
@@ -546,6 +562,24 @@ export default function TaskCardActions({ task, stages, stageActions, activeSess
           const actionNeedsTimer = effectiveRequiresTimer && !isTimerActive;
           const isComplex = isComplexActionType(action.action_type);
           const isNeedsTimerPending = needsTimerActionId === action.id;
+          const direction = directionOf(action);
+
+          // Directional transitions render as an arrow-shaped button.
+          if (direction) {
+            return (
+              <DirectionalActionButton
+                key={action.id}
+                direction={direction}
+                color={isNeedsTimerPending ? colors.warning : toneColor(action.style)}
+                label={`${actionNeedsTimer ? '🔒 ' : ''}${action.label}`}
+                icon={isComplex ? 'external-link' : null}
+                loading={isLoading}
+                disabled={actionNeedsTimer}
+                onPress={() => handleExecuteAction(action)}
+                fullWidth
+              />
+            );
+          }
 
           return (
             <TouchableOpacity
