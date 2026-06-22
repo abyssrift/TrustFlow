@@ -27,6 +27,10 @@ export type FileHubFile = {
   current_version_id?: string;
   version_count?: number;
   is_stale_restore?: boolean;
+  // Bin-only fields (present when returned from rpc_filehub_bin_list)
+  trash_type?: 'deleted' | 'hidden';
+  trashed_at?: string;
+  expires_at?: string;
 };
 
 export type FileVersion = {
@@ -98,6 +102,11 @@ type FileHubContextType = {
   markAllRead: () => Promise<void>;
   hideFile: (fileId: string) => Promise<void>;
   deleteFile: (fileId: string) => Promise<void>;
+  // Bin
+  binFiles: FileHubFile[];
+  binLoading: boolean;
+  fetchBin: () => Promise<void>;
+  restoreFromBin: (fileId: string) => Promise<void>;
   createFolder: (name: string) => Promise<void>;
   renameFolder: (id: string, name: string) => Promise<void>;
   deleteFolder: (id: string) => Promise<void>;
@@ -156,6 +165,9 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
   const [folders, setFolders] = useState<FileHubFolder[]>([]);
   const [loading, setLoading] = useState(true);
   const [inboxUnreadCount, setInboxUnreadCount] = useState(0);
+  // Bin state
+  const [binFiles, setBinFiles] = useState<FileHubFile[]>([]);
+  const [binLoading, setBinLoading] = useState(false);
   // Groups state
   const [groups, setGroups] = useState<FileHubGroup[]>([]);
   const [groupsLoading, setGroupsLoading] = useState(false);
@@ -373,6 +385,27 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
     setGroupFiles(prev => prev.filter(f => f.id !== fileId));
   }, []);
 
+  // ── Bin (deleted/hidden files, restorable for 15 days) ─────────────────────
+  const fetchBin = useCallback(async () => {
+    setBinLoading(true);
+    try {
+      const { data, error } = await supabase.rpc('rpc_filehub_bin_list');
+      if (error) throw error;
+      setBinFiles(data || []);
+    } catch (e) {
+      console.error('[FileHub] bin fetch error', e);
+    } finally {
+      setBinLoading(false);
+    }
+  }, []);
+
+  const restoreFromBin = useCallback(async (fileId: string) => {
+    const { error } = await supabase.rpc('rpc_filehub_restore', { p_file_id: fileId });
+    if (error) { Alert.alert('Error', error.message); throw error; }
+    setBinFiles(prev => prev.filter(f => f.id !== fileId));
+    refresh();
+  }, [refresh]);
+
   const createFolder = useCallback(async (name: string) => {
     const { error } = await supabase.rpc('rpc_filehub_folder_create', { p_name: name });
     if (error) { Alert.alert('Error', error.message); return; }
@@ -497,6 +530,7 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
       inboxUnreadCount,
       refresh,
       markRead, markAllRead, hideFile, deleteFile,
+      binFiles, binLoading, fetchBin, restoreFromBin,
       createFolder, renameFolder, deleteFolder,
       tagSuggestions, checkDuplicate,
       checkNameConflict, replaceFile, fileVersions, restoreVersion, pinVersion,

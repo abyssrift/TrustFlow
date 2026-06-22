@@ -7,6 +7,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
+  Platform,
   ScrollView,
   Switch,
   Text,
@@ -15,6 +16,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import DraggableSheet from '@/components/common/DraggableSheet';
 
 // ── Types ─────────────────────────────────────────────────────────────
 type NotificationRule = {
@@ -182,11 +184,9 @@ function RuleEditorModal({ visible, existing, onClose, onSaved }: RuleEditorModa
     }
   };
 
-  return (
-    <Modal visible={visible} animationType="fade" transparent>
-      <View className="flex-1 items-center justify-center bg-black/60 p-4">
-        <View className="bg-surface-card w-full max-w-lg rounded-3xl border border-surface-border shadow-2xl max-h-[90%]">
-          <View className="flex-row items-center justify-between px-6 pt-6 pb-4 border-b border-surface-border">
+  const body = (
+    <>
+          <View className="flex-row items-center justify-between px-6 pt-4 pb-4 border-b border-surface-border">
             <Text className="text-typography-main font-black text-xl tracking-tight">
               {existing ? 'Edit Rule' : 'New Rule'}
             </Text>
@@ -301,6 +301,28 @@ function RuleEditorModal({ visible, existing, onClose, onSaved }: RuleEditorModa
               )}
             </TouchableOpacity>
           </View>
+    </>
+  );
+
+  if (Platform.OS !== 'web') {
+    return (
+      <DraggableSheet
+        visible={visible}
+        onClose={onClose}
+        dimBackdrop
+        maxHeight="90%"
+        containerClassName="bg-surface-card w-full rounded-t-3xl border-t border-surface-border"
+      >
+        {body}
+      </DraggableSheet>
+    );
+  }
+
+  return (
+    <Modal visible={visible} animationType="fade" transparent>
+      <View className="flex-1 items-center justify-center bg-black/60 p-4">
+        <View className="bg-surface-card w-full max-w-lg rounded-3xl border border-surface-border shadow-2xl max-h-[90%]">
+          {body}
         </View>
       </View>
     </Modal>

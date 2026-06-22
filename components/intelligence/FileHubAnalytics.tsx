@@ -2,8 +2,9 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Modal, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import UserLink from '@/components/common/UserLink';
+import DraggableSheet from '@/components/common/DraggableSheet';
 
 // ── Types mirror rpc_filehub_analytics ───────────────────────────────────────
 type Totals = {
@@ -91,13 +92,8 @@ export default function FileHubAnalytics({ visible, onClose }: { visible: boolea
     { label: 'Read Rate', value: totals.read_rate == null ? '—' : `${Math.round(totals.read_rate * 100)}%`, icon: 'check-circle', color: c.warning },
   ] : [];
 
-  return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View className="flex-1 items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}>
-        <View
-          className="w-full rounded-3xl overflow-hidden border"
-          style={{ maxWidth: 760, maxHeight: '92%', backgroundColor: c.background, borderColor: c.border }}
-        >
+  const body = (
+    <>
           {/* Header */}
           <View className="px-7 pt-6 pb-4 flex-row items-start justify-between border-b" style={{ borderColor: c.border }}>
             <View>
@@ -200,6 +196,32 @@ export default function FileHubAnalytics({ visible, onClose }: { visible: boolea
               </View>
             </ScrollView>
           )}
+    </>
+  );
+
+  if (Platform.OS !== 'web') {
+    return (
+      <DraggableSheet
+        visible={visible}
+        onClose={onClose}
+        dimBackdrop
+        maxHeight="92%"
+        containerClassName="overflow-hidden border-t rounded-t-3xl"
+        containerStyle={{ backgroundColor: c.background, borderColor: c.border }}
+      >
+        {body}
+      </DraggableSheet>
+    );
+  }
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View className="flex-1 items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}>
+        <View
+          className="w-full rounded-3xl overflow-hidden border"
+          style={{ maxWidth: 760, maxHeight: '92%', backgroundColor: c.background, borderColor: c.border }}
+        >
+          {body}
         </View>
       </View>
     </Modal>

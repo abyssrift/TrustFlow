@@ -7,6 +7,7 @@ import ReportFiltersModal, {
   type ReportFilters,
 } from '@/components/intelligence/ReportFiltersModal';
 import { BackButton } from '@/components/common/BackButton';
+import DraggableSheet from '@/components/common/DraggableSheet';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
@@ -14,7 +15,7 @@ import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { ActivityIndicator, Alert, Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 const STATUS_COLOR: Record<string, string> = {
   completed:  'text-state-success',
@@ -46,10 +47,8 @@ const GenerateModal = ({ visible, onClose, onConfirm, pipelines, teams, users }:
   const [team, setTeam]         = useState<string | null>(null);
   const [user, setUser]         = useState<string | null>(null);
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View className="flex-1 bg-black/70 items-center justify-center px-6">
-        <View className="bg-surface-card w-full max-h-[85%] rounded-[32px] border border-surface-border overflow-hidden">
-          <View className="p-8 pb-4">
+    <DraggableSheet visible={visible} onClose={onClose} dimBackdrop maxHeight="85%" containerClassName="bg-surface-card w-full rounded-t-[32px] border-t border-surface-border overflow-hidden">
+          <View className="p-8 pt-2 pb-4">
             <Text className="text-typography-main text-2xl font-black mb-1">Generate Report</Text>
             <Text className="text-typography-muted text-xs">Configure audit parameters</Text>
           </View>
@@ -81,9 +80,7 @@ const GenerateModal = ({ visible, onClose, onConfirm, pipelines, teams, users }:
               <Text className="text-white font-bold">Generate</Text>
             </TouchableOpacity>
           </View>
-        </View>
-      </View>
-    </Modal>
+    </DraggableSheet>
   );
 };
 

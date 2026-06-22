@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Modal, StyleSheet, Platform } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 export interface AlertOptions {
   title: string;
@@ -19,6 +20,8 @@ interface GlobalAlertOverlayProps {
 }
 
 export function GlobalAlertOverlay({ options, onClose }: GlobalAlertOverlayProps) {
+  const c = useThemeColors();
+
   const handleConfirm = () => {
     options.onConfirm?.();
     onClose();
@@ -29,6 +32,8 @@ export function GlobalAlertOverlay({ options, onClose }: GlobalAlertOverlayProps
     onClose();
   };
 
+  const isDestructive = options.confirmStyle === 'destructive';
+
   return (
     <Modal
       transparent
@@ -37,20 +42,26 @@ export function GlobalAlertOverlay({ options, onClose }: GlobalAlertOverlayProps
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        <View className="w-[90%] max-w-[400px] bg-surface-card border border-surface-border rounded-3xl p-8 premium-shadow glass-card overflow-hidden">
+        <View
+          className="w-[90%] max-w-[400px] rounded-3xl p-8 overflow-hidden premium-shadow"
+          style={{ backgroundColor: c.card, borderWidth: 1, borderColor: c.border }}
+        >
           {/* Header Icon */}
-          <View className={`h-16 w-16 items-center justify-center rounded-2xl mb-6 ${options.type === 'confirm' ? 'bg-brand-primary/10' : 'bg-state-info/10'}`}>
-            <FontAwesome 
-              name={options.type === 'confirm' ? "question-circle" : "info-circle"} 
-              size={32} 
-              color={options.type === 'confirm' ? "#6366f1" : "#3b82f6"} 
+          <View
+            className="h-16 w-16 items-center justify-center rounded-2xl mb-6"
+            style={{ backgroundColor: (options.type === 'confirm' ? c.primary : c.info) + '1A' }}
+          >
+            <FontAwesome
+              name={options.type === 'confirm' ? "question-circle" : "info-circle"}
+              size={32}
+              color={options.type === 'confirm' ? c.primary : c.info}
             />
           </View>
 
-          <Text className="text-xl font-black text-typography-main mb-3">
+          <Text className="text-xl font-black mb-3" style={{ color: c.textMain }}>
             {options.title}
           </Text>
-          <Text className="text-sm font-bold text-typography-muted leading-relaxed mb-8">
+          <Text className="text-sm font-bold leading-relaxed mb-8" style={{ color: c.textMuted }}>
             {options.message}
           </Text>
 
@@ -58,9 +69,10 @@ export function GlobalAlertOverlay({ options, onClose }: GlobalAlertOverlayProps
             {options.type === 'confirm' && (
               <TouchableOpacity
                 onPress={handleCancel}
-                className="flex-1 h-12 items-center justify-center rounded-xl border border-surface-border bg-surface-overlay"
+                className="flex-1 h-12 items-center justify-center rounded-xl"
+                style={{ borderWidth: 1, borderColor: c.border, backgroundColor: c.background }}
               >
-                <Text className="text-xs font-black uppercase tracking-widest text-typography-muted">
+                <Text className="text-xs font-black uppercase tracking-widest" style={{ color: c.textMuted }}>
                   {options.cancelText || 'Cancel'}
                 </Text>
               </TouchableOpacity>
@@ -68,7 +80,8 @@ export function GlobalAlertOverlay({ options, onClose }: GlobalAlertOverlayProps
 
             <TouchableOpacity
               onPress={handleConfirm}
-              className={`flex-1 h-12 items-center justify-center rounded-xl ${options.confirmStyle === 'destructive' ? 'bg-state-danger' : 'bg-brand-primary'}`}
+              className="flex-1 h-12 items-center justify-center rounded-xl"
+              style={{ backgroundColor: isDestructive ? c.danger : c.primary }}
             >
               <Text className="text-xs font-black uppercase tracking-widest text-white">
                 {options.confirmText || (options.type === 'confirm' ? 'Confirm' : 'OK')}

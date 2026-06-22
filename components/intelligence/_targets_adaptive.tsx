@@ -1,3 +1,4 @@
+import DraggableSheet from '@/components/common/DraggableSheet';
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 import { BackButton } from '@/components/common/BackButton';
 import { CompletionVelocityMobile, IntelligencePicker } from '@/components/intelligence/IntelligenceCommon';
@@ -30,11 +31,8 @@ const CreateModal = ({ visible, onClose, onConfirm, pipelines, stages }: any) =>
   const filteredStages = stages.filter((s: any) => s.pipeline_id === pipeline);
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View className="flex-1 bg-black/70 justify-end">
-        <View className="bg-surface-card w-full rounded-t-[40px] border-t border-surface-border overflow-hidden pb-10">
+    <DraggableSheet visible={visible} onClose={onClose} dimBackdrop containerClassName="bg-surface-card w-full rounded-t-[40px] border-t border-surface-border overflow-hidden pb-10">
           <View className="p-8 pb-4 items-center">
-            <View className="w-12 h-1.5 bg-surface-border rounded-full mb-6" />
             <Text className="text-typography-main text-2xl font-black mb-1">Define Objective</Text>
             <Text className="text-typography-muted text-xs">Establish high-fidelity benchmarks</Text>
           </View>
@@ -143,9 +141,7 @@ const CreateModal = ({ visible, onClose, onConfirm, pipelines, stages }: any) =>
               <Text className="text-brand-on-primary font-black uppercase tracking-widest text-xs">Deploy</Text>
             </TouchableOpacity>
           </View>
-        </View>
-      </View>
-    </Modal>
+    </DraggableSheet>
   );
 };
 
@@ -180,11 +176,8 @@ const EditModal = ({ target, onClose, onSave }: { target: any; onClose: () => vo
   };
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <View className="flex-1 bg-black/70 justify-end">
-        <View className="bg-surface-card w-full rounded-t-[40px] border-t border-surface-border overflow-hidden pb-10">
+    <DraggableSheet visible onClose={onClose} dimBackdrop containerClassName="bg-surface-card w-full rounded-t-[40px] border-t border-surface-border overflow-hidden pb-10">
           <View className="p-8 pb-4 items-center">
-            <View className="w-12 h-1.5 bg-surface-border rounded-full mb-6" />
             <Text className="text-typography-main text-2xl font-black mb-1">Edit Target</Text>
             <Text className="text-typography-muted text-xs">
               {target.stage?.name} · {isVolume ? 'Volume Quota' : 'Performance SLA'}
@@ -251,9 +244,7 @@ const EditModal = ({ target, onClose, onSave }: { target: any; onClose: () => vo
               <Text className="text-brand-on-primary font-black uppercase tracking-widest text-xs">Save Changes</Text>
             </TouchableOpacity>
           </View>
-        </View>
-      </View>
-    </Modal>
+    </DraggableSheet>
   );
 };
 

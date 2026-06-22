@@ -44,9 +44,7 @@
 ## 🏗️ Tier 4: Priority Low / Long-Term (Architectural & Strategy)
 *Heavy technical changes, data life cycle definitions, and core system changes that require extensive planning and deep structural updates.*
 
-- [ ] **The "Smarter" Time Unit (Global Scaling Engine)**
-  - **Feature:** Introduce an intelligent, reactive time component that fluidly shifts formats depending on duration magnitude (Years $\rightarrow$ Months $\rightarrow$ Weeks $\rightarrow$ Days $\rightarrow$ Hours $\rightarrow$ Minutes $\rightarrow$ Seconds) without losing baseline data precision.
-  - **Impact:** High. Requires widespread front-end component adjustments, exact data-type synchronization, and database migration tasks to verify global persistence.
+
 
 - [ ] **First-Time User Onboarding & Permission Templates**
   - **Feature:** Implement an automated introductory sequence detailing profile setup, task management features, and specialized screen guides. Bundle this with preset administrative rule templates when a new company workspace is registered.

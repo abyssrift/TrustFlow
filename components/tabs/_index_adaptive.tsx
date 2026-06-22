@@ -1,3 +1,4 @@
+import DraggableSheet from '@/components/common/DraggableSheet';
 import PendingTimeApprovalsWidget from '@/components/common/PendingTimeApprovalsWidget';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '@/contexts/NotificationsContext';
@@ -8,7 +9,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, InteractionManager, Modal, Platform, RefreshControl, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, InteractionManager, Platform, RefreshControl, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -582,9 +583,7 @@ function DashboardSettingsModal({ visible, onClose, config, onSave }: {
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View className="flex-1 bg-black/80">
-        <View className="flex-1 mt-20 bg-surface-background rounded-t-[40px] border-t border-surface-border overflow-hidden">
+    <DraggableSheet visible={visible} onClose={onClose} dimBackdrop maxHeight="92%" containerClassName="bg-surface-background rounded-t-[40px] border-t border-surface-border overflow-hidden">
           <View className="p-6 border-b border-surface-border flex-row justify-between items-center bg-surface-card">
             <View>
               <Text className="text-typography-main text-xl font-black">Dashboard Config</Text>
@@ -718,8 +717,6 @@ function DashboardSettingsModal({ visible, onClose, config, onSave }: {
               <Text className="text-white font-black uppercase tracking-widest text-sm">Save Config</Text>
             </TouchableOpacity>
           </View>
-        </View>
-      </View>
-    </Modal>
+    </DraggableSheet>
   );
 }

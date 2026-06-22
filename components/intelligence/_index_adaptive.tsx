@@ -1,4 +1,5 @@
 import ConfirmModal from '@/components/common/ConfirmModal';
+import DraggableSheet from '@/components/common/DraggableSheet';
 import { BackButton } from '@/components/common/BackButton';
 import { IntelligencePicker } from '@/components/intelligence/IntelligenceCommon';
 
@@ -10,7 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Modal, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 
 
@@ -350,10 +351,8 @@ const ReportConfigModal = ({ visible, onClose, onConfirm, pipelines, teams, user
   const [u, setU] = useState<string | null>(null);
   const [type, setType] = useState('performance_audit');
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View className="flex-1 bg-black/70 items-center justify-center px-6">
-        <View className="bg-surface-card w-full max-h-[85%] rounded-[32px] border border-surface-border overflow-hidden">
-          <View className="p-8 pb-4">
+    <DraggableSheet visible={visible} onClose={onClose} dimBackdrop maxHeight="85%" containerClassName="bg-surface-card w-full rounded-t-[32px] border-t border-surface-border overflow-hidden">
+          <View className="p-8 pt-2 pb-4">
             <Text className="text-typography-main text-2xl font-black mb-1">Audit Configuration</Text>
             <Text className="text-typography-muted text-xs">Define intelligence boundaries</Text>
           </View>
@@ -382,9 +381,7 @@ const ReportConfigModal = ({ visible, onClose, onConfirm, pipelines, teams, user
               <Text className="text-white font-bold">Generate</Text>
             </TouchableOpacity>
           </View>
-        </View>
-      </View>
-    </Modal>
+    </DraggableSheet>
   );
 };
 
@@ -404,10 +401,8 @@ const WidgetConfigModal = ({ visible, onClose, onSave, currentWidgets }: any) =>
     else if (selected.length < 4) setSelected([...selected, id]);
   };
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View className="flex-1 bg-black/70 items-center justify-center px-6">
-        <View className="bg-surface-card w-full max-h-[80%] rounded-[32px] border border-surface-border overflow-hidden">
-          <View className="p-8 pb-4">
+    <DraggableSheet visible={visible} onClose={onClose} dimBackdrop maxHeight="80%" containerClassName="bg-surface-card w-full rounded-t-[32px] border-t border-surface-border overflow-hidden">
+          <View className="p-8 pt-2 pb-4">
             <Text className="text-typography-main text-2xl font-black mb-1">Radar Matrix</Text>
             <Text className="text-typography-muted text-xs">Select up to 4 core telemetry widgets</Text>
           </View>
@@ -435,9 +430,7 @@ const WidgetConfigModal = ({ visible, onClose, onSave, currentWidgets }: any) =>
               <Text className="text-white font-bold">Apply Matrix</Text>
             </TouchableOpacity>
           </View>
-        </View>
-      </View>
-    </Modal>
+    </DraggableSheet>
   );
 };
 
@@ -484,11 +477,8 @@ const ArchiveDetailModal = ({ visible, onClose, archive, activeSchema, onRestore
   const pipelineId = archive.snapshot?.pipeline_id || archive.snapshot?.child_tasks?.[0]?.pipeline_id;
   const hasIntegrityIssue = pipelineId && !activeSchema.pipelines.has(pipelineId);
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View className="flex-1 bg-black/80 justify-end">
-        <View className="bg-surface-card rounded-t-[40px] border-t border-surface-border h-[90%] overflow-hidden">
-          <View className="w-12 h-1.5 bg-surface-border rounded-full mx-auto my-4" />
-          <View className="px-8 pb-4 border-b border-surface-border flex-row justify-between items-center">
+    <DraggableSheet visible={visible} onClose={onClose} dimBackdrop maxHeight="90%" containerClassName="bg-surface-card rounded-t-[40px] border-t border-surface-border overflow-hidden">
+          <View className="px-8 pt-2 pb-4 border-b border-surface-border flex-row justify-between items-center">
             <View className="flex-1">
               <Text className="text-typography-main text-xl font-black mb-1">
                 {archive.metadata?.title || archive.metadata?.name || 'Untitled'}
@@ -527,9 +517,7 @@ const ArchiveDetailModal = ({ visible, onClose, archive, activeSchema, onRestore
                </TouchableOpacity>
              )}
           </View>
-        </View>
-      </View>
-    </Modal>
+    </DraggableSheet>
   );
 };
 

@@ -21,11 +21,13 @@ import {
   View
 } from 'react-native';
 
+import DraggableSheet from '@/components/common/DraggableSheet';
 import { useImageLightbox } from '@/hooks/useImageLightbox';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import AdaptiveFileGrid from '../common/AdaptiveFileGrid';
 import { FilePreviewModal, FilePreviewTeaser, getPreviewKind, type PreviewKind } from '../common/FilePreview';
 import FileHubAnalytics from './FileHubAnalytics';
+import FileHubBin from './FileHubBin';
 
 
 
@@ -300,13 +302,7 @@ function FileDetailSheet({
 
   return (
     <>
-    <Modal visible={!!file} transparent animationType="slide" onRequestClose={onClose}>
-      <View className="flex-1 justify-end">
-        <TouchableOpacity className="flex-1" onPress={onClose} activeOpacity={1} />
-        <View className="bg-surface-card rounded-t-[2rem] border-t border-surface-border" style={{ maxHeight: '85%' }}>
-          <View className="items-center pt-3 pb-2">
-            <View className="w-10 h-1 bg-surface-border rounded-full" />
-          </View>
+    <DraggableSheet visible={!!file} onClose={onClose}>
 
           {/* File header */}
           <View className="items-center px-6 pt-2 pb-4 border-b border-surface-border/50">
@@ -595,9 +591,7 @@ function FileDetailSheet({
             )}
           </ScrollView>
           )}
-        </View>
-      </View>
-    </Modal>
+    </DraggableSheet>
     {previewLightbox}
     {previewKind && previewUrl && (
       <FilePreviewModal
@@ -938,13 +932,7 @@ function UploadSheet({
 
   return (
     <>
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View className="flex-1 justify-end">
-        <TouchableOpacity className="flex-1" onPress={onClose} activeOpacity={1} />
-        <View className="bg-surface-card rounded-t-[2rem] border-t border-surface-border" style={{ maxHeight: '90%' }}>
-          <View className="items-center pt-3 pb-2">
-            <View className="w-10 h-1 bg-surface-border rounded-full" />
-          </View>
+    <DraggableSheet visible={visible} onClose={onClose} maxHeight="90%">
 
           {Platform.OS === 'web' && (
             <>
@@ -1181,9 +1169,7 @@ function UploadSheet({
               </>
             )}
           </ScrollView>
-        </View>
-      </View>
-    </Modal>
+    </DraggableSheet>
 
     {/* Web-safe decision dialog (replaces RN Alert.alert multi-button prompts) */}
     {pendingDecision && (
@@ -1315,13 +1301,7 @@ function GroupCreateSheet({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View className="flex-1 justify-end">
-        <TouchableOpacity className="flex-1" onPress={onClose} activeOpacity={1} />
-        <View className="bg-surface-card rounded-t-[2rem] border-t border-surface-border" style={{ maxHeight: '85%' }}>
-          <View className="items-center pt-3 pb-2">
-            <View className="w-10 h-1 bg-surface-border rounded-full" />
-          </View>
+    <DraggableSheet visible={visible} onClose={onClose} maxHeight="85%">
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40, gap: 20 }}>
             <View className="flex-row items-center justify-between">
               <Text className="text-typography-main text-xl font-black">New Channel</Text>
@@ -1438,9 +1418,7 @@ function GroupCreateSheet({
               }
             </TouchableOpacity>
           </ScrollView>
-        </View>
-      </View>
-    </Modal>
+    </DraggableSheet>
   );
 }
 
@@ -1537,13 +1515,7 @@ function GroupMembersSheet({
   const myRole = members.find(m => m.id === currentUserId)?.role;
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View className="flex-1 justify-end">
-        <TouchableOpacity className="flex-1" onPress={onClose} activeOpacity={1} />
-        <View className="bg-surface-card rounded-t-[2rem] border-t border-surface-border" style={{ maxHeight: '80%' }}>
-          <View className="items-center pt-3 pb-2">
-            <View className="w-10 h-1 bg-surface-border rounded-full" />
-          </View>
+    <DraggableSheet visible={visible} onClose={onClose} maxHeight="80%">
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40, gap: 16 }}>
             <View className="flex-row items-center justify-between">
               <Text className="text-typography-main text-xl font-black">{group.name}</Text>
@@ -1626,9 +1598,7 @@ function GroupMembersSheet({
               )}
             </View>
           </ScrollView>
-        </View>
-      </View>
-    </Modal>
+    </DraggableSheet>
   );
 }
 
@@ -1641,6 +1611,7 @@ function FileCard({
   selectionMode = false,
   isFileSelected = false,
   onToggleSelect,
+  onLongPress,
   thumbUri,
 }: {
   file: FileHubFile;
@@ -1649,6 +1620,7 @@ function FileCard({
   selectionMode?: boolean;
   isFileSelected?: boolean;
   onToggleSelect?: () => void;
+  onLongPress?: () => void;
   thumbUri?: string;
 }) {
   const { icon, color } = getMimeIcon(file.mime_type);
@@ -1658,6 +1630,8 @@ function FileCard({
   return (
     <TouchableOpacity
       onPress={(e) => (selectionMode ? onToggleSelect?.() : onPress(e))}
+      onLongPress={selectionMode ? undefined : onLongPress}
+      delayLongPress={350}
       className={`border rounded-2xl px-4 py-4 mb-3 flex-row items-center gap-3 ${
         isFileSelected
           ? 'bg-brand-primary/10 border-brand-primary/40'
@@ -1769,13 +1743,7 @@ function TagsManageSheet({ visible, onClose, onChanged }: {
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View className="flex-1 justify-end">
-        <TouchableOpacity className="flex-1" onPress={onClose} activeOpacity={1} />
-        <View className="bg-surface-card rounded-t-[2rem] border-t border-surface-border" style={{ maxHeight: '75%' }}>
-          <View className="items-center pt-3 pb-1">
-            <View className="w-10 h-1 bg-surface-border rounded-full" />
-          </View>
+    <DraggableSheet visible={visible} onClose={onClose} maxHeight="75%">
           <View className="flex-row items-center justify-between px-6 py-4 border-b border-surface-border">
             <View className="flex-row items-center gap-2">
               <FontAwesome name="tags" size={14} color={colors.primary} />
@@ -1854,9 +1822,7 @@ function TagsManageSheet({ visible, onClose, onChanged }: {
               <View style={{ height: 40 }} />
             </ScrollView>
           )}
-        </View>
-      </View>
-    </Modal>
+    </DraggableSheet>
   );
 }
 
@@ -1864,6 +1830,7 @@ function TagsManageSheet({ visible, onClose, onChanged }: {
 
 function FileHubAdaptiveInner() {
   const { hasPermission, user, profile } = useAuth();
+  const { showConfirm } = useAlert();
   const {
     mode, setMode,
     search, setSearch,
@@ -1876,6 +1843,7 @@ function FileHubAdaptiveInner() {
     activeGroupId, setActiveGroupId,
     groupFiles, groupFilesLoading,
     refreshGroups, refreshGroupFiles,
+    hideFile, deleteFile,
   } = useFileHub();
 
   const router = useRouter();
@@ -1895,6 +1863,7 @@ function FileHubAdaptiveInner() {
   const [showManageMembers, setShowManageMembers] = useState(false);
   const [showManageTags, setShowManageTags] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showBin, setShowBin] = useState(false);
   const [zipDownloading, setZipDownloading] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set());
@@ -1983,6 +1952,25 @@ function FileHubAdaptiveInner() {
       setZipDownloading(false);
     }
   };
+
+  const handleDeleteSelected = () => {
+    const filesToDelete = displayFiles.filter(f => selectedFileIds.has(f.id));
+    if (filesToDelete.length === 0) return;
+    showConfirm(
+      'Delete Files',
+      `Delete ${filesToDelete.length} file${filesToDelete.length === 1 ? '' : 's'}? This cannot be undone.`,
+      () => {
+        Promise.all(filesToDelete.map(f => (f.uploader?.id === user?.id ? deleteFile(f.id) : hideFile(f.id))))
+          .then(() => exitSelection());
+      },
+      undefined, 'Delete', 'Cancel', 'destructive'
+    );
+  };
+
+  const enterSelectionWith = useCallback((fileId: string) => {
+    setSelectionMode(true);
+    setSelectedFileIds(new Set([fileId]));
+  }, []);
 
   const allTags = useMemo(() => {
     const set = new Set<string>();
@@ -2102,6 +2090,9 @@ function FileHubAdaptiveInner() {
         </View>
         <TouchableOpacity onPress={() => setShowAnalytics(true)} className="w-11 h-11 bg-surface-card border border-surface-border rounded-2xl items-center justify-center">
           <FontAwesome name="bar-chart" size={13} color={colors.primary} />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => setShowBin(true)} className="w-11 h-11 bg-surface-card border border-surface-border rounded-2xl items-center justify-center">
+          <FontAwesome name="trash-o" size={13} color={colors.primary} />
         </TouchableOpacity>
         <TouchableOpacity onPress={handleRefresh} className="w-11 h-11 bg-surface-card border border-surface-border rounded-2xl items-center justify-center">
           <FontAwesome name="refresh" size={13} color={colors.primary} />
@@ -2277,6 +2268,7 @@ function FileHubAdaptiveInner() {
                   selectionMode={selectionMode}
                   isFileSelected={selectedFileIds.has(file.id)}
                   onToggleSelect={() => toggleFileSelect(file.id)}
+                  onLongPress={() => enterSelectionWith(file.id)}
                 />
               ))}
               <View style={{ height: selectionMode ? 140 : 100 }} />
@@ -2322,6 +2314,7 @@ function FileHubAdaptiveInner() {
                   selectionMode={selectionMode}
                   isFileSelected={selectedFileIds.has(file.id)}
                   onToggleSelect={() => toggleFileSelect(file.id)}
+                  onLongPress={() => enterSelectionWith(file.id)}
                 />
               ))}
               <View style={{ height: selectionMode ? 140 : 100 }} />
@@ -2332,7 +2325,7 @@ function FileHubAdaptiveInner() {
 
       {/* ── Selection toolbar (replaces FAB when in selection mode) ── */}
       {selectionMode ? (
-        <View className="absolute bottom-6 left-5 right-5 bg-surface-card border border-surface-border rounded-2xl px-4 py-3 flex-row items-center gap-3 premium-shadow">
+        <View className="absolute bottom-6 left-5 right-5 bg-surface-card border border-surface-border rounded-2xl px-4 py-2 flex-row items-center gap-2.5 premium-shadow">
           <TouchableOpacity
             onPress={toggleSelectAll}
             className={`w-9 h-9 rounded-xl items-center justify-center border-2 flex-shrink-0 ${
@@ -2357,6 +2350,15 @@ function FileHubAdaptiveInner() {
             >
               {zipDownloading ? <ActivityIndicator size="small" color="#fff" /> : <FontAwesome name="download" size={13} color="#fff" />}
               <Text className="text-white font-black text-sm">Download {selectedFileIds.size}</Text>
+            </TouchableOpacity>
+          )}
+          {selectedFileIds.size > 0 && (
+            <TouchableOpacity
+              onPress={handleDeleteSelected}
+              className="flex-row items-center gap-1.5 bg-state-danger/10 border border-state-danger/20 px-4 py-2.5 rounded-xl"
+            >
+              <FontAwesome name="trash-o" size={13} color={colors.danger} />
+              <Text className="text-state-danger font-black text-sm">Delete</Text>
             </TouchableOpacity>
           )}
           <TouchableOpacity onPress={exitSelection} className="w-9 h-9 items-center justify-center flex-shrink-0">
@@ -2418,6 +2420,9 @@ function FileHubAdaptiveInner() {
 
       {/* ── Analytics Dashboard ── */}
       <FileHubAnalytics visible={showAnalytics} onClose={() => setShowAnalytics(false)} />
+
+      {/* ── Bin ── */}
+      <FileHubBin visible={showBin} onClose={() => setShowBin(false)} />
     </View>
   );
 }

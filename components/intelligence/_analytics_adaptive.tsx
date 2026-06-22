@@ -1,4 +1,5 @@
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
+import DraggableSheet from '@/components/common/DraggableSheet';
 import { BackButton } from '@/components/common/BackButton';
 import { PersonnelRow, StageDwell, ThroughputPeriod, useAnalytics } from '@/contexts/AnalyticsContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,7 +12,6 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import {
   ActivityIndicator,
   Image,
-  Modal,
   ScrollView,
   Text,
   TextInput,
@@ -51,21 +51,13 @@ function CalendarModal({ visible, title, value, onSelect, onClose }: {
 }) {
   const colors = useThemeColors();
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      {/* Full-screen dimmed backdrop — tap anywhere outside the card to close */}
-      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', paddingHorizontal: 16 }}>
-        {/* Invisible full-screen tap target that closes the modal */}
-        <TouchableOpacity
-          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-          activeOpacity={1}
-          onPress={onClose}
-        />
-        {/* Card — onStartShouldSetResponder stops touches bubbling to the backdrop */}
-        <View
-          className="bg-surface-card border border-surface-border rounded-[32px] overflow-hidden"
-          onStartShouldSetResponder={() => true}
-        >
-          <View className="px-6 pt-5 pb-4 flex-row justify-between items-center border-b border-surface-border">
+    <DraggableSheet
+      visible={visible}
+      onClose={onClose}
+      dimBackdrop
+      containerClassName="bg-surface-card border-t border-surface-border rounded-t-[32px] overflow-hidden"
+    >
+          <View className="px-6 pt-2 pb-4 flex-row justify-between items-center border-b border-surface-border">
             <Text className="text-typography-main font-black text-lg">{title}</Text>
             <TouchableOpacity onPress={onClose} className="w-8 h-8 rounded-full bg-surface-background border border-surface-border items-center justify-center">
               <FontAwesome name="times" size={12} color={colors.textDim} />
@@ -76,9 +68,7 @@ function CalendarModal({ visible, title, value, onSelect, onClose }: {
             onSelect={d => { onSelect(d); onClose(); }}
             compact
           />
-        </View>
-      </View>
-    </Modal>
+    </DraggableSheet>
   );
 }
 

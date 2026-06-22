@@ -35,6 +35,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import DraggableSheet from '@/components/common/DraggableSheet';
 
 // ── Reusable UI ────────────────────────────────────────────────────────────
 
@@ -116,12 +117,7 @@ const CompanyDetailModal = ({
     : 1;
 
   return (
-    <Modal visible={!!companyId} animationType="slide" transparent>
-      <View className="flex-1 justify-end bg-black/50">
-        <View className="bg-surface-background rounded-t-3xl" style={{ maxHeight: '85%' }}>
-          <View className="items-center pt-3 pb-2">
-            <View className="w-10 h-1 bg-surface-border rounded-full" />
-          </View>
+    <DraggableSheet visible={!!companyId} onClose={onClose} dimBackdrop maxHeight="85%" containerClassName="bg-surface-background rounded-t-3xl">
 
           {loading || !detail ? (
             <View className="items-center justify-center py-20">
@@ -217,9 +213,7 @@ const CompanyDetailModal = ({
               <View className="h-8" />
             </ScrollView>
           )}
-        </View>
-      </View>
-    </Modal>
+    </DraggableSheet>
   );
 };
 

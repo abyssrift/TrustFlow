@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Modal, TextInput } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import DraggableSheet from '@/components/common/DraggableSheet';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRoleManager, Team } from '@/contexts/RoleManagerContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -114,13 +115,7 @@ export default function TeamAssignmentGrid() {
       </ScrollView>
 
       {/* Create Team Modal — bottom sheet */}
-      <Modal visible={isCreating} transparent animationType="slide">
-        <View className="flex-1 bg-black/60 justify-end">
-          <View className="bg-surface-card w-full rounded-t-3xl border-t border-x border-surface-border">
-            {/* Handle */}
-            <View className="items-center pt-3 pb-1">
-              <View className="w-10 h-1 rounded-full bg-surface-border" />
-            </View>
+      <DraggableSheet visible={isCreating} onClose={() => setIsCreating(false)} dimBackdrop containerClassName="bg-surface-card w-full rounded-t-3xl border-t border-x border-surface-border">
 
             {/* Header */}
             <View className="flex-row items-center justify-between px-5 pt-3 pb-5">
@@ -182,18 +177,10 @@ export default function TeamAssignmentGrid() {
                 </TouchableOpacity>
               </View>
             </View>
-          </View>
-        </View>
-      </Modal>
+      </DraggableSheet>
 
       {/* Team Role Assignment Modal — bottom sheet */}
-      <Modal visible={!!selectedTeam} transparent animationType="slide">
-        <View className="flex-1 bg-black/60 justify-end">
-          <View className="bg-surface-card w-full rounded-t-3xl border-t border-x border-surface-border max-h-[85%]">
-            {/* Handle */}
-            <View className="items-center pt-3 pb-1">
-              <View className="w-10 h-1 rounded-full bg-surface-border" />
-            </View>
+      <DraggableSheet visible={!!selectedTeam} onClose={() => setSelectedTeam(null)} dimBackdrop maxHeight="85%" containerClassName="bg-surface-card w-full rounded-t-3xl border-t border-x border-surface-border">
 
             {/* Header */}
             <View className="flex-row items-center justify-between px-5 pt-3 pb-5">
@@ -251,9 +238,7 @@ export default function TeamAssignmentGrid() {
                 <Text className="text-white font-black text-[10px] uppercase tracking-widest">Save Changes</Text>
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
-      </Modal>
+      </DraggableSheet>
     </View>
   );
 }

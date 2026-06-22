@@ -1,3 +1,4 @@
+import DraggableSheet from '@/components/common/DraggableSheet';
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -6,7 +7,6 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Modal,
   Platform,
   ScrollView,
   Text,
@@ -112,12 +112,13 @@ export default function EditTaskModal({ visible, onClose }: Props) {
     d ? new Date(d + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : null;
 
   return (
-    <Modal visible={visible} transparent animationType="slide">
-      <View className="flex-1 bg-black/60 justify-end">
-        <View
-          className="bg-surface-card rounded-t-3xl border-t border-surface-border overflow-hidden"
-          style={{ maxHeight: '92%' }}
-        >
+    <DraggableSheet
+      visible={visible}
+      onClose={onClose}
+      dimBackdrop
+      maxHeight="92%"
+      containerClassName="bg-surface-card rounded-t-3xl border-t border-surface-border overflow-hidden"
+    >
           {/* Header */}
           <View className="flex-row items-center justify-between px-6 pt-5 pb-4 border-b border-surface-border/50">
             <View>
@@ -383,8 +384,6 @@ export default function EditTaskModal({ visible, onClose }: Props) {
               )}
             </TouchableOpacity>
           </View>
-        </View>
-      </View>
-    </Modal>
+    </DraggableSheet>
   );
 }

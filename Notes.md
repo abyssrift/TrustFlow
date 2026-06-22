@@ -8,3 +8,11 @@ Bulk Select / Apply on entire Stages in tasks.tsx
 (Bulk Assign / Bulk Archive).
 
 Hovering over icons, buttons, stages and boards display their description and their uses in tasks.tsx
+
+
+App is still VERY heavy on mobile, we need quicker lighter clicks, like an actual highend app.
+
+
+- [ ] **The "Smarter" Time Unit (Global Scaling Engine)**
+  - **Feature:** Introduce an intelligent, reactive time component that fluidly shifts formats depending on duration magnitude (Years $\rightarrow$ Months $\rightarrow$ Weeks $\rightarrow$ Days $\rightarrow$ Hours $\rightarrow$ Minutes $\rightarrow$ Seconds) without losing baseline data precision.
+  - **Impact:** High. Requires widespread front-end component adjustments, exact data-type synchronization, and database migration tasks to verify global persistence.

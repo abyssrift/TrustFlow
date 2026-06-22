@@ -5,6 +5,7 @@ import { useImageLightbox } from '@/hooks/useImageLightbox';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { FilePreviewModal, FilePreviewTeaser, getPreviewKind, type PreviewKind } from './../common/FilePreview';
 import FileHubAnalytics from './FileHubAnalytics';
+import FileHubBin from './FileHubBin';
 import { downloadFilesAsZip, openStorageFile } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
@@ -2071,6 +2072,7 @@ function TagsManageModal({ visible, onClose, onChanged }: {
 function FileHubDesktopInner() {
   const colors = useThemeColors();
   const { hasPermission, user, profile } = useAuth();
+  const { showConfirm } = useAlert();
   const {
     mode, setMode,
     search, setSearch,
@@ -2086,6 +2088,7 @@ function FileHubDesktopInner() {
     activeGroupId, setActiveGroupId,
     groupFiles, groupFilesLoading,
     refreshGroups, refreshGroupFiles,
+    hideFile, deleteFile,
   } = useFileHub();
 
   const router = useRouter();
@@ -2108,6 +2111,7 @@ function FileHubDesktopInner() {
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [showManageTags, setShowManageTags] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showBin, setShowBin] = useState(false);
   const [zipDownloading, setZipDownloading] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set());
@@ -2176,6 +2180,20 @@ function FileHubDesktopInner() {
     } finally {
       setZipDownloading(false);
     }
+  };
+
+  const handleDeleteSelected = () => {
+    const filesToDelete = displayFiles.filter(f => selectedFileIds.has(f.id));
+    if (filesToDelete.length === 0) return;
+    showConfirm(
+      'Delete Files',
+      `Delete ${filesToDelete.length} file${filesToDelete.length === 1 ? '' : 's'}? This cannot be undone.`,
+      () => {
+        Promise.all(filesToDelete.map(f => (f.uploader?.id === user?.id ? deleteFile(f.id) : hideFile(f.id))))
+          .then(() => exitSelection());
+      },
+      undefined, 'Delete', 'Cancel', 'destructive'
+    );
   };
 
   const uploadFolders = useMemo(() => {
@@ -2320,6 +2338,12 @@ function FileHubDesktopInner() {
           >
             <FontAwesome name="bar-chart" size={12} color={colors.primary} />
             <Text className="text-typography-main font-black text-sm tracking-wide">Insights</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setShowBin(true)}
+            className="h-10 w-10 items-center justify-center bg-surface-card border border-surface-border rounded-xl shrink-0"
+          >
+            <FontAwesome name="trash-o" size={13} color={colors.primary} />
           </TouchableOpacity>
           <TouchableOpacity
             onPress={handleRefresh}
@@ -2713,6 +2737,15 @@ function FileHubDesktopInner() {
                           <Text className="text-white text-xs font-black">Download {selectedFileIds.size}</Text>
                         </TouchableOpacity>
                       )}
+                      {selectedFileIds.size > 0 && (
+                        <TouchableOpacity
+                          onPress={handleDeleteSelected}
+                          className="flex-row items-center gap-1.5 bg-state-danger/10 border border-state-danger/20 px-3 py-1.5 rounded-lg"
+                        >
+                          <FontAwesome name="trash-o" size={10} color={colors.danger} />
+                          <Text className="text-state-danger text-xs font-black">Delete {selectedFileIds.size}</Text>
+                        </TouchableOpacity>
+                      )}
                       <TouchableOpacity onPress={exitSelection} className="w-7 h-7 items-center justify-center ml-1">
                         <FontAwesome name="times" size={13} color={colors.textMuted} />
                       </TouchableOpacity>
@@ -2838,6 +2871,7 @@ function FileHubDesktopInner() {
 
       {/* ── Analytics Dashboard ── */}
       <FileHubAnalytics visible={showAnalytics} onClose={() => setShowAnalytics(false)} />
+      <FileHubBin visible={showBin} onClose={() => setShowBin(false)} />
     </View>
   );
 }

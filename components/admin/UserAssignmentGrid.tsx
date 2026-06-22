@@ -7,6 +7,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useState, useEffect, useRef } from 'react';
 import { Image, Modal, Platform, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
+import DraggableSheet from '@/components/common/DraggableSheet';
 import { cssInterop } from 'react-native-css-interop';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -197,13 +198,9 @@ export default function UserAssignmentGrid() {
       </ScrollView>
 
       {/* Member Profile Modal — tabbed design */}
-      <Modal
-        visible={!!selectedUser}
-        transparent
-        animationType={Platform.OS === 'web' ? 'fade' : 'slide'}
-      >
-        {Platform.OS === 'web' ? (
-          /* Desktop: centered card */
+      {Platform.OS === 'web' ? (
+        <Modal visible={!!selectedUser} transparent animationType="fade">
+          {/* Desktop: centered card */}
           <View className="flex-1 bg-black/60 justify-center items-center p-6">
             <View className="w-full max-w-3xl rounded-3xl border premium-shadow overflow-hidden" style={{ backgroundColor: colors.card, borderColor: colors.border, maxHeight: '90%' }}>
               {/* Header with Profile Summary */}
@@ -547,15 +544,16 @@ export default function UserAssignmentGrid() {
               </View>
             </View>
           </View>
-        ) : (
-          /* Mobile: bottom sheet with tabs */
-          <View className="flex-1 justify-end" style={{ backgroundColor: 'rgba(0, 0, 0, 0.6)' }}>
-            <View className="w-full rounded-t-3xl border-t border-x" style={{ backgroundColor: colors.card, borderColor: colors.border, maxHeight: '90%' }}>
-              {/* Handle */}
-              <View className="items-center pt-3 pb-1">
-                <View className="w-10 h-1 rounded-full" style={{ backgroundColor: colors.border }} />
-              </View>
-
+        </Modal>
+      ) : (
+        <DraggableSheet
+          visible={!!selectedUser}
+          onClose={() => setSelectedUser(null)}
+          dimBackdrop
+          maxHeight="90%"
+          containerClassName="w-full rounded-t-3xl border-t border-x"
+          containerStyle={{ backgroundColor: colors.card, borderColor: colors.border }}
+        >
               {/* Header with Profile Summary */}
               {selectedUser && (
                 <View className="px-5 pt-3 pb-4 border-b" style={{ borderColor: colors.border }}>
@@ -830,10 +828,8 @@ export default function UserAssignmentGrid() {
                   </TouchableOpacity>
                 )}
               </View>
-            </View>
-          </View>
-        )}
-      </Modal>
+        </DraggableSheet>
+      )}
     </View>
   );
 }

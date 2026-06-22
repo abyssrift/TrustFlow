@@ -1,7 +1,8 @@
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useState } from 'react';
-import { ActivityIndicator, Modal, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import DraggableSheet from '@/components/common/DraggableSheet';
 import { useThemeColors } from '@/hooks/useThemeColors';
 
 type Props = {
@@ -70,9 +71,7 @@ export default function ManualTimeModal({ visible, taskId, stageId, transitionId
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleCancel}>
-      <View className="flex-1 bg-black/70 items-center justify-center p-6">
-        <View className="bg-surface-card w-full max-w-lg rounded-[40px] border border-surface-border premium-shadow overflow-hidden">
+    <DraggableSheet visible={visible} onClose={handleCancel} dimBackdrop>
 
           {/* Header */}
           <View className="p-10 items-center">
@@ -180,8 +179,6 @@ export default function ManualTimeModal({ visible, taskId, stageId, transitionId
             </TouchableOpacity>
           </View>
 
-        </View>
-      </View>
-    </Modal>
+    </DraggableSheet>
   );
 }
