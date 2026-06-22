@@ -364,20 +364,19 @@ export default function TaskCardActions({ task, stages, stageActions, transition
   // ─── STATE: Linked Pipeline (Sub-task Spawn) ────────────────
   if (hasLinkedPipeline) {
     return (
-      <TouchableOpacity
+      <DirectionalActionButton
+        direction="forward"
+        block
+        color={colors.primary}
+        icon="bolt"
+        label={`Navigate to ${linkedPipelineName}`}
         onPress={() => {
           if (currentStage.linked_pipeline_id) {
             AsyncStorage.setItem('@TrustFlow_tasks_pipeline', currentStage.linked_pipeline_id);
             router.push(`/tasks?pipelineId=${currentStage.linked_pipeline_id}` as any);
           }
         }}
-        className="bg-brand-primary/10 py-2.5 rounded-xl border border-brand-primary/30 items-center justify-center flex-row"
-      >
-        <FontAwesome name="bolt" size={12} color={colors.primary} />
-        <Text className="text-brand-primary font-black text-[10px] uppercase tracking-widest ml-2">
-          Navigate to {linkedPipelineName}
-        </Text>
-      </TouchableOpacity>
+      />
     );
   }
 
@@ -423,20 +422,15 @@ export default function TaskCardActions({ task, stages, stageActions, transition
   // ─── STATE: Timer Required + Unassigned → Claim Task ────────
   if (stageRequiresTimer && !isAssignedToUser) {
     return (
-      <TouchableOpacity
+      <DirectionalActionButton
+        direction="forward"
+        block
+        color={colors.primary}
+        icon="user-plus"
+        label="Claim Task"
+        loading={loadingAction === '__claim__'}
         onPress={handleClaim}
-        disabled={loadingAction === '__claim__'}
-        className={`bg-brand-primary/10 py-2.5 rounded-xl border border-brand-primary/20 items-center justify-center flex-row ${loadingAction === '__claim__' ? 'opacity-50' : ''}`}
-       >
-         {loadingAction === '__claim__' ? (
-           <ActivityIndicator size="small" color={colors.primary} />
-         ) : (
-           <>
-             <FontAwesome name="user-plus" size={12} color={colors.primary} />
-             <Text className="text-brand-primary font-black text-[10px] uppercase tracking-widest ml-2">Claim Task</Text>
-           </>
-         )}
-       </TouchableOpacity>
+      />
     );
   }
 
@@ -460,20 +454,15 @@ export default function TaskCardActions({ task, stages, stageActions, transition
   // ─── STATE: My task + Timer required + No active session ────
   if (isMyTask && stageRequiresTimer && !isTimerActive) {
     return (
-      <TouchableOpacity
+      <DirectionalActionButton
+        direction="forward"
+        block
+        color={colors.warning}
+        icon="play"
+        label="Start Timer"
+        loading={loadingAction === '__timer__'}
         onPress={handleStartTimer}
-        disabled={loadingAction === '__timer__'}
-        className={`bg-state-warning/10 py-2.5 rounded-xl border border-state-warning/20 items-center justify-center flex-row ${loadingAction === '__timer__' ? 'opacity-50' : ''}`}
-       >
-         {loadingAction === '__timer__' ? (
-           <ActivityIndicator size="small" color={colors.accent} />
-         ) : (
-           <>
-             <FontAwesome name="play" size={10} color={colors.accent} />
-             <Text className="text-state-warning font-black text-[10px] uppercase tracking-widest ml-2">Start Timer</Text>
-           </>
-         )}
-       </TouchableOpacity>
+      />
     );
   }
 
@@ -489,20 +478,14 @@ export default function TaskCardActions({ task, stages, stageActions, transition
       <View>
         {isTimerActive && renderTimerBadge()}
         {hasPermission('task.update') && (
-          <TouchableOpacity
+          <DirectionalActionButton
+            direction="forward"
+            block
+            color={colors.primary}
+            label="Advance"
+            loading={loadingAction === '__advance__'}
             onPress={handleFallbackAdvance}
-            disabled={loadingAction === '__advance__'}
-            className={`bg-brand-primary py-2.5 rounded-xl items-center justify-center flex-row ${loadingAction === '__advance__' ? 'opacity-50' : ''}`}
-          >
-            {loadingAction === '__advance__' ? (
-              <ActivityIndicator size="small" color={colors.textMain} />
-            ) : (
-              <>
-                <Text className="text-typography-main font-black text-[10px] uppercase tracking-widest mr-2">Advance</Text>
-                <FontAwesome name="chevron-right" size={10} color={colors.textMain} />
-              </>
-            )}
-          </TouchableOpacity>
+          />
         )}
       </View>
     );
@@ -535,20 +518,17 @@ export default function TaskCardActions({ task, stages, stageActions, transition
 
       {/* Inline timer prompt if backend rejected action due to missing session */}
       {needsTimerActionId && (
-        <TouchableOpacity
-          onPress={handleStartTimer}
-          disabled={loadingAction === '__timer__'}
-          className={`mb-2 bg-state-warning/10 py-2 rounded-xl border border-state-warning/30 items-center justify-center flex-row gap-2 ${loadingAction === '__timer__' ? 'opacity-50' : ''}`}
-        >
-          {loadingAction === '__timer__' ? (
-            <ActivityIndicator size="small" color={colors.accent} />
-          ) : (
-            <>
-              <FontAwesome name="clock-o" size={10} color={colors.accent} />
-              <Text className="text-state-warning font-black text-[10px] uppercase tracking-widest">Start Timer to Proceed</Text>
-            </>
-          )}
-        </TouchableOpacity>
+        <View className="mb-2">
+          <DirectionalActionButton
+            direction="forward"
+            block
+            color={colors.warning}
+            icon="clock-o"
+            label="Start Timer to Proceed"
+            loading={loadingAction === '__timer__'}
+            onPress={handleStartTimer}
+          />
+        </View>
       )}
 
       <View className="flex-row gap-2 flex-wrap">
