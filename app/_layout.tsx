@@ -38,6 +38,7 @@ export const unstable_settings = {
 import GlobalUploadBanner from '@/components/GlobalUploadBanner';
 import NetworkStatusBanner from '@/components/NetworkStatusBanner';
 import TimerIsland from '@/components/TimerIsland';
+import WelcomeTour from '@/components/onboarding/WelcomeTour';
 import { TimerProvider, useTimer } from '@/contexts/TimerContext';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { useRouter, useSegments } from 'expo-router';
@@ -255,6 +256,7 @@ function ThemedRoot() {
           <GlobalUploadBanner />
         </View>
         {session && <WebPushPrompt />}
+        {session && <WelcomeTour />}
       </View>
     </View>
   );

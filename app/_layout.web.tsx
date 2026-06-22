@@ -12,6 +12,7 @@ import '../global.css';
 import NetworkStatusBanner from '@/components/NetworkStatusBanner';
 import Sidebar from '@/components/Sidebar.web';
 import TimerIsland from '@/components/TimerIsland';
+import WelcomeTour from '@/components/onboarding/WelcomeTour';
 import { useColorScheme } from '@/components/useColorScheme';
 import { AlertProvider } from '@/contexts/AlertContext';
 import { AnalyticsProvider } from '@/contexts/AnalyticsContext';
@@ -118,6 +119,7 @@ function RootLayoutNav() {
           <View className="flex-1 bg-surface-background">
             {/* Always-on ping listener — one WebSocket channel for the current user */}
             {session && <GlobalPingGuard />}
+            {session && <WelcomeTour />}
             <TimerIsland />
             <View className="absolute top-0 left-0 right-0 z-[999]">
               <NetworkStatusBanner />
