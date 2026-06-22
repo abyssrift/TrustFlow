@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import UserLink from '@/components/common/UserLink';
 
 // ── Types mirror rpc_filehub_analytics ───────────────────────────────────────
 type Totals = {
@@ -236,7 +237,7 @@ function PeopleList({ rows, colors, accent }: { rows: { id: string; name: string
           <View className="w-9 h-9 rounded-full items-center justify-center mr-3" style={{ backgroundColor: accent + '22' }}>
             <Text className="text-[11px] font-black" style={{ color: accent }}>{initials(r.name)}</Text>
           </View>
-          <Text numberOfLines={1} className="flex-1 text-sm font-bold" style={{ color: colors.textMain }}>{r.name || 'Unknown'}</Text>
+          <UserLink userId={r.id} name={r.name} numberOfLines={1} className="flex-1 text-sm font-bold" style={{ color: colors.textMain }} />
           <View className="items-end">
             <Text className="text-xs font-black" style={{ color: colors.textMain }}>{r.primary}</Text>
             <Text className="text-[10px] font-medium" style={{ color: colors.textMuted }}>{r.secondary}</Text>

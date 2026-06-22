@@ -4,8 +4,9 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import { useAlert } from '@/contexts/AlertContext';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Image, Modal, Platform, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 import { cssInterop } from 'react-native-css-interop';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -91,6 +92,18 @@ export default function UserAssignmentGrid() {
     setActiveTab('profile');
     fetchActivityData(user.id, profile?.company_id);
   };
+
+  // Deep-link: open a member's profile when ?user=<id> is present (e.g. from a
+  // clickable user-name mention elsewhere in the app via <UserLink/>).
+  const params = useLocalSearchParams<{ user?: string | string[] }>();
+  const userParam = Array.isArray(params.user) ? params.user[0] : params.user;
+  const openedParamRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!userParam || users.length === 0) return;
+    if (openedParamRef.current === userParam) return;
+    const u = users.find(x => x.id === userParam);
+    if (u) { handleOpenUser(u); openedParamRef.current = userParam; }
+  }, [userParam, users]);
 
   const handleSave = async () => {
     if (!selectedUser || !canAssignRoles) return;

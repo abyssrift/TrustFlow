@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import UserLink from '@/components/common/UserLink';
 
 // ── Types mirror rpc_project_dashboard ────────────────────────────────────────
 type Totals = {
@@ -253,7 +254,7 @@ export default function ProjectDashboard({
                             <View className="w-8 h-8 rounded-full items-center justify-center mr-3" style={{ backgroundColor: colors.primary + '22' }}>
                               <Text className="text-[10px] font-black" style={{ color: colors.primary }}>{initials(cb.full_name)}</Text>
                             </View>
-                            <Text numberOfLines={1} className="text-typography-label text-sm font-bold flex-1">{cb.full_name || 'Unknown'}</Text>
+                            <UserLink userId={cb.user_id} name={cb.full_name} numberOfLines={1} className="text-typography-label text-sm font-bold flex-1" />
                             <Text className="text-typography-main text-xs font-black ml-2">{fmtDuration(cb.tracked_seconds)}</Text>
                           </View>
                           <View className="h-1.5 rounded-full overflow-hidden ml-11" style={{ backgroundColor: colors.border }}>

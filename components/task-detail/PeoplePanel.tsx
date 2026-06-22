@@ -4,6 +4,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React from 'react';
 import { Text, View } from 'react-native';
 import CollapsibleCard from './CollapsibleCard';
+import UserLink from '@/components/common/UserLink';
 
 function Avatar({ name, size = 32 }: { name: string | null; size?: number }) {
   const initial = (name || '?').charAt(0).toUpperCase();
@@ -30,7 +31,7 @@ export default function PeoplePanel() {
         <View className="flex-row items-center mb-3 pb-3 border-b border-surface-border/30">
           <Avatar name={manager.full_name} />
           <View className="ml-3 flex-1">
-            <Text className="text-typography-main text-sm font-bold">{manager.full_name}</Text>
+            <UserLink userId={manager.id} name={manager.full_name} className="text-typography-main text-sm font-bold" />
             <Text className="text-brand-primary text-[9px] font-black uppercase tracking-wider">Manager</Text>
           </View>
            <FontAwesome name="briefcase" size={12} color={colors.primary} />
@@ -42,7 +43,7 @@ export default function PeoplePanel() {
         <View key={a.id} className="flex-row items-center mb-2.5">
           <Avatar name={a.user?.full_name || null} size={28} />
           <View className="ml-3">
-            <Text className="text-typography-main text-sm font-bold">{a.user?.full_name || 'Unknown'}</Text>
+            <UserLink userId={a.user?.id} name={a.user?.full_name} className="text-typography-main text-sm font-bold" />
             <Text className="text-typography-dim text-[9px] font-bold">Assigned</Text>
           </View>
         </View>
