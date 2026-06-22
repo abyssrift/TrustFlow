@@ -1276,17 +1276,19 @@ function DetailPanel({
 
   // Preview a specific (older) version in the document viewer — selecting a
   // version resolves its own signed URL and re-renders the viewer canvas.
-  const [versionPreview, setVersionPreview] = useState<{ uri: string; kind: PreviewKind; name: string; versionNo: number } | null>(null);
+  // Images use a dedicated 'image' branch since FilePreviewModal is doc-only.
+  const [versionPreview, setVersionPreview] = useState<{ uri: string; kind: PreviewKind | 'image'; name: string; versionNo: number } | null>(null);
   const handleVersionPreview = async (version: FileVersion) => {
     if (!file) return;
+    const isImage = (version.mime_type ?? file.mime_type ?? '').toLowerCase().startsWith('image');
     const kind = getPreviewKind(version.mime_type ?? file.mime_type, version.original_name);
-    if (!kind) { handleVersionDownload(version); return; }
+    if (!kind && !isImage) { handleVersionDownload(version); return; }
     const { data } = await supabase.storage
       .from(version.bucket || 'filehub-files')
       .createSignedUrl(version.storage_path, 3600);
     if (data?.signedUrl) {
       logActivity(file.id, 'view', { version_no: version.version_no });
-      setVersionPreview({ uri: data.signedUrl, kind, name: version.original_name, versionNo: version.version_no });
+      setVersionPreview({ uri: data.signedUrl, kind: kind ?? 'image', name: version.original_name, versionNo: version.version_no });
     }
   };
 
@@ -1667,7 +1669,7 @@ function DetailPanel({
                     </Text>
                   )}
                   <View className="flex-row gap-2 mt-2">
-                    {getPreviewKind(v.mime_type ?? file.mime_type, v.original_name) && (
+                    {(getPreviewKind(v.mime_type ?? file.mime_type, v.original_name) || (v.mime_type ?? file.mime_type ?? '').toLowerCase().startsWith('image')) && (
                       <TouchableOpacity
                         onPress={() => handleVersionPreview(v)}
                         className="flex-row items-center justify-center bg-surface-background border border-surface-border rounded-xl px-3 py-2 gap-1.5"
@@ -1731,7 +1733,20 @@ function DetailPanel({
         onDownload={handleDownload}
       />
     )}
-    {versionPreview && (
+    {versionPreview && versionPreview.kind === 'image' && (
+      <Modal visible transparent animationType="fade" onRequestClose={() => setVersionPreview(null)}>
+        <View className="flex-1 items-center justify-center p-6" style={{ backgroundColor: 'rgba(0,0,0,0.85)' }}>
+          <View className="absolute top-6 left-0 right-0 items-center">
+            <Text className="text-white font-black text-sm">{`${versionPreview.name} (v${versionPreview.versionNo})`}</Text>
+          </View>
+          <Image source={{ uri: versionPreview.uri }} style={{ width: '90%', height: '85%' }} resizeMode="contain" />
+          <TouchableOpacity onPress={() => setVersionPreview(null)} className="absolute top-5 right-6 w-11 h-11 rounded-full items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}>
+            <FontAwesome name="times" size={20} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      </Modal>
+    )}
+    {versionPreview && versionPreview.kind !== 'image' && (
       <FilePreviewModal
         visible
         uri={versionPreview.uri}

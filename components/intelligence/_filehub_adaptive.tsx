@@ -207,7 +207,7 @@ function FileDetailSheet({
 
   // Preview a specific (older) version in the document viewer — selecting a
   // version resolves its own signed URL and re-renders the viewer canvas.
-  const [versionPreview, setVersionPreview] = useState<{ uri: string; kind: PreviewKind; name: string; versionNo: number } | null>(null);
+  const [versionPreview, setVersionPreview] = useState<{ uri: string; kind: PreviewKind | 'image'; name: string; versionNo: number } | null>(null);
 
   if (!file) return null;
 
@@ -240,14 +240,15 @@ function FileDetailSheet({
   };
 
   const handleVersionPreview = async (version: FileVersion) => {
+    const isImage = (version.mime_type ?? file.mime_type ?? '').toLowerCase().startsWith('image');
     const kind = getPreviewKind(version.mime_type ?? file.mime_type, version.original_name);
-    if (!kind) { handleVersionDownload(version); return; }
+    if (!kind && !isImage) { handleVersionDownload(version); return; }
     const { data } = await supabase.storage
       .from(version.bucket || 'filehub-files')
       .createSignedUrl(version.storage_path, 3600);
     if (data?.signedUrl) {
       logActivity(file.id, 'view', { version_no: version.version_no });
-      setVersionPreview({ uri: data.signedUrl, kind, name: version.original_name, versionNo: version.version_no });
+      setVersionPreview({ uri: data.signedUrl, kind: kind ?? 'image', name: version.original_name, versionNo: version.version_no });
     }
   };
 
@@ -542,7 +543,7 @@ function FileDetailSheet({
                       </Text>
                     )}
                     <View className="flex-row gap-2 mt-2.5">
-                      {getPreviewKind(v.mime_type ?? file.mime_type, v.original_name) && (
+                      {(getPreviewKind(v.mime_type ?? file.mime_type, v.original_name) || (v.mime_type ?? file.mime_type ?? '').toLowerCase().startsWith('image')) && (
                         <TouchableOpacity
                           onPress={() => handleVersionPreview(v)}
                           className="flex-row items-center justify-center bg-surface-background border border-surface-border rounded-2xl px-4 py-2.5 gap-1.5"
@@ -608,7 +609,20 @@ function FileDetailSheet({
         onDownload={handleDownload}
       />
     )}
-    {versionPreview && (
+    {versionPreview && versionPreview.kind === 'image' && (
+      <Modal visible transparent animationType="fade" onRequestClose={() => setVersionPreview(null)}>
+        <View className="flex-1 items-center justify-center p-5" style={{ backgroundColor: 'rgba(0,0,0,0.85)' }}>
+          <View className="absolute top-12 left-0 right-0 items-center px-6">
+            <Text className="text-white font-black text-xs text-center" numberOfLines={1}>{`${versionPreview.name} (v${versionPreview.versionNo})`}</Text>
+          </View>
+          <Image source={{ uri: versionPreview.uri }} style={{ width: '92%', height: '80%' }} resizeMode="contain" />
+          <TouchableOpacity onPress={() => setVersionPreview(null)} className="absolute top-10 right-5 w-11 h-11 rounded-full items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}>
+            <FontAwesome name="times" size={20} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      </Modal>
+    )}
+    {versionPreview && versionPreview.kind !== 'image' && (
       <FilePreviewModal
         visible
         uri={versionPreview.uri}
