@@ -16,6 +16,7 @@ import {
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import ProjectFolderModal from '@/components/projects/ProjectFolderModal';
+import ProjectDashboardSheet from '@/components/projects/ProjectDashboardSheet';
 import { useAuth } from '@/contexts/AuthContext';
 import { TAB_BAR_HEIGHT } from '@/lib/layout';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -42,6 +43,7 @@ export default function ProjectsScreen() {
   const [showClosed, setShowClosed] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | undefined>();
+  const [dashboardProjectId, setDashboardProjectId] = useState<string | null>(null);
 
   const { hasPermission } = useAuth();
   const isWeb = Platform.OS === 'web';
@@ -149,19 +151,29 @@ export default function ProjectsScreen() {
     const progress = project.completion_rate / 100;
     
     return (
-      <TouchableOpacity 
-        key={project.id} 
-        onPress={() => handleEdit(project)}
+      <TouchableOpacity
+        key={project.id}
+        onPress={() => setDashboardProjectId(project.id)}
         className={`${isWeb && isLargeScreen ? 'w-[48%] mx-[1%]' : 'w-full'} bg-surface-card p-6 rounded-[24px] border border-surface-border mb-6 premium-shadow`}
       >
         <View className="flex-row items-center justify-between mb-4">
            <View className={`w-12 h-12 rounded-2xl items-center justify-center ${isOverdue ? 'bg-state-danger/10' : 'bg-brand-primary/10'}`}>
               <FontAwesome name="folder-open" size={20} color={isOverdue ? colors.danger : colors.primary} />
            </View>
-           <View className={`px-3 py-1 rounded-full border ${project.status === 'active' ? 'bg-state-success/10 border-color-success/30' : 'bg-surface-background border-surface-border'}`}>
-              <Text className={`text-[10px] font-bold uppercase ${project.status === 'active' ? 'text-state-success' : 'text-typography-muted'}`}>
-                {project.status}
-              </Text>
+           <View className="flex-row items-center gap-2">
+              {hasPermission('project.edit') && (
+                <TouchableOpacity
+                  onPress={(e) => { e.stopPropagation(); handleEdit(project); }}
+                  className="w-9 h-9 items-center justify-center rounded-xl border border-surface-border bg-surface-background"
+                >
+                  <FontAwesome name="pencil" size={12} color={colors.textMuted} />
+                </TouchableOpacity>
+              )}
+              <View className={`px-3 py-1 rounded-full border ${project.status === 'active' ? 'bg-state-success/10 border-color-success/30' : 'bg-surface-background border-surface-border'}`}>
+                 <Text className={`text-[10px] font-bold uppercase ${project.status === 'active' ? 'text-state-success' : 'text-typography-muted'}`}>
+                   {project.status}
+                 </Text>
+              </View>
            </View>
         </View>
 
@@ -293,11 +305,22 @@ export default function ProjectsScreen() {
         </View>
       </ScrollView>
 
-      <ProjectFolderModal 
+      <ProjectFolderModal
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
         onSuccess={fetchProjects}
         project={selectedProject}
+      />
+
+      <ProjectDashboardSheet
+        visible={!!dashboardProjectId}
+        projectId={dashboardProjectId}
+        onClose={() => setDashboardProjectId(null)}
+        onEdit={hasPermission('project.edit') ? () => {
+          const p = projects.find(pr => pr.id === dashboardProjectId);
+          setDashboardProjectId(null);
+          if (p) handleEdit(p);
+        } : undefined}
       />
     </View>
   );
