@@ -205,6 +205,10 @@ function FileDetailSheet({
     loadVersions();
   }, [tab, file?.id, loadVersions]);
 
+  // Preview a specific (older) version in the document viewer — selecting a
+  // version resolves its own signed URL and re-renders the viewer canvas.
+  const [versionPreview, setVersionPreview] = useState<{ uri: string; kind: PreviewKind; name: string; versionNo: number } | null>(null);
+
   if (!file) return null;
 
   const { icon, color } = getMimeIcon(file.mime_type);
@@ -235,9 +239,6 @@ function FileDetailSheet({
     await openStorageFile(version.bucket || 'filehub-files', version.storage_path, version.original_name, version.mime_type ?? file.mime_type);
   };
 
-  // Preview a specific (older) version in the document viewer — selecting a
-  // version resolves its own signed URL and re-renders the viewer canvas.
-  const [versionPreview, setVersionPreview] = useState<{ uri: string; kind: PreviewKind; name: string; versionNo: number } | null>(null);
   const handleVersionPreview = async (version: FileVersion) => {
     const kind = getPreviewKind(version.mime_type ?? file.mime_type, version.original_name);
     if (!kind) { handleVersionDownload(version); return; }
