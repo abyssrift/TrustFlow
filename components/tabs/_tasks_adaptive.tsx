@@ -1,3 +1,4 @@
+import AnimatedTaskCard from '@/components/common/AnimatedTaskCard';
 import ConfirmModal from '@/components/common/ConfirmModal';
 import HorizontalScroll from '@/components/common/HorizontalScroll';
 import KanbanPersonalizer from '@/components/kanban/KanbanPersonalizer';
@@ -860,8 +861,8 @@ function TasksScreen() {
     const pinggedAt = pingedTasks.get(task.id);
     const isPinged = pinggedAt !== undefined;
     return (
+      <AnimatedTaskCard key={task.id}>
       <TouchableOpacity
-        key={task.id}
         onPress={() => {
           if (isPinged) removePingedTask(task.id);
           router.push(`/task/${task.id}`);
@@ -978,6 +979,7 @@ function TasksScreen() {
           />
         </View>
       </TouchableOpacity>
+      </AnimatedTaskCard>
     );
   }, [router, hasPermission, profile?.is_owner, kanban, activeSessions, stages, stageActions, stageTransitions, user?.id, handleOpenAssignments, silentRefresh, colors, pingedTasks, removePingedTask]);
 

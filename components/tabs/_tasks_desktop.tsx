@@ -1,3 +1,4 @@
+import AnimatedTaskCard from '@/components/common/AnimatedTaskCard';
 import KanbanPersonalizer from '@/components/kanban/KanbanPersonalizer';
 import TaskCardActions, { type ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
 import TaskPingButton from '@/components/task-detail/TaskPingButton';
@@ -961,8 +962,8 @@ export function TasksScreenWeb() {
     const pingedAt = pingedTasks.get(task.id);
     const isPinged = pingedAt !== undefined;
     return (
+      <AnimatedTaskCard key={task.id}>
       <TouchableOpacity
-        key={task.id}
         onPress={() => {
           if (isPinged) removePingedTask(task.id);
           router.push(`/task/${task.id}`);
@@ -1092,6 +1093,7 @@ export function TasksScreenWeb() {
           />
         </View>
       </TouchableOpacity>
+      </AnimatedTaskCard>
     );
   };
 
