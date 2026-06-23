@@ -5,6 +5,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 
 import NotificationRules from '@/components/admin/NotificationRules';
+import RetentionPanel from '@/components/admin/RetentionPanel';
 import RoleBuilder from '@/components/admin/RoleBuilder';
 import TeamAssignmentGrid from '@/components/admin/TeamAssignmentGrid';
 import UserAssignmentGrid from '@/components/admin/UserAssignmentGrid';
@@ -15,9 +16,10 @@ import { RoleManagerProvider, useRoleManager } from '@/contexts/RoleManagerConte
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 
-type PeopleSection = 'members' | 'teams' | 'roles' | 'notifications' | 'workspace' | 'company';
+type PeopleSection = 'members' | 'teams' | 'roles' | 'notifications' | 'workspace' | 'company' | 'retention';
 
-function resolveSection(param: string | undefined, canViewMembers: boolean, canManageTeams: boolean, canManageNotifications: boolean, canEditCompany: boolean): PeopleSection {
+function resolveSection(param: string | undefined, canViewMembers: boolean, canManageTeams: boolean, canManageNotifications: boolean, canEditCompany: boolean, canManageRetention: boolean): PeopleSection {
+  if (param === 'retention' && canManageRetention) return 'retention';
   if (param === 'company' && canEditCompany) return 'company';
   if (param === 'workspace' && canManageNotifications) return 'workspace';
   if (param === 'notifications' && canManageNotifications) return 'notifications';
@@ -50,6 +52,7 @@ function TeamWorkspaceContent({ section }: { section: PeopleSection }) {
     );
   }
 
+  if (section === 'retention') return <RetentionPanel />;
   if (section === 'company') return <CompanyEditSettings />;
   if (section === 'workspace') return <WorkspaceSettings />;
   if (section === 'roles') return <RoleBuilder />;
@@ -71,7 +74,8 @@ export default function PeopleScreenWeb() {
   const canManageNotifications = hasPermission('manage_notifications') || hasPermission('role.manage');
   const canViewMembers = hasPermission('user.view_all') || canManageTeams;
   const canEditCompany = hasPermission('company.edit');
-  const hasWorkspaceAccess = canViewMembers || canManageTeams || canManageNotifications || canEditCompany;
+  const canManageRetention = !!profile?.is_owner || hasPermission('company.settings') || hasPermission('role.manage');
+  const hasWorkspaceAccess = canViewMembers || canManageTeams || canManageNotifications || canEditCompany || canManageRetention;
 
   useEffect(() => {
     const fetchCompanyInfo = async () => {
@@ -87,8 +91,8 @@ export default function PeopleScreenWeb() {
   }, [profile?.company_id]);
 
   useEffect(() => {
-    setActiveSection(resolveSection(sectionParam, canViewMembers, canManageTeams, canManageNotifications, canEditCompany));
-  }, [sectionParam, canViewMembers, canManageTeams, canManageNotifications, canEditCompany]);
+    setActiveSection(resolveSection(sectionParam, canViewMembers, canManageTeams, canManageNotifications, canEditCompany, canManageRetention));
+  }, [sectionParam, canViewMembers, canManageTeams, canManageNotifications, canEditCompany, canManageRetention]);
 
   return (
     <View className="flex-1 bg-surface-background p-10">
@@ -183,6 +187,16 @@ export default function PeopleScreenWeb() {
                 >
                   <Text className={`font-black text-xs uppercase tracking-widest ${activeSection === 'company' ? 'text-white' : 'text-typography-muted'}`}>
                     Company Info
+                  </Text>
+                </TouchableOpacity>
+              )}
+              {canManageRetention && (
+                <TouchableOpacity
+                  onPress={() => setActiveSection('retention')}
+                  className={`px-8 py-3 rounded-xl ${activeSection === 'retention' ? 'bg-brand-primary' : ''}`}
+                >
+                  <Text className={`font-black text-xs uppercase tracking-widest ${activeSection === 'retention' ? 'text-white' : 'text-typography-muted'}`}>
+                    Retention
                   </Text>
                 </TouchableOpacity>
               )}

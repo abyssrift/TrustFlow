@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Modal, View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Platform } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
+import DraggableSheet from '@/components/common/DraggableSheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -278,31 +279,8 @@ export default function TaskMobilityModal({ visible, onClose, onImported }: Prop
     </View>
   );
 
-  return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: 'rgba(0,0,0,0.6)',
-          justifyContent: 'center',
-          alignItems: 'center',
-          padding: 20,
-          paddingTop: insets.top + 20,
-          paddingBottom: insets.bottom + 20,
-        }}
-      >
-        <View
-          style={{
-            width: '100%',
-            maxWidth: 460,
-            maxHeight: '100%',
-            backgroundColor: colors.card,
-            borderRadius: 28,
-            borderWidth: 1,
-            borderColor: colors.border,
-            overflow: 'hidden',
-          }}
-        >
+  const body = (
+        <>
           {/* Header */}
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 22, paddingTop: 20, paddingBottom: 8 }}>
             <View style={{ flex: 1, marginRight: 12 }}>
@@ -459,6 +437,50 @@ export default function TaskMobilityModal({ visible, onClose, onImported }: Prop
               </>
             )}
           </ScrollView>
+        </>
+  );
+
+  if (Platform.OS !== 'web') {
+    return (
+      <DraggableSheet
+        visible={visible}
+        onClose={handleClose}
+        dimBackdrop
+        maxHeight="88%"
+        containerStyle={{ backgroundColor: colors.card, borderColor: colors.border }}
+        containerClassName="rounded-t-[28px] border-t overflow-hidden"
+      >
+        {body}
+      </DraggableSheet>
+    );
+  }
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: 20,
+          paddingTop: insets.top + 20,
+          paddingBottom: insets.bottom + 20,
+        }}
+      >
+        <View
+          style={{
+            width: '100%',
+            maxWidth: 460,
+            maxHeight: '100%',
+            backgroundColor: colors.card,
+            borderRadius: 28,
+            borderWidth: 1,
+            borderColor: colors.border,
+            overflow: 'hidden',
+          }}
+        >
+          {body}
         </View>
       </View>
     </Modal>
