@@ -14,6 +14,7 @@ import {
 
 import NotificationRules from '@/components/admin/NotificationRules';
 import BillingPanel from '@/components/admin/BillingPanel';
+import DataExportPanel from '@/components/admin/DataExportPanel';
 import RetentionPanel from '@/components/admin/RetentionPanel';
 import RoleBuilder from '@/components/admin/RoleBuilder';
 import TeamAssignmentGrid from '@/components/admin/TeamAssignmentGrid';
@@ -26,9 +27,10 @@ import { RoleManagerProvider, useRoleManager } from '@/contexts/RoleManagerConte
 import { supabase } from '@/lib/supabase';
 import { useThemeColors } from '@/hooks/useThemeColors';
 
-type PeopleSection = 'members' | 'teams' | 'roles' | 'notifications' | 'workspace' | 'company' | 'retention' | 'billing';
+type PeopleSection = 'members' | 'teams' | 'roles' | 'notifications' | 'workspace' | 'company' | 'retention' | 'billing' | 'export';
 
-function resolveSection(param: string | undefined, canViewMembers: boolean, canManageTeams: boolean, canManageNotifications: boolean, canEditCompany: boolean, canManageRetention: boolean, canManageBilling: boolean): PeopleSection {
+function resolveSection(param: string | undefined, canViewMembers: boolean, canManageTeams: boolean, canManageNotifications: boolean, canEditCompany: boolean, canManageRetention: boolean, canManageBilling: boolean, canManageExport: boolean): PeopleSection {
+  if (param === 'export' && canManageExport) return 'export';
   if (param === 'billing' && canManageBilling) return 'billing';
   if (param === 'retention' && canManageRetention) return 'retention';
   if (param === 'company' && canEditCompany) return 'company';
@@ -62,6 +64,7 @@ function TeamWorkspaceContent({ section }: { section: PeopleSection }) {
     );
   }
 
+  if (section === 'export') return <DataExportPanel />;
   if (section === 'billing') return <BillingPanel />;
   if (section === 'retention') return <RetentionPanel />;
   if (section === 'company') return <CompanyEditSettings />;
@@ -87,7 +90,8 @@ export default function PeopleScreen() {
   const canEditCompany = hasPermission('company.edit');
   const canManageRetention = !!profile?.is_owner || hasPermission('company.settings') || hasPermission('role.manage');
   const canManageBilling = !!profile?.is_owner || hasPermission('company.billing');
-  const hasWorkspaceAccess = canViewMembers || canManageTeams || canManageNotifications || canEditCompany || canManageRetention || canManageBilling;
+  const canManageExport = !!profile?.is_owner || hasPermission('company.settings') || hasPermission('data.export');
+  const hasWorkspaceAccess = canViewMembers || canManageTeams || canManageNotifications || canEditCompany || canManageRetention || canManageBilling || canManageExport;
 
   useEffect(() => {
     const fetchCompanyInfo = async () => {
@@ -103,8 +107,8 @@ export default function PeopleScreen() {
   }, [profile?.company_id]);
 
   useEffect(() => {
-    setActiveSection(resolveSection(sectionParam, canViewMembers, canManageTeams, canManageNotifications, canEditCompany, canManageRetention, canManageBilling));
-  }, [sectionParam, canViewMembers, canManageTeams, canManageNotifications, canEditCompany, canManageRetention, canManageBilling]);
+    setActiveSection(resolveSection(sectionParam, canViewMembers, canManageTeams, canManageNotifications, canEditCompany, canManageRetention, canManageBilling, canManageExport));
+  }, [sectionParam, canViewMembers, canManageTeams, canManageNotifications, canEditCompany, canManageRetention, canManageBilling, canManageExport]);
 
   return (
     <View className="flex-1 bg-surface-background">
@@ -223,6 +227,16 @@ export default function PeopleScreen() {
                 >
                   <Text className={`font-black text-[10px] uppercase tracking-widest ${activeSection === 'billing' ? 'text-white' : 'text-typography-muted'}`}>
                     Billing
+                  </Text>
+                </TouchableOpacity>
+              )}
+              {canManageExport && (
+                <TouchableOpacity
+                  onPress={() => setActiveSection('export')}
+                  className={`px-5 py-3 rounded-xl items-center ${activeSection === 'export' ? 'bg-brand-primary' : ''}`}
+                >
+                  <Text className={`font-black text-[10px] uppercase tracking-widest ${activeSection === 'export' ? 'text-white' : 'text-typography-muted'}`}>
+                    Export
                   </Text>
                 </TouchableOpacity>
               )}

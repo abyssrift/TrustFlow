@@ -2597,6 +2597,15 @@ function FileHubDesktopInner() {
                           <Text className="text-white text-xs font-black">Download {selectedFileIds.size}</Text>
                         </TouchableOpacity>
                       )}
+                      {selectedFileIds.size > 0 && (
+                        <TouchableOpacity
+                          onPress={handleDeleteSelected}
+                          className="flex-row items-center gap-1.5 bg-state-danger/10 border border-state-danger/20 px-3 py-1.5 rounded-lg"
+                        >
+                          <FontAwesome name="trash-o" size={10} color={colors.danger} />
+                          <Text className="text-state-danger text-xs font-black">Delete {selectedFileIds.size}</Text>
+                        </TouchableOpacity>
+                      )}
                       <TouchableOpacity onPress={exitSelection} className="w-7 h-7 items-center justify-center ml-1">
                         <FontAwesome name="times" size={13} color={colors.textMuted} />
                       </TouchableOpacity>

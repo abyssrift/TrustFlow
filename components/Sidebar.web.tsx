@@ -56,11 +56,10 @@ const SHORTCUTS: Shortcut[] = [
   { id: 'pipelines-admin', permissionKey: 'pipeline.edit', icon: 'gear', label: 'Pipelines', href: '/admin/pipelines' },
 ];
 
-const matchesHref = (pathname: string, params: Record<string, any>, href: string) => {
+const matchesHref = (pathname: string, href: string) => {
   if (href.includes('?')) {
-    const [basePath, queryString] = href.split('?');
-    const queryPairs = queryString.split('&').map((pair) => pair.split('='));
-    return pathname === basePath && queryPairs.every(([k, v]) => String(params[k]) === String(v));
+    const [basePath] = href.split('?');
+    return pathname === basePath;
   }
   if (href === '/') return pathname === '/';
   return pathname.startsWith(href);
@@ -390,7 +389,7 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
                         icon={s.icon}
                         label={s.label}
                         href={s.href}
-                        isActive={matchesHref(pathname, params, s.href)}
+                        isActive={matchesHref(pathname, s.href)}
                         collapsed={!isExpanded}
                         badge={s.id === 'filehub' ? inboxUnread : undefined}
                       />

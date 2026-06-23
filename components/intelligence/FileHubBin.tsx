@@ -95,7 +95,7 @@ export default function FileHubBin({ visible, onClose }: { visible: boolean; onC
                     <View className="flex-1 min-w-0 mr-3">
                       <Text numberOfLines={1} className="text-sm font-bold" style={{ color: c.textMain }}>{file.original_name}</Text>
                       <Text numberOfLines={1} className="text-[11px] mt-0.5" style={{ color: c.textMuted }}>
-                        {formatFileSize(file.size_bytes)} · {file.trash_type === 'deleted' ? 'Deleted by you' : 'Removed from your inbox'} · {days === 0 ? 'Expires today' : `Expires in ${days}d`}
+                        {formatFileSize(file.size_bytes)} · {file.trash_type === 'deleted' ? 'Deleted by you' : 'Hidden from your view'} · {days === 0 ? 'Expires today' : `Expires in ${days}d`}
                       </Text>
                     </View>
                     <TouchableOpacity

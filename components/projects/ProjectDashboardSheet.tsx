@@ -3,8 +3,9 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import DraggableSheet from '@/components/common/DraggableSheet';
 
 // ── Types mirror rpc_project_dashboard ────────────────────────────────────────
 type Totals = {
@@ -92,8 +93,15 @@ export default function ProjectDashboardSheet({
   ] : [];
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose} transparent={false}>
-      <View style={{ flex: 1, backgroundColor: c.background, paddingTop: insets.top }}>
+    <DraggableSheet
+      visible={visible}
+      onClose={onClose}
+      dimBackdrop
+      maxHeight="94%"
+      containerStyle={{ height: '94%', backgroundColor: c.background, borderColor: c.border }}
+      containerClassName="rounded-t-[2rem] border-t overflow-hidden"
+    >
+      <View style={{ flex: 1, backgroundColor: c.background }}>
         {/* Header */}
         <View className="px-5 py-4 flex-row items-center justify-between border-b" style={{ borderColor: c.border }}>
           <TouchableOpacity onPress={onClose} className="w-10 h-10 items-center justify-center rounded-full" style={{ backgroundColor: c.card }}>
@@ -276,7 +284,7 @@ export default function ProjectDashboardSheet({
           </ScrollView>
         )}
       </View>
-    </Modal>
+    </DraggableSheet>
   );
 }
 

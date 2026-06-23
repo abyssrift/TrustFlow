@@ -375,7 +375,10 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
 
   const hideFile = useCallback(async (fileId: string) => {
     const { error } = await supabase.rpc('rpc_filehub_recipient_hide', { p_file_id: fileId });
-    if (!error) setFiles(prev => prev.filter(f => f.id !== fileId));
+    if (!error) {
+      setFiles(prev => prev.filter(f => f.id !== fileId));
+      setGroupFiles(prev => prev.filter(f => f.id !== fileId));
+    }
   }, []);
 
   const deleteFile = useCallback(async (fileId: string) => {

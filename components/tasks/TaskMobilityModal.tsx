@@ -10,15 +10,16 @@ import { supabase } from '@/lib/supabase';
 import { saveBytes, pickSpreadsheet } from '@/lib/fileTransfer';
 import {
   buildExportRows,
+  fetchExportTasks,
   rowsToBytes,
   bytesToRows,
   buildTemplateBytes,
   parseImportRows,
   type SpreadsheetFormat,
-  type ExportTask,
   type ImportLookups,
   type ParsedTaskRow,
 } from '@/lib/taskMobility';
+import { isJiraExport, mapJiraRow } from '@/lib/jiraImport';
 
 type Props = {
   visible: boolean;
@@ -51,12 +52,14 @@ export default function TaskMobilityModal({ visible, onClose, onImported }: Prop
   const [parsedFileName, setParsedFileName] = useState<string>('');
   const [skipped, setSkipped] = useState(0);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [detectedJira, setDetectedJira] = useState(false);
 
   const resetImport = () => {
     setParsed(null);
     setParsedFileName('');
     setSkipped(0);
     setProgress(null);
+    setDetectedJira(false);
   };
 
   const handleClose = () => {
@@ -69,42 +72,7 @@ export default function TaskMobilityModal({ visible, onClose, onImported }: Prop
   const handleExport = async () => {
     setBusy(true);
     try {
-      const [tasksRes, stagesRes, pipesRes, projsRes, usersRes] = await Promise.all([
-        supabase
-          .from('tasks')
-          .select('title, description, priority, category, weight, current_stage_id, pipeline_id, project_id, start_date, due_date, estimated_hours, created_at, assignments:task_assignments(assignee_user_id)')
-          .is('deleted_at', null)
-          .order('created_at', { ascending: false }),
-        supabase.from('stages').select('id, name'),
-        supabase.from('pipelines').select('id, name'),
-        supabase.from('projects').select('id, name'),
-        supabase.from('users').select('id, email').is('deleted_at', null),
-      ]);
-
-      if (tasksRes.error) throw tasksRes.error;
-
-      const stageName = new Map((stagesRes.data || []).map((s: any) => [s.id, s.name]));
-      const pipeName = new Map((pipesRes.data || []).map((p: any) => [p.id, p.name]));
-      const projName = new Map((projsRes.data || []).map((p: any) => [p.id, p.name]));
-      const userEmail = new Map((usersRes.data || []).map((u: any) => [u.id, u.email]));
-
-      const tasks: ExportTask[] = (tasksRes.data || []).map((t: any) => ({
-        title: t.title,
-        description: t.description,
-        priority: t.priority,
-        category: t.category,
-        weight: t.weight,
-        stageName: t.current_stage_id ? stageName.get(t.current_stage_id) ?? null : null,
-        pipelineName: t.pipeline_id ? pipeName.get(t.pipeline_id) ?? null : null,
-        projectName: t.project_id ? projName.get(t.project_id) ?? null : null,
-        start_date: t.start_date,
-        due_date: t.due_date,
-        estimated_hours: t.estimated_hours,
-        assigneeEmails: (t.assignments || [])
-          .map((a: any) => a.assignee_user_id && userEmail.get(a.assignee_user_id))
-          .filter(Boolean),
-        created_at: t.created_at,
-      }));
+      const tasks = await fetchExportTasks();
 
       if (tasks.length === 0) {
         infoToast('No tasks to export.');
@@ -158,11 +126,14 @@ export default function TaskMobilityModal({ visible, onClose, onImported }: Prop
         return;
       }
 
+      const fromJira = isJiraExport(rawRows);
+      const sourceRows = fromJira ? rawRows.map(mapJiraRow) : rawRows;
+
       // Build company lookups for name/email resolution.
       const [pipesRes, projsRes, usersRes] = await Promise.all([
         supabase.from('pipelines').select('id, name, is_default').is('deleted_at', null),
         supabase.from('projects').select('id, name'),
-        supabase.from('users').select('id, email').is('deleted_at', null),
+        supabase.from('users').select('id, email, full_name, display_name').is('deleted_at', null),
       ]);
 
       const pipelinesByName = new Map<string, string>();
@@ -173,14 +144,21 @@ export default function TaskMobilityModal({ visible, onClose, onImported }: Prop
       });
       if (!defaultPipelineId && pipesRes.data?.[0]) defaultPipelineId = pipesRes.data[0].id;
 
+      const usersByName = new Map<string, string>();
+      (usersRes.data || []).forEach((u: any) => {
+        if (u.full_name) usersByName.set(String(u.full_name).toLowerCase(), u.id);
+        if (u.display_name) usersByName.set(String(u.display_name).toLowerCase(), u.id);
+      });
+
       const lookups: ImportLookups = {
         pipelinesByName,
         projectsByName: new Map((projsRes.data || []).map((p: any) => [String(p.name).toLowerCase(), p.id])),
         usersByEmail: new Map((usersRes.data || []).map((u: any) => [String(u.email).toLowerCase(), u.id])),
+        usersByName,
         defaultPipelineId,
       };
 
-      const { rows, skipped: sk } = parseImportRows(rawRows, lookups);
+      const { rows, skipped: sk } = parseImportRows(sourceRows, lookups);
       if (rows.length === 0) {
         errorToast('No rows with a Title were found.');
         return;
@@ -188,6 +166,7 @@ export default function TaskMobilityModal({ visible, onClose, onImported }: Prop
       setParsed(rows);
       setParsedFileName(file.name);
       setSkipped(sk);
+      setDetectedJira(fromJira);
     } catch (e: any) {
       console.error('[TaskMobility] pick/parse failed', e);
       errorToast(e?.message || 'Could not read that file.');
@@ -356,7 +335,7 @@ export default function TaskMobilityModal({ visible, onClose, onImported }: Prop
                       Pick a .csv or .xlsx file. Each row with a <Text style={{ color: colors.textMain, fontWeight: '800' }}>Title</Text> becomes a new task. Pipeline / Project are matched by name and assignees by email.
                     </Text>
                     <Text style={{ color: colors.textDim, fontSize: 11, lineHeight: 17, marginBottom: 18 }}>
-                      Import only creates new tasks — it never edits or deletes existing ones.
+                      Import only creates new tasks — it never edits or deletes existing ones. A Jira issue export is detected automatically and mapped onto these same fields.
                     </Text>
                     {FormatToggle}
                     <TouchableOpacity
@@ -372,7 +351,14 @@ export default function TaskMobilityModal({ visible, onClose, onImported }: Prop
                   <>
                     {/* Preview summary */}
                     <View style={{ backgroundColor: colors.background, borderRadius: 16, borderWidth: 1, borderColor: colors.border, padding: 16, marginBottom: 16 }}>
-                      <Text style={{ color: colors.textMain, fontWeight: '900', fontSize: 14 }} numberOfLines={1}>{parsedFileName}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Text style={{ color: colors.textMain, fontWeight: '900', fontSize: 14, flexShrink: 1 }} numberOfLines={1}>{parsedFileName}</Text>
+                        {detectedJira && (
+                          <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, backgroundColor: `${colors.primary}1A` }}>
+                            <Text style={{ color: colors.primary, fontWeight: '900', fontSize: 9, textTransform: 'uppercase', letterSpacing: 1 }}>Detected: Jira export</Text>
+                          </View>
+                        )}
+                      </View>
                       <View style={{ flexDirection: 'row', gap: 16, marginTop: 12 }}>
                         <View>
                           <Text style={{ color: colors.primary, fontWeight: '900', fontSize: 22 }}>{parsed.length}</Text>

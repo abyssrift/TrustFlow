@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, useWindowDimensions, Platform } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -38,6 +38,8 @@ export default function BillingPanel() {
   const colors = useThemeColors();
   const { profile, hasPermission } = useAuth();
   const { successToast, errorToast, infoToast } = useToast();
+  const { width } = useWindowDimensions();
+  const isWide = Platform.OS === 'web' && width >= 1024;
 
   const canManage = !!profile?.is_owner || hasPermission('company.billing');
 
@@ -116,14 +118,16 @@ export default function BillingPanel() {
   return (
     <View className="flex-1">
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 48 }}>
-        <View className="mb-6 px-1">
-          <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.25em] mb-1">Subscription</Text>
-          <Text className="text-typography-main text-2xl font-black tracking-tight">Billing & Plans</Text>
-        </View>
+        {!isWide && (
+          <View className="mb-6 px-1">
+            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.25em] mb-1">Subscription</Text>
+            <Text className="text-typography-main text-2xl font-black tracking-tight">Billing & Plans</Text>
+          </View>
+        )}
 
         {/* Current plan */}
         {billing && (
-          <View className="bg-surface-card border border-surface-border rounded-2xl p-5 mb-6">
+          <View className={`bg-surface-card border border-surface-border rounded-2xl p-5 mb-6 ${isWide ? 'max-w-2xl' : ''}`}>
             <View className="flex-row items-center justify-between mb-4">
               <View className="flex-1 mr-3">
                 <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest">Current plan</Text>
@@ -158,29 +162,35 @@ export default function BillingPanel() {
           </View>
         )}
 
-        {/* Plan cards */}
-        <View className="gap-3">
+        {/* Plan cards — stacked on mobile, grid on desktop */}
+        <View className={isWide ? 'flex-row flex-wrap gap-4' : 'gap-3'}>
           {data?.plans.map(p => {
             const isCurrent = p.code === billing?.plan_code;
             const isEnterprise = p.code === 'enterprise';
             return (
               <View
                 key={p.code}
-                className={`bg-surface-card border rounded-2xl p-5 ${isCurrent ? 'border-brand-primary' : 'border-surface-border'}`}
+                className={`bg-surface-card border rounded-2xl p-5 ${isCurrent ? 'border-brand-primary' : 'border-surface-border'} ${isWide ? 'grow basis-60 min-w-[240px] max-w-[360px]' : ''}`}
               >
                 <View className="flex-row items-start justify-between mb-2">
                   <View className="flex-1 mr-3">
                     <Text className="text-typography-main text-lg font-black">{p.name}</Text>
                     <Text className="text-typography-muted text-xs mt-0.5 leading-4">{p.description}</Text>
                   </View>
-                  <Text className="text-typography-main text-base font-black">{priceLabel(p)}</Text>
+                  {isCurrent && (
+                    <View className="px-2 py-0.5 rounded-full bg-brand-primary/10 border border-brand-primary/30">
+                      <Text className="text-brand-primary text-[8px] font-black uppercase tracking-widest">Current</Text>
+                    </View>
+                  )}
                 </View>
 
-                <View className="gap-1.5 mt-3 mb-4">
+                <Text className="text-typography-main text-2xl font-black mb-1">{priceLabel(p)}</Text>
+
+                <View className={`gap-1.5 mt-3 mb-4 ${isWide ? 'grow' : ''}`}>
                   {p.features?.map((f, i) => (
-                    <View key={i} className="flex-row items-center">
-                      <FontAwesome name="check" size={11} color={colors.success} />
-                      <Text className="text-typography-muted text-[12px] ml-2">{f}</Text>
+                    <View key={i} className="flex-row items-start">
+                      <View className="mt-0.5"><FontAwesome name="check" size={11} color={colors.success} /></View>
+                      <Text className="text-typography-muted text-[12px] ml-2 flex-1 leading-4">{f}</Text>
                     </View>
                   ))}
                 </View>
@@ -188,7 +198,7 @@ export default function BillingPanel() {
                 <TouchableOpacity
                   onPress={() => handleChoose(p)}
                   disabled={isCurrent || working === p.code}
-                  className={`py-3.5 rounded-xl items-center ${isCurrent ? 'bg-surface-background border border-surface-border' : 'bg-brand-primary'}`}
+                  className={`py-3.5 rounded-xl items-center ${isCurrent ? 'bg-surface-background border border-surface-border' : 'bg-brand-primary'} ${isWide ? 'mt-auto' : ''}`}
                 >
                   <Text className={`font-black text-[11px] uppercase tracking-widest ${isCurrent ? 'text-typography-muted' : 'text-white'}`}>
                     {working === p.code ? 'Working…' : isCurrent ? 'Current Plan' : isEnterprise ? 'Contact Sales' : 'Choose Plan'}

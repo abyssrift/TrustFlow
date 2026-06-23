@@ -97,9 +97,8 @@ export default function MenuScreen() {
 
   const matchesHref = (href: string) => {
     if (href.includes('?')) {
-      const [basePath, queryString] = href.split('?');
-      const queryPairs = queryString.split('&').map((pair) => pair.split('='));
-      return pathname === basePath && queryPairs.every(([k, v]) => String(params[k]) === String(v));
+      const [basePath] = href.split('?');
+      return pathname === basePath;
     }
     return pathname.startsWith(href);
   };

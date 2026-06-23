@@ -1,4 +1,5 @@
 import { loadXlsx } from '@/components/common/loadXlsx';
+import { supabase } from '@/lib/supabase';
 
 /**
  * Task Data Mobility — shared (platform-agnostic) helpers for exporting tasks
@@ -89,6 +90,46 @@ export function buildExportRows(tasks: ExportTask[]): Record<string, string | nu
   }));
 }
 
+/** Fetch every non-deleted task in the caller's company, shaped for export. */
+export async function fetchExportTasks(): Promise<ExportTask[]> {
+  const [tasksRes, stagesRes, pipesRes, projsRes, usersRes] = await Promise.all([
+    supabase
+      .from('tasks')
+      .select('title, description, priority, category, weight, current_stage_id, pipeline_id, project_id, start_date, due_date, estimated_hours, created_at, assignments:task_assignments(assignee_user_id)')
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false }),
+    supabase.from('stages').select('id, name'),
+    supabase.from('pipelines').select('id, name'),
+    supabase.from('projects').select('id, name'),
+    supabase.from('users').select('id, email').is('deleted_at', null),
+  ]);
+
+  if (tasksRes.error) throw tasksRes.error;
+
+  const stageName = new Map((stagesRes.data || []).map((s: any) => [s.id, s.name]));
+  const pipeName = new Map((pipesRes.data || []).map((p: any) => [p.id, p.name]));
+  const projName = new Map((projsRes.data || []).map((p: any) => [p.id, p.name]));
+  const userEmail = new Map((usersRes.data || []).map((u: any) => [u.id, u.email]));
+
+  return (tasksRes.data || []).map((t: any) => ({
+    title: t.title,
+    description: t.description,
+    priority: t.priority,
+    category: t.category,
+    weight: t.weight,
+    stageName: t.current_stage_id ? stageName.get(t.current_stage_id) ?? null : null,
+    pipelineName: t.pipeline_id ? pipeName.get(t.pipeline_id) ?? null : null,
+    projectName: t.project_id ? projName.get(t.project_id) ?? null : null,
+    start_date: t.start_date,
+    due_date: t.due_date,
+    estimated_hours: t.estimated_hours,
+    assigneeEmails: (t.assignments || [])
+      .map((a: any) => a.assignee_user_id && userEmail.get(a.assignee_user_id))
+      .filter(Boolean),
+    created_at: t.created_at,
+  }));
+}
+
 export async function rowsToBytes(
   rows: Record<string, any>[],
   format: SpreadsheetFormat
@@ -136,7 +177,7 @@ const parseNumberCell = (raw: any): number | null => {
 };
 
 /** Case-insensitive header accessor — tolerates extra/renamed columns. */
-function pick(row: Record<string, any>, header: string): any {
+export function pick(row: Record<string, any>, header: string): any {
   if (header in row) return row[header];
   const lower = header.toLowerCase();
   const key = Object.keys(row).find(k => k.toLowerCase() === lower);
@@ -167,6 +208,7 @@ export type ImportLookups = {
   pipelinesByName: Map<string, string>;   // lowercased name -> id
   projectsByName: Map<string, string>;    // lowercased name -> id
   usersByEmail: Map<string, string>;      // lowercased email -> id
+  usersByName: Map<string, string>;       // lowercased full_name/display_name -> id
   defaultPipelineId: string | null;
 };
 
@@ -211,10 +253,13 @@ export function parseImportRows(
       ? emailsRaw.split(/[;,]/).map(e => e.trim()).filter(Boolean)
       : [];
     const assigneeUserIds: string[] = [];
-    for (const email of assigneeEmails) {
-      const id = lookups.usersByEmail.get(email.toLowerCase());
+    for (const token of assigneeEmails) {
+      const lower = token.toLowerCase();
+      // Most imports give an email; some (e.g. a Jira export's Assignee column) give a
+      // display name instead, so fall back to a name lookup when it isn't email-shaped.
+      const id = lookups.usersByEmail.get(lower) ?? (!lower.includes('@') ? lookups.usersByName.get(lower) : undefined);
       if (id) assigneeUserIds.push(id);
-      else warnings.push(`Assignee "${email}" not found — skipped`);
+      else warnings.push(`Assignee "${token}" not found — skipped`);
     }
 
     const weight = parseNumberCell(pick(raw, 'Weight'));

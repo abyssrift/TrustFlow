@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Switch, Modal } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Switch, Modal, useWindowDimensions, Platform } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -52,6 +52,8 @@ export default function RetentionPanel() {
   const colors = useThemeColors();
   const { profile, hasPermission, signOut } = useAuth();
   const { successToast, errorToast, infoToast } = useToast();
+  const { width } = useWindowDimensions();
+  const isWide = Platform.OS === 'web' && width >= 1024;
 
   const isOwner = !!profile?.is_owner;
   const canManage = isOwner || hasPermission('company.settings') || hasPermission('role.manage');
@@ -189,14 +191,18 @@ export default function RetentionPanel() {
     <View className="flex-1">
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 48 }}>
         {/* Header */}
-        <View className="mb-6 px-1">
-          <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.25em] mb-1">Data Lifecycle</Text>
-          <Text className="text-typography-main text-2xl font-black tracking-tight">Retention & Inactivity</Text>
-        </View>
+        {!isWide && (
+          <View className="mb-6 px-1">
+            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.25em] mb-1">Data Lifecycle</Text>
+            <Text className="text-typography-main text-2xl font-black tracking-tight">Retention & Inactivity</Text>
+          </View>
+        )}
 
+        {/* Status + Policy — stacked on mobile, side-by-side on desktop */}
+        <View className={isWide ? 'flex-row items-start gap-5 mb-5' : ''}>
         {/* Company status card */}
         {company && (
-          <View className="bg-surface-card border border-surface-border rounded-2xl p-5 mb-5">
+          <View className={`bg-surface-card border border-surface-border rounded-2xl p-5 ${isWide ? 'flex-1' : 'mb-5'}`}>
             <View className="flex-row items-center justify-between mb-4">
               <Text className="text-typography-main font-black text-base flex-1 mr-3" numberOfLines={1}>{company.name}</Text>
               <View style={{ backgroundColor: `${statusColor}1A`, borderColor: `${statusColor}55` }} className="px-3 py-1 rounded-full border">
@@ -227,7 +233,7 @@ export default function RetentionPanel() {
 
         {/* Policy settings */}
         {form && (
-          <View className="bg-surface-card border border-surface-border rounded-2xl p-5 mb-5">
+          <View className={`bg-surface-card border border-surface-border rounded-2xl p-5 ${isWide ? 'flex-1' : 'mb-5'}`}>
             <Text className="text-brand-primary text-[10px] font-black uppercase mb-4 tracking-widest">Policy</Text>
             <View className="flex-row flex-wrap gap-3 mb-4">
               {numField('Company inactivity', 'inactivity_days', 'days')}
@@ -259,9 +265,10 @@ export default function RetentionPanel() {
             </TouchableOpacity>
           </View>
         )}
+        </View>
 
         {/* Inactive users */}
-        <View className="bg-surface-card border border-surface-border rounded-2xl p-5 mb-5">
+        <View className={`bg-surface-card border border-surface-border rounded-2xl p-5 mb-5 ${isWide ? 'max-w-3xl' : ''}`}>
           <View className="flex-row items-center justify-between mb-4">
             <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest">Inactive members</Text>
             <Text className="text-typography-muted text-[10px] font-bold">{overview?.inactive_users.length || 0}</Text>
@@ -303,7 +310,7 @@ export default function RetentionPanel() {
 
         {/* Danger zone — owner only */}
         {isOwner && company && (
-          <View className="border border-state-danger/30 bg-state-danger/5 rounded-2xl p-5">
+          <View className={`border border-state-danger/30 bg-state-danger/5 rounded-2xl p-5 ${isWide ? 'max-w-3xl' : ''}`}>
             <Text style={{ color: colors.danger }} className="text-[10px] font-black uppercase tracking-widest mb-2">Danger Zone</Text>
             <Text className="text-typography-muted text-xs leading-5 mb-4">
               Permanently delete this entire workspace and all of its data — tasks, files, members, pipelines and history. This cannot be undone.

@@ -2,9 +2,10 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as Clipboard from 'expo-clipboard';
 import { useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 import BillingPanel from '@/components/admin/BillingPanel';
+import DataExportPanel from '@/components/admin/DataExportPanel';
 import NotificationRules from '@/components/admin/NotificationRules';
 import RetentionPanel from '@/components/admin/RetentionPanel';
 import RoleBuilder from '@/components/admin/RoleBuilder';
@@ -17,9 +18,10 @@ import { RoleManagerProvider, useRoleManager } from '@/contexts/RoleManagerConte
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 
-type PeopleSection = 'members' | 'teams' | 'roles' | 'notifications' | 'workspace' | 'company' | 'retention' | 'billing';
+type PeopleSection = 'members' | 'teams' | 'roles' | 'notifications' | 'workspace' | 'company' | 'retention' | 'billing' | 'export';
 
-function resolveSection(param: string | undefined, canViewMembers: boolean, canManageTeams: boolean, canManageNotifications: boolean, canEditCompany: boolean, canManageRetention: boolean, canManageBilling: boolean): PeopleSection {
+function resolveSection(param: string | undefined, canViewMembers: boolean, canManageTeams: boolean, canManageNotifications: boolean, canEditCompany: boolean, canManageRetention: boolean, canManageBilling: boolean, canManageExport: boolean): PeopleSection {
+  if (param === 'export' && canManageExport) return 'export';
   if (param === 'billing' && canManageBilling) return 'billing';
   if (param === 'retention' && canManageRetention) return 'retention';
   if (param === 'company' && canEditCompany) return 'company';
@@ -31,6 +33,18 @@ function resolveSection(param: string | undefined, canViewMembers: boolean, canM
   if (canManageTeams) return 'teams';
   return 'members';
 }
+
+const SECTION_META: Record<PeopleSection, { label: string; description: string; icon: keyof typeof FontAwesome.glyphMap }> = {
+  members: { label: 'Members', description: 'View and manage your team roster', icon: 'users' },
+  teams: { label: 'Teams', description: 'Group members into working teams', icon: 'sitemap' },
+  roles: { label: 'Role Registry', description: 'Define roles and permissions', icon: 'id-badge' },
+  notifications: { label: 'Alert Rules', description: 'Configure notification triggers', icon: 'bell' },
+  workspace: { label: 'Workspace', description: 'General workspace preferences', icon: 'sliders' },
+  company: { label: 'Company Info', description: 'Legal name, branding, details', icon: 'building' },
+  retention: { label: 'Retention', description: 'Inactivity policy and data lifecycle', icon: 'history' },
+  billing: { label: 'Billing', description: 'Plan, seats, and subscription', icon: 'credit-card' },
+  export: { label: 'Export', description: 'Download a copy of your company data', icon: 'download' },
+};
 
 function TeamWorkspaceContent({ section }: { section: PeopleSection }) {
   const colors = useThemeColors();
@@ -54,6 +68,7 @@ function TeamWorkspaceContent({ section }: { section: PeopleSection }) {
     );
   }
 
+  if (section === 'export') return <DataExportPanel />;
   if (section === 'billing') return <BillingPanel />;
   if (section === 'retention') return <RetentionPanel />;
   if (section === 'company') return <CompanyEditSettings />;
@@ -62,6 +77,33 @@ function TeamWorkspaceContent({ section }: { section: PeopleSection }) {
   if (section === 'teams') return <TeamAssignmentGrid />;
   if (section === 'notifications') return <NotificationRules />;
   return <UserAssignmentGrid />;
+}
+
+function SidebarItem({
+  active,
+  onPress,
+  icon,
+  label,
+}: {
+  active: boolean;
+  onPress: () => void;
+  icon: keyof typeof FontAwesome.glyphMap;
+  label: string;
+}) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      className={`p-4 rounded-2xl mb-2 border transition-all flex-row items-center ${
+        active ? 'bg-brand-primary border-brand-primary premium-shadow' : 'bg-surface-card border-surface-border hover:bg-surface-overlay'
+      }`}
+    >
+      <View className="w-8 items-center mr-3">
+        <FontAwesome name={icon} size={15} className={active ? 'text-brand-on-primary' : 'text-typography-muted'} />
+      </View>
+      <Text className={`text-sm font-bold flex-1 ${active ? 'text-brand-on-primary' : 'text-typography-main'}`}>{label}</Text>
+      {active && <FontAwesome name="chevron-right" size={10} className="text-brand-on-primary opacity-50" />}
+    </TouchableOpacity>
+  );
 }
 
 export default function PeopleScreenWeb() {
@@ -79,7 +121,8 @@ export default function PeopleScreenWeb() {
   const canEditCompany = hasPermission('company.edit');
   const canManageRetention = !!profile?.is_owner || hasPermission('company.settings') || hasPermission('role.manage');
   const canManageBilling = !!profile?.is_owner || hasPermission('company.billing');
-  const hasWorkspaceAccess = canViewMembers || canManageTeams || canManageNotifications || canEditCompany || canManageRetention || canManageBilling;
+  const canManageExport = !!profile?.is_owner || hasPermission('company.settings') || hasPermission('data.export');
+  const hasWorkspaceAccess = canViewMembers || canManageTeams || canManageNotifications || canEditCompany || canManageRetention || canManageBilling || canManageExport;
 
   useEffect(() => {
     const fetchCompanyInfo = async () => {
@@ -95,133 +138,89 @@ export default function PeopleScreenWeb() {
   }, [profile?.company_id]);
 
   useEffect(() => {
-    setActiveSection(resolveSection(sectionParam, canViewMembers, canManageTeams, canManageNotifications, canEditCompany, canManageRetention, canManageBilling));
-  }, [sectionParam, canViewMembers, canManageTeams, canManageNotifications, canEditCompany, canManageRetention, canManageBilling]);
+    setActiveSection(resolveSection(sectionParam, canViewMembers, canManageTeams, canManageNotifications, canEditCompany, canManageRetention, canManageBilling, canManageExport));
+  }, [sectionParam, canViewMembers, canManageTeams, canManageNotifications, canEditCompany, canManageRetention, canManageBilling, canManageExport]);
+
+  const sectionVisibility: Record<PeopleSection, boolean> = {
+    members: canViewMembers,
+    teams: canManageTeams,
+    roles: canManageTeams,
+    notifications: canManageNotifications,
+    workspace: canManageNotifications,
+    company: canEditCompany,
+    retention: canManageRetention,
+    billing: canManageBilling,
+    export: canManageExport,
+  };
+  const visibleSections = (Object.keys(SECTION_META) as PeopleSection[]).filter(key => sectionVisibility[key]);
 
   return (
-    <View className="flex-1 bg-surface-background p-10">
-      <View className="max-w-[1600px] mx-auto w-full flex-1">
-        <View className="flex-row items-center justify-between mb-8">
-          <View>
-            <Text className="text-typography-main text-5xl font-black tracking-tighter">Corporate</Text>
-            <Text className="text-typography-muted text-lg mt-2 font-medium">Members, teams, and role registry</Text>
+    <View className="flex-1 bg-surface-background flex-row">
+      {/* Sidebar */}
+      <View className="w-80 h-full border-r border-surface-border overflow-hidden">
+        <View className="flex-1 p-8">
+          <View className="mb-6">
+            <Text className="text-2xl font-black text-typography-main tracking-tighter">Corporate</Text>
+            <Text className="text-typography-muted text-xs mt-1 font-bold">Members, teams, and role registry</Text>
           </View>
 
           {joinCode && (
-            <View className="bg-surface-card border border-surface-border rounded-2xl px-6 flex-row items-center h-14 premium-shadow">
-              <View>
-                <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-0.5">Join Code</Text>
-                <Text className="text-brand-primary font-black text-lg tracking-[0.2em]">{joinCode}</Text>
+            <View className="bg-surface-overlay border border-surface-border rounded-2xl p-4 mb-6">
+              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-1">Join Code</Text>
+              <View className="flex-row items-center justify-between">
+                <Text className="text-brand-primary font-black text-base tracking-[0.2em]">{joinCode}</Text>
+                <TouchableOpacity
+                  onPress={() => Clipboard.setStringAsync(joinCode)}
+                  className="w-8 h-8 bg-brand-primary/10 rounded-lg items-center justify-center hover:bg-brand-primary/20 transition-colors"
+                >
+                  <FontAwesome name="copy" size={12} color={colors.primary} />
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity
-                onPress={() => Clipboard.setStringAsync(joinCode)}
-                className="ml-6 w-10 h-10 bg-brand-primary/10 rounded-xl items-center justify-center hover:bg-brand-primary/20 transition-colors"
-              >
-                <FontAwesome name="copy" size={14} color={colors.primary} />
-              </TouchableOpacity>
             </View>
           )}
+
+          {hasWorkspaceAccess && (
+            <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+              <View className="pb-4">
+                {visibleSections.map(key => (
+                  <SidebarItem
+                    key={key}
+                    active={activeSection === key}
+                    onPress={() => setActiveSection(key)}
+                    icon={SECTION_META[key].icon}
+                    label={SECTION_META[key].label}
+                  />
+                ))}
+              </View>
+            </ScrollView>
+          )}
         </View>
-
-        {!hasWorkspaceAccess ? (
-          <View className="w-full items-center justify-center py-40 bg-state-danger/10 rounded-[48px] border border-dashed border-state-danger/30">
-            <FontAwesome name="lock" size={48} color={colors.danger} className="mb-6" />
-            <Text className="text-typography-main text-2xl font-black">Access Restricted</Text>
-            <Text className="text-typography-muted mt-2 text-center max-w-md">
-              You do not have permission to view members or manage teams.
-            </Text>
-          </View>
-        ) : (
-          <>
-            <View className="mb-8 bg-surface-card p-1.5 rounded-2xl border border-surface-border flex-row self-start min-w-[460px]">
-              {canViewMembers && (
-                <TouchableOpacity
-                  onPress={() => setActiveSection('members')}
-                  className={`px-8 py-3 rounded-xl ${activeSection === 'members' ? 'bg-brand-primary' : ''}`}
-                >
-                  <Text className={`font-black text-xs uppercase tracking-widest ${activeSection === 'members' ? 'text-white' : 'text-typography-muted'}`}>
-                    Members
-                  </Text>
-                </TouchableOpacity>
-              )}
-              {canManageTeams && (
-                <TouchableOpacity
-                  onPress={() => setActiveSection('teams')}
-                  className={`px-8 py-3 rounded-xl ${activeSection === 'teams' ? 'bg-brand-primary' : ''}`}
-                >
-                  <Text className={`font-black text-xs uppercase tracking-widest ${activeSection === 'teams' ? 'text-white' : 'text-typography-muted'}`}>
-                    Teams
-                  </Text>
-                </TouchableOpacity>
-              )}
-              {canManageTeams && (
-                <TouchableOpacity
-                  onPress={() => setActiveSection('roles')}
-                  className={`px-8 py-3 rounded-xl ${activeSection === 'roles' ? 'bg-brand-primary' : ''}`}
-                >
-                  <Text className={`font-black text-xs uppercase tracking-widest ${activeSection === 'roles' ? 'text-white' : 'text-typography-muted'}`}>
-                    Role Registry
-                  </Text>
-                </TouchableOpacity>
-              )}
-              {canManageNotifications && (
-                <TouchableOpacity
-                  onPress={() => setActiveSection('notifications')}
-                  className={`px-8 py-3 rounded-xl ${activeSection === 'notifications' ? 'bg-brand-primary' : ''}`}
-                >
-                  <Text className={`font-black text-xs uppercase tracking-widest ${activeSection === 'notifications' ? 'text-white' : 'text-typography-muted'}`}>
-                    Alert Rules
-                  </Text>
-                </TouchableOpacity>
-              )}
-              {canManageNotifications && (
-                <TouchableOpacity
-                  onPress={() => setActiveSection('workspace')}
-                  className={`px-8 py-3 rounded-xl ${activeSection === 'workspace' ? 'bg-brand-primary' : ''}`}
-                >
-                  <Text className={`font-black text-xs uppercase tracking-widest ${activeSection === 'workspace' ? 'text-white' : 'text-typography-muted'}`}>
-                    Workspace
-                  </Text>
-                </TouchableOpacity>
-              )}
-              {canEditCompany && (
-                <TouchableOpacity
-                  onPress={() => setActiveSection('company')}
-                  className={`px-8 py-3 rounded-xl ${activeSection === 'company' ? 'bg-brand-primary' : ''}`}
-                >
-                  <Text className={`font-black text-xs uppercase tracking-widest ${activeSection === 'company' ? 'text-white' : 'text-typography-muted'}`}>
-                    Company Info
-                  </Text>
-                </TouchableOpacity>
-              )}
-              {canManageRetention && (
-                <TouchableOpacity
-                  onPress={() => setActiveSection('retention')}
-                  className={`px-8 py-3 rounded-xl ${activeSection === 'retention' ? 'bg-brand-primary' : ''}`}
-                >
-                  <Text className={`font-black text-xs uppercase tracking-widest ${activeSection === 'retention' ? 'text-white' : 'text-typography-muted'}`}>
-                    Retention
-                  </Text>
-                </TouchableOpacity>
-              )}
-              {canManageBilling && (
-                <TouchableOpacity
-                  onPress={() => setActiveSection('billing')}
-                  className={`px-8 py-3 rounded-xl ${activeSection === 'billing' ? 'bg-brand-primary' : ''}`}
-                >
-                  <Text className={`font-black text-xs uppercase tracking-widest ${activeSection === 'billing' ? 'text-white' : 'text-typography-muted'}`}>
-                    Billing
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            <RoleManagerProvider>
-              <TeamWorkspaceContent section={activeSection} />
-            </RoleManagerProvider>
-          </>
-        )}
       </View>
+
+      {/* Content pane */}
+      <ScrollView className="flex-1" contentContainerStyle={{ padding: 48 }}>
+        <View className="max-w-[1600px] w-full">
+          {!hasWorkspaceAccess ? (
+            <View className="w-full items-center justify-center py-40 bg-state-danger/10 rounded-[48px] border border-dashed border-state-danger/30">
+              <FontAwesome name="lock" size={48} color={colors.danger} className="mb-6" />
+              <Text className="text-typography-main text-2xl font-black">Access Restricted</Text>
+              <Text className="text-typography-muted mt-2 text-center max-w-md">
+                You do not have permission to view members or manage teams.
+              </Text>
+            </View>
+          ) : (
+            <>
+              <View className="mb-8">
+                <Text className="text-3xl font-black text-typography-main tracking-tight">{SECTION_META[activeSection].label}</Text>
+                <Text className="text-typography-muted text-sm mt-1 font-medium">{SECTION_META[activeSection].description}</Text>
+              </View>
+              <RoleManagerProvider>
+                <TeamWorkspaceContent section={activeSection} />
+              </RoleManagerProvider>
+            </>
+          )}
+        </View>
+      </ScrollView>
     </View>
   );
 }

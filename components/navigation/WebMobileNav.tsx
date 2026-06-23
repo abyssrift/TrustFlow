@@ -17,11 +17,10 @@ const MAIN_TABS = [
   { id: 'projects', icon: 'folder-o', label: 'Projects', href: '/projects' },
 ] as const;
 
-const matchesHref = (pathname: string, params: Record<string, any>, href: string) => {
+const matchesHref = (pathname: string, href: string) => {
   if (href.includes('?')) {
-    const [basePath, queryString] = href.split('?');
-    const queryPairs = queryString.split('&').map((pair) => pair.split('='));
-    return pathname === basePath && queryPairs.every(([k, v]) => String(params[k]) === String(v));
+    const [basePath] = href.split('?');
+    return pathname === basePath;
   }
   if (href === '/') return pathname === '/';
   return pathname.startsWith(href);
@@ -67,7 +66,7 @@ export default function WebMobileNav({
         className="w-full border-t border-surface-border bg-surface-background flex-row items-center justify-around px-2"
       >
         {MAIN_TABS.map((tab) => {
-          const isActive = matchesHref(pathname, params, tab.href);
+          const isActive = matchesHref(pathname, tab.href);
           return (
             <Link key={tab.id} href={tab.href as any} asChild>
               <Pressable className="flex-1 items-center justify-center py-2 h-full">
@@ -101,7 +100,7 @@ export default function WebMobileNav({
           <ScrollView className="flex-1 px-4 py-4">
             <Text className="mb-2 ml-2 text-[10px] font-black uppercase tracking-widest text-typography-muted">Navigation</Text>
             {visibleShortcuts.map((s) => {
-              const isActive = matchesHref(pathname, params, s.href);
+              const isActive = matchesHref(pathname, s.href);
               const badge = s.id === 'filehub' ? fileHubBadge : 0;
               return (
                 <Link key={s.id} href={s.href as any} asChild onPress={handleClose}>
