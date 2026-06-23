@@ -4,6 +4,7 @@ import TaskCardActions, { type ActiveSessionUser } from '@/components/task-detai
 import TaskPingButton from '@/components/task-detail/TaskPingButton';
 import AssignmentModal from '@/components/tasks/AssignmentModal';
 import CreateTaskModal from '@/components/tasks/CreateTaskModal.web';
+import TaskMobilityModal from '@/components/tasks/TaskMobilityModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePingHighlight } from '@/contexts/PingHighlightContext';
 import { TaskCreationProvider } from '@/contexts/TaskCreationContext';
@@ -272,6 +273,7 @@ export function TasksScreenWeb() {
   const [stageActions, setStageActions] = useState<any[]>([]);
   const [stageTransitions, setStageTransitions] = useState<{ id: string; to_stage_id: string }[]>([]);
   const [showPersonalizer, setShowPersonalizer] = useState(false);
+  const [showMobility, setShowMobility] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<FilterState>({ priorities: [], categories: [], projectIds: [], managerIds: [] });
   const [searchQuery, setSearchQuery] = useState('');
@@ -1265,6 +1267,15 @@ export function TasksScreenWeb() {
                >
                  <FontAwesome name="refresh" size={16} className="text-brand-primary" />
                </TouchableOpacity>
+               {(hasPermission('task.create') || hasPermission('report.export') || hasPermission('task.view_all')) && (
+                 <TouchableOpacity
+                   onPress={() => setShowMobility(true)}
+                   className="h-14 w-14 items-center justify-center bg-surface-card border border-surface-border rounded-2xl premium-shadow hover:bg-surface-overlay"
+                   {...(Platform.OS === 'web' ? { title: 'Import / Export tasks' } as any : {})}
+                 >
+                   <FontAwesome name="exchange" size={16} className="text-brand-primary" />
+                 </TouchableOpacity>
+               )}
                {hasPermission('task.create') && (
                  <TouchableOpacity
                    onPress={handleCreateTask}
@@ -1787,13 +1798,19 @@ export function TasksScreenWeb() {
         <KanbanPersonalizer onClose={() => setShowPersonalizer(false)} />
       )}
 
-      <CreateTaskModal 
-        visible={showCreateModal} 
+      <CreateTaskModal
+        visible={showCreateModal}
         initialPipelineId={pipeline?.id}
         onClose={() => {
           setShowCreateModal(false);
           fetchData();
-        }} 
+        }}
+      />
+
+      <TaskMobilityModal
+        visible={showMobility}
+        onClose={() => setShowMobility(false)}
+        onImported={fetchData}
       />
 
       {archiveError && (
