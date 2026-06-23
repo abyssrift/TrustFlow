@@ -6,13 +6,13 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator, Alert,
     Dimensions,
-    Modal, SafeAreaView,
     ScrollView,
     Text,
     TextInput,
     TouchableOpacity,
     View
 } from 'react-native';
+import DraggableSheet from '@/components/common/DraggableSheet';
 
 interface AssignmentModalProps {
   visible: boolean;
@@ -131,16 +131,22 @@ export default function AssignmentModal({
     if (activeTab === 'teams') {
       return teams.filter(t => t.name.toLowerCase().includes(search.toLowerCase()));
     }
-    return users.filter(u => 
+    return users.filter(u =>
       (u.full_name || '').toLowerCase().includes(search.toLowerCase()) ||
       (u.email || '').toLowerCase().includes(search.toLowerCase())
     );
   }, [activeTab, teams, users, search]);
 
   return (
-    <Modal visible={visible} animationType="slide" transparent={true}>
-      <View className="flex-1 bg-surface-background">
-        <SafeAreaView className="flex-1">
+    <DraggableSheet
+      visible={visible}
+      onClose={onClose}
+      dimBackdrop
+      maxHeight="92%"
+      containerStyle={{ height: '92%' }}
+      containerClassName="bg-surface-background rounded-t-[2rem] border-t border-surface-border overflow-hidden"
+    >
+        <View className="flex-1">
           {/* HEADER */}
           <View className="px-6 py-4 border-b border-surface-border flex-row items-center justify-between">
             <View>
@@ -154,13 +160,13 @@ export default function AssignmentModal({
 
           {/* TABS */}
           <View className="flex-row px-6 py-4 gap-4">
-             <TouchableOpacity 
+             <TouchableOpacity
                onPress={() => setActiveTab('teams')}
                className={`flex-1 py-3 rounded-xl items-center border transition-all ${activeTab === 'teams' ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border'}`}
              >
                 <Text className={`font-black text-[10px] uppercase tracking-widest ${activeTab === 'teams' ? 'text-white' : 'text-typography-muted'}`}>Teams</Text>
              </TouchableOpacity>
-             <TouchableOpacity 
+             <TouchableOpacity
                onPress={() => setActiveTab('users')}
                className={`flex-1 py-3 rounded-xl items-center border transition-all ${activeTab === 'users' ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border'}`}
              >
@@ -174,7 +180,7 @@ export default function AssignmentModal({
                 <View className="absolute left-4 top-3.5 z-10">
                    <FontAwesome name="search" size={14} color={colors.textMuted} />
                 </View>
-                <TextInput 
+                <TextInput
                   placeholder={`Search ${activeTab === 'teams' ? 'teams' : 'agents'}...`}
                   placeholderTextColor={colors.textDim}
                   value={search}
@@ -193,13 +199,13 @@ export default function AssignmentModal({
             <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false}>
                <View className="pb-20 gap-3">
                   {filteredItems.map(item => {
-                    const isSelected = activeTab === 'teams' 
+                    const isSelected = activeTab === 'teams'
                       ? selectedIds.teams.includes(item.id)
                       : selectedIds.users.includes(item.id);
                     const taskCount = activeTab === 'teams' ? counts.teams[item.id] || 0 : counts.users[item.id] || 0;
-                    
+
                     return (
-                      <TouchableOpacity 
+                      <TouchableOpacity
                         key={item.id}
                         onPress={() => {
                           if (activeTab === 'teams') {
@@ -251,16 +257,15 @@ export default function AssignmentModal({
              <TouchableOpacity onPress={onClose} className="flex-1 py-4 items-center bg-surface-background border border-surface-border rounded-xl">
                 <Text className="text-typography-muted font-black text-[10px] uppercase tracking-widest">Cancel</Text>
              </TouchableOpacity>
-             <TouchableOpacity 
-               onPress={handleSave} 
+             <TouchableOpacity
+               onPress={handleSave}
                disabled={saving}
                className="flex-2 bg-brand-primary py-4 items-center rounded-xl shadow-lg shadow-brand-primary/20"
              >
                {saving ? <ActivityIndicator color={colors.textMain} /> : <Text className="text-white font-black text-[10px] uppercase tracking-widest px-8">Save Assignments</Text>}
              </TouchableOpacity>
           </View>
-        </SafeAreaView>
-      </View>
-    </Modal>
+        </View>
+    </DraggableSheet>
   );
 }

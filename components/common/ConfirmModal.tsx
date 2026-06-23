@@ -26,36 +26,18 @@ export default function ConfirmModal({
   variant = 'primary',
   loading = false
 }: ConfirmModalProps) {
+  const c = useThemeColors();
+
   const getVariantStyles = () => {
     switch (variant) {
       case 'danger':
-        return {
-          bg: 'bg-state-danger',
-          text: 'text-state-danger',
-          icon: 'warning',
-          dim: 'bg-state-danger/10'
-        };
+        return { bg: c.danger, icon: 'warning', dim: c.danger + '1A' };
       case 'warning':
-        return {
-          bg: 'bg-state-warning',
-          text: 'text-state-warning',
-          icon: 'exclamation-triangle',
-          dim: 'bg-state-warning/10'
-        };
+        return { bg: c.warning, icon: 'exclamation-triangle', dim: c.warning + '1A' };
       case 'info':
-        return {
-          bg: 'bg-state-info',
-          text: 'text-state-info',
-          icon: 'info-circle',
-          dim: 'bg-state-info/10'
-        };
+        return { bg: c.info, icon: 'info-circle', dim: c.info + '1A' };
       default:
-        return {
-          bg: 'bg-brand-primary',
-          text: 'text-brand-primary',
-          icon: 'check-circle',
-          dim: 'bg-brand-primary/10'
-        };
+        return { bg: c.primary, icon: 'check-circle', dim: c.primary + '1A' };
     }
   };
 
@@ -63,31 +45,36 @@ export default function ConfirmModal({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
-      <View className="flex-1 bg-black/70 items-center justify-center p-6">
-        <View className="bg-surface-card w-full max-w-lg rounded-[40px] border border-surface-border premium-shadow overflow-hidden">
+      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+        <View
+          className="w-full max-w-lg rounded-[40px] overflow-hidden premium-shadow"
+          style={{ backgroundColor: c.card, borderWidth: 1, borderColor: c.border }}
+        >
           <View className="p-10 items-center">
-            <View className={`w-20 h-20 rounded-full ${styles.dim} items-center justify-center mb-6`}>
-              <FontAwesome name={styles.icon as any} size={32} color={`var(--color-${variant === 'primary' ? 'info' : variant})`} />
+            <View className="w-20 h-20 rounded-full items-center justify-center mb-6" style={{ backgroundColor: styles.dim }}>
+              <FontAwesome name={styles.icon as any} size={32} color={styles.bg} />
             </View>
-            
-            <Text className="text-typography-main text-3xl font-black tracking-tight mb-4 text-center">{title}</Text>
-            <Text className="text-typography-muted text-center font-medium leading-relaxed">
+
+            <Text style={{ color: c.textMain }} className="text-3xl font-black tracking-tight mb-4 text-center">{title}</Text>
+            <Text style={{ color: c.textMuted }} className="text-center font-medium leading-relaxed">
               {description}
             </Text>
           </View>
 
-          <View className="p-10 border-t border-surface-border flex-row flex-wrap gap-4 bg-surface-card/50">
-            <TouchableOpacity 
-              onPress={onCancel} 
+          <View className="p-10 flex-row flex-wrap gap-4" style={{ borderTopWidth: 1, borderTopColor: c.border, backgroundColor: c.card }}>
+            <TouchableOpacity
+              onPress={onCancel}
               disabled={loading}
-              className="flex-1 min-w-[120px] py-5 rounded-2xl bg-surface-background border border-surface-border items-center"
+              className="flex-1 min-w-[120px] py-5 rounded-2xl items-center"
+              style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}
             >
-              <Text className="text-typography-muted font-black uppercase tracking-widest text-xs">{cancelLabel}</Text>
+              <Text style={{ color: c.textMuted }} className="font-black uppercase tracking-widest text-xs">{cancelLabel}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={onConfirm}
               disabled={loading}
-              className={`flex-[2] min-w-[120px] py-5 rounded-2xl ${styles.bg} items-center shadow-lg active:scale-[0.98] transition-transform`}
+              className="flex-[2] min-w-[120px] py-5 rounded-2xl items-center shadow-lg active:scale-[0.98] transition-transform"
+              style={{ backgroundColor: styles.bg }}
             >
               <Text className="text-white font-black uppercase tracking-widest text-xs">
                 {loading ? 'Processing...' : confirmLabel}

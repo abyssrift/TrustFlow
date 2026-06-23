@@ -1,14 +1,12 @@
 import ConfirmModal from '@/components/common/ConfirmModal';
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
-import { useAlert } from '@/contexts/AlertContext';
+import DraggableSheet from '@/components/common/DraggableSheet';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { supabase } from '@/lib/supabase';
+import { PROJECT_STATUS_OPTIONS, useProjectFolderForm } from '@/lib/useProjectFolderForm';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import {
     ActivityIndicator,
-    Modal,
     ScrollView,
     Text,
     TextInput,
@@ -35,115 +33,22 @@ export default function ProjectFolderModal({
   onSuccess,
   project,
 }: ProjectFolderModalProps) {
-  const { showAlert } = useAlert();
   const colors = useThemeColors();
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [expiryDate, setExpiryDate] = useState<string | null>(null);
-  const [status, setStatus] = useState<'active' | 'closed' | 'archived'>('active');
-  const [loading, setLoading] = useState(false);
-  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
-  const [archiveCooldown, setArchiveCooldown] = useState(false);
-  const [showCalendar, setShowCalendar] = useState(false);
+  const {
+    name, setName,
+    description, setDescription,
+    expiryDate, setExpiryDate,
+    status, setStatus,
+    loading,
+    showArchiveConfirm, setShowArchiveConfirm,
+    showCalendar, setShowCalendar,
+    handleSave, handleArchiveProject,
+  } = useProjectFolderForm({ visible, project, onSuccess, onClose });
 
-  useEffect(() => {
-    if (project) {
-      setName(project.name);
-      setDescription(project.description || '');
-      setExpiryDate(project.expiry_date ? new Date(project.expiry_date).toISOString().split('T')[0] : null);
-      setStatus(project.status || 'active');
-    } else {
-      setName('');
-      setDescription('');
-      setExpiryDate(null);
-      setStatus('active');
-    }
-    setShowCalendar(false);
-  }, [project, visible]);
-
-  const handleSave = async () => {
-    if (!name.trim()) {
-      showAlert('Error', 'Project name is required');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const projectData = {
-        name: name.trim(),
-        description: description.trim(),
-        expiry_date: expiryDate ? new Date(expiryDate).toISOString() : null,
-        status: status,
-        updated_at: new Date().toISOString(),
-      };
-
-      let error;
-      if (project) {
-        ({ error } = await supabase
-          .from('projects')
-          .update(projectData)
-          .eq('id', project.id));
-      } else {
-        const { data, error: rpcError } = await supabase.rpc('rpc_create_project', {
-          p_name: projectData.name,
-          p_description: projectData.description,
-          p_expiry_date: projectData.expiry_date,
-          p_status: projectData.status,
-        });
-        error = rpcError;
-      }
-
-      if (error) throw error;
-      showAlert('Success', `Project ${project ? 'updated' : 'created'} successfully`);
-      onSuccess();
-      onClose();
-    } catch (err: any) {
-      console.error('Error saving project:', err);
-      showAlert('Error', err.message || 'Failed to save project');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleArchiveProject = async () => {
-    if (!project) return;
-    
-    try {
-      const lastArchived = await AsyncStorage.getItem('last_archival_at');
-      const now = Date.now();
-      if (lastArchived && now - parseInt(lastArchived) < 35000) {
-        const remaining = Math.ceil((35000 - (now - parseInt(lastArchived))) / 1000);
-        showAlert('Sync Cooldown', `Network synchronization in progress. Please wait ${remaining}s for cross-platform safety.`);
-        return;
-      }
-
-      setLoading(true);
-      const { error } = await supabase.rpc('rpc_archive_project', { p_project_id: project.id });
-      if (error) throw error;
-      
-      await AsyncStorage.setItem('last_archival_at', now.toString());
-      showAlert('Success', 'Project and all associated tasks have been snapshotted to Cold Storage.');
-      onSuccess();
-      onClose();
-    } catch (err: any) {
-      console.error('Error archiving project:', err);
-      showAlert('Archival Error', err.message || 'Failed to archive project');
-    } finally {
-      setLoading(false);
-      setShowArchiveConfirm(false);
-    }
-  };
-
-  const statusOptions: { value: typeof status; label: string; icon: string }[] = [
-    { value: 'active', label: 'Active', icon: 'play-circle' },
-    { value: 'closed', label: 'Closed', icon: 'check-circle' },
-  ];
-
-  return (
-    <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
+  const body = (
       <View className="flex-1 bg-surface-background">
         {/* Header */}
-        <View className="px-6 py-4 border-b border-surface-border flex-row items-center justify-between mt-8">
+        <View className="px-6 py-4 border-b border-surface-border flex-row items-center justify-between">
           <Text className="text-typography-main text-xl font-bold">
             {project ? 'Edit Project' : 'New Project'}
           </Text>
@@ -220,7 +125,7 @@ export default function ProjectFolderModal({
               Project Status
             </Text>
             <View className="flex-row justify-between">
-              {statusOptions.map((option) => (
+              {PROJECT_STATUS_OPTIONS.map((option) => (
                 <TouchableOpacity
                   key={option.value}
                   onPress={() => setStatus(option.value)}
@@ -230,13 +135,13 @@ export default function ProjectFolderModal({
                       : 'bg-surface-card border-surface-border/50'
                   }`}
                 >
-                  <FontAwesome 
-                    name={option.icon as any} 
-                    size={16} 
-                    color={status === option.value ? '#818cf8' : '#64748b'} 
+                  <FontAwesome
+                    name={option.icon as any}
+                    size={16}
+                    color={status === option.value ? '#818cf8' : '#64748b'}
                     style={{ marginBottom: 4 }}
                   />
-                  <Text 
+                  <Text
                     className={`text-[10px] font-bold ${
                       status === option.value ? 'text-brand-primary' : 'text-typography-muted'
                     }`}
@@ -294,7 +199,20 @@ export default function ProjectFolderModal({
           </TouchableOpacity>
         </View>
       </View>
+  );
 
+  return (
+    <>
+      <DraggableSheet
+        visible={visible}
+        onClose={onClose}
+        dimBackdrop
+        maxHeight="92%"
+        containerStyle={{ height: '92%' }}
+        containerClassName="bg-surface-background rounded-t-[2rem] border-t border-surface-border overflow-hidden"
+      >
+        {body}
+      </DraggableSheet>
       <ConfirmModal
         visible={showArchiveConfirm}
         onCancel={() => setShowArchiveConfirm(false)}
@@ -305,6 +223,6 @@ export default function ProjectFolderModal({
         variant="danger"
         loading={loading}
       />
-    </Modal>
+    </>
   );
 }

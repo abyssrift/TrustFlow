@@ -1,34 +1,16 @@
-import { useTaskCreation } from '@/contexts/TaskCreationContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { getPastedImageFile } from '@/lib/pasteImage';
-import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import DraggableSheet from '../common/DraggableSheet';
 import ClipboardControls from '../common/ClipboardControls';
 import PremiumCalendarPicker from '../common/PremiumCalendarPicker';
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-}
-
-function getFileIcon(mimeType: string | null, colors: ReturnType<typeof useThemeColors>): { name: string; color: string } {
-  const t = (mimeType || '').toLowerCase();
-  if (t.includes('image')) return { name: 'file-image-o', color: colors.warning };
-  if (t.includes('pdf')) return { name: 'file-pdf-o', color: colors.danger };
-  if (t.includes('spreadsheet') || t.includes('excel') || t.includes('csv')) return { name: 'file-excel-o', color: colors.success };
-  if (t.includes('word') || t.includes('document') || t.includes('text')) return { name: 'file-text-o', color: colors.info };
-  return { name: 'file-o', color: colors.textMuted };
-}
+import { formatFileSize, getFileIcon } from '@/lib/taskFileHelpers';
+import { useCreateTaskWizard } from '@/lib/useCreateTaskWizard';
 
 // ─── Adaptive File Grid ───────────────────────────────────────────────────────
 
@@ -43,21 +25,21 @@ function AdaptiveFileGrid({
 }) {
   const [containerWidth, setContainerWidth] = useState(0);
   const colors = useThemeColors();
-  
+
   const gap = 12;
   const minSquareSize = 90; // Slightly smaller for inline forms
 
   // Fallback width before layout calculation fires
   const availableWidth = containerWidth > 0 ? containerWidth : 300;
-  
+
   let numCols = Math.floor((availableWidth + gap) / (minSquareSize + gap));
-  if (numCols < 2) numCols = 2; 
+  if (numCols < 2) numCols = 2;
   const exactSquareSize = Math.floor((availableWidth - (gap * (numCols - 1))) / numCols);
 
   if (files.length === 0) return null;
 
   return (
-    <View 
+    <View
       onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
       className="flex-row flex-wrap w-full bg-surface-background border border-surface-border rounded-xl p-3 mb-3"
       style={{ gap }}
@@ -67,16 +49,16 @@ function AdaptiveFileGrid({
         const { name: icon, color } = getFileIcon(pf.type || null, colors);
 
         return (
-          <View 
-            key={pf.id} 
+          <View
+            key={pf.id}
             style={{ width: exactSquareSize, height: exactSquareSize }}
             className="rounded-xl overflow-hidden border border-surface-border bg-surface-card relative"
           >
             {isImage ? (
-              <Image 
-                source={{ uri: pf.uri }} 
-                style={{ flex: 1, width: '100%', height: '100%', position: 'absolute' }} 
-                resizeMode="cover" 
+              <Image
+                source={{ uri: pf.uri }}
+                style={{ flex: 1, width: '100%', height: '100%', position: 'absolute' }}
+                resizeMode="cover"
               />
             ) : (
               <View className="flex-1 items-center justify-center p-2" style={{ backgroundColor: color + '15' }}>
@@ -94,7 +76,7 @@ function AdaptiveFileGrid({
                 <ActivityIndicator size="small" color="#fff" style={{ transform: [{ scale: 0.6 }] }} />
               </View>
             ) : (
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={() => onRemove(pf.id)}
                 className="absolute top-1.5 right-1.5 w-6 h-6 bg-black/60 rounded-full items-center justify-center hover:bg-black/80 transition-colors"
                 style={Platform.OS === 'web' ? { cursor: 'pointer' } as any : {}}
@@ -123,112 +105,20 @@ type Props = {
   initialPipelineId?: string | null;
 };
 
-type TaskTemplate = {
-  name: string;
-  title: string;
-  description: string;
-  category: string;
-  priority: 'low' | 'normal' | 'high' | 'urgent';
-  weight: number;
-};
-
-const TEMPLATES_KEY = '@TrustFlow_task_templates';
-
 export default function CreateTaskSheet({ visible, onClose, initialPipelineId }: Props) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
-  const { draft, setDraft, createTask, createBulkTasks, loading, recentTasks, loadRecentTasks, briefFiles, setBriefFiles } = useTaskCreation();
-  const [step, setStep] = useState(1);
-  // Bulk quick-add: one task title per line, sharing all other draft fields.
-  const [bulkMode, setBulkMode] = useState(false);
-  const [bulkText, setBulkText] = useState('');
-  const bulkTitles = useMemo(
-    () => bulkText.split('\n').map(t => t.trim()).filter(Boolean),
-    [bulkText]
-  );
-  const canSubmit = bulkMode ? bulkTitles.length > 0 : !!draft.title;
-  const [users, setUsers] = useState<any[]>([]);
-  const [teams, setTeams] = useState<any[]>([]);
-  const [showCalendar, setShowCalendar] = useState(false);
-  const [templates, setTemplates] = useState<TaskTemplate[]>([]);
-
-  const loadTemplates = async () => {
-    try {
-      const saved = await AsyncStorage.getItem(TEMPLATES_KEY);
-      if (saved) setTemplates(JSON.parse(saved));
-    } catch {}
-  };
-
-  const saveAsTemplate = async () => {
-    if (!draft.title.trim()) {
-      Alert.alert('No Title', 'Add a title first to save it as a template.');
-      return;
-    }
-    const template: TaskTemplate = {
-      name: draft.title.trim(),
-      title: draft.title,
-      description: draft.description,
-      category: draft.category,
-      priority: draft.priority,
-      weight: draft.weight,
-    };
-    const updated = [...templates, template];
-    setTemplates(updated);
-    await AsyncStorage.setItem(TEMPLATES_KEY, JSON.stringify(updated));
-  };
-
-  const loadTemplate = (template: TaskTemplate) => {
-    setDraft({
-      title: template.title,
-      description: template.description,
-      category: template.category,
-      priority: template.priority,
-      weight: template.weight,
-    });
-  };
-
-  const deleteTemplate = async (index: number) => {
-    const updated = templates.filter((_, i) => i !== index);
-    setTemplates(updated);
-    await AsyncStorage.setItem(TEMPLATES_KEY, JSON.stringify(updated));
-  };
-
-  useEffect(() => {
-    if (visible) {
-      loadRecentTasks();
-      loadTemplates();
-      fetchResources();
-      if (initialPipelineId && !draft.pipelineId) {
-        setDraft({ pipelineId: initialPipelineId });
-      }
-    } else {
-      setBulkMode(false);
-      setBulkText('');
-    }
-  }, [visible]);
-
-  const fetchResources = async () => {
-    const [{ data: userData }, { data: teamData }] = await Promise.all([
-      supabase.from('users').select('id, full_name').is('deleted_at', null),
-      supabase.from('teams').select('id, name, color').is('deleted_at', null),
-    ]);
-    setUsers(userData || []);
-    setTeams(teamData || []);
-  };
-
-  const handleCreate = async () => {
-    if (bulkMode) {
-      const n = await createBulkTasks(bulkTitles);
-      if (n > 0) { setBulkText(''); onClose(); }
-      return;
-    }
-    const id = await createTask();
-    if (id) onClose();
-  };
-
-  const removeBriefFile = (id: string) => {
-    setBriefFiles(prev => prev.filter(x => x.id !== id));
-  };
+  const {
+    draft, setDraft, loading, recentTasks, briefFiles, setBriefFiles,
+    step, setStep,
+    bulkMode, setBulkMode,
+    bulkText, setBulkText,
+    bulkTitles, canSubmit,
+    users, teams,
+    showCalendar, setShowCalendar,
+    templates, saveAsTemplate, loadTemplate, deleteTemplate,
+    handleCreate, removeBriefFile,
+  } = useCreateTaskWizard({ visible, initialPipelineId });
 
   const renderStep = () => {
     switch (step) {
@@ -385,8 +275,8 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
                 <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-4 ml-1">Priority</Text>
                 <View className="flex-row flex-wrap gap-2">
                   {['low', 'normal', 'high', 'urgent'].map(p => (
-                    <TouchableOpacity 
-                      key={p} 
+                    <TouchableOpacity
+                      key={p}
                       onPress={() => setDraft({ priority: p as any })}
                       className={`px-6 py-3 rounded-full border ${draft.priority === p ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
                     >
@@ -397,7 +287,7 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
              </View>
              <View>
                 <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-4 ml-1">Deadline Sequence</Text>
-                <TouchableOpacity 
+                <TouchableOpacity
                   onPress={() => setShowCalendar(!showCalendar)}
                   className="bg-surface-background border border-surface-border rounded-xl px-5 py-4 flex-row items-center justify-between"
                 >
@@ -409,12 +299,12 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
 
                 {showCalendar && (
                   <View className="mt-4">
-                    <PremiumCalendarPicker 
-                      selectedDate={draft.dueDate} 
+                    <PremiumCalendarPicker
+                      selectedDate={draft.dueDate}
                       onSelect={(date) => {
                         setDraft({ dueDate: date });
                         setShowCalendar(false);
-                      }} 
+                      }}
                     />
                   </View>
                 )}
@@ -439,15 +329,15 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
              <View>
                <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-3 ml-1">Brief Files</Text>
                <Text className="text-typography-muted text-[10px] mb-3">Attach reference materials for the assignee.</Text>
-               
+
                {briefFiles.length > 0 && (
-                 <AdaptiveFileGrid 
-                   files={briefFiles} 
-                   onRemove={removeBriefFile} 
-                   isUploading={false} 
+                 <AdaptiveFileGrid
+                   files={briefFiles}
+                   onRemove={removeBriefFile}
+                   isUploading={false}
                  />
                )}
-               
+
                <View className="flex-row flex-wrap gap-3">
                  <TouchableOpacity
                    onPress={async () => {
@@ -488,8 +378,8 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
                 <Text className="text-brand-primary text-[10px] font-black uppercase mb-3">Agents</Text>
                 <View className="flex-row flex-wrap gap-2 mb-6">
                    {users.map(u => (
-                     <TouchableOpacity 
-                       key={u.id} 
+                     <TouchableOpacity
+                       key={u.id}
                        onPress={() => setDraft({ assigneeUserIds: draft.assigneeUserIds.includes(u.id) ? draft.assigneeUserIds.filter(id => id !== u.id) : [...draft.assigneeUserIds, u.id] })}
                        className={`px-4 py-2 rounded-lg border ${draft.assigneeUserIds.includes(u.id) ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
                      >
@@ -500,8 +390,8 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
                 <Text className="text-brand-accent text-[10px] font-black uppercase mb-3">Teams</Text>
                 <View className="flex-row flex-wrap gap-2 mb-6">
                    {teams.map(t => (
-                     <TouchableOpacity 
-                       key={t.id} 
+                     <TouchableOpacity
+                       key={t.id}
                        onPress={() => setDraft({ assigneeTeamIds: draft.assigneeTeamIds.includes(t.id) ? draft.assigneeTeamIds.filter(id => id !== t.id) : [...draft.assigneeTeamIds, t.id] })}
                        className={`px-4 py-2 rounded-lg border ${draft.assigneeTeamIds.includes(t.id) ? 'bg-brand-accent border-brand-accent' : 'bg-surface-background border-surface-border'}`}
                      >
@@ -518,16 +408,23 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent>
+    <DraggableSheet
+      visible={visible}
+      onClose={onClose}
+      dimBackdrop
+      maxHeight="94%"
+      containerStyle={{ height: '94%' }}
+      containerClassName="bg-surface-background rounded-t-[2rem] border-t border-surface-border overflow-hidden"
+    >
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
-        <View className="flex-1 bg-surface-background" style={{ paddingTop: insets.top }}>
+        <View className="flex-1 bg-surface-background">
           {/* Header */}
           <View className="px-6 py-4 flex-row items-center justify-between border-b border-surface-border">
              <TouchableOpacity onPress={onClose} disabled={loading} className={loading ? 'opacity-40' : ''}>
                 <Text className="text-typography-muted font-bold">Cancel</Text>
              </TouchableOpacity>
              <Text className="text-typography-main font-black uppercase tracking-widest text-xs">New Task</Text>
-             <TouchableOpacity onPress={handleCreate} disabled={loading || !canSubmit}>
+             <TouchableOpacity onPress={() => handleCreate(onClose)} disabled={loading || !canSubmit}>
                 {loading ? (
                   <ActivityIndicator size="small" color={colors.primary} />
                 ) : (
@@ -550,16 +447,16 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
 
           {/* Bottom Nav */}
           <View className="p-6 border-t border-surface-border flex-row justify-between items-center" style={{ paddingBottom: insets.bottom + 20 }}>
-             <TouchableOpacity 
+             <TouchableOpacity
                onPress={() => setStep(s => Math.max(1, s - 1))}
               disabled={step === 1 || loading}
                className={`w-14 h-14 items-center justify-center rounded-2xl bg-surface-card border border-surface-border ${step === 1 ? 'opacity-20' : ''}`}
              >
                 <FontAwesome name="chevron-left" size={16} className="text-typography-main" />
              </TouchableOpacity>
-             
+
              {step < 3 ? (
-               <TouchableOpacity 
+               <TouchableOpacity
                  onPress={() => setStep(s => s + 1)}
                  disabled={loading}
                  className="flex-1 ml-4 h-14 bg-brand-primary items-center justify-center rounded-2xl premium-shadow"
@@ -568,7 +465,7 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
                </TouchableOpacity>
              ) : (
                <TouchableOpacity
-                 onPress={handleCreate}
+                 onPress={() => handleCreate(onClose)}
                  disabled={loading || !canSubmit}
                  className={`flex-1 ml-4 h-14 bg-brand-primary items-center justify-center rounded-2xl premium-shadow ${!canSubmit ? 'opacity-50' : ''}`}
                >
@@ -587,6 +484,6 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
           )}
         </View>
       </KeyboardAvoidingView>
-    </Modal>
+    </DraggableSheet>
   );
 }
