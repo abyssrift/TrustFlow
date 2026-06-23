@@ -128,6 +128,20 @@ export default function UserAssignmentGrid() {
     );
   };
 
+  const getLastSeen = (lastSeenAt: string | null): { label: string; online: boolean } => {
+    if (!lastSeenAt) return { label: 'Never active', online: false };
+    const seconds = Math.floor((Date.now() - new Date(lastSeenAt).getTime()) / 1000);
+    if (seconds < 600) return { label: 'Active now', online: true };
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return { label: `Active ${minutes}m ago`, online: false };
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return { label: `Active ${hours}h ago`, online: false };
+    const days = Math.floor(hours / 24);
+    if (days < 30) return { label: `Active ${days}d ago`, online: false };
+    const months = Math.floor(days / 30);
+    return { label: `Active ${months}mo ago`, online: false };
+  };
+
   const getTenure = (createdAt: string) => {
     const now = new Date();
     const joined = new Date(createdAt);
@@ -155,6 +169,7 @@ export default function UserAssignmentGrid() {
             const allRoleIds = [...new Set([...directRoleIds, ...inheritedRoleIds])];
             const userRoleCount = allRoleIds.length;
             const teamCount = teamIds.length;
+            const lastSeen = getLastSeen(user.last_seen_at);
 
             return (
               <TouchableOpacity
@@ -164,14 +179,23 @@ export default function UserAssignmentGrid() {
                 style={{ backgroundColor: colors.card, borderColor: colors.border }}
               >
                 <View className="flex-row items-center mb-5">
-                  <View className="w-12 h-12 rounded-xl items-center justify-center border overflow-hidden" style={{ backgroundColor: `${colors.primary}10`, borderColor: `${colors.primary}33` }}>
-                    {user.avatar_url ? (
-                      <Image source={{ uri: user.avatar_url }} className="w-full h-full" />
-                    ) : (
-                      <Text className="font-black text-lg" style={{ color: colors.primary }}>
-                        {user.full_name?.charAt(0) || user.email.charAt(0).toUpperCase()}
-                      </Text>
-                    )}
+                  <View style={{ position: 'relative' }}>
+                    <View className="w-12 h-12 rounded-xl items-center justify-center border overflow-hidden" style={{ backgroundColor: `${colors.primary}10`, borderColor: `${colors.primary}33` }}>
+                      {user.avatar_url ? (
+                        <Image source={{ uri: user.avatar_url }} className="w-full h-full" />
+                      ) : (
+                        <Text className="font-black text-lg" style={{ color: colors.primary }}>
+                          {user.full_name?.charAt(0) || user.email.charAt(0).toUpperCase()}
+                        </Text>
+                      )}
+                    </View>
+                    <View
+                      style={{
+                        position: 'absolute', bottom: -2, right: -2, width: 12, height: 12, borderRadius: 6,
+                        backgroundColor: lastSeen.online ? colors.success : colors.textMuted,
+                        borderWidth: 2, borderColor: colors.card,
+                      }}
+                    />
                   </View>
                   <View className="ml-4 flex-1">
                     <Text className="font-black text-base" numberOfLines={1} style={{ color: colors.textMain }}>
@@ -179,6 +203,9 @@ export default function UserAssignmentGrid() {
                     </Text>
                     <Text className="text-[10px] font-bold uppercase tracking-widest" numberOfLines={1} style={{ color: colors.textMuted }}>
                       {user.job_title || 'Unassigned Role'}
+                    </Text>
+                    <Text className="text-[10px] font-semibold mt-0.5" numberOfLines={1} style={{ color: lastSeen.online ? colors.success : colors.textMuted }}>
+                      {lastSeen.label}
                     </Text>
                   </View>
                 </View>
@@ -300,9 +327,15 @@ export default function UserAssignmentGrid() {
                         )}
                         <View>
                           <Text className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: colors.textMuted }}>Last Active</Text>
-                          <Text style={{ color: colors.textMain }}>
-                            {selectedUser.last_seen_at ? new Date(selectedUser.last_seen_at).toLocaleDateString() : 'Never'}
-                          </Text>
+                          <View className="flex-row items-center gap-2">
+                            <View
+                              style={{
+                                width: 8, height: 8, borderRadius: 4,
+                                backgroundColor: getLastSeen(selectedUser.last_seen_at).online ? colors.success : colors.textMuted,
+                              }}
+                            />
+                            <Text style={{ color: colors.textMain }}>{getLastSeen(selectedUser.last_seen_at).label}</Text>
+                          </View>
                         </View>
                       </View>
                     </View>
@@ -642,6 +675,18 @@ export default function UserAssignmentGrid() {
                             <Text className="text-typography-main text-sm">{selectedUser.department}</Text>
                           </View>
                         )}
+                        <View className="p-3 rounded-lg border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
+                          <Text className="text-typography-label text-[9px] font-bold uppercase tracking-widest mb-1">Last Active</Text>
+                          <View className="flex-row items-center gap-2">
+                            <View
+                              style={{
+                                width: 8, height: 8, borderRadius: 4,
+                                backgroundColor: getLastSeen(selectedUser.last_seen_at).online ? colors.success : colors.textMuted,
+                              }}
+                            />
+                            <Text className="text-typography-main text-sm">{getLastSeen(selectedUser.last_seen_at).label}</Text>
+                          </View>
+                        </View>
                       </View>
                     </View>
 

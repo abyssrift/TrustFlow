@@ -97,7 +97,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             Promise.all([
               fetchPermissions(),
               fetchRoles(),
-              fetchProfile(session.user.id)
+              fetchProfile(session.user.id),
+              touchLastSeen()
             ]);
           }
         }
@@ -124,7 +125,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             Promise.all([
               fetchPermissions(),
               fetchRoles(),
-              fetchProfile(session.user.id)
+              fetchProfile(session.user.id),
+              touchLastSeen()
             ]);
           } else {
             setProfile(null);
@@ -143,6 +145,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       subscription.unsubscribe();
     };
   }, []);
+
+  // Heartbeat: keep last_seen_at fresh while the app stays open, so "active
+  // now" presence is meaningful and not just a snapshot from sign-in.
+  useEffect(() => {
+    if (!user) return;
+    const interval = setInterval(() => { touchLastSeen(); }, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [user]);
 
   const fetchProfile = async (userId: string) => {
     try {
@@ -181,6 +191,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const refreshProfile = async () => {
     if (user) {
       await fetchProfile(user.id);
+    }
+  };
+
+  const touchLastSeen = async () => {
+    try {
+      const { error } = await supabase.rpc('rpc_touch_last_seen');
+      if (error) console.error('[AuthContext] touchLastSeen error:', error);
+    } catch (err) {
+      console.error('[AuthContext] Unexpected touchLastSeen error:', err);
     }
   };
 
