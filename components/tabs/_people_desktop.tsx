@@ -4,6 +4,7 @@ import { useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 
+import BillingPanel from '@/components/admin/BillingPanel';
 import NotificationRules from '@/components/admin/NotificationRules';
 import RetentionPanel from '@/components/admin/RetentionPanel';
 import RoleBuilder from '@/components/admin/RoleBuilder';
@@ -16,9 +17,10 @@ import { RoleManagerProvider, useRoleManager } from '@/contexts/RoleManagerConte
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 
-type PeopleSection = 'members' | 'teams' | 'roles' | 'notifications' | 'workspace' | 'company' | 'retention';
+type PeopleSection = 'members' | 'teams' | 'roles' | 'notifications' | 'workspace' | 'company' | 'retention' | 'billing';
 
-function resolveSection(param: string | undefined, canViewMembers: boolean, canManageTeams: boolean, canManageNotifications: boolean, canEditCompany: boolean, canManageRetention: boolean): PeopleSection {
+function resolveSection(param: string | undefined, canViewMembers: boolean, canManageTeams: boolean, canManageNotifications: boolean, canEditCompany: boolean, canManageRetention: boolean, canManageBilling: boolean): PeopleSection {
+  if (param === 'billing' && canManageBilling) return 'billing';
   if (param === 'retention' && canManageRetention) return 'retention';
   if (param === 'company' && canEditCompany) return 'company';
   if (param === 'workspace' && canManageNotifications) return 'workspace';
@@ -52,6 +54,7 @@ function TeamWorkspaceContent({ section }: { section: PeopleSection }) {
     );
   }
 
+  if (section === 'billing') return <BillingPanel />;
   if (section === 'retention') return <RetentionPanel />;
   if (section === 'company') return <CompanyEditSettings />;
   if (section === 'workspace') return <WorkspaceSettings />;
@@ -75,7 +78,8 @@ export default function PeopleScreenWeb() {
   const canViewMembers = hasPermission('user.view_all') || canManageTeams;
   const canEditCompany = hasPermission('company.edit');
   const canManageRetention = !!profile?.is_owner || hasPermission('company.settings') || hasPermission('role.manage');
-  const hasWorkspaceAccess = canViewMembers || canManageTeams || canManageNotifications || canEditCompany || canManageRetention;
+  const canManageBilling = !!profile?.is_owner || hasPermission('company.billing');
+  const hasWorkspaceAccess = canViewMembers || canManageTeams || canManageNotifications || canEditCompany || canManageRetention || canManageBilling;
 
   useEffect(() => {
     const fetchCompanyInfo = async () => {
@@ -91,8 +95,8 @@ export default function PeopleScreenWeb() {
   }, [profile?.company_id]);
 
   useEffect(() => {
-    setActiveSection(resolveSection(sectionParam, canViewMembers, canManageTeams, canManageNotifications, canEditCompany, canManageRetention));
-  }, [sectionParam, canViewMembers, canManageTeams, canManageNotifications, canEditCompany, canManageRetention]);
+    setActiveSection(resolveSection(sectionParam, canViewMembers, canManageTeams, canManageNotifications, canEditCompany, canManageRetention, canManageBilling));
+  }, [sectionParam, canViewMembers, canManageTeams, canManageNotifications, canEditCompany, canManageRetention, canManageBilling]);
 
   return (
     <View className="flex-1 bg-surface-background p-10">
@@ -197,6 +201,16 @@ export default function PeopleScreenWeb() {
                 >
                   <Text className={`font-black text-xs uppercase tracking-widest ${activeSection === 'retention' ? 'text-white' : 'text-typography-muted'}`}>
                     Retention
+                  </Text>
+                </TouchableOpacity>
+              )}
+              {canManageBilling && (
+                <TouchableOpacity
+                  onPress={() => setActiveSection('billing')}
+                  className={`px-8 py-3 rounded-xl ${activeSection === 'billing' ? 'bg-brand-primary' : ''}`}
+                >
+                  <Text className={`font-black text-xs uppercase tracking-widest ${activeSection === 'billing' ? 'text-white' : 'text-typography-muted'}`}>
+                    Billing
                   </Text>
                 </TouchableOpacity>
               )}
