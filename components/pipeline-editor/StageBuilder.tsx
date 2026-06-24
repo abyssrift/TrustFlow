@@ -41,6 +41,7 @@ export default function StageBuilder() {
   const [formLinkedPipeId, setFormLinkedPipeId] = useState<string | null>(null);
   const [formManagerRouting, setFormManagerRouting] = useState('INHERIT');
   const [formMaxEscalation, setFormMaxEscalation] = useState(3);
+  const [formReassignOnEntry, setFormReassignOnEntry] = useState(false);
 
   const resetForm = () => {
     setFormName('');
@@ -56,6 +57,7 @@ export default function StageBuilder() {
     setFormLinkedPipeId(null);
     setFormManagerRouting('INHERIT');
     setFormMaxEscalation(3);
+    setFormReassignOnEntry(false);
   };
 
   const populateForm = (s: Stage) => {
@@ -72,6 +74,7 @@ export default function StageBuilder() {
     setFormLinkedPipeId(s.linked_pipeline_id);
     setFormManagerRouting(s.manager_routing_rule || 'INHERIT');
     setFormMaxEscalation(s.max_escalation_depth || 3);
+    setFormReassignOnEntry(s.reassign_on_entry);
   };
 
   const handleAdd = async () => {
@@ -89,6 +92,7 @@ export default function StageBuilder() {
       use_business_hours: formUseBus,
       manager_routing_rule: formManagerRouting,
       max_escalation_depth: formMaxEscalation,
+      reassign_on_entry: formReassignOnEntry,
     } as any);
     resetForm();
     setShowAddForm(false);
@@ -109,6 +113,7 @@ export default function StageBuilder() {
       linked_pipeline_id: formLinkedPipeId || null,
       manager_routing_rule: formManagerRouting,
       max_escalation_depth: formMaxEscalation,
+      reassign_on_entry: formReassignOnEntry,
     } as any);
     setEditingStage(null);
     resetForm();
@@ -274,6 +279,16 @@ export default function StageBuilder() {
           icon="flag-checkered"
           color={colors.warning}
         />
+        {selectedPipeline?.assignment_mode !== 'manual' && (
+          <FlagToggle
+            label="Re-assign on Entry"
+            desc="Re-evaluates and may change the assignee every time a task enters this stage — including manually assigned tasks"
+            active={formReassignOnEntry}
+            onToggle={() => setFormReassignOnEntry(!formReassignOnEntry)}
+            icon="random"
+            color={colors.accent}
+          />
+        )}
       </View>
 
       {/* Recursive Spawning */}

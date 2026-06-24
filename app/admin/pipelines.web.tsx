@@ -45,7 +45,12 @@ function PipelinesWebInner() {
     roles,
     error,
     refreshPipelineData,
-    clearError
+    clearError,
+    assignmentPool,
+    companyUsers,
+    companyTeams,
+    setAssignmentPool,
+    setPoolMemberWithdrawn,
   } = usePipelineEditor();
 
   const { hasPermission } = useAuth();
@@ -111,11 +116,18 @@ function PipelinesWebInner() {
                   description: selectedPipeline.description,
                   visibility_permissions: selectedPipeline.visibility_permissions || [],
                   task_visibility_mode: selectedPipeline.task_visibility_mode || 'all',
-                  is_default: selectedPipeline.is_default || false
+                  is_default: selectedPipeline.is_default || false,
+                  assignment_mode: selectedPipeline.assignment_mode || 'manual',
+                  assignment_pool_type: selectedPipeline.assignment_pool_type || 'users'
                 }}
                 roles={roles}
                 error={error}
                 submitLabel="Update Configuration"
+                assignmentPool={assignmentPool}
+                companyUsers={companyUsers}
+                companyTeams={companyTeams}
+                onSetAssignmentPool={setAssignmentPool}
+                onSetPoolMemberWithdrawn={setPoolMemberWithdrawn}
                 onCancel={() => {
                   clearError();
                   setActiveSection('stages');
@@ -128,7 +140,9 @@ function PipelinesWebInner() {
                     data.description,
                     data.is_default,
                     data.visibility_permissions,
-                    data.task_visibility_mode
+                    data.task_visibility_mode,
+                    data.assignment_mode,
+                    data.assignment_pool_type
                   );
                 }}
                 onDelete={async () => {

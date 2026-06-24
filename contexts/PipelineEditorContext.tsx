@@ -12,6 +12,8 @@ export type Pipeline = {
   is_default: boolean;
   visibility_permissions: string[];
   task_visibility_mode: 'all' | 'assigned_only';
+  assignment_mode: 'manual' | 'round_robin' | 'smart';
+  assignment_pool_type: 'users' | 'teams';
   created_at: string;
 };
 
@@ -34,7 +36,20 @@ export type Stage = {
   manager_routing_rule: string | null;
   max_escalation_depth: number | null;
   ui_metadata: { x: number; y: number } | null;
+  reassign_on_entry: boolean;
 };
+
+/** A single user or team in a pipeline's assignment rotation pool */
+export type AssignmentPoolMember = {
+  id: string;
+  member_user_id: string | null;
+  member_team_id: string | null;
+  is_withdrawn: boolean;
+  last_assigned_at: string | null;
+};
+
+export type CompanyUserOption = { id: string; full_name: string; avatar_url: string | null };
+export type CompanyTeamOption = { id: string; name: string; color: string | null };
 
 export type Transition = {
   id: string;
@@ -118,6 +133,11 @@ type PipelineEditorState = {
   roles: Role[];
   /** Granular permission entries for transition gate configuration */
   permissions: PermissionItem[];
+  /** Current pipeline's round-robin/smart assignment pool */
+  assignmentPool: AssignmentPoolMember[];
+  /** Company users/teams available to add to an assignment pool */
+  companyUsers: CompanyUserOption[];
+  companyTeams: CompanyTeamOption[];
   // UI
   activeSection: EditorSection;
   loading: boolean;
@@ -133,7 +153,7 @@ type PipelineEditorState = {
   // Pipeline Actions
   pipelineActions: {
     create: (name: string, desc: string, stages: any[], transitions: any[], visibility_permissions?: string[], task_visibility_mode?: string) => Promise<string | null>;
-    update: (id: string, name?: string, desc?: string | null, isDefault?: boolean, visibility_permissions?: string[], task_visibility_mode?: string) => Promise<boolean>;
+    update: (id: string, name?: string, desc?: string | null, isDefault?: boolean, visibility_permissions?: string[], task_visibility_mode?: string, assignmentMode?: string, assignmentPoolType?: string) => Promise<boolean>;
     remove: (id: string) => Promise<boolean>;
   };
   
@@ -148,8 +168,11 @@ type PipelineEditorState = {
 
   // Deprecated flat access (keeping for compatibility)
   createPipeline: (name: string, desc: string, stages: any[], transitions: any[], visibility_permissions?: string[], task_visibility_mode?: string) => Promise<string | null>;
-  updatePipeline: (id: string, name?: string, desc?: string | null, isDefault?: boolean, visibility_permissions?: string[], task_visibility_mode?: string) => Promise<boolean>;
+  updatePipeline: (id: string, name?: string, desc?: string | null, isDefault?: boolean, visibility_permissions?: string[], task_visibility_mode?: string, assignmentMode?: string, assignmentPoolType?: string) => Promise<boolean>;
   deletePipeline: (id: string) => Promise<boolean>;
+  // Assignment pool CRUD
+  setAssignmentPool: (memberType: 'user' | 'team', memberIds: string[]) => Promise<boolean>;
+  setPoolMemberWithdrawn: (memberType: 'user' | 'team', memberId: string, isWithdrawn: boolean) => Promise<boolean>;
   addStage: (args: Partial<Stage>) => Promise<string | null>;
   updateStage: (id: string, args: Partial<Stage>) => Promise<boolean>;
   updateStagePosition: (id: string, x: number, y: number) => Promise<boolean>;
@@ -197,6 +220,9 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
   const [stageActions, setStageActions] = useState<StageAction[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [permissionItems, setPermissionItems] = useState<PermissionItem[]>([]);
+  const [assignmentPool, setAssignmentPoolState] = useState<AssignmentPoolMember[]>([]);
+  const [companyUsers, setCompanyUsers] = useState<CompanyUserOption[]>([]);
+  const [companyTeams, setCompanyTeams] = useState<CompanyTeamOption[]>([]);
   const [activeSection, setActiveSection] = useState<EditorSection>('list');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -308,6 +334,13 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
       } else {
         setAutomations([]);
       }
+
+      // Assignment pool
+      const { data: pool } = await supabase
+        .from('pipeline_assignment_pool')
+        .select('*')
+        .eq('pipeline_id', selectedPipeline.id);
+      setAssignmentPoolState(pool || []);
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -338,6 +371,31 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
       setPermissionItems(data || []);
     };
     fetchPermissions();
+  }, []);
+
+  // ── Fetch company users/teams (for assignment pool picker) ──
+  useEffect(() => {
+    const fetchCompanyUsers = async () => {
+      const { data } = await supabase
+        .from('users')
+        .select('id, full_name, avatar_url')
+        .is('deleted_at', null)
+        .order('full_name');
+      setCompanyUsers(data || []);
+    };
+    fetchCompanyUsers();
+  }, []);
+
+  useEffect(() => {
+    const fetchCompanyTeams = async () => {
+      const { data } = await supabase
+        .from('teams')
+        .select('id, name, color')
+        .is('deleted_at', null)
+        .order('name');
+      setCompanyTeams(data || []);
+    };
+    fetchCompanyTeams();
   }, []);
 
   // ── Restore selected pipeline from storage ──
@@ -404,6 +462,7 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
     setAutomations([]);
     setLinkedOutcomes([]);
     setStageActions([]);
+    setAssignmentPoolState([]);
     setActiveSection('list');
     // Clear persisted selection
     AsyncStorage.removeItem('@TrustFlow_selected_pipeline').catch(e => {
@@ -566,7 +625,8 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
   }, [refreshPipelines, successToast, errorToast]);
 
   const updatePipeline = useCallback(async (
-    id: string, name?: string, desc?: string | null, isDefault?: boolean, visibility_permissions?: string[], task_visibility_mode?: string
+    id: string, name?: string, desc?: string | null, isDefault?: boolean, visibility_permissions?: string[], task_visibility_mode?: string,
+    assignmentMode?: string, assignmentPoolType?: string
   ): Promise<boolean> => {
     setLoading(true);
     try {
@@ -577,6 +637,8 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
         p_is_default: isDefault ?? null,
         p_visibility_permissions: visibility_permissions ?? null,
         p_task_visibility_mode: task_visibility_mode ?? null,
+        p_assignment_mode: assignmentMode ?? null,
+        p_assignment_pool_type: assignmentPoolType ?? null,
       });
       if (e) throw e;
       await refreshPipelines();
@@ -587,7 +649,9 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
           description: desc ?? prev.description,
           is_default: isDefault ?? prev.is_default,
           visibility_permissions: visibility_permissions ?? prev.visibility_permissions,
-          task_visibility_mode: (task_visibility_mode as any) ?? prev.task_visibility_mode
+          task_visibility_mode: (task_visibility_mode as any) ?? prev.task_visibility_mode,
+          assignment_mode: (assignmentMode as any) ?? prev.assignment_mode,
+          assignment_pool_type: (assignmentPoolType as any) ?? prev.assignment_pool_type,
         } : null);
       }
       successToast('Pipeline updated.', 'Saved');
@@ -620,6 +684,48 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     }
   }, [refreshPipelines, selectedPipeline, deselectPipeline, infoToast, errorToast]);
+
+  // ═══ Assignment Pool CRUD ═══
+  const setAssignmentPool = useCallback(async (memberType: 'user' | 'team', memberIds: string[]): Promise<boolean> => {
+    if (!selectedPipeline) return false;
+    try {
+      const { error: e } = await supabase.rpc('rpc_set_assignment_pool', {
+        p_pipeline_id: selectedPipeline.id,
+        p_member_type: memberType,
+        p_member_ids: memberIds,
+      });
+      if (e) throw e;
+      await refreshPipelineData();
+      return true;
+    } catch (e: any) {
+      errorToast(e.message || 'Unable to update assignment pool.');
+      return false;
+    }
+  }, [selectedPipeline, refreshPipelineData, errorToast]);
+
+  const setPoolMemberWithdrawn = useCallback(async (memberType: 'user' | 'team', memberId: string, isWithdrawn: boolean): Promise<boolean> => {
+    if (!selectedPipeline) return false;
+    // Optimistic local update -- snappy toggle, no full refetch needed.
+    setAssignmentPoolState(prev => prev.map(m =>
+      (memberType === 'user' ? m.member_user_id === memberId : m.member_team_id === memberId)
+        ? { ...m, is_withdrawn: isWithdrawn }
+        : m
+    ));
+    try {
+      const { error: e } = await supabase.rpc('rpc_set_pool_member_withdrawn', {
+        p_pipeline_id: selectedPipeline.id,
+        p_member_type: memberType,
+        p_member_id: memberId,
+        p_is_withdrawn: isWithdrawn,
+      });
+      if (e) throw e;
+      return true;
+    } catch (e: any) {
+      errorToast(e.message || 'Unable to update pool member.');
+      await refreshPipelineData(); // revert optimistic update
+      return false;
+    }
+  }, [selectedPipeline, errorToast, refreshPipelineData]);
 
   // ═══ Stage CRUD ═══
   const addStage = useCallback(async (args: Partial<Stage>): Promise<string | null> => {
@@ -670,6 +776,7 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
         p_linked_pipeline_id: args.linked_pipeline_id ?? null,
         p_ui_metadata: args.ui_metadata ?? null,
         p_min_timer_seconds: args.min_timer_seconds ?? null,
+        p_reassign_on_entry: args.reassign_on_entry ?? null,
       });
       if (e) throw e;
       await refreshPipelineData();
@@ -1028,7 +1135,8 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
         clearError,
         permissions: permissionItems,
         linkedOutcomes, stageActions,
-        
+        assignmentPool, companyUsers, companyTeams,
+
         // Grouped Actions
         pipelineActions: {
           create: createPipeline,
@@ -1045,6 +1153,7 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
 
         // Flat compatibility layer
         createPipeline, updatePipeline, deletePipeline,
+        setAssignmentPool, setPoolMemberWithdrawn,
         addStage, updateStage, updateStagePosition, deleteStage, reorderStages,
         addTransition, updateTransition, deleteTransition,
         createAutomation, updateAutomation, deleteAutomation,

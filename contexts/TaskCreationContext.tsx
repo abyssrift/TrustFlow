@@ -168,7 +168,8 @@ export const TaskCreationProvider = ({ children }: { children: React.ReactNode }
 
       if (error) throw error;
 
-      // 2. Assign resources if any
+      // 2. Assign resources if any -- if nobody was picked, let the pipeline's
+      // assignment mode (round robin / smart) fill it in; no-ops for manual pipelines.
       if (draft.assigneeUserIds.length > 0 || draft.assigneeTeamIds.length > 0) {
         const { error: assignError } = await supabase.rpc('rpc_update_task_assignments', {
           p_task_id: taskId,
@@ -176,6 +177,11 @@ export const TaskCreationProvider = ({ children }: { children: React.ReactNode }
           p_team_ids: draft.assigneeTeamIds
         });
         if (assignError) console.error('Assignment error:', assignError);
+      } else {
+        const { error: autoAssignError } = await supabase.rpc('rpc_auto_assign_task', {
+          p_task_id: taskId
+        });
+        if (autoAssignError) console.error('Auto-assign error:', autoAssignError);
       }
 
       // 3. Upload brief files if any

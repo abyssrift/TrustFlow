@@ -45,6 +45,7 @@ export default function StageBuilder() {
     linked_pipeline_id: null as string | null,
     manager_routing_rule: 'INHERIT',
     max_escalation_depth: 3,
+    reassign_on_entry: false,
   });
 
   const [transForm, setTransForm] = useState({
@@ -68,6 +69,7 @@ export default function StageBuilder() {
       linked_pipeline_id: null,
       manager_routing_rule: 'INHERIT',
       max_escalation_depth: 3,
+      reassign_on_entry: false,
     });
     setShowPermPicker(false);
   };
@@ -87,6 +89,7 @@ export default function StageBuilder() {
       linked_pipeline_id: s.linked_pipeline_id,
       manager_routing_rule: s.manager_routing_rule || 'INHERIT',
       max_escalation_depth: s.max_escalation_depth || 3,
+      reassign_on_entry: s.reassign_on_entry,
     });
   };
 
@@ -298,12 +301,20 @@ export default function StageBuilder() {
                       </TouchableOpacity>
                    </View>
                 )}
-                <Toggle 
+                <Toggle
                   label="Submission Required"
                   desc="Force data upload before exit"
                   active={formState.requires_submission}
                   onToggle={(val: boolean) => setFormState(prev => ({ ...prev, requires_submission: val }))}
                 />
+                {selectedPipeline?.assignment_mode !== 'manual' && (
+                  <Toggle
+                    label="Re-assign on Entry"
+                    desc="Re-evaluates and may change the assignee every time a task enters this stage — including manually assigned tasks"
+                    active={formState.reassign_on_entry}
+                    onToggle={(val: boolean) => setFormState(prev => ({ ...prev, reassign_on_entry: val }))}
+                  />
+                )}
               </Section>
 
               {/* Time Management */}
