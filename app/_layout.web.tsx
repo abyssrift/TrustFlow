@@ -116,7 +116,7 @@ function RootLayoutNav() {
       <AnalyticsProvider>
         <NotificationsProvider>
           <PingHighlightProvider>
-          <View className="flex-1 bg-surface-background">
+          <View className="flex-1 bg-surface-background" style={{ flex: 1, minHeight: '100vh', height: '100%', width: '100%' }}>
             {/* Always-on ping listener — one WebSocket channel for the current user */}
             {session && <GlobalPingGuard />}
             {session && <WelcomeTour />}

@@ -3,10 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <!-- viewport-fit=cover exposes iPhone safe area insets (home bar, notch) to CSS and RN -->
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover" />
-
-    <!-- PWA / mobile web chrome -->
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -15,26 +12,21 @@
 
     <title>TrustFlow</title>
 
-    <!-- react-native-web recommended style reset (https://necolas.github.io/react-native-web/docs/setup/#root-element) -->
+    <script>
+      (function(){
+        if(typeof Promise.withResolvers!=='function'){Promise.withResolvers=function(){var r,j,p=new Promise(function(res,rej){r=res;j=rej;});return{promise:p,resolve:r,reject:j};}}
+        if(typeof Array.prototype.at!=='function'){Array.prototype.at=function(i){i=Math.trunc(i)||0;if(i<0)i+=this.length;if(i<0||i>=this.length)return undefined;return this[i];}}
+        if(typeof Object.hasOwn!=='function'){Object.hasOwn=function(o,p){return Object.prototype.hasOwnProperty.call(o,p);}}
+        if(typeof structuredClone!=='function'){window.structuredClone=function(v){return JSON.parse(JSON.stringify(v));}}
+      })();
+    </script>
+
     <style id="expo-reset">
-      /* Full-height layout foundation */
-      html,
-      body {
-        height: 100%;
-      }
-      /* Disable document-level scrolling — ScrollView handles scrolling within the app */
-      body {
-        overflow: hidden;
-      }
-      /* Root flex container fills the viewport */
-      #root {
-        display: flex;
-        height: 100%;
-        flex: 1;
-      }
+      html, body { height: 100%; background-color: #080d18; }
+      body { overflow: hidden; }
+      #root { display: flex; height: 100%; flex: 1; }
     </style>
   </head>
-
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>

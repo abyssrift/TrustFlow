@@ -16,10 +16,8 @@ export function usePushAutoSubscribe() {
 
   useEffect(() => {
     if (!initialized || !user) return;
-    if (state === 'loading' || state === 'unsupported') return;
-    if (state === 'subscribed') return;
-    if (typeof Notification === 'undefined') return;
-    if (Notification.permission === 'denied') return;
+    if (state === 'loading' || state === 'unsupported' || state === 'subscribed') return;
+    if (typeof Notification === 'undefined' || Notification.permission === 'denied') return;
     if (attemptedForUser.current === user.id) return;
 
     attemptedForUser.current = user.id;

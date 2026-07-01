@@ -39,7 +39,7 @@ const APP_SERVER_KEY: Uint8Array | null = (() => {
 function getOrCreateDeviceId(): string {
   let id = localStorage.getItem(DEVICE_ID_KEY);
   if (!id) {
-    id = crypto.randomUUID();
+    id = typeof crypto?.randomUUID === 'function' ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36);
     localStorage.setItem(DEVICE_ID_KEY, id);
   }
   return id;
@@ -49,18 +49,16 @@ export type PushState = 'unsupported' | 'denied' | 'subscribed' | 'unsubscribed'
 
 export function usePushSubscription() {
   const [state, setState] = useState<PushState>('loading');
+  const [isSubscribing, setIsSubscribing] = useState(false);
+  const { session, user, initialized } = useAuth();
 
   const checkState = useCallback(async () => {
-    if (
-      typeof window === 'undefined' ||
-      !('serviceWorker' in navigator) ||
-      !('PushManager' in window)
-    ) {
+    if (Platform.OS !== 'web' || !('serviceWorker' in navigator) || !('PushManager' in window)) {
       setState('unsupported');
       return;
     }
-    if (Notification.permission === 'denied') {
-      setState('denied');
+    if (typeof Notification === 'undefined' || Notification.permission === 'denied') {
+      setState(typeof Notification === 'undefined' ? 'unsupported' : 'denied');
       return;
     }
     try {
@@ -83,6 +81,10 @@ export function usePushSubscription() {
   const subscribe = useCallback(async (): Promise<boolean> => {
     if (!APP_SERVER_KEY) {
       console.warn('[push] EXPO_PUBLIC_VAPID_PUBLIC_KEY is missing or invalid');
+      return false;
+    }
+    if (typeof Notification === 'undefined') {
+      setState('unsupported');
       return false;
     }
     setState('loading');
