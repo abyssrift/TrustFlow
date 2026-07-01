@@ -1,6 +1,7 @@
 import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { FileActivity, FileHubFile, FileHubFolder, FileHubGroup, FileHubGroupMember, FileHubMode, FileHubProvider, FileVersion, useFileHub } from '@/contexts/FileHubContext';
+import { useFileSizeLimit } from '@/hooks/useFileSizeLimit';
 import { useImageLightbox } from '@/hooks/useImageLightbox';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { FilePreviewModal, FilePreviewTeaser, getPreviewKind, type PreviewKind } from './../common/FilePreview';
@@ -277,6 +278,7 @@ function UploadModal({
   const folderInputRef = useRef<any>(null);
   const [draft, setDraft] = useState<UploadDraft>(EMPTY_DRAFT(activeGroup ? 'group' : 'direct'));
   const [uploading, setUploading] = useState(false);
+  const maxFileSizeBytes = useFileSizeLimit();
   const [uploadingIndex, setUploadingIndex] = useState(0);
   const [progress, setProgress] = useState(0);
   const [recipientSearch, setRecipientSearch] = useState('');
@@ -393,6 +395,10 @@ function UploadModal({
       setUploadingIndex(i);
       setProgress(5);
       try {
+        if (maxFileSizeBytes !== null && maxFileSizeBytes !== undefined && file.size > maxFileSizeBytes) {
+          errors.push(`${file.name}: exceeds your plan's ${formatFileSize(maxFileSizeBytes)} file size limit.`);
+          continue;
+        }
         const contentHash = await computeSHA256(file);
         setProgress(15);
 

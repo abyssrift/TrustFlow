@@ -240,7 +240,7 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
   const isMobile = width < 768;
   const pathname = usePathname();
   const params = useLocalSearchParams();
-  const { session, user, hasPermission } = useAuth();
+  const { session, user, hasPermission, profile } = useAuth();
   const { unreadCount } = useNotifications();
   const isPlatformAdmin = ['adamsamir2005@gmail.com', 'adam.samir@trustedgellc.com', 'adamsamir@hotmail.com'].includes(user?.email || '');
   const { inboxUnread } = useFileHubBadge();
@@ -284,11 +284,12 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
         (s) =>
           s.id === 'dashboard' ||
           s.id === 'tasks' ||
+          (profile?.is_owner && (s.id === 'team' || s.id === 'pipelines-admin')) ||
           (s.anyPermissions ? s.anyPermissions.some((p) => hasPermission(p)) : false) ||
           (!!s.permissionKey && hasPermission(s.permissionKey)) ||
           (!!s.fallbackPermissionKey && hasPermission(s.fallbackPermissionKey))
       ),
-    [hasPermission]
+    [hasPermission, profile?.is_owner]
   );
   const profileLabel = useMemo(() => profileName || displayNameFromSession(session), [profileName, session]);
 

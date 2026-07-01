@@ -1100,7 +1100,7 @@ function TasksScreen() {
 
   // EMPTY STATE: NO PIPELINES
   if (!loading && availablePipelines.length === 0) {
-    const canManage = hasPermission('pipeline.edit');
+    const canManage = profile?.is_owner || hasPermission('pipeline.edit');
     return (
       <View className="flex-1 bg-surface-background items-center justify-center px-6">
         <View className="bg-surface-card w-full p-8 rounded-[32px] border border-surface-border items-center premium-shadow">
@@ -1358,7 +1358,12 @@ function TasksScreen() {
       {showPipelinePicker && (
          <View className="absolute inset-0 bg-surface-background/80 z-50 items-center justify-center px-6">
             <View className="bg-surface-card w-full rounded-3xl border border-surface-border p-5 max-h-[80%]">
-                <Text className="text-typography-main font-black text-2xl mb-4 tracking-tighter">Switch Board</Text>
+                <View className="flex-row items-center justify-between mb-4">
+                  <Text className="text-typography-main font-black text-2xl tracking-tighter">Switch Board</Text>
+                  <TouchableOpacity onPress={() => setShowPipelinePicker(false)} hitSlop={8}>
+                    <FontAwesome name="times" size={18} color={colors.textMuted} />
+                  </TouchableOpacity>
+                </View>
 
                 {/* Search */}
                 <View className="mb-4 h-11 px-4 flex-row items-center bg-surface-background border border-surface-border rounded-2xl">

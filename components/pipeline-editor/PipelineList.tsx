@@ -1,5 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { Pipeline, usePipelineEditor } from '@/contexts/PipelineEditorContext';
+import { usePipelineLimit } from '@/hooks/usePipelineLimit';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { FontAwesome } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
@@ -31,6 +32,7 @@ export default function PipelineList() {
   } = usePipelineEditor();
   const { hasPermission, profile } = useAuth();
   const isAdmin = profile?.system_role === 'admin' || profile?.workspace_role === 'admin' || profile?.workspace_role === 'owner';
+  const { atLimit: pipelinesAtLimit, data: pipelineLimit } = usePipelineLimit();
 
   const [showCreate, setShowCreate] = useState(false);
   const [isQuickCreate, setIsQuickCreate] = useState(true);
@@ -86,17 +88,22 @@ export default function PipelineList() {
         <View>
           <Text className="text-typography-main text-2xl font-black">Pipelines</Text>
           <Text className="text-typography-muted text-sm mt-1">
-            {pipelines.length} workflow{pipelines.length !== 1 ? 's' : ''} configured
+            {pipelineLimit?.limit != null
+              ? `${pipelines.length} / ${pipelineLimit.limit} pipelines`
+              : `${pipelines.length} workflow${pipelines.length !== 1 ? 's' : ''} configured`}
           </Text>
         </View>
         {canEdit && (
           <TouchableOpacity
-            onPress={() => setShowCreate(true)}
-            className="bg-brand-primary px-5 py-3 rounded-xl active:bg-brand-primary-hover active:scale-95 transition-all"
+            onPress={() => !pipelinesAtLimit && setShowCreate(true)}
+            disabled={pipelinesAtLimit}
+            className={`px-5 py-3 rounded-xl ${pipelinesAtLimit ? 'bg-surface-background border border-surface-border' : 'bg-brand-primary active:bg-brand-primary-hover active:scale-95 transition-all'}`}
           >
-            <View className="flex-row items-center">
-              <FontAwesome name="plus" size={12} className="text-brand-on-primary" />
-              <Text className="text-brand-on-primary font-bold text-sm ml-2 uppercase tracking-wide">New Pipeline</Text>
+            <View className="flex-row items-center gap-2">
+              <FontAwesome name={pipelinesAtLimit ? 'lock' : 'plus'} size={12} color={pipelinesAtLimit ? colors.textMuted : undefined} className={pipelinesAtLimit ? '' : 'text-brand-on-primary'} />
+              <Text className={`font-bold text-sm uppercase tracking-wide ${pipelinesAtLimit ? 'text-typography-muted' : 'text-brand-on-primary'}`}>
+                {pipelinesAtLimit ? 'Limit Reached' : 'New Pipeline'}
+              </Text>
             </View>
           </TouchableOpacity>
         )}
@@ -110,6 +117,19 @@ export default function PipelineList() {
       )}
 
       <DeadlockAlert />
+
+      {/* Pipeline limit nudge */}
+      {pipelinesAtLimit && (
+        <View className="flex-row items-center bg-state-warning/10 border border-state-warning/30 rounded-xl px-4 py-3 mb-4 gap-3">
+          <FontAwesome name="lock" size={14} color={colors.warning} />
+          <View className="flex-1">
+            <Text className="text-typography-main text-[12px] font-black">Pipeline limit reached</Text>
+            <Text className="text-typography-muted text-[11px] mt-0.5 leading-4">
+              You've used all {pipelineLimit?.limit} pipelines on the Free plan. Upgrade to Pro for unlimited pipelines.
+            </Text>
+          </View>
+        </View>
+      )}
 
       {/* Pipeline Cards */}
       <ScrollView 

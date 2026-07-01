@@ -15,6 +15,7 @@ import CompanyEditSettings from '@/components/profile/CompanyEditSettings';
 import WorkspaceSettings from '@/components/profile/WorkspaceSettings';
 import { useAuth } from '@/contexts/AuthContext';
 import { RoleManagerProvider, useRoleManager } from '@/contexts/RoleManagerContext';
+import { useMemberLimit } from '@/hooks/useMemberLimit';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 
@@ -115,6 +116,7 @@ export default function PeopleScreenWeb() {
   const [activeSection, setActiveSection] = useState<PeopleSection>('members');
 
   const { profile, hasPermission } = useAuth();
+  const { atLimit: membersAtLimit, remaining: membersRemaining } = useMemberLimit();
   const canManageTeams = hasPermission('role.manage');
   const canManageNotifications = hasPermission('manage_notifications') || hasPermission('role.manage');
   const canViewMembers = hasPermission('user.view_all') || canManageTeams;
@@ -165,17 +167,27 @@ export default function PeopleScreenWeb() {
           </View>
 
           {joinCode && (
-            <View className="bg-surface-overlay border border-surface-border rounded-2xl p-4 mb-6">
+            <View className={`border rounded-2xl p-4 mb-6 ${membersAtLimit ? 'bg-state-danger/5 border-state-danger/30' : 'bg-surface-overlay border-surface-border'}`}>
               <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-1">Join Code</Text>
               <View className="flex-row items-center justify-between">
-                <Text className="text-brand-primary font-black text-base tracking-[0.2em]">{joinCode}</Text>
+                <Text className={`font-black text-base tracking-[0.2em] ${membersAtLimit ? 'text-typography-muted' : 'text-brand-primary'}`}>{joinCode}</Text>
                 <TouchableOpacity
                   onPress={() => Clipboard.setStringAsync(joinCode)}
-                  className="w-8 h-8 bg-brand-primary/10 rounded-lg items-center justify-center hover:bg-brand-primary/20 transition-colors"
+                  disabled={membersAtLimit}
+                  className={`w-8 h-8 rounded-lg items-center justify-center transition-colors ${membersAtLimit ? 'bg-surface-border opacity-40' : 'bg-brand-primary/10 hover:bg-brand-primary/20'}`}
                 >
-                  <FontAwesome name="copy" size={12} color={colors.primary} />
+                  <FontAwesome name="copy" size={12} color={membersAtLimit ? colors.textMuted : colors.primary} />
                 </TouchableOpacity>
               </View>
+              {membersAtLimit ? (
+                <Text className="text-state-danger text-[10px] font-bold mt-2">
+                  Seat limit reached — new members can't join. Upgrade your plan.
+                </Text>
+              ) : membersRemaining != null && membersRemaining <= 2 && (
+                <Text className="text-state-warning text-[10px] font-bold mt-2">
+                  {membersRemaining === 0 ? 'No seats remaining.' : `${membersRemaining} seat${membersRemaining === 1 ? '' : 's'} remaining.`}
+                </Text>
+              )}
             </View>
           )}
 

@@ -12,7 +12,7 @@ export const PLATFORM_OWNERS = [
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-export type Section = 'command' | 'tenants' | 'signals' | 'live' | 'users' | 'infra' | 'alerts';
+export type Section = 'command' | 'tenants' | 'signals' | 'live' | 'users' | 'infra' | 'alerts' | 'trial_codes';
 
 export type CompanyOverview = {
   id: string;
@@ -563,6 +563,51 @@ export async function moveUser(userId: string, companyId: string) {
 
 export async function deleteUser(userId: string) {
   return supabase.rpc('rpc_platform_delete_user', { p_user_id: userId });
+}
+
+export type RetentionData = {
+  days_inactive: number;
+  days_until_purge: number;
+  inactivity_days: number;
+  warning_interval_days: number;
+  last_active_at: string | null;
+  status: 'active' | 'warning' | 'overdue';
+  file_count: number;
+  session_minutes: number;
+  file_size_bytes: number;
+  db_size_bytes: number;
+};
+
+export function useCompanyRetention(companyId: string | null) {
+  const [data, setData] = useState<RetentionData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const reload = useCallback(async (id: string) => {
+    setLoading(true);
+    setError(null);
+    const { data: res, error: err } = await supabase.rpc(
+      'rpc_platform_company_retention',
+      { p_company_id: id }
+    );
+    if (err) setError(err.message);
+    else setData(res as RetentionData);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (!companyId) { setData(null); return; }
+    reload(companyId);
+  }, [companyId, reload]);
+
+  return { data, loading, error, reload };
+}
+
+export async function extendRetention(companyId: string, inactivityDays: number) {
+  return supabase.rpc('rpc_platform_extend_retention', {
+    p_company_id:      companyId,
+    p_inactivity_days: inactivityDays,
+  });
 }
 
 export function useInfraData() {

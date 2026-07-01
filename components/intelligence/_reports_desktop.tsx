@@ -7,6 +7,9 @@ import ReportFiltersModal, {
     REPORT_TYPE_OPTIONS,
     type ReportFilters,
 } from '@/components/intelligence/ReportFiltersModal';
+import { useBillingPlan } from '@/hooks/useBillingPlan';
+import { useThemeColors } from '@/hooks/useThemeColors';
+import { getAnalyticsLimits } from '@/lib/planLimits';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -14,7 +17,6 @@ import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import { useThemeColors } from '@/hooks/useThemeColors';
 
 function formatDuration(seconds: number): string {
   if (seconds < 60) return `${seconds}s`;
@@ -129,6 +131,8 @@ const POLL_INTERVAL_MS = 4000;
 export default function IntelligenceReports() {
   const colors = useThemeColors();
   const router = useRouter();
+  const { planCode } = useBillingPlan();
+  const limits = getAnalyticsLimits(planCode);
   const [reports, setReports]         = useState<any[]>([]);
   const [loading, setLoading]         = useState(true);
   const [showModal, setShowModal]     = useState(false);
@@ -252,10 +256,17 @@ export default function IntelligenceReports() {
           <TouchableOpacity onPress={fetchReports} className="h-10 w-10 items-center justify-center bg-surface-card border border-surface-border rounded-xl">
             <FontAwesome name="refresh" size={13} color={colors.primary} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push('/intelligence/ReportGenerator')} className="bg-brand-primary px-6 py-2.5 rounded-xl flex-row items-center gap-2">
-            <FontAwesome name="file-pdf-o" size={12} color="white" />
-            <Text className="text-white font-black uppercase tracking-widest text-[11px]">Generate Report</Text>
-          </TouchableOpacity>
+          {limits.reports ? (
+            <TouchableOpacity onPress={() => router.push('/intelligence/ReportGenerator')} className="bg-brand-primary px-6 py-2.5 rounded-xl flex-row items-center gap-2">
+              <FontAwesome name="file-pdf-o" size={12} color="white" />
+              <Text className="text-white font-black uppercase tracking-widest text-[11px]">Generate Report</Text>
+            </TouchableOpacity>
+          ) : (
+            <View className="flex-row items-center gap-2 bg-surface-card border border-surface-border px-6 py-2.5 rounded-xl opacity-50">
+              <FontAwesome name="lock" size={12} color={colors.muted} />
+              <Text className="text-typography-muted font-black uppercase tracking-widest text-[11px]">Reports — Pro+</Text>
+            </View>
+          )}
         </View>
       </View>
 

@@ -2,6 +2,8 @@ import {
   deleteCompany,
   deleteUser,
   deriveAlerts,
+  extendRetention,
+  fmtBytes,
   fmtDay,
   fmtHHMM,
   fmtMins,
@@ -11,6 +13,7 @@ import {
   timeAgo,
   updateUser,
   useCompanyDetail,
+  useCompanyRetention,
   useControlPlaneData,
   useInfraData,
   useLiveSessions,
@@ -21,11 +24,14 @@ import {
   type CompanyOverview,
   type PlatformAlert,
   type PlatformUser,
+  type RetentionData,
   type Section,
   type SignalMetric,
   type SortKey
 } from '@/components/platform-admin/useControlPlaneData';
+import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
 import React, { useMemo, useState } from 'react';
@@ -40,6 +46,8 @@ import { cssInterop } from 'react-native-css-interop';
 import {
   Area,
   AreaChart,
+  Bar,
+  BarChart,
   CartesianGrid,
   ReferenceLine,
   ResponsiveContainer,
@@ -137,11 +145,14 @@ const ChartTooltip = ({ active, payload, label, metricLabel }: any) => {
 function CompanyDetailPanel({ companyId, onClose, onDeleted }: { companyId: string | null; onClose: () => void; onDeleted: () => void }) {
   const colors = useThemeColors();
   const { detail, loading } = useCompanyDetail(companyId);
+  const { data: retention, loading: retLoading, reload: reloadRetention } = useCompanyRetention(companyId);
   const [confirmDelete, setConfirmDelete] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
+  const [showPostpone, setShowPostpone] = React.useState(false);
+  const [extending, setExtending] = React.useState(false);
 
   React.useEffect(() => {
-    if (!companyId) setConfirmDelete(false);
+    if (!companyId) { setConfirmDelete(false); setShowPostpone(false); }
   }, [companyId]);
 
   const handleDelete = async () => {
@@ -150,6 +161,23 @@ function CompanyDetailPanel({ companyId, onClose, onDeleted }: { companyId: stri
     const { error } = await deleteCompany(companyId);
     setDeleting(false);
     if (!error) onDeleted();
+  };
+
+  const handleExtend = async (addDays: number) => {
+    if (!companyId || !retention) return;
+    setExtending(true);
+    await extendRetention(companyId, retention.inactivity_days + addDays);
+    setExtending(false);
+    setShowPostpone(false);
+    reloadRetention(companyId);
+  };
+
+  const handleCancelPurge = async () => {
+    if (!companyId) return;
+    setExtending(true);
+    await extendRetention(companyId, 3650);
+    setExtending(false);
+    reloadRetention(companyId);
   };
 
   if (!companyId) return null;
@@ -214,7 +242,10 @@ function CompanyDetailPanel({ companyId, onClose, onDeleted }: { companyId: stri
 
               {/* Members */}
               <View className="px-8 pt-5">
-                <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-4">Members · {detail.members?.length ?? 0}</Text>
+                <View className="flex-row items-center justify-between mb-4">
+                  <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Members · {detail.members?.length ?? 0}</Text>
+                  <Text className="text-typography-dim text-[10px]">this week</Text>
+                </View>
                 {detail.members?.length === 0 && (
                   <Text className="text-typography-dim text-sm text-center py-6">No members yet</Text>
                 )}
@@ -233,6 +264,133 @@ function CompanyDetailPanel({ companyId, onClose, onDeleted }: { companyId: stri
                     <HBar value={m.session_minutes_week} max={maxMins} />
                   </View>
                 ))}
+              </View>
+
+              {/* Retention */}
+              <View className="h-px bg-surface-border mx-8 mt-2" />
+              <View className="px-8 py-5">
+                <View className="flex-row items-center justify-between mb-4">
+                  <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Retention Policy</Text>
+                  {retLoading && <ActivityIndicator size="small" color={colors.primary} />}
+                </View>
+
+                {retention ? (() => {
+                  const statusColor =
+                    retention.status === 'overdue' ? colors.danger :
+                    retention.status === 'warning' ? colors.warning :
+                    colors.success;
+                  const statusLabel =
+                    retention.status === 'overdue' ? 'Overdue' :
+                    retention.status === 'warning' ? 'Warning' : 'Active';
+                  const fmtDate = (iso: string | null) => {
+                    if (!iso) return 'Never';
+                    const d = new Date(iso);
+                    return isNaN(d.getTime()) ? 'Never' : d.toLocaleDateString();
+                  };
+
+                  return (
+                    <View>
+                      {/* Status + countdown */}
+                      <View className="bg-surface-card border border-surface-border rounded-2xl p-4 mb-3">
+                        <View className="flex-row items-center justify-between mb-3">
+                          <View style={{ backgroundColor: `${statusColor}1A`, borderColor: `${statusColor}55` }} className="px-2.5 py-1 rounded-full border">
+                            <Text style={{ color: statusColor }} className="text-[10px] font-black uppercase tracking-widest">{statusLabel}</Text>
+                          </View>
+                          <Text className="text-typography-dim text-[10px]">Threshold: {retention.inactivity_days}d</Text>
+                        </View>
+                        <View className="flex-row gap-4">
+                          <View className="flex-1">
+                            <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest">Days inactive</Text>
+                            <Text style={{ color: statusColor }} className="text-2xl font-black mt-0.5">{retention.days_inactive}</Text>
+                          </View>
+                          <View className="flex-1">
+                            <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest">Days until purge</Text>
+                            <Text className="text-typography-main text-2xl font-black mt-0.5">{retention.days_until_purge}</Text>
+                          </View>
+                        </View>
+                        <Text className="text-typography-dim text-[10px] mt-3">Last active: {fmtDate(retention.last_active_at)}</Text>
+                        <View className="h-px bg-surface-border mt-3 mb-3" />
+                        <View className="flex-row gap-4">
+                          <View className="flex-1">
+                            <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest">File storage</Text>
+                            <Text className="text-typography-main font-black text-sm mt-0.5">{fmtBytes(retention.file_size_bytes)}</Text>
+                          </View>
+                          <View className="flex-1">
+                            <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest">DB (est.)</Text>
+                            <Text className="text-typography-main font-black text-sm mt-0.5">{fmtBytes(retention.db_size_bytes)}</Text>
+                          </View>
+                        </View>
+                      </View>
+
+                      {/* Data at risk */}
+                      <View className="bg-surface-card border border-surface-border rounded-2xl p-4 mb-3">
+                        <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-3">Data at risk if deleted</Text>
+                        <View className="flex-row flex-wrap">
+                          {[
+                            { icon: 'tasks',    label: 'Tasks',   value: fmtNumber(detail!.stats.total_tasks) },
+                            { icon: 'users',    label: 'Members', value: fmtNumber(detail!.members?.length ?? 0) },
+                            { icon: 'file-o',  label: 'Files',   value: fmtNumber(retention.file_count) },
+                            { icon: 'clock-o', label: 'Logged',  value: fmtMins(retention.session_minutes) },
+                          ].map(r => (
+                            <View key={r.label} style={{ width: '50%' }} className="flex-row items-center gap-2 py-1.5">
+                              <FontAwesome name={r.icon as any} size={11} className="text-typography-muted" style={{ width: 14 }} />
+                              <Text className="text-typography-main font-black text-sm">{r.value}</Text>
+                              <Text className="text-typography-dim text-[10px]">{r.label}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      </View>
+
+                      {/* Actions */}
+                      {extending ? (
+                        <View className="flex-row items-center gap-2 py-2">
+                          <ActivityIndicator size="small" color={colors.primary} />
+                          <Text className="text-typography-muted text-xs">Updating policy…</Text>
+                        </View>
+                      ) : showPostpone ? (
+                        <View>
+                          <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Extend threshold by</Text>
+                          <View className="flex-row gap-2 flex-wrap">
+                            {[30, 60, 90, 180].map(d => (
+                              <TouchableOpacity
+                                key={d}
+                                onPress={() => handleExtend(d)}
+                                className="px-4 py-2 rounded-xl border border-brand-primary/40 bg-brand-primary/10 hover:bg-brand-primary/20 transition-colors"
+                              >
+                                <Text className="text-brand-primary text-xs font-black">+{d}d</Text>
+                              </TouchableOpacity>
+                            ))}
+                            <TouchableOpacity
+                              onPress={() => setShowPostpone(false)}
+                              className="px-4 py-2 rounded-xl border border-surface-border bg-surface-card hover:bg-surface-overlay transition-colors"
+                            >
+                              <Text className="text-typography-muted text-xs font-bold">Cancel</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      ) : (
+                        <View className="flex-row gap-2">
+                          <TouchableOpacity
+                            onPress={() => setShowPostpone(true)}
+                            className="flex-row items-center gap-2 px-4 py-2 rounded-xl border border-brand-primary/30 bg-brand-primary/5 hover:bg-brand-primary/10 transition-colors"
+                          >
+                            <FontAwesome name="clock-o" size={11} className="text-brand-primary" />
+                            <Text className="text-brand-primary text-xs font-bold">Postpone</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={handleCancelPurge}
+                            className="flex-row items-center gap-2 px-4 py-2 rounded-xl border border-surface-border bg-surface-card hover:bg-surface-overlay transition-colors"
+                          >
+                            <FontAwesome name="ban" size={11} className="text-typography-muted" />
+                            <Text className="text-typography-muted text-xs font-bold">Cancel Purge</Text>
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })() : !retLoading ? (
+                  <Text className="text-typography-dim text-xs">No retention data available.</Text>
+                ) : null}
               </View>
 
               {/* Danger Zone */}
@@ -1645,93 +1803,59 @@ function AlertsSection({
 
         {/* Resource leaderboard */}
         <View className="bg-surface-card rounded-2xl border border-surface-border overflow-hidden">
-          <View className="px-6 py-5 border-b border-surface-border flex-row items-center justify-between">
-            <View>
-              <Text className="text-typography-main font-black text-base">Resource Leaderboard</Text>
-              <Text className="text-typography-muted text-xs mt-0.5">All workspaces · this week</Text>
-            </View>
-            <View className="flex-row items-center gap-4">
-              {[
-                { label: 'Usage', color: 'bg-brand-primary' },
-                { label: 'Tasks', color: 'bg-[rgb(251,191,36)]' },
-                { label: 'Users', color: 'bg-state-success' },
-              ].map(leg => (
-                <View key={leg.label} className="flex-row items-center gap-1.5">
-                  <View className={`w-2 h-2 rounded-full ${leg.color}`} />
-                  <Text className="text-typography-dim text-[10px]">{leg.label}</Text>
-                </View>
-              ))}
-            </View>
+          <View className="px-6 py-5 border-b border-surface-border">
+            <Text className="text-typography-main font-black text-base">Resource Leaderboard</Text>
+            <Text className="text-typography-muted text-xs mt-0.5">All workspaces · this week · % of max per metric</Text>
           </View>
 
-          {sortedByUsage.length === 0 && (
+          {sortedByUsage.length === 0 ? (
             <View className="items-center py-12">
               <Text className="text-typography-dim text-sm">No tenants yet</Text>
             </View>
+          ) : (
+            <View style={{ height: 260, paddingTop: 16, paddingBottom: 8, paddingRight: 16 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={sortedByUsage.map(co => ({
+                    name: co.name.length > 14 ? co.name.slice(0, 13) + '…' : co.name,
+                    usage: maxMins > 0 ? Math.round((co.session_minutes_week / maxMins) * 100) : 0,
+                    tasks: maxTasks > 0 ? Math.round((co.task_count / maxTasks) * 100) : 0,
+                    users: maxUsers > 0 ? Math.round((co.user_count / maxUsers) * 100) : 0,
+                    _id: co.id,
+                    _mins: co.session_minutes_week,
+                    _tasks: co.task_count,
+                    _users: co.user_count,
+                  }))}
+                  barCategoryGap="30%"
+                  barGap={2}
+                  onClick={(d: any) => d?.activePayload?.[0]?.payload?._id && setSelectedId(d.activePayload[0].payload._id)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
+                  <XAxis dataKey="name" tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <YAxis domain={[0, 100]} tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `${v}%`} width={34} />
+                  <Tooltip
+                    cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+                    content={({ active, payload }: any) => {
+                      if (!active || !payload?.length) return null;
+                      const d = payload[0].payload;
+                      return (
+                        <View className="bg-surface-overlay border border-surface-border rounded-xl px-3 py-2 gap-1">
+                          <Text className="text-typography-main font-black text-xs mb-1">{d.name}</Text>
+                          <Text className="text-typography-dim text-[10px]">Usage: <Text className="text-brand-primary font-bold">{fmtMins(d._mins)}</Text></Text>
+                          <Text className="text-typography-dim text-[10px]">Tasks: <Text style={{ color: 'rgb(251,191,36)' }} className="font-bold">{fmtNumber(d._tasks)}</Text></Text>
+                          <Text className="text-typography-dim text-[10px]">Users: <Text className="text-state-success font-bold">{fmtNumber(d._users)}</Text></Text>
+                        </View>
+                      );
+                    }}
+                  />
+                  <Bar dataKey="usage" name="Usage" fill="rgb(99,102,241)" radius={[3, 3, 0, 0]} maxBarSize={20} />
+                  <Bar dataKey="tasks" name="Tasks" fill="rgb(251,191,36)" radius={[3, 3, 0, 0]} maxBarSize={20} />
+                  <Bar dataKey="users" name="Users" fill="rgb(34,197,94)" radius={[3, 3, 0, 0]} maxBarSize={20} />
+                </BarChart>
+              </ResponsiveContainer>
+            </View>
           )}
-
-          {sortedByUsage.map((co, i) => {
-            const usagePct  = totalMins > 0 ? (co.session_minutes_week / totalMins) * 100 : 0;
-            const health = healthLabel(co.user_count > 0 ? co.session_minutes_week / co.user_count : 0);
-            return (
-              <TouchableOpacity
-                key={co.id}
-                onPress={() => setSelectedId(co.id)}
-                className={`px-6 py-4 hover:bg-surface-overlay transition-colors ${i < sortedByUsage.length - 1 ? 'border-b border-surface-border' : ''}`}
-              >
-                <View className="flex-row items-center gap-4 mb-3">
-                  <Text className="text-typography-dim text-[11px] w-5 text-right shrink-0">{i + 1}</Text>
-                  <Text className="text-typography-main font-black text-sm flex-1" numberOfLines={1}>{co.name}</Text>
-                  <View className="flex-row items-center gap-2">
-                    {co.active_sessions_now > 0 && (
-                      <View className="flex-row items-center bg-state-success/10 px-2 py-0.5 rounded-full">
-                        <View className="w-1 h-1 bg-state-success rounded-full mr-1" />
-                        <Text className="text-state-success text-[9px] font-black">LIVE</Text>
-                      </View>
-                    )}
-                    <View className={`px-2 py-0.5 rounded-full ${health.dimColor}`}>
-                      <Text className={`text-[9px] font-black uppercase ${health.color}`}>{health.label}</Text>
-                    </View>
-                    <Text className="text-typography-dim text-[10px] w-10 text-right">{usagePct.toFixed(0)}%</Text>
-                    <FontAwesome name="chevron-right" size={8} className="text-typography-dim" />
-                  </View>
-                </View>
-
-                {/* 3 metric bars */}
-                <View className="flex-row items-center gap-4 ml-9">
-                  <View className="flex-1 gap-1.5">
-                    <View className="flex-row items-center gap-2">
-                      <View className="w-14 shrink-0">
-                        <Text className="text-typography-dim text-[10px]">Usage</Text>
-                      </View>
-                      <View className="flex-1 h-1.5 bg-surface-border rounded-full overflow-hidden">
-                        <View className="h-full rounded-full bg-brand-primary" style={{ width: `${maxMins > 0 ? Math.max(2, (co.session_minutes_week / maxMins) * 100) : 2}%` }} />
-                      </View>
-                      <Text className="text-typography-muted text-[10px] w-16 text-right shrink-0 font-bold">{fmtMins(co.session_minutes_week)}</Text>
-                    </View>
-                    <View className="flex-row items-center gap-2">
-                      <View className="w-14 shrink-0">
-                        <Text className="text-typography-dim text-[10px]">Tasks</Text>
-                      </View>
-                      <View className="flex-1 h-1.5 bg-surface-border rounded-full overflow-hidden">
-                        <View className="h-full rounded-full bg-[rgb(251,191,36)]" style={{ width: `${maxTasks > 0 ? Math.max(2, (co.task_count / maxTasks) * 100) : 2}%` }} />
-                      </View>
-                      <Text className="text-typography-muted text-[10px] w-16 text-right shrink-0 font-bold">{fmtNumber(co.task_count)}</Text>
-                    </View>
-                    <View className="flex-row items-center gap-2">
-                      <View className="w-14 shrink-0">
-                        <Text className="text-typography-dim text-[10px]">Users</Text>
-                      </View>
-                      <View className="flex-1 h-1.5 bg-surface-border rounded-full overflow-hidden">
-                        <View className="h-full rounded-full bg-state-success" style={{ width: `${maxUsers > 0 ? Math.max(2, (co.user_count / maxUsers) * 100) : 2}%` }} />
-                      </View>
-                      <Text className="text-typography-muted text-[10px] w-16 text-right shrink-0 font-bold">{fmtNumber(co.user_count)}</Text>
-                    </View>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
         </View>
       </ScrollView>
 
@@ -1744,16 +1868,342 @@ function AlertsSection({
   );
 }
 
+// ── Trial Codes Section ────────────────────────────────────────────────────
+
+const TRIAL_PLANS = ['free', 'pro', 'business', 'enterprise'];
+
+// Each preset is { label, hours }
+const TRIAL_DURATION_PRESETS = [
+  { label: '1h',   hours: 1   },
+  { label: '6h',   hours: 6   },
+  { label: '1d',   hours: 24  },
+  { label: '3d',   hours: 72  },
+  { label: '1wk',  hours: 168 },
+  { label: '1mo',  hours: 720 },
+  { label: '3mo',  hours: 2160 },
+  { label: '6mo',  hours: 4320 },
+  { label: '12mo', hours: 8760 },
+];
+
+function fmtDurationHours(h: number): string {
+  if (h < 24)   return `${h}h`;
+  if (h < 168)  return `${Math.round(h / 24)}d`;
+  if (h < 720)  return `${Math.round(h / 168)}wk`;
+  const mo = Math.round(h / 720);
+  return `${mo}mo`;
+}
+
+function TrialCodesSection() {
+  const colors = useThemeColors();
+  const [codes, setCodes] = React.useState<any[]>([]);
+  const [loadingCodes, setLoadingCodes] = React.useState(true);
+  const [generating, setGenerating] = React.useState(false);
+  const [revoking, setRevoking] = React.useState<string | null>(null);
+  const [copied, setCopied] = React.useState<string | null>(null);
+  const [generated, setGenerated] = React.useState<string | null>(null);
+  const [showExpiryCalendar, setShowExpiryCalendar] = React.useState(false);
+  const [form, setForm] = React.useState({
+    plan_code: 'pro', duration_hours: 720, max_redemptions: 1, expires_at: '', notes: '',
+  });
+
+  const load = React.useCallback(async () => {
+    setLoadingCodes(true);
+    const { data } = await supabase.rpc('rpc_list_trial_codes');
+    setCodes((data as any[]) ?? []);
+    setLoadingCodes(false);
+  }, []);
+
+  React.useEffect(() => { load(); }, [load]);
+
+  const handleGenerate = async () => {
+    setGenerating(true);
+    setGenerated(null);
+    try {
+      const { data, error } = await supabase.rpc('rpc_generate_trial_code', {
+        p_plan_code: form.plan_code,
+        p_duration_hours: form.duration_hours,
+        p_max_redemptions: form.max_redemptions,
+        p_expires_at: form.expires_at ? new Date(form.expires_at).toISOString() : null,
+        p_notes: form.notes || null,
+      });
+      if (error) throw error;
+      setGenerated((data as any)?.code ?? null);
+      await load();
+    } catch (e: any) {
+      alert(e?.message || 'Failed to generate code.');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleRevoke = async (id: string) => {
+    setRevoking(id);
+    await supabase.rpc('rpc_revoke_trial_code', { p_id: id });
+    setRevoking(null);
+    await load();
+  };
+
+  const handleCopy = (code: string) => {
+    (navigator as any).clipboard?.writeText(code);
+    setCopied(code);
+    setTimeout(() => setCopied(null), 2000);
+  };
+
+  return (
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 32, paddingBottom: 48 }}>
+      {/* Generate form */}
+      <View className="bg-surface-card rounded-2xl border border-surface-border p-6 mb-6">
+        <Text className="text-typography-main font-black text-base mb-1">Generate Trial Code</Text>
+        <Text className="text-typography-muted text-xs mb-5">Creates a unique code that unlocks a timed plan trial for any workspace.</Text>
+
+        <View className="flex-row gap-6 mb-4 flex-wrap">
+          {/* Plan picker */}
+          <View>
+            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Plan</Text>
+            <View className="flex-row gap-2">
+              {TRIAL_PLANS.map(p => (
+                <TouchableOpacity
+                  key={p}
+                  onPress={() => setForm(f => ({ ...f, plan_code: p }))}
+                  className={`px-3 py-1.5 rounded-xl border transition-colors ${form.plan_code === p ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border hover:bg-surface-overlay'}`}
+                >
+                  <Text className={`text-xs font-bold capitalize ${form.plan_code === p ? 'text-white' : 'text-typography-muted'}`}>{p}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Duration picker */}
+          <View>
+            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Duration</Text>
+            <View className="flex-row flex-wrap gap-2">
+              {TRIAL_DURATION_PRESETS.map(p => (
+                <TouchableOpacity
+                  key={p.hours}
+                  onPress={() => setForm(f => ({ ...f, duration_hours: p.hours }))}
+                  className={`px-3 py-1.5 rounded-xl border transition-colors ${form.duration_hours === p.hours ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border hover:bg-surface-overlay'}`}
+                >
+                  <Text className={`text-xs font-bold ${form.duration_hours === p.hours ? 'text-white' : 'text-typography-muted'}`}>{p.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </View>
+
+        <View className="flex-row gap-4 mb-5">
+          {/* Max uses */}
+          <View style={{ width: 120 }}>
+            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Max Uses</Text>
+            <View className="bg-surface-background border border-surface-border rounded-xl px-3 py-2">
+              {/* @ts-ignore */}
+              <input
+                type="number"
+                value={form.max_redemptions}
+                min={1}
+                onChange={(e: any) => setForm(f => ({ ...f, max_redemptions: Math.max(1, parseInt(e.target.value) || 1) }))}
+                style={{ background: 'transparent', border: 'none', outline: 'none', color: 'inherit', fontSize: 13, fontWeight: '600', width: '100%' } as any}
+              />
+            </View>
+          </View>
+
+          {/* Expiry — premium calendar */}
+          <View style={{ width: 220 }}>
+            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Code Expires</Text>
+            <View style={{ position: 'relative' as any }}>
+              <TouchableOpacity
+                onPress={() => setShowExpiryCalendar(v => !v)}
+                className={`flex-row items-center gap-2 bg-surface-background border rounded-xl px-3 py-2.5 transition-colors ${showExpiryCalendar ? 'border-brand-primary' : 'border-surface-border hover:border-brand-primary/50'}`}
+              >
+                <FontAwesome name="calendar" size={11} className={form.expires_at ? 'text-brand-primary' : 'text-typography-muted'} />
+                <Text className={`text-sm flex-1 ${form.expires_at ? 'text-typography-main font-bold' : 'text-typography-dim'}`}>
+                  {form.expires_at
+                    ? new Date(form.expires_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                    : 'No expiry'}
+                </Text>
+                {form.expires_at ? (
+                  <TouchableOpacity onPress={(e: any) => { e.stopPropagation(); setForm(f => ({ ...f, expires_at: '' })); setShowExpiryCalendar(false); }}>
+                    <FontAwesome name="times-circle" size={11} className="text-typography-dim" />
+                  </TouchableOpacity>
+                ) : (
+                  <FontAwesome name="chevron-down" size={9} className="text-typography-dim" />
+                )}
+              </TouchableOpacity>
+              {showExpiryCalendar && (
+                <View style={{ position: 'absolute' as any, top: '110%', left: 0, zIndex: 200, width: 320 }}>
+                  <PremiumCalendarPicker
+                    compact
+                    selectedDate={form.expires_at || null}
+                    onSelect={date => {
+                      setForm(f => ({ ...f, expires_at: date }));
+                      setShowExpiryCalendar(false);
+                    }}
+                  />
+                </View>
+              )}
+            </View>
+          </View>
+
+          {/* Notes */}
+          <View className="flex-1">
+            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Notes (optional)</Text>
+            <View className="bg-surface-background border border-surface-border rounded-xl px-3 py-2">
+              {/* @ts-ignore */}
+              <input
+                value={form.notes}
+                onChange={(e: any) => setForm(f => ({ ...f, notes: e.target.value }))}
+                placeholder="e.g. for Acme Inc demo"
+                style={{ background: 'transparent', border: 'none', outline: 'none', color: 'inherit', fontSize: 13, fontWeight: '500', width: '100%' } as any}
+              />
+            </View>
+          </View>
+        </View>
+
+        <View className="flex-row items-center gap-4 flex-wrap">
+          <TouchableOpacity
+            onPress={handleGenerate}
+            disabled={generating}
+            className="flex-row items-center gap-2 bg-brand-primary px-5 py-3 rounded-xl hover:opacity-80 transition-opacity"
+          >
+            {generating
+              ? <ActivityIndicator size="small" color="#fff" />
+              : <FontAwesome name="ticket" size={12} className="text-white" />
+            }
+            <Text className="text-white font-black text-xs uppercase tracking-widest">
+              {generating ? 'Generating…' : 'Generate Code'}
+            </Text>
+          </TouchableOpacity>
+
+          {generated && (
+            <View className="flex-row items-center gap-3 bg-state-success/10 border border-state-success/30 rounded-xl px-4 py-2.5">
+              <FontAwesome name="check" size={11} className="text-state-success" />
+              <Text className="text-state-success font-black text-sm tracking-widest">{generated}</Text>
+              <TouchableOpacity onPress={() => handleCopy(generated)}>
+                <FontAwesome
+                  name={copied === generated ? 'check-circle' : 'copy'}
+                  size={12}
+                  className={copied === generated ? 'text-state-success' : 'text-typography-muted'}
+                />
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      </View>
+
+      {/* Codes table */}
+      <View className="bg-surface-card rounded-2xl border border-surface-border overflow-hidden">
+        <View className="px-6 py-4 border-b border-surface-border flex-row items-center justify-between">
+          <Text className="text-typography-main font-black text-base">All Codes · {codes.length}</Text>
+          <TouchableOpacity
+            onPress={load}
+            className="flex-row items-center gap-2 px-3 py-1.5 rounded-xl border border-surface-border bg-surface-background hover:bg-surface-overlay transition-colors"
+          >
+            <FontAwesome name="refresh" size={10} className="text-typography-muted" />
+            <Text className="text-typography-muted text-[11px] font-bold">Refresh</Text>
+          </TouchableOpacity>
+        </View>
+
+        {loadingCodes ? (
+          <View className="items-center py-12">
+            <ActivityIndicator color={colors.primary} />
+          </View>
+        ) : codes.length === 0 ? (
+          <View className="items-center py-12 gap-2">
+            <FontAwesome name="ticket" size={28} className="text-typography-dim" />
+            <Text className="text-typography-dim text-sm mt-1">No codes yet — generate one above</Text>
+          </View>
+        ) : (
+          <>
+            {/* Header */}
+            <View className="flex-row items-center px-6 py-2 border-b border-surface-border bg-surface-background">
+              {(['Code', 'Plan', 'Duration', 'Redeemed', 'Expires', 'Notes', ''] as const).map((h, i) => (
+                <Text
+                  key={i}
+                  className="text-typography-muted text-[9px] font-black uppercase tracking-widest"
+                  style={{ flex: [3, 1.5, 1, 1.5, 2, 2, 1.5][i] }}
+                >
+                  {h}
+                </Text>
+              ))}
+            </View>
+
+            {codes.map((c, idx) => {
+              const isRevoked = c.expires_at && new Date(c.expires_at) <= new Date();
+              return (
+                <View
+                  key={c.id}
+                  className={`flex-row items-center px-6 py-4 ${idx < codes.length - 1 ? 'border-b border-surface-border' : ''}`}
+                  style={{ opacity: isRevoked ? 0.45 : 1 }}
+                >
+                  {/* Code + copy */}
+                  <View className="flex-row items-center gap-2" style={{ flex: 3 }}>
+                    <Text className="text-typography-main font-black text-xs tracking-widest">{c.code}</Text>
+                    <TouchableOpacity onPress={() => handleCopy(c.code)}>
+                      <FontAwesome
+                        name={copied === c.code ? 'check-circle' : 'copy'}
+                        size={10}
+                        className={copied === c.code ? 'text-state-success' : 'text-typography-dim'}
+                      />
+                    </TouchableOpacity>
+                  </View>
+                  {/* Plan */}
+                  <Text className="text-typography-muted text-xs capitalize font-bold" style={{ flex: 1.5 }}>{c.plan_code}</Text>
+                  {/* Duration */}
+                  <Text className="text-typography-muted text-xs" style={{ flex: 1 }}>{fmtDurationHours(c.duration_hours)}</Text>
+                  {/* Redemptions */}
+                  <Text className="text-typography-muted text-xs" style={{ flex: 1.5 }}>
+                    {c.redeemed_count}{c.max_redemptions != null ? ` / ${c.max_redemptions}` : ' / ∞'}
+                  </Text>
+                  {/* Expires */}
+                  <Text
+                    className={`text-xs ${isRevoked ? 'text-state-danger' : 'text-typography-muted'}`}
+                    style={{ flex: 2 }}
+                  >
+                    {c.expires_at ? new Date(c.expires_at).toLocaleDateString() : '—'}
+                  </Text>
+                  {/* Notes */}
+                  <Text className="text-typography-dim text-xs" style={{ flex: 2 }} numberOfLines={1}>
+                    {c.notes || '—'}
+                  </Text>
+                  {/* Actions */}
+                  <View style={{ flex: 1.5 }}>
+                    {isRevoked ? (
+                      <View className="self-start px-2.5 py-1 rounded-lg bg-surface-border">
+                        <Text className="text-typography-dim text-[10px]">Revoked</Text>
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        onPress={() => handleRevoke(c.id)}
+                        disabled={revoking === c.id}
+                        className="self-start px-2.5 py-1.5 rounded-lg border border-state-danger/30 bg-state-danger/5 hover:bg-state-danger/10 transition-colors"
+                      >
+                        {revoking === c.id
+                          ? <ActivityIndicator size="small" color={colors.primary} />
+                          : <Text className="text-state-danger text-[10px] font-bold">Revoke</Text>
+                        }
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+              );
+            })}
+          </>
+        )}
+      </View>
+    </ScrollView>
+  );
+}
+
 // ── Sidebar ────────────────────────────────────────────────────────────────
 
 const NAV_ITEMS: { id: Section; label: string; icon: string }[] = [
-  { id: 'command', label: 'Command',        icon: 'tachometer' },
-  { id: 'tenants', label: 'Tenants',        icon: 'building' },
-  { id: 'users',   label: 'Users',          icon: 'users' },
-  { id: 'signals', label: 'Signals',        icon: 'line-chart' },
-  { id: 'live',    label: 'Live',           icon: 'circle' },
-  { id: 'alerts',  label: 'Alerts',         icon: 'bell' },
-  { id: 'infra',   label: 'Infrastructure', icon: 'server' },
+  { id: 'command',     label: 'Command',        icon: 'tachometer' },
+  { id: 'tenants',     label: 'Tenants',        icon: 'building' },
+  { id: 'users',       label: 'Users',          icon: 'users' },
+  { id: 'signals',     label: 'Signals',        icon: 'line-chart' },
+  { id: 'live',        label: 'Live',           icon: 'circle' },
+  { id: 'alerts',      label: 'Alerts',         icon: 'bell' },
+  { id: 'infra',       label: 'Infrastructure', icon: 'server' },
+  { id: 'trial_codes', label: 'Trial Codes',    icon: 'ticket' },
 ];
 
 function Sidebar({ section, setSection, liveCount, alertCount }: {
@@ -1855,7 +2305,9 @@ export default function PlatformAdminWebScreen() {
       <View className="flex-1">
         {/* Top bar */}
         <View className="bg-surface-card border-b border-surface-border px-8 py-4 flex-row items-center justify-between">
-          <Text className="text-typography-main font-black text-lg tracking-tight capitalize">{section}</Text>
+          <Text className="text-typography-main font-black text-lg tracking-tight">
+            {NAV_ITEMS.find(n => n.id === section)?.label ?? section}
+          </Text>
           <View className="flex-row items-center gap-3">
             {alertCount > 0 && section !== 'alerts' && (
               <TouchableOpacity
@@ -1898,7 +2350,8 @@ export default function PlatformAdminWebScreen() {
           {section === 'alerts'  && (
             <AlertsSection companies={companies} totalMins={totalMins} onCompanyDeleted={fetchCompanies} />
           )}
-          {section === 'infra'   && <InfraSection />}
+          {section === 'infra'        && <InfraSection />}
+          {section === 'trial_codes'  && <TrialCodesSection />}
         </View>
       </View>
     </View>

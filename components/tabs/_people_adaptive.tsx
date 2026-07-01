@@ -25,6 +25,7 @@ import { BackButton } from '@/components/common/BackButton';
 import { useAuth } from '@/contexts/AuthContext';
 import { RoleManagerProvider, useRoleManager } from '@/contexts/RoleManagerContext';
 import { supabase } from '@/lib/supabase';
+import { useMemberLimit } from '@/hooks/useMemberLimit';
 import { useThemeColors } from '@/hooks/useThemeColors';
 
 type PeopleSection = 'members' | 'teams' | 'roles' | 'notifications' | 'workspace' | 'company' | 'retention' | 'billing' | 'export';
@@ -84,6 +85,7 @@ export default function PeopleScreen() {
   const [activeSection, setActiveSection] = useState<PeopleSection>('members');
 
   const { profile, hasPermission } = useAuth();
+  const { atLimit: membersAtLimit, remaining: membersRemaining } = useMemberLimit();
   const canManageTeams = hasPermission('role.manage');
   const canManageNotifications = hasPermission('manage_notifications') || hasPermission('role.manage');
   const canViewMembers = hasPermission('user.view_all') || canManageTeams;
@@ -130,21 +132,34 @@ export default function PeopleScreen() {
         </View>
 
         {joinCode && (
-          <TouchableOpacity
-            onPress={() => {
-              Clipboard.setStringAsync(joinCode);
-              Alert.alert('Copied', 'Join code copied to clipboard');
-            }}
-            className="mb-4 bg-brand-primary/10 border border-brand-primary/30 rounded-2xl p-4 flex-row items-center justify-between"
-          >
-            <View>
-              <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">Share Join Code</Text>
-              <Text className="text-brand-primary font-black text-xl tracking-[0.2em]">{joinCode}</Text>
-            </View>
-            <View className="bg-brand-primary w-10 h-10 rounded-xl items-center justify-center">
-              <FontAwesome name="copy" size={14} color="white" />
-            </View>
-          </TouchableOpacity>
+          <View className={`mb-4 border rounded-2xl p-4 ${membersAtLimit ? 'bg-state-danger/5 border-state-danger/30' : 'bg-brand-primary/10 border-brand-primary/30'}`}>
+            <TouchableOpacity
+              onPress={() => {
+                if (membersAtLimit) return;
+                Clipboard.setStringAsync(joinCode);
+                Alert.alert('Copied', 'Join code copied to clipboard');
+              }}
+              className="flex-row items-center justify-between"
+              disabled={membersAtLimit}
+            >
+              <View>
+                <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">Share Join Code</Text>
+                <Text className={`font-black text-xl tracking-[0.2em] ${membersAtLimit ? 'text-typography-muted' : 'text-brand-primary'}`}>{joinCode}</Text>
+              </View>
+              <View className={`w-10 h-10 rounded-xl items-center justify-center ${membersAtLimit ? 'bg-surface-border' : 'bg-brand-primary'}`}>
+                <FontAwesome name="copy" size={14} color={membersAtLimit ? colors.textMuted : 'white'} />
+              </View>
+            </TouchableOpacity>
+            {membersAtLimit ? (
+              <Text className="text-state-danger text-[10px] font-bold mt-2">
+                Seat limit reached — upgrade your plan to add more members.
+              </Text>
+            ) : membersRemaining != null && membersRemaining <= 2 && (
+              <Text className="text-state-warning text-[10px] font-bold mt-2">
+                {membersRemaining === 0 ? 'No seats remaining.' : `${membersRemaining} seat${membersRemaining === 1 ? '' : 's'} remaining.`}
+              </Text>
+            )}
+          </View>
         )}
 
         {hasWorkspaceAccess && (

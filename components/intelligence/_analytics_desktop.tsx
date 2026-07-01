@@ -3,7 +3,9 @@ import { ConversionFunnelChartWeb, StageDwellChartWeb } from '@/components/intel
 import { PersonnelRow, StageDwell, ThroughputPeriod, useAnalytics } from '@/contexts/AnalyticsContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useBillingPlan } from '@/hooks/useBillingPlan';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { AnalyticsLimits, getAnalyticsLimits, requiredPlan } from '@/lib/planLimits';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -40,6 +42,42 @@ function fmtPct(v: number | null): string {
 function fmtUSD(v: number | null): string {
   if (v === null) return '—';
   return `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function maxFromDate(maxDays: number | null): string | null {
+  if (!maxDays) return null;
+  const d = new Date(Date.now() - maxDays * 86400000);
+  return d.toISOString().split('T')[0];
+}
+
+function clampDate(date: string, min: string | null): string {
+  if (!min) return date;
+  return date < min ? min : date;
+}
+
+function PlanGate({ feature, planCode, children }: {
+  feature: keyof AnalyticsLimits;
+  planCode: string;
+  children: React.ReactNode;
+}) {
+  const colors = useThemeColors();
+  const limits = getAnalyticsLimits(planCode);
+  if (limits[feature]) return <>{children}</>;
+  const plan = requiredPlan(feature);
+  return (
+    <View className="relative overflow-hidden rounded-2xl border border-surface-border">
+      <View style={{ opacity: 0.08 }} pointerEvents="none">{children}</View>
+      <View className="absolute inset-0 items-center justify-center gap-3 bg-surface-background/70">
+        <View className="w-14 h-14 rounded-full bg-brand-primary/10 items-center justify-center border border-brand-primary/20">
+          <FontAwesome name="lock" size={22} color={colors.primary} />
+        </View>
+        <Text className="text-typography-main font-black text-base">Requires {plan} Plan</Text>
+        <Text className="text-typography-muted text-xs text-center px-6">
+          Upgrade to {plan} or higher to unlock this feature.
+        </Text>
+      </View>
+    </View>
+  );
 }
 
 // ─── Throughput Chart ─────────────────────────────────────────────────────────
@@ -118,7 +156,7 @@ function ThroughputChart({ data }: { data: ThroughputPeriod[] }) {
 
 // ─── Pipeline Analytics Tab ───────────────────────────────────────────────────
 
-function PipelineTab() {
+function PipelineTab({ planCode, limits }: { planCode: string; limits: AnalyticsLimits }) {
   const colors = useThemeColors();
   const { getPipelineStageDwell, getPipelineThroughput } = useAnalytics();
   const { theme: activeTheme } = useTheme();
@@ -126,13 +164,14 @@ function PipelineTab() {
   const [selectedPipeline, setSelectedPipeline] = useState<string | null>(null);
   const [period, setPeriod] = useState('month');
 
-
   const today = new Date();
+  const initDays = Math.min(limits.maxDays ?? 30, 30);
   const defaultFrom = new Date(today);
-  defaultFrom.setDate(today.getDate() - 30);
+  defaultFrom.setDate(today.getDate() - initDays);
 
   const [from, setFrom] = useState(defaultFrom.toISOString().split('T')[0]);
   const [to, setTo]     = useState(today.toISOString().split('T')[0]);
+  const minFrom = maxFromDate(limits.maxDays);
 
   const [dwell, setDwell]         = useState<StageDwell[]>([]);
   const [throughput, setThroughput] = useState<ThroughputPeriod[]>([]);
@@ -225,7 +264,14 @@ function PipelineTab() {
 
         {/* Date range */}
         <View className="gap-2">
-          <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">Date Range</Text>
+          <View className="flex-row items-center gap-2">
+            <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">Date Range</Text>
+            {limits.maxDays && (
+              <View className="px-2 py-0.5 bg-surface-card border border-surface-border rounded-lg">
+                <Text className="text-typography-muted text-[9px] font-bold">Max {limits.maxDays}d · {planCode.charAt(0).toUpperCase() + planCode.slice(1)}</Text>
+              </View>
+            )}
+          </View>
           <View className="flex-row flex-wrap gap-3 items-center">
             <TouchableOpacity
               ref={fromRef}
@@ -279,45 +325,39 @@ function PipelineTab() {
         </View>
       ) : (
         <View className="gap-8">
-          {/* Stage Dwell */}
+          {/* Stage Dwell — always available */}
           <StageDwellChartWeb data={dwell} />
 
-          {/* Throughput */}
-          <View className="bg-surface-card border border-surface-border rounded-2xl p-6">
-            <View className="flex-row items-center justify-between mb-6">
-              <Text className="text-typography-main font-black text-lg">Throughput Trend</Text>
-              <View className="px-3 py-1 bg-surface-background border border-surface-border rounded-lg">
-                <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest">Pipeline-Specific Analytics</Text>
+          {/* Throughput — Pro+ */}
+          <PlanGate feature="throughput" planCode={planCode}>
+            <View className="bg-surface-card border border-surface-border rounded-2xl p-6">
+              <View className="flex-row items-center justify-between mb-6">
+                <Text className="text-typography-main font-black text-lg">Throughput Trend</Text>
+                <View className="px-3 py-1 bg-surface-background border border-surface-border rounded-lg">
+                  <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest">Pipeline-Specific Analytics</Text>
+                </View>
               </View>
+              <ThroughputChart data={throughput} />
             </View>
-            <ThroughputChart data={throughput} />
-          </View>
+          </PlanGate>
 
-
-
-          {/* Conversion Funnel */}
-          <ConversionFunnelChartWeb data={auditData} />
+          {/* Conversion Funnel — Business+ */}
+          <PlanGate feature="funnel" planCode={planCode}>
+            <ConversionFunnelChartWeb data={auditData} />
+          </PlanGate>
         </View>
       )}
 
       {/* Calendar Overlays */}
       {showFromCalendar && (
         <>
-          <TouchableOpacity 
-            activeOpacity={1} 
-            className="fixed inset-0 z-[998]" 
-            onPress={() => setShowFromCalendar(false)} 
-          />
-          <View style={{ 
-            position: 'fixed', 
-            top: fromPos.top, 
-            zIndex: 999, 
-            width: 820,
+          <TouchableOpacity activeOpacity={1} className="fixed inset-0 z-[998]" onPress={() => setShowFromCalendar(false)} />
+          <View style={{ position: 'fixed', top: fromPos.top, zIndex: 999, width: 820,
             ...( (fromPos.left + 840) > window.innerWidth ? { right: 20 } : { left: Math.max(20, fromPos.left) } )
           } as any}>
             <PremiumCalendarPicker
               selectedDate={from}
-              onSelect={date => { setFrom(date); setShowFromCalendar(false); }}
+              onSelect={date => { setFrom(clampDate(date, minFrom)); setShowFromCalendar(false); }}
             />
           </View>
         </>
@@ -325,16 +365,8 @@ function PipelineTab() {
 
       {showToCalendar && (
         <>
-          <TouchableOpacity 
-            activeOpacity={1} 
-            className="fixed inset-0 z-[998]" 
-            onPress={() => setShowToCalendar(false)} 
-          />
-          <View style={{ 
-            position: 'fixed', 
-            top: toPos.top, 
-            zIndex: 999, 
-            width: 820,
+          <TouchableOpacity activeOpacity={1} className="fixed inset-0 z-[998]" onPress={() => setShowToCalendar(false)} />
+          <View style={{ position: 'fixed', top: toPos.top, zIndex: 999, width: 820,
             ...( (toPos.left + 840) > window.innerWidth ? { right: 20 } : { left: Math.max(20, toPos.left) } )
           } as any}>
             <PremiumCalendarPicker
@@ -353,7 +385,7 @@ function PipelineTab() {
 
 type SortDir = 'asc' | 'desc';
 
-function PersonnelTab() {
+function PersonnelTab({ planCode, limits }: { planCode: string; limits: AnalyticsLimits }) {
   const colors = useThemeColors();
   const { comparePersonnel } = useAnalytics();
   const { theme: activeTheme } = useTheme();
@@ -364,11 +396,13 @@ function PersonnelTab() {
   const [search, setSearch] = useState('');
 
   const today = new Date();
+  const initDays = Math.min(limits.maxDays ?? 30, 30);
   const defaultFrom = new Date(today);
-  defaultFrom.setDate(today.getDate() - 30);
+  defaultFrom.setDate(today.getDate() - initDays);
 
   const [from, setFrom] = useState(defaultFrom.toISOString().split('T')[0]);
   const [to, setTo]     = useState(today.toISOString().split('T')[0]);
+  const minFrom = maxFromDate(limits.maxDays);
 
   // Calendar State
   const [showFromCalendar, setShowFromCalendar] = useState(false);
@@ -835,13 +869,20 @@ function PersonnelTab() {
         <View>
           <View className="flex-row items-center justify-between mb-4 px-2">
             <Text className="text-typography-main font-black text-xl italic uppercase tracking-tighter">Strategic Benchmarking Results</Text>
-            <TouchableOpacity 
-              onPress={exportCSV}
-              className="flex-row items-center gap-2 bg-surface-card border border-surface-border px-4 py-2 rounded-xl"
-            >
-              <FontAwesome name="download" size={14} color={colors.primary} />
-              <Text className="text-typography-main text-xs font-black uppercase">Export CSV</Text>
-            </TouchableOpacity>
+            {limits.personnelExport ? (
+              <TouchableOpacity
+                onPress={exportCSV}
+                className="flex-row items-center gap-2 bg-surface-card border border-surface-border px-4 py-2 rounded-xl"
+              >
+                <FontAwesome name="download" size={14} color={colors.primary} />
+                <Text className="text-typography-main text-xs font-black uppercase">Export CSV</Text>
+              </TouchableOpacity>
+            ) : (
+              <View className="flex-row items-center gap-2 bg-surface-card border border-surface-border px-4 py-2 rounded-xl opacity-40">
+                <FontAwesome name="lock" size={12} color={colors.muted} />
+                <Text className="text-typography-muted text-xs font-black uppercase">Export CSV — {requiredPlan('personnelExport')}+</Text>
+              </View>
+            )}
           </View>
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -960,7 +1001,7 @@ function PersonnelTab() {
           } as any}>
             <PremiumCalendarPicker
               selectedDate={from}
-              onSelect={date => { setFrom(date); setShowFromCalendar(false); }}
+              onSelect={date => { setFrom(clampDate(date, minFrom)); setShowFromCalendar(false); }}
             />
           </View>
         </>
@@ -968,16 +1009,8 @@ function PersonnelTab() {
 
       {showToCalendar && (
         <>
-          <TouchableOpacity 
-            activeOpacity={1} 
-            className="fixed inset-0 z-[998]" 
-            onPress={() => setShowToCalendar(false)} 
-          />
-          <View style={{ 
-            position: 'fixed', 
-            top: toPos.top, 
-            zIndex: 999, 
-            width: 820,
+          <TouchableOpacity activeOpacity={1} className="fixed inset-0 z-[998]" onPress={() => setShowToCalendar(false)} />
+          <View style={{ position: 'fixed', top: toPos.top, zIndex: 999, width: 820,
             ...( (toPos.left + 840) > window.innerWidth ? { right: 20 } : { left: Math.max(20, toPos.left) } )
           } as any}>
             <PremiumCalendarPicker
@@ -996,9 +1029,11 @@ function PersonnelTab() {
 export default function AdminAnalyticsWeb() {
   const colors = useThemeColors();
   const { hasPermission, permissionsLoaded } = useAuth();
+  const { planCode, loading: planLoading } = useBillingPlan();
+  const limits = getAnalyticsLimits(planCode);
   const [activeTab, setActiveTab] = useState<AdminTab>('pipeline');
 
-  if (!permissionsLoaded) {
+  if (!permissionsLoaded || planLoading) {
     return (
       <View className="flex-1 bg-surface-background items-center justify-center">
         <ActivityIndicator size="large" color={colors.primary} />
@@ -1018,7 +1053,9 @@ export default function AdminAnalyticsWeb() {
     );
   }
 
-  const canCompare = hasPermission('analytics.compare');
+  const canPersonnel = hasPermission('analytics.compare') && limits.personnel;
+
+  const maxDayLabel = limits.maxDays ? `${limits.maxDays}-day` : 'Unlimited';
 
   return (
     <View className="flex-1 bg-surface-background">
@@ -1027,14 +1064,22 @@ export default function AdminAnalyticsWeb() {
         <View className="max-w-[1400px] mx-auto w-full px-8 py-10">
 
           {/* Header */}
-          <View className="mb-10">
-            <Text className="text-brand-primary font-black uppercase tracking-[0.3em] text-[10px] mb-2">
-              Operations Intelligence
-            </Text>
-            <Text className="text-typography-main text-5xl font-black tracking-tighter">Analytics Hub</Text>
-            <Text className="text-typography-muted text-lg font-medium mt-2">
-              Pipeline health, stage dwell times, and personnel benchmarking.
-            </Text>
+          <View className="mb-10 flex-row items-start justify-between flex-wrap gap-4">
+            <View>
+              <Text className="text-brand-primary font-black uppercase tracking-[0.3em] text-[10px] mb-2">
+                Operations Intelligence
+              </Text>
+              <Text className="text-typography-main text-5xl font-black tracking-tighter">Analytics Hub</Text>
+              <Text className="text-typography-muted text-lg font-medium mt-2">
+                Pipeline health, stage dwell times, and personnel benchmarking.
+              </Text>
+            </View>
+            <View className="px-3 py-1.5 bg-surface-card border border-surface-border rounded-xl flex-row items-center gap-2 self-start mt-2">
+              <FontAwesome name="bar-chart" size={11} color={colors.muted} />
+              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">
+                {maxDayLabel} lookback · {planCode.charAt(0).toUpperCase() + planCode.slice(1)} Plan
+              </Text>
+            </View>
           </View>
 
           {/* Tabs */}
@@ -1053,11 +1098,11 @@ export default function AdminAnalyticsWeb() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() => canCompare && setActiveTab('personnel')}
+              onPress={() => canPersonnel && setActiveTab('personnel')}
               className={`px-6 py-3 -mb-px border-b-2 transition-all ${
                 activeTab === 'personnel'
                   ? 'border-brand-primary'
-                  : !canCompare
+                  : !canPersonnel
                   ? 'opacity-40 cursor-not-allowed border-transparent'
                   : 'border-transparent hover:border-surface-border'
               }`}
@@ -1066,21 +1111,21 @@ export default function AdminAnalyticsWeb() {
                 <Text className={`font-black text-sm ${activeTab === 'personnel' ? 'text-brand-primary' : 'text-typography-muted'}`}>
                   Personnel Comparison
                 </Text>
-                {!canCompare && (
-                  <FontAwesome name="lock" size={10} color="rgb(100,116,139)" />
-                )}
+                {!canPersonnel && <FontAwesome name="lock" size={10} color="rgb(100,116,139)" />}
               </View>
             </TouchableOpacity>
           </View>
 
-          {activeTab === 'pipeline' && <PipelineTab />}
-          {activeTab === 'personnel' && canCompare && <PersonnelTab />}
-          {activeTab === 'personnel' && !canCompare && (
+          {activeTab === 'pipeline' && <PipelineTab planCode={planCode} limits={limits} />}
+          {activeTab === 'personnel' && canPersonnel && <PersonnelTab planCode={planCode} limits={limits} />}
+          {activeTab === 'personnel' && !canPersonnel && (
             <View className="bg-surface-card border border-surface-border rounded-2xl p-10 items-center gap-3">
               <FontAwesome name="lock" size={32} color={colors.primary} />
-              <Text className="text-typography-main font-black text-lg">Permission Required</Text>
+              <Text className="text-typography-main font-black text-lg">
+                Requires {requiredPlan('personnel')} Plan
+              </Text>
               <Text className="text-typography-muted text-sm text-center">
-                You need <Text className="font-black">analytics.compare</Text> to access personnel benchmarking.
+                Personnel benchmarking is available on the {requiredPlan('personnel')} plan and above.
               </Text>
             </View>
           )}

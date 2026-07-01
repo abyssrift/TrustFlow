@@ -22,6 +22,7 @@ import {
 } from 'react-native';
 
 import DraggableSheet from '@/components/common/DraggableSheet';
+import { useFileSizeLimit } from '@/hooks/useFileSizeLimit';
 import { useImageLightbox } from '@/hooks/useImageLightbox';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import AdaptiveFileGrid from '../common/AdaptiveFileGrid';
@@ -688,6 +689,7 @@ function UploadSheet({
   const [uploadingIndex, setUploadingIndex] = useState(0);
   const [progress, setProgress] = useState(0);
   const colors = useThemeColors();
+  const maxFileSizeBytes = useFileSizeLimit();
 
   // Web-safe replacement for Alert.alert multi-button prompts (RN Alert.alert
   // does not render usable buttons on web, which hung uploads at the conflict
@@ -819,6 +821,10 @@ function UploadSheet({
       setUploadingIndex(i);
       setProgress(5);
       try {
+        if (maxFileSizeBytes !== null && maxFileSizeBytes !== undefined && pf.size > maxFileSizeBytes) {
+          errors.push(`${pf.name}: exceeds your plan's ${formatFileSize(maxFileSizeBytes as number)} per-file limit.`);
+          continue;
+        }
         let contentHash = '';
         if (Platform.OS === 'web' && pf.webFile) {
           contentHash = await computeSHA256Web(pf.webFile);
