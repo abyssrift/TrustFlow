@@ -17,6 +17,8 @@ html {
 body {
   min-height: -webkit-fill-available;
   min-height: 100dvh;
+  height: -webkit-fill-available;
+  height: 100dvh;
   overflow: hidden;
 }
 #root {
