@@ -1,5 +1,7 @@
 import { useTheme } from '@/contexts/ThemeContext';
+import { useBillingPlan } from '@/hooks/useBillingPlan';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { AnalyticsLimits, getAnalyticsLimits } from '@/lib/planLimits';
 import { NATIVE_THEME_COLORS } from '@/lib/layout';
 import { FontAwesome } from '@expo/vector-icons';
 import React from 'react';
@@ -30,8 +32,15 @@ const SECTION_ICONS: Record<string, React.ComponentProps<typeof FontAwesome>['na
   Radar: 'crosshairs', Targets: 'bullseye', Archives: 'archive', Analytics: 'bar-chart',
 };
 
+const SECTION_LOCK_FEATURES: Partial<Record<string, (keyof AnalyticsLimits)[]>> = {
+  Radar: ['funnel', 'personnel'],
+  Analytics: ['throughput', 'personnel'],
+};
+
 export const SectionToggle = ({ active, onSelect, hasPermission }: { active: string, onSelect: (s: string) => void, hasPermission: (p: string) => boolean }) => {
   const colors = useThemeColors();
+  const { planCode } = useBillingPlan();
+  const limits = getAnalyticsLimits(planCode);
   const sections = ['Radar', 'Targets', 'Archives', 'Analytics'].filter(s => {
     if (s === 'Archives') return hasPermission('archive.view');
     if (s === 'Analytics') return hasPermission('analytics.view');
@@ -39,24 +48,36 @@ export const SectionToggle = ({ active, onSelect, hasPermission }: { active: str
   });
   return (
     <View className="flex-row flex-wrap gap-2 bg-surface-card rounded-2xl p-1.5 border border-surface-border mb-10 w-full max-w-full">
-      {sections.map((s) => (
-        <TouchableOpacity
-          key={s}
-          onPress={() => onSelect(s.toLowerCase())}
-          className={`px-5 py-3 rounded-xl items-center flex-row justify-center flex-1 min-w-[132px] ${active === s.toLowerCase() ? 'bg-brand-primary premium-shadow' : 'bg-surface-card'}`}
-        >
-          <View className="mr-2">
-            <FontAwesome
-              name={SECTION_ICONS[s] ?? 'circle'}
-              size={13}
-              color={active === s.toLowerCase() ? 'white' : colors.textMuted}
-            />
-          </View>
-          <Text className={`font-black text-[10px] uppercase tracking-widest text-center ${active === s.toLowerCase() ? 'text-white' : 'text-typography-muted'}`} numberOfLines={1}>
-            {s}
-          </Text>
-        </TouchableOpacity>
-      ))}
+      {sections.map((s) => {
+        const isActive = active === s.toLowerCase();
+        const hasLocked = SECTION_LOCK_FEATURES[s]?.some(f => !limits[f]) ?? false;
+        return (
+          <TouchableOpacity
+            key={s}
+            onPress={() => onSelect(s.toLowerCase())}
+            className={`px-5 py-3 rounded-xl items-center flex-row justify-center flex-1 min-w-[132px] ${isActive ? 'bg-brand-primary premium-shadow' : 'bg-surface-card'}`}
+          >
+            <View className="mr-2">
+              <FontAwesome
+                name={SECTION_ICONS[s] ?? 'circle'}
+                size={13}
+                color={isActive ? 'white' : colors.textMuted}
+              />
+            </View>
+            <Text className={`font-black text-[10px] uppercase tracking-widest text-center ${isActive ? 'text-white' : 'text-typography-muted'}`} numberOfLines={1}>
+              {s}
+            </Text>
+            {hasLocked && (
+              <FontAwesome
+                name="lock"
+                size={8}
+                color={isActive ? 'rgba(255,255,255,0.5)' : colors.textMuted}
+                style={{ marginLeft: 5 }}
+              />
+            )}
+          </TouchableOpacity>
+        );
+      })}
     </View>
   );
 };
