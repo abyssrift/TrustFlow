@@ -33,15 +33,9 @@ function WidgetGate({ feature, limits, children }: {
   const colors = useThemeColors();
   if (limits[feature]) return <>{children}</>;
   return (
-    <View className="relative overflow-hidden rounded-2xl border border-surface-border/50">
-      <View style={{ opacity: 0.07 }} pointerEvents="none">{children}</View>
-      <View className="absolute inset-0 items-center justify-center gap-2">
-        <View className="w-10 h-10 rounded-full bg-brand-primary/10 border border-brand-primary/20 items-center justify-center">
-          <FontAwesome name="lock" size={16} color={colors.primary} />
-        </View>
-        <Text className="text-typography-main font-black text-sm">Requires {requiredPlan(feature)} Plan</Text>
-        <Text className="text-typography-muted text-[10px] text-center px-4">Upgrade to unlock this widget.</Text>
-      </View>
+    <View className="rounded-2xl border border-surface-border/50 px-4 py-3 flex-row items-center gap-2">
+      <FontAwesome name="lock" size={11} color={colors.textMuted} />
+      <Text className="text-typography-muted text-xs">Not available on your plan</Text>
     </View>
   );
 }

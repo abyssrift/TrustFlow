@@ -152,7 +152,8 @@ export default function PeopleScreen() {
             </TouchableOpacity>
             {membersAtLimit ? (
               <Text className="text-state-danger text-[10px] font-bold mt-2">
-                Seat limit reached — upgrade your plan to add more members.
+                Seat limit reached —{' '}
+                {hasPermission('company.billing') || !!profile?.is_owner ? 'upgrade your plan' : 'contact your admin'} to add more members.
               </Text>
             ) : membersRemaining != null && membersRemaining <= 2 && (
               <Text className="text-state-warning text-[10px] font-bold mt-2">

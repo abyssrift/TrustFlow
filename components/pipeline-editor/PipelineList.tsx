@@ -125,7 +125,8 @@ export default function PipelineList() {
           <View className="flex-1">
             <Text className="text-typography-main text-[12px] font-black">Pipeline limit reached</Text>
             <Text className="text-typography-muted text-[11px] mt-0.5 leading-4">
-              You've used all {pipelineLimit?.limit} pipelines on the Free plan. Upgrade to Pro for unlimited pipelines.
+              You've used all {pipelineLimit?.limit} pipelines on the Free plan.{' '}
+              {hasPermission('company.billing') || profile?.is_owner ? 'Upgrade to Pro for unlimited pipelines.' : 'Contact your admin to upgrade.'}
             </Text>
           </View>
         </View>

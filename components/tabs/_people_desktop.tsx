@@ -181,7 +181,8 @@ export default function PeopleScreenWeb() {
               </View>
               {membersAtLimit ? (
                 <Text className="text-state-danger text-[10px] font-bold mt-2">
-                  Seat limit reached — new members can't join. Upgrade your plan.
+                  Seat limit reached — new members can't join.{' '}
+                  {hasPermission('company.billing') || !!profile?.is_owner ? 'Upgrade your plan.' : 'Contact your admin to upgrade.'}
                 </Text>
               ) : membersRemaining != null && membersRemaining <= 2 && (
                 <Text className="text-state-warning text-[10px] font-bold mt-2">

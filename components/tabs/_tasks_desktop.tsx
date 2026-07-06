@@ -1498,9 +1498,14 @@ export function TasksScreenWeb() {
       {showPipelinePicker && (
          <View className="absolute inset-0 bg-surface-background/80 z-[100] items-center justify-center backdrop-blur-md p-6">
             <View className="bg-surface-card w-full max-w-[1200px] rounded-[3rem] border border-surface-border p-10 premium-shadow max-h-[90vh] overflow-hidden flex flex-col">
-                <View className="mb-6">
-                  <Text className="text-typography-main font-black text-3xl mb-2 tracking-tighter">Switch Board</Text>
-                  <Text className="text-typography-muted text-sm font-medium">Tip: Use Ctrl+] / Ctrl+[ or scroll on the board name to switch</Text>
+                <View className="mb-6 flex-row items-start justify-between">
+                  <View>
+                    <Text className="text-typography-main font-black text-3xl mb-2 tracking-tighter">Switch Board</Text>
+                    <Text className="text-typography-muted text-sm font-medium">Tip: Use Ctrl+] / Ctrl+[ or scroll on the board name to switch</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => { setShowPipelinePicker(false); setBoardPickerSearchQuery(''); }} className="p-2 hover:bg-surface-overlay rounded-xl transition-colors">
+                    <FontAwesome name="times" size={18} color={colors.textMuted} />
+                  </TouchableOpacity>
                 </View>
 
                 {/* Search Input */}
@@ -1539,7 +1544,7 @@ export function TasksScreenWeb() {
                             return (
                               <View
                                 key={p.id}
-                                className={`flex-row items-center mb-2 rounded-xl border overflow-hidden transition-all ${isCurrent ? 'bg-brand-primary/10 border-brand-primary' : hasActivity ? 'bg-surface-background border-state-warning/50 hover:border-state-warning' : 'bg-surface-background border-surface-border hover:border-brand-primary/50'}`}
+                                className={`flex-row items-center mb-2 rounded-xl border overflow-hidden transition-all ${isCurrent ? 'bg-brand-primary/10 border-brand-primary' : hasActivity ? 'bg-surface-background border-surface-border hover:border-brand-primary/50' : 'bg-surface-background border-surface-border hover:border-brand-primary/50'}`}
                               >
                                 <TouchableOpacity
                                   className="flex-1 p-3"
@@ -1582,7 +1587,7 @@ export function TasksScreenWeb() {
                         return (
                           <View
                             key={p.id}
-                            className={`flex-row items-center mb-3 rounded-2xl border overflow-hidden transition-all ${isCurrent ? 'bg-brand-primary/10 border-brand-primary' : hasActivity ? 'bg-surface-background border-state-warning/50 hover:border-state-warning' : 'bg-surface-background border-surface-border hover:border-brand-primary/50'}`}
+                            className={`flex-row items-center mb-3 rounded-2xl border overflow-hidden transition-all ${isCurrent ? 'bg-brand-primary/10 border-brand-primary' : hasActivity ? 'bg-surface-background border-surface-border hover:border-brand-primary/50' : 'bg-surface-background border-surface-border hover:border-brand-primary/50'}`}
                           >
                             <TouchableOpacity
                               className="flex-1 p-4"
@@ -1601,11 +1606,6 @@ export function TasksScreenWeb() {
                                     <Text className={`font-black text-base ${isCurrent ? 'text-brand-primary' : 'text-typography-main'}`}>{p.name}</Text>
                                   </View>
                                   <View className="flex-row gap-2 mt-1.5">
-                                    {isFavorite && (
-                                      <View className="bg-brand-primary/10 px-2 py-0.5 rounded-full border border-brand-primary/20">
-                                        <Text className="text-brand-primary text-[9px] font-black uppercase">⭐ Favorited</Text>
-                                      </View>
-                                    )}
                                     {p.is_default && (
                                       <View className="bg-surface-overlay px-2 py-0.5 rounded-full border border-surface-border">
                                         <Text className="text-typography-muted text-[9px] font-bold uppercase">Workspace Default</Text>
@@ -1626,26 +1626,13 @@ export function TasksScreenWeb() {
                               </View>
                             </TouchableOpacity>
 
-                            {/* Star/Favorite Button */}
-                            <TouchableOpacity
-                              onPress={() => toggleFavoriteBoard(p.id)}
-                              className="px-3 py-4 items-center justify-center hover:bg-surface-overlay transition-colors"
-                              title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-                            >
-                              <FontAwesome
-                                name={isFavorite ? 'star' : 'star-o'}
-                                size={14}
-                                color={isFavorite ? colors.primary : colors.textMuted}
-                              />
-                            </TouchableOpacity>
-
                             {/* Personal Default Heart */}
                             <TouchableOpacity
                               onPress={async () => {
                                 await AsyncStorage.setItem('@TrustFlow_my_default_pipeline', p.id);
                                 setMyDefaultPipelineId(p.id);
                               }}
-                              className="px-3 py-4 items-center justify-center border-l border-surface-border/50 hover:bg-surface-overlay transition-colors"
+                              className="px-3 py-4 items-center justify-center hover:bg-surface-overlay transition-colors"
                               title="Set as my default"
                             >
                               <FontAwesome
@@ -1674,7 +1661,7 @@ export function TasksScreenWeb() {
                         return (
                           <View
                             key={p.id}
-                            className={`flex-row items-center mb-3 rounded-2xl border overflow-hidden transition-all ${isCurrent ? 'bg-brand-primary/10 border-brand-primary' : hasActivity ? 'bg-surface-background border-state-warning/50 hover:border-state-warning' : 'bg-surface-background border-surface-border hover:border-brand-primary/50'}`}
+                            className={`flex-row items-center mb-3 rounded-2xl border overflow-hidden transition-all ${isCurrent ? 'bg-brand-primary/10 border-brand-primary' : hasActivity ? 'bg-surface-background border-surface-border hover:border-brand-primary/50' : 'bg-surface-background border-surface-border hover:border-brand-primary/50'}`}
                           >
                             <TouchableOpacity
                               className="flex-1 p-4"
@@ -1693,11 +1680,6 @@ export function TasksScreenWeb() {
                                     <Text className={`font-black text-base ${isCurrent ? 'text-brand-primary' : 'text-typography-main'}`}>{p.name}</Text>
                                   </View>
                                   <View className="flex-row gap-2 mt-1.5">
-                                    {isFavorite && (
-                                      <View className="bg-brand-primary/10 px-2 py-0.5 rounded-full border border-brand-primary/20">
-                                        <Text className="text-brand-primary text-[9px] font-black uppercase">⭐ Favorited</Text>
-                                      </View>
-                                    )}
                                     {p.is_default && (
                                       <View className="bg-surface-overlay px-2 py-0.5 rounded-full border border-surface-border">
                                         <Text className="text-typography-muted text-[9px] font-bold uppercase">Workspace Default</Text>
@@ -1718,26 +1700,13 @@ export function TasksScreenWeb() {
                               </View>
                             </TouchableOpacity>
 
-                            {/* Star/Favorite Button */}
-                            <TouchableOpacity
-                              onPress={() => toggleFavoriteBoard(p.id)}
-                              className="px-3 py-4 items-center justify-center hover:bg-surface-overlay transition-colors"
-                              title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-                            >
-                              <FontAwesome
-                                name={isFavorite ? 'star' : 'star-o'}
-                                size={14}
-                                color={isFavorite ? colors.primary : colors.textMuted}
-                              />
-                            </TouchableOpacity>
-
                             {/* Personal Default Heart */}
                             <TouchableOpacity
                               onPress={async () => {
                                 await AsyncStorage.setItem('@TrustFlow_my_default_pipeline', p.id);
                                 setMyDefaultPipelineId(p.id);
                               }}
-                              className="px-3 py-4 items-center justify-center border-l border-surface-border/50 hover:bg-surface-overlay transition-colors"
+                              className="px-3 py-4 items-center justify-center hover:bg-surface-overlay transition-colors"
                               title="Set as my default"
                             >
                               <FontAwesome
@@ -1753,21 +1722,6 @@ export function TasksScreenWeb() {
                     </ScrollView>
                   </View>
                 )}
-
-                {/* Icon Legend */}
-                <View className="mt-6 p-4 bg-surface-background rounded-2xl border border-surface-border/50">
-                  <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-3">Icon Guide (Clickable)</Text>
-                  <View className="gap-2">
-                    <View className="flex-row items-center gap-2">
-                      <FontAwesome name="star" size={12} className="text-brand-primary" />
-                      <Text className="text-typography-muted text-[10px] font-medium">Star = Add to favorites (sort to top)</Text>
-                    </View>
-                    <View className="flex-row items-center gap-2">
-                      <FontAwesome name="heart" size={12} className="text-state-success" />
-                      <Text className="text-typography-muted text-[10px] font-medium">Heart = Set as your personal default</Text>
-                    </View>
-                  </View>
-                </View>
 
                 <TouchableOpacity onPress={() => {
                   setShowPipelinePicker(false);

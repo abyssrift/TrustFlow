@@ -3,6 +3,8 @@ import DraggableSheet from '@/components/common/DraggableSheet';
 import { BackButton } from '@/components/common/BackButton';
 import { PersonnelRow, StageDwell, ThroughputPeriod, useAnalytics } from '@/contexts/AnalyticsContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useBillingPlan } from '@/hooks/useBillingPlan';
+import { getAnalyticsLimits } from '@/lib/planLimits';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -386,11 +388,18 @@ function PipelineTab() {
       ) : (
         <>
           {/* Throughput chart */}
-          <View className="bg-surface-card border border-surface-border rounded-2xl p-5">
-            <Text className="text-typography-main font-black text-base mb-1">Throughput Over Time</Text>
-            <Text className="text-typography-muted text-[10px] mb-5">Tasks completed vs failed per period</Text>
-            <ThroughputChart data={throughput} />
-          </View>
+          {limits.throughput ? (
+            <View className="bg-surface-card border border-surface-border rounded-2xl p-5">
+              <Text className="text-typography-main font-black text-base mb-1">Throughput Over Time</Text>
+              <Text className="text-typography-muted text-[10px] mb-5">Tasks completed vs failed per period</Text>
+              <ThroughputChart data={throughput} />
+            </View>
+          ) : (
+            <View className="rounded-2xl border border-surface-border/50 px-4 py-3 flex-row items-center gap-2">
+              <FontAwesome name="lock" size={11} color={colors.textMuted} />
+              <Text className="text-typography-muted text-xs">Not available on your plan</Text>
+            </View>
+          )}
 
           {/* Stage dwell chart */}
           <View className="bg-surface-card border border-surface-border rounded-2xl p-5">
@@ -593,6 +602,8 @@ export default function AdminAnalyticsNative() {
   }
 
   const canCompare = hasPermission('analytics.compare');
+  const { planCode } = useBillingPlan();
+  const limits = getAnalyticsLimits(planCode);
 
   return (
     <ScrollView className="flex-1 bg-surface-background" contentContainerStyle={{ paddingBottom: 40 }}>
@@ -632,7 +643,13 @@ export default function AdminAnalyticsNative() {
 
       <View className="px-6">
         {activeTab === 'pipeline' && <PipelineTab />}
-        {activeTab === 'personnel' && canCompare && <PersonnelTab />}
+        {activeTab === 'personnel' && canCompare && limits.personnel && <PersonnelTab />}
+        {activeTab === 'personnel' && canCompare && !limits.personnel && (
+          <View className="rounded-2xl border border-surface-border/50 px-4 py-3 flex-row items-center gap-2 mt-2">
+            <FontAwesome name="lock" size={11} color={colors.textMuted} />
+            <Text className="text-typography-muted text-xs">Not available on your plan</Text>
+          </View>
+        )}
         {activeTab === 'personnel' && !canCompare && (
           <View className="bg-surface-card border border-surface-border rounded-2xl p-10 items-center gap-3">
             <FontAwesome name="lock" size={28} color={colors.primary} />

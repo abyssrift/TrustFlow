@@ -1392,7 +1392,7 @@ function TasksScreen() {
                       return (
                       <View
                         key={p.id}
-                        className={`flex-row items-center mb-2.5 rounded-2xl border overflow-hidden ${isCurrent ? 'bg-brand-primary/10 border-brand-primary' : hasActivity ? 'bg-surface-background border-state-warning/50' : 'bg-surface-background border-surface-border'}`}
+                        className={`flex-row items-center mb-2.5 rounded-2xl border overflow-hidden ${isCurrent ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border'}`}
                       >
                         <TouchableOpacity
                           className="flex-1 p-3.5"
@@ -1404,13 +1404,8 @@ function TasksScreen() {
                                 {hasActivity && !isCurrent && <ActivityDot color={colors.warning} />}
                                 <Text className={`font-black text-base ${isCurrent ? 'text-brand-primary' : 'text-typography-main'}`} numberOfLines={1}>{p.name}</Text>
                               </View>
-                              {(isFavorite || p.is_default || myDefaultPipelineId === p.id) && (
+                              {(p.is_default || myDefaultPipelineId === p.id) && (
                                 <View className="flex-row flex-wrap gap-1.5 mt-1.5">
-                                  {isFavorite && (
-                                    <View className="bg-brand-primary/10 px-2 py-0.5 rounded-full border border-brand-primary/20">
-                                      <Text className="text-brand-primary text-[9px] font-black uppercase">⭐ Favorited</Text>
-                                    </View>
-                                  )}
                                   {p.is_default && (
                                     <View className="bg-surface-overlay px-2 py-0.5 rounded-full border border-surface-border">
                                       <Text className="text-typography-muted text-[9px] font-bold uppercase">Workspace Default</Text>
@@ -1432,18 +1427,10 @@ function TasksScreen() {
                           </View>
                         </TouchableOpacity>
 
-                        {/* Favorite toggle */}
-                        <TouchableOpacity
-                          onPress={() => toggleFavoriteBoard(p.id)}
-                          className="px-3 py-4 items-center justify-center"
-                        >
-                          <FontAwesome name={isFavorite ? 'star' : 'star-o'} size={15} color={isFavorite ? colors.primary : colors.textMuted} />
-                        </TouchableOpacity>
-
                         {/* Personal default toggle */}
                         <TouchableOpacity
                           onPress={() => setMyDefaultBoard(p.id)}
-                          className="px-3 py-4 items-center justify-center border-l border-surface-border/50"
+                          className="px-3 py-4 items-center justify-center"
                         >
                           <FontAwesome name={myDefaultPipelineId === p.id ? 'heart' : 'heart-o'} size={15} color={myDefaultPipelineId === p.id ? colors.success : colors.textMuted} />
                         </TouchableOpacity>

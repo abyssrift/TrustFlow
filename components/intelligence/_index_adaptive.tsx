@@ -5,6 +5,8 @@ import { IntelligencePicker } from '@/components/intelligence/IntelligenceCommon
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { useBillingPlan } from '@/hooks/useBillingPlan';
+import { getAnalyticsLimits } from '@/lib/planLimits';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -206,6 +208,8 @@ const TrendComparisonCards = ({ data }: any) => {
 
 const RadarSection = ({ data, activeWidgets, onEditWidgets }: any) => {
   const colors = useThemeColors();
+  const { planCode } = useBillingPlan();
+  const limits = getAnalyticsLimits(planCode);
   if (!data) return <View className="py-20"><ActivityIndicator color={colors.primary} /></View>;
   const curThr = data.current?.throughput || 0;
   const prevThr = data.comparison?.throughput || 0;
@@ -254,8 +258,12 @@ const RadarSection = ({ data, activeWidgets, onEditWidgets }: any) => {
           })
         )}
       </View>
-      <ConversionFunnelChart data={data} />
-      <WorkDistributionChart data={data} />
+      {limits.funnel
+        ? <ConversionFunnelChart data={data} />
+        : <View className="rounded-2xl border border-surface-border/50 px-4 py-3 flex-row items-center gap-2 mb-6"><FontAwesome name="lock" size={11} color={colors.textMuted} /><Text className="text-typography-muted text-xs">Not available on your plan</Text></View>}
+      {limits.personnel
+        ? <WorkDistributionChart data={data} />
+        : null}
       <QualityLeaderboard data={data} />
       <TrendComparisonCards data={data} />
     </View>

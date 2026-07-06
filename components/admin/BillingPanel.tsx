@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, useWindowDimensions, Platform } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, useWindowDimensions, Platform, Modal, Linking } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -47,6 +47,8 @@ const STATUS_LABEL: Record<string, string> = {
   active: 'Active', trialing: 'Trial', past_due: 'Past due', canceled: 'Canceled', none: 'Inactive',
 };
 
+const PLAN_TIER: Record<string, number> = { free: 0, pro: 1, business: 2, enterprise: 3 };
+
 export default function BillingPanel() {
   const colors = useThemeColors();
   const { profile, hasPermission } = useAuth();
@@ -62,6 +64,7 @@ export default function BillingPanel() {
   const [showRedeemCode, setShowRedeemCode] = useState(false);
   const [trialCode, setTrialCode] = useState('');
   const [redeemLoading, setRedeemLoading] = useState(false);
+  const [confirmDowngrade, setConfirmDowngrade] = useState<Plan | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -81,12 +84,28 @@ export default function BillingPanel() {
     else setLoading(false);
   }, [canManage, load]);
 
+  // Check if we're returning from a PayMob checkout (web only)
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !canManage) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('success') === 'true') {
+      successToast('Payment received! Your plan will activate shortly.');
+      const url = new URL(window.location.href);
+      url.searchParams.delete('success');
+      url.searchParams.delete('id');
+      url.searchParams.delete('merchant_order_id');
+      window.history.replaceState({}, '', url.toString());
+      // Give the webhook a moment to fire, then reload
+      setTimeout(() => load(), 3000);
+    }
+  }, [canManage]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (!canManage) {
     return (
       <View className="flex-1 items-center justify-center p-10">
-        <FontAwesome name="lock" size={40} color={colors.textMuted} />
-        <Text className="text-typography-main text-lg font-black mt-4">Restricted</Text>
-        <Text className="text-typography-muted text-sm text-center mt-2">You need billing access to view this.</Text>
+        <FontAwesome name="lock" size={32} color={colors.textMuted} />
+        <Text className="text-typography-main text-base font-black mt-4">Billing managed by your admin</Text>
+        <Text className="text-typography-muted text-sm text-center mt-2 leading-5">Contact your company owner or billing admin to change your plan or check usage.</Text>
       </View>
     );
   }
@@ -103,6 +122,33 @@ export default function BillingPanel() {
   const currentPlan = data?.plans.find(p => p.code === billing?.plan_code);
   const limits = data?.limits;
 
+  function UsageBar({ label, used, limit, fmt, atLimitMsg }: {
+    label: string; used: number; limit: number | null;
+    fmt: (v: number) => string; atLimitMsg: string;
+  }) {
+    const pct = limit == null ? 0 : Math.min(1, used / limit);
+    const atLimit = limit != null && used >= limit;
+    return (
+      <View className="mb-4">
+        <View className="flex-row items-end justify-between mb-1.5">
+          <Text className="text-typography-muted text-[11px] font-bold uppercase tracking-widest">{label}</Text>
+          <Text className={`text-xs font-black ${atLimit ? 'text-state-danger' : 'text-typography-main'}`}>
+            {fmt(used)}{limit != null ? ` / ${fmt(limit)}` : ' (unlimited)'}
+          </Text>
+        </View>
+        {limit != null && (
+          <View className="h-2 rounded-full bg-surface-background overflow-hidden">
+            <View
+              className={`h-full rounded-full ${atLimit ? 'bg-state-danger' : pct >= 0.8 ? 'bg-state-warning' : 'bg-brand-primary'}`}
+              style={{ width: `${Math.round(pct * 100)}%` }}
+            />
+          </View>
+        )}
+        {atLimit && <Text className="text-state-danger text-[10px] font-bold mt-1">{atLimitMsg}</Text>}
+      </View>
+    );
+  }
+
   const formatBytes = (b: number | null) => {
     if (b == null) return 'Unlimited';
     if (b >= 1073741824) return `${(b / 1073741824).toFixed(0)} GB`;
@@ -116,31 +162,78 @@ export default function BillingPanel() {
     return `$${(p.price_cents / 100).toFixed(0)}${p.per_seat ? '/seat' : ''}/mo`;
   };
 
+  const currentTier = PLAN_TIER[billing?.plan_code ?? 'free'] ?? 0;
+  const isDowngrade = (p: Plan) => (PLAN_TIER[p.code] ?? 0) < currentTier;
+
   const handleChoose = async (p: Plan) => {
     if (p.code === billing?.plan_code) return;
+
+    // Enterprise: contact sales (existing RPC, no payment)
+    if (p.code === 'enterprise') {
+      setWorking(p.code);
+      try {
+        const { data: res, error } = await supabase.rpc('rpc_request_billing_change', { p_plan_code: p.code, p_action: 'contact' });
+        if (error) throw error;
+        infoToast('Contact sales to set up an Enterprise plan.', 'Enterprise');
+      } catch (e: any) {
+        errorToast(e?.message || 'Could not process request.');
+      } finally { setWorking(null); }
+      return;
+    }
+
+    // Downgrade: show confirmation modal first
+    if (isDowngrade(p)) {
+      setConfirmDowngrade(p);
+      return;
+    }
+
+    // Free plan upgrade: apply immediately (no payment needed)
+    if (p.price_cents === 0) {
+      setWorking(p.code);
+      try {
+        const { data: res, error } = await supabase.rpc('rpc_request_billing_change', { p_plan_code: p.code, p_action: 'subscribe' });
+        if (error) throw error;
+        const r = res as any;
+        if (r?.applied) { successToast(`Switched to ${p.name}.`); await load(); }
+        else if (r?.blocked && Array.isArray(r.errors)) r.errors.forEach((e: any) => errorToast(e.message, 'Cannot switch plan'));
+        else infoToast(r?.message || 'Your request was recorded.', 'Billing');
+      } catch (e: any) {
+        errorToast(e?.message || 'Could not update plan.');
+      } finally { setWorking(null); }
+      return;
+    }
+
+    // Paid upgrade: PayMob checkout
     setWorking(p.code);
     try {
-      const { data: res, error } = await supabase.rpc('rpc_request_billing_change', {
-        p_plan_code: p.code,
-        p_action: p.code === 'enterprise' ? 'contact' : 'subscribe',
-      });
+      const { data, error } = await supabase.functions.invoke('create-paymob-checkout', { body: { plan_code: p.code } });
       if (error) throw error;
-      const r = res as any;
-      if (r?.applied) {
-        successToast(`Switched to ${p.name}.`);
-        await load();
-      } else if (r?.blocked && Array.isArray(r.errors)) {
-        r.errors.forEach((e: any) => errorToast(e.message, 'Cannot switch plan'));
-      } else if (r?.contact_sales) {
-        infoToast('Contact sales to set up an Enterprise plan.', 'Enterprise');
+      if (!data?.checkout_url) throw new Error(data?.error || 'No checkout URL returned');
+      if (Platform.OS === 'web') {
+        window.location.href = data.checkout_url;
       } else {
-        infoToast(r?.message || 'Your request was recorded.', 'Billing');
+        Linking.openURL(data.checkout_url);
       }
     } catch (e: any) {
-      errorToast(e?.message || 'Could not update plan.');
-    } finally {
-      setWorking(null);
-    }
+      errorToast(e?.message || 'Could not start checkout. Try again.');
+    } finally { setWorking(null); }
+  };
+
+  const handleConfirmDowngrade = async () => {
+    if (!confirmDowngrade) return;
+    const p = confirmDowngrade;
+    setConfirmDowngrade(null);
+    setWorking(p.code);
+    try {
+      const { data: res, error } = await supabase.rpc('rpc_request_billing_change', { p_plan_code: p.code, p_action: 'subscribe' });
+      if (error) throw error;
+      const r = res as any;
+      if (r?.applied) { successToast(`Switched to ${p.name}.`); await load(); }
+      else if (r?.blocked && Array.isArray(r.errors)) r.errors.forEach((e: any) => errorToast(e.message, 'Cannot switch plan'));
+      else infoToast(r?.message || 'Your request was recorded.', 'Billing');
+    } catch (e: any) {
+      errorToast(e?.message || 'Could not downgrade plan.');
+    } finally { setWorking(null); }
   };
 
   const handleRedeemCode = async () => {
@@ -219,93 +312,11 @@ export default function BillingPanel() {
               );
             })()}
 
-            {/* Member usage */}
-            {(() => {
-              const pct = billing.member_limit == null ? 0 : Math.min(1, billing.active_members / billing.member_limit);
-              const atLimit = billing.member_limit != null && billing.active_members >= billing.member_limit;
-              return (
-                <View className="mb-4">
-                  <View className="flex-row items-end justify-between mb-1.5">
-                    <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest">Members</Text>
-                    <Text className={`text-[11px] font-black ${atLimit ? 'text-state-danger' : 'text-typography-main'}`}>
-                      {billing.active_members}{billing.member_limit != null ? ` / ${billing.member_limit}` : ''}
-                      {billing.member_limit == null ? ' (unlimited)' : ''}
-                    </Text>
-                  </View>
-                  {billing.member_limit != null && (
-                    <View className="h-2 rounded-full bg-surface-background overflow-hidden">
-                      <View
-                        className={`h-full rounded-full ${atLimit ? 'bg-state-danger' : pct >= 0.8 ? 'bg-state-warning' : 'bg-brand-primary'}`}
-                        style={{ width: `${Math.round(pct * 100)}%` }}
-                      />
-                    </View>
-                  )}
-                  {atLimit && (
-                    <Text className="text-state-danger text-[10px] font-bold mt-1">
-                      Seat limit reached — upgrade to add more members.
-                    </Text>
-                  )}
-                </View>
-              );
-            })()}
-
-            {/* Storage usage */}
-            {(() => {
-              const storageLimit = limits?.max_storage_bytes ?? null;
-              const storageUsed = billing.storage_used_bytes ?? 0;
-              const pct = storageLimit == null ? 0 : Math.min(1, storageUsed / storageLimit);
-              const atLimit = storageLimit != null && storageUsed >= storageLimit;
-              return (
-                <View className="mb-4">
-                  <View className="flex-row items-end justify-between mb-1.5">
-                    <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest">Storage</Text>
-                    <Text className={`text-[11px] font-black ${atLimit ? 'text-state-danger' : 'text-typography-main'}`}>
-                      {formatBytes(storageUsed)}{storageLimit != null ? ` / ${formatBytes(storageLimit)}` : ' (unlimited)'}
-                    </Text>
-                  </View>
-                  {storageLimit != null && (
-                    <View className="h-2 rounded-full bg-surface-background overflow-hidden">
-                      <View
-                        className={`h-full rounded-full ${atLimit ? 'bg-state-danger' : pct >= 0.8 ? 'bg-state-warning' : 'bg-brand-primary'}`}
-                        style={{ width: `${Math.round(pct * 100)}%` }}
-                      />
-                    </View>
-                  )}
-                  {atLimit && (
-                    <Text className="text-state-danger text-[10px] font-bold mt-1">
-                      Storage full — delete files or upgrade your plan.
-                    </Text>
-                  )}
-                </View>
-              );
-            })()}
-
-            {/* Pipeline usage */}
-            {billing.pipeline_limit != null && (() => {
-              const pct = Math.min(1, billing.pipeline_count / billing.pipeline_limit);
-              const atLimit = billing.pipeline_count >= billing.pipeline_limit;
-              return (
-                <View className="mb-4">
-                  <View className="flex-row items-end justify-between mb-1.5">
-                    <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest">Pipelines</Text>
-                    <Text className={`text-[11px] font-black ${atLimit ? 'text-state-danger' : 'text-typography-main'}`}>
-                      {billing.pipeline_count} / {billing.pipeline_limit}
-                    </Text>
-                  </View>
-                  <View className="h-2 rounded-full bg-surface-background overflow-hidden">
-                    <View
-                      className={`h-full rounded-full ${atLimit ? 'bg-state-danger' : pct >= 0.8 ? 'bg-state-warning' : 'bg-brand-primary'}`}
-                      style={{ width: `${Math.round(pct * 100)}%` }}
-                    />
-                  </View>
-                  {atLimit && (
-                    <Text className="text-state-danger text-[10px] font-bold mt-1">
-                      Pipeline limit reached — upgrade to create more.
-                    </Text>
-                  )}
-                </View>
-              );
-            })()}
+            <UsageBar label="Members" used={billing.active_members} limit={billing.member_limit} fmt={v => String(v)} atLimitMsg="Seat limit reached — upgrade to add more members." />
+            <UsageBar label="Storage" used={billing.storage_used_bytes ?? 0} limit={limits?.max_storage_bytes ?? null} fmt={v => formatBytes(v)} atLimitMsg="Storage full — delete files or upgrade your plan." />
+            {billing.pipeline_limit != null && (
+              <UsageBar label="Pipelines" used={billing.pipeline_count} limit={billing.pipeline_limit} fmt={v => String(v)} atLimitMsg="Pipeline limit reached — upgrade to create more." />
+            )}
 
             {/* Projected monthly cost */}
             {currentPlan && currentPlan.price_cents > 0 && currentPlan.per_seat && (
@@ -342,6 +353,13 @@ export default function BillingPanel() {
             )}
           </View>
         )}
+
+        {/* Section divider */}
+        <View className="flex-row items-center gap-3 mb-4">
+          <View className="flex-1 h-px bg-surface-border" />
+          <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Available Plans</Text>
+          <View className="flex-1 h-px bg-surface-border" />
+        </View>
 
         {/* Plan cards — stacked on mobile, grid on desktop */}
         <View className={isWide ? 'flex-row flex-wrap gap-4' : 'gap-3'}>
@@ -425,7 +443,12 @@ export default function BillingPanel() {
                   className={`py-3.5 rounded-xl items-center ${isCurrent ? 'bg-surface-background border border-surface-border' : 'bg-brand-primary'} ${isWide ? 'mt-auto' : ''}`}
                 >
                   <Text className={`font-black text-[11px] uppercase tracking-widest ${isCurrent ? 'text-typography-muted' : 'text-white'}`}>
-                    {working === p.code ? 'Working…' : isCurrent ? 'Current Plan' : isEnterprise ? 'Contact Sales' : 'Choose Plan'}
+                    {working === p.code ? 'Working…'
+                      : isCurrent ? 'Current Plan'
+                      : isEnterprise ? 'Contact Sales'
+                      : isDowngrade(p) ? 'Downgrade'
+                      : p.price_cents > 0 ? 'Pay with PayMob'
+                      : 'Choose Plan'}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -467,6 +490,43 @@ export default function BillingPanel() {
           </View>
         )}
       </ScrollView>
+
+      {/* Downgrade confirmation modal */}
+      <Modal
+        visible={!!confirmDowngrade}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setConfirmDowngrade(null)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <View style={{ backgroundColor: colors.card, borderRadius: 20, padding: 24, width: '100%', maxWidth: 400, borderWidth: 1, borderColor: colors.border }}>
+            <Text style={{ color: colors.textMain, fontSize: 17, fontWeight: '900', marginBottom: 8 }}>
+              Downgrade to {confirmDowngrade?.name}?
+            </Text>
+            <Text style={{ color: colors.textMuted, fontSize: 13, lineHeight: 20, marginBottom: 20 }}>
+              You're switching from {currentPlan?.name ?? billing?.plan_code} to {confirmDowngrade?.name}. Features and limits will change immediately. This cannot be undone automatically — you'll need to upgrade again to regain access.
+            </Text>
+            <View style={{ gap: 10 }}>
+              <TouchableOpacity
+                onPress={handleConfirmDowngrade}
+                style={{ backgroundColor: colors.danger, borderRadius: 12, paddingVertical: 14, alignItems: 'center' }}
+              >
+                <Text style={{ color: 'white', fontWeight: '900', fontSize: 12, letterSpacing: 1.5, textTransform: 'uppercase' }}>
+                  Yes, downgrade
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setConfirmDowngrade(null)}
+                style={{ backgroundColor: colors.background, borderRadius: 12, paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: colors.border }}
+              >
+                <Text style={{ color: colors.textMuted, fontWeight: '900', fontSize: 12, letterSpacing: 1.5, textTransform: 'uppercase' }}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

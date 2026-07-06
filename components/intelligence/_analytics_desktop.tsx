@@ -63,19 +63,10 @@ function PlanGate({ feature, planCode, children }: {
   const colors = useThemeColors();
   const limits = getAnalyticsLimits(planCode);
   if (limits[feature]) return <>{children}</>;
-  const plan = requiredPlan(feature);
   return (
-    <View className="relative overflow-hidden rounded-2xl border border-surface-border">
-      <View style={{ opacity: 0.08 }} pointerEvents="none">{children}</View>
-      <View className="absolute inset-0 items-center justify-center gap-3 bg-surface-background/70">
-        <View className="w-14 h-14 rounded-full bg-brand-primary/10 items-center justify-center border border-brand-primary/20">
-          <FontAwesome name="lock" size={22} color={colors.primary} />
-        </View>
-        <Text className="text-typography-main font-black text-base">Requires {plan} Plan</Text>
-        <Text className="text-typography-muted text-xs text-center px-6">
-          Upgrade to {plan} or higher to unlock this feature.
-        </Text>
-      </View>
+    <View className="rounded-2xl border border-surface-border/50 px-4 py-3 flex-row items-center gap-2">
+      <FontAwesome name="lock" size={11} color={colors.textMuted} />
+      <Text className="text-typography-muted text-xs">Not available on your plan</Text>
     </View>
   );
 }
