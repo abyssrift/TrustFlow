@@ -345,7 +345,7 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
     <View className="flex-1 flex-row bg-surface-background w-full h-full overflow-hidden">
       <View
         ref={sidebarRef}
-        className={`${isExpanded ? 'w-64' : 'w-20'} relative h-full z-30 transition-[width] duration-300 ease-in-out`}
+        className={`${isExpanded ? 'w-64' : 'w-20'} relative self-stretch z-30 transition-[width] duration-300 ease-in-out`}
       >
         <View className="absolute inset-0 z-40">
           <View
