@@ -1,7 +1,7 @@
 # Graph Report - TrustFlow  (2026-07-08)
 
 ## Corpus Check
-- 462 files · ~393,288 words
+- 462 files · ~393,369 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `95eeb322`
+- Built from commit: `54ba0547`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -287,8 +287,8 @@ Cohesion: 0.05
 Nodes (39): AnimatedTaskCard(), ConfirmModal(), ConfirmModalProps, ProjectFolderModal(), ProjectFolderModalProps, ProjectFolderModal(), ProjectFolderModalProps, BOARD_PICKER_KEYS (+31 more)
 
 ### Community 28 - "_filehub_desktop.tsx"
-Cohesion: 0.12
-Nodes (27): ACTIVITY_META, AdaptiveFileGrid(), ALLOWED_EXTENSIONS, computeSHA256(), EMPTY_DRAFT(), FileRow(), formatFileSize(), getInitials() (+19 more)
+Cohesion: 0.13
+Nodes (23): ACTIVITY_META, ALLOWED_EXTENSIONS, computeSHA256(), EMPTY_DRAFT(), getInitials(), GROUP_COLORS, GroupCreateModal(), GroupMembersPanel() (+15 more)
 
 ### Community 29 - "usePipelineEditor"
 Cohesion: 0.29
@@ -379,8 +379,8 @@ Cohesion: 0.15
 Nodes (13): EditTargetModal(), IntelligenceTargets(), DEFAULT_KANBAN, hexToRgb(), KanbanSettings, STORAGE_KEYS, ThemeContext, ThemeContextType (+5 more)
 
 ### Community 51 - "useAlert"
-Cohesion: 0.38
-Nodes (6): DevToolsScreenWeb(), FileHubDesktopInner(), getTagColor(), relativeDate(), TagsManageModal(), useAlert()
+Cohesion: 0.25
+Nodes (10): DevToolsScreenWeb(), AdaptiveFileGrid(), FileHubDesktopInner(), FileRow(), formatFileSize(), getMimeIcon(), getTagColor(), relativeDate() (+2 more)
 
 ### Community 52 - "_layout.web.tsx"
 Cohesion: 0.33

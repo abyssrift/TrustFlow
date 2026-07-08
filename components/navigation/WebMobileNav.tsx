@@ -99,6 +99,9 @@ export default function WebMobileNav({
     borderRadius: 28,
     borderWidth: 1,
     borderColor: addAlpha(colors.border, 0.6),
+    // Lighter top edge reads as a glass rim even where there's nothing
+    // underneath to visibly blur (e.g. empty space at the bottom of a screen).
+    borderTopColor: isWeb ? 'rgba(255,255,255,0.16)' : addAlpha(colors.border, 0.6),
     backgroundColor: addAlpha(colors.card, isWeb ? 0.55 : 0.92),
     shadowColor: '#000',
     shadowOpacity: 0.18,
@@ -117,8 +120,8 @@ export default function WebMobileNav({
     const el = navRef.current;
     const domNode = el instanceof Element ? el : (el as any)?.getDOMNode?.() ?? null;
     if (!domNode) return;
-    domNode.style.backdropFilter = 'blur(20px) saturate(1.9)';
-    domNode.style.WebkitBackdropFilter = 'blur(20px) saturate(1.9)';
+    domNode.style.backdropFilter = 'blur(24px) saturate(2.1)';
+    domNode.style.WebkitBackdropFilter = 'blur(24px) saturate(2.1)';
   });
 
   // Sliding selection pill: all 4 slots are flex-1, so the indicator just
@@ -156,6 +159,14 @@ export default function WebMobileNav({
         className="flex-row items-center justify-around px-2 py-2"
         onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
       >
+        {isWeb && (
+          // Sheen: a faint top-to-bottom lightening, same cue real glass gives
+          // regardless of whether there's visible content behind it to blur.
+          <View
+            pointerEvents="none"
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '55%', borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: 'rgba(255,255,255,0.05)' }}
+          />
+        )}
         {slotWidth > 0 && (
           <Animated.View
             pointerEvents="none"
