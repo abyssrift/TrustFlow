@@ -3,7 +3,6 @@
   "1": "DataExportPanel.tsx",
   "2": "dependencies",
   "3": "AnalyticsContext.tsx",
-  "4": "CreateTaskModal.web.tsx",
   "5": "FileHubAnalytics.tsx",
   "6": "useThemeColors",
   "7": "Comprehensive Reporting Data Seed Guide",
@@ -43,7 +42,6 @@
   "41": "seed_comprehensive.ts",
   "42": "useControlPlaneData.ts",
   "43": "preferences.web.tsx",
-  "44": "_analytics_adaptive.tsx",
   "45": "_ReportGenerator_desktop.tsx",
   "46": "_targets_desktop.tsx",
   "47": "themeColors.ts",
@@ -146,8 +144,6 @@
   "144": "TaskPingButton.tsx",
   "145": "Tips & Tricks",
   "146": "Workflow",
-  "147": "Features",
   "148": "Troubleshooting",
-  "149": "Method 2: Using Command Line Script (Most Complete)",
-  "150": "targets.tsx"
+  "149": "Method 2: Using Command Line Script (Most Complete)"
 }

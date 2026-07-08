@@ -303,7 +303,7 @@ function FileDetailSheet({
 
   return (
     <>
-    <DraggableSheet visible={!!file} onClose={onClose}>
+    <DraggableSheet visible={!!file} onClose={onClose} dimBackdrop>
 
           {/* File header */}
           <View className="items-center px-6 pt-2 pb-4 border-b border-surface-border/50">

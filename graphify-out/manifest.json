@@ -505,7 +505,7 @@
     "semantic_hash": ""
   },
   "components/common/DraggableSheet.tsx": {
-    "mtime": 1782296056.3118045,
+    "mtime": 1783500808.7592807,
     "ast_hash": "4abb9ac0b87b9b225426594c612847ba",
     "semantic_hash": ""
   },
@@ -675,8 +675,8 @@
     "semantic_hash": ""
   },
   "components/intelligence/_filehub_adaptive.tsx": {
-    "mtime": 1782896299.5928237,
-    "ast_hash": "3911480e0ce46a4795c374151fd7f376",
+    "mtime": 1783500814.2504125,
+    "ast_hash": "ed3a68ef1958bf2d46dd9a11121cfe2c",
     "semantic_hash": ""
   },
   "components/intelligence/_filehub_desktop.tsx": {
@@ -825,8 +825,8 @@
     "semantic_hash": ""
   },
   "components/kanban/KanbanPersonalizer.tsx": {
-    "mtime": 1783343373.6812537,
-    "ast_hash": "a83fcfcd0fe2143217f57867999032f4",
+    "mtime": 1783500553.3476303,
+    "ast_hash": "eda3bc9986f7e5eff213bebdff89c9ab",
     "semantic_hash": ""
   },
   "components/navigation/WebMobileNav.tsx": {
@@ -1045,13 +1045,13 @@
     "semantic_hash": ""
   },
   "components/tabs/_tasks_adaptive.tsx": {
-    "mtime": 1783243952.4296243,
-    "ast_hash": "96fc686698f8ffcaba6ad691dc268c0b",
+    "mtime": 1783502456.8716836,
+    "ast_hash": "a1950c2e89989100740508dec6b541ea",
     "semantic_hash": ""
   },
   "components/tabs/_tasks_desktop.tsx": {
-    "mtime": 1783243924.037614,
-    "ast_hash": "416eaca75a1dda5de1623e074bc21280",
+    "mtime": 1783502725.1346767,
+    "ast_hash": "89f7693bd3a6d12cdff831e46cf12e95",
     "semantic_hash": ""
   },
   "components/tabs/_tasks_web.tsx": {
@@ -2647,6 +2647,11 @@
   "components/navigation/FloatingTabBar.tsx": {
     "mtime": 1783494964.952947,
     "ast_hash": "193878c74e847495bb71565b46709262",
+    "semantic_hash": ""
+  },
+  "components/tabs/taskBoardCache.ts": {
+    "mtime": 1783502425.5268154,
+    "ast_hash": "6a719ea2bb2f14a599123370842aba4f",
     "semantic_hash": ""
   }
 }

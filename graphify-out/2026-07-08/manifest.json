@@ -505,7 +505,7 @@
     "semantic_hash": ""
   },
   "components/common/DraggableSheet.tsx": {
-    "mtime": 1782296056.3118045,
+    "mtime": 1783500808.7592807,
     "ast_hash": "4abb9ac0b87b9b225426594c612847ba",
     "semantic_hash": ""
   },
@@ -675,8 +675,8 @@
     "semantic_hash": ""
   },
   "components/intelligence/_filehub_adaptive.tsx": {
-    "mtime": 1782896299.5928237,
-    "ast_hash": "3911480e0ce46a4795c374151fd7f376",
+    "mtime": 1783500814.2504125,
+    "ast_hash": "ed3a68ef1958bf2d46dd9a11121cfe2c",
     "semantic_hash": ""
   },
   "components/intelligence/_filehub_desktop.tsx": {
@@ -825,13 +825,13 @@
     "semantic_hash": ""
   },
   "components/kanban/KanbanPersonalizer.tsx": {
-    "mtime": 1783343373.6812537,
-    "ast_hash": "a83fcfcd0fe2143217f57867999032f4",
+    "mtime": 1783500553.3476303,
+    "ast_hash": "eda3bc9986f7e5eff213bebdff89c9ab",
     "semantic_hash": ""
   },
   "components/navigation/WebMobileNav.tsx": {
-    "mtime": 1783494850.6476705,
-    "ast_hash": "4d0ac30a9997091c16d2c6c7318bf1f3",
+    "mtime": 1783497747.955592,
+    "ast_hash": "12f618694da41d3cc01493fba71c9986",
     "semantic_hash": ""
   },
   "components/onboarding/WelcomeTour.tsx": {
@@ -1045,8 +1045,8 @@
     "semantic_hash": ""
   },
   "components/tabs/_tasks_adaptive.tsx": {
-    "mtime": 1783243952.4296243,
-    "ast_hash": "96fc686698f8ffcaba6ad691dc268c0b",
+    "mtime": 1783502027.1708922,
+    "ast_hash": "ab6f62e7274f033022451260979d17dc",
     "semantic_hash": ""
   },
   "components/tabs/_tasks_desktop.tsx": {

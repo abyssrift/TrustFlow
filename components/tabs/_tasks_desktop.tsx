@@ -1,6 +1,7 @@
 import AnimatedTaskCard from '@/components/common/AnimatedTaskCard';
 import KanbanPersonalizer from '@/components/kanban/KanbanPersonalizer';
 import TaskCardActions, { type ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
+import { boardCacheMeta, prefetchOtherBoards, taskCache, type BoardSnapshot } from '@/components/tabs/taskBoardCache';
 import TaskPingButton from '@/components/task-detail/TaskPingButton';
 import AssignmentModal from '@/components/tasks/AssignmentModal';
 import CreateTaskModal from '@/components/tasks/CreateTaskModal.web';
@@ -14,7 +15,7 @@ import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -257,28 +258,35 @@ function BoardPeekCard({
 export function TasksScreenWeb() {
   const colors = useThemeColors();
   const { activeSession, lastStoppedAt } = useTimer();
+  const { pipelineId: paramPipelineId } = useLocalSearchParams();
 
-  const [pipeline, setPipeline] = useState<Pipeline | null>(null);
-  const [stages, setStages] = useState<Stage[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Seed initial state from the shared cache so a revisit / warmed board paints
+  // instantly instead of reloading. Keyed by the board we're about to show.
+  const seedKey = (Array.isArray(paramPipelineId) ? paramPipelineId[0] : paramPipelineId) || boardCacheMeta.lastPipelineId || undefined;
+  const seed = seedKey ? taskCache.get(seedKey) : undefined;
+
+  const [pipeline, setPipeline] = useState<Pipeline | null>((seed?.pipeline as Pipeline) ?? null);
+  const [stages, setStages] = useState<Stage[]>((seed?.stages as Stage[]) ?? []);
+  const [tasks, setTasks] = useState<Task[]>((seed?.tasks as Task[]) ?? []);
+  const [loading, setLoading] = useState(!seed);
+  const [switchingBoard, setSwitchingBoard] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [availablePipelines, setAvailablePipelines] = useState<Pipeline[]>([]);
+  const [availablePipelines, setAvailablePipelines] = useState<Pipeline[]>((seed?.availablePipelines as Pipeline[]) ?? []);
   const [showPipelinePicker, setShowPipelinePicker] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [activeSessions, setActiveSessions] = useState<Record<string, ActiveSessionUser[]>>({});
+  const [activeSessions, setActiveSessions] = useState<Record<string, ActiveSessionUser[]>>(seed?.activeSessions ?? {});
   const [pulse, setPulse] = useState<PersonalPulse | null>(null);
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [stageActions, setStageActions] = useState<any[]>([]);
-  const [stageTransitions, setStageTransitions] = useState<{ id: string; to_stage_id: string }[]>([]);
+  const [stageActions, setStageActions] = useState<any[]>(seed?.stageActions ?? []);
+  const [stageTransitions, setStageTransitions] = useState<{ id: string; to_stage_id: string }[]>(seed?.stageTransitions ?? []);
   const [showPersonalizer, setShowPersonalizer] = useState(false);
   const [showMobility, setShowMobility] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<FilterState>({ priorities: [], categories: [], projectIds: [], managerIds: [] });
   const [searchQuery, setSearchQuery] = useState('');
   const [mineOnly, setMineOnly] = useState(false);
-  const [myTeamIds, setMyTeamIds] = useState<string[]>([]);
+  const [myTeamIds, setMyTeamIds] = useState<string[]>(seed?.myTeamIds ?? []);
   const [myDefaultPipelineId, setMyDefaultPipelineId] = useState<string | null>(null);
 
   // Archival State
@@ -302,7 +310,6 @@ export function TasksScreenWeb() {
   const { width } = useWindowDimensions();
   const router = useRouter();
   const { user, hasPermission, profile } = useAuth();
-  const { pipelineId: paramPipelineId } = useLocalSearchParams();
 
   const { pingedTasks, removePingedTask } = usePingHighlight();
 
@@ -500,36 +507,135 @@ export function TasksScreenWeb() {
         });
       }
 
-      setTasks(filteredTasks.map(t => ({
+      const finalTasks = filteredTasks.map(t => ({
         ...t,
         has_mention: mentionTaskIds.has(t.id)
-      })) as any);
+      }));
+      setTasks(finalTasks as any);
 
       // 6. Active Sessions
       const { data: sessions } = await supabase
         .from('task_work_sessions')
         .select('task_id, user_id, started_at, user:user_id(full_name, avatar_url)')
         .eq('status', 'active');
-      
+
       const sessionMap: Record<string, ActiveSessionUser[]> = {};
       sessions?.forEach(s => {
          if (!sessionMap[s.task_id]) sessionMap[s.task_id] = [];
-         sessionMap[s.task_id].push({ 
-           userId: s.user_id, 
-           name: (s.user as any)?.full_name || 'User', 
+         sessionMap[s.task_id].push({
+           userId: s.user_id,
+           name: (s.user as any)?.full_name || 'User',
            avatar: (s.user as any)?.avatar_url,
-           startedAt: s.started_at 
+           startedAt: s.started_at
          });
       });
       setActiveSessions(sessionMap);
+
+      // Snapshot into the shared cache so the next mount / board switch is instant.
+      taskCache.set(targetPipelineId as string, {
+        pipeline: pipelineData,
+        stages: stagesData || [],
+        tasks: finalTasks,
+        availablePipelines: (allPipes as Pipeline[]) || [],
+        stageActions: actionsData || [],
+        stageTransitions: transitionsData || [],
+        activeSessions: sessionMap,
+        myTeamIds,
+      });
+      boardCacheMeta.lastPipelineId = targetPipelineId as string;
 
     } catch (err) {
       console.error('[WEB TASK ERROR] Data fetch failed:', err);
     } finally {
       setLoading(false);
       setRefreshing(false);
+      setSwitchingBoard(false);
     }
   };
+
+  // Load one board's data into a cache snapshot without touching component state,
+  // used to warm other boards so switching to them is instant. Mirrors fetchData's
+  // core queries + time metrics; skips the expensive mention scan (it fills in on
+  // the background refetch triggered when the board is actually opened).
+  const loadBoardSnapshot = useCallback(async (boardId: string): Promise<BoardSnapshot | null> => {
+    const board = availablePipelines.find(p => p.id === boardId);
+    if (!board) return null;
+    const { data: stagesData } = await supabase
+      .from('pipeline_stages')
+      .select('*, linked_pipeline:linked_pipeline_id(id, name)')
+      .eq('pipeline_id', boardId)
+      .order('position', { ascending: true });
+    const stages = stagesData || [];
+    const stageIds = stages.map((s: any) => s.id);
+    const [{ data: actionsData }, { data: transitionsData }, { data: tasksData }] = await Promise.all([
+      supabase.from('pipeline_stage_actions').select('*').in('stage_id', stageIds),
+      supabase.from('pipeline_stage_transitions').select('id, to_stage_id').in('from_stage_id', stageIds),
+      supabase.from('tasks')
+        .select(`
+          *,
+          project:project_id(id, name),
+          manager:manager_id(id, full_name),
+          assignments:task_assignments(
+            assignee_user_id,
+            assignee_team_id,
+            team:assignee_team_id(name),
+            user:assignee_user_id(full_name)
+          ),
+          submission_count:task_submissions(count),
+          comment_count:task_comments(count)
+        `)
+        .eq('pipeline_id', boardId)
+        .order('created_at', { ascending: false }),
+    ]);
+    const { data: timeMetrics } = await supabase
+      .from('view_task_time_metrics')
+      .select('*')
+      .in('task_id', (tasksData || []).map(t => t.id));
+    const timeMap = (timeMetrics || []).reduce((acc, curr) => { acc[curr.task_id] = curr; return acc; }, {} as any);
+    let filteredTasks = (tasksData || []).map(t => ({
+      ...t,
+      total_seconds: timeMap[t.id]?.total_seconds || 0,
+      my_seconds: timeMap[t.id]?.my_seconds || 0,
+    }));
+    const canViewAll = hasPermission('task.view_all') || hasPermission('tasks.view_all') || hasPermission('system.view_all_data') || hasPermission('pipeline.edit');
+    if (board.task_visibility_mode === 'assigned_only' && !canViewAll) {
+      filteredTasks = filteredTasks.filter(t => {
+        const isManager = t.manager_id === user?.id;
+        const isAssigned = t.assignments?.some((a: any) =>
+          (a.assignee_user_id && a.assignee_user_id === user?.id) ||
+          (a.assignee_team_id && myTeamIds.includes(a.assignee_team_id))
+        );
+        return isManager || isAssigned;
+      });
+    }
+    return {
+      pipeline: board,
+      stages,
+      tasks: filteredTasks,
+      availablePipelines,
+      stageActions: actionsData || [],
+      stageTransitions: transitionsData || [],
+      activeSessions,
+      myTeamIds,
+    };
+  }, [availablePipelines, hasPermission, user?.id, myTeamIds, activeSessions]);
+
+  // Warm every other board in the background once the current board is loaded.
+  const prefetchedRef = useRef<Set<string>>(new Set());
+  const loadBoardSnapshotRef = useRef(loadBoardSnapshot);
+  loadBoardSnapshotRef.current = loadBoardSnapshot;
+  useEffect(() => {
+    if (availablePipelines.length < 2 || !pipeline?.id) return;
+    let cancelled = false;
+    prefetchOtherBoards({
+      boards: availablePipelines,
+      currentId: pipeline.id,
+      prefetched: prefetchedRef.current,
+      isCancelled: () => cancelled,
+      loadOne: (id) => loadBoardSnapshotRef.current(id),
+    });
+    return () => { cancelled = true; };
+  }, [availablePipelines, pipeline?.id]);
 
   const fetchPulse = async () => {
     const { data } = await supabase.rpc('rpc_get_personal_pulse');
@@ -643,8 +749,30 @@ export function TasksScreenWeb() {
     }
   };
 
+  // Swap to a board: if warmed in the cache, paint it instantly (the
+  // paramPipelineId effect still refetches in the background); else show the
+  // switching overlay until fetchData lands.
+  const applySnapshot = useCallback((snap: BoardSnapshot) => {
+    setPipeline(snap.pipeline as any);
+    setStages(snap.stages as any);
+    setTasks(snap.tasks as any);
+    setAvailablePipelines(snap.availablePipelines as any);
+    setStageActions(snap.stageActions);
+    setStageTransitions(snap.stageTransitions);
+    setActiveSessions(snap.activeSessions);
+    setMyTeamIds(snap.myTeamIds);
+    setLoading(false);
+  }, []);
+
+  const prepareBoardSwitch = useCallback((id: string) => {
+    const snap = taskCache.get(id);
+    if (snap) applySnapshot(snap);
+    else setSwitchingBoard(true);
+  }, [applySnapshot]);
+
   const handleSelectBoard = async (boardId: string) => {
     try {
+      prepareBoardSwitch(boardId);
       const updated = trackBoardSelection(boardId, recentlyUsedBoards);
       setRecentlyUsedBoards(updated);
       await saveBoardPickerState(favoriteBoardIds, updated);
@@ -1102,6 +1230,22 @@ export function TasksScreenWeb() {
 
   return (
     <View className="flex-1 bg-surface-background">
+      {/* BOARD SWITCH OVERLAY — shown while an uncached board loads (warmed boards swap instantly) */}
+      {switchingBoard && (
+        <View
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, elevation: 100,
+            alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.35)' }}
+        >
+          <View
+            style={{ backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }}
+            className="flex-row items-center gap-3 px-6 py-4 rounded-2xl premium-shadow"
+          >
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text className="text-typography-main font-bold text-sm">Switching board…</Text>
+          </View>
+        </View>
+      )}
+
       {/* BACKGROUND LAYER */}
       {kanban.backgroundUrl && (
         <View className="absolute inset-0 overflow-hidden">

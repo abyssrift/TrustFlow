@@ -4,6 +4,7 @@ import HorizontalScroll from '@/components/common/HorizontalScroll';
 import KanbanPersonalizer from '@/components/kanban/KanbanPersonalizer';
 import SkeletonBlock, { SkeletonList } from '@/components/Skeleton';
 import TaskCardActions, { type ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
+import { boardCacheMeta, prefetchOtherBoards, taskCache, type BoardSnapshot } from '@/components/tabs/taskBoardCache';
 import TaskPingButton from '@/components/task-detail/TaskPingButton';
 import AssignmentModal from '@/components/tasks/AssignmentModal';
 import CreateTaskSheet from '@/components/tasks/CreateTaskSheet';
@@ -20,6 +21,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Animated,
   Image,
@@ -88,6 +90,9 @@ type Pipeline = {
   task_visibility_mode: 'all' | 'assigned_only';
   is_default?: boolean;
 };
+
+// Board data cache + prefetch live in the shared module so the desktop board
+// reuses the exact same warm cache (see taskBoardCache.ts).
 
 // ---------------------------------------------------------------------------
 // Board picker state (favorites / recents) — shares the same AsyncStorage keys
@@ -266,19 +271,27 @@ function BoardPeekCard({
 }
 
 function TasksScreen() {
-  const [pipeline, setPipeline] = useState<Pipeline | null>(null);
-  const [stages, setStages] = useState<Stage[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { pipelineId: paramPipelineId } = useLocalSearchParams();
+
+  // Seed initial state from the cache so a revisit renders instantly. Key by the
+  // pipeline we're about to show (param, else the last board we loaded).
+  const seedKey = (Array.isArray(paramPipelineId) ? paramPipelineId[0] : paramPipelineId) || boardCacheMeta.lastPipelineId || undefined;
+  const seed = seedKey ? taskCache.get(seedKey) : undefined;
+
+  const [pipeline, setPipeline] = useState<Pipeline | null>(seed?.pipeline ?? null);
+  const [stages, setStages] = useState<Stage[]>(seed?.stages ?? []);
+  const [tasks, setTasks] = useState<Task[]>(seed?.tasks ?? []);
+  const [loading, setLoading] = useState(!seed); // cache hit → skip the skeleton
+  const [switchingBoard, setSwitchingBoard] = useState(false); // overlay while an uncached board loads
   const [refreshing, setRefreshing] = useState(false);
-  const [availablePipelines, setAvailablePipelines] = useState<Pipeline[]>([]);
+  const [availablePipelines, setAvailablePipelines] = useState<Pipeline[]>(seed?.availablePipelines ?? []);
   const [showPipelinePicker, setShowPipelinePicker] = useState(false);
-  const [activeSessions, setActiveSessions] = useState<Record<string, ActiveSessionUser[]>>({}); // task_id -> [{name, avatar}]
+  const [activeSessions, setActiveSessions] = useState<Record<string, ActiveSessionUser[]>>(seed?.activeSessions ?? {}); // task_id -> [{name, avatar}]
   const [pulse, setPulse] = useState<PersonalPulse | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
-  const [stageActions, setStageActions] = useState<any[]>([]);
-  const [stageTransitions, setStageTransitions] = useState<{ id: string; to_stage_id: string }[]>([]);
+  const [stageActions, setStageActions] = useState<any[]>(seed?.stageActions ?? []);
+  const [stageTransitions, setStageTransitions] = useState<{ id: string; to_stage_id: string }[]>(seed?.stageTransitions ?? []);
   const [showPersonalizer, setShowPersonalizer] = useState(false);
   const [showMobility, setShowMobility] = useState(false);
   const [showCreateSheet, setShowCreateSheet] = useState(false);
@@ -290,7 +303,7 @@ function TasksScreen() {
   const [mineOnly, setMineOnly] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [showTools, setShowTools] = useState(false);
-  const [myTeamIds, setMyTeamIds] = useState<string[]>([]);
+  const [myTeamIds, setMyTeamIds] = useState<string[]>(seed?.myTeamIds ?? []);
   const [skeletonBg, setSkeletonBg] = useState<string | null>(null);
 
   // Board picker notifications (parity with the desktop board selector)
@@ -309,7 +322,6 @@ function TasksScreen() {
    const colors = useThemeColors();
    const router = useRouter();
    const { user, hasPermission, profile } = useAuth();
-   const { pipelineId: paramPipelineId } = useLocalSearchParams();
    const isLargeScreen = width > 768;
 
   const { pingedTasks, removePingedTask } = usePingHighlight();
@@ -343,11 +355,32 @@ function TasksScreen() {
 
   useEffect(() => () => { if (peekCloseTimer.current) clearTimeout(peekCloseTimer.current); }, []);
 
+  // Swap to a board: if we have it cached, paint it instantly (background refetch
+  // still runs via the paramPipelineId effect); otherwise show the switching overlay.
+  const applySnapshot = useCallback((snap: BoardSnapshot) => {
+    setPipeline(snap.pipeline);
+    setStages(snap.stages);
+    setTasks(snap.tasks);
+    setAvailablePipelines(snap.availablePipelines);
+    setStageActions(snap.stageActions);
+    setStageTransitions(snap.stageTransitions);
+    setActiveSessions(snap.activeSessions);
+    setMyTeamIds(snap.myTeamIds);
+    setLoading(false);
+  }, []);
+
+  const prepareBoardSwitch = useCallback((id: string) => {
+    const snap = taskCache.get(id);
+    if (snap) applySnapshot(snap);
+    else setSwitchingBoard(true);
+  }, [applySnapshot]);
+
   const switchBoard = useCallback(async (id: string) => {
     setShowBoardPeek(false);
+    prepareBoardSwitch(id);
     await AsyncStorage.setItem('@TrustFlow_tasks_pipeline', id);
     router.setParams({ pipelineId: id });
-  }, [router]);
+  }, [router, prepareBoardSwitch]);
 
   // Lazily fetch task counts for the two neighbours when the peek opens.
   useEffect(() => {
@@ -446,13 +479,14 @@ function TasksScreen() {
       setRecentlyUsedBoards(updated);
       await saveBoardPickerState(favoriteBoardIds, updated);
       setBoardLastVisitedTime(prev => ({ ...prev, [boardId]: Date.now() }));
+      prepareBoardSwitch(boardId);
       await AsyncStorage.setItem('@TrustFlow_tasks_pipeline', boardId);
       router.setParams({ pipelineId: boardId });
       setShowPipelinePicker(false);
     } catch (e) {
       console.error('Failed to select board:', e);
     }
-  }, [recentlyUsedBoards, favoriteBoardIds, router]);
+  }, [recentlyUsedBoards, favoriteBoardIds, router, prepareBoardSwitch]);
 
   const toggleFavoriteBoard = useCallback(async (boardId: string) => {
     const updated = new Set(favoriteBoardIds);
@@ -653,6 +687,19 @@ function TasksScreen() {
       console.log('[TasksScreen] Session map created');
       setActiveSessions(sessionMap);
 
+      // Snapshot into the module cache so the next mount paints instantly.
+      taskCache.set(targetPipelineId as string, {
+        pipeline: pipelineData,
+        stages: stagesData || [],
+        tasks: filteredTasks as Task[],
+        availablePipelines: (allPipes as Pipeline[]) || [],
+        stageActions: actionsData || [],
+        stageTransitions: transitionsData || [],
+        activeSessions: sessionMap,
+        myTeamIds: resolvedTeamIds,
+      });
+      boardCacheMeta.lastPipelineId = targetPipelineId as string;
+
       console.log('[TasksScreen] fetchData completed successfully');
     } catch (err: any) {
       console.error('[TasksScreen] ERROR fetching task data:', err);
@@ -660,8 +707,83 @@ function TasksScreen() {
       console.log('[TasksScreen] finally block: setting loading=false');
       setLoading(false);
       setRefreshing(false);
+      setSwitchingBoard(false);
     }
   };
+
+  // Load one board's data into a cache snapshot without touching component state.
+  // Mirrors fetchData's per-board queries; used to warm other boards in the
+  // background so switching to them is instant. Reuses the current global
+  // sessions + team ids (both board-independent).
+  const loadBoardSnapshot = useCallback(async (boardId: string): Promise<BoardSnapshot | null> => {
+    const board = availablePipelines.find(p => p.id === boardId);
+    if (!board) return null;
+    const [{ data: stagesData }, { data: tasksData }] = await Promise.all([
+      supabase.from('pipeline_stages')
+        .select('*, linked_pipeline:linked_pipeline_id(id, name)')
+        .eq('pipeline_id', boardId)
+        .order('position', { ascending: true }),
+      supabase.from('tasks')
+        .select(`
+          *,
+          project:project_id(id, name),
+          manager:manager_id(id, full_name),
+          assignments:task_assignments(
+            assignee_user_id,
+            assignee_team_id,
+            team:assignee_team_id(name),
+            user:assignee_user_id(full_name)
+          )
+        `)
+        .eq('pipeline_id', boardId)
+        .order('created_at', { ascending: false }),
+    ]);
+    const stages = stagesData || [];
+    const stageIds = stages.map((s: any) => s.id);
+    const [{ data: actionsData }, { data: transitionsData }] = await Promise.all([
+      supabase.from('pipeline_stage_actions').select('*').in('stage_id', stageIds),
+      supabase.from('pipeline_stage_transitions').select('id, to_stage_id').in('from_stage_id', stageIds),
+    ]);
+    const canViewAll = hasPermission('task.view_all') || hasPermission('tasks.view_all') || hasPermission('system.view_all_data') || hasPermission('pipeline.edit');
+    let filteredTasks = tasksData || [];
+    if (board.task_visibility_mode === 'assigned_only' && !canViewAll) {
+      filteredTasks = filteredTasks.filter((t: any) => {
+        const isManager = t.manager_id === user?.id;
+        const isAssigned = t.assignments?.some((a: any) =>
+          (a.assignee_user_id && a.assignee_user_id === user?.id) ||
+          (a.assignee_team_id && myTeamIds.includes(a.assignee_team_id))
+        );
+        return isManager || isAssigned;
+      });
+    }
+    return {
+      pipeline: board,
+      stages,
+      tasks: filteredTasks,
+      availablePipelines,
+      stageActions: actionsData || [],
+      stageTransitions: transitionsData || [],
+      activeSessions,
+      myTeamIds,
+    };
+  }, [availablePipelines, hasPermission, user?.id, myTeamIds, activeSessions]);
+
+  // Warm every other board in the background once the current board is loaded.
+  const prefetchedRef = useRef<Set<string>>(new Set());
+  const loadBoardSnapshotRef = useRef(loadBoardSnapshot);
+  loadBoardSnapshotRef.current = loadBoardSnapshot;
+  useEffect(() => {
+    if (availablePipelines.length < 2 || !pipeline?.id) return;
+    let cancelled = false;
+    prefetchOtherBoards({
+      boards: availablePipelines,
+      currentId: pipeline.id,
+      prefetched: prefetchedRef.current,
+      isCancelled: () => cancelled,
+      loadOne: (id) => loadBoardSnapshotRef.current(id),
+    });
+    return () => { cancelled = true; };
+  }, [availablePipelines, pipeline?.id]);
 
   useEffect(() => {
     console.log('[TasksScreen] useEffect with paramPipelineId:', paramPipelineId);
@@ -1139,6 +1261,22 @@ function TasksScreen() {
    return (
      <View className="flex-1 bg-surface-background">
       {(Platform.OS !== 'web' || !isLargeScreen) && <View style={{ height: Platform.OS === 'web' ? TAB_BAR_HEIGHT.web : TAB_BAR_HEIGHT.native }} />}
+
+      {/* BOARD SWITCH OVERLAY — shown while an uncached board loads (cached boards swap instantly) */}
+      {switchingBoard && (
+        <View
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, elevation: 100,
+            alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.35)' }}
+        >
+          <View
+            style={{ backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }}
+            className="flex-row items-center gap-3 px-6 py-4 rounded-2xl premium-shadow"
+          >
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text className="text-typography-main font-bold text-sm">Switching board…</Text>
+          </View>
+        </View>
+      )}
 
       {/* KANBAN BACKGROUND LAYER */}
       {kanban.backgroundUrl && (
