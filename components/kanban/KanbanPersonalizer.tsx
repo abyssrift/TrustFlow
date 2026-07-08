@@ -1,8 +1,10 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Switch, Platform } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, Switch, Platform, ActivityIndicator } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 import { cssInterop } from 'react-native-css-interop';
 import { useThemeColors } from '@/hooks/useThemeColors';
 
@@ -20,6 +22,8 @@ interface Props {
 export default function KanbanPersonalizer({ onClose }: Props) {
   const colors = useThemeColors();
   const { kanban, updateKanban } = useTheme();
+  const { user } = useAuth();
+  const [uploading, setUploading] = useState(false);
 
   const handlePickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -29,8 +33,32 @@ export default function KanbanPersonalizer({ onClose }: Props) {
       quality: 0.8,
     });
 
-    if (!result.canceled) {
-      updateKanban({ backgroundUrl: result.assets[0].uri });
+    if (result.canceled || !user) return;
+
+    // The picker only gives a transient local uri (blob:/file:// cache path) that
+    // doesn't survive a reload or app restart, so upload it to durable storage
+    // and persist the resulting public URL instead.
+    setUploading(true);
+    try {
+      const asset = result.assets[0];
+      const fileExt = asset.mimeType?.split('/')[1] || asset.uri.split('.').pop() || 'jpg';
+      const storagePath = `${user.id}/background.${fileExt}`;
+
+      const response = await fetch(asset.uri);
+      const blob = await response.blob();
+
+      const { error: uploadError } = await supabase.storage
+        .from('kanban-backgrounds')
+        .upload(storagePath, blob, { upsert: true, contentType: `image/${fileExt}` });
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage.from('kanban-backgrounds').getPublicUrl(storagePath);
+      updateKanban({ backgroundUrl: `${data.publicUrl}?v=${Date.now()}` });
+    } catch (e) {
+      console.error('Failed to upload kanban background', e);
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -70,12 +98,17 @@ export default function KanbanPersonalizer({ onClose }: Props) {
           <Text className="text-brand-primary text-[10px] font-black uppercase mb-4 tracking-widest">Background & Image</Text>
           
           <View className="flex-row flex-wrap gap-3 mb-6">
-             <TouchableOpacity 
+             <TouchableOpacity
               onPress={handlePickImage}
+              disabled={uploading}
               className="w-20 h-28 rounded-xl border border-dashed border-surface-border items-center justify-center bg-surface-overlay"
              >
-                <FontAwesome name="upload" size={20} className="text-typography-dim" />
-                <Text className="text-typography-muted text-[8px] mt-2 font-bold">Upload</Text>
+                {uploading ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <FontAwesome name="upload" size={20} className="text-typography-dim" />
+                )}
+                <Text className="text-typography-muted text-[8px] mt-2 font-bold">{uploading ? 'Uploading' : 'Upload'}</Text>
              </TouchableOpacity>
 
              {presets.map((p, idx) => (

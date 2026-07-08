@@ -80,7 +80,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (savedRoundness) setRoundnessState(savedRoundness as RoundnessType);
         if (savedKanban) {
           const parsed = JSON.parse(savedKanban);
-          if (parsed.backgroundUrl?.startsWith('blob:')) parsed.backgroundUrl = null;
+          if (parsed.backgroundUrl?.startsWith('blob:') || parsed.backgroundUrl?.startsWith('file:')) parsed.backgroundUrl = null;
           setKanbanState(parsed);
         }
       } catch (e) {

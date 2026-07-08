@@ -113,7 +113,7 @@
   "111": "profile.tsx",
   "112": "Workflow",
   "113": "📊 What Gets Created",
-  "114": "RetentionPanel.tsx",
+  "114": "🎯 Use Cases",
   "115": "fileTransfer.native.ts",
   "116": "metro.config.js",
   "117": "index.ts",
@@ -133,7 +133,7 @@
   "131": "DevTool.tsx",
   "132": "generate.native.ts",
   "133": "useClientOnlyValue.ts",
-  "134": "PendingTimeApprovalsWidget.tsx",
+  "134": "useClientOnlyValue.web.ts",
   "135": "system_validation.test.ts",
   "136": "walkthroughs.md",
   "137": "fullstack-feature-pipeline.md",
@@ -142,12 +142,5 @@
   "140": "Notes.md",
   "141": "postcss.config.js",
   "142": "tailwind.config.js",
-  "143": "vitest.config.ts",
-  "144": "TaskPingButton.tsx",
-  "145": "Tips & Tricks",
-  "146": "Workflow",
-  "147": "Features",
-  "148": "Troubleshooting",
-  "149": "Method 2: Using Command Line Script (Most Complete)",
-  "150": "targets.tsx"
+  "143": "vitest.config.ts"
 }

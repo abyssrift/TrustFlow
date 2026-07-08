@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '@/contexts/NotificationsContext';
 import { DensityType, RoundnessType, ThemeType, useTheme } from '@/contexts/ThemeContext';
 import { useFileHubBadge } from '@/hooks/useFileHubBadge';
+import { useNavBarPosition } from '@/hooks/useNavBarPosition';
 import { useUnreadNotificationAttention } from '@/hooks/useUnreadNotificationAttention';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -244,6 +245,7 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
   const { unreadCount } = useNotifications();
   const isPlatformAdmin = ['adamsamir2005@gmail.com', 'adam.samir@trustedgellc.com', 'adamsamir@hotmail.com'].includes(user?.email || '');
   const { inboxUnread } = useFileHubBadge();
+  const { position: navPosition, toggle: toggleNavPosition } = useNavBarPosition();
 
   useUnreadNotificationAttention(unreadCount);
 
@@ -331,12 +333,30 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
   };
 
   if (isMobile) {
+    // Floating nav bar is an absolute overlay, so content needs matching
+    // padding on whichever edge the bar is currently snapped to.
+    const navClearance = 76;
     return (
       <View style={{ flex: 1, overflow: 'hidden' }} className="bg-surface-background">
-        <View style={{ flex: 1, overflow: 'hidden' }} className="bg-surface-background">
+        <View
+          style={{
+            flex: 1,
+            overflow: 'hidden',
+            paddingTop: navPosition === 'top' ? navClearance : 0,
+            paddingBottom: navPosition === 'bottom' ? navClearance : 0,
+          }}
+          className="bg-surface-background"
+        >
           {children}
         </View>
-        <WebMobileNav visibleShortcuts={visibleShortcuts} pipelines={pipelines} isPlatformAdmin={isPlatformAdmin} fileHubBadge={inboxUnread} />
+        <WebMobileNav
+          visibleShortcuts={visibleShortcuts}
+          pipelines={pipelines}
+          isPlatformAdmin={isPlatformAdmin}
+          fileHubBadge={inboxUnread}
+          position={navPosition}
+          onLongPressToggle={toggleNavPosition}
+        />
       </View>
     );
   }

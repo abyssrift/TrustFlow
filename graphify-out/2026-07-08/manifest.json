@@ -830,8 +830,8 @@
     "semantic_hash": ""
   },
   "components/navigation/WebMobileNav.tsx": {
-    "mtime": 1783494850.6476705,
-    "ast_hash": "4d0ac30a9997091c16d2c6c7318bf1f3",
+    "mtime": 1783494238.491033,
+    "ast_hash": "af82b3b835cefd00180139b295544fe2",
     "semantic_hash": ""
   },
   "components/onboarding/WelcomeTour.tsx": {
@@ -2645,8 +2645,8 @@
     "semantic_hash": ""
   },
   "components/navigation/FloatingTabBar.tsx": {
-    "mtime": 1783494964.952947,
-    "ast_hash": "193878c74e847495bb71565b46709262",
+    "mtime": 1783494570.9558723,
+    "ast_hash": "997d143919b186f5e2830467956a5a0b",
     "semantic_hash": ""
   }
 }

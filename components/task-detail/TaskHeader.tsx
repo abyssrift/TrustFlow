@@ -101,10 +101,10 @@ export default function TaskHeader() {
   const canPing = data.permissions.is_manager || hasPermission('task.ping') || data.permissions.is_owner;
 
   const handleBack = () => {
-    if (data.pipeline?.id) {
-      router.replace(`/(tabs)/tasks?pipelineId=${data.pipeline.id}` as any);
-    } else if (router.canGoBack()) {
+    if (router.canGoBack()) {
       router.back();
+    } else if (data.pipeline?.id) {
+      router.replace(`/(tabs)/tasks?pipelineId=${data.pipeline.id}` as any);
     } else {
       router.replace('/(tabs)/tasks' as any);
     }
