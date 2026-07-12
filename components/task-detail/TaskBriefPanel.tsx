@@ -92,36 +92,44 @@ function AdaptiveFileGrid({
         const isResolving = isImage && !uri;
 
         return (
-          <TouchableOpacity
+          <View
             key={pf.id}
-            activeOpacity={onPressFile ? 0.7 : 1}
-            disabled={!onPressFile || isResolving}
-            onPress={() => onPressFile?.(pf)}
-            style={[{ width: exactSquareSize, height: exactSquareSize }, Platform.OS === 'web' && onPressFile ? ({ cursor: 'pointer' } as any) : null]}
+            style={{ width: exactSquareSize, height: exactSquareSize }}
             className="rounded-xl overflow-hidden border border-surface-border bg-surface-background relative"
           >
-            {isImage ? (
-              isResolving ? (
-                <View className="flex-1 items-center justify-center absolute inset-0 bg-surface-background">
-                  <ActivityIndicator size="small" color={colors.primary} />
-                </View>
+            {/* Press-to-open target is an absolute-fill touchable; the overlay buttons
+                below are SIBLINGS, not children — nested touchables silently swallow
+                presses on react-native-web. */}
+            <TouchableOpacity
+              activeOpacity={onPressFile ? 0.7 : 1}
+              disabled={!onPressFile || isResolving}
+              onPress={() => onPressFile?.(pf)}
+              style={Platform.OS === 'web' && onPressFile ? ({ cursor: 'pointer' } as any) : null}
+              className="absolute inset-0"
+            >
+              {isImage ? (
+                isResolving ? (
+                  <View className="flex-1 items-center justify-center absolute inset-0 bg-surface-background">
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  </View>
+                ) : (
+                  <Image
+                    source={{ uri }}
+                    style={{ flex: 1, width: '100%', height: '100%', position: 'absolute' }}
+                    resizeMode="cover"
+                  />
+                )
               ) : (
-                <Image
-                  source={{ uri }}
-                  style={{ flex: 1, width: '100%', height: '100%', position: 'absolute' }}
-                  resizeMode="cover"
-                />
-              )
-            ) : (
-              <View className="flex-1 items-center justify-center p-2 bg-surface-background">
-                <FontAwesome name={icon as any} size={exactSquareSize > 80 ? 32 : 24} color={color} />
-                <View className="mt-2 bg-surface-card px-2 py-0.5 rounded-md border border-surface-border">
-                  <Text className="text-[9px] font-black uppercase text-typography-muted" numberOfLines={1}>
-                    {pf.name.split('.').pop()?.toUpperCase() || 'FILE'}
-                  </Text>
+                <View className="flex-1 items-center justify-center p-2 bg-surface-background">
+                  <FontAwesome name={icon as any} size={exactSquareSize > 80 ? 32 : 24} color={color} />
+                  <View className="mt-2 bg-surface-card px-2 py-0.5 rounded-md border border-surface-border">
+                    <Text className="text-[9px] font-black uppercase text-typography-muted" numberOfLines={1}>
+                      {pf.name.split('.').pop()?.toUpperCase() || 'FILE'}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-            )}
+              )}
+            </TouchableOpacity>
 
             {onRemove && !isUploading && (
               <TouchableOpacity
@@ -156,12 +164,12 @@ function AdaptiveFileGrid({
               </TouchableOpacity>
             )}
 
-            <View className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1">
+            <View pointerEvents="none" className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1">
               <Text className="text-white text-[9px] font-bold text-center" numberOfLines={1}>
                 {formatSize(pf.file_size || pf.size_bytes || pf.size)}
               </Text>
             </View>
-          </TouchableOpacity>
+          </View>
         );
       })}
     </View>
@@ -448,8 +456,16 @@ export default function TaskBriefPanel() {
           <TouchableOpacity onPress={toggleDeletedFiles} className="flex-row items-center py-1">
             <FontAwesome name={showDeleted ? 'chevron-up' : 'chevron-down'} size={9} color={colors.textDim} />
             <Text className="text-typography-dim text-[9px] font-black uppercase tracking-wider ml-1.5">
-              Deleted{deletedFiles ? ` (${deletedFiles.length})` : ''}
+              Deleted
             </Text>
+            {(() => {
+              const deletedCount = deletedFiles ? deletedFiles.length : (data.stats?.deleted_attachment_count ?? 0);
+              return deletedCount > 0 ? (
+                <View className="bg-state-danger/15 border border-state-danger/30 rounded-full min-w-[16px] px-1.5 py-0.5 ml-1.5 items-center">
+                  <Text className="text-state-danger text-[8px] font-black leading-none">{deletedCount}</Text>
+                </View>
+              ) : null;
+            })()}
           </TouchableOpacity>
 
           {showDeleted && (

@@ -121,6 +121,7 @@ export type StatsData = {
   total_transitions: number; approval_count: number; revision_count: number;
   rejection_count: number; pending_count: number;
   deleted_submission_count: number;
+  deleted_attachment_count: number;
   total_time_spent_seconds: number; days_in_pipeline: number;
 };
 
