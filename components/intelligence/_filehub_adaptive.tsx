@@ -29,6 +29,7 @@ import AdaptiveFileGrid from '../common/AdaptiveFileGrid';
 import { FilePreviewModal, FilePreviewTeaser, getPreviewKind, type PreviewKind } from '../common/FilePreview';
 import FileHubAnalytics from './FileHubAnalytics';
 import FileHubBin from './FileHubBin';
+import TaskFileResults from './TaskFileResults';
 
 
 
@@ -2307,6 +2308,7 @@ function FileHubAdaptiveInner() {
                     : 'Company-wide broadcasts will appear here.'}
                 </Text>
               </View>
+              <TaskFileResults pad={false} />
             </View>
           ) : (
             <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false}>
@@ -2323,6 +2325,7 @@ function FileHubAdaptiveInner() {
                   onLongPress={() => enterSelectionWith(file.id)}
                 />
               ))}
+              <TaskFileResults pad={false} />
               <View style={{ height: selectionMode ? 140 : 100 }} />
             </ScrollView>
           )}

@@ -50,6 +50,23 @@ export type FileVersion = {
   uploader: { id: string; full_name: string; avatar_url: string | null };
 };
 
+// Feature C — a row from rpc_files_search (task submission / brief files)
+export type CrossSearchResult = {
+  source: 'submission' | 'task_brief';
+  file_id: string;
+  bucket: string;
+  storage_path: string;
+  file_name: string;
+  mime_type: string | null;
+  size_bytes: number;
+  category: string | null;
+  uploaded_by: string;
+  created_at: string;
+  task_id: string;
+  submission_id: string | null;
+  task_title: string | null;
+};
+
 export type FileHubFolder = {
   id: string;
   name: string;
@@ -88,6 +105,8 @@ type FileHubContextType = {
   setMode: (m: FileHubMode) => void;
   search: string;
   setSearch: (s: string) => void;
+  // Cross-source search results (task submission / brief files) for the current query
+  taskResults: CrossSearchResult[];
   selectedFolderId: string | null;
   setSelectedFolderId: (id: string | null) => void;
   selectedTag: string | null;
@@ -179,6 +198,24 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
     const t = setTimeout(() => setSearchDebounced(search), 400);
     return () => clearTimeout(t);
   }, [search]);
+
+  // Feature C — cross-source search: task submission + brief files matching the
+  // query. FileHub's own rows keep coming from rpc_filehub_list unchanged.
+  const [taskResults, setTaskResults] = useState<CrossSearchResult[]>([]);
+  useEffect(() => {
+    if (!searchDebounced.trim()) { setTaskResults([]); return; }
+    let cancelled = false;
+    supabase.rpc('rpc_files_search', {
+      p_query: searchDebounced,
+      p_sources: ['submission', 'task_brief'],
+      p_limit: 25,
+    }).then(({ data, error }) => {
+      if (cancelled) return;
+      if (error) { console.error('[FileHub] cross search error', error); return; }
+      setTaskResults((data as CrossSearchResult[]) || []);
+    });
+    return () => { cancelled = true; };
+  }, [searchDebounced]);
 
   const setMode = useCallback((m: FileHubMode) => {
     setModeState(m);
@@ -527,6 +564,7 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
     <FileHubContext.Provider value={{
       mode, setMode,
       search, setSearch,
+      taskResults,
       selectedFolderId, setSelectedFolderId,
       selectedTag, setSelectedTag,
       files, folders, loading,

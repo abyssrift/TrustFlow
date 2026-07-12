@@ -675,13 +675,13 @@
     "semantic_hash": ""
   },
   "components/intelligence/_filehub_adaptive.tsx": {
-    "mtime": 1783840546.6445425,
-    "ast_hash": "ef3956fd64a2bcaad16ce5e8b6e628f8",
+    "mtime": 1783500814.2504125,
+    "ast_hash": "ed3a68ef1958bf2d46dd9a11121cfe2c",
     "semantic_hash": ""
   },
   "components/intelligence/_filehub_desktop.tsx": {
-    "mtime": 1783840548.4906693,
-    "ast_hash": "3bc2bcf10bf49970ec0cd2c041d899d7",
+    "mtime": 1782896247.3478901,
+    "ast_hash": "a4629b1ab0e15259150f9f079a58ce26",
     "semantic_hash": ""
   },
   "components/intelligence/_filehub_web.tsx": {
@@ -1190,8 +1190,8 @@
     "semantic_hash": ""
   },
   "components/tasks/CreateTaskModal.web.tsx": {
-    "mtime": 1783840669.2249317,
-    "ast_hash": "4c5c892a222a8fe7f60771ed9fb46dae",
+    "mtime": 1783519171.551335,
+    "ast_hash": "a51d519f94f79db9db5978cc16eef373",
     "semantic_hash": ""
   },
   "components/tasks/CreateTaskSheet.tsx": {
@@ -1245,8 +1245,8 @@
     "semantic_hash": ""
   },
   "contexts/FileHubContext.tsx": {
-    "mtime": 1783840490.7682593,
-    "ast_hash": "d951226864fe7334d73c338b9cbe281d",
+    "mtime": 1782296056.3783734,
+    "ast_hash": "2fe80346fb75e23da36af932acbeeb64",
     "semantic_hash": ""
   },
   "contexts/NotificationsContext.tsx": {
@@ -2675,8 +2675,8 @@
     "semantic_hash": ""
   },
   "docs/SUBMISSION_VERSIONING_PLAN.md": {
-    "mtime": 1783840652.3916335,
-    "ast_hash": "0ec953cfa4fa5e5c7d847595d4666dd4",
+    "mtime": 1783839979.6577039,
+    "ast_hash": "87c3bfb1cb0310e9ddba6bd66551ea12",
     "semantic_hash": ""
   },
   "supabase/migrations/20260709_submission_soft_delete.sql": {
@@ -2692,16 +2692,6 @@
   "supabase/migrations/20260709_task_attachment_versioning.sql": {
     "mtime": 1783600537.9252799,
     "ast_hash": "a7427beead4e1998314150c2c8424d3b",
-    "semantic_hash": ""
-  },
-  "components/intelligence/TaskFileResults.tsx": {
-    "mtime": 1783840537.1210823,
-    "ast_hash": "b772274b8893421563414e4da8801dfe",
-    "semantic_hash": ""
-  },
-  "supabase/migrations/20260712_files_index_search.sql": {
-    "mtime": 1783840307.9348888,
-    "ast_hash": "e6ab930ffca463d3f4fa347d280f86a8",
     "semantic_hash": ""
   }
 }

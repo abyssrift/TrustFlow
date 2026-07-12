@@ -1045,13 +1045,13 @@
     "semantic_hash": ""
   },
   "components/tabs/_tasks_adaptive.tsx": {
-    "mtime": 1783502027.1708922,
-    "ast_hash": "ab6f62e7274f033022451260979d17dc",
+    "mtime": 1783502456.8716836,
+    "ast_hash": "a1950c2e89989100740508dec6b541ea",
     "semantic_hash": ""
   },
   "components/tabs/_tasks_desktop.tsx": {
-    "mtime": 1783243924.037614,
-    "ast_hash": "416eaca75a1dda5de1623e074bc21280",
+    "mtime": 1783502725.1346767,
+    "ast_hash": "89f7693bd3a6d12cdff831e46cf12e95",
     "semantic_hash": ""
   },
   "components/tabs/_tasks_web.tsx": {
@@ -2647,6 +2647,11 @@
   "components/navigation/FloatingTabBar.tsx": {
     "mtime": 1783494964.952947,
     "ast_hash": "193878c74e847495bb71565b46709262",
+    "semantic_hash": ""
+  },
+  "components/tabs/taskBoardCache.ts": {
+    "mtime": 1783502425.5268154,
+    "ast_hash": "6a719ea2bb2f14a599123370842aba4f",
     "semantic_hash": ""
   }
 }

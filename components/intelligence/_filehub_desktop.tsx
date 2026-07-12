@@ -8,6 +8,7 @@ import { FilePreviewModal, FilePreviewTeaser, getPreviewKind, type PreviewKind }
 import FileHubAnalytics from './FileHubAnalytics';
 import FileHubBin from './FileHubBin';
 import { downloadFilesAsZip, openStorageFile } from '@/lib/storage';
+import TaskFileResults from './TaskFileResults';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -2721,6 +2722,9 @@ function FileHubDesktopInner() {
                       {search ? `No files match "${search}".` : mode === 'inbox' ? 'Files sent directly to you will appear here.' : mode === 'sent' ? 'Files you send to others will appear here.' : 'Company-wide broadcasts will appear here.'}
                     </Text>
                   </View>
+                  <View className="w-full max-w-sm">
+                    <TaskFileResults pad={false} />
+                  </View>
                 </View>
               ) : (
                 <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
@@ -2788,6 +2792,7 @@ function FileHubDesktopInner() {
                       onToggleSelect={() => toggleFileSelect(file.id)}
                     />
                   ))}
+                  <TaskFileResults />
                   <View style={{ height: 40 }} />
                 </ScrollView>
               )}
