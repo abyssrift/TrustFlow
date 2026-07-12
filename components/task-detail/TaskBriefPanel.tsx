@@ -1,3 +1,4 @@
+import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTaskDetail, type DeletedTaskAttachmentData, type TaskAttachmentData, type TaskAttachmentVersionData } from '@/contexts/TaskDetailContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -8,7 +9,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import DraggableSheet from '@/components/common/DraggableSheet';
 import ImageLightbox from '@/components/common/ImageLightbox';
 import CollapsibleCard from './CollapsibleCard';
@@ -175,6 +176,7 @@ export default function TaskBriefPanel() {
     deleteTaskAttachment, restoreTaskAttachment, listDeletedTaskAttachments,
   } = useTaskDetail();
   const { user } = useAuth();
+  const { showConfirm } = useAlert();
   const colors = useThemeColors();
   const [uploading, setUploading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -292,13 +294,15 @@ export default function TaskBriefPanel() {
 
   const handleDelete = (id: string) => {
     const att = data.task_attachments.find(a => a.id === id);
-    Alert.alert(
+    // showConfirm, not Alert.alert — multi-button Alert.alert is a no-op on web
+    showConfirm(
       'Delete File',
       `"${att?.file_name || 'This file'}" will be removed from the brief. Management can restore it later.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: () => deleteTaskAttachment(id).catch(err => setErrorMsg(err.message)) },
-      ]
+      () => deleteTaskAttachment(id).catch(err => setErrorMsg(err.message)),
+      undefined,
+      'Delete',
+      'Cancel',
+      'destructive'
     );
   };
 
@@ -315,26 +319,23 @@ export default function TaskBriefPanel() {
   };
 
   const handleRestoreVersion = (v: TaskAttachmentVersionData) => {
-    Alert.alert(
+    // showConfirm, not Alert.alert — multi-button Alert.alert is a no-op on web
+    showConfirm(
       'Restore Version',
       `The file will revert to v${v.version_no}. The current version stays in history.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Restore',
-          onPress: async () => {
-            setRestoringVersionId(v.id);
-            try {
-              await restoreTaskAttachmentVersion(v.id);
-              if (historyFor) setHistoryVersions(await taskAttachmentVersions(historyFor.id));
-            } catch {
-              // restoreTaskAttachmentVersion already toasts
-            } finally {
-              setRestoringVersionId(null);
-            }
-          },
-        },
-      ]
+      async () => {
+        setRestoringVersionId(v.id);
+        try {
+          await restoreTaskAttachmentVersion(v.id);
+          if (historyFor) setHistoryVersions(await taskAttachmentVersions(historyFor.id));
+        } catch {
+          // restoreTaskAttachmentVersion already toasts
+        } finally {
+          setRestoringVersionId(null);
+        }
+      },
+      undefined,
+      'Restore'
     );
   };
 
@@ -530,7 +531,7 @@ export default function TaskBriefPanel() {
 
       {/* Feature D: version history sheet — newest first, restore = pointer move.
           Inline colors on purpose — theme-token classes go black inside RN Modal on web. */}
-      <DraggableSheet visible={!!historyFor} onClose={() => setHistoryFor(null)} dimBackdrop>
+      <DraggableSheet visible={!!historyFor} onClose={() => setHistoryFor(null)} dimBackdrop containerClassName="rounded-t-[2rem] border-t" containerStyle={{ backgroundColor: colors.card, borderColor: colors.border }}>
         <ScrollView className="px-6 pt-6 pb-10">
           <Text style={{ color: colors.textMain, fontSize: 18, fontWeight: '900', marginBottom: 4 }}>Version History</Text>
           {historyFor && (

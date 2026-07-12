@@ -4,6 +4,7 @@ import { FilePreviewGrid } from '@/components/common/FilePreviewCard';
 import ManualTimeModal from '@/components/common/ManualTimeModal';
 import LockIndicator from '@/components/task-detail/LockIndicator';
 import ManualTimeApprovalCard from '@/components/task-detail/ManualTimeApprovalCard';
+import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubmission } from '@/contexts/SubmissionContext';
 import { useTaskDetail, type DeletedSubmissionData, type StageActionData, type SubmissionData, type SubmissionVersionData } from '@/contexts/TaskDetailContext';
@@ -135,6 +136,7 @@ function AdaptiveFileGrid({
 
 export default function StageActions() {
   const colors = useThemeColors();
+  const { showConfirm } = useAlert();
   const { data, executeAction, submitWork, deleteSubmission, restoreSubmission, listDeletedSubmissions, submissionVersions, restoreSubmissionVersion, refresh } = useTaskDetail();
   const { isActive, activeSession, serverTimeOffset, stopWork, startWork, smartTimer } = useTimer();
   const router = useRouter();
@@ -319,26 +321,23 @@ export default function StageActions() {
   };
 
   const handleRestoreVersion = (v: SubmissionVersionData) => {
-    Alert.alert(
+    // showConfirm, not Alert.alert — multi-button Alert.alert is a no-op on web
+    showConfirm(
       'Restore Version',
       `The submission will revert to v${v.version_no}. The current version stays in history.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Restore',
-          onPress: async () => {
-            setRestoringVersionId(v.id);
-            try {
-              await restoreSubmissionVersion(v.id);
-              if (historyFor) setHistoryVersions(await submissionVersions(historyFor));
-            } catch {
-              // restoreSubmissionVersion already toasts
-            } finally {
-              setRestoringVersionId(null);
-            }
-          },
-        },
-      ]
+      async () => {
+        setRestoringVersionId(v.id);
+        try {
+          await restoreSubmissionVersion(v.id);
+          if (historyFor) setHistoryVersions(await submissionVersions(historyFor));
+        } catch {
+          // restoreSubmissionVersion already toasts
+        } finally {
+          setRestoringVersionId(null);
+        }
+      },
+      undefined,
+      'Restore'
     );
   };
 
@@ -848,13 +847,14 @@ export default function StageActions() {
                           <FontAwesome name="pencil" size={11} color={colors.textMuted} />
                         </TouchableOpacity>
                         <TouchableOpacity
-                          onPress={() => Alert.alert(
+                          onPress={() => showConfirm(
                             'Delete Submission',
                             'The submission and its attachments will be removed. Management can restore it later.',
-                            [
-                              { text: 'Cancel', style: 'cancel' },
-                              { text: 'Delete', style: 'destructive', onPress: () => deleteSubmission(s.id).catch(err => setErrorMsg({ title: 'Delete Failed', message: err.message })) },
-                            ]
+                            () => deleteSubmission(s.id).catch(err => setErrorMsg({ title: 'Delete Failed', message: err.message })),
+                            undefined,
+                            'Delete',
+                            'Cancel',
+                            'destructive'
                           )}
                           className="p-1"
                         >
@@ -966,7 +966,7 @@ export default function StageActions() {
 
       {/* Feature A: Edit submission sheet (new version, same submission). Inline
           colors on purpose — theme-token classes go black inside RN Modal on web. */}
-      <DraggableSheet visible={!!editingSub} onClose={closeEdit} dimBackdrop>
+      <DraggableSheet visible={!!editingSub} onClose={closeEdit} dimBackdrop containerClassName="rounded-t-[2rem] border-t" containerStyle={{ backgroundColor: colors.card, borderColor: colors.border }}>
         <ScrollView className="px-6 pt-6 pb-10">
           <Text style={{ color: colors.textMain, fontSize: 18, fontWeight: '900', marginBottom: 4 }}>Edit Submission</Text>
           <Text style={{ color: colors.textMuted, fontSize: 11, marginBottom: 16 }}>
@@ -1087,7 +1087,7 @@ export default function StageActions() {
       </DraggableSheet>
 
       {/* Feature A: version history sheet — newest first, restore = pointer move */}
-      <DraggableSheet visible={!!historyFor} onClose={() => setHistoryFor(null)} dimBackdrop>
+      <DraggableSheet visible={!!historyFor} onClose={() => setHistoryFor(null)} dimBackdrop containerClassName="rounded-t-[2rem] border-t" containerStyle={{ backgroundColor: colors.card, borderColor: colors.border }}>
         <ScrollView className="px-6 pt-6 pb-10">
           <Text style={{ color: colors.textMain, fontSize: 18, fontWeight: '900', marginBottom: 16 }}>Version History</Text>
 
