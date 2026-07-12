@@ -24,6 +24,7 @@ function getIconSpec(type: string): IconSpec {
     case 'task.manual_time_flagged':  return { name: 'flag',        color: colors.warning };
     case 'task.manual_time_approved': return { name: 'thumbs-up',   color: colors.success };
     case 'task.manual_time_rejected': return { name: 'thumbs-down', color: colors.danger };
+    case 'task.submission_deleted':   return { name: 'trash',       color: colors.danger };
     case 'pipeline.member_added': return { name: 'users',           color: colors.primary };
     case 'pipeline.archived':   return { name: 'archive',           color: colors.textMuted };
     case 'filehub.file_received':    return { name: 'file-text-o',  color: colors.primary };

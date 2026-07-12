@@ -913,8 +913,16 @@ export default function StageActions() {
               <TouchableOpacity onPress={toggleDeletedSubs} className="flex-row items-center py-1">
                 <FontAwesome name={showDeleted ? 'chevron-up' : 'chevron-down'} size={9} color={colors.textDim} />
                 <Text className="text-typography-dim text-[9px] font-black uppercase tracking-wider ml-1.5">
-                  Deleted{deletedSubs ? ` (${deletedSubs.length})` : ''}
+                  Deleted
                 </Text>
+                {(() => {
+                  const deletedCount = deletedSubs ? deletedSubs.length : (data.stats?.deleted_submission_count ?? 0);
+                  return deletedCount > 0 ? (
+                    <View className="bg-state-danger/15 border border-state-danger/30 rounded-full min-w-[16px] px-1.5 py-0.5 ml-1.5 items-center">
+                      <Text className="text-state-danger text-[8px] font-black leading-none">{deletedCount}</Text>
+                    </View>
+                  ) : null;
+                })()}
               </TouchableOpacity>
 
               {showDeleted && (

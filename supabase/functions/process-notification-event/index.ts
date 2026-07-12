@@ -344,6 +344,10 @@ function buildContent(
       const reason = payload.rejection_reason as string | undefined
       return { title: 'Time Declaration Rejected', body: reason ? `Your time on ${q} was rejected: ${reason}` : `Your time declaration on ${q} was rejected. Please re-declare.` }
     }
+    case 'task.submission_deleted': {
+      const who = (payload.deleted_by_name as string | undefined) ?? 'Someone'
+      return { title: 'Submission Deleted', body: `${who} deleted a submission on ${q}. It can be restored from the task.` }
+    }
     case 'pipeline.member_added':
       return { title: 'Added to Pipeline', body: `You have been added to a pipeline.` }
     case 'pipeline.archived':
