@@ -1,5 +1,7 @@
+import AssignmentModePreview from '@/components/tasks/AssignmentModePreview';
 import ClipboardControls from '@/components/common/ClipboardControls';
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
+import { usePipelineAssignmentPreview } from '@/lib/usePipelineAssignmentPreview';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTaskCreation } from '@/contexts/TaskCreationContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -178,6 +180,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
   const [teams, setTeams]         = useState<any[]>([]);
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [projects,  setProjects]  = useState<Project[]>([]);
+  const [weightText, setWeightText] = useState(String(draft.weight ?? 1));
   const [search, setSearch]       = useState('');
   const [pipelineSearch, setPipelineSearch] = useState('');
   const [projectSearch,  setProjectSearch]  = useState('');
@@ -248,6 +251,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
       loadRecentTasks();
       fetchResources();
       if (initialPipelineId && !draft.pipelineId) setDraft({ pipelineId: initialPipelineId });
+      setWeightText(String(draft.weight ?? 1));
     } else {
       setBulkMode(false);
       setBulkText('');
@@ -289,6 +293,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
       assigneeUserIds: task.assignments?.filter((a: any) => a.assignee_user_id).map((a: any) => a.assignee_user_id) || [],
       assigneeTeamIds: task.assignments?.filter((a: any) => a.assignee_team_id).map((a: any) => a.assignee_team_id) || [],
     });
+    setWeightText(String(task.weight ?? 1));
   };
 
   const toggleUser = (id: string) => {
@@ -330,6 +335,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
   const selectedPipeline   = pipelines.find(p => p.id === draft.pipelineId);
   const selectedProject    = projects.find(p => p.id === draft.projectId);
   const assignmentCount    = draft.assigneeUserIds.length + draft.assigneeTeamIds.length;
+  const { preview: assignmentPreview } = usePipelineAssignmentPreview(draft.pipelineId);
   const dateConflict       = !!(draft.startDate && draft.dueDate && draft.startDate > draft.dueDate);
 
 
@@ -489,8 +495,13 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                     <View className="w-36">
                       <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-3 ml-1">Weight</Text>
                       <TextInput
-                        value={(draft.weight ?? 1).toString()}
-                        onChangeText={t => setDraft({ weight: parseInt(t) || 1 })}
+                        value={weightText}
+                        onChangeText={t => {
+                          const digits = t.replace(/[^0-9]/g, '');
+                          setWeightText(digits);
+                          if (digits) setDraft({ weight: parseInt(digits, 10) });
+                        }}
+                        onBlur={() => setWeightText(String(draft.weight ?? 1))}
                         keyboardType="numeric"
                         className="bg-surface-background border border-surface-border rounded-2xl px-6 py-4 text-typography-main font-black text-center"
                       />
@@ -546,6 +557,9 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                       </TouchableOpacity>
                     </View>
                   </View>
+
+                  {/* Auto-assignment preview — shows the pipeline's mode and who it will pick */}
+                  <AssignmentModePreview preview={assignmentPreview} hasManualAssignees={assignmentCount > 0} />
 
                   {/* Start Date + Deadline */}
                   <View className="gap-2">

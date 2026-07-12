@@ -1,5 +1,6 @@
 // Web-only hook — only import from .web.tsx files.
 import { useState, useEffect, useCallback } from 'react';
+import { Platform } from 'react-native';
 import { supabase } from '@/lib/supabase';
 
 const VAPID_PUBLIC_KEY = (process.env.EXPO_PUBLIC_VAPID_PUBLIC_KEY ?? '').trim();
@@ -49,8 +50,6 @@ export type PushState = 'unsupported' | 'denied' | 'subscribed' | 'unsubscribed'
 
 export function usePushSubscription() {
   const [state, setState] = useState<PushState>('loading');
-  const [isSubscribing, setIsSubscribing] = useState(false);
-  const { session, user, initialized } = useAuth();
 
   const checkState = useCallback(async () => {
     if (Platform.OS !== 'web' || !('serviceWorker' in navigator) || !('PushManager' in window)) {

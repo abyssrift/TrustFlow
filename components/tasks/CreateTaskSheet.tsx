@@ -11,6 +11,8 @@ import ClipboardControls from '../common/ClipboardControls';
 import PremiumCalendarPicker from '../common/PremiumCalendarPicker';
 import { formatFileSize, getFileIcon } from '@/lib/taskFileHelpers';
 import { useCreateTaskWizard } from '@/lib/useCreateTaskWizard';
+import { usePipelineAssignmentPreview } from '@/lib/usePipelineAssignmentPreview';
+import AssignmentModePreview from './AssignmentModePreview';
 
 // ─── Adaptive File Grid ───────────────────────────────────────────────────────
 
@@ -119,6 +121,7 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
     templates, saveAsTemplate, loadTemplate, deleteTemplate,
     handleCreate, removeBriefFile,
   } = useCreateTaskWizard({ visible, initialPipelineId });
+  const { preview: assignmentPreview } = usePipelineAssignmentPreview(draft.pipelineId);
 
   const renderStep = () => {
     switch (step) {
@@ -372,6 +375,11 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
                  </TouchableOpacity>
                </View>
              </View>
+
+             <AssignmentModePreview
+               preview={assignmentPreview}
+               hasManualAssignees={draft.assigneeUserIds.length + draft.assigneeTeamIds.length > 0}
+             />
 
              <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2 ml-1">Resources</Text>
              <ScrollView className="max-h-96">

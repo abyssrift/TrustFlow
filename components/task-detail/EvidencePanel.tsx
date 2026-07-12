@@ -95,14 +95,6 @@ export default function EvidencePanel() {
       title="Evidence & Proofs"
       headerRight={
         <View className="flex-row items-center gap-3">
-          <TouchableOpacity
-            onPress={() => setShowPendingReview(!showPendingReview)}
-            className={`px-2 py-1.5 rounded-lg border flex-row items-center ${showPendingReview ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
-          >
-            <Text className={`text-[8px] font-black uppercase tracking-tighter ${showPendingReview ? 'text-white' : 'text-typography-muted'}`}>
-              {showPendingReview ? 'Show Pending' : 'Confirmed Only'}
-            </Text>
-          </TouchableOpacity>
           <View className="bg-brand-primary/10 px-2 py-0.5 rounded-md">
             <Text className="text-brand-primary text-[8px] font-black uppercase tracking-tighter">Verified Assets</Text>
           </View>

@@ -900,6 +900,23 @@ function TasksScreen() {
     };
   }, [isLargeScreen]);
 
+  // Realtime board updates — mirrors the desktop board so mobile is live, not
+  // 60s-polled. All .on() callbacks are registered before .subscribe() and the
+  // channel name is unique per mount; that avoids the old "Cannot add
+  // postgres_changes callbacks after subscribe()" crash. The polling effect
+  // above stays as a backstop for when the websocket drops on flaky mobile nets.
+  useEffect(() => {
+    const channel = supabase
+      .channel(`adaptive-board-realtime-${Date.now()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => fetchDataRef.current())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_work_sessions' }, () => fetchDataRef.current())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_comments' }, () => fetchDataRef.current())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_submissions' }, () => fetchDataRef.current())
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pipeline_stage_history' }, () => fetchDataRef.current())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchDataRef.current();
