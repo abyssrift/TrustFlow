@@ -313,13 +313,26 @@ export function TasksScreenWeb() {
   const [boardTransitioning, setBoardTransitioning] = useState(false);
   const [boardWidth, setBoardWidth] = useState(0);
   const boardWidthRef = useRef(0);
+  const boardContainerRef = useRef<View>(null);
 
   // Wait out the 300ms width transition before mounting the wrap-grid layout —
   // reflowing every card on each animation frame while the column resizes is what was dropping frames.
   // While transitioning (either direction) the cards' layout springs are turned
   // off so reanimated doesn't fight the CSS width transition frame-by-frame.
   useEffect(() => {
-    if (fullscreenStageId) setBoardWidth(boardWidthRef.current);
+    if (fullscreenStageId) {
+      // Re-measure fresh instead of trusting boardWidthRef, which may still be at
+      // its initial 0 if this is the first layout pass since the app loaded (the
+      // wrapping View's onLayout hasn't fired yet). Falling through to a stale 0
+      // used to fall back to width: '100%', which blows out inside the horizontal
+      // ScrollView's row content and pushes the column off-screen.
+      boardContainerRef.current?.measure((_x, _y, width) => {
+        if (width) {
+          boardWidthRef.current = width;
+          setBoardWidth(width);
+        }
+      });
+    }
     setBoardTransitioning(true);
     const t = setTimeout(() => {
       setBoardTransitioning(false);
@@ -1660,7 +1673,7 @@ export function TasksScreenWeb() {
               </View>
             </View>
           ) : (
-            <View style={{ flex: 1 }} onLayout={(e) => {
+            <View ref={boardContainerRef} style={{ flex: 1 }} onLayout={(e) => {
               // Re-rendering the whole board per layout frame is only worth it
               // while a column is actually sized off boardWidth (fullscreen).
               boardWidthRef.current = e.nativeEvent.layout.width;
@@ -1707,7 +1720,7 @@ export function TasksScreenWeb() {
                     key={stage.id}
                     className="h-full transition-[width,margin-right,opacity] duration-300 ease-in-out"
                     style={{
-                      width: isFullscreen ? (boardWidth || '100%') : isHiddenByFullscreen ? 0 : 380,
+                      width: isFullscreen ? (boardWidth || undefined) : isHiddenByFullscreen ? 0 : 380,
                       marginRight: isHiddenByFullscreen ? 0 : 32,
                       opacity: isHiddenByFullscreen ? 0 : 1,
                       overflow: 'hidden',

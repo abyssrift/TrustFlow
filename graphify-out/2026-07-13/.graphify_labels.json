@@ -111,7 +111,6 @@
   "109": "🆘 Troubleshooting",
   "110": "index.tsx",
   "111": "profile.tsx",
-  "112": "What Reporting Data This Enables",
   "113": "Method 2: Using Command Line Script (Most Complete)",
   "114": "RootLayoutNav",
   "115": "fileTransfer.native.ts",
@@ -133,7 +132,6 @@
   "131": "DevTool.tsx",
   "132": "generate.native.ts",
   "133": "useClientOnlyValue.ts",
-  "134": "What Gets Created",
   "135": "system_validation.test.ts",
   "136": "walkthroughs.md",
   "137": "fullstack-feature-pipeline.md",
@@ -143,9 +141,9 @@
   "141": "postcss.config.js",
   "142": "tailwind.config.js",
   "143": "vitest.config.ts",
-  "144": "Customization",
-  "145": "What Gets Created",
-  "146": "Troubleshooting",
+  "145": "ToastContext.tsx",
   "147": "EvidencePanel.tsx",
-  "148": "RootLayoutNav"
+  "151": "tasks.tsx",
+  "154": "useClientOnlyValue.web.ts",
+  "157": "helpers.ts"
 }

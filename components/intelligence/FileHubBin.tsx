@@ -34,17 +34,21 @@ function daysRemaining(expiresAt: string | undefined): number {
 
 export default function FileHubBin({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const c = useThemeColors();
-  const { binFiles, binLoading, fetchBin, restoreFromBin } = useFileHub();
+  const { binFiles, binLoading, fetchBin, restoreFromBin, restoreFolder } = useFileHub();
   const [restoringId, setRestoringId] = useState<string | null>(null);
 
   useEffect(() => {
     if (visible) fetchBin();
   }, [visible, fetchBin]);
 
-  const handleRestore = async (file: FileHubFile) => {
-    setRestoringId(file.id);
+  const handleRestore = async (item: FileHubFile) => {
+    setRestoringId(item.id);
     try {
-      await restoreFromBin(file.id);
+      if (item.item_type === 'folder') {
+        await restoreFolder(item.id);
+      } else {
+        await restoreFromBin(item.id);
+      }
     } catch {
       // error surfaced by context
     } finally {
@@ -59,7 +63,7 @@ export default function FileHubBin({ visible, onClose }: { visible: boolean; onC
             <View className="flex-1 pr-3">
               <Text className="text-[9px] font-black uppercase tracking-[0.3em] mb-1" style={{ color: c.primary }}>Intelligence Hub</Text>
               <Text className="text-2xl font-black tracking-tight" style={{ color: c.textMain }}>Bin</Text>
-              <Text className="text-xs font-medium mt-0.5" style={{ color: c.textMuted }}>Deleted & hidden files — restorable for 15 days</Text>
+              <Text className="text-xs font-medium mt-0.5" style={{ color: c.textMuted }}>Deleted files & folders — restorable for 15 days</Text>
             </View>
             <TouchableOpacity onPress={onClose} className="h-10 w-10 items-center justify-center rounded-full border" style={{ borderColor: c.border, backgroundColor: c.card }}>
               <FontAwesome name="times" size={16} color={c.textMuted} />
@@ -77,12 +81,18 @@ export default function FileHubBin({ visible, onClose }: { visible: boolean; onC
             </View>
           ) : (
             <ScrollView style={{ maxHeight: 480 }} contentContainerStyle={{ paddingVertical: 8 }} showsVerticalScrollIndicator={false}>
-              {binFiles.map(file => {
-                const { icon, color } = getMimeIcon(file.mime_type);
-                const days = daysRemaining(file.expires_at);
+              {binFiles.map(item => {
+                const isFolder = item.item_type === 'folder';
+                const { icon, color } = isFolder
+                  ? { icon: 'folder-o', color: '#d69e2e' }
+                  : getMimeIcon(item.mime_type);
+                const days = daysRemaining(item.expires_at);
+                const subtitle = isFolder
+                  ? `Deleted folder · ${days === 0 ? 'Expires today' : `Expires in ${days}d`}`
+                  : `${formatFileSize(item.size_bytes)} · ${item.trash_type === 'deleted' ? 'Deleted by you' : 'Hidden from your view'} · ${days === 0 ? 'Expires today' : `Expires in ${days}d`}`;
                 return (
                   <View
-                    key={file.id}
+                    key={item.id}
                     className="flex-row items-center px-7 py-3.5 border-b"
                     style={{ borderColor: c.border + '60' }}
                   >
@@ -93,18 +103,18 @@ export default function FileHubBin({ visible, onClose }: { visible: boolean; onC
                       <FontAwesome name={icon as any} size={16} color={color} />
                     </View>
                     <View className="flex-1 min-w-0 mr-3">
-                      <Text numberOfLines={1} className="text-sm font-bold" style={{ color: c.textMain }}>{file.original_name}</Text>
+                      <Text numberOfLines={1} className="text-sm font-bold" style={{ color: c.textMain }}>{item.original_name}</Text>
                       <Text numberOfLines={1} className="text-[11px] mt-0.5" style={{ color: c.textMuted }}>
-                        {formatFileSize(file.size_bytes)} · {file.trash_type === 'deleted' ? 'Deleted by you' : 'Hidden from your view'} · {days === 0 ? 'Expires today' : `Expires in ${days}d`}
+                        {subtitle}
                       </Text>
                     </View>
                     <TouchableOpacity
-                      onPress={() => handleRestore(file)}
-                      disabled={restoringId === file.id}
+                      onPress={() => handleRestore(item)}
+                      disabled={restoringId === item.id}
                       className="flex-row items-center gap-1.5 px-3.5 py-2 rounded-lg"
                       style={{ backgroundColor: c.primary }}
                     >
-                      {restoringId === file.id
+                      {restoringId === item.id
                         ? <ActivityIndicator size="small" color="#fff" />
                         : <FontAwesome name="undo" size={11} color="#fff" />}
                       <Text className="text-white text-xs font-black">Restore</Text>

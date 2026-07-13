@@ -32,12 +32,14 @@ const ROW_H = 30;
 const MAX_COLS = 40;
 
 // Spreadsheets above this size get gated behind an explicit "Preview Anyway" tap —
-// XLSX.read() is one long synchronous call with no chunking hook, and it runs on
-// RN's single JS thread, so a big workbook freezes the whole app (every button,
-// not just the preview) for as long as it takes to parse.
-// 500KB, not 2MB — a real-world 1.7MB sheet was confirmed to freeze the app,
-// so the gate needs real margin below that, not just "big" in the abstract.
-const SPREADSHEET_FREEZE_WARNING_BYTES = 500 * 1024;
+// XLSX.read() is one long synchronous call with no chunking hook.
+// On native it runs on RN's single JS thread, so a big workbook freezes the whole
+// app (every button, not just the preview): 500KB, not 2MB — a real-world 1.7MB
+// sheet was confirmed to freeze the app, so the gate needs real margin below that.
+// Desktop/web parse in the browser off the app's critical path and handle far
+// bigger files comfortably, so the gate sits an order of magnitude higher there
+// and stops nagging on files a desktop opens without breaking a sweat.
+const SPREADSHEET_FREEZE_WARNING_BYTES = isWeb ? 10 * 1024 * 1024 : 500 * 1024;
 
 // ─── Spreadsheet ────────────────────────────────────────────────────────────
 function useWorkbook(uri: string, enabled: boolean) {

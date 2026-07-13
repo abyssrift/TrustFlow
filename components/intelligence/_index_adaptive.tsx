@@ -13,7 +13,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Platform, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 
 
@@ -680,7 +680,11 @@ export default function IntelligenceScreen() {
 
   const handleDownloadReport = async (path: string) => {
     const { data, error } = await supabase.storage.from('reports').createSignedUrl(path, 60);
-    if (data?.signedUrl) Linking.openURL(data.signedUrl);
+    if (!data?.signedUrl) return;
+    // expo-linking's openURL navigates the current tab on web (window.location =
+    // url); explicit window.open keeps the app tab alive, matching openStorageFile.
+    if (Platform.OS === 'web') { window.open(data.signedUrl, '_blank', 'noopener'); return; }
+    Linking.openURL(data.signedUrl);
   };
 
   const handleRestore = async () => {

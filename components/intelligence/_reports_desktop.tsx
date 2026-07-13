@@ -17,7 +17,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 function formatDuration(seconds: number): string {
   if (seconds < 60) return `${seconds}s`;
@@ -203,7 +203,11 @@ export default function IntelligenceReports() {
 
   const handleDownload = async (path: string) => {
     const { data } = await supabase.storage.from('reports').createSignedUrl(path, 60);
-    if (data?.signedUrl) Linking.openURL(data.signedUrl);
+    if (!data?.signedUrl) return;
+    // expo-linking's openURL navigates the current tab on web (window.location =
+    // url); explicit window.open keeps the app tab alive, matching openStorageFile.
+    if (Platform.OS === 'web') { window.open(data.signedUrl, '_blank', 'noopener'); return; }
+    Linking.openURL(data.signedUrl);
   };
 
   return (

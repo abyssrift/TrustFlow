@@ -15,7 +15,7 @@ import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 const STATUS_COLOR: Record<string, string> = {
   completed:  'text-state-success',
@@ -141,7 +141,11 @@ export default function IntelligenceReportsNative() {
 
   const handleDownload = async (path: string) => {
     const { data } = await supabase.storage.from('reports').createSignedUrl(path, 60);
-    if (data?.signedUrl) Linking.openURL(data.signedUrl);
+    if (!data?.signedUrl) return;
+    // expo-linking's openURL navigates the current tab on web (window.location =
+    // url); explicit window.open keeps the app tab alive, matching openStorageFile.
+    if (Platform.OS === 'web') { window.open(data.signedUrl, '_blank', 'noopener'); return; }
+    Linking.openURL(data.signedUrl);
   };
 
   return (

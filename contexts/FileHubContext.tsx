@@ -31,6 +31,7 @@ export type FileHubFile = {
   trash_type?: 'deleted' | 'hidden';
   trashed_at?: string;
   expires_at?: string;
+  item_type?: 'file' | 'folder';
 };
 
 export type FileHubShareLink = {
@@ -171,6 +172,7 @@ type FileHubContextType = {
   binLoading: boolean;
   fetchBin: () => Promise<void>;
   restoreFromBin: (fileId: string) => Promise<void>;
+  restoreFolder: (folderId: string) => Promise<void>;
   createFolder: (name: string, parentId?: string | null, scope?: FileHubFolderScope, groupId?: string | null) => Promise<void>;
   renameFolder: (id: string, name: string) => Promise<void>;
   deleteFolder: (id: string) => Promise<void>;
@@ -497,6 +499,13 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
     refresh();
   }, [refresh]);
 
+  const restoreFolder = useCallback(async (folderId: string) => {
+    const { error } = await supabase.rpc('rpc_filehub_folder_restore', { p_id: folderId });
+    if (error) { Alert.alert('Error', error.message); throw error; }
+    setBinFiles(prev => prev.filter(f => f.id !== folderId));
+    await fetchFolders();
+  }, [fetchFolders]);
+
   const createFolder = useCallback(async (name: string, parentId?: string | null, scope: FileHubFolderScope = 'direct', groupId?: string | null) => {
     const { error } = await supabase.rpc('rpc_filehub_folder_create', {
       p_name: name,
@@ -660,7 +669,7 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
       inboxUnreadCount,
       refresh,
       markRead, markAllRead, hideFile, deleteFile,
-      binFiles, binLoading, fetchBin, restoreFromBin,
+      binFiles, binLoading, fetchBin, restoreFromBin, restoreFolder,
       createFolder, renameFolder, deleteFolder, moveFolder, moveFile,
       tagSuggestions, checkDuplicate,
       checkNameConflict, replaceFile, fileVersions, restoreVersion, pinVersion,

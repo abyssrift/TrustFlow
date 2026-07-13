@@ -10,7 +10,7 @@ import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
 import { buildTransitionTargetMap, splitStageActions, stageDirection, TYPE_STYLES } from './actionRegistry';
 import { DirectionalActionButton } from './DirectionalActionButton';
@@ -187,7 +187,7 @@ export default function TaskHeader() {
   };
 
   return (
-    <View className="px-5 pt-12 pb-4 bg-surface-card border-b border-surface-border">
+    <View className={`px-5 ${Platform.OS === 'web' ? 'pt-4' : 'pt-12'} pb-4 bg-surface-card border-b border-surface-border`}>
       {/* Top row: back + badges */}
       <View className="flex-row items-center mb-3">
         <TouchableOpacity

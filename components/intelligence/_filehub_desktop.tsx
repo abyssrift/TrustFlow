@@ -999,27 +999,71 @@ function GroupCreateModal({
 // ─── Folders inline in the file list (Explorer-style: current directory's
 // subfolders sit above its files, both draggable on web) ──────────────────────
 
-type DragPayload = { type: 'file' | 'folder'; id: string } | { type: 'files'; ids: string[] };
+type DragPayload =
+  | { type: 'file' | 'folder'; id: string }
+  | { type: 'files'; ids: string[] }
+  | { type: 'items'; fileIds: string[]; folderIds: string[] };
 
 function FolderBreadcrumb({
-  folders, selectedFolderId, onNavigate, onDropMove,
+  folders, selectedFolderId, onNavigate, onDropMove, onCreateFolder,
 }: {
   folders: FileHubFolder[];
   selectedFolderId: string | null;
   onNavigate: (id: string | null) => void;
   onDropMove: (payload: DragPayload, targetId: string | null) => void;
+  onCreateFolder: (name: string) => Promise<void>;
 }) {
   const colors = useThemeColors();
   const chain = selectedFolderId ? folderAncestors(folders, selectedFolderId) : [];
   const crumbs: Array<{ id: string | null; name: string }> = [{ id: null, name: 'All Files' }, ...chain.map(f => ({ id: f.id, name: f.name }))];
+  const [showInput, setShowInput] = useState(false);
+  const [name, setName] = useState('');
+  const [creating, setCreating] = useState(false);
+
+  const handleCreate = async () => {
+    if (!name.trim()) return;
+    setCreating(true);
+    await onCreateFolder(name.trim());
+    setName('');
+    setShowInput(false);
+    setCreating(false);
+  };
+
   return (
-    <View className="flex-row items-center flex-wrap px-6 py-3 border-b border-surface-border/60 bg-surface-background/40">
-      {crumbs.map((c, i) => (
-        <React.Fragment key={c.id ?? 'root'}>
-          {i > 0 && <FontAwesome name="angle-right" size={11} color={colors.textDim} style={{ marginHorizontal: 6 }} />}
-          <BreadcrumbCrumb crumb={c} isLast={i === crumbs.length - 1} onNavigate={onNavigate} onDropMove={onDropMove} />
-        </React.Fragment>
-      ))}
+    <View className="flex-row items-center justify-between gap-3 px-6 py-3 border-b border-surface-border/60 bg-surface-background/40">
+      <View className="flex-row items-center flex-wrap flex-1 min-w-0">
+        {crumbs.map((c, i) => (
+          <React.Fragment key={c.id ?? 'root'}>
+            {i > 0 && <FontAwesome name="angle-right" size={11} color={colors.textDim} style={{ marginHorizontal: 6 }} />}
+            <BreadcrumbCrumb crumb={c} isLast={i === crumbs.length - 1} onNavigate={onNavigate} onDropMove={onDropMove} />
+          </React.Fragment>
+        ))}
+      </View>
+      {showInput ? (
+        <View className="flex-row items-center gap-2 flex-shrink-0">
+          <TextInput
+            value={name}
+            onChangeText={setName}
+            onSubmitEditing={handleCreate}
+            onBlur={() => { if (!name.trim()) setShowInput(false); }}
+            placeholder="Folder name"
+            placeholderTextColor={colors.textDim}
+            autoFocus
+            className="text-typography-main text-sm border border-brand-primary/40 bg-brand-primary/5 rounded-xl px-3 py-1.5 outline-none w-40"
+          />
+          <TouchableOpacity onPress={handleCreate} disabled={creating} className="px-3 py-1.5 bg-brand-primary rounded-xl">
+            <Text className="text-white text-xs font-black">Add</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <TouchableOpacity
+          onPress={() => setShowInput(true)}
+          className="flex-row items-center gap-1.5 px-3 py-1.5 bg-surface-card border border-surface-border rounded-lg flex-shrink-0 hover:bg-surface-overlay"
+        >
+          <FontAwesome name="plus" size={10} color={colors.textMuted} />
+          <Text className="text-typography-muted text-xs font-black">New Folder</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -1049,21 +1093,35 @@ function BreadcrumbCrumb({
 
 function FolderRow({
   folder, onNavigate, onDropPayload, onRename, onDelete,
+  selectionMode = false, isSelected = false, onToggleSelect,
+  dragFileIds, dragFolderIds,
 }: {
   folder: FileHubFolder;
-  onNavigate: () => void;
+  onNavigate: (e?: any) => void;
   onDropPayload: (payload: DragPayload) => void;
   onRename: (name: string) => void;
   onDelete: () => void;
+  selectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
+  /** When this folder is part of an active multi-selection (>1 items total),
+   * the full selected file + folder ids so dragging it moves them all. */
+  dragFileIds?: string[];
+  dragFolderIds?: string[];
 }) {
   const colors = useThemeColors();
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(folder.name);
 
-  const dragRef = useDragSource<DragPayload>({ type: 'folder', id: folder.id }, !isRenaming);
+  const totalDrag = (dragFileIds?.length ?? 0) + (dragFolderIds?.length ?? 0);
+  const dragPayload: DragPayload = totalDrag > 1
+    ? { type: 'items', fileIds: dragFileIds ?? [], folderIds: dragFolderIds ?? [] }
+    : { type: 'folder', id: folder.id };
+  const dragRef = useDragSource<DragPayload>(dragPayload, !isRenaming);
   const { ref: dropRef, isOver } = useDropTarget<DragPayload>(
     onDropPayload,
-    (payload) => !(payload.type === 'folder' && payload.id === folder.id)
+    (payload) => !((payload.type === 'folder' && payload.id === folder.id)
+      || (payload.type === 'items' && payload.folderIds.includes(folder.id)))
   );
   const setRefs = useCallback((node: any) => { dragRef.current = node; dropRef.current = node; }, [dragRef, dropRef]);
 
@@ -1076,12 +1134,23 @@ function FolderRow({
     <View
       ref={setRefs}
       className={`flex-row items-center px-6 py-4 border-b border-surface-border/40 transition-colors ${
-        isOver ? 'bg-brand-primary/10 border-l-2 border-l-brand-primary' : 'hover:bg-surface-overlay/60'
+        isSelected ? 'bg-brand-primary/10' : isOver ? 'bg-brand-primary/10 border-l-2 border-l-brand-primary' : 'hover:bg-surface-overlay/60'
       }`}
     >
-      <View className="w-9 h-9 rounded-xl bg-surface-background border border-surface-border items-center justify-center mr-3.5 flex-shrink-0">
-        <FontAwesome name="folder" size={16} color={colors.primary} />
-      </View>
+      {selectionMode ? (
+        <TouchableOpacity
+          onPress={onToggleSelect}
+          className={`w-9 h-9 rounded-xl items-center justify-center mr-3.5 flex-shrink-0 border-2 ${
+            isSelected ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'
+          }`}
+        >
+          {isSelected && <FontAwesome name="check" size={14} color="#fff" />}
+        </TouchableOpacity>
+      ) : (
+        <View className="w-9 h-9 rounded-xl bg-surface-background border border-surface-border items-center justify-center mr-3.5 flex-shrink-0">
+          <FontAwesome name="folder" size={16} color={colors.primary} />
+        </View>
+      )}
       {isRenaming ? (
         <TextInput
           value={renameValue}
@@ -1092,64 +1161,21 @@ function FolderRow({
           className="flex-1 text-typography-main font-bold text-sm outline-none bg-transparent mr-3"
         />
       ) : (
-        <TouchableOpacity onPress={onNavigate} className="flex-1 mr-3">
+        <TouchableOpacity onPress={(e) => (selectionMode ? onToggleSelect?.() : onNavigate(e))} className="flex-1 mr-3">
           <Text className="text-typography-main font-bold text-sm" numberOfLines={1}>{folder.name}</Text>
         </TouchableOpacity>
       )}
-      <View className="flex-row gap-1 flex-shrink-0">
-        <TouchableOpacity onPress={() => { setRenameValue(folder.name); setIsRenaming(true); }} className="w-7 h-7 items-center justify-center rounded-lg hover:bg-surface-overlay">
-          <FontAwesome name="pencil" size={11} color={colors.textMuted} />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={onDelete} className="w-7 h-7 items-center justify-center rounded-lg hover:bg-surface-overlay">
-          <FontAwesome name="trash-o" size={11} color={colors.textMuted} />
-        </TouchableOpacity>
-      </View>
+      {!selectionMode && (
+        <View className="flex-row gap-1 flex-shrink-0">
+          <TouchableOpacity onPress={() => { setRenameValue(folder.name); setIsRenaming(true); }} className="w-7 h-7 items-center justify-center rounded-lg hover:bg-surface-overlay">
+            <FontAwesome name="pencil" size={11} color={colors.textMuted} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={onDelete} className="w-7 h-7 items-center justify-center rounded-lg hover:bg-surface-overlay">
+            <FontAwesome name="trash-o" size={11} color={colors.textMuted} />
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
-  );
-}
-
-function NewFolderRow({ onCreate }: { onCreate: (name: string) => Promise<void> }) {
-  const colors = useThemeColors();
-  const [showInput, setShowInput] = useState(false);
-  const [name, setName] = useState('');
-  const [creating, setCreating] = useState(false);
-
-  const handleCreate = async () => {
-    if (!name.trim()) return;
-    setCreating(true);
-    await onCreate(name.trim());
-    setName('');
-    setShowInput(false);
-    setCreating(false);
-  };
-
-  if (showInput) {
-    return (
-      <View className="flex-row items-center gap-2 px-6 py-3 border-b border-surface-border/40">
-        <TextInput
-          value={name}
-          onChangeText={setName}
-          onSubmitEditing={handleCreate}
-          onBlur={() => { if (!name.trim()) setShowInput(false); }}
-          placeholder="Folder name"
-          placeholderTextColor={colors.textDim}
-          autoFocus
-          className="flex-1 text-typography-main text-sm border border-brand-primary/40 bg-brand-primary/5 rounded-xl px-3 py-1.5 outline-none"
-        />
-        <TouchableOpacity onPress={handleCreate} disabled={creating} className="px-3 py-1.5 bg-brand-primary rounded-xl">
-          <Text className="text-white text-xs font-black">Add</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-  return (
-    <TouchableOpacity
-      onPress={() => setShowInput(true)}
-      className="flex-row items-center gap-2.5 px-6 py-3 border-b border-surface-border/40 hover:bg-surface-overlay/60"
-    >
-      <FontAwesome name="plus" size={11} color={colors.textMuted} />
-      <Text className="text-typography-muted text-sm font-bold">New folder</Text>
-    </TouchableOpacity>
   );
 }
 
@@ -1166,6 +1192,7 @@ function FileRow({
   thumbUri,
   draggable = false,
   dragIds,
+  dragFolderIds,
 }: {
   file: FileHubFile;
   selected: boolean;
@@ -1179,11 +1206,53 @@ function FileRow({
   /** When this row is part of an active multi-selection (>1 items), the full
    * set of ids to drag together — rubber-band-select-then-drag, like Explorer. */
   dragIds?: string[];
+  /** Selected folder ids to drag alongside the files (mixed selection). */
+  dragFolderIds?: string[];
 }) {
   const { icon, color } = getMimeIcon(file.mime_type);
   const isUnread = mode === 'inbox' && !file.recipient_state?.read_at;
-  const dragPayload: DragPayload = dragIds && dragIds.length > 1 ? { type: 'files', ids: dragIds } : { type: 'file', id: file.id };
+  const totalDrag = (dragIds?.length ?? 0) + (dragFolderIds?.length ?? 0);
+  const dragPayload: DragPayload =
+    totalDrag > 1
+      ? (dragFolderIds && dragFolderIds.length > 0
+          ? { type: 'items', fileIds: dragIds ?? [], folderIds: dragFolderIds }
+          : { type: 'files', ids: dragIds ?? [] })
+      : { type: 'file', id: file.id };
   const dragRef = useDragSource<DragPayload>(dragPayload, draggable);
+
+  const colors = useThemeColors();
+  const { user } = useAuth();
+  const { deleteFile, logActivity } = useFileHub();
+  const { showConfirm } = useAlert();
+  const isOwner = file.uploader?.id === user?.id;
+  const [quickDownloading, setQuickDownloading] = useState(false);
+  const [showQuickShare, setShowQuickShare] = useState(false);
+
+  const handleQuickDownload = async (e: any) => {
+    e?.stopPropagation?.();
+    setQuickDownloading(true);
+    try {
+      logActivity(file.id, 'download');
+      await openStorageFile(file.bucket || 'filehub-files', file.storage_path, file.original_name, file.mime_type);
+    } finally {
+      setQuickDownloading(false);
+    }
+  };
+
+  const handleQuickShare = (e: any) => {
+    e?.stopPropagation?.();
+    setShowQuickShare(true);
+  };
+
+  const handleQuickDelete = (e: any) => {
+    e?.stopPropagation?.();
+    showConfirm(
+      'Delete File',
+      `Delete "${file.original_name}"? This cannot be undone.`,
+      () => { deleteFile(file.id); },
+      undefined, 'Delete', 'Cancel', 'destructive'
+    );
+  };
 
   return (
     <TouchableOpacity
@@ -1191,7 +1260,7 @@ function FileRow({
       // @ts-ignore - web-only marquee-select hit-testing attribute
       dataSet={{ marqueeId: file.id }}
       onPress={(e) => (selectionMode ? onToggleSelect?.() : onPress(e))}
-      className={`flex-row items-center px-6 py-4 border-b border-surface-border/40 transition-colors ${
+      className={`group flex-row items-center px-6 py-4 border-b border-surface-border/40 transition-colors ${
         isFileSelected
           ? 'bg-brand-primary/10'
           : selected ? 'bg-brand-primary/5 border-l-2 border-l-brand-primary' : 'hover:bg-surface-overlay/60'
@@ -1248,7 +1317,46 @@ function FileRow({
           </View>
         )}
       </View>
+      {!selectionMode && (
+        <View
+          className="flex-row items-center gap-0.5 mr-1.5 flex-shrink-0 opacity-0 -translate-x-1.5 scale-95 group-hover:opacity-100 group-hover:translate-x-0 group-hover:scale-100 transition-all duration-200"
+        >
+          <TouchableOpacity
+            onPress={handleQuickDownload}
+            disabled={quickDownloading}
+            className="w-7 h-7 items-center justify-center rounded-lg hover:bg-brand-primary/10 hover:scale-110 active:scale-90 transition-all"
+          >
+            {quickDownloading
+              ? <ActivityIndicator size="small" color={colors.primary} style={{ transform: [{ scale: 0.6 }] }} />
+              : <FontAwesome name="download" size={12} color={colors.textMuted} />}
+          </TouchableOpacity>
+          {isOwner && (
+            <TouchableOpacity
+              onPress={handleQuickShare}
+              className="w-7 h-7 items-center justify-center rounded-lg hover:bg-brand-primary/10 hover:scale-110 active:scale-90 transition-all"
+            >
+              <FontAwesome name="link" size={12} color={colors.textMuted} />
+            </TouchableOpacity>
+          )}
+          {isOwner && (
+            <TouchableOpacity
+              onPress={handleQuickDelete}
+              className="w-7 h-7 items-center justify-center rounded-lg hover:bg-state-danger/10 hover:scale-110 active:scale-90 transition-all"
+            >
+              <FontAwesome name="trash-o" size={12} color={colors.danger} />
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
       <Text className="text-typography-dim text-[11px] flex-shrink-0">{relativeDate(file.created_at)}</Text>
+      {isOwner && (
+        <ShareLinkModal
+          visible={showQuickShare}
+          fileId={file.id}
+          fileName={file.original_name}
+          onClose={() => setShowQuickShare(false)}
+        />
+      )}
     </TouchableOpacity>
   );
 }
@@ -2284,12 +2392,52 @@ function FileHubDesktopInner() {
   const [detailPanelFile, setDetailPanelFile] = useState<FileHubFile | null>(null);
   const [fastTrackPreview, setFastTrackPreview] = useState(false);
 
-  // Standard click → detail panel (toggles); Shift+Click (web) → fullscreen viewer.
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set());
+  const [selectedFolderIds, setSelectedFolderIds] = useState<Set<string>>(new Set());
+
+  const toggleFileSelect = useCallback((fileId: string) => {
+    setSelectedFileIds(prev => {
+      const next = new Set(prev);
+      if (next.has(fileId)) next.delete(fileId); else next.add(fileId);
+      return next;
+    });
+  }, []);
+
+  const toggleFolderSelect = useCallback((folderId: string) => {
+    setSelectedFolderIds(prev => {
+      const next = new Set(prev);
+      if (next.has(folderId)) next.delete(folderId); else next.add(folderId);
+      return next;
+    });
+  }, []);
+
+  // Standard click → detail panel (toggles); Shift+Click (web) → fullscreen
+  // viewer; Ctrl/Cmd+Click (web, Explorer-style) → add to multi-selection
+  // without opening the detail panel.
   const openFile = useCallback((file: FileHubFile, e?: any) => {
+    const ctrlOrCmd = !!(e?.ctrlKey || e?.metaKey || e?.nativeEvent?.ctrlKey || e?.nativeEvent?.metaKey);
+    if (ctrlOrCmd) {
+      setSelectionMode(true);
+      toggleFileSelect(file.id);
+      return;
+    }
     const shift = !!(e?.shiftKey || e?.nativeEvent?.shiftKey);
     setFastTrackPreview(shift);
     setSelectedFile(prev => (prev?.id === file.id && !shift ? null : file));
-  }, []);
+  }, [toggleFileSelect]);
+
+  // Ctrl/Cmd+Click a folder → add it to the multi-selection (Explorer-style);
+  // a plain click still navigates into it.
+  const openFolder = useCallback((folderId: string, e?: any) => {
+    const ctrlOrCmd = !!(e?.ctrlKey || e?.metaKey || e?.nativeEvent?.ctrlKey || e?.nativeEvent?.metaKey);
+    if (ctrlOrCmd) {
+      setSelectionMode(true);
+      toggleFolderSelect(folderId);
+      return;
+    }
+    setSelectedFolderId(folderId);
+  }, [toggleFolderSelect, setSelectedFolderId]);
   const [isDetailPanelExpanded, setIsDetailPanelExpanded] = useState(false);
   const [groupPanelGroup, setGroupPanelGroup] = useState<FileHubGroup | null>(null);
   const [isGroupPanelExpanded, setIsGroupPanelExpanded] = useState(false);
@@ -2299,24 +2447,15 @@ function FileHubDesktopInner() {
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showBin, setShowBin] = useState(false);
   const [zipDownloading, setZipDownloading] = useState(false);
-  const [selectionMode, setSelectionMode] = useState(false);
-  const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set());
 
   const exitSelection = useCallback(() => {
     setSelectionMode(false);
     setSelectedFileIds(new Set());
+    setSelectedFolderIds(new Set());
     setSelectedFile(null);
   }, []);
 
   useEffect(() => { exitSelection(); }, [mode, activeGroupId]);
-
-  const toggleFileSelect = useCallback((fileId: string) => {
-    setSelectedFileIds(prev => {
-      const next = new Set(prev);
-      if (next.has(fileId)) next.delete(fileId); else next.add(fileId);
-      return next;
-    });
-  }, []);
 
   // Windows-Explorer-style rubber-band select: drag over empty space in the
   // file list to multi-select, then drag any selected row to move the whole
@@ -2356,14 +2495,6 @@ function FileHubDesktopInner() {
   );
   const { signedUrls: fileThumbs } = useImageLightbox(fileMedia, 'filehub-files');
 
-  const toggleSelectAll = useCallback(() => {
-    setSelectedFileIds(prev =>
-      prev.size === displayFiles.length
-        ? new Set()
-        : new Set(displayFiles.map(f => f.id))
-    );
-  }, [displayFiles]);
-
   const handleDownloadAll = async (name: string) => {
     if (zipDownloading || displayFiles.length === 0) return;
     setZipDownloading(true);
@@ -2388,13 +2519,21 @@ function FileHubDesktopInner() {
 
   const handleDeleteSelected = () => {
     const filesToDelete = displayFiles.filter(f => selectedFileIds.has(f.id));
-    if (filesToDelete.length === 0) return;
+    const folderIdsToDelete = Array.from(selectedFolderIds);
+    if (filesToDelete.length === 0 && folderIdsToDelete.length === 0) return;
+    const parts: string[] = [];
+    if (filesToDelete.length) parts.push(`${filesToDelete.length} file${filesToDelete.length === 1 ? '' : 's'}`);
+    if (folderIdsToDelete.length) parts.push(`${folderIdsToDelete.length} folder${folderIdsToDelete.length === 1 ? '' : 's'}`);
+    // Files delete permanently here; folders soft-delete to the Bin (restorable
+    // 15 days) and take their contents' folder labels with them.
     showConfirm(
-      'Delete Files',
-      `Delete ${filesToDelete.length} file${filesToDelete.length === 1 ? '' : 's'}? This cannot be undone.`,
+      'Delete Selection',
+      `Delete ${parts.join(' and ')}? Folders go to the Bin; files are removed.`,
       () => {
-        Promise.all(filesToDelete.map(f => (f.uploader?.id === user?.id ? deleteFile(f.id) : hideFile(f.id))))
-          .then(() => exitSelection());
+        Promise.all([
+          ...filesToDelete.map(f => (f.uploader?.id === user?.id ? deleteFile(f.id) : hideFile(f.id))),
+          ...folderIdsToDelete.map(id => deleteFolder(id)),
+        ]).then(() => exitSelection());
       },
       undefined, 'Delete', 'Cancel', 'destructive'
     );
@@ -2419,9 +2558,35 @@ function FileHubDesktopInner() {
     return contextFolders.filter(f => f.parent_id === selectedFolderId).sort((a, b) => a.name.localeCompare(b.name));
   }, [contextFolders, selectedFolderId]);
 
+  // "Select all" spans both the visible files and the visible subfolders; it
+  // clears only when everything on screen is already selected.
+  const toggleSelectAll = useCallback(() => {
+    const allSelected =
+      selectedFileIds.size === displayFiles.length &&
+      selectedFolderIds.size === subfolders.length &&
+      displayFiles.length + subfolders.length > 0;
+    if (allSelected) {
+      setSelectedFileIds(new Set());
+      setSelectedFolderIds(new Set());
+    } else {
+      setSelectedFileIds(new Set(displayFiles.map(f => f.id)));
+      setSelectedFolderIds(new Set(subfolders.map(f => f.id)));
+    }
+  }, [displayFiles, subfolders, selectedFileIds, selectedFolderIds]);
+
+  // Combined selection counts (files + folders) for the Explorer-style header.
+  const totalSelected = selectedFileIds.size + selectedFolderIds.size;
+  const totalVisible = displayFiles.length + subfolders.length;
+  const allVisibleSelected = totalVisible > 0 && totalSelected === totalVisible;
+
   const handleDropOnFolder = useCallback((payload: DragPayload, targetFolderId: string | null) => {
     if (payload.type === 'file') moveFile(payload.id, targetFolderId);
     else if (payload.type === 'files') { payload.ids.forEach(id => moveFile(id, targetFolderId)); exitSelection(); }
+    else if (payload.type === 'items') {
+      payload.fileIds.forEach(id => moveFile(id, targetFolderId));
+      payload.folderIds.forEach(id => { if (id !== targetFolderId) moveFolder(id, targetFolderId); });
+      exitSelection();
+    }
     else if (payload.id !== targetFolderId) moveFolder(payload.id, targetFolderId);
   }, [moveFile, moveFolder, exitSelection]);
 
@@ -2800,6 +2965,7 @@ function FileHubDesktopInner() {
                 selectedFolderId={selectedFolderId}
                 onNavigate={setSelectedFolderId}
                 onDropMove={handleDropOnFolder}
+                onCreateFolder={handleCreateFolder}
               />
 
               {/* Group file list */}
@@ -2816,11 +2982,6 @@ function FileHubDesktopInner() {
                       {search ? `No files match "${search}".` : 'Upload the first file to this channel.'}
                     </Text>
                   </View>
-                  {!search && (
-                    <View className="w-full max-w-sm mt-4 border border-surface-border rounded-2xl overflow-hidden">
-                      <NewFolderRow onCreate={handleCreateFolder} />
-                    </View>
-                  )}
                 </View>
               ) : (
                 <View ref={marqueeContainerRef} style={{ flex: 1, position: 'relative' }}>
@@ -2830,18 +2991,18 @@ function FileHubDesktopInner() {
                       <TouchableOpacity
                         onPress={toggleSelectAll}
                         className={`w-9 h-9 rounded-xl items-center justify-center border-2 mr-0 flex-shrink-0 ${
-                          selectedFileIds.size === displayFiles.length && displayFiles.length > 0
+                          allVisibleSelected
                             ? 'bg-brand-primary border-brand-primary'
-                            : selectedFileIds.size > 0 ? 'border-brand-primary bg-surface-background' : 'border-surface-border bg-surface-background'
+                            : totalSelected > 0 ? 'border-brand-primary bg-surface-background' : 'border-surface-border bg-surface-background'
                         }`}
                       >
-                        {selectedFileIds.size === displayFiles.length && displayFiles.length > 0
+                        {allVisibleSelected
                           ? <FontAwesome name="check" size={13} color="#fff" />
-                          : selectedFileIds.size > 0 ? <View className="w-3 h-0.5 bg-brand-primary rounded-full" /> : null
+                          : totalSelected > 0 ? <View className="w-3 h-0.5 bg-brand-primary rounded-full" /> : null
                         }
                       </TouchableOpacity>
                       <Text className="flex-1 text-brand-primary text-xs font-black ml-2">
-                        {selectedFileIds.size === 0 ? 'Tap to select' : `${selectedFileIds.size} of ${displayFiles.length} selected`}
+                        {totalSelected === 0 ? 'Tap to select' : `${totalSelected} of ${totalVisible} selected`}
                       </Text>
                       {selectedFileIds.size > 0 && (
                         <TouchableOpacity
@@ -2853,13 +3014,13 @@ function FileHubDesktopInner() {
                           <Text className="text-white text-xs font-black">Download {selectedFileIds.size}</Text>
                         </TouchableOpacity>
                       )}
-                      {selectedFileIds.size > 0 && (
+                      {totalSelected > 0 && (
                         <TouchableOpacity
                           onPress={handleDeleteSelected}
                           className="flex-row items-center gap-1.5 bg-state-danger/10 border border-state-danger/20 px-3 py-1.5 rounded-lg"
                         >
                           <FontAwesome name="trash-o" size={10} color={colors.danger} />
-                          <Text className="text-state-danger text-xs font-black">Delete {selectedFileIds.size}</Text>
+                          <Text className="text-state-danger text-xs font-black">Delete {totalSelected}</Text>
                         </TouchableOpacity>
                       )}
                       <TouchableOpacity onPress={exitSelection} className="w-7 h-7 items-center justify-center ml-1">
@@ -2876,17 +3037,21 @@ function FileHubDesktopInner() {
                       <Text className="w-16 text-right text-typography-muted text-[9px] font-black uppercase tracking-widest">Date</Text>
                     </View>
                   )}
-                  {!selectionMode && subfolders.map(f => (
+                  {subfolders.map(f => (
                     <FolderRow
                       key={f.id}
                       folder={f}
-                      onNavigate={() => setSelectedFolderId(f.id)}
+                      onNavigate={(e) => openFolder(f.id, e)}
                       onDropPayload={(payload) => handleDropOnFolder(payload, f.id)}
                       onRename={(name) => renameFolder(f.id, name)}
                       onDelete={() => handleDeleteFolder(f.id, f.name)}
+                      selectionMode={selectionMode}
+                      isSelected={selectedFolderIds.has(f.id)}
+                      onToggleSelect={() => toggleFolderSelect(f.id)}
+                      dragFileIds={selectedFolderIds.has(f.id) ? Array.from(selectedFileIds) : undefined}
+                      dragFolderIds={selectedFolderIds.has(f.id) ? Array.from(selectedFolderIds) : undefined}
                     />
                   ))}
-                  {!selectionMode && <NewFolderRow onCreate={handleCreateFolder} />}
                   {displayFiles.map(file => (
                     <FileRow
                       key={file.id}
@@ -2900,6 +3065,7 @@ function FileHubDesktopInner() {
                       onToggleSelect={() => toggleFileSelect(file.id)}
                       draggable={file.uploader?.id === user?.id}
                       dragIds={selectedFileIds.has(file.id) ? Array.from(selectedFileIds) : undefined}
+                      dragFolderIds={selectedFileIds.has(file.id) ? Array.from(selectedFolderIds) : undefined}
                     />
                   ))}
                   <View style={{ height: 40 }} />
@@ -2920,6 +3086,7 @@ function FileHubDesktopInner() {
                 selectedFolderId={selectedFolderId}
                 onNavigate={setSelectedFolderId}
                 onDropMove={handleDropOnFolder}
+                onCreateFolder={handleCreateFolder}
               />
 
               {mode === 'inbox' && inboxUnreadCount > 0 && (
@@ -2993,11 +3160,6 @@ function FileHubDesktopInner() {
                       {search ? `No files match "${search}".` : mode === 'inbox' ? 'Files sent directly to you will appear here.' : mode === 'sent' ? 'Files you send to others will appear here.' : 'Company-wide broadcasts will appear here.'}
                     </Text>
                   </View>
-                  {!search && (
-                    <View className="w-full max-w-sm mt-4 border border-surface-border rounded-2xl overflow-hidden">
-                      <NewFolderRow onCreate={handleCreateFolder} />
-                    </View>
-                  )}
                   <View className="w-full max-w-sm">
                     <TaskFileResults pad={false} />
                   </View>
@@ -3010,18 +3172,18 @@ function FileHubDesktopInner() {
                       <TouchableOpacity
                         onPress={toggleSelectAll}
                         className={`w-9 h-9 rounded-xl items-center justify-center border-2 mr-0 flex-shrink-0 ${
-                          selectedFileIds.size === displayFiles.length && displayFiles.length > 0
+                          allVisibleSelected
                             ? 'bg-brand-primary border-brand-primary'
-                            : selectedFileIds.size > 0 ? 'border-brand-primary bg-surface-background' : 'border-surface-border bg-surface-background'
+                            : totalSelected > 0 ? 'border-brand-primary bg-surface-background' : 'border-surface-border bg-surface-background'
                         }`}
                       >
-                        {selectedFileIds.size === displayFiles.length && displayFiles.length > 0
+                        {allVisibleSelected
                           ? <FontAwesome name="check" size={13} color="#fff" />
-                          : selectedFileIds.size > 0 ? <View className="w-3 h-0.5 bg-brand-primary rounded-full" /> : null
+                          : totalSelected > 0 ? <View className="w-3 h-0.5 bg-brand-primary rounded-full" /> : null
                         }
                       </TouchableOpacity>
                       <Text className="flex-1 text-brand-primary text-xs font-black ml-2">
-                        {selectedFileIds.size === 0 ? 'Tap to select' : `${selectedFileIds.size} of ${displayFiles.length} selected`}
+                        {totalSelected === 0 ? 'Tap to select' : `${totalSelected} of ${totalVisible} selected`}
                       </Text>
                       {selectedFileIds.size > 0 && (
                         <TouchableOpacity
@@ -3033,13 +3195,13 @@ function FileHubDesktopInner() {
                           <Text className="text-white text-xs font-black">Download {selectedFileIds.size}</Text>
                         </TouchableOpacity>
                       )}
-                      {selectedFileIds.size > 0 && (
+                      {totalSelected > 0 && (
                         <TouchableOpacity
                           onPress={handleDeleteSelected}
                           className="flex-row items-center gap-1.5 bg-state-danger/10 border border-state-danger/20 px-3 py-1.5 rounded-lg"
                         >
                           <FontAwesome name="trash-o" size={10} color={colors.danger} />
-                          <Text className="text-state-danger text-xs font-black">Delete {selectedFileIds.size}</Text>
+                          <Text className="text-state-danger text-xs font-black">Delete {totalSelected}</Text>
                         </TouchableOpacity>
                       )}
                       <TouchableOpacity onPress={exitSelection} className="w-7 h-7 items-center justify-center ml-1">
@@ -3068,17 +3230,21 @@ function FileHubDesktopInner() {
                       <Text className="w-16 text-right text-typography-muted text-[9px] font-black uppercase tracking-widest">Date</Text>
                     </View>
                   )}
-                  {!selectionMode && subfolders.map(f => (
+                  {subfolders.map(f => (
                     <FolderRow
                       key={f.id}
                       folder={f}
-                      onNavigate={() => setSelectedFolderId(f.id)}
+                      onNavigate={(e) => openFolder(f.id, e)}
                       onDropPayload={(payload) => handleDropOnFolder(payload, f.id)}
                       onRename={(name) => renameFolder(f.id, name)}
                       onDelete={() => handleDeleteFolder(f.id, f.name)}
+                      selectionMode={selectionMode}
+                      isSelected={selectedFolderIds.has(f.id)}
+                      onToggleSelect={() => toggleFolderSelect(f.id)}
+                      dragFileIds={selectedFolderIds.has(f.id) ? Array.from(selectedFileIds) : undefined}
+                      dragFolderIds={selectedFolderIds.has(f.id) ? Array.from(selectedFolderIds) : undefined}
                     />
                   ))}
-                  {!selectionMode && <NewFolderRow onCreate={handleCreateFolder} />}
                   {displayFiles.map(file => (
                     <FileRow
                       key={file.id}
@@ -3092,6 +3258,7 @@ function FileHubDesktopInner() {
                       onToggleSelect={() => toggleFileSelect(file.id)}
                       draggable={file.uploader?.id === user?.id}
                       dragIds={selectedFileIds.has(file.id) ? Array.from(selectedFileIds) : undefined}
+                      dragFolderIds={selectedFileIds.has(file.id) ? Array.from(selectedFolderIds) : undefined}
                     />
                   ))}
                   <TaskFileResults />
