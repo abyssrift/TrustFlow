@@ -63,4 +63,8 @@ Top bar looks wonderful, but there are features deeply missing.
 3. its look is a bit out of place for the tasks.tsx, it just blocks the background, allow for personalization for changing the color to transparent.
 4. Allow users to attach 4 shortcuts at the top if they want, it could be shortcuts to specific pipelines or something similar.
 5. Get the searchbar to get up and be running, its very important that we get it working to be able to index everything, files in the filehub, reports, tasks, descriptions, dates, i want a very very smart search bar. capable of recognizing when a user is looking for a task, or a date that something specific happened on, etc. (This one requires excessive planning, skip it if you're an AI looking for quick wins)
-6. 
+6. allow the top bar to be retractable completely, showing only a small tip that lets you pull it back down (not really its just a button)
+
+when a new task is added to a pipeline, would it be possible to play a small nice ding sound when the user isnt looking at the app?
+
+Dragging a file into the folder works but dropping it doesnt change anything, i tried it in a channel.
