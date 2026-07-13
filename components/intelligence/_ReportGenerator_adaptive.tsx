@@ -3,10 +3,11 @@ import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 import { BackButton } from '@/components/common/BackButton';
 import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { useTicker } from '@/hooks/useTicker';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Modal,
   Pressable,
@@ -129,8 +130,8 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
   const [loading, setLoading]         = useState(false);
   const [genError, setGenError]       = useState<string | null>(null);
   const [genProgress, setGenProgress] = useState<{ current: number; total: number } | null>(null);
-  const [elapsed, setElapsed]         = useState(0);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [genStartedAt, setGenStartedAt] = useState<string | null>(null);
+  const elapsed = useTicker(genStartedAt);
 
   useEffect(() => {
     if (visible || isPage) loadFilterOptions();
@@ -263,11 +264,9 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
   const handleGenerateReport = async () => {
     setGenError(null);
     setGenProgress(null);
-    setElapsed(0);
+    setGenStartedAt(new Date().toISOString());
     try {
       setLoading(true);
-      const t0 = Date.now();
-      timerRef.current = setInterval(() => setElapsed(Math.floor((Date.now() - t0) / 1000)), 1000);
 
       if (needsDateRange && timeFrame === 'custom' && (!dateStart || !dateEnd)) {
         setGenError('Please provide both start and end dates');
@@ -325,7 +324,7 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
       console.error('Report generation error:', error);
       setGenError(error.message || 'Failed to generate report');
     } finally {
-      if (timerRef.current) clearInterval(timerRef.current);
+      setGenStartedAt(null);
       setLoading(false);
       setGenProgress(null);
     }

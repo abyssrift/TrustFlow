@@ -1,6 +1,7 @@
 import { useTimer } from '@/contexts/TimerContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { useTicker } from '@/hooks/useTicker';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
@@ -8,10 +9,18 @@ import { Animated, Dimensions, Modal, PanResponder, Text, TouchableOpacity, View
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
+function formatHMS(totalSeconds: number): string {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+}
+
 export default function TimerIsland() {
   const { isActive, activeSession, stopWork, serverTimeOffset, smartTimer } = useTimer();
   const { successToast, errorToast } = useToast();
-  const [elapsed, setElapsed] = useState('00:00:00');
+  const elapsedSeconds = useTicker(isActive ? activeSession?.started_at ?? null : null, { offsetMs: serverTimeOffset });
+  const elapsed = formatHMS(elapsedSeconds);
   const [expanded, setExpanded] = useState(false);
   const router = useRouter();
   const colors = useThemeColors();
@@ -32,18 +41,6 @@ export default function TimerIsland() {
         tension: 50,
         friction: 7,
       }).start();
-
-      const interval = setInterval(() => {
-        if (!activeSession?.started_at) return;
-        const start = new Date(activeSession.started_at).getTime();
-        const diff = Date.now() + serverTimeOffset - start;
-        const h = Math.floor(diff / 3600000);
-        const m = Math.floor((diff % 3600000) / 60000);
-        const s = Math.floor((diff % 60000) / 1000);
-        setElapsed(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
-      }, 1000);
-
-      return () => clearInterval(interval);
     } else {
       Animated.timing(scale, {
         toValue: 0,
@@ -52,7 +49,7 @@ export default function TimerIsland() {
       }).start();
       setExpanded(false);
     }
-  }, [isActive, activeSession?.started_at, serverTimeOffset]);
+  }, [isActive]);
 
   const panResponder = useRef(
     PanResponder.create({

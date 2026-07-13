@@ -82,7 +82,11 @@ type Task = {
   submission_count?: { count: number }[];
   comment_count?: { count: number }[];
   has_mention?: boolean;
+  weight?: number;
 };
+
+// Focus-mode (single-stage fullscreen) sort order: most urgent/heaviest first.
+const PRIORITY_RANK: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
 
 type FilterState = {
   priorities: string[];
@@ -1637,6 +1641,14 @@ export function TasksScreenWeb() {
                   return true;
                 });
                 const isFullscreen = fullscreenStageId === stage.id;
+                // Focus mode surfaces what matters most first: priority, then weight.
+                const displayTasks = isFullscreen
+                  ? [...stageTasks].sort((a, b) => {
+                      const pDiff = (PRIORITY_RANK[a.priority] ?? 2) - (PRIORITY_RANK[b.priority] ?? 2);
+                      if (pDiff !== 0) return pDiff;
+                      return (b.weight ?? 1) - (a.weight ?? 1);
+                    })
+                  : stageTasks;
                 return (
                   <View key={stage.id} className={isFullscreen ? 'flex-1 h-full' : 'w-[380px] mr-8 h-full'}>
                     <View className="flex-row items-center justify-between mb-6 px-3">
@@ -1666,19 +1678,26 @@ export function TasksScreenWeb() {
                       </View>
                     </View>
                     
-                    <ScrollView 
+                    <ScrollView
                       className={`flex-1 rounded-[2.5rem] p-4 border ${
                         kanban.isVibrant ? 'bg-brand-primary/5 border-brand-primary/20' : 'bg-surface-card/30 border-surface-border/50'
                       }`}
                       showsVerticalScrollIndicator={false}
+                      contentContainerStyle={isFullscreen ? { flexDirection: 'row', flexWrap: 'wrap', gap: 16 } : undefined}
                     >
-                      {stageTasks.length === 0 ? (
-                        <View className="py-20 items-center justify-center opacity-20">
+                      {displayTasks.length === 0 ? (
+                        <View className="py-20 items-center justify-center opacity-20 w-full">
                            <FontAwesome name="inbox" size={48} className="text-typography-muted" />
                            <Text className="text-typography-muted text-xs mt-6 font-black uppercase tracking-widest">No Active Tasks</Text>
                         </View>
+                      ) : isFullscreen ? (
+                        displayTasks.map(t => (
+                          <View key={t.id} style={{ width: 380 }}>
+                            {renderTaskCard(t)}
+                          </View>
+                        ))
                       ) : (
-                        stageTasks.map(renderTaskCard)
+                        displayTasks.map(renderTaskCard)
                       )}
                     </ScrollView>
                   </View>

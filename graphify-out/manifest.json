@@ -330,8 +330,8 @@
     "semantic_hash": ""
   },
   "components/TimerIsland.tsx": {
-    "mtime": 1783923858.0847583,
-    "ast_hash": "7d70f46891552da265aa6efb10cb7da2",
+    "mtime": 1783925334.2721214,
+    "ast_hash": "987f776156fd94dbcf09c43d908e260e",
     "semantic_hash": ""
   },
   "components/WebPushPrompt.tsx": {
@@ -564,11 +564,6 @@
     "ast_hash": "a3c55ca9f57db526f1badec21a7ffd41",
     "semantic_hash": ""
   },
-  "components/common/TimerDisplay.tsx": {
-    "mtime": 1777784994.5488565,
-    "ast_hash": "b2ee0250d952f7c66f96bef05692fadd",
-    "semantic_hash": ""
-  },
   "components/common/UserLink.tsx": {
     "mtime": 1782121484.3711514,
     "ast_hash": "d4959f9ca5291c30a01312f9f12ea774",
@@ -630,13 +625,13 @@
     "semantic_hash": ""
   },
   "components/intelligence/_ReportGenerator_adaptive.tsx": {
-    "mtime": 1781168634.0782833,
-    "ast_hash": "5f24deb33f83923d49b5047cca8d8153",
+    "mtime": 1783925500.498461,
+    "ast_hash": "d2507c0de26dc54157ee6847b1270512",
     "semantic_hash": ""
   },
   "components/intelligence/_ReportGenerator_desktop.tsx": {
-    "mtime": 1781168654.647068,
-    "ast_hash": "ab404b3497b33effd1b8e3c00357713d",
+    "mtime": 1783925495.1398692,
+    "ast_hash": "8ec7c6fa2f1ca62f89f695caf83e0738",
     "semantic_hash": ""
   },
   "components/intelligence/_ReportGenerator_web.tsx": {
@@ -725,8 +720,8 @@
     "semantic_hash": ""
   },
   "components/intelligence/_reports_desktop.tsx": {
-    "mtime": 1782901174.8546226,
-    "ast_hash": "907d8aa5c55320a1c4e824f5f47059d6",
+    "mtime": 1783925383.6290138,
+    "ast_hash": "2ac0b1dff850953c44f85f74c0282cee",
     "semantic_hash": ""
   },
   "components/intelligence/_reports_web.tsx": {
@@ -1050,8 +1045,8 @@
     "semantic_hash": ""
   },
   "components/tabs/_tasks_desktop.tsx": {
-    "mtime": 1783924002.2270215,
-    "ast_hash": "fe8dd932ba013d98888e01c4765c6a9d",
+    "mtime": 1783925174.830634,
+    "ast_hash": "b36eac6679945b8aa6eac78c4e0d4e2f",
     "semantic_hash": ""
   },
   "components/tabs/_tasks_web.tsx": {
@@ -1125,8 +1120,8 @@
     "semantic_hash": ""
   },
   "components/task-detail/StageActions.tsx": {
-    "mtime": 1783923534.033626,
-    "ast_hash": "b00bcbd42fa25a5f333ecba8e4b0d2e3",
+    "mtime": 1783925358.5117817,
+    "ast_hash": "017f569091d6c8b6bda8f8043b2c58be",
     "semantic_hash": ""
   },
   "components/task-detail/TaskBriefPanel.tsx": {
@@ -1305,8 +1300,8 @@
     "semantic_hash": ""
   },
   "hooks/useElapsedTime.ts": {
-    "mtime": 1777645241.4749076,
-    "ast_hash": "77c7a4f999829869ae0dd4cce9102549",
+    "mtime": 1783925311.3915565,
+    "ast_hash": "884c44df559df0429dff3424e9f533f2",
     "semantic_hash": ""
   },
   "hooks/useFileHubBadge.ts": {
@@ -2742,6 +2737,11 @@
   "supabase/migrations/20260714_archive_delete_grant_existing_roles.sql": {
     "mtime": 1783864059.5132747,
     "ast_hash": "29153f757882b9ebbeeae7c4606b0cb2",
+    "semantic_hash": ""
+  },
+  "hooks/useTicker.ts": {
+    "mtime": 1783925301.5147352,
+    "ast_hash": "593f7d8db1e5ac798d1d1439fecad606",
     "semantic_hash": ""
   }
 }

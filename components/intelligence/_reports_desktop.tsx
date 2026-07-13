@@ -9,6 +9,7 @@ import ReportFiltersModal, {
 } from '@/components/intelligence/ReportFiltersModal';
 import { useBillingPlan } from '@/hooks/useBillingPlan';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { useTicker } from '@/hooks/useTicker';
 import { getAnalyticsLimits } from '@/lib/planLimits';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
@@ -32,19 +33,7 @@ function ElapsedTimer({ createdAt, updatedAt, completedAt, status }: { createdAt
   const isActive = status === 'pending' || status === 'processing';
   const endRef = completedAt || updatedAt;
 
-  const getStaticSeconds = () =>
-    Math.round((new Date(endRef).getTime() - new Date(createdAt).getTime()) / 1000);
-
-  const getLiveSeconds = () =>
-    Math.round((Date.now() - new Date(createdAt).getTime()) / 1000);
-
-  const [elapsed, setElapsed] = useState(isActive ? getLiveSeconds() : getStaticSeconds());
-
-  useEffect(() => {
-    if (!isActive) { setElapsed(getStaticSeconds()); return; }
-    const id = setInterval(() => setElapsed(getLiveSeconds()), 1000);
-    return () => clearInterval(id);
-  }, [isActive, createdAt, endRef]);
+  const elapsed = useTicker(createdAt, { end: endRef, active: isActive });
 
   return (
     <View className="w-20 items-start">

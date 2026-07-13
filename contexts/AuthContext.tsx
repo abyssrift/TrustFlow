@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import { supabase, setAuthErrorCallback } from '../lib/supabase';
 
 type AuthContextType = {
@@ -148,9 +148,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Heartbeat: keep last_seen_at fresh while the app stays open, so "active
   // now" presence is meaningful and not just a snapshot from sign-in.
+  // Skipped while backgrounded — Supabase pauses auto-refresh there too (see
+  // lib/supabase.ts's AppState listener), so a heartbeat firing mid-background
+  // can race a stale token and log a harmless "JWT expired" error.
   useEffect(() => {
     if (!user) return;
-    const interval = setInterval(() => { touchLastSeen(); }, 5 * 60 * 1000);
+    const interval = setInterval(() => {
+      const isForeground = Platform.OS === 'web'
+        ? typeof document !== 'undefined' && document.visibilityState === 'visible'
+        : AppState.currentState === 'active';
+      if (isForeground) touchLastSeen();
+    }, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, [user]);
 

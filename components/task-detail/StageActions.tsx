@@ -11,6 +11,7 @@ import { useTaskDetail, type DeletedSubmissionData, type StageActionData, type S
 import { useTimer } from '@/contexts/TimerContext';
 import { useFileViewer } from '@/hooks/useFileViewer';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { useTicker } from '@/hooks/useTicker';
 import { getPastedImageFile } from '@/lib/pasteImage';
 import { SUBMISSION_BUCKET } from '@/lib/storage';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -60,22 +61,20 @@ function LiveTimerChip({
   serverTimeOffset: number;
   getLastActivityTime: () => number;
 }) {
-  const [elapsed, setElapsed] = React.useState(0);
+  const elapsed = useTicker(startedAt, { offsetMs: serverTimeOffset });
   const [idleSeconds, setIdleSeconds] = React.useState(0);
   const [isTracking, setIsTracking] = React.useState(true);
 
+  // Idle/tracking status polls a different source (last-activity timestamp, tab
+  // visibility) each second — a separate concern from the elapsed-time ticker above.
   React.useEffect(() => {
     if (!startedAt) {
-      setElapsed(0);
       setIdleSeconds(0);
       setIsTracking(true);
       return;
     }
-    const start = new Date(startedAt).getTime();
     const tick = () => {
-      const now = Date.now();
-      setElapsed(Math.floor((now + serverTimeOffset - start) / 1000));
-      setIdleSeconds(Math.floor((now - getLastActivityTime()) / 1000));
+      setIdleSeconds(Math.floor((Date.now() - getLastActivityTime()) / 1000));
       setIsTracking(
         Platform.OS === 'web'
           ? typeof document !== 'undefined' && document.visibilityState === 'visible'
@@ -85,7 +84,7 @@ function LiveTimerChip({
     tick();
     const timer = setInterval(tick, 1000);
     return () => clearInterval(timer);
-  }, [startedAt, serverTimeOffset, getLastActivityTime]);
+  }, [startedAt, getLastActivityTime]);
 
   return (
     <View>
