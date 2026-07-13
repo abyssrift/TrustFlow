@@ -8,6 +8,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Image, Modal, Platform, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import DraggableSheet from '@/components/common/DraggableSheet';
+import { daysToPeriodParams } from '@/lib/analyticsPeriods';
 import { cssInterop } from 'react-native-css-interop';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -49,9 +50,14 @@ export default function UserAssignmentGrid() {
     if (!companyId) return;
     setActivityLoading(true);
     try {
+      // rpc_get_user_performance_series only buckets by 'week'/'month' snapshot —
+      // there's no daily granularity, so a "last 30 days" window is shown as ~4 weekly points.
+      const { periodType, nPeriods } = daysToPeriodParams(30);
+      const from = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const to   = new Date().toISOString().split('T')[0];
       const [summaryRes, seriesRes, activityRes] = await Promise.all([
-        supabase.rpc('rpc_get_user_performance_summary', { p_user_id: userId, p_start_ts: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), p_end_ts: new Date().toISOString() }),
-        supabase.rpc('rpc_get_user_performance_series', { p_user_id: userId, p_period_type: 'day', p_days: 7 }),
+        supabase.rpc('rpc_get_user_performance_summary', { p_user_id: userId, p_from: from, p_to: to }),
+        supabase.rpc('rpc_get_user_performance_series', { p_user_id: userId, p_period_type: periodType, p_n_periods: nPeriods }),
         supabase.from('activity_log').select('*').eq('user_id', userId).eq('company_id', companyId).order('logged_at', { ascending: false }).limit(10),
       ]);
 
@@ -60,15 +66,18 @@ export default function UserAssignmentGrid() {
       const activities = activityRes.data || [];
 
       const chartData = series.map((item: any) => ({
-        date: new Date(item.period_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        tasks: item.task_submissions_count || 0,
-        hours: parseFloat((((item.total_tracked_seconds || 0) / 3600) * 24).toFixed(1)),
+        date: item.period_label,
+        tasks: item.completed_tasks || 0,
+        hours: parseFloat(((item.active_seconds || 0) / 3600).toFixed(1)),
       }));
 
+      const completedTasks = summary.completed_tasks || 0;
+      const activeSeconds = summary.active_seconds || 0;
+
       setActivityData({
-        tasksCompleted: summary.task_submissions_count || 0,
-        hoursWorked: parseFloat((((summary.total_tracked_seconds || 0) / 3600)).toFixed(1)),
-        averageCompletionTime: parseFloat((summary.avg_cycle_time_hours || 0).toFixed(1)),
+        tasksCompleted: completedTasks,
+        hoursWorked: parseFloat((activeSeconds / 3600).toFixed(1)),
+        averageCompletionTime: completedTasks > 0 ? parseFloat((activeSeconds / completedTasks / 3600).toFixed(1)) : 0,
         recentActivities: activities.map(a => ({
           id: a.id,
           type: a.action || 'activity',

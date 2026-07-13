@@ -95,9 +95,6 @@ export default function EvidencePanel() {
       title="Evidence & Proofs"
       headerRight={
         <View className="flex-row items-center gap-3">
-          <View className="bg-brand-primary/10 px-2 py-0.5 rounded-md">
-            <Text className="text-brand-primary text-[8px] font-black uppercase tracking-tighter">Verified Assets</Text>
-          </View>
         </View>
       }
     >

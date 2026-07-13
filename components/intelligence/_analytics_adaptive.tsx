@@ -11,6 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { formatDuration as fmtSeconds } from '@/lib/duration';
 import {
   ActivityIndicator,
   Image,
@@ -25,16 +26,6 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 type AdminTab = 'pipeline' | 'personnel';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function fmtSeconds(s: number): string {
-  if (s <= 0) return '0m';
-  const d = Math.floor(s / 86400);
-  const h = Math.floor((s % 86400) / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  if (d > 0) return h > 0 ? `${d}d ${h}h` : `${d}d`;
-  if (h > 0) return m > 0 ? `${h}h ${m}m` : `${h}h`;
-  return `${m}m`;
-}
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });

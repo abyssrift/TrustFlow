@@ -1,9 +1,11 @@
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Text, TouchableOpacity, View } from 'react-native';
+import ManualTimeApprovalsModal from './ManualTimeApprovalsModal';
 
 type PendingEntry = {
   id: string;
@@ -16,132 +18,6 @@ type PendingEntry = {
   worker: { id: string; full_name: string | null; avatar_url: string | null };
 };
 
-function formatMinutes(m: number) {
-  const h = Math.floor(m / 60);
-  const min = m % 60;
-  if (h > 0 && min > 0) return `${h}h ${min}m`;
-  if (h > 0) return `${h}h`;
-  return `${min}m`;
-}
-
-function EntryRow({ entry, onReviewed }: { entry: PendingEntry; onReviewed: () => void }) {
-  const colors = useThemeColors();
-  const router = useRouter();
-  const [loading, setLoading] = useState<'approve' | 'reject' | null>(null);
-
-  const handleApprove = async () => {
-    setLoading('approve');
-    try {
-      const { error } = await supabase.rpc('rpc_review_manual_time', {
-        p_entry_id: entry.id,
-        p_approve: true,
-        p_rejection_reason: null,
-      });
-      if (error) throw error;
-      onReviewed();
-    } catch (err: any) {
-      Alert.alert('Error', err.message || 'Could not approve entry');
-    } finally {
-      setLoading(null);
-    }
-  };
-
-  const handleReject = () => {
-    Alert.alert(
-      'Reject Declaration',
-      `Reject ${entry.worker.full_name ?? 'worker'}'s ${formatMinutes(entry.declared_minutes)} declaration on "${entry.task_title}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Reject',
-          style: 'destructive',
-          onPress: async () => {
-            setLoading('reject');
-            try {
-              const { error } = await supabase.rpc('rpc_review_manual_time', {
-                p_entry_id: entry.id,
-                p_approve: false,
-                p_rejection_reason: null,
-              });
-              if (error) throw error;
-              onReviewed();
-            } catch (err: any) {
-              Alert.alert('Error', err.message || 'Could not reject entry');
-            } finally {
-              setLoading(null);
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  return (
-    <TouchableOpacity
-      onPress={() => router.push(`/task/${entry.task_id}` as any)}
-      className="bg-surface-overlay rounded-xl p-3 mb-2 last:mb-0 border border-surface-border/50 active:opacity-70"
-    >
-      {/* Task Title + Time Declared */}
-      <View className="flex-row items-start justify-between mb-2">
-        <Text className="text-typography-main text-xs font-black flex-1 mr-2" numberOfLines={1}>
-          {entry.task_title}
-        </Text>
-        <View className="bg-state-warning/15 border border-state-warning/30 px-2 py-0.5 rounded-md flex-shrink-0">
-          <Text className="text-state-warning text-[9px] font-black uppercase tracking-wider">
-            {formatMinutes(entry.declared_minutes)}
-          </Text>
-        </View>
-      </View>
-
-      {/* Worker Info */}
-      <View className="flex-row items-center gap-2 mb-2">
-        <View className="w-5 h-5 rounded-full bg-brand-primary/15 items-center justify-center flex-shrink-0">
-          <FontAwesome name="user-circle" size={10} color={colors.primary} />
-        </View>
-        <Text className="text-typography-dim text-[10px] font-medium flex-1 truncate">
-          {entry.worker.full_name ?? 'Unknown'}
-        </Text>
-      </View>
-
-      {/* Flag reason if present */}
-      {entry.flag_reason && (
-        <View className="bg-state-danger/8 border border-state-danger/20 rounded-lg px-2 py-1.5 mb-2 flex-row items-start gap-1.5">
-          <FontAwesome name="exclamation-circle" size={9} color={colors.danger} style={{ marginTop: 2 }} />
-          <Text className="text-state-danger text-[9px] leading-3 flex-1">
-            {entry.flag_reason}
-          </Text>
-        </View>
-      )}
-
-      {/* Action buttons */}
-      <View className="flex-row gap-1.5">
-        <TouchableOpacity
-          onPress={handleApprove}
-          disabled={!!loading}
-          className={`flex-1 bg-state-success/20 py-1.5 rounded-lg border border-state-success/30 items-center justify-center active:opacity-75 ${loading === 'approve' ? 'opacity-60' : ''}`}
-        >
-          {loading === 'approve' ? (
-            <ActivityIndicator size="small" color={colors.success} />
-          ) : (
-            <Text className="text-state-success text-[9px] font-black uppercase tracking-wider">Approve</Text>
-          )}
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={handleReject}
-          disabled={!!loading}
-          className={`flex-1 bg-state-danger/20 py-1.5 rounded-lg border border-state-danger/30 items-center justify-center active:opacity-75 ${loading === 'reject' ? 'opacity-60' : ''}`}
-        >
-          {loading === 'reject' ? (
-            <ActivityIndicator size="small" color={colors.danger} />
-          ) : (
-            <Text className="text-state-danger text-[9px] font-black uppercase tracking-wider">Reject</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
-  );
-}
-
 type Props = {
   /** Pass a changing value (e.g. refreshing counter) to trigger a re-fetch from the parent */
   refreshKey?: number;
@@ -149,8 +25,11 @@ type Props = {
 
 export default function PendingTimeApprovalsWidget({ refreshKey }: Props) {
   const colors = useThemeColors();
+  const router = useRouter();
+  const { profile } = useAuth();
   const [entries, setEntries] = useState<PendingEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
 
   const fetchEntries = useCallback(async () => {
     try {
@@ -166,34 +45,68 @@ export default function PendingTimeApprovalsWidget({ refreshKey }: Props) {
 
   useEffect(() => { fetchEntries(); }, [fetchEntries, refreshKey]);
 
+  // Live-refresh whenever anyone in the company logs or reviews a manual time entry.
+  useEffect(() => {
+    if (!profile?.company_id) return;
+    const channel = supabase
+      .channel(`pending-time-approvals-${profile.company_id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_manual_time_entries', filter: `company_id=eq.${profile.company_id}` }, () => fetchEntries())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [profile?.company_id, fetchEntries]);
+
   if (loading) return null;
   if (entries.length === 0) return null;
 
   const removeEntry = (id: string) =>
     setEntries(prev => prev.filter(e => e.id !== id));
 
-  return (
-    <View className="bg-surface-overlay/30 rounded-lg border border-state-warning/25 p-2.5 mb-4">
-      {/* Compact Header */}
-      <View className="flex-row items-center gap-1.5 mb-2 px-1">
-        <View className="w-4 h-4 rounded-full bg-state-warning/25 items-center justify-center">
-          <FontAwesome name="hourglass-end" size={8} color={colors.warning} />
-        </View>
-        <Text className="text-state-warning text-[8px] font-black uppercase tracking-wider flex-1">
-          {entries.length} {entries.length === 1 ? 'Declaration' : 'Declarations'} Pending
-        </Text>
-      </View>
+  const handleReview = async (entryId: string, approve: boolean) => {
+    try {
+      const { error } = await supabase.rpc('rpc_review_manual_time', {
+        p_entry_id: entryId,
+        p_approve: approve,
+        p_rejection_reason: null,
+      });
+      if (error) throw error;
+      removeEntry(entryId);
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Could not review entry');
+    }
+  };
 
-      {/* Entries */}
-      <View>
-        {entries.map(entry => (
-          <EntryRow
-            key={entry.id}
-            entry={entry}
-            onReviewed={() => removeEntry(entry.id)}
-          />
-        ))}
-      </View>
-    </View>
+  return (
+    <>
+      <TouchableOpacity
+        onPress={() => setModalOpen(true)}
+        className="bg-surface-overlay/30 rounded-2xl border border-state-warning/30 p-4 mb-4 flex-row items-center gap-3 active:opacity-80"
+      >
+        <View className="w-11 h-11 rounded-2xl bg-state-warning/20 items-center justify-center">
+          <FontAwesome name="hourglass-end" size={16} color={colors.warning} />
+        </View>
+        <View className="flex-1">
+          <Text className="text-state-warning text-xs font-black uppercase tracking-wider">
+            {entries.length} Declaration{entries.length === 1 ? '' : 's'} Pending
+          </Text>
+          <Text className="text-typography-dim text-[10px] mt-0.5">Tap to review and approve</Text>
+        </View>
+        <FontAwesome name="chevron-right" size={12} color={colors.warning} />
+      </TouchableOpacity>
+
+      <ManualTimeApprovalsModal
+        visible={modalOpen}
+        onClose={() => setModalOpen(false)}
+        entries={entries.map(e => ({
+          id: e.id,
+          declared_minutes: e.declared_minutes,
+          reason: e.reason,
+          flag_reason: e.flag_reason,
+          worker_name: e.worker?.full_name ?? null,
+          task: { id: e.task_id, title: e.task_title },
+        }))}
+        onReview={handleReview}
+        onNavigateToTask={(taskId) => { setModalOpen(false); router.push(`/task/${taskId}` as any); }}
+      />
+    </>
   );
 }

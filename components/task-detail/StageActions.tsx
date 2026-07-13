@@ -1,9 +1,9 @@
 import ClipboardControls from '@/components/common/ClipboardControls';
 import DraggableSheet from '@/components/common/DraggableSheet';
 import { FilePreviewGrid } from '@/components/common/FilePreviewCard';
+import ManualTimeApprovalsModal from '@/components/common/ManualTimeApprovalsModal';
 import ManualTimeModal from '@/components/common/ManualTimeModal';
 import LockIndicator from '@/components/task-detail/LockIndicator';
-import ManualTimeApprovalCard from '@/components/task-detail/ManualTimeApprovalCard';
 import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubmission } from '@/contexts/SubmissionContext';
@@ -137,7 +137,7 @@ function AdaptiveFileGrid({
 export default function StageActions() {
   const colors = useThemeColors();
   const { showConfirm } = useAlert();
-  const { data, executeAction, submitWork, deleteSubmission, restoreSubmission, listDeletedSubmissions, submissionVersions, restoreSubmissionVersion, refresh } = useTaskDetail();
+  const { data, executeAction, submitWork, deleteSubmission, restoreSubmission, listDeletedSubmissions, submissionVersions, restoreSubmissionVersion, refresh, reviewManualTime } = useTaskDetail();
   const { isActive, activeSession, serverTimeOffset, stopWork, startWork, smartTimer } = useTimer();
   const router = useRouter();
   const { user } = useAuth();
@@ -150,6 +150,7 @@ export default function StageActions() {
   const [busy, setBusy] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState<{ title: string; message: string; variant?: 'danger' | 'warning' } | null>(null);
   const [showManualTimeModal, setShowManualTimeModal] = useState(false);
+  const [showApprovalsModal, setShowApprovalsModal] = useState(false);
   const [pendingAdvanceAction, setPendingAdvanceAction] = useState<StageActionData | null>(null);
   const [showDeleted, setShowDeleted] = useState(false);
   const [deletedSubs, setDeletedSubs] = useState<DeletedSubmissionData[] | null>(null);
@@ -373,23 +374,27 @@ export default function StageActions() {
   const hasReviewActions = !!(reviewApprove || reviewRevise || reviewReject);
   const reviewActionIds = grouped.review.map((a) => a.id);
   const pendingSubmission = data.submissions.find((s) => s.status === 'pending');
-  const stageRequiresSubmission = !!data.current_stage?.requires_submission;
+  // 'none' | 'optional' | 'required'. Fall back to the legacy boolean for stages
+  // fetched before submission_mode existed.
+  const submissionMode = data.current_stage?.submission_mode
+    ?? (data.current_stage?.requires_submission ? 'required' : 'none');
+  const stageRequiresSubmission = submissionMode === 'required';
   const canSubmitEvidence = data.permissions.is_assigned || data.permissions.is_owner || data.permissions.is_manager || data.permissions.is_creator;
-  const canDirectSubmit = stageRequiresSubmission && canSubmitEvidence;
+  // Optional and required both offer the form; only required blocks advancement.
+  const canDirectSubmit = submissionMode !== 'none' && canSubmitEvidence;
   const submitButtonActionId = submitAction?.id || '__submit_work__';
 
-  // The submission form shows if:
-  // 1. The stage explicitly requires a submission (and we aren't a reviewer just looking at it)
-  // 2. Or there is an explicit submit_work action for the user.
-  const showSubmitForm = !!(
+  // The submission form shows if the stage allows submissions (optional/required)
+  // and the user can submit, or there's an explicit submit_work action.
+  // 'none' suppresses the form entirely.
+  const showSubmitForm = submissionMode !== 'none' && !!(
     canDirectSubmit || submitAction
   );
 
-  // The whole section shows if there's a form, or history, or the stage implies it.
+  // The whole section shows if there's a form or existing submission history.
   const showSubmissionSection = !!(
-    data.submissions.length > 0 || 
-    showSubmitForm || 
-    data.current_stage?.requires_submission
+    data.submissions.length > 0 ||
+    showSubmitForm
   );
 
   const stageRequiresTimer = !!data.current_stage?.requires_timer;
@@ -560,9 +565,25 @@ export default function StageActions() {
         </View>
       )}
 
-      {/* Manager: pending time approval card */}
+      {/* Manager: pending time approval trigger — opens the review queue modal */}
       {data.permissions.is_manager && data.pending_time_approvals?.length > 0 && (
-        <ManualTimeApprovalCard entries={data.pending_time_approvals} />
+        <TouchableOpacity
+          onPress={() => setShowApprovalsModal(true)}
+          className="bg-state-warning/10 border border-state-warning/30 rounded-2xl p-4 flex-row items-center justify-between active:opacity-80"
+        >
+          <View className="flex-row items-center gap-3 flex-1">
+            <View className="w-10 h-10 rounded-xl bg-state-warning/20 items-center justify-center">
+              <FontAwesome name="hourglass-end" size={16} color={colors.warning} />
+            </View>
+            <View className="flex-1">
+              <Text className="text-state-warning font-black text-xs uppercase tracking-wider">
+                {data.pending_time_approvals.length} Time Declaration{data.pending_time_approvals.length === 1 ? '' : 's'} Pending
+              </Text>
+              <Text className="text-typography-dim text-[10px] mt-0.5">Tap to review</Text>
+            </View>
+          </View>
+          <FontAwesome name="chevron-right" size={12} color={colors.textMuted} />
+        </TouchableOpacity>
       )}
 
       {/* Worker: locked banner while time declaration is pending */}
@@ -690,6 +711,19 @@ export default function StageActions() {
         minTimerSeconds={data.current_stage?.min_timer_seconds ?? 300}
         onSuccess={handleManualTimeSuccess}
         onCancel={() => { setShowManualTimeModal(false); setPendingAdvanceAction(null); }}
+      />
+
+      <ManualTimeApprovalsModal
+        visible={showApprovalsModal}
+        onClose={() => setShowApprovalsModal(false)}
+        entries={(data.pending_time_approvals || []).map(e => ({
+          id: e.id,
+          declared_minutes: e.declared_minutes,
+          reason: e.reason,
+          flag_reason: e.flag_reason,
+          worker_name: e.user?.full_name ?? null,
+        }))}
+        onReview={(entryId, approve) => reviewManualTime(entryId, approve)}
       />
 
       {showSubmissionSection && (

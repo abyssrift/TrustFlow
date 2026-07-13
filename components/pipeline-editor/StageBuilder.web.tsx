@@ -38,7 +38,7 @@ export default function StageBuilder() {
     is_initial: false,
     is_terminal: false,
     terminal_type: '' as 'success' | 'failure' | '',
-    requires_submission: false,
+    submission_mode: 'none' as 'none' | 'optional' | 'required',
     requires_timer: false,
     min_timer_minutes: 5,
     use_business_hours: false,
@@ -62,7 +62,7 @@ export default function StageBuilder() {
       is_initial: false,
       is_terminal: false,
       terminal_type: '',
-      requires_submission: false,
+      submission_mode: 'none',
       requires_timer: false,
       min_timer_minutes: 5,
       use_business_hours: false,
@@ -82,7 +82,7 @@ export default function StageBuilder() {
       is_initial: s.is_initial,
       is_terminal: s.is_terminal,
       terminal_type: s.terminal_type || '',
-      requires_submission: s.requires_submission,
+      submission_mode: s.submission_mode ?? (s.requires_submission ? 'required' : 'none'),
       requires_timer: s.requires_timer,
       min_timer_minutes: Math.max(0, Math.round((s.min_timer_seconds ?? 300) / 60)),
       use_business_hours: s.use_business_hours,
@@ -301,12 +301,24 @@ export default function StageBuilder() {
                       </TouchableOpacity>
                    </View>
                 )}
-                <Toggle
-                  label="Submission Required"
-                  desc="Force data upload before exit"
-                  active={formState.requires_submission}
-                  onToggle={(val: boolean) => setFormState(prev => ({ ...prev, requires_submission: val }))}
-                />
+                <View>
+                  <Text className="text-typography-label text-[10px] font-bold uppercase tracking-wider mb-1">Submission Gate</Text>
+                  <View className="flex-row gap-2">
+                    {([
+                      { val: 'none', label: 'None', desc: 'No submissions' },
+                      { val: 'optional', label: 'Optional', desc: 'Allowed, not required' },
+                      { val: 'required', label: 'Required', desc: 'Blocks exit until submitted' },
+                    ] as const).map(opt => (
+                      <TouchableOpacity
+                        key={opt.val}
+                        onPress={() => setFormState(prev => ({ ...prev, submission_mode: opt.val }))}
+                        className={`flex-1 p-2 rounded-lg items-center border ${formState.submission_mode === opt.val ? 'bg-brand-primary/10 border-brand-primary' : 'border-surface-border'}`}
+                      >
+                        <Text className={`text-[10px] font-bold ${formState.submission_mode === opt.val ? 'text-brand-primary' : 'text-typography-muted'}`}>{opt.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
                 {selectedPipeline?.assignment_mode !== 'manual' && (
                   <Toggle
                     label="Re-assign on Entry"

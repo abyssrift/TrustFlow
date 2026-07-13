@@ -71,7 +71,14 @@ export default function ManualTimeModal({ visible, taskId, stageId, transitionId
   };
 
   return (
-    <DraggableSheet visible={visible} onClose={handleCancel} dimBackdrop>
+    // Inline colors on purpose — theme-token classes go black inside RN Modal on web.
+    <DraggableSheet
+      visible={visible}
+      onClose={handleCancel}
+      dimBackdrop
+      containerClassName="rounded-t-[2rem] border-t"
+      containerStyle={{ backgroundColor: colors.card, borderColor: colors.border }}
+    >
 
           {/* Header */}
           <View className="p-10 items-center">

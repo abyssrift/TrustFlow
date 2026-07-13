@@ -1,36 +1,42 @@
 
-- [ ] **Mobile File Download Optimization**
-  - **Issue:** Files download as compressed `.zip` assets on mobile devices by default.
-  - **Fix:** Detect mobile operating systems and stream direct media extensions (images, videos, PDFs) so they open seamlessly in the device's native previewer or camera roll.
+UX & Performance Enhancements (High Priority)
+Focusing on speed, mobile usability, and reducing cognitive load.
+
+Mobile File Handling: Detect OS and stream direct media extensions (images, PDFs, videos) instead of forcing .zip downloads.
+
+Task Management Optimization:
+
+Implement manual card reordering (drag-and-drop) to manage high-volume task lists.
+
+Add a "Due Date Extension" quick-action button in card views.
+
+Full-screen mode for pipeline stages to reduce visual clutter and improve focus.
+
+Standardization: Standardize all time units across the frontend and ensure graphs reflect appropriate, consistent time units.
+
+Feature Expansion (Medium Priority)
+Additions to improve collaboration, documentation, and organizational clarity.
+
+Notes Section: Dedicated field within tasks for writing thoughts/context.
+
+Task Reversal/Leading: Ability for managers to revert or override task states to correct workflow errors.
+
+Organization & Overwhelm Reduction:
+
+Shared Tasks: Define a system for cross-pipeline cooperation.
+
+Calendar Integration: Visualize tasks in a calendar view to provide a clearer timeline.
+
+Kanban board: Create better high-level views to prevent users from feeling overwhelmed by too many tasks at once.
+
+Backend & Automation (Future Roadmap)
+Supporting the structural growth of the platform.
+
+Task Automation: Implement automatic archival processes.
+
+Integration/API: Standardize API calls to support cross-pipeline task management and external integrations.
+
+add a sidebar on kanban board like the sidebar on the other side to show everyone who has access to the pipeline as well as other pipeline relative information, the sidebar is always collapsed and only a slight small line is visible on the right, which is connected to a small circular bump at the top where if you hover, the sidebar expands and shows.
 
 
-Involve further automations, such as automatic archival, API calling and similar.
-
-Speeding up native mobile, because clicking is so fucking damn slow.
-
-Version control and editing for task submissions within tasks/briefs and similar.
-Soft Deletion of submissions by priviledges.
-
-Deletion of submission as a notification
-
-tasks and submissions dont seem to be realtime, they need to be absolutely realtime
-
-allow users to re organize their cards so that its easier for them to manage when they have alot of tasks.
-
-the editing due date isnt correctly updating tasks, or atleast not showing that, no errors or conflicts that i can see.
-
-add more filters such as due dates and projects
-
-due date extension button QOL in card views
-
-create a notes section so you can write your thoughts
-
-Shared Tasks ??? How?? how do we coopoerate between pipelines?
-
-Calendar?? detailing tasks?? integration?? different boards?? there's a very big chance users feel lost/overwhelmed at tasks, too many things, too much at once, we need organization, we need a way to make the tasks less scary.
-
-allowing stages to full screen to see things more clearly
-
-Task Reversal/leading so managers can fix fuckups
-
-make sure that graphs get appriopriate corresponding timeunits, and standardize all time units across the frontend.
+Submission textbox deletes words when we click enter

@@ -23,8 +23,34 @@ export default function IntelligenceArchives() {
   });
   const [restoreModal, setRestoreModal]   = useState<{ visible: boolean; archive?: any }>({ visible: false });
   const [snapshotModal, setSnapshotModal] = useState<{ visible: boolean; data?: any }>({ visible: false });
+  const [selected, setSelected]           = useState<Set<string>>(new Set());
+  const [deleting, setDeleting]           = useState(false);
+  const [deleteModal, setDeleteModal]     = useState(false);
 
   useEffect(() => { fetchArchives(); }, [debouncedSearch]);
+
+  const toggleSelected = (id: string) =>
+    setSelected(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+
+  const toggleSelectAll = () =>
+    setSelected(prev => prev.size === archives.length ? new Set() : new Set(archives.map(a => a.id)));
+
+  const handleBulkDelete = async () => {
+    try {
+      setDeleting(true);
+      const { error } = await supabase.rpc('rpc_purge_archives', { p_archive_ids: Array.from(selected) });
+      if (error) throw error;
+      setSelected(new Set());
+      setDeleteModal(false);
+      await fetchArchives();
+    } catch (e: any) {
+      Alert.alert('Delete Failed', e.message);
+    } finally { setDeleting(false); }
+  };
 
   const fetchArchives = async () => {
     setLoading(true);
@@ -32,6 +58,7 @@ export default function IntelligenceArchives() {
       const { data: archiveData, error } = await supabase.rpc('rpc_get_archives', { p_search: debouncedSearch || null });
       if (error) throw error;
       setArchives(archiveData || []);
+      setSelected(new Set());
       const [pRes, sRes] = await Promise.all([
         supabase.from('pipelines').select('id'),
         supabase.from('pipeline_stages').select('id'),
@@ -106,6 +133,19 @@ export default function IntelligenceArchives() {
         </View>
       </View>
 
+      {selected.size > 0 && hasPermission('archive.delete') && (
+        <View className="mx-10 mt-5 flex-row items-center justify-between bg-state-danger/10 border border-state-danger/30 rounded-2xl px-6 py-3">
+          <Text className="text-state-danger text-xs font-black uppercase tracking-wider">{selected.size} Selected</Text>
+          <TouchableOpacity
+            onPress={() => setDeleteModal(true)}
+            className="bg-state-danger px-4 py-2 rounded-xl flex-row items-center gap-2"
+          >
+            <FontAwesome name="trash" size={11} color="#fff" />
+            <Text className="text-white text-[10px] font-black uppercase tracking-widest">Delete Permanently</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {loading ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color={colors.primary} />
@@ -129,6 +169,15 @@ export default function IntelligenceArchives() {
           <View className="bg-surface-card rounded-[32px] border border-surface-border overflow-hidden premium-shadow">
             {/* Table header */}
             <View className="flex-row items-center px-8 py-4 border-b border-surface-border bg-surface-background/50">
+              {hasPermission('archive.delete') && (
+                <TouchableOpacity onPress={toggleSelectAll} className="w-8 items-start">
+                  <FontAwesome
+                    name={selected.size > 0 && selected.size === archives.length ? 'check-square' : 'square-o'}
+                    size={16}
+                    color={selected.size > 0 ? colors.primary : colors.textMuted}
+                  />
+                </TouchableOpacity>
+              )}
               <Text className="flex-[3] text-typography-muted text-[9px] font-black uppercase tracking-widest">Entity</Text>
               <Text className="flex-1 text-typography-muted text-[9px] font-black uppercase tracking-widest">Type</Text>
               <Text className="flex-1 text-typography-muted text-[9px] font-black uppercase tracking-widest">Archived</Text>
@@ -143,8 +192,17 @@ export default function IntelligenceArchives() {
               return (
                 <View
                   key={archive.id}
-                  className={`flex-row items-center px-8 py-5 ${i < archives.length - 1 ? 'border-b border-surface-border/50' : ''}`}
+                  className={`flex-row items-center px-8 py-5 ${i < archives.length - 1 ? 'border-b border-surface-border/50' : ''} ${selected.has(archive.id) ? 'bg-brand-primary/5' : ''}`}
                 >
+                  {hasPermission('archive.delete') && (
+                    <TouchableOpacity onPress={() => toggleSelected(archive.id)} className="w-8 items-start">
+                      <FontAwesome
+                        name={selected.has(archive.id) ? 'check-square' : 'square-o'}
+                        size={16}
+                        color={selected.has(archive.id) ? colors.primary : colors.textMuted}
+                      />
+                    </TouchableOpacity>
+                  )}
                   {/* Icon + title */}
                   <View className="flex-[3] flex-row items-center gap-4">
                     <View className={`w-10 h-10 rounded-xl items-center justify-center ${isRestored ? 'bg-state-success/10' : 'bg-surface-background border border-surface-border'}`}>
@@ -213,6 +271,17 @@ export default function IntelligenceArchives() {
         loading={!!restoringId}
         onConfirm={() => restoreModal.archive && handleRestore(restoreModal.archive)}
         onCancel={() => setRestoreModal({ visible: false })}
+      />
+
+      <ConfirmModal
+        visible={deleteModal}
+        title="Delete Permanently"
+        description={`This will permanently delete ${selected.size} archived item${selected.size === 1 ? '' : 's'} and all associated snapshot data. This cannot be undone.`}
+        confirmLabel="Delete Forever"
+        variant="danger"
+        loading={deleting}
+        onConfirm={handleBulkDelete}
+        onCancel={() => setDeleteModal(false)}
       />
 
       <SnapshotDetailModal

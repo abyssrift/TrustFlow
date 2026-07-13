@@ -5,6 +5,7 @@ import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { formatDuration as fmtSec } from '@/lib/duration';
 import { ActivityIndicator, Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 const PERIOD_OPTS = [
@@ -13,16 +14,6 @@ const PERIOD_OPTS = [
   { label: '6M',  type: 'month', n: 6  },
   { label: '12M', type: 'month', n: 12 },
 ];
-
-const fmtSec = (s: number) => {
-  if (s <= 0) return '0m';
-  const d = Math.floor(s / 86400);
-  const h = Math.floor((s % 86400) / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  if (d > 0) return h > 0 ? `${d}d ${h}h` : `${d}d`;
-  if (h > 0) return m > 0 ? `${h}h ${m}m` : `${h}h`;
-  return `${m}m`;
-};
 
 // ─── SLA Risk Section ─────────────────────────────────────────────────────────
 

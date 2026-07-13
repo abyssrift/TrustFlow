@@ -10,19 +10,8 @@ import {
     XAxis, YAxis,
 } from 'recharts';
 import { useThemeColors } from '@/hooks/useThemeColors';
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function fmtDwell(s: number): string {
-  if (s <= 0) return '0s';
-  if (s < 60) return `${Math.round(s)}s`;
-  const d = Math.floor(s / 86400);
-  const h = Math.floor((s % 86400) / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  if (d > 0) return h > 0 ? `${d}d ${h}h` : `${d}d`;
-  if (h > 0) return m > 0 ? `${h}h ${m}m` : `${h}h`;
-  return `${m}m`;
-}
+import { formatDuration as fmtDwell } from '@/lib/duration';
+import { daysToPeriodParams } from '@/lib/analyticsPeriods';
 
 const DwellTooltip = ({ active, payload, mode }: any) => {
   const colors = useThemeColors();
@@ -589,7 +578,7 @@ export const ThroughputOverTimeMiniWeb = ({ pipelines, days, onViewAll, classNam
     if (!pipelineId) return;
     setLoading(true);
     try {
-      const { periodType, nPeriods } = daysToParams(days);
+      const { periodType, nPeriods } = daysToPeriodParams(days);
       const t = await getPipelineThroughput(pipelineId, periodType, nPeriods);
       setThroughput(t || []);
     } catch (e) {
@@ -873,13 +862,6 @@ export const StageDwellChartWeb = ({ data, onViewDetails, className }: { data: S
 
 // ─── Pipeline Points Over Time Mini Widget ────────────────────────────────────
 
-function daysToParams(days: number): { periodType: string; nPeriods: number } {
-  if (days <= 7)  return { periodType: 'week',  nPeriods: 2 };
-  if (days <= 30) return { periodType: 'week',  nPeriods: 5 };
-  if (days <= 60) return { periodType: 'week',  nPeriods: 9 };
-  return           { periodType: 'month', nPeriods: 3 };
-}
-
 export const PipelinePointsMiniWeb = ({
   pipelines,
   days,
@@ -905,7 +887,7 @@ export const PipelinePointsMiniWeb = ({
     if (!pipelineId) return;
     setLoading(true);
     try {
-      const { periodType, nPeriods } = daysToParams(days);
+      const { periodType, nPeriods } = daysToPeriodParams(days);
       const result = await getPipelinePointsSeries(pipelineId, periodType, nPeriods);
       setData(result || []);
     } catch (e) {

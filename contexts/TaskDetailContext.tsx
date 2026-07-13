@@ -22,6 +22,7 @@ export type StageData = {
   is_initial: boolean; is_terminal: boolean; terminal_type: string | null;
   features?: string[];
   requires_submission: boolean;
+  submission_mode?: 'none' | 'optional' | 'required';
   requires_timer: boolean;
   min_timer_seconds: number;
   linked_pipeline_id?: string | null;

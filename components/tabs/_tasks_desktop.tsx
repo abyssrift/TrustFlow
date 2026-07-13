@@ -68,6 +68,7 @@ type Task = {
   parent_task_id?: string;
   manager_id?: string;
   project_id?: string;
+  due_date?: string | null;
   project?: { id: string; name: string } | null;
   manager?: { id: string; full_name: string } | null;
   assignments?: {
@@ -88,7 +89,26 @@ type FilterState = {
   categories: string[];
   projectIds: string[];
   managerIds: string[];
+  dueDates: string[];
 };
+
+const DUE_DATE_BUCKETS = [
+  { key: 'overdue', label: 'Overdue' },
+  { key: 'today', label: 'Due Today' },
+  { key: 'week', label: 'This Week' },
+  { key: 'none', label: 'No Due Date' },
+] as const;
+
+function getDueBucket(dueDate?: string | null): string {
+  if (!dueDate) return 'none';
+  const startToday = new Date();
+  startToday.setHours(0, 0, 0, 0);
+  const diffDays = Math.floor((new Date(dueDate).getTime() - startToday.getTime()) / 86400000);
+  if (diffDays < 0) return 'overdue';
+  if (diffDays === 0) return 'today';
+  if (diffDays <= 7) return 'week';
+  return 'later';
+}
 
 type Pipeline = {
   id: string;
@@ -283,7 +303,7 @@ export function TasksScreenWeb() {
   const [showPersonalizer, setShowPersonalizer] = useState(false);
   const [showMobility, setShowMobility] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const [filters, setFilters] = useState<FilterState>({ priorities: [], categories: [], projectIds: [], managerIds: [] });
+  const [filters, setFilters] = useState<FilterState>({ priorities: [], categories: [], projectIds: [], managerIds: [], dueDates: [] });
   const [searchQuery, setSearchQuery] = useState('');
   const [mineOnly, setMineOnly] = useState(false);
   const [myTeamIds, setMyTeamIds] = useState<string[]>(seed?.myTeamIds ?? []);
@@ -1039,7 +1059,8 @@ export function TasksScreenWeb() {
     filters.priorities.length +
     filters.categories.length +
     filters.projectIds.length +
-    filters.managerIds.length;
+    filters.managerIds.length +
+    filters.dueDates.length;
 
   const toggleFilter = (key: keyof FilterState, value: string) => {
     setFilters(prev => {
@@ -1052,7 +1073,7 @@ export function TasksScreenWeb() {
   };
 
   const clearFilters = () =>
-    setFilters({ priorities: [], categories: [], projectIds: [], managerIds: [] });
+    setFilters({ priorities: [], categories: [], projectIds: [], managerIds: [], dueDates: [] });
 
   const getPriorityInfo = (priority: string) => {
     switch (priority) {
@@ -1529,6 +1550,25 @@ export function TasksScreenWeb() {
                       </View>
                     </View>
                   )}
+
+                  {/* Due Date */}
+                  <View>
+                    <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Due Date</Text>
+                    <View className="flex-row gap-2">
+                      {DUE_DATE_BUCKETS.map(({ key, label }) => {
+                        const active = filters.dueDates.includes(key);
+                        return (
+                          <TouchableOpacity
+                            key={key}
+                            onPress={() => toggleFilter('dueDates', key)}
+                            className={`px-3 py-1.5 rounded-xl border transition-all ${active ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border hover:border-brand-primary/40'}`}
+                          >
+                            <Text className={`text-[11px] font-black uppercase tracking-wider ${active ? 'text-brand-primary' : 'text-typography-muted'}`}>{label}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
                 </View>
               </ScrollView>
             </View>
@@ -1587,6 +1627,7 @@ export function TasksScreenWeb() {
                   if (filters.categories.length > 0 && !filters.categories.includes(t.category)) return false;
                   if (filters.projectIds.length > 0 && !filters.projectIds.includes(t.project_id || '')) return false;
                   if (filters.managerIds.length > 0 && !filters.managerIds.includes(t.manager_id || '')) return false;
+                  if (filters.dueDates.length > 0 && !filters.dueDates.includes(getDueBucket(t.due_date))) return false;
                   if (searchQuery && !t.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
                   if (mineOnly && t.manager_id !== user?.id && !t.assignments?.some((a: any) =>
                     a.assignee_user_id === user?.id ||
