@@ -23,6 +23,39 @@ export type BoardSnapshot = {
 
 export const taskCache = new Map<string, BoardSnapshot>();
 
+// Shared sort options for the board filter panels (desktop + adaptive). 'default'
+// leaves each board's own ordering untouched (manual drag order on desktop,
+// fetch order on adaptive).
+export type TaskSortKey = 'default' | 'dueDate' | 'priority' | 'weight' | 'hours';
+
+export const TASK_SORT_OPTIONS: { key: TaskSortKey; label: string }[] = [
+  { key: 'default', label: 'Default' },
+  { key: 'dueDate', label: 'Due Date' },
+  { key: 'priority', label: 'Priority' },
+  { key: 'weight', label: 'Weight' },
+  { key: 'hours', label: 'Hours' },
+];
+
+const PRIORITY_SORT_RANK: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
+
+export function compareTasksBySortKey(key: TaskSortKey, a: any, b: any): number {
+  switch (key) {
+    case 'dueDate':
+      if (!a.due_date && !b.due_date) return 0;
+      if (!a.due_date) return 1;
+      if (!b.due_date) return -1;
+      return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+    case 'priority':
+      return (PRIORITY_SORT_RANK[a.priority] ?? 2) - (PRIORITY_SORT_RANK[b.priority] ?? 2);
+    case 'weight':
+      return (b.weight ?? 1) - (a.weight ?? 1);
+    case 'hours':
+      return (b.estimated_hours ?? 0) - (a.estimated_hours ?? 0);
+    default:
+      return 0;
+  }
+}
+
 // Mutable holder so consumers can read/write the last-loaded board id across modules.
 export const boardCacheMeta = { lastPipelineId: null as string | null };
 

@@ -14,15 +14,20 @@ import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanim
 export default function AnimatedTaskCard({
   children,
   style,
+  disableLayoutAnimation,
 }: {
   children: React.ReactNode;
   style?: ViewStyle;
+  /** Skip the `layout` transition — set this inside a DraggableFlatList, which
+   * already animates cell reflow itself; stacking both fights over the same
+   * element's position every frame and is a real source of drag jank. */
+  disableLayoutAnimation?: boolean;
 }) {
   return (
     <Animated.View
       entering={FadeIn.duration(220)}
       exiting={FadeOut.duration(140)}
-      layout={LinearTransition.springify().damping(20).stiffness(170).mass(0.6)}
+      layout={disableLayoutAnimation ? undefined : LinearTransition.springify().damping(20).stiffness(170).mass(0.6)}
       style={style}
     >
       {children}

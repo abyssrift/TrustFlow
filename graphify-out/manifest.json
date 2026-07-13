@@ -165,13 +165,13 @@
     "semantic_hash": ""
   },
   "app/_layout.tsx": {
-    "mtime": 1782296056.244693,
-    "ast_hash": "6747488573d29878984c963c870223fd",
+    "mtime": 1783946596.3562388,
+    "ast_hash": "4a6186b7ddda9be5a4c8e2f2cf592c96",
     "semantic_hash": ""
   },
   "app/_layout.web.tsx": {
-    "mtime": 1783338493.3764381,
-    "ast_hash": "5cba94b719c772aa1505bbf4473e9851",
+    "mtime": 1783946596.3602464,
+    "ast_hash": "7ba321d54d930d4f2a1f4b536384b572",
     "semantic_hash": ""
   },
   "app/admin/dev-tools.tsx": {
@@ -485,8 +485,8 @@
     "semantic_hash": ""
   },
   "components/common/AnimatedTaskCard.tsx": {
-    "mtime": 1782296056.3070328,
-    "ast_hash": "7bb1e1b4f072bc6d9463df4dfbcb1074",
+    "mtime": 1783946596.3642457,
+    "ast_hash": "ea8e866b095cf0d99d2436d4d542cd7a",
     "semantic_hash": ""
   },
   "components/common/BackButton.tsx": {
@@ -670,13 +670,13 @@
     "semantic_hash": ""
   },
   "components/intelligence/_filehub_adaptive.tsx": {
-    "mtime": 1783933694.5935552,
-    "ast_hash": "952be6eb54df8622e0ff18b3154bd6ea",
+    "mtime": 1783946596.3702314,
+    "ast_hash": "ba88b932f69a4b67b28dd38d8ad06227",
     "semantic_hash": ""
   },
   "components/intelligence/_filehub_desktop.tsx": {
-    "mtime": 1783933634.5209677,
-    "ast_hash": "5e12ba6539ce1dd4dfb9ef17e85c8128",
+    "mtime": 1783946596.3762326,
+    "ast_hash": "7d714f2c52c0a2073a9449cb583dc454",
     "semantic_hash": ""
   },
   "components/intelligence/_filehub_web.tsx": {
@@ -1040,13 +1040,13 @@
     "semantic_hash": ""
   },
   "components/tabs/_tasks_adaptive.tsx": {
-    "mtime": 1783859688.0471022,
-    "ast_hash": "2bb7f59d1fbcd7fc2b9b7f6e500a16c6",
+    "mtime": 1783946596.3802373,
+    "ast_hash": "eada5e6ae8c02122d583f604675fd5b8",
     "semantic_hash": ""
   },
   "components/tabs/_tasks_desktop.tsx": {
-    "mtime": 1783925174.830634,
-    "ast_hash": "b36eac6679945b8aa6eac78c4e0d4e2f",
+    "mtime": 1783946596.3862326,
+    "ast_hash": "444e766de32af860e5d9fa9cd70436b7",
     "semantic_hash": ""
   },
   "components/tabs/_tasks_web.tsx": {
@@ -1225,8 +1225,8 @@
     "semantic_hash": ""
   },
   "contexts/FileHubContext.tsx": {
-    "mtime": 1783933527.1598012,
-    "ast_hash": "ed4605577e7d1404e4de88e5983c7e05",
+    "mtime": 1783946596.3932369,
+    "ast_hash": "6279da47d6d2792db4f8cd4cd3b4b8de",
     "semantic_hash": ""
   },
   "contexts/NotificationsContext.tsx": {
@@ -2190,8 +2190,8 @@
     "semantic_hash": ""
   },
   "Features.md": {
-    "mtime": 1783933692.0250351,
-    "ast_hash": "fed6b6e973e5d05972a011dc46bbb7fe",
+    "mtime": 1783946596.3522377,
+    "ast_hash": "a401437710f89e6f0d76d1335e54b142",
     "semantic_hash": ""
   },
   "Notes.md": {
@@ -2630,8 +2630,8 @@
     "semantic_hash": ""
   },
   "components/tabs/taskBoardCache.ts": {
-    "mtime": 1783502425.5268154,
-    "ast_hash": "6a719ea2bb2f14a599123370842aba4f",
+    "mtime": 1783946596.3892286,
+    "ast_hash": "978e51d540cbff7e73f9ea7144207e19",
     "semantic_hash": ""
   },
   "components/tasks/AssignmentModePreview.tsx": {
@@ -2747,6 +2747,41 @@
   "supabase/migrations/20260715_filehub_folder_hierarchy.sql": {
     "mtime": 1783931544.6395066,
     "ast_hash": "3a67b070a19cab7b6adf443da9557481",
+    "semantic_hash": ""
+  },
+  "hooks/useWebDnd.ts": {
+    "mtime": 1783946218.706172,
+    "ast_hash": "e71c202934d8d2f47c2439206243784a",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20260715_filehub_folder_dnd.sql": {
+    "mtime": 1783934343.6683693,
+    "ast_hash": "fdff9d58101013ba6c5efd66a5885e11",
+    "semantic_hash": ""
+  },
+  "supabase/functions/filehub-share-resolve/index.ts": {
+    "mtime": 1783936150.560326,
+    "ast_hash": "013386bf7805e507df0bf9466afe760a",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20260713_add_rpc_reorder_tasks.sql": {
+    "mtime": 1783943888.0697355,
+    "ast_hash": "06e5237dd667af4c17cb325e3a2ee5bc",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20260713_add_task_board_position.sql": {
+    "mtime": 1783943825.123541,
+    "ast_hash": "720f931bba60c86c124228aa88a422a7",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20260715_filehub_share_links.sql": {
+    "mtime": 1783936106.4359057,
+    "ast_hash": "a52e9235493561a8b8ebf6459e7ff9c6",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20260716_filehub_folder_scoping.sql": {
+    "mtime": 1783944882.3110633,
+    "ast_hash": "1c580bf50a80eb143beea9900c91324f",
     "semantic_hash": ""
   }
 }

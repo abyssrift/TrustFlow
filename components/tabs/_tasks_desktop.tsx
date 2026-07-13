@@ -1,7 +1,7 @@
 import AnimatedTaskCard from '@/components/common/AnimatedTaskCard';
 import KanbanPersonalizer from '@/components/kanban/KanbanPersonalizer';
 import TaskCardActions, { type ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
-import { boardCacheMeta, prefetchOtherBoards, taskCache, type BoardSnapshot } from '@/components/tabs/taskBoardCache';
+import { boardCacheMeta, prefetchOtherBoards, taskCache, type BoardSnapshot, TASK_SORT_OPTIONS, compareTasksBySortKey, type TaskSortKey } from '@/components/tabs/taskBoardCache';
 import TaskPingButton from '@/components/task-detail/TaskPingButton';
 import AssignmentModal from '@/components/tasks/AssignmentModal';
 import CreateTaskModal from '@/components/tasks/CreateTaskModal.web';
@@ -11,6 +11,7 @@ import { usePingHighlight } from '@/contexts/PingHighlightContext';
 import { TaskCreationProvider } from '@/contexts/TaskCreationContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTimer } from '@/contexts/TimerContext';
+import { useToast } from '@/contexts/ToastContext';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -83,6 +84,7 @@ type Task = {
   comment_count?: { count: number }[];
   has_mention?: boolean;
   weight?: number;
+  estimated_hours?: number | null;
 };
 
 // Focus-mode (single-stage fullscreen) sort order: most urgent/heaviest first.
@@ -307,8 +309,27 @@ export function TasksScreenWeb() {
   const [showPersonalizer, setShowPersonalizer] = useState(false);
   const [showMobility, setShowMobility] = useState(false);
   const [fullscreenStageId, setFullscreenStageId] = useState<string | null>(null);
+  const [settledFullscreenId, setSettledFullscreenId] = useState<string | null>(null);
+  const [boardTransitioning, setBoardTransitioning] = useState(false);
+  const [boardWidth, setBoardWidth] = useState(0);
+  const boardWidthRef = useRef(0);
+
+  // Wait out the 300ms width transition before mounting the wrap-grid layout —
+  // reflowing every card on each animation frame while the column resizes is what was dropping frames.
+  // While transitioning (either direction) the cards' layout springs are turned
+  // off so reanimated doesn't fight the CSS width transition frame-by-frame.
+  useEffect(() => {
+    if (fullscreenStageId) setBoardWidth(boardWidthRef.current);
+    setBoardTransitioning(true);
+    const t = setTimeout(() => {
+      setBoardTransitioning(false);
+      setSettledFullscreenId(fullscreenStageId);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [fullscreenStageId]);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<FilterState>({ priorities: [], categories: [], projectIds: [], managerIds: [], dueDates: [] });
+  const [sortKey, setSortKey] = useState<TaskSortKey>('default');
   const [searchQuery, setSearchQuery] = useState('');
   const [mineOnly, setMineOnly] = useState(false);
   const [myTeamIds, setMyTeamIds] = useState<string[]>(seed?.myTeamIds ?? []);
@@ -335,6 +356,7 @@ export function TasksScreenWeb() {
   const { width } = useWindowDimensions();
   const router = useRouter();
   const { user, hasPermission, profile } = useAuth();
+  const { errorToast } = useToast();
 
   const { pingedTasks, removePingedTask } = usePingHighlight();
 
@@ -1118,7 +1140,7 @@ export function TasksScreenWeb() {
     const pingedAt = pingedTasks.get(task.id);
     const isPinged = pingedAt !== undefined;
     return (
-      <AnimatedTaskCard key={task.id}>
+      <AnimatedTaskCard key={task.id} disableLayoutAnimation={boardTransitioning}>
       <TouchableOpacity
         onPress={() => {
           if (isPinged) removePingedTask(task.id);
@@ -1574,6 +1596,25 @@ export function TasksScreenWeb() {
                       })}
                     </View>
                   </View>
+
+                  {/* Sort By */}
+                  <View>
+                    <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Sort By</Text>
+                    <View className="flex-row gap-2">
+                      {TASK_SORT_OPTIONS.map(({ key, label }) => {
+                        const active = sortKey === key;
+                        return (
+                          <TouchableOpacity
+                            key={key}
+                            onPress={() => setSortKey(key)}
+                            className={`px-3 py-1.5 rounded-xl border transition-all ${active ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border hover:border-brand-primary/40'}`}
+                          >
+                            <Text className={`text-[11px] font-black uppercase tracking-wider ${active ? 'text-brand-primary' : 'text-typography-muted'}`}>{label}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
                 </View>
               </ScrollView>
             </View>
@@ -1619,13 +1660,20 @@ export function TasksScreenWeb() {
               </View>
             </View>
           ) : (
+            <View style={{ flex: 1 }} onLayout={(e) => {
+              // Re-rendering the whole board per layout frame is only worth it
+              // while a column is actually sized off boardWidth (fullscreen).
+              boardWidthRef.current = e.nativeEvent.layout.width;
+              if (fullscreenStageId) setBoardWidth(boardWidthRef.current);
+            }}>
             <ScrollView
-              horizontal={!fullscreenStageId}
+              horizontal
               showsHorizontalScrollIndicator={!fullscreenStageId}
+              scrollEnabled={!fullscreenStageId}
               className="flex-1"
-              contentContainerStyle={fullscreenStageId ? { flex: 1, paddingBottom: 40 } : { paddingBottom: 40 }}
+              contentContainerStyle={{ paddingBottom: 40 }}
             >
-              {(fullscreenStageId ? stages.filter(s => s.id === fullscreenStageId) : stages).map(stage => {
+              {stages.map(stage => {
                 const stageTasks = tasks.filter(t => {
                   if (t.current_stage_id !== stage.id) return false;
                   if (filters.priorities.length > 0 && !filters.priorities.includes(t.priority)) return false;
@@ -1641,16 +1689,30 @@ export function TasksScreenWeb() {
                   return true;
                 });
                 const isFullscreen = fullscreenStageId === stage.id;
-                // Focus mode surfaces what matters most first: priority, then weight.
-                const displayTasks = isFullscreen
-                  ? [...stageTasks].sort((a, b) => {
-                      const pDiff = (PRIORITY_RANK[a.priority] ?? 2) - (PRIORITY_RANK[b.priority] ?? 2);
-                      if (pDiff !== 0) return pDiff;
-                      return (b.weight ?? 1) - (a.weight ?? 1);
-                    })
-                  : stageTasks;
+                const isHiddenByFullscreen = !!fullscreenStageId && !isFullscreen;
+                // An explicit sort pick wins everywhere. Otherwise: focus mode surfaces
+                // what matters most first (priority, then weight); the regular board
+                // keeps the fetch order (newest first).
+                const displayTasks = sortKey !== 'default'
+                  ? [...stageTasks].sort((a, b) => compareTasksBySortKey(sortKey, a, b))
+                  : isFullscreen
+                    ? [...stageTasks].sort((a, b) => {
+                        const pDiff = (PRIORITY_RANK[a.priority] ?? 2) - (PRIORITY_RANK[b.priority] ?? 2);
+                        if (pDiff !== 0) return pDiff;
+                        return (b.weight ?? 1) - (a.weight ?? 1);
+                      })
+                    : stageTasks;
                 return (
-                  <View key={stage.id} className={isFullscreen ? 'flex-1 h-full' : 'w-[380px] mr-8 h-full'}>
+                  <View
+                    key={stage.id}
+                    className="h-full transition-[width,margin-right,opacity] duration-300 ease-in-out"
+                    style={{
+                      width: isFullscreen ? (boardWidth || '100%') : isHiddenByFullscreen ? 0 : 380,
+                      marginRight: isHiddenByFullscreen ? 0 : 32,
+                      opacity: isHiddenByFullscreen ? 0 : 1,
+                      overflow: 'hidden',
+                    }}
+                  >
                     <View className="flex-row items-center justify-between mb-6 px-3">
                       <View className="flex-row items-center">
                         <View style={{ backgroundColor: stage.color }} className="w-3 h-3 rounded-full mr-3 shadow-sm shadow-black/50" />
@@ -1678,32 +1740,35 @@ export function TasksScreenWeb() {
                       </View>
                     </View>
                     
-                    <ScrollView
-                      className={`flex-1 rounded-[2.5rem] p-4 border ${
+                    <View
+                      className={`flex-1 rounded-[2.5rem] p-4 border overflow-hidden ${
                         kanban.isVibrant ? 'bg-brand-primary/5 border-brand-primary/20' : 'bg-surface-card/30 border-surface-border/50'
                       }`}
-                      showsVerticalScrollIndicator={false}
-                      contentContainerStyle={isFullscreen ? { flexDirection: 'row', flexWrap: 'wrap', gap: 16 } : undefined}
                     >
-                      {displayTasks.length === 0 ? (
+                      {isHiddenByFullscreen ? null : displayTasks.length === 0 ? (
                         <View className="py-20 items-center justify-center opacity-20 w-full">
                            <FontAwesome name="inbox" size={48} className="text-typography-muted" />
                            <Text className="text-typography-muted text-xs mt-6 font-black uppercase tracking-widest">No Active Tasks</Text>
                         </View>
-                      ) : isFullscreen ? (
-                        displayTasks.map(t => (
-                          <View key={t.id} style={{ width: 380 }}>
-                            {renderTaskCard(t)}
-                          </View>
-                        ))
+                      ) : isFullscreen && settledFullscreenId === stage.id ? (
+                        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16 }}>
+                          {displayTasks.map(t => (
+                            <View key={t.id} style={{ flexGrow: 1, flexBasis: 380, maxWidth: 460 }}>
+                              {renderTaskCard(t)}
+                            </View>
+                          ))}
+                        </ScrollView>
                       ) : (
-                        displayTasks.map(renderTaskCard)
+                        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+                          {displayTasks.map(renderTaskCard)}
+                        </ScrollView>
                       )}
-                    </ScrollView>
+                    </View>
                   </View>
                 );
               })}
             </ScrollView>
+            </View>
           )}
         </View>
       </View>

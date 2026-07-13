@@ -1,9 +1,12 @@
 import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { FileActivity, FileHubFile, FileHubFolder, FileHubGroup, FileHubGroupMember, FileHubMode, FileHubProvider, FileVersion, folderPath, useFileHub } from '@/contexts/FileHubContext';
+import { FileActivity, FileHubFile, FileHubFolder, FileHubFolderScope, FileHubGroup, FileHubGroupMember, FileHubMode, FileHubProvider, FileHubShareLink, FileVersion, folderAncestors, folderPath, shareLinkUrl, useFileHub } from '@/contexts/FileHubContext';
+import { useToast } from '@/contexts/ToastContext';
+import * as Clipboard from 'expo-clipboard';
 import { useFileSizeLimit } from '@/hooks/useFileSizeLimit';
 import { useImageLightbox } from '@/hooks/useImageLightbox';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { useDragSource, useDropTarget, useMarqueeSelect } from '@/hooks/useWebDnd';
 import { FilePreviewModal, FilePreviewTeaser, getPreviewKind, type PreviewKind } from './../common/FilePreview';
 import FileHubAnalytics from './FileHubAnalytics';
 import FileHubBin from './FileHubBin';
@@ -297,6 +300,15 @@ function UploadModal({
     new Promise<string>(resolve => setPendingDecision({ title, message, options, resolve }));
 
   const patch = (updates: Partial<UploadDraft>) => setDraft(prev => ({ ...prev, ...updates }));
+
+  // Folders are scoped: a channel's folders never appear outside it, and
+  // Direct/Broadcast are separate trees too — so the picker only ever offers
+  // folders matching whatever this upload will actually target.
+  const uploadScope: FileHubFolderScope = activeGroup ? 'group' : (draft.visibility === 'broadcast' ? 'broadcast' : 'direct');
+  const scopedFolders = useMemo(
+    () => folders.filter(f => f.scope === uploadScope && (f.group_id ?? null) === (activeGroup?.id ?? null)),
+    [folders, uploadScope, activeGroup?.id]
+  );
 
   useEffect(() => {
     if (!visible) {
@@ -657,7 +669,7 @@ function UploadModal({
             )}
 
             {/* Folder — hidden for group uploads when no folders exist in this group */}
-            {(!activeGroup || folders.length > 0) && (
+            {(!activeGroup || scopedFolders.length > 0) && (
               <View className="gap-2">
                 <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Folder</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, flexDirection: 'row', alignItems: 'center' }}>
@@ -667,13 +679,13 @@ function UploadModal({
                   >
                     <Text className={`text-xs font-bold ${!draft.folderId ? 'text-brand-primary' : 'text-typography-muted'}`}>No folder</Text>
                   </TouchableOpacity>
-                  {[...folders].sort((a, b) => folderPath(folders, a.id).localeCompare(folderPath(folders, b.id))).map(f => (
+                  {[...scopedFolders].sort((a, b) => folderPath(scopedFolders, a.id).localeCompare(folderPath(scopedFolders, b.id))).map(f => (
                     <TouchableOpacity
                       key={f.id}
                       onPress={() => patch({ folderId: f.id })}
                       className={`px-4 py-2 rounded-xl border ${draft.folderId === f.id ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}
                     >
-                      <Text className={`text-xs font-bold ${draft.folderId === f.id ? 'text-brand-primary' : 'text-typography-muted'}`}>{folderPath(folders, f.id)}</Text>
+                      <Text className={`text-xs font-bold ${draft.folderId === f.id ? 'text-brand-primary' : 'text-typography-muted'}`}>{folderPath(scopedFolders, f.id)}</Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
@@ -984,204 +996,160 @@ function GroupCreateModal({
   );
 }
 
-// ─── Folder Panel ─────────────────────────────────────────────────────────────
+// ─── Folders inline in the file list (Explorer-style: current directory's
+// subfolders sit above its files, both draggable on web) ──────────────────────
 
-function FolderPanel() {
+type DragPayload = { type: 'file' | 'folder'; id: string } | { type: 'files'; ids: string[] };
+
+function FolderBreadcrumb({
+  folders, selectedFolderId, onNavigate, onDropMove,
+}: {
+  folders: FileHubFolder[];
+  selectedFolderId: string | null;
+  onNavigate: (id: string | null) => void;
+  onDropMove: (payload: DragPayload, targetId: string | null) => void;
+}) {
   const colors = useThemeColors();
-  const { folders, files, mode, selectedFolderId, setSelectedFolderId, createFolder, renameFolder, deleteFolder } = useFileHub();
-  const { showConfirm } = useAlert();
-  const [showNewFolder, setShowNewFolder] = useState(false);
-  const [newFolderName, setNewFolderName] = useState('');
-  const [renamingId, setRenamingId] = useState<string | null>(null);
-  const [renameValue, setRenameValue] = useState('');
-  const [creating, setCreating] = useState(false);
-  const [zipDownloading, setZipDownloading] = useState(false);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const chain = selectedFolderId ? folderAncestors(folders, selectedFolderId) : [];
+  const crumbs: Array<{ id: string | null; name: string }> = [{ id: null, name: 'All Files' }, ...chain.map(f => ({ id: f.id, name: f.name }))];
+  return (
+    <View className="flex-row items-center flex-wrap px-6 py-3 border-b border-surface-border/60 bg-surface-background/40">
+      {crumbs.map((c, i) => (
+        <React.Fragment key={c.id ?? 'root'}>
+          {i > 0 && <FontAwesome name="angle-right" size={11} color={colors.textDim} style={{ marginHorizontal: 6 }} />}
+          <BreadcrumbCrumb crumb={c} isLast={i === crumbs.length - 1} onNavigate={onNavigate} onDropMove={onDropMove} />
+        </React.Fragment>
+      ))}
+    </View>
+  );
+}
 
-  const handleFolderDownload = async (name: string) => {
-    if (zipDownloading || files.length === 0) return;
-    setZipDownloading(true);
-    try {
-      await downloadFilesAsZip(files, name);
-    } finally {
-      setZipDownloading(false);
-    }
-  };
+function BreadcrumbCrumb({
+  crumb, isLast, onNavigate, onDropMove,
+}: {
+  crumb: { id: string | null; name: string };
+  isLast: boolean;
+  onNavigate: (id: string | null) => void;
+  onDropMove: (payload: DragPayload, targetId: string | null) => void;
+}) {
+  const { ref, isOver } = useDropTarget<DragPayload>(
+    (payload) => onDropMove(payload, crumb.id),
+    (payload) => !(payload.type === 'folder' && payload.id === crumb.id)
+  );
+  return (
+    <TouchableOpacity
+      ref={ref}
+      onPress={() => onNavigate(crumb.id)}
+      className={`px-2 py-1 rounded-lg ${isOver ? 'bg-brand-primary/20 border border-brand-primary/40' : ''}`}
+    >
+      <Text className={`text-xs font-black ${isLast ? 'text-typography-main' : 'text-typography-muted'}`}>{crumb.name}</Text>
+    </TouchableOpacity>
+  );
+}
 
-  const childrenOf = useMemo(() => {
-    const map = new Map<string | null, FileHubFolder[]>();
-    for (const f of folders) {
-      const key = f.parent_id;
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(f);
-    }
-    for (const list of map.values()) list.sort((a, b) => a.name.localeCompare(b.name));
-    return map;
-  }, [folders]);
+function FolderRow({
+  folder, onNavigate, onDropPayload, onRename, onDelete,
+}: {
+  folder: FileHubFolder;
+  onNavigate: () => void;
+  onDropPayload: (payload: DragPayload) => void;
+  onRename: (name: string) => void;
+  onDelete: () => void;
+}) {
+  const colors = useThemeColors();
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState(folder.name);
 
-  // Auto-expand the path down to whichever folder is currently open, so its
-  // subfolders (and itself, if it has any) are always visible.
-  useEffect(() => {
-    if (!selectedFolderId) return;
-    const byId = new Map(folders.map(f => [f.id, f]));
-    setExpanded(prev => {
-      const next = new Set(prev);
-      let cur = byId.get(selectedFolderId);
-      next.add(selectedFolderId);
-      while (cur?.parent_id) {
-        next.add(cur.parent_id);
-        cur = byId.get(cur.parent_id);
-      }
-      return next;
-    });
-  }, [selectedFolderId, folders]);
+  const dragRef = useDragSource<DragPayload>({ type: 'folder', id: folder.id }, !isRenaming);
+  const { ref: dropRef, isOver } = useDropTarget<DragPayload>(
+    onDropPayload,
+    (payload) => !(payload.type === 'folder' && payload.id === folder.id)
+  );
+  const setRefs = useCallback((node: any) => { dragRef.current = node; dropRef.current = node; }, [dragRef, dropRef]);
 
-  const toggleExpand = (id: string) => {
-    setExpanded(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  };
-
-  const handleCreate = async () => {
-    if (!newFolderName.trim()) return;
-    setCreating(true);
-    await createFolder(newFolderName.trim(), selectedFolderId);
-    setNewFolderName('');
-    setShowNewFolder(false);
-    setCreating(false);
-  };
-
-  const startRename = (f: FileHubFolder) => { setRenamingId(f.id); setRenameValue(f.name); };
-
-  const commitRename = async () => {
-    if (!renamingId || !renameValue.trim()) { setRenamingId(null); return; }
-    await renameFolder(renamingId, renameValue.trim());
-    setRenamingId(null);
-  };
-
-  const handleDeleteFolder = (id: string, name: string) => {
-    const hasChildren = (childrenOf.get(id)?.length ?? 0) > 0;
-    showConfirm(
-      'Delete Folder',
-      `Delete "${name}"?${hasChildren ? ' Its subfolders will be deleted too.' : ''} Files will stay but lose the folder label.`,
-      () => deleteFolder(id),
-      undefined, 'Delete', 'Cancel', 'destructive'
-    );
-  };
-
-  const renderFolder = (f: FileHubFolder, depth: number): React.ReactNode => {
-    const kids = childrenOf.get(f.id) ?? [];
-    const isExpanded = expanded.has(f.id);
-    const isSelected = selectedFolderId === f.id;
-    return (
-      <React.Fragment key={f.id}>
-        <View
-          className={`flex-row items-center px-3 py-2 rounded-xl mb-1 ${isSelected ? 'bg-brand-primary/10' : 'hover:bg-surface-overlay'}`}
-          style={{ marginLeft: depth * 16 }}
-        >
-          {kids.length > 0 ? (
-            <TouchableOpacity onPress={() => toggleExpand(f.id)} className="w-4 h-4 items-center justify-center mr-0.5">
-              <FontAwesome name={isExpanded ? 'chevron-down' : 'chevron-right'} size={8} color={colors.textDim} />
-            </TouchableOpacity>
-          ) : (
-            <View className="w-4 mr-0.5" />
-          )}
-          {renamingId === f.id ? (
-            <TextInput
-              value={renameValue}
-              onChangeText={setRenameValue}
-              onBlur={commitRename}
-              onSubmitEditing={commitRename}
-              autoFocus
-              className="flex-1 text-typography-main text-sm font-bold outline-none bg-transparent"
-            />
-          ) : (
-            <TouchableOpacity className="flex-1 flex-row items-center gap-2.5" onPress={() => setSelectedFolderId(f.id)}>
-              <FontAwesome name="folder-o" size={12} color={isSelected ? colors.primary : colors.textMuted} />
-              <Text className={`text-sm font-bold flex-1 ${isSelected ? 'text-brand-primary' : 'text-typography-main'}`} numberOfLines={1}>{f.name}</Text>
-            </TouchableOpacity>
-          )}
-          <View className="flex-row gap-1 ml-1">
-            {isSelected && files.length > 0 && (
-              <TouchableOpacity
-                onPress={() => handleFolderDownload(f.name)}
-                disabled={zipDownloading}
-                className="w-6 h-6 items-center justify-center rounded-lg hover:bg-surface-overlay"
-              >
-                {zipDownloading
-                  ? <ActivityIndicator size="small" color={colors.primary} style={{ transform: [{ scale: 0.6 }] }} />
-                  : <FontAwesome name="download" size={9} color={colors.primary} />
-                }
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity onPress={() => startRename(f)} className="w-6 h-6 items-center justify-center rounded-lg hover:bg-surface-overlay">
-              <FontAwesome name="pencil" size={9} color={colors.textMuted} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleDeleteFolder(f.id, f.name)} className="w-6 h-6 items-center justify-center rounded-lg hover:bg-surface-overlay">
-              <FontAwesome name="trash-o" size={9} color={colors.textMuted} />
-            </TouchableOpacity>
-          </View>
-        </View>
-        {isExpanded && kids.map(k => renderFolder(k, depth + 1))}
-      </React.Fragment>
-    );
+  const commitRename = () => {
+    setIsRenaming(false);
+    if (renameValue.trim() && renameValue.trim() !== folder.name) onRename(renameValue.trim());
   };
 
   return (
-    <View className="px-5 py-4 border-b border-surface-border">
-      <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-3">Folders</Text>
-
-      <View className={`flex-row items-center px-3 py-2 rounded-xl mb-1 ${!selectedFolderId ? 'bg-brand-primary/10' : 'hover:bg-surface-overlay'}`}>
-        <TouchableOpacity className="flex-1 flex-row items-center" onPress={() => setSelectedFolderId(null)}>
-          <FontAwesome name="folder-open-o" size={12} color={!selectedFolderId ? colors.primary : colors.textMuted} />
-          <Text className={`ml-2.5 text-sm font-bold flex-1 ${!selectedFolderId ? 'text-brand-primary' : 'text-typography-main'}`}>All Files</Text>
-        </TouchableOpacity>
-        {!selectedFolderId && files.length > 0 && (
-          <TouchableOpacity
-            onPress={() => handleFolderDownload(mode === 'inbox' ? 'Inbox Files' : mode === 'sent' ? 'Sent Files' : 'Files')}
-            disabled={zipDownloading}
-            className="w-5 h-5 items-center justify-center ml-1"
-          >
-            {zipDownloading
-              ? <ActivityIndicator size="small" color={colors.primary} style={{ transform: [{ scale: 0.6 }] }} />
-              : <FontAwesome name="download" size={9} color={colors.primary} />
-            }
-          </TouchableOpacity>
-        )}
+    <View
+      ref={setRefs}
+      className={`flex-row items-center px-6 py-4 border-b border-surface-border/40 transition-colors ${
+        isOver ? 'bg-brand-primary/10 border-l-2 border-l-brand-primary' : 'hover:bg-surface-overlay/60'
+      }`}
+    >
+      <View className="w-9 h-9 rounded-xl bg-surface-background border border-surface-border items-center justify-center mr-3.5 flex-shrink-0">
+        <FontAwesome name="folder" size={16} color={colors.primary} />
       </View>
-
-      {(childrenOf.get(null) ?? []).map(f => renderFolder(f, 0))}
-
-      {showNewFolder ? (
-        <View className="flex-row items-center gap-2 mt-1">
-          <TextInput
-            value={newFolderName}
-            onChangeText={setNewFolderName}
-            onSubmitEditing={handleCreate}
-            onBlur={() => { if (!newFolderName.trim()) setShowNewFolder(false); }}
-            placeholder="Folder name"
-            placeholderTextColor={colors.textDim}
-            autoFocus
-            className="flex-1 text-typography-main text-sm border border-brand-primary/40 bg-brand-primary/5 rounded-xl px-3 py-1.5 outline-none"
-          />
-          <TouchableOpacity onPress={handleCreate} disabled={creating} className="px-3 py-1.5 bg-brand-primary rounded-xl">
-            <Text className="text-white text-xs font-black">Add</Text>
-          </TouchableOpacity>
-        </View>
+      {isRenaming ? (
+        <TextInput
+          value={renameValue}
+          onChangeText={setRenameValue}
+          onBlur={commitRename}
+          onSubmitEditing={commitRename}
+          autoFocus
+          className="flex-1 text-typography-main font-bold text-sm outline-none bg-transparent mr-3"
+        />
       ) : (
-        <TouchableOpacity
-          onPress={() => setShowNewFolder(true)}
-          className="flex-row items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-surface-overlay mt-1"
-        >
-          <FontAwesome name="plus" size={10} color={colors.textMuted} />
-          <Text className="text-typography-muted text-sm">
-            {selectedFolderId ? 'New subfolder' : 'New folder'}
-          </Text>
+        <TouchableOpacity onPress={onNavigate} className="flex-1 mr-3">
+          <Text className="text-typography-main font-bold text-sm" numberOfLines={1}>{folder.name}</Text>
         </TouchableOpacity>
       )}
+      <View className="flex-row gap-1 flex-shrink-0">
+        <TouchableOpacity onPress={() => { setRenameValue(folder.name); setIsRenaming(true); }} className="w-7 h-7 items-center justify-center rounded-lg hover:bg-surface-overlay">
+          <FontAwesome name="pencil" size={11} color={colors.textMuted} />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={onDelete} className="w-7 h-7 items-center justify-center rounded-lg hover:bg-surface-overlay">
+          <FontAwesome name="trash-o" size={11} color={colors.textMuted} />
+        </TouchableOpacity>
+      </View>
     </View>
+  );
+}
+
+function NewFolderRow({ onCreate }: { onCreate: (name: string) => Promise<void> }) {
+  const colors = useThemeColors();
+  const [showInput, setShowInput] = useState(false);
+  const [name, setName] = useState('');
+  const [creating, setCreating] = useState(false);
+
+  const handleCreate = async () => {
+    if (!name.trim()) return;
+    setCreating(true);
+    await onCreate(name.trim());
+    setName('');
+    setShowInput(false);
+    setCreating(false);
+  };
+
+  if (showInput) {
+    return (
+      <View className="flex-row items-center gap-2 px-6 py-3 border-b border-surface-border/40">
+        <TextInput
+          value={name}
+          onChangeText={setName}
+          onSubmitEditing={handleCreate}
+          onBlur={() => { if (!name.trim()) setShowInput(false); }}
+          placeholder="Folder name"
+          placeholderTextColor={colors.textDim}
+          autoFocus
+          className="flex-1 text-typography-main text-sm border border-brand-primary/40 bg-brand-primary/5 rounded-xl px-3 py-1.5 outline-none"
+        />
+        <TouchableOpacity onPress={handleCreate} disabled={creating} className="px-3 py-1.5 bg-brand-primary rounded-xl">
+          <Text className="text-white text-xs font-black">Add</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+  return (
+    <TouchableOpacity
+      onPress={() => setShowInput(true)}
+      className="flex-row items-center gap-2.5 px-6 py-3 border-b border-surface-border/40 hover:bg-surface-overlay/60"
+    >
+      <FontAwesome name="plus" size={11} color={colors.textMuted} />
+      <Text className="text-typography-muted text-sm font-bold">New folder</Text>
+    </TouchableOpacity>
   );
 }
 
@@ -1196,6 +1164,8 @@ function FileRow({
   isFileSelected = false,
   onToggleSelect,
   thumbUri,
+  draggable = false,
+  dragIds,
 }: {
   file: FileHubFile;
   selected: boolean;
@@ -1205,12 +1175,21 @@ function FileRow({
   isFileSelected?: boolean;
   onToggleSelect?: () => void;
   thumbUri?: string;
+  draggable?: boolean;
+  /** When this row is part of an active multi-selection (>1 items), the full
+   * set of ids to drag together — rubber-band-select-then-drag, like Explorer. */
+  dragIds?: string[];
 }) {
   const { icon, color } = getMimeIcon(file.mime_type);
   const isUnread = mode === 'inbox' && !file.recipient_state?.read_at;
+  const dragPayload: DragPayload = dragIds && dragIds.length > 1 ? { type: 'files', ids: dragIds } : { type: 'file', id: file.id };
+  const dragRef = useDragSource<DragPayload>(dragPayload, draggable);
 
   return (
     <TouchableOpacity
+      ref={dragRef}
+      // @ts-ignore - web-only marquee-select hit-testing attribute
+      dataSet={{ marqueeId: file.id }}
       onPress={(e) => (selectionMode ? onToggleSelect?.() : onPress(e))}
       className={`flex-row items-center px-6 py-4 border-b border-surface-border/40 transition-colors ${
         isFileSelected
@@ -1301,6 +1280,7 @@ function DetailPanel({
   const [restoringId, setRestoringId] = useState<string | null>(null);
   const [restoringLatest, setRestoringLatest] = useState(false);
   const [pinningId, setPinningId] = useState<string | null>(null);
+  const [showShareLink, setShowShareLink] = useState(false);
     const colors = useThemeColors();
 
   const hasVersionHistory = !!(file?.version_count && file.version_count > 1);
@@ -1618,6 +1598,16 @@ function DetailPanel({
               </TouchableOpacity>
             )}
 
+            {isOwner && (
+              <TouchableOpacity
+                onPress={() => setShowShareLink(true)}
+                className="flex-row items-center justify-center bg-surface-card border border-surface-border rounded-xl px-4 py-3 gap-2"
+              >
+                <FontAwesome name="link" size={13} color={colors.primary} />
+                <Text className="text-brand-primary font-black text-sm">Share Link</Text>
+              </TouchableOpacity>
+            )}
+
             <View className="flex-row gap-2">
               {mode === 'inbox' && (
                 <TouchableOpacity
@@ -1813,7 +1803,144 @@ function DetailPanel({
         sizeBytes={versionPreview.sizeBytes}
       />
     )}
+    <ShareLinkModal
+      visible={showShareLink}
+      fileId={file.id}
+      fileName={file.original_name}
+      onClose={() => setShowShareLink(false)}
+    />
     </>
+  );
+}
+
+// ─── Share Link Modal ──────────────────────────────────────────────────────────
+
+const EXPIRY_OPTIONS: { label: string; hours: number }[] = [
+  { label: '1 Day', hours: 24 },
+  { label: '7 Days', hours: 168 },
+  { label: '30 Days', hours: 720 },
+];
+
+function ShareLinkModal({ visible, fileId, fileName, onClose }: {
+  visible: boolean;
+  fileId: string;
+  fileName: string;
+  onClose: () => void;
+}) {
+  const colors = useThemeColors();
+  const { createShareLink, revokeShareLink, listShareLinks } = useFileHub();
+  const { showConfirm } = useAlert();
+  const { successToast } = useToast();
+  const [links, setLinks] = useState<FileHubShareLink[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [expiryHours, setExpiryHours] = useState(168);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    listShareLinks(fileId).then(setLinks).catch(console.error).finally(() => setLoading(false));
+  }, [fileId, listShareLinks]);
+
+  useEffect(() => { if (visible) load(); else setLinks([]); }, [visible, load]);
+
+  const activeLinks = links.filter(l => !l.revoked_at && new Date(l.expires_at).getTime() > Date.now());
+
+  const handleCreate = async () => {
+    setCreating(true);
+    try {
+      await createShareLink(fileId, expiryHours);
+      await load();
+    } catch { /* alerted in context */ } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleCopy = async (token: string) => {
+    await Clipboard.setStringAsync(shareLinkUrl(token));
+    successToast('Link copied');
+  };
+
+  const handleRevoke = (link: FileHubShareLink) => {
+    showConfirm(
+      'Revoke Link',
+      'Anyone with this link will lose access immediately.',
+      async () => { try { await revokeShareLink(link.id); await load(); } catch { /* alerted */ } },
+      undefined, 'Revoke', 'Cancel', 'destructive'
+    );
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View className="flex-1 bg-black/50 items-center justify-center p-6">
+        <View className="bg-surface-card rounded-2xl border border-surface-border w-full max-w-md" style={{ maxHeight: '75%' }}>
+          <View className="flex-row items-center justify-between px-6 py-4 border-b border-surface-border">
+            <View className="flex-row items-center gap-2 flex-1 min-w-0">
+              <FontAwesome name="link" size={14} color={colors.primary} />
+              <Text className="text-typography-main font-black text-lg flex-1" numberOfLines={1}>Share "{fileName}"</Text>
+            </View>
+            <TouchableOpacity onPress={onClose} className="w-8 h-8 items-center justify-center">
+              <FontAwesome name="times" size={16} color={colors.textMuted} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView contentContainerStyle={{ padding: 20 }} showsVerticalScrollIndicator={false}>
+            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Expires In</Text>
+            <View className="flex-row gap-2 mb-4">
+              {EXPIRY_OPTIONS.map(opt => (
+                <TouchableOpacity
+                  key={opt.hours}
+                  onPress={() => setExpiryHours(opt.hours)}
+                  className={`flex-1 items-center py-2.5 rounded-xl border ${expiryHours === opt.hours ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}
+                >
+                  <Text className={`text-xs font-black ${expiryHours === opt.hours ? 'text-brand-primary' : 'text-typography-muted'}`}>{opt.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TouchableOpacity
+              onPress={handleCreate}
+              disabled={creating}
+              className="flex-row items-center justify-center bg-brand-primary rounded-xl py-3 gap-2 mb-5"
+            >
+              {creating ? <ActivityIndicator size="small" color="#fff" /> : <FontAwesome name="plus" size={12} color="#fff" />}
+              <Text className="text-white font-black text-sm">Create Link</Text>
+            </TouchableOpacity>
+
+            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Active Links</Text>
+            {loading ? (
+              <View className="py-6 items-center"><ActivityIndicator color={colors.primary} /></View>
+            ) : activeLinks.length === 0 ? (
+              <Text className="text-typography-dim text-xs py-2">No active share links.</Text>
+            ) : (
+              activeLinks.map(link => (
+                <View key={link.id} className="border border-surface-border rounded-xl px-4 py-3 mb-2">
+                  <Text className="text-typography-main text-xs font-bold mb-1" numberOfLines={1}>{shareLinkUrl(link.token)}</Text>
+                  <Text className="text-typography-dim text-[10px] mb-2">
+                    Expires {new Date(link.expires_at).toLocaleDateString()} · {link.view_count} view{link.view_count === 1 ? '' : 's'}
+                  </Text>
+                  <View className="flex-row gap-2">
+                    <TouchableOpacity
+                      onPress={() => handleCopy(link.token)}
+                      className="flex-1 flex-row items-center justify-center gap-1.5 bg-surface-background border border-surface-border rounded-lg py-2"
+                    >
+                      <FontAwesome name="copy" size={10} color={colors.primary} />
+                      <Text className="text-brand-primary text-xs font-bold">Copy</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => handleRevoke(link)}
+                      className="flex-1 flex-row items-center justify-center gap-1.5 bg-state-danger/10 border border-state-danger/20 rounded-lg py-2"
+                    >
+                      <FontAwesome name="ban" size={10} color={colors.danger} />
+                      <Text className="text-state-danger text-xs font-bold">Revoke</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))
+            )}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -2135,6 +2262,8 @@ function FileHubDesktopInner() {
     search, setSearch,
     selectedTag, setSelectedTag,
     files, folders, loading,
+    selectedFolderId, setSelectedFolderId,
+    createFolder, renameFolder, deleteFolder, moveFolder, moveFile,
     inboxUnreadCount,
     refresh,
     markAllRead,
@@ -2189,11 +2318,29 @@ function FileHubDesktopInner() {
     });
   }, []);
 
+  // Windows-Explorer-style rubber-band select: drag over empty space in the
+  // file list to multi-select, then drag any selected row to move the whole
+  // selection together.
+  const handleMarqueeSelectionChange = useCallback((ids: string[]) => {
+    setSelectedFileIds(new Set(ids));
+    setSelectionMode(ids.length > 0);
+  }, []);
+  const { containerRef: marqueeContainerRef, marqueeRect } = useMarqueeSelect(handleMarqueeSelectionChange);
+
   const detailPanelHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const groupPanelHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const activeGroup = useMemo(() => groups.find(g => g.id === activeGroupId) ?? null, [groups, activeGroupId]);
-  const displayFiles = mode === 'groups' && activeGroupId ? groupFiles : files;
+  // Channel files come back flat (unfiltered by folder) from rpc_filehub_group_list_files,
+  // so folder scoping for channels happens client-side to match the server-side
+  // p_folder_id filtering that inbox/sent/broadcast already get from fetchFiles.
+  const displayFiles = mode === 'groups' && activeGroupId
+    ? groupFiles.filter(f => (f.folder_id ?? null) === selectedFolderId)
+    : files;
+
+  // Reset folder navigation when entering/leaving a channel so it doesn't
+  // inherit wherever Inbox/Sent/Broadcast last left off (or bleed between channels).
+  useEffect(() => { setSelectedFolderId(null); }, [activeGroupId]);
 
   // Signed thumbnails for image rows; clicking any file opens its detail panel,
   // where the image preview itself launches the lightbox.
@@ -2253,12 +2400,45 @@ function FileHubDesktopInner() {
     );
   };
 
-  const uploadFolders = useMemo(() => {
-    if (!activeGroupId) return folders;
-    const usedFolderIds = new Set(groupFiles.map(f => f.folder_id).filter(Boolean));
-    return folders.filter(f => usedFolderIds.has(f.id));
-  }, [folders, activeGroupId, groupFiles]);
   const displayLoading = mode === 'groups' && activeGroupId ? groupFilesLoading : loading;
+
+  // Folders are scoped: Direct (Inbox+Sent share one tree, since they're the
+  // same underlying files viewed from two ends), Broadcast, and one
+  // independent tree per channel. contextFolders narrows the full company
+  // list down to whichever tree applies to the tab/channel currently open.
+  const contextScope: FileHubFolderScope = mode === 'groups' ? 'group' : mode === 'broadcast' ? 'broadcast' : 'direct';
+  const contextGroupId = mode === 'groups' ? activeGroupId : null;
+  const contextFolders = useMemo(
+    () => folders.filter(f => f.scope === contextScope && (f.group_id ?? null) === contextGroupId),
+    [folders, contextScope, contextGroupId]
+  );
+
+  // Explorer-style browsing: subfolders of whichever directory is currently
+  // open sit above its files.
+  const subfolders = useMemo(() => {
+    return contextFolders.filter(f => f.parent_id === selectedFolderId).sort((a, b) => a.name.localeCompare(b.name));
+  }, [contextFolders, selectedFolderId]);
+
+  const handleDropOnFolder = useCallback((payload: DragPayload, targetFolderId: string | null) => {
+    if (payload.type === 'file') moveFile(payload.id, targetFolderId);
+    else if (payload.type === 'files') { payload.ids.forEach(id => moveFile(id, targetFolderId)); exitSelection(); }
+    else if (payload.id !== targetFolderId) moveFolder(payload.id, targetFolderId);
+  }, [moveFile, moveFolder, exitSelection]);
+
+  const handleCreateFolder = useCallback(
+    (name: string) => createFolder(name, selectedFolderId, contextScope, contextGroupId),
+    [createFolder, selectedFolderId, contextScope, contextGroupId]
+  );
+
+  const handleDeleteFolder = useCallback((id: string, name: string) => {
+    const hasChildren = folders.some(f => f.parent_id === id);
+    showConfirm(
+      'Delete Folder',
+      `Delete "${name}"?${hasChildren ? ' Its subfolders will be deleted too.' : ''} Files will stay but lose the folder label.`,
+      () => deleteFolder(id),
+      undefined, 'Delete', 'Cancel', 'destructive'
+    );
+  }, [folders, deleteFolder, showConfirm]);
 
   const allTags = useMemo(() => {
     const set = new Set<string>();
@@ -2347,10 +2527,9 @@ function FileHubDesktopInner() {
   }, [mode, activeGroupId, activeGroup?.id]);
 
   const tabs: { key: FileHubMode; label: string; count?: number }[] = [
-    { key: 'inbox', label: 'Inbox', count: inboxUnreadCount > 0 ? inboxUnreadCount : undefined },
-    { key: 'sent', label: 'Sent' },
-    ...(canBroadcast ? [{ key: 'broadcast' as FileHubMode, label: 'Broadcast' }] : []),
     { key: 'groups', label: 'Channels' },
+    { key: 'inbox', label: 'Inbox', count: inboxUnreadCount > 0 ? inboxUnreadCount : undefined },
+    ...(canBroadcast ? [{ key: 'broadcast' as FileHubMode, label: 'Broadcast' }] : []),
   ];
 
   const handleTabChange = (key: FileHubMode) => {
@@ -2395,6 +2574,12 @@ function FileHubDesktopInner() {
           >
             <FontAwesome name="bar-chart" size={12} color={colors.primary} />
             <Text className="text-typography-main font-black text-sm tracking-wide">Insights</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => handleTabChange('sent')}
+            className={`h-10 w-10 items-center justify-center border rounded-xl shrink-0 ${mode === 'sent' ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-card border-surface-border'}`}
+          >
+            <FontAwesome name="paper-plane-o" size={12} color={mode === 'sent' ? colors.primary : colors.textMuted} />
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setShowBin(true)}
@@ -2609,10 +2794,18 @@ function FileHubDesktopInner() {
                 </View>
               )}
 
+              {/* Folder navigation — same explorer as Inbox/Sent/Broadcast, scoped to this channel's files */}
+              <FolderBreadcrumb
+                folders={contextFolders}
+                selectedFolderId={selectedFolderId}
+                onNavigate={setSelectedFolderId}
+                onDropMove={handleDropOnFolder}
+              />
+
               {/* Group file list */}
               {displayLoading ? (
                 <View className="flex-1 items-center justify-center"><ActivityIndicator size="large" color={colors.primary} /></View>
-              ) : displayFiles.length === 0 ? (
+              ) : displayFiles.length === 0 && subfolders.length === 0 ? (
                 <View className="flex-1 items-center justify-center px-8">
                   <View className="bg-surface-card p-10 rounded-[2.5rem] border border-surface-border items-center w-full max-w-sm premium-shadow">
                     <FontAwesome name="files-o" size={24} color={colors.textMuted} />
@@ -2623,8 +2816,14 @@ function FileHubDesktopInner() {
                       {search ? `No files match "${search}".` : 'Upload the first file to this channel.'}
                     </Text>
                   </View>
+                  {!search && (
+                    <View className="w-full max-w-sm mt-4 border border-surface-border rounded-2xl overflow-hidden">
+                      <NewFolderRow onCreate={handleCreateFolder} />
+                    </View>
+                  )}
                 </View>
               ) : (
+                <View ref={marqueeContainerRef} style={{ flex: 1, position: 'relative' }}>
                 <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
                   {selectionMode ? (
                     <View className="flex-row items-center px-6 py-3 bg-brand-primary/5 border-b border-brand-primary/20 gap-2">
@@ -2677,6 +2876,17 @@ function FileHubDesktopInner() {
                       <Text className="w-16 text-right text-typography-muted text-[9px] font-black uppercase tracking-widest">Date</Text>
                     </View>
                   )}
+                  {!selectionMode && subfolders.map(f => (
+                    <FolderRow
+                      key={f.id}
+                      folder={f}
+                      onNavigate={() => setSelectedFolderId(f.id)}
+                      onDropPayload={(payload) => handleDropOnFolder(payload, f.id)}
+                      onRename={(name) => renameFolder(f.id, name)}
+                      onDelete={() => handleDeleteFolder(f.id, f.name)}
+                    />
+                  ))}
+                  {!selectionMode && <NewFolderRow onCreate={handleCreateFolder} />}
                   {displayFiles.map(file => (
                     <FileRow
                       key={file.id}
@@ -2688,10 +2898,16 @@ function FileHubDesktopInner() {
                       selectionMode={selectionMode}
                       isFileSelected={selectedFileIds.has(file.id)}
                       onToggleSelect={() => toggleFileSelect(file.id)}
+                      draggable={file.uploader?.id === user?.id}
+                      dragIds={selectedFileIds.has(file.id) ? Array.from(selectedFileIds) : undefined}
                     />
                   ))}
                   <View style={{ height: 40 }} />
                 </ScrollView>
+                {marqueeRect && (
+                  <View pointerEvents="none" style={{ position: 'absolute', left: marqueeRect.x, top: marqueeRect.y, width: marqueeRect.w, height: marqueeRect.h, backgroundColor: 'rgba(99,102,241,0.15)', borderWidth: 1, borderColor: 'rgba(99,102,241,0.6)' }} />
+                )}
+                </View>
               )}
             </>
           )}
@@ -2699,7 +2915,12 @@ function FileHubDesktopInner() {
           {/* Inbox / Sent / Broadcast */}
           {mode !== 'groups' && (
             <>
-              <FolderPanel />
+              <FolderBreadcrumb
+                folders={contextFolders}
+                selectedFolderId={selectedFolderId}
+                onNavigate={setSelectedFolderId}
+                onDropMove={handleDropOnFolder}
+              />
 
               {mode === 'inbox' && inboxUnreadCount > 0 && (
                 <View className="px-6 pt-4 pb-3">
@@ -2759,7 +2980,7 @@ function FileHubDesktopInner() {
 
               {displayLoading ? (
                 <View className="flex-1 items-center justify-center"><ActivityIndicator size="large" color={colors.primary} /></View>
-              ) : displayFiles.length === 0 ? (
+              ) : displayFiles.length === 0 && subfolders.length === 0 ? (
                 <View className="flex-1 items-center justify-center px-8">
                   <View className="bg-surface-card p-10 rounded-[2.5rem] border border-surface-border items-center w-full max-w-sm premium-shadow">
                     <View className="w-14 h-14 bg-surface-background rounded-full border border-surface-border items-center justify-center mb-4">
@@ -2772,11 +2993,17 @@ function FileHubDesktopInner() {
                       {search ? `No files match "${search}".` : mode === 'inbox' ? 'Files sent directly to you will appear here.' : mode === 'sent' ? 'Files you send to others will appear here.' : 'Company-wide broadcasts will appear here.'}
                     </Text>
                   </View>
+                  {!search && (
+                    <View className="w-full max-w-sm mt-4 border border-surface-border rounded-2xl overflow-hidden">
+                      <NewFolderRow onCreate={handleCreateFolder} />
+                    </View>
+                  )}
                   <View className="w-full max-w-sm">
                     <TaskFileResults pad={false} />
                   </View>
                 </View>
               ) : (
+                <View ref={marqueeContainerRef} style={{ flex: 1, position: 'relative' }}>
                 <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
                   {selectionMode ? (
                     <View className="flex-row items-center px-6 py-3 bg-brand-primary/5 border-b border-brand-primary/20 gap-2">
@@ -2822,13 +3049,36 @@ function FileHubDesktopInner() {
                   ) : (
                     <View className="flex-row items-center px-6 py-3 bg-surface-background/60 border-b border-surface-border/60">
                       <View className="w-9 mr-3.5" />
-                      <Text className="flex-1 text-typography-muted text-[9px] font-black uppercase tracking-widest">File</Text>
+                      <Text className="flex-1 text-typography-muted text-[9px] font-black uppercase tracking-widest">Name</Text>
+                      {displayFiles.length > 0 && (
+                        <TouchableOpacity
+                          onPress={() => handleDownloadAll(selectedFolderId ? folders.find(f => f.id === selectedFolderId)?.name ?? 'Files' : mode === 'inbox' ? 'Inbox Files' : mode === 'sent' ? 'Sent Files' : 'Files')}
+                          disabled={zipDownloading}
+                          className="w-7 h-7 items-center justify-center mr-1"
+                        >
+                          {zipDownloading
+                            ? <ActivityIndicator size="small" color={colors.primary} style={{ transform: [{ scale: 0.6 }] }} />
+                            : <FontAwesome name="download" size={11} color={colors.textMuted} />
+                          }
+                        </TouchableOpacity>
+                      )}
                       <TouchableOpacity onPress={() => setSelectionMode(true)} className="w-7 h-7 items-center justify-center mr-1">
                         <FontAwesome name="check-square-o" size={11} color={colors.textMuted} />
                       </TouchableOpacity>
                       <Text className="w-16 text-right text-typography-muted text-[9px] font-black uppercase tracking-widest">Date</Text>
                     </View>
                   )}
+                  {!selectionMode && subfolders.map(f => (
+                    <FolderRow
+                      key={f.id}
+                      folder={f}
+                      onNavigate={() => setSelectedFolderId(f.id)}
+                      onDropPayload={(payload) => handleDropOnFolder(payload, f.id)}
+                      onRename={(name) => renameFolder(f.id, name)}
+                      onDelete={() => handleDeleteFolder(f.id, f.name)}
+                    />
+                  ))}
+                  {!selectionMode && <NewFolderRow onCreate={handleCreateFolder} />}
                   {displayFiles.map(file => (
                     <FileRow
                       key={file.id}
@@ -2840,11 +3090,17 @@ function FileHubDesktopInner() {
                       selectionMode={selectionMode}
                       isFileSelected={selectedFileIds.has(file.id)}
                       onToggleSelect={() => toggleFileSelect(file.id)}
+                      draggable={file.uploader?.id === user?.id}
+                      dragIds={selectedFileIds.has(file.id) ? Array.from(selectedFileIds) : undefined}
                     />
                   ))}
                   <TaskFileResults />
                   <View style={{ height: 40 }} />
                 </ScrollView>
+                {marqueeRect && (
+                  <View pointerEvents="none" style={{ position: 'absolute', left: marqueeRect.x, top: marqueeRect.y, width: marqueeRect.w, height: marqueeRect.h, backgroundColor: 'rgba(99,102,241,0.15)', borderWidth: 1, borderColor: 'rgba(99,102,241,0.6)' }} />
+                )}
+                </View>
               )}
             </>
           )}
@@ -2914,7 +3170,7 @@ function FileHubDesktopInner() {
       {/* ── Upload Modal ── */}
       <UploadModal
         visible={showUpload}
-        folders={uploadFolders}
+        folders={folders}
         onClose={() => setShowUpload(false)}
         onUploaded={() => { mode === 'groups' && activeGroupId ? refreshGroupFiles() : refresh(); }}
         checkDuplicate={checkDuplicate}

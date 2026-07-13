@@ -9,7 +9,7 @@ import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Link, useLocalSearchParams, usePathname } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Image, Platform, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import { Image, Platform, Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
 import { useThemeColors } from '@/hooks/useThemeColors';
 
@@ -80,11 +80,9 @@ const initials = (value: string) => {
 const ThemePopover = ({
   visible,
   onClose,
-  sidebarExpanded,
 }: {
   visible: boolean;
   onClose: () => void;
-  sidebarExpanded: boolean;
 }) => {
   const colors = useThemeColors();
   const { theme, setTheme, density, setDensity, roundness, setRoundness } = useTheme();
@@ -95,10 +93,7 @@ const ThemePopover = ({
     <>
       <Pressable onPress={onClose} className="absolute inset-0 z-40 bg-surface-background/60" />
       <View
-        className="absolute bottom-6 z-50 w-80 rounded-2xl border border-surface-border bg-surface-card/95 p-5 premium-shadow glass-card transition-all duration-300"
-        style={{
-          left: sidebarExpanded ? 270 : 94,
-        }}
+        className="absolute right-4 top-16 z-50 w-80 rounded-2xl border border-surface-border bg-surface-card/95 p-5 premium-shadow glass-card transition-all duration-300"
       >
         <View className="mb-5 flex-row items-center justify-between border-b border-surface-border pb-4">
           <View>
@@ -260,6 +255,8 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
   const [pipelines, setPipelines] = useState<{ id: string; name: string }[]>([]);
   const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null);
   const [profileName, setProfileName] = useState('Profile');
+  // ponytail: visual-only stub, wire to a real cross-entity search when needed.
+  const [topSearch, setTopSearch] = useState('');
 
   const isExpanded = isHovered || !isCollapsed;
   const sidebarRef = useRef<any>(null);
@@ -363,14 +360,19 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
 
   return (
     <View className="flex-1 flex-row bg-surface-background w-full h-full overflow-hidden">
+      {/* Layout width follows only the pinned state; hover-expand animates the
+          absolute overlay below instead. Animating the layout width on hover
+          reflowed the whole content pane (kanban board & co.) every frame. */}
       <View
         ref={sidebarRef}
-        className={`${isExpanded ? 'w-64' : 'w-20'} relative self-stretch z-30 transition-[width] duration-300 ease-in-out`}
+        className={`${isCollapsed ? 'w-20' : 'w-64'} relative self-stretch z-30 transition-[width] duration-300 ease-in-out`}
       >
-        <View className="absolute inset-0 z-40">
+        <View
+          className={`absolute z-40 transition-[width] duration-300 ease-in-out ${isExpanded ? 'w-64' : 'w-20'}`}
+          style={{ top: 0, bottom: 0, left: 0 }}
+        >
           <View
-            className={`h-full border-r border-surface-border bg-surface-background w-full overflow-hidden z-20 ${isCollapsed && isExpanded ? 'absolute left-0 top-0' : ''
-              }`}
+            className={`h-full border-r border-surface-border bg-surface-background w-full overflow-hidden z-20 ${isCollapsed && isExpanded ? 'premium-shadow' : ''}`}
           >
             <View className="flex-1 p-4">
               <View className="mb-6 mt-2 flex-row items-center justify-between px-1">
@@ -505,73 +507,6 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
                   )}
                 </View>
               </ScrollView>
-
-              <View className="mt-auto rounded-2xl border border-surface-border bg-surface-overlay/20 p-2">
-                <Pressable
-                  onPress={() => setShowThemePopover((prev) => !prev)}
-                  className={`mb-2 min-h-11 flex-row items-center rounded-xl border border-transparent p-3 hover:bg-surface-card ${isExpanded ? '' : 'justify-center'
-                    }`}
-                  accessibilityLabel="Theme settings"
-                >
-                  <View className={`${isExpanded ? 'w-8' : ''} items-center`}>
-                    <FontAwesome name="paint-brush" size={18} color={colors.textDim} />
-                  </View>
-                  {isExpanded && <Text className="ml-2 font-bold text-typography-main">Theme</Text>}
-                </Pressable>
-
-                <Link href="/modal" asChild>
-                  <Pressable
-                    className={`mb-2 min-h-11 flex-row items-center rounded-xl border border-transparent p-3 hover:bg-surface-card ${isExpanded ? '' : 'justify-center'
-                      }`}
-                  >
-                    <View className={`${isExpanded ? 'w-8' : 'relative'} items-center`}>
-                      <FontAwesome name="bell" size={18} color={colors.primary} />
-                      {unreadCount > 0 && !isExpanded && (
-                        <View className="absolute -top-1.5 -right-1.5 min-w-4 h-4 rounded-full bg-state-danger items-center justify-center px-0.5">
-                          <Text className="text-[9px] font-black text-white leading-none">
-                            +{unreadCount > 99 ? '99' : unreadCount}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                    {isExpanded && (
-                      <>
-                        <Text className="ml-2 font-bold text-typography-main">Notifications</Text>
-                        {unreadCount > 0 && (
-                          <View className="ml-auto min-w-5 h-5 rounded-full bg-state-danger items-center justify-center px-1">
-                            <Text className="text-[10px] font-black text-white leading-none">
-                              +{unreadCount > 99 ? '99' : unreadCount}
-                            </Text>
-                          </View>
-                        )}
-                      </>
-                    )}
-                  </Pressable>
-                </Link>
-
-                <Link href="/profile" asChild>
-                  <Pressable
-                    className={`min-h-11 flex-row items-center rounded-xl border border-transparent p-3 hover:bg-surface-card ${isExpanded ? '' : 'justify-center'
-                      }`}
-                  >
-                    <View className={`${isExpanded ? 'w-8' : ''} items-center`}>
-                      <View className="h-9 w-9 items-center justify-center overflow-hidden rounded-xl border border-brand-primary/20 bg-brand-primary/5">
-                        {profileAvatarUrl ? (
-                          <Image source={{ uri: profileAvatarUrl }} className="h-full w-full" />
-                        ) : (
-                          <Text className="text-xs font-black text-brand-primary">{initials(profileLabel)}</Text>
-                        )}
-                      </View>
-                    </View>
-                    {isExpanded && (
-                      <View className="ml-2 flex-1">
-                        <Text className="font-bold text-typography-main whitespace-nowrap" numberOfLines={1}>{profileLabel}</Text>
-                        <Text className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 whitespace-nowrap">Signed in</Text>
-                      </View>
-                    )}
-                  </Pressable>
-                </Link>
-              </View>
             </View>
           </View>
         </View>
@@ -580,11 +515,64 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
       <ThemePopover
         visible={showThemePopover}
         onClose={() => setShowThemePopover(false)}
-        sidebarExpanded={isExpanded}
       />
 
-      <View className="flex-1 bg-surface-background">
-        {children}
+      <View className="flex-1 flex-col bg-surface-background">
+        <View className="h-16 flex-row items-center gap-3 border-b border-surface-border bg-surface-background px-5 z-30">
+          <View className="h-9 flex-1 max-w-md flex-row items-center gap-2 rounded-xl border border-surface-border bg-surface-card px-3">
+            <FontAwesome name="search" size={12} color={colors.textDim} />
+            <TextInput
+              value={topSearch}
+              onChangeText={setTopSearch}
+              placeholder="Search..."
+              placeholderTextColor={colors.textDim}
+              className="flex-1 text-sm text-typography-main outline-none"
+              style={{ paddingVertical: 0 }}
+            />
+          </View>
+
+          <View className="flex-1" />
+
+          <Pressable
+            onPress={() => setShowThemePopover((prev) => !prev)}
+            className="h-9 w-9 items-center justify-center rounded-xl border border-surface-border bg-surface-card hover:bg-surface-overlay"
+            accessibilityLabel="Theme settings"
+          >
+            <FontAwesome name="paint-brush" size={14} color={colors.textDim} />
+          </Pressable>
+
+          <Link href="/modal" asChild>
+            <Pressable className="h-9 w-9 items-center justify-center rounded-xl border border-surface-border bg-surface-card hover:bg-surface-overlay">
+              <View>
+                <FontAwesome name="bell" size={14} color={colors.primary} />
+                {unreadCount > 0 && (
+                  <View className="absolute -top-1.5 -right-1.5 min-w-4 h-4 rounded-full bg-state-danger items-center justify-center px-0.5">
+                    <Text className="text-[9px] font-black text-white leading-none">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </Pressable>
+          </Link>
+
+          <Link href="/profile" asChild>
+            <Pressable className="h-9 flex-row items-center gap-2 rounded-xl border border-surface-border bg-surface-card pl-1.5 pr-3 hover:bg-surface-overlay">
+              <View className="h-6.5 w-6.5 items-center justify-center overflow-hidden rounded-lg border border-brand-primary/20 bg-brand-primary/5">
+                {profileAvatarUrl ? (
+                  <Image source={{ uri: profileAvatarUrl }} className="h-full w-full" />
+                ) : (
+                  <Text className="text-[10px] font-black text-brand-primary">{initials(profileLabel)}</Text>
+                )}
+              </View>
+              <Text className="text-xs font-bold text-typography-main whitespace-nowrap" numberOfLines={1}>{profileLabel}</Text>
+            </Pressable>
+          </Link>
+        </View>
+
+        <View className="flex-1 bg-surface-background">
+          {children}
+        </View>
       </View>
     </View>
   );

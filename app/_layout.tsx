@@ -137,6 +137,10 @@ function RootLayoutNav() {
     const inAuthGroup = segments[0] === '(auth)';
     const inOnboarding = segments[0] === 'onboarding';
 
+    // Public FileHub share links (/share/[token]) are meant to be opened by
+    // logged-out recipients outside the app entirely — never redirect them.
+    if (segments[0] === 'share') return;
+
     if (Platform.OS === 'web') {
       // Original Web Logic - preserved exactly as requested
       if (!session && !inAuthGroup) {

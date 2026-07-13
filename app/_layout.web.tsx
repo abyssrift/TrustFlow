@@ -95,6 +95,10 @@ function RootLayoutNav() {
     const inAuthGroup = segments[0] === '(auth)';
     const inOnboarding = segments[0] === 'onboarding';
 
+    // Public FileHub share links (/share/[token]) are meant to be opened by
+    // logged-out recipients outside the app entirely — never redirect them.
+    if (segments[0] === 'share') return;
+
     if (!session && !inAuthGroup) {
       router.replace('/(auth)/login');
     } else if (session) {
@@ -109,7 +113,7 @@ function RootLayoutNav() {
     }
   }, [session, profile, initialized, segments]);
 
-  const showSidebar = session && segments[0] !== '(auth)' && segments[0] !== 'onboarding';
+  const showSidebar = session && segments[0] !== '(auth)' && segments[0] !== 'onboarding' && segments[0] !== 'share';
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>

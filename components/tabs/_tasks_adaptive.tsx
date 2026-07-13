@@ -4,7 +4,7 @@ import HorizontalScroll from '@/components/common/HorizontalScroll';
 import KanbanPersonalizer from '@/components/kanban/KanbanPersonalizer';
 import SkeletonBlock, { SkeletonList } from '@/components/Skeleton';
 import TaskCardActions, { type ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
-import { boardCacheMeta, prefetchOtherBoards, taskCache, type BoardSnapshot } from '@/components/tabs/taskBoardCache';
+import { boardCacheMeta, prefetchOtherBoards, taskCache, type BoardSnapshot, TASK_SORT_OPTIONS, compareTasksBySortKey, type TaskSortKey } from '@/components/tabs/taskBoardCache';
 import TaskPingButton from '@/components/task-detail/TaskPingButton';
 import AssignmentModal from '@/components/tasks/AssignmentModal';
 import CreateTaskSheet from '@/components/tasks/CreateTaskSheet';
@@ -76,6 +76,8 @@ type Task = {
     team?: { name: string } | null;
     user?: { full_name: string } | null;
   }[];
+  weight?: number;
+  estimated_hours?: number | null;
 };
 
 type FilterState = {
@@ -317,6 +319,7 @@ function TasksScreen() {
   const [showCreateSheet, setShowCreateSheet] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<FilterState>({ priorities: [], categories: [], projectIds: [], managerIds: [], dueDates: [] });
+  const [sortKey, setSortKey] = useState<TaskSortKey>('default');
   const [archiveModal, setArchiveModal] = useState<{ visible: boolean; taskId: string | null }>({ visible: false, taskId: null });
   const [archiving, setArchiving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -1159,9 +1162,10 @@ function TasksScreen() {
       )) return false;
       return true;
     });
+    if (sortKey !== 'default') stageTasks.sort((a, b) => compareTasksBySortKey(sortKey, a, b));
     return (
-      <View 
-        key={stage.id} 
+      <View
+        key={stage.id}
         style={{ width: isLargeScreen ? 320 : width * 0.85 }} 
         className="mr-4 h-full"
         // @ts-ignore - for web-only smart scroll
@@ -1737,7 +1741,7 @@ function TasksScreen() {
 
             {/* Manager */}
             {filterOptions.managers.length > 0 && (
-              <View>
+              <View className="mb-3">
                 <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-1.5">Manager</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
                   {filterOptions.managers.map(mgr => {
@@ -1757,7 +1761,7 @@ function TasksScreen() {
             )}
 
             {/* Due Date */}
-            <View>
+            <View className="mb-3">
               <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-1.5">Due Date</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
                 {DUE_DATE_BUCKETS.map(({ key, label }) => {
@@ -1766,6 +1770,25 @@ function TasksScreen() {
                     <TouchableOpacity
                       key={key}
                       onPress={() => toggleFilter('dueDates', key)}
+                      className={`px-3 py-1 rounded-xl border ${active ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border'}`}
+                    >
+                      <Text className={`text-[10px] font-black uppercase tracking-wider ${active ? 'text-brand-primary' : 'text-typography-muted'}`}>{label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+
+            {/* Sort By */}
+            <View>
+              <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-1.5">Sort By</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+                {TASK_SORT_OPTIONS.map(({ key, label }) => {
+                  const active = sortKey === key;
+                  return (
+                    <TouchableOpacity
+                      key={key}
+                      onPress={() => setSortKey(key)}
                       className={`px-3 py-1 rounded-xl border ${active ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border'}`}
                     >
                       <Text className={`text-[10px] font-black uppercase tracking-wider ${active ? 'text-brand-primary' : 'text-typography-muted'}`}>{label}</Text>

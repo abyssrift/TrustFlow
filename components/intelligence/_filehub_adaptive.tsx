@@ -1,10 +1,12 @@
 import { BackButton } from '@/components/common/BackButton';
 import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { FileActivity, FileHubFile, FileHubGroup, FileHubGroupMember, FileHubMode, FileHubProvider, FileVersion, folderPath, useFileHub } from '@/contexts/FileHubContext';
+import { FileActivity, FileHubFile, FileHubFolder, FileHubFolderScope, FileHubGroup, FileHubGroupMember, FileHubMode, FileHubProvider, FileHubShareLink, FileVersion, folderAncestors, folderPath, shareLinkUrl, useFileHub } from '@/contexts/FileHubContext';
+import { useToast } from '@/contexts/ToastContext';
 import { downloadFilesAsZip, downloadFilesToDevice, openStorageFile } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 import * as DocumentPicker from 'expo-document-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -135,9 +137,24 @@ function FileDetailSheet({
   /** When true (Shift+Click fast-track), jump straight to the fullscreen viewer. */
   autoPreview?: boolean;
 }) {
-  const { markRead, hideFile, deleteFile, logActivity, fileActivity, fileVersions, restoreVersion, pinVersion } = useFileHub();
+  const { markRead, hideFile, deleteFile, logActivity, fileActivity, fileVersions, restoreVersion, pinVersion, folders, moveFile, createShareLink, revokeShareLink, listShareLinks } = useFileHub();
   const { showConfirm } = useAlert();
+  const { successToast } = useToast();
   const [downloading, setDownloading] = useState(false);
+  const [showMoveFolder, setShowMoveFolder] = useState(false);
+  const [showShareLink, setShowShareLink] = useState(false);
+  const [shareLinks, setShareLinks] = useState<FileHubShareLink[]>([]);
+  const [shareLinksLoading, setShareLinksLoading] = useState(false);
+  const [creatingShareLink, setCreatingShareLink] = useState(false);
+  const [shareExpiryHours, setShareExpiryHours] = useState(168);
+
+  // The "Move to Folder" picker must only offer folders from this file's own
+  // scope (Direct/Broadcast/its channel) — folders don't cross those lines.
+  const fileFolderScope: FileHubFolderScope = file?.visibility === 'group' ? 'group' : file?.visibility === 'broadcast' ? 'broadcast' : 'direct';
+  const fileScopedFolders = useMemo(
+    () => folders.filter(f => f.scope === fileFolderScope && (f.group_id ?? null) === (file?.group_id ?? null)),
+    [folders, fileFolderScope, file?.group_id]
+  );
   const [tab, setTab] = useState<'details' | 'activity' | 'versions'>('details');
   const [activity, setActivity] = useState<FileActivity[]>([]);
   const [activityLoading, setActivityLoading] = useState(false);
@@ -439,6 +456,32 @@ function FileDetailSheet({
                 </TouchableOpacity>
               )}
 
+              {isOwner && (
+                <>
+                  <TouchableOpacity
+                    onPress={() => setShowMoveFolder(true)}
+                    className="flex-row items-center justify-center bg-surface-background border border-surface-border rounded-2xl py-3.5 gap-2"
+                  >
+                    <FontAwesome name="folder-o" size={13} color={colors.primary} />
+                    <Text className="text-typography-main font-black text-sm">
+                      {file.folder ? `In "${file.folder.name}" — Move` : 'Move to Folder'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => {
+                      setShareLinksLoading(true);
+                      listShareLinks(file.id).then(setShareLinks).catch(console.error).finally(() => setShareLinksLoading(false));
+                      setShowShareLink(true);
+                    }}
+                    className="flex-row items-center justify-center bg-surface-background border border-surface-border rounded-2xl py-3.5 gap-2"
+                  >
+                    <FontAwesome name="link" size={13} color={colors.primary} />
+                    <Text className="text-brand-primary font-black text-sm">Share Link</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+
               <View className="flex-row gap-3">
                 {mode === 'inbox' && (
                   <TouchableOpacity
@@ -595,6 +638,122 @@ function FileDetailSheet({
           </ScrollView>
           )}
     </DraggableSheet>
+    <DraggableSheet visible={showMoveFolder} onClose={() => setShowMoveFolder(false)} maxHeight="70%" dimBackdrop>
+      <View className="px-6 pt-2 pb-6">
+        <Text className="text-typography-main font-black text-lg mb-4">Move to Folder</Text>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <TouchableOpacity
+            onPress={() => { moveFile(file.id, null); setShowMoveFolder(false); }}
+            className="flex-row items-center gap-3 py-3.5 border-b border-surface-border/40"
+          >
+            <FontAwesome name="folder-open-o" size={14} color={!file.folder_id ? colors.primary : colors.textMuted} />
+            <Text className={`flex-1 text-sm font-bold ${!file.folder_id ? 'text-brand-primary' : 'text-typography-main'}`}>No folder</Text>
+            {!file.folder_id && <FontAwesome name="check" size={12} color={colors.primary} />}
+          </TouchableOpacity>
+          {[...fileScopedFolders].sort((a, b) => folderPath(fileScopedFolders, a.id).localeCompare(folderPath(fileScopedFolders, b.id))).map(f => (
+            <TouchableOpacity
+              key={f.id}
+              onPress={() => { moveFile(file.id, f.id); setShowMoveFolder(false); }}
+              className="flex-row items-center gap-3 py-3.5 border-b border-surface-border/40"
+            >
+              <FontAwesome name="folder-o" size={14} color={file.folder_id === f.id ? colors.primary : colors.textMuted} />
+              <Text className={`flex-1 text-sm font-bold ${file.folder_id === f.id ? 'text-brand-primary' : 'text-typography-main'}`}>{folderPath(fileScopedFolders, f.id)}</Text>
+              {file.folder_id === f.id && <FontAwesome name="check" size={12} color={colors.primary} />}
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+    </DraggableSheet>
+    <DraggableSheet visible={showShareLink} onClose={() => setShowShareLink(false)} maxHeight="75%" dimBackdrop>
+      <View className="px-6 pt-2 pb-6">
+        <Text className="text-typography-main font-black text-lg mb-4">Share "{file.original_name}"</Text>
+
+        <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Expires In</Text>
+        <View className="flex-row gap-2 mb-4">
+          {[
+            { label: '1 Day', hours: 24 },
+            { label: '7 Days', hours: 168 },
+            { label: '30 Days', hours: 720 },
+          ].map(opt => (
+            <TouchableOpacity
+              key={opt.hours}
+              onPress={() => setShareExpiryHours(opt.hours)}
+              className={`flex-1 items-center py-2.5 rounded-xl border ${shareExpiryHours === opt.hours ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}
+            >
+              <Text className={`text-xs font-black ${shareExpiryHours === opt.hours ? 'text-brand-primary' : 'text-typography-muted'}`}>{opt.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <TouchableOpacity
+          onPress={async () => {
+            setCreatingShareLink(true);
+            try {
+              await createShareLink(file.id, shareExpiryHours);
+              setShareLinksLoading(true);
+              listShareLinks(file.id).then(setShareLinks).catch(console.error).finally(() => setShareLinksLoading(false));
+            } catch { /* alerted */ } finally {
+              setCreatingShareLink(false);
+            }
+          }}
+          disabled={creatingShareLink}
+          className="flex-row items-center justify-center bg-brand-primary rounded-2xl py-3.5 gap-2 mb-5"
+        >
+          {creatingShareLink ? <ActivityIndicator size="small" color="#fff" /> : <FontAwesome name="plus" size={12} color="#fff" />}
+          <Text className="text-white font-black text-sm">Create Link</Text>
+        </TouchableOpacity>
+
+        <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Active Links</Text>
+        {shareLinksLoading ? (
+          <View className="py-4 items-center"><ActivityIndicator color={colors.primary} /></View>
+        ) : shareLinks.filter(l => !l.revoked_at && new Date(l.expires_at).getTime() > Date.now()).length === 0 ? (
+          <Text className="text-typography-dim text-xs py-2">No active share links.</Text>
+        ) : (
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {shareLinks.filter(l => !l.revoked_at && new Date(l.expires_at).getTime() > Date.now()).map(link => (
+              <View key={link.id} className="border border-surface-border rounded-xl px-3 py-2 mb-2">
+                <Text className="text-typography-main text-xs font-bold mb-1" numberOfLines={1}>{shareLinkUrl(link.token)}</Text>
+                <Text className="text-typography-dim text-[9px] mb-2">
+                  Expires {new Date(link.expires_at).toLocaleDateString()} · {link.view_count} view{link.view_count === 1 ? '' : 's'}
+                </Text>
+                <View className="flex-row gap-1.5">
+                  <TouchableOpacity
+                    onPress={async () => {
+                      await Clipboard.setStringAsync(shareLinkUrl(link.token));
+                      successToast('Link copied');
+                    }}
+                    className="flex-1 flex-row items-center justify-center gap-1 bg-surface-background border border-surface-border rounded-lg py-1.5"
+                  >
+                    <FontAwesome name="copy" size={10} color={colors.primary} />
+                    <Text className="text-brand-primary text-xs font-bold">Copy</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
+                      showConfirm(
+                        'Revoke Link',
+                        'Anyone with this link will lose access immediately.',
+                        async () => {
+                          try {
+                            await revokeShareLink(link.id);
+                            setShareLinksLoading(true);
+                            listShareLinks(file.id).then(setShareLinks).catch(console.error).finally(() => setShareLinksLoading(false));
+                          } catch { /* alerted */ }
+                        },
+                        undefined, 'Revoke', 'Cancel', 'destructive'
+                      );
+                    }}
+                    className="flex-1 flex-row items-center justify-center gap-1 bg-state-danger/10 border border-state-danger/20 rounded-lg py-1.5"
+                  >
+                    <FontAwesome name="ban" size={10} color={colors.danger} />
+                    <Text className="text-state-danger text-xs font-bold">Revoke</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+          </ScrollView>
+        )}
+      </View>
+    </DraggableSheet>
     {previewLightbox}
     {previewKind && previewUrl && (
       <FilePreviewModal
@@ -706,6 +865,15 @@ function UploadSheet({
     new Promise<string>(resolve => setPendingDecision({ title, message, options, resolve }));
 
   const canBroadcast = hasPermission('filehub:broadcast');
+
+  // Folders are scoped: a channel's folders never appear outside it, and
+  // Direct/Broadcast are separate trees too — so the picker only ever offers
+  // folders matching whatever this upload will actually target.
+  const uploadScope: FileHubFolderScope = activeGroup ? 'group' : (visibility === 'broadcast' ? 'broadcast' : 'direct');
+  const scopedFolders = useMemo(
+    () => folders.filter(f => f.scope === uploadScope && (f.group_id ?? null) === (activeGroup?.id ?? null)),
+    [folders, uploadScope, activeGroup?.id]
+  );
 
   const resetAll = () => {
     setPickedFiles([]);
@@ -1076,7 +1244,7 @@ function UploadSheet({
                 )}
 
                 {/* Folder */}
-                {folders.length > 0 && (
+                {scopedFolders.length > 0 && (
                   <View className="gap-2">
                     <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Folder</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, flexDirection: 'row', alignItems: 'center' }}>
@@ -1086,13 +1254,13 @@ function UploadSheet({
                       >
                         <Text className={`text-xs font-bold ${!folderId ? 'text-brand-primary' : 'text-typography-muted'}`}>None</Text>
                       </TouchableOpacity>
-                      {[...folders].sort((a, b) => folderPath(folders, a.id).localeCompare(folderPath(folders, b.id))).map(f => (
+                      {[...scopedFolders].sort((a, b) => folderPath(scopedFolders, a.id).localeCompare(folderPath(scopedFolders, b.id))).map(f => (
                         <TouchableOpacity
                           key={f.id}
                           onPress={() => setFolderId(f.id)}
                           className={`px-4 py-2 rounded-xl border ${folderId === f.id ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}
                         >
-                          <Text className={`text-xs font-bold ${folderId === f.id ? 'text-brand-primary' : 'text-typography-muted'}`}>{folderPath(folders, f.id)}</Text>
+                          <Text className={`text-xs font-bold ${folderId === f.id ? 'text-brand-primary' : 'text-typography-muted'}`}>{folderPath(scopedFolders, f.id)}</Text>
                         </TouchableOpacity>
                       ))}
                     </ScrollView>
@@ -1614,6 +1782,95 @@ function GroupMembersSheet({
 
 // ─── File Card ────────────────────────────────────────────────────────────────
 
+function FolderCard({ folder, onNavigate, onRename, onDelete }: {
+  folder: FileHubFolder;
+  onNavigate: () => void;
+  onRename: (name: string) => void;
+  onDelete: () => void;
+}) {
+  const colors = useThemeColors();
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState(folder.name);
+
+  const commitRename = () => {
+    setIsRenaming(false);
+    if (renameValue.trim() && renameValue.trim() !== folder.name) onRename(renameValue.trim());
+  };
+
+  return (
+    <View className="border rounded-2xl px-4 py-4 mb-3 flex-row items-center gap-3 bg-surface-card border-surface-border">
+      <View className="w-11 h-11 bg-surface-background border border-surface-border rounded-xl items-center justify-center flex-shrink-0">
+        <FontAwesome name="folder" size={20} color={colors.primary} />
+      </View>
+      {isRenaming ? (
+        <TextInput
+          value={renameValue}
+          onChangeText={setRenameValue}
+          onBlur={commitRename}
+          onSubmitEditing={commitRename}
+          autoFocus
+          className="flex-1 text-typography-main font-black text-sm outline-none bg-transparent"
+        />
+      ) : (
+        <TouchableOpacity onPress={onNavigate} className="flex-1 min-w-0">
+          <Text className="text-typography-main font-black text-sm" numberOfLines={1}>{folder.name}</Text>
+        </TouchableOpacity>
+      )}
+      <TouchableOpacity onPress={() => { setRenameValue(folder.name); setIsRenaming(true); }} className="w-9 h-9 items-center justify-center">
+        <FontAwesome name="pencil" size={12} color={colors.textMuted} />
+      </TouchableOpacity>
+      <TouchableOpacity onPress={onDelete} className="w-9 h-9 items-center justify-center">
+        <FontAwesome name="trash-o" size={12} color={colors.textMuted} />
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+function NewFolderCard({ onCreate }: { onCreate: (name: string) => Promise<void> }) {
+  const colors = useThemeColors();
+  const [showInput, setShowInput] = useState(false);
+  const [name, setName] = useState('');
+  const [creating, setCreating] = useState(false);
+
+  const handleCreate = async () => {
+    if (!name.trim()) return;
+    setCreating(true);
+    await onCreate(name.trim());
+    setName('');
+    setShowInput(false);
+    setCreating(false);
+  };
+
+  if (showInput) {
+    return (
+      <View className="border rounded-2xl px-4 py-3 mb-3 flex-row items-center gap-2 bg-surface-card border-brand-primary/40">
+        <TextInput
+          value={name}
+          onChangeText={setName}
+          onSubmitEditing={handleCreate}
+          onBlur={() => { if (!name.trim()) setShowInput(false); }}
+          placeholder="Folder name"
+          placeholderTextColor={colors.textDim}
+          autoFocus
+          className="flex-1 text-typography-main text-sm outline-none bg-transparent"
+        />
+        <TouchableOpacity onPress={handleCreate} disabled={creating} className="px-3 py-1.5 bg-brand-primary rounded-xl">
+          <Text className="text-white text-xs font-black">Add</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+  return (
+    <TouchableOpacity
+      onPress={() => setShowInput(true)}
+      className="border border-dashed rounded-2xl px-4 py-3.5 mb-3 flex-row items-center justify-center gap-2 border-surface-border"
+    >
+      <FontAwesome name="plus" size={12} color={colors.textMuted} />
+      <Text className="text-typography-muted text-sm font-bold">New folder</Text>
+    </TouchableOpacity>
+  );
+}
+
 function FileCard({
   file,
   mode,
@@ -1845,7 +2102,9 @@ function FileHubAdaptiveInner() {
     mode, setMode,
     search, setSearch,
     selectedTag, setSelectedTag,
-    files, loading,
+    files, folders, loading,
+    selectedFolderId, setSelectedFolderId,
+    createFolder, renameFolder, deleteFolder,
     inboxUnreadCount,
     refresh,
     markAllRead,
@@ -1903,9 +2162,17 @@ function FileHubAdaptiveInner() {
     }
   }, []);
 
-  // Derive tags from the currently visible file list
-  const displayFiles = mode === 'groups' && activeGroupId ? groupFiles : files;
+  // Channel files come back flat (unfiltered by folder) from rpc_filehub_group_list_files,
+  // so folder scoping for channels happens client-side to match the server-side
+  // p_folder_id filtering that inbox/sent/broadcast already get from fetchFiles.
+  const displayFiles = mode === 'groups' && activeGroupId
+    ? groupFiles.filter(f => (f.folder_id ?? null) === selectedFolderId)
+    : files;
   const displayLoading = mode === 'groups' && activeGroupId ? groupFilesLoading : loading;
+
+  // Reset folder navigation when entering/leaving a channel so it doesn't
+  // inherit wherever Inbox/Sent/Broadcast last left off (or bleed between channels).
+  useEffect(() => { setSelectedFolderId(null); }, [activeGroupId]);
 
   // Signed thumbnails for image rows; clicking any file opens its detail sheet,
   // where the image preview itself launches the lightbox.
@@ -2013,11 +2280,41 @@ function FileHubAdaptiveInner() {
     return Array.from(set).sort();
   }, [displayFiles]);
 
+  // Folders are scoped: Direct (Inbox+Sent share one tree, since they're the
+  // same underlying files viewed from two ends), Broadcast, and one
+  // independent tree per channel. contextFolders narrows the full company
+  // list down to whichever tree applies to the tab/channel currently open.
+  const contextScope: FileHubFolderScope = mode === 'groups' ? 'group' : mode === 'broadcast' ? 'broadcast' : 'direct';
+  const contextGroupId = mode === 'groups' ? activeGroupId : null;
+  const contextFolders = useMemo(
+    () => folders.filter(f => f.scope === contextScope && (f.group_id ?? null) === contextGroupId),
+    [folders, contextScope, contextGroupId]
+  );
+
+  // Explorer-style browsing: subfolders of whichever directory is currently
+  // open sit above its files.
+  const subfolders = useMemo(() => {
+    return contextFolders.filter(f => f.parent_id === selectedFolderId).sort((a, b) => a.name.localeCompare(b.name));
+  }, [contextFolders, selectedFolderId]);
+  const breadcrumbChain = selectedFolderId ? folderAncestors(contextFolders, selectedFolderId) : [];
+  const handleCreateFolder = useCallback(
+    (name: string) => createFolder(name, selectedFolderId, contextScope, contextGroupId),
+    [createFolder, selectedFolderId, contextScope, contextGroupId]
+  );
+  const handleDeleteFolder = useCallback((id: string, name: string) => {
+    const hasChildren = folders.some(f => f.parent_id === id);
+    showConfirm(
+      'Delete Folder',
+      `Delete "${name}"?${hasChildren ? ' Its subfolders will be deleted too.' : ''} Files will stay but lose the folder label.`,
+      () => deleteFolder(id),
+      undefined, 'Delete', 'Cancel', 'destructive'
+    );
+  }, [folders, deleteFolder, showConfirm]);
+
   const tabs: { key: FileHubMode; label: string; count?: number }[] = [
-    { key: 'inbox', label: 'Inbox', count: inboxUnreadCount > 0 ? inboxUnreadCount : undefined },
-    { key: 'sent', label: 'Sent' },
-    ...(canBroadcast ? [{ key: 'broadcast' as FileHubMode, label: 'Broadcast' }] : []),
     { key: 'groups', label: 'Channels' },
+    { key: 'inbox', label: 'Inbox', count: inboxUnreadCount > 0 ? inboxUnreadCount : undefined },
+    ...(canBroadcast ? [{ key: 'broadcast' as FileHubMode, label: 'Broadcast' }] : []),
   ];
 
   const handleTabChange = (key: FileHubMode) => {
@@ -2126,6 +2423,12 @@ function FileHubAdaptiveInner() {
         <TouchableOpacity onPress={() => setShowAnalytics(true)} className="w-11 h-11 bg-surface-card border border-surface-border rounded-2xl items-center justify-center">
           <FontAwesome name="bar-chart" size={13} color={colors.primary} />
         </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => handleTabChange('sent')}
+          className={`w-11 h-11 rounded-2xl items-center justify-center border ${mode === 'sent' ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-card border-surface-border'}`}
+        >
+          <FontAwesome name="paper-plane-o" size={13} color={mode === 'sent' ? colors.primary : colors.textMain} />
+        </TouchableOpacity>
         <TouchableOpacity onPress={() => setShowBin(true)} className="w-11 h-11 bg-surface-card border border-surface-border rounded-2xl items-center justify-center">
           <FontAwesome name="trash-o" size={13} color={colors.primary} />
         </TouchableOpacity>
@@ -2197,6 +2500,22 @@ function FileHubAdaptiveInner() {
           >
             <FontAwesome name="tags" size={14} color={colors.textMain} />
           </TouchableOpacity>
+        </View>
+      )}
+
+      {(mode !== 'groups' || activeGroupId) && (
+        <View className="flex-row items-center flex-wrap px-6 mb-3 gap-x-1.5">
+          <TouchableOpacity onPress={() => setSelectedFolderId(null)} className="py-1">
+            <Text className={`text-xs font-black ${!selectedFolderId ? 'text-typography-main' : 'text-typography-muted'}`}>All Files</Text>
+          </TouchableOpacity>
+          {breadcrumbChain.map((f, i) => (
+            <React.Fragment key={f.id}>
+              <FontAwesome name="angle-right" size={10} color={colors.textDim} />
+              <TouchableOpacity onPress={() => setSelectedFolderId(f.id)} className="py-1">
+                <Text className={`text-xs font-black ${i === breadcrumbChain.length - 1 ? 'text-typography-main' : 'text-typography-muted'}`} numberOfLines={1}>{f.name}</Text>
+              </TouchableOpacity>
+            </React.Fragment>
+          ))}
         </View>
       )}
 
@@ -2272,14 +2591,14 @@ function FileHubAdaptiveInner() {
         </>
       )}
 
-      {/* ── GROUPS mode — group file list ── */}
+      {/* ── GROUPS mode — group file list (folders above files, same explorer as Inbox/Sent/Broadcast) ── */}
       {mode === 'groups' && activeGroupId && (
         <>
           {displayLoading ? (
             <View className="flex-1 items-center justify-center">
               <ActivityIndicator size="large" color={colors.primary} />
             </View>
-          ) : displayFiles.length === 0 ? (
+          ) : displayFiles.length === 0 && subfolders.length === 0 ? (
             <View className="flex-1 items-center justify-center px-6">
               <View className="bg-surface-card p-10 rounded-[2.5rem] border border-surface-border items-center w-full">
                 <FontAwesome name="files-o" size={32} color={colors.textMuted} />
@@ -2290,9 +2609,20 @@ function FileHubAdaptiveInner() {
                   {search ? `No files match "${search}".` : 'Upload the first file to this channel.'}
                 </Text>
               </View>
+              {!search && <View className="w-full"><NewFolderCard onCreate={handleCreateFolder} /></View>}
             </View>
           ) : (
             <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false}>
+              {!selectionMode && subfolders.map(f => (
+                <FolderCard
+                  key={f.id}
+                  folder={f}
+                  onNavigate={() => setSelectedFolderId(f.id)}
+                  onRename={(name) => renameFolder(f.id, name)}
+                  onDelete={() => handleDeleteFolder(f.id, f.name)}
+                />
+              ))}
+              {!selectionMode && <NewFolderCard onCreate={handleCreateFolder} />}
               {displayFiles.map(file => (
                 <FileCard
                   key={file.id}
@@ -2319,7 +2649,7 @@ function FileHubAdaptiveInner() {
             <View className="flex-1 items-center justify-center">
               <ActivityIndicator size="large" color={colors.primary} />
             </View>
-          ) : displayFiles.length === 0 ? (
+          ) : displayFiles.length === 0 && subfolders.length === 0 ? (
             <View className="flex-1 items-center justify-center px-6">
               <View className="bg-surface-card p-10 rounded-[2.5rem] border border-surface-border items-center w-full">
                 <FontAwesome name="inbox" size={32} color={colors.textMuted} />
@@ -2336,10 +2666,21 @@ function FileHubAdaptiveInner() {
                     : 'Company-wide broadcasts will appear here.'}
                 </Text>
               </View>
+              {!search && <View className="w-full"><NewFolderCard onCreate={handleCreateFolder} /></View>}
               <TaskFileResults pad={false} />
             </View>
           ) : (
             <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false}>
+              {!selectionMode && subfolders.map(f => (
+                <FolderCard
+                  key={f.id}
+                  folder={f}
+                  onNavigate={() => setSelectedFolderId(f.id)}
+                  onRename={(name) => renameFolder(f.id, name)}
+                  onDelete={() => handleDeleteFolder(f.id, f.name)}
+                />
+              ))}
+              {!selectionMode && <NewFolderCard onCreate={handleCreateFolder} />}
               {displayFiles.map(file => (
                 <FileCard
                   key={file.id}

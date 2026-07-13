@@ -72,7 +72,7 @@
   "70": "devDependencies",
   "71": "Implementation Protocol",
   "72": "_projects_adaptive.tsx",
-  "73": "PipelineList.tsx",
+  "73": "useFileViewer.tsx",
   "74": "Tracing Protocol",
   "75": "Implementation Protocol",
   "76": "The Tracing Protocol",
@@ -102,7 +102,7 @@
   "100": "DEV_TOOLS_PAGE.md",
   "101": "Tips & Tricks",
   "102": "AlertContext.tsx",
-  "103": "What Reporting Data This Enables",
+  "103": "Customization",
   "104": "Troubleshooting",
   "105": "Data Characteristics",
   "106": "package.json",
@@ -111,7 +111,7 @@
   "109": "🆘 Troubleshooting",
   "110": "index.tsx",
   "111": "profile.tsx",
-  "112": "Troubleshooting",
+  "112": "What Reporting Data This Enables",
   "113": "Method 2: Using Command Line Script (Most Complete)",
   "114": "RootLayoutNav",
   "115": "fileTransfer.native.ts",
@@ -133,6 +133,7 @@
   "131": "DevTool.tsx",
   "132": "generate.native.ts",
   "133": "useClientOnlyValue.ts",
+  "134": "What Gets Created",
   "135": "system_validation.test.ts",
   "136": "walkthroughs.md",
   "137": "fullstack-feature-pipeline.md",
@@ -142,5 +143,6 @@
   "141": "postcss.config.js",
   "142": "tailwind.config.js",
   "143": "vitest.config.ts",
-  "145": "What Gets Created"
+  "144": "Customization",
+  "147": "EvidencePanel.tsx"
 }

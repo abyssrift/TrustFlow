@@ -33,6 +33,26 @@ export type FileHubFile = {
   expires_at?: string;
 };
 
+export type FileHubShareLink = {
+  id: string;
+  token: string;
+  created_at: string;
+  expires_at: string;
+  revoked_at: string | null;
+  view_count: number;
+  last_viewed_at: string | null;
+};
+
+// Builds the public /share/<token> URL. EXPO_PUBLIC_APP_URL covers native
+// (no `window`) and is the source of truth in prod; window.location.origin
+// is a same-answer fallback for local/preview web builds where it's unset.
+export function shareLinkUrl(token: string): string {
+  const base =
+    process.env.EXPO_PUBLIC_APP_URL ||
+    (typeof window !== 'undefined' ? window.location.origin : 'https://portal.trustedgellc.com');
+  return `${base.replace(/\/$/, '')}/share/${token}`;
+}
+
 export type FileVersion = {
   id: string;
   version_no: number;
@@ -67,25 +87,34 @@ export type CrossSearchResult = {
   task_title: string | null;
 };
 
+export type FileHubFolderScope = 'direct' | 'broadcast' | 'group';
+
 export type FileHubFolder = {
   id: string;
   name: string;
   parent_id: string | null;
+  scope: FileHubFolderScope;
+  group_id: string | null;
 };
+
+// Root-to-self ancestor chain for a folder — used for breadcrumbs.
+export function folderAncestors(folders: FileHubFolder[], folderId: string): FileHubFolder[] {
+  const byId = new Map(folders.map(f => [f.id, f]));
+  const chain: FileHubFolder[] = [];
+  let cur = byId.get(folderId);
+  let guard = 0;
+  while (cur && guard++ < 50) {
+    chain.unshift(cur);
+    cur = cur.parent_id ? byId.get(cur.parent_id) : undefined;
+  }
+  return chain;
+}
 
 // "Parent / Child" display path for a folder — used wherever folders are
 // shown in a flat list (upload pickers) so same-named folders under
 // different parents stay distinguishable.
 export function folderPath(folders: FileHubFolder[], folderId: string): string {
-  const byId = new Map(folders.map(f => [f.id, f]));
-  const parts: string[] = [];
-  let cur = byId.get(folderId);
-  let guard = 0;
-  while (cur && guard++ < 50) {
-    parts.unshift(cur.name);
-    cur = cur.parent_id ? byId.get(cur.parent_id) : undefined;
-  }
-  return parts.join(' / ');
+  return folderAncestors(folders, folderId).map(f => f.name).join(' / ');
 }
 
 export type FileHubGroup = {
@@ -142,7 +171,7 @@ type FileHubContextType = {
   binLoading: boolean;
   fetchBin: () => Promise<void>;
   restoreFromBin: (fileId: string) => Promise<void>;
-  createFolder: (name: string, parentId?: string | null) => Promise<void>;
+  createFolder: (name: string, parentId?: string | null, scope?: FileHubFolderScope, groupId?: string | null) => Promise<void>;
   renameFolder: (id: string, name: string) => Promise<void>;
   deleteFolder: (id: string) => Promise<void>;
   moveFolder: (id: string, newParentId: string | null) => Promise<void>;
@@ -163,6 +192,10 @@ type FileHubContextType = {
   fileVersions: (fileId: string) => Promise<FileVersion[]>;
   restoreVersion: (versionId: string) => Promise<void>;
   pinVersion: (versionId: string, pinned: boolean) => Promise<void>;
+  // Share links (public, read-only, expiring)
+  createShareLink: (fileId: string, expiresInHours: number) => Promise<FileHubShareLink>;
+  revokeShareLink: (id: string) => Promise<void>;
+  listShareLinks: (fileId: string) => Promise<FileHubShareLink[]>;
   // Groups
   groups: FileHubGroup[];
   groupsLoading: boolean;
@@ -193,7 +226,7 @@ export function useFileHub() {
 }
 
 export function FileHubProvider({ children }: { children: React.ReactNode }) {
-  const [mode, setModeState] = useState<FileHubMode>('inbox');
+  const [mode, setModeState] = useState<FileHubMode>('groups');
   const [search, setSearchState] = useState('');
   const [searchDebounced, setSearchDebounced] = useState('');
   const [selectedFolderId, setSelectedFolderIdState] = useState<string | null>(null);
@@ -277,7 +310,7 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
   const fetchFolders = useCallback(async () => {
     const { data } = await supabase
       .from('filehub_folders')
-      .select('id, name, parent_id')
+      .select('id, name, parent_id, scope, group_id')
       .order('name');
     setFolders(data || []);
   }, []);
@@ -464,8 +497,13 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
     refresh();
   }, [refresh]);
 
-  const createFolder = useCallback(async (name: string, parentId?: string | null) => {
-    const { error } = await supabase.rpc('rpc_filehub_folder_create', { p_name: name, p_parent_id: parentId || null });
+  const createFolder = useCallback(async (name: string, parentId?: string | null, scope: FileHubFolderScope = 'direct', groupId?: string | null) => {
+    const { error } = await supabase.rpc('rpc_filehub_folder_create', {
+      p_name: name,
+      p_parent_id: parentId || null,
+      p_scope: scope,
+      p_group_id: groupId || null,
+    });
     if (error) { Alert.alert('Error', error.message); return; }
     await fetchFolders();
   }, [fetchFolders]);
@@ -561,6 +599,26 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
     if (error) { Alert.alert('Error', error.message); throw error; }
   }, []);
 
+  const createShareLink = useCallback(async (fileId: string, expiresInHours: number): Promise<FileHubShareLink> => {
+    const { data, error } = await supabase.rpc('rpc_filehub_share_link_create', {
+      p_file_id: fileId,
+      p_expires_in_hours: expiresInHours,
+    });
+    if (error) { Alert.alert('Error', error.message); throw error; }
+    return { ...(data as { id: string; token: string; expires_at: string }), created_at: new Date().toISOString(), revoked_at: null, view_count: 0, last_viewed_at: null };
+  }, []);
+
+  const revokeShareLink = useCallback(async (id: string): Promise<void> => {
+    const { error } = await supabase.rpc('rpc_filehub_share_link_revoke', { p_id: id });
+    if (error) { Alert.alert('Error', error.message); throw error; }
+  }, []);
+
+  const listShareLinks = useCallback(async (fileId: string): Promise<FileHubShareLink[]> => {
+    const { data, error } = await supabase.rpc('rpc_filehub_share_link_list', { p_file_id: fileId });
+    if (error) { Alert.alert('Error', error.message); throw error; }
+    return data || [];
+  }, []);
+
   const logActivity = useCallback((fileId: string, action: string, metadata?: Record<string, any> | null) => {
     supabase.rpc('rpc_filehub_log_activity', {
       p_file_id: fileId,
@@ -606,6 +664,7 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
       createFolder, renameFolder, deleteFolder, moveFolder, moveFile,
       tagSuggestions, checkDuplicate,
       checkNameConflict, replaceFile, fileVersions, restoreVersion, pinVersion,
+      createShareLink, revokeShareLink, listShareLinks,
       groups, groupsLoading,
       activeGroupId, setActiveGroupId,
       groupFiles, groupFilesLoading,

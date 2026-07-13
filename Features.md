@@ -43,3 +43,24 @@ Adding Routines as a subcategory of automations in pipeline builder, where tasks
 allowing files to be shareable by a one click link and somehow allow for some kind of security ish thing, the link should be auto generatable by filehub, and have a limited expiry date, and RLS policies and similar, that way team members can share links outside the platform easily.
 
 a link for sharing and uploading might also be good but i think it might be complex and require alot.
+
+folders in the filehub get deleted without being soft deleted first, insane bug!
+
+the file too large to load thing should be for 500 KB for mobile, and way higher for desktop, because desktop can get way bigger files.
+
+Selection and bulk actions are not inclusive of folders, i want windows explorer like interactions.
+
+clicking ctrl and clicking a file should select it. 
+Dragging a file to a folder while selecting multiple should drag them all to the folder.
+
+The add new folder button that is in the filehub should be added to the header below the tab switcher rather than take up space in the middle, i want it to be like windows explorer.
+
+Whenever there are new files/new activity happening there should be something showing and a number displayed on the icon in the sidebar.
+
+Top bar looks wonderful, but there are features deeply missing.
+1. user's profile picture isnt displayed
+2. bar should disappear when users scroll down in the page, appear when users scroll up in the same page. 
+3. its look is a bit out of place for the tasks.tsx, it just blocks the background, allow for personalization for changing the color to transparent.
+4. Allow users to attach 4 shortcuts at the top if they want, it could be shortcuts to specific pipelines or something similar.
+5. Get the searchbar to get up and be running, its very important that we get it working to be able to index everything, files in the filehub, reports, tasks, descriptions, dates, i want a very very smart search bar. capable of recognizing when a user is looking for a task, or a date that something specific happened on, etc. (This one requires excessive planning, skip it if you're an AI looking for quick wins)
+6. 
