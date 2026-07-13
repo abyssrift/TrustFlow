@@ -77,7 +77,7 @@ export function useFileViewer(
   }, [previewKey, defaultBucket]);
 
   const [preview, setPreview] = useState<
-    { uri: string; name: string; kind: PreviewKind; bucket: string; storagePath: string } | null
+    { uri: string; name: string; kind: PreviewKind; bucket: string; storagePath: string; sizeBytes?: number } | null
   >(null);
 
   const handlePress = (item: ViewerMedia) => {
@@ -89,20 +89,20 @@ export function useFileViewer(
 
     const url = previewUrls[item.id];
     if (url) {
-      setPreview({ uri: url, name: item.name, kind, bucket, storagePath: item.storagePath });
+      setPreview({ uri: url, name: item.name, kind, bucket, storagePath: item.storagePath, sizeBytes: item.sizeBytes });
       return;
     }
 
     // Signed URL not resolved yet (e.g. item not in the eager list) — resolve on demand.
     if (item.storagePath.startsWith('http')) {
-      setPreview({ uri: item.storagePath, name: item.name, kind, bucket, storagePath: item.storagePath });
+      setPreview({ uri: item.storagePath, name: item.name, kind, bucket, storagePath: item.storagePath, sizeBytes: item.sizeBytes });
       return;
     }
     supabase.storage
       .from(bucket)
       .createSignedUrl(item.storagePath, 3600)
       .then(({ data }) => {
-        if (data?.signedUrl) setPreview({ uri: data.signedUrl, name: item.name, kind, bucket, storagePath: item.storagePath });
+        if (data?.signedUrl) setPreview({ uri: data.signedUrl, name: item.name, kind, bucket, storagePath: item.storagePath, sizeBytes: item.sizeBytes });
         else openStorageFile(bucket, item.storagePath, item.name, item.mimeType);
       });
   };
@@ -118,6 +118,7 @@ export function useFileViewer(
           kind={preview.kind}
           onClose={() => setPreview(null)}
           onDownload={() => openStorageFile(preview.bucket, preview.storagePath, preview.name)}
+          sizeBytes={preview.sizeBytes}
         />
       )}
     </>

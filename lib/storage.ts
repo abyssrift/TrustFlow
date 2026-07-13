@@ -34,6 +34,28 @@ function isInlinePreviewable(filename?: string, mimeType?: string | null): boole
  * On mobile, previewable media (images / video / PDFs) open inline in the device's
  * native viewer rather than being forced to download as an opaque attachment.
  */
+// Downloads a file locally and hands it to whatever app the OS has for it via
+// the native share sheet, instead of bouncing through the browser to download
+// it and stranding the user outside the app. Returns false on any failure so
+// the caller can fall back to Linking.openURL.
+async function openWithNativeApp(url: string, filename: string, mimeType?: string | null): Promise<boolean> {
+  try {
+    const FS = await import('expo-file-system/legacy');
+    const Sharing = await import('expo-sharing');
+    if (!(await Sharing.isAvailableAsync())) return false;
+
+    const cacheUri = `${FS.cacheDirectory}${filename}`;
+    const { status } = await FS.downloadAsync(url, cacheUri);
+    if (status !== 200) return false;
+
+    await Sharing.shareAsync(cacheUri, { mimeType: mimeType || undefined, dialogTitle: filename });
+    return true;
+  } catch (err) {
+    console.error('[Storage] Native open-with failed, falling back to browser:', err);
+    return false;
+  }
+}
+
 export async function openStorageFile(
   bucket: string,
   storagePath: string,
@@ -45,6 +67,7 @@ export async function openStorageFile(
   // Legacy records stored full public URLs — open directly (will 404 for private buckets,
   // but there's nothing we can do for those old records)
   if (storagePath.startsWith('http')) {
+    if (Platform.OS === 'web') { window.open(storagePath, '_blank', 'noopener'); return; }
     await Linking.openURL(storagePath);
     return;
   }
@@ -64,6 +87,18 @@ export async function openStorageFile(
   const openInline = isMobileDevice() && isInlinePreviewable(filename, mimeType);
   if (filename && !openInline) {
     url += `&download=${encodeURIComponent(filename)}`;
+  }
+
+  // Explicit '_blank' — don't rely on Linking.openURL's implicit single-arg
+  // default, which can be defeated by popup-blocker timing after the async
+  // signed-URL fetch above.
+  if (Platform.OS === 'web') {
+    window.open(url, '_blank', 'noopener');
+    return;
+  }
+
+  if (!openInline && filename && await openWithNativeApp(url, filename, mimeType)) {
+    return;
   }
 
   await Linking.openURL(url);

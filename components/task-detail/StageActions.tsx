@@ -243,6 +243,7 @@ export default function StageActions() {
           name: a.file_name,
           storagePath: a.storage_path || a.file_url,
           mimeType: a.mime_type,
+          sizeBytes: a.file_size || undefined,
         }))
       ),
     [data?.submissions]
@@ -875,6 +876,7 @@ export default function StageActions() {
                             mimeType: a.mime_type,
                             imageUri: subSignedUrls[mid],
                             previewUri: subPreviewUrls[mid],
+                            sizeBytes: a.file_size || undefined,
                             onPress: () => handleSubPress({ id: mid, name: a.file_name, storagePath: a.storage_path || a.file_url, mimeType: a.mime_type }),
                           };
                         })}

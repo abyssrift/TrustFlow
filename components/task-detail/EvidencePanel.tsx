@@ -81,6 +81,7 @@ export default function EvidencePanel() {
       name: item.file_name,
       storagePath: item.storage_path || item.file_url,
       mimeType: item.mime_type || (item.category === 'image' ? 'image/*' : null),
+      sizeBytes: item.file_size || undefined,
     }));
 
     return { groupedEvidence: groups, stats: currentStats, mediaItems };
@@ -134,6 +135,7 @@ export default function EvidencePanel() {
                   subtitle: `${formatSize(ev.file_size || 0)} · ${ev.submitted_by || 'Unknown'}`,
                   imageUri: signedUrls[ev._key],
                   previewUri: previewUrls[ev._key],
+                  sizeBytes: ev.file_size || undefined,
                   onPress: () => handlePress({ id: ev._key, name: ev.file_name, storagePath: ev.storage_path || ev.file_url, mimeType: mime }),
                 };
               })}

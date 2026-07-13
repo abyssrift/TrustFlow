@@ -70,7 +70,23 @@ export type CrossSearchResult = {
 export type FileHubFolder = {
   id: string;
   name: string;
+  parent_id: string | null;
 };
+
+// "Parent / Child" display path for a folder — used wherever folders are
+// shown in a flat list (upload pickers) so same-named folders under
+// different parents stay distinguishable.
+export function folderPath(folders: FileHubFolder[], folderId: string): string {
+  const byId = new Map(folders.map(f => [f.id, f]));
+  const parts: string[] = [];
+  let cur = byId.get(folderId);
+  let guard = 0;
+  while (cur && guard++ < 50) {
+    parts.unshift(cur.name);
+    cur = cur.parent_id ? byId.get(cur.parent_id) : undefined;
+  }
+  return parts.join(' / ');
+}
 
 export type FileHubGroup = {
   id: string;
@@ -126,9 +142,11 @@ type FileHubContextType = {
   binLoading: boolean;
   fetchBin: () => Promise<void>;
   restoreFromBin: (fileId: string) => Promise<void>;
-  createFolder: (name: string) => Promise<void>;
+  createFolder: (name: string, parentId?: string | null) => Promise<void>;
   renameFolder: (id: string, name: string) => Promise<void>;
   deleteFolder: (id: string) => Promise<void>;
+  moveFolder: (id: string, newParentId: string | null) => Promise<void>;
+  moveFile: (fileId: string, folderId: string | null) => Promise<void>;
   tagSuggestions: (prefix: string) => Promise<string[]>;
   checkDuplicate: (hash: string) => Promise<any[]>;
   // Versioning
@@ -259,7 +277,7 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
   const fetchFolders = useCallback(async () => {
     const { data } = await supabase
       .from('filehub_folders')
-      .select('id, name')
+      .select('id, name, parent_id')
       .order('name');
     setFolders(data || []);
   }, []);
@@ -446,8 +464,8 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
     refresh();
   }, [refresh]);
 
-  const createFolder = useCallback(async (name: string) => {
-    const { error } = await supabase.rpc('rpc_filehub_folder_create', { p_name: name });
+  const createFolder = useCallback(async (name: string, parentId?: string | null) => {
+    const { error } = await supabase.rpc('rpc_filehub_folder_create', { p_name: name, p_parent_id: parentId || null });
     if (error) { Alert.alert('Error', error.message); return; }
     await fetchFolders();
   }, [fetchFolders]);
@@ -464,6 +482,19 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
     setSelectedFolderIdState(prev => (prev === id ? null : prev));
     await fetchFolders();
   }, [fetchFolders]);
+
+  const moveFolder = useCallback(async (id: string, newParentId: string | null) => {
+    const { error } = await supabase.rpc('rpc_filehub_folder_move', { p_id: id, p_new_parent_id: newParentId });
+    if (error) { Alert.alert('Error', error.message); return; }
+    await fetchFolders();
+  }, [fetchFolders]);
+
+  const moveFile = useCallback(async (fileId: string, folderId: string | null) => {
+    const { error } = await supabase.rpc('rpc_filehub_file_move', { p_file_id: fileId, p_folder_id: folderId });
+    if (error) { Alert.alert('Error', error.message); return; }
+    refresh();
+    fetchGroupFiles();
+  }, [refresh, fetchGroupFiles]);
 
   const tagSuggestions = useCallback(async (prefix: string): Promise<string[]> => {
     const { data } = await supabase.rpc('rpc_filehub_tag_suggestions', {
@@ -572,7 +603,7 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
       refresh,
       markRead, markAllRead, hideFile, deleteFile,
       binFiles, binLoading, fetchBin, restoreFromBin,
-      createFolder, renameFolder, deleteFolder,
+      createFolder, renameFolder, deleteFolder, moveFolder, moveFile,
       tagSuggestions, checkDuplicate,
       checkNameConflict, replaceFile, fileVersions, restoreVersion, pinVersion,
       groups, groupsLoading,

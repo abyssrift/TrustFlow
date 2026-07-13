@@ -22,6 +22,7 @@ export type FileTile = {
   subtitle?: string;
   imageUri?: string;
   previewUri?: string;
+  sizeBytes?: number;
   onPress: () => void;
 };
 
@@ -36,6 +37,7 @@ export function FilePreviewCard({
   subtitle,
   imageUri,
   previewUri,
+  sizeBytes,
   width,
   previewHeight = 104,
   onPress,
@@ -65,7 +67,7 @@ export function FilePreviewCard({
         </TouchableOpacity>
       ) : kind && previewUri ? (
         <View className="-mb-3">
-          <FilePreviewTeaser uri={previewUri} kind={kind} height={previewHeight} onPress={onPress} />
+          <FilePreviewTeaser uri={previewUri} kind={kind} height={previewHeight} onPress={onPress} sizeBytes={sizeBytes} />
         </View>
       ) : (
         <TouchableOpacity

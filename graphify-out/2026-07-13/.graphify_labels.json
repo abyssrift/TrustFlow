@@ -95,13 +95,10 @@
   "93": "expo-audio",
   "94": "NetworkStatusBanner.tsx",
   "95": "Troubleshooting",
-  "96": "PipelineSettingsForm.tsx",
-  "97": "TaskPingButton.tsx",
   "98": "Global Utilities & Shared Logic Registry",
   "99": "fix_script_damage.js",
   "100": "DEV_TOOLS_PAGE.md",
   "101": "Tips & Tricks",
-  "102": "What You Get",
   "103": "What Reporting Data This Enables",
   "104": "Troubleshooting",
   "105": "Data Characteristics",
@@ -133,7 +130,6 @@
   "131": "DevTool.tsx",
   "132": "generate.native.ts",
   "133": "useClientOnlyValue.ts",
-  "134": "✅ What Was Created",
   "135": "system_validation.test.ts",
   "136": "walkthroughs.md",
   "137": "fullstack-feature-pipeline.md",
@@ -143,8 +139,5 @@
   "141": "postcss.config.js",
   "142": "tailwind.config.js",
   "143": "vitest.config.ts",
-  "144": "DeadlockAlert.tsx",
-  "145": "What Gets Created",
-  "146": "Method 1: Using DevTool Component (Easiest)",
-  "149": "filehub.tsx"
+  "145": "What Gets Created"
 }

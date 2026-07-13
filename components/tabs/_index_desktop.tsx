@@ -1,7 +1,7 @@
 import PendingTimeApprovalsWidget from '@/components/common/PendingTimeApprovalsWidget';
 import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { supabase, isAuthError, triggerAuthError } from '@/lib/supabase';
+import { isAuthError, supabase, triggerAuthError } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
@@ -620,7 +620,6 @@ export default function DashboardScreenWeb() {
                   <Text className="text-typography-main text-2xl font-black tracking-tight">Active Projects</Text>
                   <TouchableOpacity onPress={() => router.push('/projects')}>
                     <View className="flex-row items-center bg-surface-card border border-surface-border px-5 py-2.5 rounded-xl hover:border-brand-primary/50 transition-colors">
-                      <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest mr-2">View All</Text>
                       <FontAwesome name="arrow-right" size={10} className="text-brand-primary" />
                     </View>
                   </TouchableOpacity>

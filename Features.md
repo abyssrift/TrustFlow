@@ -37,3 +37,9 @@ allow also users to write personel notes in that sidebar, just things they wanna
 ON native mobile, clicking an excel sheet in the task brief doesnt open it internally in the app, it just redirects you to the link to download it, which i hope we can add a redirect link to re take you to the app without making it annoying. (maybe get download permissions? i wanna make the download experience seamless for users.)
 
 on desktop web, when you click on a file/excel/picture or whatever that requires me to open it via the storage URL in supabase, open it in another tab rather than the app's tab
+
+Adding Routines as a subcategory of automations in pipeline builder, where tasks can be recurring, some specific tasks can be routed differenlty, etc.
+
+allowing files to be shareable by a one click link and somehow allow for some kind of security ish thing, the link should be auto generatable by filehub, and have a limited expiry date, and RLS policies and similar, that way team members can share links outside the platform easily.
+
+a link for sharing and uploading might also be good but i think it might be complex and require alot.

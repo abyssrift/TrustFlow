@@ -1,6 +1,6 @@
 import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { FileActivity, FileHubFile, FileHubFolder, FileHubGroup, FileHubGroupMember, FileHubMode, FileHubProvider, FileVersion, useFileHub } from '@/contexts/FileHubContext';
+import { FileActivity, FileHubFile, FileHubFolder, FileHubGroup, FileHubGroupMember, FileHubMode, FileHubProvider, FileVersion, folderPath, useFileHub } from '@/contexts/FileHubContext';
 import { useFileSizeLimit } from '@/hooks/useFileSizeLimit';
 import { useImageLightbox } from '@/hooks/useImageLightbox';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -435,7 +435,7 @@ function UploadModal({
             const replaceSafeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
             const replacePath = `${companyId}/${replaceId}/${replaceSafeName}`;
             setProgress(25);
-            const { error: replaceStorageError } = await supabase.storage.from('filehub-files').upload(replacePath, file);
+            const { error: replaceStorageError } = await supabase.storage.from('filehub-files').upload(replacePath, file, { contentType: file.type || 'application/octet-stream' });
             if (replaceStorageError) throw replaceStorageError;
             setProgress(80);
             await replaceFile(conflict.id, {
@@ -456,7 +456,7 @@ function UploadModal({
         const storagePath = `${companyId}/${fileId}/${safeName}`;
         setProgress(25);
 
-        const { error: storageError } = await supabase.storage.from('filehub-files').upload(storagePath, file);
+        const { error: storageError } = await supabase.storage.from('filehub-files').upload(storagePath, file, { contentType: file.type || 'application/octet-stream' });
         if (storageError) throw storageError;
         setProgress(80);
 
@@ -667,13 +667,13 @@ function UploadModal({
                   >
                     <Text className={`text-xs font-bold ${!draft.folderId ? 'text-brand-primary' : 'text-typography-muted'}`}>No folder</Text>
                   </TouchableOpacity>
-                  {folders.map(f => (
+                  {[...folders].sort((a, b) => folderPath(folders, a.id).localeCompare(folderPath(folders, b.id))).map(f => (
                     <TouchableOpacity
                       key={f.id}
                       onPress={() => patch({ folderId: f.id })}
                       className={`px-4 py-2 rounded-xl border ${draft.folderId === f.id ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}
                     >
-                      <Text className={`text-xs font-bold ${draft.folderId === f.id ? 'text-brand-primary' : 'text-typography-muted'}`}>{f.name}</Text>
+                      <Text className={`text-xs font-bold ${draft.folderId === f.id ? 'text-brand-primary' : 'text-typography-muted'}`}>{folderPath(folders, f.id)}</Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
@@ -996,6 +996,7 @@ function FolderPanel() {
   const [renameValue, setRenameValue] = useState('');
   const [creating, setCreating] = useState(false);
   const [zipDownloading, setZipDownloading] = useState(false);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const handleFolderDownload = async (name: string) => {
     if (zipDownloading || files.length === 0) return;
@@ -1006,23 +1007,47 @@ function FolderPanel() {
       setZipDownloading(false);
     }
   };
-  // Track which folder IDs have files for the current user+mode when unfiltered
-  const [foldersWithFiles, setFoldersWithFiles] = useState<Set<string>>(new Set());
-  useEffect(() => {
-    if (!selectedFolderId && mode !== 'groups') {
-      setFoldersWithFiles(new Set(files.map(f => f.folder?.id).filter(Boolean) as string[]));
+
+  const childrenOf = useMemo(() => {
+    const map = new Map<string | null, FileHubFolder[]>();
+    for (const f of folders) {
+      const key = f.parent_id;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(f);
     }
-  }, [files, selectedFolderId, mode]);
-  const visibleFolders = useMemo(() => {
-    if (mode === 'groups') return folders;
-    const ids = new Set([...Array.from(foldersWithFiles), ...(selectedFolderId ? [selectedFolderId] : [])]);
-    return folders.filter(f => ids.has(f.id));
-  }, [folders, foldersWithFiles, selectedFolderId, mode]);
+    for (const list of map.values()) list.sort((a, b) => a.name.localeCompare(b.name));
+    return map;
+  }, [folders]);
+
+  // Auto-expand the path down to whichever folder is currently open, so its
+  // subfolders (and itself, if it has any) are always visible.
+  useEffect(() => {
+    if (!selectedFolderId) return;
+    const byId = new Map(folders.map(f => [f.id, f]));
+    setExpanded(prev => {
+      const next = new Set(prev);
+      let cur = byId.get(selectedFolderId);
+      next.add(selectedFolderId);
+      while (cur?.parent_id) {
+        next.add(cur.parent_id);
+        cur = byId.get(cur.parent_id);
+      }
+      return next;
+    });
+  }, [selectedFolderId, folders]);
+
+  const toggleExpand = (id: string) => {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
 
   const handleCreate = async () => {
     if (!newFolderName.trim()) return;
     setCreating(true);
-    await createFolder(newFolderName.trim());
+    await createFolder(newFolderName.trim(), selectedFolderId);
     setNewFolderName('');
     setShowNewFolder(false);
     setCreating(false);
@@ -1037,11 +1062,70 @@ function FolderPanel() {
   };
 
   const handleDeleteFolder = (id: string, name: string) => {
+    const hasChildren = (childrenOf.get(id)?.length ?? 0) > 0;
     showConfirm(
       'Delete Folder',
-      `Delete "${name}"? Files in this folder will stay but lose the folder label.`,
+      `Delete "${name}"?${hasChildren ? ' Its subfolders will be deleted too.' : ''} Files will stay but lose the folder label.`,
       () => deleteFolder(id),
       undefined, 'Delete', 'Cancel', 'destructive'
+    );
+  };
+
+  const renderFolder = (f: FileHubFolder, depth: number): React.ReactNode => {
+    const kids = childrenOf.get(f.id) ?? [];
+    const isExpanded = expanded.has(f.id);
+    const isSelected = selectedFolderId === f.id;
+    return (
+      <React.Fragment key={f.id}>
+        <View
+          className={`flex-row items-center px-3 py-2 rounded-xl mb-1 ${isSelected ? 'bg-brand-primary/10' : 'hover:bg-surface-overlay'}`}
+          style={{ marginLeft: depth * 16 }}
+        >
+          {kids.length > 0 ? (
+            <TouchableOpacity onPress={() => toggleExpand(f.id)} className="w-4 h-4 items-center justify-center mr-0.5">
+              <FontAwesome name={isExpanded ? 'chevron-down' : 'chevron-right'} size={8} color={colors.textDim} />
+            </TouchableOpacity>
+          ) : (
+            <View className="w-4 mr-0.5" />
+          )}
+          {renamingId === f.id ? (
+            <TextInput
+              value={renameValue}
+              onChangeText={setRenameValue}
+              onBlur={commitRename}
+              onSubmitEditing={commitRename}
+              autoFocus
+              className="flex-1 text-typography-main text-sm font-bold outline-none bg-transparent"
+            />
+          ) : (
+            <TouchableOpacity className="flex-1 flex-row items-center gap-2.5" onPress={() => setSelectedFolderId(f.id)}>
+              <FontAwesome name="folder-o" size={12} color={isSelected ? colors.primary : colors.textMuted} />
+              <Text className={`text-sm font-bold flex-1 ${isSelected ? 'text-brand-primary' : 'text-typography-main'}`} numberOfLines={1}>{f.name}</Text>
+            </TouchableOpacity>
+          )}
+          <View className="flex-row gap-1 ml-1">
+            {isSelected && files.length > 0 && (
+              <TouchableOpacity
+                onPress={() => handleFolderDownload(f.name)}
+                disabled={zipDownloading}
+                className="w-6 h-6 items-center justify-center rounded-lg hover:bg-surface-overlay"
+              >
+                {zipDownloading
+                  ? <ActivityIndicator size="small" color={colors.primary} style={{ transform: [{ scale: 0.6 }] }} />
+                  : <FontAwesome name="download" size={9} color={colors.primary} />
+                }
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity onPress={() => startRename(f)} className="w-6 h-6 items-center justify-center rounded-lg hover:bg-surface-overlay">
+              <FontAwesome name="pencil" size={9} color={colors.textMuted} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => handleDeleteFolder(f.id, f.name)} className="w-6 h-6 items-center justify-center rounded-lg hover:bg-surface-overlay">
+              <FontAwesome name="trash-o" size={9} color={colors.textMuted} />
+            </TouchableOpacity>
+          </View>
+        </View>
+        {isExpanded && kids.map(k => renderFolder(k, depth + 1))}
+      </React.Fragment>
     );
   };
 
@@ -1068,45 +1152,7 @@ function FolderPanel() {
         )}
       </View>
 
-      {visibleFolders.map(f => (
-        <View key={f.id} className={`flex-row items-center px-3 py-2 rounded-xl mb-1 ${selectedFolderId === f.id ? 'bg-brand-primary/10' : 'hover:bg-surface-overlay'}`}>
-          {renamingId === f.id ? (
-            <TextInput
-              value={renameValue}
-              onChangeText={setRenameValue}
-              onBlur={commitRename}
-              onSubmitEditing={commitRename}
-              autoFocus
-              className="flex-1 text-typography-main text-sm font-bold outline-none bg-transparent"
-            />
-          ) : (
-            <TouchableOpacity className="flex-1 flex-row items-center gap-2.5" onPress={() => setSelectedFolderId(f.id)}>
-              <FontAwesome name="folder-o" size={12} color={selectedFolderId === f.id ? colors.primary : colors.textMuted} />
-              <Text className={`text-sm font-bold flex-1 ${selectedFolderId === f.id ? 'text-brand-primary' : 'text-typography-main'}`} numberOfLines={1}>{f.name}</Text>
-            </TouchableOpacity>
-          )}
-          <View className="flex-row gap-1 ml-1">
-            {selectedFolderId === f.id && files.length > 0 && (
-              <TouchableOpacity
-                onPress={() => handleFolderDownload(f.name)}
-                disabled={zipDownloading}
-                className="w-6 h-6 items-center justify-center rounded-lg hover:bg-surface-overlay"
-              >
-                {zipDownloading
-                  ? <ActivityIndicator size="small" color={colors.primary} style={{ transform: [{ scale: 0.6 }] }} />
-                  : <FontAwesome name="download" size={9} color={colors.primary} />
-                }
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity onPress={() => startRename(f)} className="w-6 h-6 items-center justify-center rounded-lg hover:bg-surface-overlay">
-              <FontAwesome name="pencil" size={9} color={colors.textMuted} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleDeleteFolder(f.id, f.name)} className="w-6 h-6 items-center justify-center rounded-lg hover:bg-surface-overlay">
-              <FontAwesome name="trash-o" size={9} color={colors.textMuted} />
-            </TouchableOpacity>
-          </View>
-        </View>
-      ))}
+      {(childrenOf.get(null) ?? []).map(f => renderFolder(f, 0))}
 
       {showNewFolder ? (
         <View className="flex-row items-center gap-2 mt-1">
@@ -1130,7 +1176,9 @@ function FolderPanel() {
           className="flex-row items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-surface-overlay mt-1"
         >
           <FontAwesome name="plus" size={10} color={colors.textMuted} />
-          <Text className="text-typography-muted text-sm">New folder</Text>
+          <Text className="text-typography-muted text-sm">
+            {selectedFolderId ? 'New subfolder' : 'New folder'}
+          </Text>
         </TouchableOpacity>
       )}
     </View>
@@ -1285,7 +1333,7 @@ function DetailPanel({
   // Preview a specific (older) version in the document viewer — selecting a
   // version resolves its own signed URL and re-renders the viewer canvas.
   // Images use a dedicated 'image' branch since FilePreviewModal is doc-only.
-  const [versionPreview, setVersionPreview] = useState<{ uri: string; kind: PreviewKind | 'image'; name: string; versionNo: number } | null>(null);
+  const [versionPreview, setVersionPreview] = useState<{ uri: string; kind: PreviewKind | 'image'; name: string; versionNo: number; sizeBytes?: number } | null>(null);
   const handleVersionPreview = async (version: FileVersion) => {
     if (!file) return;
     const isImage = (version.mime_type ?? file.mime_type ?? '').toLowerCase().startsWith('image');
@@ -1296,7 +1344,7 @@ function DetailPanel({
       .createSignedUrl(version.storage_path, 3600);
     if (data?.signedUrl) {
       logActivity(file.id, 'view', { version_no: version.version_no });
-      setVersionPreview({ uri: data.signedUrl, kind: kind ?? 'image', name: version.original_name, versionNo: version.version_no });
+      setVersionPreview({ uri: data.signedUrl, kind: kind ?? 'image', name: version.original_name, versionNo: version.version_no, sizeBytes: version.size_bytes });
     }
   };
 
@@ -1450,7 +1498,7 @@ function DetailPanel({
             </View>
           </TouchableOpacity>
         ) : previewKind && previewUrl ? (
-          <FilePreviewTeaser uri={previewUrl} kind={previewKind} height={200} onPress={() => setPreviewOpen(true)} />
+          <FilePreviewTeaser uri={previewUrl} kind={previewKind} height={200} onPress={() => setPreviewOpen(true)} sizeBytes={file.size_bytes} />
         ) : (
           <View className="bg-surface-background rounded-2xl border border-surface-border items-center justify-center py-8 mb-4">
             <FontAwesome name={icon as any} size={44} color={color} />
@@ -1739,6 +1787,7 @@ function DetailPanel({
         fileName={file.original_name}
         onClose={() => setPreviewOpen(false)}
         onDownload={handleDownload}
+        sizeBytes={file.size_bytes}
       />
     )}
     {versionPreview && versionPreview.kind === 'image' && (
@@ -1761,6 +1810,7 @@ function DetailPanel({
         kind={versionPreview.kind}
         fileName={`${versionPreview.name} (v${versionPreview.versionNo})`}
         onClose={() => setVersionPreview(null)}
+        sizeBytes={versionPreview.sizeBytes}
       />
     )}
     </>

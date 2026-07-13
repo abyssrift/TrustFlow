@@ -1,7 +1,7 @@
 import { BackButton } from '@/components/common/BackButton';
 import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { FileActivity, FileHubFile, FileHubGroup, FileHubGroupMember, FileHubMode, FileHubProvider, FileVersion, useFileHub } from '@/contexts/FileHubContext';
+import { FileActivity, FileHubFile, FileHubGroup, FileHubGroupMember, FileHubMode, FileHubProvider, FileVersion, folderPath, useFileHub } from '@/contexts/FileHubContext';
 import { downloadFilesAsZip, downloadFilesToDevice, openStorageFile } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
@@ -212,7 +212,7 @@ function FileDetailSheet({
 
   // Preview a specific (older) version in the document viewer — selecting a
   // version resolves its own signed URL and re-renders the viewer canvas.
-  const [versionPreview, setVersionPreview] = useState<{ uri: string; kind: PreviewKind | 'image'; name: string; versionNo: number } | null>(null);
+  const [versionPreview, setVersionPreview] = useState<{ uri: string; kind: PreviewKind | 'image'; name: string; versionNo: number; sizeBytes?: number } | null>(null);
 
   if (!file) return null;
 
@@ -253,7 +253,7 @@ function FileDetailSheet({
       .createSignedUrl(version.storage_path, 3600);
     if (data?.signedUrl) {
       logActivity(file.id, 'view', { version_no: version.version_no });
-      setVersionPreview({ uri: data.signedUrl, kind: kind ?? 'image', name: version.original_name, versionNo: version.version_no });
+      setVersionPreview({ uri: data.signedUrl, kind: kind ?? 'image', name: version.original_name, versionNo: version.version_no, sizeBytes: version.size_bytes });
     }
   };
 
@@ -322,7 +322,7 @@ function FileDetailSheet({
                 </View>
               </TouchableOpacity>
             ) : previewKind && previewUrl ? (
-              <FilePreviewTeaser uri={previewUrl} kind={previewKind} height={112} onPress={() => setPreviewOpen(true)} />
+              <FilePreviewTeaser uri={previewUrl} kind={previewKind} height={112} onPress={() => setPreviewOpen(true)} sizeBytes={file.size_bytes} />
             ) : (
               <View className="w-20 h-20 bg-surface-background border border-surface-border rounded-2xl items-center justify-center mb-3">
                 <FontAwesome name={icon as any} size={36} color={color} />
@@ -604,6 +604,7 @@ function FileDetailSheet({
         fileName={file.original_name}
         onClose={() => setPreviewOpen(false)}
         onDownload={handleDownload}
+        sizeBytes={file.size_bytes}
       />
     )}
     {versionPreview && versionPreview.kind === 'image' && (
@@ -626,6 +627,7 @@ function FileDetailSheet({
         kind={versionPreview.kind}
         fileName={`${versionPreview.name} (v${versionPreview.versionNo})`}
         onClose={() => setVersionPreview(null)}
+        sizeBytes={versionPreview.sizeBytes}
       />
     )}
     </>
@@ -869,9 +871,9 @@ function UploadSheet({
             setProgress(40);
             let replaceStorageError;
             if (Platform.OS === 'web' && pf.webFile) {
-              ({ error: replaceStorageError } = await supabase.storage.from('filehub-files').upload(replacePath, pf.webFile));
+              ({ error: replaceStorageError } = await supabase.storage.from('filehub-files').upload(replacePath, pf.webFile, { contentType: pf.type || 'application/octet-stream' }));
             } else {
-              ({ error: replaceStorageError } = await supabase.storage.from('filehub-files').upload(replacePath, { uri: pf.uri, name: pf.name, type: pf.type ?? 'application/octet-stream' } as any));
+              ({ error: replaceStorageError } = await supabase.storage.from('filehub-files').upload(replacePath, { uri: pf.uri, name: pf.name, type: pf.type ?? 'application/octet-stream' } as any, { contentType: pf.type || 'application/octet-stream' }));
             }
             if (replaceStorageError) throw replaceStorageError;
             setProgress(80);
@@ -895,9 +897,9 @@ function UploadSheet({
 
         let storageError;
         if (Platform.OS === 'web' && pf.webFile) {
-          ({ error: storageError } = await supabase.storage.from('filehub-files').upload(storagePath, pf.webFile));
+          ({ error: storageError } = await supabase.storage.from('filehub-files').upload(storagePath, pf.webFile, { contentType: pf.type || 'application/octet-stream' }));
         } else {
-          ({ error: storageError } = await supabase.storage.from('filehub-files').upload(storagePath, { uri: pf.uri, name: pf.name, type: pf.type ?? 'application/octet-stream' } as any));
+          ({ error: storageError } = await supabase.storage.from('filehub-files').upload(storagePath, { uri: pf.uri, name: pf.name, type: pf.type ?? 'application/octet-stream' } as any, { contentType: pf.type || 'application/octet-stream' }));
         }
         if (storageError) throw storageError;
         setProgress(80);
@@ -1084,13 +1086,13 @@ function UploadSheet({
                       >
                         <Text className={`text-xs font-bold ${!folderId ? 'text-brand-primary' : 'text-typography-muted'}`}>None</Text>
                       </TouchableOpacity>
-                      {folders.map(f => (
+                      {[...folders].sort((a, b) => folderPath(folders, a.id).localeCompare(folderPath(folders, b.id))).map(f => (
                         <TouchableOpacity
                           key={f.id}
                           onPress={() => setFolderId(f.id)}
                           className={`px-4 py-2 rounded-xl border ${folderId === f.id ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}
                         >
-                          <Text className={`text-xs font-bold ${folderId === f.id ? 'text-brand-primary' : 'text-typography-muted'}`}>{f.name}</Text>
+                          <Text className={`text-xs font-bold ${folderId === f.id ? 'text-brand-primary' : 'text-typography-muted'}`}>{folderPath(folders, f.id)}</Text>
                         </TouchableOpacity>
                       ))}
                     </ScrollView>
