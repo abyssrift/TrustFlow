@@ -670,8 +670,8 @@
     "semantic_hash": ""
   },
   "components/intelligence/_filehub_adaptive.tsx": {
-    "mtime": 1783840546.6445425,
-    "ast_hash": "ef3956fd64a2bcaad16ce5e8b6e628f8",
+    "mtime": 1783926961.456628,
+    "ast_hash": "5ddebf7a7d6de541e15c0302aa080f6a",
     "semantic_hash": ""
   },
   "components/intelligence/_filehub_desktop.tsx": {
@@ -1220,8 +1220,8 @@
     "semantic_hash": ""
   },
   "contexts/AuthContext.tsx": {
-    "mtime": 1782296056.3783734,
-    "ast_hash": "20a53db132a02d675a1baf2b32edf5d8",
+    "mtime": 1783926108.369632,
+    "ast_hash": "4c70ec8b74fbc98effcbf63f8f969a35",
     "semantic_hash": ""
   },
   "contexts/FileHubContext.tsx": {
@@ -1445,8 +1445,8 @@
     "semantic_hash": ""
   },
   "lib/storage.ts": {
-    "mtime": 1782121484.495029,
-    "ast_hash": "ac04736dea30bd9a5e206b465cb096d3",
+    "mtime": 1783926874.4864419,
+    "ast_hash": "b24f295d0aab3c198dde06c42cdd7b7b",
     "semantic_hash": ""
   },
   "lib/supabase.ts": {
@@ -2190,8 +2190,8 @@
     "semantic_hash": ""
   },
   "Features.md": {
-    "mtime": 1783922410.1977715,
-    "ast_hash": "363bd98151a61b7d5bb251f542b53d0b",
+    "mtime": 1783927089.3041358,
+    "ast_hash": "54544493bf84bb9544b4494aa353aa3e",
     "semantic_hash": ""
   },
   "Notes.md": {

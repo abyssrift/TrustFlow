@@ -348,7 +348,10 @@ function PipelineTab({ planCode, limits }: { planCode: string; limits: Analytics
           } as any}>
             <PremiumCalendarPicker
               selectedDate={from}
-              onSelect={date => { setFrom(clampDate(date, minFrom)); setShowFromCalendar(false); }}
+              onSelect={date => setFrom(clampDate(date, minFrom))}
+              accentColor={colors.primary}
+              rangeDate={to}
+              rangeColor={colors.secondary}
             />
           </View>
         </>
@@ -362,7 +365,10 @@ function PipelineTab({ planCode, limits }: { planCode: string; limits: Analytics
           } as any}>
             <PremiumCalendarPicker
               selectedDate={to}
-              onSelect={date => { setTo(date); setShowToCalendar(false); }}
+              onSelect={date => setTo(date)}
+              accentColor={colors.secondary}
+              rangeDate={from}
+              rangeColor={colors.primary}
             />
           </View>
         </>
@@ -992,7 +998,10 @@ function PersonnelTab({ planCode, limits }: { planCode: string; limits: Analytic
           } as any}>
             <PremiumCalendarPicker
               selectedDate={from}
-              onSelect={date => { setFrom(clampDate(date, minFrom)); setShowFromCalendar(false); }}
+              onSelect={date => setFrom(clampDate(date, minFrom))}
+              accentColor={colors.primary}
+              rangeDate={to}
+              rangeColor={colors.secondary}
             />
           </View>
         </>
@@ -1006,7 +1015,10 @@ function PersonnelTab({ planCode, limits }: { planCode: string; limits: Analytic
           } as any}>
             <PremiumCalendarPicker
               selectedDate={to}
-              onSelect={date => { setTo(date); setShowToCalendar(false); }}
+              onSelect={date => setTo(date)}
+              accentColor={colors.secondary}
+              rangeDate={from}
+              rangeColor={colors.primary}
             />
           </View>
         </>

@@ -100,6 +100,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="projects"
         options={{
+          href: null,
           title: 'Projects',
           tabBarIcon: ({ color }) => <TabBarIcon name="folder-o" color={color} />,
         }}
@@ -139,7 +140,6 @@ export default function TabLayout() {
       <Tabs.Screen
         name="filehub"
         options={{
-          href: null,
           title: 'File Hub',
           tabBarIcon: ({ color }) => <TabBarIcon name="folder-open" color={color} />,
         }}

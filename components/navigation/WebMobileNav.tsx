@@ -16,7 +16,7 @@ type IconName = React.ComponentProps<typeof FontAwesome>['name'];
 const MAIN_TABS = [
   { id: 'dashboard', icon: 'th-large', label: 'Dashboard', href: '/' },
   { id: 'tasks', icon: 'check-square-o', label: 'Tasks', href: '/tasks' },
-  { id: 'projects', icon: 'folder-o', label: 'Projects', href: '/projects' },
+  { id: 'filehub', icon: 'folder-open', label: 'File Hub', href: '/filehub' },
 ] as const;
 
 const matchesHref = (pathname: string, href: string) => {

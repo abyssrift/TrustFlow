@@ -461,6 +461,9 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
                             setDateEnd(date);
                           }
                         }}
+                        accentColor={activeDateField === 'start' ? colors.primary : colors.secondary}
+                        rangeDate={activeDateField === 'start' ? dateEnd : dateStart}
+                        rangeColor={activeDateField === 'start' ? colors.secondary : colors.primary}
                       />
                     </View>
                   )}

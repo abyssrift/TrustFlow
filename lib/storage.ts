@@ -69,15 +69,35 @@ export async function openStorageFile(
   await Linking.openURL(url);
 }
 
+type DownloadableFile = {
+  storage_path: string;
+  bucket?: string | null;
+  original_name: string;
+  mime_type?: string | null;
+};
+
+// Resolves "photo.jpg" -> "photo (1).jpg" on repeat, so same-named attachments
+// from different submissions don't clobber each other in the destination.
+function dedupeName(name: string, usedNames: Map<string, number>): string {
+  if (!usedNames.has(name)) {
+    usedNames.set(name, 0);
+    return name;
+  }
+  const count = usedNames.get(name)! + 1;
+  usedNames.set(name, count);
+  const dotIdx = name.lastIndexOf('.');
+  return dotIdx > 0 ? `${name.slice(0, dotIdx)} (${count})${name.slice(dotIdx)}` : `${name} (${count})`;
+}
+
 export async function downloadFilesAsZip(
-  files: Array<{ storage_path: string; bucket?: string | null; original_name: string }>,
+  files: DownloadableFile[],
   zipName: string,
   onProgress?: (downloaded: number, total: number) => void
 ): Promise<void> {
   if (files.length === 0) return;
 
   if (Platform.OS !== 'web') {
-    Alert.alert('Not Supported', 'ZIP download is only available on web. Open each file individually instead.');
+    Alert.alert('Not Supported', 'ZIP download is only available on web. Use "Save to Device" instead.');
     return;
   }
 
@@ -99,20 +119,7 @@ export async function downloadFilesAsZip(
       const response = await fetch(data.signedUrl);
       if (!response.ok) continue;
       const blob = await response.blob();
-
-      let name = file.original_name;
-      if (usedNames.has(name)) {
-        const count = usedNames.get(name)! + 1;
-        usedNames.set(name, count);
-        const dotIdx = name.lastIndexOf('.');
-        name = dotIdx > 0
-          ? `${name.slice(0, dotIdx)} (${count})${name.slice(dotIdx)}`
-          : `${name} (${count})`;
-      } else {
-        usedNames.set(name, 0);
-      }
-
-      zip.file(name, blob);
+      zip.file(dedupeName(file.original_name, usedNames), blob);
     } catch {
       // skip files that fail to fetch
     }
@@ -129,4 +136,64 @@ export async function downloadFilesAsZip(
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+export type SaveToDeviceResult = { savedCount: number; failedCount: number; cancelled?: boolean };
+
+/**
+ * Batch-saves files onto the device without zipping — Android only, via the
+ * Storage Access Framework (user picks a destination folder once, every file
+ * gets written straight into it, same as a "Download All" in any other app).
+ *
+ * ponytail: iOS has no SAF equivalent in Expo without extra native modules;
+ * callers on iOS should fall back to opening/sharing files one at a time via
+ * openStorageFile(). Add an iOS path if that becomes the primary platform.
+ */
+export async function downloadFilesToDevice(
+  files: DownloadableFile[],
+  onProgress?: (downloaded: number, total: number) => void
+): Promise<SaveToDeviceResult> {
+  if (files.length === 0) return { savedCount: 0, failedCount: 0 };
+  if (Platform.OS !== 'android') return { savedCount: 0, failedCount: files.length };
+
+  const FS = await import('expo-file-system/legacy');
+  const perm = await FS.StorageAccessFramework.requestDirectoryPermissionsAsync();
+  if (!perm.granted) return { savedCount: 0, failedCount: files.length, cancelled: true };
+
+  const usedNames = new Map<string, number>();
+  let savedCount = 0;
+  let failedCount = 0;
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    onProgress?.(i, files.length);
+    const cacheUri = `${FS.cacheDirectory}filehub-dl-${Date.now()}-${i}`;
+
+    try {
+      const { data, error } = await supabase.storage
+        .from(file.bucket || 'filehub-files')
+        .createSignedUrl(file.storage_path, 3600);
+      if (error || !data?.signedUrl) { failedCount++; continue; }
+
+      const { status } = await FS.downloadAsync(data.signedUrl, cacheUri);
+      if (status !== 200) { failedCount++; continue; }
+
+      const name = dedupeName(file.original_name, usedNames);
+      const dotIdx = name.lastIndexOf('.');
+      const baseName = dotIdx > 0 ? name.slice(0, dotIdx) : name;
+      const mime = file.mime_type || 'application/octet-stream';
+
+      const destUri = await FS.StorageAccessFramework.createFileAsync(perm.directoryUri, baseName, mime);
+      const base64 = await FS.readAsStringAsync(cacheUri, { encoding: 'base64' });
+      await FS.writeAsStringAsync(destUri, base64, { encoding: 'base64' });
+      savedCount++;
+    } catch {
+      failedCount++;
+    } finally {
+      FS.deleteAsync(cacheUri, { idempotent: true }).catch(() => {});
+    }
+  }
+
+  onProgress?.(files.length, files.length);
+  return { savedCount, failedCount };
 }

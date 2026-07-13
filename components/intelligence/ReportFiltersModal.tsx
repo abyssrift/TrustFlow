@@ -330,6 +330,9 @@ export default function ReportFiltersModal({ visible, onClose, onApply, initial 
                   setDateTo(date);
                 }
               }}
+              accentColor={activeDateField === 'from' ? colors.primary : colors.secondary}
+              rangeDate={activeDateField === 'from' ? dateTo : dateFrom}
+              rangeColor={activeDateField === 'from' ? colors.secondary : colors.primary}
             />
           </ScrollView>
 

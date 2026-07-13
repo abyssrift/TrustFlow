@@ -20,6 +20,7 @@ type Shortcut = {
 };
 
 const SHORTCUTS: Shortcut[] = [
+  { id: 'projects', permissionKey: 'project.view', icon: 'folder-o', label: 'Projects', href: '/projects' },
   { id: 'radar', permissionKey: 'report.view', icon: 'bullseye', label: 'Intelligence', href: '/intelligence' },
   { id: 'targets', permissionKey: 'target.view', icon: 'crosshairs', label: 'Targets', href: '/intelligence/targets' },
   { id: 'archives', permissionKey: 'archive.view', icon: 'archive', label: 'Archives', href: '/intelligence/archives' },

@@ -553,7 +553,10 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
           <View className="absolute z-50" style={{ top: duePos.top, left: duePos.left }}>
             <PremiumCalendarPicker
               selectedDate={dueDate}
-              onSelect={(d) => { setDueDate(d); setShowDueCal(false); }}
+              onSelect={(d) => setDueDate(d)}
+              accentColor={colors.primary}
+              rangeDate={startDate}
+              rangeColor={colors.secondary}
               compact
             />
           </View>
@@ -564,7 +567,10 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
           <View className="absolute z-50" style={{ top: startPos.top, left: startPos.left }}>
             <PremiumCalendarPicker
               selectedDate={startDate}
-              onSelect={(d) => { setStartDate(d); setShowStartCal(false); }}
+              onSelect={(d) => setStartDate(d)}
+              accentColor={colors.secondary}
+              rangeDate={dueDate}
+              rangeColor={colors.primary}
               compact
             />
           </View>

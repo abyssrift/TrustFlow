@@ -8,10 +8,6 @@ Task Management Optimization:
 
 Implement manual card reordering (drag-and-drop) to manage high-volume task lists.
 
-Add a "Due Date Extension" quick-action button in card views. and add it inside the [id].tsx as well, just add it as a function
-
-Full-screen mode for pipeline stages to reduce visual clutter and improve focus.
-
 Standardization: Standardize all time units across the frontend and ensure graphs reflect appropriate, consistent time units.
 
 Feature Expansion (Medium Priority)
@@ -38,5 +34,6 @@ add a sidebar on kanban board like the sidebar on the other side to show everyon
 
 allow also users to write personel notes in that sidebar, just things they wanna lookout for, that note system should be like the windows notes application, where you can open multiple notes and view only one, the others stay at the top at a nice selector, modern, sleek and elegant
 
+ON native mobile, clicking an excel sheet in the task brief doesnt open it internally in the app, it just redirects you to the link to download it, which i hope we can add a redirect link to re take you to the app without making it annoying. (maybe get download permissions? i wanna make the download experience seamless for users.)
 
-Submission textbox deletes words when we click enter
+on desktop web, when you click on a file/excel/picture or whatever that requires me to open it via the storage URL in supabase, open it in another tab rather than the app's tab

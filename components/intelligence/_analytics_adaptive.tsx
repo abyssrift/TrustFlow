@@ -39,8 +39,9 @@ const PRESETS = [
 
 // ─── Calendar Modal ───────────────────────────────────────────────────────────
 
-function CalendarModal({ visible, title, value, onSelect, onClose }: {
+function CalendarModal({ visible, title, value, onSelect, onClose, accentColor, rangeDate, rangeColor }: {
   visible: boolean; title: string; value: string; onSelect: (d: string) => void; onClose: () => void;
+  accentColor?: string; rangeDate?: string; rangeColor?: string;
 }) {
   const colors = useThemeColors();
   return (
@@ -59,6 +60,9 @@ function CalendarModal({ visible, title, value, onSelect, onClose }: {
           <PremiumCalendarPicker
             selectedDate={value}
             onSelect={d => { onSelect(d); onClose(); }}
+            accentColor={accentColor}
+            rangeDate={rangeDate}
+            rangeColor={rangeColor}
             compact
           />
     </DraggableSheet>
@@ -126,8 +130,16 @@ function DateRangeControls({ from, to, setFrom, setTo }: {
         </View>
       )}
 
-      <CalendarModal visible={showFrom} title="Start Date" value={from} onSelect={v => { setFrom(v); setActivePreset(null); }} onClose={() => setShowFrom(false)} />
-      <CalendarModal visible={showTo}   title="End Date"   value={to}   onSelect={v => { setTo(v);   setActivePreset(null); }} onClose={() => setShowTo(false)} />
+      <CalendarModal
+        visible={showFrom} title="Start Date" value={from}
+        onSelect={v => { setFrom(v); setActivePreset(null); }} onClose={() => setShowFrom(false)}
+        accentColor={colors.primary} rangeDate={to} rangeColor={colors.secondary}
+      />
+      <CalendarModal
+        visible={showTo} title="End Date" value={to}
+        onSelect={v => { setTo(v); setActivePreset(null); }} onClose={() => setShowTo(false)}
+        accentColor={colors.secondary} rangeDate={from} rangeColor={colors.primary}
+      />
     </View>
   );
 }

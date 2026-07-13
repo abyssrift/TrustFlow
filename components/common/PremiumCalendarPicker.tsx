@@ -12,10 +12,13 @@ cssInterop(FontAwesome, {
 } as any);
 
 type Props = {
-  selectedDate: string | null; // ISO string (YYYY-MM-DD)
+  selectedDate: string | null; // ISO string (YYYY-MM-DD) — the date being actively picked
   onSelect: (date: string) => void;
   accentColor?: string;
   compact?: boolean; // single-month, no sidebar — for use inside modals
+  rangeDate?: string | null; // the "other" date (e.g. due date when selectedDate is start), shown in rangeColor
+  rangeColor?: string; // color for rangeDate; days between selectedDate/rangeDate are tinted with it
+  rangeLabel?: string; // label for the days-between badge, e.g. "days"
 };
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -33,9 +36,10 @@ const QUICK_ACTIONS = [
   { label: '+1 Month',  days: 30 },
 ];
 
-export default function PremiumCalendarPicker({ selectedDate, onSelect, accentColor, compact = false }: Props) {
+export default function PremiumCalendarPicker({ selectedDate, onSelect, accentColor, compact = false, rangeDate, rangeColor, rangeLabel = 'days' }: Props) {
   const colors = useThemeColors();
   const resolvedAccentColor = accentColor ?? colors.primary;
+  const resolvedRangeColor = rangeColor ?? colors.secondary;
   const { width } = useWindowDimensions();
   const isDesktop = !compact && width > 768;
 
@@ -79,6 +83,28 @@ export default function PremiumCalendarPicker({ selectedDate, onSelect, accentCo
     return d.getFullYear() === y && d.getMonth() === m && d.getDate() === day;
   };
 
+  const isRangeSelected = (day: number, y: number, m: number) => {
+    if (!rangeDate) return false;
+    const d = new Date(rangeDate);
+    return d.getFullYear() === y && d.getMonth() === m && d.getDate() === day;
+  };
+
+  const rangeBounds = useMemo(() => {
+    if (!selectedDate || !rangeDate) return null;
+    const a = new Date(selectedDate).getTime();
+    const b = new Date(rangeDate).getTime();
+    if (a === b) return null;
+    return { start: Math.min(a, b), end: Math.max(a, b) };
+  }, [selectedDate, rangeDate]);
+
+  const isBetween = (day: number, y: number, m: number) => {
+    if (!rangeBounds) return false;
+    const t = new Date(y, m, day).getTime();
+    return t > rangeBounds.start && t < rangeBounds.end;
+  };
+
+  const rangeDays = rangeBounds ? Math.round((rangeBounds.end - rangeBounds.start) / 86400000) : null;
+
   const handleSelect = (day: number, y: number, m: number) => {
     const d = new Date(y, m, day);
     onSelect?.(d.toISOString().split('T')[0]);
@@ -108,26 +134,41 @@ export default function PremiumCalendarPicker({ selectedDate, onSelect, accentCo
       <View className="flex-row flex-wrap">
         {days.map((day, idx) => (
           <View key={idx} style={{ width: '14.285%', aspectRatio: 1 }} className="p-1">
-            {day !== null ? (
-              <TouchableOpacity
-                onPress={() => handleSelect(day, y, m)}
-                className={`flex-1 items-center justify-center rounded-xl transition-all duration-200 ${
-                  isSelected(day, y, m) 
-                    ? 'bg-brand-primary' 
-                    : isToday(day, y, m) 
-                      ? 'bg-brand-primary/10 border border-brand-primary/30' 
-                      : 'hover:bg-surface-overlay'
-                }`}
-                style={isSelected(day, y, m) ? { backgroundColor: resolvedAccentColor } : undefined}
-              >
-                <Text className={`text-xs font-bold ${isSelected(day, y, m) ? 'text-white' : 'text-typography-main'}`}>
-                  {day}
-                </Text>
-                {isToday(day, y, m) && !isSelected(day, y, m) && (
-                  <View className="absolute bottom-1 w-1 h-1 rounded-full" style={{ backgroundColor: resolvedAccentColor }} />
-                )}
-              </TouchableOpacity>
-            ) : (
+            {day !== null ? (() => {
+              const selected = isSelected(day, y, m);
+              const rangeSelected = isRangeSelected(day, y, m);
+              const between = isBetween(day, y, m);
+              return (
+                <TouchableOpacity
+                  onPress={() => handleSelect(day, y, m)}
+                  className={`flex-1 items-center justify-center rounded-xl transition-all duration-200 ${
+                    selected || rangeSelected
+                      ? ''
+                      : between
+                        ? ''
+                        : isToday(day, y, m)
+                          ? 'bg-brand-primary/10 border border-brand-primary/30'
+                          : 'hover:bg-surface-overlay'
+                  }`}
+                  style={
+                    selected
+                      ? { backgroundColor: resolvedAccentColor }
+                      : rangeSelected
+                        ? { backgroundColor: resolvedRangeColor }
+                        : between
+                          ? { backgroundColor: `${resolvedAccentColor}1a` }
+                          : undefined
+                  }
+                >
+                  <Text className={`text-xs font-bold ${selected || rangeSelected ? 'text-white' : 'text-typography-main'}`}>
+                    {day}
+                  </Text>
+                  {isToday(day, y, m) && !selected && !rangeSelected && (
+                    <View className="absolute bottom-1 w-1 h-1 rounded-full" style={{ backgroundColor: resolvedAccentColor }} />
+                  )}
+                </TouchableOpacity>
+              );
+            })() : (
               <View className="flex-1" />
             )}
           </View>
@@ -187,13 +228,21 @@ export default function PremiumCalendarPicker({ selectedDate, onSelect, accentCo
             </View>
           )}
   
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={handleNextMonth}
             className="w-10 h-10 items-center justify-center rounded-xl bg-surface-overlay border border-surface-border hover:border-brand-primary transition-colors"
           >
             <FontAwesome name="chevron-right" size={12} className="text-typography-muted" />
           </TouchableOpacity>
         </View>
+
+        {rangeDays !== null && (
+          <View className="items-center justify-center py-2 border-b border-surface-border bg-surface-background/20">
+            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">
+              {rangeDays} {rangeLabel} between
+            </Text>
+          </View>
+        )}
 
         {/* Grids */}
         <View className={`flex-row ${!isDesktop ? 'flex-col' : ''}`}>

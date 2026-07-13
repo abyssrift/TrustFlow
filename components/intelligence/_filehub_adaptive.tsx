@@ -2,7 +2,7 @@ import { BackButton } from '@/components/common/BackButton';
 import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { FileActivity, FileHubFile, FileHubGroup, FileHubGroupMember, FileHubMode, FileHubProvider, FileVersion, useFileHub } from '@/contexts/FileHubContext';
-import { downloadFilesAsZip, openStorageFile } from '@/lib/storage';
+import { downloadFilesAsZip, downloadFilesToDevice, openStorageFile } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
@@ -20,6 +20,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import DraggableSheet from '@/components/common/DraggableSheet';
 import { useFileSizeLimit } from '@/hooks/useFileSizeLimit';
@@ -1837,7 +1838,7 @@ function TagsManageSheet({ visible, onClose, onChanged }: {
 
 function FileHubAdaptiveInner() {
   const { hasPermission, user, profile } = useAuth();
-  const { showConfirm } = useAlert();
+  const { showConfirm, showAlert } = useAlert();
   const {
     mode, setMode,
     search, setSearch,
@@ -1856,6 +1857,9 @@ function FileHubAdaptiveInner() {
   const router = useRouter();
   const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
+  // Floating tab bar sits at insets.bottom + 24/16 and is ~76px tall; clear it with margin.
+  const tabBarClearance = Math.max(insets.bottom, Platform.OS === 'ios' ? 24 : 16) + 76;
   const [selectedFile, setSelectedFile] = useState<FileHubFile | null>(null);
   const [fastTrackPreview, setFastTrackPreview] = useState(false);
 
@@ -1938,11 +1942,33 @@ function FileHubAdaptiveInner() {
     );
   }, [displayFiles]);
 
+  // Web zips; Android saves straight into a user-picked folder via SAF (no zip
+  // support there). Other native platforms fall back to opening files one by one.
+  const saveFiles = async (filesToSave: FileHubFile[], zipName: string) => {
+    if (Platform.OS === 'web') {
+      await downloadFilesAsZip(filesToSave, zipName);
+      return;
+    }
+    if (Platform.OS !== 'android') {
+      showAlert('Not Supported', 'Batch download isn\'t available on this device yet — open each file individually instead.');
+      return;
+    }
+    const { savedCount, failedCount, cancelled } = await downloadFilesToDevice(filesToSave);
+    if (cancelled) return;
+    if (savedCount === 0) {
+      showAlert('Download Failed', `Couldn't save any of the ${failedCount} file(s). Check your connection and try again.`);
+    } else if (failedCount > 0) {
+      showAlert('Partially Saved', `Saved ${savedCount} file(s); ${failedCount} failed.`);
+    } else {
+      showAlert('Saved', `${savedCount} file(s) saved to the selected folder.`);
+    }
+  };
+
   const handleDownloadAll = async (name: string) => {
     if (zipDownloading || displayFiles.length === 0) return;
     setZipDownloading(true);
     try {
-      await downloadFilesAsZip(displayFiles, name);
+      await saveFiles(displayFiles, name);
     } finally {
       setZipDownloading(false);
     }
@@ -1953,7 +1979,7 @@ function FileHubAdaptiveInner() {
     if (filesToDownload.length === 0 || zipDownloading) return;
     setZipDownloading(true);
     try {
-      await downloadFilesAsZip(filesToDownload, 'Selected Files');
+      await saveFiles(filesToDownload, 'Selected Files');
       exitSelection();
     } finally {
       setZipDownloading(false);
@@ -2334,7 +2360,7 @@ function FileHubAdaptiveInner() {
 
       {/* ── Selection toolbar (replaces FAB when in selection mode) ── */}
       {selectionMode ? (
-        <View className="absolute bottom-6 left-5 right-5 bg-surface-card border border-surface-border rounded-2xl px-4 py-2 flex-row items-center gap-2.5 premium-shadow">
+        <View className="absolute left-5 right-5 bg-surface-card border border-surface-border rounded-2xl px-4 py-2 flex-row items-center gap-2.5 premium-shadow" style={{ bottom: tabBarClearance }}>
           <TouchableOpacity
             onPress={toggleSelectAll}
             className={`w-9 h-9 rounded-xl items-center justify-center border-2 flex-shrink-0 ${
@@ -2378,7 +2404,8 @@ function FileHubAdaptiveInner() {
         (mode !== 'groups' || activeGroupId) && (
           <TouchableOpacity
             onPress={() => setShowUpload(true)}
-            className="absolute right-6 bottom-8 w-14 h-14 bg-brand-primary rounded-full items-center justify-center premium-shadow"
+            className="absolute right-6 w-14 h-14 bg-brand-primary rounded-full items-center justify-center premium-shadow"
+            style={{ bottom: tabBarClearance }}
           >
             <FontAwesome name="plus" size={20} color="#fff" />
           </TouchableOpacity>

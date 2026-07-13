@@ -886,7 +886,10 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
           <View style={{ position: 'fixed', top: calendarPos.top, left: Math.max(20, Math.min(calendarPos.left, width - 820)), width: Math.min(width - 40, 800), zIndex: 999 } as any}>
             <PremiumCalendarPicker
               selectedDate={draft.dueDate}
-              onSelect={date => { setDraft({ dueDate: date }); setShowCalendar(false); }}
+              onSelect={date => setDraft({ dueDate: date })}
+              accentColor={colors.primary}
+              rangeDate={draft.startDate}
+              rangeColor={colors.accent}
             />
           </View>
         )}
@@ -897,7 +900,9 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
             <PremiumCalendarPicker
               selectedDate={draft.startDate}
               accentColor={colors.accent}
-              onSelect={date => { setDraft({ startDate: date }); setShowStartCalendar(false); }}
+              onSelect={date => setDraft({ startDate: date })}
+              rangeDate={draft.dueDate}
+              rangeColor={colors.primary}
             />
           </View>
         )}
