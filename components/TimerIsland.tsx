@@ -128,7 +128,7 @@ export default function TimerIsland() {
         >
            <View className="w-2 h-2 rounded-full bg-brand-primary animate-pulse mr-2.5 ml-1" />
            {!expanded && (
-             <Text className="text-white font-mono text-xs font-black mr-2">{elapsed}</Text>
+             <Text className="text-typography-main font-mono text-xs font-black mr-2">{elapsed}</Text>
            )}
         </TouchableOpacity>
 
@@ -139,7 +139,7 @@ export default function TimerIsland() {
               {activeSession?.id === 'pending' ? 'Committing...' : 'Active Session'}
             </Text>
             <TouchableOpacity onPress={() => !isDragging.current && router.push(`/task/${activeSession?.task_id}`)}>
-              <Text className="text-white text-[10px] font-bold" numberOfLines={1}>
+              <Text className="text-typography-main text-[10px] font-bold" numberOfLines={1}>
                 {activeSession?.task?.title || 'Task Details'}
               </Text>
             </TouchableOpacity>

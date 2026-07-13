@@ -330,8 +330,8 @@
     "semantic_hash": ""
   },
   "components/TimerIsland.tsx": {
-    "mtime": 1783923858.0847583,
-    "ast_hash": "7d70f46891552da265aa6efb10cb7da2",
+    "mtime": 1778575312.586645,
+    "ast_hash": "8c0311d49bf5c2970285af26b3a9374d",
     "semantic_hash": ""
   },
   "components/WebPushPrompt.tsx": {
@@ -1050,8 +1050,8 @@
     "semantic_hash": ""
   },
   "components/tabs/_tasks_desktop.tsx": {
-    "mtime": 1783924002.2270215,
-    "ast_hash": "fe8dd932ba013d98888e01c4765c6a9d",
+    "mtime": 1783859688.0501487,
+    "ast_hash": "a458ce79b2aa3db118e675367c906e7b",
     "semantic_hash": ""
   },
   "components/tabs/_tasks_web.tsx": {
@@ -1085,13 +1085,13 @@
     "semantic_hash": ""
   },
   "components/task-detail/EditTaskModal.tsx": {
-    "mtime": 1783923742.526391,
-    "ast_hash": "61607f0d25df75efc16c98f90ad9dfa1",
+    "mtime": 1782296056.3573685,
+    "ast_hash": "b29306a71f081200fbe392ad5204e23e",
     "semantic_hash": ""
   },
   "components/task-detail/EditTaskModal.web.tsx": {
-    "mtime": 1783923774.8753262,
-    "ast_hash": "adabbef606b85e76ed016b9bdce5e679",
+    "mtime": 1781593852.6778238,
+    "ast_hash": "5249de8bfa1501c37d9fa0fe912c9c26",
     "semantic_hash": ""
   },
   "components/task-detail/EvidencePanel.tsx": {
@@ -1125,8 +1125,8 @@
     "semantic_hash": ""
   },
   "components/task-detail/StageActions.tsx": {
-    "mtime": 1783923534.033626,
-    "ast_hash": "b00bcbd42fa25a5f333ecba8e4b0d2e3",
+    "mtime": 1783859688.0541465,
+    "ast_hash": "f2733193d432c67ab773f1cc3420a394",
     "semantic_hash": ""
   },
   "components/task-detail/TaskBriefPanel.tsx": {
@@ -1145,8 +1145,8 @@
     "semantic_hash": ""
   },
   "components/task-detail/TaskMetadata.tsx": {
-    "mtime": 1783923804.5093212,
-    "ast_hash": "1362a851aae9466bd2a6d028b7752c31",
+    "mtime": 1781169919.8390963,
+    "ast_hash": "a2d4544419d3c3d1f04c90252390300a",
     "semantic_hash": ""
   },
   "components/task-detail/TaskPingButton.tsx": {
@@ -2195,8 +2195,8 @@
     "semantic_hash": ""
   },
   "Features.md": {
-    "mtime": 1783922410.1977715,
-    "ast_hash": "363bd98151a61b7d5bb251f542b53d0b",
+    "mtime": 1783861179.0836012,
+    "ast_hash": "983dfd2e648c49a23b2d58b8972a4c1e",
     "semantic_hash": ""
   },
   "Notes.md": {
@@ -2737,11 +2737,6 @@
   "supabase/migrations/20260714_archive_bulk_purge.sql": {
     "mtime": 1783861389.2285745,
     "ast_hash": "d017b3a52af9f08596cba2a3d455d327",
-    "semantic_hash": ""
-  },
-  "supabase/migrations/20260714_archive_delete_grant_existing_roles.sql": {
-    "mtime": 1783864059.5132747,
-    "ast_hash": "29153f757882b9ebbeeae7c4606b0cb2",
     "semantic_hash": ""
   }
 }

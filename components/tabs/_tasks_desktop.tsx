@@ -302,6 +302,7 @@ export function TasksScreenWeb() {
   const [stageTransitions, setStageTransitions] = useState<{ id: string; to_stage_id: string }[]>(seed?.stageTransitions ?? []);
   const [showPersonalizer, setShowPersonalizer] = useState(false);
   const [showMobility, setShowMobility] = useState(false);
+  const [fullscreenStageId, setFullscreenStageId] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<FilterState>({ priorities: [], categories: [], projectIds: [], managerIds: [], dueDates: [] });
   const [searchQuery, setSearchQuery] = useState('');
@@ -1614,13 +1615,13 @@ export function TasksScreenWeb() {
               </View>
             </View>
           ) : (
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={true}
+            <ScrollView
+              horizontal={!fullscreenStageId}
+              showsHorizontalScrollIndicator={!fullscreenStageId}
               className="flex-1"
-              contentContainerStyle={{ paddingBottom: 40 }}
+              contentContainerStyle={fullscreenStageId ? { flex: 1, paddingBottom: 40 } : { paddingBottom: 40 }}
             >
-              {stages.map(stage => {
+              {(fullscreenStageId ? stages.filter(s => s.id === fullscreenStageId) : stages).map(stage => {
                 const stageTasks = tasks.filter(t => {
                   if (t.current_stage_id !== stage.id) return false;
                   if (filters.priorities.length > 0 && !filters.priorities.includes(t.priority)) return false;
@@ -1635,8 +1636,9 @@ export function TasksScreenWeb() {
                   )) return false;
                   return true;
                 });
+                const isFullscreen = fullscreenStageId === stage.id;
                 return (
-                  <View key={stage.id} className="w-[380px] mr-8 h-full">
+                  <View key={stage.id} className={isFullscreen ? 'flex-1 h-full' : 'w-[380px] mr-8 h-full'}>
                     <View className="flex-row items-center justify-between mb-6 px-3">
                       <View className="flex-row items-center">
                         <View style={{ backgroundColor: stage.color }} className="w-3 h-3 rounded-full mr-3 shadow-sm shadow-black/50" />
@@ -1647,13 +1649,21 @@ export function TasksScreenWeb() {
                           </View>
                         )}
                       </View>
-                      
-                      {stage.linked_pipeline && (
-                         <View className="flex-row items-center border border-brand-primary/30 bg-brand-primary/10 px-2 py-0.5 rounded-full">
-                            <FontAwesome name="bolt" size={8} className="text-brand-primary" />
-                            <Text className="text-brand-primary text-[8px] font-black ml-1 uppercase">Pushes to {stage.linked_pipeline.name}</Text>
-                         </View>
-                      )}
+
+                      <View className="flex-row items-center gap-2">
+                        {stage.linked_pipeline && (
+                           <View className="flex-row items-center border border-brand-primary/30 bg-brand-primary/10 px-2 py-0.5 rounded-full">
+                              <FontAwesome name="bolt" size={8} className="text-brand-primary" />
+                              <Text className="text-brand-primary text-[8px] font-black ml-1 uppercase">Pushes to {stage.linked_pipeline.name}</Text>
+                           </View>
+                        )}
+                        <TouchableOpacity
+                          onPress={() => setFullscreenStageId(isFullscreen ? null : stage.id)}
+                          className="w-6 h-6 items-center justify-center rounded-lg bg-surface-card border border-surface-border active:opacity-70"
+                        >
+                          <FontAwesome name={isFullscreen ? 'compress' : 'expand'} size={10} className="text-typography-muted" />
+                        </TouchableOpacity>
+                      </View>
                     </View>
                     
                     <ScrollView 

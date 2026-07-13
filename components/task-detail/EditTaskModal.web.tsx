@@ -22,6 +22,8 @@ cssInterop(FontAwesome, {
 type Props = {
   visible: boolean;
   onClose: () => void;
+  /** Opens the sheet on a given field's tab already visible (e.g. from a card quick-action). */
+  focusField?: 'due_date' | null;
 };
 
 type UserOption = { id: string; full_name: string };
@@ -51,7 +53,7 @@ function quickDate(days: number): string {
   return d.toISOString().split('T')[0];
 }
 
-export default function EditTaskModalWeb({ visible, onClose }: Props) {
+export default function EditTaskModalWeb({ visible, onClose, focusField }: Props) {
   const colors = useThemeColors();
   const { data, updateTask } = useTaskDetail();
 
@@ -129,10 +131,10 @@ export default function EditTaskModalWeb({ visible, onClose }: Props) {
       const rawHours = (data as any).task.estimated_hours;
       setEstimatedHours(rawHours?.toString() || '');
       closeAllOverlays();
-      setTab('details');
+      setTab(focusField === 'due_date' ? 'scheduling' : 'details');
       setError(null);
     }
-  }, [data, visible]);
+  }, [data, visible, focusField]);
 
   useEffect(() => {
     if (visible && users.length === 0) {

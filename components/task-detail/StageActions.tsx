@@ -47,6 +47,76 @@ const STATUS_STYLES: Record<string, { bg: string; border: string; text: string; 
   pending: { bg: 'bg-state-info-dim', border: 'border-state-info/30', text: 'text-state-info', label: 'Pending Review' },
 };
 
+// Ticks once a second in its own subtree so the 1s re-render doesn't hit the
+// rest of StageActions (was blowing away in-flight keystrokes in the submission box).
+function LiveTimerChip({
+  active,
+  startedAt,
+  serverTimeOffset,
+  getLastActivityTime,
+}: {
+  active: boolean;
+  startedAt: string | null;
+  serverTimeOffset: number;
+  getLastActivityTime: () => number;
+}) {
+  const [elapsed, setElapsed] = React.useState(0);
+  const [idleSeconds, setIdleSeconds] = React.useState(0);
+  const [isTracking, setIsTracking] = React.useState(true);
+
+  React.useEffect(() => {
+    if (!startedAt) {
+      setElapsed(0);
+      setIdleSeconds(0);
+      setIsTracking(true);
+      return;
+    }
+    const start = new Date(startedAt).getTime();
+    const tick = () => {
+      const now = Date.now();
+      setElapsed(Math.floor((now + serverTimeOffset - start) / 1000));
+      setIdleSeconds(Math.floor((now - getLastActivityTime()) / 1000));
+      setIsTracking(
+        Platform.OS === 'web'
+          ? typeof document !== 'undefined' && document.visibilityState === 'visible'
+          : AppState.currentState === 'active'
+      );
+    };
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, [startedAt, serverTimeOffset, getLastActivityTime]);
+
+  return (
+    <View>
+      <View className="flex-row items-center">
+        <View className={`w-2 h-2 rounded-full mr-3 ${active ? 'bg-state-success animate-pulse' : 'bg-typography-muted'}`} />
+        <Text className="text-typography-main font-mono text-xl font-black">
+          {Math.floor(elapsed / 3600).toString().padStart(2, '0')}:
+          {Math.floor((elapsed % 3600) / 60).toString().padStart(2, '0')}:
+          {(elapsed % 60).toString().padStart(2, '0')}
+        </Text>
+      </View>
+      {active && (
+        <View className="flex-row items-center mt-1.5 ml-5 gap-2">
+          <View className={`w-1.5 h-1.5 rounded-full ${isTracking ? 'bg-state-success' : 'bg-typography-dim'}`} />
+          <Text className={`text-[9px] font-bold uppercase tracking-wider ${isTracking ? 'text-state-success' : 'text-typography-dim'}`}>
+            {isTracking ? 'Tracking' : 'Background'}
+          </Text>
+          <Text className="text-typography-dim text-[9px]">·</Text>
+          <Text className="text-typography-dim text-[9px]">
+            {idleSeconds < 60
+              ? 'Active now'
+              : idleSeconds < 3600
+                ? `${Math.floor(idleSeconds / 60)}m idle`
+                : `${Math.floor(idleSeconds / 3600)}h ${Math.floor((idleSeconds % 3600) / 60)}m idle`}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
 // ─── Adaptive File Grid ───────────────────────────────────────────────────────
 
 function AdaptiveFileGrid({
@@ -144,9 +214,6 @@ export default function StageActions() {
   const [loadingActionId, setLoadingActionId] = useState<string | null>(null);
   const [submissionContent, setSubmissionContent] = useState('');
   const [stagedFiles, setStagedFiles] = useState<any[]>([]);
-  const [elapsedLocal, setElapsedLocal] = React.useState(0);
-  const [idleSeconds, setIdleSeconds] = React.useState(0);
-  const [isTracking, setIsTracking] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState<{ title: string; message: string; variant?: 'danger' | 'warning' } | null>(null);
   const [showManualTimeModal, setShowManualTimeModal] = useState(false);
@@ -185,31 +252,6 @@ export default function StageActions() {
     submissionMedia,
     SUBMISSION_BUCKET
   );
-
-  React.useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (isActive && activeSession && data?.task.id && activeSession.task_id === data.task.id) {
-      const start = new Date(activeSession.started_at).getTime();
-
-      const tick = () => {
-        const now = Date.now();
-        setElapsedLocal(Math.floor((now + serverTimeOffset - start) / 1000));
-        setIdleSeconds(Math.floor((now - smartTimer.getLastActivityTime()) / 1000));
-        setIsTracking(
-          Platform.OS === 'web'
-            ? typeof document !== 'undefined' && document.visibilityState === 'visible'
-            : AppState.currentState === 'active'
-        );
-      };
-
-      tick();
-      timer = setInterval(tick, 1000);
-    } else {
-      setIdleSeconds(0);
-      setIsTracking(true);
-    }
-    return () => clearInterval(timer);
-  }, [isActive, activeSession, data?.task.id, serverTimeOffset, smartTimer.getLastActivityTime]);
 
   const toggleDeletedSubs = async () => {
     if (showDeleted) { setShowDeleted(false); return; }
@@ -437,7 +479,10 @@ export default function StageActions() {
           const completedSeconds = (data.work_sessions || [])
             .filter((s: any) => s.status === 'completed' && s.stage_id === stage?.id && s.user_id === user?.id)
             .reduce((sum: number, s: any) => sum + (s.total_seconds_spent || 0), 0);
-          const totalSeconds = completedSeconds + elapsedLocal;
+          const elapsedNow = activeSession && activeSession.task_id === data.task.id
+            ? Math.floor((Date.now() + serverTimeOffset - new Date(activeSession.started_at).getTime()) / 1000)
+            : 0;
+          const totalSeconds = completedSeconds + elapsedNow;
 
           if (totalSeconds < minSeconds && !isMyEntryApproved) {
             setPendingAdvanceAction(action);
@@ -633,32 +678,12 @@ export default function StageActions() {
         <View className="bg-surface-card rounded-2xl border border-surface-border p-4">
           <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em] mb-3">Time Tracking</Text>
           <View className="flex-row items-center justify-between">
-            <View>
-              <View className="flex-row items-center">
-                <View className={`w-2 h-2 rounded-full mr-3 ${isActive && activeSession?.task_id === data.task.id ? 'bg-state-success animate-pulse' : 'bg-typography-muted'}`} />
-                <Text className="text-typography-main font-mono text-xl font-black">
-                  {Math.floor(elapsedLocal / 3600).toString().padStart(2, '0')}:
-                  {Math.floor((elapsedLocal % 3600) / 60).toString().padStart(2, '0')}:
-                  {(elapsedLocal % 60).toString().padStart(2, '0')}
-                </Text>
-              </View>
-              {isActive && activeSession?.task_id === data.task.id && (
-                <View className="flex-row items-center mt-1.5 ml-5 gap-2">
-                  <View className={`w-1.5 h-1.5 rounded-full ${isTracking ? 'bg-state-success' : 'bg-typography-dim'}`} />
-                  <Text className={`text-[9px] font-bold uppercase tracking-wider ${isTracking ? 'text-state-success' : 'text-typography-dim'}`}>
-                    {isTracking ? 'Tracking' : 'Background'}
-                  </Text>
-                  <Text className="text-typography-dim text-[9px]">·</Text>
-                  <Text className="text-typography-dim text-[9px]">
-                    {idleSeconds < 60
-                      ? 'Active now'
-                      : idleSeconds < 3600
-                        ? `${Math.floor(idleSeconds / 60)}m idle`
-                        : `${Math.floor(idleSeconds / 3600)}h ${Math.floor((idleSeconds % 3600) / 60)}m idle`}
-                  </Text>
-                </View>
-              )}
-            </View>
+            <LiveTimerChip
+              active={isActive && activeSession?.task_id === data.task.id}
+              startedAt={activeSession?.task_id === data.task.id ? activeSession.started_at : null}
+              serverTimeOffset={serverTimeOffset}
+              getLastActivityTime={smartTimer.getLastActivityTime}
+            />
 
             {isActive && activeSession?.task_id === data.task.id ? (
               <TouchableOpacity

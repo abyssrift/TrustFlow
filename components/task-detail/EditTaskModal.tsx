@@ -18,6 +18,8 @@ import {
 type Props = {
   visible: boolean;
   onClose: () => void;
+  /** Opens the sheet with a given field's picker already expanded (e.g. from a card quick-action). */
+  focusField?: 'due_date' | null;
 };
 
 type UserOption = { id: string; full_name: string };
@@ -25,7 +27,7 @@ type UserOption = { id: string; full_name: string };
 const PRIORITY_OPTIONS = ['low', 'medium', 'high', 'urgent'] as const;
 const PRIORITY_LABELS: Record<string, string> = { low: 'Low', medium: 'Normal', high: 'High', urgent: 'Urgent' };
 
-export default function EditTaskModal({ visible, onClose }: Props) {
+export default function EditTaskModal({ visible, onClose, focusField }: Props) {
   const colors = useThemeColors();
   const { data, updateTask } = useTaskDetail();
 
@@ -61,12 +63,12 @@ export default function EditTaskModal({ visible, onClose }: Props) {
       setStartDate(rawStart ? new Date(rawStart).toISOString().split('T')[0] : null);
       const rawHours = (data as any).task.estimated_hours;
       setEstimatedHours(rawHours?.toString() || '');
-      setShowDueCalendar(false);
+      setShowDueCalendar(focusField === 'due_date');
       setShowStartCalendar(false);
       setShowManagerPicker(false);
       setError(null);
     }
-  }, [data, visible]);
+  }, [data, visible, focusField]);
 
   useEffect(() => {
     if (visible && users.length === 0) {
