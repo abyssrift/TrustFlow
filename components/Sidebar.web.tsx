@@ -36,7 +36,6 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
   const [isHovered, setIsHovered] = useState(false);
   const [showThemePopover, setShowThemePopover] = useState(false);
   const [pipelines, setPipelines] = useState<{ id: string; name: string }[]>([]);
-  // ponytail: visual-only stub, wire to a real cross-entity search when needed.
   const [topSearch, setTopSearch] = useState('');
   const [isTopBarCollapsed, setIsTopBarCollapsed] = useState(() => {
     if (Platform.OS === 'web') {
@@ -157,6 +156,7 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
         <RetractableTopBar
           collapsed={isTopBarCollapsed}
           onToggle={toggleTopBarCollapse}
+          themeOpen={showThemePopover}
           topSearch={topSearch}
           setTopSearch={setTopSearch}
           unreadCount={unreadCount}

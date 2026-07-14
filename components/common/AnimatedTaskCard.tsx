@@ -18,9 +18,9 @@ export default function AnimatedTaskCard({
 }: {
   children: React.ReactNode;
   style?: ViewStyle;
-  /** Skip the `layout` transition — set this inside a DraggableFlatList, which
-   * already animates cell reflow itself; stacking both fights over the same
-   * element's position every frame and is a real source of drag jank. */
+  /** Skip the `layout` spring — for moments when something else already
+   * animates or bulk-replaces card positions (e.g. board switches), where
+   * stacking a second transition per card just burns frames. */
   disableLayoutAnimation?: boolean;
 }) {
   return (

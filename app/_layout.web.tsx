@@ -4,7 +4,7 @@ import { useFonts } from 'expo-font';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { Text, View } from 'react-native';
+import { Text, View, useWindowDimensions } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
 import 'react-native-reanimated';
 import '../global.css';
@@ -88,6 +88,7 @@ function RootLayoutNav() {
   const { session, profile, initialized } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+  const { width } = useWindowDimensions();
 
   useEffect(() => {
     if (!initialized) return;
@@ -124,7 +125,9 @@ function RootLayoutNav() {
             {/* Always-on ping listener — one WebSocket channel for the current user */}
             {session && <GlobalPingGuard />}
             {session && <WelcomeTour />}
-            <TimerIsland />
+            {/* Desktop web shows the timer in the topbar's morphing island, so
+                only draw the floating pill on mobile web (< 768). */}
+            <TimerIsland floating={width < 768} />
             <View className="absolute top-0 left-0 right-0 z-[999]">
               <NetworkStatusBanner />
             </View>

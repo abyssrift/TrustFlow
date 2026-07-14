@@ -41,7 +41,7 @@ import TimerIsland from '@/components/TimerIsland';
 import WelcomeTour from '@/components/onboarding/WelcomeTour';
 import { TimerProvider, useTimer } from '@/contexts/TimerContext';
 import { ToastProvider } from '@/contexts/ToastContext';
-import { useRouter, useSegments } from 'expo-router';
+import { usePathname, useRouter, useSegments } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { SubmissionProvider } from '../contexts/SubmissionContext';
@@ -116,17 +116,21 @@ function RootLayoutNav() {
   const colorScheme = useColorScheme();
   const { session, profile, initialized } = useAuth();
   const segments = useSegments();
+  const pathname = usePathname();
   const router = useRouter();
 
-  // Save current route to storage whenever it changes
+  // Save current route to storage whenever it changes.
+  // NOTE: must be the resolved pathname (e.g. /task/abc-123) — useSegments()
+  // returns route placeholders, so joining them saved the literal "/task/[id]",
+  // which restored to a broken task page whose back target was the dashboard.
   useEffect(() => {
-    if (initialized && session && profile?.company_id) {
-      const currentRoute = `/${segments.join('/')}`;
-      AsyncStorage.setItem('@TrustFlow_current_route', currentRoute).catch(e => {
+    const skip = segments[0] === '(auth)' || segments[0] === 'onboarding' || segments[0] === 'share';
+    if (initialized && session && profile?.company_id && !skip) {
+      AsyncStorage.setItem('@TrustFlow_current_route', pathname).catch(e => {
         console.warn('Failed to save current route:', e);
       });
     }
-  }, [segments, initialized, session, profile?.company_id]);
+  }, [pathname, segments, initialized, session, profile?.company_id]);
 
   useEffect(() => {
     if (!initialized) {
@@ -187,8 +191,16 @@ function RootLayoutNav() {
         const restoreSavedRoute = async () => {
           try {
             const savedRoute = await AsyncStorage.getItem('@TrustFlow_current_route');
-            if (savedRoute && !savedRoute.startsWith('/(auth)') && !savedRoute.startsWith('/onboarding')) {
-              router.replace(savedRoute as any);
+            if (savedRoute && !savedRoute.startsWith('/(auth)') && !savedRoute.startsWith('/onboarding') && !savedRoute.includes('[')) {
+              if (savedRoute.startsWith('/task/')) {
+                // Seed the board underneath the task page so "back" returns to
+                // the tasks board instead of the tabs navigator's initial tab
+                // (the dashboard), which is all a bare replace() leaves behind.
+                router.replace('/(tabs)/tasks' as any);
+                router.push(savedRoute as any);
+              } else {
+                router.replace(savedRoute as any);
+              }
             } else {
               router.replace('/(tabs)');
             }

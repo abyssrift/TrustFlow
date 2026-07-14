@@ -16,7 +16,10 @@ function formatHMS(totalSeconds: number): string {
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
 
-export default function TimerIsland() {
+// `floating` draws the draggable pill (mobile). On desktop web the topbar's
+// morphing island shows the timer instead, so we pass floating={false} there —
+// but still mount for the idle-warning modal, which is platform-agnostic.
+export default function TimerIsland({ floating = true }: { floating?: boolean }) {
   const { isActive, activeSession, stopWork, serverTimeOffset, smartTimer } = useTimer();
   const { successToast, errorToast } = useToast();
   const elapsedSeconds = useTicker(isActive ? activeSession?.started_at ?? null : null, { offsetMs: serverTimeOffset });
@@ -103,6 +106,7 @@ export default function TimerIsland() {
   return (
     <>
     <IdleWarning smartTimer={smartTimer} stopWork={stopWork} colors={colors} />
+    {floating && (
     <Animated.View
       {...panResponder.panHandlers}
       style={{
@@ -171,6 +175,7 @@ export default function TimerIsland() {
         </View>
       </View>
     </Animated.View>
+    )}
     </>
   );
 }

@@ -151,6 +151,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <TabBarIcon name="navicon" color={color} />,
         }}
       />
+      <Tabs.Screen name="search" options={{ href: null, title: 'Search' }} />
     </Tabs>
   );
 }

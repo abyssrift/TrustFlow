@@ -100,11 +100,17 @@ export default function TaskHeader() {
   const canArchive = data.permissions.is_owner || hasPermission('archive:create') || hasPermission('pipeline.edit');
   const canPing = data.permissions.is_manager || hasPermission('task.ping') || data.permissions.is_owner;
 
+  // Deterministic: the task page's back arrow always returns to this task's
+  // pipeline board. History-based back (router.back / window.history.back) is
+  // unreliable here — the web layouts are Slot-based, so both React
+  // Navigation's GO_BACK and the browser history lose or skip the tasks tab
+  // and land on the dashboard or whatever tab came before it. The browser's
+  // own back button still gives true history for those who want it.
   const handleBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else if (data.pipeline?.id) {
+    if (data.pipeline?.id) {
       router.replace(`/(tabs)/tasks?pipelineId=${data.pipeline.id}` as any);
+    } else if (router.canGoBack()) {
+      router.back();
     } else {
       router.replace('/(tabs)/tasks' as any);
     }
