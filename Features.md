@@ -7,9 +7,7 @@ Priority tags kept where originally noted: (High) / (Medium) / (Future).
 
 ## 🐛 Bugs (broken right now)
 
-- ON native mobile, clicking an excel sheet in the task brief doesnt open it internally in the app, it just redirects you to the link to download it, which i hope we can add a redirect link to re take you to the app without making it annoying. (maybe get download permissions? i wanna make the download experience seamless for users.)
-
-- the clickableopacity of the folders is much smaller than files for some reason.
+- ~~ON native mobile, clicking an excel sheet in the task brief doesnt open it internally in the app, it just redirects you to the link to download it~~ **FIXED (2026-07-14):** the Task Brief now opens spreadsheets / PDFs / Word docs / text inline in-app via `FilePreviewModal` (same viewer FileHub uses) instead of bouncing to a download; only truly non-previewable files (zip/video/audio) still download. In `components/task-detail/TaskBriefPanel.tsx`. _Note: EvidencePanel / submission attachments may still be download-only — verify separately if desired._
 
 ---
 
@@ -43,19 +41,21 @@ Priority tags kept where originally noted: (High) / (Medium) / (Future).
 
 - Mobile File Handling: Detect OS and stream direct media extensions (images, PDFs, videos) instead of forcing .zip downloads. (High)
 
-- the file too large to load thing should be for 500 KB for mobile, and way higher for desktop, because desktop can get way bigger files.
-
 - Selection and bulk actions are not inclusive of folders, i want windows explorer like interactions.
 
 - Dragging a file to a folder while selecting multiple should drag them all to the folder. and show that its dragging all of them
 
-- Give the Folder properties like files, where we can view properties on the right when we click on it.
+- ~~Give the Folder properties like files, where we can view properties on the right when we click on it.~~ **DONE — desktop (2026-07-14):** folder rows now have an ⓘ button that opens a `FolderDetailPanel` on the right (name, location, subfolder count, Open/Rename/Delete), mirroring the file `DetailPanel`. Clicking the folder still navigates in. In `components/intelligence/_filehub_desktop.tsx`. _Follow-up: mobile (`_filehub_adaptive.tsx`) still has no folder properties sheet — folders only have rename/delete. Add a folder sheet there for parity if wanted._
 
 - Filehub can also be for links too, not just files/folders, just general resources that the team can share for each project
 
 - allowing files to be shareable by a one click link and somehow allow for some kind of security ish thing, the link should be auto generatable by filehub, and have a limited expiry date, and RLS policies and similar, that way team members can share links outside the platform easily.
 
-- the shareable links are nice, i also hope to allow the shareable looks to apply for folders as well, and have the same preview style as normal files/folders. i want a massive ecosystem for this share system. including download permissions on and off etc, multiple files and folders can be shareable, at once, to multiple people, sharing should be added as an activity to that file.
+- **DONE & DEPLOYED — folder share links (2026-07-14):** folders can be shared with a one-click expiring public link, mirroring files. Built: migration `20260716_filehub_folder_share_links.sql` (extends `filehub_share_links` to target a file OR folder + `rpc_filehub_folder_share_link_create/_list`, revoke is shared); edge function `filehub-share-resolve` now resolves a folder token into signed URLs for all files in it; `createFolderShareLink`/`listFolderShareLinks` in FileHubContext; a **Share Link** button in the desktop `FolderDetailPanel` (reuses `ShareLinkModal`); and the public `/share/[token]` page renders a folder's file list with per-file downloads.
+  - ✅ **Deployed to prod (project wbvgufqfgbvbinjrdzlg):** migration applied (file_id now nullable, `folder_id` + one-target check constraint + both RPCs verified live); `filehub-share-resolve` redeployed as v2 (verify_jwt=false preserved) and smoke-tested (bogus token → clean 404). Soft-deleted folders are excluded (create RPC + resolver both guard `deleted_at IS NULL` — the live folders table has soft-delete, unlike the original phase-1 migration).
+  - **Still TODO from the "massive ecosystem" vision:** download-permission on/off toggle; multi-select share (share several files/folders at once, to multiple people); nested-subfolder contents in the shared view (currently only files directly in the folder); log sharing as a file/folder activity; mobile (`_filehub_adaptive.tsx`) folder share UI.
+
+- the original ask (kept for reference): allow shareable links to apply for folders as well, same preview style, download permissions on/off, multiple files/folders shareable at once to multiple people, sharing logged as an activity.
 
 ---
 
@@ -138,3 +138,6 @@ I want a new tracked analytic and its respective graph in the UI.
 1. Showing what each team/pipeline spent their time within a timeframe, so it would highlight which category of tasks take the most time. (This can also be used to track projects)
 
 The Sidebar on the right still has role access issues, dont forget to fix.
+
+
+Buttons on files and folders are not consistent, some have animation, some show on hover, some are always there, they're not even the same buttons. lets standardize the buttons by allowing some buttons to be moved to the general header, while some can stay on the file/folder.

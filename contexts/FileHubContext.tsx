@@ -198,6 +198,9 @@ type FileHubContextType = {
   createShareLink: (fileId: string, expiresInHours: number) => Promise<FileHubShareLink>;
   revokeShareLink: (id: string) => Promise<void>;
   listShareLinks: (fileId: string) => Promise<FileHubShareLink[]>;
+  // Folder share links — same model as files (revoke is shared, keyed by link id)
+  createFolderShareLink: (folderId: string, expiresInHours: number) => Promise<FileHubShareLink>;
+  listFolderShareLinks: (folderId: string) => Promise<FileHubShareLink[]>;
   // Groups
   groups: FileHubGroup[];
   groupsLoading: boolean;
@@ -628,6 +631,21 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
     return data || [];
   }, []);
 
+  const createFolderShareLink = useCallback(async (folderId: string, expiresInHours: number): Promise<FileHubShareLink> => {
+    const { data, error } = await supabase.rpc('rpc_filehub_folder_share_link_create', {
+      p_folder_id: folderId,
+      p_expires_in_hours: expiresInHours,
+    });
+    if (error) { Alert.alert('Error', error.message); throw error; }
+    return { ...(data as { id: string; token: string; expires_at: string }), created_at: new Date().toISOString(), revoked_at: null, view_count: 0, last_viewed_at: null };
+  }, []);
+
+  const listFolderShareLinks = useCallback(async (folderId: string): Promise<FileHubShareLink[]> => {
+    const { data, error } = await supabase.rpc('rpc_filehub_folder_share_link_list', { p_folder_id: folderId });
+    if (error) { Alert.alert('Error', error.message); throw error; }
+    return data || [];
+  }, []);
+
   const logActivity = useCallback((fileId: string, action: string, metadata?: Record<string, any> | null) => {
     supabase.rpc('rpc_filehub_log_activity', {
       p_file_id: fileId,
@@ -674,6 +692,7 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
       tagSuggestions, checkDuplicate,
       checkNameConflict, replaceFile, fileVersions, restoreVersion, pinVersion,
       createShareLink, revokeShareLink, listShareLinks,
+      createFolderShareLink, listFolderShareLinks,
       groups, groupsLoading,
       activeGroupId, setActiveGroupId,
       groupFiles, groupFilesLoading,

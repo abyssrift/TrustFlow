@@ -12,6 +12,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import DraggableSheet from '@/components/common/DraggableSheet';
 import ImageLightbox from '@/components/common/ImageLightbox';
+import { FilePreviewModal, getPreviewKind, type PreviewKind } from '@/components/common/FilePreview';
 import CollapsibleCard from './CollapsibleCard';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -192,6 +193,9 @@ export default function TaskBriefPanel() {
   const [zipping, setZipping] = useState(false);
   const [zipProgress, setZipProgress] = useState<{ done: number; total: number } | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  // Inline preview for non-image previewable files (spreadsheet / pdf / docx /
+  // text) so they open in-app instead of bouncing to a browser/download.
+  const [preview, setPreview] = useState<{ uri: string; name: string; kind: PreviewKind; storagePath: string; sizeBytes?: number } | null>(null);
 
   // Feature D: replace / history / soft-delete
   const [replacingId, setReplacingId] = useState<string | null>(null);
@@ -376,11 +380,10 @@ export default function TaskBriefPanel() {
     openStorageFile(TASK_BRIEF_BUCKET, path, pf.name);
   };
 
-  const handlePressFile = (pf: any) => {
+  const handlePressFile = async (pf: any) => {
     const isImage = pf.mime_type?.toLowerCase().includes('image');
     const signed = signedUrls[pf.id];
-    // Images open in the lightbox (navigable, with format-convert downloads);
-    // everything else downloads directly.
+    // Images open in the lightbox (navigable, with format-convert downloads).
     if (isImage && signed) {
       const idx = imageAttachments.findIndex((a) => a.id === pf.id);
       if (idx >= 0) {
@@ -388,6 +391,23 @@ export default function TaskBriefPanel() {
         return;
       }
     }
+    // Spreadsheets / PDFs / Word docs / text open inline in-app instead of
+    // redirecting to a download (the old behaviour, especially rough on native).
+    const kind = getPreviewKind(pf.mime_type, pf.name);
+    const path = pf.storage_path || pf.uri;
+    if (kind && path) {
+      // Legacy records stored a full http(s) URL; use it as-is.
+      if (String(path).startsWith('http')) {
+        setPreview({ uri: path, name: pf.name, kind, storagePath: path, sizeBytes: pf.size });
+        return;
+      }
+      const { data } = await supabase.storage.from(TASK_BRIEF_BUCKET).createSignedUrl(path, 3600);
+      if (data?.signedUrl) {
+        setPreview({ uri: data.signedUrl, name: pf.name, kind, storagePath: path, sizeBytes: pf.size });
+        return;
+      }
+    }
+    // Anything non-previewable (zip, video, audio…) still falls back to download.
     downloadOne(pf);
   };
 
@@ -542,6 +562,18 @@ export default function TaskBriefPanel() {
           onDownloadOriginal={() =>
             openStorageFile(TASK_BRIEF_BUCKET, lightboxItem.storage_path || lightboxItem.file_url, lightboxItem.file_name)
           }
+        />
+      )}
+
+      {preview && (
+        <FilePreviewModal
+          visible
+          uri={preview.uri}
+          fileName={preview.name}
+          kind={preview.kind}
+          onClose={() => setPreview(null)}
+          onDownload={() => openStorageFile(TASK_BRIEF_BUCKET, preview.storagePath, preview.name)}
+          sizeBytes={preview.sizeBytes}
         />
       )}
 

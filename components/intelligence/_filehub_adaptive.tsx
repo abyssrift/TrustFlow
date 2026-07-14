@@ -1797,12 +1797,17 @@ function FolderCard({ folder, onNavigate, onRename, onDelete }: {
     if (renameValue.trim() && renameValue.trim() !== folder.name) onRename(renameValue.trim());
   };
 
-  return (
-    <View className="border rounded-2xl px-4 py-4 mb-3 flex-row items-center gap-3 bg-surface-card border-surface-border">
-      <View className="w-11 h-11 bg-surface-background border border-surface-border rounded-xl items-center justify-center flex-shrink-0">
-        <FontAwesome name="folder" size={20} color={colors.primary} />
-      </View>
-      {isRenaming ? (
+  const folderIcon = (
+    <View className="w-11 h-11 bg-surface-background border border-surface-border rounded-xl items-center justify-center flex-shrink-0">
+      <FontAwesome name="folder" size={20} color={colors.primary} />
+    </View>
+  );
+
+  // Renaming: static container so the TextInput owns all touches.
+  if (isRenaming) {
+    return (
+      <View className="border rounded-2xl px-4 py-4 mb-3 flex-row items-center gap-3 bg-surface-card border-surface-border">
+        {folderIcon}
         <TextInput
           value={renameValue}
           onChangeText={setRenameValue}
@@ -1811,18 +1816,26 @@ function FolderCard({ folder, onNavigate, onRename, onDelete }: {
           autoFocus
           className="flex-1 text-typography-main font-black text-sm outline-none bg-transparent"
         />
-      ) : (
-        <TouchableOpacity onPress={onNavigate} className="flex-1 min-w-0">
-          <Text className="text-typography-main font-black text-sm" numberOfLines={1}>{folder.name}</Text>
-        </TouchableOpacity>
-      )}
+      </View>
+    );
+  }
+
+  // The whole card is the tap target (matches FileCard) so folders and files
+  // have the same hit area; pencil/trash are nested touchables that handle
+  // their own presses.
+  return (
+    <TouchableOpacity onPress={onNavigate} className="border rounded-2xl px-4 py-4 mb-3 flex-row items-center gap-3 bg-surface-card border-surface-border">
+      {folderIcon}
+      <View className="flex-1 min-w-0">
+        <Text className="text-typography-main font-black text-sm" numberOfLines={1}>{folder.name}</Text>
+      </View>
       <TouchableOpacity onPress={() => { setRenameValue(folder.name); setIsRenaming(true); }} className="w-9 h-9 items-center justify-center">
         <FontAwesome name="pencil" size={12} color={colors.textMuted} />
       </TouchableOpacity>
       <TouchableOpacity onPress={onDelete} className="w-9 h-9 items-center justify-center">
         <FontAwesome name="trash-o" size={12} color={colors.textMuted} />
       </TouchableOpacity>
-    </View>
+    </TouchableOpacity>
   );
 }
 

@@ -4,15 +4,18 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Linking, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
-type ResolvedShare = {
+type SharedFileItem = {
   name: string;
   mime_type: string | null;
   size_bytes: number;
   signed_url: string;
-  expires_at: string;
 };
+
+type ResolvedFileShare = SharedFileItem & { kind?: 'file'; expires_at: string };
+type ResolvedFolderShare = { kind: 'folder'; name: string; expires_at: string; items: SharedFileItem[] };
+type ResolvedShare = ResolvedFileShare | ResolvedFolderShare;
 
 type ResolveError = 'not_found' | 'expired' | 'revoked' | 'missing_token' | 'storage_error' | 'network';
 
@@ -38,11 +41,80 @@ function ErrorState({ error }: { error: ResolveError }) {
   );
 }
 
+function SingleFileCard({ file }: { file: ResolvedFileShare }) {
+  const colors = useThemeColors();
+  const icon = getFileIcon(file.mime_type, colors);
+  return (
+    <View className="bg-surface-card p-10 rounded-[2.5rem] border border-surface-border items-center w-full max-w-sm">
+      <View className="w-16 h-16 bg-surface-background rounded-2xl border border-surface-border items-center justify-center mb-5">
+        <FontAwesome name={icon.name as any} size={26} color={icon.color} />
+      </View>
+      <Text className="text-typography-main text-lg font-black mb-1.5 text-center" numberOfLines={2}>{file.name}</Text>
+      <Text className="text-typography-muted text-xs mb-6">{formatFileSize(file.size_bytes)}</Text>
+      <TouchableOpacity
+        onPress={() => Linking.openURL(file.signed_url)}
+        className="flex-row items-center justify-center bg-brand-primary rounded-2xl py-4 px-8 gap-2 w-full"
+      >
+        <FontAwesome name="download" size={14} color="#fff" />
+        <Text className="text-white font-black text-base">Download</Text>
+      </TouchableOpacity>
+      <Text className="text-typography-dim text-[10px] mt-4 text-center">Shared via TrustFlow File Hub</Text>
+    </View>
+  );
+}
+
+function SharedFolderRow({ item }: { item: SharedFileItem }) {
+  const colors = useThemeColors();
+  const icon = getFileIcon(item.mime_type, colors);
+  return (
+    <View className="flex-row items-center gap-3 py-3 border-b border-surface-border/50">
+      <View className="w-10 h-10 bg-surface-background rounded-xl border border-surface-border items-center justify-center flex-shrink-0">
+        <FontAwesome name={icon.name as any} size={15} color={icon.color} />
+      </View>
+      <View className="flex-1 min-w-0">
+        <Text className="text-typography-main text-sm font-bold" numberOfLines={1}>{item.name}</Text>
+        <Text className="text-typography-dim text-[11px]">{formatFileSize(item.size_bytes)}</Text>
+      </View>
+      <TouchableOpacity
+        onPress={() => Linking.openURL(item.signed_url)}
+        className="w-9 h-9 rounded-xl bg-brand-primary/10 border border-brand-primary/20 items-center justify-center flex-shrink-0"
+      >
+        <FontAwesome name="download" size={13} color={colors.primary} />
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+function SharedFolderCard({ folder }: { folder: ResolvedFolderShare }) {
+  const colors = useThemeColors();
+  return (
+    <View className="bg-surface-card p-8 rounded-[2.5rem] border border-surface-border w-full max-w-md" style={{ maxHeight: '85%' }}>
+      <View className="items-center mb-5">
+        <View className="w-16 h-16 bg-surface-background rounded-2xl border border-surface-border items-center justify-center mb-4">
+          <FontAwesome name="folder" size={26} color={colors.primary} />
+        </View>
+        <Text className="text-typography-main text-lg font-black text-center" numberOfLines={2}>{folder.name}</Text>
+        <Text className="text-typography-muted text-xs mt-1">
+          {folder.items.length} file{folder.items.length === 1 ? '' : 's'}
+        </Text>
+      </View>
+      {folder.items.length === 0 ? (
+        <Text className="text-typography-dim text-sm text-center py-6">This folder is empty.</Text>
+      ) : (
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {folder.items.map((item, i) => <SharedFolderRow key={`${item.name}-${i}`} item={item} />)}
+        </ScrollView>
+      )}
+      <Text className="text-typography-dim text-[10px] mt-5 text-center">Shared via TrustFlow File Hub</Text>
+    </View>
+  );
+}
+
 function SharePageContent({ token }: { token: string }) {
   const colors = useThemeColors();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ResolveError | null>(null);
-  const [file, setFile] = useState<ResolvedShare | null>(null);
+  const [share, setShare] = useState<ResolvedShare | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -53,39 +125,23 @@ function SharePageContent({ token }: { token: string }) {
         const body = await res.json();
         if (cancelled) return;
         if (!res.ok) { setError((body?.error as ResolveError) ?? 'network'); return; }
-        setFile(body as ResolvedShare);
+        setShare(body as ResolvedShare);
       })
       .catch(() => { if (!cancelled) setError('network'); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [token]);
 
-  const icon = file ? getFileIcon(file.mime_type, colors) : null;
-
   return (
-    <View className="flex-1 bg-surface-background items-center justify-center px-6">
+    <View className="flex-1 bg-surface-background items-center justify-center px-6 py-10">
       {loading ? (
         <ActivityIndicator size="large" color={colors.primary} />
       ) : error ? (
         <ErrorState error={error} />
-      ) : file ? (
-        <View className="bg-surface-card p-10 rounded-[2.5rem] border border-surface-border items-center w-full max-w-sm">
-          <View className="w-16 h-16 bg-surface-background rounded-2xl border border-surface-border items-center justify-center mb-5">
-            <FontAwesome name={icon!.name as any} size={26} color={icon!.color} />
-          </View>
-          <Text className="text-typography-main text-lg font-black mb-1.5 text-center" numberOfLines={2}>{file.name}</Text>
-          <Text className="text-typography-muted text-xs mb-6">{formatFileSize(file.size_bytes)}</Text>
-          <TouchableOpacity
-            onPress={() => Linking.openURL(file.signed_url)}
-            className="flex-row items-center justify-center bg-brand-primary rounded-2xl py-4 px-8 gap-2 w-full"
-          >
-            <FontAwesome name="download" size={14} color="#fff" />
-            <Text className="text-white font-black text-base">Download</Text>
-          </TouchableOpacity>
-          <Text className="text-typography-dim text-[10px] mt-4 text-center">
-            Shared via TrustFlow File Hub
-          </Text>
-        </View>
+      ) : share ? (
+        share.kind === 'folder'
+          ? <SharedFolderCard folder={share} />
+          : <SingleFileCard file={share} />
       ) : null}
     </View>
   );

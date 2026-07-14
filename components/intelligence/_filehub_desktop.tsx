@@ -1092,12 +1092,14 @@ function BreadcrumbCrumb({
 }
 
 function FolderRow({
-  folder, onNavigate, onDropPayload, onRename, onDelete,
+  folder, onNavigate, onInfo, onDropPayload, onRename, onDelete,
   selectionMode = false, isSelected = false, onToggleSelect,
   dragFileIds, dragFolderIds,
 }: {
   folder: FileHubFolder;
   onNavigate: (e?: any) => void;
+  /** Opens the folder's properties in the right-hand detail panel. */
+  onInfo?: () => void;
   onDropPayload: (payload: DragPayload) => void;
   onRename: (name: string) => void;
   onDelete: () => void;
@@ -1130,16 +1132,25 @@ function FolderRow({
     if (renameValue.trim() && renameValue.trim() !== folder.name) onRename(renameValue.trim());
   };
 
+  // The whole row is the tap target (matches FileRow) so folders and files
+  // have the same hit area instead of just the folder's text label. The nested
+  // checkbox / pencil / trash touchables stopPropagation so they don't also
+  // trigger the row's navigate/select.
   return (
-    <View
+    <TouchableOpacity
       ref={setRefs}
+      activeOpacity={isRenaming ? 1 : 0.7}
+      onPress={(e) => {
+        if (isRenaming) return;
+        selectionMode ? onToggleSelect?.() : onNavigate(e);
+      }}
       className={`flex-row items-center px-6 py-4 border-b border-surface-border/40 transition-colors ${
         isSelected ? 'bg-brand-primary/10' : isOver ? 'bg-brand-primary/10 border-l-2 border-l-brand-primary' : 'hover:bg-surface-overlay/60'
       }`}
     >
       {selectionMode ? (
         <TouchableOpacity
-          onPress={onToggleSelect}
+          onPress={(e) => { e?.stopPropagation?.(); onToggleSelect?.(); }}
           className={`w-9 h-9 rounded-xl items-center justify-center mr-3.5 flex-shrink-0 border-2 ${
             isSelected ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'
           }`}
@@ -1161,21 +1172,26 @@ function FolderRow({
           className="flex-1 text-typography-main font-bold text-sm outline-none bg-transparent mr-3"
         />
       ) : (
-        <TouchableOpacity onPress={(e) => (selectionMode ? onToggleSelect?.() : onNavigate(e))} className="flex-1 mr-3">
+        <View className="flex-1 mr-3">
           <Text className="text-typography-main font-bold text-sm" numberOfLines={1}>{folder.name}</Text>
-        </TouchableOpacity>
+        </View>
       )}
       {!selectionMode && (
         <View className="flex-row gap-1 flex-shrink-0">
-          <TouchableOpacity onPress={() => { setRenameValue(folder.name); setIsRenaming(true); }} className="w-7 h-7 items-center justify-center rounded-lg hover:bg-surface-overlay">
+          {onInfo && (
+            <TouchableOpacity onPress={(e) => { e?.stopPropagation?.(); onInfo(); }} className="w-7 h-7 items-center justify-center rounded-lg hover:bg-surface-overlay">
+              <FontAwesome name="info-circle" size={12} color={colors.textMuted} />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity onPress={(e) => { e?.stopPropagation?.(); setRenameValue(folder.name); setIsRenaming(true); }} className="w-7 h-7 items-center justify-center rounded-lg hover:bg-surface-overlay">
             <FontAwesome name="pencil" size={11} color={colors.textMuted} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={onDelete} className="w-7 h-7 items-center justify-center rounded-lg hover:bg-surface-overlay">
+          <TouchableOpacity onPress={(e) => { e?.stopPropagation?.(); onDelete(); }} className="w-7 h-7 items-center justify-center rounded-lg hover:bg-surface-overlay">
             <FontAwesome name="trash-o" size={11} color={colors.textMuted} />
           </TouchableOpacity>
         </View>
       )}
-    </View>
+    </TouchableOpacity>
   );
 }
 
@@ -1358,6 +1374,105 @@ function FileRow({
         />
       )}
     </TouchableOpacity>
+  );
+}
+
+// ─── Folder Detail Panel ──────────────────────────────────────────────────────
+// Folder equivalent of DetailPanel: shows a folder's properties on the right
+// (location, what it contains, quick actions) when its ⓘ button is tapped.
+function FolderDetailPanel({
+  folder, folders, scopeLabel, onOpen, onRename, onDelete,
+}: {
+  folder: FileHubFolder;
+  folders: FileHubFolder[];
+  scopeLabel: string;
+  onOpen: () => void;
+  onRename: (name: string) => void;
+  onDelete: () => void;
+}) {
+  const colors = useThemeColors();
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState(folder.name);
+  const [displayName, setDisplayName] = useState(folder.name);
+  const [showShareLink, setShowShareLink] = useState(false);
+  useEffect(() => { setIsRenaming(false); setDisplayName(folder.name); }, [folder.id]);
+
+  const subfolderCount = useMemo(
+    () => folders.filter(f => f.parent_id === folder.id).length,
+    [folders, folder.id]
+  );
+  const parent = folder.parent_id ? folders.find(f => f.id === folder.parent_id) : null;
+  const location = parent ? folderPath(folders, parent.id) : 'Top level';
+
+  const commitRename = () => {
+    setIsRenaming(false);
+    const v = renameValue.trim();
+    if (v && v !== displayName) { setDisplayName(v); onRename(v); }
+  };
+
+  return (
+    <>
+    <View className="flex-1 flex-col" style={{ minHeight: 0 }}>
+      <View className="px-7 pt-6 pb-4 border-b border-surface-border/50 flex-shrink-0">
+        <View className="bg-surface-background rounded-2xl border border-surface-border items-center justify-center py-8 mb-4">
+          <FontAwesome name="folder" size={44} color={colors.primary} />
+        </View>
+        {isRenaming ? (
+          <TextInput
+            value={renameValue}
+            onChangeText={setRenameValue}
+            onBlur={commitRename}
+            onSubmitEditing={commitRename}
+            autoFocus
+            className="text-typography-main text-base font-black tracking-tight mb-0.5 outline-none bg-transparent"
+          />
+        ) : (
+          <Text className="text-typography-main text-base font-black tracking-tight mb-0.5 leading-snug" numberOfLines={2}>{displayName}</Text>
+        )}
+        <Text className="text-typography-muted text-xs">Folder · {scopeLabel}</Text>
+      </View>
+
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 28, paddingTop: 20 }}>
+        <View className="mb-4 pb-4 border-b border-surface-border/50">
+          <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-1">Location</Text>
+          <View className="flex-row items-center gap-2">
+            <FontAwesome name="folder-open-o" size={12} color={colors.textMuted} />
+            <Text className="text-typography-main text-sm font-bold flex-1">{location}</Text>
+          </View>
+        </View>
+
+        <View className="mb-5 pb-4 border-b border-surface-border/50">
+          <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-1">Contains</Text>
+          <Text className="text-typography-main text-sm font-bold">{subfolderCount} subfolder{subfolderCount === 1 ? '' : 's'}</Text>
+        </View>
+
+        <View className="gap-2.5">
+          <TouchableOpacity onPress={onOpen} className="flex-row items-center justify-center bg-brand-primary rounded-xl px-4 py-3.5 gap-2">
+            <FontAwesome name="folder-open" size={13} color="#fff" />
+            <Text className="text-white font-black text-sm">Open Folder</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => { setRenameValue(displayName); setIsRenaming(true); }} className="flex-row items-center justify-center bg-surface-card border border-surface-border rounded-xl px-4 py-3 gap-2">
+            <FontAwesome name="pencil" size={13} color={colors.primary} />
+            <Text className="text-brand-primary font-black text-sm">Rename</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowShareLink(true)} className="flex-row items-center justify-center bg-surface-card border border-surface-border rounded-xl px-4 py-3 gap-2">
+            <FontAwesome name="link" size={13} color={colors.primary} />
+            <Text className="text-brand-primary font-black text-sm">Share Link</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={onDelete} className="flex-row items-center justify-center bg-surface-card border border-state-danger/30 rounded-xl px-4 py-3 gap-2">
+            <FontAwesome name="trash-o" size={13} color={colors.danger} />
+            <Text className="text-state-danger font-black text-sm">Delete</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </View>
+    <ShareLinkModal
+      visible={showShareLink}
+      folderId={folder.id}
+      fileName={displayName}
+      onClose={() => setShowShareLink(false)}
+    />
+    </>
   );
 }
 
@@ -1929,25 +2044,30 @@ const EXPIRY_OPTIONS: { label: string; hours: number }[] = [
   { label: '30 Days', hours: 720 },
 ];
 
-function ShareLinkModal({ visible, fileId, fileName, onClose }: {
+// Shares a file OR a folder — pass exactly one of fileId / folderId. Both use
+// the same expiring-link UI; only the create/list RPCs differ.
+function ShareLinkModal({ visible, fileId, folderId, fileName, onClose }: {
   visible: boolean;
-  fileId: string;
+  fileId?: string;
+  folderId?: string;
   fileName: string;
   onClose: () => void;
 }) {
   const colors = useThemeColors();
-  const { createShareLink, revokeShareLink, listShareLinks } = useFileHub();
+  const { createShareLink, revokeShareLink, listShareLinks, createFolderShareLink, listFolderShareLinks } = useFileHub();
   const { showConfirm } = useAlert();
   const { successToast } = useToast();
   const [links, setLinks] = useState<FileHubShareLink[]>([]);
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [expiryHours, setExpiryHours] = useState(168);
+  const isFolder = !!folderId;
 
   const load = useCallback(() => {
     setLoading(true);
-    listShareLinks(fileId).then(setLinks).catch(console.error).finally(() => setLoading(false));
-  }, [fileId, listShareLinks]);
+    const p = isFolder ? listFolderShareLinks(folderId!) : listShareLinks(fileId!);
+    p.then(setLinks).catch(console.error).finally(() => setLoading(false));
+  }, [isFolder, fileId, folderId, listShareLinks, listFolderShareLinks]);
 
   useEffect(() => { if (visible) load(); else setLinks([]); }, [visible, load]);
 
@@ -1956,7 +2076,8 @@ function ShareLinkModal({ visible, fileId, fileName, onClose }: {
   const handleCreate = async () => {
     setCreating(true);
     try {
-      await createShareLink(fileId, expiryHours);
+      if (isFolder) await createFolderShareLink(folderId!, expiryHours);
+      else await createShareLink(fileId!, expiryHours);
       await load();
     } catch { /* alerted in context */ } finally {
       setCreating(false);
@@ -2390,6 +2511,11 @@ function FileHubDesktopInner() {
 
   const [selectedFile, setSelectedFile] = useState<FileHubFile | null>(null);
   const [detailPanelFile, setDetailPanelFile] = useState<FileHubFile | null>(null);
+  // Folder properties panel — parallel to the file detail panel, shown when a
+  // folder's ⓘ button is tapped. detailPanelFolder lags selectedFolderDetail so
+  // the panel stays mounted through the collapse animation.
+  const [selectedFolderDetail, setSelectedFolderDetail] = useState<FileHubFolder | null>(null);
+  const [detailPanelFolder, setDetailPanelFolder] = useState<FileHubFolder | null>(null);
   const [fastTrackPreview, setFastTrackPreview] = useState(false);
 
   const [selectionMode, setSelectionMode] = useState(false);
@@ -2436,8 +2562,16 @@ function FileHubDesktopInner() {
       toggleFolderSelect(folderId);
       return;
     }
+    setSelectedFolderDetail(null); // navigating away closes any folder properties panel
     setSelectedFolderId(folderId);
   }, [toggleFolderSelect, setSelectedFolderId]);
+
+  // ⓘ on a folder row → open its properties on the right (Explorer-style),
+  // without navigating into it. Mutually exclusive with the file detail panel.
+  const openFolderInfo = useCallback((folder: FileHubFolder) => {
+    setSelectedFile(null);
+    setSelectedFolderDetail(prev => (prev?.id === folder.id ? null : folder));
+  }, []);
   const [isDetailPanelExpanded, setIsDetailPanelExpanded] = useState(false);
   const [groupPanelGroup, setGroupPanelGroup] = useState<FileHubGroup | null>(null);
   const [isGroupPanelExpanded, setIsGroupPanelExpanded] = useState(false);
@@ -2453,6 +2587,7 @@ function FileHubDesktopInner() {
     setSelectedFileIds(new Set());
     setSelectedFolderIds(new Set());
     setSelectedFile(null);
+    setSelectedFolderDetail(null);
   }, []);
 
   useEffect(() => { exitSelection(); }, [mode, activeGroupId]);
@@ -2635,14 +2770,23 @@ function FileHubDesktopInner() {
 
     if (selectedFile) {
       setDetailPanelFile(selectedFile);
+      setDetailPanelFolder(null);
       setIsDetailPanelExpanded(true);
       return;
     }
 
-    if (detailPanelFile) {
+    if (selectedFolderDetail) {
+      setDetailPanelFolder(selectedFolderDetail);
+      setDetailPanelFile(null);
+      setIsDetailPanelExpanded(true);
+      return;
+    }
+
+    if (detailPanelFile || detailPanelFolder) {
       setIsDetailPanelExpanded(false);
       detailPanelHideTimer.current = setTimeout(() => {
         setDetailPanelFile(null);
+        setDetailPanelFolder(null);
         detailPanelHideTimer.current = null;
       }, 260);
     }
@@ -2653,7 +2797,7 @@ function FileHubDesktopInner() {
         detailPanelHideTimer.current = null;
       }
     };
-  }, [mode, selectedFile?.id]);
+  }, [mode, selectedFile?.id, selectedFolderDetail?.id]);
 
   useEffect(() => {
     if (groupPanelHideTimer.current) {
@@ -3042,6 +3186,7 @@ function FileHubDesktopInner() {
                       key={f.id}
                       folder={f}
                       onNavigate={(e) => openFolder(f.id, e)}
+                      onInfo={() => openFolderInfo(f)}
                       onDropPayload={(payload) => handleDropOnFolder(payload, f.id)}
                       onRename={(name) => renameFolder(f.id, name)}
                       onDelete={() => handleDeleteFolder(f.id, f.name)}
@@ -3235,6 +3380,7 @@ function FileHubDesktopInner() {
                       key={f.id}
                       folder={f}
                       onNavigate={(e) => openFolder(f.id, e)}
+                      onInfo={() => openFolderInfo(f)}
                       onDropPayload={(payload) => handleDropOnFolder(payload, f.id)}
                       onRename={(name) => renameFolder(f.id, name)}
                       onDelete={() => handleDeleteFolder(f.id, f.name)}
@@ -3288,8 +3434,8 @@ function FileHubDesktopInner() {
           pointerEvents={mode === 'groups' ? (activeGroupId && groupPanelGroup ? 'auto' : 'none') : isDetailPanelExpanded ? 'auto' : 'none'}
           className={`flex-col overflow-hidden transition-all duration-300 ${((mode === 'groups' && activeGroupId && groupPanelGroup) || isDetailPanelExpanded) ? 'border-l border-surface-border' : ''}`}
         >
-          {/* Groups drill-down → members panel OR file detail */}
-          {mode === 'groups' && activeGroupId && groupPanelGroup && !selectedFile && (
+          {/* Groups drill-down → members panel OR file/folder detail */}
+          {mode === 'groups' && activeGroupId && groupPanelGroup && !selectedFile && !selectedFolderDetail && (
             <View
               className="flex-1 overflow-hidden transition-all duration-300"
               style={{
@@ -3313,6 +3459,25 @@ function FileHubDesktopInner() {
             </View>
           )}
 
+          {mode === 'groups' && activeGroupId && detailPanelFolder && !detailPanelFile && (
+            <View
+              className="flex-1 overflow-hidden transition-all duration-300"
+              style={{
+                opacity: isDetailPanelExpanded ? 1 : 0,
+                transform: [{ translateX: isDetailPanelExpanded ? 0 : 24 }],
+              }}
+            >
+              <FolderDetailPanel
+                folder={detailPanelFolder}
+                folders={contextFolders}
+                scopeLabel={activeGroup?.name ?? 'Channel'}
+                onOpen={() => openFolder(detailPanelFolder.id)}
+                onRename={(name) => renameFolder(detailPanelFolder.id, name)}
+                onDelete={() => { handleDeleteFolder(detailPanelFolder.id, detailPanelFolder.name); setSelectedFolderDetail(null); }}
+              />
+            </View>
+          )}
+
           {/* Inbox / Sent / Broadcast → file detail */}
           {mode !== 'groups' && detailPanelFile && (
             <View
@@ -3328,6 +3493,26 @@ function FileHubDesktopInner() {
                 currentUserId={user?.id}
                 autoPreview={fastTrackPreview}
                 onClose={() => { setSelectedFile(null); setFastTrackPreview(false); }}
+              />
+            </View>
+          )}
+
+          {/* Inbox / Sent / Broadcast → folder properties */}
+          {mode !== 'groups' && detailPanelFolder && !detailPanelFile && (
+            <View
+              className="flex-1 overflow-hidden transition-all duration-300"
+              style={{
+                opacity: isDetailPanelExpanded ? 1 : 0,
+                transform: [{ translateX: isDetailPanelExpanded ? 0 : 24 }],
+              }}
+            >
+              <FolderDetailPanel
+                folder={detailPanelFolder}
+                folders={contextFolders}
+                scopeLabel={mode === 'broadcast' ? 'Broadcast' : 'Direct'}
+                onOpen={() => openFolder(detailPanelFolder.id)}
+                onRename={(name) => renameFolder(detailPanelFolder.id, name)}
+                onDelete={() => { handleDeleteFolder(detailPanelFolder.id, detailPanelFolder.name); setSelectedFolderDetail(null); }}
               />
             </View>
           )}
