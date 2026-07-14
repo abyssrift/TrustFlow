@@ -23,10 +23,11 @@ function fmt(total: number): string {
   return `${p(h)}:${p(m)}:${p(s)}`;
 }
 
-// Center "island" tab — a single Dynamic-Island element that morphs by context:
-//  • no timer  → a chevron pill that widens to a "Hide/Show" label on hover.
-//  • timer live → pulse + tabular elapsed; chevron toggles the bar, the time
-//    opens the task, and hover reveals the task title + a stop button.
+// Center island. Two modes, both click-driven (no hover-peek, no hover-reveal):
+//  • no timer  → a chevron button; hovering just labels it (doesn't move the bar).
+//  • timer live → [chevron] [pulse + elapsed] [stop], all always visible. Chevron
+//    toggles the bar, the elapsed opens the task, stop stops. Nothing appears or
+//    disappears on hover, so there's nothing finicky to fight.
 // useTicker lives HERE (a leaf), so the 1s tick never re-renders the topbar.
 export default function TopBarPullTab({
   collapsed,
@@ -46,7 +47,7 @@ export default function TopBarPullTab({
 
   const chevron = collapsed ? 'chevron-down' : 'chevron-up';
 
-  // No active session → the plain pull tab.
+  // No active session → plain toggle button (hover only labels it).
   if (!isActive) {
     return (
       <Pressable
@@ -54,8 +55,8 @@ export default function TopBarPullTab({
         onHoverIn={() => setHover(true)}
         onHoverOut={() => setHover(false)}
         accessibilityLabel={collapsed ? 'Show top bar' : 'Hide top bar'}
-        className="h-7 flex-row items-center justify-center rounded-full border border-surface-border bg-surface-card/95 px-2.5 premium-shadow glass-card hover:bg-surface-overlay transition-all duration-300 ease-in-out"
-        style={style}
+        className="flex-row items-center justify-center rounded-full border border-surface-border bg-surface-card/95 px-5 premium-shadow glass-card hover:bg-surface-overlay transition-all duration-300 ease-in-out"
+        style={[{ height: 22, minWidth: 72 }, style]}
       >
         <FontAwesome name={chevron} size={10} color={colors.textDim} />
         <View
@@ -70,7 +71,7 @@ export default function TopBarPullTab({
     );
   }
 
-  // Active session → morphing timer island.
+  // Active session → timer island. All controls always visible.
   const openTask = () => {
     if (activeSession?.task_id) router.push(`/task/${activeSession.task_id}` as any);
   };
@@ -84,11 +85,9 @@ export default function TopBarPullTab({
   };
 
   return (
-    <Pressable
-      onHoverIn={() => setHover(true)}
-      onHoverOut={() => setHover(false)}
-      className="h-7 flex-row items-center rounded-full border border-brand-primary/30 bg-surface-card/95 pl-1 pr-1.5 premium-shadow glass-card transition-all duration-300 ease-in-out"
-      style={style}
+    <View
+      style={[{ height: 24 }, style]}
+      className="flex-row items-center rounded-full border border-brand-primary/30 bg-surface-card/95 pl-1 pr-1.5 premium-shadow glass-card"
     >
       {/* Chevron — toggles the bar. */}
       <Pressable
@@ -99,7 +98,7 @@ export default function TopBarPullTab({
         <FontAwesome name={chevron} size={9} color={colors.textDim} />
       </Pressable>
 
-      {/* Pulse + elapsed — opens the task. tabular-nums keeps width steady. */}
+      {/* Pulse + elapsed — opens the task. tabular-nums keeps the width steady. */}
       <Pressable onPress={openTask} accessibilityLabel="Open active task" className="flex-row items-center gap-1.5 px-1.5">
         <View className="h-2 w-2 rounded-full bg-brand-primary pulse-animation" />
         <Text
@@ -110,26 +109,14 @@ export default function TopBarPullTab({
         </Text>
       </Pressable>
 
-      {/* Hover reveal — task title + stop. */}
-      <View
-        style={{ overflow: 'hidden', maxWidth: hover ? 190 : 0, opacity: hover ? 1 : 0 }}
-        className="flex-row items-center transition-all duration-300 ease-in-out"
+      {/* Stop — always visible, deliberate target. */}
+      <Pressable
+        onPress={stop}
+        accessibilityLabel="Stop timer"
+        className="h-5 w-5 items-center justify-center rounded-full border border-state-danger/20 bg-state-danger/10 hover:bg-state-danger/25 transition-colors duration-150"
       >
-        <Text
-          numberOfLines={1}
-          className="mr-2 max-w-[120px] text-[10px] font-bold text-typography-muted"
-          style={{ whiteSpace: 'nowrap' } as any}
-        >
-          {activeSession?.task?.title || 'Active session'}
-        </Text>
-        <Pressable
-          onPress={stop}
-          accessibilityLabel="Stop timer"
-          className="h-5 w-5 items-center justify-center rounded-full border border-state-danger/20 bg-state-danger/10 hover:bg-state-danger/25 transition-colors duration-150"
-        >
-          <FontAwesome name="stop" size={8} color={colors.danger} />
-        </Pressable>
-      </View>
-    </Pressable>
+        <FontAwesome name="stop" size={8} color={colors.danger} />
+      </Pressable>
+    </View>
   );
 }

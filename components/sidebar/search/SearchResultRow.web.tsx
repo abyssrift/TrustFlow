@@ -6,14 +6,15 @@ import { useRouter } from 'expo-router';
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-const TYPE_ICON: Record<SearchType, React.ComponentProps<typeof FontAwesome>['name']> = {
+const TYPE_ICON: Record<string, React.ComponentProps<typeof FontAwesome>['name']> = {
   task: 'check-square-o',
   file: 'file-o',
   report: 'bar-chart',
   comment: 'comment-o',
+  archive: 'archive',
 };
-const TYPE_LABEL: Record<SearchType, string> = {
-  task: 'Task', file: 'File', report: 'Report', comment: 'Comment',
+const TYPE_LABEL: Record<string, string> = {
+  task: 'Task', file: 'File', report: 'Report', comment: 'Comment', archive: 'Archived',
 };
 
 // ts_headline wraps matches in <b>…</b>; RN <Text> can't render HTML, so strip tags.

@@ -2,7 +2,7 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Link } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
 import { PIPELINE_ICONS, PinnedShortcut, Shortcut } from './constants';
 import { usePinnedShortcuts } from './usePinnedShortcuts';
@@ -29,6 +29,21 @@ export default function PinnedShortcuts({
   const [clickedOpen, setClickedOpen] = useState(false);
   const showPicker = isHovered || clickedOpen;
   const wrapperRef = useRef<any>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [linkLabel, setLinkLabel] = useState('');
+  const [linkUrl, setLinkUrl] = useState('');
+  const canAdd = !!linkLabel.trim() && !!linkUrl.trim();
+
+  const addCustomLink = () => {
+    if (!canAdd || pinned.length >= maxPinned) return;
+    let href = linkUrl.trim();
+    // Bare paths get a leading slash; external URLs and rooted paths pass through.
+    if (!/^https?:\/\//i.test(href) && !href.startsWith('/')) href = '/' + href;
+    togglePin({ id: `custom:${Date.now()}`, label: linkLabel.trim(), icon: 'link', href });
+    setLinkLabel('');
+    setLinkUrl('');
+    setShowAdd(false);
+  };
 
   // Hover opens the picker (same mouseenter/mouseleave escape hatch Sidebar.web.tsx
   // uses for its own hover-expand), covering both the trigger and the popover
@@ -80,19 +95,35 @@ export default function PinnedShortcuts({
     return [...fromShortcuts, ...fromPipelines];
   }, [visibleShortcuts, pipelines]);
 
+  // Custom links aren't in `candidates`, so surface any that are pinned at the top
+  // of the list — otherwise they'd be unremovable.
+  const listItems = useMemo(() => {
+    const extra = pinned.filter((p) => !candidates.some((c) => c.id === p.id));
+    return [...extra, ...candidates];
+  }, [pinned, candidates]);
+
   return (
     <View className="flex-row items-center gap-2">
-      {pinned.map((item, i) => (
-        <Link key={item.id} href={item.href as any} asChild>
-          <Pressable
-            style={{ animationDelay: `${i * 45}ms` } as any}
-            className="animate-island-pop h-9 flex-row items-center gap-1.5 rounded-xl border border-surface-border bg-surface-card px-2.5 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-brand-primary/40 hover:bg-surface-overlay active:translate-y-0 active:scale-95"
-          >
+      {pinned.map((item, i) => {
+        const external = /^https?:\/\//i.test(item.href);
+        const pillClass = 'animate-island-pop h-9 flex-row items-center gap-1.5 rounded-xl border border-surface-border bg-surface-card px-2.5 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-brand-primary/40 hover:bg-surface-overlay active:translate-y-0 active:scale-95';
+        const inner = (
+          <>
             <FontAwesome name={item.icon} size={12} color={colors.primary} />
             <Text className="text-xs font-bold text-typography-main whitespace-nowrap" numberOfLines={1}>{item.label}</Text>
+          </>
+        );
+        const delay = { animationDelay: `${i * 45}ms` } as any;
+        return external ? (
+          <Pressable key={item.id} onPress={() => window.open(item.href, '_blank', 'noopener,noreferrer')} style={delay} className={pillClass}>
+            {inner}
           </Pressable>
-        </Link>
-      ))}
+        ) : (
+          <Link key={item.id} href={item.href as any} asChild>
+            <Pressable style={delay} className={pillClass}>{inner}</Pressable>
+          </Link>
+        );
+      })}
 
       <View ref={wrapperRef} style={{ position: 'relative', zIndex: showPicker ? 100 : undefined }}>
         <Pressable
@@ -123,7 +154,7 @@ export default function PinnedShortcuts({
               Pinned shortcuts ({pinned.length}/{maxPinned})
             </Text>
             <ScrollView style={{ maxHeight: 280 }} showsVerticalScrollIndicator={false}>
-              {candidates.map((item) => {
+              {listItems.map((item) => {
                 const active = isPinned(item.id);
                 const disabled = !active && pinned.length >= maxPinned;
                 return (
@@ -142,6 +173,53 @@ export default function PinnedShortcuts({
                 );
               })}
             </ScrollView>
+
+            {/* Custom link — pin any internal path (e.g. a share link) or URL. */}
+            <View className="mt-2 border-t border-surface-border pt-2">
+              {!showAdd ? (
+                <Pressable
+                  onPress={() => { setShowAdd(true); setClickedOpen(true); }}
+                  disabled={pinned.length >= maxPinned}
+                  className={`flex-row items-center justify-center gap-2 rounded-xl border border-dashed border-surface-border p-2.5 transition-all duration-150 ${pinned.length >= maxPinned ? 'opacity-40' : 'hover:bg-surface-overlay'}`}
+                >
+                  <FontAwesome name="link" size={12} color={colors.textDim} />
+                  <Text className="text-xs font-bold text-typography-muted">Add custom link</Text>
+                </Pressable>
+              ) : (
+                <View className="gap-2">
+                  <TextInput
+                    value={linkLabel}
+                    onChangeText={setLinkLabel}
+                    placeholder="Label"
+                    placeholderTextColor={colors.textDim}
+                    className="rounded-lg border border-surface-border bg-surface-background px-2.5 py-2 text-xs text-typography-main outline-none"
+                  />
+                  <TextInput
+                    value={linkUrl}
+                    onChangeText={setLinkUrl}
+                    onSubmitEditing={addCustomLink}
+                    placeholder="/share/… or https://…"
+                    placeholderTextColor={colors.textDim}
+                    className="rounded-lg border border-surface-border bg-surface-background px-2.5 py-2 text-xs text-typography-main outline-none"
+                  />
+                  <View className="flex-row gap-2">
+                    <Pressable
+                      onPress={() => { setShowAdd(false); setLinkLabel(''); setLinkUrl(''); }}
+                      className="flex-1 items-center rounded-lg border border-surface-border py-2 hover:bg-surface-overlay"
+                    >
+                      <Text className="text-xs font-bold text-typography-muted">Cancel</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={addCustomLink}
+                      disabled={!canAdd}
+                      className={`flex-1 items-center rounded-lg bg-brand-primary py-2 ${canAdd ? 'active:scale-95' : 'opacity-40'}`}
+                    >
+                      <Text className="text-xs font-black text-white">Add</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              )}
+            </View>
           </View>
         </View>
       </View>

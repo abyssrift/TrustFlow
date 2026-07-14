@@ -1,5 +1,6 @@
 import AnimatedTaskCard from '@/components/common/AnimatedTaskCard';
 import KanbanPersonalizer from '@/components/kanban/KanbanPersonalizer';
+import RightSidebar from '@/components/kanban/RightSidebar.web';
 import TaskCardActions, { type ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
 import { boardCacheMeta, prefetchOtherBoards, taskCache, type BoardSnapshot, TASK_SORT_OPTIONS, compareTasksBySortKey, type TaskSortKey } from '@/components/tabs/taskBoardCache';
 import TaskPingButton from '@/components/task-detail/TaskPingButton';
@@ -2078,6 +2079,15 @@ export function TasksScreenWeb() {
         loading={archiving}
         onConfirm={handleArchiveTask}
         onCancel={() => setArchiveModal({ visible: false, taskId: null })}
+      />
+
+      <RightSidebar
+        pipelineName={pipeline?.name}
+        taskCount={tasks.length}
+        visibilityMode={pipeline?.task_visibility_mode}
+        tasks={tasks}
+        activeSessions={activeSessions}
+        currentUserId={user?.id}
       />
     </View>
   );

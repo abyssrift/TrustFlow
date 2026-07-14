@@ -52,4 +52,46 @@ assert.equal(p.terms, 'meeting');
 assert.ok(near(span(p), D, 2 * H), 'ISO date spans ~1 day');
 assert.ok(near(new Date(p.from!).getTime(), Date.UTC(2026, 6, 3), 24 * H), 'ISO date near July 3');
 
+// ── v2: date-field targeting ──────────────────────────────────────────────
+// "due" → field=due, and (no explicit type) auto-narrows to tasks
+p = parseQuery('logo due tomorrow', NOW);
+assert.equal(p.field, 'due');
+assert.deepEqual(p.types, ['task']);
+assert.equal(p.terms, 'logo');
+assert.ok(p.from && p.to, 'tomorrow range set');
+
+// "completed" → field=completed
+p = parseQuery('report completed last week', NOW);
+assert.equal(p.field, 'completed');
+// explicit type 'report' present → not auto-narrowed to task
+assert.deepEqual(p.types, ['report']);
+
+// no field word → null (server defaults to created_at)
+p = parseQuery('onboarding', NOW);
+assert.equal(p.field, null);
+
+// ── v2: operators ─────────────────────────────────────────────────────────
+// before July → open-ended upper bound, terms cleaned
+p = parseQuery('invoice before july', NOW);
+assert.equal(p.terms, 'invoice');
+assert.ok(p.to && new Date(p.to!) < NOW, 'before july: to precedes now');
+
+// between june and august → spans ~2-3 months
+p = parseQuery('audit between june and august', NOW);
+assert.equal(p.terms, 'audit');
+assert.ok(span(p) >= 55 * D && span(p) <= 95 * D, 'between june and august spans ~2-3mo');
+
+// ── v2: relative N + anchors ──────────────────────────────────────────────
+// "last 3 days" = start-of-day 3 days ago → end of today (≈3–4 calendar days)
+p = parseQuery('last 3 days', NOW);
+assert.ok(span(p) >= 3 * D && span(p) <= 4.5 * D, 'last 3 days spans 3-4 days');
+
+p = parseQuery('q2', NOW);
+assert.ok(span(p) >= 88 * D && span(p) <= 95 * D, 'Q2 spans a quarter');
+assert.ok(new Date(p.from!).getUTCMonth() >= 2 && new Date(p.from!).getUTCMonth() <= 3, 'Q2 starts around April');
+
+p = parseQuery('foo 3 days ago', NOW);
+assert.equal(p.terms, 'foo');
+assert.ok(near(span(p), D, 2 * H), '3 days ago is a single day');
+
 console.log('useSearchQuery: all assertions passed');

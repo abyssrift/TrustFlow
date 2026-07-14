@@ -11,7 +11,6 @@ import { Platform, View, useWindowDimensions } from 'react-native';
 import NavRail from './sidebar/NavRail.web';
 import { SHORTCUTS } from './sidebar/constants';
 import RetractableTopBar from './sidebar/RetractableTopBar.web';
-import ThemePopover from './sidebar/ThemePopover';
 import { useSidebarProfile } from './sidebar/useSidebarProfile';
 
 export default function Sidebar({ children }: { children: React.ReactNode }) {
@@ -34,7 +33,6 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
     return false;
   });
   const [isHovered, setIsHovered] = useState(false);
-  const [showThemePopover, setShowThemePopover] = useState(false);
   const [pipelines, setPipelines] = useState<{ id: string; name: string }[]>([]);
   const [topSearch, setTopSearch] = useState('');
   const [isTopBarCollapsed, setIsTopBarCollapsed] = useState(() => {
@@ -90,7 +88,6 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
   const toggleCollapse = () => {
     const next = !isCollapsed;
     setIsCollapsed(next);
-    setShowThemePopover(false);
     if (Platform.OS === 'web') localStorage.setItem('sidebar_collapsed', String(next));
   };
 
@@ -147,20 +144,13 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
         inboxUnread={inboxUnread}
       />
 
-      <ThemePopover
-        visible={showThemePopover}
-        onClose={() => setShowThemePopover(false)}
-      />
-
       <View className="flex-1 flex-col bg-surface-background">
         <RetractableTopBar
           collapsed={isTopBarCollapsed}
           onToggle={toggleTopBarCollapse}
-          themeOpen={showThemePopover}
           topSearch={topSearch}
           setTopSearch={setTopSearch}
           unreadCount={unreadCount}
-          onToggleThemePopover={() => setShowThemePopover((prev) => !prev)}
           profileAvatarUrl={profileAvatarUrl}
           profileLabel={profileLabel}
           visibleShortcuts={visibleShortcuts}

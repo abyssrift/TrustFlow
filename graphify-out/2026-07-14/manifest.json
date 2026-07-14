@@ -50,8 +50,8 @@
     "semantic_hash": ""
   },
   "app/(tabs)/_layout.tsx": {
-    "mtime": 1783928094.5410576,
-    "ast_hash": "3a30cbd75897f07cb03938e2114cda2d",
+    "mtime": 1784013378.852705,
+    "ast_hash": "41449b478fb80b57e0e39f14c7d5a3e1",
     "semantic_hash": ""
   },
   "app/(tabs)/_layout.web.tsx": {
@@ -170,8 +170,8 @@
     "semantic_hash": ""
   },
   "app/_layout.web.tsx": {
-    "mtime": 1783947278.3937392,
-    "ast_hash": "7ba321d54d930d4f2a1f4b536384b572",
+    "mtime": 1784013428.7381563,
+    "ast_hash": "3dbf34e0ddca2d9aa83388899a90ffe2",
     "semantic_hash": ""
   },
   "app/admin/dev-tools.tsx": {
@@ -310,8 +310,8 @@
     "semantic_hash": ""
   },
   "components/Sidebar.web.tsx": {
-    "mtime": 1784011813.5910683,
-    "ast_hash": "987daf3ef235593f1c5b18e55c251855",
+    "mtime": 1784032543.8324308,
+    "ast_hash": "3ccb8321d2b3c1fd2699ab1c0d7273ac",
     "semantic_hash": ""
   },
   "components/Skeleton.tsx": {
@@ -330,8 +330,8 @@
     "semantic_hash": ""
   },
   "components/TimerIsland.tsx": {
-    "mtime": 1783925334.2721214,
-    "ast_hash": "987f776156fd94dbcf09c43d908e260e",
+    "mtime": 1784013402.8874803,
+    "ast_hash": "9930f60c6eb4e53aff4e1d04de72cdff",
     "semantic_hash": ""
   },
   "components/WebPushPrompt.tsx": {
@@ -1045,8 +1045,8 @@
     "semantic_hash": ""
   },
   "components/tabs/_tasks_desktop.tsx": {
-    "mtime": 1784009728.6461313,
-    "ast_hash": "544863202d9b229753dc97b5d3817cbe",
+    "mtime": 1784032356.9205456,
+    "ast_hash": "9d035f359a0c7f677df76ce7bb83a7ad",
     "semantic_hash": ""
   },
   "components/tabs/_tasks_web.tsx": {
@@ -2190,8 +2190,8 @@
     "semantic_hash": ""
   },
   "Features.md": {
-    "mtime": 1784011461.456856,
-    "ast_hash": "08c18b7e8d7b1b92083794a695781665",
+    "mtime": 1784032252.5794804,
+    "ast_hash": "05296af36d6b8848c69dcae39611867c",
     "semantic_hash": ""
   },
   "Notes.md": {
@@ -2789,14 +2789,9 @@
     "ast_hash": "5b34bbc9c27c1a87436308481d9259bd",
     "semantic_hash": ""
   },
-  "components/sidebar/ThemePopover.tsx": {
-    "mtime": 1784009728.6351259,
-    "ast_hash": "7593ae439d39199661414e6554efe680",
-    "semantic_hash": ""
-  },
   "components/sidebar/TopBar.web.tsx": {
-    "mtime": 1784011771.5961733,
-    "ast_hash": "b45722e53cf3eca01d2e2fda24b1c5d8",
+    "mtime": 1784033037.141719,
+    "ast_hash": "5824fc31e6c17fe7a09877fcf44443b9",
     "semantic_hash": ""
   },
   "components/sidebar/constants.ts": {
@@ -2815,13 +2810,13 @@
     "semantic_hash": ""
   },
   "components/sidebar/PinnedShortcuts.web.tsx": {
-    "mtime": 1784011807.9289773,
-    "ast_hash": "0b998507172427346c2ba04ff370d4ff",
+    "mtime": 1784032072.3758028,
+    "ast_hash": "3fa1581811196f61539a22ad6d26a990",
     "semantic_hash": ""
   },
   "components/sidebar/TopBarPullTab.web.tsx": {
-    "mtime": 1784012381.2575374,
-    "ast_hash": "9ce4e2c5d87551d0741165d69dd0e8f9",
+    "mtime": 1784030937.8252182,
+    "ast_hash": "2115f117e39860e17d4923a35fd71309",
     "semantic_hash": ""
   },
   "components/sidebar/usePinnedShortcuts.ts": {
@@ -2840,13 +2835,73 @@
     "semantic_hash": ""
   },
   "components/sidebar/RetractableTopBar.web.tsx": {
-    "mtime": 1784012344.8056607,
-    "ast_hash": "ba280dd41d04233b32ec81d9f50c6a76",
+    "mtime": 1784032495.9577603,
+    "ast_hash": "2ddc8b4c8f93f1f8065f477abdff7872",
     "semantic_hash": ""
   },
   "supabase/migrations/20260719_filehub_activity_badge.sql": {
     "mtime": 1784009728.710388,
     "ast_hash": "c79f2e93335964d21422754b09f72838",
+    "semantic_hash": ""
+  },
+  "app/(tabs)/search.tsx": {
+    "mtime": 1784013399.8831038,
+    "ast_hash": "a5121c59018d409fc9c40c8262fc22f6",
+    "semantic_hash": ""
+  },
+  "components/sidebar/search/SearchDropdown.web.tsx": {
+    "mtime": 1784032107.3906507,
+    "ast_hash": "0f3a0e6aa327be450e9672fbfcbc5744",
+    "semantic_hash": ""
+  },
+  "components/sidebar/search/SearchResultRow.web.tsx": {
+    "mtime": 1784032034.3552158,
+    "ast_hash": "61a2e8ae43e6c66348627ca23f930791",
+    "semantic_hash": ""
+  },
+  "hooks/useGlobalSearch.ts": {
+    "mtime": 1784032065.1829824,
+    "ast_hash": "3fe147c10ed363d1b8a2d64b26fb4b09",
+    "semantic_hash": ""
+  },
+  "hooks/useRecentSearches.ts": {
+    "mtime": 1784013235.0590374,
+    "ast_hash": "7f3e70bd84c6ca7712e4c203d95eaba3",
+    "semantic_hash": ""
+  },
+  "hooks/useSearchQuery.test.ts": {
+    "mtime": 1784032179.2440207,
+    "ast_hash": "e99ff41a8fcd53dfbbc3babfe3383c8a",
+    "semantic_hash": ""
+  },
+  "hooks/useSearchQuery.ts": {
+    "mtime": 1784031516.2909086,
+    "ast_hash": "c96fd9b6d016de3d998d9bd7373ee27a",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20260714_global_search.sql": {
+    "mtime": 1784012803.3565435,
+    "ast_hash": "5275378799e9414ffe8ac86b1c52612e",
+    "semantic_hash": ""
+  },
+  "components/common/AppModal.tsx": {
+    "mtime": 1784030999.3601377,
+    "ast_hash": "7c3df9d502f77712f118298143fee843",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20260714_global_search_v2.sql": {
+    "mtime": 1784031855.9292872,
+    "ast_hash": "7c3cdf7896db53f04cd59bce3adc2b3d",
+    "semantic_hash": ""
+  },
+  "components/kanban/RightSidebar.web.tsx": {
+    "mtime": 1784032320.4820035,
+    "ast_hash": "9b5429c5f3e0b196164f8171f73a34cb",
+    "semantic_hash": ""
+  },
+  "components/sidebar/ThemeButton.web.tsx": {
+    "mtime": 1784032428.5559483,
+    "ast_hash": "e7b03378d8bb952dfea033283b53c47c",
     "semantic_hash": ""
   }
 }

@@ -8,47 +8,36 @@ type TopBarProps = {
   topSearch: string;
   setTopSearch: (value: string) => void;
   unreadCount: number;
-  onToggleThemePopover: () => void;
   profileAvatarUrl: string | null;
   profileLabel: string;
   visibleShortcuts: Shortcut[];
   pipelines: { id: string; name: string }[];
 };
 
-const ANIM_MS = 300;
 const LEAVE_GRACE_MS = 160; // brief exits (overshoot, crossing a gap) don't collapse
 
-// Wraps TopBar with the retract behavior (item 6): the bar collapses to a
-// centered "island" tab, and re-expands on click (persistent) or a gentle
-// hover-peek. The whole subtree owns its stacking context so the pinned-picker
-// dropdown isn't swallowed.
+// Retractable top bar (item 6). Toggles on click, and hover-peeks open while the
+// cursor is over the bar/tab. The finicky part was never the peek — it was the
+// timer island *revealing* controls on hover; that's gone (controls are static
+// now), so peek is the only thing hover does: one clear behavior.
 export default function RetractableTopBar({
   collapsed,
   onToggle,
-  themeOpen,
   ...topBarProps
-}: TopBarProps & { collapsed: boolean; onToggle: () => void; themeOpen: boolean }) {
+}: TopBarProps & { collapsed: boolean; onToggle: () => void }) {
   const [peek, setPeek] = useState(false);
-  // Interaction lock: while any child interaction is live (theme popover, pinned
-  // picker, focused search) the bar must never retract out from under it, even
-  // if the cursor wanders off. This is the "won't collapse mid-task" guarantee.
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [searchFocused, setSearchFocused] = useState(false);
-  const locked = themeOpen || pickerOpen || searchFocused;
-  const expanded = !collapsed || peek || locked;
-
-  // overflow must be hidden *during* the slide so the bar clips cleanly (and both
-  // directions animate symmetrically), then visible once settled so the picker
-  // dropdown can escape. Toggling it instantly would make expand a fade, not a slide.
-  const [overflowVisible, setOverflowVisible] = useState(expanded);
+  const expanded = !collapsed || peek;
 
   const wrapperRef = useRef<any>(null);
   const leaveTimer = useRef<any>(null);
   const suppressPeek = useRef(false); // set on click-collapse so a lingering hover can't re-peek
 
+  // overflow stays hidden during the slide so the bar clips cleanly, then goes
+  // visible once settled so the pinned-picker dropdown can escape the clip.
+  const [overflowVisible, setOverflowVisible] = useState(expanded);
   useEffect(() => {
     if (expanded) {
-      const t = setTimeout(() => setOverflowVisible(true), ANIM_MS + 20);
+      const t = setTimeout(() => setOverflowVisible(true), 320);
       return () => clearTimeout(t);
     }
     setOverflowVisible(false);
@@ -94,9 +83,6 @@ export default function RetractableTopBar({
   return (
     <View ref={wrapperRef} style={{ position: 'relative', zIndex: 100 }}>
       <View
-        // ponytail: maxHeight ~ the real bar height (h-16) so the slide is tight;
-        // reflows the content pane each frame — swap to a transform overlay if a
-        // heavy page (kanban) drops frames on collapse.
         style={{
           maxHeight: expanded ? 72 : 0,
           opacity: expanded ? 1 : 0,
@@ -104,15 +90,12 @@ export default function RetractableTopBar({
         }}
         className="transition-all duration-300 ease-in-out"
       >
-        <TopBar
-          {...topBarProps}
-          onPickerOpenChange={setPickerOpen}
-          onSearchFocusChange={setSearchFocused}
-        />
+        <TopBar {...topBarProps} />
       </View>
 
-      {/* Center "island" tab. box-none so the full-width container only catches
-          clicks on the pill itself; its top animates in lockstep with the bar. */}
+      {/* Center island. box-none so only the pill catches clicks; its top animates
+          in lockstep with the bar (straddles the bottom edge open, floats top
+          when collapsed). */}
       <View
         pointerEvents="box-none"
         style={{ position: 'absolute', left: 0, right: 0, top: expanded ? 52 : 4, alignItems: 'center', zIndex: 110 }}
