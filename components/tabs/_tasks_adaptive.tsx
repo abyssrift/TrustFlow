@@ -3,6 +3,7 @@ import ConfirmModal from '@/components/common/ConfirmModal';
 import HorizontalScroll from '@/components/common/HorizontalScroll';
 import KanbanPersonalizer from '@/components/kanban/KanbanPersonalizer';
 import SkeletonBlock, { SkeletonList } from '@/components/Skeleton';
+import ActiveSessionAvatars from '@/components/task-detail/ActiveSessionAvatars';
 import TaskCardActions, { type ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
 import { boardCacheMeta, prefetchOtherBoards, taskCache, type BoardSnapshot, TASK_SORT_OPTIONS, compareTasksBySortKey, type TaskSortKey } from '@/components/tabs/taskBoardCache';
 import TaskPingButton from '@/components/task-detail/TaskPingButton';
@@ -1106,25 +1107,9 @@ function TasksScreen() {
           <Text className="text-typography-dim text-[9px] font-bold uppercase tracking-wider mb-1">{task.category}</Text>
         )}
         
-         {/* ACTIVE WORK INDICATOR - Avatar Refined */}
+         {/* ACTIVE WORK INDICATOR — avatar stack + hover session detail */}
         {kanban.showAvatars && activeSessions[task.id] && activeSessions[task.id].length > 0 && (
-          <View className="flex-row items-center mb-3">
-             <View className="relative">
-                <View className="w-6 h-6 rounded-full bg-brand-primary/10 overflow-hidden border-2 border-state-success">
-                   {activeSessions[task.id][0].avatar ? (
-                      <Image source={{ uri: activeSessions[task.id][0].avatar || undefined }} className="w-full h-full" />
-                   ) : (
-                      <View className="flex-1 items-center justify-center bg-brand-primary/20">
-                          <Text className="text-brand-primary text-[8px] font-black">{activeSessions[task.id][0].name.charAt(0)}</Text>
-                      </View>
-                   )}
-                </View>
-                <View className="absolute -right-0.5 -bottom-0.5 w-2 h-2 rounded-full bg-state-success border-2 border-surface-card" />
-             </View>
-             <Text className="text-state-success text-[10px] font-bold ml-2">
-                {activeSessions[task.id][0].name} {activeSessions[task.id].length > 1 ? `+${activeSessions[task.id].length - 1} more` : 'is active'}
-             </Text>
-          </View>
+          <ActiveSessionAvatars sessions={activeSessions[task.id]} />
         )}
 
         <Text className="text-typography-muted text-xs leading-4 mb-3" numberOfLines={2}>

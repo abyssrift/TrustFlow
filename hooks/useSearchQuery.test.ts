@@ -94,4 +94,13 @@ p = parseQuery('foo 3 days ago', NOW);
 assert.equal(p.terms, 'foo');
 assert.ok(near(span(p), D, 2 * H), '3 days ago is a single day');
 
+// ── v3: person type ───────────────────────────────────────────────────────
+p = parseQuery('people sara', NOW);
+assert.deepEqual(p.types, ['person']);
+assert.equal(p.terms, 'sara');
+
+p = parseQuery('user:ahmed', NOW);
+assert.deepEqual(p.types, ['person']);
+assert.equal(p.terms, 'ahmed');
+
 console.log('useSearchQuery: all assertions passed');

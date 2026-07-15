@@ -6,9 +6,9 @@ import React from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import SearchResultRow from './SearchResultRow.web';
 
-const GROUP_ORDER: ResultType[] = ['task', 'file', 'report', 'comment'];
+const GROUP_ORDER: ResultType[] = ['task', 'person', 'file', 'report', 'comment'];
 const GROUP_LABEL: Record<string, string> = {
-  task: 'Tasks', file: 'Files', report: 'Reports', comment: 'Comments', archive: 'Archived',
+  task: 'Tasks', person: 'People', file: 'Files', report: 'Reports', comment: 'Comments', archive: 'Archived',
 };
 const PER_GROUP = 4;             // dropdown preview cap; full list lives on /search
 const SPARSE = 5;                // below this, offer the archive fallback
@@ -46,6 +46,9 @@ export default function SearchDropdown({
   archives,
   loading,
   recent,
+  saved,
+  querySaved,
+  onToggleSave,
   canViewArchives,
   includeArchived,
   onToggleArchived,
@@ -63,6 +66,9 @@ export default function SearchDropdown({
   archives: SearchResult[];
   loading: boolean;
   recent: string[];
+  saved: string[];
+  querySaved: boolean;
+  onToggleSave: () => void;
   canViewArchives: boolean;
   includeArchived: boolean;
   onToggleArchived: () => void;
@@ -91,8 +97,19 @@ export default function SearchDropdown({
       ) : null}
 
       {!typing ? (
-        // ── Empty state: recent searches + rotating tips ──────────────────
+        // ── Empty state: saved + recent searches + rotating tips ──────────
         <View>
+          {saved.length ? (
+            <View className="mb-1">
+              <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest px-2 py-1">Saved</Text>
+              {saved.map((q) => (
+                <Pressable key={q} onPress={() => onPickRecent(q)} className="flex-row items-center gap-3 px-3 py-2 rounded-xl hover:bg-surface-overlay">
+                  <FontAwesome name="star" size={12} color={colors.primary} />
+                  <Text numberOfLines={1} className="text-typography-main text-sm flex-1">{q}</Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
           {recent.length === 0 ? (
             <View className="items-center px-3 pt-6 pb-1">
               <FontAwesome name="search" size={18} color={colors.textDim} />
@@ -157,12 +174,20 @@ export default function SearchDropdown({
 
           {showArchiveToggle ? <ArchiveToggle colors={colors} on={includeArchived} onPress={onToggleArchived} /> : null}
 
-          <Pressable onPress={onSubmit} className="flex-row items-center justify-center gap-2 rounded-xl py-2.5 mt-1 hover:bg-surface-overlay">
-            <Text className="text-sm font-bold" style={{ color: colors.primary }}>
-              See all {results.length} result{results.length === 1 ? '' : 's'}
-            </Text>
-            <FontAwesome name="arrow-right" size={11} color={colors.primary} />
-          </Pressable>
+          <View className="flex-row items-center justify-between mt-1 px-1">
+            <Pressable onPress={onToggleSave} hitSlop={6} className="flex-row items-center gap-1.5 px-2 py-2 rounded-xl hover:bg-surface-overlay">
+              <FontAwesome name={querySaved ? 'star' : 'star-o'} size={12} color={querySaved ? colors.primary : colors.textDim} />
+              <Text className="text-[11px] font-bold" style={{ color: querySaved ? colors.primary : colors.textDim }}>
+                {querySaved ? 'Saved' : 'Save search'}
+              </Text>
+            </Pressable>
+            <Pressable onPress={onSubmit} className="flex-row items-center gap-2 rounded-xl px-3 py-2 hover:bg-surface-overlay">
+              <Text className="text-sm font-bold" style={{ color: colors.primary }}>
+                See all {results.length} result{results.length === 1 ? '' : 's'}
+              </Text>
+              <FontAwesome name="arrow-right" size={11} color={colors.primary} />
+            </Pressable>
+          </View>
         </ScrollView>
       )}
     </View>

@@ -181,12 +181,9 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
       .maybeSingle();
 
     if (sessionRow?.status === 'completed') {
-      // Beacon stopped it during reload — restore to active so the timer continues
-      const { error } = await supabase
-        .from('task_work_sessions')
-        .update({ status: 'active', stopped_at: null })
-        .eq('id', intent.id)
-        .eq('user_id', user.id);
+      // Beacon stopped it during reload — restore to active so the timer continues.
+      // RLS is SELECT-only on task_work_sessions; mutation goes through the RPC.
+      const { error } = await supabase.rpc('rpc_resume_session', { p_session_id: intent.id });
 
       if (!error) {
         console.log('[Timer] Session reactivated after page reload');

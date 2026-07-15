@@ -27,6 +27,7 @@ export function resultRoute(r: SearchResult): string {
     case 'comment': return r.task_id ? `/task/${r.task_id}` : '/tasks';
     case 'file':    return r.task_id ? `/task/${r.task_id}` : '/filehub';
     case 'report':  return '/intelligence/reports';
+    case 'person':  return '/people';
     case 'archive': return '/intelligence/archives';
   }
 }

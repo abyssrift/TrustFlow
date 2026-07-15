@@ -26,6 +26,8 @@ const TYPE_WORDS: Record<string, SearchType> = {
   document: 'file', documents: 'file', attachment: 'file', attachments: 'file',
   report: 'report', reports: 'report',
   comment: 'comment', comments: 'comment', note: 'comment', notes: 'comment',
+  person: 'person', people: 'person', user: 'person', users: 'person',
+  member: 'person', members: 'person', staff: 'person', teammate: 'person',
 };
 
 const MONTHS = ['january','february','march','april','may','june','july',
@@ -201,7 +203,7 @@ export function parseQuery(raw: string, now: Date = new Date()): ParsedQuery {
   const chips: string[] = [];
 
   // 1. explicit "type:" prefix
-  text = text.replace(/\b(task|file|report|comment)s?:/gi, (_, w: string) => {
+  text = text.replace(/\b(task|file|report|comment|person|people|user|member)s?:/gi, (_, w: string) => {
     const t = TYPE_WORDS[w.toLowerCase()]; if (t && !types.includes(t)) types.push(t); return ' ';
   });
 
@@ -236,5 +238,5 @@ export function parseQuery(raw: string, now: Date = new Date()): ParsedQuery {
 }
 
 function cap(s: string) { return s.charAt(0).toUpperCase() + s.slice(1); }
-function pluralLabel(t: SearchType) { return { task: 'Tasks', file: 'Files', report: 'Reports', comment: 'Comments' }[t]; }
+function pluralLabel(t: SearchType) { return { task: 'Tasks', file: 'Files', report: 'Reports', comment: 'Comments', person: 'People' }[t]; }
 function escapeRe(s: string) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }

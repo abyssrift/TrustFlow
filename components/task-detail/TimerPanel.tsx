@@ -1,7 +1,9 @@
 import ManualTimeModal from '@/components/common/ManualTimeModal';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
+import { useTimer } from '@/contexts/TimerContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { useTicker } from '@/hooks/useTicker';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useState } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
@@ -24,10 +26,18 @@ export default function TimerPanel() {
   const { data, refresh } = useTaskDetail();
   const { warningToast } = useToast();
   const colors = useThemeColors();
+  const { activeSession, serverTimeOffset } = useTimer();
+  // Live-count the in-progress session so Total Effort matches the task card
+  // (StageActions), which adds the running session's elapsed time. Completed
+  // sessions live in total_time_spent_seconds; the active one is 0 until it stops.
+  const liveElapsed = useTicker(
+    activeSession && data && activeSession.task_id === data.task.id ? activeSession.started_at : null,
+    { offsetMs: serverTimeOffset }
+  );
   const [showManualTime, setShowManualTime] = useState(false);
   if (!data) return null;
 
-  const totalSpent = data.stats.total_time_spent_seconds || 0;
+  const totalSpent = (data.stats.total_time_spent_seconds || 0) + liveElapsed;
   const recentSessions = data.work_sessions
     .filter(ws => ws.status === 'completed')
     .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())

@@ -10,6 +10,7 @@ import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 
 const TABS: { key: SearchType | 'all'; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'task', label: 'Tasks' },
+  { key: 'person', label: 'People' },
   { key: 'file', label: 'Files' },
   { key: 'report', label: 'Reports' },
   { key: 'comment', label: 'Comments' },

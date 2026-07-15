@@ -1,6 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useGlobalSearch } from '@/hooks/useGlobalSearch';
 import { useRecentSearches } from '@/hooks/useRecentSearches';
+import { useSavedSearches } from '@/hooks/useSavedSearches';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Link, useRouter } from 'expo-router';
@@ -57,6 +58,7 @@ export default function TopBar({
     includeArchived: includeArchived && canViewArchives,
   });
   const { recent, push: pushRecent, remove: removeRecent, clear: clearRecent } = useRecentSearches();
+  const { saved, isSaved, toggle: toggleSaved } = useSavedSearches();
 
   const setFocus = (v: boolean) => { setFocused(v); onSearchFocusChange?.(v); };
   // Delay blur so a click inside the dropdown lands before it unmounts.
@@ -116,6 +118,9 @@ export default function TopBar({
             archives={archives}
             loading={loading}
             recent={recent}
+            saved={saved}
+            querySaved={isSaved(topSearch)}
+            onToggleSave={() => toggleSaved(topSearch)}
             canViewArchives={canViewArchives}
             includeArchived={includeArchived}
             onToggleArchived={() => setIncludeArchived((v) => !v)}

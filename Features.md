@@ -141,3 +141,11 @@ The Sidebar on the right still has role access issues, dont forget to fix.
 
 
 Buttons on files and folders are not consistent, some have animation, some show on hover, some are always there, they're not even the same buttons. lets standardize the buttons by allowing some buttons to be moved to the general header, while some can stay on the file/folder.
+
+Recent Activity tab in the personal performance in profile displays other people's recent activity, should be only for yourself.
+
+We had an instance of a timer somehow breaking, where the recorded time was discarded and somehow removed, we need to make sure this NEVER happens. i wanna fix the bug, and make sure that nothing like this happens, can we get solutions like every 5 mins, timer creates a local backup or something, and once it submits it confirms locally that it finished? that way a stack trace that isnt marked completed means the timer failed somehow??? but i dont want this to affect our beacon and idle detectors too.
+
+**Status (2026-07-15): FIXED + hardened.** Root cause: three RPCs closed sessions without writing `total_seconds_spent` (the field all UI/reports read). Shipped: (1) DB trigger `trg_backfill_session_duration` auto-fills duration on any active→completed close — the whole bug class is now impossible from any code path, current or future; (2) `rpc_start_work` orphan-cleanup anchors duration to `last_heartbeat_at`; (3) hourly pg_cron sweep closes sessions stranded >8h; (4) NEW: `rpc_resume_session` — page reload was silently killing running timers (`stopped_at` column didn't exist + RLS blocked the client update). The 30s server heartbeat already covers the "local backup" idea more durably; no client backup needed. Beacon + idle detectors untouched. Lost 26m52s session restored.hoow
+
+Lets refactor the way the activity is displayed on the task card view in tasks.tsx instead of this vibe coded look green look with name, i want the user's Profile picture, and when you hover over him, a nice animation is shown and you can see relevant data such as their current session, start time of the session, their name, etc.

@@ -1150,8 +1150,8 @@
     "semantic_hash": ""
   },
   "components/task-detail/TimerPanel.tsx": {
-    "mtime": 1784110741.5511415,
-    "ast_hash": "6ace1d129c169f30a5a521e9875fbf85",
+    "mtime": 1783859688.0560873,
+    "ast_hash": "f7802ea155c918fcb21db233aada78fe",
     "semantic_hash": ""
   },
   "components/task-detail/actionRegistry.ts": {
@@ -2190,8 +2190,8 @@
     "semantic_hash": ""
   },
   "Features.md": {
-    "mtime": 1784109888.1390357,
-    "ast_hash": "204de4fa19178aef4a967be7719e7c3b",
+    "mtime": 1784107914.5180254,
+    "ast_hash": "790bcc6c3779ea01ca5ff096aaa8596c",
     "semantic_hash": ""
   },
   "Notes.md": {
