@@ -1,6 +1,7 @@
 import AnimatedTaskCard from '@/components/common/AnimatedTaskCard';
 import KanbanPersonalizer from '@/components/kanban/KanbanPersonalizer';
 import RightSidebar from '@/components/kanban/RightSidebar.web';
+import ActiveSessionAvatars from '@/components/task-detail/ActiveSessionAvatars';
 import TaskCardActions, { type ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
 import { boardCacheMeta, prefetchOtherBoards, taskCache, type BoardSnapshot, TASK_SORT_OPTIONS, compareTasksBySortKey, type TaskSortKey } from '@/components/tabs/taskBoardCache';
 import TaskPingButton from '@/components/task-detail/TaskPingButton';
@@ -1265,12 +1266,7 @@ export function TasksScreenWeb() {
         </Text>
         
         {kanban.showAvatars && activeSessions[task.id] && activeSessions[task.id].length > 0 && (
-          <View className="flex-row items-center mb-4 bg-state-success/10 p-2 rounded-xl border border-state-success/20">
-            <View className="w-2 h-2 rounded-full bg-state-success mr-3 pulse-animation" />
-            <Text className="text-state-success text-[10px] font-black uppercase tracking-widest">
-              {activeSessions[task.id][0].name} {activeSessions[task.id].length > 1 ? `+${activeSessions[task.id].length - 1}` : 'is active'}
-            </Text>
-          </View>
+          <ActiveSessionAvatars sessions={activeSessions[task.id]} />
         )}
 
         <View className="pt-4 border-t border-surface-border/50">
