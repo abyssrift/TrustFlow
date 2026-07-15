@@ -2082,6 +2082,7 @@ export function TasksScreenWeb() {
       />
 
       <RightSidebar
+        pipelineId={pipeline?.id}
         pipelineName={pipeline?.name}
         taskCount={tasks.length}
         visibilityMode={pipeline?.task_visibility_mode}
