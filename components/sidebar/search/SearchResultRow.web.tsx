@@ -11,10 +11,11 @@ const TYPE_ICON: Record<string, React.ComponentProps<typeof FontAwesome>['name']
   file: 'file-o',
   report: 'bar-chart',
   comment: 'comment-o',
+  person: 'user',
   archive: 'archive',
 };
 const TYPE_LABEL: Record<string, string> = {
-  task: 'Task', file: 'File', report: 'Report', comment: 'Comment', archive: 'Archived',
+  task: 'Task', file: 'File', report: 'Report', comment: 'Comment', person: 'Person', archive: 'Archived',
 };
 
 // ts_headline wraps matches in <b>…</b>; RN <Text> can't render HTML, so strip tags.

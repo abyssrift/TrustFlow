@@ -435,8 +435,8 @@
     "semantic_hash": ""
   },
   "components/admin/UserAssignmentGrid.tsx": {
-    "mtime": 1783860680.2531655,
-    "ast_hash": "fa3e2ce356bb141dca1537f8f3536ef0",
+    "mtime": 1784107762.827312,
+    "ast_hash": "b895c3000e3631e7b8a7e4cfee5de456",
     "semantic_hash": ""
   },
   "components/analytics/EfficiencyIndicator.tsx": {
@@ -1150,8 +1150,8 @@
     "semantic_hash": ""
   },
   "components/task-detail/TimerPanel.tsx": {
-    "mtime": 1783859688.0560873,
-    "ast_hash": "f7802ea155c918fcb21db233aada78fe",
+    "mtime": 1784110741.5511415,
+    "ast_hash": "6ace1d129c169f30a5a521e9875fbf85",
     "semantic_hash": ""
   },
   "components/task-detail/actionRegistry.ts": {
@@ -1270,8 +1270,8 @@
     "semantic_hash": ""
   },
   "contexts/TimerContext.tsx": {
-    "mtime": 1781593852.4716625,
-    "ast_hash": "f6e02dbd2e4f84dcbd21ffcb1b3d6bdd",
+    "mtime": 1784109384.7993565,
+    "ast_hash": "db1d1c984c7d8c529f3180e47f6266ea",
     "semantic_hash": ""
   },
   "contexts/ToastContext.tsx": {
@@ -2190,8 +2190,8 @@
     "semantic_hash": ""
   },
   "Features.md": {
-    "mtime": 1784034303.379237,
-    "ast_hash": "46b95c41621a3966f17b6a2f1d072aae",
+    "mtime": 1784109888.1390357,
+    "ast_hash": "204de4fa19178aef4a967be7719e7c3b",
     "semantic_hash": ""
   },
   "Notes.md": {
@@ -2932,6 +2932,26 @@
   "supabase/migrations/20260714_pipeline_members.sql": {
     "mtime": 1784097594.688225,
     "ast_hash": "2b82189f3512cc091a08f7df00874b8f",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20260715_fix_orphan_session_duration.sql": {
+    "mtime": 1784108457.413321,
+    "ast_hash": "c57710aa1619cf746865fe1ea5fe7e03",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20260715_resume_session_rpc.sql": {
+    "mtime": 1784109360.7332084,
+    "ast_hash": "b0605cd2e71abd3f4bc9d59aad7aae19",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20260715_stale_session_sweep.sql": {
+    "mtime": 1784109348.5850172,
+    "ast_hash": "6cd1114f5c3d2532fd271e969483d9c3",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20260715_timer_duration_trigger.sql": {
+    "mtime": 1784109335.237906,
+    "ast_hash": "78b08c33b4b5aafbd44257da122dc153",
     "semantic_hash": ""
   }
 }
