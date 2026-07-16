@@ -10,6 +10,7 @@ import { useDragSource, useDropTarget, useMarqueeSelect } from '@/hooks/useWebDn
 import { FilePreviewModal, FilePreviewTeaser, getPreviewKind, type PreviewKind } from './../common/FilePreview';
 import FileHubAnalytics from './FileHubAnalytics';
 import FileHubBin from './FileHubBin';
+import { ensureFolderTree, groupPickedFiles, relDir } from '@/lib/filehubFolderTree';
 import { downloadFilesAsZip, openStorageFile } from '@/lib/storage';
 import TaskFileResults from './TaskFileResults';
 import { supabase } from '@/lib/supabase';
@@ -144,12 +145,12 @@ function AdaptiveFileGrid({
   onAddMore
 }: {
   files: File[];
-  onRemove: (index: number) => void;
+  onRemove: (indices: number[]) => void;
   onAddMore: () => void;
 }) {
   // Since this renders inside a modal restricted to max-w-[560px] with 32px padding,
   // we can use a baseline width of ~496px before onLayout accurately fires.
-  const [containerWidth, setContainerWidth] = useState(496); 
+  const [containerWidth, setContainerWidth] = useState(496);
 
   const gap = 12;
   const minSquareSize = 100;
@@ -160,13 +161,48 @@ function AdaptiveFileGrid({
 
   if (files.length === 0) return null;
 
+  // A picked folder renders as one tile, not one per nested file.
+  const entries = groupPickedFiles(files, f => (f as any).webkitRelativePath, f => f.size);
+
   return (
     <View
       onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
       className="flex-row flex-wrap w-full bg-surface-card border border-surface-border rounded-2xl p-4"
       style={{ gap }}
     >
-      {files.map((pf, idx) => {
+      {entries.map(entry => {
+        if (entry.kind === 'folder') {
+          return (
+            <View
+              key={`dir-${entry.name}`}
+              style={{ width: exactSquareSize, height: exactSquareSize }}
+              className="rounded-xl overflow-hidden border border-surface-border bg-surface-background relative"
+            >
+              <View className="flex-1 items-center justify-center p-2" style={{ backgroundColor: '#f59e0b12' }}>
+                <FontAwesome name="folder" size={exactSquareSize > 100 ? 36 : 28} color="#f59e0b" />
+                <View className="mt-3 bg-surface-background px-2 py-1 rounded-md border border-surface-border shadow-sm" style={{ maxWidth: '90%' }}>
+                  <Text className="text-[10px] font-black text-typography-muted" numberOfLines={1}>
+                    {entry.name}
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                onPress={() => onRemove(entry.indices)}
+                className="absolute top-1.5 right-1.5 w-6 h-6 bg-black/50 rounded-full items-center justify-center hover:bg-black/70 transition-colors"
+                style={{ cursor: 'pointer' } as any}
+              >
+                <FontAwesome name="times" size={10} color="#fff" />
+              </TouchableOpacity>
+              <View className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1 backdrop-blur-md">
+                <Text className="text-white text-[9px] font-bold text-center" numberOfLines={1}>
+                  {entry.count} files · {formatFileSize(entry.size)}
+                </Text>
+              </View>
+            </View>
+          );
+        }
+        const pf = entry.item;
+        const idx = entry.index;
         const isImage = pf.type?.toLowerCase().startsWith('image/');
         const { icon, color } = getMimeIcon(pf.type || null);
         
@@ -197,7 +233,7 @@ function AdaptiveFileGrid({
             )}
 
             <TouchableOpacity
-              onPress={() => onRemove(idx)}
+              onPress={() => onRemove([idx])}
               className="absolute top-1.5 right-1.5 w-6 h-6 bg-black/50 rounded-full items-center justify-center hover:bg-black/70 transition-colors"
               style={{ cursor: 'pointer' } as any}
             >
@@ -263,7 +299,7 @@ function UploadModal({
   folders: FileHubFolder[];
   onClose: () => void;
   onUploaded: () => void;
-  checkDuplicate: (hash: string) => Promise<any[]>;
+  checkDuplicate: (hash: string, folderId: string | null) => Promise<any[]>;
   checkNameConflict: (
     name: string,
     visibility: 'direct' | 'broadcast' | 'group',
@@ -278,6 +314,7 @@ function UploadModal({
   profile: any;
   activeGroup?: { id: string; name: string; avatar_color: string } | null;
 }) {
+  const { refreshFolders } = useFileHub();
   const fileInputRef = useRef<any>(null);
   const folderInputRef = useRef<any>(null);
   const [draft, setDraft] = useState<UploadDraft>(EMPTY_DRAFT(activeGroup ? 'group' : 'direct'));
@@ -402,54 +439,93 @@ function UploadModal({
 
     setUploading(true);
     const errors: string[] = [];
+    // Remembered "…for all" answers so a 700-file batch needs one click, not 700.
+    let dupeAll: string | null = null;
+    let conflictAll: string | null = null;
 
-    for (let i = 0; i < draft.files.length; i++) {
-      const file = draft.files[i];
-      setUploadingIndex(i);
-      setProgress(5);
+    // Folder uploads keep their Explorer structure: every distinct directory
+    // in the batch (from webkitRelativePath) becomes a FileHub folder under
+    // the chosen target, merged into existing same-name folders.
+    let folderIdByDir = new Map<string, string>();
+    const dirs = [...new Set(draft.files.map(f => relDir((f as any).webkitRelativePath)))].filter(Boolean);
+    if (dirs.length > 0) {
+      try {
+        folderIdByDir = await ensureFolderTree(dirs, draft.folderId, scopedFolders, async (name, parentId) => {
+          const { data, error } = await supabase.rpc('rpc_filehub_folder_create', {
+            p_name: name,
+            p_parent_id: parentId,
+            p_scope: uploadScope,
+            p_group_id: uploadScope === 'group' ? (activeGroup?.id ?? null) : null,
+          });
+          if (error) throw error;
+          return data as string;
+        });
+        refreshFolders();
+      } catch (e: any) {
+        setUploading(false);
+        Alert.alert('Upload Failed', `Could not create folders: ${e.message || e}`);
+        return;
+      }
+    }
+
+    // Only one decision dialog can be on screen at a time; workers queue
+    // behind this chain, and re-check the remembered batch answer once it's
+    // their turn so an "…for all" click also covers dialogs already waiting.
+    let dialogQueue: Promise<unknown> = Promise.resolve();
+    const askQueued = (remembered: () => string | null, show: () => Promise<string>): Promise<string> => {
+      const turn = dialogQueue.then(() => remembered() ?? show());
+      dialogQueue = turn.catch(() => {});
+      return turn;
+    };
+
+    const uploadOne = async (file: File) => {
+      const targetFolderId = folderIdByDir.get(relDir((file as any).webkitRelativePath)) ?? draft.folderId;
       try {
         if (maxFileSizeBytes !== null && maxFileSizeBytes !== undefined && file.size > maxFileSizeBytes) {
           errors.push(`${file.name}: exceeds your plan's ${formatFileSize(maxFileSizeBytes)} file size limit.`);
-          continue;
+          return;
         }
         const contentHash = await computeSHA256(file);
-        setProgress(15);
 
-        const dupes = await checkDuplicate(contentHash);
+        const dupes = await checkDuplicate(contentHash, targetFolderId);
         if (dupes.length > 0) {
-          const proceed = await askDecision(
+          let proceed = await askQueued(() => dupeAll, () => askDecision(
             'Possible Duplicate',
             `"${dupes[0].original_name}" has the same content as "${file.name}". Upload anyway?`,
             [
-              { label: 'Cancel', value: 'cancel', style: 'cancel' },
+              { label: 'Skip', value: 'cancel', style: 'cancel' },
+              { label: 'Skip All Duplicates', value: 'cancel_all', style: 'cancel' },
               { label: 'Upload Anyway', value: 'proceed', style: 'primary' },
+              { label: 'Upload All Anyway', value: 'proceed_all', style: 'default' },
             ]
-          );
-          if (proceed !== 'proceed') continue;
+          ));
+          if (proceed.endsWith('_all')) { proceed = proceed.slice(0, -4); dupeAll = proceed; }
+          if (proceed !== 'proceed') return;
         }
 
         // Name-conflict prompt (Replace / Keep Both / Cancel)
         const groupId = draft.visibility === 'group' ? (activeGroup?.id ?? null) : null;
-        const conflict = await checkNameConflict(file.name, draft.visibility, groupId, draft.folderId);
+        const conflict = await checkNameConflict(file.name, draft.visibility, groupId, targetFolderId);
         if (conflict) {
-          const choice = await askDecision(
+          let choice = await askQueued(() => conflictAll, () => askDecision(
             'File already exists',
             `"${file.name}" already exists here (uploaded by ${conflict.uploader_name}). Replace it with a new version, or keep both?`,
             [
-              { label: 'Cancel', value: 'cancel', style: 'cancel' },
+              { label: 'Skip', value: 'cancel', style: 'cancel' },
+              { label: 'Skip All Conflicts', value: 'cancel_all', style: 'cancel' },
               { label: 'Keep Both', value: 'keep', style: 'default' },
               { label: 'Replace', value: 'replace', style: 'primary' },
+              { label: 'Replace All', value: 'replace_all', style: 'default' },
             ]
-          );
-          if (choice === 'cancel') continue;
+          ));
+          if (choice.endsWith('_all')) { choice = choice.slice(0, -4); conflictAll = choice; }
+          if (choice === 'cancel') return;
           if (choice === 'replace') {
             const replaceId = (crypto as any).randomUUID();
             const replaceSafeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
             const replacePath = `${companyId}/${replaceId}/${replaceSafeName}`;
-            setProgress(25);
             const { error: replaceStorageError } = await supabase.storage.from('filehub-files').upload(replacePath, file, { contentType: file.type || 'application/octet-stream' });
             if (replaceStorageError) throw replaceStorageError;
-            setProgress(80);
             await replaceFile(conflict.id, {
               storagePath: replacePath,
               size: file.size,
@@ -457,8 +533,7 @@ function UploadModal({
               mime: file.type || null,
               caption: draft.caption || null,
             });
-            setProgress(100);
-            continue;
+            return;
           }
           // 'keep' falls through to the normal upload_commit path (server auto-renames)
         }
@@ -466,17 +541,15 @@ function UploadModal({
         const fileId = (crypto as any).randomUUID();
         const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
         const storagePath = `${companyId}/${fileId}/${safeName}`;
-        setProgress(25);
 
         const { error: storageError } = await supabase.storage.from('filehub-files').upload(storagePath, file, { contentType: file.type || 'application/octet-stream' });
         if (storageError) throw storageError;
-        setProgress(80);
 
         const { error: rpcError } = await supabase.rpc('rpc_filehub_upload_commit', {
           p_storage_path: storagePath,
           p_visibility: draft.visibility,
           p_recipient_ids: draft.visibility === 'direct' ? draft.recipientIds : [],
-          p_folder_id: draft.folderId,
+          p_folder_id: targetFolderId,
           p_tags: draft.tags,
           p_caption: draft.caption || null,
           p_original_name: file.name,
@@ -487,11 +560,31 @@ function UploadModal({
           p_group_id: draft.visibility === 'group' ? (activeGroup?.id ?? null) : null,
         });
         if (rpcError) throw rpcError;
-        setProgress(100);
       } catch (e: any) {
         errors.push(`${file.name}: ${e.message || 'Unknown error'}`);
       }
-    }
+    };
+
+    // Sequential round trips were the bottleneck for big batches (4 network
+    // hops per file), so a few files fly in parallel; progress becomes
+    // "files completed / total" instead of per-file phases.
+    // ponytail: fixed pool of 4, tune only if storage starts rate-limiting.
+    const total = draft.files.length;
+    let nextIdx = 0;
+    let done = 0;
+    setProgress(1);
+    await Promise.all(
+      Array.from({ length: Math.min(4, total) }, async () => {
+        for (;;) {
+          const i = nextIdx++;
+          if (i >= total) break;
+          await uploadOne(draft.files[i]);
+          done++;
+          setUploadingIndex(done - 1);
+          setProgress(Math.max(1, Math.round((done / total) * 100)));
+        }
+      })
+    );
 
     setUploading(false);
     setProgress(0);
@@ -561,9 +654,12 @@ function UploadModal({
                 </View>
               </View>
             ) : (
-              <AdaptiveFileGrid 
+              <AdaptiveFileGrid
                 files={draft.files}
-                onRemove={(idx) => patch({ files: draft.files.filter((_, i) => i !== idx) })}
+                onRemove={(indices) => {
+                  const drop = new Set(indices);
+                  patch({ files: draft.files.filter((_, i) => !drop.has(i)) });
+                }}
                 onAddMore={() => fileInputRef.current?.click()}
               />
             )}
@@ -750,8 +846,8 @@ function UploadModal({
               <View className="bg-surface-background border border-surface-border rounded-xl px-4 py-3 gap-2">
                 <View className="flex-row items-center justify-between mb-1">
                   <Text className="text-typography-main text-xs font-bold">
-                    {draft.files.length > 1 ? `File ${uploadingIndex + 1} of ${draft.files.length} · ` : ''}
-                    {progress < 25 ? 'Preparing…' : progress < 80 ? 'Uploading…' : 'Committing…'}
+                    {draft.files.length > 1 ? `${uploadingIndex + 1} of ${draft.files.length} done · ` : ''}
+                    Uploading…
                   </Text>
                   <Text className="text-brand-primary text-xs font-black">{progress}%</Text>
                 </View>

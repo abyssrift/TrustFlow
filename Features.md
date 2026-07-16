@@ -12,9 +12,6 @@ Priority tags kept where originally noted: (High) / (Medium) / (Future).
 ---
 
 ## ✅ Tasks & Pipelines
-
-- Implement manual card reordering (drag-and-drop) to manage high-volume task lists. (High)
-
 - Standardization: Standardize all time units across the frontend and ensure graphs reflect appropriate, consistent time units. (High)
 
 - Task Reversal/Leading: Ability for managers to revert or override task states to correct workflow errors. (Medium)
@@ -149,3 +146,23 @@ We had an instance of a timer somehow breaking, where the recorded time was disc
 **Status (2026-07-15): FIXED + hardened.** Root cause: three RPCs closed sessions without writing `total_seconds_spent` (the field all UI/reports read). Shipped: (1) DB trigger `trg_backfill_session_duration` auto-fills duration on any active→completed close — the whole bug class is now impossible from any code path, current or future; (2) `rpc_start_work` orphan-cleanup anchors duration to `last_heartbeat_at`; (3) hourly pg_cron sweep closes sessions stranded >8h; (4) NEW: `rpc_resume_session` — page reload was silently killing running timers (`stopped_at` column didn't exist + RLS blocked the client update). The 30s server heartbeat already covers the "local backup" idea more durably; no client backup needed. Beacon + idle detectors untouched. Lost 26m52s session restored.hoow
 
 Lets refactor the way the activity is displayed on the task card view in tasks.tsx instead of this vibe coded look green look with name, i want the user's Profile picture, and when you hover over him, a nice animation is shown and you can see relevant data such as their current session, start time of the session, their name, etc.
+
+**Status (2026-07-16): SHIPPED.** `ActiveSessionAvatars` replaces the green "NAME IS ACTIVE" banner everywhere it appeared: both kanban boards (desktop + adaptive, gated on the existing `showAvatars` personalizer) and the task detail header. At rest it's an overlapping avatar stack with one presence dot; on hover the stack fans out and a popover shows each worker's name, session start, live duration, and idle state. Presence rules live in `lib/sessionPresence.ts` (pure, with `lib/sessionPresence.test.ts` — `npx tsx lib/sessionPresence.test.ts`): a heartbeat older than 90s (3 missed 30s pulses) reads as idle/amber, since `useSmartTimer` deliberately stops pulsing while the tab is hidden. Unknown heartbeat → treated as active, never amber. Migration `20260716_task_details_session_presence.sql` adds `avatar_url` + `last_heartbeat_at` to `rpc_get_task_details`' work_sessions payload — the old banner had no avatar and no idle signal, and without this the detail header needed a second query against `task_work_sessions` on every 30s heartbeat. Also removed the now-dead `renderTimerBadge` from TaskCardActions.
+
+Not verified in a running app yet — the presence dot, fan-out animation and popover placement are visual and want a real look, especially the `align="center"` popover in the detail header.
+
+Mobile web layout is missing the navbar, it broke on the prod for some reason , investigate what happened to it and fix it because last time i saw it, it was working. its a bit finicky because we dont know where the bottom edge is for each phone, how do we usually fix this?
+
+
+Task claiming as an option in team settings. where you can toggle it on/off, if you turn it on, only 1 single member in a team who was assigned a task can claim the task and actually continue in it.
+
+moving from bulk task creation to single or single to bulk deletes what was already written.
+
+if you're uploading a file, even if you close the upload modal it should continue in the background and should be cancellable midway, it should also be shown in the island that exists in the topbar when you hover over it, a big rectangular pill shows with the progres, total files, estimated time etc. handle the island where the timer and the upload can exist together well in the island
+
+Kicking/leaving filehub groups doesnt work, it needs actual work.
+
+Orphan tasks fuck up folder uploads badly, it needs so much more work!
+
+
+Focus on IOS WEB, for safari, that way ahmed can use it, i need to focus as much as possible on iphone safari.

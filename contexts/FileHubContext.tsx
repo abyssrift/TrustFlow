@@ -163,6 +163,7 @@ type FileHubContextType = {
   loading: boolean;
   inboxUnreadCount: number;
   refresh: () => void;
+  refreshFolders: () => void;
   markRead: (fileId: string) => Promise<void>;
   markAllRead: () => Promise<void>;
   hideFile: (fileId: string) => Promise<void>;
@@ -179,7 +180,7 @@ type FileHubContextType = {
   moveFolder: (id: string, newParentId: string | null) => Promise<void>;
   moveFile: (fileId: string, folderId: string | null) => Promise<void>;
   tagSuggestions: (prefix: string) => Promise<string[]>;
-  checkDuplicate: (hash: string) => Promise<any[]>;
+  checkDuplicate: (hash: string, folderId: string | null) => Promise<any[]>;
   // Versioning
   checkNameConflict: (
     name: string,
@@ -554,8 +555,8 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
     return data || [];
   }, []);
 
-  const checkDuplicate = useCallback(async (hash: string): Promise<any[]> => {
-    const { data } = await supabase.rpc('rpc_filehub_check_duplicate', { p_content_hash: hash });
+  const checkDuplicate = useCallback(async (hash: string, folderId: string | null): Promise<any[]> => {
+    const { data } = await supabase.rpc('rpc_filehub_check_duplicate', { p_content_hash: hash, p_folder_id: folderId });
     return data || [];
   }, []);
 
@@ -686,6 +687,7 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
       files, folders, loading,
       inboxUnreadCount,
       refresh,
+      refreshFolders: fetchFolders,
       markRead, markAllRead, hideFile, deleteFile,
       binFiles, binLoading, fetchBin, restoreFromBin, restoreFolder,
       createFolder, renameFolder, deleteFolder, moveFolder, moveFile,

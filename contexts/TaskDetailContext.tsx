@@ -104,7 +104,8 @@ export type CommentData = {
 
 export type WorkSessionData = {
   id: string; user_name: string | null; user_id: string; status: string;
-  total_seconds_spent: number; started_at: string; last_heartbeat_at?: string;
+  total_seconds_spent: number; started_at: string; last_heartbeat_at?: string | null;
+  avatar_url?: string | null;
   stage_id: string | null;
 };
 

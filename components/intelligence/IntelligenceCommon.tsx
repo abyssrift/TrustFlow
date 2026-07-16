@@ -210,7 +210,9 @@ export const CircularTargetCard = ({ target, onEdit, onClear }: any) => {
               stroke: `url(#grad-${target.id})`,
               strokeWidth: 10, strokeDasharray: circumference,
               strokeDashoffset: strokeDashoffset, strokeLinecap: 'round',
-              style: { transform: 'rotate(-90deg)', transformOrigin: '60px 60px' },
+              // SVG-native rotate about the center — CSS transformOrigin in an RNSVG
+              // style leaks a kebab `transform-origin` DOM attr on web (React warns).
+              transform: 'rotate(-90, 60, 60)',
             } as any} />
           </Svg>
 

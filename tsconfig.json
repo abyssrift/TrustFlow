@@ -12,7 +12,8 @@
   "include": [
     "**/*.ts",
     "**/*.tsx",
-    "nativewind-env.d.ts"
+    "nativewind-env.d.ts",
+    "react-dom-env.d.ts"
   ],
   "exclude": [
     "supabase/functions"

@@ -1,21 +1,22 @@
+import { groupPickedFiles } from '@/lib/filehubFolderTree';
 import { FontAwesome } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React, { useState } from 'react';
 import { Platform, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 
 // Make sure you have these accessible in scope, or pass them as props
-// getMimeIcon, formatFileSize 
+// getMimeIcon, formatFileSize
 
-function AdaptiveFileGrid({ 
-  files, 
-  onRemove, 
+function AdaptiveFileGrid({
+  files,
+  onRemove,
   onAddMore,
   formatFileSize,
     getMimeIcon
-}: { 
-  files: any[]; 
-  onRemove: (index: number) => void; 
-  onAddMore: () => void; 
+}: {
+  files: any[];
+  onRemove: (indices: number[]) => void;
+  onAddMore: () => void;
   formatFileSize: (bytes: number) => string;
   getMimeIcon: (mimeType: string | null) => { icon: string; color: string };
 }) {
@@ -44,6 +45,9 @@ function AdaptiveFileGrid({
 
   if (files.length === 0) return null;
 
+  // A picked folder renders as one tile, not one per nested file.
+  const entries = groupPickedFiles(files, pf => pf.relPath, pf => pf.size ?? 0);
+
   return (
     <View 
       className="w-full"
@@ -56,7 +60,39 @@ function AdaptiveFileGrid({
       >
         <View className="flex-row flex-wrap" style={{ gap }}>
           
-          {files.map((pf, idx) => {
+          {entries.map(entry => {
+            if (entry.kind === 'folder') {
+              return (
+                <View
+                  key={`dir-${entry.name}`}
+                  style={{ width: exactSquareSize, height: exactSquareSize }}
+                  className="rounded-2xl overflow-hidden border border-surface-border bg-surface-background relative"
+                >
+                  <View className="flex-1 items-center justify-center p-2" style={{ backgroundColor: '#f59e0b12' }}>
+                    <FontAwesome name="folder" size={exactSquareSize > 120 ? 36 : 28} color="#f59e0b" />
+                    <View className="mt-3 bg-surface-background px-2 py-1 rounded-lg border border-surface-border shadow-sm" style={{ maxWidth: '90%' }}>
+                      <Text className="text-[10px] font-black text-typography-muted" numberOfLines={1}>
+                        {entry.name}
+                      </Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => onRemove(entry.indices)}
+                    className="absolute top-2 right-2 w-7 h-7 bg-black/50 rounded-full items-center justify-center"
+                    style={Platform.OS === 'web' ? { cursor: 'pointer' } : {}}
+                  >
+                    <FontAwesome name="times" size={11} color="#fff" />
+                  </TouchableOpacity>
+                  <View className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1.5 backdrop-blur-md">
+                    <Text className="text-white text-[10px] font-bold text-center" numberOfLines={1}>
+                      {entry.count} files · {formatFileSize(entry.size)}
+                    </Text>
+                  </View>
+                </View>
+              );
+            }
+            const pf = entry.item;
+            const idx = entry.index;
             const isImage = pf.type?.toLowerCase().startsWith('image/');
             const { icon, color } = getMimeIcon(pf.type ?? null);
             let imageSource = pf.uri;
@@ -91,8 +127,8 @@ function AdaptiveFileGrid({
                 )}
 
                 {/* Delete Button */}
-                <TouchableOpacity 
-                  onPress={() => onRemove(idx)}
+                <TouchableOpacity
+                  onPress={() => onRemove([idx])}
                   className="absolute top-2 right-2 w-7 h-7 bg-black/50 rounded-full items-center justify-center"
                   style={Platform.OS === 'web' ? { cursor: 'pointer' } : {}}
                 >

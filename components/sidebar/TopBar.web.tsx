@@ -3,16 +3,20 @@ import { useGlobalSearch } from '@/hooks/useGlobalSearch';
 import { useRecentSearches } from '@/hooks/useRecentSearches';
 import { useSavedSearches } from '@/hooks/useSavedSearches';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { useUpcomingTasks } from '@/hooks/useUpcomingTasks';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Link, useRouter } from 'expo-router';
 import React from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
+import CalendarOverlay from '../calendar/CalendarOverlay.web';
 import type { Shortcut } from './constants';
 import PinnedShortcuts from './PinnedShortcuts.web';
 import ProfilePill from './ProfilePill.web';
 import ThemeButton from './ThemeButton.web';
 import SearchDropdown from './search/SearchDropdown.web';
+import TimelineDropdown from './timeline/TimelineDropdown.web';
+import TimelineStrip from './timeline/TimelineStrip.web';
 
 cssInterop(FontAwesome, {
   className: {
@@ -59,12 +63,47 @@ export default function TopBar({
   });
   const { recent, push: pushRecent, remove: removeRecent, clear: clearRecent } = useRecentSearches();
   const { saved, isSaved, toggle: toggleSaved } = useSavedSearches();
+  const { tasks: upcomingTasks } = useUpcomingTasks();
+  const [timelineOpen, setTimelineOpen] = React.useState(false);
+  const timelineCloseTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timelineDropdownRef = React.useRef<HTMLDivElement>(null);
+  const timelineStripWrapRef = React.useRef<HTMLDivElement>(null);
+  const [calendarOpen, setCalendarOpen] = React.useState(false);
+  const [calendarOriginRect, setCalendarOriginRect] = React.useState<{ top: number; left: number; width: number; height: number } | null>(null);
 
   const setFocus = (v: boolean) => { setFocused(v); onSearchFocusChange?.(v); };
   // Delay blur so a click inside the dropdown lands before it unmounts.
   const onBlur = () => { blurTimer.current = setTimeout(() => setFocus(false), 150); };
   const onFocus = () => { if (blurTimer.current) clearTimeout(blurTimer.current); setFocus(true); };
   const closeNow = () => { if (blurTimer.current) clearTimeout(blurTimer.current); setFocus(false); };
+
+  // Same hover-open pattern as the search bar above, but simpler: the strip
+  // and its dropdown are both raw DOM, so a single plain <div> wrapper with
+  // native onMouseEnter/onMouseLeave covers both (no ref + DOM-listener dance
+  // needed — see TopBar's search wrapper for that heavier variant).
+  const openTimeline = () => { if (timelineCloseTimer.current) clearTimeout(timelineCloseTimer.current); setTimelineOpen(true); };
+  const scheduleCloseTimeline = () => { timelineCloseTimer.current = setTimeout(() => setTimelineOpen(false), 150); };
+  const closeTimelineNow = () => { if (timelineCloseTimer.current) clearTimeout(timelineCloseTimer.current); setTimelineOpen(false); };
+  React.useEffect(() => () => { if (timelineCloseTimer.current) clearTimeout(timelineCloseTimer.current); }, []);
+
+  // Read the dropdown's current on-screen rect so CalendarOverlay's FLIP
+  // morph can start from exactly where the click happened.
+  const expandCalendar = () => {
+    const rect = timelineDropdownRef.current?.getBoundingClientRect();
+    if (rect) setCalendarOriginRect({ top: rect.top, left: rect.left, width: rect.width, height: rect.height });
+    closeTimelineNow();
+    setCalendarOpen(true);
+  };
+
+  // Clicking the strip itself morphs from the thin bar, not the dropdown —
+  // the dropdown may still be mid-fade-in at click time, and the bar is
+  // always there to measure.
+  const expandCalendarFromStrip = () => {
+    const rect = timelineStripWrapRef.current?.getBoundingClientRect();
+    if (rect) setCalendarOriginRect({ top: rect.top, left: rect.left, width: rect.width, height: rect.height });
+    closeTimelineNow();
+    setCalendarOpen(true);
+  };
 
   // Hover-open, covering the input row, the 8px gap (bridged below), and the
   // dropdown itself so moving between them doesn't flicker-close it.
@@ -134,7 +173,33 @@ export default function TopBar({
 
         <PinnedShortcuts visibleShortcuts={visibleShortcuts} pipelines={pipelines} onOpenChange={onPickerOpenChange} />
 
-        <View className="flex-1" />
+        <View className="flex-1 px-6">
+          <div
+            ref={timelineStripWrapRef}
+            style={{ position: 'relative', width: '100%' }}
+            onMouseEnter={openTimeline}
+            onMouseLeave={scheduleCloseTimeline}
+          >
+            <TimelineStrip tasks={upcomingTasks} onPress={expandCalendarFromStrip} />
+            {/* Transparent bridge over the 12px gap to the dropdown, same trick as
+                the search bar's bridge above, so the hover trip never flicker-closes it. */}
+            {timelineOpen && (
+              <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, height: 16 }} />
+            )}
+            <TimelineDropdown
+              visible={timelineOpen}
+              tasks={upcomingTasks}
+              onNavigate={closeTimelineNow}
+              onExpand={expandCalendar}
+              containerRef={timelineDropdownRef}
+            />
+            <CalendarOverlay
+              open={calendarOpen}
+              originRect={calendarOriginRect}
+              onClose={() => setCalendarOpen(false)}
+            />
+          </div>
+        </View>
 
         <ThemeButton />
 
