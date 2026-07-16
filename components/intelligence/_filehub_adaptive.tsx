@@ -3,6 +3,7 @@ import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { FileActivity, FileHubFile, FileHubFolder, FileHubFolderScope, FileHubGroup, FileHubGroupMember, FileHubMode, FileHubProvider, FileHubShareLink, FileVersion, folderAncestors, folderPath, shareLinkUrl, useFileHub } from '@/contexts/FileHubContext';
 import { useToast } from '@/contexts/ToastContext';
+import { ensureFolderTree, relDir } from '@/lib/filehubFolderTree';
 import { downloadFilesAsZip, downloadFilesToDevice, openStorageFile } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
@@ -834,11 +835,11 @@ function UploadSheet({
   profile: any;
   activeGroup?: { id: string; name: string; avatar_color: string } | null;
 }) {
-  const { folders, checkDuplicate, checkNameConflict, replaceFile } = useFileHub();
+  const { folders, checkDuplicate, checkNameConflict, replaceFile, refreshFolders } = useFileHub();
   const fileInputRef = useRef<any>(null);
   const folderInputRef = useRef<any>(null);
 
-  type PickedFile = { name: string; size: number; uri: string; type?: string; webFile?: File };
+  type PickedFile = { name: string; size: number; uri: string; type?: string; webFile?: File; relPath?: string };
   const [pickedFiles, setPickedFiles] = useState<PickedFile[]>([]);
   const [visibility, setVisibility] = useState<'direct' | 'broadcast' | 'group'>('direct');
   const [recipientSearch, setRecipientSearch] = useState('');
@@ -923,7 +924,7 @@ function UploadSheet({
       .filter(f => !f.name.startsWith('.'))
       .forEach(file => {
         if (isAllowedFile(file.name)) {
-          valid.push({ name: file.name, size: file.size, uri: '', type: file.type, webFile: file });
+          valid.push({ name: file.name, size: file.size, uri: '', type: file.type, webFile: file, relPath: (file as any).webkitRelativePath || undefined });
         } else {
           rejected.push(file.name);
         }
@@ -987,9 +988,38 @@ function UploadSheet({
 
     setUploading(true);
     const errors: string[] = [];
+    // Remembered "…for all" answers so a huge batch needs one click, not one per file.
+    let dupeAll: string | null = null;
+    let conflictAll: string | null = null;
+
+    // Folder uploads keep their Explorer structure: every distinct directory
+    // in the batch (from webkitRelativePath) becomes a FileHub folder under
+    // the chosen target, merged into existing same-name folders.
+    let folderIdByDir = new Map<string, string>();
+    const dirs = [...new Set(pickedFiles.map(pf => relDir(pf.relPath)))].filter(Boolean);
+    if (dirs.length > 0) {
+      try {
+        folderIdByDir = await ensureFolderTree(dirs, folderId || null, scopedFolders, async (name, parentId) => {
+          const { data, error } = await supabase.rpc('rpc_filehub_folder_create', {
+            p_name: name,
+            p_parent_id: parentId,
+            p_scope: uploadScope,
+            p_group_id: uploadScope === 'group' ? (activeGroup?.id ?? null) : null,
+          });
+          if (error) throw error;
+          return data as string;
+        });
+        refreshFolders();
+      } catch (e: any) {
+        setUploading(false);
+        Alert.alert('Upload Failed', `Could not create folders: ${e.message || e}`);
+        return;
+      }
+    }
 
     for (let i = 0; i < pickedFiles.length; i++) {
       const pf = pickedFiles[i];
+      const targetFolderId = folderIdByDir.get(relDir(pf.relPath)) ?? (folderId || null);
       setUploadingIndex(i);
       setProgress(5);
       try {
@@ -1004,33 +1034,39 @@ function UploadSheet({
         setProgress(25);
 
         if (contentHash) {
-          const dupes = await checkDuplicate(contentHash);
+          const dupes = await checkDuplicate(contentHash, targetFolderId);
           if (dupes.length > 0) {
-            const proceed = await askDecision(
+            let proceed: string = dupeAll ?? await askDecision(
               'Possible Duplicate',
               `"${dupes[0].original_name}" has the same content as "${pf.name}". Upload anyway?`,
               [
-                { label: 'Cancel', value: 'cancel', style: 'cancel' },
+                { label: 'Skip', value: 'cancel', style: 'cancel' },
+                { label: 'Skip All Duplicates', value: 'cancel_all', style: 'cancel' },
                 { label: 'Upload Anyway', value: 'proceed', style: 'primary' },
+                { label: 'Upload All Anyway', value: 'proceed_all', style: 'default' },
               ]
             );
+            if (proceed.endsWith('_all')) { proceed = proceed.slice(0, -4); dupeAll = proceed; }
             if (proceed !== 'proceed') continue;
           }
         }
 
         // Name-conflict prompt (Replace / Keep Both / Cancel)
         const groupId = visibility === 'group' ? (activeGroup?.id ?? null) : null;
-        const conflict = await checkNameConflict(pf.name, visibility, groupId, folderId || null);
+        const conflict = await checkNameConflict(pf.name, visibility, groupId, targetFolderId);
         if (conflict) {
-          const choice = await askDecision(
+          let choice: string = conflictAll ?? await askDecision(
             'File already exists',
             `"${pf.name}" already exists here (uploaded by ${conflict.uploader_name}). Replace it with a new version, or keep both?`,
             [
-              { label: 'Cancel', value: 'cancel', style: 'cancel' },
+              { label: 'Skip', value: 'cancel', style: 'cancel' },
+              { label: 'Skip All Conflicts', value: 'cancel_all', style: 'cancel' },
               { label: 'Keep Both', value: 'keep', style: 'default' },
               { label: 'Replace', value: 'replace', style: 'primary' },
+              { label: 'Replace All', value: 'replace_all', style: 'default' },
             ]
           );
+          if (choice.endsWith('_all')) { choice = choice.slice(0, -4); conflictAll = choice; }
           if (choice === 'cancel') continue;
           if (choice === 'replace') {
             const replaceId = (crypto as any).randomUUID();
@@ -1076,7 +1112,7 @@ function UploadSheet({
           p_storage_path: storagePath,
           p_visibility: visibility,
           p_recipient_ids: visibility === 'direct' ? selectedRecipients.map(r => r.id) : [],
-          p_folder_id: folderId || null,
+          p_folder_id: targetFolderId,
           p_tags: tags,
           p_caption: caption || null,
           p_original_name: pf.name,
@@ -1150,9 +1186,12 @@ function UploadSheet({
                   </View>
                 </View>
               ) : (
-                <AdaptiveFileGrid 
+                <AdaptiveFileGrid
                   files={pickedFiles}
-                  onRemove={(idx) => setPickedFiles(prev => prev.filter((_, i) => i !== idx))}
+                  onRemove={(indices) => {
+                    const drop = new Set(indices);
+                    setPickedFiles(prev => prev.filter((_, i) => !drop.has(i)));
+                  }}
                   onAddMore={pickFile}
                   formatFileSize={formatFileSize} // Handing it down
                   getMimeIcon={getMimeIcon}       // Handing it down

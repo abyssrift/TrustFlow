@@ -1,7 +1,7 @@
 # Graph Report - TrustFlow  (2026-07-16)
 
 ## Corpus Check
-- 538 files · ~464,888 words
+- 538 files · ~464,738 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -355,8 +355,8 @@ Cohesion: 0.16
 Nodes (14): ActiveSessionAvatars(), formatStart(), SessionRow(), formatDuration(), TimerPanel(), formatHMS(), TimerIsland(), useElapsedTime() (+6 more)
 
 ### Community 44 - "expo-audio"
-Cohesion: 0.13
-Nodes (14): ConfirmModalProps, Props, ProjectFolderModal(), ProjectFolderModalProps, ProjectFolderModal(), ProjectFolderModalProps, Project, ProjectsScreen() (+6 more)
+Cohesion: 0.10
+Nodes (19): Billing, Overview, Plan, PLAN_TIER, PlanLimits, STATUS_LABEL, ConfirmModalProps, ProjectFolderModal() (+11 more)
 
 ### Community 45 - "_ReportGenerator_desktop.tsx"
 Cohesion: 0.17
@@ -364,7 +364,7 @@ Nodes (10): styles, styles, ExternalLink(), MonoText(), Text(), TextProps, Theme
 
 ### Community 46 - "_targets_desktop.tsx"
 Cohesion: 0.06
-Nodes (39): OnboardingScreen(), OnboardingScreen(), Billing, Overview, Plan, PLAN_TIER, PlanLimits, STATUS_LABEL (+31 more)
+Nodes (37): OnboardingScreen(), OnboardingScreen(), Props, PendingEntry, PendingTimeApprovalsWidget(), Props, KanbanPersonalizer(), Props (+29 more)
 
 ### Community 47 - "themeColors.ts"
 Cohesion: 0.12
@@ -435,8 +435,8 @@ Cohesion: 0.35
 Nodes (9): LoginScreen(), LoginScreenWeb(), SignUpScreen(), SignUpScreenWeb(), PasswordInput(), PasswordInputProps, getErrorMessage(), isStrongPassword() (+1 more)
 
 ### Community 65 - "EditTaskModal.web.tsx"
-Cohesion: 0.18
-Nodes (13): AssignmentModePreview(), MODE_LABEL, Props, CreateTaskModal(), AdaptiveFileGrid(), CreateTaskSheet(), Props, getPastedImageFile() (+5 more)
+Cohesion: 0.23
+Nodes (12): CreateTaskModal(), AdaptiveFileGrid(), CreateTaskSheet(), Props, useTaskCreation(), getPastedImageFile(), PastedFile, formatFileSize() (+4 more)
 
 ### Community 66 - "Quick Seed Reference"
 Cohesion: 0.12
@@ -523,8 +523,8 @@ Cohesion: 0.50
 Nodes (4): Clear All Tasks, Comprehensive Seed (30 Tasks), Method 1: Using DevTool Component (Easiest), Quick Seed (5 Tasks)
 
 ### Community 87 - "SubmissionContext.tsx"
-Cohesion: 0.21
-Nodes (10): INITIAL_DRAFT, normalizeDraft(), StagedBriefFile, TaskCreationContext, TaskCreationContextType, TaskCreationProvider(), TaskDraft, useTaskCreation() (+2 more)
+Cohesion: 0.29
+Nodes (7): INITIAL_DRAFT, normalizeDraft(), StagedBriefFile, TaskCreationContext, TaskCreationContextType, TaskCreationProvider(), TaskDraft
 
 ### Community 88 - "fix_bad_imports.js"
 Cohesion: 0.29
@@ -599,8 +599,8 @@ Cohesion: 0.40
 Nodes (3): allFiles, fs, path
 
 ### Community 109 - "AssignmentModePreview.tsx"
-Cohesion: 0.50
-Nodes (3): AssignmentModal(), AssignmentModalProps, { width }
+Cohesion: 0.40
+Nodes (4): AssignmentModePreview(), MODE_LABEL, Props, AssignmentPreview
 
 ### Community 112 - "FileHubBin.tsx"
 Cohesion: 0.70
@@ -652,7 +652,7 @@ _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `useThemeColors()` connect `useThemeColors` to `DataExportPanel.tsx`, `AnalyticsContext.tsx`, `_analytics_desktop.tsx`, `FileHubAnalytics.tsx`, `supabase.ts`, `useTaskDetail`, `_filehub_adaptive.tsx`, `_index_adaptive.tsx`, `_index_desktop.tsx`, `_people_adaptive.tsx`, `Features`, `useAuth`, `useThemeColors.ts`, `_ReportGenerator_adaptive.tsx`, `_reports_desktop.tsx`, `_analytics_desktop.tsx`, `index.web.tsx`, `Sidebar.web.tsx`, `FilePreview.tsx`, `_tasks_adaptive.tsx`, `EditTaskModal.tsx`, `usePipelineEditor`, `_filehub_desktop.tsx`, `ManualTimeApprovalsModal.tsx`, `index.tsx`, `useTheme`, `NotificationRules.tsx`, `_index_web.tsx`, `FilePreviewCard`, `ToastContext.tsx`, `TaskBriefPanel.tsx`, `_tasks_desktop.tsx`, `TaskDetailContext.tsx`, `preferences.web.tsx`, `expo-audio`, `_targets_desktop.tsx`, `sign-up.tsx`, `TimerContext.tsx`, `ThemeContext.tsx`, `_index_desktop.tsx`, `fmtNumber`, `_analytics_adaptive.tsx`, `ManualTimeApprovalCard.mobile.tsx`, `_layout.tsx`, `PipelineEditorContext.tsx`, `pipelines.web.tsx`, `GraphCanvas.tsx`, `CommentsSection.tsx`, `EditTaskModal.web.tsx`, `StageActions.tsx`, `_projects_adaptive.tsx`, `useFileViewer.tsx`, `ImageLightbox.tsx`, `expo-audio`, `Customization`, `Troubleshooting`, `AlertContext.tsx`, `AssignmentModePreview.tsx`, `FileHubBin.tsx`, `TaskPingButton.tsx`?**
   _High betweenness centrality (0.286) - this node is a cross-community bridge._
-- **Why does `useAuth()` connect `useThemeColors.ts` to `DataExportPanel.tsx`, `AnalyticsContext.tsx`, `FileHubAnalytics.tsx`, `useThemeColors`, `useTaskDetail`, `_filehub_adaptive.tsx`, `_index_adaptive.tsx`, `_index_desktop.tsx`, `_people_adaptive.tsx`, `_ReportGenerator_adaptive.tsx`, `_analytics_desktop.tsx`, `index.web.tsx`, `EditTaskModal.tsx`, `_tasks_adaptive.tsx`, `_filehub_desktop.tsx`, `usePipelineEditor`, `ManualTimeApprovalsModal.tsx`, `index.tsx`, `useTheme`, `NotificationRules.tsx`, `Themed.tsx`, `TaskBriefPanel.tsx`, `_index_web.tsx`, `ToastContext.tsx`, `TaskDetailContext.tsx`, `useControlPlaneData.ts`, `expo-audio`, `_targets_desktop.tsx`, `TimerContext.tsx`, `ThemeContext.tsx`, `_index_desktop.tsx`, `fmtNumber`, `_analytics_adaptive.tsx`, `ManualTimeApprovalCard.mobile.tsx`, `_layout.tsx`, `PipelineEditorContext.tsx`, `pipelines.web.tsx`, `EditTaskModal.web.tsx`, `StageActions.tsx`, `_projects_adaptive.tsx`, `menu.tsx`, `SubmissionContext.tsx`, `NetworkStatusBanner.tsx`, `Customization`, `Troubleshooting`, `AssignmentModePreview.tsx`, `TaskPingButton.tsx`?**
+- **Why does `useAuth()` connect `useThemeColors.ts` to `DataExportPanel.tsx`, `AnalyticsContext.tsx`, `FileHubAnalytics.tsx`, `useThemeColors`, `useTaskDetail`, `_filehub_adaptive.tsx`, `_index_adaptive.tsx`, `_index_desktop.tsx`, `_people_adaptive.tsx`, `_ReportGenerator_adaptive.tsx`, `_analytics_desktop.tsx`, `index.web.tsx`, `EditTaskModal.tsx`, `_tasks_adaptive.tsx`, `_filehub_desktop.tsx`, `usePipelineEditor`, `ManualTimeApprovalsModal.tsx`, `index.tsx`, `useTheme`, `NotificationRules.tsx`, `Themed.tsx`, `TaskBriefPanel.tsx`, `_index_web.tsx`, `ToastContext.tsx`, `TaskDetailContext.tsx`, `useControlPlaneData.ts`, `expo-audio`, `_targets_desktop.tsx`, `TimerContext.tsx`, `ThemeContext.tsx`, `_index_desktop.tsx`, `fmtNumber`, `_analytics_adaptive.tsx`, `ManualTimeApprovalCard.mobile.tsx`, `_layout.tsx`, `PipelineEditorContext.tsx`, `pipelines.web.tsx`, `EditTaskModal.web.tsx`, `StageActions.tsx`, `_projects_adaptive.tsx`, `menu.tsx`, `SubmissionContext.tsx`, `NetworkStatusBanner.tsx`, `Customization`, `Troubleshooting`, `TaskPingButton.tsx`?**
   _High betweenness centrality (0.051) - this node is a cross-community bridge._
 - **Why does `supabase` connect `_targets_desktop.tsx` to `DataExportPanel.tsx`, `AnalyticsContext.tsx`, `FileHubAnalytics.tsx`, `useThemeColors`, `supabase.ts`, `useTaskDetail`, `_filehub_adaptive.tsx`, `_index_adaptive.tsx`, `_people_adaptive.tsx`, `Features`, `useThemeColors.ts`, `_ReportGenerator_adaptive.tsx`, `_reports_desktop.tsx`, `_analytics_desktop.tsx`, `index.web.tsx`, `EditTaskModal.tsx`, `_tasks_adaptive.tsx`, `_filehub_desktop.tsx`, `ManualTimeApprovalsModal.tsx`, `usePipelineEditor`, `index.tsx`, `FilePreview.tsx`, `useTheme`, `NotificationRules.tsx`, `_index_web.tsx`, `FilePreviewCard`, `ToastContext.tsx`, `_tasks_desktop.tsx`, `TaskDetailContext.tsx`, `TaskBriefPanel.tsx`, `useControlPlaneData.ts`, `expo-audio`, `TimerContext.tsx`, `ThemeContext.tsx`, `_index_desktop.tsx`, `fmtNumber`, `_analytics_adaptive.tsx`, `ManualTimeApprovalCard.mobile.tsx`, `PipelineEditorContext.tsx`, `CommentsSection.tsx`, `EditTaskModal.web.tsx`, `StageActions.tsx`, `_projects_adaptive.tsx`, `useFileViewer.tsx`, `menu.tsx`, `SubmissionContext.tsx`, `expo-audio`, `NetworkStatusBanner.tsx`, `Customization`, `Troubleshooting`, `AssignmentModePreview.tsx`, `TaskPingButton.tsx`?**
   _High betweenness centrality (0.038) - this node is a cross-community bridge._

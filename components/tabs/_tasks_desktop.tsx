@@ -578,7 +578,7 @@ export function TasksScreenWeb() {
       // 6. Active Sessions
       const { data: sessions } = await supabase
         .from('task_work_sessions')
-        .select('task_id, user_id, started_at, user:user_id(full_name, avatar_url)')
+        .select('task_id, user_id, started_at, last_heartbeat_at, user:user_id(full_name, avatar_url)')
         .eq('status', 'active');
 
       const sessionMap: Record<string, ActiveSessionUser[]> = {};
@@ -588,7 +588,8 @@ export function TasksScreenWeb() {
            userId: s.user_id,
            name: (s.user as any)?.full_name || 'User',
            avatar: (s.user as any)?.avatar_url,
-           startedAt: s.started_at
+           startedAt: s.started_at,
+           lastHeartbeatAt: (s as any).last_heartbeat_at,
          });
       });
       setActiveSessions(sessionMap);
@@ -1161,7 +1162,7 @@ export function TasksScreenWeb() {
           if (isPinged) removePingedTask(task.id);
           router.push(`/task/${task.id}`);
         }}
-        className="bg-surface-card p-5 rounded-2xl mb-4 premium-shadow hover:border-brand-primary/50 transition-all relative"
+        className="bg-surface-card p-5 rounded-2xl mb-4 premium-shadow hover:border-brand-primary/50 hover:z-50 transition-all relative"
         style={isPinged ? {
           borderWidth: 1.5,
           borderColor: 'rgba(255, 140, 0, 0.6)',
@@ -1261,9 +1262,11 @@ export function TasksScreenWeb() {
         {task.category && (
           <Text className="text-typography-dim text-[10px] font-bold uppercase tracking-wider mb-2">{task.category}</Text>
         )}
-        <Text className="text-typography-muted text-sm leading-relaxed mb-4" numberOfLines={2}>
-          {task.description || 'No description.'}
-        </Text>
+        {!!task.description && (
+          <Text className="text-typography-muted text-sm leading-relaxed mb-4" numberOfLines={2}>
+            {task.description}
+          </Text>
+        )}
         
         {kanban.showAvatars && activeSessions[task.id] && activeSessions[task.id].length > 0 && (
           <ActiveSessionAvatars sessions={activeSessions[task.id]} />

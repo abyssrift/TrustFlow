@@ -3,7 +3,6 @@ import ManualTimeModal from '@/components/common/ManualTimeModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTimer } from '@/contexts/TimerContext';
 import { useToast } from '@/contexts/ToastContext';
-import { useElapsedTime } from '@/hooks/useElapsedTime';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import { taskFlowDebug, taskFlowError } from '@/lib/taskDebug';
@@ -21,6 +20,8 @@ export type ActiveSessionUser = {
   name: string;
   avatar: string | null;
   startedAt: string;
+  /** Last heartbeat; stale (>~90s) means the worker's tab isn't visible → idle. */
+  lastHeartbeatAt?: string | null;
 };
 
 export type StageAction = {
@@ -109,10 +110,6 @@ export default function TaskCardActions({ task, stages, stageActions, transition
   const taskSessions = activeSessions[task.id] || [];
   const mySession = taskSessions.find(s => s.userId === userId);
   const isTimerActive = !!mySession;
-
-  // Live counter for the active session (mine or someone else's — whichever is first)
-  const activeSession = mySession || taskSessions[0] || null;
-  const elapsedDisplay = useElapsedTime(activeSession?.startedAt ?? null);
 
   // Available actions for the current stage (exclude inactive)
   const availableActions = stageActions
@@ -347,20 +344,6 @@ export default function TaskCardActions({ task, stages, stageActions, transition
     }
   };
 
-  // ─── Live Timer Badge (shared between states) ──────────────
-  const renderTimerBadge = (label?: string) => {
-    if (!activeSession) return null;
-    return (
-      <View className="flex-row items-center mb-2">
-        <View className="bg-state-success/10 border border-state-success/30 px-3 py-1 rounded-full flex-row items-center">
-          <View className="w-2 h-2 rounded-full bg-state-success mr-2" />
-          <Text className="text-state-success text-sm font-black tracking-wide">{elapsedDisplay}</Text>
-          {label && <Text className="text-state-success/70 text-[10px] font-bold ml-2 uppercase">{label}</Text>}
-        </View>
-      </View>
-    );
-  };
-
   // ─── STATE: Linked Pipeline (Sub-task Spawn) ────────────────
   if (hasLinkedPipeline) {
     return (
@@ -440,13 +423,10 @@ export default function TaskCardActions({ task, stages, stageActions, transition
   if (isAssignedToUser && !isMyTask && availableActions.length === 0) {
     const assigneeName = task.assignments?.[0]?.user?.full_name || 'Another user';
     return (
-      <View>
-        {taskSessions.length > 0 && renderTimerBadge(assigneeName)}
-        <View className="bg-surface-overlay py-2.5 rounded-xl border border-surface-border items-center justify-center">
-          <Text className="text-typography-muted font-bold text-[10px] uppercase tracking-widest">
-            In Progress by {assigneeName}
-          </Text>
-        </View>
+      <View className="bg-surface-overlay py-2.5 rounded-xl border border-surface-border items-center justify-center">
+        <Text className="text-typography-muted font-bold text-[10px] uppercase tracking-widest">
+          In Progress by {assigneeName}
+        </Text>
       </View>
     );
   }
@@ -476,7 +456,6 @@ export default function TaskCardActions({ task, stages, stageActions, transition
   if (availableActions.length === 0) {
     return (
       <View>
-        {isTimerActive && renderTimerBadge()}
         {hasPermission('task.update') && (
           <DirectionalActionButton
             direction="forward"
@@ -494,8 +473,6 @@ export default function TaskCardActions({ task, stages, stageActions, transition
   // Render action buttons — all actions shown (conditional branching)
   return (
     <View>
-      {isTimerActive && renderTimerBadge()}
-
       {/* Error / Warning Message Display */}
       {errorMsg && (
         <View className={`mb-2 rounded-xl p-3 ${

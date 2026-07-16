@@ -647,7 +647,7 @@ function TasksScreen() {
           .eq('pipeline_id', targetPipelineId)
           .order('created_at', { ascending: false }),
         supabase.from('task_work_sessions')
-          .select('task_id, user_id, started_at, user:user_id(full_name, avatar_url)')
+          .select('task_id, user_id, started_at, last_heartbeat_at, user:user_id(full_name, avatar_url)')
           .eq('status', 'active'),
       ]);
 
@@ -706,6 +706,7 @@ function TasksScreen() {
           name: (s.user as any)?.full_name || 'User',
           avatar: (s.user as any)?.avatar_url,
           startedAt: s.started_at,
+          lastHeartbeatAt: (s as any).last_heartbeat_at,
         });
       });
       console.log('[TasksScreen] Session map created');
@@ -1033,7 +1034,7 @@ function TasksScreen() {
           router.push(`/task/${task.id}`);
         }}
         activeOpacity={0.7}
-        className="bg-surface-card p-4 rounded-2xl mb-3 premium-shadow"
+        className="bg-surface-card p-4 rounded-2xl mb-3 premium-shadow relative hover:z-50"
         style={isPinged ? {
           borderWidth: 1.5,
           borderColor: 'rgba(255, 140, 0, 0.6)',
@@ -1112,9 +1113,11 @@ function TasksScreen() {
           <ActiveSessionAvatars sessions={activeSessions[task.id]} />
         )}
 
-        <Text className="text-typography-muted text-xs leading-4 mb-3" numberOfLines={2}>
-          {task.description || 'No description provided.'}
-        </Text>
+        {!!task.description && (
+          <Text className="text-typography-muted text-xs leading-4 mb-3" numberOfLines={2}>
+            {task.description}
+          </Text>
+        )}
         
         <View className="pt-3 border-t border-surface-border/50">
           <TaskCardActions

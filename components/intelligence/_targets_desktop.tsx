@@ -213,7 +213,9 @@ const TargetCircle = ({
           stroke: `url(#grad-${target.id})`,
           strokeWidth: STROKE, strokeDasharray: CIRCUMFERENCE,
           strokeDashoffset, strokeLinecap: 'round',
-          style: { transform: `rotate(-90deg)`, transformOrigin: `${CX}px ${CX}px` },
+          // SVG-native rotate about the center — CSS transformOrigin in an RNSVG
+          // style leaks a kebab `transform-origin` DOM attr on web (React warns).
+          transform: `rotate(-90, ${CX}, ${CX})`,
         } as any} />
         {/* Filled inner background */}
         <Circle cx={CX} cy={CX} r={R - STROKE / 2 - 1} fill={palette.card} />
