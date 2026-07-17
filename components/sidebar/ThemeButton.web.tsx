@@ -1,4 +1,4 @@
-import { DensityType, RoundnessType, useTheme } from '@/contexts/ThemeContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useEffect, useRef, useState } from 'react';
@@ -18,7 +18,7 @@ cssInterop(FontAwesome, {
 // mouseleave escape hatch + click-latch + outside-click close).
 export default function ThemeButton() {
   const colors = useThemeColors();
-  const { theme, setTheme, density, setDensity, roundness, setRoundness } = useTheme();
+  const { theme, setTheme } = useTheme();
   const [isHovered, setIsHovered] = useState(false);
   const [clickedOpen, setClickedOpen] = useState(false);
   const open = isHovered || clickedOpen;
@@ -99,37 +99,7 @@ export default function ThemeButton() {
               ))}
             </View>
 
-            <View className="mt-4 gap-4">
-              <View>
-                <Text className="mb-2 text-[10px] font-black uppercase tracking-widest text-typography-dim">Interface Density</Text>
-                <View className="flex-row gap-1 rounded-xl border border-surface-border bg-surface-background/50 p-1">
-                  {(['compact', 'normal', 'comfort'] as DensityType[]).map((d) => (
-                    <Pressable
-                      key={d}
-                      onPress={() => setDensity(d)}
-                      className={`h-9 flex-1 items-center justify-center rounded-lg transition-all duration-150 ${density === d ? 'bg-brand-primary shadow-sm' : 'hover:bg-surface-overlay'}`}
-                    >
-                      <Text className={`text-[10px] font-bold capitalize ${density === d ? 'text-typography-main' : 'text-typography-muted'}`}>{d}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </View>
 
-              <View>
-                <Text className="mb-2 text-[10px] font-black uppercase tracking-widest text-typography-dim">Corner Style</Text>
-                <View className="flex-row gap-1 rounded-xl border border-surface-border bg-surface-background/50 p-1">
-                  {(['sharp', 'normal', 'soft'] as RoundnessType[]).map((r) => (
-                    <Pressable
-                      key={r}
-                      onPress={() => setRoundness(r)}
-                      className={`h-9 flex-1 items-center justify-center rounded-lg transition-all duration-150 ${roundness === r ? 'bg-brand-primary shadow-sm' : 'hover:bg-surface-overlay'}`}
-                    >
-                      <Text className={`text-[10px] font-bold capitalize ${roundness === r ? 'text-typography-main' : 'text-typography-muted'}`}>{r}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </View>
-            </View>
           </ScrollView>
         </View>
       </View>

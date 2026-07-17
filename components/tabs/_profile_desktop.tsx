@@ -5,7 +5,7 @@ import ProfileGeneralForm from '@/components/profile/ProfileGeneralForm';
 import SecurityForm from '@/components/profile/SecurityForm';
 import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { DensityType, RoundnessType, ThemeType, useTheme } from '@/contexts/ThemeContext';
+import { ThemeType, useTheme } from '@/contexts/ThemeContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -27,7 +27,7 @@ type TabType = 'general' | 'security' | 'stats' | 'appearance';
 export default function ProfilePageWeb() {
   const colors = useThemeColors();
   const { user, signOut, refreshProfile } = useAuth();
-  const { theme: activeTheme, setTheme, density, setDensity, roundness, setRoundness } = useTheme();
+  const { theme: activeTheme, setTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<TabType>('general');
   const [profileData, setProfileData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -197,7 +197,7 @@ export default function ProfilePageWeb() {
              </Text>
              <Text className="text-typography-muted font-bold text-sm">
                {activeTab === 'appearance'
-                 ? 'Customize the visual identity and interaction density of your workspace.'
+                 ? 'Customize the visual identity of your workspace.'
                  : 'Manage your account preferences and view system-level metrics associated with your identity.'}
              </Text>
           </View>
@@ -249,41 +249,7 @@ export default function ProfilePageWeb() {
                   </View>
                 </View>
 
-                <View className="flex-row gap-10">
-                  <View className="flex-1">
-                    <Text className="mb-4 text-[10px] font-black uppercase tracking-[0.3em] text-typography-dim">Interface Density</Text>
-                    <View className="flex-row gap-2 rounded-2xl border border-surface-border bg-surface-background/50 p-2">
-                      {(['compact', 'normal', 'comfort'] as DensityType[]).map((d) => (
-                        <Pressable
-                          key={d}
-                          onPress={() => setDensity(d)}
-                          className={`h-12 flex-1 items-center justify-center rounded-xl transition-all ${
-                            density === d ? 'bg-brand-primary shadow-lg' : 'hover:bg-surface-overlay'
-                          }`}
-                        >
-                          <Text className={`text-xs font-black capitalize tracking-widest ${density === d ? 'text-white' : 'text-typography-muted'}`}>{d}</Text>
-                        </Pressable>
-                      ))}
-                    </View>
-                  </View>
 
-                  <View className="flex-1">
-                    <Text className="mb-4 text-[10px] font-black uppercase tracking-[0.3em] text-typography-dim">Corner Roundness</Text>
-                    <View className="flex-row gap-2 rounded-2xl border border-surface-border bg-surface-background/50 p-2">
-                      {(['sharp', 'normal', 'soft'] as RoundnessType[]).map((r) => (
-                        <Pressable
-                          key={r}
-                          onPress={() => setRoundness(r)}
-                          className={`h-12 flex-1 items-center justify-center rounded-xl transition-all ${
-                            roundness === r ? 'bg-brand-primary shadow-lg' : 'hover:bg-surface-overlay'
-                          }`}
-                        >
-                          <Text className={`text-xs font-black capitalize tracking-widest ${roundness === r ? 'text-white' : 'text-typography-muted'}`}>{r}</Text>
-                        </Pressable>
-                      ))}
-                    </View>
-                  </View>
-                </View>
               </View>
             )}
           </View>
