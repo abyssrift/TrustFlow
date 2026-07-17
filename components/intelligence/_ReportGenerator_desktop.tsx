@@ -543,21 +543,6 @@ export default function ReportGeneratorDesktop() {
                       })}
 
                     </ScrollView>
-
-                    <View className="mt-10 pt-10 border-t border-surface-border">
-                      <View className="bg-surface-background p-6 rounded-3xl border border-surface-border">
-                        <View className="flex-row items-center mb-4">
-                          <FontAwesome name="shield" size={14} color={colors.primary} style={{ marginRight: 10 }} />
-                          <Text className="text-[10px] font-black uppercase tracking-widest text-typography-main">Data Sovereignty</Text>
-                        </View>
-                        <Text className="text-typography-muted text-xs leading-5 font-medium">
-                          {isMulti
-                            ? `Generating a combined ${selectedTypes.length}-module report. Data is fetched and assembled client-side before upload.`
-                            : 'Reports are generated client-side and downloaded immediately. High-volume data sets may take 10–30 seconds to compile.'
-                          }
-                        </Text>
-                      </View>
-                    </View>
                   </View>
                 </View>
               </View>

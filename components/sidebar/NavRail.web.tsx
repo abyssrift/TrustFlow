@@ -2,7 +2,7 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Link } from 'expo-router';
 import React from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
 import { PIPELINE_ICONS, Shortcut } from './constants';
 import { matchesHref } from './helpers';
@@ -56,7 +56,11 @@ export default function NavRail({
             <View className="mb-6 mt-2 flex-row items-center justify-between px-1">
               {isExpanded && (
                 <View className="flex-row items-center">
-                  <View className="mr-3 h-10 w-1.5 rounded-full bg-brand-primary" />
+                  <Image
+                    source={require('../../assets/images/logo-mark.png')}
+                    style={{ width: 36, height: 36, marginRight: 10 }}
+                    resizeMode="contain"
+                  />
                   <View>
                     <Text className="text-typography-main text-2xl font-black tracking-tighter whitespace-nowrap">TrustFlow</Text>
                     <Text className="text-brand-primary text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">Workspace</Text>

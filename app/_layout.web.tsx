@@ -11,11 +11,14 @@ import '../global.css';
 
 import NetworkStatusBanner from '@/components/NetworkStatusBanner';
 import Sidebar from '@/components/Sidebar.web';
+import IslandTimerBridge from '@/components/island/IslandTimerBridge.web';
 import TimerIsland from '@/components/TimerIsland';
 import WelcomeTour from '@/components/onboarding/WelcomeTour';
 import { useColorScheme } from '@/components/useColorScheme';
 import { AlertProvider } from '@/contexts/AlertContext';
 import { AnalyticsProvider } from '@/contexts/AnalyticsContext';
+import { IslandProvider } from '@/contexts/IslandContext';
+import { UploadManagerProvider } from '@/contexts/UploadManagerContext';
 import { NotificationsProvider } from '@/contexts/NotificationsContext';
 import { SubmissionProvider } from '@/contexts/SubmissionContext';
 import { ThemeProvider as AppThemeProvider } from '@/contexts/ThemeContext';
@@ -67,7 +70,11 @@ export default function RootLayout() {
             <AppThemeProvider>
               <AlertProvider>
                 <ToastProvider>
-                  <RootLayoutNav />
+                  <IslandProvider>
+                    <UploadManagerProvider>
+                      <RootLayoutNav />
+                    </UploadManagerProvider>
+                  </IslandProvider>
                 </ToastProvider>
               </AlertProvider>
             </AppThemeProvider>
@@ -130,9 +137,11 @@ function RootLayoutNav() {
             {/* Always-on ping listener — one WebSocket channel for the current user */}
             {session && <GlobalPingGuard />}
             {session && <WelcomeTour />}
-            {/* Desktop web shows the timer in the topbar's morphing island, so
-                only draw the floating pill on mobile web (< 768). */}
+            {/* Desktop web shows the timer in the topbar island (published via
+                IslandTimerBridge), so only draw the floating pill on mobile web
+                (< 768). The bridge mirrors the running timer into the island. */}
             <TimerIsland floating={width < 768} />
+            {session && width >= 768 && <IslandTimerBridge />}
             <View className="absolute top-0 left-0 right-0 z-[999]">
               <NetworkStatusBanner />
             </View>

@@ -2,7 +2,7 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Link } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { getErrorMessage, isValidEmail } from '../../lib/auth-errors';
 import { supabase } from '../../lib/supabase';
 
@@ -63,7 +63,11 @@ export default function LoginScreen() {
       <View className="flex-1 justify-center max-w-[480px] w-full self-center">
         <View className="items-center mb-12">
           <View className="w-20 h-20 bg-brand-primary rounded-3xl flex-center premium-shadow mb-6">
-            <FontAwesome name="shield" size={40} color="white" />
+            <Image
+              source={require('../../assets/images/logo-mark-white.png')}
+              style={{ width: 46, height: 46 }}
+              resizeMode="contain"
+            />
           </View>
           <Text className="text-4xl font-extrabold text-typography-main tracking-tighter text-glow">TrustFlow</Text>
           <Text className="text-typography-muted text-base mt-2 font-medium">Precision Productivity</Text>

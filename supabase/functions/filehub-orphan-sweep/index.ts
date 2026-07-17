@@ -69,11 +69,18 @@ serve(async (req: Request) => {
     }
   }
 
+  // Dry run: report what WOULD be removed but delete nothing. Off by default so
+  // the daily cron (which POSTs an empty body) performs the real sweep. Trigger
+  // with `?dryRun=true` or a JSON body `{"dryRun":true}` for a safe inspection.
+  const dryRun = await parseDryRun(req)
+
   const summary = {
+    dry_run: dryRun,
     scanned: 0,
     orphans_found: 0,
     objects_removed: 0,
     too_recent_skipped: 0,
+    sample: [] as string[],
     errors: [] as string[],
   }
 
@@ -96,6 +103,14 @@ serve(async (req: Request) => {
     const referenced = await referencedPaths(db, candidates, summary)
     const orphans = selectOrphans(candidates, referenced)
     summary.orphans_found = orphans.length
+    summary.sample = orphans.slice(0, 10)
+
+    // Dry run stops here: we've computed exactly what would be deleted, but
+    // touch nothing. objects_removed stays 0.
+    if (dryRun) {
+      console.log('[filehub-orphan-sweep] DRY RUN', JSON.stringify(summary))
+      return respond(summary, 200)
+    }
 
     // 4. Remove orphans in batches. storage.remove tolerates missing paths.
     //    Count what the API says it actually removed, not the batch size — a
@@ -198,6 +213,21 @@ async function referencedPaths(
     ;(versions ?? []).forEach((r: { storage_path: string }) => referenced.add(r.storage_path))
   }
   return referenced
+}
+
+// dryRun from `?dryRun=true` (query) or `{"dryRun":true}` (JSON body). Tolerant
+// of an empty/garbage body — the cron POSTs `{}`, which parses to live mode.
+async function parseDryRun(req: Request): Promise<boolean> {
+  try {
+    const url = new URL(req.url)
+    if ((url.searchParams.get('dryRun') ?? '').toLowerCase() === 'true') return true
+  } catch { /* no-op */ }
+  try {
+    const body = await req.clone().json()
+    return body?.dryRun === true
+  } catch {
+    return false
+  }
 }
 
 function respond(body: unknown, status: number): Response {

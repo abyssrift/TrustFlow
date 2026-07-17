@@ -2,6 +2,7 @@ import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { FileActivity, FileHubFile, FileHubFolder, FileHubFolderScope, FileHubGroup, FileHubGroupMember, FileHubMode, FileHubProvider, FileHubShareLink, FileVersion, folderAncestors, folderPath, shareLinkUrl, useFileHub } from '@/contexts/FileHubContext';
 import { useToast } from '@/contexts/ToastContext';
+import { useUploadManager } from '@/contexts/UploadManagerContext';
 import * as Clipboard from 'expo-clipboard';
 import { useFileSizeLimit } from '@/hooks/useFileSizeLimit';
 import { useImageLightbox } from '@/hooks/useImageLightbox';
@@ -316,26 +317,15 @@ function UploadModal({
   activeGroup?: { id: string; name: string; avatar_color: string } | null;
 }) {
   const { refreshFolders } = useFileHub();
+  const { startUpload } = useUploadManager();
   const fileInputRef = useRef<any>(null);
   const folderInputRef = useRef<any>(null);
   const [draft, setDraft] = useState<UploadDraft>(EMPTY_DRAFT(activeGroup ? 'group' : 'direct'));
-  const [uploading, setUploading] = useState(false);
   const maxFileSizeBytes = useFileSizeLimit();
-  const [uploadingIndex, setUploadingIndex] = useState(0);
-  const [progress, setProgress] = useState(0);
   const [recipientSearch, setRecipientSearch] = useState('');
   const [memberResults, setMemberResults] = useState<any[]>([]);
   const [searchingMembers, setSearchingMembers] = useState(false);
   const [tagSuggestResults, setTagSuggestResults] = useState<string[]>([]);
-  // Web-safe replacement for Alert.alert multi-button prompts (RN Alert.alert
-  // does not render usable buttons on web, which hung uploads at the conflict
-  // / duplicate check). Renders an in-modal dialog and resolves on press.
-  type DecisionOption = { label: string; value: string; style?: 'primary' | 'cancel' | 'default' };
-  const [pendingDecision, setPendingDecision] = useState<
-    { title: string; message: string; options: DecisionOption[]; resolve: (v: string) => void } | null
-  >(null);
-  const askDecision = (title: string, message: string, options: DecisionOption[]) =>
-    new Promise<string>(resolve => setPendingDecision({ title, message, options, resolve }));
 
   const patch = (updates: Partial<UploadDraft>) => setDraft(prev => ({ ...prev, ...updates }));
 
@@ -351,26 +341,12 @@ function UploadModal({
   useEffect(() => {
     if (!visible) {
       setDraft(EMPTY_DRAFT(activeGroup ? 'group' : 'direct'));
-      setProgress(0);
-      setUploadingIndex(0);
       setRecipientSearch('');
       setMemberResults([]);
     } else if (activeGroup) {
       setDraft(prev => ({ ...prev, visibility: 'group' }));
     }
   }, [visible, activeGroup?.id]);
-
-  // Block tab close / refresh mid-upload. Killing the tab between a file's
-  // storage PUT and its commit strands those bytes in the bucket with no row
-  // pointing at them (the daily filehub-orphan-sweep reaps them, but the user
-  // also silently loses the rest of the batch). Same guard _ReportGenerator
-  // already uses while generating.
-  useEffect(() => {
-    if (!uploading || typeof window === 'undefined') return;
-    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
-    window.addEventListener('beforeunload', handler);
-    return () => window.removeEventListener('beforeunload', handler);
-  }, [uploading]);
 
   const searchMembers = useCallback(async (query: string) => {
     setRecipientSearch(query);
@@ -442,190 +418,36 @@ function UploadModal({
     e.target.value = '';
   };
 
-  const handleUpload = async () => {
-    if (draft.files.length === 0 || uploading) return;
+  // Launcher only. The upload engine (worker pool, dup/conflict handling,
+  // per-file commit, progress, ETA, cancel) now lives in UploadManagerContext
+  // so the job survives this modal closing. We hand off the draft and close;
+  // progress + any conflict prompts appear in the topbar island. The parent
+  // FileHub screen refreshes its listing when the job completes by watching
+  // useUploadManager().lastCompletedAt.
+  const handleUpload = () => {
+    if (draft.files.length === 0) return;
     const companyId = profile?.company_id;
     if (!companyId) { Alert.alert('Error', 'Company not found.'); return; }
     if (draft.visibility === 'group' && !activeGroup?.id) {
       Alert.alert('Error', 'No channel selected.'); return;
     }
 
-    setUploading(true);
-    const errors: string[] = [];
-    // Remembered "…for all" answers so a 700-file batch needs one click, not 700.
-    let dupeAll: string | null = null;
-    let conflictAll: string | null = null;
+    startUpload({
+      files: draft.files,
+      companyId,
+      visibility: draft.visibility,
+      folderId: draft.folderId,
+      recipientIds: draft.recipientIds,
+      groupId: draft.visibility === 'group' ? (activeGroup?.id ?? null) : null,
+      tags: draft.tags,
+      caption: draft.caption || null,
+      maxFileSizeBytes: maxFileSizeBytes ?? null,
+      // Snapshot the current scope's folders for the pre-upload dup/conflict
+      // checks; the real sub-tree is get-or-created server-side at commit.
+      scopedFolders,
+      label: draft.visibility === 'group' ? (activeGroup?.name ?? 'Channel') : (draft.visibility === 'broadcast' ? 'Broadcast' : 'Direct'),
+    });
 
-    // Folder uploads keep their Explorer structure, but the folders are no
-    // longer pre-created here. Each file passes its relative directory
-    // (webkitRelativePath) to rpc_filehub_upload_commit, which get-or-creates
-    // the sub-tree under the chosen target and lands the file in the leaf — all
-    // in one transaction. A folder can only exist because a file committed into
-    // it, so a half-failed batch can never leave empty folders behind.
-    const hadFolderUpload = draft.files.some(f => !!relDir((f as any).webkitRelativePath));
-
-    // Only one decision dialog can be on screen at a time; workers queue
-    // behind this chain, and re-check the remembered batch answer once it's
-    // their turn so an "…for all" click also covers dialogs already waiting.
-    let dialogQueue: Promise<unknown> = Promise.resolve();
-    const askQueued = (remembered: () => string | null, show: () => Promise<string>): Promise<string> => {
-      const turn = dialogQueue.then(() => remembered() ?? show());
-      dialogQueue = turn.catch(() => {});
-      return turn;
-    };
-
-    const uploadOne = async (file: File) => {
-      const relDirPath = relDir((file as any).webkitRelativePath);
-      // The folder sub-tree is created server-side at commit time. For the
-      // pre-upload duplicate / name-conflict checks we only need a folder id
-      // when the target sub-folder already exists; a brand-new one (null) is
-      // empty by definition, so there's nothing to check against — skip it.
-      const existingLeaf = relDirPath
-        ? resolveExistingFolderLeaf(draft.folderId, relDirPath, scopedFolders)
-        : draft.folderId;
-      const folderIsNew = relDirPath !== '' && existingLeaf === null;
-      const checkFolderId = existingLeaf ?? draft.folderId;
-      try {
-        if (maxFileSizeBytes !== null && maxFileSizeBytes !== undefined && file.size > maxFileSizeBytes) {
-          errors.push(`${file.name}: exceeds your plan's ${formatFileSize(maxFileSizeBytes)} file size limit.`);
-          return;
-        }
-        const contentHash = await computeSHA256(file);
-
-        if (!folderIsNew) {
-          const dupes = await checkDuplicate(contentHash, checkFolderId);
-          if (dupes.length > 0) {
-            let proceed = await askQueued(() => dupeAll, () => askDecision(
-              'Possible Duplicate',
-              `"${dupes[0].original_name}" has the same content as "${file.name}". Upload anyway?`,
-              [
-                { label: 'Skip', value: 'cancel', style: 'cancel' },
-                { label: 'Skip All Duplicates', value: 'cancel_all', style: 'cancel' },
-                { label: 'Upload Anyway', value: 'proceed', style: 'primary' },
-                { label: 'Upload All Anyway', value: 'proceed_all', style: 'default' },
-              ]
-            ));
-            if (proceed.endsWith('_all')) { proceed = proceed.slice(0, -4); dupeAll = proceed; }
-            if (proceed !== 'proceed') return;
-          }
-        }
-
-        // Name-conflict prompt (Replace / Keep Both / Cancel) — only meaningful
-        // when the target folder already exists.
-        const groupId = draft.visibility === 'group' ? (activeGroup?.id ?? null) : null;
-        const conflict = folderIsNew ? null : await checkNameConflict(file.name, draft.visibility, groupId, checkFolderId);
-        if (conflict) {
-          let choice = await askQueued(() => conflictAll, () => askDecision(
-            'File already exists',
-            `"${file.name}" already exists here (uploaded by ${conflict.uploader_name}). Replace it with a new version, or keep both?`,
-            [
-              { label: 'Skip', value: 'cancel', style: 'cancel' },
-              { label: 'Skip All Conflicts', value: 'cancel_all', style: 'cancel' },
-              { label: 'Keep Both', value: 'keep', style: 'default' },
-              { label: 'Replace', value: 'replace', style: 'primary' },
-              { label: 'Replace All', value: 'replace_all', style: 'default' },
-            ]
-          ));
-          if (choice.endsWith('_all')) { choice = choice.slice(0, -4); conflictAll = choice; }
-          if (choice === 'cancel') return;
-          if (choice === 'replace') {
-            const replaceId = randomId();
-            const replaceSafeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-            const replacePath = `${companyId}/${replaceId}/${replaceSafeName}`;
-            const { error: replaceStorageError } = await supabase.storage.from('filehub-files').upload(replacePath, file, { contentType: file.type || 'application/octet-stream' });
-            if (replaceStorageError) throw replaceStorageError;
-            try {
-              await replaceFile(conflict.id, {
-                storagePath: replacePath,
-                size: file.size,
-                hash: contentHash,
-                mime: file.type || null,
-                caption: draft.caption || null,
-              });
-            } catch (commitErr) {
-              // Bytes landed but the DB row didn't — remove the orphan object
-              // so it can't linger in storage untracked.
-              await supabase.storage.from('filehub-files').remove([replacePath]).catch(() => {});
-              throw commitErr;
-            }
-            return;
-          }
-          // 'keep' falls through to the normal upload_commit path (server auto-renames)
-        }
-
-        const fileId = randomId();
-        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-        const storagePath = `${companyId}/${fileId}/${safeName}`;
-
-        const { error: storageError } = await supabase.storage.from('filehub-files').upload(storagePath, file, { contentType: file.type || 'application/octet-stream' });
-        if (storageError) throw storageError;
-
-        const { error: rpcError } = await supabase.rpc('rpc_filehub_upload_commit', {
-          p_storage_path: storagePath,
-          p_visibility: draft.visibility,
-          p_recipient_ids: draft.visibility === 'direct' ? draft.recipientIds : [],
-          p_folder_id: draft.folderId,
-          p_tags: draft.tags,
-          p_caption: draft.caption || null,
-          p_original_name: file.name,
-          p_mime_type: file.type || null,
-          p_size_bytes: file.size,
-          p_content_hash: contentHash,
-          p_replaces_file_id: null,
-          p_group_id: draft.visibility === 'group' ? (activeGroup?.id ?? null) : null,
-          // Server get-or-creates this sub-tree under p_folder_id and lands the
-          // file in the leaf, atomically with the row insert.
-          p_rel_dir: relDirPath || null,
-        });
-        if (rpcError) {
-          // Bytes landed but the commit failed — drop the orphan object so it
-          // can't linger untracked in storage (and re-trigger dup checks).
-          // Best-effort only; the daily filehub-orphan-sweep is the real net.
-          await supabase.storage.from('filehub-files').remove([storagePath]).catch(() => {});
-          throw rpcError;
-        }
-      } catch (e: any) {
-        errors.push(`${file.name}: ${e.message || 'Unknown error'}`);
-      }
-    };
-
-    // Sequential round trips were the bottleneck for big batches (4 network
-    // hops per file), so a few files fly in parallel; progress becomes
-    // "files completed / total" instead of per-file phases.
-    // ponytail: fixed pool of 4, tune only if storage starts rate-limiting.
-    const total = draft.files.length;
-    let nextIdx = 0;
-    let done = 0;
-    setProgress(1);
-    await Promise.all(
-      Array.from({ length: Math.min(4, total) }, async () => {
-        for (;;) {
-          const i = nextIdx++;
-          if (i >= total) break;
-          await uploadOne(draft.files[i]);
-          done++;
-          setUploadingIndex(done - 1);
-          setProgress(Math.max(1, Math.round((done / total) * 100)));
-        }
-      })
-    );
-
-    // Folders were created server-side during commit — pull them in so the
-    // new sub-tree shows up. Only folders that actually received a file exist.
-    if (hadFolderUpload) refreshFolders();
-
-    setUploading(false);
-    setProgress(0);
-
-    const successCount = draft.files.length - errors.length;
-    if (errors.length > 0 && successCount > 0) {
-      Alert.alert('Some uploads failed', errors.join('\n'));
-    } else if (errors.length === draft.files.length) {
-      Alert.alert('Upload Failed', errors.join('\n'));
-      return;
-    }
-
-    onUploaded();
     onClose();
   };
 
@@ -869,77 +691,32 @@ function UploadModal({
               />
             </View>
 
-            {/* Progress */}
-            {uploading && (
-              <View className="bg-surface-background border border-surface-border rounded-xl px-4 py-3 gap-2">
-                <View className="flex-row items-center justify-between mb-1">
-                  <Text className="text-typography-main text-xs font-bold">
-                    {draft.files.length > 1 ? `${uploadingIndex + 1} of ${draft.files.length} done · ` : ''}
-                    Uploading…
-                  </Text>
-                  <Text className="text-brand-primary text-xs font-black">{progress}%</Text>
-                </View>
-                <View className="h-1.5 bg-surface-border rounded-full overflow-hidden">
-                  <View className="h-full bg-brand-primary rounded-full" style={{ width: `${progress}%` }} />
-                </View>
-              </View>
-            )}
-
-            {/* Actions */}
+            {/* Actions. Upload hands off to the background manager and closes —
+                progress + any conflict prompts live in the topbar island now. */}
             <View className="flex-row gap-3 pt-2">
               <TouchableOpacity
                 onPress={onClose}
-                disabled={uploading}
                 className="flex-1 items-center justify-center py-3.5 rounded-xl border border-surface-border bg-surface-background"
               >
                 <Text className="text-typography-muted font-black text-sm">Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleUpload}
-                disabled={draft.files.length === 0 || uploading || (draft.visibility === 'direct' && draft.recipientIds.length === 0)}
+                disabled={draft.files.length === 0 || (draft.visibility === 'direct' && draft.recipientIds.length === 0)}
                 className="flex-[2] items-center justify-center py-3.5 rounded-xl bg-brand-primary"
-                style={{ opacity: (draft.files.length === 0 || uploading || (draft.visibility === 'direct' && draft.recipientIds.length === 0)) ? 0.5 : 1 }}
+                style={{ opacity: (draft.files.length === 0 || (draft.visibility === 'direct' && draft.recipientIds.length === 0)) ? 0.5 : 1 }}
               >
-                {uploading ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Text className="text-white font-black text-sm">
-                    {draft.files.length > 1
-                      ? `Upload ${draft.files.length} Files`
-                      : draft.visibility === 'group' ? 'Share to Channel' : 'Upload File'}
-                  </Text>
-                )}
+                <Text className="text-white font-black text-sm">
+                  {draft.files.length > 1
+                    ? `Upload ${draft.files.length} Files`
+                    : draft.visibility === 'group' ? 'Share to Channel' : 'Upload File'}
+                </Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
         </View>
       </View>
     </Modal>
-
-    {/* Web-safe decision dialog (replaces RN Alert.alert multi-button prompts) */}
-    {pendingDecision && (
-      <Modal visible transparent animationType="fade">
-        <View className="flex-1 bg-black/60 items-center justify-center p-8">
-          <View className="bg-surface-card rounded-3xl border border-surface-border premium-shadow w-full max-w-[420px] p-6">
-            <Text className="text-typography-main text-lg font-black tracking-tight mb-2">{pendingDecision.title}</Text>
-            <Text className="text-typography-muted text-sm leading-relaxed mb-5">{pendingDecision.message}</Text>
-            <View className="gap-2">
-              {pendingDecision.options.map(opt => (
-                <TouchableOpacity
-                  key={opt.value}
-                  onPress={() => { const r = pendingDecision.resolve; setPendingDecision(null); r(opt.value); }}
-                  className={`py-3 rounded-xl items-center ${opt.style === 'primary' ? 'bg-brand-primary' : 'bg-surface-background border border-surface-border'}`}
-                >
-                  <Text className={`font-black text-sm ${opt.style === 'primary' ? 'text-white' : opt.style === 'cancel' ? 'text-typography-muted' : 'text-typography-main'}`}>
-                    {opt.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        </View>
-      </Modal>
-    )}
     </>
   );
 }
@@ -2616,7 +2393,7 @@ function FileHubDesktopInner() {
     selectedFolderId, setSelectedFolderId,
     createFolder, renameFolder, deleteFolder, moveFolder, moveFile,
     inboxUnreadCount,
-    refresh,
+    refresh, refreshFolders,
     markAllRead,
     checkDuplicate,
     checkNameConflict,
@@ -2627,6 +2404,17 @@ function FileHubDesktopInner() {
     refreshGroups, refreshGroupFiles,
     hideFile, deleteFile,
   } = useFileHub();
+
+  // Uploads run in the background now (UploadManagerContext), so a job can
+  // finish long after its modal closed. Re-pull the listing whenever any job
+  // completes so newly-committed files + server-created folders show up.
+  const { lastCompletedAt } = useUploadManager();
+  useEffect(() => {
+    if (!lastCompletedAt) return;
+    refresh();
+    refreshFolders();
+    refreshGroupFiles();
+  }, [lastCompletedAt]);
 
   const router = useRouter();
   const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
