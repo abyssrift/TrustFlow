@@ -25,6 +25,20 @@ body:
           required: true
 
   - type: dropdown
+    id: tier
+    attributes:
+      label: Tier
+      description: Priority classification — see Features.md for definitions.
+      options:
+        - "-- Please Select --"
+        - "Tier 1: Critical (Crash / Data Loss / Blocking)"
+        - "Tier 2: High (UX Friction & Core Polish)"
+        - "Tier 3: Medium (Product Enhancements)"
+        - "Tier 4: Low / Long-Term (Architectural & Strategy)"
+    validations:
+      required: true
+
+  - type: dropdown
     id: os
     attributes:
       label: Operating System
