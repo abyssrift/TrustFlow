@@ -160,9 +160,47 @@ moving from bulk task creation to single or single to bulk deletes what was alre
 
 if you're uploading a file, even if you close the upload modal it should continue in the background and should be cancellable midway, it should also be shown in the island that exists in the topbar when you hover over it, a big rectangular pill shows with the progres, total files, estimated time etc. handle the island where the timer and the upload can exist together well in the island
 
-Kicking/leaving filehub groups doesnt work, it needs actual work.
+~~Kicking/leaving filehub groups doesnt work, it needs actual work.~~
 
-Orphan tasks fuck up folder uploads badly, it needs so much more work!
+**Status (2026-07-17): FIXED — and it was a one-line class of bug, not "actual work".** Root cause: both `GroupMembersPanel` (desktop) and `GroupMembersSheet` (mobile) routed the confirm through **`Alert.alert` with multiple buttons** — the exact RNW-parity bug documented in the table above. On web that pops nothing, so the confirm never resolved and `removeGroupMember` was never called. The click had nowhere to go. The DB RPC (`rpc_filehub_group_remove_member`, which already handles admin-kicks-anyone / member-leaves-self / last-admin guard) and the `FileHubContext` wiring were **correct the whole time** — nothing was missing, the button just couldn't reach them. Fixed by routing both through `useAlert().showConfirm` (already used ~10 other places in the same two files). In `components/intelligence/_filehub_desktop.tsx` + `_filehub_adaptive.tsx`.
+
+> ⚠️ **This is the 5th confirmed instance of the `Alert.alert`-on-web bug** (see the RNW Parity section). It cost a feature that was fully built and working server-side. This is the strongest argument yet for the ESLint ban — the fix is trivial every time, but the bug is invisible until a user reports "the button does nothing".
+
+---
+
+~~Orphan tasks fuck up folder uploads badly, it needs so much more work!~~
+
+**Status (2026-07-17): ROOT CAUSE FOUND + FIXED. Written and verified, NOT YET DEPLOYED — see deploy order below.**
+
+**The actual cause was a rate limit, not orphans.** `rpc_filehub_upload_commit` called `_rate_limit('file_upload', 10)`, and `_rate_limit` is a fixed **10-per-CLOCK-MINUTE** cap (`date_trunc('minute', now())`, in `20260701_rate_limits.sql`). So a 700-file folder upload was: **10 files succeed, 690 fail** — each failing *after* its storage PUT already landed, orphaning ~690 objects. The 4-parallel-worker pool hit the wall in seconds. Then the user got an `Alert.alert` containing 690 error lines joined by `\n`. Folder upload has been structurally impossible since it shipped; the rate limit predates it and nobody connected the two. **The "orphans" were the symptom; the rate limit was the disease.**
+
+**Fixed (all four proven against a real Postgres 15 running the migration verbatim, not just reasoned):**
+1. **Rate limit** → `file_upload` 10/min → **1000/min**. Also `file_replace` 20/min → 1000/min ("Replace All" on a folder drives that once per file and mass-failed identically — fixing only half the flow would've been pointless). Abuse is already bounded by per-file size limit + company storage quota + plan limits, so the count cap bought almost nothing while breaking the feature. _Verified: 12/12 sequential commits now succeed; old cap died at #11._
+2. **Group dedupe ignored the folder** — `filehub_dedupe_name`'s `group` branch matched on `group_id` alone with **no folder predicate**, so uploading a tree to a *channel* silently renamed every repeated basename against the whole channel (`Photos/2025/index.txt` then `Photos/2026/index.txt` → second became `index (1).txt`). `20260716_filehub_group_name_conflict_folder_scoped.sql` had already fixed this for `check_name_conflict` and literally says *"Bring group in line with the other two visibilities"* — `dedupe_name` was simply missed. This finishes that job. _Verified: both keep their name; same-folder dedupe still works._
+3. **Dedupe was a racy read-then-insert** (no unique index behind it) — 4 concurrent commits of `report.pdf` all read "name is free" and all inserted `report.pdf`. Now serialized with a txn-scoped advisory lock keyed on the dedupe scope. _Verified: worker B blocks 2175ms on A, then correctly yields `report (1).pdf`; distinct=2/2._
+4. **Storage quota was TOCTOU** — unlocked `SELECT` while the increment happens in an `AFTER INSERT` trigger, so N parallel workers all read the pre-batch total and all passed (measured: 4 workers overshot a limit by 80%; worst case ~3× max file size ≈ 1.5GB over). Read now takes `FOR UPDATE`. _Verified: 4 parallel × 200B into used=100/limit=500 → exactly 2 commit, final=500._
+
+**Architecture change — empty folders are now impossible, not cleaned up:** folder-tree creation moved *into* `rpc_filehub_upload_commit` via a new `p_rel_dir` param, so folders get-or-create in the **same transaction** as the file row. A folder can only exist because a file committed into it. The client no longer pre-creates anything (`ensureFolderTree` deleted; its logic now lives in SQL). _Verified: a rejected commit leaves **0** folders behind._ Concurrency handled with `INSERT .. ON CONFLICT DO NOTHING` + re-SELECT (the race loser adopts the winner's folder — `DO NOTHING` waits on the winner's xact lock rather than erroring).
+
+**New files:**
+- `supabase/migrations/20260720_filehub_upload_commit_folder_tree.sql` — all four SQL fixes + the atomic folder tree.
+- `supabase/functions/filehub-orphan-sweep/` (`index.ts`, `logic.ts`, `logic.test.ts`) — daily sweep deleting bucket objects referenced by **neither** `filehub_files.storage_path` **nor** `filehub_file_versions.storage_path` (both are load-bearing: binned files and historical versions need their bytes), older than 24h. Fails *closed*: any ref-lookup error marks the batch referenced rather than risk a delete.
+- `supabase/migrations/20260720_filehub_orphan_object_sweep_schedule.sql` — pg_cron + pg_net daily at 04:15 UTC (30min after the bin purge), mirroring `20260622_filehub_bin_purge_schedule.sql`.
+- `lib/randomId.ts` + `.test.ts` — the old `(crypto as any).randomUUID()` cast **hid that it isn't always there**: `randomUUID` only exists in *secure contexts* (so it throws mid-upload over plain `http://`, e.g. a LAN IP) and Hermes has no global crypto without a polyfill (this project ships none). Falls back to `getRandomValues` (real v4), then a path-safe value.
+- `beforeunload` guards on both upload surfaces (matching `_ReportGenerator_desktop.tsx`) — tab close mid-batch stranded bytes silently.
+
+> ⚠️ **DEPLOY ORDER MATTERS: migration MUST land before the client ships.** The client now passes `p_rel_dir`; against the old function that errors as an unknown argument and **every upload breaks**.
+>
+> ⚠️ **The sweep DELETES storage.** Recommend running it log-only (comment the `.remove()`) for one pass on prod to confirm `orphans_found` looks sane before letting it delete. Nothing here has touched prod yet.
+>
+> ⚠️ **Check prod for a lingering 12-arg overload** before/after applying (this repo has known prod-vs-migration divergence): `SELECT oid::regprocedure FROM pg_proc WHERE proname='rpc_filehub_upload_commit';` — two rows = ambiguous PostgREST calls.
+
+**Still TODO (known, deliberate):**
+- **No retries anywhere in the upload path** — one transient blip = one failed file + orphaned bytes. NOT a quick win: `upload_commit` is **not idempotent** (no unique key on `storage_path`, so a retry double-inserts) and `storage.upload` defaults `upsert:false` (re-PUT 409s). A safe retry needs a unique index on `storage_path` or a client-supplied idempotency key. This is the biggest remaining gap for "bad connection".
+- **Dedupe still has no unique index** — the advisory lock closes the *concurrent* race, but existing rows may already contain duplicate names, so the stronger constraint needs a backfill/cleanup migration first.
+- Orphan sweep's `MAX_OBJECTS` (50k) **truncates rather than resumes** — listing is deterministic from the root, so objects beyond the ceiling are never swept (fails safe = under-deletes). Make the walk resumable if a bucket ever legitimately exceeds it.
+- `..` as a literal folder name is possible by calling the RPC directly (browsers never emit it in `webkitRelativePath`). Inert — folder names are DB text and storage keys sit under a uuid dir — but a hygiene wart.
+- `crypto.randomUUID` on Hermes and the 500MB bucket cap's reject-before-or-after-transfer behaviour still want a real device/live check.
 
 
 Focus on IOS WEB, for safari, that way ahmed can use it, i need to focus as much as possible on iphone safari.

@@ -3,7 +3,8 @@ import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { FileActivity, FileHubFile, FileHubFolder, FileHubFolderScope, FileHubGroup, FileHubGroupMember, FileHubMode, FileHubProvider, FileHubShareLink, FileVersion, folderAncestors, folderPath, shareLinkUrl, useFileHub } from '@/contexts/FileHubContext';
 import { useToast } from '@/contexts/ToastContext';
-import { ensureFolderTree, relDir } from '@/lib/filehubFolderTree';
+import { relDir, resolveExistingFolderLeaf } from '@/lib/filehubFolderTree';
+import { randomId } from '@/lib/randomId';
 import { downloadFilesAsZip, downloadFilesToDevice, openStorageFile } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
@@ -896,6 +897,16 @@ function UploadSheet({
     else if (activeGroup) setVisibility('group');
   }, [visible, activeGroup?.id]);
 
+  // Mobile web: block tab close / refresh mid-upload, so bytes can't be
+  // stranded between a file's storage PUT and its commit. No-op on native
+  // (no window), where the OS owns app lifecycle anyway.
+  useEffect(() => {
+    if (!uploading || typeof window === 'undefined' || !window.addEventListener) return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [uploading]);
+
   const addTag = (t: string) => {
     const clean = t.trim().toLowerCase().replace(/\s+/g, '-');
     if (!clean || tags.includes(clean)) return;
@@ -992,34 +1003,24 @@ function UploadSheet({
     let dupeAll: string | null = null;
     let conflictAll: string | null = null;
 
-    // Folder uploads keep their Explorer structure: every distinct directory
-    // in the batch (from webkitRelativePath) becomes a FileHub folder under
-    // the chosen target, merged into existing same-name folders.
-    let folderIdByDir = new Map<string, string>();
-    const dirs = [...new Set(pickedFiles.map(pf => relDir(pf.relPath)))].filter(Boolean);
-    if (dirs.length > 0) {
-      try {
-        folderIdByDir = await ensureFolderTree(dirs, folderId || null, scopedFolders, async (name, parentId) => {
-          const { data, error } = await supabase.rpc('rpc_filehub_folder_create', {
-            p_name: name,
-            p_parent_id: parentId,
-            p_scope: uploadScope,
-            p_group_id: uploadScope === 'group' ? (activeGroup?.id ?? null) : null,
-          });
-          if (error) throw error;
-          return data as string;
-        });
-        refreshFolders();
-      } catch (e: any) {
-        setUploading(false);
-        Alert.alert('Upload Failed', `Could not create folders: ${e.message || e}`);
-        return;
-      }
-    }
+    // Folder uploads keep their Explorer structure, but the folders are no
+    // longer pre-created here. Each file passes its relative directory to
+    // rpc_filehub_upload_commit, which get-or-creates the sub-tree under the
+    // chosen target and lands the file in the leaf — all in one transaction.
+    // A folder can only exist because a file committed into it, so a
+    // half-failed batch can never leave empty folders behind.
+    const hadFolderUpload = pickedFiles.some(pf => !!relDir(pf.relPath));
 
     for (let i = 0; i < pickedFiles.length; i++) {
       const pf = pickedFiles[i];
-      const targetFolderId = folderIdByDir.get(relDir(pf.relPath)) ?? (folderId || null);
+      const relDirPath = relDir(pf.relPath);
+      // Only needed to scope the pre-upload dup / name checks; a brand-new
+      // sub-folder (null) is empty by definition, so those checks are skipped.
+      const existingLeaf = relDirPath
+        ? resolveExistingFolderLeaf(folderId || null, relDirPath, scopedFolders)
+        : (folderId || null);
+      const folderIsNew = relDirPath !== '' && existingLeaf === null;
+      const checkFolderId = existingLeaf ?? (folderId || null);
       setUploadingIndex(i);
       setProgress(5);
       try {
@@ -1033,8 +1034,8 @@ function UploadSheet({
         }
         setProgress(25);
 
-        if (contentHash) {
-          const dupes = await checkDuplicate(contentHash, targetFolderId);
+        if (contentHash && !folderIsNew) {
+          const dupes = await checkDuplicate(contentHash, checkFolderId);
           if (dupes.length > 0) {
             let proceed: string = dupeAll ?? await askDecision(
               'Possible Duplicate',
@@ -1051,9 +1052,10 @@ function UploadSheet({
           }
         }
 
-        // Name-conflict prompt (Replace / Keep Both / Cancel)
+        // Name-conflict prompt (Replace / Keep Both / Cancel) — only meaningful
+        // when the target folder already exists.
         const groupId = visibility === 'group' ? (activeGroup?.id ?? null) : null;
-        const conflict = await checkNameConflict(pf.name, visibility, groupId, targetFolderId);
+        const conflict = folderIsNew ? null : await checkNameConflict(pf.name, visibility, groupId, checkFolderId);
         if (conflict) {
           let choice: string = conflictAll ?? await askDecision(
             'File already exists',
@@ -1069,7 +1071,7 @@ function UploadSheet({
           if (choice.endsWith('_all')) { choice = choice.slice(0, -4); conflictAll = choice; }
           if (choice === 'cancel') continue;
           if (choice === 'replace') {
-            const replaceId = (crypto as any).randomUUID();
+            const replaceId = randomId();
             const replaceSafeName = pf.name.replace(/[^a-zA-Z0-9._-]/g, '_');
             const replacePath = `${companyId}/${replaceId}/${replaceSafeName}`;
             setProgress(40);
@@ -1081,20 +1083,27 @@ function UploadSheet({
             }
             if (replaceStorageError) throw replaceStorageError;
             setProgress(80);
-            await replaceFile(conflict.id, {
-              storagePath: replacePath,
-              size: pf.size,
-              hash: contentHash || null,
-              mime: pf.type ?? null,
-              caption: caption || null,
-            });
+            try {
+              await replaceFile(conflict.id, {
+                storagePath: replacePath,
+                size: pf.size,
+                hash: contentHash || null,
+                mime: pf.type ?? null,
+                caption: caption || null,
+              });
+            } catch (commitErr) {
+              // Bytes landed but the DB row didn't — remove the orphan object
+              // so it can't linger in storage untracked.
+              await supabase.storage.from('filehub-files').remove([replacePath]).catch(() => {});
+              throw commitErr;
+            }
             setProgress(100);
             continue;
           }
           // 'keep' falls through to the normal upload_commit path (server auto-renames)
         }
 
-        const fileId = (crypto as any).randomUUID();
+        const fileId = randomId();
         const safeName = pf.name.replace(/[^a-zA-Z0-9._-]/g, '_');
         const storagePath = `${companyId}/${fileId}/${safeName}`;
         setProgress(40);
@@ -1112,7 +1121,7 @@ function UploadSheet({
           p_storage_path: storagePath,
           p_visibility: visibility,
           p_recipient_ids: visibility === 'direct' ? selectedRecipients.map(r => r.id) : [],
-          p_folder_id: targetFolderId,
+          p_folder_id: folderId || null,
           p_tags: tags,
           p_caption: caption || null,
           p_original_name: pf.name,
@@ -1121,13 +1130,26 @@ function UploadSheet({
           p_content_hash: contentHash || null,
           p_replaces_file_id: null,
           p_group_id: visibility === 'group' ? (activeGroup?.id ?? null) : null,
+          // Server get-or-creates this sub-tree under p_folder_id and lands the
+          // file in the leaf, atomically with the row insert.
+          p_rel_dir: relDirPath || null,
         });
-        if (rpcError) throw rpcError;
+        if (rpcError) {
+          // Bytes landed but the commit failed — drop the orphan object so it
+          // can't linger untracked in storage. Best-effort only; the daily
+          // filehub-orphan-sweep is the real net.
+          await supabase.storage.from('filehub-files').remove([storagePath]).catch(() => {});
+          throw rpcError;
+        }
         setProgress(100);
       } catch (e: any) {
         errors.push(`${pf.name}: ${e.message || 'Unknown error'}`);
       }
     }
+
+    // Folders were created server-side during commit — pull them in so the
+    // new sub-tree shows up. Only folders that actually received a file exist.
+    if (hadFolderUpload) refreshFolders();
 
     setUploading(false);
     setProgress(0);
@@ -1662,6 +1684,7 @@ function GroupMembersSheet({
   const [addingId, setAddingId] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const colors = useThemeColors();
+  const { showConfirm } = useAlert();
 
   useEffect(() => {
     if (!visible || !group) { setMembers([]); setAddSearch(''); setAddResults([]); return; }
@@ -1700,30 +1723,28 @@ function GroupMembersSheet({
   const handleRemove = async (userId: string) => {
     if (!group) return;
     const target = members.find(m => m.id === userId);
-    Alert.alert(
-      userId === currentUserId ? 'Leave Channel' : `Remove ${target?.full_name ?? 'member'}`,
-      userId === currentUserId ? 'Are you sure you want to leave this channel?' : `Remove ${target?.full_name ?? 'this member'} from the channel?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: userId === currentUserId ? 'Leave' : 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            setRemovingId(userId);
-            try {
-              await removeGroupMember(group.id, userId);
-              const updated = await fetchGroupMembers(group.id);
-              setMembers(updated);
-              onMembersChanged();
-              if (userId === currentUserId) onClose();
-            } catch {
-              // error shown by context
-            } finally {
-              setRemovingId(null);
-            }
-          },
-        },
-      ]
+    const isSelf = userId === currentUserId;
+    showConfirm(
+      isSelf ? 'Leave Channel' : `Remove ${target?.full_name ?? 'member'}`,
+      isSelf ? 'Are you sure you want to leave this channel?' : `Remove ${target?.full_name ?? 'this member'} from the channel?`,
+      async () => {
+        setRemovingId(userId);
+        try {
+          await removeGroupMember(group.id, userId);
+          const updated = await fetchGroupMembers(group.id);
+          setMembers(updated);
+          onMembersChanged();
+          if (isSelf) onClose();
+        } catch {
+          // error shown by context
+        } finally {
+          setRemovingId(null);
+        }
+      },
+      undefined,
+      isSelf ? 'Leave' : 'Remove',
+      'Cancel',
+      'destructive'
     );
   };
 

@@ -48,31 +48,28 @@ export function groupPickedFiles<T>(
   return out;
 }
 
-// Ensures every directory in dirPaths exists under rootFolderId, creating
-// missing ones top-down. `existing` must already be filtered to the target
-// scope/channel. Returns dirPath -> folder id for assigning files.
-// ponytail: name match is exact-case; "Docs" and "docs" become two folders.
-export async function ensureFolderTree(
-  dirPaths: string[],
-  rootFolderId: string | null,
+// Resolves a picked directory path (e.g. 'Photos/2026') to an EXISTING leaf
+// folder id under rootFolderId, walking `existing` segment by segment. Returns
+// null the moment a segment doesn't exist yet.
+//
+// Folder *creation* for uploads now happens server-side, atomically, inside
+// rpc_filehub_upload_commit (p_rel_dir) — so the client never pre-creates a
+// tree and can't leave empty husks behind if a batch half-fails. This helper
+// exists only so the pre-upload duplicate / name-conflict checks can be scoped
+// to the right folder when it already exists. A null result means the target
+// sub-folder is brand new, so there is nothing there to conflict with and the
+// caller can skip those checks entirely.
+// ponytail: name match is exact-case, matching the server's get-or-create.
+export function resolveExistingFolderLeaf(
+  rootId: string | null,
+  dirPath: string,
   existing: FolderNode[],
-  createFolder: (name: string, parentId: string | null) => Promise<string>,
-): Promise<Map<string, string>> {
-  const resolved = new Map<string, string>();
-  for (const dir of dirPaths) {
-    let parentId = rootFolderId;
-    let path = '';
-    for (const part of dir.split('/').filter(Boolean)) {
-      path = path ? `${path}/${part}` : part;
-      let id = resolved.get(path);
-      if (!id) {
-        id =
-          existing.find(f => f.name === part && (f.parent_id ?? null) === parentId)?.id ??
-          (await createFolder(part, parentId));
-        resolved.set(path, id);
-      }
-      parentId = id;
-    }
+): string | null {
+  let parentId = rootId ?? null;
+  for (const part of dirPath.split('/').filter(Boolean)) {
+    const found = existing.find(f => f.name === part && (f.parent_id ?? null) === parentId);
+    if (!found) return null;
+    parentId = found.id;
   }
-  return resolved;
+  return parentId;
 }

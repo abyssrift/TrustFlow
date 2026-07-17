@@ -121,7 +121,12 @@ function RootLayoutNav() {
       <AnalyticsProvider>
         <NotificationsProvider>
           <PingHighlightProvider>
-          <View className="flex-1 bg-surface-background" style={{ flex: 1, minHeight: '100vh', height: '100%', width: '100%' }}>
+          {/* 100dvh, not 100vh: on mobile browsers `vh` is the *large* viewport and
+              includes the space behind the retracting address bar, so a 100vh root
+              overflows the (overflow:hidden) body and clips whatever sits at its
+              bottom edge — namely the floating mobile nav. `dvh` tracks the
+              visible viewport instead. Matches body's sizing in global.css. */}
+          <View className="flex-1 bg-surface-background" style={{ flex: 1, minHeight: '100dvh', height: '100%', width: '100%' } as any}>
             {/* Always-on ping listener — one WebSocket channel for the current user */}
             {session && <GlobalPingGuard />}
             {session && <WelcomeTour />}
