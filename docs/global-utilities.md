@@ -3,7 +3,7 @@ Before writing new utility functions, hooks, or database RPCs, check this regist
 
 ## Frontend Hooks (`/hooks`, `/contexts`, `/components`)
 * **useAuth**: Returns current session, user profile, permissions, and role IDs. Provides `hasPermission`, `hasRole`, `signOut`, and `refreshProfile`. (Context: `contexts/AuthContext.tsx`)
-* **useTheme**: Manages global UI theme (colors), density, roundness, and Kanban-specific settings. (Context: `contexts/ThemeContext.tsx`)
+* **useTheme**: Manages global UI theme (colors) and Kanban-specific settings. (Context: `contexts/ThemeContext.tsx`)
 * **useTimer**: Controls work sessions (`startWork`, `stopWork`, `passiveStart`). Manages the active session state. (Context: `contexts/TimerContext.tsx`)
 * **useAlert**: Provides `showAlert` and `showConfirm` for consistent premium dialogs. (Context: `contexts/AlertContext.tsx`)
 * **useRoleManager**: Management interface for users, teams, roles, and permissions CRUD. (Context: `contexts/RoleManagerContext.tsx`)
