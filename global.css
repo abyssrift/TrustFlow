@@ -167,10 +167,6 @@ body {
   --brand-on-primary: 15, 23, 42;
 }
 
-/* --- DENSITY OVERRIDES --- */
-:root[data-density='compact'] { --spacing-scale: 0.75; }
-:root[data-density='comfort'] { --spacing-scale: 1.25; }
-
 /* --- BASE LAYER --- */
 @layer base {
   * {
