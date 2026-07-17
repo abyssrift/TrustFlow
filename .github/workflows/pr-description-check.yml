@@ -1,6 +1,8 @@
 name: ci / PR checks
 
 on:
+  push:
+    branches: [feat/workflow]
   # pull_request_target runs in the base-repo context (has secrets) so the check
   # works on fork PRs. Safe here: the checkout pins to the base branch (no fork
   # code runs) and the scripts only read context.payload and call the GitHub API.
