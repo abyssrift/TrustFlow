@@ -81,6 +81,6 @@ body:
         - "-- Please Select --"
         - "Yes — I can open a PR"
         - "Partially — I can help but need guidance"
-        - "No — I am only filing the request"
+        - "No — I am not available currently"
     validations:
       required: true

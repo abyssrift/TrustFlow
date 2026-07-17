@@ -75,7 +75,7 @@ body:
         - "-- Please Select --"
         - "Yes — I can open a PR"
         - "Partially — I can help but need guidance"
-        - "No — I am not available now"
+        - "No — I am not available currently"
     validations:
       required: true
 
