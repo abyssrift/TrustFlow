@@ -1,44 +1,28 @@
 name: Bug Report
-description: Report a reproducible bug in Odysseus.
+description: Report a reproducible bug in TrustFlow.
 labels: ["bug"]
 
 body:
   - type: markdown
     attributes:
       value: |
-        **Before submitting:** search [open issues](https://github.com/pewdiepie-archdaemon/odysseus/issues)
-        and [discussions](https://github.com/pewdiepie-archdaemon/odysseus/discussions) first.
+        **Before submitting:** search [open issues](https://github.com/abyssrift/TrustFlow/issues) first.
         Duplicate reports slow things down.
 
         For security vulnerabilities, **do not open a public issue** —
-        use [GitHub Security Advisories](https://github.com/pewdiepie-archdaemon/odysseus/security/advisories/new)
-        and read [SECURITY.md](https://github.com/pewdiepie-archdaemon/odysseus/blob/main/SECURITY.md) first.
+        report privately via the repo's Security tab instead.
 
   - type: checkboxes
     id: prerequisites
     attributes:
       label: Prerequisites
       options:
-        - label: I searched [open issues](https://github.com/pewdiepie-archdaemon/odysseus/issues?q=is%3Aissue+is%3Aopen) and [discussions](https://github.com/pewdiepie-archdaemon/odysseus/discussions) and did not find an existing report of this bug.
+        - label: I searched [open issues](https://github.com/abyssrift/TrustFlow/issues?q=is%3Aissue+is%3Aopen) and did not find an existing report of this bug.
           required: true
-        - label: This is **not** a security vulnerability. (Vulnerabilities go to [GitHub Security Advisories](https://github.com/pewdiepie-archdaemon/odysseus/security/advisories/new) — see [SECURITY.md](https://github.com/pewdiepie-archdaemon/odysseus/blob/main/SECURITY.md).)
+        - label: This is **not** a security vulnerability. (Report privately via the repo's Security tab instead.)
           required: true
-        - label: I am running the latest code from the `dev` branch (the default branch you get on clone, where fixes land first) and the bug still reproduces there. Please `git pull` the latest `dev` before filing.
+        - label: I am running the latest code from the default branch and the bug still reproduces there.
           required: true
-
-  - type: dropdown
-    id: install-method
-    attributes:
-      label: Install Method
-      options:
-        - "-- Please Select --"
-        - Docker (docker compose up)
-        - Manual Python install (pip / venv)
-        - Windows native (launch-windows.ps1)
-        - macOS app (build-macos-app.sh / start-macos.sh)
-        - Other (describe in the reproduction steps below)
-    validations:
-      required: true
 
   - type: dropdown
     id: os
@@ -49,7 +33,8 @@ body:
         - Linux
         - macOS
         - Windows
-        - Other
+        - Android
+        - iOS
     validations:
       required: true
 
@@ -81,19 +66,6 @@ body:
     validations:
       required: true
 
-  - type: textarea
-    id: logs
-    attributes:
-      label: Logs / Screenshots
-      description: Paste relevant terminal output or attach screenshots. Remove API keys, passwords, and personal data before pasting.
-      render: text
-
-  - type: input
-    id: model-backend
-    attributes:
-      label: Model / Backend (if relevant)
-      description: "e.g. Ollama + llama3.2:latest, vLLM + mistral-7b, OpenAI API, Anthropic API"
-      placeholder: "Ollama + llama3.2:latest"
 
   - type: dropdown
     id: willing_to_fix
@@ -103,7 +75,7 @@ body:
         - "-- Please Select --"
         - "Yes — I can open a PR"
         - "Partially — I can help but need guidance"
-        - "No — I am only filing the report"
+        - "No — I am not available now"
     validations:
       required: true
 

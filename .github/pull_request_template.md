@@ -24,10 +24,10 @@ Fixes #
 
 ## Checklist
 
-- [ ] I searched [open issues](https://github.com/pewdiepie-archdaemon/odysseus/issues) and [open PRs](https://github.com/pewdiepie-archdaemon/odysseus/pulls) — this is not a duplicate.
-- [ ] This PR targets `dev`
+- [ ] I searched [open issues](https://github.com/abyssrift/TrustFlow/issues) and [open PRs](https://github.com/abyssrift/TrustFlow/pulls) — this is not a duplicate.
+- [ ] This PR targets the default branch
 - [ ] My changes are limited to the scope described above — no unrelated refactors or whitespace changes mixed in.
-- [ ] I actually ran the app (`docker compose up` or `uvicorn app:app`) and verified the change works end-to-end. Type-checks and unit tests are not enough.
+- [ ] I actually ran the app and verified the change works end-to-end. Type-checks and unit tests are not enough.
 
 ## How to Test
 
@@ -40,17 +40,11 @@ Fixes #
 
 ## Visual / UI changes — REQUIRED if you touched anything that renders
 
-**Anything that changes what the UI looks like — buttons, icons, padding, colors, fonts, spacing, layout, CSS, HTML, SVG, or any `static/js/` module that draws to the DOM — needs all of the following. PRs that change rendering without these WILL be closed.**
+**Anything that changes what the UI looks like — buttons, icons, padding, colors, fonts, spacing, layout, CSS — needs all of the following.**
 
 - [ ] **Screenshot or short clip** of the change in the running app, attached below. Mobile screenshot too if the change affects mobile.
-- [ ] **Style match**: the change uses Odysseus's existing visual language. Specifically:
-  - Reuse existing CSS variables (`--red`, `--fg`, `--bg`, `--card`, `--border`, etc.) — do not introduce new color values, font sizes, or spacing units.
-  - Reuse existing button/input/card/border classes. Don't invent parallel styling.
-  - **No Unicode emoji in UI or code.** Use inline SVG (matching the monochrome icon style already in `static/index.html`) or plain text.
-  - Monospaced font (`Fira Code`) for primary UI text. Don't override.
-  - Dark theme is the default; any light-mode work must be wired through the existing theme system, not hard-coded.
-- [ ] **No new component patterns.** If a similar widget already exists in the app, extend it instead of writing a parallel one.
-- [ ] **I am not an LLM agent submitting a bulk PR.** If you are, please open an issue describing the problem first — bulk auto-generated PRs that don't match the project's visual style are closed on sight, even when the underlying fix is correct.
+- [ ] **Style match**: the change uses TrustFlow's existing design system. Reuse existing theme tokens, component classes, and patterns — do not introduce parallel styling.
+- [ ] **No new component patterns.** If a similar widget already exists, extend it instead of writing a parallel one.
 
 ### Screenshots / clips
 

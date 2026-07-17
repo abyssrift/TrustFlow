@@ -6,22 +6,15 @@ body:
   - type: markdown
     attributes:
       value: |
-        **Before submitting:** search [open issues](https://github.com/pewdiepie-archdaemon/odysseus/issues)
-        and [discussions](https://github.com/pewdiepie-archdaemon/odysseus/discussions) first.
-        Feature requests that duplicate [ROADMAP.md](https://github.com/pewdiepie-archdaemon/odysseus/blob/main/ROADMAP.md)
-        or an existing open issue will be closed as duplicates.
-
-        If your idea needs community input before it becomes a concrete proposal,
-        start a [discussion](https://github.com/pewdiepie-archdaemon/odysseus/discussions/categories/ideas) instead.
+        **Before submitting:** search [open issues](https://github.com/abyssrift/TrustFlow/issues)
+        first. Feature requests that duplicate an existing open issue will be closed as duplicates.
 
   - type: checkboxes
     id: prerequisites
     attributes:
       label: Prerequisites
       options:
-        - label: I searched [open issues](https://github.com/pewdiepie-archdaemon/odysseus/issues?q=is%3Aissue+is%3Aopen) and this has not already been proposed.
-          required: true
-        - label: I searched [discussions](https://github.com/pewdiepie-archdaemon/odysseus/discussions) and this is not already being debated there.
+        - label: I searched [open issues](https://github.com/abyssrift/TrustFlow/issues?q=is%3Aissue+is%3Aopen) and this has not already been proposed.
           required: true
         - label: This is a concrete, actionable proposal — not a vague "it would be nice if..." request.
           required: true
@@ -33,20 +26,21 @@ body:
       description: Which part of the application does this affect?
       options:
         - "-- Please Select --"
-        - Chat / Agent
-        - Email
-        - Calendar
-        - Documents / RAG
-        - Memory
-        - Cookbook / Local Models / GPU
-        - Search
-        - Notes / Editor
+        - Pipelines / Stages
+        - Tasks / Kanban
+        - Analytics / Reports
+        - FileHub / Files
+        - Timer / Time Tracking
+        - Roles / Permissions
+        - Notifications / Pings
+        - Billing / Plans
+        - Projects / Archives
+        - Onboarding / Companies
         - Auth / Security
-        - Docker / Deployment
         - UI / Frontend
         - API / Backend
-        - MCP
         - Testing / CI
+        - Docker / Deployment
         - Other
     validations:
       required: true
