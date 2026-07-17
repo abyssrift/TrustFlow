@@ -26,3 +26,76 @@ export function formatEta(secondsRemaining: number | null): string {
   if (secondsRemaining < 3600) return `~${Math.round(secondsRemaining / 60)}m`;
   return `~${(secondsRemaining / 3600).toFixed(1)}h`;
 }
+
+// ── Storage upload with real byte progress ────────────────────────────────────
+// supabase-js's storage `.upload()` gives no progress events, so a single big
+// file's ring sat at 0% for the whole transfer and only snapped to 100% at the
+// end (the "never moves past 1%" bug). We POST straight to the Storage REST
+// endpoint with XMLHttpRequest instead — same request supabase-js makes under
+// the hood — because XHR exposes `upload.onprogress`. Bonus: `xhr.abort()` can
+// actually kill an in-flight transfer, which the js client can't.
+
+export type UploadProgressFn = (loaded: number, total: number) => void;
+
+export class StorageUploadError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'StorageUploadError';
+    this.status = status;
+  }
+}
+
+export function uploadFileToStorage(opts: {
+  baseUrl: string;      // supabaseUrl
+  anonKey: string;      // supabaseAnonKey
+  accessToken: string;  // the signed-in user's JWT (RLS runs as them)
+  bucket: string;
+  path: string;
+  file: File;
+  upsert?: boolean;
+  cacheControl?: string; // seconds; storage-js default is '3600'
+  onProgress?: UploadProgressFn;
+  // Hands the live XHR to the caller so a cancel can abort it (null on finish).
+  registerXhr?: (xhr: XMLHttpRequest | null) => void;
+}): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    opts.registerXhr?.(xhr);
+    // encodeURI (not encodeURIComponent) so the "/" path separators survive.
+    xhr.open('POST', `${opts.baseUrl}/storage/v1/object/${opts.bucket}/${encodeURI(opts.path)}`);
+    xhr.setRequestHeader('authorization', `Bearer ${opts.accessToken}`);
+    xhr.setRequestHeader('apikey', opts.anonKey);
+    xhr.setRequestHeader('x-upsert', opts.upsert ? 'true' : 'false');
+    // Match supabase-js's browser path EXACTLY: multipart/form-data with the
+    // cacheControl field and the file under the empty field name. Do NOT set
+    // Content-Type — the browser adds the multipart boundary itself. (The only
+    // reason we hand-roll this instead of calling .upload() is that XHR gives
+    // upload.onprogress, which the js client doesn't surface.)
+    const form = new FormData();
+    form.append('cacheControl', opts.cacheControl ?? '3600');
+    form.append('', opts.file);
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) opts.onProgress?.(e.loaded, e.total);
+    };
+    xhr.onload = () => {
+      opts.registerXhr?.(null);
+      if (xhr.status >= 200 && xhr.status < 300) {
+        opts.onProgress?.(opts.file.size, opts.file.size);
+        resolve();
+        return;
+      }
+      let msg = `Upload failed (${xhr.status})`;
+      try {
+        const body = JSON.parse(xhr.responseText);
+        msg = body?.message || body?.error || msg;
+      } catch { /* non-JSON error body */ }
+      reject(new StorageUploadError(msg, xhr.status));
+    };
+    xhr.onerror = () => { opts.registerXhr?.(null); reject(new StorageUploadError('Network error during upload', 0)); };
+    xhr.onabort = () => { opts.registerXhr?.(null); reject(new StorageUploadError('aborted', 0)); };
+
+    xhr.send(form);
+  });
+}

@@ -4,11 +4,12 @@ import { useFonts } from 'expo-font';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { Text, View, useWindowDimensions } from 'react-native';
+import { View, useWindowDimensions } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
 import 'react-native-reanimated';
 import '../global.css';
 
+import BrandSplash from '@/components/BrandSplash';
 import NetworkStatusBanner from '@/components/NetworkStatusBanner';
 import Sidebar from '@/components/Sidebar.web';
 import IslandTimerBridge from '@/components/island/IslandTimerBridge.web';
@@ -55,11 +56,7 @@ export default function RootLayout() {
   }, [loaded, error]);
 
   if (!loaded && !error) {
-    return (
-      <View className="flex-1 bg-surface-background items-center justify-center">
-        <Text className="text-typography-main">Loading TrustFlow...</Text>
-      </View>
-    );
+    return <BrandSplash />;
   }
 
   return (

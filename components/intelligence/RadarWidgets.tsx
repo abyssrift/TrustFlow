@@ -13,6 +13,27 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import { formatDuration as fmtDwell } from '@/lib/duration';
 import { daysToPeriodParams } from '@/lib/analyticsPeriods';
 
+// SLA risk driver -> user-facing label + colour tone. `reason` comes from
+// rpc_get_organizational_audit (deadline | over_budget | stalled).
+export const SLA_REASON_META: Record<string, { label: string; tone: 'danger' | 'warning' | 'muted' }> = {
+  deadline:    { label: 'Deadline',    tone: 'danger'  },
+  over_budget: { label: 'Over budget', tone: 'warning' },
+  stalled:     { label: 'Stalled',     tone: 'muted'   },
+};
+
+export const SLAReasonTag = ({ reason, className }: { reason?: string; className?: string }) => {
+  const meta = SLA_REASON_META[reason || ''] || SLA_REASON_META.stalled;
+  const toneClass =
+    meta.tone === 'danger'  ? 'bg-state-danger/10 text-state-danger'
+    : meta.tone === 'warning' ? 'bg-state-warning/10 text-state-warning'
+    : 'bg-surface-overlay text-typography-muted';
+  return (
+    <View className={`px-2 py-0.5 rounded-md ${toneClass.split(' ')[0]} ${className || ''}`}>
+      <Text className={`text-[9px] font-black uppercase tracking-widest ${toneClass.split(' ')[1]}`}>{meta.label}</Text>
+    </View>
+  );
+};
+
 const DwellTooltip = ({ active, payload, mode }: any) => {
   const colors = useThemeColors();
   if (!active || !payload?.length) return null;
@@ -79,7 +100,7 @@ export const SLARiskAlertWeb = ({ data, className }: { data: any, className?: st
         <View className="flex-1 flex-row items-center justify-between">
           <View>
             <Text className="text-state-danger font-black text-lg tracking-tight">SLA Risks</Text>
-            <Text className="text-typography-muted text-xs font-medium">{data.sla_risks.length} active tasks exceeding tolerance</Text>
+            <Text className="text-typography-muted text-xs font-medium">{data.sla_risks.length} active tasks at risk</Text>
           </View>
           <TouchableOpacity
             onPress={() => setShowInfo(v => !v)}
@@ -94,10 +115,19 @@ export const SLARiskAlertWeb = ({ data, className }: { data: any, className?: st
         <View className="mb-6 bg-surface-background border border-surface-border rounded-2xl p-5 gap-3">
           <Text className="text-typography-main font-black text-sm">What is SLA Risk?</Text>
           <Text className="text-typography-muted text-xs leading-relaxed">
-            Each pipeline stage has a learned baseline from historical data. A task becomes at risk when it has been in its current stage for more than{' '}
-            <Text className="text-state-danger font-bold">1.5× the stage average</Text>.
-            Risk % shows how far past that threshold the task is, capped at 99%.
+            A task is flagged when any of three signals crosses its limit. The badge shows which one is driving the risk, and the % is how close it is to that limit, capped at 99%.
           </Text>
+          <View className="gap-2">
+            <Text className="text-typography-muted text-xs leading-relaxed">
+              <Text className="text-state-danger font-bold">Deadline</Text> — its projected finish (current pace plus the remaining stages) runs past its due date.
+            </Text>
+            <Text className="text-typography-muted text-xs leading-relaxed">
+              <Text className="text-state-warning font-bold">Over budget</Text> — logged hours have outpaced the estimate for how far it has progressed.
+            </Text>
+            <Text className="text-typography-muted text-xs leading-relaxed">
+              <Text className="text-typography-main font-bold">Stalled</Text> — it has sat in its current stage longer than 1.5× the stage average.
+            </Text>
+          </View>
           {stageBaselines.length > 0 && (
             <>
               <View className="h-px bg-surface-border" />
@@ -136,7 +166,10 @@ export const SLARiskAlertWeb = ({ data, className }: { data: any, className?: st
               <View className="w-1 h-8 rounded-full bg-state-danger/40" />
               <View>
                 <Text className="text-typography-main font-black text-sm">{r.task_number || `TASK-${r.id.substring(0, 4)}`}</Text>
-                <Text className="text-typography-muted text-[10px] uppercase font-bold tracking-widest">{r.stage_name}</Text>
+                <View className="flex-row items-center gap-2 mt-0.5">
+                  <Text className="text-typography-muted text-[10px] uppercase font-bold tracking-widest">{r.stage_name}</Text>
+                  <SLAReasonTag reason={r.reason} />
+                </View>
               </View>
             </View>
             <View className="flex-row items-center gap-6">

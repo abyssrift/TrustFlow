@@ -27,10 +27,10 @@ import { useToast } from '@/contexts/ToastContext';
 import type { FileHubFolder } from '@/contexts/FileHubContext';
 import { relDir, resolveExistingFolderLeaf } from '@/lib/filehubFolderTree';
 import { randomId } from '@/lib/randomId';
-import { supabase } from '@/lib/supabase';
-import { computeSHA256, formatEta, formatFileSize } from '@/lib/uploadHelpers';
+import { supabase, supabaseAnonKey, supabaseUrl } from '@/lib/supabase';
+import { computeSHA256, formatEta, formatFileSize, uploadFileToStorage } from '@/lib/uploadHelpers';
 import { useRouter } from 'expo-router';
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 
 export type UploadVisibility = 'direct' | 'broadcast' | 'group';
 
@@ -51,12 +51,33 @@ export type UploadJobInput = {
   label?: string; // "Direct" / "Broadcast" / channel name — island subtitle flavour
 };
 
+// Live, per-job snapshot the upload modal reads to render its in-modal progress
+// UI. Kept in a ref-backed external store (not React state) so the ~10Hz
+// progress ticks re-render ONLY the modal that subscribes — not the whole app
+// under this root-level provider.
+export type UploadJobState = {
+  jobId: string;
+  status: 'uploading' | 'done' | 'partial' | 'error' | 'cancelled';
+  progress: number; // 0..100
+  done: number;     // files committed
+  total: number;
+  okCount: number;
+  errorCount: number;
+  title: string;
+  subtitle: string;
+};
+
 type UploadManagerValue = {
   startUpload: (job: UploadJobInput) => string;
   cancelUpload: (jobId: string) => void;
   activeCount: number;
   // Bumped whenever any job finishes so a mounted FileHub screen can refresh.
   lastCompletedAt: number;
+  // External store for per-job live state (see useUploadJob).
+  jobsStore: {
+    subscribe: (cb: () => void) => () => void;
+    getJob: (jobId: string) => UploadJobState | undefined;
+  };
 };
 
 const UploadManagerContext = createContext<UploadManagerValue | null>(null);
@@ -83,9 +104,28 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
     return () => window.removeEventListener('beforeunload', handler);
   }, [activeCount]);
 
-  // Per-job control: abort flag + a hook to force-resolve a pending decision so
-  // a cancel unwinds a worker that's parked waiting on the user.
-  const controllers = useRef<Record<string, { aborted: boolean; resolvePending: ((v: string) => void) | null }>>({});
+  // Per-job control: abort flag, a hook to force-resolve a pending decision so
+  // a cancel unwinds a worker parked on the user, and the live XHRs so cancel
+  // can hard-abort in-flight transfers.
+  const controllers = useRef<Record<string, {
+    aborted: boolean;
+    resolvePending: ((v: string) => void) | null;
+    xhrs: Set<XMLHttpRequest>;
+  }>>({});
+
+  // Ref-backed external store for per-job live state (drives the modal UI).
+  const jobsRef = useRef<Record<string, UploadJobState>>({});
+  const jobListeners = useRef(new Set<() => void>());
+  const emitJobs = useCallback(() => { jobListeners.current.forEach(l => l()); }, []);
+  const setJob = useCallback((jobId: string, patch: Partial<UploadJobState>) => {
+    const prev = jobsRef.current[jobId];
+    jobsRef.current = { ...jobsRef.current, [jobId]: { ...(prev as UploadJobState), ...patch } };
+    emitJobs();
+  }, [emitJobs]);
+  const jobsStore = useMemo(() => ({
+    subscribe: (cb: () => void) => { jobListeners.current.add(cb); return () => { jobListeners.current.delete(cb); }; },
+    getJob: (jobId: string) => jobsRef.current[jobId],
+  }), []);
 
   const cancelUpload = useCallback((jobId: string) => {
     const id = `upload:${jobId}`;
@@ -93,7 +133,9 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
     if (ctrl) {
       ctrl.aborted = true;
       ctrl.resolvePending?.('cancel_all'); // release a parked worker
+      ctrl.xhrs.forEach(x => { try { x.abort(); } catch { /* already settled */ } });
     }
+    if (jobsRef.current[jobId]) setJob(jobId, { status: 'cancelled', subtitle: 'Stopping…' });
     update(id, {
       accent: 'warning',
       title: 'Upload cancelled',
@@ -104,17 +146,34 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
       actions: [],
     }, { bump: true });
     setTimeout(() => remove(id), 2500);
-  }, [update, remove]);
+  }, [update, remove, setJob]);
 
   const startUpload = useCallback((job: UploadJobInput): string => {
     const jobId = randomId();
     const islandId = `upload:${jobId}`;
-    controllers.current[jobId] = { aborted: false, resolvePending: null };
+    controllers.current[jobId] = { aborted: false, resolvePending: null, xhrs: new Set() };
     setActiveCount(n => n + 1);
 
     const total = job.files.length;
     const totalBytes = job.files.reduce((s, f) => s + f.size, 0);
     const scopeLabel = job.label || (job.visibility === 'group' ? 'Channel' : job.visibility === 'broadcast' ? 'Broadcast' : 'Direct');
+
+    // Seed the modal-facing job snapshot.
+    jobsRef.current = {
+      ...jobsRef.current,
+      [jobId]: {
+        jobId,
+        status: 'uploading',
+        progress: 0,
+        done: 0,
+        total,
+        okCount: 0,
+        errorCount: 0,
+        title: `Uploading ${total} file${total === 1 ? '' : 's'}`,
+        subtitle: `${scopeLabel} · starting…`,
+      },
+    };
+    emitJobs();
 
     // Initial descriptor.
     publish({
@@ -146,23 +205,36 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
       let dupeAll: string | null = null;
       let conflictAll: string | null = null;
       let done = 0;
-      let bytesDone = 0;
+      let bytesDone = 0; // bytes from fully-committed files
       const startedAt = Date.now();
 
-      const syncProgress = () => {
+      // Live per-file byte counters (keyed by file index) so the ring moves
+      // smoothly WITHIN a single big file, not just when a whole file lands.
+      const inFlight = new Map<number, number>();
+      let lastEmit = 0;
+      let lastPct = -1;
+
+      const computeSync = (force: boolean) => {
+        let live = bytesDone;
+        inFlight.forEach(v => { live += v; });
         const pct = meta.totalBytes > 0
-          ? Math.max(1, Math.round((bytesDone / meta.totalBytes) * 100))
-          : Math.max(1, Math.round((done / meta.total) * 100));
-        const elapsed = (Date.now() - startedAt) / 1000;
-        const rate = bytesDone > 0 && elapsed > 0 ? bytesDone / elapsed : 0;
-        const remaining = rate > 0 ? (meta.totalBytes - bytesDone) / rate : null;
+          ? Math.min(100, Math.max(1, Math.round((live / meta.totalBytes) * 100)))
+          : Math.min(100, Math.max(1, Math.round((done / meta.total) * 100)));
+        // Throttle: island/store churn only on a whole-percent change or ~120ms.
+        const now = Date.now();
+        if (!force && pct === lastPct && now - lastEmit < 120) return;
+        lastPct = pct; lastEmit = now;
+
+        const elapsed = (now - startedAt) / 1000;
+        const rate = live > 0 && elapsed > 0 ? live / elapsed : 0;
+        const remaining = rate > 0 ? (meta.totalBytes - live) / rate : null;
         const eta = formatEta(remaining);
-        update(islandId, {
-          compactLabel: `${pct}%`,
-          progress: pct,
-          subtitle: `${done}/${meta.total}${eta ? ` · ${eta}` : ''}`,
-        }, { bump: false });
+        const subtitle = `${done}/${meta.total}${eta ? ` · ${eta}` : ''}`;
+        update(islandId, { compactLabel: `${pct}%`, progress: pct, subtitle }, { bump: false });
+        setJob(jobId, { progress: pct, done, subtitle });
       };
+      const syncProgress = () => computeSync(true);
+      const onFileProgress = (idx: number, loaded: number) => { inFlight.set(idx, loaded); computeSync(false); };
 
       // One decision on screen at a time; workers queue behind this chain and
       // re-check the remembered "…for all" answer once it's their turn.
@@ -188,7 +260,25 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
           update(islandId, { decisions: [decision] }); // bump → grabs the idle slot
         });
 
-      const uploadOne = async (file: File) => {
+      // One storage PUT with byte progress + hard-abort registration. Shared by
+      // the normal-commit path and the replace path.
+      const putToStorage = async (path: string, file: File, idx: number) => {
+        const { data: sess } = await supabase.auth.getSession();
+        const accessToken = sess.session?.access_token;
+        if (!accessToken) throw new Error('Not signed in.');
+        await uploadFileToStorage({
+          baseUrl: supabaseUrl,
+          anonKey: supabaseAnonKey,
+          accessToken,
+          bucket: 'filehub-files',
+          path,
+          file,
+          onProgress: (loaded) => onFileProgress(idx, loaded),
+          registerXhr: (xhr) => { if (xhr) ctrl.xhrs.add(xhr); },
+        });
+      };
+
+      const uploadOne = async (file: File, idx: number) => {
         if (ctrl.aborted) return;
         const relDirPath = relDir((file as any).webkitRelativePath);
         const existingLeaf = relDirPath
@@ -245,8 +335,11 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
             if (choice === 'replace') {
               if (ctrl.aborted) return;
               const replacePath = `${job.companyId}/${randomId()}/${SAFE_NAME(file.name)}`;
-              const { error: replaceStorageError } = await supabase.storage.from('filehub-files').upload(replacePath, file, { contentType: file.type || 'application/octet-stream' });
-              if (replaceStorageError) throw replaceStorageError;
+              await putToStorage(replacePath, file, idx);
+              if (ctrl.aborted) {
+                await supabase.storage.from('filehub-files').remove([replacePath]).catch(() => {});
+                return;
+              }
               const { error: replaceErr } = await supabase.rpc('rpc_filehub_replace_file', {
                 p_target_id: conflict.id,
                 p_storage_path: replacePath,
@@ -266,8 +359,7 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
           if (ctrl.aborted) return;
 
           const storagePath = `${job.companyId}/${randomId()}/${SAFE_NAME(file.name)}`;
-          const { error: storageError } = await supabase.storage.from('filehub-files').upload(storagePath, file, { contentType: file.type || 'application/octet-stream' });
-          if (storageError) throw storageError;
+          await putToStorage(storagePath, file, idx);
 
           // Cancelled after the PUT but before commit → drop the bytes so they
           // don't orphan, and stop.
@@ -296,7 +388,9 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
             throw rpcError;
           }
         } catch (e: any) {
-          errors.push(`${file.name}: ${e?.message || 'Unknown error'}`);
+          // A cancel aborts the in-flight XHR, which rejects with 'aborted' —
+          // that's expected teardown, not a per-file failure to report.
+          if (!ctrl.aborted) errors.push(`${file.name}: ${e?.message || 'Unknown error'}`);
         }
       };
 
@@ -310,7 +404,8 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
             const i = nextIdx++;
             if (i >= meta.total) break;
             const file = job.files[i];
-            await uploadOne(file);
+            await uploadOne(file, i);
+            inFlight.delete(i); // fold its partial bytes into the committed total
             done++;
             bytesDone += file.size;
             syncProgress();
@@ -322,8 +417,18 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
       delete controllers.current[jobId];
       setActiveCount(n => Math.max(0, n - 1));
       setLastCompletedAt(Date.now());
+      // Drop the modal-facing snapshot a while after the island clears itself so
+      // jobsRef doesn't accumulate across a long session.
+      setTimeout(() => {
+        if (jobsRef.current[jobId]) {
+          const { [jobId]: _gone, ...rest } = jobsRef.current;
+          jobsRef.current = rest;
+          emitJobs();
+        }
+      }, 15000);
 
       if (ctrl.aborted) {
+        setJob(jobId, { status: 'cancelled', title: 'Upload cancelled', subtitle: `${done}/${meta.total} committed` });
         update(islandId, { title: 'Upload cancelled', subtitle: `${done}/${meta.total} committed`, accent: 'warning', progress: null, pulse: false, decisions: [], actions: [] }, { bump: true });
         setTimeout(() => remove(islandId), 2500);
         return;
@@ -331,33 +436,50 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
 
       const okCount = meta.total - errors.length;
       const allFailed = errors.length === meta.total && meta.total > 0;
+      const hasErrors = errors.length > 0;
+      // On failure the island shows the actual reason (first error), not just a
+      // count — and forces itself open so a background failure isn't missed.
+      const reason = hasErrors
+        ? (allFailed ? errors[0] : `${okCount} uploaded · ${errors[0]}`)
+        : meta.scopeLabel;
+      setJob(jobId, {
+        status: allFailed ? 'error' : hasErrors ? 'partial' : 'done',
+        progress: 100,
+        done: meta.total,
+        okCount,
+        errorCount: errors.length,
+        title: allFailed ? 'Upload failed' : `Uploaded ${okCount} file${okCount === 1 ? '' : 's'}`,
+        subtitle: reason,
+      });
       update(islandId, {
-        icon: allFailed ? 'exclamation-triangle' : 'check',
-        accent: allFailed ? 'danger' : errors.length > 0 ? 'warning' : 'success',
-        compactLabel: allFailed ? 'Failed' : 'Done',
+        icon: allFailed ? 'exclamation-triangle' : hasErrors ? 'exclamation-circle' : 'check',
+        accent: allFailed ? 'danger' : hasErrors ? 'warning' : 'success',
+        compactLabel: allFailed ? 'Failed' : hasErrors ? 'Partial' : 'Done',
         progress: 100,
         pulse: false,
-        title: allFailed ? 'Upload failed' : `Uploaded ${okCount} file${okCount === 1 ? '' : 's'}`,
-        subtitle: errors.length > 0 ? `${errors.length} failed` : meta.scopeLabel,
+        title: allFailed ? 'Upload failed' : hasErrors ? `Uploaded ${okCount} of ${meta.total}` : `Uploaded ${okCount} file${okCount === 1 ? '' : 's'}`,
+        subtitle: reason,
+        attention: hasErrors, // pop the island open on any failure
         decisions: [],
         actions: [{ key: 'dismiss', icon: 'times', label: 'Dismiss', tone: 'neutral', onPress: () => remove(islandId) }],
       }, { bump: true });
 
       if (allFailed) {
         errorToast(`Upload failed: ${errors[0]}`);
-      } else if (errors.length > 0) {
+      } else if (hasErrors) {
         errorToast(`${okCount} uploaded, ${errors.length} failed.`);
-        setTimeout(() => remove(islandId), 6000);
+        // Failures linger longer than a clean run so there's time to read them.
+        setTimeout(() => remove(islandId), 12000);
       } else {
         successToast(`Uploaded ${okCount} file${okCount === 1 ? '' : 's'}.`);
         setTimeout(() => remove(islandId), 4000);
       }
     }
-  }, [publish, update, remove, router, cancelUpload, successToast, errorToast]);
+  }, [publish, update, remove, router, cancelUpload, successToast, errorToast, emitJobs, setJob]);
 
   const value = useMemo(
-    () => ({ startUpload, cancelUpload, activeCount, lastCompletedAt }),
-    [startUpload, cancelUpload, activeCount, lastCompletedAt],
+    () => ({ startUpload, cancelUpload, activeCount, lastCompletedAt, jobsStore }),
+    [startUpload, cancelUpload, activeCount, lastCompletedAt, jobsStore],
   );
 
   return <UploadManagerContext.Provider value={value}>{children}</UploadManagerContext.Provider>;
@@ -367,4 +489,16 @@ export function useUploadManager(): UploadManagerValue {
   const ctx = useContext(UploadManagerContext);
   if (!ctx) throw new Error('useUploadManager must be used within UploadManagerProvider');
   return ctx;
+}
+
+// Subscribe to ONE job's live state (progress, counts, status). Backed by the
+// manager's external store so only this consumer re-renders on progress ticks,
+// not the whole app under the root provider. Pass null to observe nothing.
+export function useUploadJob(jobId: string | null): UploadJobState | undefined {
+  const { jobsStore } = useUploadManager();
+  return useSyncExternalStore(
+    jobsStore.subscribe,
+    () => (jobId ? jobsStore.getJob(jobId) : undefined),
+    () => undefined,
+  );
 }

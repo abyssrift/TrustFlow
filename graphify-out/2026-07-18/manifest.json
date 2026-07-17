@@ -605,8 +605,8 @@
     "semantic_hash": ""
   },
   "components/intelligence/RadarWidgets.tsx": {
-    "mtime": 1784328510.9789112,
-    "ast_hash": "4e80d8f93f1ff5a608f7a8a703bb8157",
+    "mtime": 1783966194.8402772,
+    "ast_hash": "f2ab776093d92a74eaa305bbeb324b01",
     "semantic_hash": ""
   },
   "components/intelligence/RecentActivitySidebar.tsx": {
@@ -685,8 +685,8 @@
     "semantic_hash": ""
   },
   "components/intelligence/_graphs_adaptive.tsx": {
-    "mtime": 1784328540.0996926,
-    "ast_hash": "5b0f427735f0d54c283bd1f735921f11",
+    "mtime": 1783966194.847461,
+    "ast_hash": "484b131cf29ecfecdc51b579d72d2ce2",
     "semantic_hash": ""
   },
   "components/intelligence/_graphs_desktop.tsx": {
@@ -700,8 +700,8 @@
     "semantic_hash": ""
   },
   "components/intelligence/_index_adaptive.tsx": {
-    "mtime": 1784328548.9950695,
-    "ast_hash": "b142cdb88fbe6968f2ee9cd81ec9b5da",
+    "mtime": 1783969045.797793,
+    "ast_hash": "a3ca02c21729c77e66ffc2e7aad93bee",
     "semantic_hash": ""
   },
   "components/intelligence/_index_desktop.tsx": {
@@ -3127,11 +3127,6 @@
   "components/BrandSplash.tsx": {
     "mtime": 1784327428.9849887,
     "ast_hash": "e079441875a6ad1cee9cec71174047b2",
-    "semantic_hash": ""
-  },
-  "supabase/migrations/20260718_sla_risk_multifactor.sql": {
-    "mtime": 1784328321.1138709,
-    "ast_hash": "383791b0bacd3c7561a86ed6cb4a4272",
     "semantic_hash": ""
   }
 }

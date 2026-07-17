@@ -71,8 +71,17 @@ const SLARiskAlert = ({ data }: any) => {
         <Text className="text-state-danger font-bold">SLA Breach Risks</Text>
       </View>
       {data.sla_risks.slice(0, 3).map((r: any, i: number) => (
-        <View key={i} className="flex-row justify-between mb-2">
-          <Text className="text-typography-main text-xs font-bold">{r.task_number || 'TASK'}</Text>
+        <View key={i} className="flex-row justify-between items-center mb-2">
+          <View className="flex-1 flex-row items-center gap-2">
+            <Text className="text-typography-main text-xs font-bold">{r.task_number || 'TASK'}</Text>
+            <Text className={`text-[9px] font-black uppercase ${
+              r.reason === 'deadline' ? 'text-state-danger'
+              : r.reason === 'over_budget' ? 'text-state-warning'
+              : 'text-typography-muted'
+            }`}>
+              {r.reason === 'deadline' ? 'Deadline' : r.reason === 'over_budget' ? 'Over budget' : 'Stalled'}
+            </Text>
+          </View>
           <Text className="text-state-danger text-xs font-black">{r.risk_percent}% Risk</Text>
         </View>
       ))}

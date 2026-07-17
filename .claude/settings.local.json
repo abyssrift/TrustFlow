@@ -196,7 +196,10 @@
       "Bash(node -e 'const p=require\\('\\\\''path'\\\\''\\);const J=require\\(p.join\\(process.cwd\\(\\),'\\\\''node_modules'\\\\'','\\\\''jimp-compact'\\\\''\\)\\);\\(async\\(\\)=>{const bg=new J\\(256,256,0x144ed5ff\\);const m=await J.read\\('\\\\''assets/images/logo-mark-white.png'\\\\''\\);bg.composite\\(m,0,0\\);await bg.writeAsync\\('\\\\''C:/Users/PC/AppData/Local/Temp/claude/c--Users-PC-Documents-GitHub-TrustFlow/6a7fd7b3-7ea5-4157-b63a-65a5b246b7df/scratchpad/preview-white-on-blue.png'\\\\''\\);console.log\\('\\\\''OK'\\\\''\\)}\\)\\(\\).catch\\(e=>console.error\\('\\\\''ERR'\\\\'',e.message\\)\\)')",
       "Bash(node -e \"const p=require\\('path'\\);const J=require\\(p.join\\(process.cwd\\(\\),'node_modules','jimp-compact'\\)\\);\\(async\\(\\)=>{const m=await J.read\\('assets/images/logo-mark-white.png'\\);const corner=J.intToRGBA\\(m.getPixelColor\\(4,4\\)\\);const center=J.intToRGBA\\(m.getPixelColor\\(128,128\\)\\);const mid=J.intToRGBA\\(m.getPixelColor\\(20,128\\)\\);console.log\\('white-mark corner\\(4,4\\):',JSON.stringify\\(corner\\)\\);console.log\\('white-mark center\\(128,128\\):',JSON.stringify\\(center\\)\\);console.log\\('white-mark \\(20,128\\):',JSON.stringify\\(mid\\)\\);const src=await J.read\\('assets/images/logo-source.png'\\);console.log\\('source corner:',JSON.stringify\\(J.intToRGBA\\(src.getPixelColor\\(4,4\\)\\)\\)\\)}\\)\\(\\)\")",
       "Bash(bash \"C:\\\\Users\\\\PC\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-PC-Documents-GitHub-TrustFlow\\\\e62623f6-fa95-4641-899a-ee71707f1fc3\\\\scratchpad\\\\create_issues.sh\")",
-      "Bash(npx vitest *)"
+      "Bash(npx vitest *)",
+      "Bash(gh issue *)",
+      "Bash(gh search *)",
+      "Bash(tee /tmp/tsc.txt)"
     ],
     "additionalDirectories": [
       "C:\\Users\\PC\\.claude",

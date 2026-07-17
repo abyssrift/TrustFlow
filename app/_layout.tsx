@@ -5,7 +5,7 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { Platform, Text, View } from 'react-native';
+import { Platform, View } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
 import 'react-native-reanimated';
 import '../global.css';
@@ -35,6 +35,7 @@ export const unstable_settings = {
   initialRouteName: '(tabs)',
 };
 
+import BrandSplash from '@/components/BrandSplash';
 import GlobalUploadBanner from '@/components/GlobalUploadBanner';
 import NetworkStatusBanner from '@/components/NetworkStatusBanner';
 import TimerIsland from '@/components/TimerIsland';
@@ -67,11 +68,7 @@ export default function RootLayout() {
   }, [loaded, error]);
 
   if (!loaded && !error) {
-    return (
-      <View className="flex-1 bg-surface-background items-center justify-center">
-        <Text className="text-typography-main">Loading TrustFlow...</Text>
-      </View>
-    );
+    return <BrandSplash />;
   }
 
   return (

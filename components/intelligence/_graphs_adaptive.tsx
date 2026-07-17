@@ -17,6 +17,12 @@ const PERIOD_OPTS = [
 
 // ─── SLA Risk Section ─────────────────────────────────────────────────────────
 
+const SLA_REASON_LABEL: Record<string, { label: string; tone: string }> = {
+  deadline:    { label: 'Deadline',    tone: 'text-state-danger' },
+  over_budget: { label: 'Over budget', tone: 'text-state-warning' },
+  stalled:     { label: 'Stalled',     tone: 'text-typography-muted' },
+};
+
 function SLARiskSection({ data }: { data: any }) {
   const colors = useThemeColors();
   const router = useRouter();
@@ -38,7 +44,12 @@ function SLARiskSection({ data }: { data: any }) {
         >
           <View className="flex-1">
             <Text className="text-typography-main text-xs font-bold">{r.task_number || `TASK-${r.id?.substring(0, 4)}`}</Text>
-            <Text className="text-typography-muted text-[9px] uppercase">{r.stage_name}</Text>
+            <View className="flex-row items-center gap-2">
+              <Text className="text-typography-muted text-[9px] uppercase">{r.stage_name}</Text>
+              <Text className={`text-[9px] font-black uppercase ${(SLA_REASON_LABEL[r.reason] || SLA_REASON_LABEL.stalled).tone}`}>
+                {(SLA_REASON_LABEL[r.reason] || SLA_REASON_LABEL.stalled).label}
+              </Text>
+            </View>
           </View>
           <Text className="text-state-danger text-sm font-black">{r.risk_percent}%</Text>
         </TouchableOpacity>

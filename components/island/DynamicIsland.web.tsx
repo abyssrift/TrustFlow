@@ -58,6 +58,23 @@ export default function DynamicIsland({ leading }: { leading: IslandLeading }) {
   React.useEffect(() => () => { if (closeTimer.current) clearTimeout(closeTimer.current); }, []);
   React.useEffect(() => { if (!hasActivities) setExpanded(false); }, [hasActivities]);
 
+  // Attention auto-expand: when something starts needing to be READ — a failed
+  // upload, a pending conflict prompt — pop the panel open even if the cursor
+  // is nowhere near it, so a background failure can't go unseen. Fires on the
+  // rising edge only (attention count going up), so it won't re-open every
+  // render or fight the user closing it.
+  const attentionCount = activities.reduce(
+    (n, a) => n + (a.attention ? 1 : 0) + (a.decisions?.length ?? 0), 0,
+  );
+  const prevAttention = React.useRef(0);
+  React.useEffect(() => {
+    if (attentionCount > prevAttention.current) {
+      if (closeTimer.current) clearTimeout(closeTimer.current);
+      setExpanded(true);
+    }
+    prevAttention.current = attentionCount;
+  }, [attentionCount]);
+
   const lead = activities[0];
   const leadAccent = lead ? accentColor(colors, lead.accent) : colors.textDim;
   const pendingDecisions = activities.reduce((n, a) => n + (a.decisions?.length ?? 0), 0);
@@ -79,8 +96,8 @@ export default function DynamicIsland({ leading }: { leading: IslandLeading }) {
           padding: hasActivities ? '0 8px 0 4px' : '0 4px',
           borderRadius: 999,
           background: colors.card,
-          border: `1px solid ${hasActivities ? `${leadAccent}55` : colors.border}`,
-          boxShadow: '0 6px 22px rgba(0,0,0,0.30)',
+          border: `1px solid ${hasActivities ? `${leadAccent}40` : colors.border}`,
+          boxShadow: '0 4px 14px rgba(0,0,0,0.22), 0 1px 3px rgba(0,0,0,0.18)',
           maxWidth: 360,
           transition: 'height 200ms ease, border-color 200ms ease, background 200ms ease',
           opacity: panelOpen ? 0.001 : 1, // hand off to the panel while open
@@ -133,22 +150,29 @@ export default function DynamicIsland({ leading }: { leading: IslandLeading }) {
       <div
         style={{
           position: 'absolute', top: 0, left: '50%',
-          transform: `translateX(-50%) translateY(${panelOpen ? 0 : -8}px) scale(${panelOpen ? 1 : 0.94})`,
+          transform: `translateX(-50%) translateY(${panelOpen ? 0 : -6}px) scale(${panelOpen ? 1 : 0.96})`,
           transformOrigin: 'top center',
           width: 340,
           background: colors.card,
           border: `1px solid ${colors.border}`,
-          borderRadius: 20,
-          boxShadow: '0 20px 54px rgba(0,0,0,0.48)',
+          borderRadius: 16,
+          // Layered, tighter shadow reads as a crisp floating surface rather
+          // than the old single huge blur that looked smudged at the edges.
+          boxShadow: '0 1px 0 rgba(255,255,255,0.03) inset, 0 10px 28px rgba(0,0,0,0.30), 0 2px 6px rgba(0,0,0,0.22)',
+          backdropFilter: 'blur(24px)',
+          WebkitBackdropFilter: 'blur(24px)',
           opacity: panelOpen ? 1 : 0,
           pointerEvents: panelOpen ? 'auto' : 'none',
-          transition: 'opacity 180ms ease, transform 240ms cubic-bezier(0.22,1,0.36,1)',
+          transition: 'opacity 160ms ease, transform 240ms cubic-bezier(0.22,1,0.36,1)',
           zIndex: 120,
           overflow: 'hidden',
+          paddingBottom: 4,
         }}
       >
-        {/* Panel header keeps the chevron reachable while expanded. */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderBottom: `1px solid ${colors.border}55` }}>
+        {/* Header: chevron stays reachable + a quiet count. No divider — the
+            first row's own padding does the separating, so there's no harsh
+            line cutting across the pill's morph. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px 5px' }}>
           <button
             type="button"
             onClick={leading.onPress}
@@ -161,12 +185,15 @@ export default function DynamicIsland({ leading }: { leading: IslandLeading }) {
           >
             <FontAwesome name={leading.icon as any} size={10} color={colors.textDim} />
           </button>
-          <span style={{ color: colors.textMuted, fontSize: 10, fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase' }}>
-            {activities.length === 1 ? '1 active' : `${activities.length} active`}
+          <span style={{ color: colors.textDim, fontSize: 9.5, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase' }}>
+            {activities.length === 1 ? 'Active' : `${activities.length} active`}
           </span>
         </div>
         {activities.map((a, i) => (
-          <ActivityRow key={a.id} activity={a} colors={colors} last={i === activities.length - 1} />
+          <React.Fragment key={a.id}>
+            {i > 0 && <div style={{ height: 1, background: `${colors.border}55`, margin: '0 14px' }} />}
+            <ActivityRow activity={a} colors={colors} />
+          </React.Fragment>
         ))}
       </div>
     </div>
@@ -188,11 +215,11 @@ function LeadGlyph({ activity, accent, colors }: { activity: IslandActivity; acc
   );
 }
 
-function ActivityRow({ activity, colors, last }: { activity: IslandActivity; colors: Colors; last: boolean }) {
+function ActivityRow({ activity, colors }: { activity: IslandActivity; colors: Colors }) {
   const accent = accentColor(colors, activity.accent);
   const hasProgress = typeof activity.progress === 'number';
   return (
-    <div style={{ padding: '10px 12px', borderBottom: last ? 'none' : `1px solid ${colors.border}44` }}>
+    <div style={{ padding: '10px 14px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <span style={{
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',

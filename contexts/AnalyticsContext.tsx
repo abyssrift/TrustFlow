@@ -108,6 +108,12 @@ export interface PipelinePointsPeriod {
   weight_points: number;
 }
 
+export interface PipelineHoursPeriod {
+  period_label: string;
+  period_start: string;
+  active_hours: number;
+}
+
 export interface ActivityEntry {
   id: string;
   transitioned_at: string;
@@ -130,6 +136,7 @@ interface AnalyticsContextType {
   getTargetsStatus: () => Promise<TargetStatus[]>;
   comparePersonnel: (userIds: string[], from: string, to: string, salaries: Record<string, number>) => Promise<PersonnelRow[]>;
   getPipelinePointsSeries: (pipelineId: string, periodType: string, nPeriods: number) => Promise<PipelinePointsPeriod[]>;
+  getPipelineHoursSeries: (pipelineId: string, periodType: string, nPeriods: number) => Promise<PipelineHoursPeriod[]>;
   getRecentActivity: (limit?: number) => Promise<ActivityEntry[]>;
   invalidate: (keyPrefix?: string) => void;
 }
@@ -317,6 +324,25 @@ export const AnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       SERIES_TTL_MS,
     );
 
+  const getPipelineHoursSeries = (
+    pipelineId: string,
+    periodType: string,
+    nPeriods: number,
+  ): Promise<PipelineHoursPeriod[]> =>
+    fetchWithDedup(
+      `hours:${pipelineId}:${periodType}:${nPeriods}`,
+      async () => {
+        const { data, error } = await supabase.rpc('rpc_get_pipeline_hours_series', {
+          p_pipeline_id: pipelineId,
+          p_period_type: periodType,
+          p_n_periods:   nPeriods,
+        });
+        if (error) throw error;
+        return (data ?? []) as PipelineHoursPeriod[];
+      },
+      SERIES_TTL_MS,
+    );
+
   const getTargetsStatus = (): Promise<TargetStatus[]> =>
     fetchWithDedup(
       'targets_status',
@@ -393,6 +419,7 @@ export const AnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       getPipelineStageDwell,
       getPipelineThroughput,
       getPipelinePointsSeries,
+      getPipelineHoursSeries,
       getTargetsStatus,
       comparePersonnel,
       getRecentActivity,

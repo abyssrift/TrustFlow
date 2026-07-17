@@ -2,7 +2,7 @@ import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { FileActivity, FileHubFile, FileHubFolder, FileHubFolderScope, FileHubGroup, FileHubGroupMember, FileHubMode, FileHubProvider, FileHubShareLink, FileVersion, folderAncestors, folderPath, shareLinkUrl, useFileHub } from '@/contexts/FileHubContext';
 import { useToast } from '@/contexts/ToastContext';
-import { useUploadManager } from '@/contexts/UploadManagerContext';
+import { useUploadJob, useUploadManager, type UploadJobState } from '@/contexts/UploadManagerContext';
 import * as Clipboard from 'expo-clipboard';
 import { useFileSizeLimit } from '@/hooks/useFileSizeLimit';
 import { useImageLightbox } from '@/hooks/useImageLightbox';
@@ -22,6 +22,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
+  Animated,
+  Easing,
   Image,
   Modal,
   Platform,
@@ -29,6 +31,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 
@@ -317,7 +320,7 @@ function UploadModal({
   activeGroup?: { id: string; name: string; avatar_color: string } | null;
 }) {
   const { refreshFolders } = useFileHub();
-  const { startUpload } = useUploadManager();
+  const { startUpload, cancelUpload } = useUploadManager();
   const fileInputRef = useRef<any>(null);
   const folderInputRef = useRef<any>(null);
   const [draft, setDraft] = useState<UploadDraft>(EMPTY_DRAFT(activeGroup ? 'group' : 'direct'));
@@ -326,6 +329,42 @@ function UploadModal({
   const [memberResults, setMemberResults] = useState<any[]>([]);
   const [searchingMembers, setSearchingMembers] = useState(false);
   const [tagSuggestResults, setTagSuggestResults] = useState<string[]>([]);
+
+  // Once Upload is clicked the job runs in the background manager, but the modal
+  // stays open showing its live progress. Closing/minimizing morphs the card up
+  // into the topbar island (where the same job keeps tracking) rather than just
+  // vanishing — so the user sees where the upload "went".
+  const [launchedJobId, setLaunchedJobId] = useState<string | null>(null);
+  const job = useUploadJob(launchedJobId);
+  const uploading = launchedJobId !== null;
+  const { height: winHeight } = useWindowDimensions();
+  const morph = useRef(new Animated.Value(0)).current; // 0 = modal, 1 = collapsed into island
+  const [morphing, setMorphing] = useState(false);
+
+  // Fly the card up toward the island (top-center), shrinking + fading, then
+  // actually close. Used for every dismissal once an upload is in flight.
+  const morphToIsland = useCallback(() => {
+    if (morphing) return;
+    setMorphing(true);
+    Animated.timing(morph, {
+      toValue: 1,
+      duration: 420,
+      easing: Easing.bezier(0.4, 0, 0.2, 1),
+      useNativeDriver: false, // RNW Animated has no native driver; false avoids the warn
+    }).start(() => {
+      morph.setValue(0);
+      setMorphing(false);
+      setLaunchedJobId(null);
+      onClose();
+    });
+  }, [morph, morphing, onClose]);
+
+  // Dismiss handler: after an upload has started, morph into the island; before
+  // that there's nothing to track, so just close.
+  const handleDismiss = useCallback(() => {
+    if (uploading) morphToIsland();
+    else onClose();
+  }, [uploading, morphToIsland, onClose]);
 
   const patch = (updates: Partial<UploadDraft>) => setDraft(prev => ({ ...prev, ...updates }));
 
@@ -343,6 +382,7 @@ function UploadModal({
       setDraft(EMPTY_DRAFT(activeGroup ? 'group' : 'direct'));
       setRecipientSearch('');
       setMemberResults([]);
+      setLaunchedJobId(null);
     } else if (activeGroup) {
       setDraft(prev => ({ ...prev, visibility: 'group' }));
     }
@@ -418,11 +458,12 @@ function UploadModal({
     e.target.value = '';
   };
 
-  // Launcher only. The upload engine (worker pool, dup/conflict handling,
-  // per-file commit, progress, ETA, cancel) now lives in UploadManagerContext
-  // so the job survives this modal closing. We hand off the draft and close;
-  // progress + any conflict prompts appear in the topbar island. The parent
-  // FileHub screen refreshes its listing when the job completes by watching
+  // The upload engine (worker pool, dup/conflict handling, per-file commit,
+  // progress, ETA, cancel) lives in UploadManagerContext so the job survives
+  // this modal closing. We hand off the draft and switch the modal to its live
+  // progress view — the user can watch it here, or minimize it into the topbar
+  // island (where the same job keeps tracking) and get on with their work. The
+  // parent FileHub screen refreshes its listing on completion via
   // useUploadManager().lastCompletedAt.
   const handleUpload = () => {
     if (draft.files.length === 0) return;
@@ -432,7 +473,7 @@ function UploadModal({
       Alert.alert('Error', 'No channel selected.'); return;
     }
 
-    startUpload({
+    const jobId = startUpload({
       files: draft.files,
       companyId,
       visibility: draft.visibility,
@@ -448,26 +489,58 @@ function UploadModal({
       label: draft.visibility === 'group' ? (activeGroup?.name ?? 'Channel') : (draft.visibility === 'broadcast' ? 'Broadcast' : 'Direct'),
     });
 
-    onClose();
+    setLaunchedJobId(jobId);
   };
+
+  const totalDraftBytes = useMemo(() => draft.files.reduce((s, f) => s + f.size, 0), [draft.files]);
 
   const canBroadcast = hasPermission('filehub:broadcast');
   const colors = useThemeColors();
 
+  // Morph transforms: shrink + fly the card up toward the island (top-center).
+  const cardScale = morph.interpolate({ inputRange: [0, 1], outputRange: [1, 0.12] });
+  const cardTranslateY = morph.interpolate({ inputRange: [0, 1], outputRange: [0, -(winHeight / 2 - 36)] });
+  const cardOpacity = morph.interpolate({ inputRange: [0, 0.65, 1], outputRange: [1, 0.2, 0] });
+  const backdropOpacity = morph.interpolate({ inputRange: [0, 1], outputRange: [1, 0] });
+
   return (
     <>
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View className="flex-1 bg-black/40 items-center justify-center p-8">
-        <View className="bg-surface-card rounded-[2rem] border border-surface-border premium-shadow w-full max-w-[560px]" style={{ maxHeight: '100%' }}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleDismiss}>
+      <Animated.View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, backgroundColor: 'rgba(0,0,0,0.4)', opacity: backdropOpacity }}>
+        <Animated.View
+          style={{ width: '100%', maxWidth: 560, maxHeight: '100%', opacity: cardOpacity, transform: [{ translateY: cardTranslateY }, { scale: cardScale }] }}
+        >
+        <View className="bg-surface-card rounded-[2rem] border border-surface-border premium-shadow w-full" style={{ maxHeight: '100%' }}>
           <View className="flex-row items-center justify-between px-8 pt-7 pb-5 border-b border-surface-border">
             <Text className="text-typography-main text-xl font-black tracking-tight">
-              {activeGroup ? `Upload to ${activeGroup.name}` : 'Upload Files'}
+              {uploading ? 'Uploading' : activeGroup ? `Upload to ${activeGroup.name}` : 'Upload Files'}
             </Text>
-            <TouchableOpacity onPress={onClose} className="w-8 h-8 items-center justify-center rounded-xl bg-surface-background border border-surface-border">
-              <FontAwesome name="times" size={12} color={colors.textMuted} />
-            </TouchableOpacity>
+            <View className="flex-row items-center gap-2">
+              {uploading && (
+                <TouchableOpacity
+                  onPress={morphToIsland}
+                  className="flex-row items-center gap-2 h-8 px-3 rounded-xl bg-surface-background border border-surface-border"
+                >
+                  <FontAwesome name="chevron-up" size={10} color={colors.textMuted} />
+                  <Text className="text-typography-muted text-xs font-black">Minimize to island</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity onPress={handleDismiss} className="w-8 h-8 items-center justify-center rounded-xl bg-surface-background border border-surface-border">
+                <FontAwesome name="times" size={12} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
           </View>
 
+          {uploading ? (
+            <UploadProgressPanel
+              job={job}
+              fileCount={draft.files.length}
+              totalBytes={totalDraftBytes}
+              onMinimize={morphToIsland}
+              onCancel={() => { if (launchedJobId) cancelUpload(launchedJobId); }}
+              onDone={() => { setLaunchedJobId(null); onClose(); }}
+            />
+          ) : (
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 32, gap: 20 }}>
             {Platform.OS === 'web' && (
               <>
@@ -714,10 +787,112 @@ function UploadModal({
               </TouchableOpacity>
             </View>
           </ScrollView>
+          )}
         </View>
-      </View>
+        </Animated.View>
+      </Animated.View>
     </Modal>
     </>
+  );
+}
+
+// ─── Upload Progress Panel (in-modal live view) ───────────────────────────────
+// Shown once Upload is clicked. Reads the live job snapshot from the background
+// UploadManager (same job that drives the island) so this view and the island
+// never disagree. Minimizing morphs the whole card up into the island.
+
+function UploadProgressPanel({
+  job, fileCount, totalBytes, onMinimize, onCancel, onDone,
+}: {
+  job: UploadJobState | undefined;
+  fileCount: number;
+  totalBytes: number;
+  onMinimize: () => void;
+  onCancel: () => void;
+  onDone: () => void;
+}) {
+  const colors = useThemeColors();
+  const pct = Math.min(100, Math.max(0, job?.progress ?? 0));
+  const status = job?.status ?? 'uploading';
+  const isDone = status === 'done';
+  const isError = status === 'error';
+  const isPartial = status === 'partial';
+  const isCancelled = status === 'cancelled';
+  const settled = isDone || isError || isPartial || isCancelled;
+
+  const ringColor = isError ? colors.danger : isPartial ? colors.warning : isDone ? colors.success : colors.primary;
+  const statusIcon = isError ? 'exclamation-triangle' : isPartial ? 'exclamation-circle' : isDone ? 'check' : isCancelled ? 'ban' : 'cloud-upload';
+
+  // Inline SVG ring (web) for a big, satisfying progress read.
+  const size = 132, stroke = 10, r = (size - stroke) / 2, circ = 2 * Math.PI * r;
+
+  return (
+    <View style={{ padding: 32, gap: 22, alignItems: 'center' }}>
+      <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+        {Platform.OS === 'web' ? (
+          <svg width={size} height={size} style={{ position: 'absolute', transform: 'rotate(-90deg)' } as any}>
+            <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={colors.border} strokeWidth={stroke} />
+            <circle
+              cx={size / 2} cy={size / 2} r={r} fill="none" stroke={ringColor} strokeWidth={stroke}
+              strokeDasharray={circ} strokeDashoffset={circ * (1 - pct / 100)} strokeLinecap="round"
+              style={{ transition: 'stroke-dashoffset 220ms ease, stroke 220ms ease' } as any}
+            />
+          </svg>
+        ) : (
+          <ActivityIndicator size="large" color={ringColor} />
+        )}
+        <View style={{ alignItems: 'center' }}>
+          {settled ? (
+            <FontAwesome name={statusIcon as any} size={34} color={ringColor} />
+          ) : (
+            <>
+              <Text style={{ color: colors.textMain, fontSize: 30, fontWeight: '900', fontVariant: ['tabular-nums'] }}>{pct}%</Text>
+            </>
+          )}
+        </View>
+      </View>
+
+      <View style={{ alignItems: 'center', gap: 4 }}>
+        <Text className="text-typography-main text-base font-black">
+          {job?.title ?? `Uploading ${fileCount} file${fileCount === 1 ? '' : 's'}`}
+        </Text>
+        <Text className="text-typography-muted text-xs font-bold" style={{ textAlign: 'center' }}>
+          {job?.subtitle ?? `${formatFileSize(totalBytes)} · starting…`}
+        </Text>
+      </View>
+
+      {/* Linear bar echoes the ring; steady, easy to glance. */}
+      <View style={{ width: '100%', height: 8, borderRadius: 999, backgroundColor: colors.border, overflow: 'hidden' }}>
+        <View style={{ height: '100%', width: `${Math.max(2, pct)}%`, backgroundColor: ringColor, borderRadius: 999 }} />
+      </View>
+
+      <View className="flex-row gap-3" style={{ width: '100%', paddingTop: 4 }}>
+        {settled ? (
+          <TouchableOpacity
+            onPress={onDone}
+            className="flex-1 items-center justify-center py-3.5 rounded-xl bg-brand-primary"
+          >
+            <Text className="text-white font-black text-sm">Done</Text>
+          </TouchableOpacity>
+        ) : (
+          <>
+            <TouchableOpacity
+              onPress={onCancel}
+              className="flex-1 items-center justify-center py-3.5 rounded-xl border border-surface-border bg-surface-background"
+            >
+              <Text className="text-typography-muted font-black text-sm">Cancel upload</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={onMinimize}
+              className="flex-[2] flex-row items-center justify-center gap-2 py-3.5 rounded-xl bg-brand-primary"
+            >
+              <FontAwesome name="chevron-up" size={12} color="#fff" />
+              <Text className="text-white font-black text-sm">Minimize to island</Text>
+            </TouchableOpacity>
+          </>
+        )}
+      </View>
+    </View>
   );
 }
 

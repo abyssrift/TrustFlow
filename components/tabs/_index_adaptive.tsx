@@ -1,5 +1,6 @@
 import DraggableSheet from '@/components/common/DraggableSheet';
 import PendingTimeApprovalsWidget from '@/components/common/PendingTimeApprovalsWidget';
+import PipelineOverviewChartNative, { DEFAULT_OVERVIEW_METRICS, OverviewMetricKey } from '@/components/intelligence/PipelineOverviewChartNative';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '@/contexts/NotificationsContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -25,6 +26,8 @@ type DashboardConfig = {
   pipelineIds: string[];
   successStageIds: string[];
   useAllPipelines?: boolean;
+  overviewMetrics?: OverviewMetricKey[];
+  overviewPeriod?: 'week' | 'month';
 };
 
 type PersonalPulse = {
@@ -75,9 +78,35 @@ export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [config, setConfig] = useState<DashboardConfig | null>(null);
+  const [trackedPipelineIds, setTrackedPipelineIds] = useState<string[]>([]);
   const [widgetRefreshKey, setWidgetRefreshKey] = useState(0);
 
-  const { user, profile } = useAuth();
+  const { user, profile, hasPermission } = useAuth();
+  const canViewOverview = hasPermission('analytics.view');
+
+  const overviewMetrics = config?.overviewMetrics ?? DEFAULT_OVERVIEW_METRICS;
+  const overviewPeriod = config?.overviewPeriod ?? 'week';
+
+  const persistConfig = async (next: DashboardConfig) => {
+    setConfig(next);
+    try {
+      await AsyncStorage.setItem('@TrustFlow_dashboard_config', JSON.stringify(next));
+    } catch (e) {
+      console.error('Failed to persist dashboard config', e);
+    }
+  };
+
+  const toggleOverviewMetric = (key: OverviewMetricKey) => {
+    const base = config ?? { pipelineIds: [], successStageIds: [], useAllPipelines: true };
+    const cur = base.overviewMetrics ?? DEFAULT_OVERVIEW_METRICS;
+    const nextMetrics = cur.includes(key) ? cur.filter(k => k !== key) : [...cur, key];
+    persistConfig({ ...base, overviewMetrics: nextMetrics });
+  };
+
+  const setOverviewPeriod = (p: 'week' | 'month') => {
+    const base = config ?? { pipelineIds: [], successStageIds: [], useAllPipelines: true };
+    persistConfig({ ...base, overviewPeriod: p });
+  };
   const { unreadCount } = useNotifications();
   const router = useRouter();
   const colors = useThemeColors();
@@ -127,6 +156,8 @@ export default function DashboardScreen() {
       } else {
         targetPipelineIds = currentConfig!.pipelineIds;
       }
+
+      setTrackedPipelineIds(targetPipelineIds);
 
       if (targetPipelineIds.length === 0) {
         setLoading(false);
@@ -380,6 +411,19 @@ export default function DashboardScreen() {
             )}
           </View>
 
+          {canViewOverview ? (
+            <View className="mb-6">
+              <PipelineOverviewChartNative
+                pipelineIds={trackedPipelineIds}
+                metrics={overviewMetrics}
+                period={overviewPeriod}
+                onToggleMetric={toggleOverviewMetric}
+                onSetPeriod={setOverviewPeriod}
+                onCustomize={() => setShowSettings(true)}
+                refreshKey={widgetRefreshKey}
+              />
+            </View>
+          ) : (
           <View className="bg-surface-card p-6 rounded-2xl border border-surface-border mb-6 premium-shadow">
             <View className="flex-row items-center justify-between mb-4">
               <Text className="text-typography-main font-bold text-lg">Pipeline Breakdown</Text>
@@ -438,6 +482,7 @@ export default function DashboardScreen() {
               )}
             </View>
           </View>
+          )}
 
           <View>
             <View className="flex-row items-center justify-between mb-4">
@@ -496,9 +541,15 @@ export default function DashboardScreen() {
         onClose={() => setShowSettings(false)}
         config={config}
         onSave={async (newConfig) => {
-          setConfig(newConfig);
-          await AsyncStorage.setItem('@TrustFlow_dashboard_config', JSON.stringify(newConfig));
-          fetchDashboardData(newConfig);
+          // Preserve overview-graph customization, which this modal doesn't touch.
+          const merged: DashboardConfig = {
+            ...newConfig,
+            overviewMetrics: config?.overviewMetrics,
+            overviewPeriod: config?.overviewPeriod,
+          };
+          setConfig(merged);
+          await AsyncStorage.setItem('@TrustFlow_dashboard_config', JSON.stringify(merged));
+          fetchDashboardData(merged);
           setShowSettings(false);
         }}
       />

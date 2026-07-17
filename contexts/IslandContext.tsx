@@ -63,6 +63,10 @@ export type IslandActivity = {
   actions?: IslandAction[];
   decisions?: IslandDecision[]; // pending prompts; presence raises an attention badge
   onPress?: () => void; // tap the row (navigate, open modal, …)
+  // Force the panel open (even from collapsed) so the user can't miss this —
+  // set on failures and anything else that needs to be read, not just glanced.
+  // Rising edge triggers the auto-expand; leave false for routine updates.
+  attention?: boolean;
 };
 
 // Internal record adds the recency stamp the host sorts by.
