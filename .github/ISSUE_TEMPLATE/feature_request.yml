@@ -1,0 +1,86 @@
+name: Feature Request
+description: Propose a new feature or a concrete improvement to TrustFlow.
+labels: ["enhancement"]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Before submitting:** search [open issues](https://github.com/abyssrift/TrustFlow/issues)
+        first. Feature requests that duplicate an existing open issue will be closed as duplicates.
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Prerequisites
+      options:
+        - label: I searched [open issues](https://github.com/abyssrift/TrustFlow/issues?q=is%3Aissue+is%3Aopen) and this has not already been proposed.
+          required: true
+        - label: This is a concrete, actionable proposal — not a vague "it would be nice if..." request.
+          required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of the application does this affect?
+      options:
+        - "-- Please Select --"
+        - Pipelines / Stages
+        - Tasks / Kanban
+        - Analytics / Reports
+        - FileHub / Files
+        - Timer / Time Tracking
+        - Roles / Permissions
+        - Notifications / Pings
+        - Billing / Plans
+        - Projects / Archives
+        - Onboarding / Companies
+        - Auth / Security
+        - UI / Frontend
+        - API / Backend
+        - Testing / CI
+        - Docker / Deployment
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or Motivation
+      description: What problem does this solve, or what use case does it enable? Be specific — "it would be better" is not enough.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the behaviour or change you want to see. Include API shape, UI sketch, or code snippets if that helps make it concrete.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: What other approaches did you consider and why did you rule them out? If there is an existing workaround, describe it.
+
+  - type: textarea
+    id: prior-art
+    attributes:
+      label: Prior Art / Related Issues
+      description: Link any related issues, discussions, or external references that informed this proposal.
+
+  - type: dropdown
+    id: willing_to_implement
+    attributes:
+      label: Are you willing to implement this?
+      options:
+        - "-- Please Select --"
+        - "Yes — I can open a PR"
+        - "Partially — I can help but need guidance"
+        - "No — I am not available currently"
+    validations:
+      required: true
