@@ -4,6 +4,7 @@ import { Link } from 'expo-router';
 import React from 'react';
 import { Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
+import BillingMeter from './BillingMeter.web';
 import { PIPELINE_ICONS, Shortcut } from './constants';
 import { matchesHref } from './helpers';
 import SidebarItem from './SidebarItem';
@@ -189,6 +190,8 @@ export default function NavRail({
                 )}
               </View>
             </ScrollView>
+
+            <BillingMeter isExpanded={isExpanded} />
           </View>
         </View>
       </View>

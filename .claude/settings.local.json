@@ -202,7 +202,12 @@
       "Bash(tee /tmp/tsc.txt)",
       "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\('react-native-web:', \\(p.dependencies||{}\\)['react-native-web']||\\(p.devDependencies||{}\\)['react-native-web']\\)\")",
       "Bash(gh issue close 6 --comment 'Closing as already implemented. The Shift+Click fast-track to the fullscreen lightbox has been in the codebase since commit b852df0 \\(2026-06-21\\), which predates this ticket \\(2026-07-17\\): *)",
-      "Bash(git commit -m 'Analytics SLA risk: multi-factor scoring + compact UI *)"
+      "Bash(git commit -m 'Analytics SLA risk: multi-factor scoring + compact UI *)",
+      "Bash(gh pr *)",
+      "Bash(git apply *)",
+      "Bash(git reset *)",
+      "Bash(npm run *)",
+      "Bash(gh label *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\PC\\.claude",

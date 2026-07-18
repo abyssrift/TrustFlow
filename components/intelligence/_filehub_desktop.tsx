@@ -820,9 +820,17 @@ function UploadProgressPanel({
   const isPartial = status === 'partial';
   const isCancelled = status === 'cancelled';
   const settled = isDone || isError || isPartial || isCancelled;
+  // A parked dup/name conflict — the same prompt the island shows, mirrored here
+  // so you can answer it without the modal getting in the way of the island.
+  const decisions = job?.decisions ?? [];
+  const waiting = decisions.length > 0;
 
-  const ringColor = isError ? colors.danger : isPartial ? colors.warning : isDone ? colors.success : colors.primary;
-  const statusIcon = isError ? 'exclamation-triangle' : isPartial ? 'exclamation-circle' : isDone ? 'check' : isCancelled ? 'ban' : 'cloud-upload';
+  const ringColor = waiting ? colors.warning : isError ? colors.danger : isPartial ? colors.warning : isDone ? colors.success : colors.primary;
+  const statusIcon = waiting ? 'question' : isError ? 'exclamation-triangle' : isPartial ? 'exclamation-circle' : isDone ? 'check' : isCancelled ? 'ban' : 'cloud-upload';
+
+  const toneColor = (tone?: string) =>
+    tone === 'danger' ? colors.danger : tone === 'warning' ? colors.warning
+      : tone === 'success' ? colors.success : tone === 'neutral' ? colors.textMuted : colors.primary;
 
   // Inline SVG ring (web) for a big, satisfying progress read.
   const size = 132, stroke = 10, r = (size - stroke) / 2, circ = 2 * Math.PI * r;
@@ -843,7 +851,7 @@ function UploadProgressPanel({
           <ActivityIndicator size="large" color={ringColor} />
         )}
         <View style={{ alignItems: 'center' }}>
-          {settled ? (
+          {settled || waiting ? (
             <FontAwesome name={statusIcon as any} size={34} color={ringColor} />
           ) : (
             <>
@@ -855,17 +863,43 @@ function UploadProgressPanel({
 
       <View style={{ alignItems: 'center', gap: 4 }}>
         <Text className="text-typography-main text-base font-black">
-          {job?.title ?? `Uploading ${fileCount} file${fileCount === 1 ? '' : 's'}`}
+          {waiting ? 'Needs your input' : job?.title ?? `Uploading ${fileCount} file${fileCount === 1 ? '' : 's'}`}
         </Text>
         <Text className="text-typography-muted text-xs font-bold" style={{ textAlign: 'center' }}>
           {job?.subtitle ?? `${formatFileSize(totalBytes)} · starting…`}
         </Text>
       </View>
 
-      {/* Linear bar echoes the ring; steady, easy to glance. */}
-      <View style={{ width: '100%', height: 8, borderRadius: 999, backgroundColor: colors.border, overflow: 'hidden' }}>
-        <View style={{ height: '100%', width: `${Math.max(2, pct)}%`, backgroundColor: ringColor, borderRadius: 999 }} />
-      </View>
+      {/* Parked conflict prompt(s) — answer here, or from the island if minimized. */}
+      {waiting ? (
+        <View style={{ width: '100%', gap: 12 }}>
+          {decisions.map(d => (
+            <View
+              key={d.id}
+              style={{ width: '100%', padding: 14, borderRadius: 14, backgroundColor: colors.warning + '12', borderWidth: 1, borderColor: colors.warning + '33', gap: 10 }}
+            >
+              <Text className="text-typography-main text-sm font-black">{d.title}</Text>
+              <Text className="text-typography-muted text-xs font-semibold">{d.message}</Text>
+              <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+                {d.options.map(opt => (
+                  <TouchableOpacity
+                    key={opt.value}
+                    onPress={() => d.resolve(opt.value)}
+                    style={{ paddingHorizontal: 14, paddingVertical: 9, borderRadius: 10, backgroundColor: toneColor(opt.tone) + '18', borderWidth: 1, borderColor: toneColor(opt.tone) + '44' }}
+                  >
+                    <Text style={{ color: toneColor(opt.tone), fontSize: 12, fontWeight: '900' }}>{opt.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          ))}
+        </View>
+      ) : (
+        /* Linear bar echoes the ring; steady, easy to glance. */
+        <View style={{ width: '100%', height: 8, borderRadius: 999, backgroundColor: colors.border, overflow: 'hidden' }}>
+          <View style={{ height: '100%', width: `${Math.max(2, pct)}%`, backgroundColor: ringColor, borderRadius: 999 }} />
+        </View>
+      )}
 
       <View className="flex-row gap-3" style={{ width: '100%', paddingTop: 4 }}>
         {settled ? (

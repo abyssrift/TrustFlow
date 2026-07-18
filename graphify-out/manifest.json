@@ -5,8 +5,8 @@
     "semantic_hash": ""
   },
   ".claude/settings.local.json": {
-    "mtime": 1784375602.1088197,
-    "ast_hash": "1cbe171c817f3c630c3c030c59ceba36",
+    "mtime": 1784390581.075469,
+    "ast_hash": "fee385ebb11a5d8c3b9a712390299f61",
     "semantic_hash": ""
   },
   ".vscode/extensions.json": {
@@ -675,8 +675,8 @@
     "semantic_hash": ""
   },
   "components/intelligence/_filehub_desktop.tsx": {
-    "mtime": 1784375704.486776,
-    "ast_hash": "c5459bbebb05d4650962b20a8a253cc8",
+    "mtime": 1784394220.7504702,
+    "ast_hash": "43b543965e38e670bc19a2ebe9c981a5",
     "semantic_hash": ""
   },
   "components/intelligence/_filehub_web.tsx": {
@@ -1150,8 +1150,8 @@
     "semantic_hash": ""
   },
   "components/task-detail/TimerPanel.tsx": {
-    "mtime": 1784145122.6747038,
-    "ast_hash": "6ace1d129c169f30a5a521e9875fbf85",
+    "mtime": 1784392166.8885553,
+    "ast_hash": "7b378f5e8c760693c87c26bec7f45bb0",
     "semantic_hash": ""
   },
   "components/task-detail/actionRegistry.ts": {
@@ -1170,8 +1170,8 @@
     "semantic_hash": ""
   },
   "components/tasks/CreateTaskModal.web.tsx": {
-    "mtime": 1784372815.520403,
-    "ast_hash": "fd568a317cc30723120f2ee873d79ffa",
+    "mtime": 1784389694.4937732,
+    "ast_hash": "028d942be08405b60fdc97bfb4ab6d6d",
     "semantic_hash": ""
   },
   "components/tasks/CreateTaskSheet.tsx": {
@@ -1225,8 +1225,8 @@
     "semantic_hash": ""
   },
   "contexts/FileHubContext.tsx": {
-    "mtime": 1784224172.5537364,
-    "ast_hash": "2d10c1500f72e99f65c7ad730ce14141",
+    "mtime": 1784394058.695107,
+    "ast_hash": "b9ceaa0f2c14840816cf77790e88592c",
     "semantic_hash": ""
   },
   "contexts/NotificationsContext.tsx": {
@@ -1290,8 +1290,8 @@
     "semantic_hash": ""
   },
   "hooks/useBillingPlan.ts": {
-    "mtime": 1783005965.571698,
-    "ast_hash": "f4622de75868247cf1678e4343a5f001",
+    "mtime": 1784394175.0742157,
+    "ast_hash": "a0f7dfc8eca015e0fc182083fbf6b897",
     "semantic_hash": ""
   },
   "hooks/useDebounce.ts": {
@@ -1445,8 +1445,8 @@
     "semantic_hash": ""
   },
   "lib/storage.ts": {
-    "mtime": 1783966194.904443,
-    "ast_hash": "40f13e05d44459a0c5550d82c590ceb6",
+    "mtime": 1784394069.5299258,
+    "ast_hash": "28a6203b50930977458a90e621ce415c",
     "semantic_hash": ""
   },
   "lib/supabase.ts": {
@@ -2775,8 +2775,8 @@
     "semantic_hash": ""
   },
   "components/sidebar/NavRail.web.tsx": {
-    "mtime": 1784310023.9923959,
-    "ast_hash": "937eda4ea0c748464ef125beed7ee2c2",
+    "mtime": 1784394105.3199954,
+    "ast_hash": "6c6e5eb6622caa2371d9f7e13c6292ca",
     "semantic_hash": ""
   },
   "components/sidebar/SidebarItem.tsx": {
@@ -3095,8 +3095,8 @@
     "semantic_hash": ""
   },
   "contexts/UploadManagerContext.tsx": {
-    "mtime": 1784326894.3025272,
-    "ast_hash": "114a6d3c04cc478504390b23c8b33016",
+    "mtime": 1784389999.1254685,
+    "ast_hash": "db6a24b8f837bb139ca0ba40ba109410",
     "semantic_hash": ""
   },
   "lib/uploadHelpers.ts": {
@@ -3137,6 +3137,26 @@
   "lib/webModifierKeys.ts": {
     "mtime": 1784375674.5934587,
     "ast_hash": "dae3488a180ec69e6473b6e066137fc5",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20260718_fix_task_list_visible_pipeline_visibility.sql": {
+    "mtime": 1784391156.955519,
+    "ast_hash": "49a1bb79a9289a992c328f345fe7cc5c",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20260718_gate_person_search_by_member_permission.sql": {
+    "mtime": 1784391832.708525,
+    "ast_hash": "4eb999d81f355fed1947ec9f67bb191f",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20260718_harden_rpc_get_archives.sql": {
+    "mtime": 1784390682.2348118,
+    "ast_hash": "e8d0a0924932b632993a527b50834dfa",
+    "semantic_hash": ""
+  },
+  "components/sidebar/BillingMeter.web.tsx": {
+    "mtime": 1784394196.1116111,
+    "ast_hash": "80665374a55c85088ac2ed9e44036bd2",
     "semantic_hash": ""
   }
 }

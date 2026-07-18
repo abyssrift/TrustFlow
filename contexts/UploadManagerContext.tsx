@@ -65,6 +65,10 @@ export type UploadJobState = {
   errorCount: number;
   title: string;
   subtitle: string;
+  // Mirror of any island prompt (dup/name conflict) this job is parked on, so
+  // the modal can show it inline while it's open — otherwise the prompt lives in
+  // the island, which is occluded behind the modal. Same objects, same resolve.
+  decisions?: IslandDecision[];
 };
 
 type UploadManagerValue = {
@@ -253,11 +257,15 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
           const finish = (value: string) => {
             ctrl.resolvePending = null;
             update(islandId, { decisions: [] }, { bump: false });
+            setJob(jobId, { decisions: [], subtitle: `${done}/${meta.total} · resuming…` });
             resolve(value);
           };
           ctrl.resolvePending = finish;
           const decision: IslandDecision = { id: decisionId, title, message, options, resolve: finish };
-          update(islandId, { decisions: [decision] }); // bump → grabs the idle slot
+          update(islandId, { decisions: [decision] }); // bump → grabs the idle slot + auto-expands
+          // Mirror into the modal-facing snapshot and flag the pause so the
+          // in-modal view stops implying progress while it waits on the user.
+          setJob(jobId, { decisions: [decision], subtitle: 'Waiting for you…' });
         });
 
       // One storage PUT with byte progress + hard-abort registration. Shared by
