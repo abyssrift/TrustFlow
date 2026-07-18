@@ -2287,6 +2287,15 @@ function FileHubAdaptiveInner() {
   // Web zips; Android saves straight into a user-picked folder via SAF (no zip
   // support there). Other native platforms fall back to opening files one by one.
   const saveFiles = async (filesToSave: FileHubFile[], zipName: string) => {
+    // A single file never needs zipping — open it directly so media (image /
+    // video / PDF) streams into the device's native previewer instead of
+    // downloading as an opaque .zip archive (#5). openStorageFile already picks
+    // inline-stream vs. attachment-download per platform and file type.
+    if (filesToSave.length === 1) {
+      const f = filesToSave[0];
+      await openStorageFile(f.bucket || 'filehub-files', f.storage_path, f.original_name, f.mime_type);
+      return;
+    }
     if (Platform.OS === 'web') {
       await downloadFilesAsZip(filesToSave, zipName);
       return;
