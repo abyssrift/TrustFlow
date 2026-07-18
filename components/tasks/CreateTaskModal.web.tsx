@@ -176,6 +176,19 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
     () => bulkText.split('\n').map(t => t.trim()).filter(Boolean),
     [bulkText]
   );
+  // Toggle bulk/single without discarding what's already typed (#26): entering
+  // bulk seeds the list from the single title; leaving bulk collapses the list
+  // back into the title. Neither field is cleared, so the other side is still
+  // there if the user switches back.
+  const toggleBulkMode = () => {
+    if (!bulkMode) {
+      if (!bulkText.trim() && draft.title?.trim()) setBulkText(draft.title);
+      setBulkMode(true);
+    } else {
+      if (!draft.title?.trim() && bulkTitles.length) setDraft({ title: bulkTitles[0] });
+      setBulkMode(false);
+    }
+  };
   const [users, setUsers]         = useState<any[]>([]);
   const [teams, setTeams]         = useState<any[]>([]);
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
@@ -435,7 +448,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                       <View className="flex-row items-center gap-4 mr-1">
                         {/* Single ⇆ Bulk toggle — bulk shares all other fields across every task */}
                         <TouchableOpacity
-                          onPress={() => setBulkMode(b => !b)}
+                          onPress={toggleBulkMode}
                           className={`flex-row items-center gap-1.5 px-2.5 py-1 rounded-lg border transition-all ${bulkMode ? 'bg-brand-primary/10 border-brand-primary' : 'border-surface-border hover:bg-surface-overlay'}`}
                         >
                           <FontAwesome name="list-ul" size={10} color={bulkMode ? colors.primary : colors.textMuted} />

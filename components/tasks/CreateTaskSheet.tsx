@@ -113,7 +113,7 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
   const {
     draft, setDraft, loading, recentTasks, briefFiles, setBriefFiles,
     step, setStep,
-    bulkMode, setBulkMode,
+    bulkMode, toggleBulkMode,
     bulkText, setBulkText,
     bulkTitles, canSubmit,
     users, teams,
@@ -199,7 +199,7 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
                 </Text>
                 <View className="flex-row items-center gap-3">
                   <TouchableOpacity
-                    onPress={() => setBulkMode(b => !b)}
+                    onPress={toggleBulkMode}
                     className={`flex-row items-center gap-1.5 px-2.5 py-1 rounded-lg border ${bulkMode ? 'bg-brand-primary/10 border-brand-primary' : 'border-surface-border'}`}
                   >
                     <FontAwesome name="list-ul" size={10} color={bulkMode ? colors.primary : colors.textMuted} />

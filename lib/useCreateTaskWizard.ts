@@ -27,6 +27,20 @@ export function useCreateTaskWizard({ visible, initialPipelineId }: { visible: b
     [bulkText]
   );
   const canSubmit = bulkMode ? bulkTitles.length > 0 : !!draft.title;
+
+  // Toggle bulk/single without discarding what's already typed (#26): entering
+  // bulk seeds the list from the single title; leaving bulk collapses the list
+  // back into the title. Neither field is cleared, so the other side is still
+  // there if the user switches back.
+  const toggleBulkMode = () => {
+    if (!bulkMode) {
+      if (!bulkText.trim() && draft.title?.trim()) setBulkText(draft.title);
+      setBulkMode(true);
+    } else {
+      if (!draft.title?.trim() && bulkTitles.length) setDraft({ title: bulkTitles[0] });
+      setBulkMode(false);
+    }
+  };
   const [users, setUsers] = useState<any[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
   const [showCalendar, setShowCalendar] = useState(false);
@@ -114,7 +128,7 @@ export function useCreateTaskWizard({ visible, initialPipelineId }: { visible: b
   return {
     draft, setDraft, loading, recentTasks, briefFiles, setBriefFiles,
     step, setStep,
-    bulkMode, setBulkMode,
+    bulkMode, setBulkMode, toggleBulkMode,
     bulkText, setBulkText,
     bulkTitles, canSubmit,
     users, teams,
