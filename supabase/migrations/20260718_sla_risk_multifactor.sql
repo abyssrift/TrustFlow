@@ -221,7 +221,8 @@ BEGIN
   stage_avg_dwell AS (
     SELECT
       stage_id,
-      AVG(EXTRACT(EPOCH FROM (exited_at - entered_at))) AS avg_seconds
+      AVG(EXTRACT(EPOCH FROM (exited_at - entered_at))) AS avg_seconds,
+      COUNT(*)                                          AS n   -- sample size
     FROM stage_transitions
     WHERE exited_at IS NOT NULL
       AND EXTRACT(EPOCH FROM (exited_at - entered_at)) >= 300
@@ -257,7 +258,8 @@ BEGIN
       bt.estimated_hours,
       le.entered_at       AS stage_entered_at,
       EXTRACT(EPOCH FROM (NOW() - le.entered_at)) AS elapsed_in_stage,
-      sad.avg_seconds     AS cur_stage_avg
+      sad.avg_seconds     AS cur_stage_avg,
+      sad.n               AS cur_stage_n
     FROM base_tasks bt
     JOIN latest_stage_entry le
       ON  le.task_id  = bt.id
@@ -299,9 +301,18 @@ BEGIN
       sc.stage_name,
       sc.due_date,
       sc.cur_stage_avg,
-      -- 1) Stage stall (original signal)
-      CASE WHEN sc.cur_stage_avg > 0
+      -- 1) Stage stall. Only trusted when the stage baseline has >= 5 samples
+      --    (avoids noisy small-sample averages). Dampened by deadline slack:
+      --    full weight at/near the due date, ramping to a 0.4 floor for tasks
+      --    30+ days out; no due_date keeps full weight (no slack to credit).
+      CASE
+        WHEN sc.cur_stage_avg > 0 AND COALESCE(sc.cur_stage_n, 0) >= 5
         THEN sc.elapsed_in_stage / (sc.cur_stage_avg * 1.5) * 100
+             * CASE
+                 WHEN sc.due_date IS NULL OR sc.due_date <= NOW() THEN 1.0
+                 ELSE GREATEST(0.4, LEAST(1.0,
+                   1 - (EXTRACT(EPOCH FROM (sc.due_date - NOW())) / 86400) / 30.0))
+               END
         ELSE NULL END AS stall_pct,
       -- 2) Deadline breach: projected remaining time vs calendar time left
       CASE
@@ -326,15 +337,15 @@ BEGIN
     LEFT JOIN task_logged            tl  ON tl.task_id      = sc.id
     LEFT JOIN pipeline_stage_counts  psc ON psc.pipeline_id = sc.pipeline_id
   ),
-  -- Each signal is capped at 99 BEFORE comparison: past the line every signal
-  -- reads the same, so the headline number and the winning `reason` reflect
-  -- genuine priority (deadline > over_budget > stall) rather than whichever
-  -- raw ratio happened to blow up largest. NULL signals use -1 so they can
-  -- never win. Sub-line (< 99) values stay comparable by real magnitude.
+  -- Signals capped BEFORE comparison so past-the-line magnitudes don't fight.
+  -- Deadline / over_budget cap at 99; stall caps LOWER (85) so a pure stall is
+  -- a secondary, non-critical signal and the 90s band is reserved for genuine
+  -- deadline/budget breaches. NULL signals use -1 so they can never win; sub-
+  -- line values stay comparable by real magnitude.
   sla_capped AS (
     SELECT
       ss.*,
-      LEAST(COALESCE(ss.stall_pct,    -1), 99) AS stall_c,
+      LEAST(COALESCE(ss.stall_pct,    -1), 85) AS stall_c,
       LEAST(COALESCE(ss.deadline_pct, -1), 99) AS deadline_c,
       LEAST(COALESCE(ss.effort_pct,   -1), 99) AS effort_c
     FROM sla_scored ss

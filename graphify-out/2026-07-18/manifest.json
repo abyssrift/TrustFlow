@@ -5,8 +5,8 @@
     "semantic_hash": ""
   },
   ".claude/settings.local.json": {
-    "mtime": 1784327211.9840121,
-    "ast_hash": "061415e23af7a131357992012ff3ff5e",
+    "mtime": 1784374968.7905612,
+    "ast_hash": "479a40b6d30ee7e57dc133348281635c",
     "semantic_hash": ""
   },
   ".vscode/extensions.json": {
@@ -605,13 +605,13 @@
     "semantic_hash": ""
   },
   "components/intelligence/RadarWidgets.tsx": {
-    "mtime": 1783966194.8402772,
-    "ast_hash": "f2ab776093d92a74eaa305bbeb324b01",
+    "mtime": 1784375148.4415486,
+    "ast_hash": "a0f85184e6e2fccffef3c67222283d4f",
     "semantic_hash": ""
   },
   "components/intelligence/RecentActivitySidebar.tsx": {
-    "mtime": 1781262817.1560087,
-    "ast_hash": "c7f58cc05b70542665ad99f0c08c9d09",
+    "mtime": 1784373497.751465,
+    "ast_hash": "ce573071cc8a4908632a48c202d109ad",
     "semantic_hash": ""
   },
   "components/intelligence/ReportFiltersModal.tsx": {
@@ -685,8 +685,8 @@
     "semantic_hash": ""
   },
   "components/intelligence/_graphs_adaptive.tsx": {
-    "mtime": 1783966194.847461,
-    "ast_hash": "484b131cf29ecfecdc51b579d72d2ce2",
+    "mtime": 1784328540.0996926,
+    "ast_hash": "5b0f427735f0d54c283bd1f735921f11",
     "semantic_hash": ""
   },
   "components/intelligence/_graphs_desktop.tsx": {
@@ -700,8 +700,8 @@
     "semantic_hash": ""
   },
   "components/intelligence/_index_adaptive.tsx": {
-    "mtime": 1783969045.797793,
-    "ast_hash": "a3ca02c21729c77e66ffc2e7aad93bee",
+    "mtime": 1784328548.9950695,
+    "ast_hash": "b142cdb88fbe6968f2ee9cd81ec9b5da",
     "semantic_hash": ""
   },
   "components/intelligence/_index_desktop.tsx": {
@@ -1170,13 +1170,13 @@
     "semantic_hash": ""
   },
   "components/tasks/CreateTaskModal.web.tsx": {
-    "mtime": 1783966194.8591762,
-    "ast_hash": "7acb9c87f64bf0eaf9c2940185d461fd",
+    "mtime": 1784372815.520403,
+    "ast_hash": "fd568a317cc30723120f2ee873d79ffa",
     "semantic_hash": ""
   },
   "components/tasks/CreateTaskSheet.tsx": {
-    "mtime": 1783882732.5560212,
-    "ast_hash": "b6badebdeba50139fc62528ea14b5d4d",
+    "mtime": 1784372826.6637323,
+    "ast_hash": "bb1dd72c68bba557d69cbcee583e8c03",
     "semantic_hash": ""
   },
   "components/tasks/TaskMobilityModal.tsx": {
@@ -1215,8 +1215,8 @@
     "semantic_hash": ""
   },
   "contexts/AnalyticsContext.tsx": {
-    "mtime": 1784326649.9036958,
-    "ast_hash": "9d4f38ff514de3c0b2ef4fb232ad63e5",
+    "mtime": 1784373480.309182,
+    "ast_hash": "ec423e3b32b18945cf2d3ac4253a9154",
     "semantic_hash": ""
   },
   "contexts/AuthContext.tsx": {
@@ -1475,8 +1475,8 @@
     "semantic_hash": ""
   },
   "lib/useCreateTaskWizard.ts": {
-    "mtime": 1783005965.5779195,
-    "ast_hash": "b7af18889a3ce8fe7efb196f7fc9d589",
+    "mtime": 1784372777.503022,
+    "ast_hash": "6177e5d4bbd30beb4568fd370da933ea",
     "semantic_hash": ""
   },
   "lib/useProjectFolderForm.ts": {
@@ -3127,6 +3127,11 @@
   "components/BrandSplash.tsx": {
     "mtime": 1784327428.9849887,
     "ast_hash": "e079441875a6ad1cee9cec71174047b2",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20260718_sla_risk_multifactor.sql": {
+    "mtime": 1784374646.7262774,
+    "ast_hash": "f0e7722260181026ccb14888b0bacc1c",
     "semantic_hash": ""
   }
 }

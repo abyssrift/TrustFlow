@@ -13,23 +13,21 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import { formatDuration as fmtDwell } from '@/lib/duration';
 import { daysToPeriodParams } from '@/lib/analyticsPeriods';
 
-// SLA risk driver -> user-facing label + colour tone. `reason` comes from
-// rpc_get_organizational_audit (deadline | over_budget | stalled).
-export const SLA_REASON_META: Record<string, { label: string; tone: 'danger' | 'warning' | 'muted' }> = {
-  deadline:    { label: 'Deadline',    tone: 'danger'  },
-  over_budget: { label: 'Over budget', tone: 'warning' },
-  stalled:     { label: 'Stalled',     tone: 'muted'   },
+// SLA risk driver -> label + colour tone. `reason` from rpc_get_organizational_audit
+// (deadline | over_budget | stalled). Colour is keyed to the DRIVER, not raw severity,
+// so a stalled task with plenty of deadline slack reads calm-blue instead of alarm-red.
+export const SLA_TONE: Record<string, { label: string; text: string; bar: string; soft: string; hover: string }> = {
+  deadline:    { label: 'Deadline',    text: 'text-state-danger',  bar: 'bg-state-danger',  soft: 'bg-state-danger/10',  hover: 'hover:border-state-danger/50'  },
+  over_budget: { label: 'Over budget', text: 'text-state-warning', bar: 'bg-state-warning', soft: 'bg-state-warning/10', hover: 'hover:border-state-warning/50' },
+  stalled:     { label: 'Stalled',     text: 'text-brand-primary', bar: 'bg-brand-primary', soft: 'bg-brand-primary/10', hover: 'hover:border-brand-primary/50' },
 };
+export const slaTone = (reason?: string) => SLA_TONE[reason || ''] || SLA_TONE.stalled;
 
-export const SLAReasonTag = ({ reason, className }: { reason?: string; className?: string }) => {
-  const meta = SLA_REASON_META[reason || ''] || SLA_REASON_META.stalled;
-  const toneClass =
-    meta.tone === 'danger'  ? 'bg-state-danger/10 text-state-danger'
-    : meta.tone === 'warning' ? 'bg-state-warning/10 text-state-warning'
-    : 'bg-surface-overlay text-typography-muted';
+export const SLAReasonBadge = ({ reason }: { reason?: string }) => {
+  const t = slaTone(reason);
   return (
-    <View className={`px-2 py-0.5 rounded-md ${toneClass.split(' ')[0]} ${className || ''}`}>
-      <Text className={`text-[9px] font-black uppercase tracking-widest ${toneClass.split(' ')[1]}`}>{meta.label}</Text>
+    <View className={`px-2 py-0.5 rounded-md ${t.soft}`}>
+      <Text className={`text-[9px] font-black uppercase tracking-widest ${t.text}`}>{t.label}</Text>
     </View>
   );
 };
@@ -91,28 +89,40 @@ export const SLARiskAlertWeb = ({ data, className }: { data: any, className?: st
     }, {})
   );
 
+  const counts = (data.sla_risks as any[]).reduce((a: Record<string, number>, r: any) => {
+    const k = SLA_TONE[r.reason] ? r.reason : 'stalled';
+    a[k] = (a[k] || 0) + 1; return a;
+  }, {});
+
   return (
-    <View className={`mb-8 bg-surface-card border border-state-danger/30 p-8 rounded-[32px] premium-shadow ${className || ''}`}>
-      <View className="flex-row items-center mb-6">
-        <View className="w-10 h-10 rounded-full bg-state-danger-dim items-center justify-center mr-4 border border-state-danger/20">
-          <FontAwesome name="warning" size={16} color={colors.danger} />
+    <View className={`mb-6 bg-surface-card border border-surface-border p-4 rounded-2xl premium-shadow ${className || ''}`}>
+      {/* Header: identity on the left, reason mix + help on the right */}
+      <View className="flex-row items-center justify-between mb-3 flex-wrap gap-y-2">
+        <View className="flex-row items-center gap-2.5">
+          <FontAwesome name="warning" size={13} color={colors.danger} />
+          <Text className="text-typography-main font-black text-sm tracking-tight">SLA Risks</Text>
+          <Text className="text-typography-muted text-[11px] font-medium">
+            {data.sla_risks.length} at risk
+          </Text>
         </View>
-        <View className="flex-1 flex-row items-center justify-between">
-          <View>
-            <Text className="text-state-danger font-black text-lg tracking-tight">SLA Risks</Text>
-            <Text className="text-typography-muted text-xs font-medium">{data.sla_risks.length} active tasks at risk</Text>
-          </View>
+        <View className="flex-row items-center gap-1.5">
+          {['deadline', 'over_budget', 'stalled'].filter(k => counts[k]).map(k => (
+            <View key={k} className="flex-row items-center gap-1 px-2 py-0.5 rounded-md bg-surface-background border border-surface-border">
+              <View className={`w-1.5 h-1.5 rounded-full ${slaTone(k).bar}`} />
+              <Text className="text-typography-main text-[10px] font-black">{counts[k]}</Text>
+            </View>
+          ))}
           <TouchableOpacity
             onPress={() => setShowInfo(v => !v)}
-            className={`w-8 h-8 rounded-full items-center justify-center border transition-all ${showInfo ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
+            className={`w-6 h-6 rounded-md items-center justify-center border transition-all ${showInfo ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
           >
-            <FontAwesome name="question" size={12} color={showInfo ? 'var(--color-on-primary)' : colors.textDim} />
+            <FontAwesome name="question" size={10} color={showInfo ? 'var(--color-on-primary)' : colors.textDim} />
           </TouchableOpacity>
         </View>
       </View>
 
       {showInfo && (
-        <View className="mb-6 bg-surface-background border border-surface-border rounded-2xl p-5 gap-3">
+        <View className="mb-5 bg-surface-background border border-surface-border rounded-2xl p-5 gap-3">
           <Text className="text-typography-main font-black text-sm">What is SLA Risk?</Text>
           <Text className="text-typography-muted text-xs leading-relaxed">
             A task is flagged when any of three signals crosses its limit. The badge shows which one is driving the risk, and the % is how close it is to that limit, capped at 99%.
@@ -125,7 +135,7 @@ export const SLARiskAlertWeb = ({ data, className }: { data: any, className?: st
               <Text className="text-state-warning font-bold">Over budget</Text> — logged hours have outpaced the estimate for how far it has progressed.
             </Text>
             <Text className="text-typography-muted text-xs leading-relaxed">
-              <Text className="text-typography-main font-bold">Stalled</Text> — it has sat in its current stage longer than 1.5× the stage average.
+              <Text className="text-brand-primary font-bold">Stalled</Text> — it has sat in its current stage longer than 1.5× the stage average.
             </Text>
           </View>
           {stageBaselines.length > 0 && (
@@ -155,34 +165,25 @@ export const SLARiskAlertWeb = ({ data, className }: { data: any, className?: st
         </View>
       )}
 
-      <View className="gap-3">
-        {data.sla_risks.slice(0, 5).map((r: any, i: number) => (
-          <TouchableOpacity 
-            key={i} 
-            onPress={() => router.push(`/task/${r.id}`)}
-            className="flex-row justify-between items-center bg-surface-background p-4 rounded-2xl border border-surface-border hover:border-state-danger/40 transition-all"
-          >
-            <View className="flex-row items-center gap-4">
-              <View className="w-1 h-8 rounded-full bg-state-danger/40" />
-              <View>
-                <Text className="text-typography-main font-black text-sm">{r.task_number || `TASK-${r.id.substring(0, 4)}`}</Text>
-                <View className="flex-row items-center gap-2 mt-0.5">
-                  <Text className="text-typography-muted text-[10px] uppercase font-bold tracking-widest">{r.stage_name}</Text>
-                  <SLAReasonTag reason={r.reason} />
-                </View>
-              </View>
-            </View>
-            <View className="flex-row items-center gap-6">
-              <View className="items-end">
-                <Text className="text-state-danger font-black text-lg">{r.risk_percent}%</Text>
-                <Text className="text-[9px] text-typography-muted uppercase font-black">Risk Probability</Text>
-              </View>
-              <View className="w-10 h-10 rounded-xl bg-state-danger items-center justify-center shadow-sm shadow-state-danger/20">
-                <FontAwesome name="chevron-right" size={12} color="var(--color-on-primary)" />
-              </View>
-            </View>
-          </TouchableOpacity>
-        ))}
+      {/* Dense one-line rows — glanceable, two columns on wide screens */}
+      <View className="flex-row flex-wrap gap-x-5 gap-y-0.5">
+        {data.sla_risks.map((r: any, i: number) => {
+          const t = slaTone(r.reason);
+          return (
+            <TouchableOpacity
+              key={i}
+              onPress={() => router.push(`/task/${r.id}`)}
+              className="w-full xl:w-[calc(50%-10px)] flex-row items-center gap-2.5 py-1.5 px-2 rounded-lg hover:bg-surface-background transition-all"
+            >
+              <View className={`w-1.5 h-1.5 rounded-full ${t.bar}`} />
+              <Text numberOfLines={1} className="flex-1 text-typography-main text-xs font-semibold">
+                {r.task_number || `TASK-${r.id.substring(0, 4)}`}
+              </Text>
+              <Text className={`text-[9px] font-black uppercase tracking-wide ${t.text}`}>{t.label}</Text>
+              <Text className={`w-9 text-right text-sm font-black ${t.text}`}>{r.risk_percent}%</Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
     </View>
   );
