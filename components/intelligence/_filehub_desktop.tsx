@@ -14,6 +14,7 @@ import FileHubBin from './FileHubBin';
 import { groupPickedFiles, relDir, resolveExistingFolderLeaf } from '@/lib/filehubFolderTree';
 import { randomId } from '@/lib/randomId';
 import { downloadFilesAsZip, openStorageFile } from '@/lib/storage';
+import { isMultiSelectModifierActive } from '@/lib/webModifierKeys';
 import TaskFileResults from './TaskFileResults';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
@@ -2627,7 +2628,9 @@ function FileHubDesktopInner() {
   // viewer; Ctrl/Cmd+Click (web, Explorer-style) → add to multi-selection
   // without opening the detail panel.
   const openFile = useCallback((file: FileHubFile, e?: any) => {
-    const ctrlOrCmd = !!(e?.ctrlKey || e?.metaKey || e?.nativeEvent?.ctrlKey || e?.nativeEvent?.metaKey);
+    // RNW zeroes nativeEvent.ctrlKey, so fall back to the live DOM modifier state
+    // to detect Ctrl+Click on Windows/Linux (isMultiSelectModifierActive).
+    const ctrlOrCmd = !!(e?.ctrlKey || e?.metaKey || e?.nativeEvent?.ctrlKey || e?.nativeEvent?.metaKey) || isMultiSelectModifierActive();
     if (ctrlOrCmd) {
       setSelectionMode(true);
       toggleFileSelect(file.id);
@@ -2641,7 +2644,7 @@ function FileHubDesktopInner() {
   // Ctrl/Cmd+Click a folder → add it to the multi-selection (Explorer-style);
   // a plain click still navigates into it.
   const openFolder = useCallback((folderId: string, e?: any) => {
-    const ctrlOrCmd = !!(e?.ctrlKey || e?.metaKey || e?.nativeEvent?.ctrlKey || e?.nativeEvent?.metaKey);
+    const ctrlOrCmd = !!(e?.ctrlKey || e?.metaKey || e?.nativeEvent?.ctrlKey || e?.nativeEvent?.metaKey) || isMultiSelectModifierActive();
     if (ctrlOrCmd) {
       setSelectionMode(true);
       toggleFolderSelect(folderId);
