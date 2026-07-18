@@ -278,6 +278,7 @@ export const WorkDistributionChartWeb = ({ data, className }: { data: any, class
 
 export const QualityLeaderboardWeb = ({ data, className }: { data: any, className?: string }) => {
   const colors = useThemeColors();
+  const [showInfo, setShowInfo] = useState(false);
   if (!data?.quality_by_worker) return null;
 
   const MIN_TASKS = 3;
@@ -294,49 +295,37 @@ export const QualityLeaderboardWeb = ({ data, className }: { data: any, classNam
   const workers = qualified.slice(0, 6);
   const filteredOutCount = allWorkers.length - qualified.length;
   const allPerfect = workers.length > 0 && workers.every((w: any) => w.integrityScore === 100);
-  const maxTasks = allPerfect ? Math.max(...workers.map((w: any) => w.total_tasks)) : 0;
 
   return (
-    <View className={`bg-surface-card p-8 rounded-[32px] border border-surface-border premium-shadow ${className || ''}`}>
-      {/* Header */}
-      <View className="flex-row justify-between items-start mb-6">
-        <View className="flex-1 mr-4">
-          <Text className="text-typography-muted text-xs font-bold tracking-widest uppercase mb-1">Performance Matrix</Text>
-          <Text className="text-typography-main text-3xl font-black">Quality Integrity</Text>
-          <Text className="text-typography-muted text-[11px] mt-2 leading-relaxed max-w-[480px]">
-            Integrity measures first-pass accuracy. It is calculated as{' '}
-            <Text className="text-brand-primary font-bold">100% minus the Rework Rate</Text>.{' '}
-            {allPerfect && workers.length > 0
-              ? 'All contributors are tied — ranked by task volume.'
-              : 'A higher score indicates tasks completed without requiring revisions.'}
+    <View className={`bg-surface-card p-4 rounded-2xl border border-surface-border premium-shadow ${className || ''}`}>
+      {/* Header: title + short subtitle, compact status chip, info toggle */}
+      <View className="flex-row items-center justify-between mb-3 flex-wrap gap-y-2">
+        <View className="flex-1 mr-3">
+          <Text className="text-typography-main font-black text-sm tracking-tight">Quality Integrity</Text>
+          <Text className="text-typography-muted text-[11px] font-medium">
+            First-pass accuracy · 100% − rework{filteredOutCount > 0 ? ` · ${filteredOutCount} below ${MIN_TASKS}-task min` : ''}
           </Text>
         </View>
-        <View className="items-end gap-2">
-          <View className="bg-brand-primary-dim px-4 py-2 rounded-xl border border-brand-primary/20">
-            <Text className="text-brand-primary font-bold text-sm">Top Contributors</Text>
-          </View>
-          {filteredOutCount > 0 && (
-            <View className="flex-row items-center gap-1.5 px-3 py-1.5 bg-surface-background border border-surface-border rounded-xl">
-              <FontAwesome name="filter" size={9} color={colors.textDim} />
-              <Text className="text-typography-dim text-[9px] font-black uppercase tracking-widest">
-                {filteredOutCount} below threshold
-              </Text>
+        <View className="flex-row items-center gap-1.5">
+          {allPerfect && (
+            <View className="flex-row items-center gap-1.5 px-2 py-0.5 rounded-md bg-surface-background border border-surface-border">
+              <FontAwesome name="check" size={9} color={colors.success} />
+              <Text className="text-state-success text-[10px] font-black">Zero rework</Text>
             </View>
           )}
+          <TouchableOpacity
+            onPress={() => setShowInfo(v => !v)}
+            className={`w-6 h-6 rounded-md items-center justify-center border transition-all ${showInfo ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
+          >
+            <FontAwesome name="question" size={10} color={showInfo ? 'var(--color-on-primary)' : colors.textDim} />
+          </TouchableOpacity>
         </View>
       </View>
 
-      {/* Perfect integrity banner */}
-      {allPerfect && (
-        <View className="flex-row items-center justify-between bg-state-success-dim border border-state-success/20 px-5 py-3 rounded-2xl mb-6">
-          <View className="flex-row items-center gap-3">
-            <FontAwesome name="trophy" size={14} color={colors.success} />
-            <Text className="text-state-success font-black text-sm">
-              Perfect Integrity — Zero rework detected this period.
-            </Text>
-          </View>
-          <Text className="text-state-success/60 text-[10px] font-bold uppercase tracking-widest">
-            Ranked by volume
+      {showInfo && (
+        <View className="mb-3 bg-surface-background border border-surface-border rounded-2xl p-4">
+          <Text className="text-typography-muted text-xs leading-relaxed">
+            Integrity is first-pass accuracy — <Text className="text-typography-main font-bold">100% minus the rework rate</Text>. Only contributors with at least {MIN_TASKS} completed tasks are ranked; when everyone is tied at 100%, the order falls back to task volume.
           </Text>
         </View>
       )}
@@ -353,101 +342,36 @@ export const QualityLeaderboardWeb = ({ data, className }: { data: any, classNam
           </Text>
         </View>
       ) : (
-        <View className="flex-row flex-wrap gap-6">
+        <View>
           {workers.map((worker: any, idx: number) => {
             const score = worker.integrityScore;
-            const stars = score === 100 ? 5 : score >= 90 ? 4 : score >= 75 ? 3 : score >= 60 ? 2 : 1;
-            const isVolumeLeader = allPerfect && worker.total_tasks === maxTasks;
-
-            const colorClass = score === 100 ? 'bg-state-success' : score >= 75 ? 'bg-state-warning' : 'bg-state-danger';
-            const bgDimClass = score === 100 ? 'bg-state-success-dim' : score >= 75 ? 'bg-state-warning-dim' : 'bg-state-danger-dim';
-            const textClass = score === 100 ? 'text-state-success' : score >= 75 ? 'text-state-warning' : 'text-state-danger';
-            const borderClass = score === 100 ? 'border-state-success/20' : score >= 75 ? 'border-state-warning/20' : 'border-state-danger/20';
-
-            // When all are tied, show task volume bar instead of flat 100% bar
-            const barWidth = allPerfect ? (worker.total_tasks / (maxTasks || 1)) * 100 : score;
-
+            // Calm by default: a perfect score reads neutral; only real rework
+            // is coloured (amber / red), so the panel isn't a wall of green.
+            const tone = score === 100 ? 'text-typography-main' : score >= 75 ? 'text-state-warning' : 'text-state-danger';
             return (
               <View
                 key={idx}
-                className={`flex-1 min-w-[300px] bg-surface-background p-6 rounded-2xl border transition-all duration-300 ${
-                  isVolumeLeader
-                    ? 'border-state-success/40 hover:border-state-success/60'
-                    : 'border-surface-border/50 hover:border-brand-primary/30'
-                }`}
+                className="flex-row items-center gap-3 py-2 px-2 rounded-lg hover:bg-surface-background transition-all"
               >
-                <View className="flex-row justify-between items-start mb-4">
-                  <View className="flex-row items-center gap-3">
-                    <View className={`w-8 h-8 ${bgDimClass} rounded-lg items-center justify-center border ${borderClass}`}>
-                      <Text className={`${textClass} font-black text-xs`}>#{idx + 1}</Text>
-                    </View>
-                    <View className="w-10 h-10 rounded-full bg-surface-card border border-surface-border overflow-hidden">
-                      {worker.avatar_url ? (
-                        <Image source={{ uri: worker.avatar_url }} className="w-full h-full" />
-                      ) : (
-                        <View className="w-full h-full items-center justify-center bg-brand-primary/5">
-                          <Text className="text-brand-primary font-black text-xs">
-                            {(worker.full_name || 'A')[0].toUpperCase()}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                    <View className="flex-1">
-                      <Text className="text-typography-main font-black text-base" numberOfLines={1}>
-                        {worker.full_name || 'Anonymous User'}
+                <Text className="w-6 text-typography-muted text-[11px] font-black">#{idx + 1}</Text>
+                <View className="w-7 h-7 rounded-full bg-surface-background border border-surface-border overflow-hidden">
+                  {worker.avatar_url ? (
+                    <Image source={{ uri: worker.avatar_url }} className="w-full h-full" />
+                  ) : (
+                    <View className="w-full h-full items-center justify-center bg-brand-primary/5">
+                      <Text className="text-brand-primary font-black text-[10px]">
+                        {(worker.full_name || 'A')[0].toUpperCase()}
                       </Text>
-                      {isVolumeLeader && (
-                        <Text className="text-state-success text-[9px] font-black uppercase tracking-widest">
-                          Volume Leader
-                        </Text>
-                      )}
                     </View>
-                  </View>
-
-                  <View className="flex-row gap-1">
-                    {[1, 2, 3, 4, 5].map((s) => (
-                      <FontAwesome
-                        key={s}
-                        name={s <= stars ? 'star' : 'star-o'}
-                        size={14}
-                        color={s <= stars ? colors.warning : colors.textDim}
-                      />
-                    ))}
-                  </View>
+                  )}
                 </View>
-
-                <View className="gap-3">
-                  <View className="flex-row justify-between items-end">
-                    <Text className="text-typography-muted text-xs font-bold uppercase">
-                      {allPerfect ? 'Task Volume' : 'Integrity Score'}
-                    </Text>
-                    <Text className={`${textClass} text-xl font-black`}>
-                      {allPerfect ? `${worker.total_tasks} tasks` : `${score.toFixed(1)}%`}
-                    </Text>
-                  </View>
-
-                  <View className="h-2 bg-surface-card rounded-full overflow-hidden">
-                    <View
-                      className={`h-full ${colorClass}`}
-                      style={{ width: `${barWidth}%` }}
-                    />
-                  </View>
-
-                  <View className="flex-row justify-between items-center pt-2">
-                    <View className="flex-row items-center gap-1.5">
-                      <FontAwesome name="wrench" size={10} color={colors.textDim} />
-                      <Text className="text-typography-muted text-[10px] font-bold uppercase">
-                        {(worker.revision_rate || 0).toFixed(1)}% Rework
-                      </Text>
-                    </View>
-                    <View className="flex-row items-center gap-1.5">
-                      <FontAwesome name="check-circle" size={10} color={colors.textDim} />
-                      <Text className="text-typography-muted text-[10px] font-bold uppercase">
-                        {allPerfect ? `${score.toFixed(0)}% integrity` : `${worker.total_tasks || 0} Tasks`}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
+                <Text numberOfLines={1} className="flex-1 text-typography-main text-sm font-semibold">
+                  {worker.full_name || 'Anonymous User'}
+                </Text>
+                <Text className="text-typography-muted text-[10px] font-medium">
+                  {worker.total_tasks || 0} {worker.total_tasks === 1 ? 'task' : 'tasks'} · {(worker.revision_rate || 0).toFixed(0)}% rework
+                </Text>
+                <Text className={`w-11 text-right text-sm font-black ${tone}`}>{score.toFixed(0)}%</Text>
               </View>
             );
           })}

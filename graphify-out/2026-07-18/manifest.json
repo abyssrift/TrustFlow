@@ -5,8 +5,8 @@
     "semantic_hash": ""
   },
   ".claude/settings.local.json": {
-    "mtime": 1784374968.7905612,
-    "ast_hash": "479a40b6d30ee7e57dc133348281635c",
+    "mtime": 1784375602.1088197,
+    "ast_hash": "1cbe171c817f3c630c3c030c59ceba36",
     "semantic_hash": ""
   },
   ".vscode/extensions.json": {
@@ -670,13 +670,13 @@
     "semantic_hash": ""
   },
   "components/intelligence/_filehub_adaptive.tsx": {
-    "mtime": 1784294204.329965,
-    "ast_hash": "9a39eacfb4ef1884a12cba8f52178b84",
+    "mtime": 1784375400.7385213,
+    "ast_hash": "1a8bdfc426981ca25334d1c1c0ce7c74",
     "semantic_hash": ""
   },
   "components/intelligence/_filehub_desktop.tsx": {
-    "mtime": 1784327370.8363,
-    "ast_hash": "7b7baf5b5a18efa63886652103517887",
+    "mtime": 1784375704.486776,
+    "ast_hash": "c5459bbebb05d4650962b20a8a253cc8",
     "semantic_hash": ""
   },
   "components/intelligence/_filehub_web.tsx": {
@@ -3132,6 +3132,11 @@
   "supabase/migrations/20260718_sla_risk_multifactor.sql": {
     "mtime": 1784374646.7262774,
     "ast_hash": "f0e7722260181026ccb14888b0bacc1c",
+    "semantic_hash": ""
+  },
+  "lib/webModifierKeys.ts": {
+    "mtime": 1784375674.5934587,
+    "ast_hash": "dae3488a180ec69e6473b6e066137fc5",
     "semantic_hash": ""
   }
 }
