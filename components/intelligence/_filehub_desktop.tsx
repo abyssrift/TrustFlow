@@ -1191,6 +1191,7 @@ function FolderRow({
   const colors = useThemeColors();
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(folder.name);
+  const [showQuickShare, setShowQuickShare] = useState(false);
 
   const totalDrag = (dragFileIds?.length ?? 0) + (dragFolderIds?.length ?? 0);
   const dragPayload: DragPayload = totalDrag > 1
@@ -1221,7 +1222,7 @@ function FolderRow({
         if (isRenaming) return;
         selectionMode ? onToggleSelect?.() : onNavigate(e);
       }}
-      className={`flex-row items-center px-6 py-4 border-b border-surface-border/40 transition-colors ${
+      className={`group flex-row items-center px-6 py-4 border-b border-surface-border/40 transition-colors ${
         isSelected ? 'bg-brand-primary/10' : isOver ? 'bg-brand-primary/10 border-l-2 border-l-brand-primary' : 'hover:bg-surface-overlay/60'
       }`}
     >
@@ -1254,20 +1255,43 @@ function FolderRow({
         </View>
       )}
       {!selectionMode && (
-        <View className="flex-row gap-1 flex-shrink-0">
+        <View
+          className="flex-row items-center gap-0.5 flex-shrink-0 opacity-0 -translate-x-1.5 scale-95 group-hover:opacity-100 group-hover:translate-x-0 group-hover:scale-100 transition-all duration-200"
+        >
           {onInfo && (
-            <TouchableOpacity onPress={(e) => { e?.stopPropagation?.(); onInfo(); }} className="w-7 h-7 items-center justify-center rounded-lg hover:bg-surface-overlay">
+            <TouchableOpacity
+              onPress={(e) => { e?.stopPropagation?.(); onInfo(); }}
+              className="w-7 h-7 items-center justify-center rounded-lg hover:bg-brand-primary/10 hover:scale-110 active:scale-90 transition-all"
+            >
               <FontAwesome name="info-circle" size={12} color={colors.textMuted} />
             </TouchableOpacity>
           )}
-          <TouchableOpacity onPress={(e) => { e?.stopPropagation?.(); setRenameValue(folder.name); setIsRenaming(true); }} className="w-7 h-7 items-center justify-center rounded-lg hover:bg-surface-overlay">
+          <TouchableOpacity
+            onPress={(e) => { e?.stopPropagation?.(); setRenameValue(folder.name); setIsRenaming(true); }}
+            className="w-7 h-7 items-center justify-center rounded-lg hover:bg-brand-primary/10 hover:scale-110 active:scale-90 transition-all"
+          >
             <FontAwesome name="pencil" size={11} color={colors.textMuted} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={(e) => { e?.stopPropagation?.(); onDelete(); }} className="w-7 h-7 items-center justify-center rounded-lg hover:bg-surface-overlay">
-            <FontAwesome name="trash-o" size={11} color={colors.textMuted} />
+          <TouchableOpacity
+            onPress={(e) => { e?.stopPropagation?.(); setShowQuickShare(true); }}
+            className="w-7 h-7 items-center justify-center rounded-lg hover:bg-brand-primary/10 hover:scale-110 active:scale-90 transition-all"
+          >
+            <FontAwesome name="link" size={12} color={colors.textMuted} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={(e) => { e?.stopPropagation?.(); onDelete(); }}
+            className="w-7 h-7 items-center justify-center rounded-lg hover:bg-state-danger/10 hover:scale-110 active:scale-90 transition-all"
+          >
+            <FontAwesome name="trash-o" size={12} color={colors.danger} />
           </TouchableOpacity>
         </View>
       )}
+      <ShareLinkModal
+        visible={showQuickShare}
+        folderId={folder.id}
+        fileName={folder.name}
+        onClose={() => setShowQuickShare(false)}
+      />
     </TouchableOpacity>
   );
 }
