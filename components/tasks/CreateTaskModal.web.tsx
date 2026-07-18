@@ -300,9 +300,14 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
     setDraft({
       title:           `${task.title} (Clone)`,
       description:     task.description,
-      priority:        task.priority,
+      priority:        task.priority === 'medium' ? 'normal' : task.priority,
       category:        task.category,
       weight:          task.weight,
+      startDate:       task.start_date,
+      dueDate:         task.due_date,
+      estimatedHours:  task.estimated_hours,
+      pipelineId:      task.pipeline_id,
+      projectId:       task.project_id,
       assigneeUserIds: task.assignments?.filter((a: any) => a.assignee_user_id).map((a: any) => a.assignee_user_id) || [],
       assigneeTeamIds: task.assignments?.filter((a: any) => a.assignee_team_id).map((a: any) => a.assignee_team_id) || [],
     });
