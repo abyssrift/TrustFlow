@@ -109,6 +109,8 @@ type DownloadableFile = {
   bucket?: string | null;
   original_name: string;
   mime_type?: string | null;
+  /** Folder path to nest this file under inside the zip (e.g. "Reports/Q1"), no leading/trailing slash. Omit to place at the zip root. */
+  zip_path?: string;
 };
 
 // Resolves "photo.jpg" -> "photo (1).jpg" on repeat, so same-named attachments
@@ -154,7 +156,8 @@ export async function downloadFilesAsZip(
       const response = await fetch(data.signedUrl);
       if (!response.ok) continue;
       const blob = await response.blob();
-      zip.file(dedupeName(file.original_name, usedNames), blob);
+      const entryName = file.zip_path ? `${file.zip_path}/${file.original_name}` : file.original_name;
+      zip.file(dedupeName(entryName, usedNames), blob);
     } catch {
       // skip files that fail to fetch
     }

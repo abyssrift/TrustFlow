@@ -118,6 +118,20 @@ export function folderPath(folders: FileHubFolder[], folderId: string): string {
   return folderAncestors(folders, folderId).map(f => f.name).join(' / ');
 }
 
+// folderId plus every folder nested under it, any depth — used to gather a
+// folder's full recursive contents (e.g. "download folder as zip").
+export function folderDescendantIds(folders: FileHubFolder[], folderId: string): string[] {
+  const out: string[] = [folderId];
+  const stack: string[] = [folderId];
+  while (stack.length) {
+    const cur = stack.pop()!;
+    for (const f of folders) {
+      if (f.parent_id === cur) { out.push(f.id); stack.push(f.id); }
+    }
+  }
+  return out;
+}
+
 export type FileHubGroup = {
   id: string;
   name: string;

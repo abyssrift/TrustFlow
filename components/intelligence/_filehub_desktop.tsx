@@ -1,6 +1,6 @@
 import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { FileActivity, FileHubFile, FileHubFolder, FileHubFolderScope, FileHubGroup, FileHubGroupMember, FileHubMode, FileHubProvider, FileHubShareLink, FileVersion, folderAncestors, folderPath, shareLinkUrl, useFileHub } from '@/contexts/FileHubContext';
+import { FileActivity, FileHubFile, FileHubFolder, FileHubFolderScope, FileHubGroup, FileHubGroupMember, FileHubMode, FileHubProvider, FileHubShareLink, FileVersion, folderAncestors, folderDescendantIds, folderPath, shareLinkUrl, useFileHub } from '@/contexts/FileHubContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useUploadJob, useUploadManager, type UploadJobState } from '@/contexts/UploadManagerContext';
 import * as Clipboard from 'expo-clipboard';
@@ -1482,7 +1482,7 @@ function FileRow({
 // Folder equivalent of DetailPanel: shows a folder's properties on the right
 // (location, what it contains, quick actions) when its ⓘ button is tapped.
 function FolderDetailPanel({
-  folder, folders, scopeLabel, onOpen, onRename, onDelete,
+  folder, folders, scopeLabel, onOpen, onRename, onDelete, onDownload, downloading,
 }: {
   folder: FileHubFolder;
   folders: FileHubFolder[];
@@ -1490,6 +1490,9 @@ function FolderDetailPanel({
   onOpen: () => void;
   onRename: (name: string) => void;
   onDelete: () => void;
+  /** Zips this folder and everything nested inside it. */
+  onDownload: () => void;
+  downloading: boolean;
 }) {
   const colors = useThemeColors();
   const [isRenaming, setIsRenaming] = useState(false);
@@ -1559,6 +1562,10 @@ function FolderDetailPanel({
           <TouchableOpacity onPress={() => setShowShareLink(true)} className="flex-row items-center justify-center bg-surface-card border border-surface-border rounded-xl px-4 py-3 gap-2">
             <FontAwesome name="link" size={13} color={colors.primary} />
             <Text className="text-brand-primary font-black text-sm">Share Link</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={onDownload} disabled={downloading} className="flex-row items-center justify-center bg-surface-card border border-surface-border rounded-xl px-4 py-3 gap-2">
+            {downloading ? <ActivityIndicator size="small" color={colors.primary} /> : <FontAwesome name="download" size={13} color={colors.primary} />}
+            <Text className="text-brand-primary font-black text-sm">Download as ZIP</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={onDelete} className="flex-row items-center justify-center bg-surface-card border border-state-danger/30 rounded-xl px-4 py-3 gap-2">
             <FontAwesome name="trash-o" size={13} color={colors.danger} />
@@ -2754,11 +2761,24 @@ function FileHubDesktopInner() {
 
   const handleDownloadSelected = async () => {
     const filesToDownload = displayFiles.filter(f => selectedFileIds.has(f.id));
-    if (filesToDownload.length === 0 || zipDownloading) return;
+    const foldersToDownload = subfolders.filter(f => selectedFolderIds.has(f.id));
+    if ((filesToDownload.length === 0 && foldersToDownload.length === 0) || zipDownloading) return;
     setZipDownloading(true);
     try {
-      await downloadFilesAsZip(filesToDownload, 'Selected Files');
+      const folderFiles = foldersToDownload.length > 0 ? await resolveFolderZipFiles(foldersToDownload) : [];
+      await downloadFilesAsZip([...filesToDownload, ...folderFiles], 'Selected Files');
       exitSelection();
+    } finally {
+      setZipDownloading(false);
+    }
+  };
+
+  const handleDownloadFolder = async (folder: FileHubFolder) => {
+    if (zipDownloading) return;
+    setZipDownloading(true);
+    try {
+      const folderFiles = await resolveFolderZipFiles([folder]);
+      await downloadFilesAsZip(folderFiles, folder.name);
     } finally {
       setZipDownloading(false);
     }
@@ -2804,6 +2824,50 @@ function FileHubDesktopInner() {
   const subfolders = useMemo(() => {
     return contextFolders.filter(f => f.parent_id === selectedFolderId).sort((a, b) => a.name.localeCompare(b.name));
   }, [contextFolders, selectedFolderId]);
+
+  // Gathers every file nested (any depth) under the given root folders, tagged
+  // with a zip_path so downloadFilesAsZip rebuilds the folder structure instead
+  // of flattening everything into one directory. Channel files are already
+  // loaded in full (groupFiles, unfiltered by folder — see displayFiles above),
+  // so that case is a pure client-side filter; inbox/sent/broadcast folders are
+  // server-scoped one at a time, so each descendant folder needs its own
+  // rpc_filehub_list call.
+  const resolveFolderZipFiles = useCallback(async (rootFolders: FileHubFolder[]) => {
+    const byId = new Map(contextFolders.map(f => [f.id, f]));
+    const rootIds = new Set(rootFolders.map(f => f.id));
+    const descendantIds = new Set<string>();
+    for (const rf of rootFolders) for (const id of folderDescendantIds(contextFolders, rf.id)) descendantIds.add(id);
+
+    // Path from (and including) whichever selected root this folder descends
+    // from, down to (and including) the folder itself.
+    const zipPathFor = (folderId: string): string => {
+      const chain: string[] = [];
+      let cur = byId.get(folderId);
+      while (cur) {
+        chain.unshift(cur.name);
+        if (rootIds.has(cur.id)) break;
+        cur = cur.parent_id ? byId.get(cur.parent_id) : undefined;
+      }
+      return chain.join('/');
+    };
+
+    if (mode === 'groups' && activeGroupId) {
+      return groupFiles
+        .filter(f => f.folder_id && descendantIds.has(f.folder_id))
+        .map(f => ({ storage_path: f.storage_path, bucket: f.bucket, original_name: f.original_name, mime_type: f.mime_type, zip_path: zipPathFor(f.folder_id!) }));
+    }
+
+    const perFolder = await Promise.all(
+      Array.from(descendantIds).map(async id => {
+        const { data } = await supabase.rpc('rpc_filehub_list', { p_mode: mode, p_folder_id: id });
+        return ((data ?? []) as FileHubFile[]).map(f => ({
+          storage_path: f.storage_path, bucket: f.bucket, original_name: f.original_name, mime_type: f.mime_type,
+          zip_path: zipPathFor(id),
+        }));
+      })
+    );
+    return perFolder.flat();
+  }, [contextFolders, mode, activeGroupId, groupFiles]);
 
   // "Select all" spans both the visible files and the visible subfolders; it
   // clears only when everything on screen is already selected.
@@ -3260,14 +3324,14 @@ function FileHubDesktopInner() {
                       <Text className="flex-1 text-brand-primary text-xs font-black ml-2">
                         {totalSelected === 0 ? 'Tap to select' : `${totalSelected} of ${totalVisible} selected`}
                       </Text>
-                      {selectedFileIds.size > 0 && (
+                      {totalSelected > 0 && (
                         <TouchableOpacity
                           onPress={handleDownloadSelected}
                           disabled={zipDownloading}
                           className="flex-row items-center gap-1.5 bg-brand-primary px-3 py-1.5 rounded-lg"
                         >
                           {zipDownloading ? <ActivityIndicator size="small" color="#fff" /> : <FontAwesome name="download" size={10} color="#fff" />}
-                          <Text className="text-white text-xs font-black">Download {selectedFileIds.size}</Text>
+                          <Text className="text-white text-xs font-black">Download {totalSelected}</Text>
                         </TouchableOpacity>
                       )}
                       {totalSelected > 0 && (
@@ -3442,14 +3506,14 @@ function FileHubDesktopInner() {
                       <Text className="flex-1 text-brand-primary text-xs font-black ml-2">
                         {totalSelected === 0 ? 'Tap to select' : `${totalSelected} of ${totalVisible} selected`}
                       </Text>
-                      {selectedFileIds.size > 0 && (
+                      {totalSelected > 0 && (
                         <TouchableOpacity
                           onPress={handleDownloadSelected}
                           disabled={zipDownloading}
                           className="flex-row items-center gap-1.5 bg-brand-primary px-3 py-1.5 rounded-lg"
                         >
                           {zipDownloading ? <ActivityIndicator size="small" color="#fff" /> : <FontAwesome name="download" size={10} color="#fff" />}
-                          <Text className="text-white text-xs font-black">Download {selectedFileIds.size}</Text>
+                          <Text className="text-white text-xs font-black">Download {totalSelected}</Text>
                         </TouchableOpacity>
                       )}
                       {totalSelected > 0 && (
@@ -3586,6 +3650,8 @@ function FileHubDesktopInner() {
                 onOpen={() => openFolder(detailPanelFolder.id)}
                 onRename={(name) => renameFolder(detailPanelFolder.id, name)}
                 onDelete={() => { handleDeleteFolder(detailPanelFolder.id, detailPanelFolder.name); setSelectedFolderDetail(null); }}
+                onDownload={() => handleDownloadFolder(detailPanelFolder)}
+                downloading={zipDownloading}
               />
             </View>
           )}
@@ -3625,6 +3691,8 @@ function FileHubDesktopInner() {
                 onOpen={() => openFolder(detailPanelFolder.id)}
                 onRename={(name) => renameFolder(detailPanelFolder.id, name)}
                 onDelete={() => { handleDeleteFolder(detailPanelFolder.id, detailPanelFolder.name); setSelectedFolderDetail(null); }}
+                onDownload={() => handleDownloadFolder(detailPanelFolder)}
+                downloading={zipDownloading}
               />
             </View>
           )}
