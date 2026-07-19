@@ -1,6 +1,7 @@
-import { supabase } from '@/lib/supabase';
+import { supabase, supabaseUrl, supabaseAnonKey } from '@/lib/supabase';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Alert, DeviceEventEmitter } from 'react-native';
+import { useIsland } from '@/contexts/IslandContext';
 
 export type FileHubMode = 'inbox' | 'sent' | 'broadcast' | 'groups';
 
@@ -188,6 +189,7 @@ type FileHubContextType = {
   fetchBin: () => Promise<void>;
   restoreFromBin: (fileId: string) => Promise<void>;
   restoreFolder: (folderId: string) => Promise<void>;
+  emptyBin: () => Promise<{ files_deleted: number; folders_deleted: number }>;
   createFolder: (name: string, parentId?: string | null, scope?: FileHubFolderScope, groupId?: string | null) => Promise<void>;
   renameFolder: (id: string, name: string) => Promise<void>;
   deleteFolder: (id: string) => Promise<void>;
@@ -246,6 +248,7 @@ export function useFileHub() {
 }
 
 export function FileHubProvider({ children }: { children: React.ReactNode }) {
+  const island = useIsland();
   const [mode, setModeState] = useState<FileHubMode>('groups');
   const [search, setSearchState] = useState('');
   const [searchDebounced, setSearchDebounced] = useState('');
@@ -524,6 +527,121 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
     await fetchFolders();
   }, [fetchFolders]);
 
+  // Instant, permission-gated purge of the whole company Bin (#55) — bypasses
+  // the 15-day grace period entirely. Authorization happens server-side (the
+  // edge function verifies the caller's own JWT against
+  // rpc_filehub_bin_empty_authorize), so this just surfaces whatever it
+  // returns; the UI decides whether to show the button at all via
+  // hasPermission('filehub:bin_empty').
+  const emptyBin = useCallback(async () => {
+    const islandId = `filehub-empty-${Date.now()}`;
+    // Publish the progress island immediately (same shape/style as uploads) so
+    // it's visible even if the Bin modal is closed while purging.
+    island.publish({
+      id: islandId,
+      kind: 'upload',
+      icon: 'trash',
+      accent: 'danger',
+      compactLabel: '0%',
+      progress: 0,
+      pulse: true,
+      title: 'Emptying Bin',
+      subtitle: 'starting…',
+    });
+
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) {
+      island.update(islandId, { title: 'Emptying Bin failed', subtitle: 'Not signed in', accent: 'danger', progress: null, pulse: false });
+      setTimeout(() => island.remove(islandId), 4000);
+      throw new Error('Not signed in');
+    }
+
+    let result = { files_deleted: 0, folders_deleted: 0 };
+    try {
+      const resp = await fetch(`${supabaseUrl}/functions/v1/purge-filehub-bin`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: supabaseAnonKey,
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ mode: 'instant' }),
+      });
+
+      if (!resp.ok) {
+        let msg = `Purge failed (${resp.status})`;
+        try { const j = await resp.json(); msg = j?.error ?? msg; } catch { /* keep */ }
+        throw new Error(msg);
+      }
+
+      let total = 0;
+      const applyEvent = (evt: any) => {
+        if (evt.type === 'start') {
+          total = evt.total ?? 0;
+          island.update(islandId, { subtitle: total > 0 ? `0 / ${total}` : 'nothing to purge' }, { bump: false });
+        } else if (evt.type === 'progress' || evt.type === 'done') {
+          const done = (evt.files_deleted ?? 0) + (evt.folders_deleted ?? 0);
+          const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 100;
+          island.update(islandId, {
+            compactLabel: `${pct}%`,
+            progress: pct,
+            subtitle: total > 0 ? `${done} / ${total}` : `${done} purged`,
+          }, { bump: false });
+          if (evt.type === 'done') result = { files_deleted: evt.files_deleted ?? 0, folders_deleted: evt.folders_deleted ?? 0 };
+        } else if (evt.type === 'error') {
+          throw new Error(evt.error ?? 'Purge failed');
+        }
+      };
+
+      // Web supports incremental streaming (live progress). React Native's
+      // fetch has no ReadableStream reader, so there we read the fully-buffered
+      // NDJSON body once and apply every line — same result, no live ticks.
+      if (resp.body && typeof (resp.body as any).getReader === 'function') {
+        const reader = (resp.body as any).getReader();
+        const decoder = new TextDecoder();
+        let buf = '';
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += decoder.decode(value, { stream: true });
+          let nl;
+          while ((nl = buf.indexOf('\n')) >= 0) {
+            const line = buf.slice(0, nl).trim();
+            buf = buf.slice(nl + 1);
+            if (line) applyEvent(JSON.parse(line));
+          }
+        }
+        if (buf.trim()) applyEvent(JSON.parse(buf.trim()));
+      } else {
+        const text = await resp.text();
+        for (const line of text.split('\n')) {
+          const t = line.trim();
+          if (t) applyEvent(JSON.parse(t));
+        }
+      }
+
+      const totalDeleted = result.files_deleted + result.folders_deleted;
+      island.update(islandId, {
+        title: 'Bin emptied',
+        subtitle: `${totalDeleted} item${totalDeleted === 1 ? '' : 's'} permanently deleted`,
+        accent: 'success',
+        icon: 'check',
+        progress: 100,
+        pulse: false,
+      }, { bump: true });
+      setTimeout(() => island.remove(islandId), 4000);
+    } catch (e: any) {
+      island.update(islandId, { title: 'Emptying Bin failed', subtitle: e?.message ?? 'Unknown error', accent: 'danger', progress: null, pulse: false }, { bump: true });
+      setTimeout(() => island.remove(islandId), 6000);
+      throw e;
+    }
+
+    setBinFiles([]);
+    await fetchFolders();
+    return result;
+  }, [island, fetchFolders]);
+
   const createFolder = useCallback(async (name: string, parentId?: string | null, scope: FileHubFolderScope = 'direct', groupId?: string | null) => {
     const { error } = await supabase.rpc('rpc_filehub_folder_create', {
       p_name: name,
@@ -703,7 +821,7 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
       refresh,
       refreshFolders: fetchFolders,
       markRead, markAllRead, hideFile, deleteFile,
-      binFiles, binLoading, fetchBin, restoreFromBin, restoreFolder,
+      binFiles, binLoading, fetchBin, restoreFromBin, restoreFolder, emptyBin,
       createFolder, renameFolder, deleteFolder, moveFolder, moveFile,
       tagSuggestions, checkDuplicate,
       checkNameConflict, replaceFile, fileVersions, restoreVersion, pinVersion,
