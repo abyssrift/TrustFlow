@@ -1,6 +1,7 @@
 import { AppNotification, useNotifications } from '@/contexts/NotificationsContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { getNotificationRoute } from '@/lib/notificationRouting';
+import { formatRelative } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Stack, useRouter } from 'expo-router';
 import React, { useCallback } from 'react';
@@ -36,15 +37,7 @@ function getIconSpec(type: string): IconSpec {
 }
 
 function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const m = Math.floor(diff / 60000);
-  if (m < 1) return 'just now';
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  const d = Math.floor(h / 24);
-  if (d < 7) return `${d}d ago`;
-  return new Date(iso).toLocaleDateString();
+  return formatRelative(iso);
 }
 
 function sectionLabel(iso: string): string {

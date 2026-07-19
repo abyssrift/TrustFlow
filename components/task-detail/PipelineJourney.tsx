@@ -1,6 +1,7 @@
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { formatRelative } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React from 'react';
 import { Text, View } from 'react-native';
@@ -8,14 +9,7 @@ import CollapsibleCard from './CollapsibleCard';
 import PermissionGate from './PermissionGate';
 
 function timeAgo(dateStr: string): string {
-  const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
-  if (seconds < 60) return 'just now';
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+  return formatRelative(dateStr);
 }
 
 export default function PipelineJourney() {

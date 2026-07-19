@@ -1,4 +1,5 @@
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { formatCompact } from '@/lib/time';
 import React, { useMemo } from 'react';
 import { Text, View } from 'react-native';
 import Svg, { Circle, G } from 'react-native-svg';
@@ -15,11 +16,7 @@ function isDarkHex(hex?: string) {
 }
 
 function fmtH(sec: number) {
-  const h = Math.floor(sec / 3600);
-  const m = Math.floor((sec % 3600) / 60);
-  if (h >= 10) return `${h}h`;
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m}m`;
+  return formatCompact(sec);
 }
 
 type Slice = { label: string; value: number; color: string };

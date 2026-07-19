@@ -16,6 +16,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useTimer } from '@/contexts/TimerContext';
 import { useToast } from '@/contexts/ToastContext';
 import { supabase } from '@/lib/supabase';
+import { formatCompact, formatRelative } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -147,8 +148,7 @@ function PingTimeBadge({ pingedAt }: { pingedAt: number }) {
     const id = setInterval(() => setTick(n => n + 1), 30_000);
     return () => clearInterval(id);
   }, []);
-  const secs = Math.floor((Date.now() - pingedAt) / 1000);
-  const label = secs < 60 ? 'just now' : secs < 3600 ? `${Math.floor(secs / 60)}m ago` : `${Math.floor(secs / 3600)}h ago`;
+  const label = formatRelative(new Date(pingedAt));
   return (
     <View
       pointerEvents="none"
@@ -1128,12 +1128,7 @@ export function TasksScreenWeb() {
     }
   };
 
-  const formatSeconds = (seconds: number) => {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    if (h > 0) return `${h}h ${m}m`;
-    return `${m}m`;
-  };
+  const formatSeconds = (seconds: number) => formatCompact(seconds);
 
   const renderTaskCard = (task: Task) => {
     if (!task) return null;
@@ -1343,7 +1338,7 @@ export function TasksScreenWeb() {
                    <View>
                       <Text className="text-[10px] text-typography-muted font-black uppercase tracking-widest mb-1">Active Time</Text>
                       <View className="flex-row items-baseline">
-                         <Text className="text-2xl font-black text-typography-main">{Math.floor(pulse.active_seconds_today / 3600)}h</Text>
+                          <Text className="text-2xl font-black text-typography-main">{formatCompact(pulse.active_seconds_today)}</Text>
                          <Text className="text-xs text-typography-muted ml-1 font-bold">{Math.floor((pulse.active_seconds_today % 3600) / 60)}m</Text>
                       </View>
                    </View>

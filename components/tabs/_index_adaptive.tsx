@@ -6,6 +6,7 @@ import { useNotifications } from '@/contexts/NotificationsContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { TAB_BAR_HEIGHT } from '@/lib/layout';
 import { supabase } from '@/lib/supabase';
+import { formatCompact, formatRelative } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
@@ -57,15 +58,7 @@ const getGreeting = (): string => {
   return 'Good evening';
 };
 
-const timeAgo = (dateStr: string): string => {
-  const now = Date.now();
-  const then = new Date(dateStr).getTime();
-  const diff = Math.floor((now - then) / 1000);
-  if (diff < 60) return 'Just now';
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return `${Math.floor(diff / 86400)}d ago`;
-};
+const timeAgo = (dateStr: string): string => formatRelative(dateStr);
 
 // ── Component ────────────────────────────────────────────────────────────
 
@@ -347,7 +340,7 @@ export default function DashboardScreen() {
                 <View>
                   <Text className="text-typography-muted text-[9px] font-bold uppercase mb-0.5">Active</Text>
                   <Text className="text-typography-main text-xl font-black">
-                    {Math.floor(pulse.active_seconds_today / 3600)}h <Text className="text-xs text-typography-muted">{Math.floor((pulse.active_seconds_today % 3600) / 60)}m</Text>
+                     {formatCompact(pulse.active_seconds_today)}
                   </Text>
                 </View>
                 <View>

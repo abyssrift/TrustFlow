@@ -1,6 +1,7 @@
 import UserLink from '@/components/common/UserLink';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
+import { formatCompact } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
@@ -31,11 +32,7 @@ type Dashboard = {
 };
 
 function fmtDuration(seconds: number): string {
-  if (!seconds || seconds <= 0) return '0h';
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  if (h === 0) return `${m}m`;
-  return m === 0 ? `${h}h` : `${h}h ${m}m`;
+  return formatCompact(seconds);
 }
 function initials(name: string | null): string {
   if (!name) return '?';
