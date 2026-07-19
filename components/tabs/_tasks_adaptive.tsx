@@ -1,6 +1,7 @@
 import AnimatedTaskCard from '@/components/common/AnimatedTaskCard';
 import ConfirmModal from '@/components/common/ConfirmModal';
 import HorizontalScroll from '@/components/common/HorizontalScroll';
+import LinkifiedText from '@/components/common/LinkifiedText';
 import KanbanPersonalizer from '@/components/kanban/KanbanPersonalizer';
 import SkeletonBlock, { SkeletonList } from '@/components/Skeleton';
 import ActiveSessionAvatars from '@/components/task-detail/ActiveSessionAvatars';
@@ -1114,9 +1115,9 @@ function TasksScreen() {
         )}
 
         {!!task.description && (
-          <Text className="text-typography-muted text-xs leading-4 mb-3" numberOfLines={2}>
+          <LinkifiedText className="text-typography-muted text-xs leading-4 mb-3" numberOfLines={2}>
             {task.description}
-          </Text>
+          </LinkifiedText>
         )}
         
         <View className="pt-3 border-t border-surface-border/50">

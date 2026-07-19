@@ -1,6 +1,7 @@
 import ClipboardControls from '@/components/common/ClipboardControls';
 import DraggableSheet from '@/components/common/DraggableSheet';
 import { FilePreviewGrid } from '@/components/common/FilePreviewCard';
+import LinkifiedText from '@/components/common/LinkifiedText';
 import ManualTimeApprovalsModal from '@/components/common/ManualTimeApprovalsModal';
 import ManualTimeModal from '@/components/common/ManualTimeModal';
 import LockIndicator from '@/components/task-detail/LockIndicator';
@@ -863,7 +864,7 @@ export default function StageActions() {
                     {s.stage_name && <Text className="text-typography-dim text-[9px] font-bold">{s.stage_name}</Text>}
                   </View>
 
-                  {s.content && <Text className="text-typography-label text-sm leading-5 mb-2">{s.content}</Text>}
+                  {s.content && <LinkifiedText className="text-typography-label text-sm leading-5 mb-2">{s.content}</LinkifiedText>}
 
                   {s.attachments.length > 0 && (
                     <View className="mb-2">

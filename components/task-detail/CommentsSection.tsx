@@ -7,6 +7,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import CollapsibleCard from './CollapsibleCard';
+import LinkifiedText from '../common/LinkifiedText';
 import PermissionGate from './PermissionGate';
 
 type CommentTree = CommentData & { children: CommentTree[] };
@@ -84,9 +85,9 @@ function CommentNode({ comment, depth, onReply, onDelete, canComment, currentUse
         </View>
 
         {/* Content */}
-        <Text className={`${comment.is_system ? 'text-typography-dim italic' : 'text-typography-label'} text-sm leading-5`}>
+        <LinkifiedText className={`${comment.is_system ? 'text-typography-dim italic' : 'text-typography-label'} text-sm leading-5`}>
           {comment.content}
-        </Text>
+        </LinkifiedText>
 
         {/* Reply button */}
         {canComment && !comment.is_system && (
