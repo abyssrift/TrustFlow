@@ -2,19 +2,13 @@ import { useTimer } from '@/contexts/TimerContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { useTicker } from '@/hooks/useTicker';
+import { formatStopwatch } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, Modal, PanResponder, Text, TouchableOpacity, View } from 'react-native';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-
-function formatHMS(totalSeconds: number): string {
-  const h = Math.floor(totalSeconds / 3600);
-  const m = Math.floor((totalSeconds % 3600) / 60);
-  const s = totalSeconds % 60;
-  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-}
 
 // `floating` draws the draggable pill (mobile). On desktop web the topbar's
 // morphing island shows the timer instead, so we pass floating={false} there —
@@ -23,7 +17,7 @@ export default function TimerIsland({ floating = true }: { floating?: boolean })
   const { isActive, activeSession, stopWork, serverTimeOffset, smartTimer } = useTimer();
   const { successToast, errorToast } = useToast();
   const elapsedSeconds = useTicker(isActive ? activeSession?.started_at ?? null : null, { offsetMs: serverTimeOffset });
-  const elapsed = formatHMS(elapsedSeconds);
+  const elapsed = formatStopwatch(elapsedSeconds);
   const [expanded, setExpanded] = useState(false);
   const router = useRouter();
   const colors = useThemeColors();

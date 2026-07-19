@@ -3,20 +3,10 @@ import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { useSubmission } from '../../contexts/SubmissionContext';
 import { useAnalytics, ActivityEntry } from '../../contexts/AnalyticsContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { formatRelative } from '@/lib/time';
 import { Ionicons } from '@expo/vector-icons';
 
-const formatDistanceToNow = (date: Date) => {
-  const diff = Date.now() - date.getTime();
-  const seconds = Math.floor(diff / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
-
-  if (days > 0) return `${days}d ago`;
-  if (hours > 0) return `${hours}h ago`;
-  if (minutes > 0) return `${minutes}m ago`;
-  return 'just now';
-};
+const formatDistanceToNow = (date: Date) => formatRelative(date);
 
 export const RecentActivitySidebar = () => {
   const { activeJobs } = useSubmission();

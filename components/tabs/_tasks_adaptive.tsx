@@ -18,6 +18,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { TAB_BAR_HEIGHT } from '@/lib/layout';
 import { supabase } from '@/lib/supabase';
+import { formatCompact, formatRelative } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -199,8 +200,7 @@ function PingTimeBadge({ pingedAt }: { pingedAt: number }) {
     const id = setInterval(() => setTick(n => n + 1), 30_000);
     return () => clearInterval(id);
   }, []);
-  const secs = Math.floor((Date.now() - pingedAt) / 1000);
-  const label = secs < 60 ? 'just now' : secs < 3600 ? `${Math.floor(secs / 60)}m ago` : `${Math.floor(secs / 3600)}h ago`;
+  const label = formatRelative(new Date(pingedAt));
   return (
     <View
       pointerEvents="none"
@@ -1344,7 +1344,7 @@ function TasksScreen() {
                <View>
                   <Text className="text-[9px] text-typography-muted font-black uppercase tracking-tighter mb-0.5">Velocity</Text>
                   <View className="flex-row items-baseline">
-                     <Text className="text-lg font-black text-typography-main">{Math.floor(pulse.active_seconds_today / 3600)}h</Text>
+                      <Text className="text-lg font-black text-typography-main">{formatCompact(pulse.active_seconds_today)}</Text>
                      <Text className="text-[9px] text-typography-muted ml-0.5 font-bold">{Math.floor((pulse.active_seconds_today % 3600) / 60)}m</Text>
                   </View>
                </View>

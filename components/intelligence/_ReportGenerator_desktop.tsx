@@ -2,6 +2,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { useTicker } from '@/hooks/useTicker';
 import { supabase } from '@/lib/supabase';
+import { formatStopwatch } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Stack, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -17,10 +18,6 @@ import { generateAndUploadReport } from './reports/generate';
 
 const BRAND = 'rgb(99,102,241)';
 const BRAND_DIM = 'rgba(99,102,241,0.15)';
-
-function fmt(s: number) {
-  return `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
-}
 
 function GenerationProgress({ current, total, elapsed }: { current: number; total: number; elapsed: number }) {
   const colors = useThemeColors();
@@ -51,10 +48,10 @@ function GenerationProgress({ current, total, elapsed }: { current: number; tota
         </View>
       </View>
       <Text style={{ color: 'rgba(255,255,255,0.65)', fontSize: 13, fontWeight: '700', fontVariant: ['tabular-nums'] }}>
-        {fmt(elapsed)}
+        {formatStopwatch(elapsed)}
       </Text>
       {eta !== null && eta > 0 ? (
-        <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11 }}>~{fmt(eta)} remaining</Text>
+        <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11 }}>~{formatStopwatch(eta)} remaining</Text>
       ) : null}
     </View>
   );
