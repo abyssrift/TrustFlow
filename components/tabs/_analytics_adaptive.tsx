@@ -9,6 +9,7 @@ import { PerformanceChart } from '@/components/analytics/PerformanceChart';
 import { TimerDeliverabilityChart } from '@/components/analytics/TimerDeliverabilityChart';
 import { FontAwesome } from '@expo/vector-icons';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { formatCompact } from '@/lib/time';
 
 export default function PersonalAnalyticsScreen() {
   const colors = useThemeColors();
@@ -61,9 +62,6 @@ export default function PersonalAnalyticsScreen() {
   // Current period = first row (RPC returns newest → oldest)
   const current: PerformancePeriod | undefined =
     series.find(r => r.is_current_period) ?? series[0];
-
-  const activeHours   = Math.floor((current?.active_seconds ?? 0) / 3600);
-  const activeMinutes = Math.floor(((current?.active_seconds ?? 0) % 3600) / 60);
 
   const timerEfficiency =
     (current?.estimated_seconds ?? 0) > 0
@@ -130,7 +128,7 @@ export default function PersonalAnalyticsScreen() {
               />
               <StatsCard
                 label="Active Time"
-                value={`${activeHours}h ${activeMinutes}m`}
+                value={formatCompact(current?.active_seconds ?? 0)}
                 icon="clock-o"
               />
             </View>

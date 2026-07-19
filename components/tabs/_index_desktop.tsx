@@ -3,6 +3,7 @@ import PipelineOverviewChart, { DEFAULT_OVERVIEW_METRICS, OverviewMetricKey } fr
 import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { isAuthError, supabase, triggerAuthError } from '@/lib/supabase';
+import { formatCompact, formatRelative } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
@@ -63,15 +64,7 @@ const getGreeting = (): string => {
   return 'Good evening';
 };
 
-const timeAgo = (dateStr: string): string => {
-  const now = Date.now();
-  const then = new Date(dateStr).getTime();
-  const diff = Math.floor((now - then) / 1000);
-  if (diff < 60) return 'Just now';
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return `${Math.floor(diff / 86400)}d ago`;
-};
+const timeAgo = (dateStr: string): string => formatRelative(dateStr);
 
 // ── Component ────────────────────────────────────────────────────────────
 
@@ -448,7 +441,7 @@ export default function DashboardScreenWeb() {
                   <View>
                     <Text className="text-[10px] text-typography-muted font-black uppercase tracking-widest mb-1">Active Time</Text>
                     <View className="flex-row items-baseline">
-                      <Text className="text-3xl font-black text-typography-main">{Math.floor(pulse.active_seconds_today / 3600)}h</Text>
+                       <Text className="text-3xl font-black text-typography-main">{formatCompact(pulse.active_seconds_today)}</Text>
                       <Text className="text-xs text-typography-muted ml-1 font-bold">{Math.floor((pulse.active_seconds_today % 3600) / 60)}m</Text>
                     </View>
                   </View>

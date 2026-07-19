@@ -1,6 +1,7 @@
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { useTicker } from '@/hooks/useTicker';
 import { supabase } from '@/lib/supabase';
+import { formatStopwatch } from '@/lib/time';
 import type { ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
@@ -28,11 +29,7 @@ function initials(name: string) {
 }
 
 function fmt(total: number): string {
-  const h = Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = total % 60;
-  const p = (n: number) => n.toString().padStart(2, '0');
-  return h > 0 ? `${h}:${p(m)}:${p(s)}` : `${p(m)}:${p(s)}`;
+  return formatStopwatch(total);
 }
 
 function Avatar({ name, avatar, size = 36 }: { name: string; avatar?: string | null; size?: number }) {

@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { useAlert } from '@/contexts/AlertContext';
 import { supabase } from '@/lib/supabase';
+import { formatCompact } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useState, useEffect, useRef } from 'react';
 import { Image, Modal, Platform, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
@@ -20,10 +21,7 @@ cssInterop(FontAwesome, {
 } as any);
 
 function fmtDur(sec: number): string {
-  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60);
-  if (h > 0) return `${h}h ${m}m`;
-  if (m > 0) return `${m}m`;
-  return `${sec}s`;
+  return formatCompact(sec);
 }
 
 type TabType = 'profile' | 'activity' | 'roles';
