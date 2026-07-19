@@ -1,5 +1,6 @@
 import AnimatedTaskCard from '@/components/common/AnimatedTaskCard';
 import KanbanPersonalizer from '@/components/kanban/KanbanPersonalizer';
+import LinkifiedText from '@/components/common/LinkifiedText';
 import RightSidebar from '@/components/kanban/RightSidebar.web';
 import ActiveSessionAvatars from '@/components/task-detail/ActiveSessionAvatars';
 import TaskCardActions, { type ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
@@ -1263,9 +1264,9 @@ export function TasksScreenWeb() {
           <Text className="text-typography-dim text-[10px] font-bold uppercase tracking-wider mb-2">{task.category}</Text>
         )}
         {!!task.description && (
-          <Text className="text-typography-muted text-sm leading-relaxed mb-4" numberOfLines={2}>
+          <LinkifiedText className="text-typography-muted text-sm leading-relaxed mb-4" numberOfLines={2}>
             {task.description}
-          </Text>
+          </LinkifiedText>
         )}
         
         {kanban.showAvatars && activeSessions[task.id] && activeSessions[task.id].length > 0 && (
