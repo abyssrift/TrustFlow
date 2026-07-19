@@ -19,13 +19,9 @@ import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
+import { formatStopwatch } from '@/lib/time';
 function formatDuration(seconds: number): string {
-  if (seconds < 60) return `${seconds}s`;
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  if (m < 60) return `${m}:${String(s).padStart(2, '0')}`;
-  const h = Math.floor(m / 60);
-  return `${h}h ${m % 60}m`;
+  return formatStopwatch(seconds);
 }
 
 function ElapsedTimer({ createdAt, updatedAt, completedAt, status }: { createdAt: string; updatedAt: string; completedAt?: string | null; status: string }) {

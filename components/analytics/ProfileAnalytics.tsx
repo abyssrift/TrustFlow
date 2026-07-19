@@ -6,6 +6,7 @@ import { PerformanceChart } from './PerformanceChart';
 import { TimerDeliverabilityChart } from './TimerDeliverabilityChart';
 import { PeriodToggle } from './PeriodToggle';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { formatCompact } from '@/lib/time';
 
 interface ProfileAnalyticsProps {
   userId: string;
@@ -86,9 +87,6 @@ export function ProfileAnalytics({ userId }: ProfileAnalyticsProps) {
   };
 
   const current = series.find(r => r.is_current_period) ?? series[0];
-
-  const activeHours   = Math.floor((current?.active_seconds ?? 0) / 3600);
-  const activeMinutes = Math.floor(((current?.active_seconds ?? 0) % 3600) / 60);
 
   const timerEfficiency =
     (current?.estimated_seconds ?? 0) > 0
@@ -194,7 +192,7 @@ export function ProfileAnalytics({ userId }: ProfileAnalyticsProps) {
             <View className="flex-row gap-3 mt-4 flex-wrap">
               <View className="flex-1 min-w-[80px] bg-surface-overlay rounded-xl p-3">
                 <Text className="text-typography-dim text-[9px] font-black uppercase tracking-widest">Active Time</Text>
-                <Text className="text-typography-main font-black text-base mt-0.5">{activeHours}h {activeMinutes}m</Text>
+                <Text className="text-typography-main font-black text-base mt-0.5">{formatCompact(current?.active_seconds ?? 0)}</Text>
               </View>
               <View className="flex-1 min-w-[80px] bg-surface-overlay rounded-xl p-3">
                 <Text className="text-typography-dim text-[9px] font-black uppercase tracking-widest">On-Time Rate</Text>

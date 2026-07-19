@@ -13,15 +13,9 @@ import { useIslandActivity, type IslandActivity } from '@/contexts/IslandContext
 import { useTimer } from '@/contexts/TimerContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useTicker } from '@/hooks/useTicker';
+import { formatStopwatch } from '@/lib/time';
 import { useRouter } from 'expo-router';
 import React from 'react';
-
-function formatHMS(total: number): string {
-  const h = Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = total % 60;
-  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-}
 
 export default function IslandTimerBridge() {
   const { isActive, activeSession, stopWork, serverTimeOffset } = useTimer();
@@ -39,11 +33,11 @@ export default function IslandTimerBridge() {
       kind: 'timer',
       icon: 'clock-o',
       accent: 'primary',
-      compactLabel: formatHMS(elapsedSeconds),
+      compactLabel: formatStopwatch(elapsedSeconds),
       pulse: true,
       progress: null,
       title: taskTitle,
-      subtitle: committing ? 'Committing…' : `Working · ${formatHMS(elapsedSeconds)}`,
+      subtitle: committing ? 'Committing…' : `Working · ${formatStopwatch(elapsedSeconds)}`,
       onPress: taskId ? () => router.push(`/task/${taskId}` as any) : undefined,
       actions: [
         {

@@ -13,6 +13,7 @@ import { useTimer } from '@/contexts/TimerContext';
 import { useFileViewer } from '@/hooks/useFileViewer';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { useTicker } from '@/hooks/useTicker';
+import { formatStopwatch, formatCompact } from '@/lib/time';
 import { getPastedImageFile } from '@/lib/pasteImage';
 import { SUBMISSION_BUCKET } from '@/lib/storage';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -92,9 +93,7 @@ function LiveTimerChip({
       <View className="flex-row items-center">
         <View className={`w-2 h-2 rounded-full mr-3 ${active ? 'bg-state-success animate-pulse' : 'bg-typography-muted'}`} />
         <Text className="text-typography-main font-mono text-xl font-black">
-          {Math.floor(elapsed / 3600).toString().padStart(2, '0')}:
-          {Math.floor((elapsed % 3600) / 60).toString().padStart(2, '0')}:
-          {(elapsed % 60).toString().padStart(2, '0')}
+          {formatStopwatch(elapsed)}
         </Text>
       </View>
       {active && (
@@ -107,9 +106,7 @@ function LiveTimerChip({
           <Text className="text-typography-dim text-[9px]">
             {idleSeconds < 60
               ? 'Active now'
-              : idleSeconds < 3600
-                ? `${Math.floor(idleSeconds / 60)}m idle`
-                : `${Math.floor(idleSeconds / 3600)}h ${Math.floor((idleSeconds % 3600) / 60)}m idle`}
+              : `${formatCompact(idleSeconds)} idle`}
           </Text>
         </View>
       )}

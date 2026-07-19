@@ -234,11 +234,9 @@ export const ArchivesSectionWeb = ({ reports, archives, search, activeSchema, on
 
 // ─── Analytics Section ────────────────────────────────────────────────────────
 
+import { formatCompact } from '@/lib/time';
 function fmtSec(s: number): string {
-  if (s <= 0) return '0m';
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  return formatCompact(s);
 }
 
 const DwellTip = ({ active, payload }: any) => {

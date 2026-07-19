@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { formatCompact, formatRelative } from '@/lib/time';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -19,18 +20,11 @@ function initials(name: string) {
 }
 
 function ago(iso: string) {
-  const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (s < 60) return 'just now';
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  return `${Math.floor(s / 86400)}d ago`;
+  return formatRelative(iso);
 }
 
 function dur(sec: number) {
-  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60);
-  if (h > 0) return `${h}h ${m}m`;
-  if (m > 0) return `${m}m`;
-  return `${sec}s`;
+  return formatCompact(sec);
 }
 
 // Board activity feed: stage moves (who moved what where) + completed work

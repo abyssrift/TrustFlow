@@ -4,23 +4,11 @@ import { useTimer } from '@/contexts/TimerContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { useTicker } from '@/hooks/useTicker';
+import { formatCompact } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useState } from 'react';
 import { Image, Text, TouchableOpacity, View } from 'react-native';
 import CollapsibleCard from './CollapsibleCard';
-
-function formatDuration(seconds: number) {
-  if (seconds <= 0) return '0s';
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.floor(seconds % 60);
-
-  const parts = [];
-  if (h > 0) parts.push(`${h}h`);
-  if (m > 0) parts.push(`${m}m`);
-  if (s > 0 || parts.length === 0) parts.push(`${s}s`);
-  return parts.join(' ');
-}
 
 // Who + when, at a glance: small avatar so "Recent Sessions" reads as an audit
 // trail (matches this task's other member/name affordances) rather than just
@@ -81,7 +69,7 @@ export default function TimerPanel() {
         icon="history"
         title="Total Effort"
         defaultCollapsed
-        headerRight={<Text className="text-typography-main text-sm font-black">{formatDuration(totalSpent)}</Text>}
+        headerRight={<Text className="text-typography-main text-sm font-black">{formatCompact(totalSpent)}</Text>}
       >
         {/* Sessions List */}
         <View className="gap-1">
@@ -103,7 +91,7 @@ export default function TimerPanel() {
                     </Text>
                   </View>
                 </View>
-                <Text className="text-typography-muted font-mono text-[10px] ml-2 flex-shrink-0">{formatDuration(s.total_seconds_spent)}</Text>
+                <Text className="text-typography-muted font-mono text-[10px] ml-2 flex-shrink-0">{formatCompact(s.total_seconds_spent)}</Text>
               </View>
             ))
           )}
