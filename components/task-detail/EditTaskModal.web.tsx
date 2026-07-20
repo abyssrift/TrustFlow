@@ -403,46 +403,6 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
               ) : (
                 <View className="gap-6 pb-8">
 
-                  {/* Due Date */}
-                  <View>
-                    <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2.5 ml-1">Due Date</Text>
-                    <View className="flex-row gap-3 flex-wrap mb-3">
-                      {QUICK_DATES.map(qd => (
-                        <TouchableOpacity
-                          key={qd.days}
-                          onPress={() => setDueDate(quickDate(qd.days))}
-                          className="px-3 py-1.5 rounded-xl border border-surface-border bg-surface-background hover:border-brand-primary hover:bg-brand-primary/5 transition-all"
-                        >
-                          <Text className="text-typography-muted text-[10px] font-black uppercase tracking-wider">{qd.label}</Text>
-                        </TouchableOpacity>
-                      ))}
-                      {dueDate && (
-                        <TouchableOpacity
-                          onPress={() => setDueDate(null)}
-                          className="px-3 py-1.5 rounded-xl border border-state-danger/30 bg-state-danger/5 hover:bg-state-danger/10 transition-all"
-                        >
-                          <Text className="text-state-danger text-[10px] font-black uppercase tracking-wider">Clear</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                    <TouchableOpacity
-                      ref={dueBtnRef}
-                      onPress={() => {
-                        closeAllOverlays();
-                        openOverlay(dueBtnRef, setDuePos, setShowDueCal);
-                      }}
-                      className={`bg-surface-background border rounded-2xl px-5 py-4 flex-row items-center justify-between transition-all ${showDueCal ? 'border-brand-primary' : 'border-surface-border'}`}
-                    >
-                      <View className="flex-row items-center gap-3">
-                        <FontAwesome name="calendar" size={13} color={dueDate ? colors.primary : colors.textDim} />
-                        <Text className={`font-bold ${dueDate ? 'text-typography-main' : 'text-typography-dim'}`}>
-                          {fmtDate(dueDate) !== '—' ? fmtDate(dueDate) : 'Set deadline'}
-                        </Text>
-                      </View>
-                      <FontAwesome name={showDueCal ? 'chevron-up' : 'chevron-down'} size={11} color={colors.textDim} />
-                    </TouchableOpacity>
-                  </View>
-
                   {/* Start Date */}
                   <View>
                     <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2.5 ml-1">Start Date</Text>
@@ -468,6 +428,7 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
                     <TouchableOpacity
                       ref={startBtnRef}
                       onPress={() => {
+                        if (showStartCal) { closeAllOverlays(); return; }
                         closeAllOverlays();
                         openOverlay(startBtnRef, setStartPos, setShowStartCal);
                       }}
@@ -484,6 +445,47 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
                     {dateConflict && (
                       <Text className="text-state-danger text-[10px] font-black mt-1.5 ml-1">Start date is after due date</Text>
                     )}
+                  </View>
+
+                  {/* Due Date */}
+                  <View>
+                    <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2.5 ml-1">Due Date</Text>
+                    <View className="flex-row gap-3 flex-wrap mb-3">
+                      {QUICK_DATES.map(qd => (
+                        <TouchableOpacity
+                          key={qd.days}
+                          onPress={() => setDueDate(quickDate(qd.days))}
+                          className="px-3 py-1.5 rounded-xl border border-surface-border bg-surface-background hover:border-brand-primary hover:bg-brand-primary/5 transition-all"
+                        >
+                          <Text className="text-typography-muted text-[10px] font-black uppercase tracking-wider">{qd.label}</Text>
+                        </TouchableOpacity>
+                      ))}
+                      {dueDate && (
+                        <TouchableOpacity
+                          onPress={() => setDueDate(null)}
+                          className="px-3 py-1.5 rounded-xl border border-state-danger/30 bg-state-danger/5 hover:bg-state-danger/10 transition-all"
+                        >
+                          <Text className="text-state-danger text-[10px] font-black uppercase tracking-wider">Clear</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                    <TouchableOpacity
+                      ref={dueBtnRef}
+                      onPress={() => {
+                        if (showDueCal) { closeAllOverlays(); return; }
+                        closeAllOverlays();
+                        openOverlay(dueBtnRef, setDuePos, setShowDueCal);
+                      }}
+                      className={`bg-surface-background border rounded-2xl px-5 py-4 flex-row items-center justify-between transition-all ${showDueCal ? 'border-brand-primary' : 'border-surface-border'}`}
+                    >
+                      <View className="flex-row items-center gap-3">
+                        <FontAwesome name="calendar" size={13} color={dueDate ? colors.primary : colors.textDim} />
+                        <Text className={`font-bold ${dueDate ? 'text-typography-main' : 'text-typography-dim'}`}>
+                          {fmtDate(dueDate) !== '—' ? fmtDate(dueDate) : 'Set deadline'}
+                        </Text>
+                      </View>
+                      <FontAwesome name={showDueCal ? 'chevron-up' : 'chevron-down'} size={11} color={colors.textDim} />
+                    </TouchableOpacity>
                   </View>
 
                   {/* Estimated Hours */}
@@ -547,6 +549,15 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
         </View>
 
         {/* ── Floating Overlays ── */}
+
+        {/* Backdrop for overlays */}
+        {(showDueCal || showStartCal) && (
+          <TouchableOpacity
+            onPress={closeAllOverlays}
+            className="absolute inset-0 z-40"
+            style={{ backgroundColor: 'transparent' }}
+          />
+        )}
 
         {/* Due Date Calendar */}
         {showDueCal && (
