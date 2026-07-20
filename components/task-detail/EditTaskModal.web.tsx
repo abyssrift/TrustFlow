@@ -13,6 +13,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 
@@ -56,6 +57,8 @@ function quickDate(days: number): string {
 
 export default function EditTaskModalWeb({ visible, onClose, focusField }: Props) {
   const colors = useThemeColors();
+  const { width: winWidth } = useWindowDimensions();
+  const isNarrow = winWidth < 768;
   const { data, updateTask } = useTaskDetail();
 
   const [tab, setTab] = useState<Tab>('details');
@@ -194,15 +197,16 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
   return (
     <Modal visible={visible} transparent animationType="fade">
       <View
-        className="flex-1 items-center justify-center p-10"
+        className={isNarrow ? 'flex-1 pt-3' : 'flex-1 items-center justify-center p-10'}
         style={{ backdropFilter: 'blur(16px)', backgroundColor: colors.background + 'B3' } as any}
       >
         <View
-          className="w-full max-w-[1100px] rounded-[2.5rem] overflow-hidden flex-row premium-shadow"
-          style={{ height: 720, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}
+          className={isNarrow ? 'flex-1 w-full flex-col rounded-t-[1.75rem] overflow-hidden' : 'w-full max-w-[1100px] rounded-[2.5rem] overflow-hidden flex-row premium-shadow'}
+          style={isNarrow ? { backgroundColor: colors.card } : { height: 720, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}
         >
 
-          {/* ── LEFT PANEL: Current Task Snapshot ── */}
+          {/* ── LEFT PANEL: Current Task Snapshot (desktop only — mobile shows the title in the header instead) ── */}
+          {!isNarrow && (
           <View className="w-72 flex-col" style={{ borderRightWidth: 1, borderColor: colors.border, backgroundColor: colors.background + '66' }}>
             <View className="px-7 pt-8 pb-5" style={{ borderBottomWidth: 1, borderColor: colors.border + '4D' }}>
               <View className="flex-row items-center gap-2.5 mb-5">
@@ -254,28 +258,33 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
               )}
             </ScrollView>
           </View>
+          )}
 
           {/* ── RIGHT PANEL: Edit Form ── */}
           <View className="flex-1 flex-col">
 
             {/* Header */}
-            <View className="px-10 py-7 flex-row items-center justify-between" style={{ borderBottomWidth: 1, borderColor: colors.border }}>
-              <View>
+            <View className={isNarrow ? 'px-5 py-5 flex-row items-center justify-between' : 'px-10 py-7 flex-row items-center justify-between'} style={{ borderBottomWidth: 1, borderColor: colors.border }}>
+              <View className="flex-1 mr-4">
                 <Text className="text-[10px] font-black uppercase tracking-[0.3em] mb-1" style={{ color: colors.textMuted }}>Task Editor</Text>
-                <Text className="text-3xl font-black tracking-tighter" style={{ color: colors.textMain }}>Edit Details</Text>
+                {isNarrow ? (
+                  <Text className="text-lg font-black tracking-tight" style={{ color: colors.textMain }} numberOfLines={2}>{task.title}</Text>
+                ) : (
+                  <Text className="text-3xl font-black tracking-tighter" style={{ color: colors.textMain }}>Edit Details</Text>
+                )}
               </View>
               <TouchableOpacity
                 onPress={onClose}
                 disabled={saving}
-                className="w-11 h-11 rounded-full items-center justify-center hover:border-brand-primary transition-colors"
+                className={isNarrow ? 'w-8 h-8 rounded-full items-center justify-center' : 'w-11 h-11 rounded-full items-center justify-center hover:border-brand-primary transition-colors'}
                 style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}
               >
-                <FontAwesome name="times" size={16} color={colors.textMuted} />
+                <FontAwesome name="times" size={isNarrow ? 13 : 16} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
 
             {/* Tabs */}
-            <View className="px-10 pt-4 pb-0 flex-row gap-8" style={{ borderBottomWidth: 1, borderColor: colors.border + '66' }}>
+            <View className={isNarrow ? 'px-5 pt-3 pb-0 flex-row gap-6' : 'px-10 pt-4 pb-0 flex-row gap-8'} style={{ borderBottomWidth: 1, borderColor: colors.border + '66' }}>
               {(['details', 'scheduling'] as Tab[]).map(t => (
                 <TouchableOpacity key={t} onPress={() => setTab(t)}>
                   <Text
@@ -289,7 +298,7 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
             </View>
 
             {/* Form Area */}
-            <ScrollView className="flex-1 px-10 pt-6" onScrollBeginDrag={closeAllOverlays} showsVerticalScrollIndicator={false}>
+            <ScrollView className={isNarrow ? 'flex-1 px-5 pt-5' : 'flex-1 px-10 pt-6'} onScrollBeginDrag={closeAllOverlays} showsVerticalScrollIndicator={false}>
               {error && (
                 <View className="px-4 py-3 rounded-2xl mb-5" style={{ backgroundColor: colors.danger + '1A', borderWidth: 1, borderColor: colors.danger + '4D' }}>
                   <Text className="text-sm font-bold" style={{ color: colors.danger }}>{error}</Text>
@@ -537,15 +546,17 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
             </ScrollView>
 
             {/* Footer */}
-            <View className="px-10 py-5 flex-row items-center justify-between" style={{ borderTopWidth: 1, borderColor: colors.border + '80', backgroundColor: colors.background + '4D' }}>
-              <Text className="text-[10px] font-bold" style={{ color: colors.textMuted }}>
-                {saving ? 'Saving changes...' : 'Press Ctrl+↵ to save'}
-              </Text>
-              <View className="flex-row items-center gap-4">
+            <View className={isNarrow ? 'px-5 py-4 flex-row items-center justify-between' : 'px-10 py-5 flex-row items-center justify-between'} style={{ borderTopWidth: 1, borderColor: colors.border + '80', backgroundColor: colors.background + '4D' }}>
+              {!isNarrow && (
+                <Text className="text-[10px] font-bold" style={{ color: colors.textMuted }}>
+                  {saving ? 'Saving changes...' : 'Press Ctrl+↵ to save'}
+                </Text>
+              )}
+              <View className={isNarrow ? 'flex-1 flex-row items-center gap-3' : 'flex-row items-center gap-4'}>
                 <TouchableOpacity
                   onPress={onClose}
                   disabled={saving}
-                  className="px-6 py-3 rounded-2xl hover:border-brand-primary/40 transition-all"
+                  className={isNarrow ? 'flex-1 px-4 py-3 rounded-2xl items-center hover:border-brand-primary/40 transition-all' : 'px-6 py-3 rounded-2xl hover:border-brand-primary/40 transition-all'}
                   style={{ borderWidth: 1, borderColor: colors.border }}
                 >
                   <Text className="font-bold" style={{ color: colors.textMain }}>Cancel</Text>
@@ -553,7 +564,7 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
                 <TouchableOpacity
                   onPress={handleSave}
                   disabled={saving || !title.trim()}
-                  className="px-8 py-3 rounded-2xl flex-row items-center gap-2.5 transition-all hover:bg-brand-primary/90"
+                  className={isNarrow ? 'flex-1 px-4 py-3 rounded-2xl flex-row items-center justify-center gap-2.5 transition-all hover:bg-brand-primary/90' : 'px-8 py-3 rounded-2xl flex-row items-center gap-2.5 transition-all hover:bg-brand-primary/90'}
                   style={{ backgroundColor: !title.trim() ? colors.primary + '4D' : colors.primary }}
                 >
                   {saving ? (
