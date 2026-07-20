@@ -53,7 +53,7 @@ type ActivityEntry = {
 
 const getGreeting = (): string => {
   const hour = new Date().getHours();
-  if (hour < 12) return 'Good morning';
+  if (hour < 12) return 'morning';
   if (hour < 17) return 'Good afternoon';
   return 'Good evening';
 };
@@ -353,7 +353,10 @@ export default function DashboardScreen() {
             </View>
           )}
 
-          <PendingTimeApprovalsWidget refreshKey={widgetRefreshKey} />
+          {/* Desktop web (>=768) surfaces this via the topbar island instead (IslandTimeApprovalsBridge). */}
+          {!(Platform.OS === 'web' && width >= 768) && (
+            <PendingTimeApprovalsWidget refreshKey={widgetRefreshKey} />
+          )}
 
           <View className="flex-row flex-wrap justify-between mb-4">
             <TouchableOpacity onPress={() => router.push('/tasks' as any)} activeOpacity={0.75} className="w-[48%] bg-surface-card p-5 rounded-2xl border border-surface-border mb-4 premium-shadow">

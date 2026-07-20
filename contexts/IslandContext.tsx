@@ -27,7 +27,7 @@ import React, { createContext, useCallback, useContext, useMemo, useRef, useStat
 
 export type IslandAccent = 'primary' | 'success' | 'warning' | 'danger';
 export type IslandTone = IslandAccent | 'neutral';
-export type IslandKind = 'timer' | 'upload' | 'report';
+export type IslandKind = 'timer' | 'upload' | 'report' | 'approval';
 
 export type IslandAction = {
   key: string;

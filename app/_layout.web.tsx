@@ -12,6 +12,7 @@ import '../global.css';
 import BrandSplash from '@/components/BrandSplash';
 import NetworkStatusBanner from '@/components/NetworkStatusBanner';
 import Sidebar from '@/components/Sidebar.web';
+import IslandTimeApprovalsBridge from '@/components/island/IslandTimeApprovalsBridge.web';
 import IslandTimerBridge from '@/components/island/IslandTimerBridge.web';
 import TimerIsland from '@/components/TimerIsland';
 import WelcomeTour from '@/components/onboarding/WelcomeTour';
@@ -139,6 +140,7 @@ function RootLayoutNav() {
                 (< 768). The bridge mirrors the running timer into the island. */}
             <TimerIsland floating={width < 768} />
             {session && width >= 768 && <IslandTimerBridge />}
+            {session && width >= 768 && <IslandTimeApprovalsBridge />}
             <View className="absolute top-0 left-0 right-0 z-[999]">
               <NetworkStatusBanner />
             </View>

@@ -22,7 +22,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, AppState, Image, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, Image, Platform, ScrollView, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { getActionDescriptor, splitStageActions } from './actionRegistry';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -208,6 +208,10 @@ export default function StageActions() {
   const { isActive, activeSession, serverTimeOffset, stopWork, startWork, smartTimer } = useTimer();
   const router = useRouter();
   const { user } = useAuth();
+  const { width } = useWindowDimensions();
+  // Desktop web owns this surface via the topbar island (IslandTimeApprovalsBridge)
+  // instead — same breakpoint the island itself is gated on.
+  const isDesktopWeb = Platform.OS === 'web' && width >= 768;
   const [loadingActionId, setLoadingActionId] = useState<string | null>(null);
   const [submissionContent, setSubmissionContent] = useState('');
   const [stagedFiles, setStagedFiles] = useState<any[]>([]);
@@ -608,8 +612,9 @@ export default function StageActions() {
         </View>
       )}
 
-      {/* Manager: pending time approval trigger — opens the review queue modal */}
-      {data.permissions.is_manager && data.pending_time_approvals?.length > 0 && (
+      {/* Manager: pending time approval trigger — opens the review queue modal.
+          Desktop web surfaces this via the topbar island instead (IslandTimeApprovalsBridge). */}
+      {!isDesktopWeb && data.permissions.is_manager && data.pending_time_approvals?.length > 0 && (
         <TouchableOpacity
           onPress={() => setShowApprovalsModal(true)}
           className="bg-state-warning/10 border border-state-warning/30 rounded-2xl p-4 flex-row items-center justify-between active:opacity-80"
@@ -736,18 +741,20 @@ export default function StageActions() {
         onCancel={() => { setShowManualTimeModal(false); setPendingAdvanceAction(null); }}
       />
 
-      <ManualTimeApprovalsModal
-        visible={showApprovalsModal}
-        onClose={() => setShowApprovalsModal(false)}
-        entries={(data.pending_time_approvals || []).map(e => ({
-          id: e.id,
-          declared_minutes: e.declared_minutes,
-          reason: e.reason,
-          flag_reason: e.flag_reason,
-          worker_name: e.user?.full_name ?? null,
-        }))}
-        onReview={(entryId, approve) => reviewManualTime(entryId, approve)}
-      />
+      {!isDesktopWeb && (
+        <ManualTimeApprovalsModal
+          visible={showApprovalsModal}
+          onClose={() => setShowApprovalsModal(false)}
+          entries={(data.pending_time_approvals || []).map(e => ({
+            id: e.id,
+            declared_minutes: e.declared_minutes,
+            reason: e.reason,
+            flag_reason: e.flag_reason,
+            worker_name: e.user?.full_name ?? null,
+          }))}
+          onReview={(entryId, approve) => reviewManualTime(entryId, approve)}
+        />
+      )}
 
       {showSubmissionSection && (
         <View className="bg-surface-card rounded-2xl border border-surface-border p-4">

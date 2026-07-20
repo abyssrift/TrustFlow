@@ -1,4 +1,3 @@
-import PendingTimeApprovalsWidget from '@/components/common/PendingTimeApprovalsWidget';
 import PipelineOverviewChart, { DEFAULT_OVERVIEW_METRICS, OverviewMetricKey } from '@/components/intelligence/PipelineOverviewChart';
 import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -59,7 +58,7 @@ type ProjectSummary = {
 
 const getGreeting = (): string => {
   const hour = new Date().getHours();
-  if (hour < 12) return 'Good morning';
+  if (hour < 12) return 'morning';
   if (hour < 17) return 'Good afternoon';
   return 'Good evening';
 };
@@ -462,7 +461,6 @@ export default function DashboardScreenWeb() {
             )}
 
             <View className="flex-row flex-wrap gap-6 mb-10">
-              <PendingTimeApprovalsWidget refreshKey={widgetRefreshKey} />
               <KPICard
                 icon="tasks"
                 label="Total Pipeline"
