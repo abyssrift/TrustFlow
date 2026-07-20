@@ -1,8 +1,8 @@
+import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useState } from 'react';
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { useThemeColors } from '@/hooks/useThemeColors';
 
 type Props = {
   visible: boolean;
@@ -157,15 +157,6 @@ export default function ManualTimeModal({ visible, taskId, stageId, transitionId
             </View>
           )}
 
-          {/* Fraud notice */}
-          <View className="bg-state-warning/5 border border-state-warning/20 rounded-2xl p-4">
-            <View className="flex-row items-start gap-3">
-              <FontAwesome name="shield" size={14} color={colors.warning} style={{ marginTop: 1 }} />
-              <Text className="text-state-warning/80 text-xs font-medium leading-relaxed flex-1">
-                All declarations are logged and auditable. Entries that significantly exceed the task estimate or stage average are automatically flagged for manager review.
-              </Text>
-            </View>
-          </View>
         </View>
 
         {/* Action buttons */}
