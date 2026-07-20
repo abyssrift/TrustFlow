@@ -1,8 +1,15 @@
+import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useState } from 'react';
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
+
+const todayIso = () => new Date().toISOString().split('T')[0];
+const formatWorkedDate = (d: string) => {
+  if (d === todayIso()) return 'Today';
+  return new Date(d + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+};
 
 type Props = {
   visible: boolean;
@@ -20,6 +27,8 @@ export default function ManualTimeModal({ visible, taskId, stageId, transitionId
   const [hours, setHours] = useState('');
   const [minutes, setMinutes] = useState('');
   const [reason, setReason] = useState('');
+  const [workedDate, setWorkedDate] = useState(todayIso());
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,6 +36,8 @@ export default function ManualTimeModal({ visible, taskId, stageId, transitionId
     setHours('');
     setMinutes('');
     setReason('');
+    setWorkedDate(todayIso());
+    setShowDatePicker(false);
     setError(null);
   };
 
@@ -53,6 +64,7 @@ export default function ManualTimeModal({ visible, taskId, stageId, transitionId
         p_declared_minutes: totalMinutes,
         p_reason:           reason.trim() || null,
         p_transition_id:    transitionId ?? null,
+        p_worked_date:      workedDate,
       });
       if (rpcError) throw rpcError;
       reset();
@@ -129,6 +141,28 @@ export default function ManualTimeModal({ visible, taskId, stageId, transitionId
                 onChangeText={v => setMinutes(v.replace(/[^0-9]/g, ''))}
               />
             </View>
+          </View>
+
+          {/* Worked on */}
+          <View className="mb-4">
+            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Worked On</Text>
+            <TouchableOpacity
+              onPress={() => setShowDatePicker(s => !s)}
+              className="bg-surface-background border border-surface-border rounded-2xl px-4 py-3 flex-row items-center justify-between hover:bg-surface-overlay transition-colors"
+            >
+              <Text className="text-typography-main font-medium text-sm">{formatWorkedDate(workedDate)}</Text>
+              <FontAwesome name="calendar-o" size={12} color={colors.textMuted} />
+            </TouchableOpacity>
+            {showDatePicker && (
+              <View className="mt-2">
+                <PremiumCalendarPicker
+                  selectedDate={workedDate}
+                  onSelect={d => { setWorkedDate(d > todayIso() ? todayIso() : d); setShowDatePicker(false); }}
+                  accentColor={colors.warning}
+                  compact
+                />
+              </View>
+            )}
           </View>
 
           {/* Reason */}

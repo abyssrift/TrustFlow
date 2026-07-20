@@ -53,15 +53,16 @@ export default function TimerPanel() {
   const stageNameById = new Map(data.all_stages.map(st => [st.id, st.name]));
 
   // Same gate the advance action enforces (StageActions) — only offer the QOL
-  // shortcut where a declaration would actually be accepted.
+  // shortcut where a declaration would actually be accepted. Stays available
+  // even after a prior declaration (pending/approved/rejected) — resubmitting
+  // always goes back through manager approval, it's never a free edit.
   const stage = data.current_stage;
-  const myEntry = data.my_manual_time_entry;
   const gateActive =
     !!stage?.requires_timer &&
     !stage?.is_initial &&
     (stage?.min_timer_seconds ?? 300) > 0 &&
     data.permissions.is_assigned;
-  const canDeclare = gateActive && myEntry?.approval_status !== 'pending' && myEntry?.approval_status !== 'approved';
+  const canDeclare = gateActive;
 
   return (
     <>
