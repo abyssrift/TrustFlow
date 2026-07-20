@@ -448,7 +448,8 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
                         </TouchableOpacity>
                       </View>
                       <PremiumCalendarPicker
-                        compact
+                        scale="compact"
+                        showDaysBetween
                         selectedDate={activeDateField === 'start' ? dateStart : dateEnd}
                         onSelect={(date) => {
                           if (activeDateField === 'start') {

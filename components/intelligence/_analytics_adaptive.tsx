@@ -63,7 +63,8 @@ function CalendarModal({ visible, title, value, onSelect, onClose, accentColor, 
             accentColor={accentColor}
             rangeDate={rangeDate}
             rangeColor={rangeColor}
-            compact
+            scale="compact"
+            showDaysBetween
           />
     </DraggableSheet>
   );

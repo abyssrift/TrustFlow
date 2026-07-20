@@ -75,6 +75,7 @@ export const TargetCreationModal = ({ visible, onClose, onConfirm, pipelines, st
               <PremiumCalendarPicker
                 selectedDate={deadline?.toISOString() || null}
                 onSelect={(date) => setDeadline(new Date(date))}
+                scale="compact"
               />
             </View>
           </View>

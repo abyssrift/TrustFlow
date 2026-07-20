@@ -125,7 +125,7 @@ export default function ProjectFolderModal({
                   <PremiumCalendarPicker
                     selectedDate={expiryDate}
                     onSelect={(date) => { setExpiryDate(date); setShowCalendar(false); }}
-                    compact
+                    scale="compact"
                   />
                 )}
               </View>

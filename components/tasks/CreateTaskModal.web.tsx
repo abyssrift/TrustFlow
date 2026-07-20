@@ -1,6 +1,7 @@
 import AssignmentModePreview from '@/components/tasks/AssignmentModePreview';
 import ClipboardControls from '@/components/common/ClipboardControls';
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
+import { useCalendarPosition } from '@/lib/calendarPicker';
 import { usePipelineAssignmentPreview } from '@/lib/usePipelineAssignmentPreview';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTaskCreation } from '@/contexts/TaskCreationContext';
@@ -11,7 +12,7 @@ import { FontAwesome } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Image, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Image, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
 
 cssInterop(FontAwesome, {
@@ -161,7 +162,6 @@ function AdaptiveFileGrid({
 
 export default function CreateTaskModal({ visible, onClose, initialPipelineId }: Props) {
   const colors = useThemeColors();
-  const { width } = useWindowDimensions();
   const { hasPermission } = useAuth();
   const { draft, setDraft, createTask, createBulkTasks, loading, recentTasks, loadRecentTasks, briefFiles, setBriefFiles } = useTaskCreation();
   const [activeTab, setActiveTab] = useState<'details' | 'assignments'>('details');
@@ -195,14 +195,12 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
   const [projectSearch,  setProjectSearch]  = useState('');
 
   // Deadline calendar
-  const [showCalendar, setShowCalendar]   = useState(false);
-  const calendarButtonRef                 = useRef<any>(null);
-  const [calendarPos, setCalendarPos]     = useState({ top: 0, left: 0, width: 0 });
+  const [showCalendar, setShowCalendar] = useState(false);
+  const calPos = useCalendarPosition({ calendarWidth: 332 });
 
   // Start date calendar
   const [showStartCalendar, setShowStartCalendar] = useState(false);
-  const startCalendarButtonRef                     = useRef<any>(null);
-  const [startCalendarPos, setStartCalendarPos]   = useState({ top: 0, left: 0, width: 0 });
+  const startCalPos = useCalendarPosition({ calendarWidth: 332 });
 
   // Pipeline dropdown
   const [showPipelineDropdown, setShowPipelineDropdown] = useState(false);
@@ -594,10 +592,11 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                         <Text className="text-[10px] font-black uppercase tracking-widest mb-3 ml-1" style={{ color: colors.textMuted }}>Start Date</Text>
                         <View className="rounded-2xl flex-row items-center overflow-hidden" style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: dateConflict ? colors.warning : colors.border }}>
                           <TouchableOpacity
-                            ref={startCalendarButtonRef}
+                            ref={startCalPos.triggerRef}
                             onPress={() => {
                               if (!showStartCalendar) {
-                                openOverlay(startCalendarButtonRef, setStartCalendarPos, setShowStartCalendar);
+                                startCalPos.measure();
+                                setShowStartCalendar(true);
                                 setShowCalendar(false); setShowPipelineDropdown(false); setShowProjectDropdown(false);
                               } else { setShowStartCalendar(false); }
                             }}
@@ -615,7 +614,8 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                             <TouchableOpacity
                               onPress={() => {
                                 if (!showStartCalendar) {
-                                  openOverlay(startCalendarButtonRef, setStartCalendarPos, setShowStartCalendar);
+                                  startCalPos.measure();
+                                  setShowStartCalendar(true);
                                   setShowCalendar(false); setShowPipelineDropdown(false); setShowProjectDropdown(false);
                                 } else { setShowStartCalendar(false); }
                               }}
@@ -632,10 +632,11 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                         <Text className="text-[10px] font-black uppercase tracking-widest mb-3 ml-1" style={{ color: colors.textMuted }}>Deadline</Text>
                         <View className="rounded-2xl flex-row items-center overflow-hidden" style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: dateConflict ? colors.warning : colors.border }}>
                           <TouchableOpacity
-                            ref={calendarButtonRef}
+                            ref={calPos.triggerRef}
                             onPress={() => {
                               if (!showCalendar) {
-                                openOverlay(calendarButtonRef, setCalendarPos, setShowCalendar);
+                                calPos.measure();
+                                setShowCalendar(true);
                                 setShowStartCalendar(false); setShowPipelineDropdown(false); setShowProjectDropdown(false);
                               } else { setShowCalendar(false); }
                             }}
@@ -653,7 +654,8 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                             <TouchableOpacity
                               onPress={() => {
                                 if (!showCalendar) {
-                                  openOverlay(calendarButtonRef, setCalendarPos, setShowCalendar);
+                                  calPos.measure();
+                                  setShowCalendar(true);
                                   setShowStartCalendar(false); setShowPipelineDropdown(false); setShowProjectDropdown(false);
                                 } else { setShowCalendar(false); }
                               }}
@@ -926,30 +928,32 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
 
         {/* Deadline calendar */}
         {showCalendar && (
-          <View style={{ position: 'fixed', top: calendarPos.top, left: Math.max(20, Math.min(calendarPos.left, width - 420)), zIndex: 999 } as any}>
+          <View style={calPos.style as any}>
             <PremiumCalendarPicker
               selectedDate={draft.dueDate}
               onSelect={date => setDraft({ dueDate: date })}
               accentColor={colors.primary}
               rangeDate={draft.startDate}
               rangeColor={colors.accent}
-              compact
+              scale="compact"
               showQuickSelect
+              showDaysBetween
             />
           </View>
         )}
 
         {/* Start date calendar */}
         {showStartCalendar && (
-          <View style={{ position: 'fixed', top: startCalendarPos.top, left: Math.max(20, Math.min(startCalendarPos.left, width - 420)), zIndex: 999 } as any}>
+          <View style={startCalPos.style as any}>
             <PremiumCalendarPicker
               selectedDate={draft.startDate}
               accentColor={colors.accent}
               onSelect={date => setDraft({ startDate: date })}
               rangeDate={draft.dueDate}
               rangeColor={colors.primary}
-              compact
+              scale="compact"
               showQuickSelect
+              showDaysBetween
             />
           </View>
         )}
