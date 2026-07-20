@@ -1,5 +1,9 @@
 ---
 import '../styles/global.css';
+// Self-host Inter (latin subset only) straight from the @fontsource dep. Vite
+// emits a hashed URL we can both @font-face and preload — one weight axis, one
+// file, font-display: swap. DESIGN_SPEC §3.
+import interLatin from '@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url';
 
 interface Props {
   title: string;
@@ -11,14 +15,20 @@ interface Props {
 const { title, description, ogImage = '/og-default.png' } = Astro.props;
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 const ogImageURL = new URL(ogImage, Astro.site);
+
+const interFontFace = `@font-face{font-family:'Inter Variable';font-style:normal;font-display:swap;font-weight:100 900;src:url(${interLatin}) format('woff2-variations');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;}`;
 ---
 
 <!doctype html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
     <link rel="canonical" href={canonicalURL} />
+
+    <link rel="preload" href={interLatin} as="font" type="font/woff2" crossorigin />
+    <style set:html={interFontFace}></style>
 
     <title>{title}</title>
     <meta name="description" content={description} />

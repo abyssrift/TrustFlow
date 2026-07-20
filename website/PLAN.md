@@ -30,6 +30,12 @@ This is bigger than a "1-2 page site" — it's a small marketing site *plus* a l
 | 8 | **Video production & hosting** | Who shoots/edits the product videos; host self-hosted (Cloudflare Stream/Mux, costs money, best perf control) vs. YouTube/Vimeo embed (free, easy, adds 3rd-party JS/cookies unless facade-loaded) | Not started |
 | 9 | **Tutorials/FAQ format** | Astro content collections (Markdown/MDX, versioned in this repo) vs. a dedicated docs tool (e.g. Astro Starlight) if the tutorial library grows beyond a handful of pages | Not started |
 
+## 1a. Resolved decisions (2026-07-19, with Adam)
+
+- **#1 Brand color / visual direction → RESOLVED.** Dark-first site in the spirit of `linear.app`, matching the app's own dark mode (Adam's preferred theme). Background = the app's dark `--surface-background` **#080d18** (near-black navy), accent = the app's live indigo **#4f46e5** (`--brand-primary`), text/borders = the app's dark slate tokens. This settles the #144ed5-vs-#4f46e5 drift *for the site* toward indigo; the logo mark can keep its blue. `tokens.css` (currently ported from the app's *light* theme, defaulting to logo blue) gets rewritten dark-first as step 1 of the build.
+- **#2 Typeface → leaning Inter.** The Linear look is largely Inter; self-host via `@fontsource`, latin subset, `font-display: swap`. Confirm before build.
+- **#5 Domain → deferred.** Build against the host's preview URL for now; pick the real subdomain (candidate: `trustflow.trustedgellc.com`, one DNS record) right before launch, `trustflow.com` later. See §7.
+
 ## 2. Home page — content structure (7-8 sections)
 
 1. **Nav** — logo, anchor/page links (Product / Plans / Resources), primary CTA ("Sign in" + "Get started")
@@ -85,11 +91,15 @@ Goes deeper than Home's feature sections: full tour of the pipeline engine (stag
 
 Budget doesn't cover `trustflow.com` right now, and `trustedgellc.com` is already the company's own separate corporate site — so this does **not** reuse that domain's root or app subdomain. Path:
 
-1. **Now:** deploy as its own Netlify site with **Base directory = `website`**, publish dir `dist` (its `netlify.toml` is already scoped for this). It'll get a free `*.netlify.app` URL to develop and share against.
-2. **Optional interim:** point a free subdomain like `trustflow.trustedgellc.com` at it (one DNS record on a domain already owned) if a "real" URL is wanted before buying anything.
+**Host = Hostinger, next to `portal.` (RESOLVED 2026-07-19).** The app was moved off Netlify to Hostinger because of an ISP-level block on Netlify's edge in the target region (Egypt). A marketing site's whole job is being reachable by clients, and a custom subdomain CNAME'd to Netlify still resolves to the same blocked IPs — renaming the door doesn't move the house. So this site ships to Hostinger, the same static-file way the Expo web export does. The scaffold's `netlify.toml` is now vestigial; it can stay as a fallback/preview config but is not the launch target. (Cloudflare Pages is a fine free preview host — not ISP-blocked — if a hosted preview URL is wanted during dev.)
+
+1. **Now:** build locally / on a Cloudflare Pages preview; deploy `dist/` to Hostinger when ready.
+2. **Interim URL:** point `trustflow.trustedgellc.com` (one DNS record on a domain already owned) at the Hostinger deploy when a "real" URL is wanted. Subdomain name still open (see §1a #5).
 3. **Later:** buy `trustflow.com` (or a fallback like `.io`/`.app`) when budget allows (~$10-20/yr at-cost via Cloudflare Registrar or Porkbun) and repoint DNS — no rebuild required, just update `site:` in `astro.config.mjs` and the sitemap/robots URLs.
 
-This is a genuinely separate deploy from the main app's root `netlify.toml` — the app keeps deploying itself unaffected.
+This is a genuinely separate deploy from the main app — the app keeps deploying itself unaffected.
+
+**Subdomain map (for coherence with future plans):** `trustedgellc.com` = corporate site (not this) · `portal.trustedgellc.com` = the app · `trustflow.trustedgellc.com` = this marketing site · `client.trustedgellc.com` = future client-request intake (a separate authenticated app feature, **out of scope for this issue** — reserve the name, don't build it here).
 
 ## 8. Accessibility
 

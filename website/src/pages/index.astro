@@ -1,20 +1,15 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import Nav from '../components/Nav.astro';
+import Hero from '../components/Hero.astro';
 ---
 
 <BaseLayout
-  title="TrustFlow — Workflow, done right"
-  description="TrustFlow is a pipeline-based task and workflow management platform."
+  title="TrustFlow — Run client work, start to finish"
+  description="TrustFlow moves client deliverables through pipelines and stages, tracks effort, and keeps review in one place — built for agencies and back-office teams."
 >
-  <!--
-    Placeholder only. Real sections (hero, features, pricing, etc.) are
-    designed and built per website/PLAN.md — intentionally not started yet.
-  -->
-  <main class="flex min-h-screen flex-col items-center justify-center gap-4 p-6 text-center">
-    <img src="/logo-mark.png" alt="TrustFlow" width="48" height="48" />
-    <h1 class="text-2xl font-semibold text-typography-main">TrustFlow marketing site — scaffold</h1>
-    <p class="max-w-md text-typography-muted">
-      Environment is wired up. See <code>website/PLAN.md</code> for the build plan.
-    </p>
+  <Nav />
+  <main>
+    <Hero />
   </main>
 </BaseLayout>
