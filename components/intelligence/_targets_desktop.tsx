@@ -93,7 +93,7 @@ const EditTargetModal = ({
                     <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-3">
                       Expiration Deadline
                     </Text>
-                    <PremiumCalendarPicker selectedDate={deadline} onSelect={setDeadline} compact />
+                    <PremiumCalendarPicker selectedDate={deadline} onSelect={setDeadline} scale="compact" />
                   </View>
                 </>
               ) : (

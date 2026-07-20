@@ -2,6 +2,7 @@ import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
+import { useCalendarPosition } from '@/lib/calendarPicker';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { cssInterop } from 'react-native-css-interop';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -76,34 +77,21 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
   const [showStartCal, setShowStartCal]       = useState(false);
   const [showManagerDrop, setShowManagerDrop] = useState(false);
   const [managerSearch, setManagerSearch]     = useState('');
-  const dueBtnRef    = useRef<any>(null);
-  const startBtnRef  = useRef<any>(null);
   const managerRef   = useRef<any>(null);
-  const [duePos, setDuePos]       = useState({ top: 0, left: 0, width: 0 });
-  const [startPos, setStartPos]   = useState({ top: 0, left: 0, width: 0 });
   const [managerPos, setManagerPos] = useState({ top: 0, left: 0, width: 0 });
 
   const [users, setUsers]   = useState<UserOption[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState<string | null>(null);
 
+  const dueCalPos = useCalendarPosition({ calendarWidth: 332 });
+  const startCalPos = useCalendarPosition({ calendarWidth: 332 });
+
   const closeAllOverlays = useCallback(() => {
     setShowDueCal(false);
     setShowStartCal(false);
     setShowManagerDrop(false);
   }, []);
-
-  const openOverlay = (
-    ref: React.RefObject<any>,
-    setPos: (p: { top: number; left: number; width: number }) => void,
-    setShow: (v: boolean) => void
-  ) => {
-    if (ref.current?.getBoundingClientRect) {
-      const rect = ref.current.getBoundingClientRect();
-      setPos({ top: rect.bottom + 6, left: rect.left, width: rect.width });
-    }
-    setShow(true);
-  };
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -426,11 +414,12 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
                       )}
                     </View>
                     <TouchableOpacity
-                      ref={startBtnRef}
+                      ref={startCalPos.triggerRef}
                       onPress={() => {
                         if (showStartCal) { closeAllOverlays(); return; }
                         closeAllOverlays();
-                        openOverlay(startBtnRef, setStartPos, setShowStartCal);
+                        startCalPos.measure();
+                        setShowStartCal(true);
                       }}
                       className={`bg-surface-background border rounded-2xl px-5 py-4 flex-row items-center justify-between transition-all ${showStartCal ? 'border-brand-primary' : dateConflict ? 'border-state-danger/50' : 'border-surface-border'}`}
                     >
@@ -470,11 +459,12 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
                       )}
                     </View>
                     <TouchableOpacity
-                      ref={dueBtnRef}
+                      ref={dueCalPos.triggerRef}
                       onPress={() => {
                         if (showDueCal) { closeAllOverlays(); return; }
                         closeAllOverlays();
-                        openOverlay(dueBtnRef, setDuePos, setShowDueCal);
+                        dueCalPos.measure();
+                        setShowDueCal(true);
                       }}
                       className={`bg-surface-background border rounded-2xl px-5 py-4 flex-row items-center justify-between transition-all ${showDueCal ? 'border-brand-primary' : 'border-surface-border'}`}
                     >
@@ -554,35 +544,37 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
         {(showDueCal || showStartCal) && (
           <TouchableOpacity
             onPress={closeAllOverlays}
-            className="absolute inset-0 z-40"
+            className="fixed inset-0 z-40"
             style={{ backgroundColor: 'transparent' }}
           />
         )}
 
         {/* Due Date Calendar */}
         {showDueCal && (
-          <View className="absolute z-50" style={{ top: duePos.top, left: duePos.left }}>
+          <View style={dueCalPos.style as any}>
             <PremiumCalendarPicker
               selectedDate={dueDate}
               onSelect={(d) => setDueDate(d)}
               accentColor={colors.primary}
               rangeDate={startDate}
               rangeColor={colors.secondary}
-              compact
+              scale="compact"
+              showDaysBetween
             />
           </View>
         )}
 
         {/* Start Date Calendar */}
         {showStartCal && (
-          <View className="absolute z-50" style={{ top: startPos.top, left: startPos.left }}>
+          <View style={startCalPos.style as any}>
             <PremiumCalendarPicker
               selectedDate={startDate}
               onSelect={(d) => setStartDate(d)}
               accentColor={colors.secondary}
               rangeDate={dueDate}
               rangeColor={colors.primary}
-              compact
+              scale="compact"
+              showDaysBetween
             />
           </View>
         )}

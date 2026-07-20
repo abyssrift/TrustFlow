@@ -3,6 +3,8 @@ import { FontAwesome } from '@expo/vector-icons';
 import React, { useMemo, useState } from 'react';
 import { Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
+import { useCalendarPickerLayout } from '@/lib/calendarPicker';
+import type { CalendarScale } from '@/lib/calendarPicker';
 
 cssInterop(FontAwesome, {
   className: {
@@ -12,14 +14,14 @@ cssInterop(FontAwesome, {
 } as any);
 
 type Props = {
-  selectedDate: string | null; // ISO string (YYYY-MM-DD) — the date being actively picked
+  selectedDate: string | null;
   onSelect: (date: string) => void;
   accentColor?: string;
-  compact?: boolean; // single-month, no sidebar — for use inside modals
-  showQuickSelect?: boolean; // show quick select sidebar even in compact mode
-  rangeDate?: string | null; // the "other" date (e.g. due date when selectedDate is start), shown in rangeColor
-  rangeColor?: string; // color for rangeDate; days between selectedDate/rangeDate are tinted with it
-  rangeLabel?: string; // label for the days-between badge, e.g. "days"
+  rangeDate?: string | null;
+  rangeColor?: string;
+  showQuickSelect?: boolean;
+  showDaysBetween?: boolean;
+  scale?: CalendarScale;
 };
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -37,13 +39,16 @@ const QUICK_ACTIONS = [
   { label: '+1 Month',  days: 30 },
 ];
 
-export default function PremiumCalendarPicker({ selectedDate, onSelect, accentColor, compact = false, showQuickSelect = false, rangeDate, rangeColor, rangeLabel = 'days' }: Props) {
+export default function PremiumCalendarPicker({ selectedDate, onSelect, accentColor, rangeDate, rangeColor, showQuickSelect, showDaysBetween = true, scale }: Props) {
   const colors = useThemeColors();
   const resolvedAccentColor = accentColor ?? colors.primary;
   const resolvedRangeColor = rangeColor ?? colors.secondary;
   const { width } = useWindowDimensions();
-  const isDesktop = !compact && width > 768;
-  const showSidebar = (isDesktop || showQuickSelect) && width > 768;
+  const { resolvedCompact, resolvedShowQuickSelect, isDesktop } = useCalendarPickerLayout({
+    scale,
+    showQuickSelect,
+    width,
+  });
 
   const initialDate = selectedDate ? new Date(selectedDate) : new Date();
   const [viewDate, setViewDate] = useState(new Date(initialDate.getFullYear(), initialDate.getMonth(), 1));
@@ -51,7 +56,6 @@ export default function PremiumCalendarPicker({ selectedDate, onSelect, accentCo
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
 
-  // Helper for month shifts
   const getNextMonthDate = (date: Date) => new Date(date.getFullYear(), date.getMonth() + 1, 1);
   const getPrevMonthDate = (date: Date) => new Date(date.getFullYear(), date.getMonth() - 1, 1);
 
@@ -118,13 +122,13 @@ export default function PremiumCalendarPicker({ selectedDate, onSelect, accentCo
   };
 
   const MonthGrid = ({ days, y, m, title }: { days: (number | null)[], y: number, m: number, title: string }) => (
-    <View className={`${isDesktop ? 'flex-1 px-6' : compact ? 'p-3' : 'p-4'}`}>
-      <View className={`items-center ${compact ? 'mb-4' : 'mb-6'}`}>
-        <Text className={`text-typography-main font-black uppercase tracking-[0.2em] ${compact ? 'text-xs' : 'text-sm'}`}>{title}</Text>
+    <View className={`${isDesktop ? 'flex-1 px-6' : resolvedCompact ? 'p-3' : 'p-4'}`}>
+      <View className={`items-center ${resolvedCompact ? 'mb-4' : 'mb-6'}`}>
+        <Text className={`text-typography-main font-black uppercase tracking-[0.2em] ${resolvedCompact ? 'text-xs' : 'text-sm'}`}>{title}</Text>
         <Text className="text-typography-muted text-[10px] font-bold mt-1 opacity-60">{y}</Text>
       </View>
 
-      <View className={`flex-row ${compact ? 'mb-2.5' : 'mb-4'}`}>
+      <View className={`flex-row ${resolvedCompact ? 'mb-2.5' : 'mb-4'}`}>
         {DAYS.map(d => (
           <View key={d} className="w-[14.285%] items-center">
             <Text className="text-typography-dim text-[9px] font-black uppercase tracking-widest">{d.charAt(0)}</Text>
@@ -134,7 +138,7 @@ export default function PremiumCalendarPicker({ selectedDate, onSelect, accentCo
 
       <View className="flex-row flex-wrap">
         {days.map((day, idx) => (
-          <View key={idx} style={{ width: '14.285%', aspectRatio: 1, maxHeight: compact ? 32 : undefined }} className={compact ? 'p-0.5' : 'p-1'}>
+          <View key={idx} style={{ width: '14.285%', aspectRatio: 1, maxHeight: resolvedCompact ? 32 : undefined }} className={resolvedCompact ? 'p-0.5' : 'p-1'}>
             {day !== null ? (() => {
               const selected = isSelected(day, y, m);
               const rangeSelected = isRangeSelected(day, y, m);
@@ -179,10 +183,9 @@ export default function PremiumCalendarPicker({ selectedDate, onSelect, accentCo
   );
 
   return (
-    <View className={`bg-surface-card border border-surface-border premium-shadow ${isDesktop || (showQuickSelect && compact) ? 'flex-row' : 'flex-col'} ${compact ? (!showQuickSelect ? 'w-[252px]' : 'w-[332px]') + ' rounded-2xl' : 'rounded-[2.5rem] overflow-hidden'}`}>
+    <View className={`bg-surface-card border border-surface-border premium-shadow ${isDesktop || (resolvedShowQuickSelect && resolvedCompact) ? 'flex-row' : 'flex-col'} ${resolvedCompact ? (!resolvedShowQuickSelect ? 'w-[252px]' : 'w-[332px]') + ' rounded-2xl' : 'rounded-[2.5rem] overflow-hidden'}`}>
       
-      {/* Quick Select - Compact Left Side */}
-      {showQuickSelect && compact && (
+      {resolvedShowQuickSelect && resolvedCompact && (
         <View className="w-20 bg-surface-background/50 border-r border-surface-border items-center p-2 gap-1">
           <Text className="text-typography-muted text-[8px] font-black uppercase tracking-widest mb-1.5 opacity-50">Quick Select</Text>
           {QUICK_ACTIONS.map(action => (
@@ -204,7 +207,6 @@ export default function PremiumCalendarPicker({ selectedDate, onSelect, accentCo
         </View>
       )}
 
-      {/* Sidebar - Desktop Only */}
       {isDesktop && (
         <View className="w-48 bg-surface-background/50 border-r border-surface-border p-6 gap-2">
           <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-4 opacity-50">Quick Select</Text>
@@ -228,19 +230,18 @@ export default function PremiumCalendarPicker({ selectedDate, onSelect, accentCo
       )}
 
       {/* Main Calendar Area */}
-      <View className={(compact && showQuickSelect) ? 'w-[252px]' : compact ? undefined : 'flex-1'}>
-        {/* Header (Nav Controls) */}
-        <View className={`bg-surface-background/30 flex-row items-center justify-between border-b border-surface-border ${compact ? 'p-3' : 'p-5'}`}>
+      <View className={resolvedCompact ? (resolvedShowQuickSelect ? 'w-[252px]' : '') : 'flex-1'}>
+        <View className={`bg-surface-background/30 flex-row items-center justify-between border-b border-surface-border ${resolvedCompact ? 'p-3' : 'p-5'}`}>
           <TouchableOpacity 
             onPress={handlePrevMonth}
-            className={`items-center justify-center rounded-xl bg-surface-overlay border border-surface-border hover:border-brand-primary transition-colors ${compact ? 'w-8 h-8' : 'w-10 h-10'}`}
+            className={`items-center justify-center rounded-xl bg-surface-overlay border border-surface-border hover:border-brand-primary transition-colors ${resolvedCompact ? 'w-8 h-8' : 'w-10 h-10'}`}
           >
             <FontAwesome name="chevron-left" size={12} className="text-typography-muted" />
           </TouchableOpacity>
           
           {!isDesktop && (
             <View className="items-center">
-              <Text className={`text-typography-main font-black uppercase tracking-widest ${compact ? 'text-xs' : 'text-sm'}`}>{MONTHS[month]}</Text>
+              <Text className={`text-typography-main font-black uppercase tracking-widest ${resolvedCompact ? 'text-xs' : 'text-sm'}`}>{MONTHS[month]}</Text>
               <Text className="text-typography-muted text-[10px] font-bold">{year}</Text>
             </View>
           )}
@@ -254,21 +255,20 @@ export default function PremiumCalendarPicker({ selectedDate, onSelect, accentCo
   
           <TouchableOpacity
             onPress={handleNextMonth}
-            className={`items-center justify-center rounded-xl bg-surface-overlay border border-surface-border hover:border-brand-primary transition-colors ${compact ? 'w-8 h-8' : 'w-10 h-10'}`}
+            className={`items-center justify-center rounded-xl bg-surface-overlay border border-surface-border hover:border-brand-primary transition-colors ${resolvedCompact ? 'w-8 h-8' : 'w-10 h-10'}`}
           >
             <FontAwesome name="chevron-right" size={12} className="text-typography-muted" />
           </TouchableOpacity>
         </View>
 
-        {rangeDays !== null && (
+        {showDaysBetween && rangeDays !== null && (
           <View className="items-center justify-center py-2 border-b border-surface-border bg-surface-background/20">
             <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">
-              {rangeDays} {rangeLabel} between
+              {rangeDays} days between
             </Text>
           </View>
         )}
 
-        {/* Grids */}
         <View className={`flex-row ${!isDesktop ? 'flex-col' : ''}`}>
           <MonthGrid 
             days={calendarDays1} 
@@ -289,11 +289,10 @@ export default function PremiumCalendarPicker({ selectedDate, onSelect, accentCo
           )}
         </View>
 
-        {/* Footer - Mobile Only */}
         {!isDesktop && (
           <TouchableOpacity 
             onPress={() => { const d = new Date(); onSelect?.(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`); }}
-            className={`border-t border-surface-border items-center ${compact ? 'p-3' : 'p-4'}`}
+            className={`border-t border-surface-border items-center ${resolvedCompact ? 'p-3' : 'p-4'}`}
           >
             <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest">Jump to Today</Text>
           </TouchableOpacity>
@@ -302,4 +301,3 @@ export default function PremiumCalendarPicker({ selectedDate, onSelect, accentCo
     </View>
   );
 }
-

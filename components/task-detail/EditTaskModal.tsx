@@ -276,7 +276,8 @@ export default function EditTaskModal({ visible, onClose, focusField }: Props) {
                       accentColor={activeDateField === 'due' ? colors.primary : colors.secondary}
                       rangeDate={activeDateField === 'due' ? startDate : dueDate}
                       rangeColor={activeDateField === 'due' ? colors.secondary : colors.primary}
-                      compact
+                      scale="compact"
+                      showDaysBetween
                     />
                   </View>
                 )}

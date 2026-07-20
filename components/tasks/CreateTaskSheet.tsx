@@ -308,6 +308,7 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
                         setDraft({ dueDate: date });
                         setShowCalendar(false);
                       }}
+                      scale="compact"
                     />
                   </View>
                 )}

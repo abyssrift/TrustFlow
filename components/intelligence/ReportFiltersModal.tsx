@@ -320,7 +320,8 @@ export default function ReportFiltersModal({ visible, onClose, onApply, initial 
             </View>
 
             <PremiumCalendarPicker
-              compact
+              scale="compact"
+              showDaysBetween
               selectedDate={activeDateField === 'from' ? dateFrom : dateTo}
               onSelect={(date) => {
                 if (activeDateField === 'from') {
