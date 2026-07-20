@@ -3,6 +3,7 @@ import { formatCompact, formatRelative } from '@/lib/time';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import UserLink from '@/components/common/UserLink';
 
 type Item = {
   key: string;
@@ -136,7 +137,7 @@ export default function KanbanActivity({
             </View>
             <View className="flex-1 min-w-0">
               <Text className="text-typography-main text-[12px] leading-4" numberOfLines={2}>
-                <Text className="font-bold">{actor.name}</Text>
+                <UserLink userId={it.actorId} name={actor.name} className="font-bold" />
                 {it.kind === 'move'
                   ? <Text className="text-typography-muted"> moved to </Text>
                   : <Text className="text-typography-muted"> worked </Text>}

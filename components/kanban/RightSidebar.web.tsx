@@ -8,6 +8,7 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
+import UserLink from '@/components/common/UserLink';
 import KanbanNotes from './KanbanNotes.web';
 import KanbanActivity from './KanbanActivity.web';
 import TimeByCategoryPie from './TimeByCategoryPie.web';
@@ -56,7 +57,7 @@ function MemberRow({ member, work, onOpen }: { member: Member; work?: WorkInfo; 
       </View>
       <View className="flex-1 min-w-0">
         <View className="flex-row items-center gap-1.5">
-          <Text className="text-typography-main text-sm font-bold" numberOfLines={1}>{member.name}</Text>
+          <UserLink userId={member.id} name={member.name} className="text-typography-main text-sm font-bold" numberOfLines={1} />
           {member.isOwner && <Text className="text-brand-primary text-[8px] font-black uppercase tracking-widest">Owner</Text>}
         </View>
         {work ? (
