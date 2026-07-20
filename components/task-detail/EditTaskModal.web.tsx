@@ -93,6 +93,18 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
     setShowManagerDrop(false);
   }, []);
 
+  const openOverlay = (
+    ref: React.RefObject<any>,
+    setPos: (p: { top: number; left: number; width: number }) => void,
+    setShow: (v: boolean) => void
+  ) => {
+    if (ref.current?.getBoundingClientRect) {
+      const rect = ref.current.getBoundingClientRect();
+      setPos({ top: rect.bottom + 6, left: rect.left, width: rect.width });
+    }
+    setShow(true);
+  };
+
   // Keyboard shortcuts
   useEffect(() => {
     if (!visible) return;
@@ -564,7 +576,8 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
         {(showDueCal || showStartCal) && (
           <TouchableOpacity
             onPress={closeAllOverlays}
-            style={{ position: 'fixed', inset: 0, zIndex: 40, backgroundColor: 'transparent' }}
+            className="absolute inset-0 z-40"
+            style={{ backgroundColor: 'transparent' }}
           />
         )}
 

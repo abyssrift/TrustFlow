@@ -308,6 +308,8 @@ function DwellChart({ data }: { data: StageDwell[] }) {
 
 function PipelineTab() {
   const colors = useThemeColors();
+  const { planCode } = useBillingPlan();
+  const limits = getAnalyticsLimits(planCode);
   const { getPipelineStageDwell, getPipelineThroughput } = useAnalytics();
   const [pipelines, setPipelines]       = useState<any[]>([]);
   const [selectedPipeline, setSelected] = useState<string | null>(null);

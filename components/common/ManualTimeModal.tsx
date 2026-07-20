@@ -155,7 +155,7 @@ export default function ManualTimeModal({ visible, taskId, stageId, transitionId
                     selectedDate={workedDate}
                     onSelect={d => { setWorkedDate(d > todayIso() ? todayIso() : d); setShowDatePicker(false); }}
                     accentColor={colors.warning}
-                    compact
+                    scale="compact"
                   />
                 </View>
               )}

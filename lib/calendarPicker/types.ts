@@ -14,7 +14,6 @@ export type CalendarPickerProps = {
 export type CalendarLayoutInput = {
   scale?: CalendarScale;
   showQuickSelect?: boolean;
-  width: number;
 };
 
 export type CalendarLayoutResult = {
