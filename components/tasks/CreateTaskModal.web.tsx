@@ -685,7 +685,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                     </View>
                     <View className="w-52">
                       <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-3 ml-1">Max Hours</Text>
-                      <View className="bg-surface-background border border-surface-border rounded-2xl px-6 py-4 flex-row items-center gap-2">
+                      <View className="bg-surface-background border border-surface-border rounded-2xl px-3 py-4 flex-row items-center gap-1">
                         <TextInput
                           value={draft.estimatedHours != null ? draft.estimatedHours.toString() : ''}
                           onChangeText={t => {
@@ -901,26 +901,30 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
 
         {/* Deadline calendar */}
         {showCalendar && (
-          <View style={{ position: 'fixed', top: calendarPos.top, left: Math.max(20, Math.min(calendarPos.left, width - 820)), width: Math.min(width - 40, 800), zIndex: 999 } as any}>
+          <View style={{ position: 'fixed', top: calendarPos.top, left: Math.max(20, Math.min(calendarPos.left, width - 420)), zIndex: 999 } as any}>
             <PremiumCalendarPicker
               selectedDate={draft.dueDate}
               onSelect={date => setDraft({ dueDate: date })}
               accentColor={colors.primary}
               rangeDate={draft.startDate}
               rangeColor={colors.accent}
+              compact
+              showQuickSelect
             />
           </View>
         )}
 
         {/* Start date calendar */}
         {showStartCalendar && (
-          <View style={{ position: 'fixed', top: startCalendarPos.top, left: Math.max(20, Math.min(startCalendarPos.left, width - 820)), width: Math.min(width - 40, 800), zIndex: 999 } as any}>
+          <View style={{ position: 'fixed', top: startCalendarPos.top, left: Math.max(20, Math.min(startCalendarPos.left, width - 420)), zIndex: 999 } as any}>
             <PremiumCalendarPicker
               selectedDate={draft.startDate}
               accentColor={colors.accent}
               onSelect={date => setDraft({ startDate: date })}
               rangeDate={draft.dueDate}
               rangeColor={colors.primary}
+              compact
+              showQuickSelect
             />
           </View>
         )}
