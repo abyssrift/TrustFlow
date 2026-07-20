@@ -5,7 +5,7 @@ import { manifest } from './manifest';
 
 const excelImporter: ImporterAdapter = {
   manifest,
-  async mapToCanonical(raw: any[]): Promise<ImportedTask[]> {
+  mapToCanonical(raw: any[]): ImportedTask[] {
     return raw.map((r: any) => ({
       title: r.Title || '',
       description: r.Description || '',

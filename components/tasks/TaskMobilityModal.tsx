@@ -20,7 +20,7 @@ import {
   type ParsedTaskRow,
 } from '@/lib/taskMobility';
 import { isJiraExport, mapJiraRow } from '@/lib/jiraImport';
-import { listImporters, getImporter, startOAuthFlow, deleteConnection } from '@/lib/imports';
+import { listImporters, getImporter, startOAuthFlow, deleteConnection, connectViaProxy, guessStageMapping } from '@/lib/imports';
 import type { ImporterAdapter, ImportedTask, AuthPayload } from '@/lib/imports';
 
 type Props = {
@@ -146,6 +146,13 @@ export default function TaskMobilityModal({ visible, onClose, onImported }: Prop
     setBusy(true);
     try {
       const auth = buildAuthPayload();
+      // Persist the credentials (encrypted, server-side) before fetching.
+      await connectViaProxy(auth!.provider, {
+        instanceUrl: auth!.instanceUrl,
+        db: auth!.db,
+        username: auth!.username,
+        apiKey: auth!.apiKey,
+      });
       await loadProjects(auth);
       successToast('Connected! Now select a project to import.', 'Connected');
     } catch (e: any) { errorToast(e?.message || 'Connection failed.'); }
@@ -244,24 +251,58 @@ export default function TaskMobilityModal({ visible, onClose, onImported }: Prop
   };
 
   const handleConfirmImport = async () => {
-    const rows = parsed || importedTasks?.map(t => ({
-      rowNumber: 0,
-      title: t.title,
-      description: t.description,
-      priorityDb: t.priority,
-      category: t.category,
-      weight: 0,
-      startDate: null,
-      dueDate: t.dueDate,
-      estimatedHours: null,
-      pipelineName: null,
-      projectName: null,
-      assigneeEmails: t.assigneeEmails,
-      pipelineId: null,
-      projectId: null,
-      assigneeUserIds: [],
-      warnings: [],
-    }));
+    let rows = parsed;
+    // targetStageId per row (API path only); file rows land in the initial stage.
+    let stageForRow: (string | null)[] = [];
+
+    if (!rows && importedTasks) {
+      // API-sourced tasks arrive as emails/names + source stage names — resolve
+      // both against this company before creating, so assignees and status stick.
+      const [usersRes, pipesRes] = await Promise.all([
+        supabase.from('users').select('id, email, full_name, display_name').is('deleted_at', null),
+        supabase.from('pipelines').select('id, is_default').is('deleted_at', null),
+      ]);
+      const byEmail = new Map<string, string>();
+      const byName = new Map<string, string>();
+      (usersRes.data || []).forEach((u: any) => {
+        if (u.email) byEmail.set(String(u.email).toLowerCase(), u.id);
+        if (u.full_name) byName.set(String(u.full_name).toLowerCase(), u.id);
+        if (u.display_name) byName.set(String(u.display_name).toLowerCase(), u.id);
+      });
+      // Jira gives emails; Odoo gives display names — try email, then name.
+      const resolveUser = (s: string) => byEmail.get(s.toLowerCase()) || byName.get(s.toLowerCase()) || null;
+
+      // Map source stages against the default pipeline (where null-pipeline tasks land).
+      const pipes = pipesRes.data || [];
+      const def = pipes.find((p: any) => p.is_default) || pipes[0];
+      let stageMap = new Map<string, string | null>();
+      if (def) {
+        const { data: st } = await supabase.from('pipeline_stages').select('id, name').eq('pipeline_id', def.id);
+        const existingStages = (st || []).map((s: any) => ({ id: s.id, name: s.name }));
+        const sourceStages = Array.from(new Set(importedTasks.map(t => t.stageName).filter(Boolean))) as string[];
+        stageMap = new Map(guessStageMapping(sourceStages, existingStages).map(m => [m.sourceName, m.targetStageId]));
+      }
+
+      rows = importedTasks.map(t => ({
+        rowNumber: 0,
+        title: t.title,
+        description: t.description,
+        priorityDb: t.priority,
+        category: t.category,
+        weight: 0,
+        startDate: null,
+        dueDate: t.dueDate,
+        estimatedHours: null,
+        pipelineName: null,
+        projectName: null,
+        assigneeEmails: t.assigneeEmails,
+        pipelineId: null,
+        projectId: null,
+        assigneeUserIds: t.assigneeEmails.map(resolveUser).filter(Boolean) as string[],
+        warnings: [],
+      }));
+      stageForRow = importedTasks.map(t => (t.stageName ? stageMap.get(t.stageName) ?? null : null));
+    }
     if (!rows || rows.length === 0) return;
 
     setBusy(true);
@@ -291,6 +332,13 @@ export default function TaskMobilityModal({ visible, onClose, onImported }: Prop
               p_user_ids: r.assigneeUserIds,
               p_team_ids: [],
             }).then(({ error: e }) => { if (e) console.error('assign error', e); });
+          }
+          const targetStage = stageForRow[i];
+          if (targetStage) {
+            await supabase.rpc('rpc_import_place_task_stage', {
+              p_task_id: taskId,
+              p_stage_id: targetStage,
+            }).then(({ error: e }) => { if (e) console.error('stage place error', e); });
           }
         }
         setProgress({ done: i + 1, total: rows.length });

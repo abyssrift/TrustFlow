@@ -1,35 +1,43 @@
 import { registerImporter } from '@/lib/imports/registry';
 import type { ImporterAdapter, ImportedTask, AuthPayload } from '@/lib/imports/types';
 import { fetchViaProxy } from '@/lib/imports/importProxyClient';
-import { isJiraExport, mapJiraRow } from '@/lib/jiraImport';
+import { mapJiraRow } from '@/lib/jiraImport';
 import { manifest } from './manifest';
+
+// Jira API v3 returns descriptions as ADF (a nested rich-text object), not a
+// string. Flatten the text nodes so we don't store "[object Object]".
+function adfToText(node: any): string {
+  if (!node) return '';
+  if (typeof node === 'string') return node;
+  if (typeof node.text === 'string') return node.text;
+  const kids = Array.isArray(node.content) ? node.content : [];
+  const suffix = node.type === 'paragraph' || node.type === 'heading' ? '\n' : '';
+  return kids.map(adfToText).join('') + suffix;
+}
 
 const jiraImporter: ImporterAdapter = {
   manifest,
 
-  async fetchProjects(auth: AuthPayload): Promise<any[]> {
-    const raw = await fetchViaProxy('jira', 'projects', auth, {
-      cloudId: auth.instanceUrl || '',
-    });
+  // Credentials (token + cloudId) live server-side; these calls carry only the
+  // resource selector.
+  async fetchProjects(_auth: AuthPayload): Promise<any[]> {
+    const raw = await fetchViaProxy('jira', 'projects');
     return Array.isArray(raw) ? raw : raw?.values ?? [];
   },
 
-  async fetchTasks(auth: AuthPayload, projectId: string): Promise<any[]> {
-    const raw = await fetchViaProxy('jira', 'tasks', auth, {
-      cloudId: auth.instanceUrl || '',
-      jql: `project=${projectId}`,
-    });
+  async fetchTasks(_auth: AuthPayload, projectId: string): Promise<any[]> {
+    const raw = await fetchViaProxy('jira', 'tasks', { jql: `project="${projectId}"` });
     return Array.isArray(raw) ? raw : raw?.issues ?? [];
   },
 
   mapToCanonical(raw: any[]): ImportedTask[] {
-    // Detect if raw rows are CSV-style (from file import) or API-style
+    // API-style rows carry `fields`; CSV/file rows do not.
     if (raw.length > 0 && raw[0].fields) {
       return raw.map((issue: any) => {
         const f = issue.fields || {};
         return {
           title: f.summary || '',
-          description: f.description || '',
+          description: adfToText(f.description).trim(),
           priority: f.priority?.name?.toLowerCase() || 'medium',
           category: f.issuetype?.name || null,
           assigneeEmails: f.assignee?.emailAddress ? [f.assignee.emailAddress] : [],
@@ -41,7 +49,7 @@ const jiraImporter: ImporterAdapter = {
         };
       });
     }
-    // CSV path — use existing Jira bridge
+    // CSV path — use existing Jira bridge.
     return raw.map(mapJiraRow).map((r: Record<string, string>) => ({
       title: r.Title || '',
       description: r.Description || '',

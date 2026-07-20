@@ -1,217 +1,167 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { decryptJson, encryptJson } from '../_shared/crypto.ts'
+import { corsHeaders, json, text } from '../_shared/http.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
-const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const ENCRYPTION_KEY = Deno.env.get('IMPORT_ENCRYPTION_KEY') ?? ''
-
-const PROVIDER_CONFIGS: Record<string, {
-  baseUrl?: string
-  defaultHeaders?: Record<string, string>
-  authType: 'oauth2' | 'api_key'
-  fetchProjects?: string
-  fetchTasks?: string
-}> = {
-  jira: {
-    baseUrl: 'https://api.atlassian.com/ex/jira/{cloudId}/rest/api/3',
-    defaultHeaders: { Accept: 'application/json' },
-    authType: 'oauth2',
-    fetchProjects: '/project',
-    fetchTasks: '/search?jql={jql}&maxResults=100&fields=summary,description,status,priority,duedate,assignee,labels,parent,attachment,comment',
-  },
-  odoo: {
-    authType: 'api_key',
-    fetchProjects: '/xmlrpc/2/object',
-    fetchTasks: '/xmlrpc/2/object',
-  },
-  trello: {
-    baseUrl: 'https://api.trello.com/1',
-    defaultHeaders: { Accept: 'application/json' },
-    authType: 'api_key',
-    fetchProjects: '/members/{memberId}/boards',
-    fetchTasks: '/boards/{boardId}/cards?customFieldItems=true',
-  },
-}
+const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
+const TRELLO_API_KEY = Deno.env.get('TRELLO_API_KEY') ?? ''
 
 serve(async (req) => {
-  if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method !== 'POST') return text('Method not allowed', 405)
 
-  const { provider, resource, params, userId } = await req.json()
-  if (!provider || !resource || !userId) {
-    return new Response('Missing provider, resource, or userId', { status: 400 })
-  }
+  // Identify the caller from their JWT — never trust a user id in the body.
+  const authHeader = req.headers.get('Authorization') ?? ''
+  const supabase = createClient(SUPABASE_URL, ANON_KEY, {
+    global: { headers: { Authorization: authHeader } },
+  })
+  const { data: userData, error: userErr } = await supabase.auth.getUser()
+  const user = userData?.user
+  if (userErr || !user) return text('Unauthorized', 401)
 
-  const config = PROVIDER_CONFIGS[provider]
-  if (!config) return new Response(`Unknown provider: ${provider}`, { status: 400 })
+  const { provider, resource, params } = await req.json().catch(() => ({}))
+  if (!provider || !resource) return text('Missing provider or resource', 400)
+  const p = params ?? {}
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+  // Establish/refresh a stored connection for api-key + token providers.
+  if (resource === 'connect') return handleConnect(supabase, user.id, provider, p)
 
-  const { data: conn, error: connError } = await supabase
+  // RLS scopes this select to the caller's own row.
+  const { data: conn } = await supabase
     .from('import_connections')
     .select('encrypted_tokens, instance_url')
-    .eq('user_id', userId)
     .eq('provider', provider)
     .maybeSingle()
+  if (!conn) return text('No connection found for this provider', 401)
 
-  if (connError || !conn) {
-    return new Response('No connection found for this provider', { status: 401 })
-  }
+  let creds: any
+  try { creds = await decryptJson(conn.encrypted_tokens) } catch { return text('Failed to decrypt credentials', 500) }
 
-  let accessToken: string
-  try {
-    accessToken = await decryptToken(conn.encrypted_tokens)
-  } catch {
-    return new Response('Failed to decrypt credentials', { status: 500 })
-  }
-
-  if (provider === 'odoo') {
-    return handleOdoo(accessToken, conn.instance_url, resource, params)
-  }
-
-  return handleApi(provider, config, accessToken, resource, params)
+  if (provider === 'jira') return handleJira(creds, resource, p)
+  if (provider === 'trello') return handleTrello(creds, resource, p)
+  if (provider === 'odoo') return handleOdoo(creds, conn.instance_url, resource, p)
+  return text(`Unknown provider: ${provider}`, 400)
 })
 
-async function handleApi(
+async function handleConnect(
+  supabase: SupabaseClient,
+  userId: string,
   provider: string,
-  config: typeof PROVIDER_CONFIGS[string],
-  token: string,
-  resource: string,
-  params: Record<string, string> | undefined
+  params: Record<string, string>,
 ): Promise<Response> {
-  let endpoint: string
+  let payload: Record<string, unknown>
+  let instanceUrl: string | null = null
 
-  if (provider === 'jira') {
-    const cloudId = params?.cloudId ?? ''
-    const base = config.baseUrl!.replace('{cloudId}', cloudId)
-    const jql = params?.jql ?? ''
-    const path = resource === 'projects' ? config.fetchProjects!
-      : config.fetchTasks!.replace('{jql}', encodeURIComponent(jql))
-    endpoint = `${base}${path}`
-  } else if (provider === 'trello') {
-    const base = config.baseUrl!
-    const memberId = params?.memberId ?? ''
-    const boardId = params?.boardId ?? ''
-    const path = resource === 'projects' ? config.fetchProjects!.replace('{memberId}', memberId)
-      : config.fetchTasks!.replace('{boardId}', boardId)
-    const key = Deno.env.get('TRELLO_API_KEY') ?? ''
-    const sep = path.includes('?') ? '&' : '?'
-    endpoint = `${base}${path}${sep}key=${key}&token=${token}`
+  if (provider === 'trello') {
+    if (!params.token) return text('Missing Trello token', 400)
+    payload = { token: params.token }
+  } else if (provider === 'odoo') {
+    const { instanceUrl: url, db, username, apiKey } = params
+    if (!url || !db || !username || !apiKey) return text('Missing Odoo credentials', 400)
+    instanceUrl = url.replace(/\/$/, '')
+    const uid = await odooAuth(instanceUrl, db, username, apiKey)
+    if (!uid) return text('Odoo authentication failed', 401)
+    payload = { apiKey, db, username }
   } else {
-    return new Response(`Unsupported provider: ${provider}`, { status: 400 })
+    return text(`Provider ${provider} does not support api-key connect`, 400)
   }
 
-  const headers: Record<string, string> = {
-    ...config.defaultHeaders,
-  }
-
-  if (provider === 'jira') {
-    headers.Authorization = `Bearer ${token}`
-  }
-
-  const res = await fetch(endpoint, { headers })
-  const data = await res.json()
-  return new Response(JSON.stringify(data), {
-    headers: { 'Content-Type': 'application/json' },
-  })
+  const encrypted = await encryptJson(payload)
+  const { error } = await supabase.from('import_connections').upsert(
+    { user_id: userId, provider, encrypted_tokens: encrypted, instance_url: instanceUrl },
+    { onConflict: 'user_id,provider,instance_url' },
+  )
+  if (error) { console.error('[import-proxy] connect upsert failed:', error); return text('Failed to store connection', 500) }
+  return json({ ok: true })
 }
 
-async function handleOdoo(
-  apiKey: string,
-  instanceUrl: string | null,
-  resource: string,
-  params: Record<string, string> | undefined
-): Promise<Response> {
-  const baseUrl = instanceUrl?.replace(/\/$/, '') ?? ''
-  if (!baseUrl) return new Response('Odoo instance URL is required', { status: 400 })
-
-  const db = params?.db ?? ''
-  const username = params?.username ?? ''
-
-  // Authenticate to get session
-  const authPayload = {
-    jsonrpc: '2.0',
-    method: 'call',
-    params: { service: 'common', method: 'login', args: [db, username, apiKey] },
-    id: 1,
-  }
-
-  const authRes = await fetch(`${baseUrl}/xmlrpc/2/common`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(authPayload),
-  })
-
-  const authData = await authRes.json()
-  const uid = authData?.result
-  if (!uid || typeof uid !== 'number') {
-    return new Response('Odoo authentication failed', { status: 401 })
-  }
-
-  let result: any
+// ── Jira (OAuth2 3LO) ─────────────────────────────────────────────
+async function handleJira(creds: any, resource: string, params: Record<string, string>): Promise<Response> {
+  const cloudId = creds.cloudId ?? ''
+  if (!cloudId) return text('Jira cloudId missing from connection', 400)
+  const base = `https://api.atlassian.com/ex/jira/${cloudId}/rest/api/3`
+  const headers = { Accept: 'application/json', Authorization: `Bearer ${creds.access_token}` }
 
   if (resource === 'projects') {
-    const projPayload = {
-      jsonrpc: '2.0',
-      method: 'call',
-      params: {
-        service: 'object',
-        method: 'execute_kw',
-        args: [db, uid, apiKey, 'project.project', 'search_read', [], { fields: ['id', 'name'] }],
-      },
-      id: 2,
-    }
-    const projRes = await fetch(`${baseUrl}/xmlrpc/2/object`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(projPayload),
-    })
-    const projData = await projRes.json()
-    result = projData?.result ?? []
-  } else if (resource === 'tasks') {
-    const projectId = params?.projectId ?? ''
-    const domain = projectId ? `[["project_id","=",${projectId}]]` : '[]'
-    const taskPayload = {
-      jsonrpc: '2.0',
-      method: 'call',
-      params: {
-        service: 'object',
-        method: 'execute_kw',
-        args: [db, uid, apiKey, 'project.task', 'search_read', JSON.parse(domain), {
-          fields: ['id', 'name', 'description', 'stage_id', 'user_id', 'priority', 'date_deadline', 'tag_ids', 'parent_id'],
-        }],
-      },
-      id: 3,
-    }
-    const taskRes = await fetch(`${baseUrl}/xmlrpc/2/object`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(taskPayload),
-    })
-    const taskData = await taskRes.json()
-    result = taskData?.result ?? []
+    return passthrough(await fetch(`${base}/project/search`, { headers }))
   }
-
-  return new Response(JSON.stringify(result), {
-    headers: { 'Content-Type': 'application/json' },
+  // The legacy GET /search is removed on Jira Cloud; use POST /search/jql.
+  const res = await fetch(`${base}/search/jql`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jql: params.jql ?? '',
+      maxResults: 100,
+      fields: ['summary', 'description', 'status', 'priority', 'duedate', 'assignee', 'labels', 'parent'],
+    }),
   })
+  return passthrough(res)
 }
 
-async function decryptToken(encrypted: string): Promise<string> {
-  if (!ENCRYPTION_KEY) {
-    const parsed = JSON.parse(encrypted)
-    return parsed.access_token
-  }
+// ── Trello (token auth) ───────────────────────────────────────────
+async function handleTrello(creds: any, resource: string, params: Record<string, string>): Promise<Response> {
+  const auth = `key=${TRELLO_API_KEY}&token=${creds.token}`
+  const headers = { Accept: 'application/json' }
 
-  const { crypto } = await import('https://deno.land/std@0.168.0/crypto/mod.ts')
-  const raw = Uint8Array.from(atob(encrypted), c => c.charCodeAt(0))
-  const iv = raw.slice(0, 12)
-  const data = raw.slice(12)
-  const key = new TextEncoder().encode(ENCRYPTION_KEY.padEnd(32, ' ').slice(0, 32))
-  const decrypted = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv },
-    await crypto.subtle.importKey('raw', key, 'AES-GCM', false, ['decrypt']),
-    data,
-  )
-  const parsed = JSON.parse(new TextDecoder().decode(decrypted))
-  return parsed.access_token
+  if (resource === 'projects') {
+    const memberId = params.memberId || 'me'
+    return passthrough(await fetch(`https://api.trello.com/1/members/${memberId}/boards?fields=id,name&${auth}`, { headers }))
+  }
+  // Lists with their open cards in one call — lets the adapter attach the
+  // stage (list) *name*, which the raw card only carries as an idList.
+  const boardId = params.boardId ?? ''
+  const url = `https://api.trello.com/1/boards/${boardId}/lists`
+    + `?cards=open&card_fields=name,desc,due,idMembers,labels,url&fields=id,name&${auth}`
+  return passthrough(await fetch(url, { headers }))
+}
+
+// ── Odoo (JSON-RPC over /jsonrpc, not the XML-RPC endpoints) ───────
+async function handleOdoo(creds: any, instanceUrl: string | null, resource: string, params: Record<string, string>): Promise<Response> {
+  const base = (instanceUrl ?? '').replace(/\/$/, '')
+  if (!base) return text('Odoo instance URL is required', 400)
+  const { apiKey, db, username } = creds
+
+  const uid = await odooAuth(base, db, username, apiKey)
+  if (!uid) return text('Odoo authentication failed', 401)
+
+  if (resource === 'projects') {
+    const result = await odooExecute(base, db, uid, apiKey, 'project.project', 'search_read', [[]], { fields: ['id', 'name'] })
+    return json(result ?? [])
+  }
+  const projectId = params.projectId
+  const domain = projectId ? [['project_id', '=', Number(projectId)]] : []
+  const result = await odooExecute(base, db, uid, apiKey, 'project.task', 'search_read', [domain], {
+    fields: ['id', 'name', 'description', 'stage_id', 'user_id', 'priority', 'date_deadline', 'tag_ids', 'parent_id'],
+  })
+  return json(result ?? [])
+}
+
+async function odooJsonRpc(base: string, service: string, method: string, args: unknown[]): Promise<any> {
+  const res = await fetch(`${base}/jsonrpc`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', method: 'call', params: { service, method, args }, id: Date.now() }),
+  })
+  const data = await res.json()
+  return data?.result
+}
+
+function odooAuth(base: string, db: string, username: string, apiKey: string): Promise<number | null> {
+  // An Odoo API key is accepted in place of the password.
+  return odooJsonRpc(base, 'common', 'authenticate', [db, username, apiKey, {}])
+    .then((uid) => (typeof uid === 'number' ? uid : null))
+}
+
+function odooExecute(
+  base: string, db: string, uid: number, apiKey: string,
+  model: string, method: string, positional: unknown[], kwargs: Record<string, unknown>,
+): Promise<any> {
+  return odooJsonRpc(base, 'object', 'execute_kw', [db, uid, apiKey, model, method, positional, kwargs])
+}
+
+// Pass the provider's JSON straight through (adapters normalise shape).
+async function passthrough(res: Response): Promise<Response> {
+  const body = await res.text()
+  return new Response(body, { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 }

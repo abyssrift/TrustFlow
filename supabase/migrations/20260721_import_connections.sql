@@ -16,7 +16,10 @@ create table if not exists public.import_connections (
   provider_display_name text,-- e.g. "John (jira.acme.com)"
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now(),
-  unique (user_id, provider, coalesce(instance_url, ''))
+  -- NULLS NOT DISTINCT so a null instance_url (Jira/Trello) still collides on
+  -- re-connect, and so the plain-column ON CONFLICT target used by upsert
+  -- matches this constraint (an expression index would not). Requires PG15+.
+  unique nulls not distinct (user_id, provider, instance_url)
 );
 
 -- RLS: user can only see/edit their own connections
@@ -28,6 +31,13 @@ create policy "import_connections_own_select"
 
 create policy "import_connections_own_insert"
   on public.import_connections for insert
+  with check (user_id = auth.uid());
+
+-- Required: connect uses upsert (ON CONFLICT DO UPDATE); without an UPDATE
+-- policy RLS silently blocks re-connecting an existing provider.
+create policy "import_connections_own_update"
+  on public.import_connections for update
+  using (user_id = auth.uid())
   with check (user_id = auth.uid());
 
 create policy "import_connections_own_delete"
@@ -43,6 +53,7 @@ begin
 end;
 $$ language plpgsql;
 
+drop trigger if exists trg_import_connections_updated_at on public.import_connections;
 create trigger trg_import_connections_updated_at
   before update on public.import_connections
   for each row execute function public.set_import_connections_updated_at();
