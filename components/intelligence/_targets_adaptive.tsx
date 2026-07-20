@@ -112,7 +112,7 @@ const CreateModal = ({ visible, onClose, onConfirm, pipelines, stages }: any) =>
                   <PremiumCalendarPicker
                     selectedDate={deadline ?? null}
                     onSelect={(d) => setDeadline(d)}
-
+                    scale="compact"
                   />
                 </View>
               </View>
@@ -203,7 +203,7 @@ const EditModal = ({ target, onClose, onSave }: { target: any; onClose: () => vo
                   <PremiumCalendarPicker
                     selectedDate={deadline}
                     onSelect={setDeadline}
-                    compact
+                    scale="compact"
                   />
                 </View>
               </View>

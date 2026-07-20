@@ -2056,7 +2056,7 @@ function TrialCodesSection() {
               {showExpiryCalendar && (
                 <View style={{ position: 'absolute' as any, top: '110%', left: 0, zIndex: 200, width: 320 }}>
                   <PremiumCalendarPicker
-                    compact
+                    scale="compact"
                     selectedDate={form.expires_at || null}
                     onSelect={date => {
                       setForm(f => ({ ...f, expires_at: date }));
