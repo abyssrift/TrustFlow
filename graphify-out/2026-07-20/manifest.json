@@ -545,8 +545,8 @@
     "semantic_hash": ""
   },
   "components/common/ManualTimeModal.tsx": {
-    "mtime": 1784486822.1440356,
-    "ast_hash": "e6449ff82a814de933fed6d4c7a65a0d",
+    "mtime": 1783859688.0298238,
+    "ast_hash": "67456b0bd541220d2c35db14c4435e7b",
     "semantic_hash": ""
   },
   "components/common/PendingTimeApprovalsWidget.tsx": {
@@ -2690,8 +2690,8 @@
     "semantic_hash": ""
   },
   "components/common/ManualTimeApprovalsModal.tsx": {
-    "mtime": 1784529991.5406022,
-    "ast_hash": "82fd1d65865e14658bafbb087540dad3",
+    "mtime": 1784486751.4629157,
+    "ast_hash": "a3973492833620e107fd110b8e09397f",
     "semantic_hash": ""
   },
   "supabase/migrations/20260712_task_details_deleted_attachment_count.sql": {
@@ -2705,13 +2705,13 @@
     "semantic_hash": ""
   },
   "components/common/ManualTimeApprovalsModal.web.tsx": {
-    "mtime": 1784529979.6743224,
-    "ast_hash": "e76a44e975d7f42cd410913b90f3e0a6",
+    "mtime": 1784486490.9871023,
+    "ast_hash": "e28b78e4f109e3c27d5a635ca193acd7",
     "semantic_hash": ""
   },
   "components/common/ManualTimeModal.web.tsx": {
-    "mtime": 1784487003.0582929,
-    "ast_hash": "1793d6783c38998ccf1960c87fba29e5",
+    "mtime": 1783858953.4264228,
+    "ast_hash": "8b6b2bfeeffe5894ae378a224df31b57",
     "semantic_hash": ""
   },
   "lib/duration.ts": {
@@ -3305,8 +3305,8 @@
     "semantic_hash": ""
   },
   "lib/imports/oauthClient.ts": {
-    "mtime": 1784529931.8137572,
-    "ast_hash": "3dffb550f7df198f7ada4f8a39c8643d",
+    "mtime": 1784484732.3324294,
+    "ast_hash": "18c69a1ff1ab01f68659ad9f05e32266",
     "semantic_hash": ""
   },
   "lib/imports/registry.ts": {
@@ -3330,8 +3330,8 @@
     "semantic_hash": ""
   },
   "supabase/functions/import-oauth/index.ts": {
-    "mtime": 1784529962.7161744,
-    "ast_hash": "2d634fd4cd30adc1187a12a4bfe4eb7c",
+    "mtime": 1784484631.7751157,
+    "ast_hash": "743aa0f4c3d10fa766fb37e39414bbb3",
     "semantic_hash": ""
   },
   "supabase/functions/import-proxy/index.ts": {
@@ -3395,8 +3395,8 @@
     "semantic_hash": ""
   },
   "components/island/IslandTimeApprovalsBridge.web.tsx": {
-    "mtime": 1784529969.6951845,
-    "ast_hash": "a7f799e7ac56b9f188bafe9f014d5de9",
+    "mtime": 1784486534.0591822,
+    "ast_hash": "db27aace2d5a5e07b2718c8ae3ca703f",
     "semantic_hash": ""
   },
   "supabase/migrations/20260721_rpc_import_place_task_stage.sql": {
@@ -3420,8 +3420,8 @@
     "semantic_hash": ""
   },
   "website/.astro/types.d.ts": {
-    "mtime": 1784529283.1731217,
-    "ast_hash": "72c584e3bd8b5f007b2beb870517b437",
+    "mtime": 1784486403.5475378,
+    "ast_hash": "f3d48b2aa569815a445d3509aa161559",
     "semantic_hash": ""
   },
   "website/src/components/Hero.astro": {
@@ -3442,16 +3442,6 @@
   "website/DESIGN_SPEC.md": {
     "mtime": 1784485466.682746,
     "ast_hash": "a5bf1cfe6c4138c95e9c91a9d6362ac4",
-    "semantic_hash": ""
-  },
-  "website/.astro/data-store.json": {
-    "mtime": 1784529283.3482406,
-    "ast_hash": "4242617bc628ab1b72429854d614a613",
-    "semantic_hash": ""
-  },
-  "website/.astro/settings.json": {
-    "mtime": 1784529285.5292404,
-    "ast_hash": "8443d2b3b7bd21d8b25dfc3332f6183a",
     "semantic_hash": ""
   }
 }
