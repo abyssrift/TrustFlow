@@ -15,7 +15,8 @@ import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { ActivityIndicator, Alert, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { useAlert } from '@/contexts/AlertContext';
 
 const STATUS_COLOR: Record<string, string> = {
   completed:  'text-state-success',
@@ -87,6 +88,7 @@ const GenerateModal = ({ visible, onClose, onConfirm, pipelines, teams, users }:
 export default function IntelligenceReportsNative() {
   const colors = useThemeColors();
   const router = useRouter();
+  const { showAlert } = useAlert();
   const [reports, setReports]   = useState<any[]>([]);
   const [loading, setLoading]   = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -134,9 +136,9 @@ export default function IntelligenceReportsNative() {
         p_parameters: { days: params.days, pipeline_id: params.pipeline_id, team_id: params.team_id, user_id: params.user_id },
       });
       if (error) throw error;
-      Alert.alert('Processing', 'Your report is being generated.');
+      showAlert('Processing', 'Your report is being generated.');
       fetchReports();
-    } catch (e: any) { Alert.alert('Error', e.message); }
+    } catch (e: any) { showAlert('Error', e.message); }
   };
 
   const handleDownload = async (path: string) => {

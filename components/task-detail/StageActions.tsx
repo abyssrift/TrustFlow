@@ -22,7 +22,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, AppState, Image, Platform, ScrollView, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, AppState, Image, Platform, ScrollView, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { getActionDescriptor, splitStageActions } from './actionRegistry';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -203,7 +203,7 @@ function AdaptiveFileGrid({
 
 export default function StageActions() {
   const colors = useThemeColors();
-  const { showConfirm } = useAlert();
+  const { showConfirm, showAlert } = useAlert();
   const { data, executeAction, submitWork, deleteSubmission, restoreSubmission, listDeletedSubmissions, submissionVersions, restoreSubmissionVersion, refresh, reviewManualTime } = useTaskDetail();
   const { isActive, activeSession, serverTimeOffset, stopWork, startWork, smartTimer } = useTimer();
   const router = useRouter();
@@ -308,7 +308,7 @@ export default function StageActions() {
   const pasteImage = async (target: React.Dispatch<React.SetStateAction<any[]>> = setStagedFiles) => {
     const file = await getPastedImageFile();
     if (file) target(prev => [...prev, file]);
-    else Alert.alert('No Image', 'There is no image on the clipboard to paste.');
+    else showAlert('No Image', 'There is no image on the clipboard to paste.');
   };
 
   const removeFile = (id: string) => setStagedFiles(prev => prev.filter(f => f.id !== id));

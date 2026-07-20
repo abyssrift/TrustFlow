@@ -1,3 +1,4 @@
+import AppModal from '@/components/common/AppModal';
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 import { TargetCreationModal } from '@/components/intelligence/IntelligenceModals';
 import { useAuth } from '@/contexts/AuthContext';
@@ -8,7 +9,7 @@ import { NATIVE_THEME_COLORS } from '@/lib/layout';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import {
   Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer,
@@ -55,95 +56,102 @@ const EditTargetModal = ({
   };
 
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
-      <View className="flex-1 bg-black/70 items-center justify-center">
-        <View className="bg-surface-card w-full max-w-2xl rounded-[32px] border border-surface-border premium-shadow overflow-hidden max-h-[90vh] flex-col">
-          <View className="p-8 border-b border-surface-border flex-row justify-between items-center">
-            <View>
-              <Text className="text-typography-main text-xl font-black tracking-tight">Edit Target</Text>
-              <Text className="text-typography-muted text-xs font-bold mt-1">
-                {target.stage?.name} · {isVolume ? 'Volume Quota' : 'Performance SLA'}
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={onClose}
-              className="w-9 h-9 rounded-full bg-surface-background border border-surface-border items-center justify-center"
-            >
-              <FontAwesome name="times" size={13} color={colors.textDim} />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-            <View className="p-8 gap-6">
-              {isVolume ? (
-                <>
-                  <View>
-                    <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-3">
-                      Target Quota (units)
-                    </Text>
-                    <TextInput
-                      value={quantity}
-                      onChangeText={setQuantity}
-                      keyboardType="numeric"
-                      placeholderTextColor={colors.textDim}
-                      className="bg-surface-background border border-surface-border text-typography-main font-black text-xl p-5 rounded-2xl focus:border-brand-primary"
-                    />
-                  </View>
-                  <View>
-                    <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-3">
-                      Expiration Deadline
-                    </Text>
-                    <PremiumCalendarPicker selectedDate={deadline} onSelect={setDeadline} compact />
-                  </View>
-                </>
-              ) : (
-                <View className="flex-row gap-4">
-                  <View className="flex-1">
-                    <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-3">
-                      Active Budget (minutes)
-                    </Text>
-                    <TextInput
-                      value={activeMins}
-                      onChangeText={setActiveMins}
-                      keyboardType="numeric"
-                      placeholderTextColor={colors.textDim}
-                      className="bg-surface-background border border-surface-border text-typography-main font-black text-xl p-5 rounded-2xl focus:border-brand-primary"
-                    />
-                  </View>
-                  <View className="flex-1">
-                    <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-3">
-                      Max Lifecycle (hours)
-                    </Text>
-                    <TextInput
-                      value={lifecycleHours}
-                      onChangeText={setLifecycleHours}
-                      keyboardType="numeric"
-                      placeholderTextColor={colors.textDim}
-                      className="bg-surface-background border border-surface-border text-typography-main font-black text-xl p-5 rounded-2xl focus:border-brand-primary"
-                    />
-                  </View>
-                </View>
-              )}
-            </View>
-          </ScrollView>
-
-          <View className="p-8 border-t border-surface-border flex-row gap-4 bg-surface-card/50">
-            <TouchableOpacity
-              onPress={onClose}
-              className="flex-1 py-4 rounded-2xl bg-surface-background border border-surface-border items-center"
-            >
-              <Text className="text-typography-muted font-black uppercase tracking-widest text-xs">Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => { handleSave(); onClose(); }}
-              className="flex-1 py-4 rounded-2xl bg-brand-primary items-center"
-            >
-              <Text className="text-white font-black uppercase tracking-widest text-xs">Save Changes</Text>
-            </TouchableOpacity>
-          </View>
+    <AppModal
+      visible
+      onClose={onClose}
+      dismissOnBackdrop={false}
+      containerClassName="w-full max-w-2xl rounded-[32px] overflow-hidden premium-shadow max-h-[90vh] flex-col"
+    >
+      <View className="p-8 border-b flex-row justify-between items-center" style={{ borderColor: colors.border }}>
+        <View>
+          <Text className="text-xl font-black tracking-tight" style={{ color: colors.textMain }}>Edit Target</Text>
+          <Text className="text-xs font-bold mt-1" style={{ color: colors.textMuted }}>
+            {target.stage?.name} · {isVolume ? 'Volume Quota' : 'Performance SLA'}
+          </Text>
         </View>
+        <TouchableOpacity
+          onPress={onClose}
+          className="w-9 h-9 rounded-full border items-center justify-center"
+          style={{ backgroundColor: colors.background, borderColor: colors.border }}
+        >
+          <FontAwesome name="times" size={13} color={colors.textDim} />
+        </TouchableOpacity>
       </View>
-    </Modal>
+
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+        <View className="p-8 gap-6">
+          {isVolume ? (
+            <>
+              <View>
+                <Text className="text-[9px] font-black uppercase tracking-widest mb-3" style={{ color: colors.textMuted }}>
+                  Target Quota (units)
+                </Text>
+                <TextInput
+                  value={quantity}
+                  onChangeText={setQuantity}
+                  keyboardType="numeric"
+                  placeholderTextColor={colors.textDim}
+                  className="border font-black text-xl p-5 rounded-2xl"
+                  style={{ backgroundColor: colors.background, borderColor: colors.border, color: colors.textMain }}
+                />
+              </View>
+              <View>
+                <Text className="text-[9px] font-black uppercase tracking-widest mb-3" style={{ color: colors.textMuted }}>
+                  Expiration Deadline
+                </Text>
+                <PremiumCalendarPicker selectedDate={deadline} onSelect={setDeadline} compact />
+              </View>
+            </>
+          ) : (
+            <View className="flex-row gap-4">
+              <View className="flex-1">
+                <Text className="text-[9px] font-black uppercase tracking-widest mb-3" style={{ color: colors.textMuted }}>
+                  Active Budget (minutes)
+                </Text>
+                <TextInput
+                  value={activeMins}
+                  onChangeText={setActiveMins}
+                  keyboardType="numeric"
+                  placeholderTextColor={colors.textDim}
+                  className="border font-black text-xl p-5 rounded-2xl"
+                  style={{ backgroundColor: colors.background, borderColor: colors.border, color: colors.textMain }}
+                />
+              </View>
+              <View className="flex-1">
+                <Text className="text-[9px] font-black uppercase tracking-widest mb-3" style={{ color: colors.textMuted }}>
+                  Max Lifecycle (hours)
+                </Text>
+                <TextInput
+                  value={lifecycleHours}
+                  onChangeText={setLifecycleHours}
+                  keyboardType="numeric"
+                  placeholderTextColor={colors.textDim}
+                  className="border font-black text-xl p-5 rounded-2xl"
+                  style={{ backgroundColor: colors.background, borderColor: colors.border, color: colors.textMain }}
+                />
+              </View>
+            </View>
+          )}
+        </View>
+      </ScrollView>
+
+      <View className="p-8 border-t flex-row gap-4" style={{ borderColor: colors.border, backgroundColor: `${colors.card}80` }}>
+        <TouchableOpacity
+          onPress={onClose}
+          className="flex-1 py-4 rounded-2xl border items-center"
+          style={{ backgroundColor: colors.background, borderColor: colors.border }}
+        >
+          <Text className="font-black uppercase tracking-widest text-xs" style={{ color: colors.textMuted }}>Cancel</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => { handleSave(); onClose(); }}
+          className="flex-1 py-4 rounded-2xl items-center"
+          style={{ backgroundColor: colors.primary }}
+        >
+          <Text className="text-white font-black uppercase tracking-widest text-xs">Save Changes</Text>
+        </TouchableOpacity>
+      </View>
+    </AppModal>
   );
 };
 

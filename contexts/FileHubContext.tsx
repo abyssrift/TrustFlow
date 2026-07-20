@@ -1,7 +1,8 @@
 import { supabase, supabaseUrl, supabaseAnonKey } from '@/lib/supabase';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { Alert, DeviceEventEmitter } from 'react-native';
+import { DeviceEventEmitter } from 'react-native';
 import { useIsland } from '@/contexts/IslandContext';
+import { useAlert } from '@/contexts/AlertContext';
 
 export type FileHubMode = 'inbox' | 'sent' | 'broadcast' | 'groups';
 
@@ -249,6 +250,7 @@ export function useFileHub() {
 
 export function FileHubProvider({ children }: { children: React.ReactNode }) {
   const island = useIsland();
+  const { showAlert } = useAlert();
   const [mode, setModeState] = useState<FileHubMode>('groups');
   const [search, setSearchState] = useState('');
   const [searchDebounced, setSearchDebounced] = useState('');
@@ -416,7 +418,7 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
       p_avatar_color: avatarColor,
       p_member_ids: memberIds,
     });
-    if (error) { Alert.alert('Error', error.message); throw error; }
+    if (error) { showAlert('Error', error.message); throw error; }
     await fetchGroups();
     return data as string;
   }, [fetchGroups]);
@@ -425,7 +427,7 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
     const { error } = await supabase.rpc('rpc_filehub_group_add_member', {
       p_group_id: groupId, p_user_id: userId,
     });
-    if (error) { Alert.alert('Error', error.message); throw error; }
+    if (error) { showAlert('Error', error.message); throw error; }
     await fetchGroups();
   }, [fetchGroups]);
 
@@ -433,7 +435,7 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
     const { error } = await supabase.rpc('rpc_filehub_group_remove_member', {
       p_group_id: groupId, p_user_id: userId,
     });
-    if (error) { Alert.alert('Error', error.message); throw error; }
+    if (error) { showAlert('Error', error.message); throw error; }
     await fetchGroups();
     if (activeGroupId === groupId) fetchGroupFiles();
   }, [fetchGroups, fetchGroupFiles, activeGroupId]);
@@ -478,7 +480,7 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
 
     const { error } = await supabase.rpc('rpc_filehub_mark_all_read');
     if (error) {
-      Alert.alert('Error', error.message);
+      showAlert('Error', error.message);
       return;
     }
     refresh();
@@ -494,7 +496,7 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
 
   const deleteFile = useCallback(async (fileId: string) => {
     const { error } = await supabase.rpc('rpc_filehub_delete', { p_file_id: fileId });
-    if (error) { Alert.alert('Error', error.message); return; }
+    if (error) { showAlert('Error', error.message); return; }
     setFiles(prev => prev.filter(f => f.id !== fileId));
     setGroupFiles(prev => prev.filter(f => f.id !== fileId));
   }, []);
@@ -515,14 +517,14 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
 
   const restoreFromBin = useCallback(async (fileId: string) => {
     const { error } = await supabase.rpc('rpc_filehub_restore', { p_file_id: fileId });
-    if (error) { Alert.alert('Error', error.message); throw error; }
+    if (error) { showAlert('Error', error.message); throw error; }
     setBinFiles(prev => prev.filter(f => f.id !== fileId));
     refresh();
   }, [refresh]);
 
   const restoreFolder = useCallback(async (folderId: string) => {
     const { error } = await supabase.rpc('rpc_filehub_folder_restore', { p_id: folderId });
-    if (error) { Alert.alert('Error', error.message); throw error; }
+    if (error) { showAlert('Error', error.message); throw error; }
     setBinFiles(prev => prev.filter(f => f.id !== folderId));
     await fetchFolders();
   }, [fetchFolders]);
@@ -649,32 +651,32 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
       p_scope: scope,
       p_group_id: groupId || null,
     });
-    if (error) { Alert.alert('Error', error.message); return; }
+    if (error) { showAlert('Error', error.message); return; }
     await fetchFolders();
   }, [fetchFolders]);
 
   const renameFolder = useCallback(async (id: string, name: string) => {
     const { error } = await supabase.rpc('rpc_filehub_folder_rename', { p_id: id, p_name: name });
-    if (error) { Alert.alert('Error', error.message); return; }
+    if (error) { showAlert('Error', error.message); return; }
     await fetchFolders();
   }, [fetchFolders]);
 
   const deleteFolder = useCallback(async (id: string) => {
     const { error } = await supabase.rpc('rpc_filehub_folder_delete', { p_id: id });
-    if (error) { Alert.alert('Error', error.message); return; }
+    if (error) { showAlert('Error', error.message); return; }
     setSelectedFolderIdState(prev => (prev === id ? null : prev));
     await fetchFolders();
   }, [fetchFolders]);
 
   const moveFolder = useCallback(async (id: string, newParentId: string | null) => {
     const { error } = await supabase.rpc('rpc_filehub_folder_move', { p_id: id, p_new_parent_id: newParentId });
-    if (error) { Alert.alert('Error', error.message); return; }
+    if (error) { showAlert('Error', error.message); return; }
     await fetchFolders();
   }, [fetchFolders]);
 
   const moveFile = useCallback(async (fileId: string, folderId: string | null) => {
     const { error } = await supabase.rpc('rpc_filehub_file_move', { p_file_id: fileId, p_folder_id: folderId });
-    if (error) { Alert.alert('Error', error.message); return; }
+    if (error) { showAlert('Error', error.message); return; }
     refresh();
     fetchGroupFiles();
   }, [refresh, fetchGroupFiles]);
@@ -705,7 +707,7 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
       p_group_id: groupId,
       p_folder_id: folderId,
     });
-    if (error) { Alert.alert('Error', error.message); throw error; }
+    if (error) { showAlert('Error', error.message); throw error; }
     return data ?? null;
   }, []);
 
@@ -721,27 +723,27 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
       p_mime_type: args.mime,
       p_caption: args.caption ?? null,
     });
-    if (error) { Alert.alert('Error', error.message); throw error; }
+    if (error) { showAlert('Error', error.message); throw error; }
     refresh();
     fetchGroupFiles();
   }, [refresh, fetchGroupFiles]);
 
   const fileVersions = useCallback(async (fileId: string): Promise<FileVersion[]> => {
     const { data, error } = await supabase.rpc('rpc_filehub_file_versions', { p_file_id: fileId });
-    if (error) { Alert.alert('Error', error.message); throw error; }
+    if (error) { showAlert('Error', error.message); throw error; }
     return data || [];
   }, []);
 
   const restoreVersion = useCallback(async (versionId: string): Promise<void> => {
     const { error } = await supabase.rpc('rpc_filehub_restore_version', { p_version_id: versionId });
-    if (error) { Alert.alert('Error', error.message); throw error; }
+    if (error) { showAlert('Error', error.message); throw error; }
     refresh();
     fetchGroupFiles();
   }, [refresh, fetchGroupFiles]);
 
   const pinVersion = useCallback(async (versionId: string, pinned: boolean): Promise<void> => {
     const { error } = await supabase.rpc('rpc_filehub_pin_version', { p_version_id: versionId, p_pinned: pinned });
-    if (error) { Alert.alert('Error', error.message); throw error; }
+    if (error) { showAlert('Error', error.message); throw error; }
   }, []);
 
   const createShareLink = useCallback(async (fileId: string, expiresInHours: number): Promise<FileHubShareLink> => {
@@ -749,18 +751,18 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
       p_file_id: fileId,
       p_expires_in_hours: expiresInHours,
     });
-    if (error) { Alert.alert('Error', error.message); throw error; }
+    if (error) { showAlert('Error', error.message); throw error; }
     return { ...(data as { id: string; token: string; expires_at: string }), created_at: new Date().toISOString(), revoked_at: null, view_count: 0, last_viewed_at: null };
   }, []);
 
   const revokeShareLink = useCallback(async (id: string): Promise<void> => {
     const { error } = await supabase.rpc('rpc_filehub_share_link_revoke', { p_id: id });
-    if (error) { Alert.alert('Error', error.message); throw error; }
+    if (error) { showAlert('Error', error.message); throw error; }
   }, []);
 
   const listShareLinks = useCallback(async (fileId: string): Promise<FileHubShareLink[]> => {
     const { data, error } = await supabase.rpc('rpc_filehub_share_link_list', { p_file_id: fileId });
-    if (error) { Alert.alert('Error', error.message); throw error; }
+    if (error) { showAlert('Error', error.message); throw error; }
     return data || [];
   }, []);
 
@@ -769,13 +771,13 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
       p_folder_id: folderId,
       p_expires_in_hours: expiresInHours,
     });
-    if (error) { Alert.alert('Error', error.message); throw error; }
+    if (error) { showAlert('Error', error.message); throw error; }
     return { ...(data as { id: string; token: string; expires_at: string }), created_at: new Date().toISOString(), revoked_at: null, view_count: 0, last_viewed_at: null };
   }, []);
 
   const listFolderShareLinks = useCallback(async (folderId: string): Promise<FileHubShareLink[]> => {
     const { data, error } = await supabase.rpc('rpc_filehub_folder_share_link_list', { p_folder_id: folderId });
-    if (error) { Alert.alert('Error', error.message); throw error; }
+    if (error) { showAlert('Error', error.message); throw error; }
     return data || [];
   }, []);
 
@@ -799,13 +801,13 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
 
   const renameTag = useCallback(async (oldTag: string, newTag: string): Promise<number> => {
     const { data, error } = await supabase.rpc('rpc_filehub_rename_tag', { p_old: oldTag, p_new: newTag });
-    if (error) { Alert.alert('Error', error.message); throw error; }
+    if (error) { showAlert('Error', error.message); throw error; }
     return data as number;
   }, []);
 
   const deleteTag = useCallback(async (tag: string): Promise<number> => {
     const { data, error } = await supabase.rpc('rpc_filehub_delete_tag', { p_tag: tag });
-    if (error) { Alert.alert('Error', error.message); throw error; }
+    if (error) { showAlert('Error', error.message); throw error; }
     return data as number;
   }, []);
 

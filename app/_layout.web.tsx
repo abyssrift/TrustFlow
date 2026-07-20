@@ -63,10 +63,10 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <SubmissionProvider>
-          <TimerProvider>
-            <AppThemeProvider>
-              <AlertProvider>
+        <TimerProvider>
+          <AppThemeProvider>
+            <AlertProvider>
+              <SubmissionProvider>
                 <ToastProvider>
                   <IslandProvider>
                     <UploadManagerProvider>
@@ -74,10 +74,10 @@ export default function RootLayout() {
                     </UploadManagerProvider>
                   </IslandProvider>
                 </ToastProvider>
-              </AlertProvider>
-            </AppThemeProvider>
-          </TimerProvider>
-        </SubmissionProvider>
+              </SubmissionProvider>
+            </AlertProvider>
+          </AppThemeProvider>
+        </TimerProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );

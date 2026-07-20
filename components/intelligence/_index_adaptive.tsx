@@ -3,6 +3,7 @@ import DraggableSheet from '@/components/common/DraggableSheet';
 import { BackButton } from '@/components/common/BackButton';
 import { IntelligencePicker } from '@/components/intelligence/IntelligenceCommon';
 
+import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { useBillingPlan } from '@/hooks/useBillingPlan';
@@ -13,7 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Platform, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, Platform, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 
 
@@ -545,6 +546,7 @@ export default function IntelligenceScreen() {
   const { section } = useLocalSearchParams();
   const router = useRouter();
   const { hasPermission, profile } = useAuth();
+  const { showAlert } = useAlert();
 
   const [activeSection, setActiveSection] = useState((section as string) || 'radar');
   const [loading, setLoading] = useState(true);
@@ -678,10 +680,10 @@ export default function IntelligenceScreen() {
         }
       });
       if (error) throw error;
-      Alert.alert('Processing', 'Your report is being generated.');
+      showAlert('Processing', 'Your report is being generated.');
       if (activeSection === 'archives') fetchReports();
     } catch (err: any) {
-      Alert.alert('Failure', err.message);
+      showAlert('Failure', err.message);
     } finally {
       setLoading(false);
     }
@@ -707,12 +709,12 @@ export default function IntelligenceScreen() {
 
       if (error) throw error;
 
-      Alert.alert('Success', 'Asset has been restored to the active pipeline.');
+      showAlert('Success', 'Asset has been restored to the active pipeline.');
       setConfirmRestore({ visible: false, archiveId: null });
       setSelectedArchive(null);
       fetchColdArchives();
     } catch (err: any) {
-      Alert.alert('Restoration Failed', err.message);
+      showAlert('Restoration Failed', err.message);
     } finally {
       setRestoring(false);
     }

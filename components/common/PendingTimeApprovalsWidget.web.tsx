@@ -4,7 +4,8 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Text, TouchableOpacity, View } from 'react-native';
+import { Text, TouchableOpacity, View } from 'react-native';
+import { useAlert } from '@/contexts/AlertContext';
 import ManualTimeApprovalsModal from './ManualTimeApprovalsModal';
 
 type PendingEntry = {
@@ -26,6 +27,7 @@ export default function PendingTimeApprovalsWidget({ refreshKey }: Props) {
   const colors = useThemeColors();
   const router = useRouter();
   const { profile } = useAuth();
+  const { showAlert } = useAlert();
   const [entries, setEntries] = useState<PendingEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -69,7 +71,7 @@ export default function PendingTimeApprovalsWidget({ refreshKey }: Props) {
       if (error) throw error;
       removeEntry(entryId);
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Could not review entry');
+      showAlert('Error', err.message || 'Could not review entry');
     }
   };
 

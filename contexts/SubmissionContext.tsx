@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { taskFlowDebug, taskFlowError } from '@/lib/taskDebug';
 import * as ImageManipulator from 'expo-image-manipulator';
 import React, { createContext, useCallback, useContext, useState } from 'react';
-import { Alert } from 'react-native';
+import { useAlert } from '@/contexts/AlertContext';
 
 export type UploadJob = {
   taskId: string;
@@ -60,6 +60,7 @@ const SubmissionContext = createContext<SubmissionContextType | undefined>(undef
 
 export function SubmissionProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
+  const { showAlert } = useAlert();
   const [activeJobs, setActiveJobs] = useState<Record<string, UploadJob>>({});
 
   const updateJob = useCallback((taskId: string, updates: Partial<UploadJob>) => {
@@ -270,7 +271,7 @@ export function SubmissionProvider({ children }: { children: React.ReactNode }) 
         error: displayMessage,
         currentAction: 'Failed to submit evidence'
       });
-      Alert.alert('Submission Failed', `Task: ${taskTitle}\nError: ${displayMessage}`);
+      showAlert('Submission Failed', `Task: ${taskTitle}\nError: ${displayMessage}`);
     }
   };
 

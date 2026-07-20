@@ -444,7 +444,8 @@ export default function TaskMobilityModal({ visible, onClose, onImported }: Prop
                     placeholderTextColor={colors.textDim}
                     secureTextEntry={field.type === 'password'}
                     autoCapitalize="none"
-                    className="bg-surface-background border border-surface-border rounded-xl px-4 py-3 text-typography-main text-sm"
+                    className="rounded-xl px-4 py-3 text-sm"
+                    style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, color: colors.textMain }}
                   />
                 </View>
               ))}

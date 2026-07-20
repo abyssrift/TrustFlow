@@ -18,13 +18,13 @@ import {
   type SortKey
 } from '@/components/platform-admin/useControlPlaneData';
 import { BackButton } from '@/components/common/BackButton';
+import { useAlert } from '@/contexts/AlertContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { FontAwesome } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   Platform,
   RefreshControl,
@@ -86,27 +86,25 @@ const CompanyDetailModal = ({
   companyId, onClose, onDeleted,
 }: { companyId: string | null; onClose: () => void; onDeleted: () => void }) => {
   const colors = useThemeColors();
+  const { showConfirm } = useAlert();
   const { detail, loading } = useCompanyDetail(companyId);
   const [deleting, setDeleting] = useState(false);
 
   const handleDelete = () => {
     if (!companyId || !detail) return;
-    Alert.alert(
+    showConfirm(
       'Delete Workspace',
       `Permanently delete "${detail.company.name}" and all its data? This cannot be undone.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            setDeleting(true);
-            const { error } = await deleteCompany(companyId);
-            setDeleting(false);
-            if (!error) onDeleted();
-          },
-        },
-      ]
+      async () => {
+        setDeleting(true);
+        const { error } = await deleteCompany(companyId);
+        setDeleting(false);
+        if (!error) onDeleted();
+      },
+      undefined,
+      'Delete',
+      undefined,
+      'destructive'
     );
   };
 

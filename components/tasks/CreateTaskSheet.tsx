@@ -1,10 +1,11 @@
+import { useAlert } from '@/contexts/AlertContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { getPastedImageFile } from '@/lib/pasteImage';
 import { FontAwesome } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DraggableSheet from '../common/DraggableSheet';
 import ClipboardControls from '../common/ClipboardControls';
@@ -110,6 +111,7 @@ type Props = {
 export default function CreateTaskSheet({ visible, onClose, initialPipelineId }: Props) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
+  const { showAlert, showConfirm } = useAlert();
   const {
     draft, setDraft, loading, recentTasks, briefFiles, setBriefFiles,
     step, setStep,
@@ -172,10 +174,7 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
                           key={i}
                           onPress={() => loadTemplate(t)}
                           onLongPress={() =>
-                            Alert.alert('Delete Template', `Remove "${t.name}"?`, [
-                              { text: 'Cancel', style: 'cancel' },
-                              { text: 'Delete', style: 'destructive', onPress: () => deleteTemplate(i) },
-                            ])
+                            showConfirm('Delete Template', `Remove "${t.name}"?`, () => deleteTemplate(i), undefined, 'Delete', undefined, 'destructive')
                           }
                           className="bg-brand-primary/10 border border-brand-primary/30 rounded-xl px-4 py-3"
                           style={{ maxWidth: 140 }}
@@ -366,7 +365,7 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
                    onPress={async () => {
                      const file = await getPastedImageFile();
                      if (file) setBriefFiles(prev => [...prev, file]);
-                     else Alert.alert('No Image', 'There is no image on the clipboard to paste.');
+                     else showAlert('No Image', 'There is no image on the clipboard to paste.');
                    }}
                    className="flex-row items-center bg-surface-background px-3 py-2 rounded-xl border border-surface-border"
                  >

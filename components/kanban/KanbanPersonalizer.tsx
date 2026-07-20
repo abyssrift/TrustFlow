@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Switch, Platform, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Switch, Platform, ActivityIndicator } from 'react-native';
+import { useAlert } from '@/contexts/AlertContext';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as ImagePicker from 'expo-image-picker';
 import { File } from 'expo-file-system';
@@ -24,6 +25,7 @@ export default function KanbanPersonalizer({ onClose }: Props) {
   const colors = useThemeColors();
   const { kanban, updateKanban } = useTheme();
   const { user } = useAuth();
+  const { showAlert } = useAlert();
   const [uploading, setUploading] = useState(false);
 
   const handlePickImage = async () => {
@@ -75,7 +77,7 @@ export default function KanbanPersonalizer({ onClose }: Props) {
       updateKanban({ backgroundUrl: `${data.publicUrl}?v=${Date.now()}` });
     } catch (e) {
       console.error('Failed to upload kanban background', e);
-      Alert.alert('Upload failed', e instanceof Error ? e.message : 'Could not upload background image.');
+      showAlert('Upload failed', e instanceof Error ? e.message : 'Could not upload background image.');
     } finally {
       setUploading(false);
     }

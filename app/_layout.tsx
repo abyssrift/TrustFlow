@@ -75,9 +75,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <AuthProvider>
         <TimerProvider>
-          <SubmissionProvider>
-            <RootLayoutNav />
-          </SubmissionProvider>
+          <RootLayoutNav />
         </TimerProvider>
       </AuthProvider>
     </SafeAreaProvider>
@@ -214,15 +212,17 @@ function RootLayoutNav() {
     <AppThemeProvider>
       <AnalyticsProvider>
         <AlertProvider>
-          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-            <NotificationsProvider>
-              <ToastProvider>
-                <PingHighlightProvider>
-                  <ThemedRoot />
-                </PingHighlightProvider>
-              </ToastProvider>
-            </NotificationsProvider>
-          </ThemeProvider>
+          <SubmissionProvider>
+            <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+              <NotificationsProvider>
+                <ToastProvider>
+                  <PingHighlightProvider>
+                    <ThemedRoot />
+                  </PingHighlightProvider>
+                </ToastProvider>
+              </NotificationsProvider>
+            </ThemeProvider>
+          </SubmissionProvider>
         </AlertProvider>
       </AnalyticsProvider>
     </AppThemeProvider>

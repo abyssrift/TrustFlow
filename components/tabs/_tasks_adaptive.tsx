@@ -11,6 +11,7 @@ import TaskPingButton from '@/components/task-detail/TaskPingButton';
 import AssignmentModal from '@/components/tasks/AssignmentModal';
 import CreateTaskSheet from '@/components/tasks/CreateTaskSheet';
 import TaskMobilityModal from '@/components/tasks/TaskMobilityModal';
+import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePingHighlight } from '@/contexts/PingHighlightContext';
 import { TaskCreationProvider } from '@/contexts/TaskCreationContext';
@@ -25,7 +26,6 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Animated,
   Image,
   InteractionManager,
@@ -347,6 +347,7 @@ function TasksScreen() {
    const colors = useThemeColors();
    const router = useRouter();
    const { user, hasPermission, profile } = useAuth();
+   const { showAlert } = useAlert();
    const isLargeScreen = width > 768;
 
   const { pingedTasks, removePingedTask } = usePingHighlight();
@@ -963,13 +964,13 @@ function TasksScreen() {
       const { data: allPipes } = await supabase.from('pipelines').select('id, name, task_visibility_mode, is_default').is('deleted_at', null);
       setAvailablePipelines(allPipes as Pipeline[] || []);
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Could not update default pipeline.');
+      showAlert('Error', err.message || 'Could not update default pipeline.');
     }
   };
 
   const handleCreateTask = () => {
     if (!hasPermission('task.create')) {
-      Alert.alert('Access Denied', 'Your current authorization level does not permit task initialization.');
+      showAlert('Access Denied', 'Your current authorization level does not permit task initialization.');
       return;
     }
     setShowCreateSheet(true);
@@ -986,7 +987,7 @@ function TasksScreen() {
       setArchiveModal({ visible: false, taskId: null });
       fetchData();
     } catch (err: any) {
-      Alert.alert('Archival Failed', err.message || 'Could not archive task.');
+      showAlert('Archival Failed', err.message || 'Could not archive task.');
     } finally {
       setArchiving(false);
     }

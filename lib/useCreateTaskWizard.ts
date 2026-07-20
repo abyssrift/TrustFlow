@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert } from 'react-native';
 
+import { useAlert } from '@/contexts/AlertContext';
 import { useTaskCreation } from '@/contexts/TaskCreationContext';
 import { supabase } from '@/lib/supabase';
 
@@ -18,6 +18,7 @@ const TEMPLATES_KEY = '@TrustFlow_task_templates';
 
 export function useCreateTaskWizard({ visible, initialPipelineId }: { visible: boolean; initialPipelineId?: string | null }) {
   const { draft, setDraft, createTask, createBulkTasks, loading, recentTasks, loadRecentTasks, briefFiles, setBriefFiles } = useTaskCreation();
+  const { showAlert } = useAlert();
   const [step, setStep] = useState(1);
   // Bulk quick-add: one task title per line, sharing all other draft fields.
   const [bulkMode, setBulkMode] = useState(false);
@@ -55,7 +56,7 @@ export function useCreateTaskWizard({ visible, initialPipelineId }: { visible: b
 
   const saveAsTemplate = async () => {
     if (!draft.title.trim()) {
-      Alert.alert('No Title', 'Add a title first to save it as a template.');
+      showAlert('No Title', 'Add a title first to save it as a template.');
       return;
     }
     const template: TaskTemplate = {

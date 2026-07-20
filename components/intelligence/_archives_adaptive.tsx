@@ -7,12 +7,14 @@ import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { ActivityIndicator, Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useAlert } from '@/contexts/AlertContext';
 
 export default function IntelligenceArchivesNative() {
   const colors = useThemeColors();
   const { hasPermission } = useAuth();
   const router = useRouter();
+  const { showAlert } = useAlert();
   const [archives, setArchives] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [restoringId, setRestoringId] = useState<string | null>(null);
@@ -44,7 +46,7 @@ export default function IntelligenceArchivesNative() {
       setDeleteModal(false);
       await fetchArchives();
     } catch (e: any) {
-      Alert.alert('Delete Failed', e.message);
+      showAlert('Delete Failed', e.message);
     } finally { setDeleting(false); }
   };
 
@@ -81,9 +83,9 @@ export default function IntelligenceArchivesNative() {
       if (error) throw error;
       await fetchArchives();
       setRestoreModal({ visible: false });
-      Alert.alert('Restored', 'Asset has been returned to the active pipeline.');
+      showAlert('Restored', 'Asset has been returned to the active pipeline.');
     } catch (e: any) {
-      Alert.alert('Restoration Failed', e.message);
+      showAlert('Restoration Failed', e.message);
     } finally { setRestoringId(null); }
   };
 

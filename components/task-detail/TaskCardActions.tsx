@@ -1,5 +1,6 @@
 import ConfirmModal from '@/components/common/ConfirmModal';
 import ManualTimeModal from '@/components/common/ManualTimeModal';
+import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTimer } from '@/contexts/TimerContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -10,7 +11,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 import { buildTransitionTargetMap, isComplexActionType, stageDirection } from './actionRegistry';
 import { DirectionalActionButton } from './DirectionalActionButton';
 
@@ -88,6 +89,7 @@ export default function TaskCardActions({ task, stages, stageActions, transition
   const { hasPermission, profile } = useAuth();
   const { startWork } = useTimer();
   const { successToast, errorToast } = useToast();
+  const { showAlert } = useAlert();
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [needsTimerActionId, setNeedsTimerActionId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<{ title: string; message: string; variant?: 'danger' | 'warning' } | null>(null);
@@ -226,7 +228,7 @@ export default function TaskCardActions({ task, stages, stageActions, transition
   const handleFallbackAdvance = async () => {
     const currentIndex = stages.findIndex(s => s.id === task.current_stage_id);
     if (currentIndex === -1 || currentIndex === stages.length - 1) {
-      Alert.alert('Info', 'This task is already in the final stage.');
+      showAlert('Info', 'This task is already in the final stage.');
       return;
     }
     const nextStage = stages[currentIndex + 1];

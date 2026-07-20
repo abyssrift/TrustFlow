@@ -1,3 +1,4 @@
+import AppModal from '@/components/common/AppModal';
 import { useTimer } from '@/contexts/TimerContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -6,7 +7,7 @@ import { formatStopwatch } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Dimensions, Modal, PanResponder, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Dimensions, PanResponder, Text, TouchableOpacity, View } from 'react-native';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -175,33 +176,39 @@ export default function TimerIsland({ floating = true }: { floating?: boolean })
 }
 
 const IdleWarning = ({ smartTimer, stopWork, colors }: any) => (
-  <Modal transparent animationType="fade" visible={smartTimer.showIdleModal} onRequestClose={() => smartTimer.setShowIdleModal(false)}>
-    <View className="flex-1 items-center justify-center bg-black/60">
-      <View className="bg-surface-card border border-surface-border rounded-2xl p-6 mx-6 max-w-sm w-full shadow-2xl">
-        <View className="items-center mb-4">
-          <View className="w-12 h-12 rounded-full bg-state-warning/15 items-center justify-center mb-3">
-            <FontAwesome name="clock-o" size={22} color={colors.warning} />
-          </View>
-          <Text className="text-typography-main font-bold text-base text-center">Are you still working?</Text>
-          <Text className="text-typography-muted text-sm text-center mt-1">
-            No activity detected for 30 minutes. The timer will stop automatically in 2 minutes.
-          </Text>
-        </View>
-        <View className="flex-row gap-3">
-          <TouchableOpacity
-            onPress={() => { smartTimer.setShowIdleModal(false); smartTimer.recordActivity(); }}
-            className="flex-1 bg-brand-primary/10 border border-brand-primary/30 rounded-xl py-3 items-center active:bg-brand-primary/20"
-          >
-            <Text className="text-brand-primary font-semibold text-sm">Keep Working</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => { smartTimer.setShowIdleModal(false); stopWork(); }}
-            className="flex-1 bg-state-danger/10 border border-state-danger/30 rounded-xl py-3 items-center active:bg-state-danger/20"
-          >
-            <Text className="text-state-danger font-semibold text-sm">Stop Timer</Text>
-          </TouchableOpacity>
-        </View>
+  <AppModal
+    visible={smartTimer.showIdleModal}
+    onClose={() => smartTimer.setShowIdleModal(false)}
+    dismissOnBackdrop={false}
+    containerClassName="rounded-2xl p-6 mx-6 max-w-sm w-full shadow-2xl"
+  >
+    <View className="items-center mb-4">
+      <View
+        className="w-12 h-12 rounded-full items-center justify-center mb-3"
+        style={{ backgroundColor: `${colors.warning}26` }}
+      >
+        <FontAwesome name="clock-o" size={22} color={colors.warning} />
       </View>
+      <Text className="font-bold text-base text-center" style={{ color: colors.textMain }}>Are you still working?</Text>
+      <Text className="text-sm text-center mt-1" style={{ color: colors.textMuted }}>
+        No activity detected for 30 minutes. The timer will stop automatically in 2 minutes.
+      </Text>
     </View>
-  </Modal>
+    <View className="flex-row gap-3">
+      <TouchableOpacity
+        onPress={() => { smartTimer.setShowIdleModal(false); smartTimer.recordActivity(); }}
+        className="flex-1 rounded-xl py-3 items-center border"
+        style={{ backgroundColor: `${colors.primary}1a`, borderColor: `${colors.primary}4d` }}
+      >
+        <Text className="font-semibold text-sm" style={{ color: colors.primary }}>Keep Working</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        onPress={() => { smartTimer.setShowIdleModal(false); stopWork(); }}
+        className="flex-1 rounded-xl py-3 items-center border"
+        style={{ backgroundColor: `${colors.danger}1a`, borderColor: `${colors.danger}4d` }}
+      >
+        <Text className="font-semibold text-sm" style={{ color: colors.danger }}>Stop Timer</Text>
+      </TouchableOpacity>
+    </View>
+  </AppModal>
 );

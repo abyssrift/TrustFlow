@@ -2,6 +2,7 @@ import DraggableSheet from '@/components/common/DraggableSheet';
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 import { BackButton } from '@/components/common/BackButton';
 import { CompletionVelocityMobile, IntelligencePicker } from '@/components/intelligence/IntelligenceCommon';
+import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -10,7 +11,7 @@ import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Modal, ScrollView, Text, TextInput,
+  ActivityIndicator, Modal, ScrollView, Text, TextInput,
   TouchableOpacity, View, useWindowDimensions,
 } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
@@ -398,6 +399,7 @@ const TargetCircle = ({
 
 export default function IntelligenceTargetsNative() {
   const colors = useThemeColors();
+  const { showAlert } = useAlert();
   const { profile } = useAuth();
   const { theme: activeTheme } = useTheme();
   const { width: screenWidth } = useWindowDimensions();
@@ -457,7 +459,7 @@ export default function IntelligenceTargetsNative() {
       });
       if (error) throw error;
       fetchTargets();
-    } catch (e: any) { Alert.alert('Error', e.message); }
+    } catch (e: any) { showAlert('Error', e.message); }
   };
 
   const handleAction = async (targetId: string, action: 'completed' | 'expired' | 'clear') => {
@@ -471,7 +473,7 @@ export default function IntelligenceTargetsNative() {
         }).eq('id', targetId);
       }
       fetchTargets();
-    } catch (e: any) { Alert.alert('Error', e.message); }
+    } catch (e: any) { showAlert('Error', e.message); }
   };
 
   const handleUpdate = async (id: string, updates: Record<string, any>) => {

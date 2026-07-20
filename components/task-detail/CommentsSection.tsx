@@ -1,3 +1,4 @@
+import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { CommentData, useTaskDetail } from '@/contexts/TaskDetailContext';
 import { useTimer } from '@/contexts/TimerContext';
@@ -6,7 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { formatRelative } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import CollapsibleCard from './CollapsibleCard';
 import LinkifiedText from '../common/LinkifiedText';
 import PermissionGate from './PermissionGate';
@@ -115,6 +116,7 @@ export default function CommentsSection() {
   const { smartTimer } = useTimer();
   const { user, profile } = useAuth();
   const colors = useThemeColors();
+  const { showAlert, showConfirm } = useAlert();
   
   // Calculate user variants for mention highlighting
   const userVariants = useMemo(() => {
@@ -273,17 +275,14 @@ export default function CommentsSection() {
       setInput('');
       setReplyTo(null);
     } catch (err: any) {
-      Alert.alert('Comment Error', err.message);
+      showAlert('Comment Error', err.message);
     } finally {
       setSending(false);
     }
   };
 
   const handleDelete = async (commentId: string) => {
-    Alert.alert('Delete Comment', 'Are you sure?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => deleteComment(commentId) },
-    ]);
+    showConfirm('Delete Comment', 'Are you sure?', () => deleteComment(commentId), undefined, 'Delete', undefined, 'destructive');
   };
 
   return (

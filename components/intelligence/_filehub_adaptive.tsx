@@ -837,6 +837,7 @@ function UploadSheet({
   activeGroup?: { id: string; name: string; avatar_color: string } | null;
 }) {
   const { folders, checkDuplicate, checkNameConflict, replaceFile, refreshFolders } = useFileHub();
+  const { showAlert } = useAlert();
   const fileInputRef = useRef<any>(null);
   const folderInputRef = useRef<any>(null);
 
@@ -941,7 +942,7 @@ function UploadSheet({
         }
       });
     if (rejected.length > 0) {
-      Alert.alert(
+      showAlert(
         'Unsupported File Type',
         `${rejected.length === 1 ? `"${rejected[0]}" is` : `${rejected.length} files are`} not supported.\n\nSupported types:\n${ALLOWED_TYPES_MESSAGE}`,
       );
@@ -987,13 +988,13 @@ function UploadSheet({
   const handleUpload = async () => {
     if (pickedFiles.length === 0 || uploading) return;
     const companyId = profile?.company_id;
-    if (!companyId) { Alert.alert('Error', 'Company not found.'); return; }
+    if (!companyId) { showAlert('Error', 'Company not found.'); return; }
     if (visibility === 'direct' && selectedRecipients.length === 0) {
-      Alert.alert('Error', 'Please select at least one recipient.');
+      showAlert('Error', 'Please select at least one recipient.');
       return;
     }
     if (visibility === 'group' && !activeGroup?.id) {
-      Alert.alert('Error', 'No channel selected.');
+      showAlert('Error', 'No channel selected.');
       return;
     }
 
@@ -1156,9 +1157,9 @@ function UploadSheet({
 
     const successCount = pickedFiles.length - errors.length;
     if (errors.length > 0 && successCount > 0) {
-      Alert.alert('Some uploads failed', errors.join('\n'));
+      showAlert('Some uploads failed', errors.join('\n'));
     } else if (errors.length === pickedFiles.length) {
-      Alert.alert('Upload Failed', errors.join('\n'));
+      showAlert('Upload Failed', errors.join('\n'));
       return;
     }
 
@@ -1414,17 +1415,21 @@ function UploadSheet({
     {pendingDecision && (
       <Modal visible transparent animationType="fade">
         <View className="flex-1 bg-black/60 items-center justify-center p-8">
-          <View className="bg-surface-card rounded-3xl border border-surface-border premium-shadow w-full max-w-[420px] p-6">
-            <Text className="text-typography-main text-lg font-black tracking-tight mb-2">{pendingDecision.title}</Text>
-            <Text className="text-typography-muted text-sm leading-relaxed mb-5">{pendingDecision.message}</Text>
+          <View className="rounded-3xl border premium-shadow w-full max-w-[420px] p-6" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
+            <Text className="text-lg font-black tracking-tight mb-2" style={{ color: colors.textMain }}>{pendingDecision.title}</Text>
+            <Text className="text-sm leading-relaxed mb-5" style={{ color: colors.textMuted }}>{pendingDecision.message}</Text>
             <View className="gap-2">
               {pendingDecision.options.map(opt => (
                 <TouchableOpacity
                   key={opt.value}
                   onPress={() => { const r = pendingDecision.resolve; setPendingDecision(null); r(opt.value); }}
-                  className={`py-3 rounded-xl items-center ${opt.style === 'primary' ? 'bg-brand-primary' : 'bg-surface-background border border-surface-border'}`}
+                  className="py-3 rounded-xl items-center"
+                  style={opt.style === 'primary' ? { backgroundColor: colors.primary } : { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}
                 >
-                  <Text className={`font-black text-sm ${opt.style === 'primary' ? 'text-white' : opt.style === 'cancel' ? 'text-typography-muted' : 'text-typography-main'}`}>
+                  <Text
+                    className="font-black text-sm"
+                    style={opt.style === 'primary' ? { color: '#fff' } : opt.style === 'cancel' ? { color: colors.textMuted } : { color: colors.textMain }}
+                  >
                     {opt.label}
                   </Text>
                 </TouchableOpacity>

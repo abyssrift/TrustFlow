@@ -22,7 +22,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Animated,
   Easing,
   Image,
@@ -322,6 +321,7 @@ function UploadModal({
 }) {
   const { refreshFolders } = useFileHub();
   const { startUpload, cancelUpload } = useUploadManager();
+  const { showAlert } = useAlert();
   const fileInputRef = useRef<any>(null);
   const folderInputRef = useRef<any>(null);
   const [draft, setDraft] = useState<UploadDraft>(EMPTY_DRAFT(activeGroup ? 'group' : 'direct'));
@@ -439,7 +439,7 @@ function UploadModal({
         }
       });
     if (rejected.length > 0) {
-      Alert.alert(
+      showAlert(
         'Unsupported File Type',
         `${rejected.length === 1 ? `"${rejected[0]}" is` : `${rejected.length} files are`} not supported.\n\nSupported types:\n${ALLOWED_TYPES_MESSAGE}`,
       );
@@ -469,9 +469,9 @@ function UploadModal({
   const handleUpload = () => {
     if (draft.files.length === 0) return;
     const companyId = profile?.company_id;
-    if (!companyId) { Alert.alert('Error', 'Company not found.'); return; }
+    if (!companyId) { showAlert('Error', 'Company not found.'); return; }
     if (draft.visibility === 'group' && !activeGroup?.id) {
-      Alert.alert('Error', 'No channel selected.'); return;
+      showAlert('Error', 'No channel selected.'); return;
     }
 
     const jobId = startUpload({
@@ -511,22 +511,23 @@ function UploadModal({
         <Animated.View
           style={{ width: '100%', maxWidth: 560, maxHeight: '100%', opacity: cardOpacity, transform: [{ translateY: cardTranslateY }, { scale: cardScale }] }}
         >
-        <View className="bg-surface-card rounded-[2rem] border border-surface-border premium-shadow w-full" style={{ maxHeight: '100%' }}>
-          <View className="flex-row items-center justify-between px-8 pt-7 pb-5 border-b border-surface-border">
-            <Text className="text-typography-main text-xl font-black tracking-tight">
+        <View className="rounded-[2rem] border premium-shadow w-full" style={{ maxHeight: '100%', backgroundColor: colors.card, borderColor: colors.border }}>
+          <View className="flex-row items-center justify-between px-8 pt-7 pb-5 border-b" style={{ borderColor: colors.border }}>
+            <Text className="text-xl font-black tracking-tight" style={{ color: colors.textMain }}>
               {uploading ? 'Uploading' : activeGroup ? `Upload to ${activeGroup.name}` : 'Upload Files'}
             </Text>
             <View className="flex-row items-center gap-2">
               {uploading && (
                 <TouchableOpacity
                   onPress={morphToIsland}
-                  className="flex-row items-center gap-2 h-8 px-3 rounded-xl bg-surface-background border border-surface-border"
+                  className="flex-row items-center gap-2 h-8 px-3 rounded-xl border"
+                  style={{ backgroundColor: colors.background, borderColor: colors.border }}
                 >
                   <FontAwesome name="chevron-up" size={10} color={colors.textMuted} />
-                  <Text className="text-typography-muted text-xs font-black">Minimize to island</Text>
+                  <Text className="text-xs font-black" style={{ color: colors.textMuted }}>Minimize to island</Text>
                 </TouchableOpacity>
               )}
-              <TouchableOpacity onPress={handleDismiss} className="w-8 h-8 items-center justify-center rounded-xl bg-surface-background border border-surface-border">
+              <TouchableOpacity onPress={handleDismiss} className="w-8 h-8 items-center justify-center rounded-xl border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
                 <FontAwesome name="times" size={12} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
@@ -552,28 +553,30 @@ function UploadModal({
 
             {/* File picker area */}
             {draft.files.length === 0 ? (
-              <View className="border-2 border-dashed border-surface-border rounded-2xl items-center justify-center py-10 px-6 gap-4">
-                <View className="w-14 h-14 bg-surface-background rounded-2xl border border-surface-border items-center justify-center">
+              <View className="border-2 border-dashed rounded-2xl items-center justify-center py-10 px-6 gap-4" style={{ borderColor: colors.border }}>
+                <View className="w-14 h-14 rounded-2xl border items-center justify-center" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
                   <FontAwesome name="cloud-upload" size={24} color={colors.textMuted} />
                 </View>
                 <View className="items-center gap-1">
-                  <Text className="text-typography-main font-bold text-sm">Choose files to upload</Text>
-                  <Text className="text-typography-muted text-xs">Up to 500 MB per file</Text>
+                  <Text className="font-bold text-sm" style={{ color: colors.textMain }}>Choose files to upload</Text>
+                  <Text className="text-xs" style={{ color: colors.textMuted }}>Up to 500 MB per file</Text>
                 </View>
                 <View className="flex-row gap-3">
                   <TouchableOpacity
                     onPress={() => fileInputRef.current?.click()}
-                    className="flex-row items-center gap-2 bg-brand-primary px-5 py-2.5 rounded-xl"
+                    className="flex-row items-center gap-2 px-5 py-2.5 rounded-xl"
+                    style={{ backgroundColor: colors.primary }}
                   >
                     <FontAwesome name="files-o" size={12} color="#fff" />
                     <Text className="text-white font-black text-sm">Files</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => folderInputRef.current?.click()}
-                    className="flex-row items-center gap-2 bg-surface-background border border-surface-border px-5 py-2.5 rounded-xl"
+                    className="flex-row items-center gap-2 border px-5 py-2.5 rounded-xl"
+                    style={{ backgroundColor: colors.background, borderColor: colors.border }}
                   >
                     <FontAwesome name="folder-open" size={12} color={colors.textMuted} />
-                    <Text className="text-typography-muted font-black text-sm">Folder</Text>
+                    <Text className="font-black text-sm" style={{ color: colors.textMuted }}>Folder</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -591,7 +594,7 @@ function UploadModal({
             {/* Visibility — hidden when uploading to a group (locked to group) */}
             {!activeGroup ? (
               <View className="gap-2">
-                <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Visibility</Text>
+                <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>Visibility</Text>
                 <View className="flex-row gap-2">
                   {[
                     { value: 'direct', label: 'Direct Send', icon: 'user' },
@@ -600,18 +603,18 @@ function UploadModal({
                     <TouchableOpacity
                       key={opt.value}
                       onPress={() => patch({ visibility: opt.value as any, recipientIds: [] })}
-                      className={`flex-1 flex-row items-center justify-center gap-2 py-3 rounded-xl border ${
-                        draft.visibility === opt.value
-                          ? 'bg-brand-primary/10 border-brand-primary/30'
-                          : 'bg-surface-background border-surface-border'
-                      }`}
+                      className="flex-1 flex-row items-center justify-center gap-2 py-3 rounded-xl border"
+                      style={{
+                        backgroundColor: draft.visibility === opt.value ? colors.primary + '1a' : colors.background,
+                        borderColor: draft.visibility === opt.value ? colors.primary + '4d' : colors.border,
+                      }}
                     >
                       <FontAwesome
                         name={opt.icon as any}
                         size={12}
                         color={draft.visibility === opt.value ? colors.primary : colors.textMuted}
                       />
-                      <Text className={`text-sm font-black ${draft.visibility === opt.value ? 'text-brand-primary' : 'text-typography-muted'}`}>
+                      <Text className="text-sm font-black" style={{ color: draft.visibility === opt.value ? colors.primary : colors.textMuted }}>
                         {opt.label}
                       </Text>
                     </TouchableOpacity>
@@ -620,7 +623,7 @@ function UploadModal({
               </View>
             ) : (
               /* Group badge */
-              <View className="flex-row items-center gap-3 bg-surface-background border border-surface-border rounded-xl px-4 py-3">
+              <View className="flex-row items-center gap-3 border rounded-xl px-4 py-3" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
                 <View
                   className="w-9 h-9 rounded-xl items-center justify-center flex-shrink-0"
                   style={{ backgroundColor: activeGroup.avatar_color + '22' }}
@@ -630,11 +633,11 @@ function UploadModal({
                   </Text>
                 </View>
                 <View className="flex-1">
-                  <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Sharing to channel</Text>
-                  <Text className="text-typography-main font-bold text-sm">{activeGroup.name}</Text>
+                  <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>Sharing to channel</Text>
+                  <Text className="font-bold text-sm" style={{ color: colors.textMain }}>{activeGroup.name}</Text>
                 </View>
-                <View className="bg-brand-primary/10 border border-brand-primary/20 rounded-full px-2.5 py-1">
-                  <Text className="text-brand-primary text-[10px] font-black">Channel</Text>
+                <View className="border rounded-full px-2.5 py-1" style={{ backgroundColor: colors.primary + '1a', borderColor: colors.primary + '33' }}>
+                  <Text className="text-[10px] font-black" style={{ color: colors.primary }}>Channel</Text>
                 </View>
               </View>
             )}
@@ -642,14 +645,14 @@ function UploadModal({
             {/* Recipients */}
             {draft.visibility === 'direct' && (
               <View className="gap-2">
-                <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Recipients</Text>
+                <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>Recipients</Text>
                 {draft.recipientIds.length > 0 && (
                   <View className="flex-row flex-wrap gap-2 mb-1">
                     {memberResults
                       .filter(m => draft.recipientIds.includes(m.id))
                       .map(m => (
-                        <View key={m.id} className="flex-row items-center gap-1.5 bg-brand-primary/10 border border-brand-primary/20 rounded-full px-3 py-1">
-                          <Text className="text-brand-primary text-xs font-bold">{m.full_name}</Text>
+                        <View key={m.id} className="flex-row items-center gap-1.5 border rounded-full px-3 py-1" style={{ backgroundColor: colors.primary + '1a', borderColor: colors.primary + '33' }}>
+                          <Text className="text-xs font-bold" style={{ color: colors.primary }}>{m.full_name}</Text>
                           <TouchableOpacity onPress={() => toggleRecipient(m.id)}>
                             <FontAwesome name="times" size={9} color={colors.primary} />
                           </TouchableOpacity>
@@ -657,29 +660,31 @@ function UploadModal({
                       ))}
                   </View>
                 )}
-                <View className="flex-row items-center bg-surface-background border border-surface-border rounded-xl px-4 py-2.5 gap-2">
+                <View className="flex-row items-center border rounded-xl px-4 py-2.5 gap-2" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
                   <FontAwesome name="search" size={11} color={colors.textMuted} />
                   <TextInput
                     value={recipientSearch}
                     onChangeText={searchMembers}
                     placeholder="Search team members..."
                     placeholderTextColor={colors.textDim}
-                    className="flex-1 text-typography-main text-sm outline-none bg-transparent"
+                    className="flex-1 text-sm outline-none bg-transparent"
+                    style={{ color: colors.textMain }}
                   />
                   {searchingMembers && <ActivityIndicator size="small" color={colors.primary} />}
                 </View>
                 {memberResults.length > 0 && (
-                  <View className="bg-surface-card border border-surface-border rounded-xl overflow-hidden">
+                  <View className="border rounded-xl overflow-hidden" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
                     {memberResults.map((m, i) => (
                       <TouchableOpacity
                         key={m.id}
                         onPress={() => toggleRecipient(m.id)}
-                        className={`flex-row items-center px-4 py-3 gap-3 ${i < memberResults.length - 1 ? 'border-b border-surface-border/50' : ''}`}
+                        className="flex-row items-center px-4 py-3 gap-3"
+                        style={i < memberResults.length - 1 ? { borderBottomWidth: 1, borderColor: colors.border + '80' } : undefined}
                       >
-                        <View className="w-7 h-7 rounded-full bg-surface-background border border-surface-border items-center justify-center">
+                        <View className="w-7 h-7 rounded-full border items-center justify-center" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
                           <FontAwesome name="user" size={11} color={colors.textMuted} />
                         </View>
-                        <Text className="flex-1 text-typography-main text-sm font-medium">{m.full_name}</Text>
+                        <Text className="flex-1 text-sm font-medium" style={{ color: colors.textMain }}>{m.full_name}</Text>
                         {draft.recipientIds.includes(m.id) && <FontAwesome name="check" size={11} color={colors.primary} />}
                       </TouchableOpacity>
                     ))}
@@ -691,21 +696,29 @@ function UploadModal({
             {/* Folder — hidden for group uploads when no folders exist in this group */}
             {(!activeGroup || scopedFolders.length > 0) && (
               <View className="gap-2">
-                <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Folder</Text>
+                <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>Folder</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, flexDirection: 'row', alignItems: 'center' }}>
                   <TouchableOpacity
                     onPress={() => patch({ folderId: null })}
-                    className={`px-4 py-2 rounded-xl border ${!draft.folderId ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}
+                    className="px-4 py-2 rounded-xl border"
+                    style={{
+                      backgroundColor: !draft.folderId ? colors.primary + '1a' : colors.background,
+                      borderColor: !draft.folderId ? colors.primary + '4d' : colors.border,
+                    }}
                   >
-                    <Text className={`text-xs font-bold ${!draft.folderId ? 'text-brand-primary' : 'text-typography-muted'}`}>No folder</Text>
+                    <Text className="text-xs font-bold" style={{ color: !draft.folderId ? colors.primary : colors.textMuted }}>No folder</Text>
                   </TouchableOpacity>
                   {[...scopedFolders].sort((a, b) => folderPath(scopedFolders, a.id).localeCompare(folderPath(scopedFolders, b.id))).map(f => (
                     <TouchableOpacity
                       key={f.id}
                       onPress={() => patch({ folderId: f.id })}
-                      className={`px-4 py-2 rounded-xl border ${draft.folderId === f.id ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}
+                      className="px-4 py-2 rounded-xl border"
+                      style={{
+                        backgroundColor: draft.folderId === f.id ? colors.primary + '1a' : colors.background,
+                        borderColor: draft.folderId === f.id ? colors.primary + '4d' : colors.border,
+                      }}
                     >
-                      <Text className={`text-xs font-bold ${draft.folderId === f.id ? 'text-brand-primary' : 'text-typography-muted'}`}>{folderPath(scopedFolders, f.id)}</Text>
+                      <Text className="text-xs font-bold" style={{ color: draft.folderId === f.id ? colors.primary : colors.textMuted }}>{folderPath(scopedFolders, f.id)}</Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
@@ -714,12 +727,12 @@ function UploadModal({
 
             {/* Tags */}
             <View className="gap-2">
-              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Tags</Text>
+              <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>Tags</Text>
               {draft.tags.length > 0 && (
                 <View className="flex-row flex-wrap gap-2">
                   {draft.tags.map(tag => (
-                    <View key={tag} className="flex-row items-center gap-1.5 bg-surface-background border border-surface-border rounded-full px-3 py-1">
-                      <Text className="text-typography-muted text-xs font-bold">{tag}</Text>
+                    <View key={tag} className="flex-row items-center gap-1.5 border rounded-full px-3 py-1" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
+                      <Text className="text-xs font-bold" style={{ color: colors.textMuted }}>{tag}</Text>
                       <TouchableOpacity onPress={() => patch({ tags: draft.tags.filter(t => t !== tag) })}>
                         <FontAwesome name="times" size={9} color={colors.textMuted} />
                       </TouchableOpacity>
@@ -727,7 +740,7 @@ function UploadModal({
                   ))}
                 </View>
               )}
-              <View className="flex-row items-center bg-surface-background border border-surface-border rounded-xl px-4 py-2.5 gap-2">
+              <View className="flex-row items-center border rounded-xl px-4 py-2.5 gap-2" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
                 <FontAwesome name="tag" size={11} color={colors.textMuted} />
                 <TextInput
                   value={draft.tagInput}
@@ -736,14 +749,15 @@ function UploadModal({
                   onSubmitEditing={() => addTag(draft.tagInput)}
                   placeholder="Add tag and press Enter..."
                   placeholderTextColor={colors.textDim}
-                  className="flex-1 text-typography-main text-sm outline-none bg-transparent"
+                  className="flex-1 text-sm outline-none bg-transparent"
+                  style={{ color: colors.textMain }}
                 />
               </View>
               {tagSuggestResults.length > 0 && (
                 <View className="flex-row flex-wrap gap-2">
                   {tagSuggestResults.map(t => (
-                    <TouchableOpacity key={t} onPress={() => addTag(t)} className="px-3 py-1 rounded-full bg-brand-primary/5 border border-brand-primary/20">
-                      <Text className="text-brand-primary text-xs font-bold">{t}</Text>
+                    <TouchableOpacity key={t} onPress={() => addTag(t)} className="px-3 py-1 rounded-full border" style={{ backgroundColor: colors.primary + '0d', borderColor: colors.primary + '33' }}>
+                      <Text className="text-xs font-bold" style={{ color: colors.primary }}>{t}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -752,7 +766,7 @@ function UploadModal({
 
             {/* Caption */}
             <View className="gap-2">
-              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Caption</Text>
+              <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>Caption</Text>
               <TextInput
                 value={draft.caption}
                 onChangeText={v => patch({ caption: v })}
@@ -760,8 +774,8 @@ function UploadModal({
                 placeholderTextColor={colors.textDim}
                 multiline
                 numberOfLines={3}
-                className="bg-surface-background border border-surface-border rounded-xl px-4 py-3 text-typography-main text-sm outline-none"
-                style={{ minHeight: 80, textAlignVertical: 'top' }}
+                className="border rounded-xl px-4 py-3 text-sm outline-none"
+                style={{ minHeight: 80, textAlignVertical: 'top', backgroundColor: colors.background, borderColor: colors.border, color: colors.textMain }}
               />
             </View>
 
@@ -770,15 +784,16 @@ function UploadModal({
             <View className="flex-row gap-3 pt-2">
               <TouchableOpacity
                 onPress={onClose}
-                className="flex-1 items-center justify-center py-3.5 rounded-xl border border-surface-border bg-surface-background"
+                className="flex-1 items-center justify-center py-3.5 rounded-xl border"
+                style={{ backgroundColor: colors.background, borderColor: colors.border }}
               >
-                <Text className="text-typography-muted font-black text-sm">Cancel</Text>
+                <Text className="font-black text-sm" style={{ color: colors.textMuted }}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleUpload}
                 disabled={draft.files.length === 0 || (draft.visibility === 'direct' && draft.recipientIds.length === 0)}
-                className="flex-[2] items-center justify-center py-3.5 rounded-xl bg-brand-primary"
-                style={{ opacity: (draft.files.length === 0 || (draft.visibility === 'direct' && draft.recipientIds.length === 0)) ? 0.5 : 1 }}
+                className="flex-[2] items-center justify-center py-3.5 rounded-xl"
+                style={{ backgroundColor: colors.primary, opacity: (draft.files.length === 0 || (draft.visibility === 'direct' && draft.recipientIds.length === 0)) ? 0.5 : 1 }}
               >
                 <Text className="text-white font-black text-sm">
                   {draft.files.length > 1
@@ -862,10 +877,10 @@ function UploadProgressPanel({
       </View>
 
       <View style={{ alignItems: 'center', gap: 4 }}>
-        <Text className="text-typography-main text-base font-black">
+        <Text className="text-base font-black" style={{ color: colors.textMain }}>
           {waiting ? 'Needs your input' : job?.title ?? `Uploading ${fileCount} file${fileCount === 1 ? '' : 's'}`}
         </Text>
-        <Text className="text-typography-muted text-xs font-bold" style={{ textAlign: 'center' }}>
+        <Text className="text-xs font-bold" style={{ textAlign: 'center', color: colors.textMuted }}>
           {job?.subtitle ?? `${formatFileSize(totalBytes)} · starting…`}
         </Text>
       </View>
@@ -878,8 +893,8 @@ function UploadProgressPanel({
               key={d.id}
               style={{ width: '100%', padding: 14, borderRadius: 14, backgroundColor: colors.warning + '12', borderWidth: 1, borderColor: colors.warning + '33', gap: 10 }}
             >
-              <Text className="text-typography-main text-sm font-black">{d.title}</Text>
-              <Text className="text-typography-muted text-xs font-semibold">{d.message}</Text>
+              <Text className="text-sm font-black" style={{ color: colors.textMain }}>{d.title}</Text>
+              <Text className="text-xs font-semibold" style={{ color: colors.textMuted }}>{d.message}</Text>
               <View className="flex-row flex-wrap" style={{ gap: 8 }}>
                 {d.options.map(opt => (
                   <TouchableOpacity
@@ -905,7 +920,8 @@ function UploadProgressPanel({
         {settled ? (
           <TouchableOpacity
             onPress={onDone}
-            className="flex-1 items-center justify-center py-3.5 rounded-xl bg-brand-primary"
+            className="flex-1 items-center justify-center py-3.5 rounded-xl"
+            style={{ backgroundColor: colors.primary }}
           >
             <Text className="text-white font-black text-sm">Done</Text>
           </TouchableOpacity>
@@ -913,13 +929,15 @@ function UploadProgressPanel({
           <>
             <TouchableOpacity
               onPress={onCancel}
-              className="flex-1 items-center justify-center py-3.5 rounded-xl border border-surface-border bg-surface-background"
+              className="flex-1 items-center justify-center py-3.5 rounded-xl border"
+              style={{ backgroundColor: colors.background, borderColor: colors.border }}
             >
-              <Text className="text-typography-muted font-black text-sm">Cancel upload</Text>
+              <Text className="font-black text-sm" style={{ color: colors.textMuted }}>Cancel upload</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={onMinimize}
-              className="flex-[2] flex-row items-center justify-center gap-2 py-3.5 rounded-xl bg-brand-primary"
+              className="flex-[2] flex-row items-center justify-center gap-2 py-3.5 rounded-xl"
+              style={{ backgroundColor: colors.primary }}
             >
               <FontAwesome name="chevron-up" size={12} color="#fff" />
               <Text className="text-white font-black text-sm">Minimize to island</Text>
@@ -984,10 +1002,10 @@ function GroupCreateModal({
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View className="flex-1 bg-black/40 items-center justify-center p-8">
-        <View className="bg-surface-card rounded-[2rem] border border-surface-border premium-shadow w-full max-w-[480px]">
-          <View className="flex-row items-center justify-between px-8 pt-7 pb-5 border-b border-surface-border">
-            <Text className="text-typography-main text-xl font-black">New Channel</Text>
-            <TouchableOpacity onPress={onClose} className="w-8 h-8 items-center justify-center rounded-xl bg-surface-background border border-surface-border">
+        <View className="rounded-[2rem] border premium-shadow w-full max-w-[480px]" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
+          <View className="flex-row items-center justify-between px-8 pt-7 pb-5 border-b" style={{ borderColor: colors.border }}>
+            <Text className="text-xl font-black" style={{ color: colors.textMain }}>New Channel</Text>
+            <TouchableOpacity onPress={onClose} className="w-8 h-8 items-center justify-center rounded-xl border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
               <FontAwesome name="times" size={12} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
@@ -1017,20 +1035,21 @@ function GroupCreateModal({
 
             {/* Name */}
             <View className="gap-2">
-              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Channel Name</Text>
+              <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>Channel Name</Text>
               <TextInput
                 value={name}
                 onChangeText={setName}
                 placeholder="e.g. Design Team"
                 placeholderTextColor={colors.textDim}
                 maxLength={80}
-                className="bg-surface-background border border-surface-border rounded-xl px-4 py-3 text-typography-main text-sm font-bold outline-none"
+                className="border rounded-xl px-4 py-3 text-sm font-bold outline-none"
+                style={{ backgroundColor: colors.background, borderColor: colors.border, color: colors.textMain }}
               />
             </View>
 
             {/* Description */}
             <View className="gap-2">
-              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Description (optional)</Text>
+              <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>Description (optional)</Text>
               <TextInput
                 value={description}
                 onChangeText={setDescription}
@@ -1039,47 +1058,50 @@ function GroupCreateModal({
                 multiline
                 numberOfLines={2}
                 maxLength={300}
-                className="bg-surface-background border border-surface-border rounded-xl px-4 py-3 text-typography-main text-sm outline-none"
-                style={{ minHeight: 70, textAlignVertical: 'top' }}
+                className="border rounded-xl px-4 py-3 text-sm outline-none"
+                style={{ minHeight: 70, textAlignVertical: 'top', backgroundColor: colors.background, borderColor: colors.border, color: colors.textMain }}
               />
             </View>
 
             {/* Members */}
             <View className="gap-2">
-              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Invite Members</Text>
+              <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>Invite Members</Text>
               {selectedMembers.length > 0 && (
                 <View className="flex-row flex-wrap gap-2">
                   {selectedMembers.map(m => (
                     <TouchableOpacity
                       key={m.id}
                       onPress={() => toggleMember(m)}
-                      className="flex-row items-center gap-1.5 bg-brand-primary/10 border border-brand-primary/20 rounded-full px-3 py-1"
+                      className="flex-row items-center gap-1.5 border rounded-full px-3 py-1"
+                      style={{ backgroundColor: colors.primary + '1a', borderColor: colors.primary + '33' }}
                     >
-                      <Text className="text-brand-primary text-xs font-bold">{m.full_name}</Text>
+                      <Text className="text-xs font-bold" style={{ color: colors.primary }}>{m.full_name}</Text>
                       <FontAwesome name="times" size={9} color={colors.primary} />
                     </TouchableOpacity>
                   ))}
                 </View>
               )}
-              <View className="flex-row items-center bg-surface-background border border-surface-border rounded-xl px-4 py-2.5 gap-2">
+              <View className="flex-row items-center border rounded-xl px-4 py-2.5 gap-2" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
                 <FontAwesome name="search" size={11} color={colors.textMuted} />
                 <TextInput
                   value={memberSearch}
                   onChangeText={searchMembers}
                   placeholder="Search team members..."
                   placeholderTextColor={colors.textDim}
-                  className="flex-1 text-typography-main text-sm outline-none bg-transparent"
+                  className="flex-1 text-sm outline-none bg-transparent"
+                  style={{ color: colors.textMain }}
                 />
               </View>
               {memberResults.length > 0 && (
-                <View className="bg-surface-background border border-surface-border rounded-xl overflow-hidden">
+                <View className="border rounded-xl overflow-hidden" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
                   {memberResults.map((m, i) => (
                     <TouchableOpacity
                       key={m.id}
                       onPress={() => toggleMember(m)}
-                      className={`flex-row items-center px-4 py-3 gap-3 ${i < memberResults.length - 1 ? 'border-b border-surface-border/50' : ''}`}
+                      className="flex-row items-center px-4 py-3 gap-3"
+                      style={i < memberResults.length - 1 ? { borderBottomWidth: 1, borderColor: colors.border + '80' } : undefined}
                     >
-                      <Text className="flex-1 text-typography-main text-sm font-medium">{m.full_name}</Text>
+                      <Text className="flex-1 text-sm font-medium" style={{ color: colors.textMain }}>{m.full_name}</Text>
                       {selectedMembers.find(r => r.id === m.id) && <FontAwesome name="check" size={11} color={colors.primary} />}
                     </TouchableOpacity>
                   ))}
@@ -1088,14 +1110,14 @@ function GroupCreateModal({
             </View>
 
             <View className="flex-row gap-3">
-              <TouchableOpacity onPress={onClose} disabled={creating} className="flex-1 items-center justify-center py-3.5 rounded-xl border border-surface-border bg-surface-background">
-                <Text className="text-typography-muted font-black text-sm">Cancel</Text>
+              <TouchableOpacity onPress={onClose} disabled={creating} className="flex-1 items-center justify-center py-3.5 rounded-xl border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
+                <Text className="font-black text-sm" style={{ color: colors.textMuted }}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleCreate}
                 disabled={!name.trim() || creating}
-                className="flex-[2] items-center justify-center py-3.5 rounded-xl bg-brand-primary"
-                style={{ opacity: !name.trim() || creating ? 0.5 : 1 }}
+                className="flex-[2] items-center justify-center py-3.5 rounded-xl"
+                style={{ backgroundColor: colors.primary, opacity: !name.trim() || creating ? 0.5 : 1 }}
               >
                 {creating ? <ActivityIndicator size="small" color="#fff" /> : <Text className="text-white font-black text-sm">Create Channel</Text>}
               </TouchableOpacity>
@@ -1763,10 +1785,7 @@ function DetailPanel({
 
   const handleHide = () => {
     if (!file) return;
-    Alert.alert('Hide File', 'Remove this file from your inbox?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Hide', onPress: () => { hideFile(file.id); onClose(); } },
-    ]);
+    showConfirm('Hide File', 'Remove this file from your inbox?', () => { hideFile(file.id); onClose(); }, undefined, 'Hide');
   };
 
   // Image preview → tap to open the lightbox (single image, no list navigation).
@@ -2243,11 +2262,11 @@ function ShareLinkModal({ visible, fileId, folderId, fileName, onClose }: {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View className="flex-1 bg-black/50 items-center justify-center p-6">
-        <View className="bg-surface-card rounded-2xl border border-surface-border w-full max-w-md" style={{ maxHeight: '75%' }}>
-          <View className="flex-row items-center justify-between px-6 py-4 border-b border-surface-border">
+        <View className="rounded-2xl border w-full max-w-md" style={{ maxHeight: '75%', backgroundColor: colors.card, borderColor: colors.border }}>
+          <View className="flex-row items-center justify-between px-6 py-4 border-b" style={{ borderColor: colors.border }}>
             <View className="flex-row items-center gap-2 flex-1 min-w-0">
               <FontAwesome name="link" size={14} color={colors.primary} />
-              <Text className="text-typography-main font-black text-lg flex-1" numberOfLines={1}>Share "{fileName}"</Text>
+              <Text className="font-black text-lg flex-1" style={{ color: colors.textMain }} numberOfLines={1}>Share "{fileName}"</Text>
             </View>
             <TouchableOpacity onPress={onClose} className="w-8 h-8 items-center justify-center">
               <FontAwesome name="times" size={16} color={colors.textMuted} />
@@ -2255,15 +2274,19 @@ function ShareLinkModal({ visible, fileId, folderId, fileName, onClose }: {
           </View>
 
           <ScrollView contentContainerStyle={{ padding: 20 }} showsVerticalScrollIndicator={false}>
-            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Expires In</Text>
+            <Text className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color: colors.textMuted }}>Expires In</Text>
             <View className="flex-row gap-2 mb-4">
               {EXPIRY_OPTIONS.map(opt => (
                 <TouchableOpacity
                   key={opt.hours}
                   onPress={() => setExpiryHours(opt.hours)}
-                  className={`flex-1 items-center py-2.5 rounded-xl border ${expiryHours === opt.hours ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}
+                  className="flex-1 items-center py-2.5 rounded-xl border"
+                  style={{
+                    backgroundColor: expiryHours === opt.hours ? colors.primary + '1a' : colors.background,
+                    borderColor: expiryHours === opt.hours ? colors.primary + '4d' : colors.border,
+                  }}
                 >
-                  <Text className={`text-xs font-black ${expiryHours === opt.hours ? 'text-brand-primary' : 'text-typography-muted'}`}>{opt.label}</Text>
+                  <Text className="text-xs font-black" style={{ color: expiryHours === opt.hours ? colors.primary : colors.textMuted }}>{opt.label}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -2271,38 +2294,41 @@ function ShareLinkModal({ visible, fileId, folderId, fileName, onClose }: {
             <TouchableOpacity
               onPress={handleCreate}
               disabled={creating}
-              className="flex-row items-center justify-center bg-brand-primary rounded-xl py-3 gap-2 mb-5"
+              className="flex-row items-center justify-center rounded-xl py-3 gap-2 mb-5"
+              style={{ backgroundColor: colors.primary }}
             >
               {creating ? <ActivityIndicator size="small" color="#fff" /> : <FontAwesome name="plus" size={12} color="#fff" />}
               <Text className="text-white font-black text-sm">Create Link</Text>
             </TouchableOpacity>
 
-            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Active Links</Text>
+            <Text className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color: colors.textMuted }}>Active Links</Text>
             {loading ? (
               <View className="py-6 items-center"><ActivityIndicator color={colors.primary} /></View>
             ) : activeLinks.length === 0 ? (
-              <Text className="text-typography-dim text-xs py-2">No active share links.</Text>
+              <Text className="text-xs py-2" style={{ color: colors.textDim }}>No active share links.</Text>
             ) : (
               activeLinks.map(link => (
-                <View key={link.id} className="border border-surface-border rounded-xl px-4 py-3 mb-2">
-                  <Text className="text-typography-main text-xs font-bold mb-1" numberOfLines={1}>{shareLinkUrl(link.token)}</Text>
-                  <Text className="text-typography-dim text-[10px] mb-2">
+                <View key={link.id} className="border rounded-xl px-4 py-3 mb-2" style={{ borderColor: colors.border }}>
+                  <Text className="text-xs font-bold mb-1" style={{ color: colors.textMain }} numberOfLines={1}>{shareLinkUrl(link.token)}</Text>
+                  <Text className="text-[10px] mb-2" style={{ color: colors.textDim }}>
                     Expires {new Date(link.expires_at).toLocaleDateString()} · {link.view_count} view{link.view_count === 1 ? '' : 's'}
                   </Text>
                   <View className="flex-row gap-2">
                     <TouchableOpacity
                       onPress={() => handleCopy(link.token)}
-                      className="flex-1 flex-row items-center justify-center gap-1.5 bg-surface-background border border-surface-border rounded-lg py-2"
+                      className="flex-1 flex-row items-center justify-center gap-1.5 border rounded-lg py-2"
+                      style={{ backgroundColor: colors.background, borderColor: colors.border }}
                     >
                       <FontAwesome name="copy" size={10} color={colors.primary} />
-                      <Text className="text-brand-primary text-xs font-bold">Copy</Text>
+                      <Text className="text-xs font-bold" style={{ color: colors.primary }}>Copy</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => handleRevoke(link)}
-                      className="flex-1 flex-row items-center justify-center gap-1.5 bg-state-danger/10 border border-state-danger/20 rounded-lg py-2"
+                      className="flex-1 flex-row items-center justify-center gap-1.5 border rounded-lg py-2"
+                      style={{ backgroundColor: colors.danger + '1a', borderColor: colors.danger + '33' }}
                     >
                       <FontAwesome name="ban" size={10} color={colors.danger} />
-                      <Text className="text-state-danger text-xs font-bold">Revoke</Text>
+                      <Text className="text-xs font-bold" style={{ color: colors.danger }}>Revoke</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -2535,11 +2561,11 @@ function TagsManageModal({ visible, onClose, onChanged }: {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View className="flex-1 bg-black/50 items-center justify-center p-6">
-        <View className="bg-surface-card rounded-2xl border border-surface-border w-full max-w-md" style={{ maxHeight: '70%' }}>
-          <View className="flex-row items-center justify-between px-6 py-4 border-b border-surface-border">
+        <View className="rounded-2xl border w-full max-w-md" style={{ maxHeight: '70%', backgroundColor: colors.card, borderColor: colors.border }}>
+          <View className="flex-row items-center justify-between px-6 py-4 border-b" style={{ borderColor: colors.border }}>
             <View className="flex-row items-center gap-2">
               <FontAwesome name="tags" size={14} color={colors.primary} />
-              <Text className="text-typography-main font-black text-lg">Manage Tags</Text>
+              <Text className="font-black text-lg" style={{ color: colors.textMain }}>Manage Tags</Text>
             </View>
             <TouchableOpacity onPress={onClose} className="w-8 h-8 items-center justify-center">
               <FontAwesome name="times" size={16} color={colors.textMuted} />
@@ -2551,7 +2577,7 @@ function TagsManageModal({ visible, onClose, onChanged }: {
           ) : tags.length === 0 ? (
             <View className="py-10 items-center">
               <FontAwesome name="tags" size={24} color={colors.textDim} />
-              <Text className="text-typography-muted text-sm mt-3">No tags yet</Text>
+              <Text className="text-sm mt-3" style={{ color: colors.textMuted }}>No tags yet</Text>
             </View>
           ) : (
             <ScrollView showsVerticalScrollIndicator={false}>
@@ -2559,7 +2585,7 @@ function TagsManageModal({ visible, onClose, onChanged }: {
                 const c = getTagColor(tag);
                 const isRenaming = renamingTag === tag;
                 return (
-                  <View key={tag} className="flex-row items-center px-5 py-3.5 border-b border-surface-border/50">
+                  <View key={tag} className="flex-row items-center px-5 py-3.5 border-b" style={{ borderColor: colors.border + '80' }}>
                     <View style={{ backgroundColor: c.bg, borderColor: c.border, borderWidth: 1 }} className="px-2.5 py-1 rounded-full mr-3 flex-shrink-0">
                       <Text style={{ color: c.text }} className="text-xs font-bold">{tag}</Text>
                     </View>
@@ -2569,11 +2595,12 @@ function TagsManageModal({ visible, onClose, onChanged }: {
                         value={renameInput}
                         onChangeText={setRenameInput}
                         autoFocus
-                        className="flex-1 bg-surface-background border border-brand-primary/50 rounded-lg px-2 py-1 text-sm text-typography-main mr-2"
+                        className="flex-1 border rounded-lg px-2 py-1 text-sm mr-2"
+                        style={{ backgroundColor: colors.background, borderColor: colors.primary + '80', color: colors.textMain }}
                         onSubmitEditing={() => handleRenameSave(tag)}
                       />
                     ) : (
-                      <Text className="flex-1 text-typography-muted text-xs">{count} file{count !== 1 ? 's' : ''}</Text>
+                      <Text className="flex-1 text-xs" style={{ color: colors.textMuted }}>{count} file{count !== 1 ? 's' : ''}</Text>
                     )}
 
                     {isRenaming ? (
@@ -2581,13 +2608,15 @@ function TagsManageModal({ visible, onClose, onChanged }: {
                         <TouchableOpacity
                           onPress={() => handleRenameSave(tag)}
                           disabled={!!savingTag}
-                          className="w-8 h-8 bg-brand-primary/10 border border-brand-primary/20 rounded-lg items-center justify-center"
+                          className="w-8 h-8 border rounded-lg items-center justify-center"
+                          style={{ backgroundColor: colors.primary + '1a', borderColor: colors.primary + '33' }}
                         >
                           {savingTag === tag ? <ActivityIndicator size="small" color={colors.primary} /> : <FontAwesome name="check" size={12} color={colors.primary} />}
                         </TouchableOpacity>
                         <TouchableOpacity
                           onPress={() => setRenamingTag(null)}
-                          className="w-8 h-8 bg-surface-background border border-surface-border rounded-lg items-center justify-center"
+                          className="w-8 h-8 border rounded-lg items-center justify-center"
+                          style={{ backgroundColor: colors.background, borderColor: colors.border }}
                         >
                           <FontAwesome name="times" size={12} color={colors.textMuted} />
                         </TouchableOpacity>
@@ -2596,13 +2625,15 @@ function TagsManageModal({ visible, onClose, onChanged }: {
                       <View className="flex-row gap-2">
                         <TouchableOpacity
                           onPress={() => { setRenamingTag(tag); setRenameInput(tag); }}
-                          className="w-8 h-8 bg-surface-background border border-surface-border rounded-lg items-center justify-center"
+                          className="w-8 h-8 border rounded-lg items-center justify-center"
+                          style={{ backgroundColor: colors.background, borderColor: colors.border }}
                         >
                           <FontAwesome name="pencil" size={12} color={colors.textMuted} />
                         </TouchableOpacity>
                         <TouchableOpacity
                           onPress={() => handleDelete(tag)}
-                          className="w-8 h-8 bg-state-danger/10 border border-state-danger/20 rounded-lg items-center justify-center"
+                          className="w-8 h-8 border rounded-lg items-center justify-center"
+                          style={{ backgroundColor: colors.danger + '1a', borderColor: colors.danger + '33' }}
                         >
                           <FontAwesome name="trash-o" size={12} color={colors.danger} />
                         </TouchableOpacity>

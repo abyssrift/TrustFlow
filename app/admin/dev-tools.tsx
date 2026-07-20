@@ -4,11 +4,11 @@ import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Platform, SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Platform, SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
 
 export default function DevToolsScreen() {
   const router = useRouter();
-  const { showAlert } = useAlert();
+  const { showAlert, showConfirm } = useAlert();
   const [loading, setLoading] = useState(false);
   const [seedProgress, setSeedProgress] = useState('');
   const [pipeline, setPipeline] = useState<any>(null);
@@ -34,24 +34,24 @@ export default function DevToolsScreen() {
   };
 
   const clearTasks = async () => {
-    Alert.alert('Clear All Tasks?', 'This will delete all tasks. Continue?', [
-      { text: 'Cancel', onPress: () => {} },
-      {
-        text: 'Clear',
-        onPress: async () => {
-          setLoading(true);
-          setSeedProgress('Clearing tasks...');
-          const { error } = await supabase.from('tasks').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-          setLoading(false);
-          if (error) {
-            showAlert('Error', error.message);
-          } else {
-            showAlert('Success', 'Cleared all tasks!');
-            setSeedProgress('✅ All tasks cleared');
-          }
+    showConfirm(
+      'Clear All Tasks?',
+      'This will delete all tasks. Continue?',
+      async () => {
+        setLoading(true);
+        setSeedProgress('Clearing tasks...');
+        const { error } = await supabase.from('tasks').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        setLoading(false);
+        if (error) {
+          showAlert('Error', error.message);
+        } else {
+          showAlert('Success', 'Cleared all tasks!');
+          setSeedProgress('✅ All tasks cleared');
         }
-      }
-    ]);
+      },
+      undefined,
+      'Clear'
+    );
   };
 
   const seedQuick = async () => {
@@ -135,26 +135,22 @@ export default function DevToolsScreen() {
   };
 
   const seedFull = async () => {
-    Alert.alert(
+    showConfirm(
       'Full Reporting Seed',
       'This will create 40 tasks with complete work simulation.\n\nExpected time: 30-60 seconds\n\nRun from terminal: npm run seed:full',
-      [
-        { text: 'Cancel', onPress: () => {} },
-        {
-          text: 'Learn More',
-          onPress: () => {
-            logProgress('\n📖 Full Seed Guide:\n');
-            logProgress('For complete work simulation with:');
-            logProgress('- 8 worker accounts');
-            logProgress('- 40 diverse tasks');
-            logProgress('- Work sessions and submissions');
-            logProgress('- Task completions and reviews');
-            logProgress('\nRun in terminal:');
-            logProgress('  npm run seed:full');
-            logProgress('\nOr check COMPREHENSIVE_SEED_GUIDE.md');
-          }
-        }
-      ]
+      () => {
+        logProgress('\n📖 Full Seed Guide:\n');
+        logProgress('For complete work simulation with:');
+        logProgress('- 8 worker accounts');
+        logProgress('- 40 diverse tasks');
+        logProgress('- Work sessions and submissions');
+        logProgress('- Task completions and reviews');
+        logProgress('\nRun in terminal:');
+        logProgress('  npm run seed:full');
+        logProgress('\nOr check COMPREHENSIVE_SEED_GUIDE.md');
+      },
+      undefined,
+      'Learn More'
     );
   };
 

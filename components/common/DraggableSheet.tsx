@@ -10,6 +10,7 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
+import { useThemeColors } from '@/hooks/useThemeColors';
 
 const isNative = Platform.OS !== 'web';
 
@@ -33,7 +34,7 @@ export default function DraggableSheet({
   maxHeight = '85%',
   containerStyle,
   dimBackdrop = false,
-  containerClassName = 'bg-surface-card rounded-t-[2rem] border-t border-surface-border',
+  containerClassName = 'rounded-t-[2rem] border-t',
 }: {
   visible: boolean;
   onClose: () => void;
@@ -43,9 +44,12 @@ export default function DraggableSheet({
   containerStyle?: StyleProp<ViewStyle>;
   /** Tint the backdrop (e.g. for sheets that previously used bg-black/50). */
   dimBackdrop?: boolean;
-  /** Override the sheet container styling to match an existing sheet's look. */
+  /** Override the sheet container's layout classes (NOT colors — those are themed inline; see useThemeColors below). */
   containerClassName?: string;
 }) {
+  // Colors are inline, not className — NativeWind theme-token classes (bg-surface-card,
+  // border-surface-border, ...) go black inside this Modal's portal on web.
+  const c = useThemeColors();
   const translateY = useRef(new Animated.Value(0)).current;
 
   // Reset position every time the sheet opens (it may have been left mid-dismiss).
@@ -83,12 +87,15 @@ export default function DraggableSheet({
       <View className={`flex-1 justify-end ${dimBackdrop ? 'bg-black/50' : ''}`}>
         <Pressable className="flex-1" onPress={onClose} />
         <Animated.View
-          style={[{ maxHeight, transform: [{ translateY }] }, containerStyle]}
+          style={[
+            { maxHeight, transform: [{ translateY }], backgroundColor: c.card, borderColor: c.border },
+            containerStyle,
+          ]}
           className={containerClassName}
         >
           {/* Grab handle — a tall, transparent drag zone so it's easy to catch */}
           <View {...panResponder.panHandlers} className="items-center justify-center pt-2.5 pb-3" style={{ minHeight: 28 }}>
-            <View className="w-12 h-1.5 bg-surface-border rounded-full" />
+            <View className="w-12 h-1.5 rounded-full" style={{ backgroundColor: c.border }} />
           </View>
           {children}
         </Animated.View>

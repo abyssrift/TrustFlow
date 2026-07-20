@@ -693,18 +693,18 @@ export default function UserAssignmentGrid() {
                       <View className="gap-2">
                         {selectedUser.job_title && (
                           <View className="p-3 rounded-lg border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
-                            <Text className="text-typography-label text-[9px] font-bold uppercase tracking-widest mb-1">Job Title</Text>
-                            <Text className="text-typography-main text-sm">{selectedUser.job_title}</Text>
+                            <Text className="text-[9px] font-bold uppercase tracking-widest mb-1" style={{ color: colors.textMuted }}>Job Title</Text>
+                            <Text className="text-sm" style={{ color: colors.textMain }}>{selectedUser.job_title}</Text>
                           </View>
                         )}
                         {selectedUser.department && (
                           <View className="p-3 rounded-lg border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
-                            <Text className="text-typography-label text-[9px] font-bold uppercase tracking-widest mb-1">Department</Text>
-                            <Text className="text-typography-main text-sm">{selectedUser.department}</Text>
+                            <Text className="text-[9px] font-bold uppercase tracking-widest mb-1" style={{ color: colors.textMuted }}>Department</Text>
+                            <Text className="text-sm" style={{ color: colors.textMain }}>{selectedUser.department}</Text>
                           </View>
                         )}
                         <View className="p-3 rounded-lg border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
-                          <Text className="text-typography-label text-[9px] font-bold uppercase tracking-widest mb-1">Last Active</Text>
+                          <Text className="text-[9px] font-bold uppercase tracking-widest mb-1" style={{ color: colors.textMuted }}>Last Active</Text>
                           <View className="flex-row items-center gap-2">
                             <View
                               style={{
@@ -712,7 +712,7 @@ export default function UserAssignmentGrid() {
                                 backgroundColor: getLastSeen(selectedUser.last_seen_at).online ? colors.success : colors.textMuted,
                               }}
                             />
-                            <Text className="text-typography-main text-sm">{getLastSeen(selectedUser.last_seen_at).label}</Text>
+                            <Text className="text-sm" style={{ color: colors.textMain }}>{getLastSeen(selectedUser.last_seen_at).label}</Text>
                           </View>
                         </View>
                       </View>

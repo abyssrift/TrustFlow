@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import RoleEditorSheet from '@/components/admin/RoleEditorSheet';
 import RoleTemplateGallery from '@/components/admin/RoleTemplateGallery';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRoleManager, Role } from '@/contexts/RoleManagerContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAlert } from '@/contexts/AlertContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { RoleTemplate } from '@/lib/roleTemplates';
 
 export default function RoleBuilder() {
   const colors = useThemeColors();
+  const { showAlert, showConfirm } = useAlert();
   const { hasPermission } = useAuth();
   const canManageRoles = hasPermission('role.manage');
   const { roles, permissions, createRole, updateRole, deleteRole, loading } = useRoleManager();
@@ -61,7 +63,7 @@ export default function RoleBuilder() {
 
   const handleSave = async () => {
     if (!canEdit) return;
-    if (!name.trim()) return Alert.alert('Error', 'Role name is required.');
+    if (!name.trim()) return showAlert('Error', 'Role name is required.');
 
     let success = false;
     if (editingRole) {
@@ -79,13 +81,14 @@ export default function RoleBuilder() {
 
   const handleDelete = async (role: Role) => {
     if (role.is_system) return;
-    Alert.alert(
+    showConfirm(
       'Confirm Deletion',
       `Are you sure you want to delete the role "${role.name}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: async () => await deleteRole(role.id) }
-      ]
+      async () => await deleteRole(role.id),
+      undefined,
+      'Delete',
+      undefined,
+      'destructive'
     );
   };
 

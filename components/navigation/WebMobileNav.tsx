@@ -216,24 +216,27 @@ export default function WebMobileNav({
         transparent={true}
         onRequestClose={handleClose}
       >
-        <View className="flex-1 bg-surface-background w-full">
-          <View className="h-16 flex-row items-center justify-between px-6 border-b border-surface-border">
-            <Text className="text-xl font-black text-typography-main">Menu</Text>
-            <Pressable onPress={handleClose} className="h-10 w-10 items-center justify-center rounded-full bg-surface-card border border-surface-border">
+        <View className="flex-1 w-full" style={{ backgroundColor: colors.background }}>
+          <View className="h-16 flex-row items-center justify-between px-6" style={{ borderBottomWidth: 1, borderColor: colors.border }}>
+            <Text className="text-xl font-black" style={{ color: colors.textMain }}>Menu</Text>
+            <Pressable onPress={handleClose} className="h-10 w-10 items-center justify-center rounded-full" style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}>
               <FontAwesome name="times" size={16} color={colors.textMain} />
             </Pressable>
           </View>
-          
+
           <ScrollView className="flex-1 px-4 py-4">
-            <Text className="mb-2 ml-2 text-[10px] font-black uppercase tracking-widest text-typography-muted">Navigation</Text>
+            <Text className="mb-2 ml-2 text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>Navigation</Text>
             {visibleShortcuts.map((s) => {
               const isActive = matchesHref(pathname, s.href);
               const badge = s.id === 'filehub' ? fileHubBadge : 0;
               return (
                 <Link key={s.id} href={s.href as any} asChild onPress={handleClose}>
-                  <Pressable className={`flex-row items-center p-4 rounded-xl mb-2 border ${isActive ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-card border-surface-border'}`}>
+                  <Pressable
+                    className="flex-row items-center p-4 rounded-xl mb-2 border"
+                    style={{ backgroundColor: isActive ? addAlpha(colors.primary, 0.1) : colors.card, borderColor: isActive ? addAlpha(colors.primary, 0.3) : colors.border }}
+                  >
                     <FontAwesome name={s.icon} size={18} color={isActive ? colors.primary : colors.textMain} className="w-8" />
-                    <Text className={`font-bold ml-2 flex-1 ${isActive ? 'text-brand-primary' : 'text-typography-main'}`}>{s.label}</Text>
+                    <Text className="font-bold ml-2 flex-1" style={{ color: isActive ? colors.primary : colors.textMain }}>{s.label}</Text>
                     {badge > 0 && (
                       <View className="min-w-5 h-5 rounded-full bg-red-500 items-center justify-center px-1">
                         <Text className="text-[10px] font-black text-white leading-none">{badge > 99 ? '99+' : badge}</Text>
@@ -246,11 +249,17 @@ export default function WebMobileNav({
 
             {isPlatformAdmin && (
               <View className="mt-4">
-                <Text className="mb-2 ml-2 text-[10px] font-black uppercase tracking-widest text-brand-primary/50">System</Text>
+                <Text className="mb-2 ml-2 text-[10px] font-black uppercase tracking-widest" style={{ color: addAlpha(colors.primary, 0.5) }}>System</Text>
                 <Link href="/platform-admin" asChild onPress={handleClose}>
-                  <Pressable className={`flex-row items-center p-4 rounded-xl mb-2 border ${pathname.startsWith('/platform-admin') ? 'bg-brand-primary-dim border-brand-primary/30' : 'bg-brand-primary/5 border-brand-primary/10'}`}>
+                  <Pressable
+                    className="flex-row items-center p-4 rounded-xl mb-2 border"
+                    style={{
+                      backgroundColor: pathname.startsWith('/platform-admin') ? addAlpha(colors.primary, 0.1) : addAlpha(colors.primary, 0.05),
+                      borderColor: pathname.startsWith('/platform-admin') ? addAlpha(colors.primary, 0.3) : addAlpha(colors.primary, 0.1),
+                    }}
+                  >
                     <FontAwesome name="shield" size={18} color={pathname.startsWith('/platform-admin') ? colors.primary : colors.textDim} className="w-8" />
-                    <Text className={`font-bold ml-2 ${pathname.startsWith('/platform-admin') ? 'text-brand-primary' : 'text-brand-primary/70'}`}>Control Plane</Text>
+                    <Text className="font-bold ml-2" style={{ color: pathname.startsWith('/platform-admin') ? colors.primary : addAlpha(colors.primary, 0.7) }}>Control Plane</Text>
                   </Pressable>
                 </Link>
               </View>
@@ -258,16 +267,19 @@ export default function WebMobileNav({
 
             {pipelines.length > 0 && (
               <View className="mt-4">
-                <Text className="mb-2 ml-2 text-[10px] font-black uppercase tracking-widest text-typography-muted">Pipelines</Text>
+                <Text className="mb-2 ml-2 text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>Pipelines</Text>
                 {pipelines.map((p, i) => {
                   const icons = ['bolt', 'sitemap', 'random', 'sliders', 'exchange', 'cogs'];
                   const icon = icons[i % icons.length] as IconName;
                   const isActive = pathname === '/tasks' && String(params.pipelineId || '') === p.id;
                   return (
                     <Link key={p.id} href={`/tasks?pipelineId=${p.id}`} asChild onPress={handleClose}>
-                      <Pressable className={`flex-row items-center p-4 rounded-xl mb-2 border ${isActive ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-card border-surface-border'}`}>
+                      <Pressable
+                        className="flex-row items-center p-4 rounded-xl mb-2 border"
+                        style={{ backgroundColor: isActive ? addAlpha(colors.primary, 0.1) : colors.card, borderColor: isActive ? addAlpha(colors.primary, 0.3) : colors.border }}
+                      >
                         <FontAwesome name={icon} size={18} color={isActive ? colors.primary : colors.textMain} className="w-8" />
-                        <Text className={`font-bold ml-2 ${isActive ? 'text-brand-primary' : 'text-typography-main'}`}>{p.name}</Text>
+                        <Text className="font-bold ml-2" style={{ color: isActive ? colors.primary : colors.textMain }}>{p.name}</Text>
                       </Pressable>
                     </Link>
                   );
@@ -276,21 +288,22 @@ export default function WebMobileNav({
             )}
 
             <View className="mt-4 mb-10">
-              <Text className="mb-2 ml-2 text-[10px] font-black uppercase tracking-widest text-typography-muted">Preferences</Text>
-              <Pressable 
+              <Text className="mb-2 ml-2 text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>Preferences</Text>
+              <Pressable
                 onPress={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                className="flex-row items-center p-4 rounded-xl mb-2 border bg-surface-card border-surface-border"
+                className="flex-row items-center p-4 rounded-xl mb-2 border"
+                style={{ backgroundColor: colors.card, borderColor: colors.border }}
               >
                 <FontAwesome name={theme === 'dark' ? 'sun-o' : 'moon-o'} size={18} color={colors.textMain} className="w-8" />
-                <Text className="font-bold ml-2 text-typography-main">Toggle Theme</Text>
+                <Text className="font-bold ml-2" style={{ color: colors.textMain }}>Toggle Theme</Text>
               </Pressable>
 
               <Link href="/modal" asChild onPress={handleClose}>
-                <Pressable className="flex-row items-center p-4 rounded-xl mb-2 border bg-surface-card border-surface-border">
+                <Pressable className="flex-row items-center p-4 rounded-xl mb-2 border" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
                   <FontAwesome name="bell" size={18} color={colors.textMain} className="w-8" />
-                  <Text className="font-bold ml-2 text-typography-main">Notifications</Text>
+                  <Text className="font-bold ml-2" style={{ color: colors.textMain }}>Notifications</Text>
                   {unreadCount > 0 && (
-                    <View className="ml-auto min-w-5 h-5 rounded-full bg-state-danger items-center justify-center px-1">
+                    <View className="ml-auto min-w-5 h-5 rounded-full items-center justify-center px-1" style={{ backgroundColor: colors.danger }}>
                       <Text className="text-[10px] font-black text-white leading-none">
                         +{unreadCount > 99 ? '99' : unreadCount}
                       </Text>
@@ -298,11 +311,11 @@ export default function WebMobileNav({
                   )}
                 </Pressable>
               </Link>
-              
+
               <Link href="/profile" asChild onPress={handleClose}>
-                <Pressable className="flex-row items-center p-4 rounded-xl border bg-surface-card border-surface-border">
+                <Pressable className="flex-row items-center p-4 rounded-xl border" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
                   <FontAwesome name="user" size={18} color={colors.textMain} className="w-8" />
-                  <Text className="font-bold ml-2 text-typography-main">Profile</Text>
+                  <Text className="font-bold ml-2" style={{ color: colors.textMain }}>Profile</Text>
                 </Pressable>
               </Link>
             </View>

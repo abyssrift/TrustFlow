@@ -8,25 +8,32 @@ import React from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 
-export const IntelligencePicker = ({ items, selectedId, onSelect, labelKey = 'name', disabled = false }: any) => (
-  <View className={`flex-row flex-wrap gap-2 ${disabled ? 'opacity-30' : ''}`}>
-    {items.map((item: any) => (
-      <TouchableOpacity
-        key={item.id}
-        disabled={disabled}
-        onPress={() => onSelect?.(item.id)}
-        className={`px-5 py-2.5 rounded-xl border ${selectedId === item.id ? 'bg-brand-primary/5 border-brand-primary' : 'border-surface-border bg-surface-card'}`}
-      >
-        <View className="flex-row items-center">
-          {selectedId === item.id && <View className="w-1.5 h-1.5 rounded-full bg-brand-primary mr-3" />}
-          <Text className={`text-[11px] font-bold tracking-tight ${selectedId === item.id ? 'text-brand-primary font-black' : 'text-typography-muted'}`}>
-            {item[labelKey] || 'N/A'}
-          </Text>
-        </View>
-      </TouchableOpacity>
-    ))}
-  </View>
-);
+export const IntelligencePicker = ({ items, selectedId, onSelect, labelKey = 'name', disabled = false }: any) => {
+  const colors = useThemeColors();
+  return (
+    <View className={`flex-row flex-wrap gap-2 ${disabled ? 'opacity-30' : ''}`}>
+      {items.map((item: any) => {
+        const isSelected = selectedId === item.id;
+        return (
+          <TouchableOpacity
+            key={item.id}
+            disabled={disabled}
+            onPress={() => onSelect?.(item.id)}
+            className="px-5 py-2.5 rounded-xl border"
+            style={{ backgroundColor: isSelected ? `${colors.primary}0d` : colors.card, borderColor: isSelected ? colors.primary : colors.border }}
+          >
+            <View className="flex-row items-center">
+              {isSelected && <View className="w-1.5 h-1.5 rounded-full mr-3" style={{ backgroundColor: colors.primary }} />}
+              <Text className={`text-[11px] tracking-tight ${isSelected ? 'font-black' : 'font-bold'}`} style={{ color: isSelected ? colors.primary : colors.textMuted }}>
+                {item[labelKey] || 'N/A'}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+};
 
 const SECTION_ICONS: Record<string, React.ComponentProps<typeof FontAwesome>['name']> = {
   Radar: 'crosshairs', Targets: 'bullseye', Archives: 'archive', Analytics: 'bar-chart',
@@ -47,7 +54,7 @@ export const SectionToggle = ({ active, onSelect, hasPermission }: { active: str
     return true;
   });
   return (
-    <View className="flex-row flex-wrap gap-2 bg-surface-card rounded-2xl p-1.5 border border-surface-border mb-10 w-full max-w-full">
+    <View className="flex-row flex-wrap gap-2 rounded-2xl p-1.5 border mb-10 w-full max-w-full" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
       {sections.map((s) => {
         const isActive = active === s.toLowerCase();
         const hasLocked = SECTION_LOCK_FEATURES[s]?.some(f => !limits[f]) ?? false;
@@ -55,7 +62,8 @@ export const SectionToggle = ({ active, onSelect, hasPermission }: { active: str
           <TouchableOpacity
             key={s}
             onPress={() => onSelect(s.toLowerCase())}
-            className={`px-5 py-3 rounded-xl items-center flex-row justify-center flex-1 min-w-[132px] ${isActive ? 'bg-brand-primary premium-shadow' : 'bg-surface-card'}`}
+            className={`px-5 py-3 rounded-xl items-center flex-row justify-center flex-1 min-w-[132px] ${isActive ? 'premium-shadow' : ''}`}
+            style={{ backgroundColor: isActive ? colors.primary : colors.card }}
           >
             <View className="mr-2">
               <FontAwesome
@@ -64,7 +72,7 @@ export const SectionToggle = ({ active, onSelect, hasPermission }: { active: str
                 color={isActive ? 'white' : colors.textMuted}
               />
             </View>
-            <Text className={`font-black text-[10px] uppercase tracking-widest text-center ${isActive ? 'text-white' : 'text-typography-muted'}`} numberOfLines={1}>
+            <Text className="font-black text-[10px] uppercase tracking-widest text-center" style={{ color: isActive ? 'white' : colors.textMuted }} numberOfLines={1}>
               {s}
             </Text>
             {hasLocked && (
@@ -82,21 +90,24 @@ export const SectionToggle = ({ active, onSelect, hasPermission }: { active: str
   );
 };
 
-export const KPIBoxWeb = ({ label, val, delta }: any) => (
-  <View className="flex-1 min-w-[220px] bg-surface-card p-5 rounded-[24px] border border-surface-border premium-shadow">
-    <Text className="text-typography-muted text-[9px] font-black uppercase tracking-[0.2em] mb-3">{label}</Text>
-    <View className="flex-row items-baseline">
-      <Text className="text-typography-main text-2xl font-black">{val}</Text>
-      {delta !== undefined && (
-        <View className={`ml-3 px-2 py-0.5 rounded-full ${delta >= 0 ? 'bg-state-success/10' : 'bg-state-danger/10'}`}>
-          <Text className={`text-[9px] font-black ${delta >= 0 ? 'text-state-success' : 'text-state-danger'}`}>
-            {delta >= 0 ? '+' : ''}{delta}
-          </Text>
-        </View>
-      )}
+export const KPIBoxWeb = ({ label, val, delta }: any) => {
+  const colors = useThemeColors();
+  return (
+    <View className="flex-1 min-w-[220px] p-5 rounded-[24px] border premium-shadow" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
+      <Text className="text-[9px] font-black uppercase tracking-[0.2em] mb-3" style={{ color: colors.textMuted }}>{label}</Text>
+      <View className="flex-row items-baseline">
+        <Text className="text-2xl font-black" style={{ color: colors.textMain }}>{val}</Text>
+        {delta !== undefined && (
+          <View className="ml-3 px-2 py-0.5 rounded-full" style={{ backgroundColor: delta >= 0 ? `${colors.success}1a` : `${colors.danger}1a` }}>
+            <Text className="text-[9px] font-black" style={{ color: delta >= 0 ? colors.success : colors.danger }}>
+              {delta >= 0 ? '+' : ''}{delta}
+            </Text>
+          </View>
+        )}
+      </View>
     </View>
-  </View>
-);
+  );
+};
 
 const getStatusInfo = (target: any, colors: any) => {
   if (target.status === 'completed') {
@@ -166,12 +177,12 @@ export const CircularTargetCard = ({ target, onEdit, onClear }: any) => {
   const isMet = progress >= 100 && target.status === 'active';
 
   return (
-    <View className={`w-[280px] bg-surface-card p-6 rounded-[32px] border border-surface-border premium-shadow transition-all duration-300 ${target.status !== 'active' ? 'opacity-70 grayscale-[0.5]' : 'hover:scale-[1.02]'}`}>
+    <View className={`w-[280px] p-6 rounded-[32px] border premium-shadow transition-all duration-300 ${target.status !== 'active' ? 'opacity-70 grayscale-[0.5]' : 'hover:scale-[1.02]'}`} style={{ backgroundColor: colors.card, borderColor: colors.border }}>
       {/* Header Info */}
       <View className="flex-row justify-between items-start mb-6">
         <View className="flex-1">
-          <Text className="text-typography-main font-black text-lg tracking-tighter mb-0.5" numberOfLines={1}>{target.stage?.name}</Text>
-          <Text className="text-typography-muted text-[8px] font-black uppercase tracking-[0.2em]">
+          <Text className="font-black text-lg tracking-tighter mb-0.5" style={{ color: colors.textMain }} numberOfLines={1}>{target.stage?.name}</Text>
+          <Text className="text-[8px] font-black uppercase tracking-[0.2em]" style={{ color: colors.textMuted }}>
             {isVolume ? 'Volume Quota' : 'SLA Goal'}
           </Text>
         </View>
@@ -219,39 +230,39 @@ export const CircularTargetCard = ({ target, onEdit, onClear }: any) => {
           {/* Center Analytics */}
           <View className="items-center z-10">
             <View className="flex-row items-baseline">
-              <Text className="text-typography-main text-2xl font-black tracking-tighter">
+              <Text className="text-2xl font-black tracking-tighter" style={{ color: colors.textMain }}>
                 {Math.round(progress)}
               </Text>
-              <Text className="text-typography-muted text-sm font-black ml-0.5">%</Text>
+              <Text className="text-sm font-black ml-0.5" style={{ color: colors.textMuted }}>%</Text>
             </View>
           </View>
         </View>
       </View>
 
       {/* Metric Breakdown */}
-      <View className="bg-surface-background/50 rounded-2xl p-4 border border-surface-border/30">
+      <View className="rounded-2xl p-4 border" style={{ backgroundColor: `${colors.background}80`, borderColor: `${colors.border}4d` }}>
         {isVolume ? (
           <View className="flex-row justify-between items-center">
             <View>
-              <Text className="text-typography-muted text-[8px] font-black uppercase tracking-widest mb-0.5">Processed</Text>
-              <Text className="text-typography-main font-black text-base">
-                {target.current_count || 0} <Text className="text-[10px] font-bold text-typography-muted">Units</Text>
+              <Text className="text-[8px] font-black uppercase tracking-widest mb-0.5" style={{ color: colors.textMuted }}>Processed</Text>
+              <Text className="font-black text-base" style={{ color: colors.textMain }}>
+                {target.current_count || 0} <Text className="text-[10px] font-bold" style={{ color: colors.textMuted }}>Units</Text>
               </Text>
             </View>
             <View className="items-end">
-              <Text className="text-typography-muted text-[8px] font-black uppercase tracking-widest mb-0.5">Target</Text>
-              <Text className="text-brand-primary font-black text-base">{target.target_quantity}</Text>
+              <Text className="text-[8px] font-black uppercase tracking-widest mb-0.5" style={{ color: colors.textMuted }}>Target</Text>
+              <Text className="font-black text-base" style={{ color: colors.primary }}>{target.target_quantity}</Text>
             </View>
           </View>
         ) : (
           <View className="flex-row gap-4">
             <View className="flex-1">
-              <Text className="text-typography-muted text-[8px] font-black uppercase tracking-widest mb-0.5">Active</Text>
-              <Text className="text-brand-primary font-black text-base">{Math.round((target.target_active_seconds || 0) / 60)}m</Text>
+              <Text className="text-[8px] font-black uppercase tracking-widest mb-0.5" style={{ color: colors.textMuted }}>Active</Text>
+              <Text className="font-black text-base" style={{ color: colors.primary }}>{Math.round((target.target_active_seconds || 0) / 60)}m</Text>
             </View>
             <View className="flex-1">
-              <Text className="text-typography-muted text-[8px] font-black uppercase tracking-widest mb-0.5">Max Life</Text>
-              <Text className="text-typography-main font-black text-base">{Math.round((target.target_lifecycle_seconds || 0) / 3600)}h</Text>
+              <Text className="text-[8px] font-black uppercase tracking-widest mb-0.5" style={{ color: colors.textMuted }}>Max Life</Text>
+              <Text className="font-black text-base" style={{ color: colors.textMain }}>{Math.round((target.target_lifecycle_seconds || 0) / 3600)}h</Text>
             </View>
           </View>
         )}
@@ -263,50 +274,53 @@ export const CircularTargetCard = ({ target, onEdit, onClear }: any) => {
           <View className="mr-1.5">
             <FontAwesome name="calendar" size={9} color={colors.textDim} />
           </View>
-          <Text className="text-typography-muted text-[9px] font-bold">
+          <Text className="text-[9px] font-bold" style={{ color: colors.textMuted }}>
             {target.target_deadline ? new Date(target.target_deadline).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'No Limit'}
           </Text>
         </View>
-        
+
         <View className="flex-row gap-2">
           {target.status === 'active' && (
             <>
               {isMet ? (
                 <TouchableOpacity
                   onPress={() => onClear('completed')}
-                  className="bg-state-success px-4 py-1.5 rounded-lg premium-shadow hover:scale-105 transition-all"
+                  className="px-4 py-1.5 rounded-lg premium-shadow hover:scale-105 transition-all"
+                  style={{ backgroundColor: colors.success }}
                 >
                   <View className="flex-row items-center">
                     <FontAwesome name="check" size={9} color="white" />
-                    <Text className="text-brand-on-primary text-[9px] font-black uppercase tracking-widest ml-1.5">Complete</Text>
+                    <Text className="text-[9px] font-black uppercase tracking-widest ml-1.5" style={{ color: 'white' }}>Complete</Text>
                   </View>
                 </TouchableOpacity>
               ) : isExpired ? (
                 <TouchableOpacity
                   onPress={() => onClear('expired')}
-                  className="bg-state-danger px-4 py-1.5 rounded-lg premium-shadow hover:scale-105 transition-all"
+                  className="px-4 py-1.5 rounded-lg premium-shadow hover:scale-105 transition-all"
+                  style={{ backgroundColor: colors.danger }}
                 >
                   <View className="flex-row items-center">
                     <FontAwesome name="times" size={9} color="white" />
-                    <Text className="text-brand-on-primary text-[9px] font-black uppercase tracking-widest ml-1.5">Clear</Text>
+                    <Text className="text-[9px] font-black uppercase tracking-widest ml-1.5" style={{ color: 'white' }}>Clear</Text>
                   </View>
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity
                   onPress={onEdit}
-                  className="bg-brand-primary/10 px-3 py-1.5 rounded-lg border border-brand-primary/20 hover:bg-brand-primary/20 transition-all"
+                  className="px-3 py-1.5 rounded-lg border hover:bg-brand-primary/20 transition-all"
+                  style={{ backgroundColor: `${colors.primary}1a`, borderColor: `${colors.primary}33` }}
                 >
                   <View className="flex-row items-center">
                     <FontAwesome name="pencil" size={9} color={palette.primary} />
-                    <Text className="text-brand-primary text-[9px] font-black uppercase tracking-widest ml-1.5">Tune</Text>
+                    <Text className="text-[9px] font-black uppercase tracking-widest ml-1.5" style={{ color: colors.primary }}>Tune</Text>
                   </View>
                 </TouchableOpacity>
               )}
             </>
           )}
           {target.status !== 'active' && (
-            <View className="bg-surface-background/50 px-3 py-1.5 rounded-lg border border-surface-border/30">
-               <Text className="text-typography-muted text-[8px] font-black uppercase tracking-widest">Archived</Text>
+            <View className="px-3 py-1.5 rounded-lg border" style={{ backgroundColor: `${colors.background}80`, borderColor: `${colors.border}4d` }}>
+               <Text className="text-[8px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>Archived</Text>
             </View>
           )}
         </View>
@@ -337,11 +351,11 @@ export const CircularTargetCardMobile = ({ target, onEdit, onAction }: any) => {
   const stateLabel = isCompleted ? 'ACHIEVED' : isExpired ? 'MISSED' : 'ACTIVE';
 
   return (
-    <View className={`bg-surface-card p-6 rounded-3xl border ${isCompleted ? 'border-state-success' : isExpired ? 'border-state-danger' : 'border-surface-border'} mb-6 premium-shadow ${target.status !== 'active' && !isCompleted && !isExpired ? 'opacity-70 grayscale-[0.5]' : ''}`}>
+    <View className={`p-6 rounded-3xl border mb-6 premium-shadow ${target.status !== 'active' && !isCompleted && !isExpired ? 'opacity-70 grayscale-[0.5]' : ''}`} style={{ backgroundColor: colors.card, borderColor: isCompleted ? colors.success : isExpired ? colors.danger : colors.border }}>
       <View className="flex-row justify-between items-start mb-6">
         <View className="flex-1">
-          <Text className="text-typography-main font-black text-lg mb-1">{target.stage?.name || 'Global Objective'}</Text>
-          <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest">
+          <Text className="font-black text-lg mb-1" style={{ color: colors.textMain }}>{target.stage?.name || 'Global Objective'}</Text>
+          <Text className="text-[9px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>
             {isVolume ? 'Volume Quota' : 'SLA Performance Goal'}
           </Text>
         </View>
@@ -387,23 +401,23 @@ export const CircularTargetCardMobile = ({ target, onEdit, onAction }: any) => {
         </View>
 
         <View className="flex-1">
-          <View className="bg-surface-background/50 p-4 rounded-2xl border border-surface-border/30 mb-4">
+          <View className="p-4 rounded-2xl border mb-4" style={{ backgroundColor: `${colors.background}80`, borderColor: `${colors.border}4d` }}>
             {isVolume ? (
               <View>
-                <Text className="text-typography-muted text-[8px] font-black uppercase mb-1">Progress</Text>
-                <Text className="text-typography-main font-black text-sm">
-                  {target.current_count || 0} <Text className="text-[10px] font-bold text-typography-muted">/ {target.target_quantity}</Text>
+                <Text className="text-[8px] font-black uppercase mb-1" style={{ color: colors.textMuted }}>Progress</Text>
+                <Text className="font-black text-sm" style={{ color: colors.textMain }}>
+                  {target.current_count || 0} <Text className="text-[10px] font-bold" style={{ color: colors.textMuted }}>/ {target.target_quantity}</Text>
                 </Text>
               </View>
             ) : (
               <View className="flex-row gap-4">
                 <View>
-                  <Text className="text-typography-muted text-[8px] font-black uppercase mb-1">Target</Text>
-                  <Text className="text-brand-primary font-black text-sm">{Math.round((target.target_active_seconds || 0) / 60)}m</Text>
+                  <Text className="text-[8px] font-black uppercase mb-1" style={{ color: colors.textMuted }}>Target</Text>
+                  <Text className="font-black text-sm" style={{ color: colors.primary }}>{Math.round((target.target_active_seconds || 0) / 60)}m</Text>
                 </View>
                 <View>
-                  <Text className="text-typography-muted text-[8px] font-black uppercase mb-1">Max</Text>
-                  <Text className="text-typography-main font-black text-sm">{Math.round((target.target_lifecycle_seconds || 0) / 3600)}h</Text>
+                  <Text className="text-[8px] font-black uppercase mb-1" style={{ color: colors.textMuted }}>Max</Text>
+                  <Text className="font-black text-sm" style={{ color: colors.textMain }}>{Math.round((target.target_lifecycle_seconds || 0) / 3600)}h</Text>
                 </View>
               </View>
             )}
@@ -411,7 +425,7 @@ export const CircularTargetCardMobile = ({ target, onEdit, onAction }: any) => {
 
           <View className="flex-row items-center mb-4">
             <FontAwesome name="calendar" size={8} color={colors.textDim} />
-            <Text className="text-typography-muted text-[8px] font-bold ml-1.5">
+            <Text className="text-[8px] font-bold ml-1.5" style={{ color: colors.textMuted }}>
               {target.target_deadline ? new Date(target.target_deadline).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'No Limit'}
             </Text>
           </View>
@@ -421,7 +435,8 @@ export const CircularTargetCardMobile = ({ target, onEdit, onAction }: any) => {
               {isMet ? (
                 <TouchableOpacity
                   onPress={() => onAction(target.id, 'completed')}
-                  className="flex-1 flex-row items-center justify-center bg-state-success py-2.5 rounded-xl premium-shadow"
+                  className="flex-1 flex-row items-center justify-center py-2.5 rounded-xl premium-shadow"
+                  style={{ backgroundColor: colors.success }}
                 >
                   <FontAwesome name="check" size={10} color="white" />
                   <Text className="text-white text-[9px] font-black uppercase tracking-widest ml-2">Complete</Text>
@@ -429,7 +444,8 @@ export const CircularTargetCardMobile = ({ target, onEdit, onAction }: any) => {
               ) : isExpired ? (
                 <TouchableOpacity
                   onPress={() => onAction(target.id, 'expired')}
-                  className="flex-1 flex-row items-center justify-center bg-state-danger py-2.5 rounded-xl premium-shadow"
+                  className="flex-1 flex-row items-center justify-center py-2.5 rounded-xl premium-shadow"
+                  style={{ backgroundColor: colors.danger }}
                 >
                   <FontAwesome name="times" size={10} color="white" />
                   <Text className="text-white text-[9px] font-black uppercase tracking-widest ml-2">Clear</Text>
@@ -437,19 +453,21 @@ export const CircularTargetCardMobile = ({ target, onEdit, onAction }: any) => {
               ) : (
                 <TouchableOpacity
                   onPress={onEdit}
-                  className="flex-1 flex-row items-center justify-center bg-brand-primary/10 py-2.5 rounded-xl border border-brand-primary/20"
+                  className="flex-1 flex-row items-center justify-center py-2.5 rounded-xl border"
+                  style={{ backgroundColor: `${colors.primary}1a`, borderColor: `${colors.primary}33` }}
                 >
                   <FontAwesome name="pencil" size={10} color={colors.primary} />
-                  <Text className="text-brand-primary text-[9px] font-black uppercase tracking-widest ml-2">Edit</Text>
+                  <Text className="text-[9px] font-black uppercase tracking-widest ml-2" style={{ color: colors.primary }}>Edit</Text>
                 </TouchableOpacity>
               )}
             </View>
           ) : (
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => onAction(target.id, 'clear')}
-              className="bg-surface-background/50 py-2.5 rounded-xl border border-surface-border/30 items-center"
+              className="py-2.5 rounded-xl border items-center"
+              style={{ backgroundColor: `${colors.background}80`, borderColor: `${colors.border}4d` }}
             >
-              <Text className="text-typography-muted text-[8px] font-black uppercase tracking-widest">Delete Record</Text>
+              <Text className="text-[8px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>Delete Record</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -465,20 +483,20 @@ export const CompletionVelocityMobile = ({ data }: { data: { date: string, count
   const gap = 15;
 
   return (
-    <View className="bg-surface-card p-6 rounded-3xl border border-surface-border mb-8 premium-shadow">
+    <View className="p-6 rounded-3xl border mb-8 premium-shadow" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
       <View className="flex-row items-center justify-between mb-6">
         <View>
-          <Text className="text-typography-main font-black text-lg">Velocity Trace</Text>
-          <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest">Completed Objectives / Week</Text>
+          <Text className="font-black text-lg" style={{ color: colors.textMain }}>Velocity Trace</Text>
+          <Text className="text-[9px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>Completed Objectives / Week</Text>
         </View>
-        <View className="w-8 h-8 rounded-full bg-brand-primary/10 items-center justify-center">
+        <View className="w-8 h-8 rounded-full items-center justify-center" style={{ backgroundColor: `${colors.primary}1a` }}>
           <FontAwesome name="bolt" size={12} color={colors.primary} />
         </View>
       </View>
 
       {data.length === 0 ? (
-        <View className="h-32 items-center justify-center bg-surface-background/50 rounded-2xl border border-dashed border-surface-border">
-          <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest">No Recent Deployments</Text>
+        <View className="h-32 items-center justify-center rounded-2xl border border-dashed" style={{ backgroundColor: `${colors.background}80`, borderColor: colors.border }}>
+          <Text className="text-[10px] font-bold uppercase tracking-widest" style={{ color: colors.textMuted }}>No Recent Deployments</Text>
         </View>
       ) : (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} className="h-40">
@@ -487,14 +505,14 @@ export const CompletionVelocityMobile = ({ data }: { data: { date: string, count
               const h = (d.count / max) * chartHeight;
               return (
                 <View key={i} style={{ width: barWidth, marginRight: gap }} className="items-center">
-                  <View 
-                    style={{ height: h, width: barWidth }} 
-                    className="bg-brand-primary rounded-t-lg premium-shadow relative overflow-hidden"
+                  <View
+                    style={{ height: h, width: barWidth, backgroundColor: colors.primary }}
+                    className="rounded-t-lg premium-shadow relative overflow-hidden"
                   >
                     <View className="absolute inset-0 bg-white/10" />
                   </View>
-                  <Text className="text-typography-main font-black text-[10px] mt-2">{d.count}</Text>
-                  <Text className="text-typography-muted text-[7px] font-bold uppercase mt-0.5">{d.date}</Text>
+                  <Text className="font-black text-[10px] mt-2" style={{ color: colors.textMain }}>{d.count}</Text>
+                  <Text className="text-[7px] font-bold uppercase mt-0.5" style={{ color: colors.textMuted }}>{d.date}</Text>
                 </View>
               );
             })}

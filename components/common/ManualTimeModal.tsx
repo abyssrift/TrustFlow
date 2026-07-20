@@ -186,6 +186,7 @@ export default function ManualTimeModal({ visible, taskId, stageId, transitionId
                 <Text className="text-state-danger text-sm font-medium">{error}</Text>
               </View>
             )}
+          </View>
 
           {/* Action buttons */}
           <View className="px-10 pb-10 flex-row gap-6 border-t border-surface-border pt-6">

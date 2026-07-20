@@ -7,7 +7,6 @@ import {
   RefreshControl,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   InteractionManager,
   Platform,
   Switch,
@@ -18,6 +17,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import ProjectFolderModal from '@/components/projects/ProjectFolderModal';
 import ProjectDashboardSheet from '@/components/projects/ProjectDashboardSheet';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAlert } from '@/contexts/AlertContext';
 import { TAB_BAR_HEIGHT } from '@/lib/layout';
 import { useThemeColors } from '@/hooks/useThemeColors';
 
@@ -36,6 +36,7 @@ type Project = {
 
 export default function ProjectsScreen() {
   const colors = useThemeColors();
+  const { showAlert } = useAlert();
   const { width } = useWindowDimensions();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -130,7 +131,7 @@ export default function ProjectsScreen() {
 
   const handleEdit = (project: Project) => {
     if (!hasPermission('project.edit')) {
-      Alert.alert('Permission Denied', 'You do not have permission to edit projects.');
+      showAlert('Permission Denied', 'You do not have permission to edit projects.');
       return;
     }
     setSelectedProject(project);
@@ -139,7 +140,7 @@ export default function ProjectsScreen() {
 
   const handleCreateNew = () => {
     if (!hasPermission('project.create')) {
-      Alert.alert('Permission Denied', 'You do not have permission to create projects.');
+      showAlert('Permission Denied', 'You do not have permission to create projects.');
       return;
     }
     setSelectedProject(undefined);
