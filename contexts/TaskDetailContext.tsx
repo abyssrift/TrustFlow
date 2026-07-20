@@ -300,6 +300,18 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
       successToast('Task action completed.');
     } catch (err: any) {
       taskFlowError('task-detail.executeAction:error', err, { taskId, actionId });
+
+      // The task moved to a different stage (another session/reviewer advanced
+      // it) between render and click, so the button's action_id is now stale.
+      // Refetch so the UI shows the real current stage/actions instead of
+      // leaving a dead button on screen, and surface a clear message.
+      if (err.message?.includes("does not belong to the task's current stage")) {
+        await fetchDetails();
+        const staleErr = new Error('This task has already moved to a new stage. The available actions have been refreshed.');
+        errorToast(staleErr.message);
+        throw staleErr;
+      }
+
       errorToast(err.message || 'Could not complete task action.');
       throw err;
     }
