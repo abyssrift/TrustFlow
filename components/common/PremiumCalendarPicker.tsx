@@ -179,24 +179,28 @@ export default function PremiumCalendarPicker({ selectedDate, onSelect, accentCo
   );
 
   return (
-    <View className={`bg-surface-card border border-surface-border premium-shadow ${isDesktop || (showQuickSelect && compact) ? 'flex-row' : 'flex-col'} ${compact ? (!showQuickSelect ? 'w-[252px]' : 'w-[348px]') + ' rounded-2xl' : 'rounded-[2.5rem] overflow-hidden'}`}>
+    <View className={`bg-surface-card border border-surface-border premium-shadow ${isDesktop || (showQuickSelect && compact) ? 'flex-row' : 'flex-col'} ${compact ? (!showQuickSelect ? 'w-[252px]' : 'w-[332px]') + ' rounded-2xl' : 'rounded-[2.5rem] overflow-hidden'}`}>
       
       {/* Quick Select - Compact Left Side */}
       {showQuickSelect && compact && (
-        <View className="w-24 bg-surface-background/50 border-r border-surface-border items-center pt-4 pb-3 gap-1">
-          <View className="items-center mb-3 border-b border-surface-border pb-3 px-2 w-full">
-            <Text className="text-typography-main font-black text-xs">Quick</Text>
-            <Text className="text-typography-main font-black text-xs">Select</Text>
-          </View>
+        <View className="w-20 bg-surface-background/50 border-r border-surface-border items-center p-2 gap-1">
+          <Text className="text-typography-muted text-[8px] font-black uppercase tracking-widest mb-1.5 opacity-50">Quick Select</Text>
           {QUICK_ACTIONS.map(action => (
             <TouchableOpacity
               key={action.label}
               onPress={() => handleQuickAction(action.days)}
-              className="w-full items-center py-2.5 rounded-lg hover:bg-surface-overlay"
+              className="w-full px-2 py-1.5 rounded-lg hover:bg-surface-overlay border border-transparent hover:border-surface-border"
             >
-              <Text className="text-typography-main font-bold text-[10px] uppercase tracking-wider">{action.label}</Text>
+              <Text className="text-typography-main font-bold text-[9px] uppercase tracking-wider">{action.label}</Text>
             </TouchableOpacity>
           ))}
+          <View className="flex-1" />
+          <TouchableOpacity
+            onPress={() => { const d = new Date(); onSelect?.(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`); }}
+            className="w-full p-2 border border-brand-primary/20 rounded-xl items-center hover:bg-brand-primary/5"
+          >
+            <Text className="text-brand-primary text-[8px] font-black uppercase tracking-widest">Today</Text>
+          </TouchableOpacity>
         </View>
       )}
 
