@@ -32,6 +32,7 @@ import { useImageLightbox } from '@/hooks/useImageLightbox';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import AdaptiveFileGrid from '../common/AdaptiveFileGrid';
 import { FilePreviewModal, FilePreviewTeaser, getPreviewKind, type PreviewKind } from '../common/FilePreview';
+import UserLink from '../common/UserLink';
 import FileHubAnalytics from './FileHubAnalytics';
 import FileHubBin from './FileHubBin';
 import TaskFileResults from './TaskFileResults';
@@ -379,7 +380,7 @@ function FileDetailSheet({
             <View className="bg-surface-background border border-surface-border rounded-2xl overflow-hidden mb-5">
               <View className="flex-row items-center px-4 py-3.5 border-b border-surface-border/50">
                 <Text className="text-typography-muted text-xs w-24">From</Text>
-                <Text className="text-typography-main text-xs font-bold flex-1">{file.uploader.full_name}</Text>
+                <UserLink userId={file.uploader.id} name={file.uploader.full_name} className="text-typography-main text-xs font-bold flex-1" />
               </View>
               <View className="flex-row items-center px-4 py-3.5 border-b border-surface-border/50">
                 <Text className="text-typography-muted text-xs w-24">Date</Text>
@@ -525,7 +526,7 @@ function FileDetailSheet({
                     </View>
                     <View className="flex-1 min-w-0">
                       <Text className="text-typography-main text-sm font-bold">
-                        {entry.user.full_name}{' '}
+                        <UserLink userId={entry.user.id} name={entry.user.full_name} className="text-typography-main text-sm font-bold" />{' '}
                         <Text className="text-typography-muted font-medium">{meta.label.toLowerCase()}</Text>
                       </Text>
                       <Text className="text-typography-dim text-xs mt-0.5">{relativeDate(entry.created_at)}</Text>
@@ -579,7 +580,7 @@ function FileDetailSheet({
                       )}
                     </View>
                     <Text className="text-typography-muted text-xs" numberOfLines={1}>
-                      {v.uploader.full_name} · {formatFileSize(v.size_bytes)} · {relativeDate(v.created_at)}
+                      <UserLink userId={v.uploader.id} name={v.uploader.full_name} className="text-typography-muted text-xs" /> · {formatFileSize(v.size_bytes)} · {relativeDate(v.created_at)}
                     </Text>
                     {!v.is_current && (
                       <Text className="text-typography-dim text-[11px] mt-0.5">
@@ -1817,7 +1818,7 @@ function GroupMembersSheet({
                       <View className="w-8 h-8 rounded-full bg-brand-primary/10 border border-brand-primary/20 items-center justify-center">
                         <Text className="text-brand-primary text-[10px] font-black">{getInitials(m.full_name)}</Text>
                       </View>
-                      <Text className="flex-1 text-typography-main text-sm font-medium">{m.full_name}</Text>
+                      <UserLink userId={m.id} name={m.full_name} className="flex-1 text-typography-main text-sm font-medium" />
                       {m.role === 'admin' && (
                         <View className="bg-brand-primary/10 border border-brand-primary/20 rounded-full px-2 py-0.5 mr-2">
                           <Text className="text-brand-primary text-[9px] font-black">Admin</Text>
@@ -2014,7 +2015,7 @@ function FileCard({
           )}
         </View>
         <Text className="text-typography-muted text-xs" numberOfLines={1}>
-          {file.uploader.full_name} · {file.mime_type?.split('/').pop()?.toUpperCase() ?? 'File'} · {formatFileSize(file.size_bytes)}
+          <UserLink userId={file.uploader.id} name={file.uploader.full_name} className="text-typography-muted text-xs" /> · {file.mime_type?.split('/').pop()?.toUpperCase() ?? 'File'} · {formatFileSize(file.size_bytes)}
         </Text>
         {file.tags.length > 0 && (
           <View className="flex-row flex-wrap gap-1 mt-1.5">

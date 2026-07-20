@@ -6,6 +6,7 @@ import { FontAwesome } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Modal, Platform, Text, TouchableOpacity, View } from 'react-native';
 import DraggableSheet from '@/components/common/DraggableSheet';
+import UserLink from '@/components/common/UserLink';
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -215,9 +216,7 @@ export default function FileHubBin({ visible, onClose }: { visible: boolean; onC
                 <View className="w-4 h-4 rounded-full items-center justify-center" style={{ backgroundColor: c.primary + '25' }}>
                   <Text style={{ color: c.primary, fontSize: 8, fontWeight: '900' }}>{initials(item.uploader?.full_name)}</Text>
                 </View>
-                <Text numberOfLines={1} className="text-[11px] font-semibold" style={{ color: c.textMuted }}>
-                  {item.uploader?.full_name || 'Unknown'}
-                </Text>
+                <UserLink userId={item.uploader?.id} name={item.uploader?.full_name} fallback="Unknown" numberOfLines={1} className="text-[11px] font-semibold" style={{ color: c.textMuted }} />
                 <Text style={{ color: c.border }}>·</Text>
                 <FontAwesome name="folder-o" size={9} color={c.textMuted} />
                 <Text numberOfLines={1} className="text-[11px]" style={{ color: c.textMuted }}>

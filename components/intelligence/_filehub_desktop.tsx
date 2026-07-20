@@ -9,6 +9,7 @@ import { useImageLightbox } from '@/hooks/useImageLightbox';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { useDragSource, useDropTarget, useMarqueeSelect } from '@/hooks/useWebDnd';
 import { FilePreviewModal, FilePreviewTeaser, getPreviewKind, type PreviewKind } from './../common/FilePreview';
+import UserLink from '../common/UserLink';
 import FileHubAnalytics from './FileHubAnalytics';
 import FileHubBin from './FileHubBin';
 import { groupPickedFiles, relDir, resolveExistingFolderLeaf } from '@/lib/filehubFolderTree';
@@ -1470,7 +1471,7 @@ function FileRow({
           )}
         </View>
         <Text className="text-typography-muted text-[11px]" numberOfLines={1}>
-          {file.uploader.full_name} · {formatFileSize(file.size_bytes)}
+          <UserLink userId={file.uploader.id} name={file.uploader.full_name} className="text-typography-muted text-[11px]" /> · {formatFileSize(file.size_bytes)}
         </Text>
         {file.tags.length > 0 && (
           <View className="flex-row flex-wrap gap-1 mt-1">
@@ -1898,7 +1899,7 @@ function DetailPanel({
         <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 28, paddingTop: 20 }}>
           <View className="mb-4 pb-4 border-b border-surface-border/50">
             <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-2">Sent by</Text>
-            <Text className="text-typography-main text-sm font-bold">{file.uploader.full_name}</Text>
+            <UserLink userId={file.uploader.id} name={file.uploader.full_name} className="text-typography-main text-sm font-bold" />
             <Text className="text-typography-dim text-xs mt-0.5">{relativeDate(file.created_at)}</Text>
           </View>
 
@@ -2035,7 +2036,7 @@ function DetailPanel({
                   </View>
                   <View className="flex-1 min-w-0">
                     <Text className="text-typography-main text-xs font-bold">
-                      {entry.user.full_name}{' '}
+                      <UserLink userId={entry.user.id} name={entry.user.full_name} className="text-typography-main text-xs font-bold" />{' '}
                       <Text className="text-typography-muted font-medium">{meta.label.toLowerCase()}</Text>
                     </Text>
                     <Text className="text-typography-dim text-[10px] mt-0.5">{relativeDate(entry.created_at)}</Text>
@@ -2091,7 +2092,7 @@ function DetailPanel({
                     )}
                   </View>
                   <Text className="text-typography-muted text-[11px]" numberOfLines={1}>
-                    {v.uploader.full_name} · {formatFileSize(v.size_bytes)} · {relativeDate(v.created_at)}
+                    <UserLink userId={v.uploader.id} name={v.uploader.full_name} className="text-typography-muted text-[11px]" /> · {formatFileSize(v.size_bytes)} · {relativeDate(v.created_at)}
                   </Text>
                   {!v.is_current && (
                     <Text className="text-typography-dim text-[10px] mt-0.5">
@@ -2482,7 +2483,7 @@ function GroupMembersPanel({
               <View className="w-8 h-8 rounded-full bg-brand-primary/10 border border-brand-primary/20 items-center justify-center flex-shrink-0">
                 <Text className="text-brand-primary text-[10px] font-black">{getInitials(m.full_name)}</Text>
               </View>
-              <Text className="flex-1 text-typography-main text-sm font-medium">{m.full_name}</Text>
+              <UserLink userId={m.id} name={m.full_name} className="flex-1 text-typography-main text-sm font-medium" />
               {m.role === 'admin' && (
                 <View className="bg-brand-primary/10 border border-brand-primary/20 rounded-full px-2 py-0.5 mr-1">
                   <Text className="text-brand-primary text-[9px] font-black">Admin</Text>

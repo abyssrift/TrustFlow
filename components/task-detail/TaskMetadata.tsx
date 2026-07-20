@@ -6,17 +6,18 @@ import { Text, TouchableOpacity, View } from 'react-native';
 import CollapsibleCard from './CollapsibleCard';
 import EditTaskModal from './EditTaskModal';
 import LinkifiedText from '../common/LinkifiedText';
+import UserLink from '../common/UserLink';
 
-function MetaRow({ icon, label, value, valueColor }: { icon: string; label: string; value?: string | null; valueColor?: string }) {
+function MetaRow({ icon, label, value, valueNode, valueColor }: { icon: string; label: string; value?: string | null; valueNode?: React.ReactNode; valueColor?: string }) {
   const colors = useThemeColors();
-  if (!value) return null;
+  if (!value && !valueNode) return null;
   return (
     <View className="flex-row items-center justify-between py-2.5 border-b border-surface-border/30">
       <View className="flex-row items-center">
         <FontAwesome name={icon as any} size={11} color={colors.textMuted} />
         <Text className="text-typography-muted text-xs font-bold ml-2.5 uppercase tracking-wider">{label}</Text>
       </View>
-      <Text className={`text-xs font-black ${valueColor || 'text-typography-main'}`}>{value}</Text>
+      {valueNode ?? <Text className={`text-xs font-black ${valueColor || 'text-typography-main'}`}>{value}</Text>}
     </View>
   );
 }
@@ -74,8 +75,20 @@ export default function TaskMetadata() {
         />
         <MetaRow icon="flag" label="Priority" value={task.priority?.toUpperCase() || 'NORMAL'} />
         {task.category && <MetaRow icon="tag" label="Category" value={task.category} />}
-        <MetaRow icon="user" label="Created By" value={creator?.full_name || '—'} />
-        {manager && <MetaRow icon="briefcase" label="Manager" value={manager.full_name || '—'} />}
+        <MetaRow
+          icon="user"
+          label="Created By"
+          value={creator?.full_name || '—'}
+          valueNode={creator?.id ? <UserLink userId={creator.id} name={creator.full_name} className="text-xs font-black text-typography-main" /> : undefined}
+        />
+        {manager && (
+          <MetaRow
+            icon="briefcase"
+            label="Manager"
+            value={manager.full_name || '—'}
+            valueNode={manager.id ? <UserLink userId={manager.id} name={manager.full_name} className="text-xs font-black text-typography-main" /> : undefined}
+          />
+        )}
         {permissions.can_edit ? (
           <TouchableOpacity
             onPress={() => openEdit('due_date')}

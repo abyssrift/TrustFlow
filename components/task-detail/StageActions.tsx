@@ -4,6 +4,7 @@ import { FilePreviewGrid } from '@/components/common/FilePreviewCard';
 import LinkifiedText from '@/components/common/LinkifiedText';
 import ManualTimeApprovalsModal from '@/components/common/ManualTimeApprovalsModal';
 import ManualTimeModal from '@/components/common/ManualTimeModal';
+import UserLink from '@/components/common/UserLink';
 import LockIndicator from '@/components/task-detail/LockIndicator';
 import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -890,7 +891,7 @@ export default function StageActions() {
                   )}
 
                   <View className="flex-row items-center gap-2">
-                    <Text className="text-typography-dim text-[9px] font-bold">by {s.submitted_by?.full_name || 'Unknown'}</Text>
+                    <Text className="text-typography-dim text-[9px] font-bold">by <UserLink userId={s.submitted_by?.id} name={s.submitted_by?.full_name} fallback="Unknown" className="text-typography-dim text-[9px] font-bold" /></Text>
                     <Text className="text-typography-dim text-[9px]">{new Date(s.submitted_at).toLocaleDateString()}</Text>
                     {s.version_count > 1 && (
                       <TouchableOpacity
@@ -933,7 +934,7 @@ export default function StageActions() {
                     <View className="bg-surface-background rounded-lg p-2.5 mt-2 border border-surface-border/50">
                       <Text className="text-typography-dim text-[9px] font-black uppercase mb-1">Review Notes</Text>
                       <Text className="text-typography-label text-xs leading-4">{s.review_notes}</Text>
-                      <Text className="text-typography-dim text-[9px] mt-1">- {s.reviewed_by?.full_name}</Text>
+                      <Text className="text-typography-dim text-[9px] mt-1">- <UserLink userId={s.reviewed_by?.id} name={s.reviewed_by?.full_name} className="text-typography-dim text-[9px]" /></Text>
                     </View>
                   )}
 
@@ -1019,12 +1020,12 @@ export default function StageActions() {
                         {s.content && <Text className="text-typography-label text-xs leading-4 mb-1" numberOfLines={3}>{s.content}</Text>}
 
                         <View className="flex-row items-center gap-2">
-                          <Text className="text-typography-dim text-[9px] font-bold">by {s.submitted_by?.full_name || 'Unknown'}</Text>
+                          <Text className="text-typography-dim text-[9px] font-bold">by <UserLink userId={s.submitted_by?.id} name={s.submitted_by?.full_name} fallback="Unknown" className="text-typography-dim text-[9px] font-bold" /></Text>
                           {s.attachments.length > 0 && (
                             <Text className="text-typography-dim text-[9px]">{s.attachments.length} file{s.attachments.length > 1 ? 's' : ''}</Text>
                           )}
                           <Text className="text-typography-dim text-[9px]">
-                            deleted {new Date(s.deleted_at).toLocaleDateString()}{s.deleted_by?.full_name ? ` by ${s.deleted_by.full_name}` : ''}
+                            deleted {new Date(s.deleted_at).toLocaleDateString()}{s.deleted_by?.full_name ? <> by <UserLink userId={s.deleted_by.id} name={s.deleted_by.full_name} className="text-typography-dim text-[9px]" /></> : ''}
                           </Text>
                         </View>
                       </View>
@@ -1199,7 +1200,7 @@ export default function StageActions() {
                 </View>
 
                 <Text style={{ color: colors.textDim, fontSize: 10, marginBottom: 6 }}>
-                  {new Date(v.created_at).toLocaleString()}{v.created_by?.full_name ? ` · by ${v.created_by.full_name}` : ''}
+                  {new Date(v.created_at).toLocaleString()}{v.created_by?.full_name ? <> · by <UserLink userId={v.created_by.id} name={v.created_by.full_name} style={{ color: colors.textDim, fontSize: 10 }} /></> : ''}
                 </Text>
 
                 {!!v.content && (

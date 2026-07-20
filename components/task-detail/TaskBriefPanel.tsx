@@ -13,6 +13,7 @@ import { ActivityIndicator, Image, Platform, ScrollView, Text, TouchableOpacity,
 import DraggableSheet from '@/components/common/DraggableSheet';
 import ImageLightbox from '@/components/common/ImageLightbox';
 import { FilePreviewModal, getPreviewKind, type PreviewKind } from '@/components/common/FilePreview';
+import UserLink from '@/components/common/UserLink';
 import CollapsibleCard from './CollapsibleCard';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -500,7 +501,7 @@ export default function TaskBriefPanel() {
                     <View className="flex-1 ml-2">
                       <Text className="text-typography-label text-xs" numberOfLines={1}>{f.file_name}</Text>
                       <Text className="text-typography-dim text-[9px]">
-                        {formatSize(f.file_size)}{f.file_size ? ' · ' : ''}deleted {new Date(f.deleted_at).toLocaleDateString()}{f.deleted_by?.full_name ? ` by ${f.deleted_by.full_name}` : ''}
+                        {formatSize(f.file_size)}{f.file_size ? ' · ' : ''}deleted {new Date(f.deleted_at).toLocaleDateString()}{f.deleted_by?.full_name ? <> by <UserLink userId={f.deleted_by.id} name={f.deleted_by.full_name} className="text-typography-dim text-[9px]" /></> : ''}
                       </Text>
                     </View>
                     <TouchableOpacity
@@ -623,7 +624,7 @@ export default function TaskBriefPanel() {
                   </View>
 
                   <Text style={{ color: colors.textDim, fontSize: 10, marginBottom: 6 }}>
-                    {new Date(v.created_at).toLocaleString()}{v.created_by?.full_name ? ` · by ${v.created_by.full_name}` : ''}
+                    {new Date(v.created_at).toLocaleString()}{v.created_by?.full_name ? <> · by <UserLink userId={v.created_by.id} name={v.created_by.full_name} style={{ color: colors.textDim, fontSize: 10 }} /></> : ''}
                   </Text>
 
                   {/* Every version stays downloadable — tap the file row */}

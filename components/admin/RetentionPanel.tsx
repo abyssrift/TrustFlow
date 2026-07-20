@@ -6,6 +6,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import ConfirmModal from '@/components/common/ConfirmModal';
+import UserLink from '@/components/common/UserLink';
 
 type CompanyStatus = {
   id: string;
@@ -284,7 +285,7 @@ export default function RetentionPanel() {
               {overview.inactive_users.map(u => (
                 <View key={u.id} className="flex-row items-center bg-surface-background border border-surface-border rounded-xl p-3">
                   <View className="flex-1 mr-3">
-                    <Text className="text-typography-main font-black text-sm" numberOfLines={1}>{u.full_name || u.email}</Text>
+                    <UserLink userId={u.id} name={u.full_name || u.email} className="text-typography-main font-black text-sm" numberOfLines={1} />
                     <Text className="text-typography-muted text-[11px]" numberOfLines={1}>
                       {u.email} · inactive {u.days_inactive}d · last seen {fmtDate(u.last_seen_at)}
                     </Text>

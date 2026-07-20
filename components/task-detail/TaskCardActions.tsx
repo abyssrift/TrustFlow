@@ -1,5 +1,6 @@
 import ConfirmModal from '@/components/common/ConfirmModal';
 import ManualTimeModal from '@/components/common/ManualTimeModal';
+import UserLink from '@/components/common/UserLink';
 import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTimer } from '@/contexts/TimerContext';
@@ -423,11 +424,12 @@ export default function TaskCardActions({ task, stages, stageActions, transition
   // Only bail out if the current user has no actions — reviewers with
   // review_approve/review_revise/review_reject must still see their buttons.
   if (isAssignedToUser && !isMyTask && availableActions.length === 0) {
+    const assigneeId = task.assignments?.[0]?.assignee_user_id;
     const assigneeName = task.assignments?.[0]?.user?.full_name || 'Another user';
     return (
       <View className="bg-surface-overlay py-2.5 rounded-xl border border-surface-border items-center justify-center">
         <Text className="text-typography-muted font-bold text-[10px] uppercase tracking-widest">
-          In Progress by {assigneeName}
+          In Progress by <UserLink userId={assigneeId} name={assigneeName} className="text-typography-muted font-bold text-[10px] uppercase tracking-widest" />
         </Text>
       </View>
     );

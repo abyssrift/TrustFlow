@@ -11,6 +11,7 @@ import { ActivityIndicator, FlatList, Text, TextInput, TouchableOpacity, View } 
 import CollapsibleCard from './CollapsibleCard';
 import LinkifiedText from '../common/LinkifiedText';
 import PermissionGate from './PermissionGate';
+import UserLink from '../common/UserLink';
 
 type CommentTree = CommentData & { children: CommentTree[] };
 
@@ -60,9 +61,11 @@ function CommentNode({ comment, depth, onReply, onDelete, canComment, currentUse
                 {(comment.author?.full_name || '?').charAt(0)}
               </Text>
             </View>
-            <Text className="text-typography-main text-xs font-bold">
-              {comment.is_system ? 'System' : comment.author?.full_name || 'Unknown'}
-            </Text>
+            {comment.is_system ? (
+              <Text className="text-typography-main text-xs font-bold">System</Text>
+            ) : (
+              <UserLink userId={comment.author?.id} name={comment.author?.full_name} fallback="Unknown" className="text-typography-main text-xs font-bold" />
+            )}
             <Text className="text-typography-dim text-[9px] ml-2">{timeAgo(comment.created_at)}</Text>
             {isMentioned && (
               <View className="ml-2 bg-brand-primary/20 px-1.5 py-0.5 rounded-full">
@@ -325,7 +328,7 @@ export default function CommentsSection() {
             <View className="flex-row items-center bg-surface-background rounded-lg px-3 py-2 mb-2 border border-surface-border/50">
               <FontAwesome name="reply" size={9} color={colors.primary} />
               <Text className="text-typography-muted text-[10px] ml-2 flex-1" numberOfLines={1}>
-                Replying to {replyComment.author?.full_name}: {replyComment.content}
+                Replying to <UserLink userId={replyComment.author?.id} name={replyComment.author?.full_name} className="text-typography-muted text-[10px]" />: {replyComment.content}
               </Text>
               <TouchableOpacity onPress={() => setReplyTo(null)}>
                 <FontAwesome name="times" size={10} color={colors.textMuted} />

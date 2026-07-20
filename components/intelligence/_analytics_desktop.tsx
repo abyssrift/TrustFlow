@@ -1,4 +1,5 @@
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
+import UserLink from '@/components/common/UserLink';
 import { ConversionFunnelChartWeb, StageDwellChartWeb } from '@/components/intelligence/RadarWidgets';
 import { PersonnelRow, StageDwell, ThroughputPeriod, useAnalytics } from '@/contexts/AnalyticsContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -924,7 +925,7 @@ function PersonnelTab({ planCode, limits }: { planCode: string; limits: Analytic
                       )}
                     </View>
                     <View className="flex-1">
-                      <Text className="text-typography-main text-sm font-bold" numberOfLines={1}>{row.full_name}</Text>
+                      <UserLink userId={row.user_id} name={row.full_name} className="text-typography-main text-sm font-bold" numberOfLines={1} />
                       <Text className="text-typography-dim text-[10px]">{row.working_days}d tracked</Text>
                     </View>
                   </View>

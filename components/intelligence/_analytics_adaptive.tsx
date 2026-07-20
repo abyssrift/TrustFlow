@@ -1,6 +1,7 @@
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 import DraggableSheet from '@/components/common/DraggableSheet';
 import { BackButton } from '@/components/common/BackButton';
+import UserLink from '@/components/common/UserLink';
 import { PersonnelRow, StageDwell, ThroughputPeriod, useAnalytics } from '@/contexts/AnalyticsContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBillingPlan } from '@/hooks/useBillingPlan';
@@ -522,7 +523,7 @@ function PersonnelTab() {
             if (!u) return null;
             return (
               <View key={uid} className="flex-row items-center gap-3">
-                <Text className="text-typography-main text-sm font-bold flex-1" numberOfLines={1}>{u.full_name}</Text>
+                <UserLink userId={uid} name={u.full_name} className="text-typography-main text-sm font-bold flex-1" numberOfLines={1} />
                 <View className="flex-row items-center border border-surface-border bg-surface-card rounded-xl overflow-hidden">
                   <Text className="px-3 text-typography-dim text-sm">$</Text>
                   <TextInput
@@ -554,7 +555,7 @@ function PersonnelTab() {
         <View className="gap-4">
           {results.map(row => (
             <View key={row.user_id} className="bg-surface-card border border-surface-border rounded-2xl p-5">
-              <Text className="text-typography-main font-black text-base mb-4">{row.full_name}</Text>
+              <UserLink userId={row.user_id} name={row.full_name} className="text-typography-main font-black text-base mb-4" />
               {[
                 { label: 'Results (Pts)',  value: `${row.weight_points}` },
                 { label: 'Effort (OPS)',   value: `${row.activity_count}` },

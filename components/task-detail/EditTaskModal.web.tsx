@@ -1,4 +1,5 @@
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
+import UserLink from '@/components/common/UserLink';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
@@ -184,13 +185,13 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
   const fmtDate = (d: string | null) =>
     d ? new Date(d + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
 
-  const StatRow = ({ icon, label, value, accent }: { icon: string; label: string; value: string; accent?: boolean }) => (
+  const StatRow = ({ icon, label, value, valueNode, accent }: { icon: string; label: string; value: string; valueNode?: React.ReactNode; accent?: boolean }) => (
     <View className="flex-row items-center justify-between py-2.5" style={{ borderBottomWidth: 1, borderColor: colors.border + '33' }}>
       <View className="flex-row items-center gap-2.5">
         <FontAwesome name={icon as any} size={10} color={colors.textMuted} />
         <Text className="text-[10px] font-black uppercase tracking-wider" style={{ color: colors.textMuted }}>{label}</Text>
       </View>
-      <Text className="text-[11px] font-black" style={{ color: accent ? colors.primary : colors.textMain }}>{value}</Text>
+      {valueNode ?? <Text className="text-[11px] font-black" style={{ color: accent ? colors.primary : colors.textMain }}>{value}</Text>}
     </View>
   );
 
@@ -239,8 +240,8 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
 
               <View className="mb-2">
                 <StatRow icon="code-fork"       label="Pipeline"      value={pipeline?.name || '—'} accent />
-                <StatRow icon="user"            label="Creator"       value={creator?.full_name || '—'} />
-                <StatRow icon="briefcase"       label="Manager"       value={manager?.full_name || '—'} />
+                <StatRow icon="user"            label="Creator"       value={creator?.full_name || '—'} valueNode={creator?.id ? <UserLink userId={creator.id} name={creator.full_name} className="text-[11px] font-black" style={{ color: colors.textMain }} /> : undefined} />
+                <StatRow icon="briefcase"       label="Manager"       value={manager?.full_name || '—'} valueNode={manager?.id ? <UserLink userId={manager.id} name={manager.full_name} className="text-[11px] font-black" style={{ color: colors.textMain }} /> : undefined} />
                 <StatRow icon="calendar-o"      label="Created"       value={fmtDate(task.created_at)} />
                 <StatRow icon="calendar"        label="Due"           value={fmtDate(task.due_date)} />
                 <StatRow icon="clock-o"         label="In Pipeline"   value={`${stats.days_in_pipeline}d`} />
