@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Platform, AppState, AppStateStatus } from 'react-native';
+import { computeTimerAction } from '@/lib/time/smartTimer';
 
-const IDLE_TIMEOUT = 60 * 60 * 1000;        // 60 minutes of no activity
-const SESSION_MAX_DURATION = 6 * 60 * 60 * 1000; // 6 hours
 const CHECK_INTERVAL = 10 * 1000;           // Check state every 10 seconds
 const HEARTBEAT_INTERVAL = 30 * 1000;       // Pulse server every 30 seconds
 
@@ -90,20 +89,16 @@ export function useSmartTimer({ onAutoStop, onAutoStart, onHeartbeat, onAutoStop
     const check = async () => {
       if (isAutoStoppingRef.current) return;
 
-      // Skip idle enforcement while app is backgrounded — user may be working in Excel or another app.
-      // The session keeps running; we only enforce idle when the user is actually looking at the app.
       const isInForeground = Platform.OS === 'web'
         ? document.visibilityState === 'visible'
         : AppState.currentState === 'active';
-      if (!isInForeground) return;
 
-      const now = Date.now();
-      const elapsedSinceActivity = now - lastActivityRef.current;
-      const elapsedSinceStart = now - new Date(startedAt).getTime();
-
-      const isIdle = elapsedSinceActivity > IDLE_TIMEOUT;
-      const isForceStop = isIdle && elapsedSinceActivity > IDLE_TIMEOUT + 2 * 60 * 1000;
-      const isMaxSession = elapsedSinceStart > SESSION_MAX_DURATION;
+      const { isIdle, isForceStop, isMaxSession } = computeTimerAction({
+        now: Date.now(),
+        startedAt: new Date(startedAt).getTime(),
+        lastActivityAt: lastActivityRef.current,
+        isInForeground,
+      });
 
       if (isIdle) setShowIdleModal(true);
 
