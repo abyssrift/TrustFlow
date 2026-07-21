@@ -1,10 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Alert, ScrollView, Switch, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Alert, ScrollView, Switch, Platform, useWindowDimensions } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { usePipelineEditor, Stage } from '@/contexts/PipelineEditorContext';
 import { useAlert } from '@/contexts/AlertContext';
 import GraphCanvas from './graph/GraphCanvas';
-import AppModal from '@/components/common/AppModal';
+import Popup from '@/components/common/Popup';
 import { useThemeColors } from '@/hooks/useThemeColors';
 
 const COLOR_PALETTE = [
@@ -15,6 +15,8 @@ const COLOR_PALETTE = [
 
 export default function StageBuilder() {
   const colors = useThemeColors();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 1024;
   const {
     stages, loading, error, pipelines, isOperationInFlight,
     addStage, updateStage, deleteStage, reorderStages,
@@ -229,9 +231,11 @@ export default function StageBuilder() {
         </View>
 
         {/* Stage Form Modal */}
-        <AppModal
+        <Popup
           visible={!!(editingStageId || showAddForm)}
           onClose={() => { setEditingStageId(null); setShowAddForm(false); }}
+          maxHeight="90%"
+          presentation={isDesktop ? 'centered' : 'sheet'}
           containerClassName="w-[95%] max-w-[540px] max-h-[90vh] rounded-3xl overflow-hidden premium-shadow"
         >
           <View className="px-6 py-4 border-b border-surface-border flex-row justify-between items-center bg-surface-background/50">
@@ -578,12 +582,14 @@ export default function StageBuilder() {
                  </TouchableOpacity>
                )}
             </View>
-          </AppModal>
+          </Popup>
 
         {/* Transition Form Modal */}
-        <AppModal
+        <Popup
           visible={!!editingTransitionId}
           onClose={() => setEditingTransitionId(null)}
+          maxHeight="90%"
+          presentation={isDesktop ? 'centered' : 'sheet'}
           containerClassName="w-[95%] max-w-[540px] max-h-[90vh] rounded-3xl overflow-hidden premium-shadow"
         >
           <View className="px-6 py-4 border-b border-surface-border flex-row justify-between items-center bg-surface-background/50">
@@ -701,7 +707,7 @@ export default function StageBuilder() {
                </Text>
              </TouchableOpacity>
           </View>
-        </AppModal>
+          </Popup>
       </View>
     </View>
   );
