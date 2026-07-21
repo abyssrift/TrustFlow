@@ -135,8 +135,11 @@ export default function TransitionEditor() {
           presentation={isDesktop ? 'centered' : 'sheet'}
           containerClassName="w-[95%] max-w-[540px] max-h-[90vh] rounded-3xl overflow-hidden premium-shadow"
         >
-          <View className="px-6 py-4 border-b border-surface-border">
+          <View className="px-6 py-4 border-b border-surface-border flex-row items-center justify-between">
             <Text className="text-typography-main font-black uppercase tracking-widest text-xs">New Transition</Text>
+            <TouchableOpacity onPress={() => { setShowAdd(false); resetForm(); }} className="w-8 h-8 items-center justify-center rounded-full" style={{ backgroundColor: colors.background }}>
+              <FontAwesome name="times" size={16} color={colors.textMuted} />
+            </TouchableOpacity>
           </View>
           <ScrollView className="p-6" nestedScrollEnabled>
             {/* From Stage */}

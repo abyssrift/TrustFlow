@@ -1,7 +1,7 @@
-import React from 'react';
-import { Modal, Pressable, StyleProp, Text, View, ViewStyle } from 'react-native';
-import DraggableSheet from './DraggableSheet';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import React from 'react';
+import { Modal, Pressable, Text, View } from 'react-native';
+import DraggableSheet from './DraggableSheet';
 
 type ActionVariant = 'default' | 'danger' | 'disabled';
 
@@ -71,13 +71,6 @@ export default function Popup({
   return (
     <Modal transparent visible={visible} animationType="fade" onRequestClose={dismissible ? onClose : undefined}>
       <Pressable className="flex-1 items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.7)' }} onPress={dismissible ? onClose : undefined}>
-        <View className="relative">
-          {dismissible && (
-            <Pressable onPress={onClose} className="absolute -top-3 -right-3 z-50 w-9 h-9 items-center justify-center rounded-full shadow-xl"
-              style={{ backgroundColor: c.card, borderWidth: 1, borderColor: c.border }}>
-              <Text style={{ color: c.textMuted, fontSize: 16, fontWeight: 'bold' }}>x</Text>
-            </Pressable>
-          )}
           <Pressable
             className={containerClassName ?? 'w-[90%] max-w-[400px] rounded-3xl overflow-hidden premium-shadow'}
             style={[{ backgroundColor: c.card, borderWidth: 1, borderColor: c.border }, maxHeight ? { maxHeight } as any : undefined]}
@@ -86,6 +79,11 @@ export default function Popup({
           {title && (
             <View className="flex-row items-center justify-between px-6 pt-5 pb-4" style={{ borderBottomWidth: 1, borderBottomColor: c.border }}>
               <Text className="text-xl font-black tracking-tight flex-1" style={{ color: c.textMain }}>{title}</Text>
+              { (
+                <Pressable onPress={onClose} className="w-9 h-9 items-center justify-center rounded-full" style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}>
+                  <Text style={{ color: c.textMuted, fontSize: 16, fontWeight: 'bold' }}>x</Text>
+                </Pressable>
+              )}
             </View>
           )}
           {children}
