@@ -16,6 +16,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { usePingHighlight } from '@/contexts/PingHighlightContext';
 import { TaskCreationProvider } from '@/contexts/TaskCreationContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useNavBarPosition } from '@/hooks/useNavBarPosition';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { TAB_BAR_HEIGHT } from '@/lib/layout';
 import { supabase } from '@/lib/supabase';
@@ -349,6 +350,7 @@ function TasksScreen() {
    const { user, hasPermission, profile } = useAuth();
    const { showAlert } = useAlert();
    const isLargeScreen = width > 768;
+   const { position: navPosition } = useNavBarPosition();
 
   const { pingedTasks, removePingedTask } = usePingHighlight();
 
@@ -1292,7 +1294,9 @@ function TasksScreen() {
 
    return (
      <View className="flex-1 bg-surface-background">
-      {(Platform.OS !== 'web' || !isLargeScreen) && <View style={{ height: Platform.OS === 'web' ? TAB_BAR_HEIGHT.web : TAB_BAR_HEIGHT.native }} />}
+      {Platform.OS === 'web'
+        ? (!isLargeScreen && navPosition === 'top' && <View style={{ height: TAB_BAR_HEIGHT.web }} />)
+        : <View style={{ height: TAB_BAR_HEIGHT.native }} />}
 
       {/* BOARD SWITCH OVERLAY — shown while an uncached board loads (cached boards swap instantly) */}
       {switchingBoard && (

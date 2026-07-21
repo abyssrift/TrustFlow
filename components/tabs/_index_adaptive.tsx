@@ -3,6 +3,7 @@ import PendingTimeApprovalsWidget from '@/components/common/PendingTimeApprovals
 import PipelineOverviewChartNative, { DEFAULT_OVERVIEW_METRICS, OverviewMetricKey } from '@/components/intelligence/PipelineOverviewChartNative';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '@/contexts/NotificationsContext';
+import { useNavBarPosition } from '@/hooks/useNavBarPosition';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { TAB_BAR_HEIGHT } from '@/lib/layout';
 import { supabase } from '@/lib/supabase';
@@ -104,6 +105,7 @@ export default function DashboardScreen() {
   const router = useRouter();
   const colors = useThemeColors();
   const isLargeScreen = width > 768;
+  const { position: navPosition } = useNavBarPosition();
 
   const displayName = useMemo(() => {
     return profile?.display_name || profile?.full_name || user?.user_metadata?.full_name || 'Operator';
@@ -279,7 +281,7 @@ export default function DashboardScreen() {
     <ScrollView
       className="flex-1 bg-surface-background p-5"
       showsVerticalScrollIndicator={false}
-      contentContainerStyle={{ paddingTop: (Platform.OS !== 'web' || !isLargeScreen) ? (Platform.OS === 'web' ? TAB_BAR_HEIGHT.web : TAB_BAR_HEIGHT.native) : 0, paddingBottom: (Platform.OS !== 'web' || !isLargeScreen) ? TAB_BAR_HEIGHT.native + 16 : 32 }}
+      contentContainerStyle={{ paddingTop: Platform.OS === 'web' ? (isLargeScreen || navPosition !== 'top' ? 0 : TAB_BAR_HEIGHT.web) : TAB_BAR_HEIGHT.native, paddingBottom: (Platform.OS !== 'web' || !isLargeScreen) ? TAB_BAR_HEIGHT.native + 16 : 32 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
     >
       <View className="mb-6 mt-4 flex-row justify-between items-start">
