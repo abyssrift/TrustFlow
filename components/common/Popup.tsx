@@ -1,6 +1,6 @@
 import { useThemeColors } from '@/hooks/useThemeColors';
 import React from 'react';
-import { Modal, Pressable, Text, View } from 'react-native';
+import { Modal, Platform, Pressable, Text, View } from 'react-native';
 import DraggableSheet from './DraggableSheet';
 
 type ActionVariant = 'default' | 'danger' | 'disabled';
@@ -46,8 +46,10 @@ export default function Popup({
   containerClassName?: string;
 }) {
   const c = useThemeColors();
+  const isWeb = Platform.OS === 'web';
+  const effectivePresentation = isWeb ? presentation : 'sheet';
 
-  if (presentation === 'sheet') {
+  if (effectivePresentation === 'sheet') {
     return (
       <DraggableSheet
         visible={visible}
