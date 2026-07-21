@@ -92,13 +92,13 @@ export default function DraggableSheet({
           className={containerClassName}
         >
           <View
-            className="items-center justify-center pt-2.5 pb-3"
-            style={{ minHeight: 28, touchAction: 'none' as any }}
+            className="w-full items-center justify-center py-3"
+            style={{ minHeight: 44, touchAction: 'none' as any }}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
           >
-            <View className="w-12 h-1.5 rounded-full" style={{ backgroundColor: c.border }} />
+            <View className="w-20 h-2 rounded-full" style={{ backgroundColor: c.border }} />
           </View>
           {children}
         </Animated.View>

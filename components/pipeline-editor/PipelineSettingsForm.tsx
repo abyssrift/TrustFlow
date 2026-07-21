@@ -590,7 +590,7 @@ export default function PipelineSettingsForm({
           onPress={onCancel}
           className="flex-1 bg-surface-background py-3 rounded-xl border border-surface-border items-center justify-center h-12"
         >
-          <Text className="text-typography-muted font-bold text-sm uppercase tracking-widest">Cancel</Text>
+          <Text className="text-typography-muted font-bold text-[11px] uppercase tracking-wider">Cancel</Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={handleApply}
@@ -602,7 +602,7 @@ export default function PipelineSettingsForm({
           {loading ? (
             <ActivityIndicator color={colors.textMain} size="small" />
           ) : (
-            <Text className="text-brand-on-primary font-black uppercase tracking-widest text-sm">{submitLabel}</Text>
+            <Text className="text-brand-on-primary font-black uppercase tracking-wider text-[11px]">{submitLabel}</Text>
           )}
         </TouchableOpacity>
       </View>
