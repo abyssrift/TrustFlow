@@ -128,9 +128,8 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
 
   return (
     <View className="flex-1 flex-row bg-surface-background w-full h-full overflow-hidden">
-      {/* Layout width follows only the pinned state; hover-expand animates the
-          absolute overlay below instead. Animating the layout width on hover
-          reflowed the whole content pane (kanban board & co.) every frame. */}
+      {/* Sidebar width transitions on both pinned and hover-expand, pushing
+          the content pane aside. Accepts the reflow cost for correct layout. */}
       <NavRail
         sidebarRef={sidebarRef}
         isCollapsed={isCollapsed}

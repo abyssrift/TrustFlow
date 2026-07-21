@@ -44,12 +44,9 @@ export default function NavRail({
   return (
     <View
       ref={sidebarRef}
-      className={`${isCollapsed ? 'w-20' : 'w-64'} relative self-stretch z-30 transition-[width] duration-300 ease-in-out`}
+      className={`${isExpanded ? 'w-64' : 'w-20'} relative self-stretch z-30 transition-[width] duration-300 ease-in-out`}
     >
-      <View
-        className={`absolute z-40 transition-[width] duration-300 ease-in-out ${isExpanded ? 'w-64' : 'w-20'}`}
-        style={{ top: 0, bottom: 0, left: 0 }}
-      >
+      <View className="relative flex-1">
         <View
           className={`h-full border-r border-surface-border bg-surface-background w-full overflow-hidden z-20 ${isCollapsed && isExpanded ? 'premium-shadow' : ''}`}
         >
