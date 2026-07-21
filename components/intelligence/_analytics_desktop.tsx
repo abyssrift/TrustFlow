@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useBillingPlan } from '@/hooks/useBillingPlan';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { AnalyticsLimits, getAnalyticsLimits, requiredPlan } from '@/lib/planLimits';
+import { AnalyticsLimits, getAnalyticsLimits, PlanCatalogEntry, requiredPlan } from '@/lib/planLimits';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -56,13 +56,12 @@ function clampDate(date: string, min: string | null): string {
   return date < min ? min : date;
 }
 
-function PlanGate({ feature, planCode, children }: {
+function PlanGate({ feature, limits, children }: {
   feature: keyof AnalyticsLimits;
-  planCode: string;
+  limits: AnalyticsLimits;
   children: React.ReactNode;
 }) {
   const colors = useThemeColors();
-  const limits = getAnalyticsLimits(planCode);
   if (limits[feature]) return <>{children}</>;
   return (
     <View className="rounded-2xl border border-surface-border/50 px-4 py-3 flex-row items-center gap-2">
@@ -321,7 +320,7 @@ function PipelineTab({ planCode, limits }: { planCode: string; limits: Analytics
           <StageDwellChartWeb data={dwell} />
 
           {/* Throughput — Pro+ */}
-          <PlanGate feature="throughput" planCode={planCode}>
+          <PlanGate feature="throughput" limits={limits}>
             <View className="bg-surface-card border border-surface-border rounded-2xl p-6">
               <View className="flex-row items-center justify-between mb-6">
                 <Text className="text-typography-main font-black text-lg">Throughput Trend</Text>
@@ -334,7 +333,7 @@ function PipelineTab({ planCode, limits }: { planCode: string; limits: Analytics
           </PlanGate>
 
           {/* Conversion Funnel — Business+ */}
-          <PlanGate feature="funnel" planCode={planCode}>
+          <PlanGate feature="funnel" limits={limits}>
             <ConversionFunnelChartWeb data={auditData} />
           </PlanGate>
         </View>
@@ -383,7 +382,7 @@ function PipelineTab({ planCode, limits }: { planCode: string; limits: Analytics
 
 type SortDir = 'asc' | 'desc';
 
-function PersonnelTab({ planCode, limits }: { planCode: string; limits: AnalyticsLimits }) {
+function PersonnelTab({ planCode, limits, catalog }: { planCode: string; limits: AnalyticsLimits; catalog: PlanCatalogEntry[] }) {
   const colors = useThemeColors();
   const { comparePersonnel } = useAnalytics();
   const { theme: activeTheme } = useTheme();
@@ -878,7 +877,7 @@ function PersonnelTab({ planCode, limits }: { planCode: string; limits: Analytic
             ) : (
               <View className="flex-row items-center gap-2 bg-surface-card border border-surface-border px-4 py-2 rounded-xl opacity-40">
                 <FontAwesome name="lock" size={12} color={colors.muted} />
-                <Text className="text-typography-muted text-xs font-black uppercase">Export CSV — {requiredPlan('personnelExport')}+</Text>
+                <Text className="text-typography-muted text-xs font-black uppercase">Export CSV — {requiredPlan('personnelExport', catalog)}+</Text>
               </View>
             )}
           </View>
@@ -1033,8 +1032,8 @@ function PersonnelTab({ planCode, limits }: { planCode: string; limits: Analytic
 export default function AdminAnalyticsWeb() {
   const colors = useThemeColors();
   const { hasPermission, permissionsLoaded } = useAuth();
-  const { planCode, loading: planLoading } = useBillingPlan();
-  const limits = getAnalyticsLimits(planCode);
+  const { planCode, limits: planLimits, catalog, loading: planLoading } = useBillingPlan();
+  const limits = getAnalyticsLimits(planLimits);
   const [activeTab, setActiveTab] = useState<AdminTab>('pipeline');
 
   if (!permissionsLoaded || planLoading) {
@@ -1121,15 +1120,15 @@ export default function AdminAnalyticsWeb() {
           </View>
 
           {activeTab === 'pipeline' && <PipelineTab planCode={planCode} limits={limits} />}
-          {activeTab === 'personnel' && canPersonnel && <PersonnelTab planCode={planCode} limits={limits} />}
+          {activeTab === 'personnel' && canPersonnel && <PersonnelTab planCode={planCode} limits={limits} catalog={catalog} />}
           {activeTab === 'personnel' && !canPersonnel && (
             <View className="bg-surface-card border border-surface-border rounded-2xl p-10 items-center gap-3">
               <FontAwesome name="lock" size={32} color={colors.primary} />
               <Text className="text-typography-main font-black text-lg">
-                Requires {requiredPlan('personnel')} Plan
+                Requires {requiredPlan('personnel', catalog)} Plan
               </Text>
               <Text className="text-typography-muted text-sm text-center">
-                Personnel benchmarking is available on the {requiredPlan('personnel')} plan and above.
+                Personnel benchmarking is available on the {requiredPlan('personnel', catalog)} plan and above.
               </Text>
             </View>
           )}

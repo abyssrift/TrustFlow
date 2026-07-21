@@ -46,8 +46,8 @@ const SECTION_LOCK_FEATURES: Partial<Record<string, (keyof AnalyticsLimits)[]>> 
 
 export const SectionToggle = ({ active, onSelect, hasPermission }: { active: string, onSelect: (s: string) => void, hasPermission: (p: string) => boolean }) => {
   const colors = useThemeColors();
-  const { planCode } = useBillingPlan();
-  const limits = getAnalyticsLimits(planCode);
+  const { limits: planLimits } = useBillingPlan();
+  const limits = getAnalyticsLimits(planLimits);
   const sections = ['Radar', 'Targets', 'Archives', 'Analytics'].filter(s => {
     if (s === 'Archives') return hasPermission('archive.view');
     if (s === 'Analytics') return hasPermission('analytics.view');

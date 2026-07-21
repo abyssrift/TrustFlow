@@ -309,8 +309,8 @@ function DwellChart({ data }: { data: StageDwell[] }) {
 
 function PipelineTab() {
   const colors = useThemeColors();
-  const { planCode } = useBillingPlan();
-  const limits = getAnalyticsLimits(planCode);
+  const { limits: planLimits } = useBillingPlan();
+  const limits = getAnalyticsLimits(planLimits);
   const { getPipelineStageDwell, getPipelineThroughput } = useAnalytics();
   const [pipelines, setPipelines]       = useState<any[]>([]);
   const [selectedPipeline, setSelected] = useState<string | null>(null);
@@ -609,8 +609,8 @@ export default function AdminAnalyticsNative() {
   }
 
   const canCompare = hasPermission('analytics.compare');
-  const { planCode } = useBillingPlan();
-  const limits = getAnalyticsLimits(planCode);
+  const { limits: planLimits } = useBillingPlan();
+  const limits = getAnalyticsLimits(planLimits);
 
   return (
     <ScrollView className="flex-1 bg-surface-background" contentContainerStyle={{ paddingBottom: 40 }}>

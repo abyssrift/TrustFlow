@@ -13,7 +13,7 @@ export const PLATFORM_OWNERS = [
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-export type Section = 'command' | 'tenants' | 'signals' | 'live' | 'users' | 'infra' | 'alerts' | 'trial_codes';
+export type Section = 'command' | 'tenants' | 'signals' | 'live' | 'users' | 'infra' | 'alerts' | 'trial_codes' | 'plans';
 
 export type CompanyOverview = {
   id: string;

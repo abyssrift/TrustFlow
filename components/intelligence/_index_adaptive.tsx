@@ -344,8 +344,8 @@ const PipelineLoadChart = ({ data }: any) => {
 
 const RadarSection = ({ data, activeWidgets, onEditWidgets }: any) => {
   const colors = useThemeColors();
-  const { planCode } = useBillingPlan();
-  const limits = getAnalyticsLimits(planCode);
+  const { limits: planLimits } = useBillingPlan();
+  const limits = getAnalyticsLimits(planLimits);
   if (!data) return <View className="py-20"><ActivityIndicator color={colors.primary} /></View>;
   const curThr = data.current?.throughput || 0;
   const prevThr = data.comparison?.throughput || 0;

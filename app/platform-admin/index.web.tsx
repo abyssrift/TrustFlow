@@ -39,6 +39,7 @@ import {
   ActivityIndicator, Modal, Pressable,
   ScrollView,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -2218,6 +2219,294 @@ function TrialCodesSection() {
   );
 }
 
+// ── Plan Control Section (#58) ──────────────────────────────────────────────
+// Admin-editable plan definitions. billing_plans already backs member/pipeline/
+// file-size enforcement server-side (see rpc_check_plan_limit); this is just
+// the first UI to edit that table instead of hand-writing SQL migrations.
+// No payment gateway wired up — price is a display number only.
+
+type PlanLimits = {
+  max_members: number | null;
+  max_pipelines: number | null;
+  max_file_bytes: number | null;
+  max_storage_bytes: number | null;
+  analytics_max_days: number | null;
+  analytics_throughput: boolean;
+  analytics_funnel: boolean;
+  analytics_personnel: boolean;
+  analytics_personnel_export: boolean;
+  analytics_reports: boolean;
+  features: string[];
+};
+
+type PlanRow = {
+  code: string;
+  name: string;
+  description: string;
+  price_cents: number;
+  currency: string;
+  interval: string;
+  per_seat: boolean;
+  sort_order: number;
+  is_active: boolean;
+  features: string[];
+  limits: PlanLimits;
+};
+
+// number field that shows "" for null (= unlimited); parses back to null on save
+function useNumField(initial: number | null) {
+  const [text, setText] = React.useState(initial == null ? '' : String(initial));
+  const value = () => (text.trim() === '' ? null : Number(text));
+  return { text, setText, value };
+}
+
+function PlanNumField({ label, text, onChangeText, placeholder = 'Unlimited' }: {
+  label: string; text: string; onChangeText: (v: string) => void; placeholder?: string;
+}) {
+  return (
+    <View className="flex-1 min-w-[130px]">
+      <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-1.5">{label}</Text>
+      <TextInput
+        value={text}
+        onChangeText={v => onChangeText(v.replace(/[^0-9]/g, ''))}
+        placeholder={placeholder}
+        placeholderTextColor="rgb(148,163,184)"
+        keyboardType="number-pad"
+        className="bg-surface-background border border-surface-border rounded-xl px-3 py-2.5 text-typography-main text-sm font-bold"
+      />
+    </View>
+  );
+}
+
+function PlanToggleField({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <TouchableOpacity
+      onPress={() => onChange(!value)}
+      className={`px-3 py-2 rounded-xl border flex-row items-center gap-2 ${value ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border'}`}
+    >
+      <View className={`w-3.5 h-3.5 rounded-full items-center justify-center ${value ? 'bg-brand-primary' : 'bg-surface-border'}`}>
+        {value && <FontAwesome name="check" size={8} color="white" />}
+      </View>
+      <Text className={`text-[10px] font-bold ${value ? 'text-brand-primary' : 'text-typography-muted'}`}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+function PlanCard({ plan, onSaved }: { plan: PlanRow; onSaved: () => void }) {
+  const colors = useThemeColors();
+  const [name, setName] = React.useState(plan.name);
+  const [description, setDescription] = React.useState(plan.description ?? '');
+  const [priceText, setPriceText] = React.useState((plan.price_cents / 100).toFixed(2));
+  const [perSeat, setPerSeat] = React.useState(plan.per_seat);
+  const [sortOrderText, setSortOrderText] = React.useState(String(plan.sort_order));
+  const [isActive, setIsActive] = React.useState(plan.is_active);
+  const [featuresText, setFeaturesText] = React.useState(plan.features.join('\n'));
+  const [saving, setSaving] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const [saved, setSaved] = React.useState(false);
+
+  const maxMembers   = useNumField(plan.limits.max_members);
+  const maxPipelines = useNumField(plan.limits.max_pipelines);
+  const maxFileMB    = useNumField(plan.limits.max_file_bytes == null ? null : Math.round(plan.limits.max_file_bytes / 1048576));
+  const maxStorageGB = useNumField(plan.limits.max_storage_bytes == null ? null : Math.round(plan.limits.max_storage_bytes / 1073741824));
+  const maxDays      = useNumField(plan.limits.analytics_max_days);
+
+  const [throughput, setThroughput]           = React.useState(plan.limits.analytics_throughput);
+  const [funnel, setFunnel]                   = React.useState(plan.limits.analytics_funnel);
+  const [personnel, setPersonnel]             = React.useState(plan.limits.analytics_personnel);
+  const [personnelExport, setPersonnelExport] = React.useState(plan.limits.analytics_personnel_export);
+  const [reports, setReports]                 = React.useState(plan.limits.analytics_reports);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError(null);
+    setSaved(false);
+    try {
+      const priceCents = Math.round(parseFloat(priceText || '0') * 100);
+      if (isNaN(priceCents) || priceCents < 0) throw new Error('Invalid price.');
+
+      const { error: rpcError } = await supabase.rpc('rpc_platform_upsert_billing_plan', {
+        p_code: plan.code,
+        p_name: name.trim(),
+        p_description: description.trim(),
+        p_price_cents: priceCents,
+        p_currency: plan.currency,
+        p_interval: plan.interval,
+        p_per_seat: perSeat,
+        p_sort_order: parseInt(sortOrderText || '0', 10) || 0,
+        p_is_active: isActive,
+        p_features: featuresText.split('\n').map(f => f.trim()).filter(Boolean),
+        p_limits: {
+          features: plan.limits.features ?? [],
+          max_members: maxMembers.value(),
+          max_pipelines: maxPipelines.value(),
+          max_file_bytes: maxFileMB.value() == null ? null : maxFileMB.value()! * 1048576,
+          max_storage_bytes: maxStorageGB.value() == null ? null : maxStorageGB.value()! * 1073741824,
+          analytics_max_days: maxDays.value(),
+          analytics_throughput: throughput,
+          analytics_funnel: funnel,
+          analytics_personnel: personnel,
+          analytics_personnel_export: personnelExport,
+          analytics_reports: reports,
+        },
+      });
+      if (rpcError) throw rpcError;
+      setSaved(true);
+      onSaved();
+      setTimeout(() => setSaved(false), 2000);
+    } catch (e: any) {
+      setError(e?.message || 'Failed to save plan.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <View className="bg-surface-card rounded-2xl border border-surface-border p-6 mb-5" style={{ opacity: isActive ? 1 : 0.6 }}>
+      {/* Header row */}
+      <View className="flex-row items-center justify-between mb-4">
+        <View className="flex-row items-center gap-3">
+          <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">{plan.code}</Text>
+          {!isActive && (
+            <View className="px-2 py-0.5 rounded-md bg-state-danger/10 border border-state-danger/30">
+              <Text className="text-state-danger text-[9px] font-black uppercase">Inactive</Text>
+            </View>
+          )}
+        </View>
+        <PlanToggleField label={isActive ? 'Active' : 'Retired'} value={isActive} onChange={setIsActive} />
+      </View>
+
+      {/* Name / description */}
+      <View className="flex-row gap-4 mb-4 flex-wrap">
+        <View className="flex-1 min-w-[160px]">
+          <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-1.5">Name</Text>
+          <TextInput value={name} onChangeText={setName} className="bg-surface-background border border-surface-border rounded-xl px-3 py-2.5 text-typography-main text-sm font-bold" />
+        </View>
+        <View style={{ flex: 2 }} className="min-w-[220px]">
+          <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-1.5">Description</Text>
+          <TextInput value={description} onChangeText={setDescription} className="bg-surface-background border border-surface-border rounded-xl px-3 py-2.5 text-typography-main text-sm" />
+        </View>
+      </View>
+
+      {/* Price / per-seat / sort order */}
+      <View className="flex-row gap-4 mb-4 flex-wrap items-end">
+        <View className="min-w-[130px]">
+          <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-1.5">Price / {plan.interval} ({plan.currency.toUpperCase()})</Text>
+          <TextInput
+            value={priceText}
+            onChangeText={v => setPriceText(v.replace(/[^0-9.]/g, ''))}
+            keyboardType="decimal-pad"
+            className="bg-surface-background border border-surface-border rounded-xl px-3 py-2.5 text-typography-main text-sm font-bold"
+          />
+        </View>
+        <PlanToggleField label="Per seat" value={perSeat} onChange={setPerSeat} />
+        <View className="w-24">
+          <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-1.5">Sort</Text>
+          <TextInput
+            value={sortOrderText}
+            onChangeText={v => setSortOrderText(v.replace(/[^0-9]/g, ''))}
+            keyboardType="number-pad"
+            className="bg-surface-background border border-surface-border rounded-xl px-3 py-2.5 text-typography-main text-sm font-bold text-center"
+          />
+        </View>
+      </View>
+
+      {/* Resource limits */}
+      <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-2">Resource Limits</Text>
+      <View className="flex-row gap-4 mb-4 flex-wrap">
+        <PlanNumField label="Max Members"        text={maxMembers.text}   onChangeText={maxMembers.setText} />
+        <PlanNumField label="Max Pipelines"       text={maxPipelines.text} onChangeText={maxPipelines.setText} />
+        <PlanNumField label="Max File Size (MB)"  text={maxFileMB.text}    onChangeText={maxFileMB.setText} />
+        <PlanNumField label="Max Storage (GB)"    text={maxStorageGB.text} onChangeText={maxStorageGB.setText} />
+      </View>
+
+      {/* Analytics gating */}
+      <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-2">Analytics Features</Text>
+      <View className="flex-row gap-4 mb-2 flex-wrap items-end">
+        <PlanNumField label="History (days)" text={maxDays.text} onChangeText={maxDays.setText} />
+      </View>
+      <View className="flex-row gap-2 mb-4 flex-wrap">
+        <PlanToggleField label="Throughput"       value={throughput}      onChange={setThroughput} />
+        <PlanToggleField label="Funnel"           value={funnel}          onChange={setFunnel} />
+        <PlanToggleField label="Personnel"        value={personnel}       onChange={setPersonnel} />
+        <PlanToggleField label="Personnel Export" value={personnelExport} onChange={setPersonnelExport} />
+        <PlanToggleField label="Reports"          value={reports}         onChange={setReports} />
+      </View>
+
+      {/* Display features (marketing copy shown in BillingPanel) */}
+      <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-1.5">Display Features (one per line)</Text>
+      <TextInput
+        value={featuresText}
+        onChangeText={setFeaturesText}
+        multiline
+        numberOfLines={4}
+        textAlignVertical="top"
+        className="bg-surface-background border border-surface-border rounded-xl px-3 py-2.5 text-typography-main text-xs mb-4"
+        style={{ minHeight: 90 }}
+      />
+
+      {error && (
+        <View className="bg-state-danger/10 border border-state-danger/30 rounded-xl px-3 py-2 mb-3">
+          <Text className="text-state-danger text-xs font-bold">{error}</Text>
+        </View>
+      )}
+
+      <TouchableOpacity
+        onPress={handleSave}
+        disabled={saving}
+        className={`self-start px-5 py-2.5 rounded-xl flex-row items-center gap-2 ${saved ? 'bg-state-success' : 'bg-brand-primary'}`}
+      >
+        {saving ? (
+          <ActivityIndicator size="small" color="white" />
+        ) : (
+          <>
+            <FontAwesome name={saved ? 'check' : 'floppy-o'} size={12} color="white" />
+            <Text className="text-white text-xs font-black uppercase tracking-widest">{saved ? 'Saved' : 'Save Plan'}</Text>
+          </>
+        )}
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+function PlanControlSection() {
+  const colors = useThemeColors();
+  const [plans, setPlans] = React.useState<PlanRow[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [loadError, setLoadError] = React.useState<string | null>(null);
+
+  const load = React.useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    const { data, error } = await supabase.rpc('rpc_platform_list_billing_plans');
+    if (error) setLoadError(error.message);
+    else setPlans((data as PlanRow[]) ?? []);
+    setLoading(false);
+  }, []);
+
+  React.useEffect(() => { load(); }, [load]);
+
+  return (
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 32, paddingBottom: 48 }}>
+      <Text className="text-typography-main font-black text-lg mb-1">Plan Control</Text>
+      <Text className="text-typography-muted text-xs mb-6">
+        Edit pricing, resource limits, and analytics feature gating per plan. No payment gateway is connected —
+        price is a display number only, same as the company billing panel.
+      </Text>
+
+      {loading ? (
+        <View className="py-16 items-center"><ActivityIndicator size="large" color={colors.primary} /></View>
+      ) : loadError ? (
+        <View className="bg-state-danger/10 border border-state-danger/30 rounded-xl px-4 py-3">
+          <Text className="text-state-danger text-sm font-bold">{loadError}</Text>
+        </View>
+      ) : (
+        plans.map(p => <PlanCard key={p.code} plan={p} onSaved={load} />)
+      )}
+    </ScrollView>
+  );
+}
+
 // ── Sidebar ────────────────────────────────────────────────────────────────
 
 const NAV_ITEMS: { id: Section; label: string; icon: string }[] = [
@@ -2229,6 +2518,7 @@ const NAV_ITEMS: { id: Section; label: string; icon: string }[] = [
   { id: 'alerts',      label: 'Alerts',         icon: 'bell' },
   { id: 'infra',       label: 'Infrastructure', icon: 'server' },
   { id: 'trial_codes', label: 'Trial Codes',    icon: 'ticket' },
+  { id: 'plans',       label: 'Plans',          icon: 'credit-card' },
 ];
 
 function Sidebar({ section, setSection, liveCount, alertCount }: {
@@ -2377,6 +2667,7 @@ export default function PlatformAdminWebScreen() {
           )}
           {section === 'infra'        && <InfraSection />}
           {section === 'trial_codes'  && <TrialCodesSection />}
+          {section === 'plans'       && <PlanControlSection />}
         </View>
       </View>
     </View>

@@ -116,8 +116,8 @@ const POLL_INTERVAL_MS = 4000;
 export default function IntelligenceReports() {
   const colors = useThemeColors();
   const router = useRouter();
-  const { planCode } = useBillingPlan();
-  const limits = getAnalyticsLimits(planCode);
+  const { limits: planLimits } = useBillingPlan();
+  const limits = getAnalyticsLimits(planLimits);
   const [reports, setReports]         = useState<any[]>([]);
   const [loading, setLoading]         = useState(true);
   const [showModal, setShowModal]     = useState(false);
