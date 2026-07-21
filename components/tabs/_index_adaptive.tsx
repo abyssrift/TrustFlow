@@ -1,4 +1,4 @@
-import DraggableSheet from '@/components/common/DraggableSheet';
+import Popup from '@/components/common/Popup';
 import PendingTimeApprovalsWidget from '@/components/common/PendingTimeApprovalsWidget';
 import PipelineOverviewChartNative, { DEFAULT_OVERVIEW_METRICS, OverviewMetricKey } from '@/components/intelligence/PipelineOverviewChartNative';
 import { useAuth } from '@/contexts/AuthContext';
@@ -570,6 +570,8 @@ function DashboardSettingsModal({ visible, onClose, config, onSave }: {
   const [useAllPipelines, setUseAllPipelines] = useState(true);
   const [loading, setLoading] = useState(false);
   const colors = useThemeColors();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
 
   useEffect(() => {
     if (visible) {
@@ -632,7 +634,7 @@ function DashboardSettingsModal({ visible, onClose, config, onSave }: {
   };
 
   return (
-    <DraggableSheet visible={visible} onClose={onClose} dimBackdrop maxHeight="92%" containerClassName="bg-surface-background rounded-t-[40px] border-t border-surface-border overflow-hidden">
+    <Popup visible={visible} onClose={onClose} presentation={isDesktop ? 'centered' : 'sheet'}>
           <View className="p-6 border-b border-surface-border flex-row justify-between items-center bg-surface-card">
             <View>
               <Text className="text-typography-main text-xl font-black">Dashboard Config</Text>
@@ -766,6 +768,6 @@ function DashboardSettingsModal({ visible, onClose, config, onSave }: {
               <Text className="text-white font-black uppercase tracking-widest text-sm">Save Config</Text>
             </TouchableOpacity>
           </View>
-    </DraggableSheet>
+    </Popup>
   );
 }

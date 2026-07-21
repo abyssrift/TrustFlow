@@ -1,3 +1,4 @@
+import Popup from '@/components/common/Popup';
 import ConfirmModal from '@/components/common/ConfirmModal';
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -6,11 +7,11 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React from 'react';
 import {
     ActivityIndicator,
-    Modal,
     ScrollView,
     Text,
     TextInput,
     TouchableOpacity,
+    useWindowDimensions,
     View
 } from 'react-native';
 
@@ -34,6 +35,8 @@ export default function ProjectFolderModal({
   project,
 }: ProjectFolderModalProps) {
   const c = useThemeColors();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
   const {
     name, setName,
     description, setDescription,
@@ -47,12 +50,18 @@ export default function ProjectFolderModal({
 
   return (
     <>
-      <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)', padding: 24 }}>
-          <View
-            className="w-full rounded-3xl overflow-hidden"
-            style={{ maxWidth: 560, maxHeight: '90%', backgroundColor: c.card, borderWidth: 1, borderColor: c.border }}
-          >
+      <Popup
+        visible={visible}
+        onClose={onClose}
+        dimBackdrop
+        maxHeight="90%"
+        presentation={isDesktop ? 'centered' : 'sheet'}
+        containerClassName="w-[95%] max-w-[560px] max-h-[90vh] rounded-3xl overflow-hidden premium-shadow"
+      >
+        <View
+          className="w-full rounded-3xl overflow-hidden"
+          style={{ maxWidth: 560, backgroundColor: c.card, borderWidth: 1, borderColor: c.border }}
+        >
             {/* Header */}
             <View className="px-6 py-5 flex-row items-center justify-between" style={{ borderBottomWidth: 1, borderBottomColor: c.border }}>
               <Text style={{ color: c.textMain }} className="text-xl font-bold">
@@ -208,8 +217,7 @@ export default function ProjectFolderModal({
               </TouchableOpacity>
             </View>
           </View>
-        </View>
-      </Modal>
+      </Popup>
       <ConfirmModal
         visible={showArchiveConfirm}
         onCancel={() => setShowArchiveConfirm(false)}

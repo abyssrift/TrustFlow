@@ -1,4 +1,4 @@
-import DraggableSheet from '@/components/common/DraggableSheet';
+import Popup from '@/components/common/Popup';
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 import { BackButton } from '@/components/common/BackButton';
 import { CompletionVelocityMobile, IntelligencePicker } from '@/components/intelligence/IntelligenceCommon';
@@ -20,6 +20,8 @@ import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 
 const CreateModal = ({ visible, onClose, onConfirm, pipelines, stages }: any) => {
   const colors = useThemeColors();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
   const [type, setType]           = useState('performance');
   const [pipeline, setPipeline]   = useState<string | null>(null);
   const [stage, setStage]         = useState<string | null>(null);
@@ -32,7 +34,7 @@ const CreateModal = ({ visible, onClose, onConfirm, pipelines, stages }: any) =>
   const filteredStages = stages.filter((s: any) => s.pipeline_id === pipeline);
 
   return (
-    <DraggableSheet visible={visible} onClose={onClose} dimBackdrop containerClassName="bg-surface-card w-full rounded-t-[40px] border-t border-surface-border overflow-hidden pb-10">
+    <Popup visible={visible} onClose={onClose} presentation={isDesktop ? 'centered' : 'sheet'}>
           <View className="p-8 pb-4 items-center">
             <Text className="text-typography-main text-2xl font-black mb-1">Define Objective</Text>
             <Text className="text-typography-muted text-xs">Establish high-fidelity benchmarks</Text>
@@ -142,7 +144,7 @@ const CreateModal = ({ visible, onClose, onConfirm, pipelines, stages }: any) =>
               <Text className="text-brand-on-primary font-black uppercase tracking-widest text-xs">Deploy</Text>
             </TouchableOpacity>
           </View>
-    </DraggableSheet>
+    </Popup>
   );
 };
 
@@ -151,6 +153,8 @@ const CreateModal = ({ visible, onClose, onConfirm, pipelines, stages }: any) =>
 const EditModal = ({ target, onClose, onSave }: { target: any; onClose: () => void; onSave: (id: string, updates: Record<string, any>) => void }) => {
   if (!target) return null;
   const colors = useThemeColors();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
   const isVolume = target.target_type === 'volume';
   const [quantity, setQuantity]   = useState(String(target.target_quantity ?? ''));
   const [activeMins, setActiveMins] = useState(String(Math.round((target.target_active_seconds ?? 0) / 60)));
@@ -177,7 +181,7 @@ const EditModal = ({ target, onClose, onSave }: { target: any; onClose: () => vo
   };
 
   return (
-    <DraggableSheet visible onClose={onClose} dimBackdrop containerClassName="bg-surface-card w-full rounded-t-[40px] border-t border-surface-border overflow-hidden pb-10">
+    <Popup visible onClose={onClose} presentation={isDesktop ? 'centered' : 'sheet'}>
           <View className="p-8 pb-4 items-center">
             <Text className="text-typography-main text-2xl font-black mb-1">Edit Target</Text>
             <Text className="text-typography-muted text-xs">
@@ -245,7 +249,7 @@ const EditModal = ({ target, onClose, onSave }: { target: any; onClose: () => vo
               <Text className="text-brand-on-primary font-black uppercase tracking-widest text-xs">Save Changes</Text>
             </TouchableOpacity>
           </View>
-    </DraggableSheet>
+    </Popup>
   );
 };
 

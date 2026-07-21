@@ -1,5 +1,5 @@
 import ConfirmModal from '@/components/common/ConfirmModal';
-import DraggableSheet from '@/components/common/DraggableSheet';
+import Popup from '@/components/common/Popup';
 import { BackButton } from '@/components/common/BackButton';
 import { IntelligencePicker } from '@/components/intelligence/IntelligenceCommon';
 
@@ -14,7 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Platform, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, Platform, RefreshControl, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import Svg, { Circle, G } from 'react-native-svg';
 
 
@@ -469,13 +469,15 @@ const ArchivesSection = ({ reports, onDownload, onNew, coldArchives, activeSchem
 
 const ReportConfigModal = ({ visible, onClose, onConfirm, pipelines, teams, users, initialDays }: any) => {
   const colors = useThemeColors();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
   const [d, setD] = useState(initialDays);
   const [p, setP] = useState<string | null>(null);
   const [t, setT] = useState<string | null>(null);
   const [u, setU] = useState<string | null>(null);
   const [type, setType] = useState('performance_audit');
   return (
-    <DraggableSheet visible={visible} onClose={onClose} dimBackdrop maxHeight="85%" containerClassName="bg-surface-card w-full rounded-t-[32px] border-t border-surface-border overflow-hidden">
+    <Popup visible={visible} onClose={onClose} presentation={isDesktop ? 'centered' : 'sheet'}>
           <View className="p-8 pt-2 pb-4">
             <Text className="text-typography-main text-2xl font-black mb-1">Audit Configuration</Text>
             <Text className="text-typography-muted text-xs">Define intelligence boundaries</Text>
@@ -505,12 +507,14 @@ const ReportConfigModal = ({ visible, onClose, onConfirm, pipelines, teams, user
               <Text className="text-white font-bold">Generate</Text>
             </TouchableOpacity>
           </View>
-    </DraggableSheet>
+    </Popup>
   );
 };
 
 const WidgetConfigModal = ({ visible, onClose, onSave, currentWidgets }: any) => {
   const colors = useThemeColors();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
   const [selected, setSelected] = useState<string[]>(currentWidgets || []);
   useEffect(() => { if (visible) setSelected(currentWidgets || []); }, [visible, currentWidgets]);
   const library = [
@@ -525,7 +529,7 @@ const WidgetConfigModal = ({ visible, onClose, onSave, currentWidgets }: any) =>
     else if (selected.length < 4) setSelected([...selected, id]);
   };
   return (
-    <DraggableSheet visible={visible} onClose={onClose} dimBackdrop maxHeight="80%" containerClassName="bg-surface-card w-full rounded-t-[32px] border-t border-surface-border overflow-hidden">
+    <Popup visible={visible} onClose={onClose} presentation={isDesktop ? 'centered' : 'sheet'}>
           <View className="p-8 pt-2 pb-4">
             <Text className="text-typography-main text-2xl font-black mb-1">Radar Matrix</Text>
             <Text className="text-typography-muted text-xs">Select up to 4 core telemetry widgets</Text>
@@ -554,7 +558,7 @@ const WidgetConfigModal = ({ visible, onClose, onSave, currentWidgets }: any) =>
               <Text className="text-white font-bold">Apply Matrix</Text>
             </TouchableOpacity>
           </View>
-    </DraggableSheet>
+    </Popup>
   );
 };
 
@@ -597,11 +601,13 @@ const DataTree = ({ data, level = 0 }: { data: any; level?: number }) => {
 
 const ArchiveDetailModal = ({ visible, onClose, archive, activeSchema, onRestore, hasPermission }: any) => {
   const colors = useThemeColors();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
   if (!archive) return null;
   const pipelineId = archive.snapshot?.pipeline_id || archive.snapshot?.child_tasks?.[0]?.pipeline_id;
   const hasIntegrityIssue = pipelineId && !activeSchema.pipelines.has(pipelineId);
   return (
-    <DraggableSheet visible={visible} onClose={onClose} dimBackdrop maxHeight="90%" containerClassName="bg-surface-card rounded-t-[40px] border-t border-surface-border overflow-hidden">
+    <Popup visible={visible} onClose={onClose} presentation={isDesktop ? 'centered' : 'sheet'}>
           <View className="px-8 pt-2 pb-4 border-b border-surface-border flex-row justify-between items-center">
             <View className="flex-1">
               <Text className="text-typography-main text-xl font-black mb-1">
@@ -639,9 +645,9 @@ const ArchiveDetailModal = ({ visible, onClose, archive, activeSchema, onRestore
                <TouchableOpacity onPress={() => onRestore(archive.id)} className="flex-1 py-4 rounded-2xl bg-brand-primary items-center">
                   <Text className="text-white font-bold">Restore Asset</Text>
                </TouchableOpacity>
-             )}
+              )}
           </View>
-    </DraggableSheet>
+    </Popup>
   );
 };
 

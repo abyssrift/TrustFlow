@@ -1,21 +1,30 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React from 'react';
-import { Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 
 import { Role } from '@/contexts/RoleManagerContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import Popup from '@/components/common/Popup';
 import type { TeamRolesSheetProps } from './TeamRolesSheet';
 
 export default function TeamRolesSheet({ visible, onClose, team, roles, draftRoleIds, onToggleRole, onSave, loading }: TeamRolesSheetProps) {
   const c = useThemeColors();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)', padding: 24 }}>
-        <View
-          className="w-full rounded-3xl overflow-hidden"
-          style={{ maxWidth: 560, maxHeight: '80%', backgroundColor: c.card, borderWidth: 1, borderColor: c.border }}
-        >
+    <Popup
+      visible={visible}
+      onClose={onClose}
+      dimBackdrop
+      maxHeight="90%"
+      presentation={isDesktop ? 'centered' : 'sheet'}
+      containerClassName="w-[95%] max-w-[560px] max-h-[90vh] rounded-3xl overflow-hidden premium-shadow"
+    >
+      <View
+        className="w-full rounded-3xl overflow-hidden"
+        style={{ maxWidth: 560, backgroundColor: c.card, borderWidth: 1, borderColor: c.border }}
+      >
           <View className="flex-row items-center justify-between px-7 pt-6 pb-5" style={{ borderBottomWidth: 1, borderBottomColor: c.border }}>
             <View className="flex-1 mr-4">
               <Text style={{ color: c.textMuted }} className="text-[10px] font-black uppercase tracking-[0.3em] mb-1">Assign Roles</Text>
@@ -78,7 +87,6 @@ export default function TeamRolesSheet({ visible, onClose, team, roles, draftRol
             </TouchableOpacity>
           </View>
         </View>
-      </View>
-    </Modal>
+    </Popup>
   );
 }

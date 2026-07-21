@@ -22,11 +22,12 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
+  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import DraggableSheet from '@/components/common/DraggableSheet';
+import Popup from '@/components/common/Popup';
 import { useFileSizeLimit } from '@/hooks/useFileSizeLimit';
 import { useImageLightbox } from '@/hooks/useImageLightbox';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -140,6 +141,8 @@ function FileDetailSheet({
   /** When true (Shift+Click fast-track), jump straight to the fullscreen viewer. */
   autoPreview?: boolean;
 }) {
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
   const { markRead, hideFile, deleteFile, logActivity, fileActivity, fileVersions, restoreVersion, pinVersion, folders, moveFile, createShareLink, revokeShareLink, listShareLinks } = useFileHub();
   const { showConfirm } = useAlert();
   const { successToast } = useToast();
@@ -325,7 +328,7 @@ function FileDetailSheet({
 
   return (
     <>
-    <DraggableSheet visible={!!file} onClose={onClose} dimBackdrop>
+    <Popup visible={!!file} onClose={onClose} presentation={isDesktop ? 'centered' : 'sheet'}>
 
           {/* File header */}
           <View className="items-center px-6 pt-2 pb-4 border-b border-surface-border/50">
@@ -640,8 +643,8 @@ function FileDetailSheet({
             )}
           </ScrollView>
           )}
-    </DraggableSheet>
-    <DraggableSheet visible={showMoveFolder} onClose={() => setShowMoveFolder(false)} maxHeight="70%" dimBackdrop>
+    </Popup>
+    <Popup visible={showMoveFolder} onClose={() => setShowMoveFolder(false)} presentation={isDesktop ? 'centered' : 'sheet'}>
       <View className="px-6 pt-2 pb-6">
         <Text className="text-typography-main font-black text-lg mb-4">Move to Folder</Text>
         <ScrollView showsVerticalScrollIndicator={false}>
@@ -666,8 +669,8 @@ function FileDetailSheet({
           ))}
         </ScrollView>
       </View>
-    </DraggableSheet>
-    <DraggableSheet visible={showShareLink} onClose={() => setShowShareLink(false)} maxHeight="75%" dimBackdrop>
+    </Popup>
+    <Popup visible={showShareLink} onClose={() => setShowShareLink(false)} presentation={isDesktop ? 'centered' : 'sheet'}>
       <View className="px-6 pt-2 pb-6">
         <Text className="text-typography-main font-black text-lg mb-4">Share "{file.original_name}"</Text>
 
@@ -756,7 +759,7 @@ function FileDetailSheet({
           </ScrollView>
         )}
       </View>
-    </DraggableSheet>
+    </Popup>
     {previewLightbox}
     {previewKind && previewUrl && (
       <FilePreviewModal
@@ -837,6 +840,8 @@ function UploadSheet({
   profile: any;
   activeGroup?: { id: string; name: string; avatar_color: string } | null;
 }) {
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
   const { folders, checkDuplicate, checkNameConflict, replaceFile, refreshFolders } = useFileHub();
   const { showAlert } = useAlert();
   const fileInputRef = useRef<any>(null);
@@ -1170,7 +1175,7 @@ function UploadSheet({
 
   return (
     <>
-    <DraggableSheet visible={visible} onClose={onClose} maxHeight="90%">
+    <Popup visible={visible} onClose={onClose} presentation={isDesktop ? 'centered' : 'sheet'}>
 
           {Platform.OS === 'web' && (
             <>
@@ -1410,7 +1415,7 @@ function UploadSheet({
               </>
             )}
           </ScrollView>
-    </DraggableSheet>
+    </Popup>
 
     {/* Web-safe decision dialog (replaces RN Alert.alert multi-button prompts) */}
     {pendingDecision && (
@@ -1505,6 +1510,8 @@ function GroupCreateSheet({
   onClose: () => void;
   onCreated: (groupId: string) => void;
 }) {
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
   const { createGroup } = useFileHub();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -1546,7 +1553,7 @@ function GroupCreateSheet({
   };
 
   return (
-    <DraggableSheet visible={visible} onClose={onClose} maxHeight="85%">
+    <Popup visible={visible} onClose={onClose} presentation={isDesktop ? 'centered' : 'sheet'}>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40, gap: 20 }}>
             <View className="flex-row items-center justify-between">
               <Text className="text-typography-main text-xl font-black">New Channel</Text>
@@ -1663,7 +1670,7 @@ function GroupCreateSheet({
               }
             </TouchableOpacity>
           </ScrollView>
-    </DraggableSheet>
+    </Popup>
   );
 }
 
@@ -1682,6 +1689,8 @@ function GroupMembersSheet({
   onClose: () => void;
   onMembersChanged: () => void;
 }) {
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
   const { addGroupMember, removeGroupMember, fetchGroupMembers } = useFileHub();
   const [members, setMembers] = useState<FileHubGroupMember[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
@@ -1759,7 +1768,7 @@ function GroupMembersSheet({
   const myRole = members.find(m => m.id === currentUserId)?.role;
 
   return (
-    <DraggableSheet visible={visible} onClose={onClose} maxHeight="80%">
+    <Popup visible={visible} onClose={onClose} presentation={isDesktop ? 'centered' : 'sheet'}>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40, gap: 16 }}>
             <View className="flex-row items-center justify-between">
               <Text className="text-typography-main text-xl font-black">{group.name}</Text>
@@ -1842,7 +1851,7 @@ function GroupMembersSheet({
               )}
             </View>
           </ScrollView>
-    </DraggableSheet>
+    </Popup>
   );
 }
 
@@ -2047,6 +2056,8 @@ function TagsManageSheet({ visible, onClose, onChanged }: {
   onClose: () => void;
   onChanged: () => void;
 }) {
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
   const { allTagsWithCounts, renameTag, deleteTag } = useFileHub();
   const { showConfirm } = useAlert();
   const [tags, setTags] = useState<{ tag: string; count: number }[]>([]);
@@ -2089,7 +2100,7 @@ function TagsManageSheet({ visible, onClose, onChanged }: {
   };
 
   return (
-    <DraggableSheet visible={visible} onClose={onClose} maxHeight="75%">
+    <Popup visible={visible} onClose={onClose} presentation={isDesktop ? 'centered' : 'sheet'}>
           <View className="flex-row items-center justify-between px-6 py-4 border-b border-surface-border">
             <View className="flex-row items-center gap-2">
               <FontAwesome name="tags" size={14} color={colors.primary} />
@@ -2168,7 +2179,7 @@ function TagsManageSheet({ visible, onClose, onChanged }: {
               <View style={{ height: 40 }} />
             </ScrollView>
           )}
-    </DraggableSheet>
+    </Popup>
   );
 }
 
