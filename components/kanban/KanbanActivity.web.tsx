@@ -137,7 +137,7 @@ export default function KanbanActivity({
             </View>
             <View className="flex-1 min-w-0">
               <Text className="text-typography-main text-[12px] leading-4" numberOfLines={2}>
-                <UserLink userId={it.actorId} name={actor.name} className="font-bold" />
+                <UserLink userId={it.actorId} name={actor.name} tab="activity" className="font-bold" />
                 {it.kind === 'move'
                   ? <Text className="text-typography-muted"> moved to </Text>
                   : <Text className="text-typography-muted"> worked </Text>}

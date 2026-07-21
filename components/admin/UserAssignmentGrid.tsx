@@ -121,27 +121,30 @@ export default function UserAssignmentGrid() {
     }
   };
 
-  const handleOpenUser = (user: User) => {
+  const handleOpenUser = (user: User, tab: TabType = 'profile') => {
     const currentRoles = userRoles.filter(ur => ur.user_id === user.id).map(ur => ur.role_id);
     const currentTeams = teamMembers.filter(tm => tm.user_id === user.id).map(tm => tm.team_id);
     setSelectedUser(user);
     setDraftRoleIds(currentRoles);
     setDraftTeamIds(currentTeams);
-    setActiveTab('profile');
+    setActiveTab(tab);
     fetchActivityData(user.id);
   };
 
   // Deep-link: open a member's profile when ?user=<id> is present (e.g. from a
-  // clickable user-name mention elsewhere in the app via <UserLink/>).
-  const params = useLocalSearchParams<{ user?: string | string[] }>();
+  // clickable user-name mention elsewhere in the app via <UserLink/>). ?tab=
+  // lands on a specific tab — e.g. activity feeds link straight to 'activity'.
+  const params = useLocalSearchParams<{ user?: string | string[]; tab?: string | string[] }>();
   const userParam = Array.isArray(params.user) ? params.user[0] : params.user;
+  const tabParam = Array.isArray(params.tab) ? params.tab[0] : params.tab;
   const openedParamRef = useRef<string | null>(null);
   useEffect(() => {
     if (!userParam || users.length === 0) return;
     if (openedParamRef.current === userParam) return;
     const u = users.find(x => x.id === userParam);
-    if (u) { handleOpenUser(u); openedParamRef.current = userParam; }
-  }, [userParam, users]);
+    const requestedTab: TabType = tabParam === 'activity' || tabParam === 'roles' ? tabParam : 'profile';
+    if (u) { handleOpenUser(u, requestedTab); openedParamRef.current = userParam; }
+  }, [userParam, tabParam, users]);
 
   const handleSave = async () => {
     if (!selectedUser || !canAssignRoles) return;

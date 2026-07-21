@@ -2036,7 +2036,7 @@ function DetailPanel({
                   </View>
                   <View className="flex-1 min-w-0">
                     <Text className="text-typography-main text-xs font-bold">
-                      <UserLink userId={entry.user.id} name={entry.user.full_name} className="text-typography-main text-xs font-bold" />{' '}
+                      <UserLink userId={entry.user.id} name={entry.user.full_name} tab="activity" className="text-typography-main text-xs font-bold" />{' '}
                       <Text className="text-typography-muted font-medium">{meta.label.toLowerCase()}</Text>
                     </Text>
                     <Text className="text-typography-dim text-[10px] mt-0.5">{relativeDate(entry.created_at)}</Text>

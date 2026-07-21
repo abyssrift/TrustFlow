@@ -16,6 +16,7 @@ export default function UserLink({
   children,
   fallback = 'Unknown',
   disabled = false,
+  tab,
   ...textProps
 }: {
   userId?: string | null;
@@ -23,6 +24,8 @@ export default function UserLink({
   children?: React.ReactNode;
   fallback?: string;
   disabled?: boolean;
+  /** Which tab of the profile modal to land on — defaults to 'profile'. Pass 'activity' from activity feeds so the click lands where the user was looking. */
+  tab?: 'profile' | 'activity' | 'roles';
 } & TextProps) {
   const router = useRouter();
   const { hasPermission } = useAuth();
@@ -41,7 +44,7 @@ export default function UserLink({
       onPress={(e) => {
         // Stop parent rows/cards from also handling the press.
         (e as any)?.stopPropagation?.();
-        router.push(`/people?section=members&user=${userId}`);
+        router.push(`/people?section=members&user=${userId}${tab ? `&tab=${tab}` : ''}`);
       }}
       style={[textProps.style, { cursor: 'pointer' } as any]}
     >
