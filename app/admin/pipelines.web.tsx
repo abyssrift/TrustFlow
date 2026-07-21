@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, useWindowDimensions } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { PipelineEditorProvider, usePipelineEditor } from '@/contexts/PipelineEditorContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -32,6 +32,8 @@ type Section = 'stages' | 'transitions' | 'automations' | 'handshakes' | 'settin
 
 function PipelinesWebInner() {
   const colors = useThemeColors();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 1024;
   const { 
     pipelines, 
     selectedPipeline, 
@@ -45,6 +47,7 @@ function PipelinesWebInner() {
     roles,
     error,
     refreshPipelineData,
+    deselectPipeline,
     clearError,
     assignmentPool,
     companyUsers,
@@ -122,7 +125,7 @@ function PipelinesWebInner() {
                 }}
                 roles={roles}
                 error={error}
-                submitLabel="Update Configuration"
+                submitLabel="Save Changes"
                 assignmentPool={assignmentPool}
                 companyUsers={companyUsers}
                 companyTeams={companyTeams}
@@ -156,11 +159,15 @@ function PipelinesWebInner() {
     }
   };
 
+  const showPipelineList = !isDesktop ? !selectedPipeline : true;
+  const showContentPanel = !isDesktop ? !!selectedPipeline : true;
+
   return (
     <GestureHandlerRootView className="flex-1">
-      <View className="flex-1 flex-row bg-surface-background">
-        {/* Registry Sidebar (Pipelines List) */}
-        <View className="w-80 border-r border-surface-border bg-surface-card/30">
+      <View className="flex-1 flex-row bg-surface-background" style={{ minHeight: 0 }}>
+        {/* Registry Sidebar (Pipelines List) — hidden on mobile when a pipeline is selected */}
+        {showPipelineList && (
+        <View className={`${isDesktop ? 'w-80' : 'w-full'} border-r border-surface-border bg-surface-card/30`} style={{ minWidth: 0 }}>
           <View className="p-8 border-b border-surface-border flex-row items-center justify-between">
             <View>
               <Text className="text-[10px] text-brand-primary font-black uppercase tracking-[0.2em] mb-2">System Registry</Text>
@@ -228,13 +235,23 @@ function PipelinesWebInner() {
             )}
           </ScrollView>
         </View>
+        )}
 
         {/* Configuration Area */}
-        <View className="flex-1">
+        {showContentPanel && (
+        <View className="flex-1" style={{ minWidth: 0, minHeight: 0 }}>
+          {!isDesktop && selectedPipeline && (
+            <View className="px-4 pt-4 pb-2 border-b border-surface-border flex-row items-center gap-3">
+              <TouchableOpacity onPress={deselectPipeline} className="w-9 h-9 items-center justify-center rounded-xl bg-surface-background border border-surface-border">
+                <FontAwesome name="arrow-left" size={14} className="text-typography-main" />
+              </TouchableOpacity>
+              <Text className="text-typography-main font-black text-base flex-1" numberOfLines={1}>{selectedPipeline?.name || 'Pipeline'}</Text>
+            </View>
+          )}
           {selectedPipeline && (
             <View className="px-6 md:px-10 pt-10 pb-6 w-full">
               <View className="max-w-6xl mx-auto w-full flex-row flex-wrap items-center justify-between gap-6">
-                <View className="flex-1 min-w-[280px]">
+                <View className="flex-1" style={{ minWidth: 0 }}>
                    <Text className="text-typography-main text-3xl md:text-4xl font-black tracking-tighter mb-2" numberOfLines={2}>
                      {selectedPipeline.name}
                    </Text>
@@ -266,10 +283,11 @@ function PipelinesWebInner() {
             </View>
           )}
 
-          <View className="flex-1 overflow-visible">
+          <View className="flex-1 overflow-visible" style={{ minHeight: 0 }}>
             {renderSection()}
           </View>
         </View>
+        )}
       </View>
 
       {/* Creation Modal */}

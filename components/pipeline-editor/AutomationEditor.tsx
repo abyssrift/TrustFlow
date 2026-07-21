@@ -3,6 +3,7 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import { FontAwesome } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import DraggableSheet from '@/components/common/DraggableSheet.web';
 import { resolveNativeColorToken } from './colorCompat';
 
 const CONDITION_TYPES = [
@@ -103,12 +104,18 @@ export default function AutomationEditor() {
       <ScrollView
         className="flex-1"
         showsVerticalScrollIndicator={Platform.OS === 'web'}
+        nestedScrollEnabled
       >
-        {/* Add Form */}
-        {showAdd && (
-          <View className="bg-surface-card p-4 rounded-2xl border border-brand-primary/40 mb-4">
-            <Text className="text-typography-main font-bold text-base mb-4">New Automation Rule</Text>
-
+        {/* Add Form as DraggableSheet */}
+        <DraggableSheet
+          visible={showAdd}
+          onClose={() => { setShowAdd(false); resetForm(); }}
+          maxHeight="90%"
+        >
+          <View className="px-6 py-4 border-b border-surface-border">
+            <Text className="text-typography-main font-black uppercase tracking-widest text-xs">New Automation Rule</Text>
+          </View>
+          <ScrollView className="p-6" nestedScrollEnabled>
             {/* Condition Type */}
             <Text className="text-typography-label text-[10px] font-bold uppercase tracking-wider mb-2">Condition</Text>
             <View className="gap-2 mb-4">
@@ -235,27 +242,27 @@ export default function AutomationEditor() {
               </View>
             </View>
 
-            <View className="flex-row gap-3">
-              <TouchableOpacity
-                onPress={() => { setShowAdd(false); resetForm(); }}
-                className="flex-1 bg-surface-background py-3 rounded-xl border border-surface-border items-center h-12 justify-center"
-              >
-                <Text className="text-typography-muted font-bold text-sm">Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleCreate}
-                className="flex-1 bg-brand-primary py-3 rounded-sm items-center h-12 justify-center"
-                disabled={!formSource || !formTarget || loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color={colors.textMain} size="small" />
-                ) : (
-                  <Text className="text-typography-main font-black text-sm uppercase tracking-wide">Create Rule</Text>
-                )}
-              </TouchableOpacity>
-            </View>
+          </ScrollView>
+          <View className="p-6 border-t border-surface-border bg-surface-background/50 flex-row gap-3">
+            <TouchableOpacity
+              onPress={() => { setShowAdd(false); resetForm(); }}
+              className="flex-1 bg-surface-background py-3 rounded-xl border border-surface-border items-center h-12 justify-center"
+            >
+              <Text className="text-typography-muted font-bold text-sm">Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleCreate}
+              className="flex-1 bg-brand-primary py-3 rounded-sm items-center h-12 justify-center"
+              disabled={!formSource || !formTarget || loading}
+            >
+              {loading ? (
+                <ActivityIndicator color={colors.textMain} size="small" />
+              ) : (
+                <Text className="text-typography-main font-black text-sm uppercase tracking-wide">Create Rule</Text>
+              )}
+            </TouchableOpacity>
           </View>
-        )}
+        </DraggableSheet>
 
         {/* Automation Cards */}
         {automations.map(a => {
