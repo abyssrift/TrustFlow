@@ -1,6 +1,6 @@
 import { FontAwesome } from '@expo/vector-icons';
 import React from 'react';
-import { ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 import Popup from '@/components/common/Popup';
 import { Permission } from '@/contexts/RoleManagerContext';
@@ -10,8 +10,6 @@ import type { RoleTemplateGalleryProps } from './RoleTemplateGallery';
 
 export default function RoleTemplateGallery({ visible, onClose, permissions, onPickTemplate }: RoleTemplateGalleryProps) {
   const c = useThemeColors();
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 1024;
 
   return (
     <Popup
@@ -19,7 +17,7 @@ export default function RoleTemplateGallery({ visible, onClose, permissions, onP
       onClose={onClose}
       dimBackdrop
       maxHeight="90%"
-      presentation={isDesktop ? 'centered' : 'sheet'}
+      presentation="sheet"
       containerClassName="w-[95%] max-w-[560px] max-h-[90vh] rounded-3xl overflow-hidden premium-shadow"
     >
       <View className="flex-row items-center justify-between px-7 pt-6 pb-4" style={{ borderBottomWidth: 1, borderBottomColor: c.border }}>
