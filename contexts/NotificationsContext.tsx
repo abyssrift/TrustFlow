@@ -5,7 +5,10 @@ import React, {
   useState,
   useCallback,
 } from 'react';
+import { Platform } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { supabase } from '@/lib/supabase';
+import { usePingNotification } from '@/hooks/usePingNotification';
 import { useAuth } from './AuthContext';
 
 export type AppNotification = {
@@ -47,6 +50,10 @@ export const NotificationsProvider = ({
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(false);
+  // ponytail: reuses the company ping sound rather than a dedicated "new task"
+  // asset — no separate sound infra exists yet. Split out if a distinct sound
+  // is ever requested.
+  const { playPingSound } = usePingNotification();
 
   const refresh = useCallback(async () => {
     if (!user?.id) return;
@@ -79,10 +86,18 @@ export const NotificationsProvider = ({
           filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
-          setNotifications((prev) => [
-            payload.new as AppNotification,
-            ...prev,
-          ]);
+          const notification = payload.new as AppNotification;
+          setNotifications((prev) => [notification, ...prev]);
+
+          // Ambient cue for a new task, only when the user isn't looking at
+          // the app: a subtle sound on web (tab hidden), haptic on native.
+          if (notification.type === 'task.created') {
+            if (Platform.OS === 'web') {
+              if (typeof document !== 'undefined' && document.hidden) playPingSound();
+            } else {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            }
+          }
         }
       )
       .on(
