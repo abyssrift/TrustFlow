@@ -1,5 +1,5 @@
 import { useThemeColors } from '@/hooks/useThemeColors';
-import type { UpcomingTask } from '@/hooks/useUpcomingTasks';
+import { formatRelativeDue, type UpcomingTask } from '@/hooks/useUpcomingTasks';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
@@ -20,19 +20,6 @@ function buildMonthGrid(anchor: Date): Date[] {
   const startOffset = firstOfMonth.getDay(); // 0=Sun
   const gridStart = new Date(year, month, 1 - startOffset);
   return Array.from({ length: 42 }, (_, i) => new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + i));
-}
-
-function relDue(dueDate: string, overdue: boolean): string {
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const due = new Date(dueDate); due.setHours(0, 0, 0, 0);
-  const diffDays = Math.round((due.getTime() - today.getTime()) / 86400000);
-  if (overdue) {
-    const late = -diffDays;
-    return `${late}d late`;
-  }
-  if (diffDays === 0) return 'today';
-  if (diffDays < 14) return `${diffDays}d`;
-  return `${Math.floor(diffDays / 7)}w`;
 }
 
 export default function TimelineDropdown({
@@ -199,7 +186,7 @@ export default function TimelineDropdown({
                 fontSize: 10.5, fontWeight: 700, flexShrink: 0,
                 color: t.overdue ? colors.danger : colors.textDim,
               }}>
-                {relDue(t.dueDate, t.overdue)}
+                {formatRelativeDue(t.dueDate, t.overdue)}
               </div>
             </div>
           ))

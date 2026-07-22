@@ -15,6 +15,8 @@ import ImageLightbox from '@/components/common/ImageLightbox';
 import { FilePreviewModal, getPreviewKind, type PreviewKind } from '@/components/common/FilePreview';
 import UserLink from '@/components/common/UserLink';
 import CollapsibleCard from './CollapsibleCard';
+import { useFileDrop } from '@/hooks/useWebDnd';
+import { fileToStaged } from '@/lib/pasteImage';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function formatSize(bytes: number | null) {
@@ -286,6 +288,12 @@ export default function TaskBriefPanel() {
     }
   };
 
+  // Drag OS files onto the brief card → upload them straight to the task.
+  const { ref: briefDropRef, isOver: briefDropOver } = useFileDrop(
+    (files) => uploadFiles(files.map(fileToStaged)),
+    canUpload && !uploading,
+  );
+
   // ── Feature D handlers ───────────────────────────────────────────────────
 
   // Replace: pick one file, upload new bytes to a fresh path, then pointer-swap via RPC.
@@ -457,6 +465,11 @@ export default function TaskBriefPanel() {
 
   return (
     <CollapsibleCard title="Task Brief" headerRight={<View className="flex-row items-center gap-2">{downloadAllBtn}<View className="bg-brand-primary/10 px-2 py-0.5 rounded-md border border-brand-primary/20"><Text className="text-brand-primary text-[8px] font-black uppercase tracking-tighter">{data.task_attachments.length} Files</Text></View></View>}>
+      <View
+        ref={briefDropRef}
+        className="rounded-xl"
+        style={briefDropOver ? { borderWidth: 2, borderStyle: 'dashed', borderColor: colors.primary, backgroundColor: colors.primary + '0d' } : undefined}
+      >
       {errorMsg && <View className="bg-state-danger/10 border border-state-danger/30 rounded-xl p-3 mb-3"><Text className="text-state-danger text-xs">{errorMsg}</Text></View>}
 
       {hasFiles && (
@@ -547,6 +560,7 @@ export default function TaskBriefPanel() {
           {uploading && <ActivityIndicator size="small" color={colors.primary} className="ml-auto" />}
         </View>
       )}
+      </View>
 
       {lightboxItem && lightboxIndex != null && (
         <ImageLightbox

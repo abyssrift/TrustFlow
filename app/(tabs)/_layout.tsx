@@ -7,6 +7,7 @@ import { cssInterop } from 'react-native-css-interop';
 import FloatingTabBar from '@/components/navigation/FloatingTabBar';
 import { useNotifications } from '@/contexts/NotificationsContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useFileHubBadge } from '@/hooks/useFileHubBadge';
 import { useUnreadNotificationAttention } from '@/hooks/useUnreadNotificationAttention';
 import { NATIVE_THEME_COLORS } from '@/lib/layout';
 
@@ -56,6 +57,7 @@ export default function TabLayout() {
   const { width } = useWindowDimensions();
   const { theme } = useTheme();
   const isLargeScreen = width > 768;
+  const { inboxUnread } = useFileHubBadge();
 
   const colors = NATIVE_THEME_COLORS[theme];
 
@@ -142,6 +144,7 @@ export default function TabLayout() {
         options={{
           title: 'File Hub',
           tabBarIcon: ({ color }) => <TabBarIcon name="folder-open" color={color} />,
+          tabBarBadge: inboxUnread > 0 ? (inboxUnread > 99 ? '99+' : inboxUnread) : undefined,
         }}
       />
       <Tabs.Screen
@@ -152,6 +155,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen name="search" options={{ href: null, title: 'Search' }} />
+      <Tabs.Screen name="deadlines" options={{ href: null, title: 'Deadlines' }} />
     </Tabs>
   );
 }

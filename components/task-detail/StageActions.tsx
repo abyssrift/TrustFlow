@@ -15,7 +15,8 @@ import { useFileViewer } from '@/hooks/useFileViewer';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { useTicker } from '@/hooks/useTicker';
 import { formatStopwatch, formatCompact } from '@/lib/time';
-import { getPastedImageFile } from '@/lib/pasteImage';
+import { getPastedImageFile, fileToStaged } from '@/lib/pasteImage';
+import { useFileDrop } from '@/hooks/useWebDnd';
 import { SUBMISSION_BUCKET } from '@/lib/storage';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -442,6 +443,13 @@ export default function StageActions() {
     showSubmitForm
   );
 
+  // Drag OS files onto the submit composer → stage them like a manual pick.
+  // Enabled tracks showSubmitForm so listeners attach when the form mounts.
+  const { ref: submitDropRef, isOver: submitDropOver } = useFileDrop(
+    (files) => setStagedFiles(prev => [...prev, ...files.map(fileToStaged)]),
+    showSubmitForm && !isUploading,
+  );
+
   const stageRequiresTimer = !!data.current_stage?.requires_timer;
   const anyActionRequiresTimer = data.stage_actions.some(a => a.requires_timer && a.can_perform && a.precondition_met);
   const canStart = (data.permissions.is_assigned || data.permissions.is_owner || data.permissions.is_manager);
@@ -764,7 +772,11 @@ export default function StageActions() {
           </Text>
 
           {showSubmitForm && (
-            <View className="mb-4 pb-4 border-b border-surface-border/30">
+            <View
+              ref={submitDropRef}
+              className="mb-4 pb-4 border-b border-surface-border/30 rounded-xl"
+              style={submitDropOver ? { borderWidth: 2, borderStyle: 'dashed', borderColor: colors.primary, backgroundColor: colors.primary + '0d' } : undefined}
+            >
               <View className="flex-row items-center justify-end mb-2">
                 <ClipboardControls
                   value={submissionContent}
