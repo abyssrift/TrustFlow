@@ -90,13 +90,28 @@ export default function FloatingTabBar({ state, descriptors, navigation, insets 
               }
             };
 
+            const badge = options.tabBarBadge;
+
             return (
               <Pressable
                 key={route.key}
                 onPress={onPress}
                 style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 6 }}
               >
-                {options.tabBarIcon?.({ focused: isFocused, color, size: 22 })}
+                <View>
+                  {options.tabBarIcon?.({ focused: isFocused, color, size: 22 })}
+                  {(badge || badge === 0) && (
+                    <View
+                      style={{
+                        position: 'absolute', top: -4, right: -10, minWidth: 16, height: 16,
+                        borderRadius: 8, paddingHorizontal: 3, backgroundColor: colors.danger,
+                        alignItems: 'center', justifyContent: 'center',
+                      }}
+                    >
+                      <Text style={{ fontSize: 9, fontWeight: '900', color: 'white', lineHeight: 11 }}>{badge}</Text>
+                    </View>
+                  )}
+                </View>
                 <Text style={{ fontSize: 10, fontWeight: '700', marginTop: 2, color }}>
                   {typeof options.title === 'string' ? options.title : route.name}
                 </Text>

@@ -116,10 +116,32 @@ export default function CalendarOverlay({
 
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { onClose(); return; }
+      if (e.key === 'ArrowLeft') { setMonthAnchor((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1)); return; }
+      if (e.key === 'ArrowRight') { setMonthAnchor((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1)); return; }
+    };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
+
+  // Shift+scroll (or a trackpad horizontal swipe) pages months. One month per
+  // gesture — a short cooldown stops a single scroll from flipping through many.
+  const wheelCooldown = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onWheel = (e: WheelEvent) => {
+      const delta = e.shiftKey ? e.deltaY : e.deltaX;
+      if (Math.abs(delta) < 24 || wheelCooldown.current) return;
+      setMonthAnchor((d) => new Date(d.getFullYear(), d.getMonth() + (delta > 0 ? 1 : -1), 1));
+      wheelCooldown.current = setTimeout(() => { wheelCooldown.current = null; }, 350);
+    };
+    window.addEventListener('wheel', onWheel, { passive: true });
+    return () => {
+      window.removeEventListener('wheel', onWheel);
+      if (wheelCooldown.current) clearTimeout(wheelCooldown.current);
+    };
+  }, [open]);
 
   // Month task fetch — the shared assignment-aware fetch (manager, personal,
   // or team assignment), bounded to the displayed month instead of "nearest 10".
@@ -244,7 +266,7 @@ export default function CalendarOverlay({
           borderRadius: radius,
           backgroundColor: colors.card,
           border: `1px solid ${colors.border}`,
-          boxShadow: '0 24px 64px rgba(0,0,0,0.45)',
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05), 0 8px 20px rgba(0,0,0,0.3), 0 24px 64px rgba(0,0,0,0.45)',
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
@@ -265,15 +287,18 @@ export default function CalendarOverlay({
           <div style={{
             display: 'flex', alignItems: 'center', gap: 12,
             padding: '14px 20px', borderBottom: `1px solid ${colors.border}`, flexShrink: 0,
+            boxShadow: '0 1px 0 rgba(0,0,0,0.15)', position: 'relative', zIndex: 1,
           }}>
             <div style={{ fontSize: 16, fontWeight: 800, color: colors.textMain }}>{monthLabel}</div>
             <button
+              title="Previous month (←)"
               onClick={() => setMonthAnchor((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
               style={iconBtnStyle(colors)}
             >
               <FontAwesome name="chevron-left" size={12} color={colors.textMuted} />
             </button>
             <button
+              title="Next month (→)"
               onClick={() => setMonthAnchor((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
               style={iconBtnStyle(colors)}
             >
@@ -296,7 +321,7 @@ export default function CalendarOverlay({
           </div>
 
           {/* ── Body: month grid + insights sidebar, footer filter bar below ── */}
-          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', backgroundColor: colors.background }}>
           <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
             <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column', padding: 16 }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: 4, flexShrink: 0 }}>
@@ -312,6 +337,7 @@ export default function CalendarOverlay({
                   const key = toKey(d);
                   const inMonth = d.getMonth() === monthAnchor.getMonth();
                   const isToday = key === todayKey;
+                  const isWeekend = d.getDay() === 0 || d.getDay() === 6;
                   const dayTasksAll = tasksByDay.get(key) || [];
                   const dayTasks = dayTasksAll.filter((t) => !hiddenStages.has(t.stageName));
                   const chips = dayTasks.slice(0, MAX_CHIPS);
@@ -322,7 +348,8 @@ export default function CalendarOverlay({
                       style={{
                         borderRadius: 10,
                         border: `1px solid ${isToday ? colors.primary : colors.border}`,
-                        backgroundColor: isToday ? `${colors.primary}14` : 'transparent',
+                        backgroundColor: isToday ? `${colors.primary}14` : (isWeekend ? colors.background : colors.card),
+                        boxShadow: isToday ? `0 0 0 1px ${colors.primary}33, 0 2px 8px ${colors.primary}22` : '0 1px 2px rgba(0,0,0,0.12)',
                         padding: 6,
                         display: 'flex',
                         flexDirection: 'column',
@@ -350,6 +377,7 @@ export default function CalendarOverlay({
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             cursor: 'pointer',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
                           }}
                         >
                           {t.title}
@@ -411,6 +439,7 @@ function CalendarFilterBar({
     <div style={{
       display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
       padding: '10px 16px', borderTop: `1px solid ${colors.border}`, flexShrink: 0,
+      backgroundColor: colors.card, boxShadow: '0 -1px 0 rgba(0,0,0,0.1)',
     }}>
       <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: colors.textDim, marginRight: 2 }}>
         Filter
