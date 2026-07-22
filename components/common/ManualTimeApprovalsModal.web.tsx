@@ -2,7 +2,8 @@ import { useAlert } from '@/contexts/AlertContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import Popup from '@/components/common/Popup';
 
 export type ApprovalQueueEntry = {
   id: string;
@@ -31,6 +32,8 @@ type Props = {
 
 export default function ManualTimeApprovalsModal({ visible, onClose, entries, onReview, onNavigateToTask }: Props) {
   const colors = useThemeColors();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
   const { showConfirm } = useAlert();
   const [index, setIndex] = useState(0);
   const [loading, setLoading] = useState<'approve' | 'reject' | null>(null);
@@ -42,8 +45,6 @@ export default function ManualTimeApprovalsModal({ visible, onClose, entries, on
   useEffect(() => {
     if (visible && entries.length === 0) onClose();
   }, [visible, entries.length, onClose]);
-
-  if (!visible) return null;
 
   const entry = entries[index];
   if (!entry) return null;
@@ -79,7 +80,14 @@ export default function ManualTimeApprovalsModal({ visible, onClose, entries, on
   const isLoading = !!loading;
 
   return (
-    <View className="absolute inset-0 bg-surface-background/40 z-[999] items-center justify-center p-6" style={{ backdropFilter: 'blur(16px)' } as any}>
+    <Popup
+      visible={visible}
+      onClose={onClose}
+      dimBackdrop
+      maxHeight="90%"
+      presentation={isDesktop ? 'centered' : 'sheet'}
+      containerClassName="w-[95%] max-w-xl max-h-[90vh] rounded-[2.5rem] overflow-hidden premium-shadow-lg"
+    >
       <View className="bg-surface-card w-full max-w-[560px] rounded-[2.5rem] border border-surface-border overflow-hidden premium-shadow-lg p-8">
 
         {/* Header */}
@@ -214,6 +222,6 @@ export default function ManualTimeApprovalsModal({ visible, onClose, entries, on
           </TouchableOpacity>
         </View>
       </View>
-    </View>
+    </Popup>
   );
 }

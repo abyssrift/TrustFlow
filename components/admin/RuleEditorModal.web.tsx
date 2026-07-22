@@ -1,7 +1,8 @@
 import { FontAwesome } from '@expo/vector-icons';
 import React from 'react';
-import { ActivityIndicator, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 
+import Popup from '@/components/common/Popup';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { ALL_EVENT_TYPES, ALL_STRATEGIES, EVENT_META, STRATEGY_LABELS } from '@/lib/notificationRuleConstants';
 import { useRuleEditorForm } from '@/lib/useRuleEditorForm';
@@ -9,6 +10,8 @@ import type { RuleEditorModalProps } from './RuleEditorModal';
 
 export default function RuleEditorModal({ visible, existing, onClose, onSaved }: RuleEditorModalProps) {
   const c = useThemeColors();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
   const {
     name, setName,
     description, setDescription,
@@ -20,12 +23,18 @@ export default function RuleEditorModal({ visible, existing, onClose, onSaved }:
   } = useRuleEditorForm({ visible, existing, onClose, onSaved });
 
   return (
-    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)', padding: 24 }}>
-        <View
-          className="w-full rounded-3xl overflow-hidden"
-          style={{ maxWidth: 600, maxHeight: '90%', backgroundColor: c.card, borderWidth: 1, borderColor: c.border }}
-        >
+    <Popup
+      visible={visible}
+      onClose={onClose}
+      dimBackdrop
+      maxHeight="90%"
+      presentation={isDesktop ? 'centered' : 'sheet'}
+      containerClassName="w-[95%] max-w-[560px] max-h-[90vh] rounded-3xl overflow-hidden premium-shadow"
+    >
+      <View
+        className="w-full rounded-3xl overflow-hidden"
+        style={{ maxWidth: 600, maxHeight: '90%', backgroundColor: c.card, borderWidth: 1, borderColor: c.border }}
+      >
           <View className="flex-row items-center justify-between px-6 pt-5 pb-4" style={{ borderBottomWidth: 1, borderBottomColor: c.border }}>
             <Text style={{ color: c.textMain }} className="font-black text-xl tracking-tight">
               {existing ? 'Edit Rule' : 'New Rule'}
@@ -149,7 +158,6 @@ export default function RuleEditorModal({ visible, existing, onClose, onSaved }:
             </TouchableOpacity>
           </View>
         </View>
-      </View>
-    </Modal>
+    </Popup>
   );
 }

@@ -4,8 +4,8 @@ import { useFileHub, type FileHubFile } from '@/contexts/FileHubContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { FontAwesome } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Modal, Platform, Text, TouchableOpacity, View } from 'react-native';
-import DraggableSheet from '@/components/common/DraggableSheet';
+import { ActivityIndicator, FlatList, Platform, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import Popup from '@/components/common/Popup';
 import UserLink from '@/components/common/UserLink';
 
 function formatFileSize(bytes: number): string {
@@ -95,6 +95,8 @@ function flattenVisible(nodes: BinNode[], expanded: Set<string>, depth = 0, out:
 
 export default function FileHubBin({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const c = useThemeColors();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
   const { hasPermission } = useAuth();
   const { showConfirm } = useAlert();
   const { binFiles, binLoading, fetchBin, restoreFromBin, restoreFolder, emptyBin } = useFileHub();
@@ -303,29 +305,9 @@ export default function FileHubBin({ visible, onClose }: { visible: boolean; onC
     </>
   );
 
-  if (!isWeb) {
-    return (
-      <DraggableSheet
-        visible={visible}
-        onClose={onClose}
-        dimBackdrop
-        maxHeight="85%"
-        containerClassName="overflow-hidden border-t rounded-t-3xl"
-        containerStyle={{ backgroundColor: c.background, borderColor: c.border }}
-      >
-        {body}
-      </DraggableSheet>
-    );
-  }
-
-  // Desktop web: fullscreen, not the small centered dialog it used to be (#59)
-  // — a 15-day-restorable bin holding potentially hundreds of items needs the
-  // room, and the per-row detail line above needs it too.
   return (
-    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
-      <View className="flex-1" style={{ backgroundColor: c.background }}>
-        {body}
-      </View>
-    </Modal>
+    <Popup visible={visible} onClose={onClose} dimBackdrop presentation={isDesktop ? 'centered' : 'sheet'} maxHeight="85%">
+      {body}
+    </Popup>
   );
 }

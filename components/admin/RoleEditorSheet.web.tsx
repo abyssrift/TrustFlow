@@ -1,7 +1,8 @@
 import { FontAwesome } from '@expo/vector-icons';
 import React from 'react';
-import { Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScrollView, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 
+import Popup from '@/components/common/Popup';
 import { Permission, Role } from '@/contexts/RoleManagerContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import type { RoleEditorSheetProps } from './RoleEditorSheet';
@@ -27,14 +28,22 @@ export default function RoleEditorSheet({
   loading,
 }: RoleEditorSheetProps) {
   const c = useThemeColors();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)', padding: 24 }}>
-        <View
-          className="w-full rounded-3xl overflow-hidden"
-          style={{ maxWidth: 640, maxHeight: '88%', backgroundColor: c.card, borderWidth: 1, borderColor: c.border }}
-        >
+    <Popup
+      visible={visible}
+      onClose={onClose}
+      dimBackdrop
+      maxHeight="90%"
+      presentation={isDesktop ? 'centered' : 'sheet'}
+      containerClassName="w-[95%] max-w-[640px] max-h-[90vh] rounded-3xl overflow-hidden premium-shadow"
+    >
+      <View
+        className="w-full rounded-3xl overflow-hidden"
+        style={{ maxWidth: 640, backgroundColor: c.card, borderWidth: 1, borderColor: c.border }}
+      >
           {/* Header */}
           <View className="flex-row items-center justify-between px-7 pt-6 pb-5" style={{ borderBottomWidth: 1, borderBottomColor: c.border }}>
             <View className="flex-1 mr-4">
@@ -178,7 +187,6 @@ export default function RoleEditorSheet({
             )}
           </View>
         </View>
-      </View>
-    </Modal>
+    </Popup>
   );
 }

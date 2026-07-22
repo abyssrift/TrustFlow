@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Platform, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Platform, TextInput, useWindowDimensions } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
-import DraggableSheet from '@/components/common/DraggableSheet';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Popup from '@/components/common/Popup';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -39,7 +38,8 @@ const MIME: Record<SpreadsheetFormat, string> = {
 
 export default function TaskMobilityModal({ visible, onClose, onImported }: Props) {
   const colors = useThemeColors();
-  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
   const { hasPermission, user } = useAuth();
   const { successToast, errorToast, infoToast } = useToast();
 
@@ -651,23 +651,9 @@ export default function TaskMobilityModal({ visible, onClose, onImported }: Prop
     </>
   );
 
-  if (Platform.OS !== 'web') {
-    return (
-      <DraggableSheet visible={visible} onClose={handleClose} dimBackdrop maxHeight="88%"
-        containerStyle={{ backgroundColor: colors.card, borderColor: colors.border }}
-        containerClassName="rounded-t-[28px] border-t overflow-hidden">
-        {body}
-      </DraggableSheet>
-    );
-  }
-
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
-      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 20, paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }}>
-        <View style={{ width: '100%', maxWidth: 460, maxHeight: '100%', backgroundColor: colors.card, borderRadius: 28, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' }}>
-          {body}
-        </View>
-      </View>
-    </Modal>
+    <Popup visible={visible} onClose={handleClose} dimBackdrop presentation={isDesktop ? 'centered' : 'sheet'}>
+      {body}
+    </Popup>
   );
 }

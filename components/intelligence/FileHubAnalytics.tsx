@@ -2,9 +2,9 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Modal, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import UserLink from '@/components/common/UserLink';
-import DraggableSheet from '@/components/common/DraggableSheet';
+import Popup from '@/components/common/Popup';
 
 // ── Types mirror rpc_filehub_analytics ───────────────────────────────────────
 type Totals = {
@@ -55,6 +55,8 @@ const CHANNEL_KIND_LABEL: Record<ChannelRow['kind'], string> = {
 
 export default function FileHubAnalytics({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const c = useThemeColors();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
   const [days, setDays] = useState(30);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -199,32 +201,10 @@ export default function FileHubAnalytics({ visible, onClose }: { visible: boolea
     </>
   );
 
-  if (Platform.OS !== 'web') {
-    return (
-      <DraggableSheet
-        visible={visible}
-        onClose={onClose}
-        dimBackdrop
-        maxHeight="92%"
-        containerClassName="overflow-hidden border-t rounded-t-3xl"
-        containerStyle={{ backgroundColor: c.background, borderColor: c.border }}
-      >
-        {body}
-      </DraggableSheet>
-    );
-  }
-
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View className="flex-1 items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}>
-        <View
-          className="w-full rounded-3xl overflow-hidden border"
-          style={{ maxWidth: 760, maxHeight: '92%', backgroundColor: c.background, borderColor: c.border }}
-        >
-          {body}
-        </View>
-      </View>
-    </Modal>
+    <Popup visible={visible} onClose={onClose} dimBackdrop presentation={isDesktop ? 'centered' : 'sheet'} maxHeight="92%">
+      {body}
+    </Popup>
   );
 }
 

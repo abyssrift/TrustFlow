@@ -4,9 +4,9 @@ import { supabase } from '@/lib/supabase';
 import { formatCompact } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import DraggableSheet from '@/components/common/DraggableSheet';
+import Popup from '@/components/common/Popup';
 
 // ── Types mirror rpc_project_dashboard ────────────────────────────────────────
 type Totals = {
@@ -54,6 +54,8 @@ export default function ProjectDashboardSheet({
 }) {
   const c = useThemeColors();
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<Dashboard | null>(null);
@@ -90,13 +92,12 @@ export default function ProjectDashboardSheet({
   ] : [];
 
   return (
-    <DraggableSheet
+    <Popup
       visible={visible}
       onClose={onClose}
       dimBackdrop
       maxHeight="94%"
-      containerStyle={{ height: '94%', backgroundColor: c.background, borderColor: c.border }}
-      containerClassName="rounded-t-[2rem] border-t overflow-hidden"
+      presentation={isDesktop ? 'centered' : 'sheet'}
     >
       <View style={{ flex: 1, backgroundColor: c.background }}>
         {/* Header */}
@@ -281,7 +282,7 @@ export default function ProjectDashboardSheet({
           </ScrollView>
         )}
       </View>
-    </DraggableSheet>
+    </Popup>
   );
 }
 

@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import Popup from '@/components/common/Popup';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -10,6 +11,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View
 } from 'react-native';
 
@@ -41,6 +43,8 @@ export default function AssignmentModal({
   const [teamSearch, setTeamSearch] = useState('');
   const [userSearch, setUserSearch] = useState('');
   const colors = useThemeColors();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
   const { showAlert } = useAlert();
 
   const { user: currentUser, profile } = useAuth();
@@ -162,10 +166,15 @@ export default function AssignmentModal({
     [users, userSearch]
   );
 
-  if (!visible) return null;
-
   return (
-    <View className="absolute inset-0 bg-surface-background/40 z-[999] items-center justify-center p-6" style={{ backdropFilter: 'blur(16px)' } as any}>
+    <Popup
+      visible={visible}
+      onClose={onClose}
+      dimBackdrop
+      maxHeight="90%"
+      presentation={isDesktop ? 'centered' : 'sheet'}
+      containerClassName="w-[95%] max-w-4xl max-h-[90vh] rounded-[2.5rem] overflow-hidden premium-shadow-lg"
+    >
       <View className="bg-surface-card w-full max-w-4xl rounded-[2.5rem] border border-surface-border overflow-hidden premium-shadow-lg flex-col max-h-[90vh]">
         
         {/* HEADER */}
@@ -367,6 +376,6 @@ export default function AssignmentModal({
           </TouchableOpacity>
         </View>
       </View>
-    </View>
+    </Popup>
   );
 }

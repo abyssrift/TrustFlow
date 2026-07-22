@@ -1,5 +1,5 @@
 import ClipboardControls from '@/components/common/ClipboardControls';
-import DraggableSheet from '@/components/common/DraggableSheet';
+import Popup from '@/components/common/Popup';
 import { FilePreviewGrid } from '@/components/common/FilePreviewCard';
 import LinkifiedText from '@/components/common/LinkifiedText';
 import ManualTimeApprovalsModal from '@/components/common/ManualTimeApprovalsModal';
@@ -1038,9 +1038,7 @@ export default function StageActions() {
         </View>
       )}
 
-      {/* Feature A: Edit submission sheet (new version, same submission). Inline
-          colors on purpose — theme-token classes go black inside RN Modal on web. */}
-      <DraggableSheet visible={!!editingSub} onClose={closeEdit} dimBackdrop containerClassName="rounded-t-[2rem] border-t" containerStyle={{ backgroundColor: colors.card, borderColor: colors.border }}>
+      <Popup visible={!!editingSub} onClose={closeEdit} dimBackdrop presentation={width >= 768 ? 'centered' : 'sheet'}>
         <ScrollView className="px-6 pt-6 pb-10">
           <Text style={{ color: colors.textMain, fontSize: 18, fontWeight: '900', marginBottom: 4 }}>Edit Submission</Text>
           <Text style={{ color: colors.textMuted, fontSize: 11, marginBottom: 16 }}>
@@ -1158,10 +1156,10 @@ export default function StageActions() {
             </TouchableOpacity>
           </View>
         </ScrollView>
-      </DraggableSheet>
+      </Popup>
 
       {/* Feature A: version history sheet — newest first, restore = pointer move */}
-      <DraggableSheet visible={!!historyFor} onClose={() => setHistoryFor(null)} dimBackdrop containerClassName="rounded-t-[2rem] border-t" containerStyle={{ backgroundColor: colors.card, borderColor: colors.border }}>
+      <Popup visible={!!historyFor} onClose={() => setHistoryFor(null)} dimBackdrop presentation={width >= 768 ? 'centered' : 'sheet'}>
         <ScrollView className="px-6 pt-6 pb-10">
           <Text style={{ color: colors.textMain, fontSize: 18, fontWeight: '900', marginBottom: 16 }}>Version History</Text>
 
@@ -1221,7 +1219,7 @@ export default function StageActions() {
             ))
           )}
         </ScrollView>
-      </DraggableSheet>
+      </Popup>
 
       {subViewer}
     </View>

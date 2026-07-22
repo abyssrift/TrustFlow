@@ -6,9 +6,9 @@ import { supabase } from '@/lib/supabase';
 import { formatCompact } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useState, useEffect, useRef } from 'react';
-import { Image, Modal, Platform, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { Image, Platform, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
-import DraggableSheet from '@/components/common/DraggableSheet';
+import Popup from '@/components/common/Popup';
 import { daysToPeriodParams } from '@/lib/analyticsPeriods';
 import { cssInterop } from 'react-native-css-interop';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -264,359 +264,351 @@ export default function UserAssignmentGrid() {
         </View>
       </ScrollView>
 
-      {/* Member Profile Modal — tabbed design */}
-      {Platform.OS === 'web' ? (
-        <Modal visible={!!selectedUser} transparent animationType="fade">
-          {/* Desktop: centered card */}
-          <View className="flex-1 bg-black/60 justify-center items-center p-6">
-            <View className="w-full max-w-6xl rounded-3xl border premium-shadow overflow-hidden" style={{ backgroundColor: colors.card, borderColor: colors.border, maxHeight: '92%' }}>
-              {/* Header with Profile Summary */}
-              {selectedUser && (
-                <View className="px-8 pt-8 pb-6 border-b" style={{ borderColor: colors.border, backgroundColor: `${colors.primary}08` }}>
-                  <View className="flex-row items-start justify-between mb-6">
-                    <View className="flex-row items-center flex-1">
-                      <View className="w-16 h-16 rounded-2xl items-center justify-center border overflow-hidden mr-4" style={{ backgroundColor: colors.primary, borderColor: colors.primary }}>
-                        {selectedUser.avatar_url ? (
-                          <Image source={{ uri: selectedUser.avatar_url }} className="w-full h-full" />
-                        ) : (
-                          <Text className="font-black text-3xl" style={{ color: colors.background }}>
-                            {selectedUser.full_name?.charAt(0) || selectedUser.email.charAt(0).toUpperCase()}
-                          </Text>
-                        )}
-                      </View>
-                      <View className="flex-1">
-                        <Text className="text-2xl font-black mb-1" numberOfLines={1} style={{ color: colors.textMain }}>
-                          {selectedUser.full_name || selectedUser.email}
-                        </Text>
-                        <Text className="text-sm mb-2" style={{ color: colors.textMuted }}>
-                          {selectedUser.job_title || 'No role'}
-                        </Text>
-                        <Text className="text-xs font-semibold" style={{ color: colors.primary }}>
-                          Joined {getTenure(selectedUser.created_at)} ago
-                        </Text>
-                      </View>
-                    </View>
-                    <TouchableOpacity onPress={() => setSelectedUser(null)} className="w-10 h-10 items-center justify-center rounded-full border" style={{ backgroundColor: `${colors.primary}15`, borderColor: colors.primary }}>
-                      <FontAwesome name="times" size={16} color={colors.primary} />
-                    </TouchableOpacity>
+      {isDesktop ? (
+        <Popup visible={!!selectedUser} onClose={() => setSelectedUser(null)} dimBackdrop presentation="centered">
+          {/* Header with Profile Summary */}
+          {selectedUser && (
+            <View className="px-8 pt-8 pb-6 border-b" style={{ borderColor: colors.border, backgroundColor: `${colors.primary}08` }}>
+              <View className="flex-row items-start justify-between mb-6">
+                <View className="flex-row items-center flex-1">
+                  <View className="w-16 h-16 rounded-2xl items-center justify-center border overflow-hidden mr-4" style={{ backgroundColor: colors.primary, borderColor: colors.primary }}>
+                    {selectedUser.avatar_url ? (
+                      <Image source={{ uri: selectedUser.avatar_url }} className="w-full h-full" />
+                    ) : (
+                      <Text className="font-black text-3xl" style={{ color: colors.background }}>
+                        {selectedUser.full_name?.charAt(0) || selectedUser.email.charAt(0).toUpperCase()}
+                      </Text>
+                    )}
                   </View>
-
-                  {/* Tabs */}
-                  <View className="flex-row gap-2">
-                    {(['profile', 'activity', 'roles'] as TabType[]).map(tab => (
-                      <TouchableOpacity
-                        key={tab}
-                        onPress={() => setActiveTab(tab)}
-                        className="px-4 py-2.5 rounded-lg border"
-                        style={{
-                          backgroundColor: activeTab === tab ? colors.primary : colors.card,
-                          borderColor: activeTab === tab ? colors.primary : colors.border
-                        }}
-                      >
-                        <Text className="text-[11px] font-black uppercase tracking-tight" style={{ color: activeTab === tab ? colors.background : colors.primary }}>
-                          {tab === 'profile' ? 'Profile' : tab === 'activity' ? 'Activity' : 'Access'}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
+                  <View className="flex-1">
+                    <Text className="text-2xl font-black mb-1" numberOfLines={1} style={{ color: colors.textMain }}>
+                      {selectedUser.full_name || selectedUser.email}
+                    </Text>
+                    <Text className="text-sm mb-2" style={{ color: colors.textMuted }}>
+                      {selectedUser.job_title || 'No role'}
+                    </Text>
+                    <Text className="text-xs font-semibold" style={{ color: colors.primary }}>
+                      Joined {getTenure(selectedUser.created_at)} ago
+                    </Text>
                   </View>
                 </View>
-              )}
-
-              {/* Tab Content */}
-              <ScrollView showsVerticalScrollIndicator={false} className="px-8 py-6">
-                {selectedUser && activeTab === 'profile' && (
-                  <View>
-                    {/* Contact Info */}
-                    <View className="mb-8">
-                      <Text className="text-[11px] font-black uppercase tracking-[0.15em] mb-4" style={{ color: colors.primary }}>Contact Information</Text>
-                      <View className="gap-3">
-                        <View className="flex-row items-center">
-                          <FontAwesome name="envelope" size={13} color={colors.textMuted} style={{ width: 24 }} />
-                          <Text className="ml-3 text-sm" style={{ color: colors.textMain }}>{selectedUser.email}</Text>
-                        </View>
-                        {selectedUser.phone && (
-                          <View className="flex-row items-center">
-                            <FontAwesome name="phone" size={13} color={colors.textMuted} style={{ width: 24 }} />
-                            <Text className="ml-3 text-sm" style={{ color: colors.textMain }}>{selectedUser.phone}</Text>
-                          </View>
-                        )}
-                      </View>
-                    </View>
-
-                    {/* Work Information */}
-                    <View className="mb-8">
-                      <Text className="text-[11px] font-black uppercase tracking-[0.15em] mb-4" style={{ color: colors.primary }}>Work Information</Text>
-                      <View className="gap-3">
-                        {selectedUser.job_title && (
-                          <View>
-                            <Text className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: colors.textMuted }}>Job Title</Text>
-                            <Text style={{ color: colors.textMain }}>{selectedUser.job_title}</Text>
-                          </View>
-                        )}
-                        {selectedUser.department && (
-                          <View>
-                            <Text className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: colors.textMuted }}>Department</Text>
-                            <Text style={{ color: colors.textMain }}>{selectedUser.department}</Text>
-                          </View>
-                        )}
-                        {selectedUser.work_status && (
-                          <View>
-                            <Text className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: colors.textMuted }}>Status</Text>
-                            <Text style={{ color: colors.textMain }}>{selectedUser.work_status}</Text>
-                          </View>
-                        )}
-                        <View>
-                          <Text className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: colors.textMuted }}>Last Active</Text>
-                          <View className="flex-row items-center gap-2">
-                            <View
-                              style={{
-                                width: 8, height: 8, borderRadius: 4,
-                                backgroundColor: getLastSeen(selectedUser.last_seen_at).online ? colors.success : colors.textMuted,
-                              }}
-                            />
-                            <Text style={{ color: colors.textMain }}>{getLastSeen(selectedUser.last_seen_at).label}</Text>
-                          </View>
-                        </View>
-                      </View>
-                    </View>
-
-                    {/* Teams */}
-                    {teamMembers.filter(tm => tm.user_id === selectedUser.id).length > 0 && (
-                      <View className="mb-8">
-                        <Text className="text-[11px] font-black uppercase tracking-[0.15em] mb-4" style={{ color: colors.primary }}>Teams</Text>
-                        <View className="flex-row flex-wrap gap-2">
-                          {teams
-                            .filter(t => teamMembers.find(tm => tm.user_id === selectedUser.id && tm.team_id === t.id))
-                            .map(team => (
-                              <View key={team.id} className="border px-3 py-2 rounded-lg" style={{ backgroundColor: `${colors.primary}10`, borderColor: `${colors.primary}33` }}>
-                                <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.primary }}>
-                                  {team.name}
-                                </Text>
-                              </View>
-                            ))}
-                        </View>
-                      </View>
-                    )}
-
-                    {/* Danger Zone */}
-                    {canRemoveUsers && (
-                      <View className="mt-8 pt-8 border-t" style={{ borderColor: colors.border }}>
-                        <View className="flex-row items-start mb-4">
-                          <FontAwesome name="warning" size={16} color={colors.danger} style={{ marginRight: 8, marginTop: 2 }} />
-                          <View className="flex-1">
-                            <Text className="text-[11px] font-black uppercase tracking-[0.15em]" style={{ color: colors.danger }}>Danger Zone</Text>
-                            <Text className="text-[10px] mt-1" style={{ color: colors.textMuted }}>Irreversible actions</Text>
-                          </View>
-                        </View>
-                        <TouchableOpacity
-                          onPress={handleRemoveUser}
-                          className="border px-4 py-3 rounded-lg flex-row items-center justify-between"
-                          style={{ backgroundColor: `${colors.danger}10`, borderColor: colors.danger }}
-                        >
-                          <View className="flex-1">
-                            <Text className="font-black text-sm" style={{ color: colors.danger }}>Remove from Company</Text>
-                            <Text className="text-[10px] mt-1" style={{ color: colors.textMuted }}>User will lose all access</Text>
-                          </View>
-                          <FontAwesome name="arrow-right" size={14} color={colors.danger} style={{ marginLeft: 12 }} />
-                        </TouchableOpacity>
-                      </View>
-                    )}
-                  </View>
-                )}
-
-                {selectedUser && activeTab === 'activity' && (
-                  activityLoading ? (
-                    <View className="py-12 items-center">
-                      <Text style={{ color: colors.textMuted }}>Loading activity data...</Text>
-                    </View>
-                  ) : !activityData || (activityData.tasksCompleted === 0 && activityData.hoursWorked === 0 && activityData.recentActivities.length === 0) ? (
-                    <View className="py-12 items-center">
-                      <FontAwesome name="inbox" size={32} color={colors.textMuted} style={{ marginBottom: 12 }} />
-                      <Text className="text-center text-sm" style={{ color: colors.textMuted }}>
-                        This user currently has no activity data
-                      </Text>
-                    </View>
-                  ) : (
-                  <View>
-                    {/* Stat cards — one horizontal row */}
-                    <Text className="text-[11px] font-black uppercase tracking-[0.15em] mb-4" style={{ color: colors.primary }}>Performance Metrics</Text>
-                    <View className="flex-row flex-wrap gap-3 mb-8">
-                      {[
-                        { label: 'Tasks', value: activityData?.tasksCompleted || 0 },
-                        { label: 'Hours', value: activityData?.hoursWorked || 0 },
-                        { label: 'Points', value: activityData?.points || 0 },
-                        { label: 'Avg hrs/task', value: activityData?.averageCompletionTime || 0 },
-                      ].map(stat => (
-                        <View key={stat.label} className="flex-1 p-5 rounded-xl border" style={{ backgroundColor: colors.background, borderColor: colors.border, minWidth: 130 }}>
-                          <Text className="text-[10px] uppercase font-bold mb-2" style={{ color: colors.textMuted }}>{stat.label}</Text>
-                          <Text className="text-3xl font-black" style={{ color: colors.primary }}>{stat.value}</Text>
-                        </View>
-                      ))}
-                    </View>
-
-                    {/* Charts — side by side, oldest → newest left-to-right */}
-                    {(activityData?.chartData?.length ?? 0) > 0 && Platform.OS === 'web' && (
-                      <View className={isDesktop ? 'flex-row gap-6 mb-8' : 'mb-8'}>
-                        <View className={isDesktop ? 'flex-1' : 'mb-6'}>
-                          <Text className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: colors.textMuted }}>Tasks Trend</Text>
-                          <ResponsiveContainer width="100%" height={240}>
-                            <BarChart data={activityData!.chartData}>
-                              <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
-                              <XAxis dataKey="date" stroke={colors.textMuted} style={{ fontSize: '12px' }} />
-                              <YAxis stroke={colors.textMuted} style={{ fontSize: '12px' }} />
-                              <Tooltip contentStyle={{ backgroundColor: colors.card, border: `1px solid ${colors.border}`, borderRadius: '8px' }} />
-                              <Bar dataKey="tasks" fill={colors.primary} radius={[8, 8, 0, 0]} />
-                            </BarChart>
-                          </ResponsiveContainer>
-                        </View>
-                        <View className={isDesktop ? 'flex-1' : ''}>
-                          <Text className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: colors.textMuted }}>Hours Trend</Text>
-                          <ResponsiveContainer width="100%" height={240}>
-                            <LineChart data={activityData!.chartData}>
-                              <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
-                              <XAxis dataKey="date" stroke={colors.textMuted} style={{ fontSize: '12px' }} />
-                              <YAxis stroke={colors.textMuted} style={{ fontSize: '12px' }} />
-                              <Tooltip contentStyle={{ backgroundColor: colors.card, border: `1px solid ${colors.border}`, borderRadius: '8px' }} />
-                              <Line type="monotone" dataKey="hours" stroke={colors.primary} dot={{ fill: colors.primary }} />
-                            </LineChart>
-                          </ResponsiveContainer>
-                        </View>
-                      </View>
-                    )}
-
-                    {/* Recent activity — full width, two columns on desktop */}
-                    <Text className="text-[11px] font-black uppercase tracking-[0.15em] mb-4" style={{ color: colors.primary }}>Recent Activity</Text>
-                    <View className="flex-row flex-wrap gap-3">
-                      {activityData?.recentActivities && activityData.recentActivities.length > 0 ? (
-                        activityData.recentActivities.map(activity => (
-                          <View key={activity.id} className="p-3 rounded-lg border" style={{ backgroundColor: colors.background, borderColor: colors.border, width: isDesktop ? '48.5%' : '100%' }}>
-                            <View className="flex-row items-start gap-3">
-                              <View className="w-8 h-8 rounded-full items-center justify-center mt-0.5" style={{ backgroundColor: `${colors.primary}20`, borderColor: colors.primary }}>
-                                <FontAwesome name={activity.type === 'Moved' ? 'arrows-h' : 'clock-o'} size={12} color={colors.primary} />
-                              </View>
-                              <View className="flex-1">
-                                <Text className="text-[11px] font-bold" style={{ color: colors.textMain }}>{activity.type}</Text>
-                                <Text className="text-[10px] mt-1" style={{ color: colors.textMuted }}>{activity.description}</Text>
-                                <Text className="text-[9px] mt-2" style={{ color: colors.textDim }}>
-                                  {new Date(activity.timestamp).toLocaleDateString()}
-                                </Text>
-                              </View>
-                            </View>
-                          </View>
-                        ))
-                      ) : (
-                        <Text className="text-center py-8 w-full" style={{ color: colors.textMuted }}>
-                          No recent activity
-                        </Text>
-                      )}
-                    </View>
-                  </View>
-                ))}
-
-                {selectedUser && activeTab === 'roles' && canAssignRoles && (
-                  <View>
-                    {/* Direct Roles */}
-                    <View className="mb-8">
-                      <View className="flex-row items-center mb-4">
-                        <FontAwesome name="shield" size={13} color={colors.primary} />
-                        <Text className="text-[11px] font-black uppercase ml-3 tracking-[0.15em]" style={{ color: colors.primary }}>Direct Roles</Text>
-                      </View>
-                      <View className="flex-row flex-wrap gap-2">
-                        {(() => {
-                          const inheritedRoleIds = draftTeamIds.flatMap(teamId =>
-                            teamRoles.filter(tr => tr.team_id === teamId).map(tr => tr.role_id)
-                          );
-                          return roles.map(role => {
-                            const isInherited = inheritedRoleIds.includes(role.id);
-                            const isDirect = draftRoleIds.includes(role.id);
-                            if (isInherited) {
-                              return (
-                                <View key={role.id} className="px-4 py-2.5 rounded-xl border flex-row items-center opacity-60" style={{ backgroundColor: `${colors.primary}10`, borderColor: `${colors.primary}33` }}>
-                                  <FontAwesome name="lock" size={9} color={colors.primary} style={{ marginRight: 6 }} />
-                                  <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.primary }}>{role.name}</Text>
-                                </View>
-                              );
-                            }
-                            return (
-                              <TouchableOpacity
-                                key={role.id}
-                                onPress={() => setDraftRoleIds(prev => isDirect ? prev.filter(id => id !== role.id) : [...prev, role.id])}
-                                className="px-4 py-2.5 rounded-xl border transition-all"
-                                style={{
-                                  backgroundColor: isDirect ? colors.primary : colors.background,
-                                  borderColor: isDirect ? colors.primary : colors.border
-                                }}
-                              >
-                                <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: isDirect ? colors.background : colors.textMuted }}>
-                                  {role.name}
-                                </Text>
-                              </TouchableOpacity>
-                            );
-                          });
-                        })()}
-                      </View>
-                    </View>
-
-                    {/* Teams */}
-                    <View>
-                      <View className="flex-row items-center mb-4">
-                        <FontAwesome name="users" size={13} color={colors.primary} />
-                        <Text className="text-[11px] font-black uppercase ml-3 tracking-[0.15em]" style={{ color: colors.primary }}>Team Membership</Text>
-                      </View>
-                      <View className="flex-row flex-wrap gap-2">
-                        {teams.map(team => {
-                          const isActive = draftTeamIds.includes(team.id);
-                          return (
-                            <TouchableOpacity
-                              key={team.id}
-                              onPress={() => setDraftTeamIds(prev => isActive ? prev.filter(id => id !== team.id) : [...prev, team.id])}
-                              className="px-4 py-2.5 rounded-xl border transition-all"
-                              style={{
-                                backgroundColor: isActive ? colors.primary : colors.background,
-                                borderColor: isActive ? colors.primary : colors.border
-                              }}
-                            >
-                              <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: isActive ? colors.background : colors.textMuted }}>
-                                {team.name}
-                              </Text>
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </View>
-                    </View>
-                  </View>
-                )}
-
-                {selectedUser && activeTab === 'roles' && !canAssignRoles && (
-                  <View className="py-8 items-center">
-                    <FontAwesome name="lock" size={24} color={colors.textMuted} style={{ marginBottom: 12 }} />
-                    <Text className="text-center" style={{ color: colors.textMuted }}>You don't have permission to manage roles.</Text>
-                  </View>
-                )}
-              </ScrollView>
-
-              {/* Footer */}
-              <View className="flex-row gap-3 px-8 py-6 border-t" style={{ borderColor: colors.border }}>
-                <TouchableOpacity onPress={() => setSelectedUser(null)} className="flex-1 border py-4 rounded-xl items-center" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
-                  <Text className="font-black text-[11px] uppercase tracking-widest" style={{ color: colors.textMuted }}>Close</Text>
+                <TouchableOpacity onPress={() => setSelectedUser(null)} className="w-10 h-10 items-center justify-center rounded-full border" style={{ backgroundColor: `${colors.primary}15`, borderColor: colors.primary }}>
+                  <FontAwesome name="times" size={16} color={colors.primary} />
                 </TouchableOpacity>
-                {activeTab === 'roles' && canAssignRoles && (
-                  <TouchableOpacity onPress={handleSave} disabled={loading} className="flex-1 py-4 rounded-xl items-center premium-shadow active:scale-[0.98]" style={{ backgroundColor: colors.primary }}>
-                    <Text className="font-black text-[11px] uppercase tracking-widest" style={{ color: colors.background }}>Save Changes</Text>
+              </View>
+
+              {/* Tabs */}
+              <View className="flex-row gap-2">
+                {(['profile', 'activity', 'roles'] as TabType[]).map(tab => (
+                  <TouchableOpacity
+                    key={tab}
+                    onPress={() => setActiveTab(tab)}
+                    className="px-4 py-2.5 rounded-lg border"
+                    style={{
+                      backgroundColor: activeTab === tab ? colors.primary : colors.card,
+                      borderColor: activeTab === tab ? colors.primary : colors.border
+                    }}
+                  >
+                    <Text className="text-[11px] font-black uppercase tracking-tight" style={{ color: activeTab === tab ? colors.background : colors.primary }}>
+                      {tab === 'profile' ? 'Profile' : tab === 'activity' ? 'Activity' : 'Access'}
+                    </Text>
                   </TouchableOpacity>
-                )}
+                ))}
               </View>
             </View>
+          )}
+
+          {/* Tab Content */}
+          <ScrollView showsVerticalScrollIndicator={false} className="px-8 py-6">
+            {selectedUser && activeTab === 'profile' && (
+              <View>
+                {/* Contact Info */}
+                <View className="mb-8">
+                  <Text className="text-[11px] font-black uppercase tracking-[0.15em] mb-4" style={{ color: colors.primary }}>Contact Information</Text>
+                  <View className="gap-3">
+                    <View className="flex-row items-center">
+                      <FontAwesome name="envelope" size={13} color={colors.textMuted} style={{ width: 24 }} />
+                      <Text className="ml-3 text-sm" style={{ color: colors.textMain }}>{selectedUser.email}</Text>
+                    </View>
+                    {selectedUser.phone && (
+                      <View className="flex-row items-center">
+                        <FontAwesome name="phone" size={13} color={colors.textMuted} style={{ width: 24 }} />
+                        <Text className="ml-3 text-sm" style={{ color: colors.textMain }}>{selectedUser.phone}</Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+
+                {/* Work Information */}
+                <View className="mb-8">
+                  <Text className="text-[11px] font-black uppercase tracking-[0.15em] mb-4" style={{ color: colors.primary }}>Work Information</Text>
+                  <View className="gap-3">
+                    {selectedUser.job_title && (
+                      <View>
+                        <Text className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: colors.textMuted }}>Job Title</Text>
+                        <Text style={{ color: colors.textMain }}>{selectedUser.job_title}</Text>
+                      </View>
+                    )}
+                    {selectedUser.department && (
+                      <View>
+                        <Text className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: colors.textMuted }}>Department</Text>
+                        <Text style={{ color: colors.textMain }}>{selectedUser.department}</Text>
+                      </View>
+                    )}
+                    {selectedUser.work_status && (
+                      <View>
+                        <Text className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: colors.textMuted }}>Status</Text>
+                        <Text style={{ color: colors.textMain }}>{selectedUser.work_status}</Text>
+                      </View>
+                    )}
+                    <View>
+                      <Text className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: colors.textMuted }}>Last Active</Text>
+                      <View className="flex-row items-center gap-2">
+                        <View
+                          style={{
+                            width: 8, height: 8, borderRadius: 4,
+                            backgroundColor: getLastSeen(selectedUser.last_seen_at).online ? colors.success : colors.textMuted,
+                          }}
+                        />
+                        <Text style={{ color: colors.textMain }}>{getLastSeen(selectedUser.last_seen_at).label}</Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Teams */}
+                {teamMembers.filter(tm => tm.user_id === selectedUser.id).length > 0 && (
+                  <View className="mb-8">
+                    <Text className="text-[11px] font-black uppercase tracking-[0.15em] mb-4" style={{ color: colors.primary }}>Teams</Text>
+                    <View className="flex-row flex-wrap gap-2">
+                      {teams
+                        .filter(t => teamMembers.find(tm => tm.user_id === selectedUser.id && tm.team_id === t.id))
+                        .map(team => (
+                          <View key={team.id} className="border px-3 py-2 rounded-lg" style={{ backgroundColor: `${colors.primary}10`, borderColor: `${colors.primary}33` }}>
+                            <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.primary }}>
+                              {team.name}
+                            </Text>
+                          </View>
+                        ))}
+                    </View>
+                  </View>
+                )}
+
+                {/* Danger Zone */}
+                {canRemoveUsers && (
+                  <View className="mt-8 pt-8 border-t" style={{ borderColor: colors.border }}>
+                    <View className="flex-row items-start mb-4">
+                      <FontAwesome name="warning" size={16} color={colors.danger} style={{ marginRight: 8, marginTop: 2 }} />
+                      <View className="flex-1">
+                        <Text className="text-[11px] font-black uppercase tracking-[0.15em]" style={{ color: colors.danger }}>Danger Zone</Text>
+                        <Text className="text-[10px] mt-1" style={{ color: colors.textMuted }}>Irreversible actions</Text>
+                      </View>
+                    </View>
+                    <TouchableOpacity
+                      onPress={handleRemoveUser}
+                      className="border px-4 py-3 rounded-lg flex-row items-center justify-between"
+                      style={{ backgroundColor: `${colors.danger}10`, borderColor: colors.danger }}
+                    >
+                      <View className="flex-1">
+                        <Text className="font-black text-sm" style={{ color: colors.danger }}>Remove from Company</Text>
+                        <Text className="text-[10px] mt-1" style={{ color: colors.textMuted }}>User will lose all access</Text>
+                      </View>
+                      <FontAwesome name="arrow-right" size={14} color={colors.danger} style={{ marginLeft: 12 }} />
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {selectedUser && activeTab === 'activity' && (
+              activityLoading ? (
+                <View className="py-12 items-center">
+                  <Text style={{ color: colors.textMuted }}>Loading activity data...</Text>
+                </View>
+              ) : !activityData || (activityData.tasksCompleted === 0 && activityData.hoursWorked === 0 && activityData.recentActivities.length === 0) ? (
+                <View className="py-12 items-center">
+                  <FontAwesome name="inbox" size={32} color={colors.textMuted} style={{ marginBottom: 12 }} />
+                  <Text className="text-center text-sm" style={{ color: colors.textMuted }}>
+                    This user currently has no activity data
+                  </Text>
+                </View>
+              ) : (
+              <View>
+                {/* Stat cards — one horizontal row */}
+                <Text className="text-[11px] font-black uppercase tracking-[0.15em] mb-4" style={{ color: colors.primary }}>Performance Metrics</Text>
+                <View className="flex-row flex-wrap gap-3 mb-8">
+                  {[
+                    { label: 'Tasks', value: activityData?.tasksCompleted || 0 },
+                    { label: 'Hours', value: activityData?.hoursWorked || 0 },
+                    { label: 'Points', value: activityData?.points || 0 },
+                    { label: 'Avg hrs/task', value: activityData?.averageCompletionTime || 0 },
+                  ].map(stat => (
+                    <View key={stat.label} className="flex-1 p-5 rounded-xl border" style={{ backgroundColor: colors.background, borderColor: colors.border, minWidth: 130 }}>
+                      <Text className="text-[10px] uppercase font-bold mb-2" style={{ color: colors.textMuted }}>{stat.label}</Text>
+                      <Text className="text-3xl font-black" style={{ color: colors.primary }}>{stat.value}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                {/* Charts — side by side, oldest → newest left-to-right */}
+                {(activityData?.chartData?.length ?? 0) > 0 && Platform.OS === 'web' && (
+                  <View className={isDesktop ? 'flex-row gap-6 mb-8' : 'mb-8'}>
+                    <View className={isDesktop ? 'flex-1' : 'mb-6'}>
+                      <Text className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: colors.textMuted }}>Tasks Trend</Text>
+                      <ResponsiveContainer width="100%" height={240}>
+                        <BarChart data={activityData!.chartData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
+                          <XAxis dataKey="date" stroke={colors.textMuted} style={{ fontSize: '12px' }} />
+                          <YAxis stroke={colors.textMuted} style={{ fontSize: '12px' }} />
+                          <Tooltip contentStyle={{ backgroundColor: colors.card, border: `1px solid ${colors.border}`, borderRadius: '8px' }} />
+                          <Bar dataKey="tasks" fill={colors.primary} radius={[8, 8, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </View>
+                    <View className={isDesktop ? 'flex-1' : ''}>
+                      <Text className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: colors.textMuted }}>Hours Trend</Text>
+                      <ResponsiveContainer width="100%" height={240}>
+                        <LineChart data={activityData!.chartData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
+                          <XAxis dataKey="date" stroke={colors.textMuted} style={{ fontSize: '12px' }} />
+                          <YAxis stroke={colors.textMuted} style={{ fontSize: '12px' }} />
+                          <Tooltip contentStyle={{ backgroundColor: colors.card, border: `1px solid ${colors.border}`, borderRadius: '8px' }} />
+                          <Line type="monotone" dataKey="hours" stroke={colors.primary} dot={{ fill: colors.primary }} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </View>
+                  </View>
+                )}
+
+                {/* Recent activity — full width, two columns on desktop */}
+                <Text className="text-[11px] font-black uppercase tracking-[0.15em] mb-4" style={{ color: colors.primary }}>Recent Activity</Text>
+                <View className="flex-row flex-wrap gap-3">
+                  {activityData?.recentActivities && activityData.recentActivities.length > 0 ? (
+                    activityData.recentActivities.map(activity => (
+                      <View key={activity.id} className="p-3 rounded-lg border" style={{ backgroundColor: colors.background, borderColor: colors.border, width: isDesktop ? '48.5%' : '100%' }}>
+                        <View className="flex-row items-start gap-3">
+                          <View className="w-8 h-8 rounded-full items-center justify-center mt-0.5" style={{ backgroundColor: `${colors.primary}20`, borderColor: colors.primary }}>
+                            <FontAwesome name={activity.type === 'Moved' ? 'arrows-h' : 'clock-o'} size={12} color={colors.primary} />
+                          </View>
+                          <View className="flex-1">
+                            <Text className="text-[11px] font-bold" style={{ color: colors.textMain }}>{activity.type}</Text>
+                            <Text className="text-[10px] mt-1" style={{ color: colors.textMuted }}>{activity.description}</Text>
+                            <Text className="text-[9px] mt-2" style={{ color: colors.textDim }}>
+                              {new Date(activity.timestamp).toLocaleDateString()}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    ))
+                  ) : (
+                    <Text className="text-center py-8 w-full" style={{ color: colors.textMuted }}>
+                      No recent activity
+                    </Text>
+                  )}
+                </View>
+              </View>
+            ))}
+
+            {selectedUser && activeTab === 'roles' && canAssignRoles && (
+              <View>
+                {/* Direct Roles */}
+                <View className="mb-8">
+                  <View className="flex-row items-center mb-4">
+                    <FontAwesome name="shield" size={13} color={colors.primary} />
+                    <Text className="text-[11px] font-black uppercase ml-3 tracking-[0.15em]" style={{ color: colors.primary }}>Direct Roles</Text>
+                  </View>
+                  <View className="flex-row flex-wrap gap-2">
+                    {(() => {
+                      const inheritedRoleIds = draftTeamIds.flatMap(teamId =>
+                        teamRoles.filter(tr => tr.team_id === teamId).map(tr => tr.role_id)
+                      );
+                      return roles.map(role => {
+                        const isInherited = inheritedRoleIds.includes(role.id);
+                        const isDirect = draftRoleIds.includes(role.id);
+                        if (isInherited) {
+                          return (
+                            <View key={role.id} className="px-4 py-2.5 rounded-xl border flex-row items-center opacity-60" style={{ backgroundColor: `${colors.primary}10`, borderColor: `${colors.primary}33` }}>
+                              <FontAwesome name="lock" size={9} color={colors.primary} style={{ marginRight: 6 }} />
+                              <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.primary }}>{role.name}</Text>
+                            </View>
+                          );
+                        }
+                        return (
+                          <TouchableOpacity
+                            key={role.id}
+                            onPress={() => setDraftRoleIds(prev => isDirect ? prev.filter(id => id !== role.id) : [...prev, role.id])}
+                            className="px-4 py-2.5 rounded-xl border transition-all"
+                            style={{
+                              backgroundColor: isDirect ? colors.primary : colors.background,
+                              borderColor: isDirect ? colors.primary : colors.border
+                            }}
+                          >
+                            <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: isDirect ? colors.background : colors.textMuted }}>
+                              {role.name}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      });
+                    })()}
+                  </View>
+                </View>
+
+                {/* Teams */}
+                <View>
+                  <View className="flex-row items-center mb-4">
+                    <FontAwesome name="users" size={13} color={colors.primary} />
+                    <Text className="text-[11px] font-black uppercase ml-3 tracking-[0.15em]" style={{ color: colors.primary }}>Team Membership</Text>
+                  </View>
+                  <View className="flex-row flex-wrap gap-2">
+                    {teams.map(team => {
+                      const isActive = draftTeamIds.includes(team.id);
+                      return (
+                        <TouchableOpacity
+                          key={team.id}
+                          onPress={() => setDraftTeamIds(prev => isActive ? prev.filter(id => id !== team.id) : [...prev, team.id])}
+                          className="px-4 py-2.5 rounded-xl border transition-all"
+                          style={{
+                            backgroundColor: isActive ? colors.primary : colors.background,
+                            borderColor: isActive ? colors.primary : colors.border
+                          }}
+                        >
+                          <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: isActive ? colors.background : colors.textMuted }}>
+                            {team.name}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {selectedUser && activeTab === 'roles' && !canAssignRoles && (
+              <View className="py-8 items-center">
+                <FontAwesome name="lock" size={24} color={colors.textMuted} style={{ marginBottom: 12 }} />
+                <Text className="text-center" style={{ color: colors.textMuted }}>You don't have permission to manage roles.</Text>
+              </View>
+            )}
+          </ScrollView>
+
+          {/* Footer */}
+          <View className="flex-row gap-3 px-8 py-6 border-t" style={{ borderColor: colors.border }}>
+            <TouchableOpacity onPress={() => setSelectedUser(null)} className="flex-1 border py-4 rounded-xl items-center" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
+              <Text className="font-black text-[11px] uppercase tracking-widest" style={{ color: colors.textMuted }}>Close</Text>
+            </TouchableOpacity>
+            {activeTab === 'roles' && canAssignRoles && (
+              <TouchableOpacity onPress={handleSave} disabled={loading} className="flex-1 py-4 rounded-xl items-center premium-shadow active:scale-[0.98]" style={{ backgroundColor: colors.primary }}>
+                <Text className="font-black text-[11px] uppercase tracking-widest" style={{ color: colors.background }}>Save Changes</Text>
+              </TouchableOpacity>
+            )}
           </View>
-        </Modal>
+        </Popup>
       ) : (
-        <DraggableSheet
+        <Popup
           visible={!!selectedUser}
           onClose={() => setSelectedUser(null)}
           dimBackdrop
-          maxHeight="90%"
-          containerClassName="w-full rounded-t-3xl border-t border-x"
-          containerStyle={{ backgroundColor: colors.card, borderColor: colors.border }}
+          presentation="sheet"
         >
               {/* Header with Profile Summary */}
               {selectedUser && (
@@ -908,7 +900,7 @@ export default function UserAssignmentGrid() {
                   </TouchableOpacity>
                 )}
               </View>
-        </DraggableSheet>
+        </Popup>
       )}
     </View>
   );
