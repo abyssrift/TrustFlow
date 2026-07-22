@@ -5,5 +5,5 @@ export type {
   ImporterAdapter, ImporterManifest, ImportedTask, AuthPayload, AuthType, ImportProgress,
 } from './types';
 export { fetchViaProxy, connectViaProxy } from './importProxyClient';
-export { startOAuthFlow, deleteConnection, getOAuthUrl } from './oauthClient';
+export { startOAuthFlow, deleteConnection, getConnection, getOAuthUrl } from './oauthClient';
 export { guessStageMapping, type StageMapping } from './statusMapper';
