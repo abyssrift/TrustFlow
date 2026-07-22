@@ -4,6 +4,7 @@ import { useNotifications } from '@/contexts/NotificationsContext';
 import { useFileHubBadge } from '@/hooks/useFileHubBadge';
 import { useNavBarPosition } from '@/hooks/useNavBarPosition';
 import { useUnreadNotificationAttention } from '@/hooks/useUnreadNotificationAttention';
+import { useIsPlatformAdmin } from '@/components/platform-admin/useControlPlaneData';
 import { supabase } from '@/lib/supabase';
 import { useLocalSearchParams, usePathname } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -20,7 +21,7 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
   const params = useLocalSearchParams();
   const { session, user, hasPermission, profile } = useAuth();
   const { unreadCount } = useNotifications();
-  const isPlatformAdmin = ['adamsamir2005@gmail.com', 'adam.samir@trustedgellc.com', 'adamsamir@hotmail.com'].includes(user?.email || '');
+  const isPlatformAdmin = useIsPlatformAdmin();
   const { inboxUnread } = useFileHubBadge();
   const { position: navPosition, toggle: toggleNavPosition } = useNavBarPosition();
 
@@ -67,12 +68,16 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
         (s) =>
           s.id === 'dashboard' ||
           s.id === 'tasks' ||
+          // Search/Deadlines already have a desktop entry point (topbar search,
+          // topbar calendar strip) — only surface these mobile-only shortcuts
+          // in the mobile-web drawer, not the desktop sidebar rail.
+          (isMobile && (s.id === 'search' || s.id === 'deadlines')) ||
           (profile?.is_owner && (s.id === 'team' || s.id === 'pipelines-admin')) ||
           (s.anyPermissions ? s.anyPermissions.some((p) => hasPermission(p)) : false) ||
           (!!s.permissionKey && hasPermission(s.permissionKey)) ||
           (!!s.fallbackPermissionKey && hasPermission(s.fallbackPermissionKey))
       ),
-    [hasPermission, profile?.is_owner]
+    [hasPermission, profile?.is_owner, isMobile]
   );
 
   const { profileAvatarUrl, profileLabel } = useSidebarProfile(session);
