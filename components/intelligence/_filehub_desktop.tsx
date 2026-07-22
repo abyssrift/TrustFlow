@@ -7,12 +7,13 @@ import * as Clipboard from 'expo-clipboard';
 import { useFileSizeLimit } from '@/hooks/useFileSizeLimit';
 import { useImageLightbox } from '@/hooks/useImageLightbox';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { useDragSource, useDropTarget, useMarqueeSelect } from '@/hooks/useWebDnd';
+import { useDragSource, useDropTarget, useFileDrop, useMarqueeSelect } from '@/hooks/useWebDnd';
 import { FilePreviewModal, FilePreviewTeaser, getPreviewKind, type PreviewKind } from './../common/FilePreview';
 import UserLink from '../common/UserLink';
 import FileHubAnalytics from './FileHubAnalytics';
 import FileHubBin from './FileHubBin';
 import { groupPickedFiles, relDir, resolveExistingFolderLeaf } from '@/lib/filehubFolderTree';
+import FolderTreePicker from './FolderTreePicker';
 import { randomId } from '@/lib/randomId';
 import { downloadFilesAsZip, openStorageFile } from '@/lib/storage';
 import { isMultiSelectModifierActive } from '@/lib/webModifierKeys';
@@ -300,11 +301,15 @@ function UploadModal({
   hasPermission,
   profile,
   activeGroup,
+  defaultFolderId = null,
+  initialFiles = null,
 }: {
   visible: boolean;
   folders: FileHubFolder[];
   onClose: () => void;
   onUploaded: () => void;
+  defaultFolderId?: string | null;
+  initialFiles?: File[] | null;
   checkDuplicate: (hash: string, folderId: string | null) => Promise<any[]>;
   checkNameConflict: (
     name: string,
@@ -385,10 +390,22 @@ function UploadModal({
       setRecipientSearch('');
       setMemberResults([]);
       setLaunchedJobId(null);
-    } else if (activeGroup) {
-      setDraft(prev => ({ ...prev, visibility: 'group' }));
+    } else {
+      // Smart leveling: open with the folder the user is currently viewing
+      // preselected, so uploads land where they're looking instead of at root.
+      setDraft(prev => ({ ...prev, visibility: activeGroup ? 'group' : prev.visibility, folderId: defaultFolderId ?? null }));
     }
-  }, [visible, activeGroup?.id]);
+  }, [visible, activeGroup?.id, defaultFolderId]);
+
+  // Seed the composer from an OS-file drop (parent hands over the dropped files
+  // when it opens the modal). Same allow-list filter as the manual picker.
+  useEffect(() => {
+    if (visible && initialFiles && initialFiles.length) {
+      const valid = processWebFiles(initialFiles as any);
+      if (valid.length) setDraft(prev => ({ ...prev, files: [...prev.files, ...valid] }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, initialFiles]);
 
   const searchMembers = useCallback(async (query: string) => {
     setRecipientSearch(query);
@@ -510,7 +527,7 @@ function UploadModal({
     <Modal visible={visible} transparent animationType="fade" onRequestClose={handleDismiss}>
       <Animated.View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, backgroundColor: 'rgba(0,0,0,0.4)', opacity: backdropOpacity }}>
         <Animated.View
-          style={{ width: '100%', maxWidth: 560, maxHeight: '100%', opacity: cardOpacity, transform: [{ translateY: cardTranslateY }, { scale: cardScale }] }}
+          style={{ width: '100%', maxWidth: uploading ? 560 : 900, maxHeight: '100%', opacity: cardOpacity, transform: [{ translateY: cardTranslateY }, { scale: cardScale }] }}
         >
         <View className="rounded-[2rem] border premium-shadow w-full" style={{ maxHeight: '100%', backgroundColor: colors.card, borderColor: colors.border }}>
           <View className="flex-row items-center justify-between px-8 pt-7 pb-5 border-b" style={{ borderColor: colors.border }}>
@@ -544,7 +561,10 @@ function UploadModal({
               onDone={() => { setLaunchedJobId(null); onClose(); }}
             />
           ) : (
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 32, gap: 20 }}>
+          <>
+          <View style={{ flexDirection: 'row', minHeight: 0 }}>
+          {/* Left column: file staging — grows with the batch, scrolls on its own */}
+          <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1, maxHeight: winHeight * 0.62 }} contentContainerStyle={{ padding: 28, gap: 20 }}>
             {Platform.OS === 'web' && (
               <>
                 <input ref={fileInputRef} type="file" multiple style={{ display: 'none' }} onChange={handleFileChange} />
@@ -591,7 +611,12 @@ function UploadModal({
                 onAddMore={() => fileInputRef.current?.click()}
               />
             )}
+          </ScrollView>
 
+          <View style={{ width: 1, backgroundColor: colors.border }} />
+
+          {/* Right column: destination + metadata — folder tree scrolls independently */}
+          <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1, maxHeight: winHeight * 0.62 }} contentContainerStyle={{ padding: 28, gap: 20 }}>
             {/* Visibility — hidden when uploading to a group (locked to group) */}
             {!activeGroup ? (
               <View className="gap-2">
@@ -694,35 +719,21 @@ function UploadModal({
               </View>
             )}
 
-            {/* Folder — hidden for group uploads when no folders exist in this group */}
+            {/* Folder — explorer tree; hidden for group uploads when the group has none */}
             {(!activeGroup || scopedFolders.length > 0) && (
               <View className="gap-2">
-                <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>Folder</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, flexDirection: 'row', alignItems: 'center' }}>
-                  <TouchableOpacity
-                    onPress={() => patch({ folderId: null })}
-                    className="px-4 py-2 rounded-xl border"
-                    style={{
-                      backgroundColor: !draft.folderId ? colors.primary + '1a' : colors.background,
-                      borderColor: !draft.folderId ? colors.primary + '4d' : colors.border,
-                    }}
-                  >
-                    <Text className="text-xs font-bold" style={{ color: !draft.folderId ? colors.primary : colors.textMuted }}>No folder</Text>
-                  </TouchableOpacity>
-                  {[...scopedFolders].sort((a, b) => folderPath(scopedFolders, a.id).localeCompare(folderPath(scopedFolders, b.id))).map(f => (
-                    <TouchableOpacity
-                      key={f.id}
-                      onPress={() => patch({ folderId: f.id })}
-                      className="px-4 py-2 rounded-xl border"
-                      style={{
-                        backgroundColor: draft.folderId === f.id ? colors.primary + '1a' : colors.background,
-                        borderColor: draft.folderId === f.id ? colors.primary + '4d' : colors.border,
-                      }}
-                    >
-                      <Text className="text-xs font-bold" style={{ color: draft.folderId === f.id ? colors.primary : colors.textMuted }}>{folderPath(scopedFolders, f.id)}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
+                <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>Destination</Text>
+                {draft.folderId && (
+                  <Text className="text-[11px] font-bold" style={{ color: colors.primary }}>
+                    {folderPath(scopedFolders, draft.folderId)}
+                  </Text>
+                )}
+                <FolderTreePicker
+                  folders={scopedFolders}
+                  selectedId={draft.folderId}
+                  onSelect={(id) => patch({ folderId: id })}
+                  colors={colors}
+                />
               </View>
             )}
 
@@ -780,9 +791,12 @@ function UploadModal({
               />
             </View>
 
+          </ScrollView>
+          </View>
+
             {/* Actions. Upload hands off to the background manager and closes —
                 progress + any conflict prompts live in the topbar island now. */}
-            <View className="flex-row gap-3 pt-2">
+            <View className="flex-row gap-3 px-8 py-5 border-t" style={{ borderColor: colors.border }}>
               <TouchableOpacity
                 onPress={onClose}
                 className="flex-1 items-center justify-center py-3.5 rounded-xl border"
@@ -803,7 +817,7 @@ function UploadModal({
                 </Text>
               </TouchableOpacity>
             </View>
-          </ScrollView>
+          </>
           )}
         </View>
         </Animated.View>
@@ -2347,21 +2361,64 @@ function ShareLinkModal({ visible, fileId, folderId, fileName, onClose }: {
 function GroupMembersPanel({
   group,
   currentUserId,
+  canManageOverride,
   onGroupChanged,
 }: {
   group: FileHubGroup;
   currentUserId: string | undefined;
+  canManageOverride: boolean;
   onGroupChanged: () => void;
 }) {
-  const { addGroupMember, removeGroupMember, fetchGroupMembers } = useFileHub();
+  const { addGroupMember, removeGroupMember, fetchGroupMembers, renameGroup, deleteGroup } = useFileHub();
   const [members, setMembers] = useState<FileHubGroupMember[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [addSearch, setAddSearch] = useState('');
   const [addResults, setAddResults] = useState<any[]>([]);
   const [addingId, setAddingId] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState(group.name);
+  const [renaming, setRenaming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const colors = useThemeColors();
   const { showConfirm } = useAlert();
+
+  useEffect(() => { setRenameValue(group.name); setIsRenaming(false); }, [group.id, group.name]);
+
+  const commitRename = async () => {
+    const name = renameValue.trim();
+    setIsRenaming(false);
+    if (!name || name === group.name) { setRenameValue(group.name); return; }
+    setRenaming(true);
+    try {
+      await renameGroup(group.id, name);
+      onGroupChanged();
+    } catch {
+      setRenameValue(group.name);
+    } finally {
+      setRenaming(false);
+    }
+  };
+
+  const handleDeleteGroup = () => {
+    showConfirm(
+      'Delete Channel',
+      `Permanently delete "${group.name}"? Its files move to the Bin and members lose access.`,
+      async () => {
+        setDeleting(true);
+        try {
+          await deleteGroup(group.id);
+          onGroupChanged();
+        } finally {
+          setDeleting(false);
+        }
+      },
+      undefined,
+      'Delete',
+      'Cancel',
+      'destructive'
+    );
+  };
   const loadMembers = useCallback(async () => {
     setLoadingMembers(true);
     fetchGroupMembers(group.id).then(setMembers).catch(console.error).finally(() => setLoadingMembers(false));
@@ -2413,7 +2470,10 @@ function GroupMembersPanel({
     );
   };
 
-  const myRole = members.find(m => m.id === currentUserId)?.role;
+  // Override-manage users act as a virtual channel admin even though they
+  // hold no real filehub_group_members row (kept that way so they don't
+  // show up in the roster themselves).
+  const myRole = members.find(m => m.id === currentUserId)?.role ?? (canManageOverride ? 'admin' : undefined);
 
   return (
     <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 24 }}>
@@ -2425,7 +2485,26 @@ function GroupMembersPanel({
         >
           <Text style={{ color: group.avatar_color, fontSize: 22, fontWeight: '900' }}>{getInitials(group.name)}</Text>
         </View>
-        <Text className="text-typography-main text-lg font-black text-center">{group.name}</Text>
+        {isRenaming ? (
+          <TextInput
+            value={renameValue}
+            onChangeText={setRenameValue}
+            onBlur={commitRename}
+            onSubmitEditing={commitRename}
+            autoFocus
+            editable={!renaming}
+            className="text-typography-main text-lg font-black text-center bg-surface-background border border-brand-primary/30 rounded-lg px-3 py-1 min-w-[160px]"
+          />
+        ) : (
+          <TouchableOpacity
+            onPress={() => myRole === 'admin' && setIsRenaming(true)}
+            disabled={myRole !== 'admin'}
+            className="flex-row items-center gap-2"
+          >
+            <Text className="text-typography-main text-lg font-black text-center">{group.name}</Text>
+            {myRole === 'admin' && <FontAwesome name="pencil" size={11} color={colors.textMuted} />}
+          </TouchableOpacity>
+        )}
         {group.description && (
           <Text className="text-typography-muted text-xs text-center mt-1 leading-relaxed">{group.description}</Text>
         )}
@@ -2505,6 +2584,17 @@ function GroupMembersPanel({
             </View>
           ))}
         </View>
+      )}
+
+      {myRole === 'admin' && (
+        <TouchableOpacity
+          onPress={handleDeleteGroup}
+          disabled={deleting}
+          className="flex-row items-center justify-center gap-2 bg-state-danger/10 border border-state-danger/20 rounded-xl px-4 py-3 mt-6"
+        >
+          {deleting ? <ActivityIndicator size="small" color={colors.danger} /> : <FontAwesome name="trash-o" size={12} color={colors.danger} />}
+          <Text className="text-state-danger font-black text-sm">Delete Channel</Text>
+        </TouchableOpacity>
       )}
     </ScrollView>
   );
@@ -2672,11 +2762,15 @@ function FileHubDesktopInner() {
     checkNameConflict,
     replaceFile,
     groups, groupsLoading,
+    channelOverrideMode, setChannelOverrideMode,
     activeGroupId, setActiveGroupId,
     groupFiles, groupFilesLoading,
     refreshGroups, refreshGroupFiles,
     hideFile, deleteFile,
   } = useFileHub();
+
+  const canOverrideChannels = hasPermission('filehub:group_override');
+  const canManageOverride = hasPermission('filehub:group_override_manage');
 
   // Uploads run in the background now (UploadManagerContext), so a job can
   // finish long after its modal closed. Re-pull the listing whenever any job
@@ -2761,6 +2855,7 @@ function FileHubDesktopInner() {
   const [groupPanelGroup, setGroupPanelGroup] = useState<FileHubGroup | null>(null);
   const [isGroupPanelExpanded, setIsGroupPanelExpanded] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
+  const [droppedFiles, setDroppedFiles] = useState<File[] | null>(null);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [showManageTags, setShowManageTags] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
@@ -3095,8 +3190,35 @@ function FileHubDesktopInner() {
     else refresh();
   };
 
+  // Same gate as the Upload button: can't drop onto the channel list or a
+  // view-only override channel the server would reject.
+  const canUpload = mode !== 'groups' || (!!activeGroupId && (!activeGroup?.is_override || canManageOverride));
+  // Drop OS files anywhere on the screen → open the composer pre-filled with
+  // them and the folder you're in (initialFiles + defaultFolderId). Folder
+  // drops arrive with webkitRelativePath set, so they nest exactly like the
+  // Folder button.
+  const { ref: fileDropRef, isOver: fileDropOver } = useFileDrop(
+    (files) => { setDroppedFiles(files); setShowUpload(true); },
+    canUpload,
+  );
+
   return (
-    <View className="flex-1 bg-surface-background flex-col">
+    <View ref={fileDropRef} className="flex-1 bg-surface-background flex-col">
+      {/* Drop-to-upload overlay — only while OS files are dragged over the screen */}
+      {fileDropOver && (
+        <View
+          pointerEvents="none"
+          className="absolute inset-0 z-50 items-center justify-center border-2 border-dashed rounded-3xl m-3"
+          style={{ borderColor: colors.primary, backgroundColor: colors.primary + '14' }}
+        >
+          <View className="items-center gap-3 px-8 py-6 rounded-3xl" style={{ backgroundColor: colors.card }}>
+            <FontAwesome name="cloud-upload" size={28} color={colors.primary} />
+            <Text className="font-black text-base" style={{ color: colors.textMain }}>
+              Drop to upload{selectedFolderId ? ` to ${folders.find(f => f.id === selectedFolderId)?.name ?? 'this folder'}` : ''}
+            </Text>
+          </View>
+        </View>
+      )}
       {/* ── Header ── */}
       <View className="px-10 pt-8 pb-5 flex-row flex-wrap items-start justify-between gap-4 border-b border-surface-border flex-shrink-0">
         <View className="min-w-0">
@@ -3144,8 +3266,10 @@ function FileHubDesktopInner() {
           >
             <FontAwesome name="refresh" size={13} color={colors.primary} />
           </TouchableOpacity>
-          {/* Upload button — show if not on groups list (no activeGroupId in groups mode) */}
-          {(mode !== 'groups' || activeGroupId) && (
+          {/* Upload button — show if not on groups list (no activeGroupId in groups mode). Hidden
+              for view-only override channels: you're not a member and lack manage-tier override,
+              so the server would reject the upload. Manage-tier override can upload like any admin. */}
+          {canUpload && (
             <TouchableOpacity
               onPress={() => setShowUpload(true)}
               className="flex-row items-center gap-2 bg-brand-primary px-5 py-2.5 rounded-xl shrink-0"
@@ -3153,6 +3277,19 @@ function FileHubDesktopInner() {
               <FontAwesome name="upload" size={12} color="#fff" />
               <Text className="text-white font-black text-sm tracking-wide">
                 {mode === 'groups' && activeGroupId ? 'Upload to Channel' : 'Upload Files'}
+              </Text>
+            </TouchableOpacity>
+          )}
+          {mode === 'groups' && !activeGroupId && (canOverrideChannels || canManageOverride) && (
+            <TouchableOpacity
+              onPress={() => setChannelOverrideMode(!channelOverrideMode)}
+              className={`flex-row items-center gap-2 px-5 py-2.5 rounded-xl shrink-0 border ${
+                channelOverrideMode ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-card border-surface-border'
+              }`}
+            >
+              <FontAwesome name="eye" size={12} color={channelOverrideMode ? colors.primary : colors.textMuted} />
+              <Text className={`font-black text-sm tracking-wide ${channelOverrideMode ? 'text-brand-primary' : 'text-typography-muted'}`}>
+                {channelOverrideMode ? 'Browsing All Channels' : 'Browse All Channels'}
               </Text>
             </TouchableOpacity>
           )}
@@ -3247,7 +3384,14 @@ function FileHubDesktopInner() {
                         <Text style={{ color: g.avatar_color, fontSize: 16, fontWeight: '900' }}>{getInitials(g.name)}</Text>
                       </View>
                       <View className="flex-1 min-w-0">
-                        <Text className="text-typography-main font-black text-base mb-0.5" numberOfLines={1}>{g.name}</Text>
+                        <View className="flex-row items-center gap-2 mb-0.5">
+                          <Text className="text-typography-main font-black text-base" numberOfLines={1}>{g.name}</Text>
+                          {g.is_override && (
+                            <View className="bg-warning/15 border border-warning/30 rounded-md px-1.5 py-0.5">
+                              <Text className="text-warning text-[9px] font-black tracking-wide">NOT A MEMBER</Text>
+                            </View>
+                          )}
+                        </View>
                         {g.description && (
                           <Text className="text-typography-muted text-xs mb-1" numberOfLines={1}>{g.description}</Text>
                         )}
@@ -3450,7 +3594,7 @@ function FileHubDesktopInner() {
                       selectionMode={selectionMode}
                       isFileSelected={selectedFileIds.has(file.id)}
                       onToggleSelect={() => toggleFileSelect(file.id)}
-                      draggable={file.uploader?.id === user?.id}
+                      draggable={file.uploader?.id === user?.id || (file.visibility === 'group' && canManageOverride)}
                       dragIds={selectedFileIds.has(file.id) ? Array.from(selectedFileIds) : undefined}
                       dragFolderIds={selectedFileIds.has(file.id) ? Array.from(selectedFolderIds) : undefined}
                     />
@@ -3644,7 +3788,7 @@ function FileHubDesktopInner() {
                       selectionMode={selectionMode}
                       isFileSelected={selectedFileIds.has(file.id)}
                       onToggleSelect={() => toggleFileSelect(file.id)}
-                      draggable={file.uploader?.id === user?.id}
+                      draggable={file.uploader?.id === user?.id || (file.visibility === 'group' && canManageOverride)}
                       dragIds={selectedFileIds.has(file.id) ? Array.from(selectedFileIds) : undefined}
                       dragFolderIds={selectedFileIds.has(file.id) ? Array.from(selectedFolderIds) : undefined}
                     />
@@ -3685,7 +3829,7 @@ function FileHubDesktopInner() {
                 transform: [{ translateX: isGroupPanelExpanded ? 0 : 24 }],
               }}
             >
-              <GroupMembersPanel group={groupPanelGroup} currentUserId={user?.id} onGroupChanged={refreshGroups} />
+              <GroupMembersPanel group={groupPanelGroup} currentUserId={user?.id} canManageOverride={canManageOverride} onGroupChanged={refreshGroups} />
             </View>
           )}
 
@@ -3769,7 +3913,8 @@ function FileHubDesktopInner() {
       <UploadModal
         visible={showUpload}
         folders={folders}
-        onClose={() => setShowUpload(false)}
+        initialFiles={droppedFiles}
+        onClose={() => { setShowUpload(false); setDroppedFiles(null); }}
         onUploaded={() => { mode === 'groups' && activeGroupId ? refreshGroupFiles() : refresh(); }}
         checkDuplicate={checkDuplicate}
         checkNameConflict={checkNameConflict}
@@ -3777,6 +3922,7 @@ function FileHubDesktopInner() {
         hasPermission={hasPermission}
         profile={profile}
         activeGroup={activeGroup ? { id: activeGroup.id, name: activeGroup.name, avatar_color: activeGroup.avatar_color } : null}
+        defaultFolderId={selectedFolderId}
       />
 
       {/* ── Group Create Modal ── */}

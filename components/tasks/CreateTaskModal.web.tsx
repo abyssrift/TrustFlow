@@ -6,7 +6,8 @@ import { usePipelineAssignmentPreview } from '@/lib/usePipelineAssignmentPreview
 import { useAuth } from '@/contexts/AuthContext';
 import { useTaskCreation } from '@/contexts/TaskCreationContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { getPastedImageFile } from '@/lib/pasteImage';
+import { getPastedImageFile, fileToStaged } from '@/lib/pasteImage';
+import { useFileDrop } from '@/hooks/useWebDnd';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
@@ -350,11 +351,21 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
   const { preview: assignmentPreview } = usePipelineAssignmentPreview(draft.pipelineId);
   const dateConflict       = !!(draft.startDate && draft.dueDate && draft.startDate > draft.dueDate);
 
+  // Drag OS files onto the composer → stage them as brief files (not in bulk
+  // mode, where brief files don't apply).
+  const { ref: briefDropRef, isOver: briefDropOver } = useFileDrop(
+    (files) => setBriefFiles(prev => [...prev, ...files.map(fileToStaged)]),
+    visible && !bulkMode && !loading,
+  );
 
   return (
     <Modal visible={visible} transparent animationType="fade">
       <View className="flex-1 items-center justify-center p-10" style={{ backdropFilter: 'blur(12px)', backgroundColor: colors.background + 'CC' } as any}>
-        <View className="w-full max-w-[1200px] h-[800px] rounded-[3rem] overflow-hidden flex-row premium-shadow" style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}>
+        <View
+          ref={briefDropRef}
+          className="w-full max-w-[1200px] h-[800px] rounded-[3rem] overflow-hidden flex-row premium-shadow"
+          style={{ backgroundColor: colors.card, borderWidth: briefDropOver ? 2 : 1, borderColor: briefDropOver ? colors.primary : colors.border }}
+        >
 
           {/* ── LEFT SIDEBAR ── */}
           <View className="w-80 p-8" style={{ borderRightWidth: 1, borderColor: colors.border, backgroundColor: colors.background + '4D' }}>
