@@ -91,6 +91,18 @@ function waitForRedirect(popup: Window | null, successPrefix: string): Promise<v
   });
 }
 
+// Returns the caller's stored connection for a provider (RLS-scoped), or null.
+// A non-null result means creds are already stored server-side, so the connect
+// form can be skipped and projects fetched directly.
+export async function getConnection(provider: string): Promise<{ instance_url: string | null } | null> {
+  const { data } = await supabase
+    .from('import_connections')
+    .select('instance_url')
+    .eq('provider', provider)
+    .maybeSingle();
+  return data ?? null;
+}
+
 export async function deleteConnection(provider: string): Promise<void> {
   const { error } = await supabase
     .from('import_connections')

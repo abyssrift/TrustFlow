@@ -15,12 +15,14 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 function TaskDetailContentWeb() {
   const { data, loading, error, refresh } = useTaskDetail();
   const colors = useThemeColors();
   const router = useRouter();
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const isWide = width >= 1024;
   const [refreshing, setRefreshing] = React.useState(false);
 
@@ -80,6 +82,19 @@ function TaskDetailContentWeb() {
   return (
     <View className="flex-1 bg-surface-background">
       <TaskHeader />
+
+      {/* Quick jump to the mobile Deadlines screen — narrow web only. Desktop
+          already has this one tap away via the topbar calendar strip. */}
+      {!isWide && (
+        <TouchableOpacity
+          onPress={() => router.push('/deadlines' as any)}
+          className="absolute right-4 bg-surface-background p-2 rounded-xl border border-surface-border hover:border-brand-primary transition-colors z-50"
+          style={{ top: insets.top + 12 }}
+        >
+          <FontAwesome name="calendar" size={16} color={colors.textMuted} />
+        </TouchableOpacity>
+      )}
+
       {isWide ? (
         <View className="flex-1 flex-row">
           {/* LEFT: Main Operational Area */}

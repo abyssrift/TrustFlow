@@ -1,4 +1,4 @@
-import SearchResultRow from '@/components/sidebar/search/SearchResultRow.web';
+import SearchResultRow from '@/components/sidebar/search/SearchResultRow';
 import { useGlobalSearch } from '@/hooks/useGlobalSearch';
 import type { SearchType } from '@/hooks/useSearchQuery';
 import { useThemeColors } from '@/hooks/useThemeColors';

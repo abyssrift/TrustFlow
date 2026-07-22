@@ -4,7 +4,7 @@ import type { ParsedQuery } from '@/hooks/useSearchQuery';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
-import SearchResultRow from './SearchResultRow.web';
+import SearchResultRow from './SearchResultRow';
 
 const GROUP_ORDER: ResultType[] = ['task', 'person', 'file', 'report', 'comment'];
 const GROUP_LABEL: Record<string, string> = {

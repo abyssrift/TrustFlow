@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  body{margin:0;background:#0a0a0a}
+  a{color:#cfe3f5;text-decoration:none}
+  a:hover{color:#eaf3fb}
+  ::-webkit-scrollbar{width:8px}
+  ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.12);border-radius:4px}
+</style>
+</helmet>
+
+<div style="position:fixed;inset:0;z-index:1;pointer-events:none;opacity:0.05;mix-blend-mode:overlay;background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22180%22 height=%22180%22><filter id=%22n%22><feTurbulence type=%22fractalNoise%22 baseFrequency=%220.9%22 numOctaves=%222%22 stitchTiles=%22stitch%22/></filter><rect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22/></svg>')"></div>
+<div style="font-family:Inter,system-ui,sans-serif;color:#f4f6f7;background:#0a0a0a;min-height:100vh">
+
+  <nav style="position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;height:72px;padding:0 48px;background:{{ navBg }};backdrop-filter:blur(10px);border-bottom:1px solid {{ navBorder }};transition:background .2s,border-color .2s">
+    <a href="Home.dc.html" style="font-family:'Inter Tight',Inter,sans-serif;font-weight:700;font-size:18px;color:#f4f6f7;letter-spacing:-0.01em">TrustFlow</a>
+    <div style="display:flex;align-items:center;gap:36px;flex-wrap:nowrap">
+      <a href="Product.dc.html" style="font-weight:500;font-size:14.5px;color:#9aa4ae;white-space:nowrap" style-hover="color:#f4f6f7">Product</a>
+      <a href="Plans.dc.html" style="font-weight:500;font-size:14.5px;color:#9aa4ae;white-space:nowrap" style-hover="color:#f4f6f7">Plans</a>
+      <a href="ContentHub.dc.html" style="font-weight:500;font-size:14.5px;color:#9aa4ae;white-space:nowrap" style-hover="color:#f4f6f7">Content Hub</a>
+      <a href="Docs.dc.html" style="font-weight:600;font-size:14.5px;color:#f4f6f7;white-space:nowrap">Docs &amp; Help</a>
+    </div>
+    <div style="display:flex;align-items:center;gap:22px;flex-wrap:nowrap">
+      <a href="#" style="font-weight:500;font-size:14.5px;color:#9aa4ae;white-space:nowrap" style-hover="color:#f4f6f7">Log in</a>
+      <a href="#" style="background:#ffffff;color:#0a0a0a;font-weight:600;font-size:14px;padding:9px 18px;border-radius:7px;white-space:nowrap" style-hover="background:#dfe3e6">Start free trial</a>
+    </div>
+  </nav>
+
+  <div style="max-width:1280px;margin:0 auto;padding:40px 48px 120px;display:grid;grid-template-columns:280px minmax(0,1fr);gap:56px;align-items:start">
+
+    <aside style="position:sticky;top:96px;max-height:calc(100vh - 120px);overflow-y:auto;padding-right:8px">
+      <input value="{{ query }}" onChange="{{ onQueryChange }}" placeholder="Search docs and FAQs" style="width:100%;box-sizing:border-box;background:#141414;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 14px;font-family:Inter,sans-serif;font-size:13.5px;color:#f4f6f7;margin-bottom:28px" />
+
+      <sc-for list="{{ groups }}" as="group" hint-placeholder-count="4">
+        <sc-if value="{{ group.hasItems }}" hint-placeholder-val="{{ true }}">
+          <div style="margin-bottom:26px">
+            <span style="display:block;font-weight:700;font-size:11.5px;letter-spacing:0.07em;color:#6f7982;text-transform:uppercase;margin-bottom:10px">{{ group.name }}</span>
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <sc-for list="{{ group.items }}" as="item" hint-placeholder-count="4">
+                <button onClick="{{ item.select }}" style="text-align:left;border:none;cursor:pointer;font-family:Inter,sans-serif;font-size:13.5px;padding:9px 10px;border-radius:7px;background:{{ item.bg }};color:{{ item.color }};font-weight:{{ item.weight }}">{{ item.title }}</button>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+      </sc-for>
+    </aside>
+
+    <main style="min-width:0">
+      <span style="font-weight:700;font-size:11.5px;letter-spacing:0.07em;color:#6f7982;text-transform:uppercase">{{ activeItem.groupName }}</span>
+      <h1 style="font-family:'Inter Tight',Inter,sans-serif;font-weight:800;font-size:clamp(26px,3vw,34px);line-height:1.25;margin:14px 0 16px;color:#f7f8f9">{{ activeItem.title }}</h1>
+      <p style="font-size:16px;line-height:1.7;color:#9aa4ae;max-width:620px;margin:0 0 8px">{{ activeItem.summary }}</p>
+
+      <sc-if value="{{ activeItem.isFaq }}" hint-placeholder-val="{{ false }}">
+        <div style="margin-top:28px;padding:24px;background:#141414;border:1px solid rgba(255,255,255,0.08);border-radius:14px;max-width:620px">
+          <p style="font-size:15.5px;line-height:1.7;color:#e4e7ea;margin:0">{{ activeItem.answer }}</p>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ activeItem.hasSteps }}" hint-placeholder-val="{{ false }}">
+        <div style="margin-top:32px;display:flex;flex-direction:column;gap:20px;max-width:560px">
+          <sc-for list="{{ activeItem.steps }}" as="step" hint-placeholder-count="4">
+            <div style="display:flex;gap:16px;align-items:flex-start">
+              <span style="flex:none;width:26px;height:26px;border-radius:50%;background:#1c1c1c;border:1px solid rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:700;color:#c7cdd3">{{ step.n }}</span>
+              <span style="font-size:15px;line-height:1.65;color:#c7cdd3;padding-top:3px">{{ step.text }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <div style="margin-top:48px;padding-top:24px;border-top:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;gap:16px">
+        <span style="font-size:13.5px;color:#6f7982">Was this helpful?</span>
+        <button style="border:1px solid rgba(255,255,255,0.14);background:transparent;color:#c7cdd3;font-size:13px;font-weight:600;padding:6px 14px;border-radius:7px;cursor:pointer;font-family:Inter,sans-serif" style-hover="border-color:rgba(255,255,255,0.4)">Yes</button>
+        <button style="border:1px solid rgba(255,255,255,0.14);background:transparent;color:#c7cdd3;font-size:13px;font-weight:600;padding:6px 14px;border-radius:7px;cursor:pointer;font-family:Inter,sans-serif" style-hover="border-color:rgba(255,255,255,0.4)">No</button>
+      </div>
+    </main>
+
+  </div>
+
+  <footer style="padding:48px 48px 40px;border-top:1px solid rgba(255,255,255,0.08)">
+    <div style="max-width:1200px;margin:0 auto;display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:32px">
+      <span style="font-family:'Inter Tight',Inter,sans-serif;font-weight:700;font-size:17px;color:#f4f6f7">TrustFlow</span>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <span style="font-weight:600;font-size:13px;color:#f4f6f7">Product</span>
+        <a href="Product.dc.html" style="font-size:14px;color:#8a94a0" style-hover="color:#f4f6f7">Features</a>
+        <a href="Plans.dc.html" style="font-size:14px;color:#8a94a0" style-hover="color:#f4f6f7">Plans</a>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <span style="font-weight:600;font-size:13px;color:#f4f6f7">Resources</span>
+        <a href="ContentHub.dc.html" style="font-size:14px;color:#8a94a0" style-hover="color:#f4f6f7">Content Hub</a>
+        <a href="Docs.dc.html" style="font-size:14px;color:#8a94a0" style-hover="color:#f4f6f7">Docs &amp; Help</a>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <span style="font-weight:600;font-size:13px;color:#f4f6f7">Company</span>
+        <a href="#" style="font-size:14px;color:#8a94a0" style-hover="color:#f4f6f7">Contact</a>
+        <a href="#" style="font-size:14px;color:#8a94a0" style-hover="color:#f4f6f7">Privacy</a>
+      </div>
+    </div>
+    <div style="max-width:1200px;margin:40px auto 0;padding-top:20px;border-top:1px solid rgba(255,255,255,0.08)">
+      <span style="font-size:13px;color:#5b636b">&copy; 2026 TrustFlow. All rights reserved.</span>
+    </div>
+  </footer>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { scrolled: false, query: '', activeId: 'gs-1' };
+
+  items = [
+    { id: 'gs-1', group: 'Getting started', title: 'Quick start guide', summary: 'Create your first workspace and invite your team in under five minutes.', steps: ['Create a workspace', 'Invite teammates', 'Create your first board'] },
+    { id: 'gs-2', group: 'Getting started', title: 'Inviting your team', summary: 'Add members by email and assign a role before they join.', steps: ['Open workspace settings', 'Click Add member', 'Choose a role and send the invite'] },
+    { id: 'gs-3', group: 'Getting started', title: 'Connecting your first board', summary: 'Turn a blank board into pending, active, and done columns.', steps: ['Create a board', 'Add your default columns', 'Add your first task'] },
+    { id: 'gs-4', group: 'Getting started', title: 'Mobile app setup', summary: 'Get the same workspace in your pocket.', steps: ['Download the app', 'Sign in with your workspace email', 'Enable push notifications'] },
+
+    { id: 'tut-1', group: 'Tutorials', title: 'Building your first automation', summary: 'Set a trigger once and let TrustFlow handle the follow-up.', steps: ['Open Automations', 'Choose a trigger event', 'Choose an action', 'Turn it on'] },
+    { id: 'tut-2', group: 'Tutorials', title: 'Setting up reporting dashboards', summary: 'Track throughput and team load at a glance.', steps: ['Open Reporting', 'Add a chart', 'Pick a date range', 'Save the view'] },
+    { id: 'tut-3', group: 'Tutorials', title: 'Organizing files in File Hub', summary: 'Keep every version in one place.', steps: ['Create a channel', 'Upload files', 'Pin the current version'] },
+    { id: 'tut-4', group: 'Tutorials', title: 'Creating client-guest views', summary: 'Share progress without exposing internal notes.', steps: ['Open board settings', 'Turn on guest access', 'Copy the share link'] },
+    { id: 'tut-5', group: 'Tutorials', title: 'Bulk importing tasks', summary: 'Move a spreadsheet into a board in one pass.', steps: ['Open Import', 'Upload a CSV', 'Map your columns', 'Confirm the import'] },
+
+    { id: 'gd-1', group: 'Guides', title: 'Task board best practices', summary: 'Keep columns to three or four, and put owner and due date on every card so status is visible without asking.', steps: [] },
+    { id: 'gd-2', group: 'Guides', title: 'Choosing the right plan', summary: 'Match your team size and automation needs to a tier, and switch anytime as you grow.', steps: [] },
+    { id: 'gd-3', group: 'Guides', title: 'Migrating from spreadsheets', summary: 'Bring existing rows into a board without losing history or formatting.', steps: [] },
+    { id: 'gd-4', group: 'Guides', title: 'Structuring permissions for agencies', summary: "Separate every client into its own pipeline with guest-safe views.", steps: [] },
+
+    { id: 'faq-1', group: 'FAQs', title: 'Can I switch plans anytime?', summary: 'Billing & plans', isFaq: true, answer: 'Yes — upgrade or downgrade anytime. Changes prorate automatically on your next invoice.' },
+    { id: 'faq-2', group: 'FAQs', title: 'Is my data encrypted?', summary: 'Account & security', isFaq: true, answer: 'Yes, in transit and at rest, with SSO available on Business and Enterprise plans.' },
+    { id: 'faq-3', group: 'FAQs', title: 'What tools does TrustFlow connect to?', summary: 'Integrations', isFaq: true, answer: 'Email, calendar, and storage out of the box, plus Zapier and an open API for anything custom.' },
+    { id: 'faq-4', group: 'FAQs', title: 'Can I export my data?', summary: 'Data export & backups', isFaq: true, answer: 'Yes — export any board or report to CSV at any time, no plan restriction.' },
+  ];
+
+  groupOrder = ['Getting started', 'Tutorials', 'Guides', 'FAQs'];
+
+  componentDidMount() {
+    this._onScroll = () => {
+      const s = window.scrollY > 8;
+      if (s !== this.state.scrolled) this.setState({ scrolled: s });
+    };
+    window.addEventListener('scroll', this._onScroll, { passive: true });
+  }
+  componentWillUnmount() {
+    window.removeEventListener('scroll', this._onScroll);
+  }
+
+  renderVals() {
+    const q = this.state.query.trim().toLowerCase();
+    const filtered = q ? this.items.filter((it) => it.title.toLowerCase().includes(q)) : this.items;
+
+    const groups = this.groupOrder.map((groupName) => {
+      const groupItems = filtered.filter((it) => it.group === groupName).map((it) => {
+        const isActive = it.id === this.state.activeId;
+        return {
+          title: it.title,
+          select: () => this.setState({ activeId: it.id }),
+          bg: isActive ? 'rgba(255,255,255,0.08)' : 'transparent',
+          color: isActive ? '#f4f6f7' : '#9aa4ae',
+          weight: isActive ? 600 : 500,
+        };
+      });
+      return { name: groupName, items: groupItems, hasItems: groupItems.length > 0 };
+    });
+
+    const active = this.items.find((it) => it.id === this.state.activeId) || this.items[0];
+    const activeItem = {
+      title: active.title,
+      groupName: active.group,
+      summary: active.isFaq ? '' : active.summary,
+      isFaq: !!active.isFaq,
+      answer: active.answer || '',
+      hasSteps: !active.isFaq && active.steps && active.steps.length > 0,
+      steps: (active.steps || []).map((s, i) => ({ n: i + 1, text: s })),
+    };
+
+    return {
+      navBg: this.state.scrolled ? 'rgba(10,10,10,0.85)' : 'rgba(10,10,10,0)',
+      navBorder: this.state.scrolled ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0)',
+      query: this.state.query,
+      onQueryChange: (e) => this.setState({ query: e.target.value }),
+      groups,
+      activeItem,
+    };
+  }
+}
+
+</script>
+</body>
+</html>

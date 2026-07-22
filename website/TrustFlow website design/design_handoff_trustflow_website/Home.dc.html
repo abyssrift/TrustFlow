@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  body{margin:0;background:#0a0a0a}
+  a{color:#cfe3f5;text-decoration:none}
+  a:hover{color:#eaf3fb}
+</style>
+<script src="./image-slot.js"></script>
+</helmet>
+
+<div style="position:fixed;inset:0;z-index:1;pointer-events:none;opacity:0.05;mix-blend-mode:overlay;background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22180%22 height=%22180%22><filter id=%22n%22><feTurbulence type=%22fractalNoise%22 baseFrequency=%220.9%22 numOctaves=%222%22 stitchTiles=%22stitch%22/></filter><rect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22/></svg>')"></div>
+<div style="font-family:Inter,system-ui,sans-serif;color:#f4f6f7;background:#0a0a0a">
+
+  <nav style="position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;height:72px;padding:0 48px;max-width:1200px;margin:0 auto;background:{{ navBg }};backdrop-filter:blur(10px);border-bottom:1px solid {{ navBorder }};transition:background .2s,border-color .2s">
+    <a href="#" style="font-family:'Inter Tight',Inter,sans-serif;font-weight:700;font-size:18px;color:#f4f6f7;letter-spacing:-0.01em">TrustFlow</a>
+    <div style="display:flex;align-items:center;gap:36px;flex-wrap:nowrap">
+      <a href="Product.dc.html" style="font-weight:500;font-size:14.5px;color:#9aa4ae;white-space:nowrap" style-hover="color:#f4f6f7">Product</a>
+      <a href="Plans.dc.html" style="font-weight:500;font-size:14.5px;color:#9aa4ae;white-space:nowrap" style-hover="color:#f4f6f7">Plans</a>
+      <a href="ContentHub.dc.html" style="font-weight:500;font-size:14.5px;color:#9aa4ae;white-space:nowrap" style-hover="color:#f4f6f7">Content Hub</a>
+      <a href="Docs.dc.html" style="font-weight:500;font-size:14.5px;color:#9aa4ae;white-space:nowrap" style-hover="color:#f4f6f7">Docs &amp; Help</a>
+    </div>
+    <div style="display:flex;align-items:center;gap:22px;flex-wrap:nowrap">
+      <a href="#" style="font-weight:500;font-size:14.5px;color:#9aa4ae;white-space:nowrap" style-hover="color:#f4f6f7">Log in</a>
+      <a href="#" style="background:#ffffff;color:#0a0a0a;font-weight:600;font-size:14px;padding:9px 18px;border-radius:7px;white-space:nowrap" style-hover="background:#dfe3e6">Start free trial</a>
+    </div>
+  </nav>
+
+  <section style="padding:56px 48px 64px;max-width:1200px;margin:0 auto;display:grid;grid-template-columns:minmax(320px,0.9fr) minmax(0,1.1fr);gap:64px;align-items:center">
+    <div style="min-width:0">
+      <span style="font-weight:700;font-size:12px;letter-spacing:0.08em;color:#6f7982;text-transform:uppercase">Operations, without the chaos</span>
+      <h1 style="font-family:'Inter Tight',Inter,sans-serif;font-weight:800;font-size:clamp(32px,3.6vw,44px);line-height:1.12;letter-spacing:-0.02em;margin:18px 0 16px;color:#f7f8f9">Run your team's work from one calm screen.</h1>
+      <p style="font-size:16.5px;line-height:1.65;color:#9aa4ae;max-width:440px;margin:0">TrustFlow brings tasks, files, and reporting together, on your desktop and in your pocket, so nothing slips through and no one has to ask twice.</p>
+      <div style="display:flex;align-items:center;gap:22px;margin-top:30px">
+        <a href="#" style="background:#ffffff;color:#0a0a0a;font-weight:600;font-size:15px;padding:12px 22px;border-radius:8px" style-hover="background:#dfe3e6">Start free trial</a>
+        <a href="#how-it-works" style="font-weight:600;font-size:15px;color:#c7cdd3" style-hover="color:#ffffff">See how it works &rarr;</a>
+      </div>
+      <p style="font-size:13px;color:#5b636b;margin:20px 0 0">No credit card required &middot; Free 14-day trial</p>
+    </div>
+    <div style="position:relative;min-width:0">
+      <div style="position:absolute;left:2%;right:2%;top:-10%;height:70%;background:radial-gradient(closest-side, rgba(180,195,215,0.22), rgba(180,195,215,0) 70%);filter:blur(40px);z-index:0"></div>
+      <div style="position:absolute;left:8%;right:8%;top:6%;height:52%;background:radial-gradient(closest-side, rgba(215,228,242,0.17), rgba(215,228,242,0) 65%);filter:blur(24px);z-index:0"></div>
+      <div style="position:absolute;left:10%;right:10%;bottom:0%;height:44px;background:radial-gradient(closest-side, rgba(0,0,0,0.72), rgba(0,0,0,0) 75%);filter:blur(16px);z-index:0"></div>
+      <image-slot id="hero-screenshot" style="width:100%;height:480px;display:block;position:relative;z-index:1" shape="rect" fit="contain" placeholder="MacBook mockup — dashboard screenshot composited in, transparent PNG"></image-slot>
+    </div>
+  </section>
+
+  <section style="padding:56px 48px;text-align:center">
+    <span style="font-weight:700;font-size:11.5px;letter-spacing:0.08em;color:#5b636b;text-transform:uppercase">Trusted by teams who can't afford to drop the ball</span>
+    <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:36px;margin-top:22px">
+      <span style="font-size:14.5px;color:#8a94a0">Small teams</span>
+      <span style="font-size:14.5px;color:#8a94a0">Agencies</span>
+      <span style="font-size:14.5px;color:#8a94a0">Real estate teams</span>
+      <span style="font-size:14.5px;color:#8a94a0">Marketing teams</span>
+      <span style="font-size:14.5px;color:#8a94a0">Growing companies</span>
+    </div>
+  </section>
+
+  <section style="padding:96px 48px;text-align:center">
+    <span style="font-weight:700;font-size:12px;letter-spacing:0.08em;color:#6f7982;text-transform:uppercase">The idea</span>
+    <h2 style="font-family:'Inter Tight',Inter,sans-serif;font-weight:800;font-size:clamp(28px,3.4vw,38px);line-height:1.25;letter-spacing:-0.01em;margin:16px auto 0;color:#f7f8f9;max-width:720px">Most tools make work visible. TrustFlow makes it <span style="color:#cfe3f5">move.</span></h2>
+  </section>
+
+  <section id="features" style="padding:20px 48px 40px">
+    <div style="max-width:1200px;margin:0 auto;display:flex;flex-direction:column;gap:120px">
+
+      <div id="task-boards" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:72px;align-items:center">
+        <div style="min-width:0">
+          <span style="font-weight:700;font-size:12px;letter-spacing:0.08em;color:#6f7982;text-transform:uppercase">Task boards</span>
+          <h3 style="font-family:'Inter Tight',Inter,sans-serif;font-weight:700;font-size:28px;margin:14px 0 14px;color:#f7f8f9">Every task, one board</h3>
+          <p style="font-size:16px;line-height:1.65;color:#9aa4ae;max-width:420px">Pending, in progress, and completed &mdash; always visible, always up to date. Priority, timers, and ownership live right on the card, so status updates stop being a meeting.</p>
+        </div>
+        <div style="position:relative;order:2;min-width:0">
+          <div style="position:absolute;left:2%;right:2%;top:-10%;height:65%;background:radial-gradient(closest-side, rgba(180,195,215,0.2), rgba(180,195,215,0) 70%);filter:blur(34px);z-index:0"></div>
+          <div style="position:absolute;left:8%;right:8%;top:8%;height:48%;background:radial-gradient(closest-side, rgba(215,228,242,0.15), rgba(215,228,242,0) 65%);filter:blur(20px);z-index:0"></div>
+          <div style="position:absolute;left:8%;right:8%;bottom:0%;height:36px;background:radial-gradient(closest-side, rgba(0,0,0,0.68), rgba(0,0,0,0) 75%);filter:blur(14px);z-index:0"></div>
+          <image-slot id="feature-taskboards" style="width:100%;height:400px;display:block;position:relative;z-index:1" shape="rect" fit="contain" placeholder="MacBook mockup — Task Board screenshot composited in, transparent PNG"></image-slot>
+        </div>
+      </div>
+
+      <div id="reporting" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:72px;align-items:center">
+        <div style="position:relative;order:1;min-width:0">
+          <div style="position:absolute;left:2%;right:2%;top:-10%;height:65%;background:radial-gradient(closest-side, rgba(180,195,215,0.2), rgba(180,195,215,0) 70%);filter:blur(34px);z-index:0"></div>
+          <div style="position:absolute;left:8%;right:8%;top:8%;height:48%;background:radial-gradient(closest-side, rgba(215,228,242,0.15), rgba(215,228,242,0) 65%);filter:blur(20px);z-index:0"></div>
+          <div style="position:absolute;left:8%;right:8%;bottom:0%;height:36px;background:radial-gradient(closest-side, rgba(0,0,0,0.68), rgba(0,0,0,0) 75%);filter:blur(14px);z-index:0"></div>
+          <image-slot id="feature-reporting" style="width:100%;height:400px;display:block;position:relative;z-index:1" shape="rect" fit="contain" placeholder="MacBook mockup — Pipeline / analytics dashboard composited in, transparent PNG"></image-slot>
+        </div>
+        <div style="order:2;min-width:0">
+          <span style="font-weight:700;font-size:12px;letter-spacing:0.08em;color:#6f7982;text-transform:uppercase">Reporting</span>
+          <h3 style="font-family:'Inter Tight',Inter,sans-serif;font-weight:700;font-size:28px;margin:14px 0 14px;color:#f7f8f9">See the whole pipeline</h3>
+          <p style="font-size:16px;line-height:1.65;color:#9aa4ae;max-width:420px">Throughput, completion rate, and who's active right now &mdash; the numbers that tell you whether work is actually moving, not just logged.</p>
+        </div>
+      </div>
+
+      <div id="file-hub" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:72px;align-items:center">
+        <div style="min-width:0">
+          <span style="font-weight:700;font-size:12px;letter-spacing:0.08em;color:#6f7982;text-transform:uppercase">File hub</span>
+          <h3 style="font-family:'Inter Tight',Inter,sans-serif;font-weight:700;font-size:28px;margin:14px 0 14px;color:#f7f8f9">Files and conversations, together</h3>
+          <p style="font-size:16px;line-height:1.65;color:#9aa4ae;max-width:420px">Channels, broadcasts, and shared files in one place &mdash; so the right version is never buried three inboxes deep.</p>
+        </div>
+        <div style="position:relative;order:2;min-width:0">
+          <div style="position:absolute;left:2%;right:2%;top:-10%;height:65%;background:radial-gradient(closest-side, rgba(180,195,215,0.2), rgba(180,195,215,0) 70%);filter:blur(34px);z-index:0"></div>
+          <div style="position:absolute;left:8%;right:8%;top:8%;height:48%;background:radial-gradient(closest-side, rgba(215,228,242,0.15), rgba(215,228,242,0) 65%);filter:blur(20px);z-index:0"></div>
+          <div style="position:absolute;left:8%;right:8%;bottom:0%;height:36px;background:radial-gradient(closest-side, rgba(0,0,0,0.68), rgba(0,0,0,0) 75%);filter:blur(14px);z-index:0"></div>
+          <image-slot id="feature-filehub" style="width:100%;height:400px;display:block;position:relative;z-index:1" shape="rect" fit="contain" placeholder="MacBook mockup — File Hub screenshot composited in, transparent PNG"></image-slot>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <section style="padding:120px 48px 96px;max-width:900px;margin:0 auto">
+    <h2 style="font-family:'Inter Tight',Inter,sans-serif;font-weight:700;font-size:30px;margin:0;color:#f7f8f9">Whoever you run your team with</h2>
+    <p style="font-size:16px;color:#9aa4ae;margin:12px 0 0">One workspace, shaped around how different teams actually work.</p>
+    <div style="margin-top:36px;border-top:1px solid rgba(255,255,255,0.08)">
+      <div style="display:grid;grid-template-columns:220px 1fr;gap:24px;padding:20px 0;border-bottom:1px solid rgba(255,255,255,0.08)">
+        <span style="font-weight:600;font-size:15.5px;color:#f4f6f7">Small teams</span>
+        <span style="font-size:15px;color:#9aa4ae">Keep everyone aligned without extra process or overhead.</span>
+      </div>
+      <div style="display:grid;grid-template-columns:220px 1fr;gap:24px;padding:20px 0;border-bottom:1px solid rgba(255,255,255,0.08)">
+        <span style="font-weight:600;font-size:15.5px;color:#f4f6f7">Agencies</span>
+        <span style="font-size:15px;color:#9aa4ae">Run every client's work in its own clear, separate pipeline.</span>
+      </div>
+      <div style="display:grid;grid-template-columns:220px 1fr;gap:24px;padding:20px 0;border-bottom:1px solid rgba(255,255,255,0.08)">
+        <span style="font-weight:600;font-size:15.5px;color:#f4f6f7">Real estate teams</span>
+        <span style="font-size:15px;color:#9aa4ae">Track listings, documents, and deals in one shared file hub.</span>
+      </div>
+      <div style="display:grid;grid-template-columns:220px 1fr;gap:24px;padding:20px 0;border-bottom:1px solid rgba(255,255,255,0.08)">
+        <span style="font-weight:600;font-size:15.5px;color:#f4f6f7">Growing companies</span>
+        <span style="font-size:15px;color:#9aa4ae">Scale operations without losing visibility into the work.</span>
+      </div>
+    </div>
+  </section>
+
+  <section style="padding:20px 48px 130px">
+    <div style="max-width:1200px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:72px;align-items:center">
+      <div>
+        <p style="font-family:'Inter Tight',Inter,sans-serif;font-weight:600;font-size:22px;line-height:1.5;color:#f4f6f7;margin:0">&ldquo;We stopped losing track of who owed what. TrustFlow gave our whole team one place to look, instead of five.&rdquo;</p>
+        <div style="display:flex;align-items:center;gap:14px;margin-top:26px">
+          <image-slot id="testimonial-avatar" style="width:52px;height:52px;flex:none" shape="circle" placeholder="Photo"></image-slot>
+          <div>
+            <div style="font-weight:600;font-size:14.5px;color:#f4f6f7">Operations Lead</div>
+            <div style="font-size:13.5px;color:#8a94a0">Growing agency, TrustFlow customer</div>
+          </div>
+        </div>
+      </div>
+      <div style="position:relative;min-width:0">
+        <div style="position:absolute;left:2%;right:2%;top:-10%;height:65%;background:radial-gradient(closest-side, rgba(180,195,215,0.2), rgba(180,195,215,0) 70%);filter:blur(34px);z-index:0"></div>
+        <div style="position:absolute;left:10%;right:10%;bottom:2%;height:28px;background:radial-gradient(closest-side, rgba(0,0,0,0.6), rgba(0,0,0,0) 75%);filter:blur(12px);z-index:0"></div>
+        <image-slot id="testimonial-visual" style="width:100%;height:350px;display:block;position:relative;z-index:1" shape="rect" fit="contain" placeholder="MacBook mockup — Activity view composited in, transparent PNG"></image-slot>
+      </div>
+    </div>
+  </section>
+
+  <section id="plans" style="padding:40px 48px 160px;text-align:center;border-top:1px solid rgba(255,255,255,0.08)">
+    <div style="max-width:640px;margin:0 auto;padding-top:100px">
+      <h2 style="font-family:'Inter Tight',Inter,sans-serif;font-weight:700;font-size:clamp(28px,3.2vw,36px);line-height:1.25;margin:0;color:#f7f8f9">Give your team a clearer way to work.</h2>
+      <div style="display:flex;align-items:center;justify-content:center;gap:22px;margin-top:32px">
+        <a href="#" style="background:#ffffff;color:#0a0a0a;font-weight:600;font-size:15px;padding:12px 24px;border-radius:8px" style-hover="background:#dfe3e6">Start free trial</a>
+        <a href="#" style="font-weight:600;font-size:15px;color:#c7cdd3" style-hover="color:#ffffff">Talk to us &rarr;</a>
+      </div>
+      <p style="font-size:13px;color:#5b636b;margin:20px 0 0">No credit card required &middot; Free 14-day trial</p>
+    </div>
+  </section>
+
+  <footer style="padding:48px 48px 40px;border-top:1px solid rgba(255,255,255,0.08)">
+    <div style="max-width:1200px;margin:0 auto;display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:32px">
+      <span style="font-family:'Inter Tight',Inter,sans-serif;font-weight:700;font-size:17px;color:#f4f6f7">TrustFlow</span>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <span style="font-weight:600;font-size:13px;color:#f4f6f7">Product</span>
+        <a href="#features" style="font-size:14px;color:#8a94a0" style-hover="color:#f4f6f7">Features</a>
+        <a href="Plans.dc.html" style="font-size:14px;color:#8a94a0" style-hover="color:#f4f6f7">Plans</a>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <span style="font-weight:600;font-size:13px;color:#f4f6f7">Resources</span>
+        <a href="ContentHub.dc.html" style="font-size:14px;color:#8a94a0" style-hover="color:#f4f6f7">Content Hub</a>
+        <a href="Docs.dc.html" style="font-size:14px;color:#8a94a0" style-hover="color:#f4f6f7">Docs &amp; Help</a>
+        <a href="#" style="font-size:14px;color:#8a94a0" style-hover="color:#f4f6f7">FAQ</a>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <span style="font-weight:600;font-size:13px;color:#f4f6f7">Company</span>
+        <a href="#" style="font-size:14px;color:#8a94a0" style-hover="color:#f4f6f7">Contact</a>
+        <a href="#" style="font-size:14px;color:#8a94a0" style-hover="color:#f4f6f7">Privacy</a>
+      </div>
+    </div>
+    <div style="max-width:1200px;margin:40px auto 0;padding-top:20px;border-top:1px solid rgba(255,255,255,0.08)">
+      <span style="font-size:13px;color:#5b636b">&copy; 2026 TrustFlow. All rights reserved.</span>
+    </div>
+  </footer>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { scrolled: false };
+  componentDidMount() {
+    this._onScroll = () => {
+      const s = window.scrollY > 8;
+      if (s !== this.state.scrolled) this.setState({ scrolled: s });
+    };
+    window.addEventListener('scroll', this._onScroll, { passive: true });
+  }
+  componentWillUnmount() {
+    window.removeEventListener('scroll', this._onScroll);
+  }
+  renderVals() {
+    return {
+      navBg: this.state.scrolled ? 'rgba(10,10,10,0.85)' : 'rgba(10,10,10,0)',
+      navBorder: this.state.scrolled ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0)',
+    };
+  }
+}
+</script>
+</body>
+</html>

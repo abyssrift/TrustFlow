@@ -19,13 +19,15 @@ import {
   type ParsedTaskRow,
 } from '@/lib/taskMobility';
 import { isJiraExport, mapJiraRow } from '@/lib/jiraImport';
-import { listImporters, getImporter, startOAuthFlow, deleteConnection, connectViaProxy, guessStageMapping } from '@/lib/imports';
+import { listImporters, getImporter, startOAuthFlow, deleteConnection, connectViaProxy, guessStageMapping, getConnection } from '@/lib/imports';
 import type { ImporterAdapter, ImportedTask, AuthPayload } from '@/lib/imports';
 
 type Props = {
   visible: boolean;
   onClose: () => void;
   onImported?: () => void;
+  // The board this modal was opened from — imported tasks land here.
+  pipelineId?: string;
 };
 
 type Tab = 'export' | 'import';
@@ -36,7 +38,7 @@ const MIME: Record<SpreadsheetFormat, string> = {
   xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 };
 
-export default function TaskMobilityModal({ visible, onClose, onImported }: Props) {
+export default function TaskMobilityModal({ visible, onClose, onImported, pipelineId }: Props) {
   const colors = useThemeColors();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
@@ -114,7 +116,7 @@ export default function TaskMobilityModal({ visible, onClose, onImported }: Prop
   };
 
   // ── Platform picker ──
-  const handleSelectPlatform = (adapter: ImporterAdapter) => {
+  const handleSelectPlatform = async (adapter: ImporterAdapter) => {
     setSelectedAdapter(adapter);
     setConnectorFields({});
     setProjects([]);
@@ -124,8 +126,28 @@ export default function TaskMobilityModal({ visible, onClose, onImported }: Prop
 
     if (adapter.manifest.authType === 'file') {
       handlePick();
-    } else {
+      return;
+    }
+
+    // Already connected? Creds are stored server-side, so skip the form and go
+    // straight to project selection. (Back on the source step re-opens the form.)
+    const providerId = adapter.manifest.providerId || adapter.manifest.id;
+    if (!adapter.fetchProjects) { setImportStep('auth'); return; }
+    setBusy(true);
+    try {
+      const conn = await getConnection(providerId);
+      if (!conn) { setImportStep('auth'); return; }
+      setConnectorFields(conn.instance_url ? { instanceUrl: conn.instance_url } : {});
+      setSourcesLoading(true);
+      setImportStep('source');
+      const projs = await adapter.fetchProjects({ provider: providerId, instanceUrl: conn.instance_url || undefined });
+      setProjects(projs);
+    } catch (e: any) {
+      errorToast(e?.message || 'Failed to load projects.');
       setImportStep('auth');
+    } finally {
+      setBusy(false);
+      setSourcesLoading(false);
     }
   };
 
@@ -260,7 +282,7 @@ export default function TaskMobilityModal({ visible, onClose, onImported }: Prop
       // both against this company before creating, so assignees and status stick.
       const [usersRes, pipesRes] = await Promise.all([
         supabase.from('users').select('id, email, full_name, display_name').is('deleted_at', null),
-        supabase.from('pipelines').select('id, is_default').is('deleted_at', null),
+        supabase.from('pipelines').select('id, is_default').is('deleted_at', null).order('created_at'),
       ]);
       const byEmail = new Map<string, string>();
       const byName = new Map<string, string>();
@@ -272,16 +294,19 @@ export default function TaskMobilityModal({ visible, onClose, onImported }: Prop
       // Jira gives emails; Odoo gives display names — try email, then name.
       const resolveUser = (s: string) => byEmail.get(s.toLowerCase()) || byName.get(s.toLowerCase()) || null;
 
-      // Map source stages against the default pipeline (where null-pipeline tasks land).
+      // Target the board this modal was opened from; else the default, else the
+      // oldest pipeline. Passed explicitly to rpc_create_task — relying on null
+      // (→ server-side default lookup) orphans tasks when there's no is_default.
       const pipes = pipesRes.data || [];
-      const def = pipes.find((p: any) => p.is_default) || pipes[0];
-      let stageMap = new Map<string, string | null>();
-      if (def) {
-        const { data: st } = await supabase.from('pipeline_stages').select('id, name').eq('pipeline_id', def.id);
-        const existingStages = (st || []).map((s: any) => ({ id: s.id, name: s.name }));
-        const sourceStages = Array.from(new Set(importedTasks.map(t => t.stageName).filter(Boolean))) as string[];
-        stageMap = new Map(guessStageMapping(sourceStages, existingStages).map(m => [m.sourceName, m.targetStageId]));
-      }
+      const targetPipeId = pipelineId || (pipes.find((p: any) => p.is_default) || pipes[0])?.id;
+      if (!targetPipeId) { errorToast('No pipeline exists to import into. Create one first.'); return; }
+
+      // Stages must come from the SAME pipeline the tasks are created in, or
+      // rpc_import_place_task_stage rejects them as not belonging to it.
+      const { data: st } = await supabase.from('pipeline_stages').select('id, name').eq('pipeline_id', targetPipeId);
+      const existingStages = (st || []).map((s: any) => ({ id: s.id, name: s.name }));
+      const sourceStages = Array.from(new Set(importedTasks.map(t => t.stageName).filter(Boolean))) as string[];
+      const stageMap = new Map(guessStageMapping(sourceStages, existingStages).map(m => [m.sourceName, m.targetStageId]));
 
       rows = importedTasks.map(t => ({
         rowNumber: 0,
@@ -296,7 +321,7 @@ export default function TaskMobilityModal({ visible, onClose, onImported }: Prop
         pipelineName: null,
         projectName: null,
         assigneeEmails: t.assigneeEmails,
-        pipelineId: null,
+        pipelineId: targetPipeId,
         projectId: null,
         assigneeUserIds: t.assigneeEmails.map(resolveUser).filter(Boolean) as string[],
         warnings: [],

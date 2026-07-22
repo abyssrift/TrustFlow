@@ -1,4 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
+import { useIsPlatformAdmin } from '@/components/platform-admin/useControlPlaneData';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
@@ -20,6 +21,8 @@ type Shortcut = {
 };
 
 const SHORTCUTS: Shortcut[] = [
+  { id: 'search', permissionKey: '', icon: 'search', label: 'Search', href: '/search' },
+  { id: 'deadlines', permissionKey: '', icon: 'calendar', label: 'Deadlines', href: '/deadlines' },
   { id: 'projects', permissionKey: 'project.view', icon: 'folder-o', label: 'Projects', href: '/projects' },
   { id: 'radar', permissionKey: 'report.view', icon: 'bullseye', label: 'Intelligence', href: '/intelligence' },
   { id: 'targets', permissionKey: 'target.view', icon: 'crosshairs', label: 'Targets', href: '/intelligence/targets' },
@@ -47,7 +50,7 @@ export default function MenuScreen() {
   const { session, user, hasPermission } = useAuth();
   const pathname = usePathname();
   const params = useLocalSearchParams();
-  const isPlatformAdmin = ['adamsamir2005@gmail.com', 'adam.samir@trustedgellc.com', 'adamsamir@hotmail.com'].includes(user?.email || '');
+  const isPlatformAdmin = useIsPlatformAdmin();
 
   const [pipelines, setPipelines] = useState<{ id: string; name: string }[]>([]);
   const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null);
@@ -58,6 +61,8 @@ export default function MenuScreen() {
       SHORTCUTS.filter(
         (s) =>
           s.id === 'filehub' ||
+          s.id === 'search' ||
+          s.id === 'deadlines' ||
           hasPermission(s.permissionKey) ||
           (!!s.fallbackPermissionKey && hasPermission(s.fallbackPermissionKey))
       ),

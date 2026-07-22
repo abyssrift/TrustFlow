@@ -763,7 +763,7 @@ export default function PlatformAdminScreen() {
   const alerts = useMemo(() => deriveAlerts(companies), [companies]);
   const alertCount = alerts.filter(a => a.severity === 'critical' || a.severity === 'warning').length;
 
-  if (!initialized) {
+  if (!initialized || isOwner === null) {
     return (
       <View className="flex-1 bg-surface-background items-center justify-center">
         <ActivityIndicator size="large" color={colors.primary} />

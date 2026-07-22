@@ -124,23 +124,43 @@ async function handleOdoo(creds: any, instanceUrl: string | null, resource: stri
 
   const uid = await odooAuth(base, db, username, apiKey)
   if (!uid) return text('Odoo authentication failed', 401)
+  const exec = (model: string, method: string, positional: unknown[], kwargs: Record<string, unknown>) =>
+    odooExecute(base, db, uid, apiKey, model, method, positional, kwargs)
 
   if (resource === 'projects') {
-    const result = await odooExecute(base, db, uid, apiKey, 'project.project', 'search_read', [[]], { fields: ['id', 'name'] })
-    return json(result ?? [])
+    return json((await exec('project.project', 'search_read', [[]], { fields: ['id', 'name'] })) ?? [])
   }
+
+  // Odoo 17 renamed project.task.user_id (m2o) → user_ids (m2m). search_read is
+  // all-or-nothing, so probe which field this instance has before requesting it.
+  const af = await exec('project.task', 'fields_get', [['user_id', 'user_ids']], { attributes: ['type'] })
+  const assigneeField = af?.user_ids ? 'user_ids' : (af?.user_id ? 'user_id' : null)
+
+  const fields = ['id', 'name', 'description', 'stage_id', 'priority', 'date_deadline', 'tag_ids', 'parent_id']
+  if (assigneeField) fields.push(assigneeField)
+
   const projectId = params.projectId
   const domain = projectId ? [['project_id', '=', Number(projectId)]] : []
-  const result = await odooExecute(base, db, uid, apiKey, 'project.task', 'search_read', [domain], {
-    fields: ['id', 'name', 'description', 'stage_id', 'user_id', 'priority', 'date_deadline', 'tag_ids', 'parent_id'],
-  })
-  return json(result ?? [])
+  const tasks: any[] = (await exec('project.task', 'search_read', [domain], { fields })) ?? []
+
+  // Normalise assignees → emails on `_assignees` (m2m gives ids only → read res.users).
+  if (assigneeField === 'user_ids') {
+    const ids = [...new Set(tasks.flatMap((t) => (Array.isArray(t.user_ids) ? t.user_ids : [])))]
+    const users: any[] = ids.length ? (await exec('res.users', 'read', [ids], { fields: ['email', 'name'] })) ?? [] : []
+    const map: Record<number, string> = Object.fromEntries(users.map((u) => [u.id, u.email || u.name]))
+    for (const t of tasks) t._assignees = (t.user_ids || []).map((id: number) => map[id]).filter(Boolean)
+  } else if (assigneeField === 'user_id') {
+    for (const t of tasks) t._assignees = t.user_id?.[1] ? [t.user_id[1]] : []
+  }
+  return json(tasks)
 }
 
-async function odooJsonRpc(base: string, service: string, method: string, args: unknown[]): Promise<any> {
+async function odooJsonRpc(base: string, db: string, service: string, method: string, args: unknown[]): Promise<any> {
   const res = await fetch(`${base}/jsonrpc`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    // X-Odoo-Database disambiguates the DB on multi-tenant SaaS hosts (a
+    // dedicated subdomain resolves it from the hostname; a shared host needs this).
+    headers: { 'Content-Type': 'application/json', 'X-Odoo-Database': db },
     body: JSON.stringify({ jsonrpc: '2.0', method: 'call', params: { service, method, args }, id: Date.now() }),
   })
   const data = await res.json()
@@ -149,7 +169,7 @@ async function odooJsonRpc(base: string, service: string, method: string, args: 
 
 function odooAuth(base: string, db: string, username: string, apiKey: string): Promise<number | null> {
   // An Odoo API key is accepted in place of the password.
-  return odooJsonRpc(base, 'common', 'authenticate', [db, username, apiKey, {}])
+  return odooJsonRpc(base, db, 'common', 'authenticate', [db, username, apiKey, {}])
     .then((uid) => (typeof uid === 'number' ? uid : null))
 }
 
@@ -157,7 +177,7 @@ function odooExecute(
   base: string, db: string, uid: number, apiKey: string,
   model: string, method: string, positional: unknown[], kwargs: Record<string, unknown>,
 ): Promise<any> {
-  return odooJsonRpc(base, 'object', 'execute_kw', [db, uid, apiKey, model, method, positional, kwargs])
+  return odooJsonRpc(base, db, 'object', 'execute_kw', [db, uid, apiKey, model, method, positional, kwargs])
 }
 
 // Pass the provider's JSON straight through (adapters normalise shape).

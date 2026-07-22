@@ -3,6 +3,7 @@
 // my teams — the same rule the kanban applies in _tasks_desktop.tsx.
 // Plain client queries — RLS scopes visibility, no RPC needed.
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState, Platform } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -17,6 +18,34 @@ export type UpcomingTask = {
 };
 
 const REFRESH_MS = 60_000;
+
+// Shared 42-cell (6x7) month grid builder — leading/trailing days from
+// adjacent months fill the grid so the layout never jumps between months.
+// Used by the desktop calendar overlay/dropdown and the mobile Deadlines screen.
+export function toDayKey(d: Date): string {
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+export function buildMonthGrid(anchor: Date): Date[] {
+  const year = anchor.getFullYear();
+  const month = anchor.getMonth();
+  const firstOfMonth = new Date(year, month, 1);
+  const startOffset = firstOfMonth.getDay();
+  const gridStart = new Date(year, month, 1 - startOffset);
+  return Array.from({ length: 42 }, (_, i) => new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + i));
+}
+
+// Shared by the topbar dropdown and the mobile Deadlines screen so both
+// surfaces of the same "attention ribbon" data read identically.
+export function formatRelativeDue(dueDate: string, overdue: boolean): string {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const due = new Date(dueDate); due.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((due.getTime() - today.getTime()) / 86400000);
+  if (overdue) return `${-diffDays}d late`;
+  if (diffDays === 0) return 'today';
+  if (diffDays < 14) return `${diffDays}d`;
+  return `${Math.floor(diffDays / 7)}w`;
+}
 
 const TASK_SELECT = `
   id, title, due_date, manager_id,
@@ -135,10 +164,21 @@ export function useUpcomingTasks() {
   useEffect(() => {
     refetch();
     const interval = setInterval(refetch, REFRESH_MS);
-    window.addEventListener('focus', refetch);
+
+    if (Platform.OS === 'web') {
+      window.addEventListener('focus', refetch);
+      return () => {
+        clearInterval(interval);
+        window.removeEventListener('focus', refetch);
+      };
+    }
+
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') refetch();
+    });
     return () => {
       clearInterval(interval);
-      window.removeEventListener('focus', refetch);
+      sub.remove();
     };
   }, [refetch]);
 

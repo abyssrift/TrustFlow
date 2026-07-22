@@ -2,6 +2,7 @@ import { BackButton } from '@/components/common/BackButton';
 import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { FileActivity, FileHubFile, FileHubFolder, FileHubFolderScope, FileHubGroup, FileHubGroupMember, FileHubMode, FileHubProvider, FileHubShareLink, FileVersion, folderAncestors, folderPath, shareLinkUrl, useFileHub } from '@/contexts/FileHubContext';
+import FolderTreePicker from './FolderTreePicker';
 import { useToast } from '@/contexts/ToastContext';
 import { relDir, resolveExistingFolderLeaf } from '@/lib/filehubFolderTree';
 import { randomId } from '@/lib/randomId';
@@ -832,6 +833,7 @@ function UploadSheet({
   hasPermission,
   profile,
   activeGroup,
+  defaultFolderId = null,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -839,6 +841,7 @@ function UploadSheet({
   hasPermission: (key: string) => boolean;
   profile: any;
   activeGroup?: { id: string; name: string; avatar_color: string } | null;
+  defaultFolderId?: string | null;
 }) {
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
@@ -901,8 +904,12 @@ function UploadSheet({
 
   useEffect(() => {
     if (!visible) resetAll();
-    else if (activeGroup) setVisibility('group');
-  }, [visible, activeGroup?.id]);
+    else {
+      // Smart leveling: preselect the folder the user is currently browsing.
+      if (activeGroup) setVisibility('group');
+      setFolderId(defaultFolderId ?? null);
+    }
+  }, [visible, activeGroup?.id, defaultFolderId]);
 
   // Mobile web: block tab close / refresh mid-upload, so bytes can't be
   // stranded between a file's storage PUT and its commit. No-op on native
@@ -1311,27 +1318,21 @@ function UploadSheet({
                   </View>
                 )}
 
-                {/* Folder */}
+                {/* Folder — explorer tree */}
                 {scopedFolders.length > 0 && (
                   <View className="gap-2">
-                    <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Folder</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, flexDirection: 'row', alignItems: 'center' }}>
-                      <TouchableOpacity
-                        onPress={() => setFolderId(null)}
-                        className={`px-4 py-2 rounded-xl border ${!folderId ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}
-                      >
-                        <Text className={`text-xs font-bold ${!folderId ? 'text-brand-primary' : 'text-typography-muted'}`}>None</Text>
-                      </TouchableOpacity>
-                      {[...scopedFolders].sort((a, b) => folderPath(scopedFolders, a.id).localeCompare(folderPath(scopedFolders, b.id))).map(f => (
-                        <TouchableOpacity
-                          key={f.id}
-                          onPress={() => setFolderId(f.id)}
-                          className={`px-4 py-2 rounded-xl border ${folderId === f.id ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}
-                        >
-                          <Text className={`text-xs font-bold ${folderId === f.id ? 'text-brand-primary' : 'text-typography-muted'}`}>{folderPath(scopedFolders, f.id)}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </ScrollView>
+                    <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Destination</Text>
+                    {folderId && (
+                      <Text className="text-[11px] font-bold" style={{ color: colors.primary }}>
+                        {folderPath(scopedFolders, folderId)}
+                      </Text>
+                    )}
+                    <FolderTreePicker
+                      folders={scopedFolders}
+                      selectedId={folderId}
+                      onSelect={setFolderId}
+                      colors={colors}
+                    />
                   </View>
                 )}
 
@@ -1470,7 +1471,14 @@ function GroupCard({ group, onPress }: { group: FileHubGroup; onPress: () => voi
 
       {/* Info */}
       <View className="flex-1 min-w-0">
-        <Text className="text-typography-main font-black text-base mb-0.5" numberOfLines={1}>{group.name}</Text>
+        <View className="flex-row items-center gap-2 mb-0.5">
+          <Text className="text-typography-main font-black text-base" numberOfLines={1}>{group.name}</Text>
+          {group.is_override && (
+            <View className="bg-warning/15 border border-warning/30 rounded-md px-1.5 py-0.5">
+              <Text className="text-warning text-[9px] font-black tracking-wide">NOT A MEMBER</Text>
+            </View>
+          )}
+        </View>
         {group.description ? (
           <Text className="text-typography-muted text-xs mb-1" numberOfLines={1}>{group.description}</Text>
         ) : null}
@@ -1680,26 +1688,72 @@ function GroupMembersSheet({
   visible,
   group,
   currentUserId,
+  canManageOverride,
   onClose,
   onMembersChanged,
 }: {
   visible: boolean;
   group: FileHubGroup | null;
   currentUserId: string | undefined;
+  canManageOverride: boolean;
   onClose: () => void;
   onMembersChanged: () => void;
 }) {
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
-  const { addGroupMember, removeGroupMember, fetchGroupMembers } = useFileHub();
+  const { addGroupMember, removeGroupMember, fetchGroupMembers, renameGroup, deleteGroup } = useFileHub();
   const [members, setMembers] = useState<FileHubGroupMember[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [addSearch, setAddSearch] = useState('');
   const [addResults, setAddResults] = useState<any[]>([]);
   const [addingId, setAddingId] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState(group?.name ?? '');
+  const [renaming, setRenaming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const colors = useThemeColors();
   const { showConfirm } = useAlert();
+
+  useEffect(() => { setRenameValue(group?.name ?? ''); setIsRenaming(false); }, [group?.id, group?.name]);
+
+  const commitRename = async () => {
+    if (!group) return;
+    const name = renameValue.trim();
+    setIsRenaming(false);
+    if (!name || name === group.name) { setRenameValue(group.name); return; }
+    setRenaming(true);
+    try {
+      await renameGroup(group.id, name);
+      onMembersChanged();
+    } catch {
+      setRenameValue(group.name);
+    } finally {
+      setRenaming(false);
+    }
+  };
+
+  const handleDeleteGroup = () => {
+    if (!group) return;
+    showConfirm(
+      'Delete Channel',
+      `Permanently delete "${group.name}"? Its files move to the Bin and members lose access.`,
+      async () => {
+        setDeleting(true);
+        try {
+          await deleteGroup(group.id);
+          onMembersChanged();
+          onClose();
+        } finally {
+          setDeleting(false);
+        }
+      },
+      undefined,
+      'Delete',
+      'Cancel',
+      'destructive'
+    );
+  };
 
   useEffect(() => {
     if (!visible || !group) { setMembers([]); setAddSearch(''); setAddResults([]); return; }
@@ -1765,14 +1819,36 @@ function GroupMembersSheet({
 
   if (!group) return null;
 
-  const myRole = members.find(m => m.id === currentUserId)?.role;
+  // Override-manage users act as a virtual channel admin even though they
+  // hold no real filehub_group_members row (kept that way so they don't
+  // show up in the roster themselves).
+  const myRole = members.find(m => m.id === currentUserId)?.role ?? (canManageOverride ? 'admin' : undefined);
 
   return (
     <Popup visible={visible} onClose={onClose} presentation={isDesktop ? 'centered' : 'sheet'}>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40, gap: 16 }}>
-            <View className="flex-row items-center justify-between">
-              <Text className="text-typography-main text-xl font-black">{group.name}</Text>
-              <TouchableOpacity onPress={onClose} className="w-8 h-8 bg-surface-background border border-surface-border rounded-xl items-center justify-center">
+            <View className="flex-row items-center justify-between gap-2">
+              {isRenaming ? (
+                <TextInput
+                  value={renameValue}
+                  onChangeText={setRenameValue}
+                  onBlur={commitRename}
+                  onSubmitEditing={commitRename}
+                  autoFocus
+                  editable={!renaming}
+                  className="flex-1 text-typography-main text-xl font-black bg-surface-background border border-brand-primary/30 rounded-lg px-3 py-1"
+                />
+              ) : (
+                <TouchableOpacity
+                  onPress={() => myRole === 'admin' && setIsRenaming(true)}
+                  disabled={myRole !== 'admin'}
+                  className="flex-1 flex-row items-center gap-2"
+                >
+                  <Text className="text-typography-main text-xl font-black" numberOfLines={1}>{group.name}</Text>
+                  {myRole === 'admin' && <FontAwesome name="pencil" size={12} color={colors.textMuted} />}
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity onPress={onClose} className="w-8 h-8 bg-surface-background border border-surface-border rounded-xl items-center justify-center flex-shrink-0">
                 <FontAwesome name="times" size={12} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
@@ -1850,6 +1926,17 @@ function GroupMembersSheet({
                 </View>
               )}
             </View>
+
+            {myRole === 'admin' && (
+              <TouchableOpacity
+                onPress={handleDeleteGroup}
+                disabled={deleting}
+                className="flex-row items-center justify-center gap-2 bg-state-danger/10 border border-state-danger/20 rounded-2xl px-4 py-3"
+              >
+                {deleting ? <ActivityIndicator size="small" color={colors.danger} /> : <FontAwesome name="trash-o" size={12} color={colors.danger} />}
+                <Text className="text-state-danger font-black text-sm">Delete Channel</Text>
+              </TouchableOpacity>
+            )}
           </ScrollView>
     </Popup>
   );
@@ -2199,11 +2286,15 @@ function FileHubAdaptiveInner() {
     refresh,
     markAllRead,
     groups, groupsLoading,
+    channelOverrideMode, setChannelOverrideMode,
     activeGroupId, setActiveGroupId,
     groupFiles, groupFilesLoading,
     refreshGroups, refreshGroupFiles,
     hideFile, deleteFile,
   } = useFileHub();
+
+  const canOverrideChannels = hasPermission('filehub:group_override');
+  const canManageOverride = hasPermission('filehub:group_override_manage');
 
   const router = useRouter();
   const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
@@ -2646,14 +2737,31 @@ function FileHubAdaptiveInner() {
         <>
           {/* Groups list header */}
           <View className="px-6 mb-3 flex-row items-center justify-between">
-            <Text className="text-typography-main font-black text-lg">Your Channels</Text>
-            <TouchableOpacity
-              onPress={() => setShowCreateGroup(true)}
-              className="flex-row items-center gap-2 bg-brand-primary px-4 py-2 rounded-xl"
-            >
-              <FontAwesome name="plus" size={11} color={colors.textMain} />
-              <Text className="text-white font-black text-xs">New Channel</Text>
-            </TouchableOpacity>
+            <Text className="text-typography-main font-black text-lg">
+              {channelOverrideMode ? 'All Channels' : 'Your Channels'}
+            </Text>
+            <View className="flex-row items-center gap-2">
+              {(canOverrideChannels || canManageOverride) && (
+                <TouchableOpacity
+                  onPress={() => setChannelOverrideMode(!channelOverrideMode)}
+                  className={`flex-row items-center gap-1.5 px-3 h-9 rounded-xl border ${
+                    channelOverrideMode ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-card border-surface-border'
+                  }`}
+                >
+                  <FontAwesome name="eye" size={12} color={channelOverrideMode ? colors.primary : colors.textMuted} />
+                  <Text className={`text-xs font-black ${channelOverrideMode ? 'text-brand-primary' : 'text-typography-muted'}`}>
+                    All
+                  </Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                onPress={() => setShowCreateGroup(true)}
+                className="flex-row items-center gap-2 bg-brand-primary px-4 py-2 rounded-xl"
+              >
+                <FontAwesome name="plus" size={11} color={colors.textMain} />
+                <Text className="text-white font-black text-xs">New Channel</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {groupsLoading ? (
@@ -2843,7 +2951,7 @@ function FileHubAdaptiveInner() {
           </TouchableOpacity>
         </View>
       ) : (
-        (mode !== 'groups' || activeGroupId) && (
+        (mode !== 'groups' || (activeGroupId && (!activeGroup?.is_override || canManageOverride))) && (
           <TouchableOpacity
             onPress={() => setShowUpload(true)}
             className="absolute right-6 w-14 h-14 bg-brand-primary rounded-full items-center justify-center premium-shadow"
@@ -2871,6 +2979,7 @@ function FileHubAdaptiveInner() {
         hasPermission={hasPermission}
         profile={profile}
         activeGroup={activeGroup ? { id: activeGroup.id, name: activeGroup.name, avatar_color: activeGroup.avatar_color } : null}
+        defaultFolderId={selectedFolderId}
       />
 
       {/* ── Group create sheet ── */}
@@ -2885,6 +2994,7 @@ function FileHubAdaptiveInner() {
         visible={showManageMembers}
         group={activeGroup}
         currentUserId={user?.id}
+        canManageOverride={canManageOverride}
         onClose={() => setShowManageMembers(false)}
         onMembersChanged={refreshGroups}
       />
