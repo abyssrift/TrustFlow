@@ -1120,13 +1120,13 @@
     "semantic_hash": ""
   },
   "components/task-detail/StageActions.tsx": {
-    "mtime": 1784658988.9479208,
-    "ast_hash": "c6df5d9fadc447dc9bfe7f395f627d2c",
+    "mtime": 1784577944.608575,
+    "ast_hash": "7bd76c3329a713d3f0bdba0766d61106",
     "semantic_hash": ""
   },
   "components/task-detail/TaskBriefPanel.tsx": {
-    "mtime": 1784659147.2475111,
-    "ast_hash": "ba33e78bf8346e2179de86531029442a",
+    "mtime": 1784577975.3102021,
+    "ast_hash": "c59b89fd9caabbfebc304118e4a9e555",
     "semantic_hash": ""
   },
   "components/task-detail/TaskCardActions.tsx": {
@@ -1170,8 +1170,8 @@
     "semantic_hash": ""
   },
   "components/tasks/CreateTaskModal.web.tsx": {
-    "mtime": 1784659058.5350525,
-    "ast_hash": "04faeb89df8225696dd8d8f9d6a444ed",
+    "mtime": 1784566639.7008097,
+    "ast_hash": "dd13db67fe1a75e9a54c87e86a7ef062",
     "semantic_hash": ""
   },
   "components/tasks/CreateTaskSheet.tsx": {
@@ -1430,8 +1430,8 @@
     "semantic_hash": ""
   },
   "lib/pasteImage.ts": {
-    "mtime": 1784658939.415694,
-    "ast_hash": "7f30ad88956cc95748022106b5be06d8",
+    "mtime": 1781613019.2832282,
+    "ast_hash": "05158d061c1f5bfaad375c65dc89aeb7",
     "semantic_hash": ""
   },
   "lib/planLimits.ts": {
@@ -2745,8 +2745,8 @@
     "semantic_hash": ""
   },
   "hooks/useWebDnd.ts": {
-    "mtime": 1784659481.7223432,
-    "ast_hash": "4d33275a0686d589abdccdddfd41e4aa",
+    "mtime": 1784658639.5015986,
+    "ast_hash": "8663abc7dc86581d8595fa76dd9aa756",
     "semantic_hash": ""
   },
   "supabase/migrations/20260715_filehub_folder_dnd.sql": {
@@ -3270,8 +3270,8 @@
     "semantic_hash": ""
   },
   "lib/imports/adapters/odoo/importer.ts": {
-    "mtime": 1784659143.4052045,
-    "ast_hash": "115d23fc06b7b395f41cdc4725b7b7b0",
+    "mtime": 1784657251.981418,
+    "ast_hash": "3bfbd022d240c87256cc815acf5e36a1",
     "semantic_hash": ""
   },
   "lib/imports/adapters/odoo/manifest.ts": {
@@ -3562,61 +3562,6 @@
   "components/tabs/_deadlines_adaptive.tsx": {
     "mtime": 1784641867.0940745,
     "ast_hash": "8123d0467c3eba9f1654e1c94b3a36f1",
-    "semantic_hash": ""
-  },
-  "hooks/useWebDnd.filedrop.test.ts": {
-    "mtime": 1784659488.089662,
-    "ast_hash": "183ce9b8c250c8306bfb0869993d3ee0",
-    "semantic_hash": ""
-  },
-  "lib/fileDropEntries.ts": {
-    "mtime": 1784659465.4476936,
-    "ast_hash": "d99436acc574e3449551f9d803b0e662",
-    "semantic_hash": ""
-  },
-  "lib/imports/htmlToText.test.ts": {
-    "mtime": 1784659184.414265,
-    "ast_hash": "acc9b410520ded9b91553264a82cdda1",
-    "semantic_hash": ""
-  },
-  "lib/imports/htmlToText.ts": {
-    "mtime": 1784659506.0294847,
-    "ast_hash": "19eb263f8e154bfd830e2d8c2a5f7bfd",
-    "semantic_hash": ""
-  },
-  "website/TrustFlow website design/design_handoff_trustflow_website/image-slot.js": {
-    "mtime": 1784659145.7761483,
-    "ast_hash": "77b4de2e929b6403118bf78a900d334e",
-    "semantic_hash": ""
-  },
-  "website/TrustFlow website design/design_handoff_trustflow_website/ContentHub.dc.html": {
-    "mtime": 1784659145.66916,
-    "ast_hash": "0bf62b05ae745993333eabd94ca5cb01",
-    "semantic_hash": ""
-  },
-  "website/TrustFlow website design/design_handoff_trustflow_website/Docs.dc.html": {
-    "mtime": 1784659145.6911535,
-    "ast_hash": "e2ec026584e136c076af548e9183b6a4",
-    "semantic_hash": ""
-  },
-  "website/TrustFlow website design/design_handoff_trustflow_website/Home.dc.html": {
-    "mtime": 1784659145.717151,
-    "ast_hash": "ffb3d94893cf881b409973fd14a50861",
-    "semantic_hash": ""
-  },
-  "website/TrustFlow website design/design_handoff_trustflow_website/Plans.dc.html": {
-    "mtime": 1784659145.7371507,
-    "ast_hash": "71f36c57a780c44b074c82ac31d597d0",
-    "semantic_hash": ""
-  },
-  "website/TrustFlow website design/design_handoff_trustflow_website/Product.dc.html": {
-    "mtime": 1784659145.7491477,
-    "ast_hash": "33c49e27d3f5e81943358e67935f745e",
-    "semantic_hash": ""
-  },
-  "website/TrustFlow website design/design_handoff_trustflow_website/README.md": {
-    "mtime": 1784659145.7601483,
-    "ast_hash": "3fcc99e9ce2e6da31511042f34c91322",
     "semantic_hash": ""
   }
 }

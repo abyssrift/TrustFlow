@@ -174,12 +174,5 @@
   "172": "tasks.tsx",
   "173": "helpers.ts",
   "174": "Workflow",
-  "175": "filehub.tsx",
-  "176": "useSearchQuery.test.ts",
-  "177": "reports.tsx",
-  "178": "profile.tsx",
-  "179": "Method 1: Using DevTool Component (Easiest)",
-  "180": "🎯 Use Cases",
-  "181": "📊 What Gets Created",
-  "182": "htmlToText.ts"
+  "175": "filehub.tsx"
 }
