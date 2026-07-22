@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-    ActivityIndicator, Alert,
+    ActivityIndicator,
     Dimensions,
     ScrollView,
     Text,
@@ -13,6 +13,7 @@ import {
     View
 } from 'react-native';
 import DraggableSheet from '@/components/common/DraggableSheet';
+import { useAlert } from '@/contexts/AlertContext';
 
 interface AssignmentModalProps {
   visible: boolean;
@@ -35,6 +36,7 @@ export default function AssignmentModal({
 }: AssignmentModalProps) {
   const colors = useThemeColors();
   const { profile } = useAuth();
+  const { showAlert } = useAlert();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'teams' | 'users'>('teams');
@@ -121,7 +123,7 @@ export default function AssignmentModal({
       onSave();
       onClose();
     } catch (err: any) {
-      Alert.alert('Error', err.message);
+      showAlert('Error', err.message);
     } finally {
       setSaving(false);
     }

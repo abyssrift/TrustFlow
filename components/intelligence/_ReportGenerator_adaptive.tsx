@@ -3,10 +3,12 @@ import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 import { BackButton } from '@/components/common/BackButton';
 import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { useTicker } from '@/hooks/useTicker';
 import { supabase } from '@/lib/supabase';
+import { formatStopwatch } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Modal,
   Pressable,
@@ -20,10 +22,6 @@ import Svg, { Circle } from 'react-native-svg';
 import { generateAndUploadReport } from './reports/generate';
 
 const BRAND_DIM = 'rgba(99,102,241,0.15)';
-
-function fmt(s: number) {
-  return `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
-}
 
 function GenerationProgress({ current, total, elapsed }: { current: number; total: number; elapsed: number }) {
   const colors = useThemeColors();
@@ -54,10 +52,10 @@ function GenerationProgress({ current, total, elapsed }: { current: number; tota
         </View>
       </View>
       <Text style={{ color: 'rgba(255,255,255,0.65)', fontSize: 12, fontWeight: '700', fontVariant: ['tabular-nums'] }}>
-        {fmt(elapsed)}
+        {formatStopwatch(elapsed)}
       </Text>
       {eta !== null && eta > 0 ? (
-        <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10 }}>~{fmt(eta)} remaining</Text>
+        <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10 }}>~{formatStopwatch(eta)} remaining</Text>
       ) : null}
     </View>
   );
@@ -129,8 +127,8 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
   const [loading, setLoading]         = useState(false);
   const [genError, setGenError]       = useState<string | null>(null);
   const [genProgress, setGenProgress] = useState<{ current: number; total: number } | null>(null);
-  const [elapsed, setElapsed]         = useState(0);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [genStartedAt, setGenStartedAt] = useState<string | null>(null);
+  const elapsed = useTicker(genStartedAt);
 
   useEffect(() => {
     if (visible || isPage) loadFilterOptions();
@@ -263,11 +261,9 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
   const handleGenerateReport = async () => {
     setGenError(null);
     setGenProgress(null);
-    setElapsed(0);
+    setGenStartedAt(new Date().toISOString());
     try {
       setLoading(true);
-      const t0 = Date.now();
-      timerRef.current = setInterval(() => setElapsed(Math.floor((Date.now() - t0) / 1000)), 1000);
 
       if (needsDateRange && timeFrame === 'custom' && (!dateStart || !dateEnd)) {
         setGenError('Please provide both start and end dates');
@@ -325,7 +321,7 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
       console.error('Report generation error:', error);
       setGenError(error.message || 'Failed to generate report');
     } finally {
-      if (timerRef.current) clearInterval(timerRef.current);
+      setGenStartedAt(null);
       setLoading(false);
       setGenProgress(null);
     }
@@ -452,7 +448,8 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
                         </TouchableOpacity>
                       </View>
                       <PremiumCalendarPicker
-                        compact
+                        scale="compact"
+                        showDaysBetween
                         selectedDate={activeDateField === 'start' ? dateStart : dateEnd}
                         onSelect={(date) => {
                           if (activeDateField === 'start') {
@@ -462,6 +459,9 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
                             setDateEnd(date);
                           }
                         }}
+                        accentColor={activeDateField === 'start' ? colors.primary : colors.secondary}
+                        rangeDate={activeDateField === 'start' ? dateEnd : dateStart}
+                        rangeColor={activeDateField === 'start' ? colors.secondary : colors.primary}
                       />
                     </View>
                   )}

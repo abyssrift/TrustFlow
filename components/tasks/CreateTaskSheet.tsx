@@ -1,16 +1,19 @@
+import { useAlert } from '@/contexts/AlertContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { getPastedImageFile } from '@/lib/pasteImage';
 import { FontAwesome } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DraggableSheet from '../common/DraggableSheet';
 import ClipboardControls from '../common/ClipboardControls';
 import PremiumCalendarPicker from '../common/PremiumCalendarPicker';
 import { formatFileSize, getFileIcon } from '@/lib/taskFileHelpers';
 import { useCreateTaskWizard } from '@/lib/useCreateTaskWizard';
+import { usePipelineAssignmentPreview } from '@/lib/usePipelineAssignmentPreview';
+import AssignmentModePreview from './AssignmentModePreview';
 
 // ─── Adaptive File Grid ───────────────────────────────────────────────────────
 
@@ -108,10 +111,11 @@ type Props = {
 export default function CreateTaskSheet({ visible, onClose, initialPipelineId }: Props) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
+  const { showAlert, showConfirm } = useAlert();
   const {
     draft, setDraft, loading, recentTasks, briefFiles, setBriefFiles,
     step, setStep,
-    bulkMode, setBulkMode,
+    bulkMode, toggleBulkMode,
     bulkText, setBulkText,
     bulkTitles, canSubmit,
     users, teams,
@@ -119,6 +123,7 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
     templates, saveAsTemplate, loadTemplate, deleteTemplate,
     handleCreate, removeBriefFile,
   } = useCreateTaskWizard({ visible, initialPipelineId });
+  const { preview: assignmentPreview } = usePipelineAssignmentPreview(draft.pipelineId);
 
   const renderStep = () => {
     switch (step) {
@@ -169,10 +174,7 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
                           key={i}
                           onPress={() => loadTemplate(t)}
                           onLongPress={() =>
-                            Alert.alert('Delete Template', `Remove "${t.name}"?`, [
-                              { text: 'Cancel', style: 'cancel' },
-                              { text: 'Delete', style: 'destructive', onPress: () => deleteTemplate(i) },
-                            ])
+                            showConfirm('Delete Template', `Remove "${t.name}"?`, () => deleteTemplate(i), undefined, 'Delete', undefined, 'destructive')
                           }
                           className="bg-brand-primary/10 border border-brand-primary/30 rounded-xl px-4 py-3"
                           style={{ maxWidth: 140 }}
@@ -196,7 +198,7 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
                 </Text>
                 <View className="flex-row items-center gap-3">
                   <TouchableOpacity
-                    onPress={() => setBulkMode(b => !b)}
+                    onPress={toggleBulkMode}
                     className={`flex-row items-center gap-1.5 px-2.5 py-1 rounded-lg border ${bulkMode ? 'bg-brand-primary/10 border-brand-primary' : 'border-surface-border'}`}
                   >
                     <FontAwesome name="list-ul" size={10} color={bulkMode ? colors.primary : colors.textMuted} />
@@ -305,6 +307,7 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
                         setDraft({ dueDate: date });
                         setShowCalendar(false);
                       }}
+                      scale="compact"
                     />
                   </View>
                 )}
@@ -363,7 +366,7 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
                    onPress={async () => {
                      const file = await getPastedImageFile();
                      if (file) setBriefFiles(prev => [...prev, file]);
-                     else Alert.alert('No Image', 'There is no image on the clipboard to paste.');
+                     else showAlert('No Image', 'There is no image on the clipboard to paste.');
                    }}
                    className="flex-row items-center bg-surface-background px-3 py-2 rounded-xl border border-surface-border"
                  >
@@ -372,6 +375,11 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
                  </TouchableOpacity>
                </View>
              </View>
+
+             <AssignmentModePreview
+               preview={assignmentPreview}
+               hasManualAssignees={draft.assigneeUserIds.length + draft.assigneeTeamIds.length > 0}
+             />
 
              <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2 ml-1">Resources</Text>
              <ScrollView className="max-h-96">

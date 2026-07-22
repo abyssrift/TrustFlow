@@ -25,11 +25,6 @@ const PERIOD_OPTS = [
   { label: '12M',  type: 'month', n: 12 },
 ];
 
-const fmtSec = (s: number) => {
-  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
-  return h > 0 ? `${h}h ${m}m` : `${m}m`;
-};
-
 export default function IntelligenceGraphs() {
   const colors = useThemeColors();
   const tooltipStyle = {

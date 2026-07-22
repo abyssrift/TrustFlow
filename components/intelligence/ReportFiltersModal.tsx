@@ -13,31 +13,13 @@ export type ReportFilters = {
 
 export const EMPTY_FILTERS: ReportFilters = { statuses: [], types: [], dateFrom: null, dateTo: null };
 
+// tone maps to a colors.* key at render time — these render inside a <Modal>
+// subtree, so theme tokens must be resolved via useThemeColors(), not classNames.
 const STATUS_OPTIONS = [
-  {
-    value: 'completed',  label: 'Completed',  icon: 'check-circle',
-    activeClass: 'bg-state-success/10 border-state-success',
-    textActive:  'text-state-success',
-    iconColor:   '#22c55e',
-  },
-  {
-    value: 'processing', label: 'Processing', icon: 'circle-o-notch',
-    activeClass: 'bg-state-info/10 border-state-info',
-    textActive:  'text-state-info',
-    iconColor:   '#3b82f6',
-  },
-  {
-    value: 'pending',    label: 'Pending',    icon: 'clock-o',
-    activeClass: 'bg-state-warning/10 border-state-warning',
-    textActive:  'text-state-warning',
-    iconColor:   '#fbbf24',
-  },
-  {
-    value: 'failed',     label: 'Failed',     icon: 'times-circle',
-    activeClass: 'bg-state-danger/10 border-state-danger',
-    textActive:  'text-state-danger',
-    iconColor:   '#ef4444',
-  },
+  { value: 'completed',  label: 'Completed',  icon: 'check-circle',     tone: 'success' as const, iconColor: '#22c55e' },
+  { value: 'processing', label: 'Processing', icon: 'circle-o-notch',   tone: 'info'    as const, iconColor: '#3b82f6' },
+  { value: 'pending',    label: 'Pending',    icon: 'clock-o',          tone: 'warning' as const, iconColor: '#fbbf24' },
+  { value: 'failed',     label: 'Failed',     icon: 'times-circle',     tone: 'danger'  as const, iconColor: '#ef4444' },
 ];
 
 export const REPORT_TYPE_OPTIONS = [
@@ -156,8 +138,8 @@ export default function ReportFiltersModal({ visible, onClose, onApply, initial 
   };
 
   const containerClass = isCompact
-    ? 'bg-surface-card flex-1'
-    : 'bg-surface-card w-full max-w-3xl rounded-[40px] border border-surface-border premium-shadow overflow-hidden';
+    ? 'flex-1'
+    : 'w-full max-w-3xl rounded-[40px] premium-shadow overflow-hidden';
 
   const scrollMaxHeight = isCompact ? undefined : Math.min(720, height - 220);
 
@@ -168,20 +150,27 @@ export default function ReportFiltersModal({ visible, onClose, onApply, initial 
       animationType={isCompact ? 'slide' : 'fade'}
       onRequestClose={onClose}
     >
-      <View className={`flex-1 ${isCompact ? 'bg-surface-background' : 'bg-black/70 items-center justify-center px-4'}`}>
-        <View className={containerClass}>
+      <View
+        className={`flex-1 ${isCompact ? '' : 'bg-black/70 items-center justify-center px-4'}`}
+        style={isCompact ? { backgroundColor: colors.background } : undefined}
+      >
+        <View className={containerClass} style={{ backgroundColor: colors.card, ...(isCompact ? {} : { borderWidth: 1, borderColor: colors.border }) }}>
           {/* Header */}
-          <View className={`flex-row items-center justify-between border-b border-surface-border ${isCompact ? 'px-6 pt-14 pb-5' : 'p-8'}`}>
+          <View
+            className={`flex-row items-center justify-between ${isCompact ? 'px-6 pt-14 pb-5' : 'p-8'}`}
+            style={{ borderBottomWidth: 1, borderColor: colors.border }}
+          >
             <View className="flex-1 pr-4">
-              <Text className="text-brand-primary font-black uppercase tracking-[0.3em] text-[9px] mb-1">Refine</Text>
-              <Text className="text-typography-main text-2xl font-black tracking-tight">Filter Reports</Text>
+              <Text className="font-black uppercase tracking-[0.3em] text-[9px] mb-1" style={{ color: colors.primary }}>Refine</Text>
+              <Text className="text-2xl font-black tracking-tight" style={{ color: colors.textMain }}>Filter Reports</Text>
               {!isCompact && (
-                <Text className="text-typography-muted text-xs mt-1">Narrow down by status, type, and date range.</Text>
+                <Text className="text-xs mt-1" style={{ color: colors.textMuted }}>Narrow down by status, type, and date range.</Text>
               )}
             </View>
             <TouchableOpacity
               onPress={onClose}
-              className="w-10 h-10 items-center justify-center bg-surface-background border border-surface-border rounded-xl"
+              className="w-10 h-10 items-center justify-center rounded-xl"
+              style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}
             >
               <FontAwesome name="close" size={14} color={colors.textMuted} />
             </TouchableOpacity>
@@ -194,17 +183,20 @@ export default function ReportFiltersModal({ visible, onClose, onApply, initial 
             showsVerticalScrollIndicator={false}
           >
             {/* STATUS */}
-            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mb-4">Status</Text>
+            <Text className="text-[10px] font-black uppercase tracking-[0.2em] mb-4" style={{ color: colors.textMuted }}>Status</Text>
             <View className="flex-row flex-wrap gap-2 mb-8">
               {STATUS_OPTIONS.map(opt => {
                 const active = statuses.includes(opt.value);
+                const toneColor = colors[opt.tone];
                 return (
                   <TouchableOpacity
                     key={opt.value}
                     onPress={() => toggle(opt.value, statuses, setStatuses)}
-                    className={`flex-row items-center gap-2 px-4 py-3 rounded-2xl border ${
-                      active ? opt.activeClass : 'border-surface-border bg-surface-background hover:bg-surface-overlay'
-                    }`}
+                    className="flex-row items-center gap-2 px-4 py-3 rounded-2xl border hover:bg-surface-overlay"
+                    style={{
+                      backgroundColor: active ? toneColor + '1A' : colors.background,
+                      borderColor: active ? toneColor : colors.border,
+                    }}
                   >
                     <FontAwesome
                       name={opt.icon as any}
@@ -212,9 +204,8 @@ export default function ReportFiltersModal({ visible, onClose, onApply, initial 
                       color={active ? opt.iconColor : colors.textMuted}
                     />
                     <Text
-                      className={`text-[10px] font-black uppercase tracking-widest ${
-                        active ? opt.textActive : 'text-typography-muted'
-                      }`}
+                      className="text-[10px] font-black uppercase tracking-widest"
+                      style={{ color: active ? toneColor : colors.textMuted }}
                     >
                       {opt.label}
                     </Text>
@@ -224,7 +215,7 @@ export default function ReportFiltersModal({ visible, onClose, onApply, initial 
             </View>
 
             {/* TYPE */}
-            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mb-4">Report Type</Text>
+            <Text className="text-[10px] font-black uppercase tracking-[0.2em] mb-4" style={{ color: colors.textMuted }}>Report Type</Text>
             <View className="flex-row flex-wrap gap-2 mb-8">
               {REPORT_TYPE_OPTIONS.map(opt => {
                 const active = types.includes(opt.value);
@@ -232,11 +223,11 @@ export default function ReportFiltersModal({ visible, onClose, onApply, initial 
                   <TouchableOpacity
                     key={opt.value}
                     onPress={() => toggle(opt.value, types, setTypes)}
-                    className={`flex-row items-center gap-2 px-4 py-3 rounded-2xl border ${
-                      active
-                        ? 'bg-brand-primary border-brand-primary'
-                        : 'border-surface-border bg-surface-background hover:bg-surface-overlay'
-                    }`}
+                    className="flex-row items-center gap-2 px-4 py-3 rounded-2xl border hover:bg-surface-overlay"
+                    style={{
+                      backgroundColor: active ? colors.primary : colors.background,
+                      borderColor: active ? colors.primary : colors.border,
+                    }}
                   >
                     <FontAwesome
                       name={opt.icon as any}
@@ -244,9 +235,8 @@ export default function ReportFiltersModal({ visible, onClose, onApply, initial 
                       color={active ? 'white' : colors.textMuted}
                     />
                     <Text
-                      className={`text-[10px] font-black uppercase tracking-widest ${
-                        active ? 'text-white' : 'text-typography-muted'
-                      }`}
+                      className="text-[10px] font-black uppercase tracking-widest"
+                      style={{ color: active ? '#fff' : colors.textMuted }}
                     >
                       {opt.label}
                     </Text>
@@ -257,10 +247,10 @@ export default function ReportFiltersModal({ visible, onClose, onApply, initial 
 
             {/* DATE RANGE */}
             <View className="flex-row items-center justify-between mb-4">
-              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em]">Date Range</Text>
+              <Text className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: colors.textMuted }}>Date Range</Text>
               {(dateFrom || dateTo) && (
                 <TouchableOpacity onPress={clearDates}>
-                  <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest">Clear Dates</Text>
+                  <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.primary }}>Clear Dates</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -270,9 +260,10 @@ export default function ReportFiltersModal({ visible, onClose, onApply, initial 
                 <TouchableOpacity
                   key={p.label}
                   onPress={() => applyPreset(p.days)}
-                  className="flex-1 min-w-[80px] py-3 rounded-xl border border-surface-border bg-surface-background hover:bg-surface-overlay"
+                  className="flex-1 min-w-[80px] py-3 rounded-xl hover:bg-surface-overlay"
+                  style={{ borderWidth: 1, borderColor: colors.border, backgroundColor: colors.background }}
                 >
-                  <Text className="text-center text-typography-muted font-black text-[10px] uppercase tracking-widest">
+                  <Text className="text-center font-black text-[10px] uppercase tracking-widest" style={{ color: colors.textMuted }}>
                     {p.label}
                   </Text>
                 </TouchableOpacity>
@@ -283,17 +274,16 @@ export default function ReportFiltersModal({ visible, onClose, onApply, initial 
             <View className="flex-row gap-2 mb-5">
               <TouchableOpacity
                 onPress={() => setActiveDateField('from')}
-                className={`flex-1 py-4 px-4 rounded-2xl border ${
-                  activeDateField === 'from'
-                    ? 'bg-brand-primary/10 border-brand-primary'
-                    : 'border-surface-border bg-surface-background'
-                }`}
+                className="flex-1 py-4 px-4 rounded-2xl border"
+                style={{
+                  backgroundColor: activeDateField === 'from' ? colors.primary + '1A' : colors.background,
+                  borderColor: activeDateField === 'from' ? colors.primary : colors.border,
+                }}
               >
-                <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest text-center">From</Text>
+                <Text className="text-[9px] font-black uppercase tracking-widest text-center" style={{ color: colors.textMuted }}>From</Text>
                 <Text
-                  className={`text-center font-black text-sm mt-1 ${
-                    activeDateField === 'from' ? 'text-brand-primary' : 'text-typography-main'
-                  }`}
+                  className="text-center font-black text-sm mt-1"
+                  style={{ color: activeDateField === 'from' ? colors.primary : colors.textMain }}
                   numberOfLines={1}
                 >
                   {dateFrom ?? 'Anytime'}
@@ -301,17 +291,16 @@ export default function ReportFiltersModal({ visible, onClose, onApply, initial 
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => setActiveDateField('to')}
-                className={`flex-1 py-4 px-4 rounded-2xl border ${
-                  activeDateField === 'to'
-                    ? 'bg-brand-primary/10 border-brand-primary'
-                    : 'border-surface-border bg-surface-background'
-                }`}
+                className="flex-1 py-4 px-4 rounded-2xl border"
+                style={{
+                  backgroundColor: activeDateField === 'to' ? colors.primary + '1A' : colors.background,
+                  borderColor: activeDateField === 'to' ? colors.primary : colors.border,
+                }}
               >
-                <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest text-center">To</Text>
+                <Text className="text-[9px] font-black uppercase tracking-widest text-center" style={{ color: colors.textMuted }}>To</Text>
                 <Text
-                  className={`text-center font-black text-sm mt-1 ${
-                    activeDateField === 'to' ? 'text-brand-primary' : 'text-typography-main'
-                  }`}
+                  className="text-center font-black text-sm mt-1"
+                  style={{ color: activeDateField === 'to' ? colors.primary : colors.textMain }}
                   numberOfLines={1}
                 >
                   {dateTo ?? 'Anytime'}
@@ -320,7 +309,8 @@ export default function ReportFiltersModal({ visible, onClose, onApply, initial 
             </View>
 
             <PremiumCalendarPicker
-              compact
+              scale="compact"
+              showDaysBetween
               selectedDate={activeDateField === 'from' ? dateFrom : dateTo}
               onSelect={(date) => {
                 if (activeDateField === 'from') {
@@ -330,24 +320,28 @@ export default function ReportFiltersModal({ visible, onClose, onApply, initial 
                   setDateTo(date);
                 }
               }}
+              accentColor={activeDateField === 'from' ? colors.primary : colors.secondary}
+              rangeDate={activeDateField === 'from' ? dateTo : dateFrom}
+              rangeColor={activeDateField === 'from' ? colors.secondary : colors.primary}
             />
           </ScrollView>
 
           {/* Footer */}
           <View
-            className={`flex-row gap-3 border-t border-surface-border bg-surface-card/50 ${
-              isCompact ? 'px-6 py-5 pb-8' : 'p-8'
-            }`}
+            className={`flex-row gap-3 ${isCompact ? 'px-6 py-5 pb-8' : 'p-8'}`}
+            style={{ borderTopWidth: 1, borderColor: colors.border, backgroundColor: colors.card + '80' }}
           >
             <TouchableOpacity
               onPress={handleClearAll}
-              className="flex-1 py-4 rounded-2xl bg-surface-background border border-surface-border items-center"
+              className="flex-1 py-4 rounded-2xl items-center"
+              style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}
             >
-              <Text className="text-typography-muted font-black uppercase tracking-widest text-[11px]">Clear All</Text>
+              <Text className="font-black uppercase tracking-widest text-[11px]" style={{ color: colors.textMuted }}>Clear All</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={handleApply}
-              className="flex-[2] py-4 rounded-2xl bg-brand-primary items-center"
+              className="flex-[2] py-4 rounded-2xl items-center"
+              style={{ backgroundColor: colors.primary }}
             >
               <Text className="text-white font-black uppercase tracking-widest text-[11px]">Apply Filters</Text>
             </TouchableOpacity>

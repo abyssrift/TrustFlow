@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { formatRelative } from '@/lib/time';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -12,7 +13,7 @@ export const PLATFORM_OWNERS = [
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-export type Section = 'command' | 'tenants' | 'signals' | 'live' | 'users' | 'infra' | 'alerts' | 'trial_codes';
+export type Section = 'command' | 'tenants' | 'signals' | 'live' | 'users' | 'infra' | 'alerts' | 'trial_codes' | 'plans';
 
 export type CompanyOverview = {
   id: string;
@@ -131,22 +132,17 @@ export function fmtMins(mins: number): string {
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
+export function timeAgo(dateStr: string | null | undefined): string {
+  if (!dateStr) return 'Never';
+  return formatRelative(dateStr);
+}
+
 export function fmtNumber(n: number): string {
   if (n === null || n === undefined || isNaN(n)) return '0';
   return n.toLocaleString();
 }
 
-export function timeAgo(dateStr: string | null | undefined): string {
-  if (!dateStr) return 'Never';
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'Just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.floor(hrs / 24);
-  return `${days}d ago`;
-}
+
 
 export function fmtDay(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('en-US', {

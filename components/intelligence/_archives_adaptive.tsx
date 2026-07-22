@@ -7,12 +7,14 @@ import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { ActivityIndicator, Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useAlert } from '@/contexts/AlertContext';
 
 export default function IntelligenceArchivesNative() {
   const colors = useThemeColors();
   const { hasPermission } = useAuth();
   const router = useRouter();
+  const { showAlert } = useAlert();
   const [archives, setArchives] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [restoringId, setRestoringId] = useState<string | null>(null);
@@ -22,8 +24,31 @@ export default function IntelligenceArchivesNative() {
     pipelines: new Set(), stages: new Set(),
   });
   const [restoreModal, setRestoreModal] = useState<{ visible: boolean; archive?: any }>({ visible: false });
+  const [selected, setSelected]         = useState<Set<string>>(new Set());
+  const [deleting, setDeleting]         = useState(false);
+  const [deleteModal, setDeleteModal]   = useState(false);
 
   useEffect(() => { fetchArchives(); }, [debouncedSearch]);
+
+  const toggleSelected = (id: string) =>
+    setSelected(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+
+  const handleBulkDelete = async () => {
+    try {
+      setDeleting(true);
+      const { error } = await supabase.rpc('rpc_purge_archives', { p_archive_ids: Array.from(selected) });
+      if (error) throw error;
+      setSelected(new Set());
+      setDeleteModal(false);
+      await fetchArchives();
+    } catch (e: any) {
+      showAlert('Delete Failed', e.message);
+    } finally { setDeleting(false); }
+  };
 
   const fetchArchives = async () => {
     setLoading(true);
@@ -31,6 +56,7 @@ export default function IntelligenceArchivesNative() {
       const { data: archiveData, error } = await supabase.rpc('rpc_get_archives', { p_search: debouncedSearch || null });
       if (error) throw error;
       setArchives(archiveData || []);
+      setSelected(new Set());
       const [pRes, sRes] = await Promise.all([
         supabase.from('pipelines').select('id'),
         supabase.from('pipeline_stages').select('id'),
@@ -57,9 +83,9 @@ export default function IntelligenceArchivesNative() {
       if (error) throw error;
       await fetchArchives();
       setRestoreModal({ visible: false });
-      Alert.alert('Restored', 'Asset has been returned to the active pipeline.');
+      showAlert('Restored', 'Asset has been returned to the active pipeline.');
     } catch (e: any) {
-      Alert.alert('Restoration Failed', e.message);
+      showAlert('Restoration Failed', e.message);
     } finally { setRestoringId(null); }
   };
 
@@ -104,6 +130,19 @@ export default function IntelligenceArchivesNative() {
         </TouchableOpacity>
       </View>
 
+      {selected.size > 0 && hasPermission('archive.delete') && (
+        <View className="mx-6 mb-4 flex-row items-center justify-between bg-state-danger/10 border border-state-danger/30 rounded-2xl px-4 py-3">
+          <Text className="text-state-danger text-xs font-black uppercase tracking-wider">{selected.size} Selected</Text>
+          <TouchableOpacity
+            onPress={() => setDeleteModal(true)}
+            className="bg-state-danger px-3 py-2 rounded-xl flex-row items-center gap-2"
+          >
+            <FontAwesome name="trash" size={11} color="#fff" />
+            <Text className="text-white text-[10px] font-black uppercase tracking-widest">Delete</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {loading ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color={colors.primary} />
@@ -127,7 +166,16 @@ export default function IntelligenceArchivesNative() {
             const isRestored = !!archive.restored_at;
             const title      = archive.metadata?.title || archive.metadata?.name || 'Untitled';
             return (
-              <View key={archive.id} className="bg-surface-card border border-surface-border rounded-2xl p-5 mb-3 flex-row items-center">
+              <View key={archive.id} className={`bg-surface-card border border-surface-border rounded-2xl p-5 mb-3 flex-row items-center ${selected.has(archive.id) ? 'bg-brand-primary/5 border-brand-primary/30' : ''}`}>
+                {hasPermission('archive.delete') && (
+                  <TouchableOpacity onPress={() => toggleSelected(archive.id)} className="mr-3">
+                    <FontAwesome
+                      name={selected.has(archive.id) ? 'check-square' : 'square-o'}
+                      size={18}
+                      color={selected.has(archive.id) ? colors.primary : colors.textMuted}
+                    />
+                  </TouchableOpacity>
+                )}
                 <View className={`w-11 h-11 rounded-xl items-center justify-center mr-4 ${isRestored ? 'bg-state-success/10' : 'bg-surface-background border border-surface-border'}`}>
                   <FontAwesome
                     name={archive.entity_type === 'project' ? 'briefcase' : 'tasks'}
@@ -171,6 +219,17 @@ export default function IntelligenceArchivesNative() {
         loading={!!restoringId}
         onConfirm={() => restoreModal.archive && handleRestore(restoreModal.archive)}
         onCancel={() => setRestoreModal({ visible: false })}
+      />
+
+      <ConfirmModal
+        visible={deleteModal}
+        title="Delete Permanently"
+        description={`This will permanently delete ${selected.size} archived item${selected.size === 1 ? '' : 's'} and all associated snapshot data. This cannot be undone.`}
+        confirmLabel="Delete Forever"
+        variant="danger"
+        loading={deleting}
+        onConfirm={handleBulkDelete}
+        onCancel={() => setDeleteModal(false)}
       />
     </View>
   );

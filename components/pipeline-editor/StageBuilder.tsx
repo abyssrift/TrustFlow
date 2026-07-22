@@ -34,7 +34,7 @@ export default function StageBuilder() {
   const [formIsInitial, setFormIsInitial] = useState(false);
   const [formIsTerminal, setFormIsTerminal] = useState(false);
   const [formTerminalType, setFormTerminalType] = useState<'success' | 'failure' | ''>('');
-  const [formRequiresSub, setFormRequiresSub] = useState(false);
+  const [formSubmissionMode, setFormSubmissionMode] = useState<'none' | 'optional' | 'required'>('none');
   const [formRequiresTimer, setFormRequiresTimer] = useState(false);
   const [formMinTimerMinutes, setFormMinTimerMinutes] = useState(5);
   const [formUseBus, setFormUseBus] = useState(false);
@@ -50,7 +50,7 @@ export default function StageBuilder() {
     setFormIsInitial(false);
     setFormIsTerminal(false);
     setFormTerminalType('');
-    setFormRequiresSub(false);
+    setFormSubmissionMode('none');
     setFormRequiresTimer(false);
     setFormMinTimerMinutes(5);
     setFormUseBus(false);
@@ -67,7 +67,7 @@ export default function StageBuilder() {
     setFormIsInitial(s.is_initial);
     setFormIsTerminal(s.is_terminal);
     setFormTerminalType(s.terminal_type || '');
-    setFormRequiresSub(s.requires_submission);
+    setFormSubmissionMode(s.submission_mode ?? (s.requires_submission ? 'required' : 'none'));
     setFormRequiresTimer(s.requires_timer);
     setFormMinTimerMinutes(Math.max(0, Math.round((s.min_timer_seconds ?? 300) / 60)));
     setFormUseBus(s.use_business_hours);
@@ -86,7 +86,7 @@ export default function StageBuilder() {
       is_initial: formIsInitial,
       is_terminal: formIsTerminal,
       terminal_type: formTerminalType || null,
-      requires_submission: formRequiresSub,
+      submission_mode: formSubmissionMode,
       requires_timer: formRequiresTimer,
       min_timer_seconds: formRequiresTimer ? Math.max(0, formMinTimerMinutes) * 60 : 0,
       use_business_hours: formUseBus,
@@ -106,7 +106,7 @@ export default function StageBuilder() {
       is_initial: formIsInitial,
       is_terminal: formIsTerminal,
       terminal_type: formTerminalType || null,
-      requires_submission: formRequiresSub,
+      submission_mode: formSubmissionMode,
       requires_timer: formRequiresTimer,
       min_timer_seconds: formRequiresTimer ? Math.max(0, formMinTimerMinutes) * 60 : 0,
       use_business_hours: formUseBus,
@@ -221,14 +221,21 @@ export default function StageBuilder() {
           icon="sign-in"
           color={colors.info}
         />
-        <FlagToggle
-          label="Requires Submission"
-          desc="Workers must submit work before advancing"
-          active={formRequiresSub}
-          onToggle={() => setFormRequiresSub(!formRequiresSub)}
-          icon="upload"
-          color={colors.accent}
-        />
+        <View>
+          <Text className="text-typography-label text-[10px] font-bold uppercase tracking-wider mb-1.5">Submission Gate</Text>
+          <View className="flex-row gap-2">
+            {(['none', 'optional', 'required'] as const).map(m => (
+              <TouchableOpacity
+                key={m}
+                onPress={() => setFormSubmissionMode(m)}
+                className={`flex-1 py-2.5 rounded-xl items-center border h-11 justify-center ${formSubmissionMode === m ? 'bg-brand-accent-dim border-brand-accent/40' : 'bg-surface-background border-surface-border'}`}
+              >
+                <Text className={`text-[11px] font-black uppercase tracking-wide ${formSubmissionMode === m ? 'text-brand-accent' : 'text-typography-muted'}`}>{m}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text className="text-typography-dim text-[10px] mt-1 italic opacity-80">Required blocks advancing until work is submitted; optional allows it without blocking.</Text>
+        </View>
         <FlagToggle
           label="Requires Timer"
           desc="Enforces time-tracking for this stage"

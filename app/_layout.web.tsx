@@ -4,18 +4,23 @@ import { useFonts } from 'expo-font';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { Text, View } from 'react-native';
+import { View, useWindowDimensions } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
 import 'react-native-reanimated';
 import '../global.css';
 
+import BrandSplash from '@/components/BrandSplash';
 import NetworkStatusBanner from '@/components/NetworkStatusBanner';
 import Sidebar from '@/components/Sidebar.web';
+import IslandTimeApprovalsBridge from '@/components/island/IslandTimeApprovalsBridge.web';
+import IslandTimerBridge from '@/components/island/IslandTimerBridge.web';
 import TimerIsland from '@/components/TimerIsland';
 import WelcomeTour from '@/components/onboarding/WelcomeTour';
 import { useColorScheme } from '@/components/useColorScheme';
 import { AlertProvider } from '@/contexts/AlertContext';
 import { AnalyticsProvider } from '@/contexts/AnalyticsContext';
+import { IslandProvider } from '@/contexts/IslandContext';
+import { UploadManagerProvider } from '@/contexts/UploadManagerContext';
 import { NotificationsProvider } from '@/contexts/NotificationsContext';
 import { SubmissionProvider } from '@/contexts/SubmissionContext';
 import { ThemeProvider as AppThemeProvider } from '@/contexts/ThemeContext';
@@ -52,27 +57,27 @@ export default function RootLayout() {
   }, [loaded, error]);
 
   if (!loaded && !error) {
-    return (
-      <View className="flex-1 bg-surface-background items-center justify-center">
-        <Text className="text-typography-main">Loading TrustFlow...</Text>
-      </View>
-    );
+    return <BrandSplash />;
   }
 
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <SubmissionProvider>
-          <TimerProvider>
-            <AppThemeProvider>
-              <AlertProvider>
+        <TimerProvider>
+          <AppThemeProvider>
+            <AlertProvider>
+              <SubmissionProvider>
                 <ToastProvider>
-                  <RootLayoutNav />
+                  <IslandProvider>
+                    <UploadManagerProvider>
+                      <RootLayoutNav />
+                    </UploadManagerProvider>
+                  </IslandProvider>
                 </ToastProvider>
-              </AlertProvider>
-            </AppThemeProvider>
-          </TimerProvider>
-        </SubmissionProvider>
+              </SubmissionProvider>
+            </AlertProvider>
+          </AppThemeProvider>
+        </TimerProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );
@@ -88,12 +93,17 @@ function RootLayoutNav() {
   const { session, profile, initialized } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+  const { width } = useWindowDimensions();
 
   useEffect(() => {
     if (!initialized) return;
 
     const inAuthGroup = segments[0] === '(auth)';
     const inOnboarding = segments[0] === 'onboarding';
+
+    // Public FileHub share links (/share/[token]) are meant to be opened by
+    // logged-out recipients outside the app entirely — never redirect them.
+    if (segments[0] === 'share') return;
 
     if (!session && !inAuthGroup) {
       router.replace('/(auth)/login');
@@ -109,18 +119,28 @@ function RootLayoutNav() {
     }
   }, [session, profile, initialized, segments]);
 
-  const showSidebar = session && segments[0] !== '(auth)' && segments[0] !== 'onboarding';
+  const showSidebar = session && segments[0] !== '(auth)' && segments[0] !== 'onboarding' && segments[0] !== 'share';
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AnalyticsProvider>
         <NotificationsProvider>
           <PingHighlightProvider>
-          <View className="flex-1 bg-surface-background" style={{ flex: 1, minHeight: '100vh', height: '100%', width: '100%' }}>
+          {/* 100dvh, not 100vh: on mobile browsers `vh` is the *large* viewport and
+              includes the space behind the retracting address bar, so a 100vh root
+              overflows the (overflow:hidden) body and clips whatever sits at its
+              bottom edge — namely the floating mobile nav. `dvh` tracks the
+              visible viewport instead. Matches body's sizing in global.css. */}
+          <View className="flex-1 bg-surface-background" style={{ flex: 1, minHeight: '100dvh', height: '100%', width: '100%' } as any}>
             {/* Always-on ping listener — one WebSocket channel for the current user */}
             {session && <GlobalPingGuard />}
             {session && <WelcomeTour />}
-            <TimerIsland />
+            {/* Desktop web shows the timer in the topbar island (published via
+                IslandTimerBridge), so only draw the floating pill on mobile web
+                (< 768). The bridge mirrors the running timer into the island. */}
+            <TimerIsland floating={width < 768} />
+            {session && width >= 768 && <IslandTimerBridge />}
+            {session && width >= 768 && <IslandTimeApprovalsBridge />}
             <View className="absolute top-0 left-0 right-0 z-[999]">
               <NetworkStatusBanner />
             </View>

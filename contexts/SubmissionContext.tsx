@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { taskFlowDebug, taskFlowError } from '@/lib/taskDebug';
 import * as ImageManipulator from 'expo-image-manipulator';
 import React, { createContext, useCallback, useContext, useState } from 'react';
-import { Alert } from 'react-native';
+import { useAlert } from '@/contexts/AlertContext';
 
 export type UploadJob = {
   taskId: string;
@@ -25,6 +25,14 @@ type SubmissionContextType = {
     content: string;
     transitionId?: string | null;
     stagedFiles: any[];
+  }) => Promise<void>;
+  editSubmission: (submissionId: string, params: {
+    taskId: string;
+    taskTitle: string;
+    companyId: string;
+    content: string;
+    keptAttachmentIds: string[];
+    newFiles: any[];
   }) => Promise<void>;
   clearJob: (taskId: string) => void;
 };
@@ -52,6 +60,7 @@ const SubmissionContext = createContext<SubmissionContextType | undefined>(undef
 
 export function SubmissionProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
+  const { showAlert } = useAlert();
   const [activeJobs, setActiveJobs] = useState<Record<string, UploadJob>>({});
 
   const updateJob = useCallback((taskId: string, updates: Partial<UploadJob>) => {
@@ -71,6 +80,84 @@ export function SubmissionProvider({ children }: { children: React.ReactNode }) 
       return next;
     });
   }, []);
+
+  // Shared upload path: optimize images, upload to submission-attachments,
+  // return the jsonb attachment shape the RPCs accept. Used by submit + edit.
+  const uploadFilesToStorage = async (
+    taskId: string,
+    companyId: string,
+    files: any[],
+    onFileDone?: (completed: number, total: number) => void
+  ): Promise<any[]> => {
+    if (!user) throw new Error('Auth required');
+    const uploadedAttachments: any[] = [];
+    let completedCount = 0;
+
+    const processAndUploadFile = async (file: any) => {
+      let finalUri = file.uri;
+      const category = getFileCategory(file.type || '');
+
+      // 1. Optimize Images
+      if (category === 'image') {
+        try {
+          const result = await ImageManipulator.manipulateAsync(
+            file.uri,
+            [{ resize: { width: 2000 } }],
+            { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+          );
+          finalUri = result.uri;
+        } catch (e) {
+          console.warn('Optimization failed', e);
+        }
+      }
+
+      // 2. Convert URI to Blob (Crucial for Web compatibility)
+      const response = await fetch(finalUri);
+      const blob = await response.blob();
+
+      // 3. Upload to Storage
+      const fileExt = file.name.split('.').pop() || 'bin';
+      const filePath = `${companyId}/tasks/${taskId}/users/${user.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+      const { data, error: storageError } = await supabase.storage
+        .from('submission-attachments')
+        .upload(filePath, blob, {
+          contentType: file.type || 'application/octet-stream',
+          upsert: true
+        });
+
+      if (storageError) throw storageError;
+
+      completedCount++;
+      onFileDone?.(completedCount, files.length);
+
+      return {
+        file_name: file.name,
+        file_url: data.path,
+        storage_path: data.path,
+        file_size: file.size,
+        mime_type: file.type,
+        category: category
+      };
+    };
+
+    // Parallel Upload with Concurrency Limit 3
+    if (files.length > 0) {
+      const queue = [...files];
+      const workers = Array(Math.min(3, queue.length)).fill(null).map(async () => {
+        while (queue.length > 0) {
+          const file = queue.shift();
+          if (file) {
+            const result = await processAndUploadFile(file);
+            uploadedAttachments.push(result);
+          }
+        }
+      });
+      await Promise.all(workers);
+    }
+
+    return uploadedAttachments;
+  };
 
   const submitWithEvidence = async ({
     taskId,
@@ -109,81 +196,20 @@ export function SubmissionProvider({ children }: { children: React.ReactNode }) 
     setActiveJobs(prev => ({ ...prev, [taskId]: initialJob }));
 
     try {
-      const uploadedAttachments: any[] = [];
-      let completedCount = 0;
-
-      const processAndUploadFile = async (file: any) => {
-        let finalUri = file.uri;
-        const category = getFileCategory(file.type || '');
-        
-        // 1. Optimize Images
-        if (category === 'image') {
-          try {
-            const result = await ImageManipulator.manipulateAsync(
-              file.uri,
-              [{ resize: { width: 2000 } }],
-              { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
-            );
-            finalUri = result.uri;
-          } catch (e) {
-            console.warn('Optimization failed', e);
-          }
-        }
-
-        // 2. Convert URI to Blob (Crucial for Web compatibility)
-        const response = await fetch(finalUri);
-        const blob = await response.blob();
-
-        // 3. Upload to Storage
-        const fileExt = file.name.split('.').pop() || 'bin';
-        const filePath = `${companyId}/tasks/${taskId}/users/${user.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-
-        const { data, error: storageError } = await supabase.storage
-          .from('submission-attachments')
-          .upload(filePath, blob, {
-            contentType: file.type || 'application/octet-stream',
-            upsert: true
-          });
-
-        if (storageError) throw storageError;
-
-        completedCount++;
-        const currentProgress = Math.min(90, (completedCount / stagedFiles.length) * 100);
-
-        updateJob(taskId, {
-          completedFiles: completedCount,
-          progress: currentProgress,
-          currentAction: `Uploaded ${completedCount}/${stagedFiles.length}...`
-        });
-
-        return {
-          file_name: file.name,
-          file_url: data.path,
-          storage_path: data.path,
-          file_size: file.size,
-          mime_type: file.type,
-          category: category
-        };
-      };
-
-      // Parallel Upload with Concurrency Limit 3
       if (stagedFiles.length > 0) {
         taskFlowDebug('submission.upload:queued', {
           taskId,
           fileCount: stagedFiles.length,
         });
-        const queue = [...stagedFiles];
-        const workers = Array(Math.min(3, queue.length)).fill(null).map(async () => {
-          while (queue.length > 0) {
-            const file = queue.shift();
-            if (file) {
-              const result = await processAndUploadFile(file);
-              uploadedAttachments.push(result);
-            }
-          }
-        });
-        await Promise.all(workers);
       }
+
+      const uploadedAttachments = await uploadFilesToStorage(taskId, companyId, stagedFiles, (completed, total) => {
+        updateJob(taskId, {
+          completedFiles: completed,
+          progress: Math.min(90, (completed / total) * 100),
+          currentAction: `Uploaded ${completed}/${total}...`
+        });
+      });
 
       // 4. Commit to Database
       updateJob(taskId, { 
@@ -245,12 +271,94 @@ export function SubmissionProvider({ children }: { children: React.ReactNode }) 
         error: displayMessage,
         currentAction: 'Failed to submit evidence'
       });
-      Alert.alert('Submission Failed', `Task: ${taskTitle}\nError: ${displayMessage}`);
+      showAlert('Submission Failed', `Task: ${taskTitle}\nError: ${displayMessage}`);
+    }
+  };
+
+  // Feature A (Model B): upload only NEW files, then rpc_edit_submission creates
+  // a new version; kept attachments are pointer-copied server-side (no re-upload).
+  const editSubmission = async (submissionId: string, {
+    taskId,
+    taskTitle,
+    companyId,
+    content,
+    keptAttachmentIds,
+    newFiles
+  }: {
+    taskId: string;
+    taskTitle: string;
+    companyId: string;
+    content: string;
+    keptAttachmentIds: string[];
+    newFiles: any[];
+  }) => {
+    if (!user) throw new Error('Auth required');
+
+    taskFlowDebug('submission.editSubmission:start', {
+      taskId,
+      submissionId,
+      contentLength: content.length,
+      keptCount: keptAttachmentIds.length,
+      newFileCount: newFiles.length,
+    });
+
+    const initialJob: UploadJob = {
+      taskId,
+      taskTitle,
+      status: 'processing',
+      progress: 0,
+      currentAction: 'Preparing edit...',
+      totalFiles: newFiles.length,
+      completedFiles: 0
+    };
+    setActiveJobs(prev => ({ ...prev, [taskId]: initialJob }));
+
+    try {
+      const uploadedAttachments = await uploadFilesToStorage(taskId, companyId, newFiles, (completed, total) => {
+        updateJob(taskId, {
+          completedFiles: completed,
+          progress: Math.min(90, (completed / total) * 100),
+          currentAction: `Uploaded ${completed}/${total}...`
+        });
+      });
+
+      updateJob(taskId, {
+        currentAction: 'Saving new version...',
+        status: 'committing',
+        progress: 95
+      });
+
+      const { error: rpcError } = await supabase.rpc('rpc_edit_submission', {
+        p_submission_id: submissionId,
+        p_content: content,
+        p_kept_attachment_ids: keptAttachmentIds,
+        p_new_attachments: uploadedAttachments
+      });
+
+      if (rpcError) throw rpcError;
+
+      taskFlowDebug('submission.editSubmission:success', { taskId, submissionId });
+
+      updateJob(taskId, {
+        status: 'completed',
+        progress: 100,
+        currentAction: 'Submission updated!'
+      });
+
+      setTimeout(() => clearJob(taskId), 4000);
+    } catch (err: any) {
+      taskFlowError('submission.editSubmission:error', err, { taskId, submissionId });
+      updateJob(taskId, {
+        status: 'error',
+        error: err.message,
+        currentAction: 'Failed to update submission'
+      });
+      throw err;
     }
   };
 
   return (
-    <SubmissionContext.Provider value={{ activeJobs, submitWithEvidence, clearJob }}>
+    <SubmissionContext.Provider value={{ activeJobs, submitWithEvidence, editSubmission, clearJob }}>
       {children}
     </SubmissionContext.Provider>
   );

@@ -1,6 +1,7 @@
 import React from 'react'
 import { View, Text, StyleSheet, Svg, Rect, Line, Page } from '@react-pdf/renderer'
 import { C, F, M, GAP, base, rateColor } from './theme'
+import { formatDuration as fmtSec } from '@/lib/duration'
 
 // ── Formatters ────────────────────────────────────────────────────────────────
 
@@ -10,11 +11,7 @@ export const sf = (v: any, d = 0) =>
 export const fmtDate = (d?: string | null) =>
   d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'
 
-export const fmtSec = (s: number) => {
-  if (!s || s <= 0) return '0m'
-  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60)
-  return h > 0 ? `${h}h ${m}m` : `${m}m`
-}
+export { fmtSec }
 
 // ── Cover Page ────────────────────────────────────────────────────────────────
 

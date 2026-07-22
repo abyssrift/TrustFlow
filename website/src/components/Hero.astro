@@ -1,0 +1,132 @@
+---
+// Home hero (DESIGN_SPEC §8 pattern, §9 signature). The board leans back over an
+// indigo→violet aurora and bleeds past the fold — the one bold moment. On-load
+// fade-up is pure CSS and off under prefers-reduced-motion.
+import HeroVisual from './HeroVisual.astro';
+
+const APP_URL = 'https://portal.trustedgellc.com';
+---
+
+<section class="hero">
+  <!-- Ambient light at the top of the fold — a whisper behind the headline. -->
+  <div class="hero-toplight" aria-hidden="true"></div>
+
+  <div class="relative z-10 mx-auto max-w-content px-6 pb-0 pt-16 text-center sm:pt-20">
+    <p class="reveal text-eyebrow uppercase text-text-dim" style="animation-delay:0ms">
+      For agencies &amp; back-office teams
+    </p>
+
+    <h1
+      class="reveal text-display-sheen mx-auto mt-5 max-w-[19ch] text-balance text-h1 sm:max-w-4xl"
+      style="animation-delay:70ms"
+    >
+      Run client work, start to finish.
+    </h1>
+
+    <p
+      class="reveal mx-auto mt-6 max-w-prose text-pretty text-body-lg text-text-muted"
+      style="animation-delay:140ms"
+    >
+      Move deliverables through pipelines and stages, track effort, and review the
+      work in one place.
+    </p>
+
+    <div
+      class="reveal mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row"
+      style="animation-delay:210ms"
+    >
+      <a href={APP_URL} class="btn btn-lg btn-primary w-full sm:w-auto">Get started</a>
+      <a href="/product" class="btn btn-lg btn-secondary w-full sm:w-auto">
+        See the product
+        <span aria-hidden="true">&rarr;</span>
+      </a>
+    </div>
+
+    <!-- Board stage: aurora blooms from behind the top edge; board leans back
+         and runs off the bottom of the fold. -->
+    <div class="reveal board-stage mt-16 sm:mt-20" style="animation-delay:300ms">
+      <div class="aurora" aria-hidden="true"></div>
+      <div class="board-tilt">
+        <HeroVisual />
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .hero {
+    position: relative;
+  }
+
+  /* Faint overhead light so the top of the fold isn't dead-flat. */
+  .hero-toplight {
+    position: absolute;
+    left: 50%;
+    top: -10%;
+    width: min(900px, 120vw);
+    height: 420px;
+    transform: translateX(-50%);
+    pointer-events: none;
+    background: radial-gradient(
+      50% 50% at 50% 0%,
+      rgba(var(--accent), 0.1),
+      transparent 70%
+    );
+  }
+
+  .board-stage {
+    position: relative;
+    perspective: 2400px;
+  }
+
+  /* Signature aurora (§9): a bright indigo core at the board's top edge, softening
+     out through violet — light thrown up behind the screen. Three stacked radials:
+     tight hot core → mid indigo → wide violet halo. */
+  .aurora {
+    position: absolute;
+    left: 50%;
+    top: -18%;
+    z-index: 0;
+    width: min(1360px, 132vw);
+    height: 150%;
+    transform: translateX(-50%);
+    pointer-events: none;
+    background:
+      radial-gradient(34% 26% at 50% 27%, rgba(var(--accent-hover), 0.5), transparent 64%),
+      radial-gradient(52% 40% at 50% 30%, rgba(var(--accent), 0.42), transparent 70%),
+      radial-gradient(72% 54% at 50% 34%, rgba(var(--accent-violet), 0.26), transparent 74%);
+  }
+
+  .board-tilt {
+    position: relative;
+    z-index: 10;
+    transform: perspective(2400px) rotateX(3deg);
+    transform-origin: center top;
+  }
+
+  @media (max-width: 767px) {
+    .board-tilt {
+      transform: none;
+    }
+  }
+
+  /* On-load reveal (§7). Visible by default so reduced-motion + no-JS both show
+     content instantly; the hidden start only exists when motion is allowed. */
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal {
+      opacity: 0;
+      animation: hero-rise 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+  }
+
+  @keyframes hero-rise {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+</style>

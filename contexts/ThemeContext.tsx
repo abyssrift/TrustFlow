@@ -5,8 +5,6 @@ import { vars } from 'nativewind';
 import { NATIVE_THEME_COLORS } from '@/lib/layout';
 
 export type ThemeType = 'indigo' | 'emerald' | 'amber' | 'amethyst' | 'light' | 'dark';
-export type DensityType = 'compact' | 'normal' | 'comfort';
-export type RoundnessType = 'sharp' | 'normal' | 'soft';
 
 interface KanbanSettings {
   showPulse: boolean;
@@ -21,10 +19,6 @@ interface KanbanSettings {
 interface ThemeContextType {
   theme: ThemeType;
   setTheme: (t: ThemeType) => void;
-  density: DensityType;
-  setDensity: (d: DensityType) => void;
-  roundness: RoundnessType;
-  setRoundness: (r: RoundnessType) => void;
   kanban: KanbanSettings;
   updateKanban: (updates: Partial<KanbanSettings>) => void;
   themeVariables: any;
@@ -36,8 +30,6 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 const STORAGE_KEYS = {
   THEME: 'theme_choice',
-  DENSITY: 'density_choice',
-  ROUNDNESS: 'roundness_choice',
   KANBAN: 'kanban_settings',
 };
 
@@ -61,8 +53,6 @@ const hexToRgb = (hex: string) => {
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<ThemeType>('light');
-  const [density, setDensityState] = useState<DensityType>('normal');
-  const [roundness, setRoundnessState] = useState<RoundnessType>('normal');
   const [kanban, setKanbanState] = useState<KanbanSettings>(DEFAULT_KANBAN);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -71,16 +61,12 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const load = async () => {
       try {
         const savedTheme = await AsyncStorage.getItem(STORAGE_KEYS.THEME);
-        const savedDensity = await AsyncStorage.getItem(STORAGE_KEYS.DENSITY);
-        const savedRoundness = await AsyncStorage.getItem(STORAGE_KEYS.ROUNDNESS);
         const savedKanban = await AsyncStorage.getItem(STORAGE_KEYS.KANBAN);
 
         if (savedTheme) setThemeState(savedTheme as ThemeType);
-        if (savedDensity) setDensityState(savedDensity as DensityType);
-        if (savedRoundness) setRoundnessState(savedRoundness as RoundnessType);
         if (savedKanban) {
           const parsed = JSON.parse(savedKanban);
-          if (parsed.backgroundUrl?.startsWith('blob:')) parsed.backgroundUrl = null;
+          if (parsed.backgroundUrl?.startsWith('blob:') || parsed.backgroundUrl?.startsWith('file:')) parsed.backgroundUrl = null;
           setKanbanState(parsed);
         }
       } catch (e) {
@@ -95,24 +81,12 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (Platform.OS === 'web') {
       const root = document.documentElement;
       root.setAttribute('data-theme', theme);
-      root.setAttribute('data-density', density);
-      root.setAttribute('data-roundness', roundness);
     }
-  }, [theme, density, roundness]);
+  }, [theme]);
 
   const setTheme = (t: ThemeType) => {
     setThemeState(t);
     AsyncStorage.setItem(STORAGE_KEYS.THEME, t);
-  };
-
-  const setDensity = (d: DensityType) => {
-    setDensityState(d);
-    AsyncStorage.setItem(STORAGE_KEYS.DENSITY, d);
-  };
-
-  const setRoundness = (r: RoundnessType) => {
-    setRoundnessState(r);
-    AsyncStorage.setItem(STORAGE_KEYS.ROUNDNESS, r);
   };
 
   const updateKanban = (updates: Partial<KanbanSettings>) => {
@@ -144,9 +118,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   return (
     <ThemeContext.Provider value={{ 
-      theme, setTheme, 
-      density, setDensity, 
-      roundness, setRoundness, 
+      theme, setTheme,
       kanban, updateKanban,
       themeVariables,
       isLoading, setIsLoading

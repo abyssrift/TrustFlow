@@ -1,9 +1,16 @@
+import DraggableSheet from '@/components/common/DraggableSheet';
+import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
+import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useState } from 'react';
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import DraggableSheet from '@/components/common/DraggableSheet';
-import { useThemeColors } from '@/hooks/useThemeColors';
+
+const todayIso = () => new Date().toISOString().split('T')[0];
+const formatWorkedDate = (d: string) => {
+  if (d === todayIso()) return 'Today';
+  return new Date(d + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+};
 
 type Props = {
   visible: boolean;
@@ -21,6 +28,8 @@ export default function ManualTimeModal({ visible, taskId, stageId, transitionId
   const [hours, setHours] = useState('');
   const [minutes, setMinutes] = useState('');
   const [reason, setReason] = useState('');
+  const [workedDate, setWorkedDate] = useState(todayIso());
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,6 +37,8 @@ export default function ManualTimeModal({ visible, taskId, stageId, transitionId
     setHours('');
     setMinutes('');
     setReason('');
+    setWorkedDate(todayIso());
+    setShowDatePicker(false);
     setError(null);
   };
 
@@ -54,6 +65,7 @@ export default function ManualTimeModal({ visible, taskId, stageId, transitionId
         p_declared_minutes: totalMinutes,
         p_reason:           reason.trim() || null,
         p_transition_id:    transitionId ?? null,
+        p_worked_date:      workedDate,
       });
       if (rpcError) throw rpcError;
       reset();
@@ -71,7 +83,14 @@ export default function ManualTimeModal({ visible, taskId, stageId, transitionId
   };
 
   return (
-    <DraggableSheet visible={visible} onClose={handleCancel} dimBackdrop>
+    // Inline colors on purpose — theme-token classes go black inside RN Modal on web.
+    <DraggableSheet
+      visible={visible}
+      onClose={handleCancel}
+      dimBackdrop
+      containerClassName="rounded-t-[2rem] border-t"
+      containerStyle={{ backgroundColor: colors.card, borderColor: colors.border }}
+    >
 
           {/* Header */}
           <View className="p-10 items-center">
@@ -120,6 +139,28 @@ export default function ManualTimeModal({ visible, taskId, stageId, transitionId
               </View>
             </View>
 
+            {/* Worked on */}
+            <View className="mb-4">
+              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Worked On</Text>
+              <TouchableOpacity
+                onPress={() => setShowDatePicker(s => !s)}
+                className="bg-surface-background border border-surface-border rounded-2xl px-4 py-3 flex-row items-center justify-between"
+              >
+                <Text className="text-typography-main font-medium text-sm">{formatWorkedDate(workedDate)}</Text>
+                <FontAwesome name="calendar-o" size={12} color={colors.textMuted} />
+              </TouchableOpacity>
+              {showDatePicker && (
+                <View className="mt-2">
+                  <PremiumCalendarPicker
+                    selectedDate={workedDate}
+                    onSelect={d => { setWorkedDate(d > todayIso() ? todayIso() : d); setShowDatePicker(false); }}
+                    accentColor={colors.warning}
+                    scale="compact"
+                  />
+                </View>
+              )}
+            </View>
+
             {/* Reason */}
             <View className="mb-4">
               <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">
@@ -145,16 +186,6 @@ export default function ManualTimeModal({ visible, taskId, stageId, transitionId
                 <Text className="text-state-danger text-sm font-medium">{error}</Text>
               </View>
             )}
-
-            {/* Fraud notice */}
-            <View className="bg-state-warning/5 border border-state-warning/20 rounded-2xl p-4">
-              <View className="flex-row items-start gap-3">
-                <FontAwesome name="shield" size={14} color={colors.warning} style={{ marginTop: 1 }} />
-                <Text className="text-state-warning/80 text-xs font-medium leading-relaxed flex-1">
-                  All declarations are logged and auditable. Entries that significantly exceed the task estimate or stage average are automatically flagged for manager review.
-                </Text>
-              </View>
-            </View>
           </View>
 
           {/* Action buttons */}

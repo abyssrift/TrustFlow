@@ -41,7 +41,7 @@ function PipelineEditorInner() {
   if (!selectedPipeline) {
     return (
       <SafeAreaView className="flex-1" style={Platform.OS === 'android' ? { paddingTop: StatusBar.currentHeight } : {}}>
-        <View className="flex-1 bg-surface-background" style={Platform.OS === 'web' ? ({ minHeight: '100vh' } as any) : {}}>
+        <View className="flex-1 bg-surface-background" style={Platform.OS === 'web' ? ({ minHeight: '100dvh' } as any) : {}}>
           {/* Top Bar */}
           <View className="bg-surface-card px-4 pt-6 pb-6 border-b border-surface-border">
             <View className="flex-row items-center justify-between">
@@ -63,7 +63,7 @@ function PipelineEditorInner() {
   // ── Render Pipeline Editor (selected pipeline) ──
   return (
     <SafeAreaView className="flex-1" style={Platform.OS === 'android' ? { paddingTop: StatusBar.currentHeight } : {}}>
-      <View className="flex-1 bg-surface-background" style={Platform.OS === 'web' ? ({ minHeight: '100vh' } as any) : {}}>
+      <View className="flex-1 bg-surface-background" style={Platform.OS === 'web' ? ({ minHeight: '100dvh' } as any) : {}}>
         {/* Header with back button */}
         <View className="bg-surface-card px-4 pt-6 pb-4 border-b border-surface-border">
           <View className="flex-row items-center justify-between mb-4">

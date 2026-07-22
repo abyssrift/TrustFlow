@@ -1,5 +1,7 @@
+import ActiveSessionAvatars from '@/components/task-detail/ActiveSessionAvatars';
 import ConfirmModal from '@/components/common/ConfirmModal';
 import ManualTimeModal from '@/components/common/ManualTimeModal';
+import type { ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -10,7 +12,7 @@ import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
 import { buildTransitionTargetMap, splitStageActions, stageDirection, TYPE_STYLES } from './actionRegistry';
 import { DirectionalActionButton } from './DirectionalActionButton';
@@ -48,6 +50,7 @@ export default function TaskHeader() {
   const [archiving, setArchiving] = React.useState(false);
   const [showManualTimeModal, setShowManualTimeModal] = React.useState(false);
   const [pendingAction, setPendingAction] = React.useState<any | null>(null);
+
   const router = useRouter();
   const { successToast, errorToast, infoToast } = useToast();
   const colors = useThemeColors();
@@ -97,9 +100,27 @@ export default function TaskHeader() {
 
   const { task, current_stage } = data;
   const prio = PRIORITY_MAP[task.priority?.toLowerCase()] || PRIORITY_MAP.medium;
+
+  // Who's working right now. The detail context's realtime channel refetches on
+  // every session write — including the 30s heartbeat — so idle state stays live.
+  const activeSessions: ActiveSessionUser[] = (data.work_sessions || [])
+    .filter(ws => ws.status === 'active')
+    .map(ws => ({
+      userId: ws.user_id,
+      name: ws.user_name || 'User',
+      avatar: ws.avatar_url ?? null,
+      startedAt: ws.started_at,
+      lastHeartbeatAt: ws.last_heartbeat_at ?? null,
+    }));
   const canArchive = data.permissions.is_owner || hasPermission('archive:create') || hasPermission('pipeline.edit');
   const canPing = data.permissions.is_manager || hasPermission('task.ping') || data.permissions.is_owner;
 
+  // Deterministic: the task page's back arrow always returns to this task's
+  // pipeline board. History-based back (router.back / window.history.back) is
+  // unreliable here — the web layouts are Slot-based, so both React
+  // Navigation's GO_BACK and the browser history lose or skip the tasks tab
+  // and land on the dashboard or whatever tab came before it. The browser's
+  // own back button still gives true history for those who want it.
   const handleBack = () => {
     if (data.pipeline?.id) {
       router.replace(`/(tabs)/tasks?pipelineId=${data.pipeline.id}` as any);
@@ -187,9 +208,9 @@ export default function TaskHeader() {
   };
 
   return (
-    <View className="px-5 pt-12 pb-4 bg-surface-card border-b border-surface-border">
-      {/* Top row: back + badges */}
-      <View className="flex-row items-center mb-3">
+    <View className={`px-5 ${Platform.OS === 'web' ? 'pt-4' : 'pt-12'} pb-4 bg-surface-card border-b border-surface-border relative z-50`}>
+      {/* Top row: back + badges. Elevated so the presence popover clears the rows below it. */}
+      <View className="flex-row items-center mb-3 relative z-50">
         <TouchableOpacity
           onPress={handleBack}
           className="mr-4 bg-surface-background p-2 rounded-xl border border-surface-border active:opacity-50"
@@ -229,6 +250,16 @@ export default function TaskHeader() {
             </View>
           )}
         </View>
+
+        {/* Live presence — centered so its popover clears the title below.
+            The trailing flex-1 balances the badge zone to do the centering, so
+            both must go when nobody's working or the badges lose half the row. */}
+        {activeSessions.length > 0 && (
+          <>
+            <ActiveSessionAvatars sessions={activeSessions} align="center" className="mx-3" />
+            <View className="flex-1" />
+          </>
+        )}
       </View>
 
       {/* Title Row — full width */}

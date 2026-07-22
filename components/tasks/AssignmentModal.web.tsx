@@ -1,10 +1,11 @@
+import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Alert,
+  ActivityIndicator,
   ScrollView,
   Text,
   TextInput,
@@ -40,6 +41,7 @@ export default function AssignmentModal({
   const [teamSearch, setTeamSearch] = useState('');
   const [userSearch, setUserSearch] = useState('');
   const colors = useThemeColors();
+  const { showAlert } = useAlert();
 
   const { user: currentUser, profile } = useAuth();
 
@@ -141,7 +143,7 @@ export default function AssignmentModal({
       onSave();
       onClose();
     } catch (err: any) {
-      Alert.alert('Assignment Failed', err.message);
+      showAlert('Assignment Failed', err.message);
     } finally {
       setSaving(false);
     }

@@ -3,11 +3,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { useAlert } from '@/contexts/AlertContext';
 import { supabase } from '@/lib/supabase';
+import { formatCompact } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useState, useEffect, useRef } from 'react';
 import { Image, Modal, Platform, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import DraggableSheet from '@/components/common/DraggableSheet';
+import { daysToPeriodParams } from '@/lib/analyticsPeriods';
 import { cssInterop } from 'react-native-css-interop';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -18,6 +20,10 @@ cssInterop(FontAwesome, {
   },
 } as any);
 
+function fmtDur(sec: number): string {
+  return formatCompact(sec);
+}
+
 type TabType = 'profile' | 'activity' | 'roles';
 
 type ActivityData = {
@@ -25,12 +31,13 @@ type ActivityData = {
   tasksCompleted: number;
   hoursWorked: number;
   averageCompletionTime: number;
+  points: number;
   chartData: Array<{ date: string; tasks: number; hours: number; }>;
 };
 
 export default function UserAssignmentGrid() {
   const { users, roles, teams, userRoles, teamMembers, teamRoles, updateUserAssignments, removeUserFromCompany, loading } = useRoleManager();
-  const { hasPermission, profile } = useAuth();
+  const { hasPermission } = useAuth();
   const { showConfirm } = useAlert();
   const colors = useThemeColors();
   const { width } = useWindowDimensions();
@@ -45,36 +52,66 @@ export default function UserAssignmentGrid() {
   const [activityData, setActivityData] = useState<ActivityData | null>(null);
   const [activityLoading, setActivityLoading] = useState(false);
 
-  const fetchActivityData = async (userId: string, companyId: string | undefined) => {
-    if (!companyId) return;
+  const fetchActivityData = async (userId: string) => {
     setActivityLoading(true);
     try {
-      const [summaryRes, seriesRes, activityRes] = await Promise.all([
-        supabase.rpc('rpc_get_user_performance_summary', { p_user_id: userId, p_start_ts: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), p_end_ts: new Date().toISOString() }),
-        supabase.rpc('rpc_get_user_performance_series', { p_user_id: userId, p_period_type: 'day', p_days: 7 }),
-        supabase.from('activity_log').select('*').eq('user_id', userId).eq('company_id', companyId).order('logged_at', { ascending: false }).limit(10),
+      // rpc_get_user_performance_series only buckets by 'week'/'month' snapshot —
+      // there's no daily granularity, so a "last 30 days" window is shown as ~4 weekly points.
+      const { periodType, nPeriods } = daysToPeriodParams(30);
+      const from = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const to   = new Date().toISOString().split('T')[0];
+      // Recent activity from real signals — completed work sessions + stage moves by
+      // this user (same tables the board feed uses). activity_log is ping-only, so it
+      // was never the right source here.
+      const [summaryRes, seriesRes, sessRes, histRes] = await Promise.all([
+        supabase.rpc('rpc_get_user_performance_summary', { p_user_id: userId, p_from: from, p_to: to }),
+        // p_company_id explicit (even null) disambiguates the overloaded RPC — a bare
+        // 3-arg call is ambiguous (PGRST203). null = aggregate across companies.
+        supabase.rpc('rpc_get_user_performance_series', { p_user_id: userId, p_period_type: periodType, p_n_periods: nPeriods, p_company_id: null }),
+        supabase.from('task_work_sessions')
+          .select('id, task_id, started_at, last_heartbeat_at, task:task_id(title)')
+          .eq('user_id', userId).eq('status', 'completed')
+          .order('started_at', { ascending: false }).limit(10),
+        supabase.from('pipeline_stage_history')
+          .select('id, task_id, to_stage_name, transitioned_at, task:task_id(title)')
+          .eq('transitioned_by', userId)
+          .order('transitioned_at', { ascending: false }).limit(10),
       ]);
+
+      for (const r of [summaryRes, seriesRes, sessRes, histRes]) {
+        if (r.error) console.error('activity fetch error:', r.error);
+      }
 
       const summary = summaryRes.data || {};
       const series = seriesRes.data || [];
-      const activities = activityRes.data || [];
 
-      const chartData = series.map((item: any) => ({
-        date: new Date(item.period_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        tasks: item.task_submissions_count || 0,
-        hours: parseFloat((((item.total_tracked_seconds || 0) / 3600) * 24).toFixed(1)),
+      // Series comes newest-first (ORDER BY period offset 0 = current); reverse so the
+      // charts read oldest → newest left-to-right.
+      const chartData = [...series].reverse().map((item: any) => ({
+        date: item.period_label,
+        tasks: item.completed_tasks || 0,
+        hours: parseFloat(((item.active_seconds || 0) / 3600).toFixed(1)),
       }));
 
-      setActivityData({
-        tasksCompleted: summary.task_submissions_count || 0,
-        hoursWorked: parseFloat((((summary.total_tracked_seconds || 0) / 3600)).toFixed(1)),
-        averageCompletionTime: parseFloat((summary.avg_cycle_time_hours || 0).toFixed(1)),
-        recentActivities: activities.map(a => ({
-          id: a.id,
-          type: a.action || 'activity',
-          description: `${a.action}`,
-          timestamp: a.logged_at,
+      const completedTasks = summary.completed_tasks || 0;
+      const activeSeconds = summary.active_seconds || 0;
+
+      const recentActivities = [
+        ...(sessRes.data || []).map((s: any) => {
+          const secs = Math.max(0, Math.floor((new Date(s.last_heartbeat_at).getTime() - new Date(s.started_at).getTime()) / 1000));
+          return { id: `w${s.id}`, type: 'Worked', description: `${fmtDur(secs)} · ${(s.task as any)?.title || 'a task'}`, timestamp: s.started_at };
+        }),
+        ...(histRes.data || []).map((h: any) => ({
+          id: `h${h.id}`, type: 'Moved', description: `→ ${h.to_stage_name || 'a stage'} · ${(h.task as any)?.title || 'a task'}`, timestamp: h.transitioned_at,
         })),
+      ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 10);
+
+      setActivityData({
+        tasksCompleted: completedTasks,
+        hoursWorked: parseFloat((activeSeconds / 3600).toFixed(1)),
+        averageCompletionTime: completedTasks > 0 ? parseFloat((activeSeconds / completedTasks / 3600).toFixed(1)) : 0,
+        points: summary.weight_points || 0,
+        recentActivities,
         chartData,
       });
     } catch (e) {
@@ -84,27 +121,30 @@ export default function UserAssignmentGrid() {
     }
   };
 
-  const handleOpenUser = (user: User) => {
+  const handleOpenUser = (user: User, tab: TabType = 'profile') => {
     const currentRoles = userRoles.filter(ur => ur.user_id === user.id).map(ur => ur.role_id);
     const currentTeams = teamMembers.filter(tm => tm.user_id === user.id).map(tm => tm.team_id);
     setSelectedUser(user);
     setDraftRoleIds(currentRoles);
     setDraftTeamIds(currentTeams);
-    setActiveTab('profile');
-    fetchActivityData(user.id, profile?.company_id);
+    setActiveTab(tab);
+    fetchActivityData(user.id);
   };
 
   // Deep-link: open a member's profile when ?user=<id> is present (e.g. from a
-  // clickable user-name mention elsewhere in the app via <UserLink/>).
-  const params = useLocalSearchParams<{ user?: string | string[] }>();
+  // clickable user-name mention elsewhere in the app via <UserLink/>). ?tab=
+  // lands on a specific tab — e.g. activity feeds link straight to 'activity'.
+  const params = useLocalSearchParams<{ user?: string | string[]; tab?: string | string[] }>();
   const userParam = Array.isArray(params.user) ? params.user[0] : params.user;
+  const tabParam = Array.isArray(params.tab) ? params.tab[0] : params.tab;
   const openedParamRef = useRef<string | null>(null);
   useEffect(() => {
     if (!userParam || users.length === 0) return;
     if (openedParamRef.current === userParam) return;
     const u = users.find(x => x.id === userParam);
-    if (u) { handleOpenUser(u); openedParamRef.current = userParam; }
-  }, [userParam, users]);
+    const requestedTab: TabType = tabParam === 'activity' || tabParam === 'roles' ? tabParam : 'profile';
+    if (u) { handleOpenUser(u, requestedTab); openedParamRef.current = userParam; }
+  }, [userParam, tabParam, users]);
 
   const handleSave = async () => {
     if (!selectedUser || !canAssignRoles) return;
@@ -229,7 +269,7 @@ export default function UserAssignmentGrid() {
         <Modal visible={!!selectedUser} transparent animationType="fade">
           {/* Desktop: centered card */}
           <View className="flex-1 bg-black/60 justify-center items-center p-6">
-            <View className="w-full max-w-3xl rounded-3xl border premium-shadow overflow-hidden" style={{ backgroundColor: colors.card, borderColor: colors.border, maxHeight: '90%' }}>
+            <View className="w-full max-w-6xl rounded-3xl border premium-shadow overflow-hidden" style={{ backgroundColor: colors.card, borderColor: colors.border, maxHeight: '92%' }}>
               {/* Header with Profile Summary */}
               {selectedUser && (
                 <View className="px-8 pt-8 pb-6 border-b" style={{ borderColor: colors.border, backgroundColor: `${colors.primary}08` }}>
@@ -397,33 +437,30 @@ export default function UserAssignmentGrid() {
                       </Text>
                     </View>
                   ) : (
-                  <View className={isDesktop ? 'flex-row gap-6' : ''}>
-                    {/* Graphs Section */}
-                    <View className={isDesktop ? 'flex-1' : 'w-full mb-6'}>
-                      <Text className="text-primary text-[11px] font-black uppercase tracking-[0.15em] mb-4" style={{ color: colors.primary }}>Performance Metrics</Text>
+                  <View>
+                    {/* Stat cards — one horizontal row */}
+                    <Text className="text-[11px] font-black uppercase tracking-[0.15em] mb-4" style={{ color: colors.primary }}>Performance Metrics</Text>
+                    <View className="flex-row flex-wrap gap-3 mb-8">
+                      {[
+                        { label: 'Tasks', value: activityData?.tasksCompleted || 0 },
+                        { label: 'Hours', value: activityData?.hoursWorked || 0 },
+                        { label: 'Points', value: activityData?.points || 0 },
+                        { label: 'Avg hrs/task', value: activityData?.averageCompletionTime || 0 },
+                      ].map(stat => (
+                        <View key={stat.label} className="flex-1 p-5 rounded-xl border" style={{ backgroundColor: colors.background, borderColor: colors.border, minWidth: 130 }}>
+                          <Text className="text-[10px] uppercase font-bold mb-2" style={{ color: colors.textMuted }}>{stat.label}</Text>
+                          <Text className="text-3xl font-black" style={{ color: colors.primary }}>{stat.value}</Text>
+                        </View>
+                      ))}
+                    </View>
 
-                      {/* Stats Cards */}
-                      <View className={isDesktop ? 'gap-4 mb-6' : 'flex-row gap-3 mb-6'}>
-                        <View className="flex-1 p-4 rounded-lg border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
-                          <Text className="text-[10px] uppercase font-bold mb-2" style={{ color: colors.textMuted }}>Tasks</Text>
-                          <Text className="text-2xl font-black" style={{ color: colors.primary }}>{activityData?.tasksCompleted || 0}</Text>
-                        </View>
-                        <View className="flex-1 p-4 rounded-lg border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
-                          <Text className="text-[10px] uppercase font-bold mb-2" style={{ color: colors.textMuted }}>Hours</Text>
-                          <Text className="text-2xl font-black" style={{ color: colors.primary }}>{activityData?.hoursWorked || 0}</Text>
-                        </View>
-                        <View className="flex-1 p-4 rounded-lg border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
-                          <Text className="text-[10px] uppercase font-bold mb-2" style={{ color: colors.textMuted }}>Avg Time</Text>
-                          <Text className="text-2xl font-black" style={{ color: colors.primary }}>{activityData?.averageCompletionTime || 0}</Text>
-                        </View>
-                      </View>
-
-                      {/* Charts */}
-                      {activityData?.chartData && Platform.OS === 'web' && (
-                        <View className="mb-6">
+                    {/* Charts — side by side, oldest → newest left-to-right */}
+                    {(activityData?.chartData?.length ?? 0) > 0 && Platform.OS === 'web' && (
+                      <View className={isDesktop ? 'flex-row gap-6 mb-8' : 'mb-8'}>
+                        <View className={isDesktop ? 'flex-1' : 'mb-6'}>
                           <Text className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: colors.textMuted }}>Tasks Trend</Text>
-                          <ResponsiveContainer width="100%" height={200}>
-                            <BarChart data={activityData.chartData}>
+                          <ResponsiveContainer width="100%" height={240}>
+                            <BarChart data={activityData!.chartData}>
                               <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
                               <XAxis dataKey="date" stroke={colors.textMuted} style={{ fontSize: '12px' }} />
                               <YAxis stroke={colors.textMuted} style={{ fontSize: '12px' }} />
@@ -432,13 +469,10 @@ export default function UserAssignmentGrid() {
                             </BarChart>
                           </ResponsiveContainer>
                         </View>
-                      )}
-
-                      {activityData?.chartData && Platform.OS === 'web' && (
-                        <View>
+                        <View className={isDesktop ? 'flex-1' : ''}>
                           <Text className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: colors.textMuted }}>Hours Trend</Text>
-                          <ResponsiveContainer width="100%" height={200}>
-                            <LineChart data={activityData.chartData}>
+                          <ResponsiveContainer width="100%" height={240}>
+                            <LineChart data={activityData!.chartData}>
                               <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
                               <XAxis dataKey="date" stroke={colors.textMuted} style={{ fontSize: '12px' }} />
                               <YAxis stroke={colors.textMuted} style={{ fontSize: '12px' }} />
@@ -447,37 +481,34 @@ export default function UserAssignmentGrid() {
                             </LineChart>
                           </ResponsiveContainer>
                         </View>
-                      )}
-                    </View>
+                      </View>
+                    )}
 
-                    {/* Activities Section */}
-                    <View className={isDesktop ? 'flex-1' : 'w-full'}>
-                      <Text className="text-primary text-[11px] font-black uppercase tracking-[0.15em] mb-4" style={{ color: colors.primary }}>Recent Activity</Text>
-
-                      <View className="gap-2">
-                        {activityData?.recentActivities && activityData.recentActivities.length > 0 ? (
-                          activityData.recentActivities.map(activity => (
-                            <View key={activity.id} className="p-3 rounded-lg border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
-                              <View className="flex-row items-start gap-3">
-                                <View className="w-8 h-8 rounded-full items-center justify-center mt-0.5" style={{ backgroundColor: `${colors.primary}20`, borderColor: colors.primary }}>
-                                  <FontAwesome name="check" size={12} color={colors.primary} />
-                                </View>
-                                <View className="flex-1">
-                                  <Text className="text-[11px] font-bold capitalize" style={{ color: colors.textMain }}>{activity.type}</Text>
-                                  <Text className="text-[10px] mt-1" style={{ color: colors.textMuted }}>{activity.description}</Text>
-                                  <Text className="text-[9px] mt-2" style={{ color: colors.textDim }}>
-                                    {new Date(activity.timestamp).toLocaleDateString()}
-                                  </Text>
-                                </View>
+                    {/* Recent activity — full width, two columns on desktop */}
+                    <Text className="text-[11px] font-black uppercase tracking-[0.15em] mb-4" style={{ color: colors.primary }}>Recent Activity</Text>
+                    <View className="flex-row flex-wrap gap-3">
+                      {activityData?.recentActivities && activityData.recentActivities.length > 0 ? (
+                        activityData.recentActivities.map(activity => (
+                          <View key={activity.id} className="p-3 rounded-lg border" style={{ backgroundColor: colors.background, borderColor: colors.border, width: isDesktop ? '48.5%' : '100%' }}>
+                            <View className="flex-row items-start gap-3">
+                              <View className="w-8 h-8 rounded-full items-center justify-center mt-0.5" style={{ backgroundColor: `${colors.primary}20`, borderColor: colors.primary }}>
+                                <FontAwesome name={activity.type === 'Moved' ? 'arrows-h' : 'clock-o'} size={12} color={colors.primary} />
+                              </View>
+                              <View className="flex-1">
+                                <Text className="text-[11px] font-bold" style={{ color: colors.textMain }}>{activity.type}</Text>
+                                <Text className="text-[10px] mt-1" style={{ color: colors.textMuted }}>{activity.description}</Text>
+                                <Text className="text-[9px] mt-2" style={{ color: colors.textDim }}>
+                                  {new Date(activity.timestamp).toLocaleDateString()}
+                                </Text>
                               </View>
                             </View>
-                          ))
-                        ) : (
-                          <Text className="text-center py-8" style={{ color: colors.textMuted }}>
-                            No recent activity
-                          </Text>
-                        )}
-                      </View>
+                          </View>
+                        ))
+                      ) : (
+                        <Text className="text-center py-8 w-full" style={{ color: colors.textMuted }}>
+                          No recent activity
+                        </Text>
+                      )}
                     </View>
                   </View>
                 ))}
@@ -665,18 +696,18 @@ export default function UserAssignmentGrid() {
                       <View className="gap-2">
                         {selectedUser.job_title && (
                           <View className="p-3 rounded-lg border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
-                            <Text className="text-typography-label text-[9px] font-bold uppercase tracking-widest mb-1">Job Title</Text>
-                            <Text className="text-typography-main text-sm">{selectedUser.job_title}</Text>
+                            <Text className="text-[9px] font-bold uppercase tracking-widest mb-1" style={{ color: colors.textMuted }}>Job Title</Text>
+                            <Text className="text-sm" style={{ color: colors.textMain }}>{selectedUser.job_title}</Text>
                           </View>
                         )}
                         {selectedUser.department && (
                           <View className="p-3 rounded-lg border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
-                            <Text className="text-typography-label text-[9px] font-bold uppercase tracking-widest mb-1">Department</Text>
-                            <Text className="text-typography-main text-sm">{selectedUser.department}</Text>
+                            <Text className="text-[9px] font-bold uppercase tracking-widest mb-1" style={{ color: colors.textMuted }}>Department</Text>
+                            <Text className="text-sm" style={{ color: colors.textMain }}>{selectedUser.department}</Text>
                           </View>
                         )}
                         <View className="p-3 rounded-lg border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
-                          <Text className="text-typography-label text-[9px] font-bold uppercase tracking-widest mb-1">Last Active</Text>
+                          <Text className="text-[9px] font-bold uppercase tracking-widest mb-1" style={{ color: colors.textMuted }}>Last Active</Text>
                           <View className="flex-row items-center gap-2">
                             <View
                               style={{
@@ -684,7 +715,7 @@ export default function UserAssignmentGrid() {
                                 backgroundColor: getLastSeen(selectedUser.last_seen_at).online ? colors.success : colors.textMuted,
                               }}
                             />
-                            <Text className="text-typography-main text-sm">{getLastSeen(selectedUser.last_seen_at).label}</Text>
+                            <Text className="text-sm" style={{ color: colors.textMain }}>{getLastSeen(selectedUser.last_seen_at).label}</Text>
                           </View>
                         </View>
                       </View>
@@ -738,16 +769,20 @@ export default function UserAssignmentGrid() {
                   <View className="pt-4">
                     <Text className="text-[10px] font-black uppercase tracking-[0.15em] mb-3" style={{ color: colors.primary }}>Performance</Text>
 
-                    <View className="flex-row gap-2 mb-6">
-                      <View className="flex-1 p-3 rounded-lg border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
+                    <View className="flex-row flex-wrap gap-2 mb-6">
+                      <View className="p-3 rounded-lg border" style={{ backgroundColor: colors.background, borderColor: colors.border, width: '48%' }}>
                         <Text className="text-[9px] uppercase font-bold mb-1" style={{ color: colors.textMuted }}>Tasks</Text>
                         <Text className="text-lg font-black" style={{ color: colors.primary }}>{activityData?.tasksCompleted || 0}</Text>
                       </View>
-                      <View className="flex-1 p-3 rounded-lg border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
+                      <View className="p-3 rounded-lg border" style={{ backgroundColor: colors.background, borderColor: colors.border, width: '48%' }}>
                         <Text className="text-[9px] uppercase font-bold mb-1" style={{ color: colors.textMuted }}>Hours</Text>
                         <Text className="text-lg font-black" style={{ color: colors.primary }}>{activityData?.hoursWorked || 0}</Text>
                       </View>
-                      <View className="flex-1 p-3 rounded-lg border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
+                      <View className="p-3 rounded-lg border" style={{ backgroundColor: colors.background, borderColor: colors.border, width: '48%' }}>
+                        <Text className="text-[9px] uppercase font-bold mb-1" style={{ color: colors.textMuted }}>Points</Text>
+                        <Text className="text-lg font-black" style={{ color: colors.primary }}>{activityData?.points || 0}</Text>
+                      </View>
+                      <View className="p-3 rounded-lg border" style={{ backgroundColor: colors.background, borderColor: colors.border, width: '48%' }}>
                         <Text className="text-[9px] uppercase font-bold mb-1" style={{ color: colors.textMuted }}>Avg</Text>
                         <Text className="text-lg font-black" style={{ color: colors.primary }}>{activityData?.averageCompletionTime || 0}</Text>
                       </View>

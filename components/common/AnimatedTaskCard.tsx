@@ -14,15 +14,20 @@ import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanim
 export default function AnimatedTaskCard({
   children,
   style,
+  disableLayoutAnimation,
 }: {
   children: React.ReactNode;
   style?: ViewStyle;
+  /** Skip the `layout` spring — for moments when something else already
+   * animates or bulk-replaces card positions (e.g. board switches), where
+   * stacking a second transition per card just burns frames. */
+  disableLayoutAnimation?: boolean;
 }) {
   return (
     <Animated.View
       entering={FadeIn.duration(220)}
       exiting={FadeOut.duration(140)}
-      layout={LinearTransition.springify().damping(20).stiffness(170).mass(0.6)}
+      layout={disableLayoutAnimation ? undefined : LinearTransition.springify().damping(20).stiffness(170).mass(0.6)}
       style={style}
     >
       {children}

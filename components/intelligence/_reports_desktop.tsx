@@ -9,6 +9,7 @@ import ReportFiltersModal, {
 } from '@/components/intelligence/ReportFiltersModal';
 import { useBillingPlan } from '@/hooks/useBillingPlan';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { useTicker } from '@/hooks/useTicker';
 import { getAnalyticsLimits } from '@/lib/planLimits';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
@@ -16,15 +17,11 @@ import { useFocusEffect } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
+import { formatStopwatch } from '@/lib/time';
 function formatDuration(seconds: number): string {
-  if (seconds < 60) return `${seconds}s`;
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  if (m < 60) return `${m}:${String(s).padStart(2, '0')}`;
-  const h = Math.floor(m / 60);
-  return `${h}h ${m % 60}m`;
+  return formatStopwatch(seconds);
 }
 
 function ElapsedTimer({ createdAt, updatedAt, completedAt, status }: { createdAt: string; updatedAt: string; completedAt?: string | null; status: string }) {
@@ -32,19 +29,7 @@ function ElapsedTimer({ createdAt, updatedAt, completedAt, status }: { createdAt
   const isActive = status === 'pending' || status === 'processing';
   const endRef = completedAt || updatedAt;
 
-  const getStaticSeconds = () =>
-    Math.round((new Date(endRef).getTime() - new Date(createdAt).getTime()) / 1000);
-
-  const getLiveSeconds = () =>
-    Math.round((Date.now() - new Date(createdAt).getTime()) / 1000);
-
-  const [elapsed, setElapsed] = useState(isActive ? getLiveSeconds() : getStaticSeconds());
-
-  useEffect(() => {
-    if (!isActive) { setElapsed(getStaticSeconds()); return; }
-    const id = setInterval(() => setElapsed(getLiveSeconds()), 1000);
-    return () => clearInterval(id);
-  }, [isActive, createdAt, endRef]);
+  const elapsed = useTicker(createdAt, { end: endRef, active: isActive });
 
   return (
     <View className="w-20 items-start">
@@ -131,8 +116,8 @@ const POLL_INTERVAL_MS = 4000;
 export default function IntelligenceReports() {
   const colors = useThemeColors();
   const router = useRouter();
-  const { planCode } = useBillingPlan();
-  const limits = getAnalyticsLimits(planCode);
+  const { limits: planLimits } = useBillingPlan();
+  const limits = getAnalyticsLimits(planLimits);
   const [reports, setReports]         = useState<any[]>([]);
   const [loading, setLoading]         = useState(true);
   const [showModal, setShowModal]     = useState(false);
@@ -214,7 +199,11 @@ export default function IntelligenceReports() {
 
   const handleDownload = async (path: string) => {
     const { data } = await supabase.storage.from('reports').createSignedUrl(path, 60);
-    if (data?.signedUrl) Linking.openURL(data.signedUrl);
+    if (!data?.signedUrl) return;
+    // expo-linking's openURL navigates the current tab on web (window.location =
+    // url); explicit window.open keeps the app tab alive, matching openStorageFile.
+    if (Platform.OS === 'web') { window.open(data.signedUrl, '_blank', 'noopener'); return; }
+    Linking.openURL(data.signedUrl);
   };
 
   return (

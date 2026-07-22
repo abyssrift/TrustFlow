@@ -1,0 +1,43 @@
+/*
+  TrustFlow marketing site — design tokens.
+  Locked design system: see website/DESIGN_SPEC.md §2–§5. Every value here is
+  decided there; changing one is a design decision, not a default.
+
+  Dark-first (and dark-only): the site matches the app's dark mode. Colors are
+  stored as raw RGB triples so Tailwind's `<alpha-value>` opacity utilities work
+  (e.g. bg-accent/20). Border hairlines are white-on-dark alphas per §2.
+*/
+
+:root {
+  /* ── Color · §2 (RGB triples, consumed via rgba(var(--x), <alpha>)) ── */
+  --bg-base: 8, 13, 24;        /* #080d18 — page background, near-black navy */
+  --bg-raised: 13, 20, 36;     /* #0d1424 — alternating bands / subtle lift  */
+  --surface-card: 15, 23, 42;  /* #0f172a — cards, panels, code blocks       */
+
+  --text-main: 248, 250, 252;  /* #f8fafc — headlines, primary text          */
+  --text-muted: 148, 163, 184; /* #94a3b8 — body copy, subheads (AA on base) */
+  --text-dim: 100, 116, 139;   /* #64748b — eyebrows, captions, footer       */
+
+  --accent: 79, 70, 229;       /* #4f46e5 — the one accent hue               */
+  --accent-hover: 99, 102, 241;/* #6366f1 — hover on accent                  */
+  --accent-violet: 124, 58, 237;/* #7c3aed — hero aurora gradient ONLY (§2)  */
+  --on-accent: 255, 255, 255;  /* text/icon on a filled accent surface       */
+
+  /* Hairline borders are white alphas over the dark base (§2). */
+  --border-hairline: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+
+  /* Ambient hero glow (§9) — indigo, fading to transparent. */
+  --accent-glow: rgba(79, 70, 229, 0.35);
+
+  /* ── Radius · §5 ── */
+  --radius-card: 1rem;      /* 16px — cards & screenshot frames */
+  --radius-button: 0.75rem; /* 12px — buttons                   */
+  --radius-input: 0.5rem;   /* 8px  — inputs                    */
+
+  /* ── Type · §3 ── */
+  --font-sans: 'Inter Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    Roboto, sans-serif;
+  --font-mono: ui-monospace, 'JetBrains Mono', 'SFMono-Regular', Menlo,
+    monospace;
+}

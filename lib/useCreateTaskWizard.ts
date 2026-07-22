@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert } from 'react-native';
 
+import { useAlert } from '@/contexts/AlertContext';
 import { useTaskCreation } from '@/contexts/TaskCreationContext';
 import { supabase } from '@/lib/supabase';
 
@@ -18,6 +18,7 @@ const TEMPLATES_KEY = '@TrustFlow_task_templates';
 
 export function useCreateTaskWizard({ visible, initialPipelineId }: { visible: boolean; initialPipelineId?: string | null }) {
   const { draft, setDraft, createTask, createBulkTasks, loading, recentTasks, loadRecentTasks, briefFiles, setBriefFiles } = useTaskCreation();
+  const { showAlert } = useAlert();
   const [step, setStep] = useState(1);
   // Bulk quick-add: one task title per line, sharing all other draft fields.
   const [bulkMode, setBulkMode] = useState(false);
@@ -27,6 +28,20 @@ export function useCreateTaskWizard({ visible, initialPipelineId }: { visible: b
     [bulkText]
   );
   const canSubmit = bulkMode ? bulkTitles.length > 0 : !!draft.title;
+
+  // Toggle bulk/single without discarding what's already typed (#26): entering
+  // bulk seeds the list from the single title; leaving bulk collapses the list
+  // back into the title. Neither field is cleared, so the other side is still
+  // there if the user switches back.
+  const toggleBulkMode = () => {
+    if (!bulkMode) {
+      if (!bulkText.trim() && draft.title?.trim()) setBulkText(draft.title);
+      setBulkMode(true);
+    } else {
+      if (!draft.title?.trim() && bulkTitles.length) setDraft({ title: bulkTitles[0] });
+      setBulkMode(false);
+    }
+  };
   const [users, setUsers] = useState<any[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
   const [showCalendar, setShowCalendar] = useState(false);
@@ -41,7 +56,7 @@ export function useCreateTaskWizard({ visible, initialPipelineId }: { visible: b
 
   const saveAsTemplate = async () => {
     if (!draft.title.trim()) {
-      Alert.alert('No Title', 'Add a title first to save it as a template.');
+      showAlert('No Title', 'Add a title first to save it as a template.');
       return;
     }
     const template: TaskTemplate = {
@@ -114,7 +129,7 @@ export function useCreateTaskWizard({ visible, initialPipelineId }: { visible: b
   return {
     draft, setDraft, loading, recentTasks, briefFiles, setBriefFiles,
     step, setStep,
-    bulkMode, setBulkMode,
+    bulkMode, setBulkMode, toggleBulkMode,
     bulkText, setBulkText,
     bulkTitles, canSubmit,
     users, teams,

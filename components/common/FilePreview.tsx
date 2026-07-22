@@ -31,14 +31,25 @@ const COL_W = 130;
 const ROW_H = 30;
 const MAX_COLS = 40;
 
+// Spreadsheets above this size get gated behind an explicit "Preview Anyway" tap —
+// XLSX.read() is one long synchronous call with no chunking hook.
+// On native it runs on RN's single JS thread, so a big workbook freezes the whole
+// app (every button, not just the preview): 500KB, not 2MB — a real-world 1.7MB
+// sheet was confirmed to freeze the app, so the gate needs real margin below that.
+// Desktop/web parse in the browser off the app's critical path and handle far
+// bigger files comfortably, so the gate sits an order of magnitude higher there
+// and stops nagging on files a desktop opens without breaking a sweat.
+const SPREADSHEET_FREEZE_WARNING_BYTES = isWeb ? 10 * 1024 * 1024 : 500 * 1024;
+
 // ─── Spreadsheet ────────────────────────────────────────────────────────────
-function useWorkbook(uri: string) {
+function useWorkbook(uri: string, enabled: boolean) {
   const cached = wbCache.get(uri);
   const [state, setState] = useState<{ loading: boolean; error: boolean; names: string[] }>(
     cached ? { loading: false, error: false, names: cached.names } : { loading: true, error: false, names: [] }
   );
 
   useEffect(() => {
+    if (!enabled) return;
     const c = wbCache.get(uri);
     if (c) { setState({ loading: false, error: false, names: c.names }); return; }
     let cancelled = false;
@@ -56,7 +67,7 @@ function useWorkbook(uri: string) {
       }
     })();
     return () => { cancelled = true; };
-  }, [uri]);
+  }, [uri, enabled]);
 
   return state;
 }
@@ -141,11 +152,46 @@ function SheetTabs({ names, active, setActive, colors }: { names: string[]; acti
   );
 }
 
-function SpreadsheetView({ uri, compact = false, maxRows }: { uri: string; compact?: boolean; maxRows?: number }) {
+function SpreadsheetView({ uri, compact = false, maxRows, sizeBytes }: { uri: string; compact?: boolean; maxRows?: number; sizeBytes?: number }) {
   const colors = useThemeColors();
-  const { loading, error, names } = useWorkbook(uri);
+  const isLarge = !!sizeBytes && sizeBytes > SPREADSHEET_FREEZE_WARNING_BYTES;
+  const [confirmed, setConfirmed] = useState(!isLarge);
+  useEffect(() => { setConfirmed(!isLarge); }, [uri, isLarge]);
+
+  // Teaser thumbnails render automatically just by scrolling a list into view —
+  // never risk a freeze there. Show a static "large file" indicator instead;
+  // tapping it opens the full view, which gates behind the warning below.
+  if (compact && isLarge) {
+    return (
+      <Centered>
+        <FontAwesome name="table" size={26} color={colors.muted} />
+        <Text style={{ color: colors.textMuted }} className="text-[10px] font-bold mt-1.5 uppercase tracking-wide">Large sheet · tap to load</Text>
+      </Centered>
+    );
+  }
+
+  const { loading, error, names } = useWorkbook(uri, confirmed);
   const [active, setActive] = useState(0);
   useEffect(() => { setActive(0); }, [uri]);
+
+  if (!confirmed) {
+    return (
+      <Centered>
+        <FontAwesome name="exclamation-triangle" size={22} color={colors.warning} />
+        <Text style={{ color: colors.textMain }} className="text-sm font-bold mt-2 text-center">Large spreadsheet</Text>
+        <Text style={{ color: colors.textMuted }} className="text-xs mt-1 text-center px-6">
+          This may take a moment to load and could briefly freeze the app while it parses.
+        </Text>
+        <TouchableOpacity
+          onPress={() => setConfirmed(true)}
+          className="mt-4 px-5 py-2.5 rounded-xl"
+          style={[{ backgroundColor: colors.primary }, isWeb ? ({ cursor: 'pointer' } as any) : null]}
+        >
+          <Text className="text-white text-xs font-black uppercase tracking-wide">Preview Anyway</Text>
+        </TouchableOpacity>
+      </Centered>
+    );
+  }
 
   // Teaser + native use parsed rows (lightweight); web full view uses an HTML table.
   const useHtml = isWeb && !compact;
@@ -296,11 +342,11 @@ function TextView({ uri, compact = false, maxRows = 8 }: { uri: string; compact?
 }
 
 // ─── Public: teaser + modal ─────────────────────────────────────────────────
-function KindBody({ uri, kind, compact, teaserHeight }: { uri: string; kind: PreviewKind; compact?: boolean; teaserHeight?: number }) {
+function KindBody({ uri, kind, compact, teaserHeight, sizeBytes }: { uri: string; kind: PreviewKind; compact?: boolean; teaserHeight?: number; sizeBytes?: number }) {
   const colors = useThemeColors();
   switch (kind) {
     case 'spreadsheet':
-      return <SpreadsheetView uri={uri} compact={compact} maxRows={teaserHeight ? Math.max(4, Math.floor(teaserHeight / ROW_H)) : undefined} />;
+      return <SpreadsheetView uri={uri} compact={compact} maxRows={teaserHeight ? Math.max(4, Math.floor(teaserHeight / ROW_H)) : undefined} sizeBytes={sizeBytes} />;
     case 'text':
       return <TextView uri={uri} compact={compact} />;
     case 'pdf':
@@ -318,11 +364,13 @@ export function FilePreviewTeaser({
   kind,
   onPress,
   height = 120,
+  sizeBytes,
 }: {
   uri: string;
   kind: PreviewKind;
   onPress: () => void;
   height?: number;
+  sizeBytes?: number;
 }) {
   const colors = useThemeColors();
   return (
@@ -332,7 +380,7 @@ export function FilePreviewTeaser({
       className="w-full rounded-2xl mb-3 overflow-hidden border relative"
       style={[{ height, backgroundColor: colors.card, borderColor: colors.border }, isWeb ? ({ cursor: 'pointer' } as any) : null]}
     >
-      <KindBody uri={uri} kind={kind} compact teaserHeight={height} />
+      <KindBody uri={uri} kind={kind} compact teaserHeight={height} sizeBytes={sizeBytes} />
       <View className="absolute bottom-1.5 right-1.5 w-6 h-6 rounded-full bg-black/55 items-center justify-center">
         <FontAwesome name="search-plus" size={11} color="#fff" />
       </View>
@@ -348,6 +396,7 @@ export function FilePreviewModal({
   kind,
   onClose,
   onDownload,
+  sizeBytes,
 }: {
   visible: boolean;
   uri: string;
@@ -355,6 +404,7 @@ export function FilePreviewModal({
   kind: PreviewKind;
   onClose: () => void;
   onDownload?: () => void;
+  sizeBytes?: number;
 }) {
   const colors = useThemeColors();
   const icon = kind === 'spreadsheet' ? 'table' : kind === 'pdf' ? 'file-pdf-o' : kind === 'docx' ? 'file-word-o' : 'file-text-o';
@@ -374,7 +424,7 @@ export function FilePreviewModal({
           </TouchableOpacity>
         </View>
         <View className="flex-1 rounded-2xl overflow-hidden border" style={{ borderColor: colors.border, backgroundColor: colors.card, padding: kind === 'spreadsheet' || kind === 'text' ? 8 : 0 }}>
-          {visible && <KindBody uri={uri} kind={kind} />}
+          {visible && <KindBody uri={uri} kind={kind} sizeBytes={sizeBytes} />}
         </View>
       </View>
     </Modal>

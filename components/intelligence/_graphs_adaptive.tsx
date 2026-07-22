@@ -5,6 +5,7 @@ import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { formatDuration as fmtSec } from '@/lib/duration';
 import { ActivityIndicator, Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 const PERIOD_OPTS = [
@@ -14,17 +15,13 @@ const PERIOD_OPTS = [
   { label: '12M', type: 'month', n: 12 },
 ];
 
-const fmtSec = (s: number) => {
-  if (s <= 0) return '0m';
-  const d = Math.floor(s / 86400);
-  const h = Math.floor((s % 86400) / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  if (d > 0) return h > 0 ? `${d}d ${h}h` : `${d}d`;
-  if (h > 0) return m > 0 ? `${h}h ${m}m` : `${h}h`;
-  return `${m}m`;
-};
-
 // ─── SLA Risk Section ─────────────────────────────────────────────────────────
+
+const SLA_REASON_LABEL: Record<string, { label: string; tone: string }> = {
+  deadline:    { label: 'Deadline',    tone: 'text-state-danger' },
+  over_budget: { label: 'Over budget', tone: 'text-state-warning' },
+  stalled:     { label: 'Stalled',     tone: 'text-typography-muted' },
+};
 
 function SLARiskSection({ data }: { data: any }) {
   const colors = useThemeColors();
@@ -47,7 +44,12 @@ function SLARiskSection({ data }: { data: any }) {
         >
           <View className="flex-1">
             <Text className="text-typography-main text-xs font-bold">{r.task_number || `TASK-${r.id?.substring(0, 4)}`}</Text>
-            <Text className="text-typography-muted text-[9px] uppercase">{r.stage_name}</Text>
+            <View className="flex-row items-center gap-2">
+              <Text className="text-typography-muted text-[9px] uppercase">{r.stage_name}</Text>
+              <Text className={`text-[9px] font-black uppercase ${(SLA_REASON_LABEL[r.reason] || SLA_REASON_LABEL.stalled).tone}`}>
+                {(SLA_REASON_LABEL[r.reason] || SLA_REASON_LABEL.stalled).label}
+              </Text>
+            </View>
           </View>
           <Text className="text-state-danger text-sm font-black">{r.risk_percent}%</Text>
         </TouchableOpacity>

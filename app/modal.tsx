@@ -34,6 +34,7 @@ function getIconSpec(type: string, colors: ThemeColors): { name: React.Component
     case 'task.manual_time_flagged':  return { name: 'flag', color: colors.warning, bgClass: 'bg-state-warning/10' };
     case 'task.manual_time_approved': return { name: 'thumbs-up', color: colors.success, bgClass: 'bg-state-success/10' };
     case 'task.manual_time_rejected': return { name: 'thumbs-down', color: colors.danger, bgClass: 'bg-state-danger/10' };
+    case 'task.submission_deleted': return { name: 'trash', color: colors.danger, bgClass: 'bg-state-danger/10' };
     case 'pipeline.member_added': return { name: 'users', color: colors.primary, bgClass: 'bg-brand-primary/10' };
     case 'pipeline.archived':   return { name: 'archive', color: colors.textMuted, bgClass: 'bg-surface-overlay' };
     case 'filehub.file_received':    return { name: 'file-text-o', color: colors.primary, bgClass: 'bg-brand-primary/10' };
@@ -44,17 +45,11 @@ function getIconSpec(type: string, colors: ThemeColors): { name: React.Component
   }
 }
 
+import { formatRelative } from '@/lib/time';
+
 // ── Time-ago helper ──────────────────────────────────────────────────────────
 function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const m = Math.floor(diff / 60000);
-  if (m < 1) return 'just now';
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  const d = Math.floor(h / 24);
-  if (d < 7) return `${d}d ago`;
-  return new Date(iso).toLocaleDateString();
+  return formatRelative(iso);
 }
 
 // ── Section header (date grouping) ───────────────────────────────────────────

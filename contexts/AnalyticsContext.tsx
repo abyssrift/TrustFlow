@@ -108,6 +108,12 @@ export interface PipelinePointsPeriod {
   weight_points: number;
 }
 
+export interface PipelineHoursPeriod {
+  period_label: string;
+  period_start: string;
+  active_hours: number;
+}
+
 export interface ActivityEntry {
   id: string;
   transitioned_at: string;
@@ -130,7 +136,8 @@ interface AnalyticsContextType {
   getTargetsStatus: () => Promise<TargetStatus[]>;
   comparePersonnel: (userIds: string[], from: string, to: string, salaries: Record<string, number>) => Promise<PersonnelRow[]>;
   getPipelinePointsSeries: (pipelineId: string, periodType: string, nPeriods: number) => Promise<PipelinePointsPeriod[]>;
-  getRecentActivity: (limit?: number) => Promise<ActivityEntry[]>;
+  getPipelineHoursSeries: (pipelineId: string, periodType: string, nPeriods: number) => Promise<PipelineHoursPeriod[]>;
+  getRecentActivity: (userId: string, limit?: number) => Promise<ActivityEntry[]>;
   invalidate: (keyPrefix?: string) => void;
 }
 
@@ -317,6 +324,25 @@ export const AnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       SERIES_TTL_MS,
     );
 
+  const getPipelineHoursSeries = (
+    pipelineId: string,
+    periodType: string,
+    nPeriods: number,
+  ): Promise<PipelineHoursPeriod[]> =>
+    fetchWithDedup(
+      `hours:${pipelineId}:${periodType}:${nPeriods}`,
+      async () => {
+        const { data, error } = await supabase.rpc('rpc_get_pipeline_hours_series', {
+          p_pipeline_id: pipelineId,
+          p_period_type: periodType,
+          p_n_periods:   nPeriods,
+        });
+        if (error) throw error;
+        return (data ?? []) as PipelineHoursPeriod[];
+      },
+      SERIES_TTL_MS,
+    );
+
   const getTargetsStatus = (): Promise<TargetStatus[]> =>
     fetchWithDedup(
       'targets_status',
@@ -345,9 +371,12 @@ export const AnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return (data ?? []) as PersonnelRow[];
   };
 
-  const getRecentActivity = (limit = 15): Promise<ActivityEntry[]> =>
+  // Personal activity feed: only the given user's own stage transitions.
+  // Without the transitioned_by filter this returned every company member's
+  // activity (issue #40) — a data-exposure bug on the personal profile page.
+  const getRecentActivity = (userId: string, limit = 15): Promise<ActivityEntry[]> =>
     fetchWithDedup(
-      `activity:${limit}`,
+      `activity:${userId}:${limit}`,
       async () => {
         const { data: history, error } = await supabase
           .from('pipeline_stage_history')
@@ -359,6 +388,7 @@ export const AnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             to_stage:to_stage_id(name, is_terminal, terminal_type),
             moved_by_user:users!transitioned_by(full_name, display_name)
           `)
+          .eq('transitioned_by', userId)
           .order('transitioned_at', { ascending: false })
           .limit(limit);
 
@@ -393,6 +423,7 @@ export const AnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       getPipelineStageDwell,
       getPipelineThroughput,
       getPipelinePointsSeries,
+      getPipelineHoursSeries,
       getTargetsStatus,
       comparePersonnel,
       getRecentActivity,

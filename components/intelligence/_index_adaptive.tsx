@@ -3,6 +3,7 @@ import DraggableSheet from '@/components/common/DraggableSheet';
 import { BackButton } from '@/components/common/BackButton';
 import { IntelligencePicker } from '@/components/intelligence/IntelligenceCommon';
 
+import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { useBillingPlan } from '@/hooks/useBillingPlan';
@@ -13,7 +14,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, Platform, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import Svg, { Circle, G } from 'react-native-svg';
 
 
 
@@ -71,8 +73,17 @@ const SLARiskAlert = ({ data }: any) => {
         <Text className="text-state-danger font-bold">SLA Breach Risks</Text>
       </View>
       {data.sla_risks.slice(0, 3).map((r: any, i: number) => (
-        <View key={i} className="flex-row justify-between mb-2">
-          <Text className="text-typography-main text-xs font-bold">{r.task_number || 'TASK'}</Text>
+        <View key={i} className="flex-row justify-between items-center mb-2">
+          <View className="flex-1 flex-row items-center gap-2">
+            <Text className="text-typography-main text-xs font-bold">{r.task_number || 'TASK'}</Text>
+            <Text className={`text-[9px] font-black uppercase ${
+              r.reason === 'deadline' ? 'text-state-danger'
+              : r.reason === 'over_budget' ? 'text-state-warning'
+              : 'text-typography-muted'
+            }`}>
+              {r.reason === 'deadline' ? 'Deadline' : r.reason === 'over_budget' ? 'Over budget' : 'Stalled'}
+            </Text>
+          </View>
           <Text className="text-state-danger text-xs font-black">{r.risk_percent}% Risk</Text>
         </View>
       ))}
@@ -82,24 +93,59 @@ const SLARiskAlert = ({ data }: any) => {
 
 const ConversionFunnelChart = ({ data }: any) => {
   const colors = useThemeColors();
-  if (!data?.conversion_by_stage) return null;
+  const stages: any[] = data?.conversion_by_stage || [];
+  if (stages.length === 0) return null;
+
+  // Grouping isn't just cosmetic here — a "funnel" only makes sense as a
+  // sequence within one pipeline's own stages, so the connecting arrows must
+  // never cross from one pipeline's last stage into another's first.
+  const allGroups: { name: string; stages: any[] }[] = [];
+  for (const s of stages) {
+    const name = s.pipeline_name || 'Pipeline';
+    let g = allGroups[allGroups.length - 1];
+    if (!g || g.name !== name) { g = { name, stages: [] }; allGroups.push(g); }
+    g.stages.push(s);
+  }
+  // Same rule as PipelineLoadChart — a pipeline with zero active tasks has
+  // nothing to look at, so drop it instead of showing an empty funnel.
+  const groups = allGroups.filter(g => g.stages.some((s: any) => (s.task_count || 0) > 0));
+  if (groups.length === 0) return null;
+
   return (
     <View className="bg-surface-card p-6 rounded-3xl border border-surface-border mb-6">
-      <Text className="text-typography-main font-bold text-lg mb-4">Retention Funnel</Text>
-      {data.conversion_by_stage.map((stage: any, idx: number) => {
-        const rate = (stage.completion_rate || 0) * 100;
-        return (
-          <View key={idx} className="mb-4">
-            <View className="flex-row justify-between mb-2">
-              <Text className="text-typography-muted text-xs font-medium">{stage.stage_name}</Text>
-              <Text className="text-brand-primary text-xs font-bold">{Math.round(rate)}%</Text>
-            </View>
-            <View className="h-2 bg-surface-background rounded-full overflow-hidden">
-              <View className="h-full bg-brand-primary opacity-60" style={{ width: `${rate}%` }} />
-            </View>
+      <Text className="text-typography-main font-bold text-lg mb-5">Retention Funnel</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 16, paddingRight: 8 }}>
+        {groups.map((g, gi) => (
+          <View key={g.name + gi} style={{ width: 240 }} className="bg-surface-background rounded-2xl border border-surface-border/50 p-4">
+            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-3" numberOfLines={1}>{g.name}</Text>
+            {g.stages.map((stage: any, idx: number) => {
+              const rate = (stage.completion_rate || 0) * 100;
+              const isGood = rate >= 85;
+              return (
+                <View key={idx} className="items-center">
+                  <View className="w-full bg-surface-card p-3 rounded-xl border border-surface-border/50">
+                    <View className="flex-row justify-between items-center mb-2">
+                      <View className="flex-1 min-w-0 mr-2">
+                        <Text className="text-typography-main font-black text-xs" numberOfLines={1}>{stage.stage_name}</Text>
+                        <Text className="text-typography-muted text-[8px] font-bold uppercase">{stage.task_count ?? 0} tasks</Text>
+                      </View>
+                      <Text className={`text-sm font-black ${isGood ? 'text-state-success' : 'text-state-warning'}`}>{Math.round(rate)}%</Text>
+                    </View>
+                    <View className="h-1.5 bg-surface-background rounded-full overflow-hidden border border-surface-border">
+                      <View className={`h-full ${isGood ? 'bg-state-success' : 'bg-state-warning'}`} style={{ width: `${Math.min(rate, 100)}%` }} />
+                    </View>
+                  </View>
+                  {idx < g.stages.length - 1 && (
+                    <View className="py-1 opacity-30">
+                      <FontAwesome name="long-arrow-down" size={14} color={colors.textDim} />
+                    </View>
+                  )}
+                </View>
+              );
+            })}
           </View>
-        );
-      })}
+        ))}
+      </ScrollView>
     </View>
   );
 };
@@ -206,10 +252,100 @@ const TrendComparisonCards = ({ data }: any) => {
   );
 };
 
+// Same validated categorical palette as TimeByCategoryPie (kanban sidebar) —
+// one donut per pipeline, sliced by stage. Colors cycle by stage POSITION,
+// not stage name — pipeline stages are user-configurable per company, so
+// there's no reliable "pending = grey" text mapping to lean on.
+const DONUT_LIGHT = ['#2a78d6', '#1baf7a', '#eda100', '#008300', '#4a3aa7', '#e34948', '#e87ba4', '#eb6834'];
+const DONUT_DARK = ['#3987e5', '#199e70', '#c98500', '#008300', '#9085e9', '#e66767', '#d55181', '#d95926'];
+function isDarkHex(hex?: string) {
+  if (!hex || hex.length < 7) return false;
+  const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 < 0.5;
+}
+const truncateLabel = (s: string, max: number) => (s && s.length > max ? `${s.slice(0, max - 1)}…` : s || '');
+
+const PipelineLoadChart = ({ data }: any) => {
+  const colors = useThemeColors();
+  const palette = isDarkHex(colors.card) ? DONUT_DARK : DONUT_LIGHT;
+  const stages: any[] = data?.conversion_by_stage || [];
+
+  // Backend already orders by (pipeline_name, position) — group in one pass.
+  // Pipelines with zero active tasks add nothing to look at — drop them
+  // instead of rendering an empty card in the carousel.
+  const allGroups: { name: string; stages: any[] }[] = [];
+  for (const s of stages) {
+    const name = s.pipeline_name || 'Pipeline';
+    let g = allGroups[allGroups.length - 1];
+    if (!g || g.name !== name) { g = { name, stages: [] }; allGroups.push(g); }
+    g.stages.push(s);
+  }
+  const groups = allGroups.filter(g => g.stages.some((s: any) => (s.task_count || 0) > 0));
+
+  const size = 92, stroke = 14, r = (size - stroke) / 2, cx = size / 2, cy = size / 2;
+  const C = 2 * Math.PI * r;
+  const GAP = 2;
+
+  return (
+    <View className="bg-surface-card p-6 rounded-3xl border border-surface-border mb-6">
+      <Text className="text-typography-main font-bold text-lg mb-5">Pipeline Load Distribution</Text>
+      {groups.length === 0 ? (
+        <Text className="text-typography-muted text-sm text-center py-4">No stage activity data available.</Text>
+      ) : (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 16, paddingRight: 8 }}>
+          {groups.map((g, gi) => {
+            const total = g.stages.reduce((s: number, x: any) => s + (x.task_count || 0), 0);
+            let acc = 0;
+            const arcs = g.stages.map((s: any, si: number) => {
+              const count = s.task_count || 0;
+              const frac = total > 0 ? count / total : 0;
+              const dash = Math.max(0, frac * C - (count > 0 ? GAP : 0));
+              const el = (
+                <Circle
+                  key={si} cx={cx} cy={cy} r={r} fill="none"
+                  stroke={palette[si % palette.length]} strokeWidth={stroke}
+                  strokeDasharray={`${dash} ${C - dash}`} strokeDashoffset={-acc}
+                />
+              );
+              acc += frac * C;
+              return el;
+            });
+
+            return (
+              <View key={g.name + gi} style={{ width: 220 }} className="bg-surface-background rounded-2xl border border-surface-border/50 p-4">
+                <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-3" numberOfLines={1}>{g.name}</Text>
+                <View style={{ width: size, height: size, alignSelf: 'center' }} className="mb-3">
+                  <Svg width={size} height={size}>
+                    <G rotation={-90} origin={`${cx}, ${cy}`}>{arcs}</G>
+                  </Svg>
+                  <View style={{ position: 'absolute', top: 0, left: 0, width: size, height: size }} className="items-center justify-center">
+                    <Text className="text-typography-main text-base font-black">{total}</Text>
+                    <Text className="text-typography-muted text-[8px] font-bold uppercase tracking-widest">tasks</Text>
+                  </View>
+                </View>
+                {g.stages.map((s: any, si: number) => {
+                  const count = s.task_count || 0;
+                  return (
+                    <View key={si} className="mb-1.5 flex-row items-center gap-2">
+                      <View style={{ width: 7, height: 7, borderRadius: 2, backgroundColor: palette[si % palette.length] }} />
+                      <Text className="flex-1 text-typography-main text-[10px] font-bold" numberOfLines={1}>{truncateLabel(s.stage_name, 12)}</Text>
+                      <Text className="text-typography-muted text-[9px] font-black">{count} · {Math.round((count / total) * 100)}%</Text>
+                    </View>
+                  );
+                })}
+              </View>
+            );
+          })}
+        </ScrollView>
+      )}
+    </View>
+  );
+};
+
 const RadarSection = ({ data, activeWidgets, onEditWidgets }: any) => {
   const colors = useThemeColors();
-  const { planCode } = useBillingPlan();
-  const limits = getAnalyticsLimits(planCode);
+  const { limits: planLimits } = useBillingPlan();
+  const limits = getAnalyticsLimits(planLimits);
   if (!data) return <View className="py-20"><ActivityIndicator color={colors.primary} /></View>;
   const curThr = data.current?.throughput || 0;
   const prevThr = data.comparison?.throughput || 0;
@@ -237,27 +373,7 @@ const RadarSection = ({ data, activeWidgets, onEditWidgets }: any) => {
         {activeWidgets.map((w: string, i: number) => renderWidget(w, i))}
       </View>
       <SLARiskAlert data={data} />
-      <Text className="text-typography-main font-bold text-lg mb-4">Pipeline Load Distribution</Text>
-      <View className="bg-surface-card p-6 rounded-3xl border border-surface-border mb-6">
-        {!data.conversion_by_stage || data.conversion_by_stage.length === 0 ? (
-          <Text className="text-typography-muted text-sm text-center py-4">No stage activity data available.</Text>
-        ) : (
-          data.conversion_by_stage.map((f: any, i: number) => {
-            const maxCount = Math.max(1, ...data.conversion_by_stage.map((s: any) => s.task_count || 0));
-            return (
-              <View key={i} className="mb-4">
-                <View className="flex-row justify-between mb-2">
-                  <Text className="text-typography-muted text-xs font-medium flex-1 mr-2" numberOfLines={1}>{f.stage_name}</Text>
-                  <Text className="text-typography-main text-xs font-bold">{f.task_count ?? 0}</Text>
-                </View>
-                <View className="h-2 bg-surface-background rounded-full overflow-hidden">
-                  <View className="h-full bg-brand-primary rounded-full" style={{ width: `${Math.min(((f.task_count || 0) / maxCount) * 100, 100)}%` }} />
-                </View>
-              </View>
-            );
-          })
-        )}
-      </View>
+      <PipelineLoadChart data={data} />
       {limits.funnel
         ? <ConversionFunnelChart data={data} />
         : <View className="rounded-2xl border border-surface-border/50 px-4 py-3 flex-row items-center gap-2 mb-6"><FontAwesome name="lock" size={11} color={colors.textMuted} /><Text className="text-typography-muted text-xs">Not available on your plan</Text></View>}
@@ -536,6 +652,7 @@ export default function IntelligenceScreen() {
   const { section } = useLocalSearchParams();
   const router = useRouter();
   const { hasPermission, profile } = useAuth();
+  const { showAlert } = useAlert();
 
   const [activeSection, setActiveSection] = useState((section as string) || 'radar');
   const [loading, setLoading] = useState(true);
@@ -669,10 +786,10 @@ export default function IntelligenceScreen() {
         }
       });
       if (error) throw error;
-      Alert.alert('Processing', 'Your report is being generated.');
+      showAlert('Processing', 'Your report is being generated.');
       if (activeSection === 'archives') fetchReports();
     } catch (err: any) {
-      Alert.alert('Failure', err.message);
+      showAlert('Failure', err.message);
     } finally {
       setLoading(false);
     }
@@ -680,7 +797,11 @@ export default function IntelligenceScreen() {
 
   const handleDownloadReport = async (path: string) => {
     const { data, error } = await supabase.storage.from('reports').createSignedUrl(path, 60);
-    if (data?.signedUrl) Linking.openURL(data.signedUrl);
+    if (!data?.signedUrl) return;
+    // expo-linking's openURL navigates the current tab on web (window.location =
+    // url); explicit window.open keeps the app tab alive, matching openStorageFile.
+    if (Platform.OS === 'web') { window.open(data.signedUrl, '_blank', 'noopener'); return; }
+    Linking.openURL(data.signedUrl);
   };
 
   const handleRestore = async () => {
@@ -694,12 +815,12 @@ export default function IntelligenceScreen() {
 
       if (error) throw error;
 
-      Alert.alert('Success', 'Asset has been restored to the active pipeline.');
+      showAlert('Success', 'Asset has been restored to the active pipeline.');
       setConfirmRestore({ visible: false, archiveId: null });
       setSelectedArchive(null);
       fetchColdArchives();
     } catch (err: any) {
-      Alert.alert('Restoration Failed', err.message);
+      showAlert('Restoration Failed', err.message);
     } finally {
       setRestoring(false);
     }

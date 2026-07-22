@@ -12,6 +12,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTimer } from '@/contexts/TimerContext';
 import { supabase } from '@/lib/supabase';
@@ -34,6 +35,7 @@ type Project = {
 
 export default function ProjectsScreenWeb() {
   const colors = useThemeColors();
+  const { showAlert } = useAlert();
   const { hasPermission } = useAuth();
   const { activeSession, lastStoppedAt } = useTimer();
   const { width } = useWindowDimensions();
@@ -183,7 +185,7 @@ export default function ProjectsScreenWeb() {
                   onPress={(e) => {
                     e.stopPropagation();
                     if (activeSession || isCoolingDown) {
-                      Alert.alert('Archival Locked', 'Cannot archive while agents are recording time. Please stop all timers and wait 30 seconds for strategic sync.');
+                      showAlert('Archival Locked', 'Cannot archive while agents are recording time. Please stop all timers and wait 30 seconds for strategic sync.');
                       return;
                     }
                     setArchiveModal({ visible: true, projectId: project.id });

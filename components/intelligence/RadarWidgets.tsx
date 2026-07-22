@@ -10,19 +10,27 @@ import {
     XAxis, YAxis,
 } from 'recharts';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { formatDuration as fmtDwell } from '@/lib/duration';
+import { daysToPeriodParams } from '@/lib/analyticsPeriods';
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// SLA risk driver -> label + colour tone. `reason` from rpc_get_organizational_audit
+// (deadline | over_budget | stalled). Colour is keyed to the DRIVER, not raw severity,
+// so a stalled task with plenty of deadline slack reads calm-blue instead of alarm-red.
+export const SLA_TONE: Record<string, { label: string; text: string; bar: string; soft: string; hover: string }> = {
+  deadline:    { label: 'Deadline',    text: 'text-state-danger',  bar: 'bg-state-danger',  soft: 'bg-state-danger/10',  hover: 'hover:border-state-danger/50'  },
+  over_budget: { label: 'Over budget', text: 'text-state-warning', bar: 'bg-state-warning', soft: 'bg-state-warning/10', hover: 'hover:border-state-warning/50' },
+  stalled:     { label: 'Stalled',     text: 'text-brand-primary', bar: 'bg-brand-primary', soft: 'bg-brand-primary/10', hover: 'hover:border-brand-primary/50' },
+};
+export const slaTone = (reason?: string) => SLA_TONE[reason || ''] || SLA_TONE.stalled;
 
-function fmtDwell(s: number): string {
-  if (s <= 0) return '0s';
-  if (s < 60) return `${Math.round(s)}s`;
-  const d = Math.floor(s / 86400);
-  const h = Math.floor((s % 86400) / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  if (d > 0) return h > 0 ? `${d}d ${h}h` : `${d}d`;
-  if (h > 0) return m > 0 ? `${h}h ${m}m` : `${h}h`;
-  return `${m}m`;
-}
+export const SLAReasonBadge = ({ reason }: { reason?: string }) => {
+  const t = slaTone(reason);
+  return (
+    <View className={`px-2 py-0.5 rounded-md ${t.soft}`}>
+      <Text className={`text-[9px] font-black uppercase tracking-widest ${t.text}`}>{t.label}</Text>
+    </View>
+  );
+};
 
 const DwellTooltip = ({ active, payload, mode }: any) => {
   const colors = useThemeColors();
@@ -81,34 +89,55 @@ export const SLARiskAlertWeb = ({ data, className }: { data: any, className?: st
     }, {})
   );
 
+  const counts = (data.sla_risks as any[]).reduce((a: Record<string, number>, r: any) => {
+    const k = SLA_TONE[r.reason] ? r.reason : 'stalled';
+    a[k] = (a[k] || 0) + 1; return a;
+  }, {});
+
   return (
-    <View className={`mb-8 bg-surface-card border border-state-danger/30 p-8 rounded-[32px] premium-shadow ${className || ''}`}>
-      <View className="flex-row items-center mb-6">
-        <View className="w-10 h-10 rounded-full bg-state-danger-dim items-center justify-center mr-4 border border-state-danger/20">
-          <FontAwesome name="warning" size={16} color={colors.danger} />
+    <View className={`mb-6 bg-surface-card border border-surface-border p-4 rounded-2xl premium-shadow ${className || ''}`}>
+      {/* Header: identity on the left, reason mix + help on the right */}
+      <View className="flex-row items-center justify-between mb-3 flex-wrap gap-y-2">
+        <View className="flex-row items-center gap-2.5">
+          <FontAwesome name="warning" size={13} color={colors.danger} />
+          <Text className="text-typography-main font-black text-sm tracking-tight">SLA Risks</Text>
+          <Text className="text-typography-muted text-[11px] font-medium">
+            {data.sla_risks.length} at risk
+          </Text>
         </View>
-        <View className="flex-1 flex-row items-center justify-between">
-          <View>
-            <Text className="text-state-danger font-black text-lg tracking-tight">SLA Risks</Text>
-            <Text className="text-typography-muted text-xs font-medium">{data.sla_risks.length} active tasks exceeding tolerance</Text>
-          </View>
+        <View className="flex-row items-center gap-1.5">
+          {['deadline', 'over_budget', 'stalled'].filter(k => counts[k]).map(k => (
+            <View key={k} className="flex-row items-center gap-1 px-2 py-0.5 rounded-md bg-surface-background border border-surface-border">
+              <View className={`w-1.5 h-1.5 rounded-full ${slaTone(k).bar}`} />
+              <Text className="text-typography-main text-[10px] font-black">{counts[k]}</Text>
+            </View>
+          ))}
           <TouchableOpacity
             onPress={() => setShowInfo(v => !v)}
-            className={`w-8 h-8 rounded-full items-center justify-center border transition-all ${showInfo ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
+            className={`w-6 h-6 rounded-md items-center justify-center border transition-all ${showInfo ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
           >
-            <FontAwesome name="question" size={12} color={showInfo ? 'var(--color-on-primary)' : colors.textDim} />
+            <FontAwesome name="question" size={10} color={showInfo ? 'var(--color-on-primary)' : colors.textDim} />
           </TouchableOpacity>
         </View>
       </View>
 
       {showInfo && (
-        <View className="mb-6 bg-surface-background border border-surface-border rounded-2xl p-5 gap-3">
+        <View className="mb-5 bg-surface-background border border-surface-border rounded-2xl p-5 gap-3">
           <Text className="text-typography-main font-black text-sm">What is SLA Risk?</Text>
           <Text className="text-typography-muted text-xs leading-relaxed">
-            Each pipeline stage has a learned baseline from historical data. A task becomes at risk when it has been in its current stage for more than{' '}
-            <Text className="text-state-danger font-bold">1.5× the stage average</Text>.
-            Risk % shows how far past that threshold the task is, capped at 99%.
+            A task is flagged when any of three signals crosses its limit. The badge shows which one is driving the risk, and the % is how close it is to that limit, capped at 99%.
           </Text>
+          <View className="gap-2">
+            <Text className="text-typography-muted text-xs leading-relaxed">
+              <Text className="text-state-danger font-bold">Deadline</Text> — its projected finish (current pace plus the remaining stages) runs past its due date.
+            </Text>
+            <Text className="text-typography-muted text-xs leading-relaxed">
+              <Text className="text-state-warning font-bold">Over budget</Text> — logged hours have outpaced the estimate for how far it has progressed.
+            </Text>
+            <Text className="text-typography-muted text-xs leading-relaxed">
+              <Text className="text-brand-primary font-bold">Stalled</Text> — it has sat in its current stage longer than 1.5× the stage average.
+            </Text>
+          </View>
           {stageBaselines.length > 0 && (
             <>
               <View className="h-px bg-surface-border" />
@@ -136,31 +165,25 @@ export const SLARiskAlertWeb = ({ data, className }: { data: any, className?: st
         </View>
       )}
 
-      <View className="gap-3">
-        {data.sla_risks.slice(0, 5).map((r: any, i: number) => (
-          <TouchableOpacity 
-            key={i} 
-            onPress={() => router.push(`/task/${r.id}`)}
-            className="flex-row justify-between items-center bg-surface-background p-4 rounded-2xl border border-surface-border hover:border-state-danger/40 transition-all"
-          >
-            <View className="flex-row items-center gap-4">
-              <View className="w-1 h-8 rounded-full bg-state-danger/40" />
-              <View>
-                <Text className="text-typography-main font-black text-sm">{r.task_number || `TASK-${r.id.substring(0, 4)}`}</Text>
-                <Text className="text-typography-muted text-[10px] uppercase font-bold tracking-widest">{r.stage_name}</Text>
-              </View>
-            </View>
-            <View className="flex-row items-center gap-6">
-              <View className="items-end">
-                <Text className="text-state-danger font-black text-lg">{r.risk_percent}%</Text>
-                <Text className="text-[9px] text-typography-muted uppercase font-black">Risk Probability</Text>
-              </View>
-              <View className="w-10 h-10 rounded-xl bg-state-danger items-center justify-center shadow-sm shadow-state-danger/20">
-                <FontAwesome name="chevron-right" size={12} color="var(--color-on-primary)" />
-              </View>
-            </View>
-          </TouchableOpacity>
-        ))}
+      {/* Dense one-line rows — glanceable, two columns on wide screens */}
+      <View className="flex-row flex-wrap gap-x-5 gap-y-0.5">
+        {data.sla_risks.map((r: any, i: number) => {
+          const t = slaTone(r.reason);
+          return (
+            <TouchableOpacity
+              key={i}
+              onPress={() => router.push(`/task/${r.id}`)}
+              className="w-full xl:w-[calc(50%-10px)] flex-row items-center gap-2.5 py-1.5 px-2 rounded-lg hover:bg-surface-background transition-all"
+            >
+              <View className={`w-1.5 h-1.5 rounded-full ${t.bar}`} />
+              <Text numberOfLines={1} className="flex-1 text-typography-main text-xs font-semibold">
+                {r.task_number || `TASK-${r.id.substring(0, 4)}`}
+              </Text>
+              <Text className={`text-[9px] font-black uppercase tracking-wide ${t.text}`}>{t.label}</Text>
+              <Text className={`w-9 text-right text-sm font-black ${t.text}`}>{r.risk_percent}%</Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
     </View>
   );
@@ -255,6 +278,7 @@ export const WorkDistributionChartWeb = ({ data, className }: { data: any, class
 
 export const QualityLeaderboardWeb = ({ data, className }: { data: any, className?: string }) => {
   const colors = useThemeColors();
+  const [showInfo, setShowInfo] = useState(false);
   if (!data?.quality_by_worker) return null;
 
   const MIN_TASKS = 3;
@@ -271,49 +295,37 @@ export const QualityLeaderboardWeb = ({ data, className }: { data: any, classNam
   const workers = qualified.slice(0, 6);
   const filteredOutCount = allWorkers.length - qualified.length;
   const allPerfect = workers.length > 0 && workers.every((w: any) => w.integrityScore === 100);
-  const maxTasks = allPerfect ? Math.max(...workers.map((w: any) => w.total_tasks)) : 0;
 
   return (
-    <View className={`bg-surface-card p-8 rounded-[32px] border border-surface-border premium-shadow ${className || ''}`}>
-      {/* Header */}
-      <View className="flex-row justify-between items-start mb-6">
-        <View className="flex-1 mr-4">
-          <Text className="text-typography-muted text-xs font-bold tracking-widest uppercase mb-1">Performance Matrix</Text>
-          <Text className="text-typography-main text-3xl font-black">Quality Integrity</Text>
-          <Text className="text-typography-muted text-[11px] mt-2 leading-relaxed max-w-[480px]">
-            Integrity measures first-pass accuracy. It is calculated as{' '}
-            <Text className="text-brand-primary font-bold">100% minus the Rework Rate</Text>.{' '}
-            {allPerfect && workers.length > 0
-              ? 'All contributors are tied — ranked by task volume.'
-              : 'A higher score indicates tasks completed without requiring revisions.'}
+    <View className={`bg-surface-card p-4 rounded-2xl border border-surface-border premium-shadow ${className || ''}`}>
+      {/* Header: title + short subtitle, compact status chip, info toggle */}
+      <View className="flex-row items-center justify-between mb-3 flex-wrap gap-y-2">
+        <View className="flex-1 mr-3">
+          <Text className="text-typography-main font-black text-sm tracking-tight">Quality Integrity</Text>
+          <Text className="text-typography-muted text-[11px] font-medium">
+            First-pass accuracy · 100% − rework{filteredOutCount > 0 ? ` · ${filteredOutCount} below ${MIN_TASKS}-task min` : ''}
           </Text>
         </View>
-        <View className="items-end gap-2">
-          <View className="bg-brand-primary-dim px-4 py-2 rounded-xl border border-brand-primary/20">
-            <Text className="text-brand-primary font-bold text-sm">Top Contributors</Text>
-          </View>
-          {filteredOutCount > 0 && (
-            <View className="flex-row items-center gap-1.5 px-3 py-1.5 bg-surface-background border border-surface-border rounded-xl">
-              <FontAwesome name="filter" size={9} color={colors.textDim} />
-              <Text className="text-typography-dim text-[9px] font-black uppercase tracking-widest">
-                {filteredOutCount} below threshold
-              </Text>
+        <View className="flex-row items-center gap-1.5">
+          {allPerfect && (
+            <View className="flex-row items-center gap-1.5 px-2 py-0.5 rounded-md bg-surface-background border border-surface-border">
+              <FontAwesome name="check" size={9} color={colors.success} />
+              <Text className="text-state-success text-[10px] font-black">Zero rework</Text>
             </View>
           )}
+          <TouchableOpacity
+            onPress={() => setShowInfo(v => !v)}
+            className={`w-6 h-6 rounded-md items-center justify-center border transition-all ${showInfo ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
+          >
+            <FontAwesome name="question" size={10} color={showInfo ? 'var(--color-on-primary)' : colors.textDim} />
+          </TouchableOpacity>
         </View>
       </View>
 
-      {/* Perfect integrity banner */}
-      {allPerfect && (
-        <View className="flex-row items-center justify-between bg-state-success-dim border border-state-success/20 px-5 py-3 rounded-2xl mb-6">
-          <View className="flex-row items-center gap-3">
-            <FontAwesome name="trophy" size={14} color={colors.success} />
-            <Text className="text-state-success font-black text-sm">
-              Perfect Integrity — Zero rework detected this period.
-            </Text>
-          </View>
-          <Text className="text-state-success/60 text-[10px] font-bold uppercase tracking-widest">
-            Ranked by volume
+      {showInfo && (
+        <View className="mb-3 bg-surface-background border border-surface-border rounded-2xl p-4">
+          <Text className="text-typography-muted text-xs leading-relaxed">
+            Integrity is first-pass accuracy — <Text className="text-typography-main font-bold">100% minus the rework rate</Text>. Only contributors with at least {MIN_TASKS} completed tasks are ranked; when everyone is tied at 100%, the order falls back to task volume.
           </Text>
         </View>
       )}
@@ -330,101 +342,36 @@ export const QualityLeaderboardWeb = ({ data, className }: { data: any, classNam
           </Text>
         </View>
       ) : (
-        <View className="flex-row flex-wrap gap-6">
+        <View>
           {workers.map((worker: any, idx: number) => {
             const score = worker.integrityScore;
-            const stars = score === 100 ? 5 : score >= 90 ? 4 : score >= 75 ? 3 : score >= 60 ? 2 : 1;
-            const isVolumeLeader = allPerfect && worker.total_tasks === maxTasks;
-
-            const colorClass = score === 100 ? 'bg-state-success' : score >= 75 ? 'bg-state-warning' : 'bg-state-danger';
-            const bgDimClass = score === 100 ? 'bg-state-success-dim' : score >= 75 ? 'bg-state-warning-dim' : 'bg-state-danger-dim';
-            const textClass = score === 100 ? 'text-state-success' : score >= 75 ? 'text-state-warning' : 'text-state-danger';
-            const borderClass = score === 100 ? 'border-state-success/20' : score >= 75 ? 'border-state-warning/20' : 'border-state-danger/20';
-
-            // When all are tied, show task volume bar instead of flat 100% bar
-            const barWidth = allPerfect ? (worker.total_tasks / (maxTasks || 1)) * 100 : score;
-
+            // Calm by default: a perfect score reads neutral; only real rework
+            // is coloured (amber / red), so the panel isn't a wall of green.
+            const tone = score === 100 ? 'text-typography-main' : score >= 75 ? 'text-state-warning' : 'text-state-danger';
             return (
               <View
                 key={idx}
-                className={`flex-1 min-w-[300px] bg-surface-background p-6 rounded-2xl border transition-all duration-300 ${
-                  isVolumeLeader
-                    ? 'border-state-success/40 hover:border-state-success/60'
-                    : 'border-surface-border/50 hover:border-brand-primary/30'
-                }`}
+                className="flex-row items-center gap-3 py-2 px-2 rounded-lg hover:bg-surface-background transition-all"
               >
-                <View className="flex-row justify-between items-start mb-4">
-                  <View className="flex-row items-center gap-3">
-                    <View className={`w-8 h-8 ${bgDimClass} rounded-lg items-center justify-center border ${borderClass}`}>
-                      <Text className={`${textClass} font-black text-xs`}>#{idx + 1}</Text>
-                    </View>
-                    <View className="w-10 h-10 rounded-full bg-surface-card border border-surface-border overflow-hidden">
-                      {worker.avatar_url ? (
-                        <Image source={{ uri: worker.avatar_url }} className="w-full h-full" />
-                      ) : (
-                        <View className="w-full h-full items-center justify-center bg-brand-primary/5">
-                          <Text className="text-brand-primary font-black text-xs">
-                            {(worker.full_name || 'A')[0].toUpperCase()}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                    <View className="flex-1">
-                      <Text className="text-typography-main font-black text-base" numberOfLines={1}>
-                        {worker.full_name || 'Anonymous User'}
+                <Text className="w-6 text-typography-muted text-[11px] font-black">#{idx + 1}</Text>
+                <View className="w-7 h-7 rounded-full bg-surface-background border border-surface-border overflow-hidden">
+                  {worker.avatar_url ? (
+                    <Image source={{ uri: worker.avatar_url }} className="w-full h-full" />
+                  ) : (
+                    <View className="w-full h-full items-center justify-center bg-brand-primary/5">
+                      <Text className="text-brand-primary font-black text-[10px]">
+                        {(worker.full_name || 'A')[0].toUpperCase()}
                       </Text>
-                      {isVolumeLeader && (
-                        <Text className="text-state-success text-[9px] font-black uppercase tracking-widest">
-                          Volume Leader
-                        </Text>
-                      )}
                     </View>
-                  </View>
-
-                  <View className="flex-row gap-1">
-                    {[1, 2, 3, 4, 5].map((s) => (
-                      <FontAwesome
-                        key={s}
-                        name={s <= stars ? 'star' : 'star-o'}
-                        size={14}
-                        color={s <= stars ? colors.warning : colors.textDim}
-                      />
-                    ))}
-                  </View>
+                  )}
                 </View>
-
-                <View className="gap-3">
-                  <View className="flex-row justify-between items-end">
-                    <Text className="text-typography-muted text-xs font-bold uppercase">
-                      {allPerfect ? 'Task Volume' : 'Integrity Score'}
-                    </Text>
-                    <Text className={`${textClass} text-xl font-black`}>
-                      {allPerfect ? `${worker.total_tasks} tasks` : `${score.toFixed(1)}%`}
-                    </Text>
-                  </View>
-
-                  <View className="h-2 bg-surface-card rounded-full overflow-hidden">
-                    <View
-                      className={`h-full ${colorClass}`}
-                      style={{ width: `${barWidth}%` }}
-                    />
-                  </View>
-
-                  <View className="flex-row justify-between items-center pt-2">
-                    <View className="flex-row items-center gap-1.5">
-                      <FontAwesome name="wrench" size={10} color={colors.textDim} />
-                      <Text className="text-typography-muted text-[10px] font-bold uppercase">
-                        {(worker.revision_rate || 0).toFixed(1)}% Rework
-                      </Text>
-                    </View>
-                    <View className="flex-row items-center gap-1.5">
-                      <FontAwesome name="check-circle" size={10} color={colors.textDim} />
-                      <Text className="text-typography-muted text-[10px] font-bold uppercase">
-                        {allPerfect ? `${score.toFixed(0)}% integrity` : `${worker.total_tasks || 0} Tasks`}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
+                <Text numberOfLines={1} className="flex-1 text-typography-main text-sm font-semibold">
+                  {worker.full_name || 'Anonymous User'}
+                </Text>
+                <Text className="text-typography-muted text-[10px] font-medium">
+                  {worker.total_tasks || 0} {worker.total_tasks === 1 ? 'task' : 'tasks'} · {(worker.revision_rate || 0).toFixed(0)}% rework
+                </Text>
+                <Text className={`w-11 text-right text-sm font-black ${tone}`}>{score.toFixed(0)}%</Text>
               </View>
             );
           })}
@@ -589,7 +536,7 @@ export const ThroughputOverTimeMiniWeb = ({ pipelines, days, onViewAll, classNam
     if (!pipelineId) return;
     setLoading(true);
     try {
-      const { periodType, nPeriods } = daysToParams(days);
+      const { periodType, nPeriods } = daysToPeriodParams(days);
       const t = await getPipelineThroughput(pipelineId, periodType, nPeriods);
       setThroughput(t || []);
     } catch (e) {
@@ -873,13 +820,6 @@ export const StageDwellChartWeb = ({ data, onViewDetails, className }: { data: S
 
 // ─── Pipeline Points Over Time Mini Widget ────────────────────────────────────
 
-function daysToParams(days: number): { periodType: string; nPeriods: number } {
-  if (days <= 7)  return { periodType: 'week',  nPeriods: 2 };
-  if (days <= 30) return { periodType: 'week',  nPeriods: 5 };
-  if (days <= 60) return { periodType: 'week',  nPeriods: 9 };
-  return           { periodType: 'month', nPeriods: 3 };
-}
-
 export const PipelinePointsMiniWeb = ({
   pipelines,
   days,
@@ -905,7 +845,7 @@ export const PipelinePointsMiniWeb = ({
     if (!pipelineId) return;
     setLoading(true);
     try {
-      const { periodType, nPeriods } = daysToParams(days);
+      const { periodType, nPeriods } = daysToPeriodParams(days);
       const result = await getPipelinePointsSeries(pipelineId, periodType, nPeriods);
       setData(result || []);
     } catch (e) {

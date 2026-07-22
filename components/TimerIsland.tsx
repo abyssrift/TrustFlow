@@ -1,17 +1,24 @@
+import AppModal from '@/components/common/AppModal';
 import { useTimer } from '@/contexts/TimerContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { useTicker } from '@/hooks/useTicker';
+import { formatStopwatch } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Dimensions, Modal, PanResponder, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Dimensions, PanResponder, Text, TouchableOpacity, View } from 'react-native';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
-export default function TimerIsland() {
+// `floating` draws the draggable pill (mobile). On desktop web the topbar's
+// morphing island shows the timer instead, so we pass floating={false} there —
+// but still mount for the idle-warning modal, which is platform-agnostic.
+export default function TimerIsland({ floating = true }: { floating?: boolean }) {
   const { isActive, activeSession, stopWork, serverTimeOffset, smartTimer } = useTimer();
   const { successToast, errorToast } = useToast();
-  const [elapsed, setElapsed] = useState('00:00:00');
+  const elapsedSeconds = useTicker(isActive ? activeSession?.started_at ?? null : null, { offsetMs: serverTimeOffset });
+  const elapsed = formatStopwatch(elapsedSeconds);
   const [expanded, setExpanded] = useState(false);
   const router = useRouter();
   const colors = useThemeColors();
@@ -32,18 +39,6 @@ export default function TimerIsland() {
         tension: 50,
         friction: 7,
       }).start();
-
-      const interval = setInterval(() => {
-        if (!activeSession?.started_at) return;
-        const start = new Date(activeSession.started_at).getTime();
-        const diff = Date.now() + serverTimeOffset - start;
-        const h = Math.floor(diff / 3600000);
-        const m = Math.floor((diff % 3600000) / 60000);
-        const s = Math.floor((diff % 60000) / 1000);
-        setElapsed(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
-      }, 1000);
-
-      return () => clearInterval(interval);
     } else {
       Animated.timing(scale, {
         toValue: 0,
@@ -52,7 +47,7 @@ export default function TimerIsland() {
       }).start();
       setExpanded(false);
     }
-  }, [isActive, activeSession?.started_at, serverTimeOffset]);
+  }, [isActive]);
 
   const panResponder = useRef(
     PanResponder.create({
@@ -106,6 +101,7 @@ export default function TimerIsland() {
   return (
     <>
     <IdleWarning smartTimer={smartTimer} stopWork={stopWork} colors={colors} />
+    {floating && (
     <Animated.View
       {...panResponder.panHandlers}
       style={{
@@ -128,7 +124,7 @@ export default function TimerIsland() {
         >
            <View className="w-2 h-2 rounded-full bg-brand-primary animate-pulse mr-2.5 ml-1" />
            {!expanded && (
-             <Text className="text-white font-mono text-xs font-black mr-2">{elapsed}</Text>
+             <Text className="text-typography-main font-mono text-xs font-black mr-2">{elapsed}</Text>
            )}
         </TouchableOpacity>
 
@@ -139,7 +135,7 @@ export default function TimerIsland() {
               {activeSession?.id === 'pending' ? 'Committing...' : 'Active Session'}
             </Text>
             <TouchableOpacity onPress={() => !isDragging.current && router.push(`/task/${activeSession?.task_id}`)}>
-              <Text className="text-white text-[10px] font-bold" numberOfLines={1}>
+              <Text className="text-typography-main text-[10px] font-bold" numberOfLines={1}>
                 {activeSession?.task?.title || 'Task Details'}
               </Text>
             </TouchableOpacity>
@@ -174,38 +170,45 @@ export default function TimerIsland() {
         </View>
       </View>
     </Animated.View>
+    )}
     </>
   );
 }
 
 const IdleWarning = ({ smartTimer, stopWork, colors }: any) => (
-  <Modal transparent animationType="fade" visible={smartTimer.showIdleModal} onRequestClose={() => smartTimer.setShowIdleModal(false)}>
-    <View className="flex-1 items-center justify-center bg-black/60">
-      <View className="bg-surface-card border border-surface-border rounded-2xl p-6 mx-6 max-w-sm w-full shadow-2xl">
-        <View className="items-center mb-4">
-          <View className="w-12 h-12 rounded-full bg-state-warning/15 items-center justify-center mb-3">
-            <FontAwesome name="clock-o" size={22} color={colors.warning} />
-          </View>
-          <Text className="text-typography-main font-bold text-base text-center">Are you still working?</Text>
-          <Text className="text-typography-muted text-sm text-center mt-1">
-            No activity detected for 30 minutes. The timer will stop automatically in 2 minutes.
-          </Text>
-        </View>
-        <View className="flex-row gap-3">
-          <TouchableOpacity
-            onPress={() => { smartTimer.setShowIdleModal(false); smartTimer.recordActivity(); }}
-            className="flex-1 bg-brand-primary/10 border border-brand-primary/30 rounded-xl py-3 items-center active:bg-brand-primary/20"
-          >
-            <Text className="text-brand-primary font-semibold text-sm">Keep Working</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => { smartTimer.setShowIdleModal(false); stopWork(); }}
-            className="flex-1 bg-state-danger/10 border border-state-danger/30 rounded-xl py-3 items-center active:bg-state-danger/20"
-          >
-            <Text className="text-state-danger font-semibold text-sm">Stop Timer</Text>
-          </TouchableOpacity>
-        </View>
+  <AppModal
+    visible={smartTimer.showIdleModal}
+    onClose={() => smartTimer.setShowIdleModal(false)}
+    dismissOnBackdrop={false}
+    containerClassName="rounded-2xl p-6 mx-6 max-w-sm w-full shadow-2xl"
+  >
+    <View className="items-center mb-4">
+      <View
+        className="w-12 h-12 rounded-full items-center justify-center mb-3"
+        style={{ backgroundColor: `${colors.warning}26` }}
+      >
+        <FontAwesome name="clock-o" size={22} color={colors.warning} />
       </View>
+      <Text className="font-bold text-base text-center" style={{ color: colors.textMain }}>Are you still working?</Text>
+      <Text className="text-sm text-center mt-1" style={{ color: colors.textMuted }}>
+        No activity detected for 30 minutes. The timer will stop automatically in 2 minutes.
+      </Text>
     </View>
-  </Modal>
+    <View className="flex-row gap-3">
+      <TouchableOpacity
+        onPress={() => { smartTimer.setShowIdleModal(false); smartTimer.recordActivity(); }}
+        className="flex-1 rounded-xl py-3 items-center border"
+        style={{ backgroundColor: `${colors.primary}1a`, borderColor: `${colors.primary}4d` }}
+      >
+        <Text className="font-semibold text-sm" style={{ color: colors.primary }}>Keep Working</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        onPress={() => { smartTimer.setShowIdleModal(false); stopWork(); }}
+        className="flex-1 rounded-xl py-3 items-center border"
+        style={{ backgroundColor: `${colors.danger}1a`, borderColor: `${colors.danger}4d` }}
+      >
+        <Text className="font-semibold text-sm" style={{ color: colors.danger }}>Stop Timer</Text>
+      </TouchableOpacity>
+    </View>
+  </AppModal>
 );

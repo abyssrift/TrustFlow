@@ -1,6 +1,7 @@
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 import DraggableSheet from '@/components/common/DraggableSheet';
 import { BackButton } from '@/components/common/BackButton';
+import UserLink from '@/components/common/UserLink';
 import { PersonnelRow, StageDwell, ThroughputPeriod, useAnalytics } from '@/contexts/AnalyticsContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBillingPlan } from '@/hooks/useBillingPlan';
@@ -11,6 +12,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { formatDuration as fmtSeconds } from '@/lib/duration';
 import {
   ActivityIndicator,
   Image,
@@ -26,16 +28,6 @@ type AdminTab = 'pipeline' | 'personnel';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function fmtSeconds(s: number): string {
-  if (s <= 0) return '0m';
-  const d = Math.floor(s / 86400);
-  const h = Math.floor((s % 86400) / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  if (d > 0) return h > 0 ? `${d}d ${h}h` : `${d}d`;
-  if (h > 0) return m > 0 ? `${h}h ${m}m` : `${h}h`;
-  return `${m}m`;
-}
-
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
@@ -48,8 +40,9 @@ const PRESETS = [
 
 // ─── Calendar Modal ───────────────────────────────────────────────────────────
 
-function CalendarModal({ visible, title, value, onSelect, onClose }: {
+function CalendarModal({ visible, title, value, onSelect, onClose, accentColor, rangeDate, rangeColor }: {
   visible: boolean; title: string; value: string; onSelect: (d: string) => void; onClose: () => void;
+  accentColor?: string; rangeDate?: string; rangeColor?: string;
 }) {
   const colors = useThemeColors();
   return (
@@ -68,7 +61,11 @@ function CalendarModal({ visible, title, value, onSelect, onClose }: {
           <PremiumCalendarPicker
             selectedDate={value}
             onSelect={d => { onSelect(d); onClose(); }}
-            compact
+            accentColor={accentColor}
+            rangeDate={rangeDate}
+            rangeColor={rangeColor}
+            scale="compact"
+            showDaysBetween
           />
     </DraggableSheet>
   );
@@ -135,8 +132,16 @@ function DateRangeControls({ from, to, setFrom, setTo }: {
         </View>
       )}
 
-      <CalendarModal visible={showFrom} title="Start Date" value={from} onSelect={v => { setFrom(v); setActivePreset(null); }} onClose={() => setShowFrom(false)} />
-      <CalendarModal visible={showTo}   title="End Date"   value={to}   onSelect={v => { setTo(v);   setActivePreset(null); }} onClose={() => setShowTo(false)} />
+      <CalendarModal
+        visible={showFrom} title="Start Date" value={from}
+        onSelect={v => { setFrom(v); setActivePreset(null); }} onClose={() => setShowFrom(false)}
+        accentColor={colors.primary} rangeDate={to} rangeColor={colors.secondary}
+      />
+      <CalendarModal
+        visible={showTo} title="End Date" value={to}
+        onSelect={v => { setTo(v); setActivePreset(null); }} onClose={() => setShowTo(false)}
+        accentColor={colors.secondary} rangeDate={from} rangeColor={colors.primary}
+      />
     </View>
   );
 }
@@ -304,6 +309,8 @@ function DwellChart({ data }: { data: StageDwell[] }) {
 
 function PipelineTab() {
   const colors = useThemeColors();
+  const { limits: planLimits } = useBillingPlan();
+  const limits = getAnalyticsLimits(planLimits);
   const { getPipelineStageDwell, getPipelineThroughput } = useAnalytics();
   const [pipelines, setPipelines]       = useState<any[]>([]);
   const [selectedPipeline, setSelected] = useState<string | null>(null);
@@ -516,7 +523,7 @@ function PersonnelTab() {
             if (!u) return null;
             return (
               <View key={uid} className="flex-row items-center gap-3">
-                <Text className="text-typography-main text-sm font-bold flex-1" numberOfLines={1}>{u.full_name}</Text>
+                <UserLink userId={uid} name={u.full_name} className="text-typography-main text-sm font-bold flex-1" numberOfLines={1} />
                 <View className="flex-row items-center border border-surface-border bg-surface-card rounded-xl overflow-hidden">
                   <Text className="px-3 text-typography-dim text-sm">$</Text>
                   <TextInput
@@ -548,7 +555,7 @@ function PersonnelTab() {
         <View className="gap-4">
           {results.map(row => (
             <View key={row.user_id} className="bg-surface-card border border-surface-border rounded-2xl p-5">
-              <Text className="text-typography-main font-black text-base mb-4">{row.full_name}</Text>
+              <UserLink userId={row.user_id} name={row.full_name} className="text-typography-main font-black text-base mb-4" />
               {[
                 { label: 'Results (Pts)',  value: `${row.weight_points}` },
                 { label: 'Effort (OPS)',   value: `${row.activity_count}` },
@@ -602,8 +609,8 @@ export default function AdminAnalyticsNative() {
   }
 
   const canCompare = hasPermission('analytics.compare');
-  const { planCode } = useBillingPlan();
-  const limits = getAnalyticsLimits(planCode);
+  const { limits: planLimits } = useBillingPlan();
+  const limits = getAnalyticsLimits(planLimits);
 
   return (
     <ScrollView className="flex-1 bg-surface-background" contentContainerStyle={{ paddingBottom: 40 }}>

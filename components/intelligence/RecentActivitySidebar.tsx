@@ -2,31 +2,25 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { useSubmission } from '../../contexts/SubmissionContext';
 import { useAnalytics, ActivityEntry } from '../../contexts/AnalyticsContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { formatRelative } from '@/lib/time';
 import { Ionicons } from '@expo/vector-icons';
 
-const formatDistanceToNow = (date: Date) => {
-  const diff = Date.now() - date.getTime();
-  const seconds = Math.floor(diff / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
-
-  if (days > 0) return `${days}d ago`;
-  if (hours > 0) return `${hours}h ago`;
-  if (minutes > 0) return `${minutes}m ago`;
-  return 'just now';
-};
+const formatDistanceToNow = (date: Date) => formatRelative(date);
 
 export const RecentActivitySidebar = () => {
   const { activeJobs } = useSubmission();
   const { getRecentActivity } = useAnalytics();
+  const { user } = useAuth();
   const [history, setHistory] = useState<ActivityEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!user?.id) return;
     const loadHistory = async () => {
       try {
-        const data = await getRecentActivity(10);
+        // Scope to the signed-in user — this is their personal activity feed (#40).
+        const data = await getRecentActivity(user.id, 10);
         setHistory(data);
       } catch (err) {
         console.error('Failed to load activity history:', err);
@@ -39,7 +33,7 @@ export const RecentActivitySidebar = () => {
     // Refresh history every 30 seconds
     const interval = setInterval(loadHistory, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [user?.id]);
 
   return (
     <View className="w-[380px] h-full border-l border-surface-border bg-surface-background/50">

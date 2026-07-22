@@ -7,7 +7,6 @@ import {
   RefreshControl,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   InteractionManager,
   Platform,
   Switch,
@@ -18,7 +17,9 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import ProjectFolderModal from '@/components/projects/ProjectFolderModal';
 import ProjectDashboardSheet from '@/components/projects/ProjectDashboardSheet';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAlert } from '@/contexts/AlertContext';
 import { TAB_BAR_HEIGHT } from '@/lib/layout';
+import { useNavBarPosition } from '@/hooks/useNavBarPosition';
 import { useThemeColors } from '@/hooks/useThemeColors';
 
 type Project = {
@@ -36,6 +37,7 @@ type Project = {
 
 export default function ProjectsScreen() {
   const colors = useThemeColors();
+  const { showAlert } = useAlert();
   const { width } = useWindowDimensions();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,6 +50,7 @@ export default function ProjectsScreen() {
   const { hasPermission } = useAuth();
   const isWeb = Platform.OS === 'web';
   const isLargeScreen = width > 768;
+  const { position: navPosition } = useNavBarPosition();
 
   // Permission check: user must have project.view permission
   if (!hasPermission('project.view')) {
@@ -130,7 +133,7 @@ export default function ProjectsScreen() {
 
   const handleEdit = (project: Project) => {
     if (!hasPermission('project.edit')) {
-      Alert.alert('Permission Denied', 'You do not have permission to edit projects.');
+      showAlert('Permission Denied', 'You do not have permission to edit projects.');
       return;
     }
     setSelectedProject(project);
@@ -139,7 +142,7 @@ export default function ProjectsScreen() {
 
   const handleCreateNew = () => {
     if (!hasPermission('project.create')) {
-      Alert.alert('Permission Denied', 'You do not have permission to create projects.');
+      showAlert('Permission Denied', 'You do not have permission to create projects.');
       return;
     }
     setSelectedProject(undefined);
@@ -253,7 +256,7 @@ export default function ProjectsScreen() {
   return (
     <View className="flex-1 bg-surface-background">
       {/* Header */}
-      <View className={`flex-row items-center justify-between px-6 ${isWeb ? 'py-8 border-b border-surface-border' : 'pb-3'}`} style={(Platform.OS !== 'web' || !isLargeScreen) ? { paddingTop: Platform.OS === 'web' ? TAB_BAR_HEIGHT.web : TAB_BAR_HEIGHT.native } : undefined}>
+      <View className={`flex-row items-center justify-between px-6 ${isWeb ? 'py-8 border-b border-surface-border' : 'pb-3'}`} style={isWeb ? (!isLargeScreen && navPosition === 'top' ? { paddingTop: TAB_BAR_HEIGHT.web } : undefined) : { paddingTop: TAB_BAR_HEIGHT.native }}>
         <View className="flex-1 mr-3">
           <Text className={`${isWeb ? (isLargeScreen ? 'text-5xl' : 'text-3xl') : 'text-2xl'} text-typography-main font-black tracking-tighter`}>Projects</Text>
           {isWeb && (

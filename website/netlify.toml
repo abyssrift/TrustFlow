@@ -1,0 +1,6 @@
+# This site is deployed as its OWN Netlify site (separate from the app's
+# root netlify.toml), with "Base directory" set to `website` in the Netlify
+# UI so this config is the one that applies.
+[build]
+  command = "npm run build"
+  publish = "dist"

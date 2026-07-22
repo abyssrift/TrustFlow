@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { Text, TextProps } from 'react-native';
+import { useAuth } from '@/contexts/AuthContext';
 
 /**
  * Renders a user's name as a tappable link that opens their profile in the
@@ -15,6 +16,7 @@ export default function UserLink({
   children,
   fallback = 'Unknown',
   disabled = false,
+  tab,
   ...textProps
 }: {
   userId?: string | null;
@@ -22,11 +24,17 @@ export default function UserLink({
   children?: React.ReactNode;
   fallback?: string;
   disabled?: boolean;
+  /** Which tab of the profile modal to land on — defaults to 'profile'. Pass 'activity' from activity feeds so the click lands where the user was looking. */
+  tab?: 'profile' | 'activity' | 'roles';
 } & TextProps) {
   const router = useRouter();
+  const { hasPermission } = useAuth();
   const label = children ?? name ?? fallback;
+  // Same gate _people_desktop.tsx uses to show the Members section — a user
+  // without it can't reach the profile modal this link targets, so don't imply it's clickable.
+  const canViewMembers = hasPermission('user.view_all') || hasPermission('role.manage');
 
-  if (!userId || disabled) {
+  if (!userId || disabled || !canViewMembers) {
     return <Text {...textProps}>{label}</Text>;
   }
 
@@ -36,7 +44,7 @@ export default function UserLink({
       onPress={(e) => {
         // Stop parent rows/cards from also handling the press.
         (e as any)?.stopPropagation?.();
-        router.push(`/people?section=members&user=${userId}`);
+        router.push(`/people?section=members&user=${userId}${tab ? `&tab=${tab}` : ''}`);
       }}
       style={[textProps.style, { cursor: 'pointer' } as any]}
     >

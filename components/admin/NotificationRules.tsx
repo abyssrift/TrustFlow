@@ -58,16 +58,20 @@ const RuleListItem = ({
     <TouchableOpacity
       onPress={onSelect}
       activeOpacity={0.7}
-      className={`p-4 mb-2 rounded-xl border ${isSelected ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-card border-surface-border'}`}
+      className="p-4 mb-2 rounded-xl border"
+      style={{
+        backgroundColor: isSelected ? colors.primary + '1A' : colors.card,
+        borderColor: isSelected ? colors.primary : colors.border,
+      }}
     >
       <View className="flex-row items-center justify-between">
         <View className="flex-row items-center gap-3 flex-1">
-          <View className="w-8 h-8 rounded-lg items-center justify-center bg-surface-background border border-surface-border">
+          <View className="w-8 h-8 rounded-lg items-center justify-center border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
             <FontAwesome name={meta.icon} size={14} color={rule.is_active ? ((colors as any)[meta.colorKey] || colors.primary) : colors.textMuted} />
           </View>
           <View className="flex-1">
-            <Text className={`font-black text-sm ${isSelected ? 'text-typography-main' : 'text-typography-muted'}`} numberOfLines={1}>{rule.name}</Text>
-            <Text className="text-[10px] text-typography-muted uppercase tracking-widest">{meta.label}</Text>
+            <Text className="font-black text-sm" style={{ color: isSelected ? colors.textMain : colors.textMuted }} numberOfLines={1}>{rule.name}</Text>
+            <Text className="text-[10px] uppercase tracking-widest" style={{ color: colors.textMuted }}>{meta.label}</Text>
           </View>
         </View>
         <Switch
@@ -184,13 +188,13 @@ const RuleInspector = ({
 
   if (!rule) {
     return (
-      <View className="flex-1 items-center justify-center p-8 bg-surface-background/30">
-        <View className="bg-surface-card p-8 rounded-3xl border border-dashed border-surface-border items-center">
-          <View className="w-14 h-14 bg-surface-background rounded-full items-center justify-center mb-4">
+      <View className="flex-1 items-center justify-center p-8" style={{ backgroundColor: colors.background + '4D' }}>
+        <View className="p-8 rounded-3xl border border-dashed items-center" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
+          <View className="w-14 h-14 rounded-full items-center justify-center mb-4" style={{ backgroundColor: colors.background }}>
             <FontAwesome name="mouse-pointer" size={22} color={colors.textMuted} />
           </View>
-          <Text className="text-typography-main text-base font-black tracking-tight">Select a Rule</Text>
-          <Text className="text-typography-muted mt-2 text-center max-w-[220px] leading-5 text-xs">Choose a rule from the left to view configuration and logs.</Text>
+          <Text className="text-base font-black tracking-tight" style={{ color: colors.textMain }}>Select a Rule</Text>
+          <Text className="mt-2 text-center max-w-[220px] leading-5 text-xs" style={{ color: colors.textMuted }}>Choose a rule from the left to view configuration and logs.</Text>
         </View>
       </View>
     );
@@ -205,25 +209,25 @@ const RuleInspector = ({
   const titleClass = isDesktop ? 'text-3xl' : 'text-xl';
 
   return (
-    <View className="flex-1 bg-surface-card border-l border-surface-border">
+    <View className="flex-1 border-l" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
       {/* Header */}
-      <View style={{ padding: headerPad }} className="border-b border-surface-border bg-surface-background/50">
+      <View style={{ padding: headerPad, backgroundColor: colors.background + '80', borderColor: colors.border }} className="border-b">
         <View className="flex-row items-start justify-between">
           <View className="flex-1 mr-3">
             <View className="flex-row items-center gap-2 mb-2 flex-wrap">
-              <View className="bg-brand-primary/10 px-2 py-0.5 rounded-md border border-brand-primary/20">
-                <Text className="text-brand-primary text-[9px] font-black uppercase tracking-wider">{rule.event_type}</Text>
+              <View className="px-2 py-0.5 rounded-md border" style={{ backgroundColor: colors.primary + '1A', borderColor: colors.primary + '33' }}>
+                <Text className="text-[9px] font-black uppercase tracking-wider" style={{ color: colors.primary }}>{rule.event_type}</Text>
               </View>
-              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">• ID {rule.id.slice(0, 8)}</Text>
+              <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>• ID {rule.id.slice(0, 8)}</Text>
             </View>
-            <Text className={`text-typography-main ${titleClass} font-black tracking-tighter leading-none mb-2`} numberOfLines={2}>{rule.name}</Text>
-            <Text className="text-typography-muted text-xs font-medium">{rule.description || 'No description provided.'}</Text>
+            <Text className={`${titleClass} font-black tracking-tighter leading-none mb-2`} style={{ color: colors.textMain }} numberOfLines={2}>{rule.name}</Text>
+            <Text className="text-xs font-medium" style={{ color: colors.textMuted }}>{rule.description || 'No description provided.'}</Text>
           </View>
 
           <View className="items-end">
-            <Text className="text-typography-muted text-[9px] font-black uppercase mb-1">Status</Text>
+            <Text className="text-[9px] font-black uppercase mb-1" style={{ color: colors.textMuted }}>Status</Text>
             <View className="flex-row items-center gap-2 mb-3">
-              <Text className={`text-[11px] font-black ${rule.is_active ? 'text-state-success' : 'text-typography-muted'}`}>
+              <Text className="text-[11px] font-black" style={{ color: rule.is_active ? colors.success : colors.textMuted }}>
                 {rule.is_active ? 'ACTIVE' : 'PAUSED'}
               </Text>
               <Switch
@@ -236,13 +240,15 @@ const RuleInspector = ({
             <View className="flex-row gap-2">
               <TouchableOpacity
                 onPress={() => onEdit(rule)}
-                className="bg-surface-background w-10 h-10 rounded-xl border border-surface-border items-center justify-center"
+                className="w-10 h-10 rounded-xl border items-center justify-center"
+                style={{ backgroundColor: colors.background, borderColor: colors.border }}
               >
                 <FontAwesome name="pencil" size={14} color={colors.primary} />
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => onDelete(rule)}
-                className="bg-surface-background w-10 h-10 rounded-xl border border-surface-border items-center justify-center"
+                className="w-10 h-10 rounded-xl border items-center justify-center"
+                style={{ backgroundColor: colors.background, borderColor: colors.border }}
               >
                 <FontAwesome name="trash" size={14} color={colors.danger} />
               </TouchableOpacity>
@@ -252,12 +258,13 @@ const RuleInspector = ({
       </View>
 
       {/* Tabs */}
-      <View className="flex-row px-5 border-b border-surface-border bg-surface-background/20">
+      <View className="flex-row px-5 border-b" style={{ borderColor: colors.border, backgroundColor: colors.background + '33' }}>
         {(['config', 'test', 'logs'] as const).map((tab) => (
           <TouchableOpacity
             key={tab}
             onPress={() => setActiveTab(tab)}
-            className={`py-4 mr-6 border-b-2 ${activeTab === tab ? 'border-brand-primary' : 'border-transparent'}`}
+            className="py-4 mr-6 border-b-2"
+            style={{ borderColor: activeTab === tab ? colors.primary : 'transparent' }}
           >
             <View className="flex-row items-center gap-2">
               <FontAwesome
@@ -265,7 +272,7 @@ const RuleInspector = ({
                 size={12}
                 color={activeTab === tab ? colors.primary : colors.textMuted}
               />
-              <Text className={`font-black text-[11px] uppercase tracking-[0.15em] ${activeTab === tab ? 'text-typography-main' : 'text-typography-muted'}`}>
+              <Text className="font-black text-[11px] uppercase tracking-[0.15em]" style={{ color: activeTab === tab ? colors.textMain : colors.textMuted }}>
                 {tab === 'config' ? 'Configuration' : tab === 'test' ? 'Playground' : 'Activity Logs'}
               </Text>
             </View>
@@ -277,27 +284,27 @@ const RuleInspector = ({
         {activeTab === 'config' && (
           <View className="gap-5">
             {/* Recipient Logic */}
-            <View className="bg-surface-background/50 p-5 rounded-2xl border border-surface-border">
-              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-3">Recipient Logic</Text>
+            <View className="p-5 rounded-2xl border" style={{ backgroundColor: colors.background + '80', borderColor: colors.border }}>
+              <Text className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color: colors.textMuted }}>Recipient Logic</Text>
               <View className="flex-row flex-wrap gap-2">
                 {rule.recipient_strategies.map((s) => (
-                  <View key={s} className="bg-surface-card border border-surface-border px-4 py-2.5 rounded-xl">
+                  <View key={s} className="border px-4 py-2.5 rounded-xl" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
                     <View className="flex-row items-center gap-2">
-                      <View className="w-1.5 h-1.5 rounded-full bg-brand-primary" />
-                      <Text className="text-typography-main font-black text-xs">{STRATEGY_LABELS[s] || s}</Text>
+                      <View className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colors.primary }} />
+                      <Text className="font-black text-xs" style={{ color: colors.textMain }}>{STRATEGY_LABELS[s] || s}</Text>
                     </View>
-                    <Text className="text-typography-muted text-[10px] mt-0.5">{STRATEGY_HELP[s] || 'Custom strategy'}</Text>
+                    <Text className="text-[10px] mt-0.5" style={{ color: colors.textMuted }}>{STRATEGY_HELP[s] || 'Custom strategy'}</Text>
                   </View>
                 ))}
               </View>
 
               {cfgEntries.length > 0 && (
-                <View className="mt-4 pt-4 border-t border-surface-border">
-                  <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Recipient Config</Text>
+                <View className="mt-4 pt-4 border-t" style={{ borderColor: colors.border }}>
+                  <Text className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color: colors.textMuted }}>Recipient Config</Text>
                   {cfgEntries.map(([k, v]) => (
                     <View key={k} className="flex-row items-center gap-3 py-1">
-                      <Text className="text-typography-muted text-xs font-mono" style={{ fontFamily: 'monospace' }}>{k}:</Text>
-                      <Text className="text-typography-main text-xs font-mono" style={{ fontFamily: 'monospace' }} numberOfLines={2}>{JSON.stringify(v)}</Text>
+                      <Text className="text-xs font-mono" style={{ fontFamily: 'monospace', color: colors.textMuted }}>{k}:</Text>
+                      <Text className="text-xs font-mono" style={{ fontFamily: 'monospace', color: colors.textMain }} numberOfLines={2}>{JSON.stringify(v)}</Text>
                     </View>
                   ))}
                 </View>
@@ -306,28 +313,28 @@ const RuleInspector = ({
 
             {/* Conditions + Channels */}
             <View className={isDesktop ? 'flex-row gap-4' : 'gap-4'}>
-              <View className="flex-1 bg-surface-background/50 p-5 rounded-2xl border border-surface-border">
-                <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-3">Conditions</Text>
+              <View className="flex-1 p-5 rounded-2xl border" style={{ backgroundColor: colors.background + '80', borderColor: colors.border }}>
+                <Text className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color: colors.textMuted }}>Conditions</Text>
                 {conditionEntries.length === 0 ? (
                   <View className="items-center justify-center py-6">
                     <FontAwesome name="filter" size={20} color={colors.textMuted} style={{ opacity: 0.3, marginBottom: 8 }} />
-                    <Text className="text-typography-muted text-xs font-bold">Matches every event</Text>
+                    <Text className="text-xs font-bold" style={{ color: colors.textMuted }}>Matches every event</Text>
                   </View>
                 ) : (
                   <View className="gap-1">
                     {conditionEntries.map(([k, v]) => (
-                      <View key={k} className="flex-row items-center gap-2 bg-surface-card px-3 py-2 rounded-lg border border-surface-border">
-                        <Text className="text-typography-muted text-[11px] font-mono" style={{ fontFamily: 'monospace' }}>{k}</Text>
-                        <Text className="text-typography-muted text-[11px]">=</Text>
-                        <Text className="text-typography-main text-[11px] font-mono flex-1" style={{ fontFamily: 'monospace' }} numberOfLines={1}>{JSON.stringify(v)}</Text>
+                      <View key={k} className="flex-row items-center gap-2 px-3 py-2 rounded-lg border" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
+                        <Text className="text-[11px] font-mono" style={{ fontFamily: 'monospace', color: colors.textMuted }}>{k}</Text>
+                        <Text className="text-[11px]" style={{ color: colors.textMuted }}>=</Text>
+                        <Text className="text-[11px] font-mono flex-1" style={{ fontFamily: 'monospace', color: colors.textMain }} numberOfLines={1}>{JSON.stringify(v)}</Text>
                       </View>
                     ))}
                   </View>
                 )}
               </View>
 
-              <View className="flex-1 bg-surface-background/50 p-5 rounded-2xl border border-surface-border">
-                <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-3">Channels</Text>
+              <View className="flex-1 p-5 rounded-2xl border" style={{ backgroundColor: colors.background + '80', borderColor: colors.border }}>
+                <Text className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color: colors.textMuted }}>Channels</Text>
                 <View className="flex-row gap-3 mb-3 flex-wrap">
                   {[
                     { icon: 'envelope', label: 'Email' },
@@ -335,14 +342,14 @@ const RuleInspector = ({
                     { icon: 'globe',    label: 'Web' },
                   ].map((c) => (
                     <View key={c.label} className="items-center gap-1.5">
-                      <View className="w-10 h-10 bg-brand-primary/10 rounded-xl items-center justify-center border border-brand-primary/20">
+                      <View className="w-10 h-10 rounded-xl items-center justify-center border" style={{ backgroundColor: colors.primary + '1A', borderColor: colors.primary + '33' }}>
                         <FontAwesome name={c.icon as any} size={14} color={colors.primary} />
                       </View>
-                      <Text className="text-typography-main text-[10px] font-bold">{c.label}</Text>
+                      <Text className="text-[10px] font-bold" style={{ color: colors.textMain }}>{c.label}</Text>
                     </View>
                   ))}
                 </View>
-                <Text className="text-typography-muted text-[10px] leading-4">
+                <Text className="text-[10px] leading-4" style={{ color: colors.textMuted }}>
                   Each recipient receives this notification on the channels they have enabled in their preferences.
                 </Text>
               </View>
@@ -352,13 +359,13 @@ const RuleInspector = ({
 
         {activeTab === 'test' && (
           <View className="gap-5">
-            <View className="bg-surface-background p-5 rounded-2xl border border-surface-border">
-              <Text className="text-typography-main text-base font-black mb-1">Rule Simulator</Text>
-              <Text className="text-typography-muted text-xs leading-5 mb-4">
-                Run server-side recipient resolution for a synthetic <Text className="text-brand-primary font-black">{rule.event_type}</Text> event. No notifications are sent.
+            <View className="p-5 rounded-2xl border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
+              <Text className="text-base font-black mb-1" style={{ color: colors.textMain }}>Rule Simulator</Text>
+              <Text className="text-xs leading-5 mb-4" style={{ color: colors.textMuted }}>
+                Run server-side recipient resolution for a synthetic <Text className="font-black" style={{ color: colors.primary }}>{rule.event_type}</Text> event. No notifications are sent.
               </Text>
 
-              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Task ID</Text>
+              <Text className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color: colors.textMuted }}>Task ID</Text>
               <TextInput
                 value={simTaskId}
                 onChangeText={setSimTaskId}
@@ -366,10 +373,11 @@ const RuleInspector = ({
                 placeholderTextColor={colors.textDim}
                 autoCapitalize="none"
                 autoCorrect={false}
-                className="bg-surface-background border border-surface-border rounded-xl px-3 py-2.5 text-typography-main text-xs mb-3"
+                className="rounded-xl px-3 py-2.5 text-xs mb-3 border"
+                style={{ backgroundColor: colors.background, borderColor: colors.border, color: colors.textMain }}
               />
 
-              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Pipeline ID</Text>
+              <Text className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color: colors.textMuted }}>Pipeline ID</Text>
               <TextInput
                 value={simPipelineId}
                 onChangeText={setSimPipelineId}
@@ -377,10 +385,11 @@ const RuleInspector = ({
                 placeholderTextColor={colors.textDim}
                 autoCapitalize="none"
                 autoCorrect={false}
-                className="bg-surface-background border border-surface-border rounded-xl px-3 py-2.5 text-typography-main text-xs mb-3"
+                className="rounded-xl px-3 py-2.5 text-xs mb-3 border"
+                style={{ backgroundColor: colors.background, borderColor: colors.border, color: colors.textMain }}
               />
 
-              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Extra Payload (JSON)</Text>
+              <Text className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color: colors.textMuted }}>Extra Payload (JSON)</Text>
               <TextInput
                 value={simPayloadJson}
                 onChangeText={setSimPayloadJson}
@@ -388,15 +397,16 @@ const RuleInspector = ({
                 autoCapitalize="none"
                 autoCorrect={false}
                 placeholderTextColor={colors.textDim}
-                className="bg-surface-background border border-surface-border rounded-xl px-3 py-2.5 text-typography-main text-xs font-mono"
-                style={{ minHeight: 72, fontFamily: 'monospace' }}
+                className="rounded-xl px-3 py-2.5 text-xs font-mono border"
+                style={{ minHeight: 72, fontFamily: 'monospace', backgroundColor: colors.background, borderColor: colors.border, color: colors.textMain }}
               />
 
               <TouchableOpacity
                 onPress={runSimulation}
                 disabled={testing}
                 activeOpacity={0.8}
-                className="mt-5 bg-brand-primary py-4 rounded-2xl items-center flex-row justify-center gap-3"
+                className="mt-5 py-4 rounded-2xl items-center flex-row justify-center gap-3"
+                style={{ backgroundColor: colors.primary }}
               >
                 {testing ? (
                   <ActivityIndicator color="white" size="small" />
@@ -410,12 +420,12 @@ const RuleInspector = ({
             </View>
 
             {simError && (
-              <View className="bg-state-danger/10 border border-state-danger/30 p-4 rounded-2xl">
+              <View className="p-4 rounded-2xl border" style={{ backgroundColor: colors.danger + '1A', borderColor: colors.danger + '4D' }}>
                 <View className="flex-row items-start gap-3">
                   <FontAwesome name="exclamation-triangle" size={16} color={colors.danger} />
                   <View className="flex-1">
-                    <Text className="text-state-danger font-black text-xs uppercase tracking-widest mb-1">Simulation Error</Text>
-                    <Text className="text-typography-muted text-xs leading-5">{simError}</Text>
+                    <Text className="font-black text-xs uppercase tracking-widest mb-1" style={{ color: colors.danger }}>Simulation Error</Text>
+                    <Text className="text-xs leading-5" style={{ color: colors.textMuted }}>{simError}</Text>
                   </View>
                 </View>
               </View>
@@ -423,36 +433,45 @@ const RuleInspector = ({
 
             {simResult && (
               <View className="gap-4">
-                <View className={`p-5 rounded-2xl border ${simResult.conditions_match ? 'bg-state-success/10 border-state-success/30' : 'bg-state-warning/10 border-state-warning/30'}`}>
+                <View
+                  className="p-5 rounded-2xl border"
+                  style={{
+                    backgroundColor: (simResult.conditions_match ? colors.success : colors.warning) + '1A',
+                    borderColor: (simResult.conditions_match ? colors.success : colors.warning) + '4D',
+                  }}
+                >
                   <View className="flex-row items-center gap-3 mb-2">
-                    <View className={`w-9 h-9 rounded-full items-center justify-center ${simResult.conditions_match ? 'bg-state-success' : 'bg-state-warning'}`}>
+                    <View
+                      className="w-9 h-9 rounded-full items-center justify-center"
+                      style={{ backgroundColor: simResult.conditions_match ? colors.success : colors.warning }}
+                    >
                       <FontAwesome name={simResult.conditions_match ? 'check' : 'times'} size={14} color="white" />
                     </View>
                     <View className="flex-1">
-                      <Text className="text-typography-main font-black text-sm">
+                      <Text className="font-black text-sm" style={{ color: colors.textMain }}>
                         {simResult.conditions_match ? 'Conditions matched' : 'Conditions did not match'}
                       </Text>
-                      <Text className="text-typography-muted text-[11px]">
+                      <Text className="text-[11px]" style={{ color: colors.textMuted }}>
                         {simResult.recipient_count} unique recipient{simResult.recipient_count === 1 ? '' : 's'} resolved (actor not yet excluded)
                       </Text>
                     </View>
                   </View>
                 </View>
 
-                <View className="bg-surface-background/50 p-5 rounded-2xl border border-surface-border">
-                  <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-3">Per-Strategy Resolution</Text>
+                <View className="p-5 rounded-2xl border" style={{ backgroundColor: colors.background + '80', borderColor: colors.border }}>
+                  <Text className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color: colors.textMuted }}>Per-Strategy Resolution</Text>
                   {simResult.strategy_log.length === 0 ? (
-                    <Text className="text-typography-muted text-xs">No strategies evaluated.</Text>
+                    <Text className="text-xs" style={{ color: colors.textMuted }}>No strategies evaluated.</Text>
                   ) : (
                     <View className="gap-2">
                       {simResult.strategy_log.map((s, idx) => (
-                        <View key={`${s.strategy}-${idx}`} className="flex-row items-center justify-between bg-surface-card px-3 py-2.5 rounded-lg border border-surface-border">
+                        <View key={`${s.strategy}-${idx}`} className="flex-row items-center justify-between px-3 py-2.5 rounded-lg border" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
                           <View>
-                            <Text className="text-typography-main text-xs font-black">{STRATEGY_LABELS[s.strategy] || s.strategy}</Text>
-                            <Text className="text-typography-muted text-[10px]">{STRATEGY_HELP[s.strategy] || ''}</Text>
+                            <Text className="text-xs font-black" style={{ color: colors.textMain }}>{STRATEGY_LABELS[s.strategy] || s.strategy}</Text>
+                            <Text className="text-[10px]" style={{ color: colors.textMuted }}>{STRATEGY_HELP[s.strategy] || ''}</Text>
                           </View>
-                          <View className="bg-brand-primary/10 px-2.5 py-1 rounded-md">
-                            <Text className="text-brand-primary text-[10px] font-black">{s.resolved_count}</Text>
+                          <View className="px-2.5 py-1 rounded-md" style={{ backgroundColor: colors.primary + '1A' }}>
+                            <Text className="text-[10px] font-black" style={{ color: colors.primary }}>{s.resolved_count}</Text>
                           </View>
                         </View>
                       ))}
@@ -460,20 +479,20 @@ const RuleInspector = ({
                   )}
                 </View>
 
-                <View className="bg-surface-background/50 p-5 rounded-2xl border border-surface-border">
-                  <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-3">Recipients</Text>
+                <View className="p-5 rounded-2xl border" style={{ backgroundColor: colors.background + '80', borderColor: colors.border }}>
+                  <Text className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color: colors.textMuted }}>Recipients</Text>
                   {simResult.recipients.length === 0 ? (
-                    <Text className="text-typography-muted text-xs">No users matched.</Text>
+                    <Text className="text-xs" style={{ color: colors.textMuted }}>No users matched.</Text>
                   ) : (
                     <View className="gap-2">
                       {simResult.recipients.map((r) => (
-                        <View key={r.user_id} className="flex-row items-center gap-3 bg-surface-card px-3 py-2.5 rounded-lg border border-surface-border">
-                          <View className="w-8 h-8 rounded-full bg-brand-primary/10 items-center justify-center">
+                        <View key={r.user_id} className="flex-row items-center gap-3 px-3 py-2.5 rounded-lg border" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
+                          <View className="w-8 h-8 rounded-full items-center justify-center" style={{ backgroundColor: colors.primary + '1A' }}>
                             <FontAwesome name="user" size={12} color={colors.primary} />
                           </View>
                           <View className="flex-1">
-                            <Text className="text-typography-main text-xs font-black" numberOfLines={1}>{r.display_name}</Text>
-                            <Text className="text-typography-muted text-[10px]" numberOfLines={1}>{r.email}</Text>
+                            <Text className="text-xs font-black" style={{ color: colors.textMain }} numberOfLines={1}>{r.display_name}</Text>
+                            <Text className="text-[10px]" style={{ color: colors.textMuted }} numberOfLines={1}>{r.email}</Text>
                           </View>
                         </View>
                       ))}
@@ -488,16 +507,17 @@ const RuleInspector = ({
         {activeTab === 'logs' && (
           <View className="gap-3">
             <View className="flex-row items-center justify-between mb-2">
-              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">
+              <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>
                 Recent Deliveries{logs ? ` (${logs.length})` : ''}
               </Text>
               <TouchableOpacity
                 onPress={loadLogs}
                 disabled={logsLoading}
-                className="bg-surface-background px-3 py-1.5 rounded-lg border border-surface-border flex-row items-center gap-2"
+                className="px-3 py-1.5 rounded-lg border flex-row items-center gap-2"
+                style={{ backgroundColor: colors.background, borderColor: colors.border }}
               >
                 <FontAwesome name="refresh" size={10} color={colors.textMuted} />
-                <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Refresh</Text>
+                <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>Refresh</Text>
               </TouchableOpacity>
             </View>
 
@@ -508,16 +528,16 @@ const RuleInspector = ({
             )}
 
             {!logsLoading && logsError && (
-              <View className="bg-state-danger/10 border border-state-danger/30 p-4 rounded-xl">
-                <Text className="text-state-danger text-xs font-black">{logsError}</Text>
+              <View className="p-4 rounded-xl border" style={{ backgroundColor: colors.danger + '1A', borderColor: colors.danger + '4D' }}>
+                <Text className="text-xs font-black" style={{ color: colors.danger }}>{logsError}</Text>
               </View>
             )}
 
             {!logsLoading && !logsError && logs && logs.length === 0 && (
-              <View className="bg-surface-background/50 p-8 rounded-2xl border border-dashed border-surface-border items-center">
+              <View className="p-8 rounded-2xl border border-dashed items-center" style={{ backgroundColor: colors.background + '80', borderColor: colors.border }}>
                 <FontAwesome name="inbox" size={24} color={colors.textMuted} style={{ opacity: 0.4, marginBottom: 8 }} />
-                <Text className="text-typography-main font-black text-sm">No deliveries yet</Text>
-                <Text className="text-typography-muted text-xs mt-1 text-center">This rule has not produced any notifications yet.</Text>
+                <Text className="font-black text-sm" style={{ color: colors.textMain }}>No deliveries yet</Text>
+                <Text className="text-xs mt-1 text-center" style={{ color: colors.textMuted }}>This rule has not produced any notifications yet.</Text>
               </View>
             )}
 
@@ -525,28 +545,28 @@ const RuleInspector = ({
               const channels = d.channels_sent ?? [];
               const ok = channels.length > 0;
               return (
-                <View key={d.id} className="p-4 bg-surface-background/50 rounded-2xl border border-surface-border">
+                <View key={d.id} className="p-4 rounded-2xl border" style={{ backgroundColor: colors.background + '80', borderColor: colors.border }}>
                   <View className="flex-row items-center justify-between mb-2">
                     <View className="flex-row items-center gap-3 flex-1">
-                      <View className={`w-2 h-2 rounded-full ${ok ? 'bg-state-success' : 'bg-state-warning'}`} />
+                      <View className="w-2 h-2 rounded-full" style={{ backgroundColor: ok ? colors.success : colors.warning }} />
                       <View className="flex-1">
-                        <Text className="text-typography-main text-xs font-black" numberOfLines={1}>{d.recipient_name}</Text>
-                        <Text className="text-typography-muted text-[10px]">{formatTimestamp(d.created_at)}</Text>
+                        <Text className="text-xs font-black" style={{ color: colors.textMain }} numberOfLines={1}>{d.recipient_name}</Text>
+                        <Text className="text-[10px]" style={{ color: colors.textMuted }}>{formatTimestamp(d.created_at)}</Text>
                       </View>
                     </View>
-                    <View className="flex-row items-center gap-3 bg-surface-card px-3 py-1.5 rounded-lg border border-surface-border">
+                    <View className="flex-row items-center gap-3 px-3 py-1.5 rounded-lg border" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
                       {channels.includes('in_app')      && <FontAwesome name="bell"     size={10} color={colors.primary} />}
                       {channels.includes('email')       && <FontAwesome name="envelope" size={10} color={colors.primary} />}
                       {channels.includes('push_mobile') && <FontAwesome name="mobile"   size={12} color={colors.primary} />}
                       {channels.includes('push_web')    && <FontAwesome name="globe"    size={11} color={colors.primary} />}
                       {channels.length === 0           && <FontAwesome name="ban"      size={10} color={colors.textMuted} />}
-                      <Text className="text-typography-muted text-[9px] font-black uppercase">
+                      <Text className="text-[9px] font-black uppercase" style={{ color: colors.textMuted }}>
                         {channels.length === 0 ? 'No channels' : `${channels.length} ch`}
                       </Text>
                     </View>
                   </View>
-                  <Text className="text-typography-main text-xs font-bold" numberOfLines={1}>{d.title}</Text>
-                  <Text className="text-typography-muted text-[11px] mt-0.5" numberOfLines={2}>{d.body}</Text>
+                  <Text className="text-xs font-bold" style={{ color: colors.textMain }} numberOfLines={1}>{d.title}</Text>
+                  <Text className="text-[11px] mt-0.5" style={{ color: colors.textMuted }} numberOfLines={2}>{d.body}</Text>
                 </View>
               );
             })}
@@ -651,7 +671,7 @@ export default function NotificationRules() {
     return (
       <View className="py-40 items-center justify-center">
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text className="text-typography-muted mt-4 font-black text-xs uppercase tracking-widest">Loading Workspace</Text>
+        <Text className="mt-4 font-black text-xs uppercase tracking-widest" style={{ color: colors.textMuted }}>Loading Workspace</Text>
       </View>
     );
   }
@@ -665,20 +685,21 @@ export default function NotificationRules() {
           <View className="px-4 py-4 gap-4">
             <TouchableOpacity
               onPress={openCreate}
-              className="w-full h-12 bg-brand-primary rounded-xl items-center justify-center flex-row gap-2"
+              className="w-full h-12 rounded-xl items-center justify-center flex-row gap-2"
+              style={{ backgroundColor: colors.primary }}
             >
               <FontAwesome name="plus" size={14} color="white" />
               <Text className="text-white font-black text-xs uppercase tracking-widest">New Rule</Text>
             </TouchableOpacity>
 
             <View className="flex-row gap-2">
-              <View className="flex-1 bg-surface-card p-3 rounded-xl items-center border border-surface-border">
-                <Text className="text-state-success font-black text-lg">{activeCount}</Text>
-                <Text className="text-typography-muted text-[9px] uppercase tracking-widest">Active</Text>
+              <View className="flex-1 p-3 rounded-xl items-center border" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
+                <Text className="font-black text-lg" style={{ color: colors.success }}>{activeCount}</Text>
+                <Text className="text-[9px] uppercase tracking-widest" style={{ color: colors.textMuted }}>Active</Text>
               </View>
-              <View className="flex-1 bg-surface-card p-3 rounded-xl items-center border border-surface-border">
-                <Text className="text-typography-muted font-black text-lg">{rules.length - activeCount}</Text>
-                <Text className="text-typography-muted text-[9px] uppercase tracking-widest">Paused</Text>
+              <View className="flex-1 p-3 rounded-xl items-center border" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
+                <Text className="font-black text-lg" style={{ color: colors.textMuted }}>{rules.length - activeCount}</Text>
+                <Text className="text-[9px] uppercase tracking-widest" style={{ color: colors.textMuted }}>Paused</Text>
               </View>
             </View>
 
@@ -695,15 +716,19 @@ export default function NotificationRules() {
         </ScrollView>
 
         <Modal visible={!!selectedId} animationType="slide" onRequestClose={() => setSelectedId(null)}>
-          <View className="flex-1 bg-surface-background">
-            <View className="pt-12 pb-4 px-4 border-b border-surface-border flex-row items-center gap-4 bg-surface-card">
+          <View className="flex-1" style={{ backgroundColor: colors.background }}>
+            <View
+              className="pt-12 pb-4 px-4 border-b flex-row items-center gap-4"
+              style={{ borderColor: colors.border, backgroundColor: colors.card }}
+            >
               <TouchableOpacity
                 onPress={() => setSelectedId(null)}
-                className="w-10 h-10 items-center justify-center bg-surface-background rounded-full border border-surface-border"
+                className="w-10 h-10 items-center justify-center rounded-full border"
+                style={{ backgroundColor: colors.background, borderColor: colors.border }}
               >
                 <FontAwesome name="arrow-left" size={16} color={colors.textMain} />
               </TouchableOpacity>
-              <Text className="text-typography-main font-black text-lg">Rule Details</Text>
+              <Text className="font-black text-lg" style={{ color: colors.textMain }}>Rule Details</Text>
             </View>
             <RuleInspector
               rule={activeRule}
@@ -728,29 +753,30 @@ export default function NotificationRules() {
   }
 
   return (
-    <View className="flex-1 flex-row bg-surface-background overflow-hidden rounded-[32px] border border-surface-border">
-      <View className="w-80 border-r border-surface-border bg-surface-background/40">
-        <View className="p-6 border-b border-surface-border flex-row items-center justify-between">
+    <View className="flex-1 flex-row overflow-hidden rounded-[32px] border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
+      <View className="w-80 border-r" style={{ borderColor: colors.border, backgroundColor: colors.background + '66' }}>
+        <View className="p-6 border-b flex-row items-center justify-between" style={{ borderColor: colors.border }}>
           <View>
-            <Text className="text-typography-main font-black text-xl tracking-tight">Notification Rules</Text>
-            <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest mt-0.5">{rules.length} Total</Text>
+            <Text className="font-black text-xl tracking-tight" style={{ color: colors.textMain }}>Notification Rules</Text>
+            <Text className="text-[10px] font-bold uppercase tracking-widest mt-0.5" style={{ color: colors.textMuted }}>{rules.length} Total</Text>
           </View>
           <TouchableOpacity
             onPress={openCreate}
-            className="w-10 h-10 bg-brand-primary rounded-xl items-center justify-center"
+            className="w-10 h-10 rounded-xl items-center justify-center"
+            style={{ backgroundColor: colors.primary }}
           >
             <FontAwesome name="plus" size={14} color="white" />
           </TouchableOpacity>
         </View>
 
-        <View className="p-4 bg-surface-background/60 border-b border-surface-border flex-row gap-2">
-          <View className="flex-1 bg-surface-card p-2 rounded-lg items-center border border-surface-border">
-            <Text className="text-state-success font-black text-xs">{activeCount}</Text>
-            <Text className="text-typography-muted text-[8px] uppercase">Active</Text>
+        <View className="p-4 border-b flex-row gap-2" style={{ borderColor: colors.border, backgroundColor: colors.background + '99' }}>
+          <View className="flex-1 p-2 rounded-lg items-center border" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
+            <Text className="font-black text-xs" style={{ color: colors.success }}>{activeCount}</Text>
+            <Text className="text-[8px] uppercase" style={{ color: colors.textMuted }}>Active</Text>
           </View>
-          <View className="flex-1 bg-surface-card p-2 rounded-lg items-center border border-surface-border">
-            <Text className="text-typography-muted font-black text-xs">{rules.length - activeCount}</Text>
-            <Text className="text-typography-muted text-[8px] uppercase">Paused</Text>
+          <View className="flex-1 p-2 rounded-lg items-center border" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
+            <Text className="font-black text-xs" style={{ color: colors.textMuted }}>{rules.length - activeCount}</Text>
+            <Text className="text-[8px] uppercase" style={{ color: colors.textMuted }}>Paused</Text>
           </View>
         </View>
 

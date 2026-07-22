@@ -1,8 +1,12 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Switch, Platform } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, Switch, Platform, ActivityIndicator } from 'react-native';
+import { useAlert } from '@/contexts/AlertContext';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as ImagePicker from 'expo-image-picker';
+import { File } from 'expo-file-system';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 import { cssInterop } from 'react-native-css-interop';
 import { useThemeColors } from '@/hooks/useThemeColors';
 
@@ -20,17 +24,62 @@ interface Props {
 export default function KanbanPersonalizer({ onClose }: Props) {
   const colors = useThemeColors();
   const { kanban, updateKanban } = useTheme();
+  const { user } = useAuth();
+  const { showAlert } = useAlert();
+  const [uploading, setUploading] = useState(false);
 
   const handlePickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [16, 9],
-      quality: 0.8,
-    });
+    if (!user) return;
+    // Picker call must be inside the try too: if it throws (e.g. a permission
+    // request failing on native) before setUploading ever ran, the failure
+    // was silent — no spinner, no console reachable on a real device, nothing.
+    setUploading(true);
+    try {
+      // ponytail: no forced crop aspect — the render layer already uses
+      // resizeMode="cover", so a fixed 16:9 crop only letterboxed portrait
+      // photos with black bars instead of framing them correctly.
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.8,
+      });
 
-    if (!result.canceled) {
-      updateKanban({ backgroundUrl: result.assets[0].uri });
+      if (result.canceled) return;
+
+      // The picker only gives a transient local uri (blob:/file:// cache path) that
+      // doesn't survive a reload or app restart, so upload it to durable storage
+      // and persist the resulting public URL instead.
+      const asset = result.assets[0];
+      const fileExt = asset.mimeType?.split('/')[1] || asset.uri.split('.').pop() || 'jpg';
+      const storagePath = `${user.id}/background.${fileExt}`;
+      const contentType = asset.mimeType || `image/${fileExt}`;
+
+      // Supabase's own storage-js docs: Blob/File/FormData "does not work as intended"
+      // on React Native (the request silently hangs, no reject, no timeout) — read
+      // the file's raw bytes instead, which fetch can actually serialize correctly.
+      const body = Platform.OS === 'web'
+        ? await (await fetch(asset.uri)).blob()
+        : await new File(asset.uri).bytes();
+
+      // ponytail: a bare hang here previously looked identical to "nothing
+      // happened" with zero feedback; bound it so a stalled request always
+      // reaches the catch/Alert instead of spinning forever.
+      const uploadPromise = supabase.storage
+        .from('kanban-backgrounds')
+        .upload(storagePath, body, { upsert: true, contentType });
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Upload timed out. Check your connection and try again.')), 20000)
+      );
+      const { error: uploadError } = await Promise.race([uploadPromise, timeoutPromise]);
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage.from('kanban-backgrounds').getPublicUrl(storagePath);
+      updateKanban({ backgroundUrl: `${data.publicUrl}?v=${Date.now()}` });
+    } catch (e) {
+      console.error('Failed to upload kanban background', e);
+      showAlert('Upload failed', e instanceof Error ? e.message : 'Could not upload background image.');
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -70,12 +119,17 @@ export default function KanbanPersonalizer({ onClose }: Props) {
           <Text className="text-brand-primary text-[10px] font-black uppercase mb-4 tracking-widest">Background & Image</Text>
           
           <View className="flex-row flex-wrap gap-3 mb-6">
-             <TouchableOpacity 
+             <TouchableOpacity
               onPress={handlePickImage}
+              disabled={uploading}
               className="w-20 h-28 rounded-xl border border-dashed border-surface-border items-center justify-center bg-surface-overlay"
              >
-                <FontAwesome name="upload" size={20} className="text-typography-dim" />
-                <Text className="text-typography-muted text-[8px] mt-2 font-bold">Upload</Text>
+                {uploading ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <FontAwesome name="upload" size={20} className="text-typography-dim" />
+                )}
+                <Text className="text-typography-muted text-[8px] mt-2 font-bold">{uploading ? 'Uploading' : 'Upload'}</Text>
              </TouchableOpacity>
 
              {presets.map((p, idx) => (

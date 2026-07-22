@@ -1,10 +1,13 @@
 import DraggableSheet from '@/components/common/DraggableSheet';
 import PendingTimeApprovalsWidget from '@/components/common/PendingTimeApprovalsWidget';
+import PipelineOverviewChartNative, { DEFAULT_OVERVIEW_METRICS, OverviewMetricKey } from '@/components/intelligence/PipelineOverviewChartNative';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '@/contexts/NotificationsContext';
+import { useNavBarPosition } from '@/hooks/useNavBarPosition';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { TAB_BAR_HEIGHT } from '@/lib/layout';
 import { supabase } from '@/lib/supabase';
+import { formatCompact, formatRelative } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
@@ -25,6 +28,8 @@ type DashboardConfig = {
   pipelineIds: string[];
   successStageIds: string[];
   useAllPipelines?: boolean;
+  overviewMetrics?: OverviewMetricKey[];
+  overviewPeriod?: 'week' | 'month';
 };
 
 type PersonalPulse = {
@@ -49,20 +54,12 @@ type ActivityEntry = {
 
 const getGreeting = (): string => {
   const hour = new Date().getHours();
-  if (hour < 12) return 'Good morning';
+  if (hour < 12) return 'morning';
   if (hour < 17) return 'Good afternoon';
   return 'Good evening';
 };
 
-const timeAgo = (dateStr: string): string => {
-  const now = Date.now();
-  const then = new Date(dateStr).getTime();
-  const diff = Math.floor((now - then) / 1000);
-  if (diff < 60) return 'Just now';
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return `${Math.floor(diff / 86400)}d ago`;
-};
+const timeAgo = (dateStr: string): string => formatRelative(dateStr);
 
 // ── Component ────────────────────────────────────────────────────────────
 
@@ -75,13 +72,40 @@ export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [config, setConfig] = useState<DashboardConfig | null>(null);
+  const [trackedPipelineIds, setTrackedPipelineIds] = useState<string[]>([]);
   const [widgetRefreshKey, setWidgetRefreshKey] = useState(0);
 
-  const { user, profile } = useAuth();
+  const { user, profile, hasPermission } = useAuth();
+  const canViewOverview = hasPermission('analytics.view');
+
+  const overviewMetrics = config?.overviewMetrics ?? DEFAULT_OVERVIEW_METRICS;
+  const overviewPeriod = config?.overviewPeriod ?? 'week';
+
+  const persistConfig = async (next: DashboardConfig) => {
+    setConfig(next);
+    try {
+      await AsyncStorage.setItem('@TrustFlow_dashboard_config', JSON.stringify(next));
+    } catch (e) {
+      console.error('Failed to persist dashboard config', e);
+    }
+  };
+
+  const toggleOverviewMetric = (key: OverviewMetricKey) => {
+    const base = config ?? { pipelineIds: [], successStageIds: [], useAllPipelines: true };
+    const cur = base.overviewMetrics ?? DEFAULT_OVERVIEW_METRICS;
+    const nextMetrics = cur.includes(key) ? cur.filter(k => k !== key) : [...cur, key];
+    persistConfig({ ...base, overviewMetrics: nextMetrics });
+  };
+
+  const setOverviewPeriod = (p: 'week' | 'month') => {
+    const base = config ?? { pipelineIds: [], successStageIds: [], useAllPipelines: true };
+    persistConfig({ ...base, overviewPeriod: p });
+  };
   const { unreadCount } = useNotifications();
   const router = useRouter();
   const colors = useThemeColors();
   const isLargeScreen = width > 768;
+  const { position: navPosition } = useNavBarPosition();
 
   const displayName = useMemo(() => {
     return profile?.display_name || profile?.full_name || user?.user_metadata?.full_name || 'Operator';
@@ -127,6 +151,8 @@ export default function DashboardScreen() {
       } else {
         targetPipelineIds = currentConfig!.pipelineIds;
       }
+
+      setTrackedPipelineIds(targetPipelineIds);
 
       if (targetPipelineIds.length === 0) {
         setLoading(false);
@@ -255,7 +281,7 @@ export default function DashboardScreen() {
     <ScrollView
       className="flex-1 bg-surface-background p-5"
       showsVerticalScrollIndicator={false}
-      contentContainerStyle={{ paddingTop: (Platform.OS !== 'web' || !isLargeScreen) ? (Platform.OS === 'web' ? TAB_BAR_HEIGHT.web : TAB_BAR_HEIGHT.native) : 0, paddingBottom: (Platform.OS !== 'web' || !isLargeScreen) ? TAB_BAR_HEIGHT.native + 16 : 32 }}
+      contentContainerStyle={{ paddingTop: Platform.OS === 'web' ? (isLargeScreen || navPosition !== 'top' ? 0 : TAB_BAR_HEIGHT.web) : TAB_BAR_HEIGHT.native, paddingBottom: (Platform.OS !== 'web' || !isLargeScreen) ? TAB_BAR_HEIGHT.native + 16 : 32 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
     >
       <View className="mb-6 mt-4 flex-row justify-between items-start">
@@ -316,7 +342,7 @@ export default function DashboardScreen() {
                 <View>
                   <Text className="text-typography-muted text-[9px] font-bold uppercase mb-0.5">Active</Text>
                   <Text className="text-typography-main text-xl font-black">
-                    {Math.floor(pulse.active_seconds_today / 3600)}h <Text className="text-xs text-typography-muted">{Math.floor((pulse.active_seconds_today % 3600) / 60)}m</Text>
+                     {formatCompact(pulse.active_seconds_today)}
                   </Text>
                 </View>
                 <View>
@@ -329,7 +355,10 @@ export default function DashboardScreen() {
             </View>
           )}
 
-          <PendingTimeApprovalsWidget refreshKey={widgetRefreshKey} />
+          {/* Desktop web (>=768) surfaces this via the topbar island instead (IslandTimeApprovalsBridge). */}
+          {!(Platform.OS === 'web' && width >= 768) && (
+            <PendingTimeApprovalsWidget refreshKey={widgetRefreshKey} />
+          )}
 
           <View className="flex-row flex-wrap justify-between mb-4">
             <TouchableOpacity onPress={() => router.push('/tasks' as any)} activeOpacity={0.75} className="w-[48%] bg-surface-card p-5 rounded-2xl border border-surface-border mb-4 premium-shadow">
@@ -380,6 +409,19 @@ export default function DashboardScreen() {
             )}
           </View>
 
+          {canViewOverview ? (
+            <View className="mb-6">
+              <PipelineOverviewChartNative
+                pipelineIds={trackedPipelineIds}
+                metrics={overviewMetrics}
+                period={overviewPeriod}
+                onToggleMetric={toggleOverviewMetric}
+                onSetPeriod={setOverviewPeriod}
+                onCustomize={() => setShowSettings(true)}
+                refreshKey={widgetRefreshKey}
+              />
+            </View>
+          ) : (
           <View className="bg-surface-card p-6 rounded-2xl border border-surface-border mb-6 premium-shadow">
             <View className="flex-row items-center justify-between mb-4">
               <Text className="text-typography-main font-bold text-lg">Pipeline Breakdown</Text>
@@ -438,6 +480,7 @@ export default function DashboardScreen() {
               )}
             </View>
           </View>
+          )}
 
           <View>
             <View className="flex-row items-center justify-between mb-4">
@@ -496,9 +539,15 @@ export default function DashboardScreen() {
         onClose={() => setShowSettings(false)}
         config={config}
         onSave={async (newConfig) => {
-          setConfig(newConfig);
-          await AsyncStorage.setItem('@TrustFlow_dashboard_config', JSON.stringify(newConfig));
-          fetchDashboardData(newConfig);
+          // Preserve overview-graph customization, which this modal doesn't touch.
+          const merged: DashboardConfig = {
+            ...newConfig,
+            overviewMetrics: config?.overviewMetrics,
+            overviewPeriod: config?.overviewPeriod,
+          };
+          setConfig(merged);
+          await AsyncStorage.setItem('@TrustFlow_dashboard_config', JSON.stringify(merged));
+          fetchDashboardData(merged);
           setShowSettings(false);
         }}
       />

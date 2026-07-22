@@ -1,9 +1,10 @@
 import ConfirmModal from '@/components/common/ConfirmModal';
 import ManualTimeModal from '@/components/common/ManualTimeModal';
+import UserLink from '@/components/common/UserLink';
+import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTimer } from '@/contexts/TimerContext';
 import { useToast } from '@/contexts/ToastContext';
-import { useElapsedTime } from '@/hooks/useElapsedTime';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import { taskFlowDebug, taskFlowError } from '@/lib/taskDebug';
@@ -11,7 +12,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 import { buildTransitionTargetMap, isComplexActionType, stageDirection } from './actionRegistry';
 import { DirectionalActionButton } from './DirectionalActionButton';
 
@@ -21,6 +22,8 @@ export type ActiveSessionUser = {
   name: string;
   avatar: string | null;
   startedAt: string;
+  /** Last heartbeat; stale (>~90s) means the worker's tab isn't visible → idle. */
+  lastHeartbeatAt?: string | null;
 };
 
 export type StageAction = {
@@ -87,6 +90,7 @@ export default function TaskCardActions({ task, stages, stageActions, transition
   const { hasPermission, profile } = useAuth();
   const { startWork } = useTimer();
   const { successToast, errorToast } = useToast();
+  const { showAlert } = useAlert();
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [needsTimerActionId, setNeedsTimerActionId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<{ title: string; message: string; variant?: 'danger' | 'warning' } | null>(null);
@@ -109,10 +113,6 @@ export default function TaskCardActions({ task, stages, stageActions, transition
   const taskSessions = activeSessions[task.id] || [];
   const mySession = taskSessions.find(s => s.userId === userId);
   const isTimerActive = !!mySession;
-
-  // Live counter for the active session (mine or someone else's — whichever is first)
-  const activeSession = mySession || taskSessions[0] || null;
-  const elapsedDisplay = useElapsedTime(activeSession?.startedAt ?? null);
 
   // Available actions for the current stage (exclude inactive)
   const availableActions = stageActions
@@ -229,7 +229,7 @@ export default function TaskCardActions({ task, stages, stageActions, transition
   const handleFallbackAdvance = async () => {
     const currentIndex = stages.findIndex(s => s.id === task.current_stage_id);
     if (currentIndex === -1 || currentIndex === stages.length - 1) {
-      Alert.alert('Info', 'This task is already in the final stage.');
+      showAlert('Info', 'This task is already in the final stage.');
       return;
     }
     const nextStage = stages[currentIndex + 1];
@@ -347,20 +347,6 @@ export default function TaskCardActions({ task, stages, stageActions, transition
     }
   };
 
-  // ─── Live Timer Badge (shared between states) ──────────────
-  const renderTimerBadge = (label?: string) => {
-    if (!activeSession) return null;
-    return (
-      <View className="flex-row items-center mb-2">
-        <View className="bg-state-success/10 border border-state-success/30 px-3 py-1 rounded-full flex-row items-center">
-          <View className="w-2 h-2 rounded-full bg-state-success mr-2" />
-          <Text className="text-state-success text-sm font-black tracking-wide">{elapsedDisplay}</Text>
-          {label && <Text className="text-state-success/70 text-[10px] font-bold ml-2 uppercase">{label}</Text>}
-        </View>
-      </View>
-    );
-  };
-
   // ─── STATE: Linked Pipeline (Sub-task Spawn) ────────────────
   if (hasLinkedPipeline) {
     return (
@@ -438,15 +424,13 @@ export default function TaskCardActions({ task, stages, stageActions, transition
   // Only bail out if the current user has no actions — reviewers with
   // review_approve/review_revise/review_reject must still see their buttons.
   if (isAssignedToUser && !isMyTask && availableActions.length === 0) {
+    const assigneeId = task.assignments?.[0]?.assignee_user_id;
     const assigneeName = task.assignments?.[0]?.user?.full_name || 'Another user';
     return (
-      <View>
-        {taskSessions.length > 0 && renderTimerBadge(assigneeName)}
-        <View className="bg-surface-overlay py-2.5 rounded-xl border border-surface-border items-center justify-center">
-          <Text className="text-typography-muted font-bold text-[10px] uppercase tracking-widest">
-            In Progress by {assigneeName}
-          </Text>
-        </View>
+      <View className="bg-surface-overlay py-2.5 rounded-xl border border-surface-border items-center justify-center">
+        <Text className="text-typography-muted font-bold text-[10px] uppercase tracking-widest">
+          In Progress by <UserLink userId={assigneeId} name={assigneeName} className="text-typography-muted font-bold text-[10px] uppercase tracking-widest" />
+        </Text>
       </View>
     );
   }
@@ -476,7 +460,6 @@ export default function TaskCardActions({ task, stages, stageActions, transition
   if (availableActions.length === 0) {
     return (
       <View>
-        {isTimerActive && renderTimerBadge()}
         {hasPermission('task.update') && (
           <DirectionalActionButton
             direction="forward"
@@ -494,8 +477,6 @@ export default function TaskCardActions({ task, stages, stageActions, transition
   // Render action buttons — all actions shown (conditional branching)
   return (
     <View>
-      {isTimerActive && renderTimerBadge()}
-
       {/* Error / Warning Message Display */}
       {errorMsg && (
         <View className={`mb-2 rounded-xl p-3 ${

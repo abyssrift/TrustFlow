@@ -1,13 +1,14 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Link, Tabs } from 'expo-router';
 import React from 'react';
-import { Platform, Pressable, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, Text, useWindowDimensions, View } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
 
+import FloatingTabBar from '@/components/navigation/FloatingTabBar';
 import { useNotifications } from '@/contexts/NotificationsContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useUnreadNotificationAttention } from '@/hooks/useUnreadNotificationAttention';
-import { NATIVE_THEME_COLORS, TAB_BAR_HEIGHT } from '@/lib/layout';
+import { NATIVE_THEME_COLORS } from '@/lib/layout';
 
 // Interop for Icons to support Tailwind colors
 cssInterop(FontAwesome, {
@@ -60,17 +61,10 @@ export default function TabLayout() {
 
   return (
     <Tabs
+      tabBar={(props) => (isLargeScreen ? null : <FloatingTabBar {...props} />)}
       screenOptions={{
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.muted,
-        tabBarStyle: {
-          backgroundColor: colors.background,
-          borderTopColor: 'transparent',
-          paddingBottom: Platform.OS === 'ios' ? 24 : 12,
-          paddingTop: 12,
-          height: TAB_BAR_HEIGHT.native,
-          display: isLargeScreen ? 'none' : 'flex',
-        },
         headerStyle: {
           backgroundColor: colors.background,
           elevation: 0,
@@ -106,6 +100,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="projects"
         options={{
+          href: null,
           title: 'Projects',
           tabBarIcon: ({ color }) => <TabBarIcon name="folder-o" color={color} />,
         }}
@@ -145,7 +140,6 @@ export default function TabLayout() {
       <Tabs.Screen
         name="filehub"
         options={{
-          href: null,
           title: 'File Hub',
           tabBarIcon: ({ color }) => <TabBarIcon name="folder-open" color={color} />,
         }}
@@ -157,6 +151,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <TabBarIcon name="navicon" color={color} />,
         }}
       />
+      <Tabs.Screen name="search" options={{ href: null, title: 'Search' }} />
     </Tabs>
   );
 }

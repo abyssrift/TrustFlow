@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, ImageBackground } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, ImageBackground, Image } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -52,7 +52,11 @@ export default function LoginScreenWeb() {
         <View className="absolute inset-0 bg-black/20" />
         <View className="z-10 items-center p-12">
           <View className="w-24 h-24 bg-white/10 rounded-[2.5rem] flex-center backdrop-blur-xl border border-white/20 mb-8">
-            <FontAwesome name="shield" size={48} color="white" />
+            <Image
+              source={require('../../assets/images/logo-mark-white.png')}
+              style={{ width: 56, height: 56 }}
+              resizeMode="contain"
+            />
           </View>
           <Text className="text-6xl font-black text-white tracking-tighter mb-4">TrustFlow</Text>
           <Text className="text-white/80 text-xl font-medium text-center max-w-md leading-relaxed">
@@ -82,7 +86,11 @@ export default function LoginScreenWeb() {
         <View className="w-full max-w-md">
           <View className="lg:hidden items-center mb-8">
             <View className="w-16 h-16 bg-brand-primary rounded-2xl flex-center mb-4">
-              <FontAwesome name="shield" size={32} color="white" />
+              <Image
+                source={require('../../assets/images/logo-mark-white.png')}
+                style={{ width: 38, height: 38 }}
+                resizeMode="contain"
+              />
             </View>
             <Text className="text-3xl font-black text-typography-main tracking-tighter">TrustFlow</Text>
           </View>

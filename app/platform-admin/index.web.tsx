@@ -39,6 +39,7 @@ import {
   ActivityIndicator, Modal, Pressable,
   ScrollView,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -118,10 +119,10 @@ function StatCard({
 function HBar({ value, max, tint = 'primary' }: { value: number; max: number; tint?: 'primary' | 'success' | 'warning' }) {
   const colors = useThemeColors();
   const pct = max > 0 ? Math.max(2, (value / max) * 100) : 2;
-  const colorClass = tint === 'success' ? 'bg-state-success' : tint === 'warning' ? 'bg-state-warning' : 'bg-brand-primary';
+  const barColor = tint === 'success' ? colors.success : tint === 'warning' ? colors.warning : colors.primary;
   return (
-    <View className="flex-1 h-1.5 bg-surface-border rounded-full overflow-hidden">
-      <View className={`h-full rounded-full ${colorClass}`} style={{ width: `${pct}%` }} />
+    <View className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: colors.border }}>
+      <View className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: barColor }} />
     </View>
   );
 }
@@ -188,24 +189,24 @@ function CompanyDetailPanel({ companyId, onClose, onDeleted }: { companyId: stri
     <Modal visible={!!companyId} transparent animationType="fade">
       <Pressable className="flex-1 bg-black/60" onPress={onClose}>
         <Pressable
-          className="absolute right-0 top-0 bottom-0 bg-surface-background border-l border-surface-border"
-          style={{ width: 440 }}
+          className="absolute right-0 top-0 bottom-0"
+          style={{ width: 440, backgroundColor: colors.background, borderLeftWidth: 1, borderColor: colors.border }}
           onPress={e => e.stopPropagation()}
         >
           {/* Header */}
-          <View className="px-8 pt-8 pb-5 border-b border-surface-border flex-row items-start justify-between">
+          <View className="px-8 pt-8 pb-5 flex-row items-start justify-between" style={{ borderBottomWidth: 1, borderColor: colors.border }}>
             <View className="flex-1 mr-4">
               {loading || !detail ? (
-                <View className="h-7 w-48 bg-surface-overlay rounded-lg" />
+                <View className="h-7 w-48 rounded-lg" style={{ backgroundColor: colors.border + '40' }} />
               ) : (
                 <>
-                  <Text className="text-typography-main font-black text-2xl tracking-tight">{detail.company.name}</Text>
-                  <Text className="text-typography-muted text-xs mt-1">Workspace · {workspaceAge(detail.company.created_at)} old</Text>
+                  <Text className="font-black text-2xl tracking-tight" style={{ color: colors.textMain }}>{detail.company.name}</Text>
+                  <Text className="text-xs mt-1" style={{ color: colors.textMuted }}>Workspace · {workspaceAge(detail.company.created_at)} old</Text>
                 </>
               )}
             </View>
-            <TouchableOpacity onPress={onClose} className="w-9 h-9 bg-surface-card border border-surface-border rounded-full items-center justify-center">
-              <FontAwesome name="times" size={13} className="text-typography-muted" />
+            <TouchableOpacity onPress={onClose} className="w-9 h-9 rounded-full items-center justify-center" style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}>
+              <FontAwesome name="times" size={13} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
 
@@ -222,44 +223,48 @@ function CompanyDetailPanel({ companyId, onClose, onDeleted }: { companyId: stri
                   { label: 'All Time', value: fmtMins(detail.stats.total_session_minutes) },
                   { label: 'Live', value: String(detail.stats.active_sessions), accent: detail.stats.active_sessions > 0 },
                 ].map(s => (
-                  <View key={s.label} className={`flex-1 rounded-2xl p-3 border items-center ${s.accent ? 'bg-state-success/10 border-state-success/20' : 'bg-surface-card border-surface-border'}`}>
-                    <Text className={`font-black text-lg ${s.accent ? 'text-state-success' : 'text-typography-main'}`}>{s.value}</Text>
-                    <Text className={`text-[10px] mt-0.5 uppercase tracking-wide ${s.accent ? 'text-state-success' : 'text-typography-muted'}`}>{s.label}</Text>
+                  <View
+                    key={s.label}
+                    className="flex-1 rounded-2xl p-3 border items-center"
+                    style={{ backgroundColor: s.accent ? colors.success + '1A' : colors.card, borderColor: s.accent ? colors.success + '33' : colors.border }}
+                  >
+                    <Text className="font-black text-lg" style={{ color: s.accent ? colors.success : colors.textMain }}>{s.value}</Text>
+                    <Text className="text-[10px] mt-0.5 uppercase tracking-wide" style={{ color: s.accent ? colors.success : colors.textMuted }}>{s.label}</Text>
                   </View>
                 ))}
               </View>
 
-              <View className="h-px bg-surface-border mx-8" />
+              <View className="h-px mx-8" style={{ backgroundColor: colors.border }} />
 
               {/* Join code */}
               <View className="flex-row items-center px-8 py-4 gap-3">
-                <FontAwesome name="key" size={11} className="text-typography-muted" />
-                <Text className="text-typography-muted text-xs">Join code</Text>
-                <Text className="text-typography-main font-black text-xs tracking-widest ml-1 bg-surface-overlay px-2 py-0.5 rounded-lg">{detail.company.join_code}</Text>
+                <FontAwesome name="key" size={11} color={colors.textMuted} />
+                <Text className="text-xs" style={{ color: colors.textMuted }}>Join code</Text>
+                <Text className="font-black text-xs tracking-widest ml-1 px-2 py-0.5 rounded-lg" style={{ color: colors.textMain, backgroundColor: colors.border + '40' }}>{detail.company.join_code}</Text>
               </View>
 
-              <View className="h-px bg-surface-border mx-8" />
+              <View className="h-px mx-8" style={{ backgroundColor: colors.border }} />
 
               {/* Members */}
               <View className="px-8 pt-5">
                 <View className="flex-row items-center justify-between mb-4">
-                  <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Members · {detail.members?.length ?? 0}</Text>
-                  <Text className="text-typography-dim text-[10px]">this week</Text>
+                  <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>Members · {detail.members?.length ?? 0}</Text>
+                  <Text className="text-[10px]" style={{ color: colors.textDim }}>this week</Text>
                 </View>
                 {detail.members?.length === 0 && (
-                  <Text className="text-typography-dim text-sm text-center py-6">No members yet</Text>
+                  <Text className="text-sm text-center py-6" style={{ color: colors.textDim }}>No members yet</Text>
                 )}
                 {detail.members?.map(m => (
                   <View key={m.id} className="mb-5">
                     <View className="flex-row items-center justify-between mb-1.5">
                       <View className="flex-row items-center gap-2 flex-1 mr-3">
-                        {m.is_active && <View className="w-1.5 h-1.5 rounded-full bg-state-success" />}
-                        <Text className="text-typography-main font-bold text-sm flex-1" numberOfLines={1}>{m.name}</Text>
+                        {m.is_active && <View className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colors.success }} />}
+                        <Text className="font-bold text-sm flex-1" style={{ color: colors.textMain }} numberOfLines={1}>{m.name}</Text>
                       </View>
-                      <Text className="text-typography-muted text-xs">{fmtMins(m.session_minutes_week)}</Text>
+                      <Text className="text-xs" style={{ color: colors.textMuted }}>{fmtMins(m.session_minutes_week)}</Text>
                     </View>
                     {m.job_title && (
-                      <Text className="text-typography-dim text-[10px] mb-1.5 ml-3.5">{m.job_title}{m.department ? ` · ${m.department}` : ''}</Text>
+                      <Text className="text-[10px] mb-1.5 ml-3.5" style={{ color: colors.textDim }}>{m.job_title}{m.department ? ` · ${m.department}` : ''}</Text>
                     )}
                     <HBar value={m.session_minutes_week} max={maxMins} />
                   </View>
@@ -267,10 +272,10 @@ function CompanyDetailPanel({ companyId, onClose, onDeleted }: { companyId: stri
               </View>
 
               {/* Retention */}
-              <View className="h-px bg-surface-border mx-8 mt-2" />
+              <View className="h-px mx-8 mt-2" style={{ backgroundColor: colors.border }} />
               <View className="px-8 py-5">
                 <View className="flex-row items-center justify-between mb-4">
-                  <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Retention Policy</Text>
+                  <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>Retention Policy</Text>
                   {retLoading && <ActivityIndicator size="small" color={colors.primary} />}
                 </View>
 
@@ -291,40 +296,40 @@ function CompanyDetailPanel({ companyId, onClose, onDeleted }: { companyId: stri
                   return (
                     <View>
                       {/* Status + countdown */}
-                      <View className="bg-surface-card border border-surface-border rounded-2xl p-4 mb-3">
+                      <View className="rounded-2xl p-4 mb-3" style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}>
                         <View className="flex-row items-center justify-between mb-3">
                           <View style={{ backgroundColor: `${statusColor}1A`, borderColor: `${statusColor}55` }} className="px-2.5 py-1 rounded-full border">
                             <Text style={{ color: statusColor }} className="text-[10px] font-black uppercase tracking-widest">{statusLabel}</Text>
                           </View>
-                          <Text className="text-typography-dim text-[10px]">Threshold: {retention.inactivity_days}d</Text>
+                          <Text className="text-[10px]" style={{ color: colors.textDim }}>Threshold: {retention.inactivity_days}d</Text>
                         </View>
                         <View className="flex-row gap-4">
                           <View className="flex-1">
-                            <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest">Days inactive</Text>
+                            <Text className="text-[10px] font-bold uppercase tracking-widest" style={{ color: colors.textMuted }}>Days inactive</Text>
                             <Text style={{ color: statusColor }} className="text-2xl font-black mt-0.5">{retention.days_inactive}</Text>
                           </View>
                           <View className="flex-1">
-                            <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest">Days until purge</Text>
-                            <Text className="text-typography-main text-2xl font-black mt-0.5">{retention.days_until_purge}</Text>
+                            <Text className="text-[10px] font-bold uppercase tracking-widest" style={{ color: colors.textMuted }}>Days until purge</Text>
+                            <Text className="text-2xl font-black mt-0.5" style={{ color: colors.textMain }}>{retention.days_until_purge}</Text>
                           </View>
                         </View>
-                        <Text className="text-typography-dim text-[10px] mt-3">Last active: {fmtDate(retention.last_active_at)}</Text>
-                        <View className="h-px bg-surface-border mt-3 mb-3" />
+                        <Text className="text-[10px] mt-3" style={{ color: colors.textDim }}>Last active: {fmtDate(retention.last_active_at)}</Text>
+                        <View className="h-px mt-3 mb-3" style={{ backgroundColor: colors.border }} />
                         <View className="flex-row gap-4">
                           <View className="flex-1">
-                            <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest">File storage</Text>
-                            <Text className="text-typography-main font-black text-sm mt-0.5">{fmtBytes(retention.file_size_bytes)}</Text>
+                            <Text className="text-[10px] font-bold uppercase tracking-widest" style={{ color: colors.textMuted }}>File storage</Text>
+                            <Text className="font-black text-sm mt-0.5" style={{ color: colors.textMain }}>{fmtBytes(retention.file_size_bytes)}</Text>
                           </View>
                           <View className="flex-1">
-                            <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest">DB (est.)</Text>
-                            <Text className="text-typography-main font-black text-sm mt-0.5">{fmtBytes(retention.db_size_bytes)}</Text>
+                            <Text className="text-[10px] font-bold uppercase tracking-widest" style={{ color: colors.textMuted }}>DB (est.)</Text>
+                            <Text className="font-black text-sm mt-0.5" style={{ color: colors.textMain }}>{fmtBytes(retention.db_size_bytes)}</Text>
                           </View>
                         </View>
                       </View>
 
                       {/* Data at risk */}
-                      <View className="bg-surface-card border border-surface-border rounded-2xl p-4 mb-3">
-                        <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-3">Data at risk if deleted</Text>
+                      <View className="rounded-2xl p-4 mb-3" style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}>
+                        <Text className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color: colors.textMuted }}>Data at risk if deleted</Text>
                         <View className="flex-row flex-wrap">
                           {[
                             { icon: 'tasks',    label: 'Tasks',   value: fmtNumber(detail!.stats.total_tasks) },
@@ -333,9 +338,9 @@ function CompanyDetailPanel({ companyId, onClose, onDeleted }: { companyId: stri
                             { icon: 'clock-o', label: 'Logged',  value: fmtMins(retention.session_minutes) },
                           ].map(r => (
                             <View key={r.label} style={{ width: '50%' }} className="flex-row items-center gap-2 py-1.5">
-                              <FontAwesome name={r.icon as any} size={11} className="text-typography-muted" style={{ width: 14 }} />
-                              <Text className="text-typography-main font-black text-sm">{r.value}</Text>
-                              <Text className="text-typography-dim text-[10px]">{r.label}</Text>
+                              <FontAwesome name={r.icon as any} size={11} color={colors.textMuted} style={{ width: 14 }} />
+                              <Text className="font-black text-sm" style={{ color: colors.textMain }}>{r.value}</Text>
+                              <Text className="text-[10px]" style={{ color: colors.textDim }}>{r.label}</Text>
                             </View>
                           ))}
                         </View>
@@ -345,26 +350,28 @@ function CompanyDetailPanel({ companyId, onClose, onDeleted }: { companyId: stri
                       {extending ? (
                         <View className="flex-row items-center gap-2 py-2">
                           <ActivityIndicator size="small" color={colors.primary} />
-                          <Text className="text-typography-muted text-xs">Updating policy…</Text>
+                          <Text className="text-xs" style={{ color: colors.textMuted }}>Updating policy…</Text>
                         </View>
                       ) : showPostpone ? (
                         <View>
-                          <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Extend threshold by</Text>
+                          <Text className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color: colors.textMuted }}>Extend threshold by</Text>
                           <View className="flex-row gap-2 flex-wrap">
                             {[30, 60, 90, 180].map(d => (
                               <TouchableOpacity
                                 key={d}
                                 onPress={() => handleExtend(d)}
-                                className="px-4 py-2 rounded-xl border border-brand-primary/40 bg-brand-primary/10 hover:bg-brand-primary/20 transition-colors"
+                                className="px-4 py-2 rounded-xl hover:bg-brand-primary/20 transition-colors"
+                                style={{ borderWidth: 1, borderColor: colors.primary + '66', backgroundColor: colors.primary + '1A' }}
                               >
-                                <Text className="text-brand-primary text-xs font-black">+{d}d</Text>
+                                <Text className="text-xs font-black" style={{ color: colors.primary }}>+{d}d</Text>
                               </TouchableOpacity>
                             ))}
                             <TouchableOpacity
                               onPress={() => setShowPostpone(false)}
-                              className="px-4 py-2 rounded-xl border border-surface-border bg-surface-card hover:bg-surface-overlay transition-colors"
+                              className="px-4 py-2 rounded-xl hover:bg-surface-overlay transition-colors"
+                              style={{ borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card }}
                             >
-                              <Text className="text-typography-muted text-xs font-bold">Cancel</Text>
+                              <Text className="text-xs font-bold" style={{ color: colors.textMuted }}>Cancel</Text>
                             </TouchableOpacity>
                           </View>
                         </View>
@@ -372,59 +379,64 @@ function CompanyDetailPanel({ companyId, onClose, onDeleted }: { companyId: stri
                         <View className="flex-row gap-2">
                           <TouchableOpacity
                             onPress={() => setShowPostpone(true)}
-                            className="flex-row items-center gap-2 px-4 py-2 rounded-xl border border-brand-primary/30 bg-brand-primary/5 hover:bg-brand-primary/10 transition-colors"
+                            className="flex-row items-center gap-2 px-4 py-2 rounded-xl hover:bg-brand-primary/10 transition-colors"
+                            style={{ borderWidth: 1, borderColor: colors.primary + '4D', backgroundColor: colors.primary + '0D' }}
                           >
-                            <FontAwesome name="clock-o" size={11} className="text-brand-primary" />
-                            <Text className="text-brand-primary text-xs font-bold">Postpone</Text>
+                            <FontAwesome name="clock-o" size={11} color={colors.primary} />
+                            <Text className="text-xs font-bold" style={{ color: colors.primary }}>Postpone</Text>
                           </TouchableOpacity>
                           <TouchableOpacity
                             onPress={handleCancelPurge}
-                            className="flex-row items-center gap-2 px-4 py-2 rounded-xl border border-surface-border bg-surface-card hover:bg-surface-overlay transition-colors"
+                            className="flex-row items-center gap-2 px-4 py-2 rounded-xl hover:bg-surface-overlay transition-colors"
+                            style={{ borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card }}
                           >
-                            <FontAwesome name="ban" size={11} className="text-typography-muted" />
-                            <Text className="text-typography-muted text-xs font-bold">Cancel Purge</Text>
+                            <FontAwesome name="ban" size={11} color={colors.textMuted} />
+                            <Text className="text-xs font-bold" style={{ color: colors.textMuted }}>Cancel Purge</Text>
                           </TouchableOpacity>
                         </View>
                       )}
                     </View>
                   );
                 })() : !retLoading ? (
-                  <Text className="text-typography-dim text-xs">No retention data available.</Text>
+                  <Text className="text-xs" style={{ color: colors.textDim }}>No retention data available.</Text>
                 ) : null}
               </View>
 
               {/* Danger Zone */}
-              <View className="h-px bg-surface-border mx-8 mt-2" />
+              <View className="h-px mx-8 mt-2" style={{ backgroundColor: colors.border }} />
               <View className="px-8 py-6">
                 {!confirmDelete ? (
                   <TouchableOpacity
                     onPress={() => setConfirmDelete(true)}
-                    className="flex-row items-center gap-2 self-start px-4 py-2 rounded-xl border border-state-danger/30 bg-state-danger/5 hover:bg-state-danger/10 transition-colors"
+                    className="flex-row items-center gap-2 self-start px-4 py-2 rounded-xl hover:bg-state-danger/10 transition-colors"
+                    style={{ borderWidth: 1, borderColor: colors.danger + '4D', backgroundColor: colors.danger + '0D' }}
                   >
-                    <FontAwesome name="trash" size={11} className="text-state-danger" />
-                    <Text className="text-state-danger text-xs font-bold">Delete Workspace</Text>
+                    <FontAwesome name="trash" size={11} color={colors.danger} />
+                    <Text className="text-xs font-bold" style={{ color: colors.danger }}>Delete Workspace</Text>
                   </TouchableOpacity>
                 ) : (
-                  <View className="rounded-2xl border border-state-danger/30 bg-state-danger/5 p-4 gap-3">
+                  <View className="rounded-2xl p-4 gap-3" style={{ borderWidth: 1, borderColor: colors.danger + '4D', backgroundColor: colors.danger + '0D' }}>
                     <View className="flex-row items-center gap-2">
-                      <FontAwesome name="exclamation-triangle" size={12} className="text-state-danger" />
-                      <Text className="text-state-danger text-xs font-black">This cannot be undone</Text>
+                      <FontAwesome name="exclamation-triangle" size={12} color={colors.danger} />
+                      <Text className="text-xs font-black" style={{ color: colors.danger }}>This cannot be undone</Text>
                     </View>
-                    <Text className="text-typography-muted text-xs leading-5">
-                      Deleting <Text className="text-typography-main font-bold">{detail.company.name}</Text> will permanently remove all members, tasks, pipelines, sessions, and data. There is no recovery.
+                    <Text className="text-xs leading-5" style={{ color: colors.textMuted }}>
+                      Deleting <Text className="font-bold" style={{ color: colors.textMain }}>{detail.company.name}</Text> will permanently remove all members, tasks, pipelines, sessions, and data. There is no recovery.
                     </Text>
                     <View className="flex-row gap-2 mt-1">
                       <TouchableOpacity
                         onPress={() => setConfirmDelete(false)}
                         disabled={deleting}
-                        className="flex-1 items-center py-2 rounded-xl border border-surface-border bg-surface-card hover:bg-surface-overlay transition-colors"
+                        className="flex-1 items-center py-2 rounded-xl hover:bg-surface-overlay transition-colors"
+                        style={{ borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card }}
                       >
-                        <Text className="text-typography-muted text-xs font-bold">Cancel</Text>
+                        <Text className="text-xs font-bold" style={{ color: colors.textMuted }}>Cancel</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         onPress={handleDelete}
                         disabled={deleting}
-                        className="flex-1 items-center py-2 rounded-xl bg-state-danger hover:opacity-80 transition-opacity"
+                        className="flex-1 items-center py-2 rounded-xl hover:opacity-80 transition-opacity"
+                        style={{ backgroundColor: colors.danger }}
                       >
                         {deleting
                           ? <ActivityIndicator size="small" color="#fff" />
@@ -889,13 +901,13 @@ function EditField({ label, value, onChange }: { label: string; value: string; o
   const colors = useThemeColors();
   return (
     <View className="mb-3">
-      <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-1">{label}</Text>
-      <View className="bg-surface-overlay border border-surface-border rounded-xl px-3 py-2">
+      <Text className="text-[10px] font-black uppercase tracking-widest mb-1" style={{ color: colors.textMuted }}>{label}</Text>
+      <View className="rounded-xl px-3 py-2" style={{ backgroundColor: colors.border + '40', borderWidth: 1, borderColor: colors.border }}>
         {/* @ts-ignore — web-only input */}
         <input
           value={value}
           onChange={(e: any) => onChange(e.target.value)}
-          style={{ background: 'transparent', border: 'none', outline: 'none', color: 'inherit', fontSize: 13, fontWeight: '600', width: '100%' } as any}
+          style={{ background: 'transparent', border: 'none', outline: 'none', color: colors.textMain, fontSize: 13, fontWeight: '600', width: '100%' } as any}
         />
       </View>
     </View>
@@ -975,41 +987,44 @@ function UserDetailPanel({
     <Modal visible={!!user} transparent animationType="fade">
       <Pressable className="flex-1 bg-black/60" onPress={onClose}>
         <Pressable
-          className="absolute right-0 top-0 bottom-0 bg-surface-background border-l border-surface-border"
-          style={{ width: 480 }}
+          className="absolute right-0 top-0 bottom-0"
+          style={{ width: 480, backgroundColor: colors.background, borderLeftWidth: 1, borderColor: colors.border }}
           onPress={e => e.stopPropagation()}
         >
           {/* Header */}
-          <View className="px-8 pt-8 pb-5 border-b border-surface-border flex-row items-center gap-4">
+          <View className="px-8 pt-8 pb-5 flex-row items-center gap-4" style={{ borderBottomWidth: 1, borderColor: colors.border }}>
             <UserAvatar user={user} size={48} />
             <View className="flex-1">
-              <Text className="text-typography-main font-black text-xl tracking-tight" numberOfLines={1}>
+              <Text className="font-black text-xl tracking-tight" style={{ color: colors.textMain }} numberOfLines={1}>
                 {user.display_name || user.full_name || 'Unnamed User'}
               </Text>
-              <Text className="text-typography-muted text-xs mt-0.5" numberOfLines={1}>{user.email}</Text>
+              <Text className="text-xs mt-0.5" style={{ color: colors.textMuted }} numberOfLines={1}>{user.email}</Text>
             </View>
             <View className="flex-row items-center gap-2">
               {!editing ? (
                 <TouchableOpacity
                   onPress={() => setEditing(true)}
-                  className="flex-row items-center gap-2 px-3 py-2 bg-surface-card border border-surface-border rounded-xl hover:bg-surface-overlay transition-colors"
+                  className="flex-row items-center gap-2 px-3 py-2 rounded-xl hover:bg-surface-overlay transition-colors"
+                  style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}
                 >
-                  <FontAwesome name="pencil" size={11} className="text-typography-muted" />
-                  <Text className="text-typography-muted text-xs font-bold">Edit</Text>
+                  <FontAwesome name="pencil" size={11} color={colors.textMuted} />
+                  <Text className="text-xs font-bold" style={{ color: colors.textMuted }}>Edit</Text>
                 </TouchableOpacity>
               ) : (
                 <View className="flex-row gap-2">
                   <TouchableOpacity
                     onPress={() => setEditing(false)}
                     disabled={saving}
-                    className="px-3 py-2 bg-surface-card border border-surface-border rounded-xl hover:bg-surface-overlay transition-colors"
+                    className="px-3 py-2 rounded-xl hover:bg-surface-overlay transition-colors"
+                    style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}
                   >
-                    <Text className="text-typography-muted text-xs font-bold">Cancel</Text>
+                    <Text className="text-xs font-bold" style={{ color: colors.textMuted }}>Cancel</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={handleSave}
                     disabled={saving}
-                    className="flex-row items-center gap-2 px-3 py-2 bg-brand-primary rounded-xl hover:opacity-80 transition-opacity"
+                    className="flex-row items-center gap-2 px-3 py-2 rounded-xl hover:opacity-80 transition-opacity"
+                    style={{ backgroundColor: colors.primary }}
                   >
                     {saving
                       ? <ActivityIndicator size="small" color="#fff" />
@@ -1020,9 +1035,10 @@ function UserDetailPanel({
               )}
               <TouchableOpacity
                 onPress={onClose}
-                className="w-9 h-9 bg-surface-card border border-surface-border rounded-full items-center justify-center"
+                className="w-9 h-9 rounded-full items-center justify-center"
+                style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}
               >
-                <FontAwesome name="times" size={13} className="text-typography-muted" />
+                <FontAwesome name="times" size={13} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
           </View>
@@ -1030,24 +1046,24 @@ function UserDetailPanel({
           <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
             {/* Status badges */}
             <View className="flex-row items-center gap-2 px-8 pt-5 pb-3">
-              <View className={`px-2.5 py-1 rounded-full ${user.is_active ? 'bg-state-success/10' : 'bg-state-danger/10'}`}>
-                <Text className={`text-[10px] font-black uppercase tracking-wide ${user.is_active ? 'text-state-success' : 'text-state-danger'}`}>
+              <View className="px-2.5 py-1 rounded-full" style={{ backgroundColor: user.is_active ? colors.success + '1A' : colors.danger + '1A' }}>
+                <Text className="text-[10px] font-black uppercase tracking-wide" style={{ color: user.is_active ? colors.success : colors.danger }}>
                   {user.is_active ? 'Active' : 'Inactive'}
                 </Text>
               </View>
               {user.is_owner && (
-                <View className="bg-brand-primary-dim px-2.5 py-1 rounded-full border border-brand-primary/20">
-                  <Text className="text-brand-primary text-[10px] font-black uppercase tracking-wide">Owner</Text>
+                <View className="px-2.5 py-1 rounded-full border" style={{ backgroundColor: colors.primary + '1A', borderColor: colors.primary + '33' }}>
+                  <Text className="text-[10px] font-black uppercase tracking-wide" style={{ color: colors.primary }}>Owner</Text>
                 </View>
               )}
               {user.work_status && !editing && (
-                <View className="bg-surface-overlay px-2.5 py-1 rounded-full">
-                  <Text className="text-typography-muted text-[10px] font-bold capitalize">{user.work_status.replace(/_/g, ' ')}</Text>
+                <View className="px-2.5 py-1 rounded-full" style={{ backgroundColor: colors.border + '40' }}>
+                  <Text className="text-[10px] font-bold capitalize" style={{ color: colors.textMuted }}>{user.work_status.replace(/_/g, ' ')}</Text>
                 </View>
               )}
             </View>
 
-            <View className="h-px bg-surface-border mx-8" />
+            <View className="h-px mx-8" style={{ backgroundColor: colors.border }} />
 
             {/* Fields */}
             <View className="px-8 pt-5">
@@ -1060,15 +1076,16 @@ function UserDetailPanel({
                   <EditField label="Department" value={form.department} onChange={v => setForm(f => ({ ...f, department: v }))} />
 
                   <View className="mb-3">
-                    <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-1">Work Status</Text>
+                    <Text className="text-[10px] font-black uppercase tracking-widest mb-1" style={{ color: colors.textMuted }}>Work Status</Text>
                     <View className="flex-row flex-wrap gap-2">
                       {WORK_STATUSES.map(s => (
                         <TouchableOpacity
                           key={s}
                           onPress={() => setForm(f => ({ ...f, work_status: s }))}
-                          className={`px-3 py-1.5 rounded-xl border transition-colors ${form.work_status === s ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border hover:bg-surface-overlay'}`}
+                          className={`px-3 py-1.5 rounded-xl border transition-colors ${form.work_status === s ? '' : 'hover:bg-surface-overlay'}`}
+                          style={{ backgroundColor: form.work_status === s ? colors.primary : colors.card, borderColor: form.work_status === s ? colors.primary : colors.border }}
                         >
-                          <Text className={`text-[11px] font-bold capitalize ${form.work_status === s ? 'text-white' : 'text-typography-muted'}`}>
+                          <Text className="text-[11px] font-bold capitalize" style={{ color: form.work_status === s ? '#fff' : colors.textMuted }}>
                             {s.replace(/_/g, ' ')}
                           </Text>
                         </TouchableOpacity>
@@ -1077,15 +1094,19 @@ function UserDetailPanel({
                   </View>
 
                   <View className="mb-4">
-                    <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Account Status</Text>
+                    <Text className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color: colors.textMuted }}>Account Status</Text>
                     <TouchableOpacity
                       onPress={() => setForm(f => ({ ...f, is_active: !f.is_active }))}
-                      className={`flex-row items-center gap-3 px-4 py-3 rounded-xl border transition-colors ${form.is_active ? 'bg-state-success/10 border-state-success/20' : 'bg-state-danger/10 border-state-danger/20'}`}
+                      className="flex-row items-center gap-3 px-4 py-3 rounded-xl border transition-colors"
+                      style={{
+                        backgroundColor: form.is_active ? colors.success + '1A' : colors.danger + '1A',
+                        borderColor: form.is_active ? colors.success + '33' : colors.danger + '33',
+                      }}
                     >
-                      <View className={`w-4 h-4 rounded-full border-2 items-center justify-center ${form.is_active ? 'border-state-success bg-state-success' : 'border-state-danger bg-state-danger'}`}>
-                        {form.is_active && <FontAwesome name="check" size={8} className="text-white" />}
+                      <View className="w-4 h-4 rounded-full border-2 items-center justify-center" style={{ borderColor: form.is_active ? colors.success : colors.danger, backgroundColor: form.is_active ? colors.success : colors.danger }}>
+                        {form.is_active && <FontAwesome name="check" size={8} color="#fff" />}
                       </View>
-                      <Text className={`text-xs font-bold ${form.is_active ? 'text-state-success' : 'text-state-danger'}`}>
+                      <Text className="text-xs font-bold" style={{ color: form.is_active ? colors.success : colors.danger }}>
                         {form.is_active ? 'Account is active' : 'Account is disabled'}
                       </Text>
                     </TouchableOpacity>
@@ -1103,11 +1124,11 @@ function UserDetailPanel({
                   ].map((row, idx, arr) => (
                     <View key={row.label}>
                       <View className="flex-row items-center py-3 gap-3">
-                        <FontAwesome name={row.icon as any} size={11} className="text-brand-accent/40" style={{ width: 14 }} />
-                        <Text className="text-typography-muted text-sm w-24">{row.label}</Text>
-                        <Text className="text-typography-main font-bold text-sm flex-1" numberOfLines={1}>{row.value}</Text>
+                        <FontAwesome name={row.icon as any} size={11} color={colors.accent} style={{ width: 14, opacity: 0.4 }} />
+                        <Text className="text-sm w-24" style={{ color: colors.textMuted }}>{row.label}</Text>
+                        <Text className="font-bold text-sm flex-1" style={{ color: colors.textMain }} numberOfLines={1}>{row.value}</Text>
                       </View>
-                      {idx < arr.length - 1 && <View className="h-px bg-surface-border" />}
+                      {idx < arr.length - 1 && <View className="h-px" style={{ backgroundColor: colors.border }} />}
                     </View>
                   ))}
                 </>
@@ -1116,39 +1137,40 @@ function UserDetailPanel({
 
             {!editing && (
               <>
-                <View className="h-px bg-surface-border mx-8 mt-2" />
+                <View className="h-px mx-8 mt-2" style={{ backgroundColor: colors.border }} />
 
                 {/* Move to workspace */}
                 <View className="px-8 py-5">
-                  <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-3">Move to Workspace</Text>
+                  <Text className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color: colors.textMuted }}>Move to Workspace</Text>
                   {moving ? (
                     <View className="flex-row items-center gap-2 py-2">
                       <ActivityIndicator size="small" color={colors.primary} />
-                      <Text className="text-typography-muted text-xs">Moving user...</Text>
+                      <Text className="text-xs" style={{ color: colors.textMuted }}>Moving user...</Text>
                     </View>
                   ) : showMoveDropdown ? (
-                    <View className="bg-surface-card rounded-2xl border border-surface-border overflow-hidden">
-                      <View className="px-4 py-3 border-b border-surface-border flex-row items-center justify-between">
-                        <Text className="text-typography-main font-bold text-xs">Select destination workspace</Text>
+                    <View className="rounded-2xl overflow-hidden" style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}>
+                      <View className="px-4 py-3 flex-row items-center justify-between" style={{ borderBottomWidth: 1, borderColor: colors.border }}>
+                        <Text className="font-bold text-xs" style={{ color: colors.textMain }}>Select destination workspace</Text>
                         <TouchableOpacity onPress={() => setShowMoveDropdown(false)}>
-                          <FontAwesome name="times" size={11} className="text-typography-muted" />
+                          <FontAwesome name="times" size={11} color={colors.textMuted} />
                         </TouchableOpacity>
                       </View>
                       <ScrollView style={{ maxHeight: 200 }}>
                         {otherCompanies.length === 0 && (
-                          <Text className="text-typography-dim text-xs text-center py-4">No other workspaces available</Text>
+                          <Text className="text-xs text-center py-4" style={{ color: colors.textDim }}>No other workspaces available</Text>
                         )}
                         {otherCompanies.map(c => (
                           <TouchableOpacity
                             key={c.id}
                             onPress={() => handleMove(c.id)}
-                            className="flex-row items-center justify-between px-4 py-3 border-b border-surface-border hover:bg-surface-overlay transition-colors"
+                            className="flex-row items-center justify-between px-4 py-3 hover:bg-surface-overlay transition-colors"
+                            style={{ borderBottomWidth: 1, borderColor: colors.border }}
                           >
                             <View>
-                              <Text className="text-typography-main font-bold text-sm">{c.name}</Text>
-                              <Text className="text-typography-dim text-[10px]">{c.user_count} members</Text>
+                              <Text className="font-bold text-sm" style={{ color: colors.textMain }}>{c.name}</Text>
+                              <Text className="text-[10px]" style={{ color: colors.textDim }}>{c.user_count} members</Text>
                             </View>
-                            <FontAwesome name="chevron-right" size={9} className="text-typography-dim" />
+                            <FontAwesome name="chevron-right" size={9} color={colors.textDim} />
                           </TouchableOpacity>
                         ))}
                       </ScrollView>
@@ -1156,47 +1178,51 @@ function UserDetailPanel({
                   ) : (
                     <TouchableOpacity
                       onPress={() => setShowMoveDropdown(true)}
-                      className="flex-row items-center gap-2 self-start px-4 py-2 rounded-xl border border-surface-border bg-surface-card hover:bg-surface-overlay transition-colors"
+                      className="flex-row items-center gap-2 self-start px-4 py-2 rounded-xl hover:bg-surface-overlay transition-colors"
+                      style={{ borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card }}
                     >
-                      <FontAwesome name="exchange" size={11} className="text-typography-muted" />
-                      <Text className="text-typography-muted text-xs font-bold">Change Workspace</Text>
+                      <FontAwesome name="exchange" size={11} color={colors.textMuted} />
+                      <Text className="text-xs font-bold" style={{ color: colors.textMuted }}>Change Workspace</Text>
                     </TouchableOpacity>
                   )}
                 </View>
 
-                <View className="h-px bg-surface-border mx-8" />
+                <View className="h-px mx-8" style={{ backgroundColor: colors.border }} />
 
                 {/* Danger zone */}
                 <View className="px-8 py-6">
                   {!confirmDelete ? (
                     <TouchableOpacity
                       onPress={() => setConfirmDelete(true)}
-                      className="flex-row items-center gap-2 self-start px-4 py-2 rounded-xl border border-state-danger/30 bg-state-danger/5 hover:bg-state-danger/10 transition-colors"
+                      className="flex-row items-center gap-2 self-start px-4 py-2 rounded-xl hover:bg-state-danger/10 transition-colors"
+                      style={{ borderWidth: 1, borderColor: colors.danger + '4D', backgroundColor: colors.danger + '0D' }}
                     >
-                      <FontAwesome name="trash" size={11} className="text-state-danger" />
-                      <Text className="text-state-danger text-xs font-bold">Delete User</Text>
+                      <FontAwesome name="trash" size={11} color={colors.danger} />
+                      <Text className="text-xs font-bold" style={{ color: colors.danger }}>Delete User</Text>
                     </TouchableOpacity>
                   ) : (
-                    <View className="rounded-2xl border border-state-danger/30 bg-state-danger/5 p-4 gap-3">
+                    <View className="rounded-2xl p-4 gap-3" style={{ borderWidth: 1, borderColor: colors.danger + '4D', backgroundColor: colors.danger + '0D' }}>
                       <View className="flex-row items-center gap-2">
-                        <FontAwesome name="exclamation-triangle" size={12} className="text-state-danger" />
-                        <Text className="text-state-danger text-xs font-black">This cannot be undone</Text>
+                        <FontAwesome name="exclamation-triangle" size={12} color={colors.danger} />
+                        <Text className="text-xs font-black" style={{ color: colors.danger }}>This cannot be undone</Text>
                       </View>
-                      <Text className="text-typography-muted text-xs leading-5">
-                        Deleting <Text className="text-typography-main font-bold">{user.display_name || user.full_name || user.email}</Text> will permanently remove their account, all tasks, sessions, and data.
+                      <Text className="text-xs leading-5" style={{ color: colors.textMuted }}>
+                        Deleting <Text className="font-bold" style={{ color: colors.textMain }}>{user.display_name || user.full_name || user.email}</Text> will permanently remove their account, all tasks, sessions, and data.
                       </Text>
                       <View className="flex-row gap-2 mt-1">
                         <TouchableOpacity
                           onPress={() => setConfirmDelete(false)}
                           disabled={deleting}
-                          className="flex-1 items-center py-2 rounded-xl border border-surface-border bg-surface-card hover:bg-surface-overlay transition-colors"
+                          className="flex-1 items-center py-2 rounded-xl hover:bg-surface-overlay transition-colors"
+                          style={{ borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card }}
                         >
-                          <Text className="text-typography-muted text-xs font-bold">Cancel</Text>
+                          <Text className="text-xs font-bold" style={{ color: colors.textMuted }}>Cancel</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                           onPress={handleDelete}
                           disabled={deleting}
-                          className="flex-1 items-center py-2 rounded-xl bg-state-danger hover:opacity-80 transition-opacity"
+                          className="flex-1 items-center py-2 rounded-xl hover:opacity-80 transition-opacity"
+                          style={{ backgroundColor: colors.danger }}
                         >
                           {deleting
                             ? <ActivityIndicator size="small" color="#fff" />
@@ -2031,7 +2057,7 @@ function TrialCodesSection() {
               {showExpiryCalendar && (
                 <View style={{ position: 'absolute' as any, top: '110%', left: 0, zIndex: 200, width: 320 }}>
                   <PremiumCalendarPicker
-                    compact
+                    scale="compact"
                     selectedDate={form.expires_at || null}
                     onSelect={date => {
                       setForm(f => ({ ...f, expires_at: date }));
@@ -2193,6 +2219,294 @@ function TrialCodesSection() {
   );
 }
 
+// ── Plan Control Section (#58) ──────────────────────────────────────────────
+// Admin-editable plan definitions. billing_plans already backs member/pipeline/
+// file-size enforcement server-side (see rpc_check_plan_limit); this is just
+// the first UI to edit that table instead of hand-writing SQL migrations.
+// No payment gateway wired up — price is a display number only.
+
+type PlanLimits = {
+  max_members: number | null;
+  max_pipelines: number | null;
+  max_file_bytes: number | null;
+  max_storage_bytes: number | null;
+  analytics_max_days: number | null;
+  analytics_throughput: boolean;
+  analytics_funnel: boolean;
+  analytics_personnel: boolean;
+  analytics_personnel_export: boolean;
+  analytics_reports: boolean;
+  features: string[];
+};
+
+type PlanRow = {
+  code: string;
+  name: string;
+  description: string;
+  price_cents: number;
+  currency: string;
+  interval: string;
+  per_seat: boolean;
+  sort_order: number;
+  is_active: boolean;
+  features: string[];
+  limits: PlanLimits;
+};
+
+// number field that shows "" for null (= unlimited); parses back to null on save
+function useNumField(initial: number | null) {
+  const [text, setText] = React.useState(initial == null ? '' : String(initial));
+  const value = () => (text.trim() === '' ? null : Number(text));
+  return { text, setText, value };
+}
+
+function PlanNumField({ label, text, onChangeText, placeholder = 'Unlimited' }: {
+  label: string; text: string; onChangeText: (v: string) => void; placeholder?: string;
+}) {
+  return (
+    <View className="flex-1 min-w-[130px]">
+      <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-1.5">{label}</Text>
+      <TextInput
+        value={text}
+        onChangeText={v => onChangeText(v.replace(/[^0-9]/g, ''))}
+        placeholder={placeholder}
+        placeholderTextColor="rgb(148,163,184)"
+        keyboardType="number-pad"
+        className="bg-surface-background border border-surface-border rounded-xl px-3 py-2.5 text-typography-main text-sm font-bold"
+      />
+    </View>
+  );
+}
+
+function PlanToggleField({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <TouchableOpacity
+      onPress={() => onChange(!value)}
+      className={`px-3 py-2 rounded-xl border flex-row items-center gap-2 ${value ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border'}`}
+    >
+      <View className={`w-3.5 h-3.5 rounded-full items-center justify-center ${value ? 'bg-brand-primary' : 'bg-surface-border'}`}>
+        {value && <FontAwesome name="check" size={8} color="white" />}
+      </View>
+      <Text className={`text-[10px] font-bold ${value ? 'text-brand-primary' : 'text-typography-muted'}`}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+function PlanCard({ plan, onSaved }: { plan: PlanRow; onSaved: () => void }) {
+  const colors = useThemeColors();
+  const [name, setName] = React.useState(plan.name);
+  const [description, setDescription] = React.useState(plan.description ?? '');
+  const [priceText, setPriceText] = React.useState((plan.price_cents / 100).toFixed(2));
+  const [perSeat, setPerSeat] = React.useState(plan.per_seat);
+  const [sortOrderText, setSortOrderText] = React.useState(String(plan.sort_order));
+  const [isActive, setIsActive] = React.useState(plan.is_active);
+  const [featuresText, setFeaturesText] = React.useState(plan.features.join('\n'));
+  const [saving, setSaving] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const [saved, setSaved] = React.useState(false);
+
+  const maxMembers   = useNumField(plan.limits.max_members);
+  const maxPipelines = useNumField(plan.limits.max_pipelines);
+  const maxFileMB    = useNumField(plan.limits.max_file_bytes == null ? null : Math.round(plan.limits.max_file_bytes / 1048576));
+  const maxStorageGB = useNumField(plan.limits.max_storage_bytes == null ? null : Math.round(plan.limits.max_storage_bytes / 1073741824));
+  const maxDays      = useNumField(plan.limits.analytics_max_days);
+
+  const [throughput, setThroughput]           = React.useState(plan.limits.analytics_throughput);
+  const [funnel, setFunnel]                   = React.useState(plan.limits.analytics_funnel);
+  const [personnel, setPersonnel]             = React.useState(plan.limits.analytics_personnel);
+  const [personnelExport, setPersonnelExport] = React.useState(plan.limits.analytics_personnel_export);
+  const [reports, setReports]                 = React.useState(plan.limits.analytics_reports);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError(null);
+    setSaved(false);
+    try {
+      const priceCents = Math.round(parseFloat(priceText || '0') * 100);
+      if (isNaN(priceCents) || priceCents < 0) throw new Error('Invalid price.');
+
+      const { error: rpcError } = await supabase.rpc('rpc_platform_upsert_billing_plan', {
+        p_code: plan.code,
+        p_name: name.trim(),
+        p_description: description.trim(),
+        p_price_cents: priceCents,
+        p_currency: plan.currency,
+        p_interval: plan.interval,
+        p_per_seat: perSeat,
+        p_sort_order: parseInt(sortOrderText || '0', 10) || 0,
+        p_is_active: isActive,
+        p_features: featuresText.split('\n').map(f => f.trim()).filter(Boolean),
+        p_limits: {
+          features: plan.limits.features ?? [],
+          max_members: maxMembers.value(),
+          max_pipelines: maxPipelines.value(),
+          max_file_bytes: maxFileMB.value() == null ? null : maxFileMB.value()! * 1048576,
+          max_storage_bytes: maxStorageGB.value() == null ? null : maxStorageGB.value()! * 1073741824,
+          analytics_max_days: maxDays.value(),
+          analytics_throughput: throughput,
+          analytics_funnel: funnel,
+          analytics_personnel: personnel,
+          analytics_personnel_export: personnelExport,
+          analytics_reports: reports,
+        },
+      });
+      if (rpcError) throw rpcError;
+      setSaved(true);
+      onSaved();
+      setTimeout(() => setSaved(false), 2000);
+    } catch (e: any) {
+      setError(e?.message || 'Failed to save plan.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <View className="bg-surface-card rounded-2xl border border-surface-border p-6 mb-5" style={{ opacity: isActive ? 1 : 0.6 }}>
+      {/* Header row */}
+      <View className="flex-row items-center justify-between mb-4">
+        <View className="flex-row items-center gap-3">
+          <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">{plan.code}</Text>
+          {!isActive && (
+            <View className="px-2 py-0.5 rounded-md bg-state-danger/10 border border-state-danger/30">
+              <Text className="text-state-danger text-[9px] font-black uppercase">Inactive</Text>
+            </View>
+          )}
+        </View>
+        <PlanToggleField label={isActive ? 'Active' : 'Retired'} value={isActive} onChange={setIsActive} />
+      </View>
+
+      {/* Name / description */}
+      <View className="flex-row gap-4 mb-4 flex-wrap">
+        <View className="flex-1 min-w-[160px]">
+          <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-1.5">Name</Text>
+          <TextInput value={name} onChangeText={setName} className="bg-surface-background border border-surface-border rounded-xl px-3 py-2.5 text-typography-main text-sm font-bold" />
+        </View>
+        <View style={{ flex: 2 }} className="min-w-[220px]">
+          <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-1.5">Description</Text>
+          <TextInput value={description} onChangeText={setDescription} className="bg-surface-background border border-surface-border rounded-xl px-3 py-2.5 text-typography-main text-sm" />
+        </View>
+      </View>
+
+      {/* Price / per-seat / sort order */}
+      <View className="flex-row gap-4 mb-4 flex-wrap items-end">
+        <View className="min-w-[130px]">
+          <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-1.5">Price / {plan.interval} ({plan.currency.toUpperCase()})</Text>
+          <TextInput
+            value={priceText}
+            onChangeText={v => setPriceText(v.replace(/[^0-9.]/g, ''))}
+            keyboardType="decimal-pad"
+            className="bg-surface-background border border-surface-border rounded-xl px-3 py-2.5 text-typography-main text-sm font-bold"
+          />
+        </View>
+        <PlanToggleField label="Per seat" value={perSeat} onChange={setPerSeat} />
+        <View className="w-24">
+          <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-1.5">Sort</Text>
+          <TextInput
+            value={sortOrderText}
+            onChangeText={v => setSortOrderText(v.replace(/[^0-9]/g, ''))}
+            keyboardType="number-pad"
+            className="bg-surface-background border border-surface-border rounded-xl px-3 py-2.5 text-typography-main text-sm font-bold text-center"
+          />
+        </View>
+      </View>
+
+      {/* Resource limits */}
+      <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-2">Resource Limits</Text>
+      <View className="flex-row gap-4 mb-4 flex-wrap">
+        <PlanNumField label="Max Members"        text={maxMembers.text}   onChangeText={maxMembers.setText} />
+        <PlanNumField label="Max Pipelines"       text={maxPipelines.text} onChangeText={maxPipelines.setText} />
+        <PlanNumField label="Max File Size (MB)"  text={maxFileMB.text}    onChangeText={maxFileMB.setText} />
+        <PlanNumField label="Max Storage (GB)"    text={maxStorageGB.text} onChangeText={maxStorageGB.setText} />
+      </View>
+
+      {/* Analytics gating */}
+      <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-2">Analytics Features</Text>
+      <View className="flex-row gap-4 mb-2 flex-wrap items-end">
+        <PlanNumField label="History (days)" text={maxDays.text} onChangeText={maxDays.setText} />
+      </View>
+      <View className="flex-row gap-2 mb-4 flex-wrap">
+        <PlanToggleField label="Throughput"       value={throughput}      onChange={setThroughput} />
+        <PlanToggleField label="Funnel"           value={funnel}          onChange={setFunnel} />
+        <PlanToggleField label="Personnel"        value={personnel}       onChange={setPersonnel} />
+        <PlanToggleField label="Personnel Export" value={personnelExport} onChange={setPersonnelExport} />
+        <PlanToggleField label="Reports"          value={reports}         onChange={setReports} />
+      </View>
+
+      {/* Display features (marketing copy shown in BillingPanel) */}
+      <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-1.5">Display Features (one per line)</Text>
+      <TextInput
+        value={featuresText}
+        onChangeText={setFeaturesText}
+        multiline
+        numberOfLines={4}
+        textAlignVertical="top"
+        className="bg-surface-background border border-surface-border rounded-xl px-3 py-2.5 text-typography-main text-xs mb-4"
+        style={{ minHeight: 90 }}
+      />
+
+      {error && (
+        <View className="bg-state-danger/10 border border-state-danger/30 rounded-xl px-3 py-2 mb-3">
+          <Text className="text-state-danger text-xs font-bold">{error}</Text>
+        </View>
+      )}
+
+      <TouchableOpacity
+        onPress={handleSave}
+        disabled={saving}
+        className={`self-start px-5 py-2.5 rounded-xl flex-row items-center gap-2 ${saved ? 'bg-state-success' : 'bg-brand-primary'}`}
+      >
+        {saving ? (
+          <ActivityIndicator size="small" color="white" />
+        ) : (
+          <>
+            <FontAwesome name={saved ? 'check' : 'floppy-o'} size={12} color="white" />
+            <Text className="text-white text-xs font-black uppercase tracking-widest">{saved ? 'Saved' : 'Save Plan'}</Text>
+          </>
+        )}
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+function PlanControlSection() {
+  const colors = useThemeColors();
+  const [plans, setPlans] = React.useState<PlanRow[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [loadError, setLoadError] = React.useState<string | null>(null);
+
+  const load = React.useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    const { data, error } = await supabase.rpc('rpc_platform_list_billing_plans');
+    if (error) setLoadError(error.message);
+    else setPlans((data as PlanRow[]) ?? []);
+    setLoading(false);
+  }, []);
+
+  React.useEffect(() => { load(); }, [load]);
+
+  return (
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 32, paddingBottom: 48 }}>
+      <Text className="text-typography-main font-black text-lg mb-1">Plan Control</Text>
+      <Text className="text-typography-muted text-xs mb-6">
+        Edit pricing, resource limits, and analytics feature gating per plan. No payment gateway is connected —
+        price is a display number only, same as the company billing panel.
+      </Text>
+
+      {loading ? (
+        <View className="py-16 items-center"><ActivityIndicator size="large" color={colors.primary} /></View>
+      ) : loadError ? (
+        <View className="bg-state-danger/10 border border-state-danger/30 rounded-xl px-4 py-3">
+          <Text className="text-state-danger text-sm font-bold">{loadError}</Text>
+        </View>
+      ) : (
+        plans.map(p => <PlanCard key={p.code} plan={p} onSaved={load} />)
+      )}
+    </ScrollView>
+  );
+}
+
 // ── Sidebar ────────────────────────────────────────────────────────────────
 
 const NAV_ITEMS: { id: Section; label: string; icon: string }[] = [
@@ -2204,6 +2518,7 @@ const NAV_ITEMS: { id: Section; label: string; icon: string }[] = [
   { id: 'alerts',      label: 'Alerts',         icon: 'bell' },
   { id: 'infra',       label: 'Infrastructure', icon: 'server' },
   { id: 'trial_codes', label: 'Trial Codes',    icon: 'ticket' },
+  { id: 'plans',       label: 'Plans',          icon: 'credit-card' },
 ];
 
 function Sidebar({ section, setSection, liveCount, alertCount }: {
@@ -2352,6 +2667,7 @@ export default function PlatformAdminWebScreen() {
           )}
           {section === 'infra'        && <InfraSection />}
           {section === 'trial_codes'  && <TrialCodesSection />}
+          {section === 'plans'       && <PlanControlSection />}
         </View>
       </View>
     </View>

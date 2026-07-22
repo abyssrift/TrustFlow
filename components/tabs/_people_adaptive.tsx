@@ -4,7 +4,6 @@ import { useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
     Platform,
     ScrollView,
     Text,
@@ -22,6 +21,7 @@ import UserAssignmentGrid from '@/components/admin/UserAssignmentGrid';
 import CompanyEditSettings from '@/components/profile/CompanyEditSettings';
 import WorkspaceSettings from '@/components/profile/WorkspaceSettings';
 import { BackButton } from '@/components/common/BackButton';
+import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { RoleManagerProvider, useRoleManager } from '@/contexts/RoleManagerContext';
 import { supabase } from '@/lib/supabase';
@@ -84,6 +84,7 @@ export default function PeopleScreen() {
   const [joinCode, setJoinCode] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<PeopleSection>('members');
 
+  const { showAlert } = useAlert();
   const { profile, hasPermission } = useAuth();
   const { atLimit: membersAtLimit, remaining: membersRemaining } = useMemberLimit();
   const canManageTeams = hasPermission('role.manage');
@@ -137,7 +138,7 @@ export default function PeopleScreen() {
               onPress={() => {
                 if (membersAtLimit) return;
                 Clipboard.setStringAsync(joinCode);
-                Alert.alert('Copied', 'Join code copied to clipboard');
+                showAlert('Copied', 'Join code copied to clipboard');
               }}
               className="flex-row items-center justify-between"
               disabled={membersAtLimit}

@@ -43,8 +43,8 @@ function WidgetGate({ feature, limits, children }: {
 export default function IntelligenceOverview() {
   const colors = useThemeColors();
   const { hasPermission, profile } = useAuth();
-  const { planCode } = useBillingPlan();
-  const limits = getAnalyticsLimits(planCode);
+  const { limits: planLimits } = useBillingPlan();
+  const limits = getAnalyticsLimits(planLimits);
 
   // Clamp initial days to plan limit
   const initDays = limits.maxDays ? Math.min(30, limits.maxDays) : 30;

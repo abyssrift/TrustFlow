@@ -1,10 +1,11 @@
 import { AppNotification, useNotifications } from '@/contexts/NotificationsContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { getNotificationRoute } from '@/lib/notificationRouting';
+import { formatRelative } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Stack, useRouter } from 'expo-router';
 import React, { useCallback } from 'react';
-import { ActivityIndicator, FlatList, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 
 type IconSpec = { name: React.ComponentProps<typeof FontAwesome>['name']; color: string };
 
@@ -24,6 +25,7 @@ function getIconSpec(type: string): IconSpec {
     case 'task.manual_time_flagged':  return { name: 'flag',        color: colors.warning };
     case 'task.manual_time_approved': return { name: 'thumbs-up',   color: colors.success };
     case 'task.manual_time_rejected': return { name: 'thumbs-down', color: colors.danger };
+    case 'task.submission_deleted':   return { name: 'trash',       color: colors.danger };
     case 'pipeline.member_added': return { name: 'users',           color: colors.primary };
     case 'pipeline.archived':   return { name: 'archive',           color: colors.textMuted };
     case 'filehub.file_received':    return { name: 'file-text-o',  color: colors.primary };
@@ -35,15 +37,7 @@ function getIconSpec(type: string): IconSpec {
 }
 
 function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const m = Math.floor(diff / 60000);
-  if (m < 1) return 'just now';
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  const d = Math.floor(h / 24);
-  if (d < 7) return `${d}d ago`;
-  return new Date(iso).toLocaleDateString();
+  return formatRelative(iso);
 }
 
 function sectionLabel(iso: string): string {
@@ -106,6 +100,8 @@ export default function ModalScreenWeb() {
   const colors = useThemeColors();
   const router = useRouter();
   const { notifications, unreadCount, loading, markRead, markAllRead } = useNotifications();
+  const { width: winWidth } = useWindowDimensions();
+  const isNarrow = winWidth < 768;
 
   const handleItemPress = useCallback(
     async (item: AppNotification) => {
@@ -135,31 +131,46 @@ export default function ModalScreenWeb() {
   }
 
   return (
-    <View className="flex-1 bg-surface-background/80 items-center justify-center p-6">
+    <View className={isNarrow ? 'flex-1 bg-surface-background/80' : 'flex-1 bg-surface-background/80 items-center justify-center p-6'}>
       <Stack.Screen options={{ headerShown: false }} />
-      
-      <View className="w-full max-w-2xl bg-surface-card rounded-[40px] border border-surface-border overflow-hidden premium-shadow glass-card max-h-[85vh] flex-col">
+
+      <View className={isNarrow
+        ? 'flex-1 w-full bg-surface-card border border-surface-border overflow-hidden flex-col'
+        : 'w-full max-w-2xl bg-surface-card rounded-[40px] border border-surface-border overflow-hidden premium-shadow glass-card max-h-[85vh] flex-col'
+      }>
         {/* Header */}
-        <View className="px-10 py-8 border-b border-surface-border flex-row items-center justify-between bg-surface-card z-10">
-          <View className="flex-row items-center">
-            <View className="h-14 w-14 rounded-2xl bg-brand-primary/10 items-center justify-center mr-6">
-              <FontAwesome name="bell" size={24} className="text-brand-primary" />
-            </View>
-            <View>
-              <Text className="text-3xl font-black text-typography-main tracking-tight mb-1">Notifications</Text>
-              <View className="flex-row items-center">
-                <Text className="text-xs font-bold text-typography-muted uppercase tracking-[0.2em]">Signal Feed</Text>
-                {unreadCount > 0 && (
-                  <View className="bg-brand-primary/20 px-2 py-0.5 rounded-md ml-3">
-                    <Text className="text-brand-primary text-[10px] font-black">{unreadCount} New</Text>
-                  </View>
-                )}
+        <View className={isNarrow
+          ? 'px-5 py-5 border-b border-surface-border flex-row items-center justify-between bg-surface-card z-10'
+          : 'px-10 py-8 border-b border-surface-border flex-row items-center justify-between bg-surface-card z-10'
+        }>
+          <View className="flex-row items-center flex-1 min-w-0 mr-3">
+            {!isNarrow && (
+              <View className="h-14 w-14 rounded-2xl bg-brand-primary/10 items-center justify-center mr-6">
+                <FontAwesome name="bell" size={24} className="text-brand-primary" />
               </View>
+            )}
+            <View className="flex-1 min-w-0">
+              <Text
+                className={isNarrow ? 'text-lg font-black text-typography-main tracking-tight' : 'text-3xl font-black text-typography-main tracking-tight mb-1'}
+                numberOfLines={1}
+              >
+                Notifications
+              </Text>
+              {!isNarrow && (
+                <View className="flex-row items-center">
+                  <Text className="text-xs font-bold text-typography-muted uppercase tracking-[0.2em]">Signal Feed</Text>
+                  {unreadCount > 0 && (
+                    <View className="bg-brand-primary/20 px-2 py-0.5 rounded-md ml-3">
+                      <Text className="text-brand-primary text-[10px] font-black">{unreadCount} New</Text>
+                    </View>
+                  )}
+                </View>
+              )}
             </View>
           </View>
-          
-          <View className="flex-row items-center gap-3">
-            {unreadCount > 0 && (
+
+          <View className="flex-row items-center gap-3 flex-shrink-0">
+            {unreadCount > 0 && !isNarrow && (
               <TouchableOpacity
                 onPress={markAllRead}
                 className="bg-brand-primary/10 px-4 py-2.5 rounded-xl border border-brand-primary/20 hover:bg-brand-primary/20 transition-colors"
@@ -169,17 +180,31 @@ export default function ModalScreenWeb() {
                 </Text>
               </TouchableOpacity>
             )}
-            <TouchableOpacity 
+            {unreadCount > 0 && isNarrow && (
+              <TouchableOpacity
+                onPress={markAllRead}
+                className="h-8 w-8 items-center justify-center rounded-full bg-brand-primary/10 border border-brand-primary/20"
+              >
+                <FontAwesome name="check" size={12} className="text-brand-primary" />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
               onPress={() => { router.dismiss(); router.push('/notifications/preferences' as any); }}
-              className="h-10 w-10 items-center justify-center rounded-full bg-surface-background border border-surface-border hover:bg-surface-overlay active:scale-90 transition-all"
+              className={isNarrow
+                ? 'h-8 w-8 items-center justify-center rounded-full bg-surface-background border border-surface-border'
+                : 'h-10 w-10 items-center justify-center rounded-full bg-surface-background border border-surface-border hover:bg-surface-overlay active:scale-90 transition-all'
+              }
             >
-              <FontAwesome name="sliders" size={14} className="text-typography-muted" />
+              <FontAwesome name="sliders" size={isNarrow ? 12 : 14} className="text-typography-muted" />
             </TouchableOpacity>
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => router.back()}
-              className="h-10 w-10 items-center justify-center rounded-full bg-surface-background border border-surface-border hover:bg-surface-overlay active:scale-90 transition-all ml-1"
+              className={isNarrow
+                ? 'h-8 w-8 items-center justify-center rounded-full bg-surface-background border border-surface-border ml-1'
+                : 'h-10 w-10 items-center justify-center rounded-full bg-surface-background border border-surface-border hover:bg-surface-overlay active:scale-90 transition-all ml-1'
+              }
             >
-              <FontAwesome name="close" size={14} className="text-typography-muted" />
+              <FontAwesome name="close" size={isNarrow ? 12 : 14} className="text-typography-muted" />
             </TouchableOpacity>
           </View>
         </View>

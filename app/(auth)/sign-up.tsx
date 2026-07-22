@@ -3,7 +3,7 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Link, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { getErrorMessage, isStrongPassword, isValidEmail } from '../../lib/auth-errors';
 import { supabase } from '../../lib/supabase';
 
@@ -120,7 +120,11 @@ export default function SignUpScreen() {
       >
         <View className="mb-10 items-center">
           <View className="w-16 h-16 bg-brand-primary/20 rounded-2xl flex-center mb-4">
-              <FontAwesome name="user-plus" size={24} color={colors.primary} />
+              <Image
+                source={require('../../assets/images/logo-mark.png')}
+                style={{ width: 34, height: 34 }}
+                resizeMode="contain"
+              />
           </View>
           <Text className="text-3xl font-black text-typography-main tracking-tighter text-glow">Join TrustFlow</Text>
           <Text className="text-typography-muted text-sm font-medium mt-1">Get started with your secure workspace</Text>

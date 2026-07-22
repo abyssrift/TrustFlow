@@ -1,7 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useBillingPlan } from '@/hooks/useBillingPlan';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { AnalyticsLimits, getAnalyticsLimits } from '@/lib/planLimits';
+import { AnalyticsLimits, getAnalyticsLimits, requiredPlan } from '@/lib/planLimits';
 import { FontAwesome } from '@expo/vector-icons';
 import { Link, Slot, usePathname } from 'expo-router';
 import React from 'react';
@@ -36,10 +36,10 @@ function planBadgeLabel(planCode: string): string {
 export default function IntelligenceLayout() {
   const pathname    = usePathname();
   const { hasPermission } = useAuth();
-  const { planCode }      = useBillingPlan();
+  const { planCode, limits: planLimits, catalog } = useBillingPlan();
   const colors            = useThemeColors();
   const { width }         = useWindowDimensions();
-  const limits            = getAnalyticsLimits(planCode);
+  const limits            = getAnalyticsLimits(planLimits);
 
   const permFiltered = NAV.filter(i => {
     if (i.anyPermissions) return i.anyPermissions.some(p => hasPermission(p));
@@ -116,7 +116,7 @@ export default function IntelligenceLayout() {
                   )}
                   {!isCompact && isLocked && (
                     <View className="px-1.5 py-0.5 bg-surface-card border border-surface-border rounded-md">
-                      <Text className="text-[8px] font-black text-typography-muted uppercase tracking-widest">Pro+</Text>
+                      <Text className="text-[8px] font-black text-typography-muted uppercase tracking-widest">{requiredPlan(item.planFeature!, catalog)}+</Text>
                     </View>
                   )}
                   {isActive && !isCompact && !isLocked && (

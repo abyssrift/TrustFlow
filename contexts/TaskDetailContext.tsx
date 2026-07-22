@@ -22,6 +22,7 @@ export type StageData = {
   is_initial: boolean; is_terminal: boolean; terminal_type: string | null;
   features?: string[];
   requires_submission: boolean;
+  submission_mode?: 'none' | 'optional' | 'required';
   requires_timer: boolean;
   min_timer_seconds: number;
   linked_pipeline_id?: string | null;
@@ -58,13 +59,42 @@ export type SubmissionData = {
   submitted_by: UserRef; reviewed_by: UserRef;
   review_notes: string | null; submitted_at: string; reviewed_at: string | null;
   stage_name: string | null;
+  version_count: number;
+  current_version_id: string | null;
   attachments: { id: string; file_name: string; file_url: string; mime_type: string | null; category: string | null; file_size: number | null; storage_path: string | null }[];
+};
+
+export type SubmissionVersionData = {
+  id: string; version_no: number; content: string | null;
+  created_at: string; created_by: UserRef;
+  is_current: boolean; expires_at: string | null;
+  attachments: SubmissionData['attachments'];
+};
+
+export type DeletedSubmissionData = SubmissionData & {
+  deleted_at: string;
+  deleted_by: UserRef;
 };
 
 export type TaskAttachmentData = {
   id: string; file_name: string; file_url: string; storage_path: string | null;
   file_size: number | null; mime_type: string | null; category: string | null;
   uploaded_by: UserRef; created_at: string;
+  version_count: number;
+  current_version_id: string | null;
+};
+
+export type TaskAttachmentVersionData = {
+  id: string; version_no: number;
+  file_name: string | null; file_size: number | null;
+  mime_type: string | null; storage_path: string | null; bucket: string;
+  created_at: string; created_by: UserRef;
+  is_current: boolean; expires_at: string | null;
+};
+
+export type DeletedTaskAttachmentData = TaskAttachmentData & {
+  deleted_at: string;
+  deleted_by: UserRef;
 };
 
 export type CommentData = {
@@ -74,7 +104,8 @@ export type CommentData = {
 
 export type WorkSessionData = {
   id: string; user_name: string | null; user_id: string; status: string;
-  total_seconds_spent: number; started_at: string; last_heartbeat_at?: string;
+  total_seconds_spent: number; started_at: string; last_heartbeat_at?: string | null;
+  avatar_url?: string | null;
   stage_id: string | null;
 };
 
@@ -91,6 +122,8 @@ export type ActivityData = {
 export type StatsData = {
   total_transitions: number; approval_count: number; revision_count: number;
   rejection_count: number; pending_count: number;
+  deleted_submission_count: number;
+  deleted_attachment_count: number;
   total_time_spent_seconds: number; days_in_pipeline: number;
 };
 
@@ -156,6 +189,16 @@ type TaskDetailContextType = {
   advanceStage: (toStageId: string) => Promise<void>;
   reviewSubmission: (submissionId: string, decision: string, notes?: string, advanceStageId?: string) => Promise<void>;
   deleteSubmission: (submissionId: string) => Promise<void>;
+  restoreSubmission: (submissionId: string) => Promise<void>;
+  listDeletedSubmissions: () => Promise<DeletedSubmissionData[]>;
+  submissionVersions: (submissionId: string) => Promise<SubmissionVersionData[]>;
+  restoreSubmissionVersion: (versionId: string) => Promise<void>;
+  replaceTaskAttachment: (attachmentId: string, file: { storage_path: string; file_name: string; file_size: number; mime_type: string }) => Promise<void>;
+  taskAttachmentVersions: (attachmentId: string) => Promise<TaskAttachmentVersionData[]>;
+  restoreTaskAttachmentVersion: (versionId: string) => Promise<void>;
+  deleteTaskAttachment: (attachmentId: string) => Promise<void>;
+  restoreTaskAttachment: (attachmentId: string) => Promise<void>;
+  listDeletedTaskAttachments: () => Promise<DeletedTaskAttachmentData[]>;
   updateTask: (updates: Partial<TaskData>) => Promise<void>;
   reviewManualTime: (entryId: string, approve: boolean, rejectionReason?: string) => Promise<void>;
 };
@@ -257,6 +300,18 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
       successToast('Task action completed.');
     } catch (err: any) {
       taskFlowError('task-detail.executeAction:error', err, { taskId, actionId });
+
+      // The task moved to a different stage (another session/reviewer advanced
+      // it) between render and click, so the button's action_id is now stale.
+      // Refetch so the UI shows the real current stage/actions instead of
+      // leaving a dead button on screen, and surface a clear message.
+      if (err.message?.includes("does not belong to the task's current stage")) {
+        await fetchDetails();
+        const staleErr = new Error('This task has already moved to a new stage. The available actions have been refreshed.');
+        errorToast(staleErr.message);
+        throw staleErr;
+      }
+
       errorToast(err.message || 'Could not complete task action.');
       throw err;
     }
@@ -382,6 +437,153 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
     }
   }, [fetchDetails, infoToast, errorToast]);
 
+  const restoreSubmission = useCallback(async (submissionId: string) => {
+    try {
+      taskFlowDebug('task-detail.restoreSubmission:start', { taskId, submissionId });
+      const { error } = await supabase.rpc('rpc_restore_submission', { p_submission_id: submissionId });
+      if (error) throw error;
+      await fetchDetails();
+      taskFlowDebug('task-detail.restoreSubmission:success', { taskId, submissionId });
+      successToast('Submission restored.');
+    } catch (err: any) {
+      taskFlowError('task-detail.restoreSubmission:error', err, { taskId, submissionId });
+      errorToast(err.message || 'Could not restore submission.');
+      throw err;
+    }
+  }, [taskId, fetchDetails, successToast, errorToast]);
+
+  const listDeletedSubmissions = useCallback(async (): Promise<DeletedSubmissionData[]> => {
+    try {
+      taskFlowDebug('task-detail.listDeletedSubmissions:start', { taskId });
+      const { data: rows, error } = await supabase.rpc('rpc_list_deleted_submissions', { p_task_id: taskId });
+      if (error) throw error;
+      return (rows as DeletedSubmissionData[]) ?? [];
+    } catch (err: any) {
+      taskFlowError('task-detail.listDeletedSubmissions:error', err, { taskId });
+      errorToast(err.message || 'Could not load deleted submissions.');
+      throw err;
+    }
+  }, [taskId, errorToast]);
+
+  const submissionVersions = useCallback(async (submissionId: string): Promise<SubmissionVersionData[]> => {
+    try {
+      taskFlowDebug('task-detail.submissionVersions:start', { taskId, submissionId });
+      const { data: rows, error } = await supabase.rpc('rpc_submission_versions', { p_submission_id: submissionId });
+      if (error) throw error;
+      return (rows as SubmissionVersionData[]) ?? [];
+    } catch (err: any) {
+      taskFlowError('task-detail.submissionVersions:error', err, { taskId, submissionId });
+      errorToast(err.message || 'Could not load submission versions.');
+      throw err;
+    }
+  }, [taskId, errorToast]);
+
+  const restoreSubmissionVersion = useCallback(async (versionId: string) => {
+    try {
+      taskFlowDebug('task-detail.restoreSubmissionVersion:start', { taskId, versionId });
+      const { error } = await supabase.rpc('rpc_restore_submission_version', { p_version_id: versionId });
+      if (error) throw error;
+      await fetchDetails();
+      taskFlowDebug('task-detail.restoreSubmissionVersion:success', { taskId, versionId });
+      successToast('Version restored.');
+    } catch (err: any) {
+      taskFlowError('task-detail.restoreSubmissionVersion:error', err, { taskId, versionId });
+      errorToast(err.message || 'Could not restore version.');
+      throw err;
+    }
+  }, [taskId, fetchDetails, successToast, errorToast]);
+
+  // ── Feature D: brief attachment versioning + soft delete ──────────────────
+
+  const replaceTaskAttachment = useCallback(async (attachmentId: string, file: { storage_path: string; file_name: string; file_size: number; mime_type: string }) => {
+    try {
+      taskFlowDebug('task-detail.replaceTaskAttachment:start', { taskId, attachmentId });
+      const { error } = await supabase.rpc('rpc_replace_task_attachment', {
+        p_attachment_id: attachmentId,
+        p_storage_path: file.storage_path,
+        p_file_name: file.file_name,
+        p_file_size: file.file_size,
+        p_mime_type: file.mime_type,
+      });
+      if (error) throw error;
+      await fetchDetails();
+      taskFlowDebug('task-detail.replaceTaskAttachment:success', { taskId, attachmentId });
+      successToast('File replaced. Previous version kept in history.');
+    } catch (err: any) {
+      taskFlowError('task-detail.replaceTaskAttachment:error', err, { taskId, attachmentId });
+      errorToast(err.message || 'Could not replace file.');
+      throw err;
+    }
+  }, [taskId, fetchDetails, successToast, errorToast]);
+
+  const taskAttachmentVersions = useCallback(async (attachmentId: string): Promise<TaskAttachmentVersionData[]> => {
+    try {
+      taskFlowDebug('task-detail.taskAttachmentVersions:start', { taskId, attachmentId });
+      const { data: rows, error } = await supabase.rpc('rpc_task_attachment_versions', { p_attachment_id: attachmentId });
+      if (error) throw error;
+      return (rows as TaskAttachmentVersionData[]) ?? [];
+    } catch (err: any) {
+      taskFlowError('task-detail.taskAttachmentVersions:error', err, { taskId, attachmentId });
+      errorToast(err.message || 'Could not load file versions.');
+      throw err;
+    }
+  }, [taskId, errorToast]);
+
+  const restoreTaskAttachmentVersion = useCallback(async (versionId: string) => {
+    try {
+      taskFlowDebug('task-detail.restoreTaskAttachmentVersion:start', { taskId, versionId });
+      const { error } = await supabase.rpc('rpc_restore_task_attachment_version', { p_version_id: versionId });
+      if (error) throw error;
+      await fetchDetails();
+      taskFlowDebug('task-detail.restoreTaskAttachmentVersion:success', { taskId, versionId });
+      successToast('Version restored.');
+    } catch (err: any) {
+      taskFlowError('task-detail.restoreTaskAttachmentVersion:error', err, { taskId, versionId });
+      errorToast(err.message || 'Could not restore version.');
+      throw err;
+    }
+  }, [taskId, fetchDetails, successToast, errorToast]);
+
+  const deleteTaskAttachment = useCallback(async (attachmentId: string) => {
+    try {
+      const { error } = await supabase.rpc('rpc_delete_task_attachment', { p_attachment_id: attachmentId });
+      if (error) throw error;
+      await fetchDetails();
+      infoToast('File removed.');
+    } catch (err: any) {
+      errorToast(err.message || 'Could not delete file.');
+      throw err;
+    }
+  }, [fetchDetails, infoToast, errorToast]);
+
+  const restoreTaskAttachment = useCallback(async (attachmentId: string) => {
+    try {
+      taskFlowDebug('task-detail.restoreTaskAttachment:start', { taskId, attachmentId });
+      const { error } = await supabase.rpc('rpc_restore_task_attachment', { p_attachment_id: attachmentId });
+      if (error) throw error;
+      await fetchDetails();
+      taskFlowDebug('task-detail.restoreTaskAttachment:success', { taskId, attachmentId });
+      successToast('File restored.');
+    } catch (err: any) {
+      taskFlowError('task-detail.restoreTaskAttachment:error', err, { taskId, attachmentId });
+      errorToast(err.message || 'Could not restore file.');
+      throw err;
+    }
+  }, [taskId, fetchDetails, successToast, errorToast]);
+
+  const listDeletedTaskAttachments = useCallback(async (): Promise<DeletedTaskAttachmentData[]> => {
+    try {
+      taskFlowDebug('task-detail.listDeletedTaskAttachments:start', { taskId });
+      const { data: rows, error } = await supabase.rpc('rpc_list_deleted_task_attachments', { p_task_id: taskId });
+      if (error) throw error;
+      return (rows as DeletedTaskAttachmentData[]) ?? [];
+    } catch (err: any) {
+      taskFlowError('task-detail.listDeletedTaskAttachments:error', err, { taskId });
+      errorToast(err.message || 'Could not load deleted files.');
+      throw err;
+    }
+  }, [taskId, errorToast]);
+
   const updateTask = useCallback(async (updates: Partial<TaskData>) => {
     try {
       const { error } = await supabase.from('tasks').update(updates).eq('id', taskId);
@@ -441,7 +643,9 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
   return (
     <TaskDetailContext.Provider value={{
       taskId, data, loading, error, refresh: fetchDetails,
-      executeAction, submitWork, addComment, deleteComment, advanceStage, reviewSubmission, deleteSubmission, updateTask, reviewManualTime
+      executeAction, submitWork, addComment, deleteComment, advanceStage, reviewSubmission, deleteSubmission, restoreSubmission, listDeletedSubmissions, submissionVersions, restoreSubmissionVersion,
+      replaceTaskAttachment, taskAttachmentVersions, restoreTaskAttachmentVersion, deleteTaskAttachment, restoreTaskAttachment, listDeletedTaskAttachments,
+      updateTask, reviewManualTime
     }}>
       {children}
     </TaskDetailContext.Provider>

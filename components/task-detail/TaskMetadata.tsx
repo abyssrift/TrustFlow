@@ -5,17 +5,19 @@ import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import CollapsibleCard from './CollapsibleCard';
 import EditTaskModal from './EditTaskModal';
+import LinkifiedText from '../common/LinkifiedText';
+import UserLink from '../common/UserLink';
 
-function MetaRow({ icon, label, value, valueColor }: { icon: string; label: string; value?: string | null; valueColor?: string }) {
+function MetaRow({ icon, label, value, valueNode, valueColor }: { icon: string; label: string; value?: string | null; valueNode?: React.ReactNode; valueColor?: string }) {
   const colors = useThemeColors();
-  if (!value) return null;
+  if (!value && !valueNode) return null;
   return (
     <View className="flex-row items-center justify-between py-2.5 border-b border-surface-border/30">
       <View className="flex-row items-center">
         <FontAwesome name={icon as any} size={11} color={colors.textMuted} />
         <Text className="text-typography-muted text-xs font-bold ml-2.5 uppercase tracking-wider">{label}</Text>
       </View>
-      <Text className={`text-xs font-black ${valueColor || 'text-typography-main'}`}>{value}</Text>
+      {valueNode ?? <Text className={`text-xs font-black ${valueColor || 'text-typography-main'}`}>{value}</Text>}
     </View>
   );
 }
@@ -24,6 +26,12 @@ export default function TaskMetadata() {
   const { data } = useTaskDetail();
   const colors = useThemeColors();
   const [isEditModalVisible, setIsEditModalVisible] = React.useState(false);
+  const [editFocusField, setEditFocusField] = React.useState<'due_date' | null>(null);
+
+  const openEdit = (focusField: 'due_date' | null = null) => {
+    setEditFocusField(focusField);
+    setIsEditModalVisible(true);
+  };
 
   if (!data) return null;
 
@@ -43,7 +51,7 @@ export default function TaskMetadata() {
         defaultCollapsed
         headerRight={permissions.can_edit ? (
           <TouchableOpacity
-            onPress={() => setIsEditModalVisible(true)}
+            onPress={() => openEdit()}
             className="flex-row items-center bg-surface-background px-2.5 py-1.5 rounded-lg border border-surface-border active:opacity-75"
           >
             <FontAwesome name="pencil" size={10} color={colors.primary} />
@@ -53,9 +61,9 @@ export default function TaskMetadata() {
       >
         {/* Description */}
         {task.description && (
-          <Text className="text-typography-label text-sm leading-5 mb-4">
+          <LinkifiedText className="text-typography-label text-sm leading-5 mb-4">
             {task.description}
-          </Text>
+          </LinkifiedText>
         )}
 
         <MetaRow icon="code-fork" label="Pipeline" value={pipeline?.name || '—'} />
@@ -67,14 +75,44 @@ export default function TaskMetadata() {
         />
         <MetaRow icon="flag" label="Priority" value={task.priority?.toUpperCase() || 'NORMAL'} />
         {task.category && <MetaRow icon="tag" label="Category" value={task.category} />}
-        <MetaRow icon="user" label="Created By" value={creator?.full_name || '—'} />
-        {manager && <MetaRow icon="briefcase" label="Manager" value={manager.full_name || '—'} />}
         <MetaRow
-          icon="calendar"
-          label="Due Date"
-          value={task.due_date ? `${formatDate(task.due_date)}${isOverdue ? ' ⚠ OVERDUE' : ''}` : 'No due date'}
-          valueColor={isOverdue ? 'text-state-danger' : undefined}
+          icon="user"
+          label="Created By"
+          value={creator?.full_name || '—'}
+          valueNode={creator?.id ? <UserLink userId={creator.id} name={creator.full_name} className="text-xs font-black text-typography-main" /> : undefined}
         />
+        {manager && (
+          <MetaRow
+            icon="briefcase"
+            label="Manager"
+            value={manager.full_name || '—'}
+            valueNode={manager.id ? <UserLink userId={manager.id} name={manager.full_name} className="text-xs font-black text-typography-main" /> : undefined}
+          />
+        )}
+        {permissions.can_edit ? (
+          <TouchableOpacity
+            onPress={() => openEdit('due_date')}
+            className="flex-row items-center justify-between py-2.5 border-b border-surface-border/30 active:opacity-60"
+          >
+            <View className="flex-row items-center">
+              <FontAwesome name="calendar" size={11} color={colors.textMuted} />
+              <Text className="text-typography-muted text-xs font-bold ml-2.5 uppercase tracking-wider">Due Date</Text>
+            </View>
+            <View className="flex-row items-center">
+              <Text className={`text-xs font-black mr-1.5 ${isOverdue ? 'text-state-danger' : 'text-typography-main'}`}>
+                {task.due_date ? `${formatDate(task.due_date)}${isOverdue ? ' ⚠ OVERDUE' : ''}` : 'No due date'}
+              </Text>
+              <FontAwesome name="clock-o" size={11} color={colors.primary} />
+            </View>
+          </TouchableOpacity>
+        ) : (
+          <MetaRow
+            icon="calendar"
+            label="Due Date"
+            value={task.due_date ? `${formatDate(task.due_date)}${isOverdue ? ' ⚠ OVERDUE' : ''}` : 'No due date'}
+            valueColor={isOverdue ? 'text-state-danger' : undefined}
+          />
+        )}
         <MetaRow icon="clock-o" label="Created" value={formatDate(task.created_at)} />
         <MetaRow icon="calendar-check-o" label="In Pipeline" value={`${stats.days_in_pipeline} days`} />
         <MetaRow icon="balance-scale" label="Weight" value={task.weight?.toString() || '1'} />
@@ -108,7 +146,8 @@ export default function TaskMetadata() {
       {permissions.can_edit && (
         <EditTaskModal
           visible={isEditModalVisible}
-          onClose={() => setIsEditModalVisible(false)}
+          onClose={() => { setIsEditModalVisible(false); setEditFocusField(null); }}
+          focusField={editFocusField}
         />
       )}
     </>

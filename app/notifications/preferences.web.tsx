@@ -38,6 +38,7 @@ const EVENT_GROUPS: { label: string; icon: React.ComponentProps<typeof FontAweso
       { type: 'task.manual_time_flagged',   label: 'Logged time flagged for review' },
       { type: 'task.manual_time_approved',  label: 'Logged time approved' },
       { type: 'task.manual_time_rejected',  label: 'Logged time rejected' },
+      { type: 'task.submission_deleted',    label: 'Submission deleted on your task' },
     ],
   },
   {

@@ -18,6 +18,8 @@ import {
 type Props = {
   visible: boolean;
   onClose: () => void;
+  /** Opens the sheet with a given field's picker already expanded (e.g. from a card quick-action). */
+  focusField?: 'due_date' | null;
 };
 
 type UserOption = { id: string; full_name: string };
@@ -25,7 +27,7 @@ type UserOption = { id: string; full_name: string };
 const PRIORITY_OPTIONS = ['low', 'medium', 'high', 'urgent'] as const;
 const PRIORITY_LABELS: Record<string, string> = { low: 'Low', medium: 'Normal', high: 'High', urgent: 'Urgent' };
 
-export default function EditTaskModal({ visible, onClose }: Props) {
+export default function EditTaskModal({ visible, onClose, focusField }: Props) {
   const colors = useThemeColors();
   const { data, updateTask } = useTaskDetail();
 
@@ -40,8 +42,7 @@ export default function EditTaskModal({ visible, onClose }: Props) {
   const [isRecurring, setIsRecurring] = useState(false);
   const [managerId, setManagerId] = useState<string | null>(null);
 
-  const [showDueCalendar, setShowDueCalendar] = useState(false);
-  const [showStartCalendar, setShowStartCalendar] = useState(false);
+  const [activeDateField, setActiveDateField] = useState<'due' | 'start' | null>(null);
   const [showManagerPicker, setShowManagerPicker] = useState(false);
   const [users, setUsers] = useState<UserOption[]>([]);
   const [saving, setSaving] = useState(false);
@@ -61,12 +62,11 @@ export default function EditTaskModal({ visible, onClose }: Props) {
       setStartDate(rawStart ? new Date(rawStart).toISOString().split('T')[0] : null);
       const rawHours = (data as any).task.estimated_hours;
       setEstimatedHours(rawHours?.toString() || '');
-      setShowDueCalendar(false);
-      setShowStartCalendar(false);
+      setActiveDateField(focusField === 'due_date' ? 'due' : null);
       setShowManagerPicker(false);
       setError(null);
     }
-  }, [data, visible]);
+  }, [data, visible, focusField]);
 
   useEffect(() => {
     if (visible && users.length === 0) {
@@ -208,73 +208,79 @@ export default function EditTaskModal({ visible, onClose }: Props) {
                 </View>
               </View>
 
-              {/* Dates */}
-              <View className="flex-row gap-4">
-                {/* Due Date */}
-                <View className="flex-1">
-                  <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em] mb-2">Due Date</Text>
-                  <View className="flex-row gap-2">
-                    <TouchableOpacity
-                      onPress={() => { setShowDueCalendar(v => !v); setShowStartCalendar(false); }}
-                      className="flex-1 bg-surface-background border border-surface-border px-3 py-3 rounded-2xl flex-row items-center justify-between"
-                    >
-                      <Text className={`font-medium text-sm ${dueDate ? 'text-typography-main' : 'text-typography-muted'}`}>
-                        {formatDate(dueDate) ?? 'Set date'}
-                      </Text>
-                      <FontAwesome name="calendar" size={11} color={dueDate ? colors.primary : colors.textMuted} />
-                    </TouchableOpacity>
-                    {dueDate && (
+              {/* Dates — one shared calendar, colored per field */}
+              <View>
+                <View className="flex-row gap-4">
+                  {/* Due Date */}
+                  <View className="flex-1">
+                    <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em] mb-2">Due Date</Text>
+                    <View className="flex-row gap-2">
                       <TouchableOpacity
-                        onPress={() => { setDueDate(null); setShowDueCalendar(false); }}
-                        className="w-11 h-11 bg-surface-background border border-surface-border rounded-2xl items-center justify-center"
+                        onPress={() => setActiveDateField(f => f === 'due' ? null : 'due')}
+                        className="flex-1 border px-3 py-3 rounded-2xl flex-row items-center justify-between"
+                        style={{
+                          backgroundColor: activeDateField === 'due' ? `${colors.primary}14` : colors.background,
+                          borderColor: activeDateField === 'due' ? colors.primary : colors.border,
+                        }}
                       >
-                        <FontAwesome name="times" size={11} color={colors.textMuted} />
+                        <Text className={`font-medium text-sm ${dueDate ? 'text-typography-main' : 'text-typography-muted'}`}>
+                          {formatDate(dueDate) ?? 'Set date'}
+                        </Text>
+                        <FontAwesome name="calendar" size={11} color={dueDate ? colors.primary : colors.textMuted} />
                       </TouchableOpacity>
-                    )}
-                  </View>
-                  {showDueCalendar && (
-                    <View className="mt-2">
-                      <PremiumCalendarPicker
-                        selectedDate={dueDate}
-                        onSelect={(d) => { setDueDate(d); setShowDueCalendar(false); }}
-                        compact
-                      />
+                      {dueDate && (
+                        <TouchableOpacity
+                          onPress={() => { setDueDate(null); if (activeDateField === 'due') setActiveDateField(null); }}
+                          className="w-11 h-11 bg-surface-background border border-surface-border rounded-2xl items-center justify-center"
+                        >
+                          <FontAwesome name="times" size={11} color={colors.textMuted} />
+                        </TouchableOpacity>
+                      )}
                     </View>
-                  )}
+                  </View>
+
+                  {/* Start Date */}
+                  <View className="flex-1">
+                    <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em] mb-2">Start Date</Text>
+                    <View className="flex-row gap-2">
+                      <TouchableOpacity
+                        onPress={() => setActiveDateField(f => f === 'start' ? null : 'start')}
+                        className="flex-1 border px-3 py-3 rounded-2xl flex-row items-center justify-between"
+                        style={{
+                          backgroundColor: activeDateField === 'start' ? `${colors.secondary}14` : colors.background,
+                          borderColor: activeDateField === 'start' ? colors.secondary : colors.border,
+                        }}
+                      >
+                        <Text className={`font-medium text-sm ${startDate ? 'text-typography-main' : 'text-typography-muted'}`}>
+                          {formatDate(startDate) ?? 'Set date'}
+                        </Text>
+                        <FontAwesome name="calendar-o" size={11} color={startDate ? colors.secondary : colors.textMuted} />
+                      </TouchableOpacity>
+                      {startDate && (
+                        <TouchableOpacity
+                          onPress={() => { setStartDate(null); if (activeDateField === 'start') setActiveDateField(null); }}
+                          className="w-11 h-11 bg-surface-background border border-surface-border rounded-2xl items-center justify-center"
+                        >
+                          <FontAwesome name="times" size={11} color={colors.textMuted} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </View>
                 </View>
 
-                {/* Start Date */}
-                <View className="flex-1">
-                  <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em] mb-2">Start Date</Text>
-                  <View className="flex-row gap-2">
-                    <TouchableOpacity
-                      onPress={() => { setShowStartCalendar(v => !v); setShowDueCalendar(false); }}
-                      className="flex-1 bg-surface-background border border-surface-border px-3 py-3 rounded-2xl flex-row items-center justify-between"
-                    >
-                      <Text className={`font-medium text-sm ${startDate ? 'text-typography-main' : 'text-typography-muted'}`}>
-                        {formatDate(startDate) ?? 'Set date'}
-                      </Text>
-                      <FontAwesome name="calendar-o" size={11} color={startDate ? colors.primary : colors.textMuted} />
-                    </TouchableOpacity>
-                    {startDate && (
-                      <TouchableOpacity
-                        onPress={() => { setStartDate(null); setShowStartCalendar(false); }}
-                        className="w-11 h-11 bg-surface-background border border-surface-border rounded-2xl items-center justify-center"
-                      >
-                        <FontAwesome name="times" size={11} color={colors.textMuted} />
-                      </TouchableOpacity>
-                    )}
+                {activeDateField && (
+                  <View className="mt-2">
+                    <PremiumCalendarPicker
+                      selectedDate={activeDateField === 'due' ? dueDate : startDate}
+                      onSelect={(d) => activeDateField === 'due' ? setDueDate(d) : setStartDate(d)}
+                      accentColor={activeDateField === 'due' ? colors.primary : colors.secondary}
+                      rangeDate={activeDateField === 'due' ? startDate : dueDate}
+                      rangeColor={activeDateField === 'due' ? colors.secondary : colors.primary}
+                      scale="compact"
+                      showDaysBetween
+                    />
                   </View>
-                  {showStartCalendar && (
-                    <View className="mt-2">
-                      <PremiumCalendarPicker
-                        selectedDate={startDate}
-                        onSelect={(d) => { setStartDate(d); setShowStartCalendar(false); }}
-                        compact
-                      />
-                    </View>
-                  )}
-                </View>
+                )}
               </View>
 
               {/* Weight & Estimated Hours */}

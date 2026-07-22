@@ -10,6 +10,7 @@ export type LightboxMedia = {
   mimeType?: string | null;
   /** Optional per-item bucket override; falls back to the hook's defaultBucket. */
   bucket?: string;
+  sizeBytes?: number;
 };
 
 const isImageMime = (m?: string | null) => !!m && m.toLowerCase().includes('image');

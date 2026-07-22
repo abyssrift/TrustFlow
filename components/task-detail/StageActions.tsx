@@ -1,14 +1,20 @@
 import ClipboardControls from '@/components/common/ClipboardControls';
+import DraggableSheet from '@/components/common/DraggableSheet';
 import { FilePreviewGrid } from '@/components/common/FilePreviewCard';
+import LinkifiedText from '@/components/common/LinkifiedText';
+import ManualTimeApprovalsModal from '@/components/common/ManualTimeApprovalsModal';
 import ManualTimeModal from '@/components/common/ManualTimeModal';
+import UserLink from '@/components/common/UserLink';
 import LockIndicator from '@/components/task-detail/LockIndicator';
-import ManualTimeApprovalCard from '@/components/task-detail/ManualTimeApprovalCard';
+import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubmission } from '@/contexts/SubmissionContext';
-import { useTaskDetail, type StageActionData } from '@/contexts/TaskDetailContext';
+import { useTaskDetail, type DeletedSubmissionData, type StageActionData, type SubmissionData, type SubmissionVersionData } from '@/contexts/TaskDetailContext';
 import { useTimer } from '@/contexts/TimerContext';
 import { useFileViewer } from '@/hooks/useFileViewer';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { useTicker } from '@/hooks/useTicker';
+import { formatStopwatch, formatCompact } from '@/lib/time';
 import { getPastedImageFile } from '@/lib/pasteImage';
 import { SUBMISSION_BUCKET } from '@/lib/storage';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -17,7 +23,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, AppState, Image, Platform, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, AppState, Image, Platform, ScrollView, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { getActionDescriptor, splitStageActions } from './actionRegistry';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -44,6 +50,70 @@ const STATUS_STYLES: Record<string, { bg: string; border: string; text: string; 
   rejected: { bg: 'bg-state-danger-dim', border: 'border-state-danger/30', text: 'text-state-danger', label: 'Rejected' },
   pending: { bg: 'bg-state-info-dim', border: 'border-state-info/30', text: 'text-state-info', label: 'Pending Review' },
 };
+
+// Ticks once a second in its own subtree so the 1s re-render doesn't hit the
+// rest of StageActions (was blowing away in-flight keystrokes in the submission box).
+function LiveTimerChip({
+  active,
+  startedAt,
+  serverTimeOffset,
+  getLastActivityTime,
+}: {
+  active: boolean;
+  startedAt: string | null;
+  serverTimeOffset: number;
+  getLastActivityTime: () => number;
+}) {
+  const elapsed = useTicker(startedAt, { offsetMs: serverTimeOffset });
+  const [idleSeconds, setIdleSeconds] = React.useState(0);
+  const [isTracking, setIsTracking] = React.useState(true);
+
+  // Idle/tracking status polls a different source (last-activity timestamp, tab
+  // visibility) each second — a separate concern from the elapsed-time ticker above.
+  React.useEffect(() => {
+    if (!startedAt) {
+      setIdleSeconds(0);
+      setIsTracking(true);
+      return;
+    }
+    const tick = () => {
+      setIdleSeconds(Math.floor((Date.now() - getLastActivityTime()) / 1000));
+      setIsTracking(
+        Platform.OS === 'web'
+          ? typeof document !== 'undefined' && document.visibilityState === 'visible'
+          : AppState.currentState === 'active'
+      );
+    };
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, [startedAt, getLastActivityTime]);
+
+  return (
+    <View>
+      <View className="flex-row items-center">
+        <View className={`w-2 h-2 rounded-full mr-3 ${active ? 'bg-state-success animate-pulse' : 'bg-typography-muted'}`} />
+        <Text className="text-typography-main font-mono text-xl font-black">
+          {formatStopwatch(elapsed)}
+        </Text>
+      </View>
+      {active && (
+        <View className="flex-row items-center mt-1.5 ml-5 gap-2">
+          <View className={`w-1.5 h-1.5 rounded-full ${isTracking ? 'bg-state-success' : 'bg-typography-dim'}`} />
+          <Text className={`text-[9px] font-bold uppercase tracking-wider ${isTracking ? 'text-state-success' : 'text-typography-dim'}`}>
+            {isTracking ? 'Tracking' : 'Background'}
+          </Text>
+          <Text className="text-typography-dim text-[9px]">·</Text>
+          <Text className="text-typography-dim text-[9px]">
+            {idleSeconds < 60
+              ? 'Active now'
+              : `${formatCompact(idleSeconds)} idle`}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
 
 // ─── Adaptive File Grid ───────────────────────────────────────────────────────
 
@@ -134,22 +204,38 @@ function AdaptiveFileGrid({
 
 export default function StageActions() {
   const colors = useThemeColors();
-  const { data, executeAction, submitWork, deleteSubmission } = useTaskDetail();
+  const { showConfirm, showAlert } = useAlert();
+  const { data, executeAction, submitWork, deleteSubmission, restoreSubmission, listDeletedSubmissions, submissionVersions, restoreSubmissionVersion, refresh, reviewManualTime } = useTaskDetail();
   const { isActive, activeSession, serverTimeOffset, stopWork, startWork, smartTimer } = useTimer();
   const router = useRouter();
   const { user } = useAuth();
+  const { width } = useWindowDimensions();
+  // Desktop web owns this surface via the topbar island (IslandTimeApprovalsBridge)
+  // instead — same breakpoint the island itself is gated on.
+  const isDesktopWeb = Platform.OS === 'web' && width >= 768;
   const [loadingActionId, setLoadingActionId] = useState<string | null>(null);
   const [submissionContent, setSubmissionContent] = useState('');
   const [stagedFiles, setStagedFiles] = useState<any[]>([]);
-  const [elapsedLocal, setElapsedLocal] = React.useState(0);
-  const [idleSeconds, setIdleSeconds] = React.useState(0);
-  const [isTracking, setIsTracking] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState<{ title: string; message: string; variant?: 'danger' | 'warning' } | null>(null);
   const [showManualTimeModal, setShowManualTimeModal] = useState(false);
+  const [showApprovalsModal, setShowApprovalsModal] = useState(false);
   const [pendingAdvanceAction, setPendingAdvanceAction] = useState<StageActionData | null>(null);
+  const [showDeleted, setShowDeleted] = useState(false);
+  const [deletedSubs, setDeletedSubs] = useState<DeletedSubmissionData[] | null>(null);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
 
-  const { submitWithEvidence, activeJobs } = useSubmission();
+  // Feature A: edit + version history
+  const [editingSub, setEditingSub] = useState<SubmissionData | null>(null);
+  const [editContent, setEditContent] = useState('');
+  const [editRemovedIds, setEditRemovedIds] = useState<string[]>([]);
+  const [editNewFiles, setEditNewFiles] = useState<any[]>([]);
+  const [editSaving, setEditSaving] = useState(false);
+  const [historyFor, setHistoryFor] = useState<string | null>(null);
+  const [historyVersions, setHistoryVersions] = useState<SubmissionVersionData[] | null>(null);
+  const [restoringVersionId, setRestoringVersionId] = useState<string | null>(null);
+
+  const { submitWithEvidence, editSubmission, activeJobs } = useSubmission();
 
   // Submission attachments → navigable image lightbox / direct download.
   const submissionMedia = React.useMemo(
@@ -160,6 +246,7 @@ export default function StageActions() {
           name: a.file_name,
           storagePath: a.storage_path || a.file_url,
           mimeType: a.mime_type,
+          sizeBytes: a.file_size || undefined,
         }))
       ),
     [data?.submissions]
@@ -169,35 +256,34 @@ export default function StageActions() {
     SUBMISSION_BUCKET
   );
 
-  React.useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (isActive && activeSession && data?.task.id && activeSession.task_id === data.task.id) {
-      const start = new Date(activeSession.started_at).getTime();
-
-      const tick = () => {
-        const now = Date.now();
-        setElapsedLocal(Math.floor((now + serverTimeOffset - start) / 1000));
-        setIdleSeconds(Math.floor((now - smartTimer.getLastActivityTime()) / 1000));
-        setIsTracking(
-          Platform.OS === 'web'
-            ? typeof document !== 'undefined' && document.visibilityState === 'visible'
-            : AppState.currentState === 'active'
-        );
-      };
-
-      tick();
-      timer = setInterval(tick, 1000);
-    } else {
-      setIdleSeconds(0);
-      setIsTracking(true);
+  const toggleDeletedSubs = async () => {
+    if (showDeleted) { setShowDeleted(false); return; }
+    try {
+      const rows = await listDeletedSubmissions();
+      setDeletedSubs(rows);
+      setShowDeleted(true);
+    } catch {
+      // listDeletedSubmissions already toasts
     }
-    return () => clearInterval(timer);
-  }, [isActive, activeSession, data?.task.id, serverTimeOffset, smartTimer.getLastActivityTime]);
+  };
 
-  const pickDocument = async () => {
+  const handleRestoreSub = async (id: string) => {
+    setRestoringId(id);
+    try {
+      await restoreSubmission(id);
+      setDeletedSubs(prev => prev ? prev.filter(s => s.id !== id) : prev);
+    } catch (err: any) {
+      setErrorMsg({ title: 'Restore Failed', message: err.message });
+    } finally {
+      setRestoringId(null);
+    }
+  };
+
+  // Pickers write to the submit form by default; the edit sheet passes its own setter.
+  const pickDocument = async (target: React.Dispatch<React.SetStateAction<any[]>> = setStagedFiles) => {
     const result = await DocumentPicker.getDocumentAsync({ type: '*/*', multiple: true });
     if (!result.canceled) {
-      setStagedFiles(prev => [...prev, ...result.assets.map(a => ({
+      target(prev => [...prev, ...result.assets.map(a => ({
         id: Math.random().toString(36).substring(7),
         uri: a.uri,
         name: a.name,
@@ -207,10 +293,10 @@ export default function StageActions() {
     }
   };
 
-  const pickImage = async () => {
+  const pickImage = async (target: React.Dispatch<React.SetStateAction<any[]>> = setStagedFiles) => {
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsMultipleSelection: true });
     if (!result.canceled) {
-      setStagedFiles(prev => [...prev, ...result.assets.map(a => ({
+      target(prev => [...prev, ...result.assets.map(a => ({
         id: Math.random().toString(36).substring(7),
         uri: a.uri,
         name: a.fileName || `image_${Date.now()}.jpg`,
@@ -220,13 +306,86 @@ export default function StageActions() {
     }
   };
 
-  const pasteImage = async () => {
+  const pasteImage = async (target: React.Dispatch<React.SetStateAction<any[]>> = setStagedFiles) => {
     const file = await getPastedImageFile();
-    if (file) setStagedFiles(prev => [...prev, file]);
-    else Alert.alert('No Image', 'There is no image on the clipboard to paste.');
+    if (file) target(prev => [...prev, file]);
+    else showAlert('No Image', 'There is no image on the clipboard to paste.');
   };
 
   const removeFile = (id: string) => setStagedFiles(prev => prev.filter(f => f.id !== id));
+
+  // ── Feature A: edit + history handlers ──────────────────────────────────────
+
+  const openEdit = (s: SubmissionData) => {
+    setEditingSub(s);
+    setEditContent(s.content || '');
+    setEditRemovedIds([]);
+    setEditNewFiles([]);
+  };
+
+  const closeEdit = () => {
+    if (editSaving) return;
+    setEditingSub(null);
+    setEditRemovedIds([]);
+    setEditNewFiles([]);
+  };
+
+  const toggleRemoveAttachment = (id: string) =>
+    setEditRemovedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+
+  const handleSaveEdit = async () => {
+    if (!editingSub || !data) return;
+    setEditSaving(true);
+    try {
+      await editSubmission(editingSub.id, {
+        taskId: data.task.id,
+        taskTitle: data.task.title,
+        companyId: data.task.company_id,
+        content: editContent.trim(),
+        keptAttachmentIds: editingSub.attachments.filter(a => !editRemovedIds.includes(a.id)).map(a => a.id),
+        newFiles: editNewFiles,
+      });
+      await refresh();
+      setEditingSub(null);
+      setEditRemovedIds([]);
+      setEditNewFiles([]);
+    } catch (err: any) {
+      setErrorMsg({ title: 'Edit Failed', message: err.message });
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const openHistory = async (submissionId: string) => {
+    setHistoryFor(submissionId);
+    setHistoryVersions(null);
+    try {
+      setHistoryVersions(await submissionVersions(submissionId));
+    } catch {
+      setHistoryFor(null); // submissionVersions already toasts
+    }
+  };
+
+  const handleRestoreVersion = (v: SubmissionVersionData) => {
+    // showConfirm, not Alert.alert — multi-button Alert.alert is a no-op on web
+    showConfirm(
+      'Restore Version',
+      `The submission will revert to v${v.version_no}. The current version stays in history.`,
+      async () => {
+        setRestoringVersionId(v.id);
+        try {
+          await restoreSubmissionVersion(v.id);
+          if (historyFor) setHistoryVersions(await submissionVersions(historyFor));
+        } catch {
+          // restoreSubmissionVersion already toasts
+        } finally {
+          setRestoringVersionId(null);
+        }
+      },
+      undefined,
+      'Restore'
+    );
+  };
 
   const handleManualTimeSuccess = (_isFlagged: boolean, _flagReason: string | null, _approvalStatus: string) => {
     setShowManualTimeModal(false);
@@ -260,23 +419,27 @@ export default function StageActions() {
   const hasReviewActions = !!(reviewApprove || reviewRevise || reviewReject);
   const reviewActionIds = grouped.review.map((a) => a.id);
   const pendingSubmission = data.submissions.find((s) => s.status === 'pending');
-  const stageRequiresSubmission = !!data.current_stage?.requires_submission;
+  // 'none' | 'optional' | 'required'. Fall back to the legacy boolean for stages
+  // fetched before submission_mode existed.
+  const submissionMode = data.current_stage?.submission_mode
+    ?? (data.current_stage?.requires_submission ? 'required' : 'none');
+  const stageRequiresSubmission = submissionMode === 'required';
   const canSubmitEvidence = data.permissions.is_assigned || data.permissions.is_owner || data.permissions.is_manager || data.permissions.is_creator;
-  const canDirectSubmit = stageRequiresSubmission && canSubmitEvidence;
+  // Optional and required both offer the form; only required blocks advancement.
+  const canDirectSubmit = submissionMode !== 'none' && canSubmitEvidence;
   const submitButtonActionId = submitAction?.id || '__submit_work__';
 
-  // The submission form shows if:
-  // 1. The stage explicitly requires a submission (and we aren't a reviewer just looking at it)
-  // 2. Or there is an explicit submit_work action for the user.
-  const showSubmitForm = !!(
+  // The submission form shows if the stage allows submissions (optional/required)
+  // and the user can submit, or there's an explicit submit_work action.
+  // 'none' suppresses the form entirely.
+  const showSubmitForm = submissionMode !== 'none' && !!(
     canDirectSubmit || submitAction
   );
 
-  // The whole section shows if there's a form, or history, or the stage implies it.
+  // The whole section shows if there's a form or existing submission history.
   const showSubmissionSection = !!(
-    data.submissions.length > 0 || 
-    showSubmitForm || 
-    data.current_stage?.requires_submission
+    data.submissions.length > 0 ||
+    showSubmitForm
   );
 
   const stageRequiresTimer = !!data.current_stage?.requires_timer;
@@ -319,7 +482,10 @@ export default function StageActions() {
           const completedSeconds = (data.work_sessions || [])
             .filter((s: any) => s.status === 'completed' && s.stage_id === stage?.id && s.user_id === user?.id)
             .reduce((sum: number, s: any) => sum + (s.total_seconds_spent || 0), 0);
-          const totalSeconds = completedSeconds + elapsedLocal;
+          const elapsedNow = activeSession && activeSession.task_id === data.task.id
+            ? Math.floor((Date.now() + serverTimeOffset - new Date(activeSession.started_at).getTime()) / 1000)
+            : 0;
+          const totalSeconds = completedSeconds + elapsedNow;
 
           if (totalSeconds < minSeconds && !isMyEntryApproved) {
             setPendingAdvanceAction(action);
@@ -447,9 +613,26 @@ export default function StageActions() {
         </View>
       )}
 
-      {/* Manager: pending time approval card */}
-      {data.permissions.is_manager && data.pending_time_approvals?.length > 0 && (
-        <ManualTimeApprovalCard entries={data.pending_time_approvals} />
+      {/* Manager: pending time approval trigger — opens the review queue modal.
+          Desktop web surfaces this via the topbar island instead (IslandTimeApprovalsBridge). */}
+      {!isDesktopWeb && data.permissions.is_manager && data.pending_time_approvals?.length > 0 && (
+        <TouchableOpacity
+          onPress={() => setShowApprovalsModal(true)}
+          className="bg-state-warning/10 border border-state-warning/30 rounded-2xl p-4 flex-row items-center justify-between active:opacity-80"
+        >
+          <View className="flex-row items-center gap-3 flex-1">
+            <View className="w-10 h-10 rounded-xl bg-state-warning/20 items-center justify-center">
+              <FontAwesome name="hourglass-end" size={16} color={colors.warning} />
+            </View>
+            <View className="flex-1">
+              <Text className="text-state-warning font-black text-xs uppercase tracking-wider">
+                {data.pending_time_approvals.length} Time Declaration{data.pending_time_approvals.length === 1 ? '' : 's'} Pending
+              </Text>
+              <Text className="text-typography-dim text-[10px] mt-0.5">Tap to review</Text>
+            </View>
+          </View>
+          <FontAwesome name="chevron-right" size={12} color={colors.textMuted} />
+        </TouchableOpacity>
       )}
 
       {/* Worker: locked banner while time declaration is pending */}
@@ -499,32 +682,12 @@ export default function StageActions() {
         <View className="bg-surface-card rounded-2xl border border-surface-border p-4">
           <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em] mb-3">Time Tracking</Text>
           <View className="flex-row items-center justify-between">
-            <View>
-              <View className="flex-row items-center">
-                <View className={`w-2 h-2 rounded-full mr-3 ${isActive && activeSession?.task_id === data.task.id ? 'bg-state-success animate-pulse' : 'bg-typography-muted'}`} />
-                <Text className="text-typography-main font-mono text-xl font-black">
-                  {Math.floor(elapsedLocal / 3600).toString().padStart(2, '0')}:
-                  {Math.floor((elapsedLocal % 3600) / 60).toString().padStart(2, '0')}:
-                  {(elapsedLocal % 60).toString().padStart(2, '0')}
-                </Text>
-              </View>
-              {isActive && activeSession?.task_id === data.task.id && (
-                <View className="flex-row items-center mt-1.5 ml-5 gap-2">
-                  <View className={`w-1.5 h-1.5 rounded-full ${isTracking ? 'bg-state-success' : 'bg-typography-dim'}`} />
-                  <Text className={`text-[9px] font-bold uppercase tracking-wider ${isTracking ? 'text-state-success' : 'text-typography-dim'}`}>
-                    {isTracking ? 'Tracking' : 'Background'}
-                  </Text>
-                  <Text className="text-typography-dim text-[9px]">·</Text>
-                  <Text className="text-typography-dim text-[9px]">
-                    {idleSeconds < 60
-                      ? 'Active now'
-                      : idleSeconds < 3600
-                        ? `${Math.floor(idleSeconds / 60)}m idle`
-                        : `${Math.floor(idleSeconds / 3600)}h ${Math.floor((idleSeconds % 3600) / 60)}m idle`}
-                  </Text>
-                </View>
-              )}
-            </View>
+            <LiveTimerChip
+              active={isActive && activeSession?.task_id === data.task.id}
+              startedAt={activeSession?.task_id === data.task.id ? activeSession.started_at : null}
+              serverTimeOffset={serverTimeOffset}
+              getLastActivityTime={smartTimer.getLastActivityTime}
+            />
 
             {isActive && activeSession?.task_id === data.task.id ? (
               <TouchableOpacity
@@ -579,6 +742,21 @@ export default function StageActions() {
         onCancel={() => { setShowManualTimeModal(false); setPendingAdvanceAction(null); }}
       />
 
+      {!isDesktopWeb && (
+        <ManualTimeApprovalsModal
+          visible={showApprovalsModal}
+          onClose={() => setShowApprovalsModal(false)}
+          entries={(data.pending_time_approvals || []).map(e => ({
+            id: e.id,
+            declared_minutes: e.declared_minutes,
+            reason: e.reason,
+            flag_reason: e.flag_reason,
+            worker_name: e.user?.full_name ?? null,
+          }))}
+          onReview={(entryId, approve) => reviewManualTime(entryId, approve)}
+        />
+      )}
+
       {showSubmissionSection && (
         <View className="bg-surface-card rounded-2xl border border-surface-border p-4">
           <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em] mb-3">
@@ -621,8 +799,8 @@ export default function StageActions() {
 
               <View className="flex-row flex-wrap items-center justify-between gap-3">
                 <View className="flex-row flex-wrap gap-3">
-                  <TouchableOpacity 
-                    onPress={pickImage}
+                  <TouchableOpacity
+                    onPress={() => pickImage()}
                     disabled={isUploading}
                     className="flex-row items-center bg-surface-background px-3 py-2 rounded-xl border border-surface-border active:opacity-70"
                   >
@@ -631,7 +809,7 @@ export default function StageActions() {
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    onPress={pickDocument}
+                    onPress={() => pickDocument()}
                     disabled={isUploading}
                     className="flex-row items-center bg-surface-background px-3 py-2 rounded-xl border border-surface-border active:opacity-70"
                   >
@@ -640,7 +818,7 @@ export default function StageActions() {
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    onPress={pasteImage}
+                    onPress={() => pasteImage()}
                     disabled={isUploading}
                     className="flex-row items-center bg-surface-background px-3 py-2 rounded-xl border border-surface-border active:opacity-70"
                   >
@@ -691,7 +869,7 @@ export default function StageActions() {
                     {s.stage_name && <Text className="text-typography-dim text-[9px] font-bold">{s.stage_name}</Text>}
                   </View>
 
-                  {s.content && <Text className="text-typography-label text-sm leading-5 mb-2">{s.content}</Text>}
+                  {s.content && <LinkifiedText className="text-typography-label text-sm leading-5 mb-2">{s.content}</LinkifiedText>}
 
                   {s.attachments.length > 0 && (
                     <View className="mb-2">
@@ -704,6 +882,7 @@ export default function StageActions() {
                             mimeType: a.mime_type,
                             imageUri: subSignedUrls[mid],
                             previewUri: subPreviewUrls[mid],
+                            sizeBytes: a.file_size || undefined,
                             onPress: () => handleSubPress({ id: mid, name: a.file_name, storagePath: a.storage_path || a.file_url, mimeType: a.mime_type }),
                           };
                         })}
@@ -712,27 +891,42 @@ export default function StageActions() {
                   )}
 
                   <View className="flex-row items-center gap-2">
-                    <Text className="text-typography-dim text-[9px] font-bold">by {s.submitted_by?.full_name || 'Unknown'}</Text>
+                    <Text className="text-typography-dim text-[9px] font-bold">by <UserLink userId={s.submitted_by?.id} name={s.submitted_by?.full_name} fallback="Unknown" className="text-typography-dim text-[9px] font-bold" /></Text>
                     <Text className="text-typography-dim text-[9px]">{new Date(s.submitted_at).toLocaleDateString()}</Text>
+                    {s.version_count > 1 && (
+                      <TouchableOpacity
+                        onPress={() => openHistory(s.id)}
+                        className="flex-row items-center bg-surface-background px-1.5 py-0.5 rounded-md border border-surface-border"
+                      >
+                        <FontAwesome name="history" size={9} color={colors.textMuted} />
+                        <Text className="text-typography-muted text-[9px] font-black ml-1">v{s.version_count}</Text>
+                      </TouchableOpacity>
+                    )}
                     {!!s.content && (
                       <View className="ml-2">
                         <ClipboardControls value={s.content} onPaste={() => {}} showPaste={false} />
                       </View>
                     )}
                     {(s.submitted_by?.id === user?.id || data.permissions.is_manager || data.permissions.is_owner) && (
-                      <TouchableOpacity
-                        onPress={() => Alert.alert(
-                          'Delete Submission',
-                          'This will permanently remove the submission and its attachments.',
-                          [
-                            { text: 'Cancel', style: 'cancel' },
-                            { text: 'Delete', style: 'destructive', onPress: () => deleteSubmission(s.id).catch(err => setErrorMsg({ title: 'Delete Failed', message: err.message })) },
-                          ]
-                        )}
-                        className="ml-auto p-1"
-                      >
-                        <FontAwesome name="trash-o" size={11} color={colors.danger} />
-                      </TouchableOpacity>
+                      <>
+                        <TouchableOpacity onPress={() => openEdit(s)} className="ml-auto p-1">
+                          <FontAwesome name="pencil" size={11} color={colors.textMuted} />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => showConfirm(
+                            'Delete Submission',
+                            'The submission and its attachments will be removed. Management can restore it later.',
+                            () => deleteSubmission(s.id).catch(err => setErrorMsg({ title: 'Delete Failed', message: err.message })),
+                            undefined,
+                            'Delete',
+                            'Cancel',
+                            'destructive'
+                          )}
+                          className="p-1"
+                        >
+                          <FontAwesome name="trash-o" size={11} color={colors.danger} />
+                        </TouchableOpacity>
+                      </>
                     )}
                   </View>
 
@@ -740,7 +934,7 @@ export default function StageActions() {
                     <View className="bg-surface-background rounded-lg p-2.5 mt-2 border border-surface-border/50">
                       <Text className="text-typography-dim text-[9px] font-black uppercase mb-1">Review Notes</Text>
                       <Text className="text-typography-label text-xs leading-4">{s.review_notes}</Text>
-                      <Text className="text-typography-dim text-[9px] mt-1">- {s.reviewed_by?.full_name}</Text>
+                      <Text className="text-typography-dim text-[9px] mt-1">- <UserLink userId={s.reviewed_by?.id} name={s.reviewed_by?.full_name} className="text-typography-dim text-[9px]" /></Text>
                     </View>
                   )}
 
@@ -779,8 +973,255 @@ export default function StageActions() {
               );
             })
           )}
+
+          {(data.permissions.is_manager || data.permissions.is_owner) && (
+            <View className="mt-2 pt-2 border-t border-surface-border/20">
+              <TouchableOpacity onPress={toggleDeletedSubs} className="flex-row items-center py-1">
+                <FontAwesome name={showDeleted ? 'chevron-up' : 'chevron-down'} size={9} color={colors.textDim} />
+                <Text className="text-typography-dim text-[9px] font-black uppercase tracking-wider ml-1.5">
+                  Deleted
+                </Text>
+                {(() => {
+                  const deletedCount = deletedSubs ? deletedSubs.length : (data.stats?.deleted_submission_count ?? 0);
+                  return deletedCount > 0 ? (
+                    <View className="bg-state-danger/15 border border-state-danger/30 rounded-full min-w-[16px] px-1.5 py-0.5 ml-1.5 items-center">
+                      <Text className="text-state-danger text-[8px] font-black leading-none">{deletedCount}</Text>
+                    </View>
+                  ) : null;
+                })()}
+              </TouchableOpacity>
+
+              {showDeleted && (
+                (deletedSubs?.length ?? 0) === 0 ? (
+                  <Text className="text-typography-dim text-[10px] mt-1">No deleted submissions</Text>
+                ) : (
+                  deletedSubs!.map((s) => {
+                    const style = STATUS_STYLES[s.status] || STATUS_STYLES.pending;
+                    return (
+                      <View key={s.id} className="mt-2 pb-2 border-b border-surface-border/20 last:border-0 opacity-70">
+                        <View className="flex-row items-center justify-between mb-1">
+                          <View className={`${style.bg} ${style.border} border px-2 py-0.5 rounded-md`}>
+                            <Text className={`${style.text} text-[9px] font-black uppercase`}>{style.label}</Text>
+                          </View>
+                          <TouchableOpacity
+                            onPress={() => handleRestoreSub(s.id)}
+                            disabled={restoringId === s.id}
+                            className={`flex-row items-center bg-surface-background px-2.5 py-1 rounded-lg border border-surface-border ${restoringId === s.id ? 'opacity-50' : ''}`}
+                          >
+                            {restoringId === s.id ? (
+                              <ActivityIndicator size="small" color={colors.primary} style={{ transform: [{ scale: 0.6 }] }} />
+                            ) : (
+                              <FontAwesome name="undo" size={9} color={colors.primary} />
+                            )}
+                            <Text className="text-brand-primary text-[9px] font-black uppercase ml-1.5">Restore</Text>
+                          </TouchableOpacity>
+                        </View>
+
+                        {s.content && <Text className="text-typography-label text-xs leading-4 mb-1" numberOfLines={3}>{s.content}</Text>}
+
+                        <View className="flex-row items-center gap-2">
+                          <Text className="text-typography-dim text-[9px] font-bold">by <UserLink userId={s.submitted_by?.id} name={s.submitted_by?.full_name} fallback="Unknown" className="text-typography-dim text-[9px] font-bold" /></Text>
+                          {s.attachments.length > 0 && (
+                            <Text className="text-typography-dim text-[9px]">{s.attachments.length} file{s.attachments.length > 1 ? 's' : ''}</Text>
+                          )}
+                          <Text className="text-typography-dim text-[9px]">
+                            deleted {new Date(s.deleted_at).toLocaleDateString()}{s.deleted_by?.full_name ? <> by <UserLink userId={s.deleted_by.id} name={s.deleted_by.full_name} className="text-typography-dim text-[9px]" /></> : ''}
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  })
+                )
+              )}
+            </View>
+          )}
         </View>
       )}
+
+      {/* Feature A: Edit submission sheet (new version, same submission). Inline
+          colors on purpose — theme-token classes go black inside RN Modal on web. */}
+      <DraggableSheet visible={!!editingSub} onClose={closeEdit} dimBackdrop containerClassName="rounded-t-[2rem] border-t" containerStyle={{ backgroundColor: colors.card, borderColor: colors.border }}>
+        <ScrollView className="px-6 pt-6 pb-10">
+          <Text style={{ color: colors.textMain, fontSize: 18, fontWeight: '900', marginBottom: 4 }}>Edit Submission</Text>
+          <Text style={{ color: colors.textMuted, fontSize: 11, marginBottom: 16 }}>
+            Saving creates a new version. Previous versions stay in history.
+            {(editingSub && (editingSub.status === 'approved' || editingSub.status === 'confirmed')) ? ' This submission was approved — editing sends it back for review.' : ''}
+          </Text>
+
+          <TextInput
+            value={editContent}
+            onChangeText={setEditContent}
+            placeholder="Describe your work submission..."
+            placeholderTextColor={colors.textDim}
+            multiline
+            numberOfLines={4}
+            style={{
+              backgroundColor: colors.background, borderColor: colors.border, borderWidth: 1,
+              borderRadius: 12, padding: 12, color: colors.textMain, fontSize: 14,
+              minHeight: 100, marginBottom: 16, textAlignVertical: 'top',
+            }}
+          />
+
+          {(editingSub?.attachments.length ?? 0) > 0 && (
+            <View style={{ marginBottom: 16 }}>
+              <Text style={{ color: colors.textMuted, fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 8 }}>
+                Current Files
+              </Text>
+              {editingSub!.attachments.map((a) => {
+                const removed = editRemovedIds.includes(a.id);
+                const { name: icon, color } = getFileIcon(a.mime_type, colors);
+                return (
+                  <View key={a.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 6, opacity: removed ? 0.45 : 1 }}>
+                    <FontAwesome name={icon as any} size={13} color={color} />
+                    <Text
+                      numberOfLines={1}
+                      style={{ color: colors.textMain, fontSize: 12, flex: 1, marginLeft: 8, textDecorationLine: removed ? 'line-through' : 'none' }}
+                    >
+                      {a.file_name}
+                    </Text>
+                    {a.file_size != null && (
+                      <Text style={{ color: colors.textDim, fontSize: 10, marginRight: 8 }}>{formatFileSize(a.file_size)}</Text>
+                    )}
+                    <TouchableOpacity onPress={() => toggleRemoveAttachment(a.id)} disabled={editSaving} style={{ padding: 4 }}>
+                      <FontAwesome name={removed ? 'undo' : 'times'} size={12} color={removed ? colors.primary : colors.danger} />
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+
+          {editNewFiles.length > 0 && (
+            <View style={{ marginBottom: 16 }}>
+              <Text style={{ color: colors.textMuted, fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 8 }}>
+                New Files
+              </Text>
+              {editNewFiles.map((f) => {
+                const { name: icon, color } = getFileIcon(f.type || null, colors);
+                return (
+                  <View key={f.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 6 }}>
+                    <FontAwesome name={icon as any} size={13} color={color} />
+                    <Text numberOfLines={1} style={{ color: colors.textMain, fontSize: 12, flex: 1, marginLeft: 8 }}>{f.name}</Text>
+                    <Text style={{ color: colors.textDim, fontSize: 10, marginRight: 8 }}>{formatFileSize(f.size || 0)}</Text>
+                    <TouchableOpacity onPress={() => setEditNewFiles(prev => prev.filter(x => x.id !== f.id))} disabled={editSaving} style={{ padding: 4 }}>
+                      <FontAwesome name="times" size={12} color={colors.danger} />
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 }}>
+            {([
+              { label: 'Add Photo', icon: 'camera', onPress: () => pickImage(setEditNewFiles) },
+              { label: 'Attach File', icon: 'paperclip', onPress: () => pickDocument(setEditNewFiles) },
+              { label: 'Paste Image', icon: 'clipboard', onPress: () => pasteImage(setEditNewFiles) },
+            ] as const).map((b) => (
+              <TouchableOpacity
+                key={b.label}
+                onPress={b.onPress}
+                disabled={editSaving}
+                style={{
+                  flexDirection: 'row', alignItems: 'center', backgroundColor: colors.background,
+                  borderColor: colors.border, borderWidth: 1, borderRadius: 12,
+                  paddingHorizontal: 12, paddingVertical: 8,
+                }}
+              >
+                <FontAwesome name={b.icon as any} size={11} color={colors.primary} />
+                <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '900', textTransform: 'uppercase', marginLeft: 6 }}>{b.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <TouchableOpacity
+              onPress={closeEdit}
+              disabled={editSaving}
+              style={{
+                flex: 1, paddingVertical: 14, borderRadius: 14, alignItems: 'center',
+                backgroundColor: colors.background, borderColor: colors.border, borderWidth: 1,
+              }}
+            >
+              <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1.5 }}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleSaveEdit}
+              disabled={editSaving}
+              style={{ flex: 2, paddingVertical: 14, borderRadius: 14, alignItems: 'center', backgroundColor: colors.primary, opacity: editSaving ? 0.6 : 1 }}
+            >
+              {editSaving ? (
+                <ActivityIndicator size="small" color="white" />
+              ) : (
+                <Text style={{ color: 'white', fontSize: 11, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1.5 }}>Save New Version</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </DraggableSheet>
+
+      {/* Feature A: version history sheet — newest first, restore = pointer move */}
+      <DraggableSheet visible={!!historyFor} onClose={() => setHistoryFor(null)} dimBackdrop containerClassName="rounded-t-[2rem] border-t" containerStyle={{ backgroundColor: colors.card, borderColor: colors.border }}>
+        <ScrollView className="px-6 pt-6 pb-10">
+          <Text style={{ color: colors.textMain, fontSize: 18, fontWeight: '900', marginBottom: 16 }}>Version History</Text>
+
+          {historyVersions === null ? (
+            <View style={{ paddingVertical: 30, alignItems: 'center' }}>
+              <ActivityIndicator size="small" color={colors.primary} />
+            </View>
+          ) : (
+            historyVersions.map((v) => (
+              <View key={v.id} style={{ borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 12 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                  <Text style={{ color: colors.textMain, fontSize: 13, fontWeight: '900' }}>v{v.version_no}</Text>
+                  {v.is_current ? (
+                    <View style={{ backgroundColor: colors.success + '22', borderColor: colors.success + '55', borderWidth: 1, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2, marginLeft: 8 }}>
+                      <Text style={{ color: colors.success, fontSize: 9, fontWeight: '900', textTransform: 'uppercase' }}>Current</Text>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      onPress={() => handleRestoreVersion(v)}
+                      disabled={restoringVersionId !== null}
+                      style={{
+                        flexDirection: 'row', alignItems: 'center', marginLeft: 'auto',
+                        backgroundColor: colors.background, borderColor: colors.border, borderWidth: 1,
+                        borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4,
+                        opacity: restoringVersionId !== null && restoringVersionId !== v.id ? 0.5 : 1,
+                      }}
+                    >
+                      {restoringVersionId === v.id ? (
+                        <ActivityIndicator size="small" color={colors.primary} style={{ transform: [{ scale: 0.6 }] }} />
+                      ) : (
+                        <FontAwesome name="undo" size={9} color={colors.primary} />
+                      )}
+                      <Text style={{ color: colors.primary, fontSize: 9, fontWeight: '900', textTransform: 'uppercase', marginLeft: 6 }}>Restore</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                <Text style={{ color: colors.textDim, fontSize: 10, marginBottom: 6 }}>
+                  {new Date(v.created_at).toLocaleString()}{v.created_by?.full_name ? <> · by <UserLink userId={v.created_by.id} name={v.created_by.full_name} style={{ color: colors.textDim, fontSize: 10 }} /></> : ''}
+                </Text>
+
+                {!!v.content && (
+                  <Text numberOfLines={4} style={{ color: colors.textMain, fontSize: 12, lineHeight: 17, marginBottom: 6 }}>{v.content}</Text>
+                )}
+
+                {v.attachments.length > 0 && v.attachments.map((a) => {
+                  const { name: icon, color } = getFileIcon(a.mime_type, colors);
+                  return (
+                    <View key={a.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 2 }}>
+                      <FontAwesome name={icon as any} size={11} color={color} />
+                      <Text numberOfLines={1} style={{ color: colors.textMuted, fontSize: 11, marginLeft: 6, flex: 1 }}>{a.file_name}</Text>
+                      {a.file_size != null && <Text style={{ color: colors.textDim, fontSize: 9 }}>{formatFileSize(a.file_size)}</Text>}
+                    </View>
+                  );
+                })}
+              </View>
+            ))
+          )}
+        </ScrollView>
+      </DraggableSheet>
 
       {subViewer}
     </View>

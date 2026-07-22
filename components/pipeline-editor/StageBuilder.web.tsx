@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Alert, ScrollView, Switch, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Alert, ScrollView, Switch, Platform, useWindowDimensions } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { usePipelineEditor, Stage } from '@/contexts/PipelineEditorContext';
 import { useAlert } from '@/contexts/AlertContext';
 import GraphCanvas from './graph/GraphCanvas';
+import Popup from '@/components/common/Popup';
 import { useThemeColors } from '@/hooks/useThemeColors';
 
 const COLOR_PALETTE = [
@@ -14,6 +15,8 @@ const COLOR_PALETTE = [
 
 export default function StageBuilder() {
   const colors = useThemeColors();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 1024;
   const {
     stages, loading, error, pipelines, isOperationInFlight,
     addStage, updateStage, deleteStage, reorderStages,
@@ -38,7 +41,7 @@ export default function StageBuilder() {
     is_initial: false,
     is_terminal: false,
     terminal_type: '' as 'success' | 'failure' | '',
-    requires_submission: false,
+    submission_mode: 'none' as 'none' | 'optional' | 'required',
     requires_timer: false,
     min_timer_minutes: 5,
     use_business_hours: false,
@@ -62,7 +65,7 @@ export default function StageBuilder() {
       is_initial: false,
       is_terminal: false,
       terminal_type: '',
-      requires_submission: false,
+      submission_mode: 'none',
       requires_timer: false,
       min_timer_minutes: 5,
       use_business_hours: false,
@@ -82,7 +85,7 @@ export default function StageBuilder() {
       is_initial: s.is_initial,
       is_terminal: s.is_terminal,
       terminal_type: s.terminal_type || '',
-      requires_submission: s.requires_submission,
+      submission_mode: s.submission_mode ?? (s.requires_submission ? 'required' : 'none'),
       requires_timer: s.requires_timer,
       min_timer_minutes: Math.max(0, Math.round((s.min_timer_seconds ?? 300) / 60)),
       use_business_hours: s.use_business_hours,
@@ -151,13 +154,13 @@ export default function StageBuilder() {
   return (
     <View className="flex-1 bg-surface-background">
       {/* Header */}
-      <View className="px-6 py-4 border-b border-surface-border flex-row items-center justify-between">
+      <View className="px-6 py-4 border-b border-surface-border flex-row flex-wrap items-center justify-between gap-3">
         <View>
           <Text className="text-typography-main text-xl font-black">Pipeline Builder</Text>
           <Text className="text-typography-muted text-xs">Design your workflow logic and stage properties</Text>
         </View>
 
-        <View className="flex-row items-center gap-4">
+        <View className="flex-row flex-wrap items-center gap-4">
           {/* View Toggle */}
           <View className="flex-row bg-surface-card border border-surface-border p-1 rounded-xl">
             <TouchableOpacity 
@@ -187,7 +190,7 @@ export default function StageBuilder() {
       </View>
 
       {/* Main Content */}
-      <View className="flex-1 flex-row">
+      <View className="flex-1">
         <View className="flex-1 overflow-hidden">
           {viewMode === 'graph' ? (
             <GraphCanvas 
@@ -227,20 +230,25 @@ export default function StageBuilder() {
           )}
         </View>
 
-        {/* Side Panel (Editor) */}
-        {(editingStageId || showAddForm) && (
-          <View className="w-96 bg-surface-card border-l border-surface-border shadow-2xl">
-            <View className="px-6 py-4 border-b border-surface-border flex-row justify-between items-center bg-surface-background/50">
-              <Text className="text-typography-main font-black uppercase tracking-widest text-xs">
-                {editingStageId ? 'Edit Stage' : 'New Stage'}
-              </Text>
-              <TouchableOpacity 
-                onPress={() => { setEditingStageId(null); setShowAddForm(false); }}
-                className="p-2 hover:bg-surface-overlay rounded-lg transition-all"
-              >
-                 <FontAwesome name="times" size={16} color={colors.textMuted} />
-              </TouchableOpacity>
-            </View>
+        {/* Stage Form Modal */}
+        <Popup
+          visible={!!(editingStageId || showAddForm)}
+          onClose={() => { setEditingStageId(null); setShowAddForm(false); }}
+          maxHeight="90%"
+          presentation={isDesktop ? 'centered' : 'sheet'}
+          containerClassName="w-[95%] max-w-[540px] max-h-[90vh] rounded-3xl overflow-hidden premium-shadow"
+        >
+          <View className="px-6 py-4 border-b border-surface-border flex-row justify-between items-center bg-surface-background/50">
+            <Text className="text-typography-main font-black uppercase tracking-widest text-xs">
+              {editingStageId ? 'Edit Stage' : 'New Stage'}
+            </Text>
+            <TouchableOpacity 
+              onPress={() => { setEditingStageId(null); setShowAddForm(false); }}
+              className="p-2 hover:bg-surface-overlay rounded-lg transition-all"
+            >
+               <FontAwesome name="times" size={16} color={colors.textMuted} />
+            </TouchableOpacity>
+          </View>
 
             <ScrollView className="p-6">
               {/* Basic Info */}
@@ -301,12 +309,24 @@ export default function StageBuilder() {
                       </TouchableOpacity>
                    </View>
                 )}
-                <Toggle
-                  label="Submission Required"
-                  desc="Force data upload before exit"
-                  active={formState.requires_submission}
-                  onToggle={(val: boolean) => setFormState(prev => ({ ...prev, requires_submission: val }))}
-                />
+                <View>
+                  <Text className="text-typography-label text-[10px] font-bold uppercase tracking-wider mb-1">Submission Gate</Text>
+                  <View className="flex-row gap-2">
+                    {([
+                      { val: 'none', label: 'None', desc: 'No submissions' },
+                      { val: 'optional', label: 'Optional', desc: 'Allowed, not required' },
+                      { val: 'required', label: 'Required', desc: 'Blocks exit until submitted' },
+                    ] as const).map(opt => (
+                      <TouchableOpacity
+                        key={opt.val}
+                        onPress={() => setFormState(prev => ({ ...prev, submission_mode: opt.val }))}
+                        className={`flex-1 p-2 rounded-lg items-center border ${formState.submission_mode === opt.val ? 'bg-brand-primary/10 border-brand-primary' : 'border-surface-border'}`}
+                      >
+                        <Text className={`text-[10px] font-bold ${formState.submission_mode === opt.val ? 'text-brand-primary' : 'text-typography-muted'}`}>{opt.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
                 {selectedPipeline?.assignment_mode !== 'manual' && (
                   <Toggle
                     label="Re-assign on Entry"
@@ -562,129 +582,132 @@ export default function StageBuilder() {
                  </TouchableOpacity>
                )}
             </View>
-          </View>
-        )}
+          </Popup>
 
-        {/* Transition Editor Panel */}
-        {editingTransitionId && (
-          <View className="w-96 bg-surface-card border-l border-surface-border shadow-2xl">
-            <View className="px-6 py-4 border-b border-surface-border flex-row justify-between items-center bg-surface-background/50">
-              <Text className="text-typography-main font-black uppercase tracking-widest text-xs">
-                Edit Connection
+        {/* Transition Form Modal */}
+        <Popup
+          visible={!!editingTransitionId}
+          onClose={() => setEditingTransitionId(null)}
+          maxHeight="90%"
+          presentation={isDesktop ? 'centered' : 'sheet'}
+          containerClassName="w-[95%] max-w-[540px] max-h-[90vh] rounded-3xl overflow-hidden premium-shadow"
+        >
+          <View className="px-6 py-4 border-b border-surface-border flex-row justify-between items-center bg-surface-background/50">
+            <Text className="text-typography-main font-black uppercase tracking-widest text-xs">
+              Edit Connection
+            </Text>
+            <TouchableOpacity 
+              onPress={() => setEditingTransitionId(null)}
+              className="p-2 hover:bg-surface-overlay rounded-lg transition-all"
+            >
+               <FontAwesome name="times" size={16} color={colors.textMuted} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView className="p-6">
+            <Section label="Display">
+              <Input 
+                label="Label / Action Name"
+                placeholder="e.g. APPROVE"
+                value={transForm.label}
+                onChangeText={(val: string) => setTransForm(prev => ({ ...prev, label: val }))}
+              />
+              <Text className="text-typography-muted text-[10px] leading-relaxed mb-4">
+                This label appears on the transition line and is often used as the button text for users in this stage.
               </Text>
-              <TouchableOpacity 
-                onPress={() => setEditingTransitionId(null)}
-                className="p-2 hover:bg-surface-overlay rounded-lg transition-all"
+            </Section>
+
+            <Section label="Logic & Security">
+              <Text className="text-typography-muted text-[10px] font-bold uppercase mb-1.5">Required Permission</Text>
+              <TouchableOpacity
+                onPress={() => setShowPermPicker(!showPermPicker)}
+                className="bg-surface-background px-4 py-3 rounded-lg border border-surface-border mb-2 flex-row items-center justify-between hover:border-brand-primary/40 transition-all"
               >
-                 <FontAwesome name="times" size={16} color={colors.textMuted} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView className="p-6">
-              <Section label="Display">
-                <Input 
-                  label="Label / Action Name"
-                  placeholder="e.g. APPROVE"
-                  value={transForm.label}
-                  onChangeText={(val: string) => setTransForm(prev => ({ ...prev, label: val }))}
-                />
-                <Text className="text-typography-muted text-[10px] leading-relaxed mb-4">
-                  This label appears on the transition line and is often used as the button text for users in this stage.
+                <Text className={`text-sm ${transForm.required_permission ? 'text-typography-main font-bold' : 'text-typography-dim'}`}>
+                  {transForm.required_permission ? (permissions.find(p => p.key === transForm.required_permission)?.label || transForm.required_permission) : 'Anyone can trigger'}
                 </Text>
-              </Section>
+                <FontAwesome name={showPermPicker ? 'chevron-up' : 'chevron-down'} size={10} color={colors.textDim} />
+              </TouchableOpacity>
 
-              <Section label="Logic & Security">
-                <Text className="text-typography-muted text-[10px] font-bold uppercase mb-1.5">Required Permission</Text>
-                <TouchableOpacity
-                  onPress={() => setShowPermPicker(!showPermPicker)}
-                  className="bg-surface-background px-4 py-3 rounded-lg border border-surface-border mb-2 flex-row items-center justify-between hover:border-brand-primary/40 transition-all"
-                >
-                  <Text className={`text-sm ${transForm.required_permission ? 'text-typography-main font-bold' : 'text-typography-dim'}`}>
-                    {transForm.required_permission ? (permissions.find(p => p.key === transForm.required_permission)?.label || transForm.required_permission) : 'Anyone can trigger'}
-                  </Text>
-                  <FontAwesome name={showPermPicker ? 'chevron-up' : 'chevron-down'} size={10} color={colors.textDim} />
-                </TouchableOpacity>
-
-                {showPermPicker && (
-                  <View className="bg-surface-background border border-surface-border rounded-lg mb-4 max-h-48 overflow-hidden shadow-xl">
-                    <ScrollView nestedScrollEnabled>
-                      <TouchableOpacity
-                        onPress={() => { setTransForm(prev => ({ ...prev, required_permission: '' })); setShowPermPicker(false); }}
-                        className="px-4 py-3 border-b border-surface-border hover:bg-surface-overlay transition-all"
-                      >
-                        <Text className="text-typography-muted text-xs italic">No restriction (anyone)</Text>
-                      </TouchableOpacity>
-                      {permissions.map(p => (
-                        <TouchableOpacity
-                          key={p.key}
-                          onPress={() => { setTransForm(prev => ({ ...prev, required_permission: p.key })); setShowPermPicker(false); }}
-                          className={`px-4 py-3 border-b border-surface-border hover:bg-surface-overlay transition-all ${transForm.required_permission === p.key ? 'bg-brand-primary/10' : ''}`}
-                        >
-                          <Text className="text-typography-main text-sm font-medium">{p.label}</Text>
-                          <Text className="text-typography-dim text-[10px]">{p.key}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </ScrollView>
-                  </View>
-                )}
-
-                <Text className="text-typography-muted text-[10px] font-bold uppercase mb-1.5 mt-4">Visual Style</Text>
-                <View className="flex-row gap-2 mb-4">
-                  {[
-                    { id: 'neutral', icon: 'circle-o', color: colors.textMuted },
-                    { id: 'success', icon: 'check-circle', color: colors.success },
-                    { id: 'warning', icon: 'exclamation-circle', color: colors.warning },
-                    { id: 'danger', icon: 'times-circle', color: colors.danger }
-                  ].map(t => (
+              {showPermPicker && (
+                <View className="bg-surface-background border border-surface-border rounded-lg mb-4 max-h-48 overflow-hidden shadow-xl">
+                  <ScrollView nestedScrollEnabled>
                     <TouchableOpacity
-                      key={t.id}
-                      onPress={() => setTransForm(prev => ({ ...prev, transition_type: t.id }))}
-                      className={`flex-1 p-3 rounded-xl border items-center justify-center transition-all ${transForm.transition_type === t.id ? 'border-brand-primary bg-brand-primary/10' : 'border-surface-border bg-surface-background'}`}
+                      onPress={() => { setTransForm(prev => ({ ...prev, required_permission: '' })); setShowPermPicker(false); }}
+                      className="px-4 py-3 border-b border-surface-border hover:bg-surface-overlay transition-all"
                     >
-                      <FontAwesome name={t.icon as any} size={14} color={t.color} />
-                      <Text className={`text-[10px] font-bold mt-1 capitalize ${transForm.transition_type === t.id ? 'text-brand-primary' : 'text-typography-dim'}`}>
-                        {t.id}
-                      </Text>
+                      <Text className="text-typography-muted text-xs italic">No restriction (anyone)</Text>
                     </TouchableOpacity>
-                  ))}
+                    {permissions.map(p => (
+                      <TouchableOpacity
+                        key={p.key}
+                        onPress={() => { setTransForm(prev => ({ ...prev, required_permission: p.key })); setShowPermPicker(false); }}
+                        className={`px-4 py-3 border-b border-surface-border hover:bg-surface-overlay transition-all ${transForm.required_permission === p.key ? 'bg-brand-primary/10' : ''}`}
+                      >
+                        <Text className="text-typography-main text-sm font-medium">{p.label}</Text>
+                        <Text className="text-typography-dim text-[10px]">{p.key}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
                 </View>
-                <View className="bg-brand-primary/5 p-4 rounded-xl border border-brand-primary/20">
-                   <View className="flex-row items-center gap-2 mb-2">
-                      <FontAwesome name="info-circle" size={14} color={colors.primary} />
-                      <Text className="text-brand-primary font-bold text-xs">Branching Logic</Text>
-                   </View>
-                   <Text className="text-typography-muted text-[10px] leading-tight">
-                     If a stage has multiple output lines, the system follows the one matching the user's clicked **Action** or the first **Automation** rule that evaluates to true.
-                   </Text>
-                </View>
-              </Section>
-            </ScrollView>
+              )}
 
-            <View className="p-6 border-t border-surface-border bg-surface-background/50 gap-3">
-               <TouchableOpacity 
-                 onPress={handleTransSave}
-                 disabled={loading}
-                 className="w-full py-3 rounded-xl items-center bg-brand-primary hover:bg-brand-primary-hover active:bg-brand-primary-active shadow-lg transition-all active:scale-[0.98]"
-               >
-                 {loading ? <ActivityIndicator color="white" /> : (
-                   <Text className="text-white font-black uppercase tracking-widest text-xs">
-                     Update Connection
-                   </Text>
-                 )}
-               </TouchableOpacity>
-
-               <TouchableOpacity 
-                 onPress={() => { deleteTransition(editingTransitionId); setEditingTransitionId(null); }}
-                 disabled={loading}
-                 className="w-full py-3 rounded-xl items-center border border-state-danger bg-state-danger/5 hover:bg-state-danger/10 transition-all active:scale-[0.98]"
-               >
-                 <Text className="text-state-danger font-black uppercase tracking-widest text-[10px]">
-                   Remove Connection
+              <Text className="text-typography-muted text-[10px] font-bold uppercase mb-1.5 mt-4">Visual Style</Text>
+              <View className="flex-row gap-2 mb-4">
+                {[
+                  { id: 'neutral', icon: 'circle-o', color: colors.textMuted },
+                  { id: 'success', icon: 'check-circle', color: colors.success },
+                  { id: 'warning', icon: 'exclamation-circle', color: colors.warning },
+                  { id: 'danger', icon: 'times-circle', color: colors.danger }
+                ].map(t => (
+                  <TouchableOpacity
+                    key={t.id}
+                    onPress={() => setTransForm(prev => ({ ...prev, transition_type: t.id }))}
+                    className={`flex-1 p-3 rounded-xl border items-center justify-center transition-all ${transForm.transition_type === t.id ? 'border-brand-primary bg-brand-primary/10' : 'border-surface-border bg-surface-background'}`}
+                  >
+                    <FontAwesome name={t.icon as any} size={14} color={t.color} />
+                    <Text className={`text-[10px] font-bold mt-1 capitalize ${transForm.transition_type === t.id ? 'text-brand-primary' : 'text-typography-dim'}`}>
+                      {t.id}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <View className="bg-brand-primary/5 p-4 rounded-xl border border-brand-primary/20">
+                 <View className="flex-row items-center gap-2 mb-2">
+                    <FontAwesome name="info-circle" size={14} color={colors.primary} />
+                    <Text className="text-brand-primary font-bold text-xs">Branching Logic</Text>
+                 </View>
+                 <Text className="text-typography-muted text-[10px] leading-tight">
+                   If a stage has multiple output lines, the system follows the one matching the user's clicked **Action** or the first **Automation** rule that evaluates to true.
                  </Text>
-               </TouchableOpacity>
-            </View>
+              </View>
+            </Section>
+          </ScrollView>
+
+          <View className="p-6 border-t border-surface-border bg-surface-background/50 gap-3">
+             <TouchableOpacity 
+               onPress={handleTransSave}
+               disabled={loading}
+               className="w-full py-3 rounded-xl items-center bg-brand-primary hover:bg-brand-primary-hover active:bg-brand-primary-active shadow-lg transition-all active:scale-[0.98]"
+             >
+               {loading ? <ActivityIndicator color="white" /> : (
+                 <Text className="text-white font-black uppercase tracking-widest text-xs">
+                   Update Connection
+                 </Text>
+               )}
+             </TouchableOpacity>
+
+             <TouchableOpacity 
+               onPress={() => { deleteTransition(editingTransitionId); setEditingTransitionId(null); }}
+               disabled={loading}
+               className="w-full py-3 rounded-xl items-center border border-state-danger bg-state-danger/5 hover:bg-state-danger/10 transition-all active:scale-[0.98]"
+             >
+               <Text className="text-state-danger font-black uppercase tracking-widest text-[10px]">
+                 Remove Connection
+               </Text>
+             </TouchableOpacity>
           </View>
-        )}
+          </Popup>
       </View>
     </View>
   );

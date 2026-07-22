@@ -1,6 +1,10 @@
 import AnimatedTaskCard from '@/components/common/AnimatedTaskCard';
 import KanbanPersonalizer from '@/components/kanban/KanbanPersonalizer';
+import LinkifiedText from '@/components/common/LinkifiedText';
+import RightSidebar from '@/components/kanban/RightSidebar.web';
+import ActiveSessionAvatars from '@/components/task-detail/ActiveSessionAvatars';
 import TaskCardActions, { type ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
+import { boardCacheMeta, prefetchOtherBoards, taskCache, type BoardSnapshot, TASK_SORT_OPTIONS, compareTasksBySortKey, type TaskSortKey } from '@/components/tabs/taskBoardCache';
 import TaskPingButton from '@/components/task-detail/TaskPingButton';
 import AssignmentModal from '@/components/tasks/AssignmentModal';
 import CreateTaskModal from '@/components/tasks/CreateTaskModal.web';
@@ -10,11 +14,13 @@ import { usePingHighlight } from '@/contexts/PingHighlightContext';
 import { TaskCreationProvider } from '@/contexts/TaskCreationContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTimer } from '@/contexts/TimerContext';
+import { useToast } from '@/contexts/ToastContext';
 import { supabase } from '@/lib/supabase';
+import { formatCompact, formatRelative } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -67,6 +73,7 @@ type Task = {
   parent_task_id?: string;
   manager_id?: string;
   project_id?: string;
+  due_date?: string | null;
   project?: { id: string; name: string } | null;
   manager?: { id: string; full_name: string } | null;
   assignments?: {
@@ -80,14 +87,38 @@ type Task = {
   submission_count?: { count: number }[];
   comment_count?: { count: number }[];
   has_mention?: boolean;
+  weight?: number;
+  estimated_hours?: number | null;
 };
+
+// Focus-mode (single-stage fullscreen) sort order: most urgent/heaviest first.
+const PRIORITY_RANK: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
 
 type FilterState = {
   priorities: string[];
   categories: string[];
   projectIds: string[];
   managerIds: string[];
+  dueDates: string[];
 };
+
+const DUE_DATE_BUCKETS = [
+  { key: 'overdue', label: 'Overdue' },
+  { key: 'today', label: 'Due Today' },
+  { key: 'week', label: 'This Week' },
+  { key: 'none', label: 'No Due Date' },
+] as const;
+
+function getDueBucket(dueDate?: string | null): string {
+  if (!dueDate) return 'none';
+  const startToday = new Date();
+  startToday.setHours(0, 0, 0, 0);
+  const diffDays = Math.floor((new Date(dueDate).getTime() - startToday.getTime()) / 86400000);
+  if (diffDays < 0) return 'overdue';
+  if (diffDays === 0) return 'today';
+  if (diffDays <= 7) return 'week';
+  return 'later';
+}
 
 type Pipeline = {
   id: string;
@@ -117,8 +148,7 @@ function PingTimeBadge({ pingedAt }: { pingedAt: number }) {
     const id = setInterval(() => setTick(n => n + 1), 30_000);
     return () => clearInterval(id);
   }, []);
-  const secs = Math.floor((Date.now() - pingedAt) / 1000);
-  const label = secs < 60 ? 'just now' : secs < 3600 ? `${Math.floor(secs / 60)}m ago` : `${Math.floor(secs / 3600)}h ago`;
+  const label = formatRelative(new Date(pingedAt));
   return (
     <View
       pointerEvents="none"
@@ -257,28 +287,68 @@ function BoardPeekCard({
 export function TasksScreenWeb() {
   const colors = useThemeColors();
   const { activeSession, lastStoppedAt } = useTimer();
+  const { pipelineId: paramPipelineId } = useLocalSearchParams();
 
-  const [pipeline, setPipeline] = useState<Pipeline | null>(null);
-  const [stages, setStages] = useState<Stage[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Seed initial state from the shared cache so a revisit / warmed board paints
+  // instantly instead of reloading. Keyed by the board we're about to show.
+  const seedKey = (Array.isArray(paramPipelineId) ? paramPipelineId[0] : paramPipelineId) || boardCacheMeta.lastPipelineId || undefined;
+  const seed = seedKey ? taskCache.get(seedKey) : undefined;
+
+  const [pipeline, setPipeline] = useState<Pipeline | null>((seed?.pipeline as Pipeline) ?? null);
+  const [stages, setStages] = useState<Stage[]>((seed?.stages as Stage[]) ?? []);
+  const [tasks, setTasks] = useState<Task[]>((seed?.tasks as Task[]) ?? []);
+  const [loading, setLoading] = useState(!seed);
+  const [switchingBoard, setSwitchingBoard] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [availablePipelines, setAvailablePipelines] = useState<Pipeline[]>([]);
+  const [availablePipelines, setAvailablePipelines] = useState<Pipeline[]>((seed?.availablePipelines as Pipeline[]) ?? []);
   const [showPipelinePicker, setShowPipelinePicker] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [activeSessions, setActiveSessions] = useState<Record<string, ActiveSessionUser[]>>({});
+  const [activeSessions, setActiveSessions] = useState<Record<string, ActiveSessionUser[]>>(seed?.activeSessions ?? {});
   const [pulse, setPulse] = useState<PersonalPulse | null>(null);
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [stageActions, setStageActions] = useState<any[]>([]);
-  const [stageTransitions, setStageTransitions] = useState<{ id: string; to_stage_id: string }[]>([]);
+  const [stageActions, setStageActions] = useState<any[]>(seed?.stageActions ?? []);
+  const [stageTransitions, setStageTransitions] = useState<{ id: string; to_stage_id: string }[]>(seed?.stageTransitions ?? []);
   const [showPersonalizer, setShowPersonalizer] = useState(false);
   const [showMobility, setShowMobility] = useState(false);
+  const [fullscreenStageId, setFullscreenStageId] = useState<string | null>(null);
+  const [settledFullscreenId, setSettledFullscreenId] = useState<string | null>(null);
+  const [boardTransitioning, setBoardTransitioning] = useState(false);
+  const [boardWidth, setBoardWidth] = useState(0);
+  const boardWidthRef = useRef(0);
+  const boardContainerRef = useRef<View>(null);
+
+  // Wait out the 300ms width transition before mounting the wrap-grid layout —
+  // reflowing every card on each animation frame while the column resizes is what was dropping frames.
+  // While transitioning (either direction) the cards' layout springs are turned
+  // off so reanimated doesn't fight the CSS width transition frame-by-frame.
+  useEffect(() => {
+    if (fullscreenStageId) {
+      // Re-measure fresh instead of trusting boardWidthRef, which may still be at
+      // its initial 0 if this is the first layout pass since the app loaded (the
+      // wrapping View's onLayout hasn't fired yet). Falling through to a stale 0
+      // used to fall back to width: '100%', which blows out inside the horizontal
+      // ScrollView's row content and pushes the column off-screen.
+      boardContainerRef.current?.measure((_x, _y, width) => {
+        if (width) {
+          boardWidthRef.current = width;
+          setBoardWidth(width);
+        }
+      });
+    }
+    setBoardTransitioning(true);
+    const t = setTimeout(() => {
+      setBoardTransitioning(false);
+      setSettledFullscreenId(fullscreenStageId);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [fullscreenStageId]);
   const [showFilters, setShowFilters] = useState(false);
-  const [filters, setFilters] = useState<FilterState>({ priorities: [], categories: [], projectIds: [], managerIds: [] });
+  const [filters, setFilters] = useState<FilterState>({ priorities: [], categories: [], projectIds: [], managerIds: [], dueDates: [] });
+  const [sortKey, setSortKey] = useState<TaskSortKey>('default');
   const [searchQuery, setSearchQuery] = useState('');
   const [mineOnly, setMineOnly] = useState(false);
-  const [myTeamIds, setMyTeamIds] = useState<string[]>([]);
+  const [myTeamIds, setMyTeamIds] = useState<string[]>(seed?.myTeamIds ?? []);
   const [myDefaultPipelineId, setMyDefaultPipelineId] = useState<string | null>(null);
 
   // Archival State
@@ -302,7 +372,7 @@ export function TasksScreenWeb() {
   const { width } = useWindowDimensions();
   const router = useRouter();
   const { user, hasPermission, profile } = useAuth();
-  const { pipelineId: paramPipelineId } = useLocalSearchParams();
+  const { errorToast } = useToast();
 
   const { pingedTasks, removePingedTask } = usePingHighlight();
 
@@ -500,36 +570,136 @@ export function TasksScreenWeb() {
         });
       }
 
-      setTasks(filteredTasks.map(t => ({
+      const finalTasks = filteredTasks.map(t => ({
         ...t,
         has_mention: mentionTaskIds.has(t.id)
-      })) as any);
+      }));
+      setTasks(finalTasks as any);
 
       // 6. Active Sessions
       const { data: sessions } = await supabase
         .from('task_work_sessions')
-        .select('task_id, user_id, started_at, user:user_id(full_name, avatar_url)')
+        .select('task_id, user_id, started_at, last_heartbeat_at, user:user_id(full_name, avatar_url)')
         .eq('status', 'active');
-      
+
       const sessionMap: Record<string, ActiveSessionUser[]> = {};
       sessions?.forEach(s => {
          if (!sessionMap[s.task_id]) sessionMap[s.task_id] = [];
-         sessionMap[s.task_id].push({ 
-           userId: s.user_id, 
-           name: (s.user as any)?.full_name || 'User', 
+         sessionMap[s.task_id].push({
+           userId: s.user_id,
+           name: (s.user as any)?.full_name || 'User',
            avatar: (s.user as any)?.avatar_url,
-           startedAt: s.started_at 
+           startedAt: s.started_at,
+           lastHeartbeatAt: (s as any).last_heartbeat_at,
          });
       });
       setActiveSessions(sessionMap);
+
+      // Snapshot into the shared cache so the next mount / board switch is instant.
+      taskCache.set(targetPipelineId as string, {
+        pipeline: pipelineData,
+        stages: stagesData || [],
+        tasks: finalTasks,
+        availablePipelines: (allPipes as Pipeline[]) || [],
+        stageActions: actionsData || [],
+        stageTransitions: transitionsData || [],
+        activeSessions: sessionMap,
+        myTeamIds,
+      });
+      boardCacheMeta.lastPipelineId = targetPipelineId as string;
 
     } catch (err) {
       console.error('[WEB TASK ERROR] Data fetch failed:', err);
     } finally {
       setLoading(false);
       setRefreshing(false);
+      setSwitchingBoard(false);
     }
   };
+
+  // Load one board's data into a cache snapshot without touching component state,
+  // used to warm other boards so switching to them is instant. Mirrors fetchData's
+  // core queries + time metrics; skips the expensive mention scan (it fills in on
+  // the background refetch triggered when the board is actually opened).
+  const loadBoardSnapshot = useCallback(async (boardId: string): Promise<BoardSnapshot | null> => {
+    const board = availablePipelines.find(p => p.id === boardId);
+    if (!board) return null;
+    const { data: stagesData } = await supabase
+      .from('pipeline_stages')
+      .select('*, linked_pipeline:linked_pipeline_id(id, name)')
+      .eq('pipeline_id', boardId)
+      .order('position', { ascending: true });
+    const stages = stagesData || [];
+    const stageIds = stages.map((s: any) => s.id);
+    const [{ data: actionsData }, { data: transitionsData }, { data: tasksData }] = await Promise.all([
+      supabase.from('pipeline_stage_actions').select('*').in('stage_id', stageIds),
+      supabase.from('pipeline_stage_transitions').select('id, to_stage_id').in('from_stage_id', stageIds),
+      supabase.from('tasks')
+        .select(`
+          *,
+          project:project_id(id, name),
+          manager:manager_id(id, full_name),
+          assignments:task_assignments(
+            assignee_user_id,
+            assignee_team_id,
+            team:assignee_team_id(name),
+            user:assignee_user_id(full_name)
+          ),
+          submission_count:task_submissions(count),
+          comment_count:task_comments(count)
+        `)
+        .eq('pipeline_id', boardId)
+        .order('created_at', { ascending: false }),
+    ]);
+    const { data: timeMetrics } = await supabase
+      .from('view_task_time_metrics')
+      .select('*')
+      .in('task_id', (tasksData || []).map(t => t.id));
+    const timeMap = (timeMetrics || []).reduce((acc, curr) => { acc[curr.task_id] = curr; return acc; }, {} as any);
+    let filteredTasks = (tasksData || []).map(t => ({
+      ...t,
+      total_seconds: timeMap[t.id]?.total_seconds || 0,
+      my_seconds: timeMap[t.id]?.my_seconds || 0,
+    }));
+    const canViewAll = hasPermission('task.view_all') || hasPermission('tasks.view_all') || hasPermission('system.view_all_data') || hasPermission('pipeline.edit');
+    if (board.task_visibility_mode === 'assigned_only' && !canViewAll) {
+      filteredTasks = filteredTasks.filter(t => {
+        const isManager = t.manager_id === user?.id;
+        const isAssigned = t.assignments?.some((a: any) =>
+          (a.assignee_user_id && a.assignee_user_id === user?.id) ||
+          (a.assignee_team_id && myTeamIds.includes(a.assignee_team_id))
+        );
+        return isManager || isAssigned;
+      });
+    }
+    return {
+      pipeline: board,
+      stages,
+      tasks: filteredTasks,
+      availablePipelines,
+      stageActions: actionsData || [],
+      stageTransitions: transitionsData || [],
+      activeSessions,
+      myTeamIds,
+    };
+  }, [availablePipelines, hasPermission, user?.id, myTeamIds, activeSessions]);
+
+  // Warm every other board in the background once the current board is loaded.
+  const prefetchedRef = useRef<Set<string>>(new Set());
+  const loadBoardSnapshotRef = useRef(loadBoardSnapshot);
+  loadBoardSnapshotRef.current = loadBoardSnapshot;
+  useEffect(() => {
+    if (availablePipelines.length < 2 || !pipeline?.id) return;
+    let cancelled = false;
+    prefetchOtherBoards({
+      boards: availablePipelines,
+      currentId: pipeline.id,
+      prefetched: prefetchedRef.current,
+      isCancelled: () => cancelled,
+      loadOne: (id) => loadBoardSnapshotRef.current(id),
+    });
+    return () => { cancelled = true; };
+  }, [availablePipelines, pipeline?.id]);
 
   const fetchPulse = async () => {
     const { data } = await supabase.rpc('rpc_get_personal_pulse');
@@ -643,8 +813,30 @@ export function TasksScreenWeb() {
     }
   };
 
+  // Swap to a board: if warmed in the cache, paint it instantly (the
+  // paramPipelineId effect still refetches in the background); else show the
+  // switching overlay until fetchData lands.
+  const applySnapshot = useCallback((snap: BoardSnapshot) => {
+    setPipeline(snap.pipeline as any);
+    setStages(snap.stages as any);
+    setTasks(snap.tasks as any);
+    setAvailablePipelines(snap.availablePipelines as any);
+    setStageActions(snap.stageActions);
+    setStageTransitions(snap.stageTransitions);
+    setActiveSessions(snap.activeSessions);
+    setMyTeamIds(snap.myTeamIds);
+    setLoading(false);
+  }, []);
+
+  const prepareBoardSwitch = useCallback((id: string) => {
+    const snap = taskCache.get(id);
+    if (snap) applySnapshot(snap);
+    else setSwitchingBoard(true);
+  }, [applySnapshot]);
+
   const handleSelectBoard = async (boardId: string) => {
     try {
+      prepareBoardSwitch(boardId);
       const updated = trackBoardSelection(boardId, recentlyUsedBoards);
       setRecentlyUsedBoards(updated);
       await saveBoardPickerState(favoriteBoardIds, updated);
@@ -911,7 +1103,8 @@ export function TasksScreenWeb() {
     filters.priorities.length +
     filters.categories.length +
     filters.projectIds.length +
-    filters.managerIds.length;
+    filters.managerIds.length +
+    filters.dueDates.length;
 
   const toggleFilter = (key: keyof FilterState, value: string) => {
     setFilters(prev => {
@@ -924,7 +1117,7 @@ export function TasksScreenWeb() {
   };
 
   const clearFilters = () =>
-    setFilters({ priorities: [], categories: [], projectIds: [], managerIds: [] });
+    setFilters({ priorities: [], categories: [], projectIds: [], managerIds: [], dueDates: [] });
 
   const getPriorityInfo = (priority: string) => {
     switch (priority) {
@@ -935,12 +1128,7 @@ export function TasksScreenWeb() {
     }
   };
 
-  const formatSeconds = (seconds: number) => {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    if (h > 0) return `${h}h ${m}m`;
-    return `${m}m`;
-  };
+  const formatSeconds = (seconds: number) => formatCompact(seconds);
 
   const renderTaskCard = (task: Task) => {
     if (!task) return null;
@@ -964,13 +1152,13 @@ export function TasksScreenWeb() {
     const pingedAt = pingedTasks.get(task.id);
     const isPinged = pingedAt !== undefined;
     return (
-      <AnimatedTaskCard key={task.id}>
+      <AnimatedTaskCard key={task.id} disableLayoutAnimation={boardTransitioning}>
       <TouchableOpacity
         onPress={() => {
           if (isPinged) removePingedTask(task.id);
           router.push(`/task/${task.id}`);
         }}
-        className="bg-surface-card p-5 rounded-2xl mb-4 premium-shadow hover:border-brand-primary/50 transition-all relative"
+        className="bg-surface-card p-5 rounded-2xl mb-4 premium-shadow hover:border-brand-primary/50 hover:z-50 transition-all relative"
         style={isPinged ? {
           borderWidth: 1.5,
           borderColor: 'rgba(255, 140, 0, 0.6)',
@@ -1070,17 +1258,14 @@ export function TasksScreenWeb() {
         {task.category && (
           <Text className="text-typography-dim text-[10px] font-bold uppercase tracking-wider mb-2">{task.category}</Text>
         )}
-        <Text className="text-typography-muted text-sm leading-relaxed mb-4" numberOfLines={2}>
-          {task.description || 'No description.'}
-        </Text>
+        {!!task.description && (
+          <LinkifiedText className="text-typography-muted text-sm leading-relaxed mb-4" numberOfLines={2}>
+            {task.description}
+          </LinkifiedText>
+        )}
         
         {kanban.showAvatars && activeSessions[task.id] && activeSessions[task.id].length > 0 && (
-          <View className="flex-row items-center mb-4 bg-state-success/10 p-2 rounded-xl border border-state-success/20">
-            <View className="w-2 h-2 rounded-full bg-state-success mr-3 pulse-animation" />
-            <Text className="text-state-success text-[10px] font-black uppercase tracking-widest">
-              {activeSessions[task.id][0].name} {activeSessions[task.id].length > 1 ? `+${activeSessions[task.id].length - 1}` : 'is active'}
-            </Text>
-          </View>
+          <ActiveSessionAvatars sessions={activeSessions[task.id]} />
         )}
 
         <View className="pt-4 border-t border-surface-border/50">
@@ -1102,6 +1287,22 @@ export function TasksScreenWeb() {
 
   return (
     <View className="flex-1 bg-surface-background">
+      {/* BOARD SWITCH OVERLAY — shown while an uncached board loads (warmed boards swap instantly) */}
+      {switchingBoard && (
+        <View
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, elevation: 100,
+            alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.35)' }}
+        >
+          <View
+            style={{ backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }}
+            className="flex-row items-center gap-3 px-6 py-4 rounded-2xl premium-shadow"
+          >
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text className="text-typography-main font-bold text-sm">Switching board…</Text>
+          </View>
+        </View>
+      )}
+
       {/* BACKGROUND LAYER */}
       {kanban.backgroundUrl && (
         <View className="absolute inset-0 overflow-hidden">
@@ -1137,7 +1338,7 @@ export function TasksScreenWeb() {
                    <View>
                       <Text className="text-[10px] text-typography-muted font-black uppercase tracking-widest mb-1">Active Time</Text>
                       <View className="flex-row items-baseline">
-                         <Text className="text-2xl font-black text-typography-main">{Math.floor(pulse.active_seconds_today / 3600)}h</Text>
+                          <Text className="text-2xl font-black text-typography-main">{formatCompact(pulse.active_seconds_today)}</Text>
                          <Text className="text-xs text-typography-muted ml-1 font-bold">{Math.floor((pulse.active_seconds_today % 3600) / 60)}m</Text>
                       </View>
                    </View>
@@ -1385,6 +1586,44 @@ export function TasksScreenWeb() {
                       </View>
                     </View>
                   )}
+
+                  {/* Due Date */}
+                  <View>
+                    <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Due Date</Text>
+                    <View className="flex-row gap-2">
+                      {DUE_DATE_BUCKETS.map(({ key, label }) => {
+                        const active = filters.dueDates.includes(key);
+                        return (
+                          <TouchableOpacity
+                            key={key}
+                            onPress={() => toggleFilter('dueDates', key)}
+                            className={`px-3 py-1.5 rounded-xl border transition-all ${active ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border hover:border-brand-primary/40'}`}
+                          >
+                            <Text className={`text-[11px] font-black uppercase tracking-wider ${active ? 'text-brand-primary' : 'text-typography-muted'}`}>{label}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+
+                  {/* Sort By */}
+                  <View>
+                    <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Sort By</Text>
+                    <View className="flex-row gap-2">
+                      {TASK_SORT_OPTIONS.map(({ key, label }) => {
+                        const active = sortKey === key;
+                        return (
+                          <TouchableOpacity
+                            key={key}
+                            onPress={() => setSortKey(key)}
+                            className={`px-3 py-1.5 rounded-xl border transition-all ${active ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border hover:border-brand-primary/40'}`}
+                          >
+                            <Text className={`text-[11px] font-black uppercase tracking-wider ${active ? 'text-brand-primary' : 'text-typography-muted'}`}>{label}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
                 </View>
               </ScrollView>
             </View>
@@ -1430,9 +1669,16 @@ export function TasksScreenWeb() {
               </View>
             </View>
           ) : (
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={true}
+            <View ref={boardContainerRef} style={{ flex: 1 }} onLayout={(e) => {
+              // Re-rendering the whole board per layout frame is only worth it
+              // while a column is actually sized off boardWidth (fullscreen).
+              boardWidthRef.current = e.nativeEvent.layout.width;
+              if (fullscreenStageId) setBoardWidth(boardWidthRef.current);
+            }}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={!fullscreenStageId}
+              scrollEnabled={!fullscreenStageId}
               className="flex-1"
               contentContainerStyle={{ paddingBottom: 40 }}
             >
@@ -1443,6 +1689,7 @@ export function TasksScreenWeb() {
                   if (filters.categories.length > 0 && !filters.categories.includes(t.category)) return false;
                   if (filters.projectIds.length > 0 && !filters.projectIds.includes(t.project_id || '')) return false;
                   if (filters.managerIds.length > 0 && !filters.managerIds.includes(t.manager_id || '')) return false;
+                  if (filters.dueDates.length > 0 && !filters.dueDates.includes(getDueBucket(t.due_date))) return false;
                   if (searchQuery && !t.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
                   if (mineOnly && t.manager_id !== user?.id && !t.assignments?.some((a: any) =>
                     a.assignee_user_id === user?.id ||
@@ -1450,8 +1697,31 @@ export function TasksScreenWeb() {
                   )) return false;
                   return true;
                 });
+                const isFullscreen = fullscreenStageId === stage.id;
+                const isHiddenByFullscreen = !!fullscreenStageId && !isFullscreen;
+                // An explicit sort pick wins everywhere. Otherwise: focus mode surfaces
+                // what matters most first (priority, then weight); the regular board
+                // keeps the fetch order (newest first).
+                const displayTasks = sortKey !== 'default'
+                  ? [...stageTasks].sort((a, b) => compareTasksBySortKey(sortKey, a, b))
+                  : isFullscreen
+                    ? [...stageTasks].sort((a, b) => {
+                        const pDiff = (PRIORITY_RANK[a.priority] ?? 2) - (PRIORITY_RANK[b.priority] ?? 2);
+                        if (pDiff !== 0) return pDiff;
+                        return (b.weight ?? 1) - (a.weight ?? 1);
+                      })
+                    : stageTasks;
                 return (
-                  <View key={stage.id} className="w-[380px] mr-8 h-full">
+                  <View
+                    key={stage.id}
+                    className="h-full transition-[width,margin-right,opacity] duration-300 ease-in-out"
+                    style={{
+                      width: isFullscreen ? (boardWidth || undefined) : isHiddenByFullscreen ? 0 : 380,
+                      marginRight: isHiddenByFullscreen ? 0 : 32,
+                      opacity: isHiddenByFullscreen ? 0 : 1,
+                      overflow: 'hidden',
+                    }}
+                  >
                     <View className="flex-row items-center justify-between mb-6 px-3">
                       <View className="flex-row items-center">
                         <View style={{ backgroundColor: stage.color }} className="w-3 h-3 rounded-full mr-3 shadow-sm shadow-black/50" />
@@ -1462,34 +1732,52 @@ export function TasksScreenWeb() {
                           </View>
                         )}
                       </View>
-                      
-                      {stage.linked_pipeline && (
-                         <View className="flex-row items-center border border-brand-primary/30 bg-brand-primary/10 px-2 py-0.5 rounded-full">
-                            <FontAwesome name="bolt" size={8} className="text-brand-primary" />
-                            <Text className="text-brand-primary text-[8px] font-black ml-1 uppercase">Pushes to {stage.linked_pipeline.name}</Text>
-                         </View>
-                      )}
+
+                      <View className="flex-row items-center gap-2">
+                        {stage.linked_pipeline && (
+                           <View className="flex-row items-center border border-brand-primary/30 bg-brand-primary/10 px-2 py-0.5 rounded-full">
+                              <FontAwesome name="bolt" size={8} className="text-brand-primary" />
+                              <Text className="text-brand-primary text-[8px] font-black ml-1 uppercase">Pushes to {stage.linked_pipeline.name}</Text>
+                           </View>
+                        )}
+                        <TouchableOpacity
+                          onPress={() => setFullscreenStageId(isFullscreen ? null : stage.id)}
+                          className="w-6 h-6 items-center justify-center rounded-lg bg-surface-card border border-surface-border active:opacity-70"
+                        >
+                          <FontAwesome name={isFullscreen ? 'compress' : 'expand'} size={10} className="text-typography-muted" />
+                        </TouchableOpacity>
+                      </View>
                     </View>
                     
-                    <ScrollView 
-                      className={`flex-1 rounded-[2.5rem] p-4 border ${
+                    <View
+                      className={`flex-1 rounded-[2.5rem] p-4 border overflow-hidden ${
                         kanban.isVibrant ? 'bg-brand-primary/5 border-brand-primary/20' : 'bg-surface-card/30 border-surface-border/50'
                       }`}
-                      showsVerticalScrollIndicator={false}
                     >
-                      {stageTasks.length === 0 ? (
-                        <View className="py-20 items-center justify-center opacity-20">
+                      {isHiddenByFullscreen ? null : displayTasks.length === 0 ? (
+                        <View className="py-20 items-center justify-center opacity-20 w-full">
                            <FontAwesome name="inbox" size={48} className="text-typography-muted" />
                            <Text className="text-typography-muted text-xs mt-6 font-black uppercase tracking-widest">No Active Tasks</Text>
                         </View>
+                      ) : isFullscreen && settledFullscreenId === stage.id ? (
+                        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16 }}>
+                          {displayTasks.map(t => (
+                            <View key={t.id} style={{ flexGrow: 1, flexBasis: 380, maxWidth: 460 }}>
+                              {renderTaskCard(t)}
+                            </View>
+                          ))}
+                        </ScrollView>
                       ) : (
-                        stageTasks.map(renderTaskCard)
+                        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+                          {displayTasks.map(renderTaskCard)}
+                        </ScrollView>
                       )}
-                    </ScrollView>
+                    </View>
                   </View>
                 );
               })}
             </ScrollView>
+            </View>
           )}
         </View>
       </View>
@@ -1786,6 +2074,16 @@ export function TasksScreenWeb() {
         loading={archiving}
         onConfirm={handleArchiveTask}
         onCancel={() => setArchiveModal({ visible: false, taskId: null })}
+      />
+
+      <RightSidebar
+        pipelineId={pipeline?.id}
+        pipelineName={pipeline?.name}
+        taskCount={tasks.length}
+        visibilityMode={pipeline?.task_visibility_mode}
+        tasks={tasks}
+        activeSessions={activeSessions}
+        currentUserId={user?.id}
       />
     </View>
   );

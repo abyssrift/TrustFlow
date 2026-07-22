@@ -1,13 +1,17 @@
+import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { CommentData, useTaskDetail } from '@/contexts/TaskDetailContext';
 import { useTimer } from '@/contexts/TimerContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
+import { formatRelative } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import CollapsibleCard from './CollapsibleCard';
+import LinkifiedText from '../common/LinkifiedText';
 import PermissionGate from './PermissionGate';
+import UserLink from '../common/UserLink';
 
 type CommentTree = CommentData & { children: CommentTree[] };
 
@@ -30,14 +34,7 @@ function buildTree(comments: CommentData[]): CommentTree[] {
 }
 
 function timeAgo(dateStr: string): string {
-  const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
-  if (seconds < 60) return 'just now';
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+  return formatRelative(dateStr);
 }
 
 function CommentNode({ comment, depth, onReply, onDelete, canComment, currentUserId, checkIfMentioned, colors }: {
@@ -64,9 +61,11 @@ function CommentNode({ comment, depth, onReply, onDelete, canComment, currentUse
                 {(comment.author?.full_name || '?').charAt(0)}
               </Text>
             </View>
-            <Text className="text-typography-main text-xs font-bold">
-              {comment.is_system ? 'System' : comment.author?.full_name || 'Unknown'}
-            </Text>
+            {comment.is_system ? (
+              <Text className="text-typography-main text-xs font-bold">System</Text>
+            ) : (
+              <UserLink userId={comment.author?.id} name={comment.author?.full_name} fallback="Unknown" className="text-typography-main text-xs font-bold" />
+            )}
             <Text className="text-typography-dim text-[9px] ml-2">{timeAgo(comment.created_at)}</Text>
             {isMentioned && (
               <View className="ml-2 bg-brand-primary/20 px-1.5 py-0.5 rounded-full">
@@ -84,9 +83,9 @@ function CommentNode({ comment, depth, onReply, onDelete, canComment, currentUse
         </View>
 
         {/* Content */}
-        <Text className={`${comment.is_system ? 'text-typography-dim italic' : 'text-typography-label'} text-sm leading-5`}>
+        <LinkifiedText className={`${comment.is_system ? 'text-typography-dim italic' : 'text-typography-label'} text-sm leading-5`}>
           {comment.content}
-        </Text>
+        </LinkifiedText>
 
         {/* Reply button */}
         {canComment && !comment.is_system && (
@@ -120,6 +119,7 @@ export default function CommentsSection() {
   const { smartTimer } = useTimer();
   const { user, profile } = useAuth();
   const colors = useThemeColors();
+  const { showAlert, showConfirm } = useAlert();
   
   // Calculate user variants for mention highlighting
   const userVariants = useMemo(() => {
@@ -278,17 +278,14 @@ export default function CommentsSection() {
       setInput('');
       setReplyTo(null);
     } catch (err: any) {
-      Alert.alert('Comment Error', err.message);
+      showAlert('Comment Error', err.message);
     } finally {
       setSending(false);
     }
   };
 
   const handleDelete = async (commentId: string) => {
-    Alert.alert('Delete Comment', 'Are you sure?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => deleteComment(commentId) },
-    ]);
+    showConfirm('Delete Comment', 'Are you sure?', () => deleteComment(commentId), undefined, 'Delete', undefined, 'destructive');
   };
 
   return (
@@ -331,7 +328,7 @@ export default function CommentsSection() {
             <View className="flex-row items-center bg-surface-background rounded-lg px-3 py-2 mb-2 border border-surface-border/50">
               <FontAwesome name="reply" size={9} color={colors.primary} />
               <Text className="text-typography-muted text-[10px] ml-2 flex-1" numberOfLines={1}>
-                Replying to {replyComment.author?.full_name}: {replyComment.content}
+                Replying to <UserLink userId={replyComment.author?.id} name={replyComment.author?.full_name} className="text-typography-muted text-[10px]" />: {replyComment.content}
               </Text>
               <TouchableOpacity onPress={() => setReplyTo(null)}>
                 <FontAwesome name="times" size={10} color={colors.textMuted} />

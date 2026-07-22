@@ -2,11 +2,14 @@ import { usePipelineEditor } from '@/contexts/PipelineEditorContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { FontAwesome } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { ActivityIndicator, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Platform, ScrollView, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import Popup from '@/components/common/Popup';
 import { resolveNativeColorToken } from './colorCompat';
 
 export default function TransitionEditor() {
   const colors = useThemeColors();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 1024;
   const {
     stages, transitions, permissions, loading, error,
     addTransition, updateTransition, deleteTransition,
@@ -122,12 +125,23 @@ export default function TransitionEditor() {
       <ScrollView 
         className="flex-1"
         showsVerticalScrollIndicator={Platform.OS === 'web'}
+        nestedScrollEnabled
       >
-        {/* Add Form */}
-        {showAdd && (
-          <View className="bg-surface-card p-4 rounded-2xl border border-brand-primary/40 mb-4">
-            <Text className="text-typography-main font-bold text-base mb-4">New Transition</Text>
-
+        {/* Add Form as DraggableSheet */}
+        <Popup
+          visible={showAdd}
+          onClose={() => { setShowAdd(false); resetForm(); }}
+          maxHeight="90%"
+          presentation={isDesktop ? 'centered' : 'sheet'}
+          containerClassName="w-[95%] max-w-[540px] max-h-[90vh] rounded-3xl overflow-hidden premium-shadow"
+        >
+          <View className="px-6 py-4 border-b border-surface-border flex-row items-center justify-between">
+            <Text className="text-typography-main font-black uppercase tracking-widest text-xs">New Transition</Text>
+            <TouchableOpacity onPress={() => { setShowAdd(false); resetForm(); }} className="w-8 h-8 items-center justify-center rounded-full" style={{ backgroundColor: colors.background }}>
+              <FontAwesome name="times" size={16} color={colors.textMuted} />
+            </TouchableOpacity>
+          </View>
+          <ScrollView className="p-6" nestedScrollEnabled>
             {/* From Stage */}
             <Text className="text-typography-label text-[10px] font-bold uppercase tracking-wider mb-2">From Stage</Text>
             <View className="flex-row flex-wrap gap-2 mb-3">
@@ -191,7 +205,7 @@ export default function TransitionEditor() {
             </TouchableOpacity>
             {showPermPicker && (
               <View className="bg-surface-background border border-surface-border rounded-lg mb-3 max-h-40">
-                <ScrollView>
+                <ScrollView nestedScrollEnabled>
                   <TouchableOpacity
                     onPress={() => { setFormPerm(''); setShowPermPicker(false); }}
                     className="px-4 py-2.5 border-b border-surface-border"
@@ -233,29 +247,29 @@ export default function TransitionEditor() {
                 </TouchableOpacity>
               ))}
             </View>
+          </ScrollView>
 
-            {/* Actions */}
-            <View className="flex-row gap-3 mt-2">
-              <TouchableOpacity
-                onPress={() => { setShowAdd(false); resetForm(); }}
-                className="flex-1 bg-surface-background py-2.5 rounded-xl border border-surface-border items-center"
-              >
-                <Text className="text-typography-muted font-bold text-sm">Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleAdd}
-                className="flex-1 bg-brand-primary py-3 rounded-sm items-center h-12 justify-center"
-                disabled={!formFrom || !formTo || !formLabel.trim() || loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color={colors.textMain} size="small" />
-                ) : (
-                  <Text className="text-typography-main font-black text-sm uppercase tracking-wide">Add Rule</Text>
-                )}
-              </TouchableOpacity>
-            </View>
+          {/* Actions */}
+          <View className="p-6 border-t border-surface-border bg-surface-background/50 flex-row gap-3">
+            <TouchableOpacity
+              onPress={() => { setShowAdd(false); resetForm(); }}
+              className="flex-1 bg-surface-background py-3 rounded-xl border border-surface-border items-center justify-center h-12"
+            >
+              <Text className="text-typography-muted font-bold text-sm">Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleAdd}
+              className="flex-1 bg-brand-primary py-3 rounded-sm items-center h-12 justify-center"
+              disabled={!formFrom || !formTo || !formLabel.trim() || loading}
+            >
+              {loading ? (
+                <ActivityIndicator color={colors.textMain} size="small" />
+              ) : (
+                <Text className="text-typography-main font-black text-sm uppercase tracking-wide">Add Rule</Text>
+              )}
+            </TouchableOpacity>
           </View>
-        )}
+        </Popup>
 
         {/* Grouped Transitions */}
         {groupedByFromStage.map(({ stage, transitions: trans }) => (

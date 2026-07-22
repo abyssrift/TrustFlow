@@ -1,7 +1,9 @@
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
+import UserLink from '@/components/common/UserLink';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
+import { useCalendarPosition } from '@/lib/calendarPicker';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { cssInterop } from 'react-native-css-interop';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -12,6 +14,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 
@@ -22,6 +25,8 @@ cssInterop(FontAwesome, {
 type Props = {
   visible: boolean;
   onClose: () => void;
+  /** Opens the sheet on a given field's tab already visible (e.g. from a card quick-action). */
+  focusField?: 'due_date' | null;
 };
 
 type UserOption = { id: string; full_name: string };
@@ -29,14 +34,14 @@ type Tab = 'details' | 'scheduling';
 
 const PRIORITY_OPTIONS = ['low', 'medium', 'high', 'urgent'] as const;
 const PRIORITY_LABEL: Record<string, string> = { low: 'Low', medium: 'Normal', high: 'High', urgent: 'Urgent' };
-const PRIORITY_COLOR: Record<string, string> = {
-  urgent: 'text-state-danger', high: 'text-state-warning',
-  medium: 'text-brand-primary', low: 'text-typography-dim',
-};
-const PRIORITY_BG: Record<string, string> = {
-  urgent: 'bg-state-danger/15', high: 'bg-state-warning/15',
-  medium: 'bg-brand-primary/15', low: 'bg-surface-overlay',
-};
+// Colors (not classNames) — this renders inside a <Modal> subtree, so theme tokens
+// must be resolved via useThemeColors() rather than CSS-variable-backed classNames.
+function priorityTextColor(colors: ReturnType<typeof useThemeColors>, p: string): string {
+  return ({ urgent: colors.danger, high: colors.warning, medium: colors.primary, low: colors.textDim } as Record<string, string>)[p] ?? colors.textMuted;
+}
+function priorityBgColor(colors: ReturnType<typeof useThemeColors>, p: string): string {
+  return ({ urgent: colors.danger + '26', high: colors.warning + '26', medium: colors.primary + '26', low: colors.border + '40' } as Record<string, string>)[p] ?? (colors.border + '40');
+}
 
 const QUICK_DATES = [
   { label: '+3d', days: 3 }, { label: '+1w', days: 7 },
@@ -51,8 +56,10 @@ function quickDate(days: number): string {
   return d.toISOString().split('T')[0];
 }
 
-export default function EditTaskModalWeb({ visible, onClose }: Props) {
+export default function EditTaskModalWeb({ visible, onClose, focusField }: Props) {
   const colors = useThemeColors();
+  const { width: winWidth } = useWindowDimensions();
+  const isNarrow = winWidth < 768;
   const { data, updateTask } = useTaskDetail();
 
   const [tab, setTab] = useState<Tab>('details');
@@ -74,16 +81,15 @@ export default function EditTaskModalWeb({ visible, onClose }: Props) {
   const [showStartCal, setShowStartCal]       = useState(false);
   const [showManagerDrop, setShowManagerDrop] = useState(false);
   const [managerSearch, setManagerSearch]     = useState('');
-  const dueBtnRef    = useRef<any>(null);
-  const startBtnRef  = useRef<any>(null);
   const managerRef   = useRef<any>(null);
-  const [duePos, setDuePos]       = useState({ top: 0, left: 0, width: 0 });
-  const [startPos, setStartPos]   = useState({ top: 0, left: 0, width: 0 });
   const [managerPos, setManagerPos] = useState({ top: 0, left: 0, width: 0 });
 
   const [users, setUsers]   = useState<UserOption[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState<string | null>(null);
+
+  const dueCalPos = useCalendarPosition({ calendarWidth: 332 });
+  const startCalPos = useCalendarPosition({ calendarWidth: 332 });
 
   const closeAllOverlays = useCallback(() => {
     setShowDueCal(false);
@@ -129,10 +135,10 @@ export default function EditTaskModalWeb({ visible, onClose }: Props) {
       const rawHours = (data as any).task.estimated_hours;
       setEstimatedHours(rawHours?.toString() || '');
       closeAllOverlays();
-      setTab('details');
+      setTab(focusField === 'due_date' ? 'scheduling' : 'details');
       setError(null);
     }
-  }, [data, visible]);
+  }, [data, visible, focusField]);
 
   useEffect(() => {
     if (visible && users.length === 0) {
@@ -179,35 +185,36 @@ export default function EditTaskModalWeb({ visible, onClose }: Props) {
   const fmtDate = (d: string | null) =>
     d ? new Date(d + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
 
-  const StatRow = ({ icon, label, value, accent }: { icon: string; label: string; value: string; accent?: boolean }) => (
-    <View className="flex-row items-center justify-between py-2.5 border-b border-surface-border/20">
+  const StatRow = ({ icon, label, value, valueNode, accent }: { icon: string; label: string; value: string; valueNode?: React.ReactNode; accent?: boolean }) => (
+    <View className="flex-row items-center justify-between py-2.5" style={{ borderBottomWidth: 1, borderColor: colors.border + '33' }}>
       <View className="flex-row items-center gap-2.5">
         <FontAwesome name={icon as any} size={10} color={colors.textMuted} />
-        <Text className="text-typography-muted text-[10px] font-black uppercase tracking-wider">{label}</Text>
+        <Text className="text-[10px] font-black uppercase tracking-wider" style={{ color: colors.textMuted }}>{label}</Text>
       </View>
-      <Text className={`text-[11px] font-black ${accent ? 'text-brand-primary' : 'text-typography-main'}`}>{value}</Text>
+      {valueNode ?? <Text className="text-[11px] font-black" style={{ color: accent ? colors.primary : colors.textMain }}>{value}</Text>}
     </View>
   );
 
   return (
     <Modal visible={visible} transparent animationType="fade">
       <View
-        className="flex-1 bg-surface-background/70 items-center justify-center p-10"
-        style={{ backdropFilter: 'blur(16px)' } as any}
+        className={isNarrow ? 'flex-1 pt-3' : 'flex-1 items-center justify-center p-10'}
+        style={{ backdropFilter: 'blur(16px)', backgroundColor: colors.background + 'B3' } as any}
       >
         <View
-          className="bg-surface-card w-full max-w-[1100px] rounded-[2.5rem] border border-surface-border overflow-hidden flex-row premium-shadow"
-          style={{ height: 720 }}
+          className={isNarrow ? 'flex-1 w-full flex-col rounded-t-[1.75rem] overflow-hidden' : 'w-full max-w-[1100px] rounded-[2.5rem] overflow-hidden flex-row premium-shadow'}
+          style={isNarrow ? { backgroundColor: colors.card } : { height: 720, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}
         >
 
-          {/* ── LEFT PANEL: Current Task Snapshot ── */}
-          <View className="w-72 border-r border-surface-border bg-surface-background/40 flex-col">
-            <View className="px-7 pt-8 pb-5 border-b border-surface-border/30">
+          {/* ── LEFT PANEL: Current Task Snapshot (desktop only — mobile shows the title in the header instead) ── */}
+          {!isNarrow && (
+          <View className="w-72 flex-col" style={{ borderRightWidth: 1, borderColor: colors.border, backgroundColor: colors.background + '66' }}>
+            <View className="px-7 pt-8 pb-5" style={{ borderBottomWidth: 1, borderColor: colors.border + '4D' }}>
               <View className="flex-row items-center gap-2.5 mb-5">
                 <FontAwesome name="pencil-square-o" size={13} color={colors.primary} />
-                <Text className="text-typography-muted text-[9px] font-black uppercase tracking-[0.25em]">Modify Task</Text>
+                <Text className="text-[9px] font-black uppercase tracking-[0.25em]" style={{ color: colors.textMuted }}>Modify Task</Text>
               </View>
-              <Text className="text-typography-main font-black text-2xl tracking-tight leading-tight" numberOfLines={4}>
+              <Text className="font-black text-2xl tracking-tight leading-tight" style={{ color: colors.textMain }} numberOfLines={4}>
                 {task.title}
               </Text>
             </View>
@@ -215,26 +222,26 @@ export default function EditTaskModalWeb({ visible, onClose }: Props) {
             <ScrollView className="flex-1 px-7 py-5" showsVerticalScrollIndicator={false}>
               {/* Stage */}
               {current_stage && (
-                <View className="mb-4 p-3 rounded-2xl border border-surface-border/30 bg-surface-card/50">
-                  <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-1.5">Current Stage</Text>
+                <View className="mb-4 p-3 rounded-2xl" style={{ borderWidth: 1, borderColor: colors.border + '4D', backgroundColor: colors.card + '80' }}>
+                  <Text className="text-[9px] font-black uppercase tracking-widest mb-1.5" style={{ color: colors.textMuted }}>Current Stage</Text>
                   <View className="flex-row items-center gap-2">
                     <View style={{ backgroundColor: current_stage.color || colors.primary }} className="w-2 h-2 rounded-full" />
-                    <Text className="text-typography-main font-black text-sm">{current_stage.name}</Text>
+                    <Text className="font-black text-sm" style={{ color: colors.textMain }}>{current_stage.name}</Text>
                   </View>
                 </View>
               )}
 
               {/* Priority pill */}
-              <View className={`mb-4 px-3 py-2 rounded-xl self-start ${PRIORITY_BG[task.priority] ?? 'bg-surface-overlay'}`}>
-                <Text className={`font-black text-[10px] uppercase tracking-widest ${PRIORITY_COLOR[task.priority] ?? 'text-typography-muted'}`}>
+              <View className="mb-4 px-3 py-2 rounded-xl self-start" style={{ backgroundColor: priorityBgColor(colors, task.priority) }}>
+                <Text className="font-black text-[10px] uppercase tracking-widest" style={{ color: priorityTextColor(colors, task.priority) }}>
                   {PRIORITY_LABEL[task.priority] ?? task.priority}
                 </Text>
               </View>
 
               <View className="mb-2">
                 <StatRow icon="code-fork"       label="Pipeline"      value={pipeline?.name || '—'} accent />
-                <StatRow icon="user"            label="Creator"       value={creator?.full_name || '—'} />
-                <StatRow icon="briefcase"       label="Manager"       value={manager?.full_name || '—'} />
+                <StatRow icon="user"            label="Creator"       value={creator?.full_name || '—'} valueNode={creator?.id ? <UserLink userId={creator.id} name={creator.full_name} className="text-[11px] font-black" style={{ color: colors.textMain }} /> : undefined} />
+                <StatRow icon="briefcase"       label="Manager"       value={manager?.full_name || '—'} valueNode={manager?.id ? <UserLink userId={manager.id} name={manager.full_name} className="text-[11px] font-black" style={{ color: colors.textMain }} /> : undefined} />
                 <StatRow icon="calendar-o"      label="Created"       value={fmtDate(task.created_at)} />
                 <StatRow icon="calendar"        label="Due"           value={fmtDate(task.due_date)} />
                 <StatRow icon="clock-o"         label="In Pipeline"   value={`${stats.days_in_pipeline}d`} />
@@ -243,39 +250,48 @@ export default function EditTaskModalWeb({ visible, onClose }: Props) {
               </View>
 
               {task.description && (
-                <View className="mt-3 p-3 bg-surface-overlay/50 rounded-xl">
-                  <Text className="text-typography-muted text-[9px] font-black uppercase tracking-wider mb-1.5">Description</Text>
-                  <Text className="text-typography-label text-xs leading-4 font-medium" numberOfLines={5}>
+                <View className="mt-3 p-3 rounded-xl" style={{ backgroundColor: colors.border + '20' }}>
+                  <Text className="text-[9px] font-black uppercase tracking-wider mb-1.5" style={{ color: colors.textMuted }}>Description</Text>
+                  <Text className="text-xs leading-4 font-medium" style={{ color: colors.textMuted }} numberOfLines={5}>
                     {task.description}
                   </Text>
                 </View>
               )}
             </ScrollView>
           </View>
+          )}
 
           {/* ── RIGHT PANEL: Edit Form ── */}
           <View className="flex-1 flex-col">
 
             {/* Header */}
-            <View className="px-10 py-7 border-b border-surface-border flex-row items-center justify-between">
-              <View>
-                <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.3em] mb-1">Task Editor</Text>
-                <Text className="text-typography-main text-3xl font-black tracking-tighter">Edit Details</Text>
+            <View className={isNarrow ? 'px-5 py-5 flex-row items-center justify-between' : 'px-10 py-7 flex-row items-center justify-between'} style={{ borderBottomWidth: 1, borderColor: colors.border }}>
+              <View className="flex-1 mr-4">
+                <Text className="text-[10px] font-black uppercase tracking-[0.3em] mb-1" style={{ color: colors.textMuted }}>Task Editor</Text>
+                {isNarrow ? (
+                  <Text className="text-lg font-black tracking-tight" style={{ color: colors.textMain }} numberOfLines={2}>{task.title}</Text>
+                ) : (
+                  <Text className="text-3xl font-black tracking-tighter" style={{ color: colors.textMain }}>Edit Details</Text>
+                )}
               </View>
               <TouchableOpacity
                 onPress={onClose}
                 disabled={saving}
-                className="w-11 h-11 bg-surface-background rounded-full items-center justify-center border border-surface-border hover:border-brand-primary transition-colors"
+                className={isNarrow ? 'w-8 h-8 rounded-full items-center justify-center' : 'w-11 h-11 rounded-full items-center justify-center hover:border-brand-primary transition-colors'}
+                style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}
               >
-                <FontAwesome name="times" size={16} className="text-typography-muted" />
+                <FontAwesome name="times" size={isNarrow ? 13 : 16} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
 
             {/* Tabs */}
-            <View className="px-10 pt-4 pb-0 flex-row gap-8 border-b border-surface-border/40">
+            <View className={isNarrow ? 'px-5 pt-3 pb-0 flex-row gap-6' : 'px-10 pt-4 pb-0 flex-row gap-8'} style={{ borderBottomWidth: 1, borderColor: colors.border + '66' }}>
               {(['details', 'scheduling'] as Tab[]).map(t => (
                 <TouchableOpacity key={t} onPress={() => setTab(t)}>
-                  <Text className={`font-black text-xs uppercase tracking-widest pb-3 border-b-2 transition-all ${tab === t ? 'text-brand-primary border-brand-primary' : 'text-typography-muted border-transparent'}`}>
+                  <Text
+                    className="font-black text-xs uppercase tracking-widest pb-3 transition-all"
+                    style={{ color: tab === t ? colors.primary : colors.textMuted, borderBottomWidth: 2, borderBottomColor: tab === t ? colors.primary : 'transparent' }}
+                  >
                     {t === 'details' ? 'Details' : 'Scheduling & Access'}
                   </Text>
                 </TouchableOpacity>
@@ -283,10 +299,10 @@ export default function EditTaskModalWeb({ visible, onClose }: Props) {
             </View>
 
             {/* Form Area */}
-            <ScrollView className="flex-1 px-10 pt-6" onScrollBeginDrag={closeAllOverlays} showsVerticalScrollIndicator={false}>
+            <ScrollView className={isNarrow ? 'flex-1 px-5 pt-5' : 'flex-1 px-10 pt-6'} onScrollBeginDrag={closeAllOverlays} showsVerticalScrollIndicator={false}>
               {error && (
-                <View className="bg-state-danger/10 border border-state-danger/30 px-4 py-3 rounded-2xl mb-5">
-                  <Text className="text-state-danger text-sm font-bold">{error}</Text>
+                <View className="px-4 py-3 rounded-2xl mb-5" style={{ backgroundColor: colors.danger + '1A', borderWidth: 1, borderColor: colors.danger + '4D' }}>
+                  <Text className="text-sm font-bold" style={{ color: colors.danger }}>{error}</Text>
                 </View>
               )}
 
@@ -295,28 +311,30 @@ export default function EditTaskModalWeb({ visible, onClose }: Props) {
 
                   {/* Title */}
                   <View>
-                    <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2.5 ml-1">Title</Text>
+                    <Text className="text-[10px] font-black uppercase tracking-widest mb-2.5 ml-1" style={{ color: colors.textMuted }}>Title</Text>
                     <TextInput
                       value={title}
                       onChangeText={setTitle}
                       placeholder="Task title"
                       placeholderTextColor={colors.textDim}
-                      className={`bg-surface-background border rounded-2xl px-6 py-4 text-typography-main font-black text-lg transition-colors ${!title.trim() ? 'border-state-danger/40' : 'border-surface-border'}`}
+                      className="rounded-2xl px-6 py-4 font-black text-lg transition-colors"
+                      style={{ backgroundColor: colors.background, color: colors.textMain, borderWidth: 1, borderColor: !title.trim() ? colors.danger + '66' : colors.border }}
                     />
                   </View>
 
                   {/* Priority + Weight */}
                   <View className="flex-row gap-6">
                     <View className="flex-1">
-                      <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2.5 ml-1">Priority Level</Text>
-                      <View className="flex-row bg-surface-background border border-surface-border rounded-2xl p-1.5">
+                      <Text className="text-[10px] font-black uppercase tracking-widest mb-2.5 ml-1" style={{ color: colors.textMuted }}>Priority Level</Text>
+                      <View className="flex-row rounded-2xl p-1.5" style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}>
                         {PRIORITY_OPTIONS.map(p => (
                           <TouchableOpacity
                             key={p}
                             onPress={() => setPriority(p)}
-                            className={`flex-1 py-2.5 items-center rounded-xl transition-all ${priority === p ? 'bg-brand-primary' : 'hover:bg-surface-overlay'}`}
+                            className={`flex-1 py-2.5 items-center rounded-xl transition-all ${priority === p ? '' : 'hover:bg-surface-overlay'}`}
+                            style={{ backgroundColor: priority === p ? colors.primary : undefined }}
                           >
-                            <Text className={`font-black text-[10px] uppercase tracking-widest ${priority === p ? 'text-white' : 'text-typography-muted'}`}>
+                            <Text className="font-black text-[10px] uppercase tracking-widest" style={{ color: priority === p ? '#fff' : colors.textMuted }}>
                               {PRIORITY_LABEL[p]}
                             </Text>
                           </TouchableOpacity>
@@ -324,42 +342,45 @@ export default function EditTaskModalWeb({ visible, onClose }: Props) {
                       </View>
                     </View>
                     <View className="w-32">
-                      <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2.5 ml-1">Weight</Text>
+                      <Text className="text-[10px] font-black uppercase tracking-widest mb-2.5 ml-1" style={{ color: colors.textMuted }}>Weight</Text>
                       <TextInput
                         value={weight}
                         onChangeText={setWeight}
                         keyboardType="numeric"
-                        className="bg-surface-background border border-surface-border rounded-2xl px-5 py-4 text-typography-main font-black text-center text-lg"
+                        className="rounded-2xl px-5 py-4 font-black text-center text-lg"
+                        style={{ backgroundColor: colors.background, color: colors.textMain, borderWidth: 1, borderColor: colors.border }}
                       />
                     </View>
                   </View>
 
                   {/* Category */}
                   <View>
-                    <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2.5 ml-1">Category</Text>
+                    <Text className="text-[10px] font-black uppercase tracking-widest mb-2.5 ml-1" style={{ color: colors.textMuted }}>Category</Text>
                     <TextInput
                       value={category}
                       onChangeText={setCategory}
                       placeholder="e.g. Bug, Feature, Research"
                       placeholderTextColor={colors.textDim}
-                      className="bg-surface-background border border-surface-border rounded-2xl px-6 py-4 text-typography-main font-bold"
+                      className="rounded-2xl px-6 py-4 font-bold"
+                      style={{ backgroundColor: colors.background, color: colors.textMain, borderWidth: 1, borderColor: colors.border }}
                     />
                   </View>
 
                   {/* Manager */}
                   <View>
-                    <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2.5 ml-1">Manager</Text>
+                    <Text className="text-[10px] font-black uppercase tracking-widest mb-2.5 ml-1" style={{ color: colors.textMuted }}>Manager</Text>
                     <TouchableOpacity
                       ref={managerRef}
                       onPress={() => {
                         closeAllOverlays();
                         openOverlay(managerRef, setManagerPos, setShowManagerDrop);
                       }}
-                      className={`bg-surface-background border rounded-2xl px-5 py-4 flex-row items-center justify-between transition-all ${showManagerDrop ? 'border-brand-primary' : 'border-surface-border'}`}
+                      className="rounded-2xl px-5 py-4 flex-row items-center justify-between transition-all"
+                      style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: showManagerDrop ? colors.primary : colors.border }}
                     >
                       <View className="flex-row items-center gap-3">
                         <FontAwesome name="user" size={13} color={selectedManager ? colors.primary : colors.textDim} />
-                        <Text className={`font-bold text-sm ${selectedManager ? 'text-typography-main' : 'text-typography-dim'}`}>
+                        <Text className="font-bold text-sm" style={{ color: selectedManager ? colors.textMain : colors.textDim }}>
                           {selectedManager?.full_name ?? 'No manager assigned'}
                         </Text>
                       </View>
@@ -369,7 +390,7 @@ export default function EditTaskModalWeb({ visible, onClose }: Props) {
 
                   {/* Description */}
                   <View>
-                    <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2.5 ml-1">Description</Text>
+                    <Text className="text-[10px] font-black uppercase tracking-widest mb-2.5 ml-1" style={{ color: colors.textMuted }}>Description</Text>
                     <TextInput
                       value={description}
                       onChangeText={setDescription}
@@ -378,22 +399,23 @@ export default function EditTaskModalWeb({ visible, onClose }: Props) {
                       multiline
                       numberOfLines={5}
                       textAlignVertical="top"
-                      className="bg-surface-background border border-surface-border rounded-2xl px-6 py-4 text-typography-main font-medium"
-                      style={{ minHeight: 120 }}
+                      className="rounded-2xl px-6 py-4 font-medium"
+                      style={{ minHeight: 120, backgroundColor: colors.background, color: colors.textMain, borderWidth: 1, borderColor: colors.border }}
                     />
                   </View>
 
                   {/* Recurring */}
                   <TouchableOpacity
                     onPress={() => setIsRecurring(v => !v)}
-                    className={`flex-row items-center gap-4 p-4 rounded-2xl border transition-all ${isRecurring ? 'border-brand-primary bg-brand-primary/5' : 'border-surface-border bg-surface-background'}`}
+                    className="flex-row items-center gap-4 p-4 rounded-2xl border transition-all"
+                    style={{ borderColor: isRecurring ? colors.primary : colors.border, backgroundColor: isRecurring ? colors.primary + '0D' : colors.background }}
                   >
-                    <View className={`w-5 h-5 rounded-md items-center justify-center ${isRecurring ? 'bg-brand-primary' : 'bg-surface-overlay border border-surface-border'}`}>
+                    <View className="w-5 h-5 rounded-md items-center justify-center" style={{ backgroundColor: isRecurring ? colors.primary : colors.border + '40', borderWidth: isRecurring ? 0 : 1, borderColor: colors.border }}>
                       {isRecurring && <FontAwesome name="check" size={10} color="white" />}
                     </View>
                     <View>
-                      <Text className={`font-black text-sm ${isRecurring ? 'text-brand-primary' : 'text-typography-main'}`}>Recurring Task</Text>
-                      <Text className="text-typography-muted text-[10px] font-bold mt-0.5">Task will repeat automatically on a schedule</Text>
+                      <Text className="font-black text-sm" style={{ color: isRecurring ? colors.primary : colors.textMain }}>Recurring Task</Text>
+                      <Text className="text-[10px] font-bold mt-0.5" style={{ color: colors.textMuted }}>Task will repeat automatically on a schedule</Text>
                     </View>
                   </TouchableOpacity>
 
@@ -401,39 +423,92 @@ export default function EditTaskModalWeb({ visible, onClose }: Props) {
               ) : (
                 <View className="gap-6 pb-8">
 
+                  {/* Start Date */}
+                  <View>
+                    <Text className="text-[10px] font-black uppercase tracking-widest mb-2.5 ml-1" style={{ color: colors.textMuted }}>Start Date</Text>
+                    <View className="flex-row gap-3 flex-wrap mb-3">
+                      {[{ label: 'Today', days: 0 }, { label: 'Tomorrow', days: 1 }, { label: '+3d', days: 3 }].map(qd => (
+                        <TouchableOpacity
+                          key={qd.days}
+                          onPress={() => setStartDate(quickDate(qd.days))}
+                          className="px-3 py-1.5 rounded-xl hover:border-brand-primary hover:bg-brand-primary/5 transition-all"
+                          style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}
+                        >
+                          <Text className="text-[10px] font-black uppercase tracking-wider" style={{ color: colors.textMuted }}>{qd.label}</Text>
+                        </TouchableOpacity>
+                      ))}
+                      {startDate && (
+                        <TouchableOpacity
+                          onPress={() => setStartDate(null)}
+                          className="px-3 py-1.5 rounded-xl hover:bg-state-danger/10 transition-all"
+                          style={{ backgroundColor: colors.danger + '0D', borderWidth: 1, borderColor: colors.danger + '4D' }}
+                        >
+                          <Text className="text-[10px] font-black uppercase tracking-wider" style={{ color: colors.danger }}>Clear</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                    <TouchableOpacity
+                      ref={startCalPos.triggerRef}
+                      onPress={() => {
+                        if (showStartCal) { closeAllOverlays(); return; }
+                        closeAllOverlays();
+                        startCalPos.measure();
+                        setShowStartCal(true);
+                      }}
+                      className="rounded-2xl px-5 py-4 flex-row items-center justify-between transition-all"
+                      style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: showStartCal ? colors.primary : dateConflict ? colors.danger + '80' : colors.border }}
+                    >
+                      <View className="flex-row items-center gap-3">
+                        <FontAwesome name="calendar-o" size={13} color={startDate ? colors.primary : colors.textDim} />
+                        <Text className="font-bold" style={{ color: startDate ? colors.textMain : colors.textDim }}>
+                          {fmtDate(startDate) !== '—' ? fmtDate(startDate) : 'Set start'}
+                        </Text>
+                      </View>
+                      <FontAwesome name={showStartCal ? 'chevron-up' : 'chevron-down'} size={11} color={colors.textDim} />
+                    </TouchableOpacity>
+                    {dateConflict && (
+                      <Text className="text-[10px] font-black mt-1.5 ml-1" style={{ color: colors.danger }}>Start date is after due date</Text>
+                    )}
+                  </View>
+
                   {/* Due Date */}
                   <View>
-                    <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2.5 ml-1">Due Date</Text>
+                    <Text className="text-[10px] font-black uppercase tracking-widest mb-2.5 ml-1" style={{ color: colors.textMuted }}>Due Date</Text>
                     <View className="flex-row gap-3 flex-wrap mb-3">
                       {QUICK_DATES.map(qd => (
                         <TouchableOpacity
                           key={qd.days}
                           onPress={() => setDueDate(quickDate(qd.days))}
-                          className="px-3 py-1.5 rounded-xl border border-surface-border bg-surface-background hover:border-brand-primary hover:bg-brand-primary/5 transition-all"
+                          className="px-3 py-1.5 rounded-xl hover:border-brand-primary hover:bg-brand-primary/5 transition-all"
+                          style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}
                         >
-                          <Text className="text-typography-muted text-[10px] font-black uppercase tracking-wider">{qd.label}</Text>
+                          <Text className="text-[10px] font-black uppercase tracking-wider" style={{ color: colors.textMuted }}>{qd.label}</Text>
                         </TouchableOpacity>
                       ))}
                       {dueDate && (
                         <TouchableOpacity
                           onPress={() => setDueDate(null)}
-                          className="px-3 py-1.5 rounded-xl border border-state-danger/30 bg-state-danger/5 hover:bg-state-danger/10 transition-all"
+                          className="px-3 py-1.5 rounded-xl hover:bg-state-danger/10 transition-all"
+                          style={{ backgroundColor: colors.danger + '0D', borderWidth: 1, borderColor: colors.danger + '4D' }}
                         >
-                          <Text className="text-state-danger text-[10px] font-black uppercase tracking-wider">Clear</Text>
+                          <Text className="text-[10px] font-black uppercase tracking-wider" style={{ color: colors.danger }}>Clear</Text>
                         </TouchableOpacity>
                       )}
                     </View>
                     <TouchableOpacity
-                      ref={dueBtnRef}
+                      ref={dueCalPos.triggerRef}
                       onPress={() => {
+                        if (showDueCal) { closeAllOverlays(); return; }
                         closeAllOverlays();
-                        openOverlay(dueBtnRef, setDuePos, setShowDueCal);
+                        dueCalPos.measure();
+                        setShowDueCal(true);
                       }}
-                      className={`bg-surface-background border rounded-2xl px-5 py-4 flex-row items-center justify-between transition-all ${showDueCal ? 'border-brand-primary' : 'border-surface-border'}`}
+                      className="rounded-2xl px-5 py-4 flex-row items-center justify-between transition-all"
+                      style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: showDueCal ? colors.primary : colors.border }}
                     >
                       <View className="flex-row items-center gap-3">
                         <FontAwesome name="calendar" size={13} color={dueDate ? colors.primary : colors.textDim} />
-                        <Text className={`font-bold ${dueDate ? 'text-typography-main' : 'text-typography-dim'}`}>
+                        <Text className="font-bold" style={{ color: dueDate ? colors.textMain : colors.textDim }}>
                           {fmtDate(dueDate) !== '—' ? fmtDate(dueDate) : 'Set deadline'}
                         </Text>
                       </View>
@@ -441,60 +516,18 @@ export default function EditTaskModalWeb({ visible, onClose }: Props) {
                     </TouchableOpacity>
                   </View>
 
-                  {/* Start Date */}
-                  <View>
-                    <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2.5 ml-1">Start Date</Text>
-                    <View className="flex-row gap-3 flex-wrap mb-3">
-                      {[{ label: 'Today', days: 0 }, { label: 'Tomorrow', days: 1 }, { label: '+3d', days: 3 }].map(qd => (
-                        <TouchableOpacity
-                          key={qd.days}
-                          onPress={() => setStartDate(quickDate(qd.days))}
-                          className="px-3 py-1.5 rounded-xl border border-surface-border bg-surface-background hover:border-brand-primary hover:bg-brand-primary/5 transition-all"
-                        >
-                          <Text className="text-typography-muted text-[10px] font-black uppercase tracking-wider">{qd.label}</Text>
-                        </TouchableOpacity>
-                      ))}
-                      {startDate && (
-                        <TouchableOpacity
-                          onPress={() => setStartDate(null)}
-                          className="px-3 py-1.5 rounded-xl border border-state-danger/30 bg-state-danger/5 hover:bg-state-danger/10 transition-all"
-                        >
-                          <Text className="text-state-danger text-[10px] font-black uppercase tracking-wider">Clear</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                    <TouchableOpacity
-                      ref={startBtnRef}
-                      onPress={() => {
-                        closeAllOverlays();
-                        openOverlay(startBtnRef, setStartPos, setShowStartCal);
-                      }}
-                      className={`bg-surface-background border rounded-2xl px-5 py-4 flex-row items-center justify-between transition-all ${showStartCal ? 'border-brand-primary' : dateConflict ? 'border-state-danger/50' : 'border-surface-border'}`}
-                    >
-                      <View className="flex-row items-center gap-3">
-                        <FontAwesome name="calendar-o" size={13} color={startDate ? colors.primary : colors.textDim} />
-                        <Text className={`font-bold ${startDate ? 'text-typography-main' : 'text-typography-dim'}`}>
-                          {fmtDate(startDate) !== '—' ? fmtDate(startDate) : 'Set start'}
-                        </Text>
-                      </View>
-                      <FontAwesome name={showStartCal ? 'chevron-up' : 'chevron-down'} size={11} color={colors.textDim} />
-                    </TouchableOpacity>
-                    {dateConflict && (
-                      <Text className="text-state-danger text-[10px] font-black mt-1.5 ml-1">Start date is after due date</Text>
-                    )}
-                  </View>
-
                   {/* Estimated Hours */}
                   <View>
-                    <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2.5 ml-1">Estimated Hours</Text>
+                    <Text className="text-[10px] font-black uppercase tracking-widest mb-2.5 ml-1" style={{ color: colors.textMuted }}>Estimated Hours</Text>
                     <View className="flex-row gap-2 flex-wrap mb-3">
                       {HOUR_PRESETS.map(h => (
                         <TouchableOpacity
                           key={h}
                           onPress={() => setEstimatedHours(h.toString())}
-                          className={`px-3 py-1.5 rounded-xl border transition-all ${estimatedHours === h.toString() ? 'bg-brand-primary border-brand-primary' : 'border-surface-border bg-surface-background hover:border-brand-primary/50'}`}
+                          className={`px-3 py-1.5 rounded-xl border transition-all ${estimatedHours === h.toString() ? '' : 'hover:border-brand-primary/50'}`}
+                          style={{ backgroundColor: estimatedHours === h.toString() ? colors.primary : colors.background, borderColor: estimatedHours === h.toString() ? colors.primary : colors.border }}
                         >
-                          <Text className={`text-[10px] font-black uppercase tracking-wider ${estimatedHours === h.toString() ? 'text-white' : 'text-typography-muted'}`}>{h}h</Text>
+                          <Text className="text-[10px] font-black uppercase tracking-wider" style={{ color: estimatedHours === h.toString() ? '#fff' : colors.textMuted }}>{h}h</Text>
                         </TouchableOpacity>
                       ))}
                     </View>
@@ -504,7 +537,8 @@ export default function EditTaskModalWeb({ visible, onClose }: Props) {
                       keyboardType="decimal-pad"
                       placeholder="Custom (e.g. 6.5)"
                       placeholderTextColor={colors.textDim}
-                      className="bg-surface-background border border-surface-border rounded-2xl px-5 py-4 text-typography-main font-bold"
+                      className="rounded-2xl px-5 py-4 font-bold"
+                      style={{ backgroundColor: colors.background, color: colors.textMain, borderWidth: 1, borderColor: colors.border }}
                     />
                   </View>
 
@@ -513,22 +547,26 @@ export default function EditTaskModalWeb({ visible, onClose }: Props) {
             </ScrollView>
 
             {/* Footer */}
-            <View className="px-10 py-5 border-t border-surface-border/50 flex-row items-center justify-between bg-surface-background/30">
-              <Text className="text-typography-muted text-[10px] font-bold">
-                {saving ? 'Saving changes...' : 'Press Ctrl+↵ to save'}
-              </Text>
-              <View className="flex-row items-center gap-4">
+            <View className={isNarrow ? 'px-5 py-4 flex-row items-center justify-between' : 'px-10 py-5 flex-row items-center justify-between'} style={{ borderTopWidth: 1, borderColor: colors.border + '80', backgroundColor: colors.background + '4D' }}>
+              {!isNarrow && (
+                <Text className="text-[10px] font-bold" style={{ color: colors.textMuted }}>
+                  {saving ? 'Saving changes...' : 'Press Ctrl+↵ to save'}
+                </Text>
+              )}
+              <View className={isNarrow ? 'flex-1 flex-row items-center gap-3' : 'flex-row items-center gap-4'}>
                 <TouchableOpacity
                   onPress={onClose}
                   disabled={saving}
-                  className="px-6 py-3 rounded-2xl border border-surface-border hover:border-brand-primary/40 transition-all"
+                  className={isNarrow ? 'flex-1 px-4 py-3 rounded-2xl items-center hover:border-brand-primary/40 transition-all' : 'px-6 py-3 rounded-2xl hover:border-brand-primary/40 transition-all'}
+                  style={{ borderWidth: 1, borderColor: colors.border }}
                 >
-                  <Text className="text-typography-main font-bold">Cancel</Text>
+                  <Text className="font-bold" style={{ color: colors.textMain }}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={handleSave}
                   disabled={saving || !title.trim()}
-                  className={`px-8 py-3 rounded-2xl flex-row items-center gap-2.5 transition-all ${!title.trim() ? 'bg-brand-primary/30' : 'bg-brand-primary hover:bg-brand-primary/90'}`}
+                  className={isNarrow ? 'flex-1 px-4 py-3 rounded-2xl flex-row items-center justify-center gap-2.5 transition-all hover:bg-brand-primary/90' : 'px-8 py-3 rounded-2xl flex-row items-center gap-2.5 transition-all hover:bg-brand-primary/90'}
+                  style={{ backgroundColor: !title.trim() ? colors.primary + '4D' : colors.primary }}
                 >
                   {saving ? (
                     <ActivityIndicator size="small" color="white" />
@@ -546,24 +584,41 @@ export default function EditTaskModalWeb({ visible, onClose }: Props) {
 
         {/* ── Floating Overlays ── */}
 
+        {/* Backdrop for overlays */}
+        {(showDueCal || showStartCal) && (
+          <TouchableOpacity
+            onPress={closeAllOverlays}
+            className="absolute inset-0 z-40"
+            style={{ backgroundColor: 'transparent' }}
+          />
+        )}
+
         {/* Due Date Calendar */}
         {showDueCal && (
-          <View className="absolute z-50" style={{ top: duePos.top, left: duePos.left }}>
+          <View style={dueCalPos.style as any}>
             <PremiumCalendarPicker
               selectedDate={dueDate}
-              onSelect={(d) => { setDueDate(d); setShowDueCal(false); }}
-              compact
+              onSelect={(d) => setDueDate(d)}
+              accentColor={colors.primary}
+              rangeDate={startDate}
+              rangeColor={colors.secondary}
+              scale="compact"
+              showDaysBetween
             />
           </View>
         )}
 
         {/* Start Date Calendar */}
         {showStartCal && (
-          <View className="absolute z-50" style={{ top: startPos.top, left: startPos.left }}>
+          <View style={startCalPos.style as any}>
             <PremiumCalendarPicker
               selectedDate={startDate}
-              onSelect={(d) => { setStartDate(d); setShowStartCal(false); }}
-              compact
+              onSelect={(d) => setStartDate(d)}
+              accentColor={colors.secondary}
+              rangeDate={dueDate}
+              rangeColor={colors.primary}
+              scale="compact"
+              showDaysBetween
             />
           </View>
         )}
@@ -571,37 +626,40 @@ export default function EditTaskModalWeb({ visible, onClose }: Props) {
         {/* Manager Dropdown */}
         {showManagerDrop && (
           <View
-            className="absolute z-50 bg-surface-card border border-surface-border rounded-2xl overflow-hidden premium-shadow"
-            style={{ top: managerPos.top, left: managerPos.left, width: Math.max(managerPos.width, 260), maxHeight: 320 }}
+            className="absolute z-50 rounded-2xl overflow-hidden premium-shadow"
+            style={{ top: managerPos.top, left: managerPos.left, width: Math.max(managerPos.width, 260), maxHeight: 320, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}
           >
-            <View className="px-4 pt-3 pb-2 border-b border-surface-border/50">
+            <View className="px-4 pt-3 pb-2" style={{ borderBottomWidth: 1, borderColor: colors.border + '80' }}>
               <TextInput
                 value={managerSearch}
                 onChangeText={setManagerSearch}
                 placeholder="Search users..."
                 placeholderTextColor={colors.textDim}
-                className="bg-surface-background border border-surface-border rounded-xl px-3 py-2 text-typography-main text-sm font-medium"
+                className="rounded-xl px-3 py-2 text-sm font-medium"
+                style={{ backgroundColor: colors.background, color: colors.textMain, borderWidth: 1, borderColor: colors.border }}
                 autoFocus
               />
             </View>
             <ScrollView style={{ maxHeight: 250 }}>
               <TouchableOpacity
                 onPress={() => { setManagerId(null); setShowManagerDrop(false); setManagerSearch(''); }}
-                className={`px-4 py-3 border-b border-surface-border/20 flex-row items-center gap-3 ${!managerId ? 'bg-brand-primary/5' : 'hover:bg-surface-overlay'}`}
+                className={`px-4 py-3 flex-row items-center gap-3 ${!managerId ? '' : 'hover:bg-surface-overlay'}`}
+                style={{ borderBottomWidth: 1, borderColor: colors.border + '33', backgroundColor: !managerId ? colors.primary + '0D' : undefined }}
               >
                 <FontAwesome name="ban" size={12} color={colors.textMuted} />
-                <Text className={`font-bold text-sm ${!managerId ? 'text-brand-primary' : 'text-typography-muted'}`}>No manager</Text>
+                <Text className="font-bold text-sm" style={{ color: !managerId ? colors.primary : colors.textMuted }}>No manager</Text>
               </TouchableOpacity>
               {filteredUsers.map(u => (
                 <TouchableOpacity
                   key={u.id}
                   onPress={() => { setManagerId(u.id); setShowManagerDrop(false); setManagerSearch(''); }}
-                  className={`px-4 py-3 border-b border-surface-border/20 flex-row items-center gap-3 ${managerId === u.id ? 'bg-brand-primary/5' : 'hover:bg-surface-overlay'}`}
+                  className={`px-4 py-3 flex-row items-center gap-3 ${managerId === u.id ? '' : 'hover:bg-surface-overlay'}`}
+                  style={{ borderBottomWidth: 1, borderColor: colors.border + '33', backgroundColor: managerId === u.id ? colors.primary + '0D' : undefined }}
                 >
-                  <View className="w-6 h-6 rounded-full bg-brand-primary/20 items-center justify-center">
-                    <Text className="text-brand-primary text-[9px] font-black">{u.full_name.charAt(0)}</Text>
+                  <View className="w-6 h-6 rounded-full items-center justify-center" style={{ backgroundColor: colors.primary + '33' }}>
+                    <Text className="text-[9px] font-black" style={{ color: colors.primary }}>{u.full_name.charAt(0)}</Text>
                   </View>
-                  <Text className={`font-bold text-sm ${managerId === u.id ? 'text-brand-primary' : 'text-typography-main'}`}>
+                  <Text className="font-bold text-sm" style={{ color: managerId === u.id ? colors.primary : colors.textMain }}>
                     {u.full_name}
                   </Text>
                   {managerId === u.id && <FontAwesome name="check" size={10} color={colors.primary} style={{ marginLeft: 'auto' as any }} />}
@@ -609,7 +667,7 @@ export default function EditTaskModalWeb({ visible, onClose }: Props) {
               ))}
               {filteredUsers.length === 0 && (
                 <View className="py-8 items-center">
-                  <Text className="text-typography-muted text-xs font-bold">No users found</Text>
+                  <Text className="text-xs font-bold" style={{ color: colors.textMuted }}>No users found</Text>
                 </View>
               )}
             </ScrollView>

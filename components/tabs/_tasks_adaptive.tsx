@@ -1,26 +1,32 @@
 import AnimatedTaskCard from '@/components/common/AnimatedTaskCard';
 import ConfirmModal from '@/components/common/ConfirmModal';
 import HorizontalScroll from '@/components/common/HorizontalScroll';
+import LinkifiedText from '@/components/common/LinkifiedText';
 import KanbanPersonalizer from '@/components/kanban/KanbanPersonalizer';
 import SkeletonBlock, { SkeletonList } from '@/components/Skeleton';
+import ActiveSessionAvatars from '@/components/task-detail/ActiveSessionAvatars';
 import TaskCardActions, { type ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
+import { boardCacheMeta, prefetchOtherBoards, taskCache, type BoardSnapshot, TASK_SORT_OPTIONS, compareTasksBySortKey, type TaskSortKey } from '@/components/tabs/taskBoardCache';
 import TaskPingButton from '@/components/task-detail/TaskPingButton';
 import AssignmentModal from '@/components/tasks/AssignmentModal';
 import CreateTaskSheet from '@/components/tasks/CreateTaskSheet';
 import TaskMobilityModal from '@/components/tasks/TaskMobilityModal';
+import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePingHighlight } from '@/contexts/PingHighlightContext';
 import { TaskCreationProvider } from '@/contexts/TaskCreationContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useNavBarPosition } from '@/hooks/useNavBarPosition';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { TAB_BAR_HEIGHT } from '@/lib/layout';
 import { supabase } from '@/lib/supabase';
+import { formatCompact, formatRelative } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert,
+  ActivityIndicator,
   Animated,
   Image,
   InteractionManager,
@@ -65,6 +71,7 @@ type Task = {
   parent_task_id?: string;
   manager_id?: string;
   project_id?: string;
+  due_date?: string | null;
   project?: { id: string; name: string } | null;
   manager?: { id: string; full_name: string } | null;
   assignments?: {
@@ -73,6 +80,8 @@ type Task = {
     team?: { name: string } | null;
     user?: { full_name: string } | null;
   }[];
+  weight?: number;
+  estimated_hours?: number | null;
 };
 
 type FilterState = {
@@ -80,7 +89,26 @@ type FilterState = {
   categories: string[];
   projectIds: string[];
   managerIds: string[];
+  dueDates: string[];
 };
+
+const DUE_DATE_BUCKETS = [
+  { key: 'overdue', label: 'Overdue' },
+  { key: 'today', label: 'Due Today' },
+  { key: 'week', label: 'This Week' },
+  { key: 'none', label: 'No Due Date' },
+] as const;
+
+function getDueBucket(dueDate?: string | null): string {
+  if (!dueDate) return 'none';
+  const startToday = new Date();
+  startToday.setHours(0, 0, 0, 0);
+  const diffDays = Math.floor((new Date(dueDate).getTime() - startToday.getTime()) / 86400000);
+  if (diffDays < 0) return 'overdue';
+  if (diffDays === 0) return 'today';
+  if (diffDays <= 7) return 'week';
+  return 'later';
+}
 
 type Pipeline = {
   id: string;
@@ -88,6 +116,9 @@ type Pipeline = {
   task_visibility_mode: 'all' | 'assigned_only';
   is_default?: boolean;
 };
+
+// Board data cache + prefetch live in the shared module so the desktop board
+// reuses the exact same warm cache (see taskBoardCache.ts).
 
 // ---------------------------------------------------------------------------
 // Board picker state (favorites / recents) — shares the same AsyncStorage keys
@@ -170,8 +201,7 @@ function PingTimeBadge({ pingedAt }: { pingedAt: number }) {
     const id = setInterval(() => setTick(n => n + 1), 30_000);
     return () => clearInterval(id);
   }, []);
-  const secs = Math.floor((Date.now() - pingedAt) / 1000);
-  const label = secs < 60 ? 'just now' : secs < 3600 ? `${Math.floor(secs / 60)}m ago` : `${Math.floor(secs / 3600)}h ago`;
+  const label = formatRelative(new Date(pingedAt));
   return (
     <View
       pointerEvents="none"
@@ -266,31 +296,40 @@ function BoardPeekCard({
 }
 
 function TasksScreen() {
-  const [pipeline, setPipeline] = useState<Pipeline | null>(null);
-  const [stages, setStages] = useState<Stage[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { pipelineId: paramPipelineId } = useLocalSearchParams();
+
+  // Seed initial state from the cache so a revisit renders instantly. Key by the
+  // pipeline we're about to show (param, else the last board we loaded).
+  const seedKey = (Array.isArray(paramPipelineId) ? paramPipelineId[0] : paramPipelineId) || boardCacheMeta.lastPipelineId || undefined;
+  const seed = seedKey ? taskCache.get(seedKey) : undefined;
+
+  const [pipeline, setPipeline] = useState<Pipeline | null>(seed?.pipeline ?? null);
+  const [stages, setStages] = useState<Stage[]>(seed?.stages ?? []);
+  const [tasks, setTasks] = useState<Task[]>(seed?.tasks ?? []);
+  const [loading, setLoading] = useState(!seed); // cache hit → skip the skeleton
+  const [switchingBoard, setSwitchingBoard] = useState(false); // overlay while an uncached board loads
   const [refreshing, setRefreshing] = useState(false);
-  const [availablePipelines, setAvailablePipelines] = useState<Pipeline[]>([]);
+  const [availablePipelines, setAvailablePipelines] = useState<Pipeline[]>(seed?.availablePipelines ?? []);
   const [showPipelinePicker, setShowPipelinePicker] = useState(false);
-  const [activeSessions, setActiveSessions] = useState<Record<string, ActiveSessionUser[]>>({}); // task_id -> [{name, avatar}]
+  const [activeSessions, setActiveSessions] = useState<Record<string, ActiveSessionUser[]>>(seed?.activeSessions ?? {}); // task_id -> [{name, avatar}]
   const [pulse, setPulse] = useState<PersonalPulse | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
-  const [stageActions, setStageActions] = useState<any[]>([]);
-  const [stageTransitions, setStageTransitions] = useState<{ id: string; to_stage_id: string }[]>([]);
+  const [stageActions, setStageActions] = useState<any[]>(seed?.stageActions ?? []);
+  const [stageTransitions, setStageTransitions] = useState<{ id: string; to_stage_id: string }[]>(seed?.stageTransitions ?? []);
   const [showPersonalizer, setShowPersonalizer] = useState(false);
   const [showMobility, setShowMobility] = useState(false);
   const [showCreateSheet, setShowCreateSheet] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const [filters, setFilters] = useState<FilterState>({ priorities: [], categories: [], projectIds: [], managerIds: [] });
+  const [filters, setFilters] = useState<FilterState>({ priorities: [], categories: [], projectIds: [], managerIds: [], dueDates: [] });
+  const [sortKey, setSortKey] = useState<TaskSortKey>('default');
   const [archiveModal, setArchiveModal] = useState<{ visible: boolean; taskId: string | null }>({ visible: false, taskId: null });
   const [archiving, setArchiving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [mineOnly, setMineOnly] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [showTools, setShowTools] = useState(false);
-  const [myTeamIds, setMyTeamIds] = useState<string[]>([]);
+  const [myTeamIds, setMyTeamIds] = useState<string[]>(seed?.myTeamIds ?? []);
   const [skeletonBg, setSkeletonBg] = useState<string | null>(null);
 
   // Board picker notifications (parity with the desktop board selector)
@@ -309,8 +348,9 @@ function TasksScreen() {
    const colors = useThemeColors();
    const router = useRouter();
    const { user, hasPermission, profile } = useAuth();
-   const { pipelineId: paramPipelineId } = useLocalSearchParams();
+   const { showAlert } = useAlert();
    const isLargeScreen = width > 768;
+   const { position: navPosition } = useNavBarPosition();
 
   const { pingedTasks, removePingedTask } = usePingHighlight();
 
@@ -343,11 +383,32 @@ function TasksScreen() {
 
   useEffect(() => () => { if (peekCloseTimer.current) clearTimeout(peekCloseTimer.current); }, []);
 
+  // Swap to a board: if we have it cached, paint it instantly (background refetch
+  // still runs via the paramPipelineId effect); otherwise show the switching overlay.
+  const applySnapshot = useCallback((snap: BoardSnapshot) => {
+    setPipeline(snap.pipeline);
+    setStages(snap.stages);
+    setTasks(snap.tasks);
+    setAvailablePipelines(snap.availablePipelines);
+    setStageActions(snap.stageActions);
+    setStageTransitions(snap.stageTransitions);
+    setActiveSessions(snap.activeSessions);
+    setMyTeamIds(snap.myTeamIds);
+    setLoading(false);
+  }, []);
+
+  const prepareBoardSwitch = useCallback((id: string) => {
+    const snap = taskCache.get(id);
+    if (snap) applySnapshot(snap);
+    else setSwitchingBoard(true);
+  }, [applySnapshot]);
+
   const switchBoard = useCallback(async (id: string) => {
     setShowBoardPeek(false);
+    prepareBoardSwitch(id);
     await AsyncStorage.setItem('@TrustFlow_tasks_pipeline', id);
     router.setParams({ pipelineId: id });
-  }, [router]);
+  }, [router, prepareBoardSwitch]);
 
   // Lazily fetch task counts for the two neighbours when the peek opens.
   useEffect(() => {
@@ -446,13 +507,14 @@ function TasksScreen() {
       setRecentlyUsedBoards(updated);
       await saveBoardPickerState(favoriteBoardIds, updated);
       setBoardLastVisitedTime(prev => ({ ...prev, [boardId]: Date.now() }));
+      prepareBoardSwitch(boardId);
       await AsyncStorage.setItem('@TrustFlow_tasks_pipeline', boardId);
       router.setParams({ pipelineId: boardId });
       setShowPipelinePicker(false);
     } catch (e) {
       console.error('Failed to select board:', e);
     }
-  }, [recentlyUsedBoards, favoriteBoardIds, router]);
+  }, [recentlyUsedBoards, favoriteBoardIds, router, prepareBoardSwitch]);
 
   const toggleFavoriteBoard = useCallback(async (boardId: string) => {
     const updated = new Set(favoriteBoardIds);
@@ -589,7 +651,7 @@ function TasksScreen() {
           .eq('pipeline_id', targetPipelineId)
           .order('created_at', { ascending: false }),
         supabase.from('task_work_sessions')
-          .select('task_id, user_id, started_at, user:user_id(full_name, avatar_url)')
+          .select('task_id, user_id, started_at, last_heartbeat_at, user:user_id(full_name, avatar_url)')
           .eq('status', 'active'),
       ]);
 
@@ -648,10 +710,24 @@ function TasksScreen() {
           name: (s.user as any)?.full_name || 'User',
           avatar: (s.user as any)?.avatar_url,
           startedAt: s.started_at,
+          lastHeartbeatAt: (s as any).last_heartbeat_at,
         });
       });
       console.log('[TasksScreen] Session map created');
       setActiveSessions(sessionMap);
+
+      // Snapshot into the module cache so the next mount paints instantly.
+      taskCache.set(targetPipelineId as string, {
+        pipeline: pipelineData,
+        stages: stagesData || [],
+        tasks: filteredTasks as Task[],
+        availablePipelines: (allPipes as Pipeline[]) || [],
+        stageActions: actionsData || [],
+        stageTransitions: transitionsData || [],
+        activeSessions: sessionMap,
+        myTeamIds: resolvedTeamIds,
+      });
+      boardCacheMeta.lastPipelineId = targetPipelineId as string;
 
       console.log('[TasksScreen] fetchData completed successfully');
     } catch (err: any) {
@@ -660,8 +736,83 @@ function TasksScreen() {
       console.log('[TasksScreen] finally block: setting loading=false');
       setLoading(false);
       setRefreshing(false);
+      setSwitchingBoard(false);
     }
   };
+
+  // Load one board's data into a cache snapshot without touching component state.
+  // Mirrors fetchData's per-board queries; used to warm other boards in the
+  // background so switching to them is instant. Reuses the current global
+  // sessions + team ids (both board-independent).
+  const loadBoardSnapshot = useCallback(async (boardId: string): Promise<BoardSnapshot | null> => {
+    const board = availablePipelines.find(p => p.id === boardId);
+    if (!board) return null;
+    const [{ data: stagesData }, { data: tasksData }] = await Promise.all([
+      supabase.from('pipeline_stages')
+        .select('*, linked_pipeline:linked_pipeline_id(id, name)')
+        .eq('pipeline_id', boardId)
+        .order('position', { ascending: true }),
+      supabase.from('tasks')
+        .select(`
+          *,
+          project:project_id(id, name),
+          manager:manager_id(id, full_name),
+          assignments:task_assignments(
+            assignee_user_id,
+            assignee_team_id,
+            team:assignee_team_id(name),
+            user:assignee_user_id(full_name)
+          )
+        `)
+        .eq('pipeline_id', boardId)
+        .order('created_at', { ascending: false }),
+    ]);
+    const stages = stagesData || [];
+    const stageIds = stages.map((s: any) => s.id);
+    const [{ data: actionsData }, { data: transitionsData }] = await Promise.all([
+      supabase.from('pipeline_stage_actions').select('*').in('stage_id', stageIds),
+      supabase.from('pipeline_stage_transitions').select('id, to_stage_id').in('from_stage_id', stageIds),
+    ]);
+    const canViewAll = hasPermission('task.view_all') || hasPermission('tasks.view_all') || hasPermission('system.view_all_data') || hasPermission('pipeline.edit');
+    let filteredTasks = tasksData || [];
+    if (board.task_visibility_mode === 'assigned_only' && !canViewAll) {
+      filteredTasks = filteredTasks.filter((t: any) => {
+        const isManager = t.manager_id === user?.id;
+        const isAssigned = t.assignments?.some((a: any) =>
+          (a.assignee_user_id && a.assignee_user_id === user?.id) ||
+          (a.assignee_team_id && myTeamIds.includes(a.assignee_team_id))
+        );
+        return isManager || isAssigned;
+      });
+    }
+    return {
+      pipeline: board,
+      stages,
+      tasks: filteredTasks,
+      availablePipelines,
+      stageActions: actionsData || [],
+      stageTransitions: transitionsData || [],
+      activeSessions,
+      myTeamIds,
+    };
+  }, [availablePipelines, hasPermission, user?.id, myTeamIds, activeSessions]);
+
+  // Warm every other board in the background once the current board is loaded.
+  const prefetchedRef = useRef<Set<string>>(new Set());
+  const loadBoardSnapshotRef = useRef(loadBoardSnapshot);
+  loadBoardSnapshotRef.current = loadBoardSnapshot;
+  useEffect(() => {
+    if (availablePipelines.length < 2 || !pipeline?.id) return;
+    let cancelled = false;
+    prefetchOtherBoards({
+      boards: availablePipelines,
+      currentId: pipeline.id,
+      prefetched: prefetchedRef.current,
+      isCancelled: () => cancelled,
+      loadOne: (id) => loadBoardSnapshotRef.current(id),
+    });
+    return () => { cancelled = true; };
+  }, [availablePipelines, pipeline?.id]);
 
   useEffect(() => {
     console.log('[TasksScreen] useEffect with paramPipelineId:', paramPipelineId);
@@ -778,6 +929,23 @@ function TasksScreen() {
     };
   }, [isLargeScreen]);
 
+  // Realtime board updates — mirrors the desktop board so mobile is live, not
+  // 60s-polled. All .on() callbacks are registered before .subscribe() and the
+  // channel name is unique per mount; that avoids the old "Cannot add
+  // postgres_changes callbacks after subscribe()" crash. The polling effect
+  // above stays as a backstop for when the websocket drops on flaky mobile nets.
+  useEffect(() => {
+    const channel = supabase
+      .channel(`adaptive-board-realtime-${Date.now()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => fetchDataRef.current())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_work_sessions' }, () => fetchDataRef.current())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_comments' }, () => fetchDataRef.current())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_submissions' }, () => fetchDataRef.current())
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pipeline_stage_history' }, () => fetchDataRef.current())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchDataRef.current();
@@ -798,13 +966,13 @@ function TasksScreen() {
       const { data: allPipes } = await supabase.from('pipelines').select('id, name, task_visibility_mode, is_default').is('deleted_at', null);
       setAvailablePipelines(allPipes as Pipeline[] || []);
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Could not update default pipeline.');
+      showAlert('Error', err.message || 'Could not update default pipeline.');
     }
   };
 
   const handleCreateTask = () => {
     if (!hasPermission('task.create')) {
-      Alert.alert('Access Denied', 'Your current authorization level does not permit task initialization.');
+      showAlert('Access Denied', 'Your current authorization level does not permit task initialization.');
       return;
     }
     setShowCreateSheet(true);
@@ -821,7 +989,7 @@ function TasksScreen() {
       setArchiveModal({ visible: false, taskId: null });
       fetchData();
     } catch (err: any) {
-      Alert.alert('Archival Failed', err.message || 'Could not archive task.');
+      showAlert('Archival Failed', err.message || 'Could not archive task.');
     } finally {
       setArchiving(false);
     }
@@ -846,7 +1014,7 @@ function TasksScreen() {
 
   const activeFilterCount =
     filters.priorities.length + filters.categories.length +
-    filters.projectIds.length + filters.managerIds.length;
+    filters.projectIds.length + filters.managerIds.length + filters.dueDates.length;
 
   const toggleFilter = (key: keyof FilterState, value: string) => {
     setFilters(prev => {
@@ -856,7 +1024,7 @@ function TasksScreen() {
   };
 
   const clearFilters = () =>
-    setFilters({ priorities: [], categories: [], projectIds: [], managerIds: [] });
+    setFilters({ priorities: [], categories: [], projectIds: [], managerIds: [], dueDates: [] });
 
   const renderTaskCard = useCallback((task: Task) => {
     const prio = getPriorityInfo(task.priority, colors);
@@ -870,7 +1038,7 @@ function TasksScreen() {
           router.push(`/task/${task.id}`);
         }}
         activeOpacity={0.7}
-        className="bg-surface-card p-4 rounded-2xl mb-3 premium-shadow"
+        className="bg-surface-card p-4 rounded-2xl mb-3 premium-shadow relative hover:z-50"
         style={isPinged ? {
           borderWidth: 1.5,
           borderColor: 'rgba(255, 140, 0, 0.6)',
@@ -944,30 +1112,16 @@ function TasksScreen() {
           <Text className="text-typography-dim text-[9px] font-bold uppercase tracking-wider mb-1">{task.category}</Text>
         )}
         
-         {/* ACTIVE WORK INDICATOR - Avatar Refined */}
+         {/* ACTIVE WORK INDICATOR — avatar stack + hover session detail */}
         {kanban.showAvatars && activeSessions[task.id] && activeSessions[task.id].length > 0 && (
-          <View className="flex-row items-center mb-3">
-             <View className="relative">
-                <View className="w-6 h-6 rounded-full bg-brand-primary/10 overflow-hidden border-2 border-state-success">
-                   {activeSessions[task.id][0].avatar ? (
-                      <Image source={{ uri: activeSessions[task.id][0].avatar || undefined }} className="w-full h-full" />
-                   ) : (
-                      <View className="flex-1 items-center justify-center bg-brand-primary/20">
-                          <Text className="text-brand-primary text-[8px] font-black">{activeSessions[task.id][0].name.charAt(0)}</Text>
-                      </View>
-                   )}
-                </View>
-                <View className="absolute -right-0.5 -bottom-0.5 w-2 h-2 rounded-full bg-state-success border-2 border-surface-card" />
-             </View>
-             <Text className="text-state-success text-[10px] font-bold ml-2">
-                {activeSessions[task.id][0].name} {activeSessions[task.id].length > 1 ? `+${activeSessions[task.id].length - 1} more` : 'is active'}
-             </Text>
-          </View>
+          <ActiveSessionAvatars sessions={activeSessions[task.id]} />
         )}
 
-        <Text className="text-typography-muted text-xs leading-4 mb-3" numberOfLines={2}>
-          {task.description || 'No description provided.'}
-        </Text>
+        {!!task.description && (
+          <LinkifiedText className="text-typography-muted text-xs leading-4 mb-3" numberOfLines={2}>
+            {task.description}
+          </LinkifiedText>
+        )}
         
         <View className="pt-3 border-t border-surface-border/50">
           <TaskCardActions
@@ -992,6 +1146,7 @@ function TasksScreen() {
       if (filters.categories.length > 0 && !filters.categories.includes(t.category)) return false;
       if (filters.projectIds.length > 0 && !filters.projectIds.includes(t.project_id || '')) return false;
       if (filters.managerIds.length > 0 && !filters.managerIds.includes(t.manager_id || '')) return false;
+      if (filters.dueDates.length > 0 && !filters.dueDates.includes(getDueBucket(t.due_date))) return false;
       if (searchQuery && !t.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
       if (mineOnly && t.manager_id !== user?.id && !t.assignments?.some(a =>
         a.assignee_user_id === user?.id ||
@@ -999,9 +1154,10 @@ function TasksScreen() {
       )) return false;
       return true;
     });
+    if (sortKey !== 'default') stageTasks.sort((a, b) => compareTasksBySortKey(sortKey, a, b));
     return (
-      <View 
-        key={stage.id} 
+      <View
+        key={stage.id}
         style={{ width: isLargeScreen ? 320 : width * 0.85 }} 
         className="mr-4 h-full"
         // @ts-ignore - for web-only smart scroll
@@ -1138,7 +1294,25 @@ function TasksScreen() {
 
    return (
      <View className="flex-1 bg-surface-background">
-      {(Platform.OS !== 'web' || !isLargeScreen) && <View style={{ height: Platform.OS === 'web' ? TAB_BAR_HEIGHT.web : TAB_BAR_HEIGHT.native }} />}
+      {Platform.OS === 'web'
+        ? (!isLargeScreen && navPosition === 'top' && <View style={{ height: TAB_BAR_HEIGHT.web }} />)
+        : <View style={{ height: TAB_BAR_HEIGHT.native }} />}
+
+      {/* BOARD SWITCH OVERLAY — shown while an uncached board loads (cached boards swap instantly) */}
+      {switchingBoard && (
+        <View
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, elevation: 100,
+            alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.35)' }}
+        >
+          <View
+            style={{ backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }}
+            className="flex-row items-center gap-3 px-6 py-4 rounded-2xl premium-shadow"
+          >
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text className="text-typography-main font-bold text-sm">Switching board…</Text>
+          </View>
+        </View>
+      )}
 
       {/* KANBAN BACKGROUND LAYER */}
       {kanban.backgroundUrl && (
@@ -1175,7 +1349,7 @@ function TasksScreen() {
                <View>
                   <Text className="text-[9px] text-typography-muted font-black uppercase tracking-tighter mb-0.5">Velocity</Text>
                   <View className="flex-row items-baseline">
-                     <Text className="text-lg font-black text-typography-main">{Math.floor(pulse.active_seconds_today / 3600)}h</Text>
+                      <Text className="text-lg font-black text-typography-main">{formatCompact(pulse.active_seconds_today)}</Text>
                      <Text className="text-[9px] text-typography-muted ml-0.5 font-bold">{Math.floor((pulse.active_seconds_today % 3600) / 60)}m</Text>
                   </View>
                </View>
@@ -1561,7 +1735,7 @@ function TasksScreen() {
 
             {/* Manager */}
             {filterOptions.managers.length > 0 && (
-              <View>
+              <View className="mb-3">
                 <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-1.5">Manager</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
                   {filterOptions.managers.map(mgr => {
@@ -1579,6 +1753,44 @@ function TasksScreen() {
                 </ScrollView>
               </View>
             )}
+
+            {/* Due Date */}
+            <View className="mb-3">
+              <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-1.5">Due Date</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+                {DUE_DATE_BUCKETS.map(({ key, label }) => {
+                  const active = filters.dueDates.includes(key);
+                  return (
+                    <TouchableOpacity
+                      key={key}
+                      onPress={() => toggleFilter('dueDates', key)}
+                      className={`px-3 py-1 rounded-xl border ${active ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border'}`}
+                    >
+                      <Text className={`text-[10px] font-black uppercase tracking-wider ${active ? 'text-brand-primary' : 'text-typography-muted'}`}>{label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+
+            {/* Sort By */}
+            <View>
+              <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-1.5">Sort By</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+                {TASK_SORT_OPTIONS.map(({ key, label }) => {
+                  const active = sortKey === key;
+                  return (
+                    <TouchableOpacity
+                      key={key}
+                      onPress={() => setSortKey(key)}
+                      className={`px-3 py-1 rounded-xl border ${active ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border'}`}
+                    >
+                      <Text className={`text-[10px] font-black uppercase tracking-wider ${active ? 'text-brand-primary' : 'text-typography-muted'}`}>{label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
           </ScrollView>
         </View>
       )}

@@ -1,9 +1,11 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { useTicker } from '@/hooks/useTicker';
 import { supabase } from '@/lib/supabase';
+import { formatStopwatch } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Stack, useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   TextInput as RNTextInput,
   ScrollView,
@@ -16,10 +18,6 @@ import { generateAndUploadReport } from './reports/generate';
 
 const BRAND = 'rgb(99,102,241)';
 const BRAND_DIM = 'rgba(99,102,241,0.15)';
-
-function fmt(s: number) {
-  return `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
-}
 
 function GenerationProgress({ current, total, elapsed }: { current: number; total: number; elapsed: number }) {
   const colors = useThemeColors();
@@ -50,10 +48,10 @@ function GenerationProgress({ current, total, elapsed }: { current: number; tota
         </View>
       </View>
       <Text style={{ color: 'rgba(255,255,255,0.65)', fontSize: 13, fontWeight: '700', fontVariant: ['tabular-nums'] }}>
-        {fmt(elapsed)}
+        {formatStopwatch(elapsed)}
       </Text>
       {eta !== null && eta > 0 ? (
-        <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11 }}>~{fmt(eta)} remaining</Text>
+        <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11 }}>~{formatStopwatch(eta)} remaining</Text>
       ) : null}
     </View>
   );
@@ -125,8 +123,8 @@ export default function ReportGeneratorDesktop() {
   const [loading, setLoading]         = useState(false);
   const [genError, setGenError]       = useState<string | null>(null);
   const [genProgress, setGenProgress] = useState<{ current: number; total: number } | null>(null);
-  const [elapsed, setElapsed]         = useState(0);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [genStartedAt, setGenStartedAt] = useState<string | null>(null);
+  const elapsed = useTicker(genStartedAt);
 
   useEffect(() => { loadFilterOptions(); }, []);
 
@@ -263,11 +261,9 @@ export default function ReportGeneratorDesktop() {
   const handleGenerateReport = async () => {
     setGenError(null);
     setGenProgress(null);
-    setElapsed(0);
+    setGenStartedAt(new Date().toISOString());
     try {
       setLoading(true);
-      const t0 = Date.now();
-      timerRef.current = setInterval(() => setElapsed(Math.floor((Date.now() - t0) / 1000)), 1000);
 
       if (needsDateRange && timeFrame === 'custom' && (!dateStart || !dateEnd)) {
         setGenError('Please provide both start and end dates');
@@ -325,7 +321,7 @@ export default function ReportGeneratorDesktop() {
       console.error('Report generation error:', error);
       setGenError(error.message || 'Failed to generate report');
     } finally {
-      if (timerRef.current) clearInterval(timerRef.current);
+      setGenStartedAt(null);
       setLoading(false);
       setGenProgress(null);
     }
@@ -544,21 +540,6 @@ export default function ReportGeneratorDesktop() {
                       })}
 
                     </ScrollView>
-
-                    <View className="mt-10 pt-10 border-t border-surface-border">
-                      <View className="bg-surface-background p-6 rounded-3xl border border-surface-border">
-                        <View className="flex-row items-center mb-4">
-                          <FontAwesome name="shield" size={14} color={colors.primary} style={{ marginRight: 10 }} />
-                          <Text className="text-[10px] font-black uppercase tracking-widest text-typography-main">Data Sovereignty</Text>
-                        </View>
-                        <Text className="text-typography-muted text-xs leading-5 font-medium">
-                          {isMulti
-                            ? `Generating a combined ${selectedTypes.length}-module report. Data is fetched and assembled client-side before upload.`
-                            : 'Reports are generated client-side and downloaded immediately. High-volume data sets may take 10–30 seconds to compile.'
-                          }
-                        </Text>
-                      </View>
-                    </View>
                   </View>
                 </View>
               </View>

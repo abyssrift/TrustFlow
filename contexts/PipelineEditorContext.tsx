@@ -28,6 +28,7 @@ export type Stage = {
   is_terminal: boolean;
   terminal_type: 'success' | 'failure' | null;
   requires_submission: boolean;
+  submission_mode: 'none' | 'optional' | 'required';
   requires_timer: boolean;
   min_timer_seconds: number;
   use_business_hours: boolean;
@@ -741,6 +742,7 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
         p_is_terminal: args.is_terminal || false,
         p_terminal_type: args.terminal_type || null,
         p_requires_submission: args.requires_submission || false,
+        p_submission_mode: args.submission_mode || 'none',
         p_requires_timer: args.requires_timer || false,
         p_use_business_hours: args.use_business_hours || false,
         p_ui_metadata: args.ui_metadata || { x: 0, y: 0 },
@@ -771,6 +773,7 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
         p_is_terminal: args.is_terminal ?? null,
         p_terminal_type: args.terminal_type ?? null,
         p_requires_submission: args.requires_submission ?? null,
+        p_submission_mode: args.submission_mode ?? null,
         p_requires_timer: args.requires_timer ?? null,
         p_use_business_hours: args.use_business_hours ?? null,
         p_linked_pipeline_id: args.linked_pipeline_id ?? null,
