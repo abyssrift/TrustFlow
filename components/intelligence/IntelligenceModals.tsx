@@ -1,4 +1,4 @@
-import AppModal from '@/components/common/AppModal';
+import Popup from '@/components/common/Popup';
 import { FontAwesome } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -18,11 +18,13 @@ export const TargetCreationModal = ({ visible, onClose, onConfirm, pipelines, st
   const [deadline, setDeadline] = useState<Date | null>(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
   const filteredStages = stages.filter((stage: any) => stage.pipeline_id === p);
   return (
-    <AppModal
+    <Popup
       visible={visible}
       onClose={onClose}
-      dismissOnBackdrop={false}
-      containerClassName="w-full max-w-4xl rounded-[40px] overflow-hidden premium-shadow"
+      presentation="auto"
+      dismissible={false}
+      maxWidth={896}
+      containerClassName="rounded-[40px] overflow-hidden premium-shadow"
     >
       <View className="p-10 border-b" style={{ borderColor: colors.border }}>
         <Text className="text-3xl font-black tracking-tight mb-2" style={{ color: colors.textMain }}>Define Objective</Text>
@@ -104,7 +106,7 @@ export const TargetCreationModal = ({ visible, onClose, onConfirm, pipelines, st
           <Text className="font-black uppercase tracking-widest text-xs" style={{ color: 'white' }}>Create Objective</Text>
         </TouchableOpacity>
       </View>
-    </AppModal>
+    </Popup>
   );
 };
 
@@ -143,11 +145,13 @@ export const ReportConfigModal = ({ visible, onClose, onConfirm, pipelines, team
   };
 
   return (
-    <AppModal
+    <Popup
       visible={visible}
       onClose={onClose}
-      dismissOnBackdrop={false}
-      containerClassName="w-full max-w-2xl rounded-[40px] overflow-hidden premium-shadow"
+      presentation="auto"
+      dismissible={false}
+      maxWidth={672}
+      containerClassName="rounded-[40px] overflow-hidden premium-shadow"
     >
       <View className="p-10 border-b" style={{ borderColor: colors.border }}>
         <Text className="text-3xl font-black tracking-tight mb-2" style={{ color: colors.textMain }}>Quick Report</Text>
@@ -271,7 +275,7 @@ export const ReportConfigModal = ({ visible, onClose, onConfirm, pipelines, team
           <Text className="font-black uppercase tracking-widest text-xs" style={{ color: 'white' }}>Execute Audit Request</Text>
         </TouchableOpacity>
       </View>
-    </AppModal>
+    </Popup>
   );
 };
 
@@ -291,11 +295,13 @@ export const WidgetConfigModal = ({ visible, onClose, onSave, currentWidgets }: 
     else if (selected.length < 6) setSelected([...selected, id]);
   };
   return (
-    <AppModal
+    <Popup
       visible={visible}
       onClose={onClose}
-      dismissOnBackdrop={false}
-      containerClassName="w-full max-w-2xl rounded-[40px] overflow-hidden premium-shadow"
+      presentation="auto"
+      dismissible={false}
+      maxWidth={672}
+      containerClassName="rounded-[40px] overflow-hidden premium-shadow"
     >
       <View className="p-10 border-b" style={{ borderColor: colors.border }}>
         <Text className="text-3xl font-black mb-1" style={{ color: colors.textMain }}>Radar Telemetry</Text>
@@ -333,7 +339,7 @@ export const WidgetConfigModal = ({ visible, onClose, onSave, currentWidgets }: 
           <Text className="font-black text-xs" style={{ color: 'white' }}>Update Matrix</Text>
         </TouchableOpacity>
       </View>
-    </AppModal>
+    </Popup>
   );
 };
 
