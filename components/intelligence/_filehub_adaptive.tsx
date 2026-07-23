@@ -23,7 +23,6 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -141,8 +140,6 @@ function FileDetailSheet({
   /** When true (Shift+Click fast-track), jump straight to the fullscreen viewer. */
   autoPreview?: boolean;
 }) {
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 768;
   const { markRead, hideFile, deleteFile, logActivity, fileActivity, fileVersions, restoreVersion, pinVersion, folders, moveFile, createShareLink, revokeShareLink, listShareLinks } = useFileHub();
   const { showConfirm } = useAlert();
   const { successToast } = useToast();
@@ -328,7 +325,7 @@ function FileDetailSheet({
 
   return (
     <>
-    <Popup visible={!!file} onClose={onClose} presentation={isDesktop ? 'centered' : 'sheet'}>
+    <Popup visible={!!file} onClose={onClose} presentation="auto">
 
           {/* File header */}
           <View className="items-center px-6 pt-2 pb-4 border-b border-surface-border/50">
@@ -644,7 +641,7 @@ function FileDetailSheet({
           </ScrollView>
           )}
     </Popup>
-    <Popup visible={showMoveFolder} onClose={() => setShowMoveFolder(false)} presentation={isDesktop ? 'centered' : 'sheet'}>
+    <Popup visible={showMoveFolder} onClose={() => setShowMoveFolder(false)} presentation="auto">
       <View className="px-6 pt-2 pb-6">
         <Text className="text-typography-main font-black text-lg mb-4">Move to Folder</Text>
         <ScrollView showsVerticalScrollIndicator={false}>
@@ -670,7 +667,7 @@ function FileDetailSheet({
         </ScrollView>
       </View>
     </Popup>
-    <Popup visible={showShareLink} onClose={() => setShowShareLink(false)} presentation={isDesktop ? 'centered' : 'sheet'}>
+    <Popup visible={showShareLink} onClose={() => setShowShareLink(false)} presentation="auto">
       <View className="px-6 pt-2 pb-6">
         <Text className="text-typography-main font-black text-lg mb-4">Share "{file.original_name}"</Text>
 
@@ -840,8 +837,6 @@ function UploadSheet({
   profile: any;
   activeGroup?: { id: string; name: string; avatar_color: string } | null;
 }) {
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 768;
   const { folders, checkDuplicate, checkNameConflict, replaceFile, refreshFolders } = useFileHub();
   const { showAlert } = useAlert();
   const fileInputRef = useRef<any>(null);
@@ -1175,7 +1170,7 @@ function UploadSheet({
 
   return (
     <>
-    <Popup visible={visible} onClose={onClose} presentation={isDesktop ? 'centered' : 'sheet'}>
+    <Popup visible={visible} onClose={onClose} presentation="auto">
 
           {Platform.OS === 'web' && (
             <>
@@ -1510,8 +1505,6 @@ function GroupCreateSheet({
   onClose: () => void;
   onCreated: (groupId: string) => void;
 }) {
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 768;
   const { createGroup } = useFileHub();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -1553,7 +1546,7 @@ function GroupCreateSheet({
   };
 
   return (
-    <Popup visible={visible} onClose={onClose} presentation={isDesktop ? 'centered' : 'sheet'}>
+    <Popup visible={visible} onClose={onClose} presentation="auto">
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40, gap: 20 }}>
             <View className="flex-row items-center justify-between">
               <Text className="text-typography-main text-xl font-black">New Channel</Text>
@@ -1689,8 +1682,6 @@ function GroupMembersSheet({
   onClose: () => void;
   onMembersChanged: () => void;
 }) {
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 768;
   const { addGroupMember, removeGroupMember, fetchGroupMembers } = useFileHub();
   const [members, setMembers] = useState<FileHubGroupMember[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
@@ -1768,7 +1759,7 @@ function GroupMembersSheet({
   const myRole = members.find(m => m.id === currentUserId)?.role;
 
   return (
-    <Popup visible={visible} onClose={onClose} presentation={isDesktop ? 'centered' : 'sheet'}>
+    <Popup visible={visible} onClose={onClose} presentation="auto">
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40, gap: 16 }}>
             <View className="flex-row items-center justify-between">
               <Text className="text-typography-main text-xl font-black">{group.name}</Text>
@@ -2056,8 +2047,6 @@ function TagsManageSheet({ visible, onClose, onChanged }: {
   onClose: () => void;
   onChanged: () => void;
 }) {
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 768;
   const { allTagsWithCounts, renameTag, deleteTag } = useFileHub();
   const { showConfirm } = useAlert();
   const [tags, setTags] = useState<{ tag: string; count: number }[]>([]);
@@ -2100,7 +2089,7 @@ function TagsManageSheet({ visible, onClose, onChanged }: {
   };
 
   return (
-    <Popup visible={visible} onClose={onClose} presentation={isDesktop ? 'centered' : 'sheet'}>
+    <Popup visible={visible} onClose={onClose} presentation="auto">
           <View className="flex-row items-center justify-between px-6 py-4 border-b border-surface-border">
             <View className="flex-row items-center gap-2">
               <FontAwesome name="tags" size={14} color={colors.primary} />

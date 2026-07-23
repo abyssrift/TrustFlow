@@ -1,6 +1,6 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React from 'react';
-import { ScrollView, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 import { Role } from '@/contexts/RoleManagerContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -9,8 +9,6 @@ import type { TeamRolesSheetProps } from './TeamRolesSheet';
 
 export default function TeamRolesSheet({ visible, onClose, team, roles, draftRoleIds, onToggleRole, onSave, loading }: TeamRolesSheetProps) {
   const c = useThemeColors();
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 768;
 
   return (
     <Popup
@@ -18,8 +16,9 @@ export default function TeamRolesSheet({ visible, onClose, team, roles, draftRol
       onClose={onClose}
       dimBackdrop
       maxHeight="90%"
-      presentation={isDesktop ? 'centered' : 'sheet'}
-      containerClassName="w-[95%] max-w-[560px] max-h-[90vh] rounded-3xl overflow-hidden premium-shadow"
+      presentation="auto"
+      maxWidth={560}
+      containerClassName="w-[95%] max-h-[90vh] rounded-3xl overflow-hidden premium-shadow"
     >
       <View
         className="w-full rounded-3xl overflow-hidden"

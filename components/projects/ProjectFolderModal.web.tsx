@@ -11,7 +11,6 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    useWindowDimensions,
     View
 } from 'react-native';
 
@@ -35,8 +34,6 @@ export default function ProjectFolderModal({
   project,
 }: ProjectFolderModalProps) {
   const c = useThemeColors();
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 768;
   const {
     name, setName,
     description, setDescription,
@@ -55,8 +52,9 @@ export default function ProjectFolderModal({
         onClose={onClose}
         dimBackdrop
         maxHeight="90%"
-        presentation={isDesktop ? 'centered' : 'sheet'}
-        containerClassName="w-[95%] max-w-[560px] max-h-[90vh] rounded-3xl overflow-hidden premium-shadow"
+        presentation="auto"
+        maxWidth={560}
+        containerClassName="w-[95%] max-h-[90vh] rounded-3xl overflow-hidden premium-shadow"
       >
         <View
           className="w-full rounded-3xl overflow-hidden"

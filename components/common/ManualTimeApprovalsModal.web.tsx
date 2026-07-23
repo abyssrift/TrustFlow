@@ -2,7 +2,7 @@ import { useAlert } from '@/contexts/AlertContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 import Popup from '@/components/common/Popup';
 
 export type ApprovalQueueEntry = {
@@ -32,8 +32,6 @@ type Props = {
 
 export default function ManualTimeApprovalsModal({ visible, onClose, entries, onReview, onNavigateToTask }: Props) {
   const colors = useThemeColors();
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 768;
   const { showConfirm } = useAlert();
   const [index, setIndex] = useState(0);
   const [loading, setLoading] = useState<'approve' | 'reject' | null>(null);
@@ -85,10 +83,11 @@ export default function ManualTimeApprovalsModal({ visible, onClose, entries, on
       onClose={onClose}
       dimBackdrop
       maxHeight="90%"
-      presentation={isDesktop ? 'centered' : 'sheet'}
-      containerClassName="w-[95%] max-w-xl max-h-[90vh] rounded-[2.5rem] overflow-hidden premium-shadow-lg"
+      presentation="auto"
+      maxWidth={560}
+      containerClassName="w-[95%] max-h-[90vh] rounded-[2.5rem] overflow-hidden premium-shadow-lg"
     >
-      <View className="bg-surface-card w-full max-w-[560px] rounded-[2.5rem] border border-surface-border overflow-hidden premium-shadow-lg p-8">
+      <View className="bg-surface-card w-full rounded-[2.5rem] border border-surface-border overflow-hidden premium-shadow-lg p-8" style={{ maxWidth: 560 }}>
 
         {/* Header */}
         <View className="flex-row items-center justify-between mb-6">

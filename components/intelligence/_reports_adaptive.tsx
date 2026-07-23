@@ -15,7 +15,7 @@ import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useAlert } from '@/contexts/AlertContext';
 
 const STATUS_COLOR: Record<string, string> = {
@@ -43,14 +43,12 @@ const Picker = ({ items, selectedId, onSelect, labelKey = 'name' }: any) => (
 
 const GenerateModal = ({ visible, onClose, onConfirm, pipelines, teams, users }: any) => {
   const colors = useThemeColors();
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 768;
   const [days, setDays] = useState(30);
   const [pipeline, setPipeline] = useState<string | null>(null);
   const [team, setTeam]         = useState<string | null>(null);
   const [user, setUser]         = useState<string | null>(null);
   return (
-    <Popup visible={visible} onClose={onClose} presentation={isDesktop ? 'centered' : 'sheet'}>
+    <Popup visible={visible} onClose={onClose} presentation="auto">
           <View className="p-8 pt-2 pb-4">
             <Text className="text-typography-main text-2xl font-black mb-1">Generate Report</Text>
             <Text className="text-typography-muted text-xs">Configure audit parameters</Text>
