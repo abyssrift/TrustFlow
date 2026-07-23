@@ -11,7 +11,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  useWindowDimensions,
   View
 } from 'react-native';
 
@@ -43,8 +42,6 @@ export default function AssignmentModal({
   const [teamSearch, setTeamSearch] = useState('');
   const [userSearch, setUserSearch] = useState('');
   const colors = useThemeColors();
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 768;
   const { showAlert } = useAlert();
 
   const { user: currentUser, profile } = useAuth();
@@ -172,10 +169,11 @@ export default function AssignmentModal({
       onClose={onClose}
       dimBackdrop
       maxHeight="90%"
-      presentation={isDesktop ? 'centered' : 'sheet'}
-      containerClassName="w-[95%] max-w-4xl max-h-[90vh] rounded-[2.5rem] overflow-hidden premium-shadow-lg"
+      presentation="auto"
+      maxWidth={896}
+      containerClassName="w-[95%] max-h-[90vh] rounded-[2.5rem] overflow-hidden premium-shadow-lg"
     >
-      <View className="bg-surface-card w-full max-w-4xl rounded-[2.5rem] border border-surface-border overflow-hidden premium-shadow-lg flex-col max-h-[90vh]">
+      <View className="bg-surface-card w-full rounded-[2.5rem] border border-surface-border overflow-hidden premium-shadow-lg flex-col max-h-[90vh]" style={{ maxWidth: 896 }}>
         
         {/* HEADER */}
         <View className="p-8 border-b border-surface-border flex-row items-center justify-between bg-surface-card/80">

@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { formatCompact } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Popup from '@/components/common/Popup';
 
@@ -54,8 +54,6 @@ export default function ProjectDashboardSheet({
 }) {
   const c = useThemeColors();
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 768;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<Dashboard | null>(null);
@@ -97,7 +95,7 @@ export default function ProjectDashboardSheet({
       onClose={onClose}
       dimBackdrop
       maxHeight="94%"
-      presentation={isDesktop ? 'centered' : 'sheet'}
+      presentation="auto"
     >
       <View style={{ flex: 1, backgroundColor: c.background }}>
         {/* Header */}

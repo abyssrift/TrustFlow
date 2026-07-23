@@ -570,8 +570,6 @@ function DashboardSettingsModal({ visible, onClose, config, onSave }: {
   const [useAllPipelines, setUseAllPipelines] = useState(true);
   const [loading, setLoading] = useState(false);
   const colors = useThemeColors();
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 768;
 
   useEffect(() => {
     if (visible) {
@@ -634,7 +632,7 @@ function DashboardSettingsModal({ visible, onClose, config, onSave }: {
   };
 
   return (
-    <Popup visible={visible} onClose={onClose} presentation={isDesktop ? 'centered' : 'sheet'}>
+    <Popup visible={visible} onClose={onClose} presentation="auto">
           <View className="p-6 border-b border-surface-border flex-row justify-between items-center bg-surface-card">
             <View>
               <Text className="text-typography-main text-xl font-black">Dashboard Config</Text>

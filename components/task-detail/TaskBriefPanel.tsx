@@ -9,7 +9,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Platform, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Image, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import Popup from '@/components/common/Popup';
 import ImageLightbox from '@/components/common/ImageLightbox';
 import { FilePreviewModal, getPreviewKind, type PreviewKind } from '@/components/common/FilePreview';
@@ -188,8 +188,6 @@ export default function TaskBriefPanel() {
   const { user } = useAuth();
   const { showConfirm } = useAlert();
   const colors = useThemeColors();
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 768;
   const [uploading, setUploading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
@@ -582,7 +580,7 @@ export default function TaskBriefPanel() {
 
       {/* Feature D: version history sheet — newest first, restore = pointer move.
           Inline colors on purpose — theme-token classes go black inside RN Modal on web. */}
-      <Popup visible={!!historyFor} onClose={() => setHistoryFor(null)} dimBackdrop presentation={isDesktop ? 'centered' : 'sheet'}>
+      <Popup visible={!!historyFor} onClose={() => setHistoryFor(null)} dimBackdrop presentation="auto">
         <ScrollView className="px-6 pt-6 pb-10">
           <Text style={{ color: colors.textMain, fontSize: 18, fontWeight: '900', marginBottom: 4 }}>Version History</Text>
           {historyFor && (

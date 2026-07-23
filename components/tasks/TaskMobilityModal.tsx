@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Platform, TextInput, useWindowDimensions } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Platform, TextInput } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import Popup from '@/components/common/Popup';
 import { useAuth } from '@/contexts/AuthContext';
@@ -38,8 +38,6 @@ const MIME: Record<SpreadsheetFormat, string> = {
 
 export default function TaskMobilityModal({ visible, onClose, onImported }: Props) {
   const colors = useThemeColors();
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 768;
   const { hasPermission, user } = useAuth();
   const { successToast, errorToast, infoToast } = useToast();
 
@@ -652,7 +650,7 @@ export default function TaskMobilityModal({ visible, onClose, onImported }: Prop
   );
 
   return (
-    <Popup visible={visible} onClose={handleClose} dimBackdrop presentation={isDesktop ? 'centered' : 'sheet'}>
+    <Popup visible={visible} onClose={handleClose} dimBackdrop presentation="auto">
       {body}
     </Popup>
   );

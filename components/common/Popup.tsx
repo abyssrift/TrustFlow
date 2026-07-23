@@ -1,6 +1,6 @@
 import { useThemeColors } from '@/hooks/useThemeColors';
 import React from 'react';
-import { Modal, Platform, Pressable, Text, View } from 'react-native';
+import { Modal, Platform, Pressable, Text, View, useWindowDimensions } from 'react-native';
 import DraggableSheet from './DraggableSheet';
 
 type ActionVariant = 'default' | 'danger' | 'disabled';
@@ -27,13 +27,17 @@ export default function Popup({
   draggable = true,
   dismissible = true,
   maxHeight,
+  maxWidth = 420,
+  sheetMaxWidth,
+  desktopBreakpoint = 768,
   dimBackdrop = false,
   containerClassName,
 }: {
   visible: boolean;
   onClose: () => void;
   children: React.ReactNode;
-  presentation?: 'sheet' | 'centered';
+  /** 'auto' picks 'centered' at/above desktopBreakpoint and 'sheet' below it (web only; native always renders as a sheet). */
+  presentation?: 'sheet' | 'centered' | 'auto';
   title?: string;
   footer?: 'none' | 'single-action' | 'dual-action';
   primaryAction?: PrimaryAction;
@@ -42,12 +46,21 @@ export default function Popup({
   draggable?: boolean;
   dismissible?: boolean;
   maxHeight?: number | `${number}%`;
+  /** Centered-presentation width cap in px. Immune to OS/browser text-scale, unlike a `max-w-[Npx]` class. */
+  maxWidth?: number;
+  /** Optional width cap (px) for sheet presentation, for sheets that stay centered/capped on wide viewports. Immune to text-scale, unlike a `max-w-[Npx]` class. */
+  sheetMaxWidth?: number;
+  /** Viewport width (px) at which 'auto' presentation switches from sheet to centered. */
+  desktopBreakpoint?: number;
   dimBackdrop?: boolean;
   containerClassName?: string;
 }) {
   const c = useThemeColors();
+  const { width: screenWidth } = useWindowDimensions();
   const isWeb = Platform.OS === 'web';
-  const effectivePresentation = isWeb ? presentation : 'sheet';
+  const resolvedPresentation = presentation === 'auto' ? (screenWidth >= desktopBreakpoint ? 'centered' : 'sheet') : presentation;
+  const effectivePresentation = isWeb ? resolvedPresentation : 'sheet';
+  const centeredWidth = Math.min(screenWidth * 0.9, maxWidth);
 
   if (effectivePresentation === 'sheet') {
     return (
@@ -64,6 +77,7 @@ export default function Popup({
         maxHeight={maxHeight}
         dimBackdrop={dimBackdrop}
         containerClassName={containerClassName}
+        containerStyle={sheetMaxWidth ? { maxWidth: sheetMaxWidth, alignSelf: 'center', width: '95%' } : undefined}
       >
         {children}
       </DraggableSheet>
@@ -74,8 +88,8 @@ export default function Popup({
     <Modal transparent visible={visible} animationType="fade" onRequestClose={dismissible ? onClose : undefined}>
       <Pressable className="flex-1 items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.7)' }} onPress={dismissible ? onClose : undefined}>
           <Pressable
-            className={containerClassName ?? 'w-[90%] max-w-[400px] rounded-3xl overflow-hidden premium-shadow'}
-            style={[{ backgroundColor: c.card, borderWidth: 1, borderColor: c.border }, maxHeight ? { maxHeight } as any : undefined]}
+            className={containerClassName ?? 'rounded-3xl overflow-hidden premium-shadow'}
+            style={[{ backgroundColor: c.card, borderWidth: 1, borderColor: c.border, width: centeredWidth }, maxHeight ? { maxHeight } as any : undefined]}
             onPress={() => {}}
           >
           {title && (

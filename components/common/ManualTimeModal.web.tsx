@@ -3,7 +3,7 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useState } from 'react';
-import { ActivityIndicator, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Popup from '@/components/common/Popup';
 
 const todayIso = () => new Date().toISOString().split('T')[0];
@@ -25,8 +25,6 @@ type Props = {
 export default function ManualTimeModal({ visible, taskId, stageId, transitionId, minTimerSeconds = 300, onSuccess, onCancel }: Props) {
   const minMinutes = Math.max(1, Math.round(minTimerSeconds / 60));
   const colors = useThemeColors();
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 768;
   const [hours, setHours] = useState('');
   const [minutes, setMinutes] = useState('');
   const [reason, setReason] = useState('');
@@ -86,8 +84,8 @@ export default function ManualTimeModal({ visible, taskId, stageId, transitionId
   };
 
   return (
-    <Popup visible={visible} onClose={handleCancel} dimBackdrop maxHeight="90%" presentation={isDesktop ? 'centered' : 'sheet'} containerClassName="w-[95%] max-w-xl max-h-[90vh] rounded-[2.5rem] overflow-hidden premium-shadow-lg">
-      <View className="bg-surface-card w-full max-w-[520px] rounded-[2.5rem] border border-surface-border overflow-hidden premium-shadow-lg">
+    <Popup visible={visible} onClose={handleCancel} dimBackdrop maxHeight="90%" presentation="auto" maxWidth={520} containerClassName="w-[95%] max-h-[90vh] rounded-[2.5rem] overflow-hidden premium-shadow-lg">
+      <View className="bg-surface-card w-full rounded-[2.5rem] border border-surface-border overflow-hidden premium-shadow-lg" style={{ maxWidth: 520 }}>
 
         {/* Header */}
         <View className="p-10 pb-0 items-center relative">

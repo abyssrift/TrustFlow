@@ -2,7 +2,7 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import UserLink from '@/components/common/UserLink';
 import Popup from '@/components/common/Popup';
 
@@ -55,8 +55,6 @@ const CHANNEL_KIND_LABEL: Record<ChannelRow['kind'], string> = {
 
 export default function FileHubAnalytics({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const c = useThemeColors();
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 768;
   const [days, setDays] = useState(30);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -202,7 +200,7 @@ export default function FileHubAnalytics({ visible, onClose }: { visible: boolea
   );
 
   return (
-    <Popup visible={visible} onClose={onClose} dimBackdrop presentation={isDesktop ? 'centered' : 'sheet'} maxHeight="92%">
+    <Popup visible={visible} onClose={onClose} dimBackdrop presentation="auto" maxHeight="92%">
       {body}
     </Popup>
   );

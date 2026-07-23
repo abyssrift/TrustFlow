@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Alert, ScrollView, Switch, Platform, useWindowDimensions } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Alert, ScrollView, Switch, Platform } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { usePipelineEditor, Stage } from '@/contexts/PipelineEditorContext';
 import { useAlert } from '@/contexts/AlertContext';
@@ -15,8 +15,6 @@ const COLOR_PALETTE = [
 
 export default function StageBuilder() {
   const colors = useThemeColors();
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 1024;
   const {
     stages, loading, error, pipelines, isOperationInFlight,
     addStage, updateStage, deleteStage, reorderStages,
@@ -235,8 +233,10 @@ export default function StageBuilder() {
           visible={!!(editingStageId || showAddForm)}
           onClose={() => { setEditingStageId(null); setShowAddForm(false); }}
           maxHeight="90%"
-          presentation={isDesktop ? 'centered' : 'sheet'}
-          containerClassName="w-[95%] max-w-[540px] max-h-[90vh] rounded-3xl overflow-hidden premium-shadow"
+          presentation="auto"
+          desktopBreakpoint={1024}
+          maxWidth={540}
+          containerClassName="w-[95%] max-h-[90vh] rounded-3xl overflow-hidden premium-shadow"
         >
           <View className="px-6 py-4 border-b border-surface-border flex-row justify-between items-center bg-surface-background/50">
             <Text className="text-typography-main font-black uppercase tracking-widest text-xs">
@@ -589,8 +589,10 @@ export default function StageBuilder() {
           visible={!!editingTransitionId}
           onClose={() => setEditingTransitionId(null)}
           maxHeight="90%"
-          presentation={isDesktop ? 'centered' : 'sheet'}
-          containerClassName="w-[95%] max-w-[540px] max-h-[90vh] rounded-3xl overflow-hidden premium-shadow"
+          presentation="auto"
+          desktopBreakpoint={1024}
+          maxWidth={540}
+          containerClassName="w-[95%] max-h-[90vh] rounded-3xl overflow-hidden premium-shadow"
         >
           <View className="px-6 py-4 border-b border-surface-border flex-row justify-between items-center bg-surface-background/50">
             <Text className="text-typography-main font-black uppercase tracking-widest text-xs">

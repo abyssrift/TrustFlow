@@ -4,7 +4,7 @@ import { useFileHub, type FileHubFile } from '@/contexts/FileHubContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { FontAwesome } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Platform, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, FlatList, Platform, Text, TouchableOpacity, View } from 'react-native';
 import Popup from '@/components/common/Popup';
 import UserLink from '@/components/common/UserLink';
 
@@ -95,8 +95,6 @@ function flattenVisible(nodes: BinNode[], expanded: Set<string>, depth = 0, out:
 
 export default function FileHubBin({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const c = useThemeColors();
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 768;
   const { hasPermission } = useAuth();
   const { showConfirm } = useAlert();
   const { binFiles, binLoading, fetchBin, restoreFromBin, restoreFolder, emptyBin } = useFileHub();
@@ -306,7 +304,7 @@ export default function FileHubBin({ visible, onClose }: { visible: boolean; onC
   );
 
   return (
-    <Popup visible={visible} onClose={onClose} dimBackdrop presentation={isDesktop ? 'centered' : 'sheet'} maxHeight="85%">
+    <Popup visible={visible} onClose={onClose} dimBackdrop presentation="auto" maxHeight="85%">
       {body}
     </Popup>
   );

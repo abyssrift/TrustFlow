@@ -1,6 +1,6 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React from 'react';
-import { Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import Popup from '@/components/common/Popup';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -10,8 +10,6 @@ export default function TeamCreateSheet({
   visible, onClose, name, onChangeName, description, onChangeDescription, color, onChangeColor, onCreate, loading,
 }: TeamCreateSheetProps) {
   const c = useThemeColors();
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 1024;
 
   return (
     <Popup
@@ -19,8 +17,10 @@ export default function TeamCreateSheet({
       onClose={onClose}
       dimBackdrop
       maxHeight="90%"
-      presentation={isDesktop ? 'centered' : 'sheet'}
-      containerClassName="w-[95%] max-w-[480px] max-h-[90vh] rounded-3xl overflow-hidden premium-shadow"
+      presentation="auto"
+      desktopBreakpoint={1024}
+      maxWidth={480}
+      containerClassName="w-[95%] max-h-[90vh] rounded-3xl overflow-hidden premium-shadow"
     >
       <View className="flex-row items-center justify-between px-7 pt-6 pb-5" style={{ borderBottomWidth: 1, borderBottomColor: c.border }}>
         <View className="flex-1 mr-4">
