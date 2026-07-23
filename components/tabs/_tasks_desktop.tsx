@@ -2053,6 +2053,7 @@ export function TasksScreenWeb() {
         visible={showMobility}
         onClose={() => setShowMobility(false)}
         onImported={fetchData}
+        pipelineId={pipeline?.id}
       />
 
       {archiveError && (

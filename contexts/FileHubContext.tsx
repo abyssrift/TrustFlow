@@ -139,7 +139,12 @@ export type FileHubGroup = {
   name: string;
   description: string | null;
   avatar_color: string;
-  my_role: 'admin' | 'member';
+  my_role: 'admin' | 'member' | null;
+  // True when this channel is visible only because the caller holds
+  // filehub:group_override(_manage) and switched on channelOverrideMode —
+  // they are not actually in filehub_group_members, so other members can't
+  // see them unless someone explicitly invites them in.
+  is_override: boolean;
   member_count: number;
   members: Array<{ id: string; full_name: string; avatar_url: string | null }>;
   file_count: number;
@@ -222,6 +227,11 @@ type FileHubContextType = {
   // Groups
   groups: FileHubGroup[];
   groupsLoading: boolean;
+  // "Browse all channels" — off by default. Only takes effect for holders of
+  // filehub:group_override; toggling it on lists every company channel
+  // instead of just the ones the caller belongs to.
+  channelOverrideMode: boolean;
+  setChannelOverrideMode: (on: boolean) => void;
   activeGroupId: string | null;
   setActiveGroupId: (id: string | null) => void;
   groupFiles: FileHubFile[];
@@ -229,6 +239,8 @@ type FileHubContextType = {
   refreshGroups: () => void;
   refreshGroupFiles: () => void;
   createGroup: (name: string, description: string | null, avatarColor: string, memberIds: string[]) => Promise<string>;
+  renameGroup: (groupId: string, name: string) => Promise<void>;
+  deleteGroup: (groupId: string) => Promise<void>;
   addGroupMember: (groupId: string, userId: string) => Promise<void>;
   removeGroupMember: (groupId: string, userId: string) => Promise<void>;
   fetchGroupMembers: (groupId: string) => Promise<FileHubGroupMember[]>;
@@ -266,6 +278,7 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
   // Groups state
   const [groups, setGroups] = useState<FileHubGroup[]>([]);
   const [groupsLoading, setGroupsLoading] = useState(false);
+  const [channelOverrideMode, setChannelOverrideMode] = useState(false);
   const [activeGroupId, setActiveGroupIdState] = useState<string | null>(null);
   const [groupFiles, setGroupFiles] = useState<FileHubFile[]>([]);
   const [groupFilesLoading, setGroupFilesLoading] = useState(false);
@@ -372,7 +385,7 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
   const fetchGroups = useCallback(async () => {
     setGroupsLoading(true);
     try {
-      const { data, error } = await supabase.rpc('rpc_filehub_group_list');
+      const { data, error } = await supabase.rpc('rpc_filehub_group_list', { p_override: channelOverrideMode });
       if (error) throw error;
       setGroups(data || []);
     } catch (e) {
@@ -380,7 +393,7 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setGroupsLoading(false);
     }
-  }, []);
+  }, [channelOverrideMode]);
 
   const fetchGroupFiles = useCallback(async () => {
     if (!activeGroupId) return;
@@ -422,6 +435,19 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
     await fetchGroups();
     return data as string;
   }, [fetchGroups]);
+
+  const renameGroup = useCallback(async (groupId: string, name: string) => {
+    const { error } = await supabase.rpc('rpc_filehub_group_rename', { p_group_id: groupId, p_name: name });
+    if (error) { showAlert('Error', error.message); throw error; }
+    await fetchGroups();
+  }, [fetchGroups]);
+
+  const deleteGroup = useCallback(async (groupId: string) => {
+    const { error } = await supabase.rpc('rpc_filehub_group_delete', { p_group_id: groupId });
+    if (error) { showAlert('Error', error.message); throw error; }
+    if (activeGroupId === groupId) setActiveGroupIdState(null);
+    await fetchGroups();
+  }, [fetchGroups, activeGroupId]);
 
   const addGroupMember = useCallback(async (groupId: string, userId: string) => {
     const { error } = await supabase.rpc('rpc_filehub_group_add_member', {
@@ -830,10 +856,11 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
       createShareLink, revokeShareLink, listShareLinks,
       createFolderShareLink, listFolderShareLinks,
       groups, groupsLoading,
+      channelOverrideMode, setChannelOverrideMode,
       activeGroupId, setActiveGroupId,
       groupFiles, groupFilesLoading,
       refreshGroups, refreshGroupFiles,
-      createGroup, addGroupMember, removeGroupMember, fetchGroupMembers,
+      createGroup, renameGroup, deleteGroup, addGroupMember, removeGroupMember, fetchGroupMembers,
       logActivity, fileActivity, allTagsWithCounts, renameTag, deleteTag,
     }}>
       {children}

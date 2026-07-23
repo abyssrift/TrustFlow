@@ -1,6 +1,7 @@
 import { registerImporter } from '@/lib/imports/registry';
 import type { ImporterAdapter, ImportedTask, AuthPayload } from '@/lib/imports/types';
 import { fetchViaProxy } from '@/lib/imports/importProxyClient';
+import { htmlToText } from '@/lib/imports/htmlToText';
 import { manifest } from './manifest';
 
 // Odoo's default project.task priority selection is 2-level: '0' Normal, '1' High.
@@ -25,12 +26,13 @@ const odooImporter: ImporterAdapter = {
   mapToCanonical(raw: any[]): ImportedTask[] {
     return raw.map((task: any) => ({
       title: task.name || '',
-      description: task.description || '',
+      // Odoo `description` is an HTML field — flatten to plain text.
+      description: htmlToText(task.description || ''),
       priority: priorityMap[String(task.priority)] || 'medium',
       category: null,
-      // Odoo many2one fields come back as [id, display_name]; display_name is
-      // the user's name, not an email — best effort until we resolve emails.
-      assigneeEmails: task.user_id?.[1] ? [task.user_id[1]] : [],
+      // Proxy normalises assignees → emails on `_assignees` (handles the
+      // Odoo 17 user_id → user_ids rename + res.users email lookup).
+      assigneeEmails: Array.isArray(task._assignees) ? task._assignees : [],
       dueDate: task.date_deadline || null,
       tags: Array.isArray(task.tag_ids) ? task.tag_ids.map((t: any) => (Array.isArray(t) ? t[1] : String(t))) : [],
       externalId: String(task.id || ''),

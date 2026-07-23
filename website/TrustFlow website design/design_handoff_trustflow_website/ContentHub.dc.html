@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  body{margin:0;background:#0a0a0a}
+  a{color:#cfe3f5;text-decoration:none}
+  a:hover{color:#eaf3fb}
+</style>
+<script src="./image-slot.js"></script>
+</helmet>
+
+<div style="position:fixed;inset:0;z-index:1;pointer-events:none;opacity:0.05;mix-blend-mode:overlay;background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22180%22 height=%22180%22><filter id=%22n%22><feTurbulence type=%22fractalNoise%22 baseFrequency=%220.9%22 numOctaves=%222%22 stitchTiles=%22stitch%22/></filter><rect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22/></svg>')"></div>
+<div style="font-family:Inter,system-ui,sans-serif;color:#f4f6f7;background:#0a0a0a">
+
+  <nav style="position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;height:72px;padding:0 48px;max-width:1200px;margin:0 auto;background:{{ navBg }};backdrop-filter:blur(10px);border-bottom:1px solid {{ navBorder }};transition:background .2s,border-color .2s">
+    <a href="Home.dc.html" style="font-family:'Inter Tight',Inter,sans-serif;font-weight:700;font-size:18px;color:#f4f6f7;letter-spacing:-0.01em">TrustFlow</a>
+    <div style="display:flex;align-items:center;gap:36px;flex-wrap:nowrap">
+      <a href="Product.dc.html" style="font-weight:500;font-size:14.5px;color:#9aa4ae;white-space:nowrap" style-hover="color:#f4f6f7">Product</a>
+      <a href="Plans.dc.html" style="font-weight:500;font-size:14.5px;color:#9aa4ae;white-space:nowrap" style-hover="color:#f4f6f7">Plans</a>
+      <a href="ContentHub.dc.html" style="font-weight:600;font-size:14.5px;color:#f4f6f7;white-space:nowrap">Content Hub</a>
+      <a href="Docs.dc.html" style="font-weight:500;font-size:14.5px;color:#9aa4ae;white-space:nowrap" style-hover="color:#f4f6f7">Docs &amp; Help</a>
+    </div>
+    <div style="display:flex;align-items:center;gap:22px;flex-wrap:nowrap">
+      <a href="#" style="font-weight:500;font-size:14.5px;color:#9aa4ae;white-space:nowrap" style-hover="color:#f4f6f7">Log in</a>
+      <a href="#" style="background:#ffffff;color:#0a0a0a;font-weight:600;font-size:14px;padding:9px 18px;border-radius:7px;white-space:nowrap" style-hover="background:#dfe3e6">Start free trial</a>
+    </div>
+  </nav>
+
+  <section style="padding:72px 48px 32px;max-width:720px;margin:0 auto;text-align:center">
+    <span style="font-weight:700;font-size:12px;letter-spacing:0.08em;color:#6f7982;text-transform:uppercase">Content Hub</span>
+    <h1 style="font-family:'Inter Tight',Inter,sans-serif;font-weight:800;font-size:clamp(30px,3.6vw,42px);line-height:1.16;letter-spacing:-0.02em;margin:16px 0 14px;color:#f7f8f9">Notes on running work well.</h1>
+    <p style="font-size:16.5px;line-height:1.65;color:#9aa4ae;margin:0 auto;max-width:480px">Product updates, guides, and stories from teams using TrustFlow every day.</p>
+  </section>
+
+  <section style="padding:8px 48px 0;display:flex;justify-content:center">
+    <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:10px">
+      <sc-for list="{{ categoryTabs }}" as="tab" hint-placeholder-count="4">
+        <button onClick="{{ tab.select }}" style="border:1px solid {{ tab.borderColor }};cursor:pointer;font-family:Inter,sans-serif;font-weight:600;font-size:13.5px;padding:9px 18px;border-radius:20px;background:{{ tab.bg }};color:{{ tab.color }};white-space:nowrap">{{ tab.label }}</button>
+      </sc-for>
+    </div>
+  </section>
+
+  <sc-if value="{{ showFeatured }}" hint-placeholder-val="{{ true }}">
+    <section style="padding:48px 48px 0">
+      <div style="max-width:1200px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:56px;align-items:center;background:#141414;border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:48px;position:relative;overflow:hidden">
+        <div style="min-width:0">
+          <span style="font-weight:700;font-size:11.5px;letter-spacing:0.08em;color:#7fd9a3;text-transform:uppercase">Featured &middot; Product updates</span>
+          <h2 style="font-family:'Inter Tight',Inter,sans-serif;font-weight:700;font-size:28px;margin:14px 0 12px;color:#f7f8f9">Introducing Automations 2.0</h2>
+          <p style="font-size:15.5px;line-height:1.65;color:#9aa4ae;max-width:420px;margin:0 0 22px">A faster way to build cross-board rules, with a visual editor and a full run history &mdash; no code required.</p>
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="font-size:13px;color:#6f7982">Jul 14, 2026</span>
+            <span style="font-size:13px;color:#6f7982">&middot;</span>
+            <span style="font-size:13px;color:#6f7982">4 min read</span>
+          </div>
+        </div>
+        <div style="min-width:0;border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,0.08)">
+          <image-slot id="featured-post" style="width:100%;height:280px;display:block" shape="rect" fit="cover" placeholder="Featured article image — automations builder"></image-slot>
+        </div>
+      </div>
+    </section>
+  </sc-if>
+
+  <section style="padding:56px 48px 140px">
+    <div style="max-width:1200px;margin:0 auto;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px">
+      <sc-for list="{{ posts }}" as="post" hint-placeholder-count="6">
+        <a href="#" style="display:block;color:inherit">
+          <div style="border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,0.08)">
+            <image-slot id="{{ post.imgId }}" style="width:100%;height:190px;display:block" shape="rect" fit="cover" placeholder="{{ post.placeholder }}"></image-slot>
+          </div>
+          <span style="display:block;margin-top:16px;font-weight:600;font-size:11.5px;letter-spacing:0.06em;color:#6f7982;text-transform:uppercase">{{ post.category }}</span>
+          <h3 style="font-family:'Inter Tight',Inter,sans-serif;font-weight:700;font-size:18px;margin:10px 0 8px;color:#f4f6f7;line-height:1.35">{{ post.title }}</h3>
+          <p style="font-size:14px;line-height:1.6;color:#9aa4ae;margin:0">{{ post.excerpt }}</p>
+          <div style="display:flex;align-items:center;gap:10px;margin-top:14px">
+            <span style="font-size:12.5px;color:#5b636b">{{ post.date }}</span>
+            <span style="font-size:12.5px;color:#5b636b">&middot;</span>
+            <span style="font-size:12.5px;color:#5b636b">{{ post.readTime }}</span>
+          </div>
+        </a>
+      </sc-for>
+    </div>
+    <sc-if value="{{ noResults }}" hint-placeholder-val="{{ false }}">
+      <p style="text-align:center;color:#6f7982;font-size:14.5px;margin-top:40px">No posts in this category yet.</p>
+    </sc-if>
+  </section>
+
+  <footer style="padding:48px 48px 40px;border-top:1px solid rgba(255,255,255,0.08)">
+    <div style="max-width:1200px;margin:0 auto;display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:32px">
+      <span style="font-family:'Inter Tight',Inter,sans-serif;font-weight:700;font-size:17px;color:#f4f6f7">TrustFlow</span>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <span style="font-weight:600;font-size:13px;color:#f4f6f7">Product</span>
+        <a href="Product.dc.html" style="font-size:14px;color:#8a94a0" style-hover="color:#f4f6f7">Features</a>
+        <a href="Plans.dc.html" style="font-size:14px;color:#8a94a0" style-hover="color:#f4f6f7">Plans</a>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <span style="font-weight:600;font-size:13px;color:#f4f6f7">Resources</span>
+        <a href="ContentHub.dc.html" style="font-size:14px;color:#8a94a0" style-hover="color:#f4f6f7">Content Hub</a>
+        <a href="Docs.dc.html" style="font-size:14px;color:#8a94a0" style-hover="color:#f4f6f7">Docs &amp; Help</a>
+        <a href="Plans.dc.html#faq" style="font-size:14px;color:#8a94a0" style-hover="color:#f4f6f7">FAQ</a>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <span style="font-weight:600;font-size:13px;color:#f4f6f7">Company</span>
+        <a href="#" style="font-size:14px;color:#8a94a0" style-hover="color:#f4f6f7">Contact</a>
+        <a href="#" style="font-size:14px;color:#8a94a0" style-hover="color:#f4f6f7">Privacy</a>
+      </div>
+    </div>
+    <div style="max-width:1200px;margin:40px auto 0;padding-top:20px;border-top:1px solid rgba(255,255,255,0.08)">
+      <span style="font-size:13px;color:#5b636b">&copy; 2026 TrustFlow. All rights reserved.</span>
+    </div>
+  </footer>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { scrolled: false, category: 'All' };
+
+  categories = ['All', 'Product updates', 'Guides', 'Customer stories'];
+
+  allPosts = [
+    { title: "How Meridian Realty cut reporting time in half", category: 'Customer stories', excerpt: 'A real estate team moved listings, documents, and deals into one shared pipeline.', date: 'Jul 10, 2026', readTime: '5 min read', imgId: 'post-meridian', placeholder: 'Case study image — Meridian Realty' },
+    { title: '5 ways to structure a task board that actually works', category: 'Guides', excerpt: "The difference between a board people update and one they abandon.", date: 'Jul 8, 2026', readTime: '6 min read', imgId: 'post-boards-guide', placeholder: 'Guide image — task board structure' },
+    { title: 'Mobile app: offline mode is here', category: 'Product updates', excerpt: 'Keep working without signal, and sync automatically the moment you reconnect.', date: 'Jul 2, 2026', readTime: '3 min read', imgId: 'post-offline', placeholder: 'Product update image — offline mode' },
+    { title: "Inside Foster & Cole's client-guest workflow", category: 'Customer stories', excerpt: 'How an agency shares progress with clients without exposing internal notes.', date: 'Jun 28, 2026', readTime: '5 min read', imgId: 'post-foster-cole', placeholder: 'Case study image — Foster & Cole' },
+    { title: "The founder's guide to fewer status meetings", category: 'Guides', excerpt: 'Replace the weekly check-in with a board everyone already trusts.', date: 'Jun 22, 2026', readTime: '4 min read', imgId: 'post-meetings-guide', placeholder: 'Guide image — status meetings' },
+    { title: "Reporting, rebuilt: what's new in the analytics suite", category: 'Product updates', excerpt: 'Live throughput, team load, and one-click exports, redesigned from scratch.', date: 'Jun 16, 2026', readTime: '4 min read', imgId: 'post-reporting-update', placeholder: 'Product update image — analytics suite' },
+    { title: 'Why growing teams switch to role-based permissions', category: 'Guides', excerpt: 'Set access once and stop worrying about who can see what.', date: 'Jun 9, 2026', readTime: '5 min read', imgId: 'post-permissions-guide', placeholder: 'Guide image — role-based permissions' },
+  ];
+
+  componentDidMount() {
+    this._onScroll = () => {
+      const s = window.scrollY > 8;
+      if (s !== this.state.scrolled) this.setState({ scrolled: s });
+    };
+    window.addEventListener('scroll', this._onScroll, { passive: true });
+  }
+  componentWillUnmount() {
+    window.removeEventListener('scroll', this._onScroll);
+  }
+
+  renderVals() {
+    const active = this.state.category;
+    const categoryTabs = this.categories.map((c) => {
+      const isActive = c === active;
+      return {
+        label: c,
+        select: () => this.setState({ category: c }),
+        bg: isActive ? '#ffffff' : 'transparent',
+        color: isActive ? '#0a0a0a' : '#9aa4ae',
+        borderColor: isActive ? '#ffffff' : 'rgba(255,255,255,0.14)',
+      };
+    });
+    const posts = active === 'All' ? this.allPosts : this.allPosts.filter((p) => p.category === active);
+    return {
+      navBg: this.state.scrolled ? 'rgba(10,10,10,0.85)' : 'rgba(10,10,10,0)',
+      navBorder: this.state.scrolled ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0)',
+      categoryTabs,
+      posts,
+      showFeatured: active === 'All',
+      noResults: posts.length === 0,
+    };
+  }
+}
+
+</script>
+</body>
+</html>

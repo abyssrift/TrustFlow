@@ -292,6 +292,12 @@ export default function DashboardScreen() {
         </View>
         <View className="flex-row items-center gap-2">
           <TouchableOpacity
+            onPress={() => router.push('/search' as any)}
+            className="w-10 h-10 bg-surface-card rounded-full items-center justify-center border border-surface-border flex-shrink-0"
+          >
+            <FontAwesome name="search" size={15} color={colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity
             onPress={() => router.push('/modal' as any)}
             className="w-10 h-10 bg-surface-card rounded-full items-center justify-center border border-surface-border flex-shrink-0"
           >

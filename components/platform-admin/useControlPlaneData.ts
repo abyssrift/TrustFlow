@@ -3,13 +3,22 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatRelative } from '@/lib/time';
 
-// ── Constants ──────────────────────────────────────────────────────────────
+// ── Nav-visibility check (server is still the real gate; this only decides
+//    whether to show a link to the panel) ───────────────────────────────────
 
-export const PLATFORM_OWNERS = [
-  'adamsamir2005@gmail.com',
-  'adam.samir@trustedgellc.com',
-  'adamsamir@hotmail.com',
-];
+export function useIsPlatformAdmin(): boolean {
+  const { user, initialized } = useAuth();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (!initialized || !user) return;
+    supabase.rpc('rpc_am_i_platform_admin').then(({ data, error }) => {
+      setIsAdmin(!error && data === true);
+    });
+  }, [initialized, user]);
+
+  return isAdmin;
+}
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -304,9 +313,15 @@ export function useControlPlaneData() {
   const [liveCount, setLiveCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isOwner, setIsOwner] = useState<boolean | null>(null);
 
-  const isOwner =
-    initialized && PLATFORM_OWNERS.includes(user?.email || '');
+  useEffect(() => {
+    if (!initialized) return;
+    if (!user) { setIsOwner(false); return; }
+    supabase.rpc('rpc_am_i_platform_admin').then(({ data, error }) => {
+      setIsOwner(!error && data === true);
+    });
+  }, [initialized, user]);
 
   const fetchCompanies = useCallback(async () => {
     const { data, error } = await supabase.rpc(
