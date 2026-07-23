@@ -1,4 +1,4 @@
-import AppModal from '@/components/common/AppModal';
+import Popup from '@/components/common/Popup';
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 import { TargetCreationModal } from '@/components/intelligence/IntelligenceModals';
 import { useAuth } from '@/contexts/AuthContext';
@@ -56,11 +56,13 @@ const EditTargetModal = ({
   };
 
   return (
-    <AppModal
+    <Popup
       visible
       onClose={onClose}
-      dismissOnBackdrop={false}
-      containerClassName="w-full max-w-2xl rounded-[32px] overflow-hidden premium-shadow max-h-[90vh] flex-col"
+      presentation="auto"
+      dismissible={false}
+      maxWidth={672}
+      containerClassName="rounded-[32px] overflow-hidden premium-shadow max-h-[90vh] flex-col"
     >
       <View className="p-8 border-b flex-row justify-between items-center" style={{ borderColor: colors.border }}>
         <View>
@@ -151,7 +153,7 @@ const EditTargetModal = ({
           <Text className="text-white font-black uppercase tracking-widest text-xs">Save Changes</Text>
         </TouchableOpacity>
       </View>
-    </AppModal>
+    </Popup>
   );
 };
 

@@ -1,4 +1,4 @@
-import AppModal from '@/components/common/AppModal';
+import Popup from '@/components/common/Popup';
 import { useTimer } from '@/contexts/TimerContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -176,11 +176,13 @@ export default function TimerIsland({ floating = true }: { floating?: boolean })
 }
 
 const IdleWarning = ({ smartTimer, stopWork, colors }: any) => (
-  <AppModal
+  <Popup
     visible={smartTimer.showIdleModal}
     onClose={() => smartTimer.setShowIdleModal(false)}
-    dismissOnBackdrop={false}
-    containerClassName="rounded-2xl p-6 mx-6 max-w-sm w-full shadow-2xl"
+    presentation="centered"
+    dismissible={false}
+    maxWidth={384}
+    containerClassName="rounded-2xl p-6 shadow-2xl"
   >
     <View className="items-center mb-4">
       <View
@@ -210,5 +212,5 @@ const IdleWarning = ({ smartTimer, stopWork, colors }: any) => (
         <Text className="font-semibold text-sm" style={{ color: colors.danger }}>Stop Timer</Text>
       </TouchableOpacity>
     </View>
-  </AppModal>
+  </Popup>
 );
