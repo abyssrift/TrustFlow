@@ -7,13 +7,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTaskCreation } from '@/contexts/TaskCreationContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { getPastedImageFile, fileToStaged } from '@/lib/pasteImage';
-import { useFileDrop } from '@/hooks/useWebDnd';
+import { useDropPulse, useFileDrop } from '@/hooks/useWebDnd';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Image, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, Image, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
 
 cssInterop(FontAwesome, {
@@ -357,6 +357,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
     (files) => setBriefFiles(prev => [...prev, ...files.map(fileToStaged)]),
     visible && !bulkMode && !loading,
   );
+  const { glowOpacity: briefDropGlow } = useDropPulse(briefDropOver);
 
   return (
     <Modal visible={visible} transparent animationType="fade">
@@ -366,6 +367,13 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
           className="w-full max-w-[1200px] h-[800px] rounded-[3rem] overflow-hidden flex-row premium-shadow"
           style={{ backgroundColor: colors.card, borderWidth: briefDropOver ? 2 : 1, borderColor: briefDropOver ? colors.primary : colors.border }}
         >
+          {briefDropOver && (
+            <Animated.View
+              pointerEvents="none"
+              className="absolute inset-0 rounded-[3rem] border-2"
+              style={{ borderColor: colors.primary, opacity: briefDropGlow }}
+            />
+          )}
 
           {/* ── LEFT SIDEBAR ── */}
           <View className="w-80 p-8" style={{ borderRightWidth: 1, borderColor: colors.border, backgroundColor: colors.background + '4D' }}>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Platform } from 'react-native';
+import { Animated, Easing, Platform } from 'react-native';
 import { walkEntry } from '@/lib/fileDropEntries';
 
 // react-native-web's View/TouchableOpacity only forward an allowlist of DOM
@@ -244,4 +244,31 @@ export function useFileDrop(onFiles: (files: File[]) => void, enabled: boolean =
   }, [enabled, node]);
 
   return { ref, isOver };
+}
+
+// ─── Shared drop-indicator pulse ──────────────────────────────────────────────
+// Every OS-file drop zone (FileHub upload modal, task composer, submission
+// panel, brief panel) wants the same "breathing" affordance while a file is
+// dragged over it. Lives here once, driven by that zone's own `isOver` flag,
+// so the animation stays visually identical everywhere instead of each screen
+// re-implementing its own loop.
+export function useDropPulse(active: boolean) {
+  const pulse = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!active) { pulse.setValue(0); return; }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: 600, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
+        Animated.timing(pulse, { toValue: 0, duration: 600, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [active, pulse]);
+
+  return {
+    iconScale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.15] }),
+    glowOpacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.35, 1] }),
+  };
 }

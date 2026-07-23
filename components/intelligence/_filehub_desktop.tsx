@@ -7,7 +7,7 @@ import * as Clipboard from 'expo-clipboard';
 import { useFileSizeLimit } from '@/hooks/useFileSizeLimit';
 import { useImageLightbox } from '@/hooks/useImageLightbox';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { useDragSource, useDropTarget, useFileDrop, useMarqueeSelect } from '@/hooks/useWebDnd';
+import { useDragSource, useDropPulse, useDropTarget, useFileDrop, useMarqueeSelect } from '@/hooks/useWebDnd';
 import { FilePreviewModal, FilePreviewTeaser, getPreviewKind, type PreviewKind } from './../common/FilePreview';
 import UserLink from '../common/UserLink';
 import FileHubAnalytics from './FileHubAnalytics';
@@ -477,6 +477,20 @@ function UploadModal({
     e.target.value = '';
   };
 
+  // The screen-level useFileDrop (in the FileHub browser) only fires before this
+  // modal is open — it seeds initialFiles and opens the composer. Once open, the
+  // modal sits in front of that drop zone, so dropping more files onto it needs
+  // its own listener; otherwise the OS drop target dies the moment the modal appears.
+  const { ref: modalDropRef, isOver: modalDropOver } = useFileDrop(
+    (files) => {
+      const valid = processWebFiles(files as any);
+      if (valid.length) setDraft(prev => ({ ...prev, files: [...prev.files, ...valid] }));
+    },
+    visible && !uploading,
+  );
+
+  const { iconScale: dropIconScale, glowOpacity: dropGlowOpacity } = useDropPulse(modalDropOver);
+
   // The upload engine (worker pool, dup/conflict handling, per-file commit,
   // progress, ETA, cancel) lives in UploadManagerContext so the job survives
   // this modal closing. We hand off the draft and switch the modal to its live
@@ -529,7 +543,23 @@ function UploadModal({
         <Animated.View
           style={{ width: '100%', maxWidth: uploading ? 560 : 900, maxHeight: '100%', opacity: cardOpacity, transform: [{ translateY: cardTranslateY }, { scale: cardScale }] }}
         >
-        <View className="rounded-[2rem] border premium-shadow w-full" style={{ maxHeight: '100%', backgroundColor: colors.card, borderColor: colors.border }}>
+        <View
+          ref={modalDropRef}
+          className="rounded-[2rem] border premium-shadow w-full"
+          style={{
+            maxHeight: '100%',
+            backgroundColor: colors.card,
+            borderWidth: modalDropOver ? 2 : 1,
+            borderColor: modalDropOver ? colors.primary : colors.border,
+          }}
+        >
+          {modalDropOver && (
+            <Animated.View
+              pointerEvents="none"
+              className="absolute inset-0 rounded-[2rem] border-2"
+              style={{ borderColor: colors.primary, opacity: dropGlowOpacity }}
+            />
+          )}
           <View className="flex-row items-center justify-between px-8 pt-7 pb-5 border-b" style={{ borderColor: colors.border }}>
             <Text className="text-xl font-black tracking-tight" style={{ color: colors.textMain }}>
               {uploading ? 'Uploading' : activeGroup ? `Upload to ${activeGroup.name}` : 'Upload Files'}
@@ -574,13 +604,25 @@ function UploadModal({
 
             {/* File picker area */}
             {draft.files.length === 0 ? (
-              <View className="border-2 border-dashed rounded-2xl items-center justify-center py-10 px-6 gap-4" style={{ borderColor: colors.border }}>
-                <View className="w-14 h-14 rounded-2xl border items-center justify-center" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
-                  <FontAwesome name="cloud-upload" size={24} color={colors.textMuted} />
-                </View>
+              <View
+                className="border-2 border-dashed rounded-2xl items-center justify-center py-10 px-6 gap-4"
+                style={{ borderColor: modalDropOver ? colors.primary : colors.border, backgroundColor: modalDropOver ? colors.primary + '0d' : 'transparent' }}
+              >
+                <Animated.View
+                  className="w-14 h-14 rounded-2xl border items-center justify-center"
+                  style={{
+                    backgroundColor: colors.background,
+                    borderColor: modalDropOver ? colors.primary : colors.border,
+                    transform: [{ scale: dropIconScale }],
+                  }}
+                >
+                  <FontAwesome name="cloud-upload" size={24} color={modalDropOver ? colors.primary : colors.textMuted} />
+                </Animated.View>
                 <View className="items-center gap-1">
-                  <Text className="font-bold text-sm" style={{ color: colors.textMain }}>Choose files to upload</Text>
-                  <Text className="text-xs" style={{ color: colors.textMuted }}>Up to 500 MB per file</Text>
+                  <Text className="font-bold text-sm" style={{ color: modalDropOver ? colors.primary : colors.textMain }}>
+                    {modalDropOver ? 'Release to add files' : 'Drag and drop files here'}
+                  </Text>
+                  <Text className="text-xs" style={{ color: colors.textMuted }}>or choose below · up to 500 MB per file</Text>
                 </View>
                 <View className="flex-row gap-3">
                   <TouchableOpacity
@@ -3201,6 +3243,7 @@ function FileHubDesktopInner() {
     (files) => { setDroppedFiles(files); setShowUpload(true); },
     canUpload,
   );
+  const { iconScale: fileDropIconScale } = useDropPulse(fileDropOver);
 
   return (
     <View ref={fileDropRef} className="flex-1 bg-surface-background flex-col">
@@ -3212,7 +3255,9 @@ function FileHubDesktopInner() {
           style={{ borderColor: colors.primary, backgroundColor: colors.primary + '14' }}
         >
           <View className="items-center gap-3 px-8 py-6 rounded-3xl" style={{ backgroundColor: colors.card }}>
-            <FontAwesome name="cloud-upload" size={28} color={colors.primary} />
+            <Animated.View style={{ transform: [{ scale: fileDropIconScale }] }}>
+              <FontAwesome name="cloud-upload" size={28} color={colors.primary} />
+            </Animated.View>
             <Text className="font-black text-base" style={{ color: colors.textMain }}>
               Drop to upload{selectedFolderId ? ` to ${folders.find(f => f.id === selectedFolderId)?.name ?? 'this folder'}` : ''}
             </Text>

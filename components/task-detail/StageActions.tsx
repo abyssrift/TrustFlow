@@ -16,7 +16,7 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import { useTicker } from '@/hooks/useTicker';
 import { formatStopwatch, formatCompact } from '@/lib/time';
 import { getPastedImageFile, fileToStaged } from '@/lib/pasteImage';
-import { useFileDrop } from '@/hooks/useWebDnd';
+import { useDropPulse, useFileDrop } from '@/hooks/useWebDnd';
 import { SUBMISSION_BUCKET } from '@/lib/storage';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -24,7 +24,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, AppState, Image, Platform, ScrollView, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Animated, AppState, Image, Platform, ScrollView, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { getActionDescriptor, splitStageActions } from './actionRegistry';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -449,6 +449,7 @@ export default function StageActions() {
     (files) => setStagedFiles(prev => [...prev, ...files.map(fileToStaged)]),
     showSubmitForm && !isUploading,
   );
+  const { glowOpacity: submitDropGlow } = useDropPulse(submitDropOver);
 
   const stageRequiresTimer = !!data.current_stage?.requires_timer;
   const anyActionRequiresTimer = data.stage_actions.some(a => a.requires_timer && a.can_perform && a.precondition_met);
@@ -775,8 +776,15 @@ export default function StageActions() {
             <View
               ref={submitDropRef}
               className="mb-4 pb-4 border-b border-surface-border/30 rounded-xl"
-              style={submitDropOver ? { borderWidth: 2, borderStyle: 'dashed', borderColor: colors.primary, backgroundColor: colors.primary + '0d' } : undefined}
+              style={submitDropOver ? { backgroundColor: colors.primary + '0d' } : undefined}
             >
+              {submitDropOver && (
+                <Animated.View
+                  pointerEvents="none"
+                  className="absolute inset-0 rounded-xl border-2"
+                  style={{ borderStyle: 'dashed', borderColor: colors.primary, opacity: submitDropGlow }}
+                />
+              )}
               <View className="flex-row items-center justify-end mb-2">
                 <ClipboardControls
                   value={submissionContent}
