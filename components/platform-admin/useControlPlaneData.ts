@@ -22,7 +22,7 @@ export function useIsPlatformAdmin(): boolean {
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-export type Section = 'command' | 'tenants' | 'signals' | 'live' | 'users' | 'infra' | 'alerts' | 'trial_codes' | 'plans';
+export type Section = 'command' | 'tenants' | 'signals' | 'live' | 'users' | 'infra' | 'alerts' | 'trial_codes' | 'plans' | 'waitlist';
 
 export type CompanyOverview = {
   id: string;
@@ -83,6 +83,34 @@ export type PlatformAlert = {
   companyId?: string;
   companyName?: string;
   tag?: string;
+};
+
+export type WaitlistReferrer = {
+  company_name: string;
+  referral_code: string;
+  referred_count: number;
+};
+
+export type WaitlistOverview = {
+  total: number;
+  today: number;
+  this_week: number;
+  referred: number;
+  top_referrers: WaitlistReferrer[];
+};
+
+export type WaitlistTimelineEntry = {
+  day: string;
+  signups: number;
+};
+
+export type WaitlistSignup = {
+  id: string;
+  email: string;
+  company_name: string;
+  referral_code: string;
+  referred_by_company: string | null;
+  created_at: string;
 };
 
 export type InfraSnapshot = {
@@ -649,4 +677,66 @@ export function useInfraData() {
   }, [lastRefreshed]);
 
   return { metrics, loading, secsAgo, refetch: fetch };
+}
+
+export function useWaitlistOverview() {
+  const [overview, setOverview] = useState<WaitlistOverview | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    const { data, error } = await supabase.rpc('rpc_platform_waitlist_overview');
+    if (!error && data) setOverview(data as WaitlistOverview);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  return { overview, loading, refetch: load };
+}
+
+export function useWaitlistTimeline(initialDays = 30) {
+  const [days, setDays] = useState(initialDays);
+  const [timeline, setTimeline] = useState<WaitlistTimelineEntry[]>([]);
+  const [fetching, setFetching] = useState(false);
+
+  const load = useCallback(async (d: number) => {
+    setFetching(true);
+    const { data, error } = await supabase.rpc('rpc_platform_waitlist_timeline', { p_days: d });
+    if (!error && data) setTimeline(data as WaitlistTimelineEntry[]);
+    setFetching(false);
+  }, []);
+
+  useEffect(() => {
+    load(days);
+  }, [days, load]);
+
+  return { days, setDays, timeline, fetching };
+}
+
+export function useWaitlistList() {
+  const [query, setQueryState] = useState('');
+  const [signups, setSignups] = useState<WaitlistSignup[]>([]);
+  const [loading, setLoading] = useState(true);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const fetchList = useCallback(async (q: string) => {
+    setLoading(true);
+    const { data, error } = await supabase.rpc('rpc_platform_waitlist_list', { p_query: q, p_limit: 200 });
+    if (!error && data) setSignups(data as WaitlistSignup[]);
+    setLoading(false);
+  }, []);
+
+  const setQuery = useCallback((q: string) => {
+    setQueryState(q);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => fetchList(q), 300);
+  }, [fetchList]);
+
+  useEffect(() => {
+    fetchList('');
+  }, [fetchList]);
+
+  return { query, setQuery, signups, loading, refetch: () => fetchList(query) };
 }
