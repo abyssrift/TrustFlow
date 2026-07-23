@@ -205,7 +205,7 @@ export default function ManualTimeModal({ visible, taskId, stageId, transitionId
               {loading ? (
                 <ActivityIndicator size="small" color="white" />
               ) : (
-                <Text className="text-white font-black uppercase tracking-widest text-xs">Submit Declaration</Text>
+                <Text className="text-white font-black uppercase tracking-widest text-xs">Submit</Text>
               )}
             </TouchableOpacity>
           </View>
