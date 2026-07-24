@@ -6,6 +6,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import ConfirmModal from '@/components/common/ConfirmModal';
+import Popup from '@/components/common/Popup';
 import UserLink from '@/components/common/UserLink';
 
 type CompanyStatus = {
@@ -340,49 +341,75 @@ export default function RetentionPanel() {
       />
 
       {/* Purge company — type-to-confirm (inline colors per RN Modal convention) */}
-      <Modal visible={showCompanyPurge} transparent animationType="fade" onRequestClose={() => !purgingCompany && setShowCompanyPurge(false)}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
-          <View style={{ width: '100%', maxWidth: 440, backgroundColor: colors.card, borderRadius: 24, borderWidth: 1, borderColor: `${colors.danger}55`, overflow: 'hidden' }}>
-            <View style={{ padding: 24 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-                <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: `${colors.danger}1A`, alignItems: 'center', justifyContent: 'center' }}>
-                  <FontAwesome name="exclamation-triangle" size={20} color={colors.danger} />
-                </View>
-                <Text style={{ color: colors.textMain, fontSize: 18, fontWeight: '900', flex: 1 }}>Purge entire workspace</Text>
+      {(() => {
+        const purgeCompanyContent = (
+          <View style={{ padding: 24 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+              <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: `${colors.danger}1A`, alignItems: 'center', justifyContent: 'center' }}>
+                <FontAwesome name="exclamation-triangle" size={20} color={colors.danger} />
               </View>
-              <Text style={{ color: colors.textMuted, fontSize: 13, lineHeight: 20, marginBottom: 16 }}>
-                This permanently deletes <Text style={{ color: colors.textMain, fontWeight: '800' }}>{company?.name}</Text> and every record in it. To confirm, type the workspace name exactly.
-              </Text>
-              <TextInput
-                value={confirmName}
-                onChangeText={setConfirmName}
-                placeholder={company?.name || 'Workspace name'}
-                placeholderTextColor={colors.textMuted}
-                autoCapitalize="none"
-                style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, color: colors.textMain, fontWeight: '700', marginBottom: 20 }}
-              />
-              <View style={{ flexDirection: 'row', gap: 12 }}>
-                <TouchableOpacity
-                  onPress={() => setShowCompanyPurge(false)}
-                  disabled={purgingCompany}
-                  style={{ flex: 1, paddingVertical: 15, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.background, alignItems: 'center' }}
-                >
-                  <Text style={{ color: colors.textMuted, fontWeight: '900', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1 }}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={handlePurgeCompany}
-                  disabled={purgingCompany || confirmName.trim() !== (company?.name || '')}
-                  style={{ flex: 2, paddingVertical: 15, borderRadius: 14, backgroundColor: colors.danger, alignItems: 'center', opacity: confirmName.trim() !== (company?.name || '') ? 0.5 : 1 }}
-                >
-                  <Text style={{ color: '#fff', fontWeight: '900', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1 }}>
-                    {purgingCompany ? 'Purging…' : 'Purge forever'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
+              <Text style={{ color: colors.textMain, fontSize: 18, fontWeight: '900', flex: 1 }}>Purge entire workspace</Text>
+            </View>
+            <Text style={{ color: colors.textMuted, fontSize: 13, lineHeight: 20, marginBottom: 16 }}>
+              This permanently deletes <Text style={{ color: colors.textMain, fontWeight: '800' }}>{company?.name}</Text> and every record in it. To confirm, type the workspace name exactly.
+            </Text>
+            <TextInput
+              value={confirmName}
+              onChangeText={setConfirmName}
+              placeholder={company?.name || 'Workspace name'}
+              placeholderTextColor={colors.textMuted}
+              autoCapitalize="none"
+              style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, color: colors.textMain, fontWeight: '700', marginBottom: 20 }}
+            />
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <TouchableOpacity
+                onPress={() => setShowCompanyPurge(false)}
+                disabled={purgingCompany}
+                style={{ flex: 1, paddingVertical: 15, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.background, alignItems: 'center' }}
+              >
+                <Text style={{ color: colors.textMuted, fontWeight: '900', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1 }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handlePurgeCompany}
+                disabled={purgingCompany || confirmName.trim() !== (company?.name || '')}
+                style={{ flex: 2, paddingVertical: 15, borderRadius: 14, backgroundColor: colors.danger, alignItems: 'center', opacity: confirmName.trim() !== (company?.name || '') ? 0.5 : 1 }}
+              >
+                <Text style={{ color: '#fff', fontWeight: '900', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1 }}>
+                  {purgingCompany ? 'Purging…' : 'Purge forever'}
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
-        </View>
-      </Modal>
+        );
+
+        if (Platform.OS === 'web') {
+          return (
+            <Popup
+              visible={showCompanyPurge}
+              onClose={() => setShowCompanyPurge(false)}
+              presentation="centered"
+              dismissible={!purgingCompany}
+              maxWidth={440}
+              containerClassName="overflow-hidden"
+              containerStyle={{ borderRadius: 24, borderWidth: 1, borderColor: `${colors.danger}55` }}
+            >
+              {purgeCompanyContent}
+            </Popup>
+          );
+        }
+
+        // TODO(#93-native): remove this branch once native is testable — see issue #93/#115.
+        // Old raw-Modal path preserved untouched so native behavior doesn't change yet.
+        return (
+          <Modal visible={showCompanyPurge} transparent animationType="fade" onRequestClose={() => !purgingCompany && setShowCompanyPurge(false)}>
+            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+              <View style={{ width: '100%', maxWidth: 440, backgroundColor: colors.card, borderRadius: 24, borderWidth: 1, borderColor: `${colors.danger}55`, overflow: 'hidden' }}>
+                {purgeCompanyContent}
+              </View>
+            </View>
+          </Modal>
+        );
+      })()}
     </View>
   );
 }
