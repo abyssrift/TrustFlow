@@ -52,6 +52,7 @@ export default function ProjectsScreenWeb() {
 
   // Switch to 2-col grid on smaller desktops (sidebar eats ~256px of the viewport)
   const cardWidth = width >= 1280 ? 'w-[calc(33.33%-20px)]' : 'w-[calc(50%-15px)]';
+  const canViewProjects = hasPermission('project.view');
 
   const filteredProjects = useMemo(() => {
     if (showClosed) return projects;
@@ -100,11 +101,21 @@ export default function ProjectsScreenWeb() {
   };
 
   useEffect(() => {
+    // Permission can still be loading (false) on the very first render and
+    // flip true once auth resolves — depending on canViewProjects here means
+    // the fetch fires once it does, instead of only ever firing (or not)
+    // based on whatever the permission happened to be at mount time.
+    if (!canViewProjects) return;
     fetchProjects();
-  }, []);
+  }, [canViewProjects]);
 
-  // Permission check: user must have project.view permission
-  if (!hasPermission('project.view')) {
+  // Permission check: user must have project.view permission. Placed after
+  // every hook call above (never before) so the same hooks run on every
+  // render regardless of when the permission itself resolves — an early
+  // return before a hook call here previously caused "Rendered more hooks
+  // than during the previous render" whenever permissions loaded async and
+  // flipped false -> true between renders (issue #96).
+  if (!canViewProjects) {
     return (
       <View className="flex-1 bg-surface-background items-center justify-center p-10">
         <FontAwesome name="lock" size={48} color={colors.textMuted} />
