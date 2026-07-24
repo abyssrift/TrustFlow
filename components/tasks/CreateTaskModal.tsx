@@ -109,7 +109,7 @@ type Props = {
   initialPipelineId?: string | null;
 };
 
-export default function CreateTaskSheet({ visible, onClose, initialPipelineId }: Props) {
+export default function CreateTaskModal({ visible, onClose, initialPipelineId }: Props) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const { showAlert, showConfirm } = useAlert();
