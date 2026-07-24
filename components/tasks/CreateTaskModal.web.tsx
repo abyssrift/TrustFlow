@@ -1,5 +1,6 @@
 import AssignmentModePreview from '@/components/tasks/AssignmentModePreview';
 import ClipboardControls from '@/components/common/ClipboardControls';
+import LoadingOverlay from '@/components/common/LoadingOverlay';
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 import { useCalendarPosition } from '@/lib/calendarPicker';
 import { usePipelineAssignmentPreview } from '@/lib/usePipelineAssignmentPreview';
@@ -923,14 +924,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
               </View>
             </View>
 
-            {loading && (
-              <View className="absolute inset-0 z-50 items-center justify-center" style={{ backgroundColor: colors.background + 'B3' }}>
-                <View className="rounded-[2rem] px-7 py-6 items-center premium-shadow" style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}>
-                  <ActivityIndicator size="large" color={colors.primary} />
-                  <Text className="font-black uppercase tracking-[0.25em] text-[10px] mt-3" style={{ color: colors.textMain }}>Creating task</Text>
-                </View>
-              </View>
-            )}
+            <LoadingOverlay visible={loading} message="Creating task" />
 
           </View>
         </View>

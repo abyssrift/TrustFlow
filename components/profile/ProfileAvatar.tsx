@@ -4,8 +4,8 @@ import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
-import { ActivityIndicator, Image, Platform, Pressable, Text, View } from 'react-native';
-import { useThemeColors } from '@/hooks/useThemeColors';
+import { Image, Platform, Pressable, Text, View } from 'react-native';
+import LoadingOverlay from '@/components/common/LoadingOverlay';
 
 interface ProfileAvatarProps {
   url: string | null;
@@ -15,7 +15,6 @@ interface ProfileAvatarProps {
 }
 
 export default function ProfileAvatar({ url, name, onUpload, size = 120 }: ProfileAvatarProps) {
-  const colors = useThemeColors();
   const { showAlert } = useAlert();
   const { user } = useAuth();
   const [uploading, setUploading] = useState(false);
@@ -127,11 +126,7 @@ export default function ProfileAvatar({ url, name, onUpload, size = 120 }: Profi
           </View>
         )}
         
-        {uploading && (
-          <View className="absolute inset-0 items-center justify-center bg-surface-background/60">
-            <ActivityIndicator color={colors.primary} />
-          </View>
-        )}
+        <LoadingOverlay visible={uploading} variant="inline" />
       </View>
 
       <Pressable
