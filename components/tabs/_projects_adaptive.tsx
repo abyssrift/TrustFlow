@@ -52,16 +52,7 @@ export default function ProjectsScreen() {
   const isLargeScreen = width > 768;
   const { position: navPosition } = useNavBarPosition();
 
-  // Permission check: user must have project.view permission
-  if (!hasPermission('project.view')) {
-    return (
-      <View className="flex-1 bg-surface-background items-center justify-center p-10">
-        <FontAwesome name="lock" size={48} color={colors.textMuted} />
-        <Text className="text-typography-main text-xl font-black mt-4">Access Denied</Text>
-        <Text className="text-typography-muted text-sm text-center mt-2">You don't have permission to view projects.</Text>
-      </View>
-    );
-  }
+  const canViewProjects = hasPermission('project.view');
 
   const fetchProjects = async () => {
     try {
@@ -108,6 +99,11 @@ export default function ProjectsScreen() {
   };
 
   useEffect(() => {
+    // Permission can still be loading (false) on the very first render and
+    // flip true once auth resolves — this effect's deps include canViewProjects
+    // so the fetch fires once it does, instead of only ever firing (or not)
+    // based on whatever the permission happened to be at mount time.
+    if (!canViewProjects) return;
     // On web, InteractionManager.runAfterInteractions can hang indefinitely
     // (its handle never clears with ongoing subscriptions/animations), so the
     // callback never fires and loading stays true forever. Run directly on web.
@@ -119,7 +115,7 @@ export default function ProjectsScreen() {
       fetchProjects();
     });
     return () => task.cancel();
-  }, []);
+  }, [canViewProjects]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -130,6 +126,22 @@ export default function ProjectsScreen() {
     if (showClosed) return projects;
     return projects.filter(p => p.status === 'active');
   }, [projects, showClosed]);
+
+  // Permission check: user must have project.view permission. Placed after
+  // every hook call above (never before) so the same hooks run on every
+  // render regardless of when the permission itself resolves — an early
+  // return before a hook call here previously caused "Rendered more hooks
+  // than during the previous render" whenever permissions loaded async
+  // and flipped false -> true between renders (issue #96).
+  if (!canViewProjects) {
+    return (
+      <View className="flex-1 bg-surface-background items-center justify-center p-10">
+        <FontAwesome name="lock" size={48} color={colors.textMuted} />
+        <Text className="text-typography-main text-xl font-black mt-4">Access Denied</Text>
+        <Text className="text-typography-muted text-sm text-center mt-2">You don't have permission to view projects.</Text>
+      </View>
+    );
+  }
 
   const handleEdit = (project: Project) => {
     if (!hasPermission('project.edit')) {
