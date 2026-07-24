@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, useWindowDimensions } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import Popup from '@/components/common/Popup';
 import { PipelineEditorProvider, usePipelineEditor } from '@/contexts/PipelineEditorContext';
 import { useAuth } from '@/contexts/AuthContext';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -291,9 +292,15 @@ function PipelinesWebInner() {
       </View>
 
       {/* Creation Modal */}
-      {isCreateModalOpen && (
-        <View className="absolute inset-0 bg-black/80 items-center justify-center z-[100] backdrop-blur-md">
-          <View className="bg-surface-card w-full max-w-xl rounded-[2.5rem] border border-surface-border p-10 premium-shadow">
+      <Popup
+        visible={isCreateModalOpen}
+        onClose={() => { setIsCreateModalOpen(false); setNewName(''); setNewDesc(''); }}
+        presentation="auto"
+        dismissible={false}
+        maxWidth={576}
+        containerClassName="w-[92%] rounded-[2.5rem] premium-shadow"
+      >
+          <View className="p-10">
             <View className="flex-row items-center justify-between mb-8">
               <View>
                 <Text className="text-typography-main font-black text-3xl tracking-tighter">New Pipeline</Text>
@@ -395,8 +402,7 @@ function PipelinesWebInner() {
               </View>
             </View>
           </View>
-        </View>
-      )}
+      </Popup>
     </GestureHandlerRootView>
   );
 }

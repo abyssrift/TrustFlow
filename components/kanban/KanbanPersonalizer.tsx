@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { cssInterop } from 'react-native-css-interop';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import Popup from '@/components/common/Popup';
 
 cssInterop(FontAwesome, {
   className: {
@@ -102,8 +103,14 @@ export default function KanbanPersonalizer({ onClose }: Props) {
   );
 
   return (
-    <View className="absolute inset-0 bg-black/60 z-50 items-center justify-center p-6">
-      <View className="bg-surface-card w-full max-w-lg rounded-3xl border border-surface-border overflow-hidden">
+    <Popup
+      visible
+      onClose={onClose}
+      presentation="auto"
+      dismissible={false}
+      maxWidth={512}
+      containerClassName="rounded-3xl overflow-hidden"
+    >
         <View className="flex-row items-center justify-between p-6 border-b border-surface-border">
           <View>
             <Text className="text-typography-main font-black text-xl">Board Settings</Text>
@@ -224,8 +231,7 @@ export default function KanbanPersonalizer({ onClose }: Props) {
               <Text className="text-white font-black">Close Settings</Text>
            </TouchableOpacity>
         </View>
-      </View>
-    </View>
+    </Popup>
   );
 }
 
