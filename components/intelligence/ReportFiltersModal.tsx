@@ -1,8 +1,9 @@
+import Popup from '@/components/common/Popup';
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 import { FontAwesome } from '@expo/vector-icons';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import React, { useEffect, useState } from 'react';
-import { Modal, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { Modal, Platform, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 
 export type ReportFilters = {
   statuses: string[];
@@ -143,18 +144,8 @@ export default function ReportFiltersModal({ visible, onClose, onApply, initial 
 
   const scrollMaxHeight = isCompact ? undefined : Math.min(720, height - 220);
 
-  return (
-    <Modal
-      visible={visible}
-      transparent={!isCompact}
-      animationType={isCompact ? 'slide' : 'fade'}
-      onRequestClose={onClose}
-    >
-      <View
-        className={`flex-1 ${isCompact ? '' : 'bg-black/70 items-center justify-center px-4'}`}
-        style={isCompact ? { backgroundColor: colors.background } : undefined}
-      >
-        <View className={containerClass} style={{ backgroundColor: colors.card, ...(isCompact ? {} : { borderWidth: 1, borderColor: colors.border }) }}>
+  const content = (
+        <>
           {/* Header */}
           <View
             className={`flex-row items-center justify-between ${isCompact ? 'px-6 pt-14 pb-5' : 'p-8'}`}
@@ -346,6 +337,39 @@ export default function ReportFiltersModal({ visible, onClose, onApply, initial 
               <Text className="text-white font-black uppercase tracking-widest text-[11px]">Apply Filters</Text>
             </TouchableOpacity>
           </View>
+        </>
+  );
+
+  if (Platform.OS === 'web') {
+    return (
+      <Popup
+        visible={visible}
+        onClose={onClose}
+        presentation="auto"
+        scrollable={false}
+        maxWidth={768}
+        containerClassName="rounded-[40px] premium-shadow overflow-hidden"
+      >
+        {content}
+      </Popup>
+    );
+  }
+
+  // TODO(#93-native): remove this branch once native is testable — see issue #93/#115.
+  // Old raw-Modal path preserved untouched so native behavior doesn't change yet.
+  return (
+    <Modal
+      visible={visible}
+      transparent={!isCompact}
+      animationType={isCompact ? 'slide' : 'fade'}
+      onRequestClose={onClose}
+    >
+      <View
+        className={`flex-1 ${isCompact ? '' : 'bg-black/70 items-center justify-center px-4'}`}
+        style={isCompact ? { backgroundColor: colors.background } : undefined}
+      >
+        <View className={containerClass} style={{ backgroundColor: colors.card, ...(isCompact ? {} : { borderWidth: 1, borderColor: colors.border }) }}>
+          {content}
         </View>
       </View>
     </Modal>

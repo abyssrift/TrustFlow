@@ -7,6 +7,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
+  Platform,
   ScrollView,
   Switch,
   Text,
@@ -15,6 +16,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import DraggableSheet from '@/components/common/DraggableSheet';
 import RuleEditorModal from '@/components/admin/RuleEditorModal';
 import {
   EVENT_META,
@@ -715,32 +717,57 @@ export default function NotificationRules() {
           </View>
         </ScrollView>
 
-        <Modal visible={!!selectedId} animationType="slide" onRequestClose={() => setSelectedId(null)}>
-          <View className="flex-1" style={{ backgroundColor: colors.background }}>
-            <View
-              className="pt-12 pb-4 px-4 border-b flex-row items-center gap-4"
-              style={{ borderColor: colors.border, backgroundColor: colors.card }}
-            >
-              <TouchableOpacity
-                onPress={() => setSelectedId(null)}
-                className="w-10 h-10 items-center justify-center rounded-full border"
-                style={{ backgroundColor: colors.background, borderColor: colors.border }}
+        {(() => {
+          const ruleDetailsContent = (
+            <View className="flex-1" style={{ backgroundColor: colors.background }}>
+              <View
+                className="pt-12 pb-4 px-4 border-b flex-row items-center gap-4"
+                style={{ borderColor: colors.border, backgroundColor: colors.card }}
               >
-                <FontAwesome name="arrow-left" size={16} color={colors.textMain} />
-              </TouchableOpacity>
-              <Text className="font-black text-lg" style={{ color: colors.textMain }}>Rule Details</Text>
+                <TouchableOpacity
+                  onPress={() => setSelectedId(null)}
+                  className="w-10 h-10 items-center justify-center rounded-full border"
+                  style={{ backgroundColor: colors.background, borderColor: colors.border }}
+                >
+                  <FontAwesome name="arrow-left" size={16} color={colors.textMain} />
+                </TouchableOpacity>
+                <Text className="font-black text-lg" style={{ color: colors.textMain }}>Rule Details</Text>
+              </View>
+              <RuleInspector
+                rule={activeRule}
+                isDesktop={false}
+                onToggle={handleToggle}
+                onEdit={openEdit}
+                onDelete={(r) => {
+                  handleDelete(r);
+                }}
+              />
             </View>
-            <RuleInspector
-              rule={activeRule}
-              isDesktop={false}
-              onToggle={handleToggle}
-              onEdit={openEdit}
-              onDelete={(r) => {
-                handleDelete(r);
-              }}
-            />
-          </View>
-        </Modal>
+          );
+
+          if (Platform.OS === 'web') {
+            return (
+              <DraggableSheet
+                visible={!!selectedId}
+                onClose={() => setSelectedId(null)}
+                maxHeight="100%"
+                draggable={false}
+                scrollable={false}
+                containerClassName=""
+              >
+                {ruleDetailsContent}
+              </DraggableSheet>
+            );
+          }
+
+          // TODO(#93-native): remove this branch once native is testable — see issue #93/#115.
+          // Old raw-Modal path preserved untouched so native behavior doesn't change yet.
+          return (
+            <Modal visible={!!selectedId} animationType="slide" onRequestClose={() => setSelectedId(null)}>
+              {ruleDetailsContent}
+            </Modal>
+          );
+        })()}
 
         <RuleEditorModal
           visible={editorOpen !== 'closed'}
