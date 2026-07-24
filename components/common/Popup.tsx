@@ -1,6 +1,6 @@
 import { useThemeColors } from '@/hooks/useThemeColors';
 import React from 'react';
-import { Modal, Platform, Pressable, Text, View, useWindowDimensions } from 'react-native';
+import { Modal, Platform, Pressable, StyleProp, Text, View, ViewStyle, useWindowDimensions } from 'react-native';
 import DraggableSheet from './DraggableSheet';
 
 type ActionVariant = 'default' | 'danger' | 'disabled';
@@ -32,6 +32,7 @@ export default function Popup({
   desktopBreakpoint = 768,
   dimBackdrop = false,
   containerClassName,
+  containerStyle,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -54,6 +55,8 @@ export default function Popup({
   desktopBreakpoint?: number;
   dimBackdrop?: boolean;
   containerClassName?: string;
+  /** Extra style merged onto the container (sheet or centered card) — for cases a className can't express, e.g. a runtime theme color border. */
+  containerStyle?: StyleProp<ViewStyle>;
 }) {
   const c = useThemeColors();
   const { width: screenWidth } = useWindowDimensions();
@@ -77,7 +80,7 @@ export default function Popup({
         maxHeight={maxHeight}
         dimBackdrop={dimBackdrop}
         containerClassName={containerClassName}
-        containerStyle={sheetMaxWidth ? { maxWidth: sheetMaxWidth, alignSelf: 'center', width: '95%' } : undefined}
+        containerStyle={[sheetMaxWidth ? { maxWidth: sheetMaxWidth, alignSelf: 'center', width: '95%' } : undefined, containerStyle]}
       >
         {children}
       </DraggableSheet>
@@ -89,7 +92,7 @@ export default function Popup({
       <Pressable className="flex-1 items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.7)' }} onPress={dismissible ? onClose : undefined}>
           <Pressable
             className={containerClassName ?? 'rounded-3xl overflow-hidden premium-shadow'}
-            style={[{ backgroundColor: c.card, borderWidth: 1, borderColor: c.border, width: centeredWidth }, maxHeight ? { maxHeight } as any : undefined]}
+            style={[{ backgroundColor: c.card, borderWidth: 1, borderColor: c.border, width: centeredWidth }, maxHeight ? { maxHeight } as any : undefined, containerStyle]}
             onPress={() => {}}
           >
           {title && (

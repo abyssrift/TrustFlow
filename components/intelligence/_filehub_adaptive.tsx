@@ -1414,33 +1414,58 @@ function UploadSheet({
     </Popup>
 
     {/* Web-safe decision dialog (replaces RN Alert.alert multi-button prompts) */}
-    {pendingDecision && (
-      <Modal visible transparent animationType="fade">
-        <View className="flex-1 bg-black/60 items-center justify-center p-8">
-          <View className="rounded-3xl border premium-shadow w-full max-w-[420px] p-6" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
-            <Text className="text-lg font-black tracking-tight mb-2" style={{ color: colors.textMain }}>{pendingDecision.title}</Text>
-            <Text className="text-sm leading-relaxed mb-5" style={{ color: colors.textMuted }}>{pendingDecision.message}</Text>
-            <View className="gap-2">
-              {pendingDecision.options.map(opt => (
-                <TouchableOpacity
-                  key={opt.value}
-                  onPress={() => { const r = pendingDecision.resolve; setPendingDecision(null); r(opt.value); }}
-                  className="py-3 rounded-xl items-center"
-                  style={opt.style === 'primary' ? { backgroundColor: colors.primary } : { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}
+    {pendingDecision && (() => {
+      const decisionContent = (
+        <View className="p-6">
+          <Text className="text-lg font-black tracking-tight mb-2" style={{ color: colors.textMain }}>{pendingDecision.title}</Text>
+          <Text className="text-sm leading-relaxed mb-5" style={{ color: colors.textMuted }}>{pendingDecision.message}</Text>
+          <View className="gap-2">
+            {pendingDecision.options.map(opt => (
+              <TouchableOpacity
+                key={opt.value}
+                onPress={() => { const r = pendingDecision.resolve; setPendingDecision(null); r(opt.value); }}
+                className="py-3 rounded-xl items-center"
+                style={opt.style === 'primary' ? { backgroundColor: colors.primary } : { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}
+              >
+                <Text
+                  className="font-black text-sm"
+                  style={opt.style === 'primary' ? { color: '#fff' } : opt.style === 'cancel' ? { color: colors.textMuted } : { color: colors.textMain }}
                 >
-                  <Text
-                    className="font-black text-sm"
-                    style={opt.style === 'primary' ? { color: '#fff' } : opt.style === 'cancel' ? { color: colors.textMuted } : { color: colors.textMain }}
-                  >
-                    {opt.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
-      </Modal>
-    )}
+      );
+
+      if (Platform.OS === 'web') {
+        return (
+          <Popup
+            visible
+            onClose={() => {}}
+            presentation="centered"
+            dismissible={false}
+            maxWidth={420}
+            containerClassName="rounded-3xl overflow-hidden premium-shadow"
+          >
+            {decisionContent}
+          </Popup>
+        );
+      }
+
+      // TODO(#93-native): remove this branch once native is testable — see issue #93/#115.
+      // Old raw-Modal path preserved untouched so native behavior doesn't change yet.
+      return (
+        <Modal visible transparent animationType="fade">
+          <View className="flex-1 bg-black/60 items-center justify-center p-8">
+            <View className="rounded-3xl border premium-shadow w-full max-w-[420px]" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
+              {decisionContent}
+            </View>
+          </View>
+        </Modal>
+      );
+    })()}
     </>
   );
 }
