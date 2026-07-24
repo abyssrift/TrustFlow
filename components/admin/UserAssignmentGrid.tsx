@@ -1,17 +1,17 @@
-import { User, useRoleManager } from '@/contexts/RoleManagerContext';
-import { useAuth } from '@/contexts/AuthContext';
-import { useThemeColors } from '@/hooks/useThemeColors';
+import Popup from '@/components/common/Popup';
 import { useAlert } from '@/contexts/AlertContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { User, useRoleManager } from '@/contexts/RoleManagerContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
+import { daysToPeriodParams } from '@/lib/analyticsPeriods';
 import { supabase } from '@/lib/supabase';
 import { formatCompact } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import React, { useState, useEffect, useRef } from 'react';
-import { Image, Platform, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
-import Popup from '@/components/common/Popup';
-import { daysToPeriodParams } from '@/lib/analyticsPeriods';
+import React, { useEffect, useRef, useState } from 'react';
+import { Image, Platform, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 cssInterop(FontAwesome, {
   className: {
@@ -265,7 +265,7 @@ export default function UserAssignmentGrid() {
       </ScrollView>
 
       {isDesktop ? (
-        <Popup visible={!!selectedUser} onClose={() => setSelectedUser(null)} dimBackdrop presentation="centered">
+        <Popup visible={!!selectedUser} onClose={() => setSelectedUser(null)} dimBackdrop presentation="centered" maxWidth={1150} maxHeight="87%">
           {/* Header with Profile Summary */}
           {selectedUser && (
             <View className="px-8 pt-8 pb-6 border-b" style={{ borderColor: colors.border, backgroundColor: `${colors.primary}08` }}>
@@ -319,7 +319,7 @@ export default function UserAssignmentGrid() {
           )}
 
           {/* Tab Content */}
-          <ScrollView showsVerticalScrollIndicator={false} className="px-8 py-6">
+          <ScrollView showsVerticalScrollIndicator={false} className="flex-1 px-8 py-6">
             {selectedUser && activeTab === 'profile' && (
               <View>
                 {/* Contact Info */}

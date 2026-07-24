@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
+import Popup from '@/components/common/Popup';
 
 type Step = {
   icon: string;
@@ -88,6 +89,113 @@ export default function WelcomeTour() {
 
   if (!shouldShow) return null;
 
+  const content = (
+    <>
+      {/* Skip */}
+      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', paddingTop: 14, paddingHorizontal: 14 }}>
+        <TouchableOpacity onPress={finish} disabled={saving} style={{ paddingHorizontal: 12, paddingVertical: 6 }}>
+          <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 }}>
+            Skip
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 28, paddingBottom: 8 }} showsVerticalScrollIndicator={false}>
+        {/* Icon */}
+        <View style={{ alignItems: 'center', marginTop: 4, marginBottom: 22 }}>
+          <View
+            style={{
+              width: 84,
+              height: 84,
+              borderRadius: 28,
+              backgroundColor: `${colors.primary}1A`,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <FontAwesome name={step.icon as any} size={36} color={colors.primary} />
+          </View>
+        </View>
+
+        <Text style={{ color: colors.textMain, fontSize: 24, fontWeight: '900', textAlign: 'center', letterSpacing: -0.5 }}>
+          {step.title}
+        </Text>
+        <Text style={{ color: colors.textMuted, fontSize: 14, lineHeight: 21, textAlign: 'center', marginTop: 12 }}>
+          {step.body}
+        </Text>
+      </ScrollView>
+
+      {/* Progress dots */}
+      <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 18, marginBottom: 18 }}>
+        {steps.map((_, i) => (
+          <View
+            key={i}
+            style={{
+              width: i === index ? 22 : 7,
+              height: 7,
+              borderRadius: 4,
+              backgroundColor: i === index ? colors.primary : colors.border,
+            }}
+          />
+        ))}
+      </View>
+
+      {/* Footer buttons */}
+      <View style={{ flexDirection: 'row', gap: 12, paddingHorizontal: 24, paddingBottom: 24, paddingTop: 4 }}>
+        {index > 0 && (
+          <TouchableOpacity
+            onPress={() => setIndex(i => Math.max(0, i - 1))}
+            style={{
+              flex: 1,
+              paddingVertical: 16,
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: colors.border,
+              backgroundColor: colors.background,
+              alignItems: 'center',
+            }}
+          >
+            <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1 }}>
+              Back
+            </Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity
+          onPress={() => (isLast ? finish() : setIndex(i => i + 1))}
+          disabled={saving}
+          style={{
+            flex: index > 0 ? 2 : 1,
+            paddingVertical: 16,
+            borderRadius: 16,
+            backgroundColor: colors.primary,
+            alignItems: 'center',
+          }}
+        >
+          <Text style={{ color: '#fff', fontSize: 12, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1 }}>
+            {isLast ? 'Get Started' : 'Next'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </>
+  );
+
+  if (Platform.OS === 'web') {
+    return (
+      <Popup
+        visible
+        onClose={finish}
+        presentation="centered"
+        dismissible={!saving}
+        maxWidth={440}
+        containerClassName="rounded-[28px] overflow-hidden"
+      >
+        {content}
+      </Popup>
+    );
+  }
+
+  // TODO(#93-native): remove this branch once native is testable — see issue #93/#115.
+  // Old raw-Modal path preserved untouched so native behavior doesn't change yet.
   return (
     <Modal visible transparent animationType="fade" onRequestClose={finish}>
       <View
@@ -112,91 +220,7 @@ export default function WelcomeTour() {
             overflow: 'hidden',
           }}
         >
-          {/* Skip */}
-          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', paddingTop: 14, paddingHorizontal: 14 }}>
-            <TouchableOpacity onPress={finish} disabled={saving} style={{ paddingHorizontal: 12, paddingVertical: 6 }}>
-              <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 }}>
-                Skip
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView contentContainerStyle={{ paddingHorizontal: 28, paddingBottom: 8 }} showsVerticalScrollIndicator={false}>
-            {/* Icon */}
-            <View style={{ alignItems: 'center', marginTop: 4, marginBottom: 22 }}>
-              <View
-                style={{
-                  width: 84,
-                  height: 84,
-                  borderRadius: 28,
-                  backgroundColor: `${colors.primary}1A`,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <FontAwesome name={step.icon as any} size={36} color={colors.primary} />
-              </View>
-            </View>
-
-            <Text style={{ color: colors.textMain, fontSize: 24, fontWeight: '900', textAlign: 'center', letterSpacing: -0.5 }}>
-              {step.title}
-            </Text>
-            <Text style={{ color: colors.textMuted, fontSize: 14, lineHeight: 21, textAlign: 'center', marginTop: 12 }}>
-              {step.body}
-            </Text>
-          </ScrollView>
-
-          {/* Progress dots */}
-          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 18, marginBottom: 18 }}>
-            {steps.map((_, i) => (
-              <View
-                key={i}
-                style={{
-                  width: i === index ? 22 : 7,
-                  height: 7,
-                  borderRadius: 4,
-                  backgroundColor: i === index ? colors.primary : colors.border,
-                }}
-              />
-            ))}
-          </View>
-
-          {/* Footer buttons */}
-          <View style={{ flexDirection: 'row', gap: 12, paddingHorizontal: 24, paddingBottom: 24, paddingTop: 4 }}>
-            {index > 0 && (
-              <TouchableOpacity
-                onPress={() => setIndex(i => Math.max(0, i - 1))}
-                style={{
-                  flex: 1,
-                  paddingVertical: 16,
-                  borderRadius: 16,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  backgroundColor: colors.background,
-                  alignItems: 'center',
-                }}
-              >
-                <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1 }}>
-                  Back
-                </Text>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity
-              onPress={() => (isLast ? finish() : setIndex(i => i + 1))}
-              disabled={saving}
-              style={{
-                flex: index > 0 ? 2 : 1,
-                paddingVertical: 16,
-                borderRadius: 16,
-                backgroundColor: colors.primary,
-                alignItems: 'center',
-              }}
-            >
-              <Text style={{ color: '#fff', fontSize: 12, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1 }}>
-                {isLast ? 'Get Started' : 'Next'}
-              </Text>
-            </TouchableOpacity>
-          </View>
+          {content}
         </View>
       </View>
     </Modal>
