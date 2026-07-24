@@ -31,7 +31,11 @@ function Avatar({ user, size = 28 }: { user: ActiveSessionUser; size?: number })
 }
 
 // Presence dot: green pulse = actively working, amber = idle/away.
-function StatusDot({ idle }: { idle: boolean }) {
+// Memoized so the parent's 1s tick (see useTicker below) doesn't re-mount the
+// CSS `pulse-animation` on every render — that was spamming Reanimated's
+// "reading value during render" warning and re-doing animation setup work
+// every second while a session was active.
+const StatusDot = React.memo(function StatusDot({ idle }: { idle: boolean }) {
   return (
     <View
       className={`absolute -right-0.5 -bottom-0.5 w-2.5 h-2.5 rounded-full border-2 border-surface-card ${
@@ -39,7 +43,7 @@ function StatusDot({ idle }: { idle: boolean }) {
       }`}
     />
   );
-}
+});
 
 const formatStart = (iso: string) =>
   new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });

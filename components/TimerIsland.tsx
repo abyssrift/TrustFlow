@@ -11,14 +11,17 @@ import { Animated, Dimensions, PanResponder, Text, TouchableOpacity, View } from
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
+const MIN_ISLAND_WIDTH = Math.min(140, SCREEN_WIDTH - 40);
+const MAX_ISLAND_WIDTH = Math.min(300, SCREEN_WIDTH - 40);
+const ISLAND_WIDTH_DELTA = MAX_ISLAND_WIDTH - MIN_ISLAND_WIDTH;
+const EDGE_MARGIN = 8;
+
 // `floating` draws the draggable pill (mobile). On desktop web the topbar's
 // morphing island shows the timer instead, so we pass floating={false} there —
 // but still mount for the idle-warning modal, which is platform-agnostic.
 export default function TimerIsland({ floating = true }: { floating?: boolean }) {
   const { isActive, activeSession, stopWork, serverTimeOffset, smartTimer } = useTimer();
   const { successToast, errorToast } = useToast();
-  const elapsedSeconds = useTicker(isActive ? activeSession?.started_at ?? null : null, { offsetMs: serverTimeOffset });
-  const elapsed = formatStopwatch(elapsedSeconds);
   const [expanded, setExpanded] = useState(false);
   const router = useRouter();
   const colors = useThemeColors();
@@ -46,6 +49,10 @@ export default function TimerIsland({ floating = true }: { floating?: boolean })
         useNativeDriver: false,
       }).start();
       setExpanded(false);
+      // Reset the width/height driver too — otherwise the next session starts
+      // scaled in at whatever expanded/collapsed size this one ended on, while
+      // `expanded` (and the buttons gated on it) reset to collapsed.
+      expandAnim.setValue(0);
     }
   }, [isActive]);
 
@@ -68,34 +75,67 @@ export default function TimerIsland({ floating = true }: { floating?: boolean })
       },
       onPanResponderRelease: () => {
         pan.flattenOffset();
+        // Only keep the *collapsed* pill on screen here — this fires on every
+        // drag, so reserving room for the expanded width (below) made the
+        // legal zone a sliver near one edge and everything snapped back there.
+        const minX = EDGE_MARGIN;
+        const maxX = SCREEN_WIDTH - MIN_ISLAND_WIDTH - EDGE_MARGIN;
+        const currentX = (pan.x as any)._value;
+        const clampedX = Math.min(Math.max(currentX, minX), maxX);
+        if (clampedX !== currentX) {
+          Animated.spring(pan.x, { toValue: clampedX, useNativeDriver: false, friction: 8, tension: 40 }).start();
+        }
+        // Was only ever reset in onPanResponderGrant (gesture start) — after a
+        // real drag this stayed `true` forever, permanently no-op'ing
+        // toggleExpand() and the task-name press on every tap from then on.
+        isDragging.current = false;
       },
     })
   ).current;
 
   const toggleExpand = () => {
     if (isDragging.current) return;
-    const toValue = expanded ? 0 : 1;
+    const opening = !expanded;
     Animated.spring(expandAnim, {
-      toValue,
+      toValue: opening ? 1 : 0,
       useNativeDriver: false,
       friction: 8,
       tension: 40,
     }).start();
-    setExpanded(!expanded);
+    if (opening) {
+      // Reserve room for the expanded width only when actually expanding
+      // (rare, deliberate) rather than on every drag release (frequent) —
+      // the expanded pill's left edge ends up at pan.x - ISLAND_WIDTH_DELTA/2
+      // once centerOffsetX reaches its max, so keep that within bounds.
+      const currentX = (pan.x as any)._value;
+      const minPanX = EDGE_MARGIN + ISLAND_WIDTH_DELTA / 2;
+      const maxPanX = SCREEN_WIDTH - MAX_ISLAND_WIDTH - EDGE_MARGIN + ISLAND_WIDTH_DELTA / 2;
+      const clampedX = Math.min(Math.max(currentX, minPanX), maxPanX);
+      if (clampedX !== currentX) {
+        Animated.spring(pan.x, { toValue: clampedX, useNativeDriver: false, friction: 8, tension: 40 }).start();
+      }
+    }
+    setExpanded(opening);
   };
 
   if (!isActive) return null;
 
-  const maxIslandWidth = Math.min(300, SCREEN_WIDTH - 40);
-
   const islandWidth = expandAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [Math.min(140, SCREEN_WIDTH - 40), maxIslandWidth],
+    outputRange: [MIN_ISLAND_WIDTH, MAX_ISLAND_WIDTH],
   });
 
   const islandHeight = expandAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [38, 70],
+  });
+
+  // Grow symmetrically from the pill's current center (like the iPhone
+  // Dynamic Island) instead of anchoring at the left edge and only pushing
+  // rightward, which could push trailing controls off-screen.
+  const centerOffsetX = expandAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -ISLAND_WIDTH_DELTA / 2],
   });
 
   return (
@@ -106,7 +146,7 @@ export default function TimerIsland({ floating = true }: { floating?: boolean })
       {...panResponder.panHandlers}
       style={{
         position: 'absolute',
-        left: pan.x,
+        left: Animated.add(pan.x, centerOffsetX),
         top: pan.y,
         transform: [{ scale }],
         width: islandWidth,
@@ -117,14 +157,14 @@ export default function TimerIsland({ floating = true }: { floating?: boolean })
     >
       <View className="flex-row items-center px-3 w-full h-full">
         {/* Left: Pulse & Timer */}
-        <TouchableOpacity 
-          onPress={toggleExpand} 
+        <TouchableOpacity
+          onPress={toggleExpand}
           activeOpacity={0.8}
           className="flex-row items-center"
         >
            <View className="w-2 h-2 rounded-full bg-brand-primary animate-pulse mr-2.5 ml-1" />
            {!expanded && (
-             <Text className="text-typography-main font-mono text-xs font-black mr-2">{elapsed}</Text>
+             <TimerElapsed startedAt={activeSession?.started_at ?? null} offsetMs={serverTimeOffset} className="text-typography-main font-mono text-xs font-black mr-2" />
            )}
         </TouchableOpacity>
 
@@ -139,7 +179,7 @@ export default function TimerIsland({ floating = true }: { floating?: boolean })
                 {activeSession?.task?.title || 'Task Details'}
               </Text>
             </TouchableOpacity>
-            <Text className="text-brand-primary font-mono text-[9px] font-black mt-0.5">{elapsed}</Text>
+            <TimerElapsed startedAt={activeSession?.started_at ?? null} offsetMs={serverTimeOffset} className="text-brand-primary font-mono text-[9px] font-black mt-0.5" />
           </View>
         )}
 
@@ -173,6 +213,13 @@ export default function TimerIsland({ floating = true }: { floating?: boolean })
     )}
     </>
   );
+}
+
+// Ticks once a second in its own leaf so the 1s re-render doesn't hit the
+// rest of the island (buttons, pulse dot, drag layout) — see useTicker's doc.
+function TimerElapsed({ startedAt, offsetMs, className }: { startedAt: string | null; offsetMs: number; className?: string }) {
+  const elapsedSeconds = useTicker(startedAt, { offsetMs });
+  return <Text className={className}>{formatStopwatch(elapsedSeconds)}</Text>;
 }
 
 const IdleWarning = ({ smartTimer, stopWork, colors }: any) => (
