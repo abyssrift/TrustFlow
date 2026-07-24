@@ -11,7 +11,7 @@ import TaskCardActions, { type ActiveSessionUser } from '@/components/task-detai
 import { boardCacheMeta, prefetchOtherBoards, taskCache, type BoardSnapshot, TASK_SORT_OPTIONS, compareTasksBySortKey, type TaskSortKey } from '@/components/tabs/taskBoardCache';
 import TaskPingButton from '@/components/task-detail/TaskPingButton';
 import AssignmentModal from '@/components/tasks/AssignmentModal';
-import CreateTaskSheet from '@/components/tasks/CreateTaskSheet';
+import CreateTaskModal from '@/components/tasks/CreateTaskModal';
 import TaskMobilityModal from '@/components/tasks/TaskMobilityModal';
 import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -1813,7 +1813,7 @@ function TasksScreen() {
         </TouchableOpacity>
       )}
 
-      <CreateTaskSheet
+      <CreateTaskModal
         visible={showCreateSheet}
         initialPipelineId={pipeline?.id}
         onClose={() => {
