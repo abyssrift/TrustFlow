@@ -10,18 +10,25 @@ import {
     XAxis, YAxis,
 } from 'recharts';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { SLARiskPulseDot, slaPulseStagger } from '@/components/intelligence/SLARiskPulse';
 import { formatDuration as fmtDwell } from '@/lib/duration';
 import { daysToPeriodParams } from '@/lib/analyticsPeriods';
 
 // SLA risk driver -> label + colour tone. `reason` from rpc_get_organizational_audit
 // (deadline | over_budget | stalled). Colour is keyed to the DRIVER, not raw severity,
 // so a stalled task with plenty of deadline slack reads calm-blue instead of alarm-red.
-export const SLA_TONE: Record<string, { label: string; text: string; bar: string; soft: string; hover: string }> = {
-  deadline:    { label: 'Deadline',    text: 'text-state-danger',  bar: 'bg-state-danger',  soft: 'bg-state-danger/10',  hover: 'hover:border-state-danger/50'  },
-  over_budget: { label: 'Over budget', text: 'text-state-warning', bar: 'bg-state-warning', soft: 'bg-state-warning/10', hover: 'hover:border-state-warning/50' },
-  stalled:     { label: 'Stalled',     text: 'text-brand-primary', bar: 'bg-brand-primary', soft: 'bg-brand-primary/10', hover: 'hover:border-brand-primary/50' },
+// Severity is carried by a separate channel — pulse tempo, see SLARiskPulse.tsx.
+// `swatch` is the same tone resolved to a literal colour (for anything that has to
+// be styled by value rather than by class, e.g. an animated ring); it must always
+// name the same token as `bar`.
+export const SLA_TONE: Record<string, { label: string; text: string; bar: string; soft: string; hover: string; swatch: 'danger' | 'warning' | 'primary' }> = {
+  deadline:    { label: 'Deadline',    text: 'text-state-danger',  bar: 'bg-state-danger',  soft: 'bg-state-danger/10',  hover: 'hover:border-state-danger/50',  swatch: 'danger'  },
+  over_budget: { label: 'Over budget', text: 'text-state-warning', bar: 'bg-state-warning', soft: 'bg-state-warning/10', hover: 'hover:border-state-warning/50', swatch: 'warning' },
+  stalled:     { label: 'Stalled',     text: 'text-brand-primary', bar: 'bg-brand-primary', soft: 'bg-brand-primary/10', hover: 'hover:border-brand-primary/50', swatch: 'primary' },
 };
 export const slaTone = (reason?: string) => SLA_TONE[reason || ''] || SLA_TONE.stalled;
+export const slaToneColor = (reason: string | undefined, colors: ReturnType<typeof useThemeColors>) =>
+  colors[slaTone(reason).swatch];
 
 export const SLAReasonBadge = ({ reason }: { reason?: string }) => {
   const t = slaTone(reason);
@@ -175,7 +182,9 @@ export const SLARiskAlertWeb = ({ data, className }: { data: any, className?: st
               onPress={() => router.push(`/task/${r.id}`)}
               className="w-full xl:w-[calc(50%-10px)] flex-row items-center gap-2.5 py-1.5 px-2 rounded-lg hover:bg-surface-background transition-all"
             >
-              <View className={`w-1.5 h-1.5 rounded-full ${t.bar}`} />
+              {/* Same 6px driver-coloured dot as before; above the pulse floor it
+                  also emits sonar rings whose tempo tracks `risk_percent`. */}
+              <SLARiskPulseDot riskPercent={r.risk_percent} color={slaToneColor(r.reason, colors)} stagger={slaPulseStagger(i)} />
               <Text numberOfLines={1} className="flex-1 text-typography-main text-xs font-semibold">
                 {r.task_number || `TASK-${r.id.substring(0, 4)}`}
               </Text>

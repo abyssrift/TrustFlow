@@ -5,6 +5,7 @@ import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { SLARiskPulseDot, slaPulseStagger } from '@/components/intelligence/SLARiskPulse';
 import { formatDuration as fmtSec } from '@/lib/duration';
 import { ActivityIndicator, Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
@@ -17,10 +18,14 @@ const PERIOD_OPTS = [
 
 // ─── SLA Risk Section ─────────────────────────────────────────────────────────
 
-const SLA_REASON_LABEL: Record<string, { label: string; tone: string }> = {
-  deadline:    { label: 'Deadline',    tone: 'text-state-danger' },
-  over_budget: { label: 'Over budget', tone: 'text-state-warning' },
-  stalled:     { label: 'Stalled',     tone: 'text-typography-muted' },
+// Deliberately a local copy of the driver -> label/tone map rather than an import
+// from RadarWidgets: that module pulls in `recharts`, which must never reach the
+// native bundle. `swatch` is the same tone resolved to a literal colour, for the
+// pulse ring (which is styled by value, not by class).
+const SLA_REASON_LABEL: Record<string, { label: string; tone: string; swatch: 'danger' | 'warning' | 'textMuted' }> = {
+  deadline:    { label: 'Deadline',    tone: 'text-state-danger',      swatch: 'danger'    },
+  over_budget: { label: 'Over budget', tone: 'text-state-warning',     swatch: 'warning'   },
+  stalled:     { label: 'Stalled',     tone: 'text-typography-muted',  swatch: 'textMuted' },
 };
 
 function SLARiskSection({ data }: { data: any }) {
@@ -36,24 +41,29 @@ function SLARiskSection({ data }: { data: any }) {
           <Text className="text-white text-[9px] font-black">{data.sla_risks.length}</Text>
         </View>
       </View>
-      {data.sla_risks.slice(0, 4).map((r: any, i: number) => (
+      {data.sla_risks.slice(0, 4).map((r: any, i: number) => {
+        const tone = SLA_REASON_LABEL[r.reason] || SLA_REASON_LABEL.stalled;
+        return (
         <TouchableOpacity
           key={i}
           onPress={() => router.push(`/task/${r.id}`)}
-          className="flex-row justify-between items-center py-2.5 border-b border-state-danger/10 last:border-b-0"
+          className="flex-row justify-between items-center gap-3 py-2.5 border-b border-state-danger/10 last:border-b-0"
         >
+          {/* Severity as tempo — driver colour unchanged, see SLARiskPulse.tsx */}
+          <SLARiskPulseDot riskPercent={r.risk_percent} color={colors[tone.swatch]} stagger={slaPulseStagger(i)} />
           <View className="flex-1">
             <Text className="text-typography-main text-xs font-bold">{r.task_number || `TASK-${r.id?.substring(0, 4)}`}</Text>
             <View className="flex-row items-center gap-2">
               <Text className="text-typography-muted text-[9px] uppercase">{r.stage_name}</Text>
-              <Text className={`text-[9px] font-black uppercase ${(SLA_REASON_LABEL[r.reason] || SLA_REASON_LABEL.stalled).tone}`}>
-                {(SLA_REASON_LABEL[r.reason] || SLA_REASON_LABEL.stalled).label}
+              <Text className={`text-[9px] font-black uppercase ${tone.tone}`}>
+                {tone.label}
               </Text>
             </View>
           </View>
           <Text className="text-state-danger text-sm font-black">{r.risk_percent}%</Text>
         </TouchableOpacity>
-      ))}
+        );
+      })}
     </View>
   );
 }
