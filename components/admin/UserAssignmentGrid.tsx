@@ -41,7 +41,7 @@ export default function UserAssignmentGrid() {
   const { showConfirm } = useAlert();
   const colors = useThemeColors();
   const { width } = useWindowDimensions();
-  const isDesktop = width > 1024;
+  const isDesktop = width >= 1024;
 
   const canAssignRoles = hasPermission('role.manage');
   const canRemoveUsers = hasPermission('role.manage');
