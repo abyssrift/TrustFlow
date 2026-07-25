@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Alert, ScrollView, Switch, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Alert, ScrollView, Switch, Platform, useWindowDimensions } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { usePipelineEditor, Stage } from '@/contexts/PipelineEditorContext';
 import { useAlert } from '@/contexts/AlertContext';
@@ -15,6 +15,8 @@ const COLOR_PALETTE = [
 
 export default function StageBuilder() {
   const colors = useThemeColors();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 1024;
   const {
     stages, loading, error, pipelines, isOperationInFlight,
     addStage, updateStage, deleteStage, reorderStages,
@@ -30,6 +32,7 @@ export default function StageBuilder() {
   const [editingTransitionId, setEditingTransitionId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'graph' | 'list'>('graph');
   const [showPermPicker, setShowPermPicker] = useState(false);
+  const effectiveViewMode = isDesktop ? viewMode : 'list';
 
   // Form state
   const [formState, setFormState] = useState({
@@ -159,16 +162,17 @@ export default function StageBuilder() {
         </View>
 
         <View className="flex-row flex-wrap items-center gap-4">
-          {/* View Toggle */}
+          {/* View Toggle — Canvas mode is desktop-only */}
+          {isDesktop && (
           <View className="flex-row bg-surface-card border border-surface-border p-1 rounded-xl">
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => setViewMode('graph')}
               className={`px-3 py-1.5 rounded-lg flex-row items-center gap-2 transition-all ${viewMode === 'graph' ? 'bg-brand-primary shadow-sm' : 'hover:bg-surface-overlay active:scale-95'}`}
             >
               <FontAwesome name="th-large" size={12} color={viewMode === 'graph' ? 'white' : colors.textMuted} />
               <Text className={`text-xs font-bold ${viewMode === 'graph' ? 'text-white' : 'text-typography-muted'}`}>Canvas</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => setViewMode('list')}
               className={`px-3 py-1.5 rounded-lg flex-row items-center gap-2 transition-all ${viewMode === 'list' ? 'bg-brand-primary shadow-sm' : 'hover:bg-surface-overlay active:scale-95'}`}
             >
@@ -176,6 +180,7 @@ export default function StageBuilder() {
               <Text className={`text-xs font-bold ${viewMode === 'list' ? 'text-white' : 'text-typography-muted'}`}>List</Text>
             </TouchableOpacity>
           </View>
+          )}
 
           <TouchableOpacity
             onPress={() => { resetForm(); setShowAddForm(true); setEditingStageId(null); setEditingTransitionId(null); }}
@@ -190,7 +195,7 @@ export default function StageBuilder() {
       {/* Main Content */}
       <View className="flex-1">
         <View className="flex-1 overflow-hidden">
-          {viewMode === 'graph' ? (
+          {effectiveViewMode === 'graph' ? (
             <GraphCanvas 
               onEditStage={(s) => { populateForm(s); setEditingStageId(s.id); setEditingTransitionId(null); setShowAddForm(false); }}
               onDeleteStage={handleDelete}
