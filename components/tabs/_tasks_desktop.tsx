@@ -1,4 +1,5 @@
 import AnimatedTaskCard from '@/components/common/AnimatedTaskCard';
+import { useStageTransitionFX } from '@/components/tabs/StageTransitionFX';
 import KanbanPersonalizer from '@/components/kanban/KanbanPersonalizer';
 import LinkifiedText from '@/components/common/LinkifiedText';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
@@ -319,6 +320,7 @@ export function TasksScreenWeb() {
   const [boardWidth, setBoardWidth] = useState(0);
   const boardWidthRef = useRef(0);
   const boardContainerRef = useRef<View>(null);
+  const stageFX = useStageTransitionFX(boardContainerRef, colors.primary);
 
   // Wait out the 300ms width transition before mounting the wrap-grid layout —
   // reflowing every card on each animation frame while the column resizes is what was dropping frames.
@@ -1153,13 +1155,24 @@ export function TasksScreenWeb() {
 
     const pingedAt = pingedTasks.get(task.id);
     const isPinged = pingedAt !== undefined;
+    // Comet-trail stage transition (issue #124) — if this card just arrived
+    // from a different stage column, FLIP it in from where it used to be
+    // instead of only fading in place, and fire the connector trail once.
+    const stageTransition = stageFX.peekTransition(task.id, task.current_stage_id);
     return (
-      <AnimatedTaskCard key={task.id} disableLayoutAnimation={boardTransitioning}>
+      <AnimatedTaskCard
+        key={task.id}
+        disableLayoutAnimation={boardTransitioning}
+        flipFrom={stageTransition?.flipFrom}
+        onFlipMount={() => stageFX.commitMount(task.id, task.current_stage_id, stageTransition?.fromStageId ?? null)}
+      >
       <TouchableOpacity
         onPress={() => {
           if (isPinged) removePingedTask(task.id);
           router.push(`/task/${task.id}`);
         }}
+        // @ts-ignore - web-only hook for StageTransitionFX to find/measure this card
+        dataSet={Platform.OS === 'web' ? { stageCardId: task.id } : undefined}
         className="bg-surface-card p-5 rounded-2xl mb-4 premium-shadow hover:border-brand-primary/50 hover:z-50 transition-all relative"
         style={isPinged ? {
           borderWidth: 1.5,
@@ -1703,6 +1716,7 @@ export function TasksScreenWeb() {
                 return (
                   <View
                     key={stage.id}
+                    ref={(el) => stageFX.registerColumn(stage.id, el)}
                     className="h-full transition-[width,margin-right,opacity] duration-300 ease-in-out"
                     style={{
                       width: isFullscreen ? (boardWidth || undefined) : isHiddenByFullscreen ? 0 : 380,
@@ -1766,6 +1780,7 @@ export function TasksScreenWeb() {
                 );
               })}
             </ScrollView>
+            <stageFX.TrailLayer />
             </View>
           )}
         </View>
