@@ -599,7 +599,7 @@ function formatTimestamp(iso: string): string {
 export default function NotificationRules() {
   const colors = useThemeColors();
   const { width } = useWindowDimensions();
-  const isDesktop = width > 1024;
+  const isDesktop = width >= 1024;
   const { initialized } = useAuth();
   const { showAlert, showConfirm } = useAlert();
 
