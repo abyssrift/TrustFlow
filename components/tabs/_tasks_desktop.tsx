@@ -1,5 +1,5 @@
 import AnimatedTaskCard from '@/components/common/AnimatedTaskCard';
-import { useStageTransitionFX } from '@/components/tabs/StageTransitionFX';
+import { useStageTransitionFX, StageTrailLayer } from '@/components/tabs/StageTransitionFX';
 import KanbanPersonalizer from '@/components/kanban/KanbanPersonalizer';
 import LinkifiedText from '@/components/common/LinkifiedText';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
@@ -1155,9 +1155,9 @@ export function TasksScreenWeb() {
 
     const pingedAt = pingedTasks.get(task.id);
     const isPinged = pingedAt !== undefined;
-    // Comet-trail stage transition (issue #124) — if this card just arrived
-    // from a different stage column, FLIP it in from where it used to be
-    // instead of only fading in place, and fire the connector trail once.
+    // If this card just arrived from a different stage column, FLIP it in
+    // from where it used to be instead of only fading in place, and fire
+    // the connector trail once.
     const stageTransition = stageFX.peekTransition(task.id, task.current_stage_id);
     return (
       <AnimatedTaskCard
@@ -1780,7 +1780,7 @@ export function TasksScreenWeb() {
                 );
               })}
             </ScrollView>
-            <stageFX.TrailLayer />
+            <StageTrailLayer trails={stageFX.trails} color={stageFX.glowColor} />
             </View>
           )}
         </View>

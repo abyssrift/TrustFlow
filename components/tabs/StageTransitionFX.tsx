@@ -4,7 +4,7 @@ import Animated, { Easing, useAnimatedProps, useReducedMotion, useSharedValue, w
 import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 import type { FlipRect } from '@/components/common/AnimatedTaskCard';
 
-// ─── Comet-trail stage transition FX (issue #124) ────────────────────────
+// ─── Comet-trail stage transition FX ──────────────────────────────────────
 //
 // Kanban boards traditionally cross-fade or instantly reposition a card when
 // it changes stage. This hook drives two effects instead, scoped to the
@@ -180,16 +180,26 @@ export function useStageTransitionFX(boardContainerRef: React.RefObject<View | n
     }
   }, [fireTrail, reducedMotion]);
 
-  const TrailLayer = useCallback(() => {
-    if (Platform.OS !== 'web' || trails.length === 0) return null;
-    return (
-      <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, zIndex: 60 }}>
-        {trails.map(({ key, ...rest }) => (
-          <StageTrailPulse key={key} gradientId={`stageTrailGlow-${key}`} {...rest} color={glowColor} />
-        ))}
-      </View>
-    );
-  }, [trails, glowColor]);
+  return { registerColumn, peekTransition, commitMount, trails, glowColor };
+}
 
-  return { registerColumn, peekTransition, commitMount, TrailLayer };
+/**
+ * Renders the in-flight connector trails. Deliberately a plain top-level
+ * component taking `trails`/`color` as props rather than something handed
+ * back from the hook as a closure — a function recreated on every `trails`
+ * change (e.g. via useCallback) would have a new identity each time and, used
+ * as a JSX component reference, would make React treat it as a different
+ * component type and remount the whole layer (and every in-flight
+ * `StageTrailPulse`'s animation) whenever a second trail starts while the
+ * first is still playing.
+ */
+export function StageTrailLayer({ trails, color }: { trails: Trail[]; color: string }) {
+  if (Platform.OS !== 'web' || trails.length === 0) return null;
+  return (
+    <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, zIndex: 60 }}>
+      {trails.map(({ key, ...rest }) => (
+        <StageTrailPulse key={key} gradientId={`stageTrailGlow-${key}`} {...rest} color={color} />
+      ))}
+    </View>
+  );
 }
