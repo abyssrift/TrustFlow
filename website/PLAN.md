@@ -1,6 +1,16 @@
 # TrustFlow Marketing Site — Build Plan
 
-Scaffold status: **environment is live and verified** (`npm install && npm run build` succeeds, 0 errors). No real page content has been designed yet — this doc is the plan for that next phase. Nothing below should be built until the open decisions are resolved with Adam.
+> **This plan predates the final design and is partially stale.** It was
+> drafted before the high-fidelity design handoff landed at
+> `TrustFlow website design/design_handoff_trustflow_website/` (commit
+> `d45abc1`, 2026-07-22) — that handoff + its `README.md` are now the source
+> of truth for copy, layout, and design tokens, superseding §1/§1a below and
+> `DESIGN_SPEC.md`. This file is still accurate for page inventory (§0, §2,
+> §2a, §2b), technical/perf budget (§5), SEO (§6), domain/deploy (§7), and
+> accessibility (§8) — those weren't design-token-dependent. See "Build
+> progress" at the bottom for what's actually shipped vs. still open.
+
+Scaffold status: **live build, Home page shipped.** `npm install && npm run build` succeeds, 0 errors. Home is built and matches the design handoff. Plans and Docs & Help are in progress (see "Build progress").
 
 Tracking issue: see GitHub issue for this project (linked from the repo) — this file is the living, detailed version; the issue is the summary/checklist.
 
@@ -16,7 +26,13 @@ TrustFlow (the app) has no public-facing page that explains the product, builds 
 
 This is bigger than a "1-2 page site" — it's a small marketing site *plus* a lightweight help/content center. §9 phases the build so Home/Product/Plans (the conversion path) ship before the content hub (which has real production dependencies — see §2b).
 
-## 1. Open decisions (need Adam's input before real design starts)
+## 1. Open decisions — SUPERSEDED, see design handoff
+
+Everything in this section and §1a was resolved by the 2026-07-22 design
+handoff, at higher fidelity than the answers below. Kept for history only —
+do not use these as current truth. Current tokens live in
+`src/styles/tokens.css` / `tailwind.config.mjs`, both ported from the
+handoff's `README.md`, not from this table.
 
 | # | Decision | Options | Current placeholder |
 |---|---|---|---|
@@ -123,22 +139,33 @@ This is a genuinely separate deploy from the main app — the app keeps deployin
 9. Lock decision #9 (tutorials format) and write the initial 5-8 tutorials.
 10. Lock decision #8 (video hosting), produce and publish videos as they're ready — not a launch blocker for Phase 1.
 
-## Current scaffold (what already exists)
+## Current scaffold (what already exists, 2026-07-25)
 
 ```
 website/
   src/
-    layouts/BaseLayout.astro   # SEO/OG head, canonical URL, favicons wired
-    pages/index.astro          # placeholder only — not the real homepage
-    pages/product.astro        # not created yet — Phase 1
-    pages/plans.astro          # not created yet — Phase 1
-    pages/faq.astro, tutorials/, videos/  # not created yet — Phase 2
-    styles/tokens.css          # ported design tokens, brand color flagged as open decision
-    styles/global.css          # tailwind + tokens entrypoint
-    components/sections/       # empty — real sections go here
-    assets/                    # empty — put anything needing astro:assets optimization here
+    layouts/BaseLayout.astro   # SEO/OG head, canonical URL, favicons, Inter + Inter Tight self-hosted
+    components/Nav.astro       # shared nav — DONE, matches handoff (active-page state, scroll-solid)
+    components/Footer.astro    # shared footer — DONE, matches handoff
+    components/ImageSlot.astro # placeholder mockup box + 3-layer glow, swap for real <Image> later
+    pages/index.astro          # Home — DONE, matches Home.dc.html
+    pages/waitlist.astro       # DONE, live, predates this rebuild (own inline styles, already monochrome)
+    pages/product.astro        # not built yet
+    pages/plans.astro          # in progress — wiring to rpc_public_plans (see Build progress)
+    pages/docs.astro           # in progress — sidebar search/filter island (see Build progress)
+    pages/content-hub.astro    # not built yet — Phase 2
+    styles/tokens.css          # DONE — monochrome tokens ported from the design handoff README
+    styles/global.css          # tailwind + tokens entrypoint, btn system matches handoff
   public/                      # favicons + logo marks copied from ../assets/images
   astro.config.mjs             # static output, sitemap integration, placeholder `site` URL
-  tailwind.config.mjs          # mirrors app's token-based color/radius approach
-  netlify.toml                 # scoped for a separate Netlify site (base dir = website)
+  tailwind.config.mjs          # DONE — token-driven, matches handoff type scale/radius/color
+  netlify.toml                 # scoped for a separate Netlify site (base dir = website) — not the launch target, see §7
 ```
+
+## Build progress (living log, most recent first)
+
+- **2026-07-25 — done:** Content Hub populated with real posts (3 "Product updates" grounded in actual shipped commits — SLA risk scoring, Jira/Odoo/Trello import, File Hub upload rebuild — dates pulled from `git log`, not invented; 4 original "Guides"), category filter now wired since there's content to filter. "Customer stories" stays genuinely empty — no real customers yet at the waitlist stage. Post detail pages (individual article routes) not built yet — this pass is the listing/grid only. Docs & Help extended to support optional `image`/`video` fields per item — `image` renders via the existing `ImageSlot` placeholder pattern, `video` renders a real click-to-load YouTube facade if a `youtubeId` is supplied (zero iframe/tracking JS until clicked) or an honest "video coming soon" placeholder if not. Wired into 3 real items (mobile app screenshot, SLA risk screenshot, timers video) plus one new item (Jira/Odoo/Trello import tutorial, same real feature as the new Content Hub post). Fixed 3 real bugs found right after the motion-pass shipped (nav pill position tracking, marquee empty-space-on-right, missing nav logo) — see memory for detail, worth reading before touching `Nav.astro`'s pill logic or the marquee again.
+- **2026-07-25 — done:** Full motion pass across the site. Global foundation: one spring easing token (`--ease-spring`) used everywhere instead of default browser easing, a site-wide custom cursor (fine-pointer + motion-allowed only, skips text inputs), staggered page-load reveals. Component-level: liquid sliding pill on the main nav + a sliding underline on Product's sub-nav (replacing instant swaps), magnetic pull on every primary CTA, a cursor-tracing gradient border on the 4 Plans cards, a cursor-following spotlight on Home's audience rows and the Docs sidebar, a diagonal shine-sweep on outline buttons, a pausable marquee replacing Home's static trust strip, per-word staggered reveal on the Home/Plans/Product H1s, a real height-animated FAQ accordion on Plans (replacing native `<details>`), an odometer-style roll-up on the waitlist page's real signup count (rolls from last-shown to new value — real data only, no fabricated numbers), a cursor-reactive ambient glow on the Home hero, and one card-tilt moment (Home testimonial mockup only, by design — not stacked with other pages). All reusable behaviors (`.magnetic`, `.spotlight`/`.gradient-border`, `.tilt-card`, custom cursor) live once in `BaseLayout.astro`'s script and `global.css`, so any future element just needs the class, no per-page JS. Verified with a full cold dev-server restart (the class of bug that bit Docs/Plans earlier only shows on cold start) — clean, all 6 pages 200.
+- **2026-07-25 — done:** Product page (`product.astro`) and Content Hub page (`content-hub.astro`). Product drops the mock's "Integrations" section (not a real feature) and fixes its Permissions copy (no "client-guest" role exists). Content Hub ships with an honest empty state — the mock's sample posts were fabricated case studies, not shipped. Plus: site-wide scroll-reveal animation utility (`.reveal` + IntersectionObserver in BaseLayout), applied to Home/Plans, Docs left static on purpose. Fixed a real bug: a literal `<script>` substring inside a code comment in `docs.astro` was crashing Vite's dev-mode dependency scanner on cold start (production builds were never affected) — see memory for the full explanation, don't reintroduce it.
+- **2026-07-25 — done:** Plans page (`plans.astro`) — real pricing pulled at build time from a new `rpc_public_plans()` RPC (migration `20260725_public_plans_rpc.sql`, applied to prod) reading the live `billing_plans` table; monthly-only, no annual toggle (app has no annual tier); comparison table + FAQ derived from real `limits`/`features` data, not the design mock's copy (which had two inaccuracies — see memory). Docs & Help page (`docs.astro`) — sidebar search/filter + content-pane-swap island (vanilla JS, all content pre-rendered for SEO/no-JS), real TrustFlow-grounded copy across Getting Started/Tutorials/Guides/FAQs, not the handoff's generic placeholder text. Both build clean, both live on the dev server.
+- **2026-07-24 — done:** Design system migrated from the old indigo/navy `DESIGN_SPEC.md` direction to the finalized monochrome handoff (tokens, Tailwind config, Nav, Footer, ImageSlot, full Home page rebuild). Old `Hero.astro`/`HeroVisual.astro` deleted.

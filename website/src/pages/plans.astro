@@ -1,0 +1,228 @@
+---
+// Pricing is fetched live from the app's own billing_plans table (via the
+// public rpc_public_plans RPC, added 2026-07-25) at build time — never
+// hand-copied, so this page can't silently drift from what the app charges.
+// No Monthly/Annual toggle: the app has no annual tier configured today, so
+// showing one would advertise a purchase path that doesn't exist yet.
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+
+const SUPABASE_URL = import.meta.env.PUBLIC_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
+
+type PlanLimits = {
+  max_members: number | null;
+  max_file_bytes: number | null;
+  max_storage_bytes: number | null;
+  max_pipelines: number | null;
+  features: string[];
+};
+
+type Plan = {
+  code: string;
+  name: string;
+  description: string | null;
+  price_cents: number;
+  currency: string;
+  interval: string;
+  per_seat: boolean;
+  features: string[];
+  limits: PlanLimits;
+};
+
+const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/rpc_public_plans`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    apikey: SUPABASE_ANON_KEY,
+    Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+  },
+  body: '{}',
+});
+if (!res.ok) {
+  throw new Error(`rpc_public_plans failed (${res.status}) — cannot build the Plans page without live pricing.`);
+}
+const plans = (await res.json()) as Plan[];
+
+function priceParts(p: Plan) {
+  if (p.code === 'enterprise') return { amount: 'Custom', suffix: '', note: 'quoted per organization' };
+  if (p.price_cents === 0) return { amount: '$0', suffix: '', note: 'forever' };
+  return {
+    amount: `$${(p.price_cents / 100).toFixed(0)}`,
+    suffix: p.per_seat ? '/user/mo' : '/mo',
+    note: 'billed monthly',
+  };
+}
+
+function ctaLabel(p: Plan) {
+  if (p.code === 'enterprise') return 'Talk to sales';
+  if (p.price_cents === 0) return 'Start free';
+  return 'Start free trial';
+}
+
+const fmtBytes = (b: number | null) => {
+  if (b == null) return 'Unlimited';
+  if (b >= 1073741824) return `${(b / 1073741824).toFixed(0)} GB`;
+  if (b >= 1048576) return `${(b / 1048576).toFixed(0)} MB`;
+  return `${(b / 1024).toFixed(0)} KB`;
+};
+const fmtCount = (n: number | null) => (n == null ? 'Unlimited' : `Up to ${n}`);
+const hasFeature = (p: Plan, key: string) => (p.limits?.features || []).includes(key);
+
+const SUPPORT_LABEL: Record<string, string> = {
+  free: 'Community',
+  pro: 'Priority',
+  business: 'Priority',
+  enterprise: 'Dedicated onboarding',
+};
+
+const comparisonRows = [
+  { label: 'Members', values: plans.map((p) => fmtCount(p.limits?.max_members ?? null)) },
+  { label: 'Pipelines', values: plans.map((p) => fmtCount(p.limits?.max_pipelines ?? null)) },
+  { label: 'FileHub upload size', values: plans.map((p) => `${fmtBytes(p.limits?.max_file_bytes ?? null)}/file`) },
+  { label: 'Storage', values: plans.map((p) => fmtBytes(p.limits?.max_storage_bytes ?? null)) },
+  { label: 'Analytics & reporting', values: plans.map((p) => (hasFeature(p, 'analytics') || hasFeature(p, 'reporting') ? '✓' : '—')) },
+  { label: 'Automations', values: plans.map((p) => (hasFeature(p, 'automations') ? '✓' : '—')) },
+  { label: 'Data export', values: plans.map((p) => (hasFeature(p, 'data_export') ? '✓' : '—')) },
+  { label: 'SSO', values: plans.map((p) => (hasFeature(p, 'sso') ? 'Coming soon' : '—')) },
+  { label: 'Support', values: plans.map((p) => SUPPORT_LABEL[p.code] ?? '—') },
+];
+
+const h1Words = 'Straightforward pricing, built to grow with you.'.split(' ');
+
+const faqItems = [
+  { q: 'Can I change plans later?', a: 'Yes — upgrade or downgrade anytime from your billing settings. Upgrades apply immediately; downgrades change your limits right away, so make sure you’re under the new plan’s caps first.' },
+  { q: 'What happens after my trial ends?', a: 'Nothing is deleted. You’ll be prompted to choose a paid plan — until you do, you’re limited by the plan you land on, but your boards, files, and history stay intact.' },
+  { q: 'Do you offer trial codes?', a: 'Yes — if you have a trial code, redeem it from your billing settings to activate a plan for a limited time, no card required.' },
+  { q: 'Is there a limit on file size or storage?', a: 'Both scale with your plan — see the comparison table above for exact per-file and total storage limits on each tier.' },
+  { q: 'How does Enterprise pricing work?', a: 'Enterprise is quoted per organization based on seats and needs — reach out and we’ll put a number together.' },
+];
+---
+
+<BaseLayout
+  title="TrustFlow — Plans & pricing"
+  description="Straightforward pricing that grows with your team. Start free, upgrade when you need more members, storage, or automation."
+>
+  <Nav />
+
+  <main>
+    <section class="reveal mx-auto max-w-[760px] px-6 pb-2 pt-16 text-center sm:px-12 sm:pt-[72px]">
+      <span class="text-eyebrow uppercase text-text-dim">Plans</span>
+      <h1 class="word-reveal mt-4 mb-3.5 justify-center text-h1 text-text-heading">
+        {h1Words.map((w, i) => (
+          <span class="w" style={`--wi:${i}`}>{w}</span>
+        ))}
+      </h1>
+      <p class="mx-auto max-w-[520px] text-body-lg text-text-muted">
+        Start free, upgrade when your team needs more. No surprise fees, cancel anytime.
+      </p>
+    </section>
+
+    <section class="px-6 pb-6 pt-10 sm:px-12">
+      <div class="mx-auto grid max-w-content grid-cols-1 items-stretch gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        {plans.map((p, i) => {
+          const price = priceParts(p);
+          const popular = p.code === 'pro';
+          return (
+            <div
+              class:list={[
+                'gradient-border reveal relative flex flex-col rounded-card border p-8',
+                `reveal-delay-${Math.min(i + 1, 4)}`,
+                popular ? 'border-hairline-emphasis bg-surface-elevated shadow-[0_20px_50px_-20px_rgba(0,0,0,0.6)]' : 'border-hairline bg-surface-card',
+              ]}
+            >
+              {popular && (
+                <span class="absolute -top-3.5 left-8 w-max rounded-pill bg-text-main px-3 py-1.5 text-[11.5px] font-bold tracking-[0.02em] text-on-accent">
+                  Most popular
+                </span>
+              )}
+              <span class="text-[15px] font-bold text-text-main">{p.name}</span>
+              <p class="mt-2 min-h-[36px] text-[13.5px] text-text-subtle">{p.description}</p>
+              <div class="mt-[22px] mb-1 flex items-baseline gap-1.5">
+                <span class="font-heading text-[38px] font-extrabold text-text-heading">{price.amount}</span>
+                {price.suffix && <span class="text-[14px] text-text-subtle">{price.suffix}</span>}
+              </div>
+              <span class="text-[13px] text-text-dim">{price.note}</span>
+              <a
+                href="/waitlist"
+                class:list={[
+                  'mt-[22px] flex items-center justify-center rounded-button px-[18px] py-[11px] text-[14px] font-semibold transition-colors duration-200',
+                  popular ? 'magnetic bg-white text-on-accent hover:bg-[#dfe3e6]' : 'shine border border-hairline-strong text-text-main hover:border-hairline-emphasis',
+                ]}
+              >
+                {ctaLabel(p)}
+              </a>
+              <div class="mt-[26px] flex flex-col gap-3 border-t border-hairline pt-[22px]">
+                {p.features.map((f) => (
+                  <span class="text-[13.5px] text-cta-arrow">{f}</span>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <p class="mt-7 text-center text-[13px] text-text-faint">No credit card required &middot; Free 14-day trial on Pro &amp; Business</p>
+    </section>
+
+    <section class="px-6 pb-10 pt-24 sm:px-12 sm:pt-[120px]">
+      <div class="reveal mx-auto max-w-content">
+        <h2 class="mb-7 text-center text-h2 text-text-heading">Compare plans in detail</h2>
+        <div class="overflow-x-auto">
+          <div class="min-w-[640px] border-t border-hairline">
+            <div class="grid grid-cols-[1.4fr_1fr_1fr_1fr_1fr] gap-4 border-b border-hairline py-4">
+              <span></span>
+              {plans.map((p) => (
+                <span class="text-center text-[13.5px] font-semibold text-text-main">{p.name}</span>
+              ))}
+            </div>
+            {comparisonRows.map((row) => (
+              <div class="grid grid-cols-[1.4fr_1fr_1fr_1fr_1fr] gap-4 border-b border-hairline/70 py-4">
+                <span class="text-[14px] text-cta-arrow">{row.label}</span>
+                {row.values.map((v) => (
+                  <span class="text-center text-[14px] text-text-muted">{v}</span>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="px-6 pb-32 pt-20 sm:px-12 sm:pt-24">
+      <div class="reveal mx-auto max-w-[760px]">
+        <h2 class="mb-7 text-center text-h2 text-text-heading">Frequently asked questions</h2>
+        <div class="border-t border-hairline">
+          {faqItems.map((item, i) => (
+            <div class:list={['acc-item border-b border-hairline py-1', i === 0 && 'open']}>
+              <button type="button" class="flex w-full cursor-pointer items-center justify-between gap-4 py-[18px] text-left font-sans">
+                <span class="text-[15.5px] font-semibold text-text-main">{item.q}</span>
+                <span class="acc-plus flex-none text-xl text-text-subtle">+</span>
+              </button>
+              <div class="acc-body">
+                <div class="acc-body-inner">
+                  <p class="mb-[22px] max-w-[640px] text-[14.5px] leading-[1.65] text-text-muted">{item.a}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <Footer />
+</BaseLayout>
+
+<script>
+  // Smooth FAQ accordion — grid-rows height transition (see .acc-body in
+  // global.css), single-open behavior like the design mock.
+  document.querySelectorAll<HTMLButtonElement>('.acc-item > button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const item = btn.closest('.acc-item');
+      const wasOpen = item?.classList.contains('open');
+      document.querySelectorAll('.acc-item.open').forEach((el) => el.classList.remove('open'));
+      if (!wasOpen) item?.classList.add('open');
+    });
+  });
+</script>

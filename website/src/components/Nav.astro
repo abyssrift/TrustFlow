@@ -1,55 +1,104 @@
 ---
-// Shared top navigation (DESIGN_SPEC §1, PLAN §2.1).
-// Sticky, frosted, hairline bottom border. No JS: the frosted bar reads well
-// at any scroll position, so the optional transparent-on-scroll swap is skipped.
+// Shared top nav — every page (Home, Product, Plans, Content Hub, Docs & Help)
+// uses this. Sticky; fully transparent over the hero, fades in a translucent
+// dark background + hairline border after ~8px of scroll (see inline script).
+// Current page's own link renders bold/white; others are muted with hover.
 const APP_URL = 'https://portal.trustedgellc.com';
 
 const links = [
   { label: 'Product', href: '/product' },
   { label: 'Plans', href: '/plans' },
-  { label: 'Resources', href: '/resources' },
+  { label: 'Content Hub', href: '/content-hub' },
+  { label: 'Docs & Help', href: '/docs' },
 ];
+
+const currentPath = Astro.url.pathname.replace(/\/$/, '') || '/';
 ---
 
-<header
-  class="sticky top-0 z-50 border-b border-hairline bg-bg-base/70 backdrop-blur-md"
->
+<header id="site-nav" class="sticky top-0 z-50 border-b border-transparent bg-transparent backdrop-blur-[10px] transition-colors duration-200">
   <nav
-    class="mx-auto flex h-16 max-w-content items-center justify-between gap-6 px-6"
+    class="mx-auto flex h-[72px] max-w-content items-center justify-between px-6 sm:px-12"
     aria-label="Primary"
   >
-    <a
-      href="/"
-      class="flex items-center gap-2.5 rounded-md text-text-main"
-      aria-label="TrustFlow home"
-    >
-      <img src="/logo-mark-white.png" alt="" width="26" height="26" class="h-[26px] w-[26px]" />
-      <span class="text-[1.0625rem] font-semibold tracking-tight">TrustFlow</span>
+    <a href="/" class="flex items-center gap-2.5 font-heading text-[18px] font-bold tracking-[-0.01em] text-text-main" aria-label="TrustFlow home">
+      <img src="/logo-mark.png" alt="" width="26" height="26" class="h-[26px] w-[26px]" />
+      TrustFlow
     </a>
 
-    <ul class="hidden items-center gap-8 md:flex">
+    <ul id="nav-links" class="relative hidden items-center gap-9 md:flex">
+      <li aria-hidden="true" class="absolute left-0 top-0">
+        <div id="nav-pill" class="pointer-events-none absolute left-0 top-0 rounded-pill bg-white/[0.06] opacity-0 transition-[opacity,transform,width] duration-300 ease-spring"></div>
+      </li>
       {
-        links.map((link) => (
-          <li>
-            <a
-              href={link.href}
-              class="text-[0.9375rem] text-text-muted transition-colors duration-200 hover:text-text-main"
-            >
-              {link.label}
-            </a>
-          </li>
-        ))
+        links.map((link) => {
+          const active = currentPath === link.href;
+          return (
+            <li class="relative z-10">
+              <a
+                href={link.href}
+                data-nav-link
+                aria-current={active ? 'page' : undefined}
+                class:list={[
+                  'block whitespace-nowrap px-3 py-2 -mx-3 -my-2 text-[14.5px] transition-colors duration-200',
+                  active
+                    ? 'font-semibold text-white'
+                    : 'font-medium text-text-muted hover:text-text-main',
+                ]}
+              >
+                {link.label}
+              </a>
+            </li>
+          );
+        })
       }
     </ul>
 
-    <div class="flex items-center gap-2 sm:gap-3">
+    <div class="flex items-center gap-[22px]">
       <a
         href={APP_URL}
-        class="hidden text-[0.9375rem] font-medium text-text-muted transition-colors duration-200 hover:text-text-main sm:inline-flex"
+        class="hidden whitespace-nowrap text-[14.5px] font-medium text-text-muted transition-colors duration-200 hover:text-text-main sm:inline-flex"
       >
-        Sign in
+        Log in
       </a>
-      <a href={APP_URL} class="btn btn-primary">Get started</a>
+      <a href="/waitlist" class="btn btn-primary magnetic">Start free trial</a>
     </div>
   </nav>
 </header>
+
+<script>
+  const nav = document.getElementById('site-nav');
+  const onScroll = () => {
+    const scrolled = window.scrollY > 8;
+    nav?.classList.toggle('bg-bg-base/85', scrolled);
+    nav?.classList.toggle('border-hairline', scrolled);
+  };
+  onScroll();
+  window.addEventListener('scroll', onScroll, { passive: true });
+
+  // Liquid nav pill — a soft highlight slides between links on hover,
+  // fading out when the pointer leaves the nav rather than resting on the
+  // active page (the existing bold/white text already marks that).
+  const navList = document.getElementById('nav-links');
+  const pill = document.getElementById('nav-pill');
+  if (navList && pill) {
+    // getBoundingClientRect, not offsetLeft/offsetTop — each link's own <li>
+    // has position:relative (so the link text stacks above the pill), which
+    // makes offsetLeft/offsetTop measure from that li instead of the ul.
+    // Rects measure from the viewport for both, so the subtraction is
+    // correct regardless of what's positioned in between.
+    const moveTo = (el: HTMLElement) => {
+      const elRect = el.getBoundingClientRect();
+      const listRect = navList.getBoundingClientRect();
+      pill.style.width = elRect.width + 'px';
+      pill.style.height = elRect.height + 'px';
+      pill.style.transform = `translate(${elRect.left - listRect.left}px, ${elRect.top - listRect.top}px)`;
+      pill.style.opacity = '1';
+    };
+    navList.querySelectorAll<HTMLElement>('[data-nav-link]').forEach((link) => {
+      link.addEventListener('mouseenter', () => moveTo(link));
+    });
+    navList.addEventListener('mouseleave', () => {
+      pill.style.opacity = '0';
+    });
+  }
+</script>

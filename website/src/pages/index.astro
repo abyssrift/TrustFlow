@@ -1,15 +1,191 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Nav from '../components/Nav.astro';
-import Hero from '../components/Hero.astro';
+import Footer from '../components/Footer.astro';
+import ImageSlot from '../components/ImageSlot.astro';
+
+const audiences = [
+  { label: 'Small teams', body: 'Keep everyone aligned without extra process or overhead.' },
+  { label: 'Agencies', body: "Run every client's work in its own clear, separate pipeline." },
+  { label: 'Real estate teams', body: 'Track listings, documents, and deals in one shared file hub.' },
+  { label: 'Growing companies', body: 'Scale operations without losing visibility into the work.' },
+];
+
+const trustStrip = ['Small teams', 'Agencies', 'Real estate teams', 'Marketing teams', 'Growing companies'];
+
+const heroWords = "Run your team's work from one calm screen.".split(' ');
+const ideaWords = 'Most tools make work visible. TrustFlow makes it'.split(' ');
 ---
 
 <BaseLayout
-  title="TrustFlow — Run client work, start to finish"
-  description="TrustFlow moves client deliverables through pipelines and stages, tracks effort, and keeps review in one place — built for agencies and back-office teams."
+  title="TrustFlow — Run your team's work from one calm screen"
+  description="TrustFlow brings tasks, files, and reporting together, on your desktop and in your pocket, so nothing slips through and no one has to ask twice."
 >
   <Nav />
+
   <main>
-    <Hero />
+    <!-- Hero -->
+    <section id="hero" class="mx-auto grid max-w-content grid-cols-1 items-center gap-12 px-6 pb-16 pt-14 sm:px-12 sm:pt-16 lg:grid-cols-[minmax(320px,0.9fr)_minmax(0,1.1fr)] lg:gap-16">
+      <div class="reveal min-w-0">
+        <span class="text-eyebrow uppercase text-text-dim">Operations, without the chaos</span>
+        <h1 class="word-reveal mt-[18px] mb-4 text-h1 text-text-heading">
+          {heroWords.map((w, i) => (
+            <span class="w" style={`--wi:${i}`}>{w}</span>
+          ))}
+        </h1>
+        <p class="max-w-[440px] text-body-lg text-text-muted">
+          TrustFlow brings tasks, files, and reporting together, on your desktop and in your pocket, so nothing slips through and no one has to ask twice.
+        </p>
+        <div class="mt-[30px] flex flex-wrap items-center gap-[22px]">
+          <a href="/waitlist" class="btn btn-lg btn-primary magnetic">Start free trial</a>
+          <a href="#features" class="btn-secondary text-[15px]">See how it works &rarr;</a>
+        </div>
+        <p class="mt-5 text-[13px] text-text-faint">No credit card required &middot; Free 14-day trial</p>
+      </div>
+
+      <div class="relative">
+        <div
+          id="hero-glow"
+          class="pointer-events-none absolute -inset-16 -z-10 rounded-full opacity-40 blur-[70px] transition-transform duration-300 ease-spring"
+          style="background: radial-gradient(closest-side, rgba(180,195,215,0.55), transparent 70%);"
+          aria-hidden="true"
+        >
+        </div>
+        <ImageSlot
+          label="MacBook mockup — dashboard screenshot"
+          height={480}
+          variant="hero"
+          class="reveal reveal-delay-1"
+        />
+      </div>
+    </section>
+
+    <!-- Trust strip -->
+    <section class="reveal px-6 py-14 text-center sm:px-12">
+      <span class="text-[11.5px] font-bold uppercase tracking-[0.08em] text-text-faint">
+        Trusted by teams who can't afford to drop the ball
+      </span>
+      <div class="marquee mt-[22px]">
+        <div class="marquee-track">
+          {Array(8).fill(trustStrip).flat().map((item) => (
+            <span class="text-[14.5px] text-text-subtle">{item}</span>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <!-- The idea -->
+    <section class="reveal px-6 py-24 text-center sm:px-12">
+      <span class="text-eyebrow uppercase text-text-dim">The idea</span>
+      <h2 class="word-reveal mx-auto mt-4 max-w-[720px] justify-center text-h2 text-text-heading">
+        {ideaWords.map((w, i) => (
+          <span class="w" style={`--wi:${i}`}>{w}</span>
+        ))}
+        <span class="w text-link" style={`--wi:${ideaWords.length}`}>move.</span>
+      </h2>
+    </section>
+
+    <!-- Feature sections -->
+    <section id="features" class="px-6 pb-10 pt-5 sm:px-12">
+      <div class="mx-auto flex max-w-content flex-col gap-24 lg:gap-[120px]">
+        <div id="task-boards" class="reveal grid grid-cols-1 items-center gap-12 lg:grid-cols-2 lg:gap-[72px]">
+          <div class="min-w-0">
+            <span class="text-eyebrow uppercase text-text-dim">Task boards</span>
+            <h3 class="my-[14px] text-h3 text-text-heading">Every task, one board</h3>
+            <p class="max-w-[420px] text-body text-text-muted">
+              Pending, in progress, and completed — always visible, always up to date. Priority, timers, and ownership live right on the card, so status updates stop being a meeting.
+            </p>
+          </div>
+          <ImageSlot label="MacBook mockup — Task Board screenshot" height={400} variant="feature" class="lg:order-2" />
+        </div>
+
+        <div id="reporting" class="reveal grid grid-cols-1 items-center gap-12 lg:grid-cols-2 lg:gap-[72px]">
+          <ImageSlot label="MacBook mockup — Pipeline / analytics dashboard" height={400} variant="feature" class="lg:order-1" />
+          <div class="min-w-0 lg:order-2">
+            <span class="text-eyebrow uppercase text-text-dim">Reporting</span>
+            <h3 class="my-[14px] text-h3 text-text-heading">See the whole pipeline</h3>
+            <p class="max-w-[420px] text-body text-text-muted">
+              Throughput, completion rate, and who's active right now — the numbers that tell you whether work is actually moving, not just logged.
+            </p>
+          </div>
+        </div>
+
+        <div id="file-hub" class="reveal grid grid-cols-1 items-center gap-12 lg:grid-cols-2 lg:gap-[72px]">
+          <div class="min-w-0">
+            <span class="text-eyebrow uppercase text-text-dim">File hub</span>
+            <h3 class="my-[14px] text-h3 text-text-heading">Files and conversations, together</h3>
+            <p class="max-w-[420px] text-body text-text-muted">
+              Channels, broadcasts, and shared files in one place — so the right version is never buried three inboxes deep.
+            </p>
+          </div>
+          <ImageSlot label="MacBook mockup — File Hub screenshot" height={400} variant="feature" class="lg:order-2" />
+        </div>
+      </div>
+    </section>
+
+    <!-- Audience list -->
+    <section class="reveal mx-auto max-w-[900px] px-6 py-24 sm:px-12">
+      <h2 class="text-h2 text-text-heading">Whoever you run your team with</h2>
+      <p class="mt-3 text-body text-text-muted">One workspace, shaped around how different teams actually work.</p>
+      <div class="mt-9 border-t border-hairline">
+        {audiences.map((a) => (
+          <div class="spotlight grid grid-cols-1 gap-3 border-b border-hairline px-3 py-5 sm:grid-cols-[220px_1fr] sm:gap-6" data-spotlight>
+            <span class="relative text-[15.5px] font-semibold text-text-main">{a.label}</span>
+            <span class="relative text-[15px] text-text-muted">{a.body}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <!-- Testimonial -->
+    <section class="reveal px-6 pb-32 pt-5 sm:px-12">
+      <div class="mx-auto grid max-w-content grid-cols-1 items-center gap-12 lg:grid-cols-2 lg:gap-[72px]">
+        <div>
+          <p class="font-heading text-[22px] font-semibold leading-[1.5] text-text-main">
+            &ldquo;We stopped losing track of who owed what. TrustFlow gave our whole team one place to look, instead of five.&rdquo;
+          </p>
+          <div class="mt-[26px] flex items-center gap-3.5">
+            <ImageSlot label="Photo" height={52} variant="avatar" />
+            <div>
+              <div class="text-[14.5px] font-semibold text-text-main">Operations Lead</div>
+              <div class="text-[13.5px] text-text-subtle">Growing agency, TrustFlow customer</div>
+            </div>
+          </div>
+        </div>
+        <ImageSlot label="MacBook mockup — Activity view" height={350} variant="testimonial" class="tilt-card" />
+      </div>
+    </section>
+
+    <!-- Final CTA -->
+    <section class="reveal border-t border-hairline px-6 pb-24 pt-24 text-center sm:px-12">
+      <div class="mx-auto max-w-[640px]">
+        <h2 class="text-h2 text-text-heading">Give your team a clearer way to work.</h2>
+        <div class="mt-8 flex flex-wrap items-center justify-center gap-[22px]">
+          <a href="/waitlist" class="btn btn-lg btn-primary magnetic">Start free trial</a>
+          <a href="/waitlist" class="btn-secondary text-[15px]">Talk to us &rarr;</a>
+        </div>
+        <p class="mt-5 text-[13px] text-text-faint">No credit card required &middot; Free 14-day trial</p>
+      </div>
+    </section>
   </main>
+
+  <Footer />
 </BaseLayout>
+
+<script>
+  // Hero ambient glow drifts a little toward the cursor — atmosphere, not
+  // a "look at me" trick, so the drift range is intentionally small.
+  const hero = document.getElementById('hero');
+  const glow = document.getElementById('hero-glow');
+  if (hero && glow && window.matchMedia('(prefers-reduced-motion: no-preference)').matches) {
+    hero.addEventListener('mousemove', (e) => {
+      const r = hero.getBoundingClientRect();
+      const px = (e.clientX - r.left) / r.width - 0.5;
+      const py = (e.clientY - r.top) / r.height - 0.5;
+      glow.style.transform = `translate(${px * 30}px, ${py * 30}px)`;
+    });
+    hero.addEventListener('mouseleave', () => {
+      glow.style.transform = 'translate(0, 0)';
+    });
+  }
+</script>

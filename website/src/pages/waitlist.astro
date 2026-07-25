@@ -343,13 +343,33 @@ const SUPABASE_ANON_KEY = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
   const WAITLIST_COUNT_THRESHOLD = 50;
   const badge = document.getElementById('badge');
   const countLabel = document.getElementById('count-label');
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let displayedCount = 0;
   function setCount(n) {
     if (n < WAITLIST_COUNT_THRESHOLD) {
       badge.hidden = true;
       return;
     }
-    countLabel.textContent = `${Number(n).toLocaleString()} people have joined the waitlist`;
     badge.hidden = false;
+    // Odometer roll from the last displayed number to the real one — same
+    // number either way, just presented with more weight than a text snap.
+    const from = displayedCount;
+    const to = Number(n);
+    displayedCount = to;
+    if (reduceMotion || from === to) {
+      countLabel.textContent = `${to.toLocaleString()} people have joined the waitlist`;
+      return;
+    }
+    const start = performance.now();
+    const dur = 900;
+    function tick(now) {
+      const p = Math.min(1, (now - start) / dur);
+      const eased = 1 - Math.pow(1 - p, 3);
+      const value = Math.round(from + (to - from) * eased);
+      countLabel.textContent = `${value.toLocaleString()} people have joined the waitlist`;
+      if (p < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
   }
   rpc('rpc_waitlist_count', {})
     .then((res) => (res.ok ? res.json() : null))

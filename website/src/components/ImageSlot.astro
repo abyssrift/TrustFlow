@@ -1,0 +1,84 @@
+---
+// Placeholder for a real product screenshot/mockup. Renders the 3-layer
+// ambient-glow + contact-shadow treatment from the design handoff behind a
+// labeled placeholder box, so page layout is provable before real assets
+// land — swap the placeholder box for an <Image> once a screenshot exists.
+interface Props {
+  label: string;
+  height: number;
+  variant?: 'hero' | 'feature' | 'testimonial' | 'avatar';
+  class?: string;
+}
+
+const { label, height, variant = 'feature', class: className = '' } = Astro.props;
+
+const glowByVariant = {
+  hero: { ambient: '70% -10% 40px 0.22', mid: '52% 6% 24px 0.17', contactH: 44, contactBlur: 16, contactOpacity: 0.72 },
+  feature: { ambient: '65% -10% 34px 0.2', mid: '48% 8% 20px 0.15', contactH: 36, contactBlur: 14, contactOpacity: 0.68 },
+  testimonial: { ambient: '65% -10% 34px 0.2', mid: null, contactH: 28, contactBlur: 12, contactOpacity: 0.6 },
+  avatar: null,
+} as const;
+
+const glow = glowByVariant[variant];
+---
+
+{
+  variant === 'avatar' ? (
+    <div
+      class:list={['flex flex-none items-center justify-center rounded-full border border-hairline bg-surface-card text-[10px] text-text-faint', className]}
+      style={{ width: `${height}px`, height: `${height}px` }}
+    >
+      {label}
+    </div>
+  ) : (
+    <div class:list={['relative min-w-0', className]}>
+      {glow && (() => {
+        const [ambientH, ambientTop, ambientBlur, ambientOpacity] = glow.ambient.split(' ');
+        return (
+          <div
+            aria-hidden="true"
+            class="pointer-events-none absolute left-[2%] right-[2%] z-0"
+            style={{
+              top: ambientTop,
+              height: ambientH,
+              filter: `blur(${ambientBlur})`,
+              background: `radial-gradient(closest-side, rgba(180,195,215,${ambientOpacity}), rgba(180,195,215,0) 70%)`,
+            }}
+          />
+        );
+      })()}
+      {glow?.mid && (() => {
+        const [midH, midTop, midBlur, midOpacity] = glow.mid.split(' ');
+        return (
+          <div
+            aria-hidden="true"
+            class="pointer-events-none absolute left-[8%] right-[8%] z-0"
+            style={{
+              top: midTop,
+              height: midH,
+              filter: `blur(${midBlur})`,
+              background: `radial-gradient(closest-side, rgba(215,228,242,${midOpacity}), rgba(215,228,242,0) 65%)`,
+            }}
+          />
+        );
+      })()}
+      {glow && (
+        <div
+          aria-hidden="true"
+          class="pointer-events-none absolute bottom-0 left-[10%] right-[10%] z-0"
+          style={{
+            height: `${glow.contactH}px`,
+            filter: `blur(${glow.contactBlur}px)`,
+            background: `radial-gradient(closest-side, rgba(0,0,0,${glow.contactOpacity}), rgba(0,0,0,0) 75%)`,
+          }}
+        />
+      )}
+      <div
+        class="relative z-10 flex w-full items-center justify-center rounded-card border border-dashed border-hairline-strong bg-surface-card px-6 text-center text-[13px] text-text-faint"
+        style={{ height: `${height}px` }}
+      >
+        {label}
+      </div>
+    </div>
+  )
+}

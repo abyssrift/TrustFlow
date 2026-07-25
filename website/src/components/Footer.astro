@@ -1,0 +1,34 @@
+---
+// Shared footer — identical across all 5 pages: 4-column grid
+// (logo / Product / Resources / Company) + copyright bar.
+const year = new Date().getFullYear();
+---
+
+<footer class="border-t border-hairline px-6 pb-10 pt-12 sm:px-12">
+  <div class="mx-auto grid max-w-content grid-cols-2 gap-8 sm:grid-cols-[1.6fr_1fr_1fr_1fr]">
+    <span class="font-heading text-[17px] font-bold text-text-main">TrustFlow</span>
+
+    <div class="flex flex-col gap-2.5">
+      <span class="text-[13px] font-semibold text-text-main">Product</span>
+      <a href="/#features" class="text-[14px] text-text-subtle transition-colors duration-200 hover:text-text-main">Features</a>
+      <a href="/plans" class="text-[14px] text-text-subtle transition-colors duration-200 hover:text-text-main">Plans</a>
+    </div>
+
+    <div class="flex flex-col gap-2.5">
+      <span class="text-[13px] font-semibold text-text-main">Resources</span>
+      <a href="/content-hub" class="text-[14px] text-text-subtle transition-colors duration-200 hover:text-text-main">Content Hub</a>
+      <a href="/docs" class="text-[14px] text-text-subtle transition-colors duration-200 hover:text-text-main">Docs &amp; Help</a>
+      <a href="/docs#faq" class="text-[14px] text-text-subtle transition-colors duration-200 hover:text-text-main">FAQ</a>
+    </div>
+
+    <div class="flex flex-col gap-2.5">
+      <span class="text-[13px] font-semibold text-text-main">Company</span>
+      <a href="#" class="text-[14px] text-text-subtle transition-colors duration-200 hover:text-text-main">Contact</a>
+      <a href="#" class="text-[14px] text-text-subtle transition-colors duration-200 hover:text-text-main">Privacy</a>
+    </div>
+  </div>
+
+  <div class="mx-auto mt-10 max-w-content border-t border-hairline pt-5">
+    <span class="text-[13px] text-text-faint">&copy; {year} TrustFlow. All rights reserved.</span>
+  </div>
+</footer>
