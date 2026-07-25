@@ -1,5 +1,6 @@
 import AnimatedTaskCard from '@/components/common/AnimatedTaskCard';
 import { useStageTransitionFX, StageTrailLayer } from '@/components/tabs/StageTransitionFX';
+import StageCountOdometer from '@/components/tabs/StageCountOdometer';
 import KanbanPersonalizer from '@/components/kanban/KanbanPersonalizer';
 import LinkifiedText from '@/components/common/LinkifiedText';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
@@ -1731,7 +1732,7 @@ export function TasksScreenWeb() {
                         <Text className="text-typography-main font-black text-sm uppercase tracking-[0.2em]">{stage.name}</Text>
                         {kanban.showStageTotals && (
                           <View className="ml-3 bg-surface-card border border-surface-border px-2 py-0.5 rounded-lg">
-                            <Text className="text-typography-muted text-[10px] font-black">{stageTasks.length}</Text>
+                            <StageCountOdometer value={stageTasks.length} />
                           </View>
                         )}
                       </View>
