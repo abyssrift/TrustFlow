@@ -1,10 +1,10 @@
+import Popup from '@/components/common/Popup';
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useState } from 'react';
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import Popup from '@/components/common/Popup';
 
 const todayIso = () => new Date().toISOString().split('T')[0];
 const formatWorkedDate = (d: string) => {
@@ -209,7 +209,7 @@ export default function ManualTimeModal({ visible, taskId, stageId, transitionId
             {loading ? (
               <ActivityIndicator size="small" color="white" />
             ) : (
-              <Text className="text-white font-black uppercase tracking-widest text-xs">Submit Declaration</Text>
+              <Text className="text-white font-black uppercase tracking-widest text-lg">Submit</Text>
             )}
           </TouchableOpacity>
         </View>

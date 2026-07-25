@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, Platform } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import Popup from './Popup';
 
 interface ConfirmModalProps {
   visible: boolean;
@@ -43,6 +44,59 @@ export default function ConfirmModal({
 
   const styles = getVariantStyles();
 
+  const content = (
+    <>
+      <View className="p-10 items-center">
+        <View className="w-20 h-20 rounded-full items-center justify-center mb-6" style={{ backgroundColor: styles.dim }}>
+          <FontAwesome name={styles.icon as any} size={32} color={styles.bg} />
+        </View>
+
+        <Text style={{ color: c.textMain }} className="text-3xl font-black tracking-tight mb-4 text-center">{title}</Text>
+        <Text style={{ color: c.textMuted }} className="text-center font-medium leading-relaxed">
+          {description}
+        </Text>
+      </View>
+
+      <View className="p-10 flex-row flex-wrap gap-4" style={{ borderTopWidth: 1, borderTopColor: c.border, backgroundColor: c.card }}>
+        <TouchableOpacity
+          onPress={onCancel}
+          disabled={loading}
+          className="flex-1 min-w-[120px] py-5 rounded-2xl items-center"
+          style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}
+        >
+          <Text style={{ color: c.textMuted }} className="font-black uppercase tracking-widest text-xs">{cancelLabel}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={onConfirm}
+          disabled={loading}
+          className="flex-[2] min-w-[120px] py-5 rounded-2xl items-center shadow-lg active:scale-[0.98] transition-transform"
+          style={{ backgroundColor: styles.bg }}
+        >
+          <Text className="text-white font-black uppercase tracking-widest text-xs">
+            {loading ? 'Processing...' : confirmLabel}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </>
+  );
+
+  if (Platform.OS === 'web') {
+    return (
+      <Popup
+        visible={visible}
+        onClose={onCancel}
+        presentation="centered"
+        dismissible={!loading}
+        maxWidth={512}
+        containerClassName="rounded-[40px] overflow-hidden premium-shadow"
+      >
+        {content}
+      </Popup>
+    );
+  }
+
+  // TODO(#93-native): remove this branch once native is testable — see issue #93/#115.
+  // Old raw-Modal path preserved untouched so native behavior doesn't change yet.
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
       <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
@@ -50,37 +104,7 @@ export default function ConfirmModal({
           className="w-full max-w-lg rounded-[40px] overflow-hidden premium-shadow"
           style={{ backgroundColor: c.card, borderWidth: 1, borderColor: c.border }}
         >
-          <View className="p-10 items-center">
-            <View className="w-20 h-20 rounded-full items-center justify-center mb-6" style={{ backgroundColor: styles.dim }}>
-              <FontAwesome name={styles.icon as any} size={32} color={styles.bg} />
-            </View>
-
-            <Text style={{ color: c.textMain }} className="text-3xl font-black tracking-tight mb-4 text-center">{title}</Text>
-            <Text style={{ color: c.textMuted }} className="text-center font-medium leading-relaxed">
-              {description}
-            </Text>
-          </View>
-
-          <View className="p-10 flex-row flex-wrap gap-4" style={{ borderTopWidth: 1, borderTopColor: c.border, backgroundColor: c.card }}>
-            <TouchableOpacity
-              onPress={onCancel}
-              disabled={loading}
-              className="flex-1 min-w-[120px] py-5 rounded-2xl items-center"
-              style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}
-            >
-              <Text style={{ color: c.textMuted }} className="font-black uppercase tracking-widest text-xs">{cancelLabel}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={onConfirm}
-              disabled={loading}
-              className="flex-[2] min-w-[120px] py-5 rounded-2xl items-center shadow-lg active:scale-[0.98] transition-transform"
-              style={{ backgroundColor: styles.bg }}
-            >
-              <Text className="text-white font-black uppercase tracking-widest text-xs">
-                {loading ? 'Processing...' : confirmLabel}
-              </Text>
-            </TouchableOpacity>
-          </View>
+          {content}
         </View>
       </View>
     </Modal>

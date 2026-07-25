@@ -4,6 +4,7 @@ import { formatCompact } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import Popup from '@/components/common/Popup';
 import UserLink from '@/components/common/UserLink';
 
 // ── Types mirror rpc_project_dashboard ────────────────────────────────────────
@@ -74,8 +75,6 @@ export default function ProjectDashboard({
   const catMax = useMemo(() => Math.max(1, ...(data?.by_category || []).map(c => c.count)), [data]);
   const contribMax = useMemo(() => Math.max(1, ...(data?.contributors || []).map(c => c.tracked_seconds)), [data]);
 
-  if (!visible) return null;
-
   const priorityColor = (p: string) =>
     p === 'urgent' ? colors.danger : p === 'high' ? colors.warning : p === 'low' ? colors.muted : colors.primary;
 
@@ -89,9 +88,15 @@ export default function ProjectDashboard({
   ] : [];
 
   return (
-    <View className="absolute inset-0 z-[999] items-center justify-center p-6" style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}>
-      <View className="bg-surface-card w-full rounded-[2rem] border border-surface-border overflow-hidden premium-shadow-lg flex-col" style={{ maxWidth: 1400, maxHeight: '92%' }}>
-
+    <Popup
+      visible={visible}
+      onClose={onClose}
+      presentation="centered"
+      dismissible={false}
+      maxWidth={1400}
+      maxHeight="92%"
+      containerClassName="rounded-[2rem] overflow-hidden premium-shadow-lg flex-col"
+    >
         {/* Header */}
         <View className="px-8 py-6 border-b border-surface-border flex-row items-start justify-between">
           <View className="flex-1 pr-6">
@@ -280,8 +285,7 @@ export default function ProjectDashboard({
             </View>
           </ScrollView>
         )}
-      </View>
-    </View>
+    </Popup>
   );
 }
 

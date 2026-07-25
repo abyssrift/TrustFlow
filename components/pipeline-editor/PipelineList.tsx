@@ -6,6 +6,7 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import { FontAwesome } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import Popup from '@/components/common/Popup';
 import DeadlockAlert from './DeadlockAlert';
 import PipelineSettingsForm from './PipelineSettingsForm';
 
@@ -302,51 +303,44 @@ export default function PipelineList() {
       <Popup
         visible={showCreate}
         onClose={() => { setShowCreate(false); setIsQuickCreate(true); }}
-        presentation="sheet"
-        maxHeight="94%"
-        dimBackdrop
+        presentation="auto"
+        dismissible={false}
+        scrollable={false}
+        maxWidth={512}
+        containerClassName="w-[92%] rounded-[32px] premium-shadow"
       >
-        <View className="px-5 pt-3 pb-4 flex-row items-start justify-between border-b" style={{ borderColor: colors.border }}>
-          <View className="flex-1 mr-3">
-            <Text className="text-typography-main font-black text-2xl">New Pipeline</Text>
-            <Text className="text-typography-muted text-sm mt-1 leading-5">
+          <View className="p-8">
+            <Text className="text-typography-main font-black text-2xl mb-2">New Pipeline</Text>
+            <Text className="text-typography-muted text-sm mb-6 leading-5">
               Design a workflow template. You can use our presets to get started faster.
             </Text>
+
+            <ScrollView showsVerticalScrollIndicator={false} className="max-h-[70vh]">
+               {/* Quick Create Toggle */}
+               <TouchableOpacity
+                  onPress={() => setIsQuickCreate(!isQuickCreate)}
+                  className={`flex-row items-center p-4 rounded-2xl border mb-6 ${isQuickCreate ? 'bg-brand-primary/5 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}
+               >
+                  <View className="flex-1 mr-4">
+                     <Text className={`font-bold text-sm ${isQuickCreate ? 'text-brand-primary' : 'text-typography-main'}`}>Quick Setup (Recommended)</Text>
+                     <Text className="text-typography-muted text-[11px] mt-1 leading-4">
+                        Auto-generate 4 standard stages and basic transitions.
+                     </Text>
+                  </View>
+                  <View className={`w-12 h-7 rounded-full flex-row items-center px-1 ${isQuickCreate ? 'bg-brand-primary justify-end' : 'bg-surface-overlay justify-start'}`}>
+                     <View className="w-5 h-5 rounded-full bg-brand-on-primary shadow-sm" />
+                  </View>
+               </TouchableOpacity>
+
+               <PipelineSettingsForm
+                  roles={roles}
+                  onSubmit={handleCreate}
+                  onCancel={() => { setShowCreate(false); setIsQuickCreate(true); }}
+                  submitLabel="Create Pipeline"
+                  loading={loading}
+                />
+            </ScrollView>
           </View>
-          <TouchableOpacity
-            onPress={() => { setShowCreate(false); setIsQuickCreate(true); }}
-            className="w-9 h-9 items-center justify-center rounded-full border"
-            style={{ backgroundColor: colors.background, borderColor: colors.border }}
-          >
-            <FontAwesome name="times" size={14} color={colors.textMuted} />
-          </TouchableOpacity>
-        </View>
-
-        <View className="px-5 py-5">
-          {/* Quick Create Toggle */}
-          <TouchableOpacity
-             onPress={() => setIsQuickCreate(!isQuickCreate)}
-             className={`flex-row items-center p-4 rounded-2xl border mb-6 ${isQuickCreate ? 'bg-brand-primary/5 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}
-          >
-             <View className="flex-1 mr-4">
-                <Text className={`font-bold text-sm ${isQuickCreate ? 'text-brand-primary' : 'text-typography-main'}`}>Quick Setup (Recommended)</Text>
-                <Text className="text-typography-muted text-[11px] mt-1 leading-4">
-                   Auto-generate 4 standard stages and basic transitions.
-                </Text>
-             </View>
-             <View className={`w-12 h-7 rounded-full flex-row items-center px-1 ${isQuickCreate ? 'bg-brand-primary justify-end' : 'bg-surface-overlay justify-start'}`}>
-                <View className="w-5 h-5 rounded-full bg-brand-on-primary shadow-sm" />
-             </View>
-          </TouchableOpacity>
-
-          <PipelineSettingsForm
-             roles={roles}
-             onSubmit={handleCreate}
-             onCancel={() => { setShowCreate(false); setIsQuickCreate(true); }}
-             submitLabel="Create Pipeline"
-             loading={loading}
-           />
-        </View>
       </Popup>
     </View>
   );

@@ -1,3 +1,5 @@
+import DraggableSheet from '@/components/common/DraggableSheet';
+import Popup from '@/components/common/Popup';
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 import UserLink from '@/components/common/UserLink';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
@@ -9,7 +11,6 @@ import { cssInterop } from 'react-native-css-interop';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Modal,
   ScrollView,
   Text,
   TextInput,
@@ -88,6 +89,12 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState<string | null>(null);
 
+  // Mobile-only overlay state — kept separate from the desktop dropdown/calendar
+  // state above (which relies on getBoundingClientRect positioning tied to
+  // desktop-only ref elements) so the two layouts can't cross-contaminate.
+  const [mobileActiveDateField, setMobileActiveDateField] = useState<'due' | 'start' | null>(null);
+  const [showMobileManagerPicker, setShowMobileManagerPicker] = useState(false);
+
   const dueCalPos = useCalendarPosition({ calendarWidth: 332 });
   const startCalPos = useCalendarPosition({ calendarWidth: 332 });
 
@@ -135,6 +142,8 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
       const rawHours = (data as any).task.estimated_hours;
       setEstimatedHours(rawHours?.toString() || '');
       closeAllOverlays();
+      setMobileActiveDateField(focusField === 'due_date' ? 'due' : null);
+      setShowMobileManagerPicker(false);
       setTab(focusField === 'due_date' ? 'scheduling' : 'details');
       setError(null);
     }
@@ -195,72 +204,430 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
     </View>
   );
 
-  return (
-    <Modal visible={visible} transparent animationType="fade">
-      <View
-        className={isNarrow ? 'flex-1 pt-3' : 'flex-1 items-center justify-center p-10'}
-        style={{ backdropFilter: 'blur(16px)', backgroundColor: colors.background + 'B3' } as any}
+  // ─── Mobile-web layout (narrow viewports) ───────────────────────────────────
+  // Mirrors native's EditTaskModal.tsx (single-scroll DraggableSheet, no tabs,
+  // shared inline calendar toggled per-field) instead of the desktop two-pane
+  // tabbed layout below — desktop has full field parity with native already, so
+  // nothing is being dropped here, just reflowed.
+  if (isNarrow) {
+    return (
+      <DraggableSheet
+        visible={visible}
+        onClose={onClose}
+        dimBackdrop
+        maxHeight="92%"
+        containerClassName="rounded-t-3xl overflow-hidden"
+        containerStyle={{ backgroundColor: colors.card, borderTopWidth: 1, borderColor: colors.border }}
       >
-        <View
-          className={isNarrow ? 'flex-1 w-full flex-col rounded-t-[1.75rem] overflow-hidden' : 'w-full max-w-[1100px] rounded-[2.5rem] overflow-hidden flex-row premium-shadow'}
-          style={isNarrow ? { backgroundColor: colors.card } : { height: 720, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}
-        >
+        {/* Header */}
+        <View className="flex-row items-center justify-between px-6 pt-5 pb-4" style={{ borderBottomWidth: 1, borderColor: colors.border + '80' }}>
+          <View className="flex-1 mr-4">
+            <Text className="text-[9px] font-black uppercase tracking-[0.2em]" style={{ color: colors.textMuted }}>Modify Task</Text>
+            <Text className="text-xl font-black tracking-tight mt-0.5" style={{ color: colors.textMain }} numberOfLines={2}>Edit Details</Text>
+          </View>
+          <TouchableOpacity onPress={onClose} className="w-9 h-9 items-center justify-center rounded-full" style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}>
+            <FontAwesome name="times" size={14} color={colors.textMuted} />
+          </TouchableOpacity>
+        </View>
 
-          {/* ── LEFT PANEL: Current Task Snapshot (desktop only — mobile shows the title in the header instead) ── */}
-          {!isNarrow && (
-          <View className="w-72 flex-col" style={{ borderRightWidth: 1, borderColor: colors.border, backgroundColor: colors.background + '66' }}>
-            <View className="px-7 pt-8 pb-5" style={{ borderBottomWidth: 1, borderColor: colors.border + '4D' }}>
-              <View className="flex-row items-center gap-2.5 mb-5">
-                <FontAwesome name="pencil-square-o" size={13} color={colors.primary} />
-                <Text className="text-[9px] font-black uppercase tracking-[0.25em]" style={{ color: colors.textMuted }}>Modify Task</Text>
+        <ScrollView className="px-6 pt-5" keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          <View className="gap-6 pb-10">
+            {error && (
+              <View className="p-3 rounded-2xl" style={{ backgroundColor: colors.danger + '1A', borderWidth: 1, borderColor: colors.danger + '4D' }}>
+                <Text className="text-sm font-bold" style={{ color: colors.danger }}>{error}</Text>
               </View>
-              <Text className="font-black text-2xl tracking-tight leading-tight" style={{ color: colors.textMain }} numberOfLines={4}>
-                {task.title}
-              </Text>
+            )}
+
+            {/* Title */}
+            <View>
+              <Text className="text-[10px] font-black uppercase tracking-[0.15em] mb-2" style={{ color: colors.textMuted }}>Title</Text>
+              <TextInput
+                value={title}
+                onChangeText={setTitle}
+                placeholder="Task title"
+                placeholderTextColor={colors.textDim}
+                className="rounded-2xl px-4 py-3.5 font-medium text-base"
+                style={{ backgroundColor: colors.background, color: colors.textMain, borderWidth: 1, borderColor: !title.trim() ? colors.danger + '66' : colors.border }}
+              />
             </View>
 
-            <ScrollView className="flex-1 px-7 py-5" showsVerticalScrollIndicator={false}>
-              {/* Stage */}
-              {current_stage && (
-                <View className="mb-4 p-3 rounded-2xl" style={{ borderWidth: 1, borderColor: colors.border + '4D', backgroundColor: colors.card + '80' }}>
-                  <Text className="text-[9px] font-black uppercase tracking-widest mb-1.5" style={{ color: colors.textMuted }}>Current Stage</Text>
-                  <View className="flex-row items-center gap-2">
-                    <View style={{ backgroundColor: current_stage.color || colors.primary }} className="w-2 h-2 rounded-full" />
-                    <Text className="font-black text-sm" style={{ color: colors.textMain }}>{current_stage.name}</Text>
+            {/* Category */}
+            <View>
+              <Text className="text-[10px] font-black uppercase tracking-[0.15em] mb-2" style={{ color: colors.textMuted }}>Category</Text>
+              <TextInput
+                value={category}
+                onChangeText={setCategory}
+                placeholder="e.g. Bug, Feature, Research"
+                placeholderTextColor={colors.textDim}
+                className="rounded-2xl px-4 py-3.5 font-medium"
+                style={{ backgroundColor: colors.background, color: colors.textMain, borderWidth: 1, borderColor: colors.border }}
+              />
+            </View>
+
+            {/* Description */}
+            <View>
+              <Text className="text-[10px] font-black uppercase tracking-[0.15em] mb-2" style={{ color: colors.textMuted }}>Description</Text>
+              <TextInput
+                value={description}
+                onChangeText={setDescription}
+                placeholder="Details about this task..."
+                placeholderTextColor={colors.textDim}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+                className="rounded-2xl px-4 py-3.5 font-medium"
+                style={{ minHeight: 100, backgroundColor: colors.background, color: colors.textMain, borderWidth: 1, borderColor: colors.border }}
+              />
+            </View>
+
+            {/* Priority */}
+            <View>
+              <Text className="text-[10px] font-black uppercase tracking-[0.15em] mb-3" style={{ color: colors.textMuted }}>Priority</Text>
+              <View className="flex-row flex-wrap gap-2">
+                {PRIORITY_OPTIONS.map(p => (
+                  <TouchableOpacity
+                    key={p}
+                    onPress={() => setPriority(p)}
+                    className="px-5 py-2.5 rounded-full"
+                    style={{ backgroundColor: priority === p ? colors.primary : colors.background, borderWidth: 1, borderColor: priority === p ? colors.primary : colors.border }}
+                  >
+                    <Text className="font-black text-[10px] uppercase tracking-widest" style={{ color: priority === p ? '#fff' : colors.textMuted }}>{PRIORITY_LABEL[p]}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Dates — one shared inline calendar, colored per field */}
+            <View>
+              <View className="flex-row gap-4">
+                <View className="flex-1">
+                  <Text className="text-[10px] font-black uppercase tracking-[0.15em] mb-2" style={{ color: colors.textMuted }}>Due Date</Text>
+                  <View className="flex-row gap-2">
+                    <TouchableOpacity
+                      onPress={() => setMobileActiveDateField(f => f === 'due' ? null : 'due')}
+                      className="flex-1 px-3 py-3 rounded-2xl flex-row items-center justify-between"
+                      style={{ backgroundColor: mobileActiveDateField === 'due' ? colors.primary + '14' : colors.background, borderWidth: 1, borderColor: mobileActiveDateField === 'due' ? colors.primary : colors.border }}
+                    >
+                      <Text className="font-medium text-sm" style={{ color: dueDate ? colors.textMain : colors.textMuted }}>{fmtDate(dueDate) !== '—' ? fmtDate(dueDate) : 'Set date'}</Text>
+                      <FontAwesome name="calendar" size={11} color={dueDate ? colors.primary : colors.textMuted} />
+                    </TouchableOpacity>
+                    {dueDate && (
+                      <TouchableOpacity
+                        onPress={() => { setDueDate(null); if (mobileActiveDateField === 'due') setMobileActiveDateField(null); }}
+                        className="w-11 h-11 rounded-2xl items-center justify-center"
+                        style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}
+                      >
+                        <FontAwesome name="times" size={11} color={colors.textMuted} />
+                      </TouchableOpacity>
+                    )}
                   </View>
                 </View>
+
+                <View className="flex-1">
+                  <Text className="text-[10px] font-black uppercase tracking-[0.15em] mb-2" style={{ color: colors.textMuted }}>Start Date</Text>
+                  <View className="flex-row gap-2">
+                    <TouchableOpacity
+                      onPress={() => setMobileActiveDateField(f => f === 'start' ? null : 'start')}
+                      className="flex-1 px-3 py-3 rounded-2xl flex-row items-center justify-between"
+                      style={{ backgroundColor: mobileActiveDateField === 'start' ? colors.secondary + '14' : colors.background, borderWidth: 1, borderColor: mobileActiveDateField === 'start' ? colors.secondary : colors.border }}
+                    >
+                      <Text className="font-medium text-sm" style={{ color: startDate ? colors.textMain : colors.textMuted }}>{fmtDate(startDate) !== '—' ? fmtDate(startDate) : 'Set date'}</Text>
+                      <FontAwesome name="calendar-o" size={11} color={startDate ? colors.secondary : colors.textMuted} />
+                    </TouchableOpacity>
+                    {startDate && (
+                      <TouchableOpacity
+                        onPress={() => { setStartDate(null); if (mobileActiveDateField === 'start') setMobileActiveDateField(null); }}
+                        className="w-11 h-11 rounded-2xl items-center justify-center"
+                        style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}
+                      >
+                        <FontAwesome name="times" size={11} color={colors.textMuted} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+              </View>
+
+              {dateConflict && (
+                <Text className="text-[10px] font-black mt-2 ml-1" style={{ color: colors.danger }}>Start date is after due date</Text>
               )}
 
-              {/* Priority pill */}
-              <View className="mb-4 px-3 py-2 rounded-xl self-start" style={{ backgroundColor: priorityBgColor(colors, task.priority) }}>
-                <Text className="font-black text-[10px] uppercase tracking-widest" style={{ color: priorityTextColor(colors, task.priority) }}>
-                  {PRIORITY_LABEL[task.priority] ?? task.priority}
-                </Text>
-              </View>
-
-              <View className="mb-2">
-                <StatRow icon="code-fork"       label="Pipeline"      value={pipeline?.name || '—'} accent />
-                <StatRow icon="user"            label="Creator"       value={creator?.full_name || '—'} valueNode={creator?.id ? <UserLink userId={creator.id} name={creator.full_name} className="text-[11px] font-black" style={{ color: colors.textMain }} /> : undefined} />
-                <StatRow icon="briefcase"       label="Manager"       value={manager?.full_name || '—'} valueNode={manager?.id ? <UserLink userId={manager.id} name={manager.full_name} className="text-[11px] font-black" style={{ color: colors.textMain }} /> : undefined} />
-                <StatRow icon="calendar-o"      label="Created"       value={fmtDate(task.created_at)} />
-                <StatRow icon="calendar"        label="Due"           value={fmtDate(task.due_date)} />
-                <StatRow icon="clock-o"         label="In Pipeline"   value={`${stats.days_in_pipeline}d`} />
-                <StatRow icon="balance-scale"   label="Weight"        value={task.weight?.toString() || '1'} />
-                {task.is_recurring && <StatRow icon="repeat" label="Recurring" value="Yes" accent />}
-              </View>
-
-              {task.description && (
-                <View className="mt-3 p-3 rounded-xl" style={{ backgroundColor: colors.border + '20' }}>
-                  <Text className="text-[9px] font-black uppercase tracking-wider mb-1.5" style={{ color: colors.textMuted }}>Description</Text>
-                  <Text className="text-xs leading-4 font-medium" style={{ color: colors.textMuted }} numberOfLines={5}>
-                    {task.description}
-                  </Text>
+              {mobileActiveDateField && (
+                <View className="mt-3">
+                  <PremiumCalendarPicker
+                    selectedDate={mobileActiveDateField === 'due' ? dueDate : startDate}
+                    onSelect={(d) => mobileActiveDateField === 'due' ? setDueDate(d) : setStartDate(d)}
+                    accentColor={mobileActiveDateField === 'due' ? colors.primary : colors.secondary}
+                    rangeDate={mobileActiveDateField === 'due' ? startDate : dueDate}
+                    rangeColor={mobileActiveDateField === 'due' ? colors.secondary : colors.primary}
+                    scale="compact"
+                    showDaysBetween
+                  />
                 </View>
               )}
-            </ScrollView>
+            </View>
+
+            {/* Weight & Estimated Hours */}
+            <View className="flex-row gap-4">
+              <View className="flex-1">
+                <Text className="text-[10px] font-black uppercase tracking-[0.15em] mb-2" style={{ color: colors.textMuted }}>Weight</Text>
+                <TextInput
+                  value={weight}
+                  onChangeText={setWeight}
+                  keyboardType="numeric"
+                  placeholder="1"
+                  placeholderTextColor={colors.textDim}
+                  className="rounded-2xl px-4 py-3.5 font-medium"
+                  style={{ backgroundColor: colors.background, color: colors.textMain, borderWidth: 1, borderColor: colors.border }}
+                />
+              </View>
+              <View className="flex-1">
+                <Text className="text-[10px] font-black uppercase tracking-[0.15em] mb-2" style={{ color: colors.textMuted }}>Est. Hours</Text>
+                <TextInput
+                  value={estimatedHours}
+                  onChangeText={setEstimatedHours}
+                  keyboardType="decimal-pad"
+                  placeholder="e.g. 4.5"
+                  placeholderTextColor={colors.textDim}
+                  className="rounded-2xl px-4 py-3.5 font-medium"
+                  style={{ backgroundColor: colors.background, color: colors.textMain, borderWidth: 1, borderColor: colors.border }}
+                />
+              </View>
+            </View>
+
+            {/* Manager */}
+            <View>
+              <Text className="text-[10px] font-black uppercase tracking-[0.15em] mb-2" style={{ color: colors.textMuted }}>Manager</Text>
+              <TouchableOpacity
+                onPress={() => setShowMobileManagerPicker(v => !v)}
+                className="rounded-2xl px-4 py-3.5 flex-row items-center justify-between"
+                style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}
+              >
+                <Text className="font-medium" style={{ color: selectedManager ? colors.textMain : colors.textMuted }}>
+                  {selectedManager ? selectedManager.full_name : 'Select manager'}
+                </Text>
+                <FontAwesome name={showMobileManagerPicker ? 'chevron-up' : 'chevron-down'} size={11} color={colors.textMuted} />
+              </TouchableOpacity>
+
+              {showMobileManagerPicker && (
+                <View className="mt-2 rounded-2xl overflow-hidden" style={{ maxHeight: 200, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}>
+                  <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+                    <TouchableOpacity
+                      onPress={() => { setManagerId(null); setShowMobileManagerPicker(false); }}
+                      className="px-4 py-3"
+                      style={{ borderBottomWidth: 1, borderColor: colors.border + '4D', backgroundColor: !managerId ? colors.primary + '1A' : undefined }}
+                    >
+                      <Text className="font-bold text-sm" style={{ color: !managerId ? colors.primary : colors.textMuted }}>No manager</Text>
+                    </TouchableOpacity>
+                    {users.map(u => (
+                      <TouchableOpacity
+                        key={u.id}
+                        onPress={() => { setManagerId(u.id); setShowMobileManagerPicker(false); }}
+                        className="px-4 py-3"
+                        style={{ borderBottomWidth: 1, borderColor: colors.border + '4D', backgroundColor: managerId === u.id ? colors.primary + '1A' : undefined }}
+                      >
+                        <Text className="font-bold text-sm" style={{ color: managerId === u.id ? colors.primary : colors.textMain }}>{u.full_name}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+
+            {/* Recurring */}
+            <TouchableOpacity onPress={() => setIsRecurring(v => !v)} className="flex-row items-center gap-3">
+              <View className="w-5 h-5 rounded items-center justify-center" style={{ backgroundColor: isRecurring ? colors.primary : undefined, borderWidth: isRecurring ? 0 : 1, borderColor: colors.border }}>
+                {isRecurring && <FontAwesome name="check" size={10} color="white" />}
+              </View>
+              <View>
+                <Text className="font-bold" style={{ color: colors.textMain }}>Recurring Task</Text>
+                <Text className="text-xs" style={{ color: colors.textMuted }}>This task repeats on a schedule</Text>
+              </View>
+            </TouchableOpacity>
           </View>
+        </ScrollView>
+
+        {/* Footer */}
+        <View className="px-6 py-4 flex-row justify-end gap-3" style={{ borderTopWidth: 1, borderColor: colors.border + '80', backgroundColor: colors.background + '80' }}>
+          <TouchableOpacity onPress={onClose} disabled={saving} className="px-5 py-3 rounded-2xl" style={{ borderWidth: 1, borderColor: colors.border }}>
+            <Text className="font-bold" style={{ color: colors.textMain }}>Cancel</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleSave}
+            disabled={saving || !title.trim()}
+            className="px-7 py-3 rounded-2xl flex-row items-center gap-2"
+            style={{ backgroundColor: !title.trim() ? colors.primary + '4D' : colors.primary }}
+          >
+            {saving ? <ActivityIndicator size="small" color="white" /> : (
+              <>
+                <FontAwesome name="check" size={12} color="white" />
+                <Text className="text-white font-black">Save Changes</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      </DraggableSheet>
+    );
+  }
+
+  const sideMenuContent = (
+    <View className="w-72 flex-col" style={{ backgroundColor: colors.background + '66' }}>
+      <View className="px-7 pt-8 pb-5" style={{ borderBottomWidth: 1, borderColor: colors.border + '4D' }}>
+        <View className="flex-row items-center gap-2.5 mb-5">
+          <FontAwesome name="pencil-square-o" size={13} color={colors.primary} />
+          <Text className="text-[9px] font-black uppercase tracking-[0.25em]" style={{ color: colors.textMuted }}>Modify Task</Text>
+        </View>
+        <Text className="font-black text-2xl tracking-tight leading-tight" style={{ color: colors.textMain }} numberOfLines={4}>
+          {task.title}
+        </Text>
+      </View>
+
+      <ScrollView className="flex-1 px-7 py-5" showsVerticalScrollIndicator={false}>
+        {/* Stage */}
+        {current_stage && (
+          <View className="mb-4 p-3 rounded-2xl" style={{ borderWidth: 1, borderColor: colors.border + '4D', backgroundColor: colors.card + '80' }}>
+            <Text className="text-[9px] font-black uppercase tracking-widest mb-1.5" style={{ color: colors.textMuted }}>Current Stage</Text>
+            <View className="flex-row items-center gap-2">
+              <View style={{ backgroundColor: current_stage.color || colors.primary }} className="w-2 h-2 rounded-full" />
+              <Text className="font-black text-sm" style={{ color: colors.textMain }}>{current_stage.name}</Text>
+            </View>
+          </View>
+        )}
+
+        {/* Priority pill */}
+        <View className="mb-4 px-3 py-2 rounded-xl self-start" style={{ backgroundColor: priorityBgColor(colors, task.priority) }}>
+          <Text className="font-black text-[10px] uppercase tracking-widest" style={{ color: priorityTextColor(colors, task.priority) }}>
+            {PRIORITY_LABEL[task.priority] ?? task.priority}
+          </Text>
+        </View>
+
+        <View className="mb-2">
+          <StatRow icon="code-fork"       label="Pipeline"      value={pipeline?.name || '—'} accent />
+          <StatRow icon="user"            label="Creator"       value={creator?.full_name || '—'} valueNode={creator?.id ? <UserLink userId={creator.id} name={creator.full_name} className="text-[11px] font-black" style={{ color: colors.textMain }} /> : undefined} />
+          <StatRow icon="briefcase"       label="Manager"       value={manager?.full_name || '—'} valueNode={manager?.id ? <UserLink userId={manager.id} name={manager.full_name} className="text-[11px] font-black" style={{ color: colors.textMain }} /> : undefined} />
+          <StatRow icon="calendar-o"      label="Created"       value={fmtDate(task.created_at)} />
+          <StatRow icon="calendar"        label="Due"           value={fmtDate(task.due_date)} />
+          <StatRow icon="clock-o"         label="In Pipeline"   value={`${stats.days_in_pipeline}d`} />
+          <StatRow icon="balance-scale"   label="Weight"        value={task.weight?.toString() || '1'} />
+          {task.is_recurring && <StatRow icon="repeat" label="Recurring" value="Yes" accent />}
+        </View>
+
+        {task.description && (
+          <View className="mt-3 p-3 rounded-xl" style={{ backgroundColor: colors.border + '20' }}>
+            <Text className="text-[9px] font-black uppercase tracking-wider mb-1.5" style={{ color: colors.textMuted }}>Description</Text>
+            <Text className="text-xs leading-4 font-medium" style={{ color: colors.textMuted }} numberOfLines={5}>
+              {task.description}
+            </Text>
+          </View>
+        )}
+      </ScrollView>
+    </View>
+  );
+
+  return (
+    <Popup
+      visible={visible}
+      onClose={onClose}
+      presentation="centered"
+      backdropBlur
+      dismissible={false}
+      maxWidth={1100}
+      containerClassName="rounded-[2.5rem] overflow-hidden premium-shadow"
+      containerStyle={{ height: 720 }}
+      sideMenu={sideMenuContent}
+      overlays={(
+        <>
+          {/* Backdrop for overlays */}
+          {(showDueCal || showStartCal) && (
+            <TouchableOpacity
+              onPress={closeAllOverlays}
+              className="absolute inset-0 z-40"
+              style={{ backgroundColor: 'transparent' }}
+            />
           )}
 
+          {/* Due Date Calendar */}
+          {showDueCal && (
+            <View style={dueCalPos.style as any}>
+              <PremiumCalendarPicker
+                selectedDate={dueDate}
+                onSelect={(d) => setDueDate(d)}
+                accentColor={colors.primary}
+                rangeDate={startDate}
+                rangeColor={colors.secondary}
+                scale="compact"
+                showDaysBetween
+              />
+            </View>
+          )}
+
+          {/* Start Date Calendar */}
+          {showStartCal && (
+            <View style={startCalPos.style as any}>
+              <PremiumCalendarPicker
+                selectedDate={startDate}
+                onSelect={(d) => setStartDate(d)}
+                accentColor={colors.secondary}
+                rangeDate={dueDate}
+                rangeColor={colors.primary}
+                scale="compact"
+                showDaysBetween
+              />
+            </View>
+          )}
+
+          {/* Manager Dropdown */}
+          {showManagerDrop && (
+            <View
+              className="absolute z-50 rounded-2xl overflow-hidden premium-shadow"
+              style={{ top: managerPos.top, left: managerPos.left, width: Math.max(managerPos.width, 260), maxHeight: 320, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}
+            >
+              <View className="px-4 pt-3 pb-2" style={{ borderBottomWidth: 1, borderColor: colors.border + '80' }}>
+                <TextInput
+                  value={managerSearch}
+                  onChangeText={setManagerSearch}
+                  placeholder="Search users..."
+                  placeholderTextColor={colors.textDim}
+                  className="rounded-xl px-3 py-2 text-sm font-medium"
+                  style={{ backgroundColor: colors.background, color: colors.textMain, borderWidth: 1, borderColor: colors.border }}
+                  autoFocus
+                />
+              </View>
+              <ScrollView style={{ maxHeight: 250 }}>
+                <TouchableOpacity
+                  onPress={() => { setManagerId(null); setShowManagerDrop(false); setManagerSearch(''); }}
+                  className={`px-4 py-3 flex-row items-center gap-3 ${!managerId ? '' : 'hover:bg-surface-overlay'}`}
+                  style={{ borderBottomWidth: 1, borderColor: colors.border + '33', backgroundColor: !managerId ? colors.primary + '0D' : undefined }}
+                >
+                  <FontAwesome name="ban" size={12} color={colors.textMuted} />
+                  <Text className="font-bold text-sm" style={{ color: !managerId ? colors.primary : colors.textMuted }}>No manager</Text>
+                </TouchableOpacity>
+                {filteredUsers.map(u => (
+                  <TouchableOpacity
+                    key={u.id}
+                    onPress={() => { setManagerId(u.id); setShowManagerDrop(false); setManagerSearch(''); }}
+                    className={`px-4 py-3 flex-row items-center gap-3 ${managerId === u.id ? '' : 'hover:bg-surface-overlay'}`}
+                    style={{ borderBottomWidth: 1, borderColor: colors.border + '33', backgroundColor: managerId === u.id ? colors.primary + '0D' : undefined }}
+                  >
+                    <View className="w-6 h-6 rounded-full items-center justify-center" style={{ backgroundColor: colors.primary + '33' }}>
+                      <Text className="text-[9px] font-black" style={{ color: colors.primary }}>{u.full_name.charAt(0)}</Text>
+                    </View>
+                    <Text className="font-bold text-sm" style={{ color: managerId === u.id ? colors.primary : colors.textMain }}>
+                      {u.full_name}
+                    </Text>
+                    {managerId === u.id && <FontAwesome name="check" size={10} color={colors.primary} style={{ marginLeft: 'auto' as any }} />}
+                  </TouchableOpacity>
+                ))}
+                {filteredUsers.length === 0 && (
+                  <View className="py-8 items-center">
+                    <Text className="text-xs font-bold" style={{ color: colors.textMuted }}>No users found</Text>
+                  </View>
+                )}
+              </ScrollView>
+            </View>
+          )}
+        </>
+      )}
+    >
           {/* ── RIGHT PANEL: Edit Form ── */}
           <View className="flex-1 flex-col">
 
@@ -580,100 +947,6 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
               </View>
             </View>
           </View>
-        </View>
-
-        {/* ── Floating Overlays ── */}
-
-        {/* Backdrop for overlays */}
-        {(showDueCal || showStartCal) && (
-          <TouchableOpacity
-            onPress={closeAllOverlays}
-            className="absolute inset-0 z-40"
-            style={{ backgroundColor: 'transparent' }}
-          />
-        )}
-
-        {/* Due Date Calendar */}
-        {showDueCal && (
-          <View style={dueCalPos.style as any}>
-            <PremiumCalendarPicker
-              selectedDate={dueDate}
-              onSelect={(d) => setDueDate(d)}
-              accentColor={colors.primary}
-              rangeDate={startDate}
-              rangeColor={colors.secondary}
-              scale="compact"
-              showDaysBetween
-            />
-          </View>
-        )}
-
-        {/* Start Date Calendar */}
-        {showStartCal && (
-          <View style={startCalPos.style as any}>
-            <PremiumCalendarPicker
-              selectedDate={startDate}
-              onSelect={(d) => setStartDate(d)}
-              accentColor={colors.secondary}
-              rangeDate={dueDate}
-              rangeColor={colors.primary}
-              scale="compact"
-              showDaysBetween
-            />
-          </View>
-        )}
-
-        {/* Manager Dropdown */}
-        {showManagerDrop && (
-          <View
-            className="absolute z-50 rounded-2xl overflow-hidden premium-shadow"
-            style={{ top: managerPos.top, left: managerPos.left, width: Math.max(managerPos.width, 260), maxHeight: 320, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}
-          >
-            <View className="px-4 pt-3 pb-2" style={{ borderBottomWidth: 1, borderColor: colors.border + '80' }}>
-              <TextInput
-                value={managerSearch}
-                onChangeText={setManagerSearch}
-                placeholder="Search users..."
-                placeholderTextColor={colors.textDim}
-                className="rounded-xl px-3 py-2 text-sm font-medium"
-                style={{ backgroundColor: colors.background, color: colors.textMain, borderWidth: 1, borderColor: colors.border }}
-                autoFocus
-              />
-            </View>
-            <ScrollView style={{ maxHeight: 250 }}>
-              <TouchableOpacity
-                onPress={() => { setManagerId(null); setShowManagerDrop(false); setManagerSearch(''); }}
-                className={`px-4 py-3 flex-row items-center gap-3 ${!managerId ? '' : 'hover:bg-surface-overlay'}`}
-                style={{ borderBottomWidth: 1, borderColor: colors.border + '33', backgroundColor: !managerId ? colors.primary + '0D' : undefined }}
-              >
-                <FontAwesome name="ban" size={12} color={colors.textMuted} />
-                <Text className="font-bold text-sm" style={{ color: !managerId ? colors.primary : colors.textMuted }}>No manager</Text>
-              </TouchableOpacity>
-              {filteredUsers.map(u => (
-                <TouchableOpacity
-                  key={u.id}
-                  onPress={() => { setManagerId(u.id); setShowManagerDrop(false); setManagerSearch(''); }}
-                  className={`px-4 py-3 flex-row items-center gap-3 ${managerId === u.id ? '' : 'hover:bg-surface-overlay'}`}
-                  style={{ borderBottomWidth: 1, borderColor: colors.border + '33', backgroundColor: managerId === u.id ? colors.primary + '0D' : undefined }}
-                >
-                  <View className="w-6 h-6 rounded-full items-center justify-center" style={{ backgroundColor: colors.primary + '33' }}>
-                    <Text className="text-[9px] font-black" style={{ color: colors.primary }}>{u.full_name.charAt(0)}</Text>
-                  </View>
-                  <Text className="font-bold text-sm" style={{ color: managerId === u.id ? colors.primary : colors.textMain }}>
-                    {u.full_name}
-                  </Text>
-                  {managerId === u.id && <FontAwesome name="check" size={10} color={colors.primary} style={{ marginLeft: 'auto' as any }} />}
-                </TouchableOpacity>
-              ))}
-              {filteredUsers.length === 0 && (
-                <View className="py-8 items-center">
-                  <Text className="text-xs font-bold" style={{ color: colors.textMuted }}>No users found</Text>
-                </View>
-              )}
-            </ScrollView>
-          </View>
-        )}
-      </View>
-    </Modal>
+    </Popup>
   );
 }

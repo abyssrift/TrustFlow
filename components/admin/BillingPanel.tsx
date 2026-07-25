@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, useWindowDimensions, Platform, Modal, Linking } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, useWindowDimensions, Platform, Linking } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
+import ConfirmModal from '@/components/common/ConfirmModal';
 
 type PlanLimits = {
   max_members: number | null;
@@ -492,41 +493,15 @@ export default function BillingPanel() {
       </ScrollView>
 
       {/* Downgrade confirmation modal */}
-      <Modal
+      <ConfirmModal
         visible={!!confirmDowngrade}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setConfirmDowngrade(null)}
-      >
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-          <View style={{ backgroundColor: colors.card, borderRadius: 20, padding: 24, width: '100%', maxWidth: 400, borderWidth: 1, borderColor: colors.border }}>
-            <Text style={{ color: colors.textMain, fontSize: 17, fontWeight: '900', marginBottom: 8 }}>
-              Downgrade to {confirmDowngrade?.name}?
-            </Text>
-            <Text style={{ color: colors.textMuted, fontSize: 13, lineHeight: 20, marginBottom: 20 }}>
-              You're switching from {currentPlan?.name ?? billing?.plan_code} to {confirmDowngrade?.name}. Features and limits will change immediately. This cannot be undone automatically — you'll need to upgrade again to regain access.
-            </Text>
-            <View style={{ gap: 10 }}>
-              <TouchableOpacity
-                onPress={handleConfirmDowngrade}
-                style={{ backgroundColor: colors.danger, borderRadius: 12, paddingVertical: 14, alignItems: 'center' }}
-              >
-                <Text style={{ color: 'white', fontWeight: '900', fontSize: 12, letterSpacing: 1.5, textTransform: 'uppercase' }}>
-                  Yes, downgrade
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setConfirmDowngrade(null)}
-                style={{ backgroundColor: colors.background, borderRadius: 12, paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: colors.border }}
-              >
-                <Text style={{ color: colors.textMuted, fontWeight: '900', fontSize: 12, letterSpacing: 1.5, textTransform: 'uppercase' }}>
-                  Cancel
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        title={`Downgrade to ${confirmDowngrade?.name}?`}
+        description={`You're switching from ${currentPlan?.name ?? billing?.plan_code} to ${confirmDowngrade?.name}. Features and limits will change immediately. This cannot be undone automatically — you'll need to upgrade again to regain access.`}
+        confirmLabel="Yes, downgrade"
+        variant="danger"
+        onConfirm={handleConfirmDowngrade}
+        onCancel={() => setConfirmDowngrade(null)}
+      />
     </View>
   );
 }

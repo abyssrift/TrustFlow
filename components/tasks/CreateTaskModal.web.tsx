@@ -1,5 +1,8 @@
 import AssignmentModePreview from '@/components/tasks/AssignmentModePreview';
 import ClipboardControls from '@/components/common/ClipboardControls';
+import DraggableSheet from '@/components/common/DraggableSheet';
+import LoadingOverlay from '@/components/common/LoadingOverlay';
+import Popup from '@/components/common/Popup';
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 import { useCalendarPosition } from '@/lib/calendarPicker';
 import { usePipelineAssignmentPreview } from '@/lib/usePipelineAssignmentPreview';
@@ -13,7 +16,7 @@ import { FontAwesome } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Image, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, Image, Platform, ScrollView, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
 
 cssInterop(FontAwesome, {
@@ -41,6 +44,7 @@ const QUICK_DATES = [
 ];
 
 const HOUR_PRESETS = [1, 2, 4, 8, 16];
+const MOBILE_STEP_LABELS = ['Basics', 'Logistics', 'Files & Team'];
 
 // Colors (not classNames) — these render inside a <Modal> subtree, so theme tokens
 // must be resolved via useThemeColors() rather than CSS-variable-backed classNames.
@@ -165,6 +169,12 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
   const colors = useThemeColors();
   const { hasPermission } = useAuth();
   const { draft, setDraft, createTask, createBulkTasks, loading, recentTasks, loadRecentTasks, briefFiles, setBriefFiles } = useTaskCreation();
+  // Desktop keeps the fixed two-pane composer below untouched; narrow viewports
+  // (phones, and the mobile-web browser generally) get MobileCreateTaskWizard
+  // instead — see components/tasks/CreateTaskModal.web.tsx's isDesktop branch.
+  const { width: screenWidth } = useWindowDimensions();
+  const isDesktop = screenWidth >= 768;
+  const [mobileStep, setMobileStep] = useState<1 | 2 | 3>(1);
   const [activeTab, setActiveTab] = useState<'details' | 'assignments'>('details');
   // Bulk quick-add: one task title per line, sharing all other draft fields.
   const [bulkMode, setBulkMode] = useState(false);
@@ -263,6 +273,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
     } else {
       setBulkMode(false);
       setBulkText('');
+      setMobileStep(1);
     }
   }, [visible]);
 
@@ -359,63 +370,909 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
   );
   const { glowOpacity: briefDropGlow } = useDropPulse(briefDropOver);
 
+  // ─── Mobile-web wizard (narrow viewports) ───────────────────────────────────
+  // Mirrors native's CreateTaskModal.tsx (formerly CreateTaskSheet.tsx) step-by-step DraggableSheet pattern, but
+  // keeps every field the desktop composer above has (pipeline/project/start
+  // date/max hours) — native's sheet is a reduced feature set, this isn't.
+  if (!isDesktop) {
+    const goNext = () => setMobileStep(s => (s < 3 ? ((s + 1) as 1 | 2 | 3) : s));
+    const goBack = () => setMobileStep(s => (s > 1 ? ((s - 1) as 1 | 2 | 3) : s));
+
+    return (
+      <DraggableSheet
+        visible={visible}
+        onClose={onClose}
+        dimBackdrop
+        maxHeight="94%"
+        containerClassName="rounded-t-[2rem] overflow-hidden"
+      >
+        <View className="flex-1" style={{ backgroundColor: colors.background }}>
+          {/* Header */}
+          <View className="px-5 py-4 flex-row items-center justify-between" style={{ borderBottomWidth: 1, borderColor: colors.border }}>
+            <TouchableOpacity
+              onPress={onClose}
+              disabled={loading}
+              className="px-4 py-2.5 rounded-xl"
+              style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: loading ? 0.4 : 1 }}
+            >
+              <Text className="font-bold text-sm" style={{ color: colors.textMuted }}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleCreate}
+              disabled={loading || !canSubmit}
+              className="px-4 py-2.5 rounded-xl"
+              style={{ backgroundColor: !canSubmit ? colors.card : colors.primary, borderWidth: !canSubmit ? 1 : 0, borderColor: colors.border, opacity: loading ? 0.6 : 1 }}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <Text className="font-black text-sm" style={{ color: !canSubmit ? colors.textDim : '#fff' }}>
+                  {bulkMode && bulkTitles.length > 0 ? `Create ${bulkTitles.length}` : 'Create'}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* Step indicator */}
+          <View className="px-5 pt-4 pb-1">
+            <View className="flex-row gap-1.5 mb-2.5">
+              {MOBILE_STEP_LABELS.map((_, i) => (
+                <View key={i} className="flex-1 h-1 rounded-full" style={{ backgroundColor: i + 1 <= mobileStep ? colors.primary : colors.border }} />
+              ))}
+            </View>
+            <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>
+              Step {mobileStep} of {MOBILE_STEP_LABELS.length} · {MOBILE_STEP_LABELS[mobileStep - 1]}
+            </Text>
+          </View>
+
+          <ScrollView className="flex-1 px-6 py-5" showsVerticalScrollIndicator={false}>
+            {mobileStep === 1 && (
+              <View className="gap-6">
+                {/* Recent Tasks */}
+                {recentTasks.length > 0 && (
+                  <View>
+                    <Text className="text-[10px] font-black uppercase tracking-widest mb-2 ml-1" style={{ color: colors.textMuted }}>Copy Recent</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                      <View className="flex-row gap-2 pr-2">
+                        {recentTasks.slice(0, 8).map(t => (
+                          <TouchableOpacity
+                            key={t.id}
+                            onPress={() => handleCopyRecent(t)}
+                            className="rounded-xl px-4 py-3"
+                            style={{ maxWidth: 160, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}
+                          >
+                            <Text className="font-bold text-xs" numberOfLines={1} style={{ color: colors.textMain }}>{t.title}</Text>
+                            <Text className="text-[9px] font-black uppercase mt-0.5" style={{ color: colors.textMuted }}>{t.category || 'General'}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </ScrollView>
+                  </View>
+                )}
+
+                {/* Title / Bulk */}
+                <View>
+                  <View className="flex-row items-center justify-between mb-2 ml-1">
+                    <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>
+                      {bulkMode ? 'Engagement Titles' : 'Engagement Title'}
+                    </Text>
+                    <View className="flex-row items-center gap-3">
+                      <TouchableOpacity
+                        onPress={toggleBulkMode}
+                        className="flex-row items-center gap-1.5 px-2.5 py-1 rounded-lg border"
+                        style={{ backgroundColor: bulkMode ? colors.primary + '1A' : undefined, borderColor: bulkMode ? colors.primary : colors.border }}
+                      >
+                        <FontAwesome name="list-ul" size={10} color={bulkMode ? colors.primary : colors.textMuted} />
+                        <Text className="text-[9px] font-black uppercase tracking-wider" style={{ color: bulkMode ? colors.primary : colors.textMuted }}>Bulk</Text>
+                      </TouchableOpacity>
+                      <ClipboardControls
+                        value={bulkMode ? bulkText : draft.title}
+                        onPaste={t => bulkMode
+                          ? setBulkText(prev => prev ? `${prev}\n${t}` : t)
+                          : setDraft({ title: t })}
+                      />
+                    </View>
+                  </View>
+                  {bulkMode ? (
+                    <>
+                      <TextInput
+                        value={bulkText}
+                        onChangeText={setBulkText}
+                        multiline
+                        placeholder={'One task per line, e.g.\nAudit firewall rules\nRotate API keys'}
+                        placeholderTextColor={colors.textDim}
+                        style={{ minHeight: 110, textAlignVertical: 'top', backgroundColor: colors.card, color: colors.textMain, borderWidth: 1, borderColor: bulkTitles.length ? colors.border : colors.danger + '4D' }}
+                        className="rounded-2xl px-5 py-4 font-bold text-base leading-6"
+                      />
+                      <Text className="text-[10px] font-bold mt-2 ml-1" style={{ color: colors.textDim }}>
+                        {bulkTitles.length} task{bulkTitles.length === 1 ? '' : 's'} · all share the fields below
+                      </Text>
+                    </>
+                  ) : (
+                    <TextInput
+                      value={draft.title ?? ''}
+                      onChangeText={t => setDraft({ title: t })}
+                      placeholder="e.g. Critical Infrastructure Audit"
+                      placeholderTextColor={colors.textDim}
+                      className="rounded-2xl px-5 py-4 font-black text-base"
+                      style={{ backgroundColor: colors.card, color: colors.textMain, borderWidth: 1, borderColor: draft.title ? colors.border : colors.danger + '4D' }}
+                    />
+                  )}
+                </View>
+
+                {/* Category */}
+                <View>
+                  <View className="flex-row items-center justify-between mb-2 ml-1">
+                    <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>Category</Text>
+                    <ClipboardControls value={draft.category} onPaste={t => setDraft({ category: t })} />
+                  </View>
+                  <TextInput
+                    value={draft.category ?? ''}
+                    onChangeText={t => setDraft({ category: t })}
+                    placeholder="General"
+                    placeholderTextColor={colors.textDim}
+                    className="rounded-2xl px-5 py-4 font-black"
+                    style={{ backgroundColor: colors.card, color: colors.textMain, borderWidth: 1, borderColor: colors.border }}
+                  />
+                </View>
+
+                {/* Description */}
+                <View>
+                  <View className="flex-row items-center justify-between mb-2 ml-1">
+                    <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>Description</Text>
+                    <ClipboardControls
+                      value={draft.description}
+                      onPaste={t => setDraft({ description: draft.description ? `${draft.description}\n${t}` : t })}
+                    />
+                  </View>
+                  <TextInput
+                    value={draft.description ?? ''}
+                    onChangeText={t => setDraft({ description: t })}
+                    placeholder="Define the scope of this task..."
+                    placeholderTextColor={colors.textDim}
+                    multiline
+                    numberOfLines={4}
+                    textAlignVertical="top"
+                    className="rounded-2xl px-5 py-4 text-sm leading-6 h-32"
+                    style={{ backgroundColor: colors.card, color: colors.textMain, borderWidth: 1, borderColor: colors.border }}
+                  />
+                </View>
+              </View>
+            )}
+
+            {mobileStep === 2 && (
+              <View className="gap-6">
+                {/* Priority */}
+                <View>
+                  <Text className="text-[10px] font-black uppercase tracking-widest mb-3 ml-1" style={{ color: colors.textMuted }}>Priority Level</Text>
+                  <View className="flex-row rounded-2xl p-1.5" style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}>
+                    {(['low', 'normal', 'high', 'urgent'] as const).map(p => (
+                      <TouchableOpacity
+                        key={p}
+                        onPress={() => setDraft({ priority: p })}
+                        className="flex-1 py-3 items-center rounded-xl"
+                        style={{ backgroundColor: draft.priority === p ? colors.primary : undefined }}
+                      >
+                        <Text className="font-black text-[10px] uppercase tracking-widest" style={{ color: draft.priority === p ? '#fff' : colors.textMuted }}>{p}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Weight */}
+                <View>
+                  <Text className="text-[10px] font-black uppercase tracking-widest mb-3 ml-1" style={{ color: colors.textMuted }}>Weight</Text>
+                  <View className="flex-row items-center gap-4">
+                    <TouchableOpacity onPress={() => setDraft({ weight: Math.max(1, draft.weight - 1) })} className="w-12 h-12 rounded-xl items-center justify-center" style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}>
+                      <FontAwesome name="minus" size={14} color={colors.textMain} />
+                    </TouchableOpacity>
+                    <Text className="font-black text-2xl w-12 text-center" style={{ color: colors.textMain }}>{draft.weight}</Text>
+                    <TouchableOpacity onPress={() => setDraft({ weight: draft.weight + 1 })} className="w-12 h-12 rounded-xl items-center justify-center" style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}>
+                      <FontAwesome name="plus" size={14} color={colors.textMain} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Pipeline */}
+                <View>
+                  <Text className="text-[10px] font-black uppercase tracking-widest mb-3 ml-1" style={{ color: colors.textMuted }}>Pipeline</Text>
+                  <TouchableOpacity
+                    onPress={() => { setShowPipelineDropdown(v => !v); setShowProjectDropdown(false); setShowCalendar(false); setShowStartCalendar(false); }}
+                    className="rounded-2xl px-5 py-4 flex-row items-center justify-between"
+                    style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: showPipelineDropdown ? colors.primary : colors.border }}
+                  >
+                    <View className="flex-row items-center gap-3 flex-1">
+                      <FontAwesome name="sitemap" size={13} color={draft.pipelineId ? colors.primary : colors.textDim} />
+                      <Text className="font-black text-sm flex-1" numberOfLines={1} style={{ color: draft.pipelineId ? colors.textMain : colors.textDim }}>
+                        {selectedPipeline?.name ?? 'None'}
+                      </Text>
+                    </View>
+                    <FontAwesome name={showPipelineDropdown ? 'chevron-up' : 'chevron-down'} size={11} color={colors.textDim} />
+                  </TouchableOpacity>
+                  {showPipelineDropdown && (
+                    <View className="rounded-2xl mt-2 overflow-hidden" style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}>
+                      <View className="p-3" style={{ borderBottomWidth: 1, borderColor: colors.border }}>
+                        <TextInput
+                          value={pipelineSearch}
+                          onChangeText={setPipelineSearch}
+                          placeholder="Search pipelines..."
+                          placeholderTextColor={colors.textDim}
+                          className="font-bold text-sm px-4 py-2.5 rounded-xl"
+                          style={{ backgroundColor: colors.background, color: colors.textMain, borderWidth: 1, borderColor: colors.border }}
+                        />
+                      </View>
+                      <ScrollView style={{ maxHeight: 220 }}>
+                        <TouchableOpacity
+                          onPress={() => { setDraft({ pipelineId: null }); setShowPipelineDropdown(false); setPipelineSearch(''); }}
+                          className="flex-row items-center px-5 py-3.5"
+                          style={{ borderBottomWidth: 1, borderColor: colors.border + '66' }}
+                        >
+                          <Text className="font-bold text-sm flex-1" style={{ color: colors.textDim }}>None</Text>
+                          {!draft.pipelineId && <FontAwesome name="check" size={11} color={colors.primary} />}
+                        </TouchableOpacity>
+                        {pipelines.filter(p => p.name.toLowerCase().includes(pipelineSearch.toLowerCase())).map(p => (
+                          <TouchableOpacity
+                            key={p.id}
+                            onPress={() => { setDraft({ pipelineId: p.id }); setShowPipelineDropdown(false); setPipelineSearch(''); }}
+                            className="flex-row items-center px-5 py-3.5"
+                          >
+                            <Text className="font-bold text-sm flex-1" style={{ color: colors.textMain }}>{p.name}</Text>
+                            {draft.pipelineId === p.id && <FontAwesome name="check" size={11} color={colors.primary} />}
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
+
+                {/* Project */}
+                <View>
+                  <Text className="text-[10px] font-black uppercase tracking-widest mb-3 ml-1" style={{ color: colors.textMuted }}>Project</Text>
+                  <TouchableOpacity
+                    onPress={() => { setShowProjectDropdown(v => !v); setShowPipelineDropdown(false); setShowCalendar(false); setShowStartCalendar(false); }}
+                    className="rounded-2xl px-5 py-4 flex-row items-center justify-between"
+                    style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: showProjectDropdown ? colors.accent : colors.border }}
+                  >
+                    <View className="flex-row items-center gap-3 flex-1">
+                      {selectedProject?.color
+                        ? <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: selectedProject.color }} />
+                        : <FontAwesome name="folder-o" size={13} color={colors.textDim} />}
+                      <Text className="font-black text-sm flex-1" numberOfLines={1} style={{ color: draft.projectId ? colors.textMain : colors.textDim }}>
+                        {selectedProject?.name ?? 'None'}
+                      </Text>
+                    </View>
+                    <FontAwesome name={showProjectDropdown ? 'chevron-up' : 'chevron-down'} size={11} color={colors.textDim} />
+                  </TouchableOpacity>
+                  {showProjectDropdown && (
+                    <View className="rounded-2xl mt-2 overflow-hidden" style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}>
+                      {!showCreateProject ? (
+                        <>
+                          <View className="p-3 flex-row gap-2" style={{ borderBottomWidth: 1, borderColor: colors.border }}>
+                            <TextInput
+                              value={projectSearch}
+                              onChangeText={setProjectSearch}
+                              placeholder="Search projects..."
+                              placeholderTextColor={colors.textDim}
+                              className="flex-1 font-bold text-sm px-4 py-2.5 rounded-xl"
+                              style={{ backgroundColor: colors.background, color: colors.textMain, borderWidth: 1, borderColor: colors.border }}
+                            />
+                            {hasPermission('project.create') && (
+                              <TouchableOpacity
+                                onPress={() => setShowCreateProject(true)}
+                                className="rounded-xl px-3 items-center justify-center"
+                                style={{ backgroundColor: colors.accent + '1A', borderWidth: 1, borderColor: colors.accent }}
+                              >
+                                <FontAwesome name="plus" size={13} color={colors.accent} />
+                              </TouchableOpacity>
+                            )}
+                          </View>
+                          <ScrollView style={{ maxHeight: 220 }}>
+                            <TouchableOpacity
+                              onPress={() => { setDraft({ projectId: null }); setShowProjectDropdown(false); setProjectSearch(''); }}
+                              className="flex-row items-center px-5 py-3.5"
+                              style={{ borderBottomWidth: 1, borderColor: colors.border + '66' }}
+                            >
+                              <Text className="font-bold text-sm flex-1" style={{ color: colors.textDim }}>None</Text>
+                              {!draft.projectId && <FontAwesome name="check" size={11} color={colors.accent} />}
+                            </TouchableOpacity>
+                            {projects.filter(p => p.name.toLowerCase().includes(projectSearch.toLowerCase())).map(p => (
+                              <TouchableOpacity
+                                key={p.id}
+                                onPress={() => { setDraft({ projectId: p.id }); setShowProjectDropdown(false); setProjectSearch(''); }}
+                                className="flex-row items-center px-5 py-3.5"
+                              >
+                                <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: p.color || colors.accent }} />
+                                <Text className="font-bold text-sm ml-3 flex-1" style={{ color: colors.textMain }}>{p.name}</Text>
+                                {draft.projectId === p.id && <FontAwesome name="check" size={11} color={colors.accent} />}
+                              </TouchableOpacity>
+                            ))}
+                          </ScrollView>
+                        </>
+                      ) : (
+                        <View className="p-5">
+                          <View className="flex-row items-center justify-between mb-4">
+                            <Text className="font-black text-sm" style={{ color: colors.textMain }}>Create Project</Text>
+                            <TouchableOpacity onPress={() => { setShowCreateProject(false); setNewProjectName(''); setNewProjectColor('#3B82F6'); }} disabled={creatingProject}>
+                              <FontAwesome name="times" size={14} color={colors.textDim} />
+                            </TouchableOpacity>
+                          </View>
+                          <TextInput
+                            value={newProjectName}
+                            onChangeText={setNewProjectName}
+                            placeholder="Project name..."
+                            placeholderTextColor={colors.textDim}
+                            editable={!creatingProject}
+                            className="rounded-xl px-4 py-3 font-bold mb-4"
+                            style={{ backgroundColor: colors.background, color: colors.textMain, borderWidth: 1, borderColor: colors.border }}
+                          />
+                          <View className="flex-row gap-2.5 mb-4 flex-wrap">
+                            {PROJECT_COLORS.map(color => (
+                              <TouchableOpacity
+                                key={color}
+                                onPress={() => setNewProjectColor(color)}
+                                disabled={creatingProject}
+                                style={{ backgroundColor: color, borderColor: newProjectColor === color ? '#fff' : 'transparent', borderWidth: newProjectColor === color ? 2 : 0 }}
+                                className="w-8 h-8 rounded-lg"
+                              />
+                            ))}
+                          </View>
+                          <View className="flex-row gap-2">
+                            <TouchableOpacity
+                              onPress={() => { setShowCreateProject(false); setNewProjectName(''); setNewProjectColor('#3B82F6'); }}
+                              disabled={creatingProject}
+                              className="flex-1 rounded-xl py-3 items-center"
+                              style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}
+                            >
+                              <Text className="font-bold text-sm" style={{ color: colors.textMuted }}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              onPress={handleCreateProject}
+                              disabled={creatingProject || !newProjectName.trim()}
+                              className="flex-1 rounded-xl py-3 items-center"
+                              style={{ backgroundColor: creatingProject || !newProjectName.trim() ? colors.border : colors.accent, opacity: creatingProject || !newProjectName.trim() ? 0.6 : 1 }}
+                            >
+                              {creatingProject ? <ActivityIndicator size="small" color="#fff" /> : <Text className="text-white font-bold text-sm">Create</Text>}
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      )}
+                    </View>
+                  )}
+                </View>
+
+                {/* Auto-assignment preview */}
+                <AssignmentModePreview preview={assignmentPreview} hasManualAssignees={assignmentCount > 0} />
+
+                {/* Start Date */}
+                <View>
+                  <Text className="text-[10px] font-black uppercase tracking-widest mb-3 ml-1" style={{ color: colors.textMuted }}>Start Date</Text>
+                  <View className="rounded-2xl flex-row items-center overflow-hidden" style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: dateConflict ? colors.warning : colors.border }}>
+                    <TouchableOpacity
+                      onPress={() => { setShowStartCalendar(v => !v); setShowCalendar(false); setShowPipelineDropdown(false); setShowProjectDropdown(false); }}
+                      className="flex-1 px-5 py-4"
+                    >
+                      <Text className="font-black text-sm" style={{ color: draft.startDate ? colors.textMain : colors.textDim }}>
+                        {draft.startDate ? new Date(draft.startDate).toLocaleDateString(undefined, { dateStyle: 'medium' }) : 'Set Start Date'}
+                      </Text>
+                    </TouchableOpacity>
+                    {draft.startDate ? (
+                      <TouchableOpacity onPress={() => setDraft({ startDate: null })} className="px-4 py-4">
+                        <FontAwesome name="times-circle" size={14} color={colors.textDim} />
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity onPress={() => { setShowStartCalendar(v => !v); setShowCalendar(false); setShowPipelineDropdown(false); setShowProjectDropdown(false); }} className="px-4 py-4">
+                        <FontAwesome name="calendar-o" size={14} color={colors.accent} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                  {showStartCalendar && (
+                    <View className="mt-3">
+                      <PremiumCalendarPicker
+                        selectedDate={draft.startDate}
+                        onSelect={date => { setDraft({ startDate: date }); setShowStartCalendar(false); }}
+                        accentColor={colors.accent}
+                        rangeDate={draft.dueDate}
+                        rangeColor={colors.primary}
+                        scale="compact"
+                        showQuickSelect
+                        showDaysBetween
+                      />
+                    </View>
+                  )}
+                </View>
+
+                {/* Deadline */}
+                <View>
+                  <Text className="text-[10px] font-black uppercase tracking-widest mb-3 ml-1" style={{ color: colors.textMuted }}>Deadline</Text>
+                  <View className="rounded-2xl flex-row items-center overflow-hidden" style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: dateConflict ? colors.warning : colors.border }}>
+                    <TouchableOpacity
+                      onPress={() => { setShowCalendar(v => !v); setShowStartCalendar(false); setShowPipelineDropdown(false); setShowProjectDropdown(false); }}
+                      className="flex-1 px-5 py-4"
+                    >
+                      <Text className="font-black text-sm" style={{ color: draft.dueDate ? colors.textMain : colors.textDim }}>
+                        {draft.dueDate ? new Date(draft.dueDate).toLocaleDateString(undefined, { dateStyle: 'medium' }) : 'Set Deadline'}
+                      </Text>
+                    </TouchableOpacity>
+                    {draft.dueDate ? (
+                      <TouchableOpacity onPress={() => setDraft({ dueDate: null })} className="px-4 py-4">
+                        <FontAwesome name="times-circle" size={14} color={colors.textDim} />
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity onPress={() => { setShowCalendar(v => !v); setShowStartCalendar(false); setShowPipelineDropdown(false); setShowProjectDropdown(false); }} className="px-4 py-4">
+                        <FontAwesome name="calendar" size={14} color={colors.primary} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                  {showCalendar && (
+                    <View className="mt-3">
+                      <PremiumCalendarPicker
+                        selectedDate={draft.dueDate}
+                        onSelect={date => { setDraft({ dueDate: date }); setShowCalendar(false); }}
+                        accentColor={colors.primary}
+                        rangeDate={draft.startDate}
+                        rangeColor={colors.accent}
+                        scale="compact"
+                        showQuickSelect
+                        showDaysBetween
+                      />
+                    </View>
+                  )}
+                  {dateConflict && (
+                    <View className="flex-row items-center gap-2 ml-1 mt-2">
+                      <FontAwesome name="exclamation-triangle" size={11} color={colors.warning} />
+                      <Text className="text-[10px] font-black uppercase tracking-wider" style={{ color: colors.warning }}>Start date is after deadline</Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Max Hours */}
+                <View>
+                  <Text className="text-[10px] font-black uppercase tracking-widest mb-3 ml-1" style={{ color: colors.textMuted }}>Max Hours</Text>
+                  <View className="rounded-2xl px-4 py-4 flex-row items-center gap-1" style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}>
+                    <TextInput
+                      value={draft.estimatedHours != null ? draft.estimatedHours.toString() : ''}
+                      onChangeText={t => {
+                        const val = parseFloat(t);
+                        setDraft({ estimatedHours: t === '' ? null : isNaN(val) ? null : val });
+                      }}
+                      placeholder="e.g. 4"
+                      placeholderTextColor={colors.textDim}
+                      keyboardType="decimal-pad"
+                      className="flex-1 font-black"
+                      style={{ color: colors.textMain }}
+                    />
+                    <Text className="text-[10px] font-black uppercase tracking-wider" style={{ color: colors.textDim }}>hrs</Text>
+                  </View>
+                  <View className="flex-row gap-1.5 mt-2 flex-wrap">
+                    {HOUR_PRESETS.map(h => (
+                      <TouchableOpacity
+                        key={h}
+                        onPress={() => setDraft({ estimatedHours: draft.estimatedHours === h ? null : h })}
+                        className="px-2.5 py-1.5 rounded-lg border"
+                        style={{ backgroundColor: draft.estimatedHours === h ? colors.primary : colors.card, borderColor: draft.estimatedHours === h ? colors.primary : colors.border }}
+                      >
+                        <Text className="text-[10px] font-black" style={{ color: draft.estimatedHours === h ? '#fff' : colors.textDim }}>{h}h</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {mobileStep === 3 && (
+              <View className="gap-8 pb-4">
+                {/* Brief Files */}
+                {!bulkMode && (
+                  <View>
+                    <Text className="text-[10px] font-black uppercase tracking-widest mb-3 ml-1" style={{ color: colors.textMuted }}>Brief Files</Text>
+                    <Text className="text-xs mb-4" style={{ color: colors.textMuted }}>Attach reference materials for the assignee.</Text>
+
+                    {briefFiles.length > 0 && (
+                      <AdaptiveFileGrid
+                        files={briefFiles}
+                        onRemove={(id) => setBriefFiles(prev => prev.filter(x => x.id !== id))}
+                        isUploading={loading}
+                      />
+                    )}
+
+                    <View className="flex-row gap-3 flex-wrap">
+                      <TouchableOpacity
+                        onPress={async () => {
+                          const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'] as any, allowsMultipleSelection: true });
+                          if (!result.canceled) setBriefFiles(prev => [...prev, ...result.assets.map(a => ({ id: Math.random().toString(36).substring(7), uri: a.uri, name: a.fileName || `image_${Date.now()}.jpg`, size: a.fileSize || 0, type: a.mimeType || 'image/jpeg' }))]);
+                        }}
+                        className="flex-row items-center px-4 py-3 rounded-xl"
+                        style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}
+                      >
+                        <FontAwesome name="camera" size={13} color={colors.primary} />
+                        <Text className="text-xs font-black uppercase ml-2" style={{ color: colors.primary }}>Add Photo</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={async () => {
+                          const result = await DocumentPicker.getDocumentAsync({ type: '*/*', multiple: true });
+                          if (!result.canceled) setBriefFiles(prev => [...prev, ...result.assets.map(a => ({ id: Math.random().toString(36).substring(7), uri: a.uri, name: a.name, size: a.size || 0, type: a.mimeType || 'application/octet-stream' }))]);
+                        }}
+                        className="flex-row items-center px-4 py-3 rounded-xl"
+                        style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}
+                      >
+                        <FontAwesome name="paperclip" size={13} color={colors.primary} />
+                        <Text className="text-xs font-black uppercase ml-2" style={{ color: colors.primary }}>Attach File</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={async () => {
+                          const file = await getPastedImageFile();
+                          if (file) setBriefFiles(prev => [...prev, file]);
+                        }}
+                        className="flex-row items-center px-4 py-3 rounded-xl"
+                        style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}
+                      >
+                        <FontAwesome name="clipboard" size={13} color={colors.primary} />
+                        <Text className="text-xs font-black uppercase ml-2" style={{ color: colors.primary }}>Paste Image</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+
+                {/* Assignees */}
+                <View>
+                  <View className="rounded-2xl flex-row items-center px-5 py-3.5 mb-4" style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}>
+                    <FontAwesome name="search" size={14} color={colors.textMuted} />
+                    <TextInput
+                      placeholder="Search agents or teams..."
+                      placeholderTextColor={colors.textDim}
+                      value={search}
+                      onChangeText={setSearch}
+                      className="flex-1 font-bold ml-3"
+                      style={{ color: colors.textMain }}
+                    />
+                    {search.length > 0 && (
+                      <TouchableOpacity onPress={() => setSearch('')} className="ml-2 p-1">
+                        <FontAwesome name="times-circle" size={13} color={colors.textDim} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  <Text className="text-[10px] font-black uppercase tracking-widest mb-3 ml-1" style={{ color: colors.primary }}>Individual Agents</Text>
+                  <View className="gap-2 mb-6">
+                    {users.filter(u => u.full_name?.toLowerCase().includes(search.toLowerCase())).map(u => (
+                      <TouchableOpacity
+                        key={u.id}
+                        onPress={() => toggleUser(u.id)}
+                        className="flex-row items-center justify-between p-4 rounded-xl"
+                        style={{
+                          backgroundColor: draft.assigneeUserIds.includes(u.id) ? colors.primary + '1A' : colors.card,
+                          borderWidth: 1,
+                          borderColor: draft.assigneeUserIds.includes(u.id) ? colors.primary : colors.border,
+                        }}
+                      >
+                        <View className="flex-row items-center">
+                          <View className="w-8 h-8 rounded-full items-center justify-center mr-3" style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}>
+                            <Text className="font-black text-[10px]" style={{ color: colors.textMain }}>{u.full_name?.charAt(0)}</Text>
+                          </View>
+                          <Text className="font-bold text-sm" style={{ color: colors.textMain }}>{u.full_name}</Text>
+                        </View>
+                        {draft.assigneeUserIds.includes(u.id) && <FontAwesome name="check" size={12} color={colors.primary} />}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <Text className="text-[10px] font-black uppercase tracking-widest mb-3 ml-1" style={{ color: colors.accent }}>Tactical Teams</Text>
+                  <View className="gap-2">
+                    {teams.filter(t => t.name?.toLowerCase().includes(search.toLowerCase())).map(t => (
+                      <TouchableOpacity
+                        key={t.id}
+                        onPress={() => toggleTeam(t.id)}
+                        className="flex-row items-center justify-between p-4 rounded-xl"
+                        style={{
+                          backgroundColor: draft.assigneeTeamIds.includes(t.id) ? colors.accent + '1A' : colors.card,
+                          borderWidth: 1,
+                          borderColor: draft.assigneeTeamIds.includes(t.id) ? colors.accent : colors.border,
+                        }}
+                      >
+                        <View className="flex-row items-center">
+                          <View style={{ backgroundColor: t.color || colors.accent }} className="w-3 h-3 rounded-full mr-4" />
+                          <Text className="font-bold text-sm" style={{ color: colors.textMain }}>{t.name}</Text>
+                        </View>
+                        {draft.assigneeTeamIds.includes(t.id) && <FontAwesome name="check" size={12} color={colors.accent} />}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              </View>
+            )}
+          </ScrollView>
+
+          {/* Bottom nav */}
+          <View className="p-6 flex-row justify-between items-center gap-4" style={{ borderTopWidth: 1, borderColor: colors.border }}>
+            <TouchableOpacity
+              onPress={goBack}
+              disabled={mobileStep === 1 || loading}
+              className="w-14 h-14 items-center justify-center rounded-2xl"
+              style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: mobileStep === 1 ? 0.2 : 1 }}
+            >
+              <FontAwesome name="chevron-left" size={16} color={colors.textMain} />
+            </TouchableOpacity>
+
+            {mobileStep < 3 ? (
+              <TouchableOpacity
+                onPress={goNext}
+                disabled={loading}
+                className="flex-1 h-14 items-center justify-center rounded-2xl premium-shadow flex-row gap-2"
+                style={{ backgroundColor: colors.primary }}
+              >
+                <Text className="text-white font-black uppercase tracking-widest text-xs">Next: {MOBILE_STEP_LABELS[mobileStep]}</Text>
+                <FontAwesome name="chevron-right" size={12} color="#fff" />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                onPress={handleCreate}
+                disabled={loading || !canSubmit}
+                className="flex-1 h-14 items-center justify-center rounded-2xl premium-shadow"
+                style={{ backgroundColor: colors.primary, opacity: loading || !canSubmit ? 0.5 : 1 }}
+              >
+                {loading ? <ActivityIndicator color="#fff" /> : (
+                  <Text className="text-white font-black uppercase tracking-widest text-xs">
+                    {bulkMode ? `Deploy ${bulkTitles.length}` : 'Deploy Now'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <LoadingOverlay visible={loading} message="Creating task" />
+        </View>
+      </DraggableSheet>
+    );
+  }
+
+  const sideMenuContent = (
+    <View className="w-80 p-8" style={{ backgroundColor: colors.background + '4D' }}>
+      <View className="flex-row items-center mb-8">
+        <FontAwesome name="history" size={14} color={colors.primary} />
+        <Text className="text-[10px] font-black uppercase tracking-[0.2em] ml-3" style={{ color: colors.textMuted }}>Tactical Archive</Text>
+      </View>
+      <Text className="font-black text-xl mb-2 tracking-tight" style={{ color: colors.textMain }}>Recent Tasks</Text>
+      <Text className="text-[10px] font-bold mb-5" style={{ color: colors.textDim }}>Tap any card to clone it</Text>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {recentTasks.map(t => (
+          <TouchableOpacity
+            key={t.id}
+            onPress={() => handleCopyRecent(t)}
+            className="p-4 rounded-2xl mb-3 hover:border-brand-primary/50 transition-all group"
+            style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}
+          >
+            <View className="flex-row items-center justify-between mb-1">
+              <Text className="font-bold text-sm flex-1 group-hover:text-brand-primary" style={{ color: colors.textMain }} numberOfLines={1}>{t.title}</Text>
+              {t.priority && (
+                <View className="ml-2 px-2 py-0.5 rounded-md" style={{ backgroundColor: priorityBgColor(colors, t.priority) }}>
+                  <Text className="text-[9px] font-black uppercase" style={{ color: priorityTextColor(colors, t.priority) }}>{t.priority}</Text>
+                </View>
+              )}
+            </View>
+            <View className="flex-row items-center justify-between mt-1">
+              <Text className="text-[10px] uppercase font-black tracking-widest" style={{ color: colors.textMuted }}>{t.category || 'General'}</Text>
+              <Text className="text-[9px] font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-all" style={{ color: colors.primary }}>Clone →</Text>
+            </View>
+          </TouchableOpacity>
+        ))}
+        {recentTasks.length === 0 && (
+          <View className="py-20 items-center opacity-30">
+            <FontAwesome name="inbox" size={32} color={colors.textMuted} />
+            <Text className="text-[10px] font-black uppercase tracking-widest mt-4" style={{ color: colors.textMuted }}>Empty Stack</Text>
+          </View>
+        )}
+      </ScrollView>
+    </View>
+  );
+
   return (
-    <Modal visible={visible} transparent animationType="fade">
-      <View className="flex-1 items-center justify-center p-10" style={{ backdropFilter: 'blur(12px)', backgroundColor: colors.background + 'CC' } as any}>
-        <View
-          ref={briefDropRef}
-          className="w-full max-w-[1200px] h-[800px] rounded-[3rem] overflow-hidden flex-row premium-shadow"
-          style={{ backgroundColor: colors.card, borderWidth: briefDropOver ? 2 : 1, borderColor: briefDropOver ? colors.primary : colors.border }}
-        >
-          {briefDropOver && (
-            <Animated.View
-              pointerEvents="none"
-              className="absolute inset-0 rounded-[3rem] border-2"
-              style={{ borderColor: colors.primary, opacity: briefDropGlow }}
+    <Popup
+      visible={visible}
+      onClose={onClose}
+      presentation="centered"
+      backdropBlur
+      dismissible={false}
+      maxWidth={1200}
+      containerClassName="rounded-[3rem] overflow-hidden premium-shadow"
+      containerStyle={{ height: 800 }}
+      sideMenu={sideMenuContent}
+      overlays={(
+        <>
+          {(showCalendar || showStartCalendar || showPipelineDropdown || showProjectDropdown) && (
+            <TouchableOpacity
+              style={{ position: 'fixed', inset: 0, zIndex: 998 } as any}
+              onPress={closeAllOverlays}
+              activeOpacity={0}
             />
           )}
 
-          {/* ── LEFT SIDEBAR ── */}
-          <View className="w-80 p-8" style={{ borderRightWidth: 1, borderColor: colors.border, backgroundColor: colors.background + '4D' }}>
-            <View className="flex-row items-center mb-8">
-              <FontAwesome name="history" size={14} color={colors.primary} />
-              <Text className="text-[10px] font-black uppercase tracking-[0.2em] ml-3" style={{ color: colors.textMuted }}>Tactical Archive</Text>
+          {/* Deadline calendar */}
+          {showCalendar && (
+            <View style={calPos.style as any}>
+              <PremiumCalendarPicker
+                selectedDate={draft.dueDate}
+                onSelect={date => setDraft({ dueDate: date })}
+                accentColor={colors.primary}
+                rangeDate={draft.startDate}
+                rangeColor={colors.accent}
+                scale="compact"
+                showQuickSelect
+                showDaysBetween
+              />
             </View>
-            <Text className="font-black text-xl mb-2 tracking-tight" style={{ color: colors.textMain }}>Recent Tasks</Text>
-            <Text className="text-[10px] font-bold mb-5" style={{ color: colors.textDim }}>Tap any card to clone it</Text>
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {recentTasks.map(t => (
+          )}
+
+          {/* Start date calendar */}
+          {showStartCalendar && (
+            <View style={startCalPos.style as any}>
+              <PremiumCalendarPicker
+                selectedDate={draft.startDate}
+                accentColor={colors.accent}
+                onSelect={date => setDraft({ startDate: date })}
+                rangeDate={draft.dueDate}
+                rangeColor={colors.primary}
+                scale="compact"
+                showQuickSelect
+                showDaysBetween
+              />
+            </View>
+          )}
+
+          {/* Pipeline dropdown */}
+          {showPipelineDropdown && (
+            <View
+              style={{ position: 'fixed', top: pipelineDropdownPos.top, left: pipelineDropdownPos.left, width: pipelineDropdownPos.width, zIndex: 999, maxHeight: 300, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border } as any}
+              className="rounded-2xl overflow-hidden premium-shadow"
+            >
+              <View className="p-3" style={{ borderBottomWidth: 1, borderColor: colors.border }}>
+                <View className="flex-row items-center px-4 py-2.5 rounded-xl gap-3" style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}>
+                  <FontAwesome name="search" size={12} color={colors.textDim} />
+                  <TextInput value={pipelineSearch} onChangeText={setPipelineSearch} placeholder="Search pipelines..." placeholderTextColor={colors.textDim} className="flex-1 font-bold text-sm" style={{ color: colors.textMain }} autoFocus />
+                </View>
+              </View>
+              <ScrollView style={{ maxHeight: 220 }}>
                 <TouchableOpacity
-                  key={t.id}
-                  onPress={() => handleCopyRecent(t)}
-                  className="p-4 rounded-2xl mb-3 hover:border-brand-primary/50 transition-all group"
-                  style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}
+                  onPress={() => { setDraft({ pipelineId: null }); setShowPipelineDropdown(false); setPipelineSearch(''); }}
+                  className="flex-row items-center px-5 py-3.5 hover:bg-surface-overlay"
+                  style={{ borderBottomWidth: 1, borderColor: colors.border + '66', backgroundColor: !draft.pipelineId ? colors.primary + '0D' : undefined }}
                 >
-                  <View className="flex-row items-center justify-between mb-1">
-                    <Text className="font-bold text-sm flex-1 group-hover:text-brand-primary" style={{ color: colors.textMain }} numberOfLines={1}>{t.title}</Text>
-                    {t.priority && (
-                      <View className="ml-2 px-2 py-0.5 rounded-md" style={{ backgroundColor: priorityBgColor(colors, t.priority) }}>
-                        <Text className="text-[9px] font-black uppercase" style={{ color: priorityTextColor(colors, t.priority) }}>{t.priority}</Text>
-                      </View>
+                  <FontAwesome name="times-circle-o" size={13} color={colors.textDim} />
+                  <Text className="font-bold text-sm ml-3 flex-1" style={{ color: colors.textDim }}>None</Text>
+                  {!draft.pipelineId && <FontAwesome name="check" size={11} color={colors.primary} />}
+                </TouchableOpacity>
+                {pipelines.filter(p => p.name.toLowerCase().includes(pipelineSearch.toLowerCase())).map(p => (
+                  <TouchableOpacity
+                    key={p.id}
+                    onPress={() => { setDraft({ pipelineId: p.id }); setShowPipelineDropdown(false); setPipelineSearch(''); }}
+                    className="flex-row items-center px-5 py-3.5 hover:bg-surface-overlay"
+                    style={{ backgroundColor: draft.pipelineId === p.id ? colors.primary + '0D' : undefined }}
+                  >
+                    <FontAwesome name="sitemap" size={13} color={draft.pipelineId === p.id ? colors.primary : colors.textDim} />
+                    <Text className="font-bold text-sm ml-3 flex-1" style={{ color: draft.pipelineId === p.id ? colors.primary : colors.textMain }}>{p.name}</Text>
+                    {draft.pipelineId === p.id && <FontAwesome name="check" size={11} color={colors.primary} />}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
+          {/* Project dropdown */}
+          {showProjectDropdown && (
+            <View
+              style={{ position: 'fixed', top: projectDropdownPos.top, left: projectDropdownPos.left, width: projectDropdownPos.width, zIndex: 999, maxHeight: 400, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border } as any}
+              className="rounded-2xl overflow-hidden premium-shadow"
+            >
+              {!showCreateProject ? (
+                <>
+                  <View className="p-3 flex-row gap-2" style={{ borderBottomWidth: 1, borderColor: colors.border }}>
+                    <View className="flex-1 flex-row items-center px-4 py-2.5 rounded-xl gap-3" style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}>
+                      <FontAwesome name="search" size={12} color={colors.textDim} />
+                      <TextInput value={projectSearch} onChangeText={setProjectSearch} placeholder="Search projects..." placeholderTextColor={colors.textDim} className="flex-1 font-bold text-sm" style={{ color: colors.textMain }} autoFocus />
+                    </View>
+                    {hasPermission('project.create') && (
+                      <TouchableOpacity
+                        onPress={() => setShowCreateProject(true)}
+                        className="rounded-xl px-3 py-2.5 items-center justify-center hover:bg-brand-accent/20 transition-colors"
+                        style={{ backgroundColor: colors.accent + '1A', borderWidth: 1, borderColor: colors.accent }}
+                      >
+                        <FontAwesome name="plus" size={13} color={colors.accent} />
+                      </TouchableOpacity>
                     )}
                   </View>
-                  <View className="flex-row items-center justify-between mt-1">
-                    <Text className="text-[10px] uppercase font-black tracking-widest" style={{ color: colors.textMuted }}>{t.category || 'General'}</Text>
-                    <Text className="text-[9px] font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-all" style={{ color: colors.primary }}>Clone →</Text>
+                  <ScrollView style={{ maxHeight: 330 }}>
+                    <TouchableOpacity
+                      onPress={() => { setDraft({ projectId: null }); setShowProjectDropdown(false); setProjectSearch(''); }}
+                      className="flex-row items-center px-5 py-3.5 hover:bg-surface-overlay"
+                      style={{ borderBottomWidth: 1, borderColor: colors.border + '66', backgroundColor: !draft.projectId ? colors.accent + '0D' : undefined }}
+                    >
+                      <FontAwesome name="times-circle-o" size={13} color={colors.textDim} />
+                      <Text className="font-bold text-sm ml-3 flex-1" style={{ color: colors.textDim }}>None</Text>
+                      {!draft.projectId && <FontAwesome name="check" size={11} color={colors.accent} />}
+                    </TouchableOpacity>
+                    {projects.filter(p => p.name.toLowerCase().includes(projectSearch.toLowerCase())).map(p => (
+                      <TouchableOpacity
+                        key={p.id}
+                        onPress={() => { setDraft({ projectId: p.id }); setShowProjectDropdown(false); setProjectSearch(''); }}
+                        className="flex-row items-center px-5 py-3.5 hover:bg-surface-overlay"
+                        style={{ backgroundColor: draft.projectId === p.id ? colors.accent + '0D' : undefined }}
+                      >
+                        <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: p.color || colors.accent }} />
+                        <Text className="font-bold text-sm ml-3 flex-1" style={{ color: draft.projectId === p.id ? colors.accent : colors.textMain }}>{p.name}</Text>
+                        {draft.projectId === p.id && <FontAwesome name="check" size={11} color={colors.accent} />}
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </>
+              ) : (
+                <View className="p-5">
+                  <View className="flex-row items-center justify-between mb-5">
+                    <Text className="font-black text-sm" style={{ color: colors.textMain }}>Create Project</Text>
+                    <TouchableOpacity onPress={() => { setShowCreateProject(false); setNewProjectName(''); setNewProjectColor('#3B82F6'); }} disabled={creatingProject}>
+                      <FontAwesome name="times" size={14} color={colors.textDim} />
+                    </TouchableOpacity>
                   </View>
-                </TouchableOpacity>
-              ))}
-              {recentTasks.length === 0 && (
-                <View className="py-20 items-center opacity-30">
-                  <FontAwesome name="inbox" size={32} color={colors.textMuted} />
-                  <Text className="text-[10px] font-black uppercase tracking-widest mt-4" style={{ color: colors.textMuted }}>Empty Stack</Text>
+
+                  <TextInput
+                    value={newProjectName}
+                    onChangeText={setNewProjectName}
+                    placeholder="Project name..."
+                    placeholderTextColor={colors.textDim}
+                    editable={!creatingProject}
+                    className="rounded-xl px-4 py-3 font-bold mb-4"
+                    style={{ backgroundColor: colors.background, color: colors.textMain, borderWidth: 1, borderColor: colors.border }}
+                  />
+
+                  <Text className="text-[10px] font-black uppercase tracking-widest mb-3 ml-1" style={{ color: colors.textMuted }}>Color</Text>
+                  <View className="flex-row gap-2.5 mb-4">
+                    {PROJECT_COLORS.map(color => (
+                      <TouchableOpacity
+                        key={color}
+                        onPress={() => setNewProjectColor(color)}
+                        disabled={creatingProject}
+                        style={{ backgroundColor: color, borderColor: newProjectColor === color ? '#fff' : 'transparent', borderWidth: newProjectColor === color ? 2 : 0 }}
+                        className="w-8 h-8 rounded-lg opacity-90 hover:opacity-100 transition-opacity"
+                      />
+                    ))}
+                  </View>
+
+                  <View className="flex-row gap-2">
+                    <TouchableOpacity
+                      onPress={() => { setShowCreateProject(false); setNewProjectName(''); setNewProjectColor('#3B82F6'); }}
+                      disabled={creatingProject}
+                      className="flex-1 rounded-xl py-3 items-center hover:bg-surface-overlay transition-colors"
+                      style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}
+                    >
+                      <Text className="font-bold text-sm" style={{ color: colors.textMuted }}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={handleCreateProject}
+                      disabled={creatingProject || !newProjectName.trim()}
+                      className={`flex-1 rounded-xl py-3 items-center ${creatingProject || !newProjectName.trim() ? 'opacity-50' : 'hover:scale-105 transition-transform'}`}
+                      style={{ backgroundColor: creatingProject || !newProjectName.trim() ? colors.border : colors.accent }}
+                    >
+                      {creatingProject ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <Text className="text-white font-bold text-sm">Create</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
                 </View>
               )}
-            </ScrollView>
-          </View>
-
-          {/* ── MAIN CONTENT ── */}
-          <View className="flex-1 flex-col">
+            </View>
+          )}
+        </>
+      )}
+    >
+      {/* ── MAIN CONTENT ── */}
+      <View ref={briefDropRef} className="flex-1 flex-col" style={{ borderWidth: briefDropOver ? 2 : 0, borderColor: briefDropOver ? colors.primary : 'transparent' }}>
+        {briefDropOver && (
+          <Animated.View
+            pointerEvents="none"
+            className="absolute inset-0"
+            style={{ borderWidth: 2, borderColor: colors.primary, opacity: briefDropGlow }}
+          />
+        )}
 
             {/* Header */}
             <View className="px-10 py-8 flex-row items-center justify-between" style={{ borderBottomWidth: 1, borderColor: colors.border }}>
@@ -923,205 +1780,9 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
               </View>
             </View>
 
-            {loading && (
-              <View className="absolute inset-0 z-50 items-center justify-center" style={{ backgroundColor: colors.background + 'B3' }}>
-                <View className="rounded-[2rem] px-7 py-6 items-center premium-shadow" style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}>
-                  <ActivityIndicator size="large" color={colors.primary} />
-                  <Text className="font-black uppercase tracking-[0.25em] text-[10px] mt-3" style={{ color: colors.textMain }}>Creating task</Text>
-                </View>
-              </View>
-            )}
+            <LoadingOverlay visible={loading} message="Creating task" />
 
           </View>
-        </View>
-
-        {/* ── Fixed-position overlays ── */}
-
-        {(showCalendar || showStartCalendar || showPipelineDropdown || showProjectDropdown) && (
-          <TouchableOpacity
-            style={{ position: 'fixed', inset: 0, zIndex: 998 } as any}
-            onPress={closeAllOverlays}
-            activeOpacity={0}
-          />
-        )}
-
-        {/* Deadline calendar */}
-        {showCalendar && (
-          <View style={calPos.style as any}>
-            <PremiumCalendarPicker
-              selectedDate={draft.dueDate}
-              onSelect={date => setDraft({ dueDate: date })}
-              accentColor={colors.primary}
-              rangeDate={draft.startDate}
-              rangeColor={colors.accent}
-              scale="compact"
-              showQuickSelect
-              showDaysBetween
-            />
-          </View>
-        )}
-
-        {/* Start date calendar */}
-        {showStartCalendar && (
-          <View style={startCalPos.style as any}>
-            <PremiumCalendarPicker
-              selectedDate={draft.startDate}
-              accentColor={colors.accent}
-              onSelect={date => setDraft({ startDate: date })}
-              rangeDate={draft.dueDate}
-              rangeColor={colors.primary}
-              scale="compact"
-              showQuickSelect
-              showDaysBetween
-            />
-          </View>
-        )}
-
-        {/* Pipeline dropdown */}
-        {showPipelineDropdown && (
-          <View
-            style={{ position: 'fixed', top: pipelineDropdownPos.top, left: pipelineDropdownPos.left, width: pipelineDropdownPos.width, zIndex: 999, maxHeight: 300, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border } as any}
-            className="rounded-2xl overflow-hidden premium-shadow"
-          >
-            <View className="p-3" style={{ borderBottomWidth: 1, borderColor: colors.border }}>
-              <View className="flex-row items-center px-4 py-2.5 rounded-xl gap-3" style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}>
-                <FontAwesome name="search" size={12} color={colors.textDim} />
-                <TextInput value={pipelineSearch} onChangeText={setPipelineSearch} placeholder="Search pipelines..." placeholderTextColor={colors.textDim} className="flex-1 font-bold text-sm" style={{ color: colors.textMain }} autoFocus />
-              </View>
-            </View>
-            <ScrollView style={{ maxHeight: 220 }}>
-              <TouchableOpacity
-                onPress={() => { setDraft({ pipelineId: null }); setShowPipelineDropdown(false); setPipelineSearch(''); }}
-                className="flex-row items-center px-5 py-3.5 hover:bg-surface-overlay"
-                style={{ borderBottomWidth: 1, borderColor: colors.border + '66', backgroundColor: !draft.pipelineId ? colors.primary + '0D' : undefined }}
-              >
-                <FontAwesome name="times-circle-o" size={13} color={colors.textDim} />
-                <Text className="font-bold text-sm ml-3 flex-1" style={{ color: colors.textDim }}>None</Text>
-                {!draft.pipelineId && <FontAwesome name="check" size={11} color={colors.primary} />}
-              </TouchableOpacity>
-              {pipelines.filter(p => p.name.toLowerCase().includes(pipelineSearch.toLowerCase())).map(p => (
-                <TouchableOpacity
-                  key={p.id}
-                  onPress={() => { setDraft({ pipelineId: p.id }); setShowPipelineDropdown(false); setPipelineSearch(''); }}
-                  className="flex-row items-center px-5 py-3.5 hover:bg-surface-overlay"
-                  style={{ backgroundColor: draft.pipelineId === p.id ? colors.primary + '0D' : undefined }}
-                >
-                  <FontAwesome name="sitemap" size={13} color={draft.pipelineId === p.id ? colors.primary : colors.textDim} />
-                  <Text className="font-bold text-sm ml-3 flex-1" style={{ color: draft.pipelineId === p.id ? colors.primary : colors.textMain }}>{p.name}</Text>
-                  {draft.pipelineId === p.id && <FontAwesome name="check" size={11} color={colors.primary} />}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        )}
-
-        {/* Project dropdown */}
-        {showProjectDropdown && (
-          <View
-            style={{ position: 'fixed', top: projectDropdownPos.top, left: projectDropdownPos.left, width: projectDropdownPos.width, zIndex: 999, maxHeight: 400, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border } as any}
-            className="rounded-2xl overflow-hidden premium-shadow"
-          >
-            {!showCreateProject ? (
-              <>
-                <View className="p-3 flex-row gap-2" style={{ borderBottomWidth: 1, borderColor: colors.border }}>
-                  <View className="flex-1 flex-row items-center px-4 py-2.5 rounded-xl gap-3" style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}>
-                    <FontAwesome name="search" size={12} color={colors.textDim} />
-                    <TextInput value={projectSearch} onChangeText={setProjectSearch} placeholder="Search projects..." placeholderTextColor={colors.textDim} className="flex-1 font-bold text-sm" style={{ color: colors.textMain }} autoFocus />
-                  </View>
-                  {hasPermission('project.create') && (
-                    <TouchableOpacity
-                      onPress={() => setShowCreateProject(true)}
-                      className="rounded-xl px-3 py-2.5 items-center justify-center hover:bg-brand-accent/20 transition-colors"
-                      style={{ backgroundColor: colors.accent + '1A', borderWidth: 1, borderColor: colors.accent }}
-                    >
-                      <FontAwesome name="plus" size={13} color={colors.accent} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-                <ScrollView style={{ maxHeight: 330 }}>
-                  <TouchableOpacity
-                    onPress={() => { setDraft({ projectId: null }); setShowProjectDropdown(false); setProjectSearch(''); }}
-                    className="flex-row items-center px-5 py-3.5 hover:bg-surface-overlay"
-                    style={{ borderBottomWidth: 1, borderColor: colors.border + '66', backgroundColor: !draft.projectId ? colors.accent + '0D' : undefined }}
-                  >
-                    <FontAwesome name="times-circle-o" size={13} color={colors.textDim} />
-                    <Text className="font-bold text-sm ml-3 flex-1" style={{ color: colors.textDim }}>None</Text>
-                    {!draft.projectId && <FontAwesome name="check" size={11} color={colors.accent} />}
-                  </TouchableOpacity>
-                  {projects.filter(p => p.name.toLowerCase().includes(projectSearch.toLowerCase())).map(p => (
-                    <TouchableOpacity
-                      key={p.id}
-                      onPress={() => { setDraft({ projectId: p.id }); setShowProjectDropdown(false); setProjectSearch(''); }}
-                      className="flex-row items-center px-5 py-3.5 hover:bg-surface-overlay"
-                      style={{ backgroundColor: draft.projectId === p.id ? colors.accent + '0D' : undefined }}
-                    >
-                      <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: p.color || colors.accent }} />
-                      <Text className="font-bold text-sm ml-3 flex-1" style={{ color: draft.projectId === p.id ? colors.accent : colors.textMain }}>{p.name}</Text>
-                      {draft.projectId === p.id && <FontAwesome name="check" size={11} color={colors.accent} />}
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </>
-            ) : (
-              <View className="p-5">
-                <View className="flex-row items-center justify-between mb-5">
-                  <Text className="font-black text-sm" style={{ color: colors.textMain }}>Create Project</Text>
-                  <TouchableOpacity onPress={() => { setShowCreateProject(false); setNewProjectName(''); setNewProjectColor('#3B82F6'); }} disabled={creatingProject}>
-                    <FontAwesome name="times" size={14} color={colors.textDim} />
-                  </TouchableOpacity>
-                </View>
-
-                <TextInput
-                  value={newProjectName}
-                  onChangeText={setNewProjectName}
-                  placeholder="Project name..."
-                  placeholderTextColor={colors.textDim}
-                  editable={!creatingProject}
-                  className="rounded-xl px-4 py-3 font-bold mb-4"
-                  style={{ backgroundColor: colors.background, color: colors.textMain, borderWidth: 1, borderColor: colors.border }}
-                />
-
-                <Text className="text-[10px] font-black uppercase tracking-widest mb-3 ml-1" style={{ color: colors.textMuted }}>Color</Text>
-                <View className="flex-row gap-2.5 mb-4">
-                  {PROJECT_COLORS.map(color => (
-                    <TouchableOpacity
-                      key={color}
-                      onPress={() => setNewProjectColor(color)}
-                      disabled={creatingProject}
-                      style={{ backgroundColor: color, borderColor: newProjectColor === color ? '#fff' : 'transparent', borderWidth: newProjectColor === color ? 2 : 0 }}
-                      className="w-8 h-8 rounded-lg opacity-90 hover:opacity-100 transition-opacity"
-                    />
-                  ))}
-                </View>
-
-                <View className="flex-row gap-2">
-                  <TouchableOpacity
-                    onPress={() => { setShowCreateProject(false); setNewProjectName(''); setNewProjectColor('#3B82F6'); }}
-                    disabled={creatingProject}
-                    className="flex-1 rounded-xl py-3 items-center hover:bg-surface-overlay transition-colors"
-                    style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}
-                  >
-                    <Text className="font-bold text-sm" style={{ color: colors.textMuted }}>Cancel</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={handleCreateProject}
-                    disabled={creatingProject || !newProjectName.trim()}
-                    className={`flex-1 rounded-xl py-3 items-center ${creatingProject || !newProjectName.trim() ? 'opacity-50' : 'hover:scale-105 transition-transform'}`}
-                    style={{ backgroundColor: creatingProject || !newProjectName.trim() ? colors.border : colors.accent }}
-                  >
-                    {creatingProject ? (
-                      <ActivityIndicator size="small" color="#fff" />
-                    ) : (
-                      <Text className="text-white font-bold text-sm">Create</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-          </View>
-        )}
-
-      </View>
-    </Modal>
+    </Popup>
   );
 }
