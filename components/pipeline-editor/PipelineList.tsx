@@ -6,7 +6,6 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import { FontAwesome } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import Popup from '@/components/common/Popup';
 import DeadlockAlert from './DeadlockAlert';
 import PipelineSettingsForm from './PipelineSettingsForm';
 
