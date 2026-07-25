@@ -25,6 +25,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { ActivityIndicator, Animated, AppState, Image, Platform, ScrollView, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import ReanimatedAnimated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { getActionDescriptor, splitStageActions } from './actionRegistry';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -51,6 +52,45 @@ const STATUS_STYLES: Record<string, { bg: string; border: string; text: string; 
   rejected: { bg: 'bg-state-danger-dim', border: 'border-state-danger/30', text: 'text-state-danger', label: 'Rejected' },
   pending: { bg: 'bg-state-info-dim', border: 'border-state-info/30', text: 'text-state-info', label: 'Pending Review' },
 };
+
+// Fires only on the transition into approved/rejected (not on mount, not for
+// pending/needs_revision) — a restrained scale + opacity settle, deliberately
+// short of a shake/rotation/overlay treatment.
+function ReviewStatusBadge({
+  status,
+  style,
+}: {
+  status: string;
+  style: { bg: string; border: string; text: string; label: string };
+}) {
+  const scale = useSharedValue(1);
+  const opacity = useSharedValue(1);
+  const prevStatus = React.useRef(status);
+
+  React.useEffect(() => {
+    const justDecided =
+      prevStatus.current !== status && (status === 'approved' || status === 'rejected');
+    prevStatus.current = status;
+    if (!justDecided) return;
+
+    scale.value = 1.15;
+    opacity.value = 0;
+    // Low bounciness/damping — a confident settle, not a bouncy pop.
+    scale.value = withSpring(1, { damping: 14, stiffness: 260, mass: 0.5 });
+    opacity.value = withTiming(1, { duration: 220 });
+  }, [status, scale, opacity]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: opacity.value,
+  }));
+
+  return (
+    <ReanimatedAnimated.View style={animatedStyle} className={`${style.bg} ${style.border} border px-2 py-0.5 rounded-md`}>
+      <Text className={`${style.text} text-[9px] font-black uppercase`}>{style.label}</Text>
+    </ReanimatedAnimated.View>
+  );
+}
 
 // Ticks once a second in its own subtree so the 1s re-render doesn't hit the
 // rest of StageActions (was blowing away in-flight keystrokes in the submission box).
@@ -883,9 +923,7 @@ export default function StageActions() {
               return (
                 <View key={s.id} className="mb-3 pb-3 border-b border-surface-border/20 last:border-0">
                   <View className="flex-row items-center justify-between mb-2">
-                    <View className={`${style.bg} ${style.border} border px-2 py-0.5 rounded-md`}>
-                      <Text className={`${style.text} text-[9px] font-black uppercase`}>{style.label}</Text>
-                    </View>
+                    <ReviewStatusBadge status={s.status} style={style} />
                     {s.stage_name && <Text className="text-typography-dim text-[9px] font-bold">{s.stage_name}</Text>}
                   </View>
 
