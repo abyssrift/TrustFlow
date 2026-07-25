@@ -1,6 +1,7 @@
 import AnimatedTaskCard from '@/components/common/AnimatedTaskCard';
 import { useStageTransitionFX, StageTrailLayer } from '@/components/tabs/StageTransitionFX';
 import StageCountOdometer from '@/components/tabs/StageCountOdometer';
+import { IdleConveyor } from '@/components/tabs/IdleConveyor';
 import KanbanPersonalizer from '@/components/kanban/KanbanPersonalizer';
 import LinkifiedText from '@/components/common/LinkifiedText';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
@@ -1759,10 +1760,17 @@ export function TasksScreenWeb() {
                       }`}
                     >
                       {isHiddenByFullscreen ? null : displayTasks.length === 0 ? (
-                        <View className="py-20 items-center justify-center opacity-20 w-full">
-                           <FontAwesome name="inbox" size={48} className="text-typography-muted" />
-                           <Text className="text-typography-muted text-xs mt-6 font-black uppercase tracking-widest">No Active Tasks</Text>
-                        </View>
+                        // The idle conveyor states "this stage is empty", so it must
+                        // never stand in for data that simply hasn't arrived yet.
+                        // `loading` already swaps the entire board out for a spinner
+                        // above; `switchingBoard` is the one that matters here — an
+                        // uncached board swap keeps the board mounted and sets the
+                        // incoming board's `stages` several awaits before its `tasks`,
+                        // so every column is transiently task-less while the previous
+                        // board's tasks are still in state.
+                        loading || switchingBoard ? null : (
+                          <IdleConveyor accentColor={stage.color} />
+                        )
                       ) : isFullscreen && settledFullscreenId === stage.id ? (
                         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16 }}>
                           {displayTasks.map(t => (
