@@ -1,5 +1,5 @@
-import Popup from '@/components/common/Popup';
 import PendingTimeApprovalsWidget from '@/components/common/PendingTimeApprovalsWidget';
+import Popup from '@/components/common/Popup';
 import PipelineOverviewChartNative, { DEFAULT_OVERVIEW_METRICS, OverviewMetricKey } from '@/components/intelligence/PipelineOverviewChartNative';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '@/contexts/NotificationsContext';
@@ -54,7 +54,7 @@ type ActivityEntry = {
 
 const getGreeting = (): string => {
   const hour = new Date().getHours();
-  if (hour < 12) return 'morning';
+  if (hour < 12) return 'Morning';
   if (hour < 17) return 'Good afternoon';
   return 'Good evening';
 };
