@@ -35,6 +35,7 @@ export default function Popup({
   containerStyle,
   sideMenu,
   backdropBlur = false,
+  backdropStyle,
   overlays,
 }: {
   visible: boolean;
@@ -64,6 +65,8 @@ export default function Popup({
   sideMenu?: React.ReactNode;
   /** Centered-presentation only: replaces the default solid `rgba(0,0,0,0.7)` backdrop with a frosted blur over the themed background — for composers that want to match a premium blur look instead of a dim overlay. */
   backdropBlur?: boolean;
+  /** Centered-presentation only: merged last onto the backdrop itself — for callers that need to drive it during a transition (e.g. fading the dim away while a custom animation hands the card off to another surface). */
+  backdropStyle?: StyleProp<ViewStyle>;
   /** Centered-presentation only: rendered as a sibling of the card, inside the same backdrop/Modal layer but outside the card's `overflow: hidden` — for `position: fixed` floating content (dropdowns, date pickers) anchored via viewport coordinates, which would otherwise get clipped by the card's rounded corners. */
   overlays?: React.ReactNode;
 }) {
@@ -100,7 +103,7 @@ export default function Popup({
     <Modal transparent visible={visible} animationType="fade" onRequestClose={dismissible ? onClose : undefined}>
       <Pressable
         className="flex-1 items-center justify-center"
-        style={backdropBlur ? ({ backdropFilter: 'blur(12px)', backgroundColor: c.background + 'CC' } as any) : { backgroundColor: 'rgba(0,0,0,0.7)' }}
+        style={[backdropBlur ? ({ backdropFilter: 'blur(12px)', backgroundColor: c.background + 'CC' } as any) : { backgroundColor: 'rgba(0,0,0,0.7)' }, backdropStyle]}
         onPress={dismissible ? onClose : undefined}
       >
           <Pressable
