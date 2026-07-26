@@ -1,7 +1,8 @@
 import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Modal, Platform, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import Popup from './Popup';
 import { loadXlsx } from './loadXlsx';
 
 const isWeb = Platform.OS === 'web';
@@ -408,25 +409,58 @@ export function FilePreviewModal({
 }) {
   const colors = useThemeColors();
   const icon = kind === 'spreadsheet' ? 'table' : kind === 'pdf' ? 'file-pdf-o' : kind === 'docx' ? 'file-word-o' : 'file-text-o';
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  // Popup's centered card only gets a maxHeight cap, not a concrete height — a
+  // flex-1 child can't grow into an unbounded parent, so give it an explicit
+  // pixel height instead of relying on flex to fill "the rest" of the card.
+  // Width must match Popup's own `min(screenWidth * 0.9, maxWidth)` card-sizing
+  // formula exactly, or the inner content and outer card disagree on width.
+  const viewerHeight = Math.round(screenHeight * 0.95);
+  const viewerWidth = Math.round(screenWidth * 0.9);
+
+  const content = (
+    <View className="flex-1 bg-black/90 px-4" style={{ paddingTop: 48, paddingBottom: 24 }}>
+      <View className="flex-row items-center mb-3 gap-2">
+        <FontAwesome name={icon as any} size={14} color="#fff" />
+        <Text numberOfLines={1} className="flex-1 text-white font-bold text-sm">{fileName}</Text>
+        {onDownload && (
+          <TouchableOpacity onPress={onDownload} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} className="w-9 h-9 rounded-full bg-white/10 items-center justify-center" style={isWeb ? ({ cursor: 'pointer' } as any) : undefined}>
+            <FontAwesome name="download" size={14} color="#fff" />
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} className="w-9 h-9 rounded-full bg-white/10 items-center justify-center" style={isWeb ? ({ cursor: 'pointer' } as any) : undefined}>
+          <FontAwesome name="times" size={16} color="#fff" />
+        </TouchableOpacity>
+      </View>
+      <View className="flex-1 rounded-2xl overflow-hidden border" style={{ borderColor: colors.border, backgroundColor: colors.card, padding: kind === 'spreadsheet' || kind === 'text' ? 8 : 0 }}>
+        {visible && <KindBody uri={uri} kind={kind} sizeBytes={sizeBytes} />}
+      </View>
+    </View>
+  );
+
+  if (Platform.OS === 'web') {
+    return (
+      <Popup
+        visible={visible}
+        onClose={onClose}
+        presentation="centered"
+        maxWidth={viewerWidth}
+        maxHeight={viewerHeight}
+        scrollable={false}
+        containerClassName="rounded-2xl overflow-hidden"
+      >
+        <View style={{ width: viewerWidth, height: viewerHeight }}>
+          {content}
+        </View>
+      </Popup>
+    );
+  }
+
+  // TODO(#93-native): remove this branch once native is testable — see issue #93/#115.
+  // Old raw-Modal path preserved untouched so native behavior doesn't change yet.
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View className="flex-1 bg-black/90 px-4" style={{ paddingTop: 48, paddingBottom: 24 }}>
-        <View className="flex-row items-center mb-3 gap-2">
-          <FontAwesome name={icon as any} size={14} color="#fff" />
-          <Text numberOfLines={1} className="flex-1 text-white font-bold text-sm">{fileName}</Text>
-          {onDownload && (
-            <TouchableOpacity onPress={onDownload} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} className="w-9 h-9 rounded-full bg-white/10 items-center justify-center" style={isWeb ? ({ cursor: 'pointer' } as any) : undefined}>
-              <FontAwesome name="download" size={14} color="#fff" />
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} className="w-9 h-9 rounded-full bg-white/10 items-center justify-center" style={isWeb ? ({ cursor: 'pointer' } as any) : undefined}>
-            <FontAwesome name="times" size={16} color="#fff" />
-          </TouchableOpacity>
-        </View>
-        <View className="flex-1 rounded-2xl overflow-hidden border" style={{ borderColor: colors.border, backgroundColor: colors.card, padding: kind === 'spreadsheet' || kind === 'text' ? 8 : 0 }}>
-          {visible && <KindBody uri={uri} kind={kind} sizeBytes={sizeBytes} />}
-        </View>
-      </View>
+      {content}
     </Modal>
   );
 }

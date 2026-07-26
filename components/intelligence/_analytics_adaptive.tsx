@@ -21,7 +21,6 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  useWindowDimensions,
 } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
@@ -46,10 +45,8 @@ function CalendarModal({ visible, title, value, onSelect, onClose, accentColor, 
   accentColor?: string; rangeDate?: string; rangeColor?: string;
 }) {
   const colors = useThemeColors();
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 768;
   return (
-    <Popup visible={visible} onClose={onClose} presentation={isDesktop ? 'centered' : 'sheet'}>
+    <Popup visible={visible} onClose={onClose} presentation="auto">
           <View className="px-6 pt-2 pb-4 flex-row justify-between items-center border-b border-surface-border">
             <Text className="text-typography-main font-black text-lg">{title}</Text>
             <TouchableOpacity onPress={onClose} className="w-8 h-8 rounded-full bg-surface-background border border-surface-border items-center justify-center">

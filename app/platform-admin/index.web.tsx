@@ -19,6 +19,9 @@ import {
   useLiveSessions,
   useTimeline,
   useUsersData,
+  useWaitlistList,
+  useWaitlistOverview,
+  useWaitlistTimeline,
   workspaceAge,
   type AlertSeverity,
   type CompanyOverview,
@@ -2507,6 +2510,172 @@ function PlanControlSection() {
   );
 }
 
+// ── Waitlist Section ───────────────────────────────────────────────────────
+
+function WaitlistSection() {
+  const colors = useThemeColors();
+  const { overview, loading: overviewLoading } = useWaitlistOverview();
+  const { days, setDays, timeline, fetching } = useWaitlistTimeline(30);
+  const { query, setQuery, signups, loading: listLoading } = useWaitlistList();
+
+  const chartData = useMemo(
+    () => [...timeline].reverse().map(e => ({ day: fmtDay(e.day), signups: e.signups })),
+    [timeline]
+  );
+  const spark = useMemo(() => [...timeline].reverse().map(e => e.signups), [timeline]);
+
+  if (overviewLoading || !overview) {
+    return (
+      <View className="flex-1 items-center justify-center">
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text className="text-typography-muted mt-4 font-bold text-sm">Fetching waitlist data...</Text>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 32, paddingBottom: 48 }}>
+      {/* Stat cards */}
+      <View className="flex-row gap-4 mb-6">
+        <StatCard label="Total Signups" value={fmtNumber(overview.total)} icon="user-plus" sub="all time" sparkData={spark} accent />
+        <StatCard label="Today" value={fmtNumber(overview.today)} icon="calendar" sub="new signups" />
+        <StatCard label="This Week" value={fmtNumber(overview.this_week)} icon="line-chart" sub="new signups" sparkData={spark} />
+        <StatCard label="Via Referral" value={fmtNumber(overview.referred)} icon="share-alt" sub={overview.total > 0 ? `${Math.round((overview.referred / overview.total) * 100)}% of total` : 'no signups yet'} />
+      </View>
+
+      {/* Timeline chart */}
+      <View className="bg-surface-card rounded-2xl border border-surface-border p-6 mb-6">
+        <View className="flex-row items-center justify-between mb-5">
+          <View>
+            <Text className="text-typography-main font-black text-lg tracking-tight">Signups Over Time</Text>
+            <Text className="text-typography-muted text-xs mt-0.5">last {days} days</Text>
+          </View>
+          <View className="flex-row items-center gap-2">
+            {[7, 14, 30].map(d => (
+              <TouchableOpacity
+                key={d}
+                onPress={() => setDays(d)}
+                className={`px-3 py-1.5 rounded-xl border transition-colors ${days === d ? 'bg-brand-primary border-brand-primary' : 'bg-surface-overlay border-surface-border hover:bg-surface-overlay'}`}
+              >
+                <Text className={`text-xs font-bold ${days === d ? 'text-white' : 'text-typography-muted'}`}>{d}d</Text>
+              </TouchableOpacity>
+            ))}
+            {fetching && <ActivityIndicator size="small" color={colors.primary} />}
+          </View>
+        </View>
+        {chartData.length === 0 ? (
+          <View className="items-center py-12">
+            <Text className="text-typography-dim text-sm">No data yet</Text>
+          </View>
+        ) : (
+          <View style={{ height: 220 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="waitlistGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="rgb(99,102,241)" stopOpacity={0.25} />
+                    <stop offset="100%" stopColor="rgb(99,102,241)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(51,65,85,0.5)" vertical={false} />
+                <XAxis dataKey="day" tick={{ fill: 'rgb(100,116,139)', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                <YAxis tick={{ fill: 'rgb(100,116,139)', fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                <Tooltip content={<ChartTooltip metricLabel="Signups" />} />
+                <Area type="monotone" dataKey="signups" stroke="rgb(99,102,241)" fill="url(#waitlistGrad)" strokeWidth={2} dot={false} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </View>
+        )}
+      </View>
+
+      <View className="flex-row gap-4 mb-6">
+        {/* Top referrers */}
+        <View className="flex-1 bg-surface-card rounded-2xl border border-surface-border p-6">
+          <Text className="text-typography-main font-black text-base mb-5">Top Referrers</Text>
+          {overview.top_referrers.length === 0 ? (
+            <Text className="text-typography-dim text-sm text-center py-8">No referrals yet</Text>
+          ) : (
+            overview.top_referrers.map((r, i) => (
+              <View key={r.referral_code} className="flex-row items-center justify-between py-2.5">
+                <View className="flex-row items-center gap-2 flex-1 mr-2">
+                  <Text className="text-typography-dim text-[10px] w-4">{i + 1}</Text>
+                  <Text className="text-typography-main font-bold text-sm flex-1" numberOfLines={1}>{r.company_name}</Text>
+                </View>
+                <Text className="text-typography-muted text-xs font-bold">{r.referred_count} referred</Text>
+              </View>
+            ))
+          )}
+        </View>
+
+        {/* Snapshot */}
+        <View className="flex-1 bg-surface-card rounded-2xl border border-surface-border p-6">
+          <Text className="text-typography-main font-black text-base mb-5">Snapshot</Text>
+          {[
+            { label: 'Total signups', value: fmtNumber(overview.total), icon: 'user-plus' },
+            { label: 'Signed up today', value: fmtNumber(overview.today), icon: 'calendar' },
+            { label: 'Signed up this week', value: fmtNumber(overview.this_week), icon: 'line-chart' },
+            { label: 'Came via referral', value: fmtNumber(overview.referred), icon: 'share-alt' },
+          ].map((row, idx, arr) => (
+            <View key={row.label}>
+              <View className="flex-row items-center justify-between py-3">
+                <View className="flex-row items-center gap-3">
+                  <FontAwesome name={row.icon as any} size={11} className="text-brand-accent/40" />
+                  <Text className="text-typography-muted text-sm">{row.label}</Text>
+                </View>
+                <Text className="text-typography-main font-black text-sm">{row.value}</Text>
+              </View>
+              {idx < arr.length - 1 && <View className="h-px bg-surface-border" />}
+            </View>
+          ))}
+        </View>
+      </View>
+
+      {/* Signup list */}
+      <View className="bg-surface-card rounded-2xl border border-surface-border p-6">
+        <View className="flex-row items-center justify-between mb-5">
+          <Text className="text-typography-main font-black text-base">All Signups · {fmtNumber(overview.total)}</Text>
+          {/* @ts-ignore — web-only input */}
+          <input
+            value={query}
+            onChange={(e: any) => setQuery(e.target.value)}
+            placeholder="Search email or company..."
+            style={{
+              background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 10,
+              padding: '8px 12px', fontSize: 13, color: colors.textMain, outline: 'none', width: 240,
+            } as any}
+          />
+        </View>
+
+        {listLoading ? (
+          <View className="items-center py-10"><ActivityIndicator size="small" color={colors.primary} /></View>
+        ) : signups.length === 0 ? (
+          <Text className="text-typography-dim text-sm text-center py-10">No signups found</Text>
+        ) : (
+          <View>
+            <View className="flex-row items-center px-1 pb-3">
+              <Text className="flex-1 text-typography-muted text-[10px] font-black uppercase tracking-widest">Company</Text>
+              <Text className="flex-1 text-typography-muted text-[10px] font-black uppercase tracking-widest">Email</Text>
+              <Text className="flex-1 text-typography-muted text-[10px] font-black uppercase tracking-widest">Referred by</Text>
+              <Text className="w-32 text-typography-muted text-[10px] font-black uppercase tracking-widest text-right">Joined</Text>
+            </View>
+            {signups.map((s, idx) => (
+              <View key={s.id}>
+                <View className="flex-row items-center px-1 py-3">
+                  <Text className="flex-1 text-typography-main font-bold text-sm" numberOfLines={1}>{s.company_name}</Text>
+                  <Text className="flex-1 text-typography-muted text-sm" numberOfLines={1}>{s.email}</Text>
+                  <Text className="flex-1 text-typography-dim text-sm" numberOfLines={1}>{s.referred_by_company ?? '—'}</Text>
+                  <Text className="w-32 text-typography-dim text-xs text-right">{timeAgo(s.created_at)}</Text>
+                </View>
+                {idx < signups.length - 1 && <View className="h-px bg-surface-border" />}
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+    </ScrollView>
+  );
+}
+
 // ── Sidebar ────────────────────────────────────────────────────────────────
 
 const NAV_ITEMS: { id: Section; label: string; icon: string }[] = [
@@ -2514,6 +2683,7 @@ const NAV_ITEMS: { id: Section; label: string; icon: string }[] = [
   { id: 'tenants',     label: 'Tenants',        icon: 'building' },
   { id: 'users',       label: 'Users',          icon: 'users' },
   { id: 'signals',     label: 'Signals',        icon: 'line-chart' },
+  { id: 'waitlist',    label: 'Waitlist',       icon: 'user-plus' },
   { id: 'live',        label: 'Live',           icon: 'circle' },
   { id: 'alerts',      label: 'Alerts',         icon: 'bell' },
   { id: 'infra',       label: 'Infrastructure', icon: 'server' },
@@ -2661,6 +2831,7 @@ export default function PlatformAdminWebScreen() {
             <UsersSection companies={companies} onUserDeleted={fetchCompanies} />
           )}
           {section === 'signals' && <SignalsSection />}
+          {section === 'waitlist' && <WaitlistSection />}
           {section === 'live'    && <LiveSection />}
           {section === 'alerts'  && (
             <AlertsSection companies={companies} totalMins={totalMins} onCompanyDeleted={fetchCompanies} />

@@ -1,0 +1,195 @@
+---
+// Content Hub — structure ported from ContentHub.dc.html. The mock's own
+// sample posts were fabricated (fake company names, a fake dated
+// announcement) — those were never used. These posts are real: "Product
+// updates" are grounded in actual shipped commits (dates/descriptions
+// pulled from git log, not invented), "Guides" are original how-to/concept
+// pieces written for this launch. "Customer stories" stays genuinely empty
+// — there are no real customers yet at the waitlist stage, and inventing
+// one would be exactly the dishonesty the mock's fake posts were rejected
+// for. No post detail pages exist yet (cards link to "#") — that's a
+// separate, larger follow-up (individual article routes/content), not done
+// here; this pass is the listing/grid with real preview content.
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+import ImageSlot from '../components/ImageSlot.astro';
+
+const categories = ['All', 'Product updates', 'Guides', 'Customer stories'];
+
+type Post = {
+  title: string;
+  category: 'Product updates' | 'Guides' | 'Customer stories';
+  excerpt: string;
+  date: string;
+  readTime: string;
+  imageLabel: string;
+  featured?: boolean;
+};
+
+const posts: Post[] = [
+  {
+    title: 'Catching stalled work before it becomes a missed deadline',
+    category: 'Product updates',
+    excerpt: "A task can be at risk for more than one reason — stalled in a stage too long, past its deadline, or over its effort budget. Risk scoring now catches all three, even when only one is true.",
+    date: 'Jul 18, 2026',
+    readTime: '4 min read',
+    imageLabel: 'Screenshot — SLA risk indicator on a task card',
+    featured: true,
+  },
+  {
+    title: 'Bringing in work from Jira, Odoo, and Trello',
+    category: 'Product updates',
+    excerpt: "Your team's history doesn't have to start over. Import existing boards from Jira, Odoo, or Trello, with stage mapping handled for you.",
+    date: 'Jul 20, 2026',
+    readTime: '3 min read',
+    imageLabel: 'Screenshot — import wizard, stage mapping step',
+  },
+  {
+    title: "File Hub's upload flow, rebuilt",
+    category: 'Product updates',
+    excerpt: 'Uploads now level automatically instead of stalling behind the biggest file in the batch, and File Hub has its own analytics view — storage, uploads, and who\'s using it.',
+    date: 'Jul 22, 2026',
+    readTime: '3 min read',
+    imageLabel: 'Screenshot — File Hub upload composer',
+  },
+  {
+    title: 'How pipelines, stages, and transitions fit together',
+    category: 'Guides',
+    excerpt: 'The mental model behind every board in TrustFlow: pipelines hold stages, stages connect through transitions, and transitions are where permissions and required actions actually live.',
+    date: 'Jul 15, 2026',
+    readTime: '6 min read',
+    imageLabel: 'Diagram — pipeline, stages, transitions',
+  },
+  {
+    title: 'Choosing the right plan for your team',
+    category: 'Guides',
+    excerpt: "Match your team size, storage needs, and whether you need automations or deeper reporting to a tier — and what actually changes when you upgrade.",
+    date: 'Jul 12, 2026',
+    readTime: '5 min read',
+    imageLabel: 'Screenshot — plan comparison',
+  },
+  {
+    title: 'Task board best practices: fewer columns, clearer status',
+    category: 'Guides',
+    excerpt: 'Three or four stages beats ten. Put owner, priority, and time spent on the card itself, so status stops being something people have to ask for.',
+    date: 'Jul 9, 2026',
+    readTime: '4 min read',
+    imageLabel: 'Screenshot — a well-structured task board',
+  },
+  {
+    title: 'Migrating from spreadsheets without losing your history',
+    category: 'Guides',
+    excerpt: 'Bring existing rows into a board as real tasks, not a one-time import that leaves the past behind — here\'s how to map columns without losing context.',
+    date: 'Jul 3, 2026',
+    readTime: '5 min read',
+    imageLabel: 'Screenshot — spreadsheet-to-board import',
+  },
+];
+
+const featuredPost = posts.find((p) => p.featured);
+---
+
+<BaseLayout
+  title="TrustFlow — Content Hub"
+  description="Product updates, guides, and stories from teams using TrustFlow every day."
+>
+  <Nav />
+
+  <main>
+    <section class="reveal mx-auto max-w-[720px] px-6 pb-8 pt-20 text-center sm:px-12">
+      <span class="text-eyebrow uppercase text-text-dim">Content Hub</span>
+      <h1 class="mt-4 mb-3.5 text-h1 text-text-heading">Notes on running work well.</h1>
+      <p class="mx-auto max-w-[480px] text-body-lg text-text-muted">
+        Product updates, guides, and stories from teams using TrustFlow every day.
+      </p>
+    </section>
+
+    <section class="reveal flex flex-wrap justify-center gap-2.5 px-6 sm:px-12">
+      {categories.map((c, i) => (
+        <button
+          type="button"
+          data-category-tab
+          data-category={c}
+          class:list={[
+            'whitespace-nowrap rounded-pill border px-[18px] py-2.5 text-[13.5px] font-semibold transition-colors duration-150',
+            i === 0 ? 'border-white bg-white text-on-accent' : 'border-hairline-strong text-text-muted hover:text-text-main',
+          ]}
+        >
+          {c}
+        </button>
+      ))}
+    </section>
+
+    {featuredPost && (
+      <section id="featured-wrap" class="reveal px-6 pb-0 pt-12 sm:px-12">
+        <a href="#" class="mx-auto grid max-w-content grid-cols-1 items-center gap-10 rounded-[20px] border border-hairline bg-surface-card p-8 sm:grid-cols-2 sm:p-12">
+          <div>
+            <span class="text-[11.5px] font-bold uppercase tracking-[0.08em] text-accent-green">Featured &middot; {featuredPost.category}</span>
+            <h2 class="my-3.5 text-h3 text-text-heading">{featuredPost.title}</h2>
+            <p class="max-w-[420px] text-[15.5px] leading-[1.65] text-text-muted">{featuredPost.excerpt}</p>
+            <div class="mt-5 flex items-center gap-3">
+              <span class="text-[13px] text-text-dim">{featuredPost.date}</span>
+              <span class="text-[13px] text-text-dim">&middot;</span>
+              <span class="text-[13px] text-text-dim">{featuredPost.readTime}</span>
+            </div>
+          </div>
+          <ImageSlot label={featuredPost.imageLabel} height={280} variant="feature" />
+        </a>
+      </section>
+    )}
+
+    <section class="px-6 pb-32 pt-14 sm:px-12">
+      <div id="post-grid" class="mx-auto grid max-w-content grid-cols-1 gap-7 sm:grid-cols-2 lg:grid-cols-3">
+        {posts.map((post) => (
+          <a href="#" class="reveal block" data-post-card data-category={post.category}>
+            <ImageSlot label={post.imageLabel} height={190} variant="feature" />
+            <span class="mt-4 block text-[11.5px] font-semibold uppercase tracking-[0.06em] text-text-dim">{post.category}</span>
+            <h3 class="my-2 text-[18px] font-bold leading-[1.35] text-text-main">{post.title}</h3>
+            <p class="text-[14px] leading-[1.6] text-text-muted">{post.excerpt}</p>
+            <div class="mt-3.5 flex items-center gap-2.5">
+              <span class="text-[12.5px] text-text-faint">{post.date}</span>
+              <span class="text-[12.5px] text-text-faint">&middot;</span>
+              <span class="text-[12.5px] text-text-faint">{post.readTime}</span>
+            </div>
+          </a>
+        ))}
+      </div>
+      <p id="no-posts" class="hidden py-16 text-center text-body text-text-muted">
+        No posts in this category yet.
+      </p>
+    </section>
+  </main>
+
+  <Footer />
+</BaseLayout>
+
+<script>
+  const tabs = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-category-tab]'));
+  const cards = Array.from(document.querySelectorAll<HTMLElement>('[data-post-card]'));
+  const featuredWrap = document.getElementById('featured-wrap');
+  const noPosts = document.getElementById('no-posts');
+
+  function setCategory(cat: string) {
+    for (const tab of tabs) {
+      const active = tab.dataset.category === cat;
+      tab.classList.toggle('bg-white', active);
+      tab.classList.toggle('border-white', active);
+      tab.classList.toggle('text-on-accent', active);
+      tab.classList.toggle('border-hairline-strong', !active);
+      tab.classList.toggle('text-text-muted', !active);
+    }
+    let visibleCount = 0;
+    for (const card of cards) {
+      const show = cat === 'All' || card.dataset.category === cat;
+      card.style.display = show ? '' : 'none';
+      if (show) visibleCount++;
+    }
+    if (featuredWrap) featuredWrap.style.display = cat === 'All' ? '' : 'none';
+    if (noPosts) noPosts.classList.toggle('hidden', visibleCount > 0);
+  }
+
+  tabs.forEach((tab) => {
+    tab.addEventListener('click', () => setCategory(tab.dataset.category ?? 'All'));
+  });
+</script>

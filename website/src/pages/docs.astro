@@ -1,0 +1,357 @@
+---
+// Docs & Help center. Sidebar search/filter + single content-pane swap is a
+// small vanilla-JS island (see the script block near the bottom of this
+// file) — the only page on the site that needs real client interactivity
+// beyond hover states. All panel
+// content is rendered into the DOM up front (not fetched), so it's fully
+// crawlable and readable with JS disabled; the script only toggles
+// visibility and filters the sidebar.
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+import ImageSlot from '../components/ImageSlot.astro';
+
+type DocItem = {
+  id: string;
+  group: 'Getting started' | 'Tutorials' | 'Guides' | 'FAQs';
+  title: string;
+  summary: string;
+  steps?: string[];
+  isFaq?: boolean;
+  answer?: string;
+  /** Illustrative screenshot/diagram. No real product screenshots exist yet
+   * (same as every other page on the site) — renders as a labeled
+   * placeholder via ImageSlot until real assets land. */
+  image?: { label: string };
+  /** Product walkthrough video. Pass youtubeId once a real video exists —
+   * it renders as a facade (click-to-load thumbnail, no iframe/tracking
+   * script until clicked). Without youtubeId, shows an honest
+   * "video coming soon" placeholder — never a fabricated video. */
+  video?: { label: string; youtubeId?: string };
+};
+
+const items: DocItem[] = [
+  // ── Getting started ──────────────────────────────────────────
+  {
+    id: 'gs-1', group: 'Getting started', title: 'Quick start: your first pipeline',
+    summary: 'A pipeline is where work moves through stages, from intake to done. Set one up in a few minutes.',
+    steps: [
+      'Create a pipeline and give it a name your team will recognize.',
+      'Add your stages — most teams start with three or four (e.g. Intake, In progress, Review, Done).',
+      'Add your first task and assign it to a stage.',
+      'Invite a teammate so you can watch it move together.',
+    ],
+  },
+  {
+    id: 'gs-2', group: 'Getting started', title: 'Inviting your team',
+    summary: 'Add members and give each one a role before they sign in for the first time.',
+    steps: [
+      'Open your workspace’s member settings.',
+      'Add a teammate by email.',
+      'Choose a role — roles control what they can see and do, from viewing a single pipeline to managing billing.',
+      'Send the invite. They’ll set a password on first login.',
+    ],
+  },
+  {
+    id: 'gs-3', group: 'Getting started', title: 'Understanding stages and transitions',
+    summary: 'Every pipeline is built from stages connected by transitions, with actions and permissions attached to each move.',
+    steps: [
+      'Open a pipeline and go to its stage editor.',
+      'Each stage represents a state work can sit in — add or reorder stages to match how your team actually works.',
+      'Define transitions between stages, and which roles are allowed to make each move.',
+      'Attach actions (like requiring a submission or starting a review) to the transitions that need them.',
+    ],
+  },
+  {
+    id: 'gs-4', group: 'Getting started', title: 'Get the mobile app',
+    summary: 'The same workspace, in your pocket — sign in with the account your team already invited you to.',
+    steps: [
+      'Install the TrustFlow app from the App Store or Google Play.',
+      'Sign in with your workspace email and password.',
+      'Enable notifications so you don’t miss a review request or a comment.',
+    ],
+    image: { label: 'Screenshot — mobile dashboard' },
+  },
+  {
+    id: 'gs-5', group: 'Getting started', title: 'Importing from Jira, Odoo, or Trello',
+    summary: 'Bring an existing board over instead of starting from a blank pipeline — your history comes with it.',
+    steps: [
+      'Open Import from your workspace settings.',
+      'Connect the source (Jira, Odoo, or Trello) and pick the board to bring over.',
+      'Map its columns to TrustFlow stages — we suggest a mapping, you can adjust it.',
+      'Run the import. Existing tasks land in the matching stage, history intact.',
+    ],
+    image: { label: 'Screenshot — import wizard, stage mapping step' },
+  },
+
+  // ── Tutorials ─────────────────────────────────────────────────
+  {
+    id: 'tut-1', group: 'Tutorials', title: 'Setting up a stage automation',
+    summary: 'Automations react to a trigger in a stage and run an action for you, so nothing needs a manual nudge.',
+    steps: [
+      'Open the pipeline editor and select a stage.',
+      'Open the automation editor for that stage.',
+      'Pick a trigger — for example, a task entering the stage or a deadline approaching.',
+      'Pick the action to run, then turn the automation on.',
+    ],
+  },
+  {
+    id: 'tut-2', group: 'Tutorials', title: 'Reviewing a submission',
+    summary: 'When a stage requires a submission, review turns it into a clear approve/return decision instead of a side conversation.',
+    steps: [
+      'Open the task with a pending submission.',
+      'Read the submitted work in the review panel.',
+      'Leave a comment if something needs to change.',
+      'Approve to move the task forward, or return it to the previous stage.',
+    ],
+  },
+  {
+    id: 'tut-3', group: 'Tutorials', title: 'Tracking effort with timers',
+    summary: 'Start a timer on a task to log real effort against it, visible on the task card and rolled up into reports.',
+    steps: [
+      'Open a task and start its timer.',
+      'Keep working — the timer keeps running in the background, even if you switch tasks.',
+      'Stop the timer when you’re done, or let it keep tracking across a session.',
+      'Check logged effort later from the task’s activity or your team’s reports.',
+    ],
+    video: { label: 'Timers walkthrough' },
+  },
+  {
+    id: 'tut-4', group: 'Tutorials', title: 'Sharing files in File Hub',
+    summary: 'Send a file directly to someone, broadcast it to the whole team, or share it with a specific group.',
+    steps: [
+      'Open File Hub and choose Upload.',
+      'Pick who should see it: a direct recipient, a broadcast to everyone, or a group.',
+      'Add a caption or tags so it’s easy to find later.',
+      'Upload a new version later to replace it — previous versions stay in history.',
+    ],
+  },
+  {
+    id: 'tut-5', group: 'Tutorials', title: 'Reading your team’s reports',
+    summary: 'Reports show throughput and where work is stalling, not just a log of what happened.',
+    steps: [
+      'Open Reports from the sidebar.',
+      'Pick a date range — how far back you can look depends on your plan.',
+      'Check throughput to see completion pace, and personnel views to see load per person.',
+      'Export to CSV if you need the numbers elsewhere (Business and Enterprise plans).',
+    ],
+  },
+
+  // ── Guides ───────────────────────────────────────────────────
+  {
+    id: 'gd-1', group: 'Guides', title: 'How pipelines, stages, and transitions fit together',
+    summary: 'The mental model behind every board: pipelines contain stages, stages are connected by transitions, and transitions can carry actions and permission checks.',
+    steps: [],
+  },
+  {
+    id: 'gd-2', group: 'Guides', title: 'Choosing the right plan',
+    summary: 'Match your team size, storage needs, and whether you need automations or reporting depth to a tier — see the full breakdown on the Plans page.',
+    steps: [],
+  },
+  {
+    id: 'gd-3', group: 'Guides', title: 'Understanding roles and permissions',
+    summary: 'Every action in TrustFlow — moving a task, approving a submission, managing billing — is gated by a permission attached to a role, not just a login.',
+    steps: [],
+  },
+  {
+    id: 'gd-4', group: 'Guides', title: 'Where SLA risk warnings come from',
+    summary: 'A task gets flagged at risk from more than one signal — it can stall in a stage too long, run past its deadline, or go over its expected effort budget, even if none alone would trigger it.',
+    steps: [],
+    image: { label: 'Screenshot — SLA risk indicator on a task card' },
+  },
+
+  // ── FAQs ─────────────────────────────────────────────────────
+  {
+    id: 'faq-1', group: 'FAQs', title: 'Can I switch plans anytime?', summary: 'Billing & plans', isFaq: true,
+    answer: 'Yes — upgrade or downgrade anytime from billing settings. Upgrades apply immediately; downgrades apply immediately too, so make sure you’re under the new plan’s limits first.',
+  },
+  {
+    id: 'faq-2', group: 'FAQs', title: 'Is my data encrypted?', summary: 'Account & security', isFaq: true,
+    answer: 'Yes — in transit and at rest, through our infrastructure provider’s standard managed Postgres encryption.',
+  },
+  {
+    id: 'faq-3', group: 'FAQs', title: 'What happens if I hit my plan’s limit?', summary: 'Billing & plans', isFaq: true,
+    answer: 'You’ll see a warning before you’re blocked — for example, adding a member past your seat cap or uploading a file over your size limit is blocked with a clear message pointing at upgrading, rather than failing silently.',
+  },
+  {
+    id: 'faq-4', group: 'FAQs', title: 'Can I export my data?', summary: 'Data export & reporting', isFaq: true,
+    answer: 'Reports and analytics export to CSV on Business and Enterprise plans. We’re not yet offering a full account-data export on every plan.',
+  },
+];
+
+const groupOrder: DocItem['group'][] = ['Getting started', 'Tutorials', 'Guides', 'FAQs'];
+const defaultId = items[0].id;
+---
+
+<BaseLayout
+  title="TrustFlow — Docs & Help"
+  description="Guides, tutorials, and answers for running your team on TrustFlow — pipelines, submissions, File Hub, reporting, and billing."
+>
+  <Nav />
+
+  <div class="mx-auto grid max-w-[1280px] grid-cols-1 items-start gap-10 px-6 pb-28 pt-8 sm:px-12 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-14">
+    <aside class="lg:sticky lg:top-24 lg:max-h-[calc(100vh-120px)] lg:overflow-y-auto lg:pr-2">
+      <input
+        id="docs-search"
+        type="text"
+        placeholder="Search docs and FAQs"
+        class="mb-7 w-full rounded-input border border-hairline bg-surface-card px-3.5 py-2.5 font-sans text-[13.5px] text-text-main outline-none placeholder:text-text-faint focus:border-hairline-strong"
+      />
+
+      {groupOrder.map((groupName) => (
+        <div class="docs-group mb-6" data-group={groupName}>
+          <span class="mb-2.5 block text-[11.5px] font-bold uppercase tracking-[0.07em] text-text-dim">{groupName}</span>
+          <div class="flex flex-col gap-0.5">
+            {items.filter((it) => it.group === groupName).map((it) => (
+              <button
+                type="button"
+                data-spotlight
+                class:list={[
+                  'docs-nav-item spotlight rounded-[7px] px-2.5 py-2.5 text-left font-sans text-[13.5px] transition-colors duration-150',
+                  it.id === defaultId ? 'bg-white/[0.08] font-semibold text-text-main' : 'font-medium text-text-muted hover:text-text-main',
+                ]}
+                data-id={it.id}
+                data-title={it.title.toLowerCase()}
+              >
+                <span class="relative">{it.title}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      <p id="docs-no-results" class="hidden text-[13px] text-text-faint">No results.</p>
+    </aside>
+
+    <main class="min-w-0">
+      {items.map((item) => (
+        <div class="docs-panel" data-id={item.id} hidden={item.id !== defaultId}>
+          <span class="text-[11.5px] font-bold uppercase tracking-[0.07em] text-text-dim">{item.group}</span>
+          <h1 class="my-3.5 text-h2 text-text-heading">{item.title}</h1>
+          {!item.isFaq && <p class="mb-2 max-w-[620px] text-[16px] leading-[1.7] text-text-muted">{item.summary}</p>}
+
+          {item.image && (
+            <ImageSlot label={item.image.label} height={280} variant="feature" class="mt-6 max-w-[560px]" />
+          )}
+
+          {item.video && (
+            <div class="video-embed group relative mt-6 max-w-[560px] cursor-pointer overflow-hidden rounded-card border border-hairline bg-surface-card" data-youtube-id={item.video.youtubeId ?? ''}>
+              {item.video.youtubeId ? (
+                <>
+                  <img
+                    src={`https://i.ytimg.com/vi/${item.video.youtubeId}/hqdefault.jpg`}
+                    alt={item.video.label}
+                    class="aspect-video w-full object-cover"
+                    loading="lazy"
+                  />
+                  <span class="absolute inset-0 flex items-center justify-center bg-black/30 transition-colors duration-200 group-hover:bg-black/40">
+                    <span class="flex h-14 w-14 items-center justify-center rounded-full bg-white/90 text-on-accent">▶</span>
+                  </span>
+                </>
+              ) : (
+                <div class="flex aspect-video w-full flex-col items-center justify-center gap-2 text-center">
+                  <span class="text-[13px] text-text-faint">{item.video.label}</span>
+                  <span class="text-[12px] text-text-dim">Video coming soon</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {item.isFaq && (
+            <div class="mt-7 max-w-[620px] rounded-card border border-hairline bg-surface-card p-6">
+              <p class="m-0 text-[15.5px] leading-[1.7] text-[#e4e7ea]">{item.answer}</p>
+            </div>
+          )}
+
+          {!item.isFaq && item.steps && item.steps.length > 0 && (
+            <div class="mt-8 flex max-w-[560px] flex-col gap-5">
+              {item.steps.map((step, i) => (
+                <div class="flex items-start gap-4">
+                  <span class="mt-0.5 flex h-[26px] w-[26px] flex-none items-center justify-center rounded-full border border-hairline-strong bg-surface-elevated text-[12.5px] font-bold text-cta-arrow">
+                    {i + 1}
+                  </span>
+                  <span class="pt-[3px] text-[15px] leading-[1.65] text-cta-arrow">{step}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div class="helpful-row mt-12 flex items-center gap-4 border-t border-hairline pt-6">
+            <span class="text-[13.5px] text-text-dim">Was this helpful?</span>
+            <button type="button" class="helpful-btn rounded-[7px] border border-hairline-strong px-3.5 py-1.5 font-sans text-[13px] font-semibold text-cta-arrow transition-colors duration-150 hover:border-hairline-emphasis">Yes</button>
+            <button type="button" class="helpful-btn rounded-[7px] border border-hairline-strong px-3.5 py-1.5 font-sans text-[13px] font-semibold text-cta-arrow transition-colors duration-150 hover:border-hairline-emphasis">No</button>
+            <span class="helpful-thanks hidden text-[13px] text-text-dim">Thanks for the feedback.</span>
+          </div>
+        </div>
+      ))}
+    </main>
+  </div>
+
+  <Footer />
+</BaseLayout>
+
+<script>
+  const search = document.getElementById('docs-search') as HTMLInputElement;
+  const navItems = Array.from(document.querySelectorAll<HTMLButtonElement>('.docs-nav-item'));
+  const groups = Array.from(document.querySelectorAll<HTMLDivElement>('.docs-group'));
+  const panels = Array.from(document.querySelectorAll<HTMLDivElement>('.docs-panel'));
+  const noResults = document.getElementById('docs-no-results');
+
+  function setActive(id: string) {
+    for (const panel of panels) panel.hidden = panel.dataset.id !== id;
+    for (const btn of navItems) {
+      const active = btn.dataset.id === id;
+      btn.classList.toggle('bg-white/[0.08]', active);
+      btn.classList.toggle('font-semibold', active);
+      btn.classList.toggle('text-text-main', active);
+      btn.classList.toggle('font-medium', !active);
+      btn.classList.toggle('text-text-muted', !active);
+    }
+  }
+
+  for (const btn of navItems) {
+    btn.addEventListener('click', () => {
+      setActive(btn.dataset.id!);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  }
+
+  search?.addEventListener('input', () => {
+    const q = search.value.trim().toLowerCase();
+    let anyVisible = false;
+    for (const group of groups) {
+      let groupHasMatch = false;
+      for (const btn of group.querySelectorAll<HTMLButtonElement>('.docs-nav-item')) {
+        const match = !q || (btn.dataset.title ?? '').includes(q);
+        btn.style.display = match ? '' : 'none';
+        if (match) groupHasMatch = true;
+      }
+      group.style.display = groupHasMatch ? '' : 'none';
+      if (groupHasMatch) anyVisible = true;
+    }
+    if (noResults) noResults.classList.toggle('hidden', anyVisible);
+  });
+
+  for (const btn of document.querySelectorAll<HTMLButtonElement>('.helpful-btn')) {
+    btn.addEventListener('click', () => {
+      const row = btn.closest('.helpful-row');
+      row?.querySelectorAll('.helpful-btn').forEach((b) => b.setAttribute('hidden', ''));
+      row?.querySelector('.helpful-thanks')?.classList.remove('hidden');
+    });
+  }
+
+  // Video facade — no iframe/YouTube script loads until clicked, so a page
+  // with a real video embedded still ships near-zero JS by default.
+  for (const embed of document.querySelectorAll<HTMLElement>('.video-embed')) {
+    const youtubeId = embed.dataset.youtubeId;
+    if (!youtubeId) continue;
+    embed.addEventListener('click', () => {
+      const iframe = document.createElement('iframe');
+      iframe.src = `https://www.youtube-nocookie.com/embed/${youtubeId}?autoplay=1`;
+      iframe.className = 'aspect-video w-full';
+      iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+      iframe.allowFullscreen = true;
+      embed.replaceChildren(iframe);
+    }, { once: true });
+  }
+</script>

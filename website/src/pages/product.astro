@@ -1,0 +1,232 @@
+---
+// Product tour. Ported from Product.dc.html with two real-content edits:
+// (1) the mock's "Integrations" section (Zapier, open API, two-way sync)
+// isn't a real feature — dropped rather than advertised as one; (2) the
+// mock's Permissions copy mentioned an "admin/member/client-guest" role and
+// "client-safe views" — no guest role exists in the app, so that's replaced
+// with what's actually true (company-scoped data isolation via RLS).
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+import ImageSlot from '../components/ImageSlot.astro';
+
+const subnav = [
+  { id: 'task-boards', label: 'Task boards' },
+  { id: 'reporting', label: 'Reporting' },
+  { id: 'file-hub', label: 'File hub' },
+  { id: 'automations', label: 'Automations' },
+  { id: 'mobile', label: 'Mobile app' },
+  { id: 'permissions', label: 'Permissions' },
+];
+
+const h1Words = 'One workspace. Every part of the work.'.split(' ');
+---
+
+<BaseLayout
+  title="TrustFlow — Product tour"
+  description="Boards, files, automations, and reporting, built to work together instead of living in separate tabs."
+>
+  <Nav />
+
+  <section class="reveal mx-auto max-w-[800px] px-6 pb-8 pt-20 text-center sm:px-12">
+    <span class="text-eyebrow uppercase text-text-dim">Product</span>
+    <h1 class="word-reveal mt-4 mb-3.5 justify-center text-h1 text-text-heading">
+      {h1Words.map((w, i) => (
+        <span class="w" style={`--wi:${i}`}>{w}</span>
+      ))}
+    </h1>
+    <p class="mx-auto max-w-[560px] text-body-lg text-text-muted">
+      Boards, files, automations, and reporting, built to work together instead of living in separate tabs.
+    </p>
+  </section>
+
+  <nav
+    id="product-subnav"
+    class="sticky top-[72px] z-40 border-y border-hairline bg-bg-base/90 backdrop-blur-[10px]"
+  >
+    <div class="relative mx-auto flex max-w-content gap-7 overflow-x-auto px-6 sm:px-12">
+      <div id="subnav-indicator" class="pointer-events-none absolute bottom-0 h-[2px] bg-text-main transition-[transform,width] duration-300 ease-spring" style="width:0"></div>
+      {subnav.map((s) => (
+        <a
+          href={`#${s.id}`}
+          data-subnav-link
+          data-target={s.id}
+          class="whitespace-nowrap py-4 text-[13.5px] font-semibold text-text-subtle transition-colors duration-150 [&.is-active]:text-text-main"
+        >
+          {s.label}
+        </a>
+      ))}
+    </div>
+  </nav>
+
+  <main class="px-6 py-5 sm:px-12">
+    <div class="mx-auto flex max-w-content flex-col gap-[100px] lg:gap-[140px]">
+      <!-- Task boards -->
+      <div id="task-boards" data-subnav-section class="reveal pt-10 text-center scroll-mt-[150px]">
+        <span class="text-eyebrow uppercase text-text-dim">Task boards</span>
+        <h2 class="mx-auto mt-3.5 max-w-[620px] text-h2 text-text-heading">Boards that mirror how work actually moves</h2>
+        <p class="mx-auto mt-3.5 max-w-[480px] text-body text-text-muted">
+          Pending, active, done — cards carry priority, owner, and time spent so no one has to ask for a status update.
+        </p>
+        <ImageSlot label="MacBook mockup — Task Board screenshot" height={580} variant="hero" class="mx-auto mt-12 max-w-[960px]" />
+      </div>
+
+      <!-- Reporting -->
+      <div id="reporting" data-subnav-section class="grid scroll-mt-[150px] grid-cols-1 items-center gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:gap-[72px]">
+        <ImageSlot label="MacBook mockup — Pipeline / analytics dashboard" height={400} variant="feature" class="lg:order-1" />
+        <div class="reveal min-w-0 lg:order-2">
+          <span class="text-eyebrow uppercase text-text-dim">Reporting</span>
+          <h2 class="my-[14px] text-h2 text-text-heading">Numbers that tell you if work is moving</h2>
+          <p class="mb-7 max-w-[440px] text-body text-text-muted">
+            Throughput, completion, and team load — the same signals that flag an at-risk task before it misses a deadline.
+          </p>
+          <div class="flex flex-col gap-[18px]">
+            <div>
+              <div class="text-[14.5px] font-semibold text-text-main">Live throughput</div>
+              <div class="mt-[3px] text-[14px] text-text-muted">See completed-vs-created trend by week.</div>
+            </div>
+            <div>
+              <div class="text-[14.5px] font-semibold text-text-main">Team load</div>
+              <div class="mt-[3px] text-[14px] text-text-muted">Spot who's overloaded before they say so.</div>
+            </div>
+            <div>
+              <div class="text-[14.5px] font-semibold text-text-main">Exportable reports</div>
+              <div class="mt-[3px] text-[14px] text-text-muted">Export to CSV — on Business and Enterprise plans.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- File hub -->
+      <div id="file-hub" data-subnav-section class="grid scroll-mt-[150px] grid-cols-1 items-center gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:gap-[72px]">
+        <div class="reveal min-w-0">
+          <span class="text-eyebrow uppercase text-text-dim">File hub</span>
+          <h2 class="my-[14px] text-h2 text-text-heading">Files and conversation, finally in one place</h2>
+          <p class="mb-7 max-w-[440px] text-body text-text-muted">
+            Channels, broadcasts, and shared files live next to the work they're about, so the right version is never three inboxes deep.
+          </p>
+          <div class="flex flex-wrap gap-2.5">
+            {['Version history', 'Channels & broadcasts', 'Search across files'].map((tag) => (
+              <span class="rounded-pill border border-hairline-strong px-3.5 py-2 text-[13.5px] text-cta-arrow">{tag}</span>
+            ))}
+          </div>
+        </div>
+        <ImageSlot label="MacBook mockup — File Hub screenshot" height={400} variant="feature" class="lg:order-2" />
+      </div>
+
+      <!-- Automations -->
+      <div id="automations" data-subnav-section class="reveal grid scroll-mt-[150px] grid-cols-1 items-center gap-10 lg:grid-cols-[1.2fr_0.8fr] lg:gap-16">
+        <div class="min-w-0">
+          <span class="text-eyebrow uppercase text-text-dim">Automations</span>
+          <h2 class="my-[14px] text-h2 text-text-heading">Let the busywork run itself</h2>
+          <p class="max-w-[400px] text-body text-text-muted">
+            Set a trigger once, and TrustFlow handles the follow-up so nothing depends on someone remembering.
+          </p>
+        </div>
+        <div class="shadow-[0_30px_60px_-20px_rgba(0,0,0,0.6)]">
+          <ImageSlot label="Close-up — automation rule builder" height={220} variant="feature" />
+        </div>
+      </div>
+
+      <!-- Mobile -->
+      <div id="mobile" data-subnav-section class="grid scroll-mt-[150px] grid-cols-1 items-center gap-10 lg:grid-cols-[1.5fr_0.5fr] lg:gap-14">
+        <ImageSlot label="iPhone mockup — mobile dashboard screenshot" height={520} variant="hero" class="lg:order-1" />
+        <div class="reveal min-w-0 lg:order-2">
+          <span class="text-eyebrow uppercase text-text-dim">Mobile app</span>
+          <h2 class="my-[14px] text-h3 text-text-heading">Everything that matters, in your pocket</h2>
+          <p class="max-w-[280px] text-body text-text-muted">
+            Approve, comment, and check status — the same app your team runs on desktop, not a stripped-down view.
+          </p>
+        </div>
+      </div>
+
+      <!-- Permissions -->
+      <div id="permissions" data-subnav-section class="reveal grid scroll-mt-[150px] grid-cols-1 items-start gap-10 pb-10 lg:grid-cols-[1fr_260px] lg:gap-12">
+        <div class="min-w-0">
+          <span class="text-eyebrow uppercase text-text-dim">Permissions</span>
+          <h2 class="my-[14px] text-h2 text-text-heading">Control who sees what, without micromanaging</h2>
+          <p class="mb-7 max-w-[440px] text-body text-text-muted">
+            Set roles once, and every board, file, and report respects them automatically.
+          </p>
+          <div class="grid max-w-[460px] grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-7">
+            <div>
+              <div class="text-[14.5px] font-semibold text-text-main">Granular roles</div>
+              <div class="mt-[3px] text-[14px] text-text-muted">Assign exactly the access each person needs.</div>
+            </div>
+            <div>
+              <div class="text-[14.5px] font-semibold text-text-main">Company-scoped data</div>
+              <div class="mt-[3px] text-[14px] text-text-muted">Every workspace is isolated — teams never see each other's work.</div>
+            </div>
+          </div>
+        </div>
+        <div class="mt-1.5 min-w-0 shadow-[0_30px_60px_-20px_rgba(0,0,0,0.6)]">
+          <ImageSlot label="Close-up — role settings detail" height={280} variant="feature" />
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <section class="reveal px-6 py-16 sm:px-12 sm:pb-[140px] sm:pt-[60px]">
+    <div
+      class="relative mx-auto max-w-[1100px] overflow-hidden rounded-[20px] border border-hairline-strong px-8 py-16 text-center sm:px-16 sm:py-[72px]"
+      style="background: radial-gradient(circle at 28% 20%, rgba(215,228,242,0.09), rgba(215,228,242,0) 60%), #141414;"
+    >
+      <h2 class="text-h2 text-text-heading">See it work with your own data.</h2>
+      <p class="mx-auto mt-4 max-w-[440px] text-body text-text-muted">
+        Bring your boards over in minutes and watch your team's work line up on one screen.
+      </p>
+      <div class="mt-8 flex flex-wrap items-center justify-center gap-[22px]">
+        <a href="/waitlist" class="btn btn-lg btn-primary magnetic">Start free trial</a>
+        <a href="/waitlist" class="btn-secondary text-[15px]">Talk to us &rarr;</a>
+      </div>
+      <div class="mt-9 flex flex-wrap justify-center gap-6 border-t border-hairline pt-7">
+        <span class="text-[13px] text-text-faint">No credit card required</span>
+        <span class="text-[13px] text-text-faint">&middot;</span>
+        <span class="text-[13px] text-text-faint">Free 14-day trial</span>
+        <span class="text-[13px] text-text-faint">&middot;</span>
+        <span class="text-[13px] text-text-faint">Cancel anytime</span>
+      </div>
+    </div>
+  </section>
+
+  <Footer />
+</BaseLayout>
+
+<script>
+  const links = Array.from(document.querySelectorAll<HTMLAnchorElement>('[data-subnav-link]'));
+  const sections = Array.from(document.querySelectorAll<HTMLElement>('[data-subnav-section]'));
+  const indicator = document.getElementById('subnav-indicator');
+
+  function slideTo(link: HTMLAnchorElement) {
+    if (!indicator) return;
+    indicator.style.width = link.offsetWidth + 'px';
+    indicator.style.transform = `translateX(${link.offsetLeft}px)`;
+  }
+
+  function setActive(id: string) {
+    for (const link of links) {
+      const active = link.dataset.target === id;
+      link.classList.toggle('is-active', active);
+      if (active) slideTo(link);
+    }
+  }
+
+  if ('IntersectionObserver' in window && sections.length) {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) setActive(entry.target.id);
+        }
+      },
+      { rootMargin: '-150px 0px -65% 0px', threshold: 0 }
+    );
+    sections.forEach((s) => observer.observe(s));
+  }
+
+  const first = links.find((l) => l.classList.contains('is-active')) ?? links[0];
+  if (first) requestAnimationFrame(() => slideTo(first));
+  window.addEventListener('resize', () => {
+    const active = links.find((l) => l.classList.contains('is-active'));
+    if (active) slideTo(active);
+  });
+</script>

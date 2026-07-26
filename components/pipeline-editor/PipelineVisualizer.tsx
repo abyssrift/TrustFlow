@@ -2,7 +2,8 @@ import { usePipelineEditor } from '@/contexts/PipelineEditorContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { FontAwesome } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import LoadingOverlay from '@/components/common/LoadingOverlay';
 import { resolveNativeColorToken } from './colorCompat';
 
 export default function PipelineVisualizer() {
@@ -231,11 +232,7 @@ export default function PipelineVisualizer() {
       </ScrollView>
 
       {/* Loading Overlay */}
-      {loading && (
-        <View className="absolute inset-0 bg-surface-background/50 items-center justify-center">
-          <ActivityIndicator color={colors.primary} />
-        </View>
-      )}
+      <LoadingOverlay visible={loading} variant="inline" />
     </View>
   );
 }

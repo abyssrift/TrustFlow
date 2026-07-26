@@ -1,6 +1,6 @@
 import { FontAwesome } from '@expo/vector-icons';
 import React from 'react';
-import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import Popup from '@/components/common/Popup';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -10,8 +10,6 @@ import type { RuleEditorModalProps } from './RuleEditorModal';
 
 export default function RuleEditorModal({ visible, existing, onClose, onSaved }: RuleEditorModalProps) {
   const c = useThemeColors();
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 768;
   const {
     name, setName,
     description, setDescription,
@@ -28,8 +26,9 @@ export default function RuleEditorModal({ visible, existing, onClose, onSaved }:
       onClose={onClose}
       dimBackdrop
       maxHeight="90%"
-      presentation={isDesktop ? 'centered' : 'sheet'}
-      containerClassName="w-[95%] max-w-[560px] max-h-[90vh] rounded-3xl overflow-hidden premium-shadow"
+      presentation="auto"
+      maxWidth={560}
+      containerClassName="w-[95%] max-h-[90vh] rounded-3xl overflow-hidden premium-shadow"
     >
       <View
         className="w-full rounded-3xl overflow-hidden"

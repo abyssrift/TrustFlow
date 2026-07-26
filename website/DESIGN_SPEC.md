@@ -1,3 +1,11 @@
+> **Superseded 2026-07-24.** The indigo/navy palette below was replaced by a
+> finalized, higher-fidelity design handoff — see
+> `TrustFlow website design/design_handoff_trustflow_website/README.md` for
+> the current locked tokens (monochrome black `#0a0a0a`, Inter + Inter Tight,
+> white/black buttons). `src/styles/tokens.css` and `tailwind.config.mjs` now
+> follow that handoff, not this file. Kept for the still-relevant principles
+> in §1 and copy/structure notes elsewhere in this doc.
+
 # TrustFlow Marketing Site — Design Spec ("the script")
 
 **Purpose:** a locked design system the build step follows so it invents nothing. Every color, type, and spacing value here is decided. Deviating is a decision, not a default. Read this *before* writing any section.

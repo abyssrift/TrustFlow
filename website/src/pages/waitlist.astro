@@ -1,0 +1,447 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+const SUPABASE_URL = import.meta.env.PUBLIC_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
+---
+
+<BaseLayout
+  title="TrustFlow — Join the waitlist"
+  description="TrustFlow is in development. Join the waitlist to get early access."
+>
+  <div class="page">
+    <div class="glow glow-a"></div>
+    <div class="glow glow-b"></div>
+
+    <nav id="nav">
+      <span class="brand">
+        <img src="/logo-mark.png" alt="" width="26" height="26" />
+        <span class="wordmark">TrustFlow</span>
+      </span>
+    </nav>
+
+    <main>
+      <div class="hero">
+        <div class="badge" id="badge" hidden>
+          <span class="dot"></span>
+          <span id="count-label"></span>
+        </div>
+
+        <h1>Work shouldn't feel this scattered.</h1>
+        <p class="lede">
+          TrustFlow brings your team's tasks, files, and permissions into one calm home
+          base — no more digging through five tools to find one answer.
+        </p>
+
+        <form id="form" novalidate>
+          <div class="row">
+            <input id="company" name="company" type="text" placeholder="Company name" required autocomplete="organization" />
+            <input id="email" name="email" type="email" placeholder="Work email" required autocomplete="email" />
+          </div>
+
+          <!-- Honeypot: hidden from real visitors, bots tend to fill every field. -->
+          <div class="hp" aria-hidden="true">
+            <label for="hp">Leave this field empty</label>
+            <input id="hp" name="company_website" type="text" tabindex="-1" autocomplete="off" />
+          </div>
+
+          <button type="submit" id="submit-btn">Join the waitlist</button>
+          <span class="fineprint" id="form-status">No spam. We'll email you the moment your spot opens up.</span>
+        </form>
+
+        <div id="success" class="success" hidden>
+          <span class="success-title" id="success-title">You're on the list</span>
+          <span class="success-body" id="success-body"></span>
+          <div class="referral-row">
+            <input id="referral-link" readonly />
+            <button id="copy-btn" type="button">Copy link</button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer>
+      <span>© 2026 TrustFlow. All rights reserved.</span>
+    </footer>
+  </div>
+</BaseLayout>
+
+<style>
+  [hidden] {
+    display: none !important;
+  }
+
+  .page {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: #0a0a0a;
+    color: #f4f6f7;
+    overflow: hidden;
+  }
+
+  .glow {
+    position: absolute;
+    z-index: 0;
+    border-radius: 50%;
+    filter: blur(60px);
+    pointer-events: none;
+  }
+  .glow-a {
+    left: 50%;
+    top: 8%;
+    width: 640px;
+    height: 640px;
+    transform: translateX(-50%);
+    background: radial-gradient(closest-side, rgba(180, 195, 215, 0.24), rgba(180, 195, 215, 0) 70%);
+    animation: drift1 24s ease-in-out infinite;
+  }
+  .glow-b {
+    left: 38%;
+    top: 22%;
+    width: 420px;
+    height: 420px;
+    background: radial-gradient(closest-side, rgba(215, 228, 242, 0.18), rgba(215, 228, 242, 0) 65%);
+    animation: drift2 30s ease-in-out infinite;
+  }
+  @keyframes drift1 {
+    0%, 100% { transform: translate(-50%, 0) scale(1); }
+    50% { transform: translate(calc(-50% + 3%), 4%) scale(1.08); }
+  }
+  @keyframes drift2 {
+    0%, 100% { transform: translate(3%, 2%) scale(1.03); }
+    50% { transform: translate(-3%, -4%) scale(0.97); }
+  }
+
+  nav {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 72px;
+    padding: 0 48px;
+    max-width: 1200px;
+    margin: 0 auto;
+    width: 100%;
+    box-sizing: border-box;
+    background: rgba(10, 10, 10, 0);
+    border-bottom: 1px solid rgba(255, 255, 255, 0);
+    backdrop-filter: blur(10px);
+    transition: background 0.2s, border-color 0.2s;
+  }
+  nav.scrolled {
+    background: rgba(10, 10, 10, 0.85);
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+  }
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .wordmark {
+    font-weight: 700;
+    font-size: 18px;
+    letter-spacing: -0.01em;
+  }
+
+  main {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 64px 48px 96px;
+  }
+
+  .hero {
+    width: 100%;
+    max-width: 560px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 20px;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 14px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    font-size: 13px;
+    color: #c7cdd3;
+  }
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #7fd9a3;
+    display: inline-block;
+  }
+
+  h1 {
+    font-weight: 800;
+    font-size: clamp(34px, 5vw, 50px);
+    line-height: 1.12;
+    letter-spacing: -0.02em;
+    margin: 0;
+    color: #f7f8f9;
+  }
+
+  .lede {
+    font-size: 17px;
+    line-height: 1.6;
+    color: #9aa4ae;
+    max-width: 460px;
+    margin: 0;
+  }
+
+  form {
+    margin-top: 8px;
+    width: 100%;
+    max-width: 460px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  input[type='text'],
+  input[type='email'] {
+    flex: 1;
+    min-width: 180px;
+    box-sizing: border-box;
+    padding: 13px 16px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: #141414;
+    font-size: 14.5px;
+    font-family: inherit;
+    color: #f4f6f7;
+    outline: none;
+  }
+  input[type='text']:focus,
+  input[type='email']:focus {
+    border-color: rgba(255, 255, 255, 0.3);
+  }
+
+  .hp {
+    position: absolute;
+    left: -9999px;
+  }
+
+  button[type='submit'],
+  #copy-btn {
+    padding: 13px 20px;
+    border-radius: 8px;
+    border: none;
+    background: #ffffff;
+    color: #0a0a0a;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  button[type='submit']:hover,
+  #copy-btn:hover { background: #dfe3e6; }
+  button:disabled { opacity: 0.6; cursor: default; }
+
+  .fineprint {
+    font-size: 13px;
+    color: #5b636b;
+    margin-top: 2px;
+  }
+  .fineprint.error { color: #e8a3a3; }
+
+  .success {
+    margin-top: 8px;
+    width: 100%;
+    max-width: 460px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    padding: 28px 26px;
+    border-radius: 14px;
+    background: #141414;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .success-title {
+    font-weight: 700;
+    font-size: 20px;
+    color: #f7f8f9;
+  }
+  .success-body {
+    font-size: 14.5px;
+    color: #9aa4ae;
+    text-align: center;
+    line-height: 1.55;
+  }
+  .referral-row {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+  }
+  #referral-link {
+    flex: 1;
+    box-sizing: border-box;
+    padding: 11px 14px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: #0a0a0a;
+    font-size: 13.5px;
+    color: #c7cdd3;
+    font-family: inherit;
+  }
+  #copy-btn {
+    font-size: 13.5px;
+    padding: 11px 18px;
+    white-space: nowrap;
+  }
+
+  footer {
+    position: relative;
+    z-index: 1;
+    padding: 24px 48px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    text-align: center;
+  }
+  footer span {
+    font-size: 13px;
+    color: #5b636b;
+  }
+</style>
+
+<script is:inline define:vars={{ SUPABASE_URL, SUPABASE_ANON_KEY }}>
+  const rpc = (name, body) =>
+    fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      },
+      body: JSON.stringify(body),
+    });
+
+  const nav = document.getElementById('nav');
+  window.addEventListener(
+    'scroll',
+    () => nav.classList.toggle('scrolled', window.scrollY > 8),
+    { passive: true }
+  );
+
+  const WAITLIST_COUNT_THRESHOLD = 50;
+  const badge = document.getElementById('badge');
+  const countLabel = document.getElementById('count-label');
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let displayedCount = 0;
+  function setCount(n) {
+    if (n < WAITLIST_COUNT_THRESHOLD) {
+      badge.hidden = true;
+      return;
+    }
+    badge.hidden = false;
+    // Odometer roll from the last displayed number to the real one — same
+    // number either way, just presented with more weight than a text snap.
+    const from = displayedCount;
+    const to = Number(n);
+    displayedCount = to;
+    if (reduceMotion || from === to) {
+      countLabel.textContent = `${to.toLocaleString()} people have joined the waitlist`;
+      return;
+    }
+    const start = performance.now();
+    const dur = 900;
+    function tick(now) {
+      const p = Math.min(1, (now - start) / dur);
+      const eased = 1 - Math.pow(1 - p, 3);
+      const value = Math.round(from + (to - from) * eased);
+      countLabel.textContent = `${value.toLocaleString()} people have joined the waitlist`;
+      if (p < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+  rpc('rpc_waitlist_count', {})
+    .then((res) => (res.ok ? res.json() : null))
+    .then((n) => n != null && setCount(n))
+    .catch(() => {});
+
+  const refCode = new URLSearchParams(window.location.search).get('ref') || '';
+
+  function referralLinkFor(code) {
+    const url = new URL(window.location.href);
+    url.search = '';
+    url.searchParams.set('ref', code);
+    return url.toString();
+  }
+
+  const form = document.getElementById('form');
+  const statusEl = document.getElementById('form-status');
+  const submitBtn = document.getElementById('submit-btn');
+  const successEl = document.getElementById('success');
+  const successTitle = document.getElementById('success-title');
+  const successBody = document.getElementById('success-body');
+  const referralInput = document.getElementById('referral-link');
+  const copyBtn = document.getElementById('copy-btn');
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    statusEl.textContent = '';
+    statusEl.classList.remove('error');
+    submitBtn.disabled = true;
+
+    const email = document.getElementById('email').value;
+    const company = document.getElementById('company').value;
+    const honeypot = document.getElementById('hp').value;
+
+    try {
+      const res = await rpc('rpc_waitlist_join', {
+        p_email: email,
+        p_company_name: company,
+        p_honeypot: honeypot,
+        p_ref_code: refCode,
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        statusEl.textContent = data.message || 'Something went wrong. Please try again.';
+        statusEl.classList.add('error');
+        submitBtn.disabled = false;
+        return;
+      }
+
+      if (data.count != null) setCount(data.count);
+
+      successTitle.textContent = `You're on the list, ${company}`;
+      successBody.textContent = `We'll reach out at ${email} as spots open. Know a team drowning in tabs and inboxes? Send them your spot.`;
+      referralInput.value = data.referral_code ? referralLinkFor(data.referral_code) : '';
+
+      form.hidden = true;
+      successEl.hidden = false;
+    } catch {
+      statusEl.textContent = 'Something went wrong. Please try again.';
+      statusEl.classList.add('error');
+      submitBtn.disabled = false;
+    }
+  });
+
+  copyBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(referralInput.value);
+      copyBtn.textContent = 'Copied!';
+      setTimeout(() => (copyBtn.textContent = 'Copy link'), 1800);
+    } catch {
+      referralInput.select();
+    }
+  });
+</script>

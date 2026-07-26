@@ -1,43 +1,59 @@
 /*
   TrustFlow marketing site — design tokens.
-  Locked design system: see website/DESIGN_SPEC.md §2–§5. Every value here is
-  decided there; changing one is a design decision, not a default.
+  Locked design system: see the handoff at
+  "website/TrustFlow website design/design_handoff_trustflow_website/README.md".
+  Dark, minimal, near-black theme (high-fidelity, colors/type/spacing final).
 
-  Dark-first (and dark-only): the site matches the app's dark mode. Colors are
-  stored as raw RGB triples so Tailwind's `<alpha-value>` opacity utilities work
-  (e.g. bg-accent/20). Border hairlines are white-on-dark alphas per §2.
+  Colors are stored as raw RGB triples so Tailwind's `<alpha-value>` opacity
+  utilities work (e.g. bg-surface-card/50). Border hairlines are white-on-dark
+  alphas per the handoff spec.
 */
 
 :root {
-  /* ── Color · §2 (RGB triples, consumed via rgba(var(--x), <alpha>)) ── */
-  --bg-base: 8, 13, 24;        /* #080d18 — page background, near-black navy */
-  --bg-raised: 13, 20, 36;     /* #0d1424 — alternating bands / subtle lift  */
-  --surface-card: 15, 23, 42;  /* #0f172a — cards, panels, code blocks       */
+  /* ── Color ── */
+  --bg-base: 10, 10, 10;           /* #0a0a0a — page background            */
+  --surface-card: 20, 20, 20;      /* #141414 — card/panel background      */
+  --surface-elevated: 22, 22, 22;  /* #161616 — elevated/highlighted card  */
 
-  --text-main: 248, 250, 252;  /* #f8fafc — headlines, primary text          */
-  --text-muted: 148, 163, 184; /* #94a3b8 — body copy, subheads (AA on base) */
-  --text-dim: 100, 116, 139;   /* #64748b — eyebrows, captions, footer       */
+  --text-heading: 247, 248, 249;   /* #f7f8f9 — h1/h2/h3, primary headings */
+  --text-main: 244, 246, 247;      /* #f4f6f7 — body copy on dark, nav     */
+  --text-muted: 154, 164, 174;     /* #9aa4ae — secondary body text        */
+  --text-subtle: 138, 148, 160;    /* #8a94a0 — trust strip, footer links  */
+  --text-dim: 111, 121, 130;       /* #6f7982 — eyebrow labels             */
+  --text-faint: 91, 99, 107;       /* #5b636b — fine print, copyright      */
 
-  --accent: 79, 70, 229;       /* #4f46e5 — the one accent hue               */
-  --accent-hover: 99, 102, 241;/* #6366f1 — hover on accent                  */
-  --accent-violet: 124, 58, 237;/* #7c3aed — hero aurora gradient ONLY (§2)  */
-  --on-accent: 255, 255, 255;  /* text/icon on a filled accent surface       */
+  --link: 207, 227, 245;           /* #cfe3f5 — inline text link           */
+  --link-hover: 234, 243, 251;     /* #eaf3fb — inline text link hover     */
+  --cta-arrow: 199, 205, 211;      /* #c7cdd3 — secondary CTA text         */
 
-  /* Hairline borders are white alphas over the dark base (§2). */
+  --accent-green: 127, 217, 163;   /* #7fd9a3 — success/live-badge dot     */
+
+  --on-accent: 10, 10, 10;         /* text on a filled white button        */
+
+  /* Hairline borders are white alphas over the dark base. */
   --border-hairline: rgba(255, 255, 255, 0.08);
   --border-strong: rgba(255, 255, 255, 0.14);
+  --border-emphasis: rgba(255, 255, 255, 0.28);
 
-  /* Ambient hero glow (§9) — indigo, fading to transparent. */
-  --accent-glow: rgba(79, 70, 229, 0.35);
+  /* Mockup glow layers (3-layer treatment, see handoff README "Effects"). */
+  --glow-ambient: rgba(180, 195, 215, 0.22);
+  --glow-mid: rgba(215, 228, 242, 0.17);
+  --glow-contact: rgba(0, 0, 0, 0.68);
 
-  /* ── Radius · §5 ── */
-  --radius-card: 1rem;      /* 16px — cards & screenshot frames */
-  --radius-button: 0.75rem; /* 12px — buttons                   */
-  --radius-input: 0.5rem;   /* 8px  — inputs                    */
+  /* ── Radius ── */
+  --radius-card: 1.125rem;   /* 18px — cards & panels (14–20px range) */
+  --radius-button: 0.5rem;   /* 8px  — buttons (7–8px range)          */
+  --radius-pill: 1.25rem;    /* 20px — pill badges/tags               */
 
-  /* ── Type · §3 ── */
+  /* ── Motion ── one easing curve, used everywhere, instead of default
+     browser easing — this is most of the gap between "template" and
+     "premium" feel. Tuned expo-out: fast start, long soft settle. */
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* ── Type ── */
   --font-sans: 'Inter Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI',
     Roboto, sans-serif;
+  --font-heading: 'Inter Tight Variable', var(--font-sans);
   --font-mono: ui-monospace, 'JetBrains Mono', 'SFMono-Regular', Menlo,
     monospace;
 }

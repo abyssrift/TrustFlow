@@ -2,14 +2,12 @@ import { usePipelineEditor } from '@/contexts/PipelineEditorContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { FontAwesome } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { ActivityIndicator, Platform, ScrollView, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Popup from '@/components/common/Popup';
 import { resolveNativeColorToken } from './colorCompat';
 
 export default function TransitionEditor() {
   const colors = useThemeColors();
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 1024;
   const {
     stages, transitions, permissions, loading, error,
     addTransition, updateTransition, deleteTransition,
@@ -132,8 +130,10 @@ export default function TransitionEditor() {
           visible={showAdd}
           onClose={() => { setShowAdd(false); resetForm(); }}
           maxHeight="90%"
-          presentation={isDesktop ? 'centered' : 'sheet'}
-          containerClassName="w-[95%] max-w-[540px] max-h-[90vh] rounded-3xl overflow-hidden premium-shadow"
+          presentation="auto"
+          desktopBreakpoint={1024}
+          maxWidth={540}
+          containerClassName="w-[95%] max-h-[90vh] rounded-3xl overflow-hidden premium-shadow"
         >
           <View className="px-6 py-4 border-b border-surface-border flex-row items-center justify-between">
             <Text className="text-typography-main font-black uppercase tracking-widest text-xs">New Transition</Text>

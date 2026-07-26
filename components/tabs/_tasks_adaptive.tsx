@@ -2,6 +2,8 @@ import AnimatedTaskCard from '@/components/common/AnimatedTaskCard';
 import ConfirmModal from '@/components/common/ConfirmModal';
 import HorizontalScroll from '@/components/common/HorizontalScroll';
 import LinkifiedText from '@/components/common/LinkifiedText';
+import LoadingOverlay from '@/components/common/LoadingOverlay';
+import Popup from '@/components/common/Popup';
 import KanbanPersonalizer from '@/components/kanban/KanbanPersonalizer';
 import SkeletonBlock, { SkeletonList } from '@/components/Skeleton';
 import ActiveSessionAvatars from '@/components/task-detail/ActiveSessionAvatars';
@@ -9,7 +11,7 @@ import TaskCardActions, { type ActiveSessionUser } from '@/components/task-detai
 import { boardCacheMeta, prefetchOtherBoards, taskCache, type BoardSnapshot, TASK_SORT_OPTIONS, compareTasksBySortKey, type TaskSortKey } from '@/components/tabs/taskBoardCache';
 import TaskPingButton from '@/components/task-detail/TaskPingButton';
 import AssignmentModal from '@/components/tasks/AssignmentModal';
-import CreateTaskSheet from '@/components/tasks/CreateTaskSheet';
+import CreateTaskModal from '@/components/tasks/CreateTaskModal';
 import TaskMobilityModal from '@/components/tasks/TaskMobilityModal';
 import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -1299,20 +1301,7 @@ function TasksScreen() {
         : <View style={{ height: TAB_BAR_HEIGHT.native }} />}
 
       {/* BOARD SWITCH OVERLAY — shown while an uncached board loads (cached boards swap instantly) */}
-      {switchingBoard && (
-        <View
-          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, elevation: 100,
-            alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.35)' }}
-        >
-          <View
-            style={{ backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }}
-            className="flex-row items-center gap-3 px-6 py-4 rounded-2xl premium-shadow"
-          >
-            <ActivityIndicator size="small" color={colors.primary} />
-            <Text className="text-typography-main font-bold text-sm">Switching board…</Text>
-          </View>
-        </View>
-      )}
+      <LoadingOverlay visible={switchingBoard} message="Switching board…" />
 
       {/* KANBAN BACKGROUND LAYER */}
       {kanban.backgroundUrl && (
@@ -1529,9 +1518,17 @@ function TasksScreen() {
       )}
 
       {/* PIPELINE PICKER MODAL */}
-      {showPipelinePicker && (
-         <View className="absolute inset-0 bg-surface-background/80 z-50 items-center justify-center px-6">
-            <View className="bg-surface-card w-full rounded-3xl border border-surface-border p-5 max-h-[80%]">
+      <Popup
+        visible={showPipelinePicker}
+        onClose={() => setShowPipelinePicker(false)}
+        presentation="auto"
+        dismissible={false}
+        scrollable={false}
+        maxWidth={480}
+        maxHeight="80%"
+        containerClassName="w-[92%] rounded-3xl"
+      >
+              <View className="p-5">
                 <View className="flex-row items-center justify-between mb-4">
                   <Text className="text-typography-main font-black text-2xl tracking-tighter">Switch Board</Text>
                   <TouchableOpacity onPress={() => setShowPipelinePicker(false)} hitSlop={8}>
@@ -1627,9 +1624,8 @@ function TasksScreen() {
                 <TouchableOpacity onPress={() => setShowPipelinePicker(false)} className="mt-4 pt-4 items-center">
                    <Text className="text-typography-muted font-bold">Cancel</Text>
                 </TouchableOpacity>
-            </View>
-         </View>
-      )}
+              </View>
+      </Popup>
 
       {/* ASSIGNMENT MODAL */}
       {selectedTask && (
@@ -1817,7 +1813,7 @@ function TasksScreen() {
         </TouchableOpacity>
       )}
 
-      <CreateTaskSheet
+      <CreateTaskModal
         visible={showCreateSheet}
         initialPipelineId={pipeline?.id}
         onClose={() => {

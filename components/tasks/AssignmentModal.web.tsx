@@ -11,8 +11,8 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  useWindowDimensions,
-  View
+  View,
+  useWindowDimensions
 } from 'react-native';
 
 interface AssignmentModalProps {
@@ -42,10 +42,11 @@ export default function AssignmentModal({
   const [selectedIds, setSelectedIds] = useState(initialSelectedIds);
   const [teamSearch, setTeamSearch] = useState('');
   const [userSearch, setUserSearch] = useState('');
+  const [mobileTab, setMobileTab] = useState<'teams' | 'users'>('teams');
   const colors = useThemeColors();
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 768;
   const { showAlert } = useAlert();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 1024;
 
   const { user: currentUser, profile } = useAuth();
 
@@ -172,10 +173,11 @@ export default function AssignmentModal({
       onClose={onClose}
       dimBackdrop
       maxHeight="90%"
-      presentation={isDesktop ? 'centered' : 'sheet'}
-      containerClassName="w-[95%] max-w-4xl max-h-[90vh] rounded-[2.5rem] overflow-hidden premium-shadow-lg"
+      presentation="auto"
+      maxWidth={896}
+      containerClassName="w-[95%] max-h-[90vh] rounded-[2.5rem] overflow-hidden premium-shadow-lg"
     >
-      <View className="bg-surface-card w-full max-w-4xl rounded-[2.5rem] border border-surface-border overflow-hidden premium-shadow-lg flex-col max-h-[90vh]">
+      <View className="bg-surface-card w-full rounded-[2.5rem] border border-surface-border overflow-hidden premium-shadow-lg flex-col max-h-[90vh]" style={{ maxWidth: 896 }}>
         
         {/* HEADER */}
         <View className="p-8 border-b border-surface-border flex-row items-center justify-between bg-surface-card/80">
@@ -200,10 +202,32 @@ export default function AssignmentModal({
             <Text className="text-typography-muted font-bold mt-4 uppercase tracking-widest text-[10px]">Synchronizing Registry...</Text>
           </View>
         ) : (
-          <View className="flex-1 flex-row">
-            
+          <View className="flex-1 flex-col">
+            {!isDesktop && (
+              <View className="flex-row border-b border-surface-border px-6 pt-4 gap-2">
+                <TouchableOpacity
+                  onPress={() => setMobileTab('teams')}
+                  className={`flex-1 py-3 rounded-t-xl items-center border-b-2 ${mobileTab === 'teams' ? 'border-brand-primary' : 'border-transparent'}`}
+                >
+                  <Text className={`font-black text-xs uppercase tracking-widest ${mobileTab === 'teams' ? 'text-brand-primary' : 'text-typography-muted'}`}>
+                    Teams ({filteredTeams.length})
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setMobileTab('users')}
+                  className={`flex-1 py-3 rounded-t-xl items-center border-b-2 ${mobileTab === 'users' ? 'border-brand-primary' : 'border-transparent'}`}
+                >
+                  <Text className={`font-black text-xs uppercase tracking-widest ${mobileTab === 'users' ? 'text-brand-primary' : 'text-typography-muted'}`}>
+                    Individuals ({filteredUsers.length})
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            <View className="flex-1 flex-row">
+
             {/* TEAMS SECTION */}
-            <View className="flex-1 border-r border-surface-border p-6 flex-col">
+            {(isDesktop || mobileTab === 'teams') && (
+            <View className={`flex-1 p-6 flex-col ${isDesktop ? 'border-r border-surface-border' : ''}`}>
               <View className="mb-6">
                 <Text className="text-typography-dim text-[10px] font-black uppercase tracking-[0.2em] mb-4 ml-1">Tactical Teams ({filteredTeams.length})</Text>
                 <View className="relative">
@@ -282,8 +306,10 @@ export default function AssignmentModal({
                 </View>
               </ScrollView>
             </View>
+            )}
 
             {/* INDIVIDUALS SECTION */}
+            {(isDesktop || mobileTab === 'users') && (
             <View className="flex-1 p-6 flex-col">
               <View className="mb-6">
                 <Text className="text-typography-dim text-[10px] font-black uppercase tracking-[0.2em] mb-4 ml-1">Individual Agents ({filteredUsers.length})</Text>
@@ -351,6 +377,8 @@ export default function AssignmentModal({
                   )}
                 </View>
               </ScrollView>
+            </View>
+            )}
             </View>
           </View>
         )}

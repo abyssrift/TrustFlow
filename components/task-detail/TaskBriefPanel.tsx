@@ -9,13 +9,13 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Platform, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Animated, Image, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import Popup from '@/components/common/Popup';
 import ImageLightbox from '@/components/common/ImageLightbox';
 import { FilePreviewModal, getPreviewKind, type PreviewKind } from '@/components/common/FilePreview';
 import UserLink from '@/components/common/UserLink';
 import CollapsibleCard from './CollapsibleCard';
-import { useFileDrop } from '@/hooks/useWebDnd';
+import { useDropPulse, useFileDrop } from '@/hooks/useWebDnd';
 import { fileToStaged } from '@/lib/pasteImage';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -190,8 +190,6 @@ export default function TaskBriefPanel() {
   const { user } = useAuth();
   const { showConfirm } = useAlert();
   const colors = useThemeColors();
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 768;
   const [uploading, setUploading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
@@ -295,6 +293,7 @@ export default function TaskBriefPanel() {
     (files) => uploadFiles(files.map(fileToStaged)),
     canUpload && !uploading,
   );
+  const { glowOpacity: briefDropGlow } = useDropPulse(briefDropOver);
 
   // ── Feature D handlers ───────────────────────────────────────────────────
 
@@ -470,8 +469,15 @@ export default function TaskBriefPanel() {
       <View
         ref={briefDropRef}
         className="rounded-xl"
-        style={briefDropOver ? { borderWidth: 2, borderStyle: 'dashed', borderColor: colors.primary, backgroundColor: colors.primary + '0d' } : undefined}
+        style={briefDropOver ? { backgroundColor: colors.primary + '0d' } : undefined}
       >
+      {briefDropOver && (
+        <Animated.View
+          pointerEvents="none"
+          className="absolute inset-0 rounded-xl border-2"
+          style={{ borderStyle: 'dashed', borderColor: colors.primary, opacity: briefDropGlow }}
+        />
+      )}
       {errorMsg && <View className="bg-state-danger/10 border border-state-danger/30 rounded-xl p-3 mb-3"><Text className="text-state-danger text-xs">{errorMsg}</Text></View>}
 
       {hasFiles && (
@@ -596,7 +602,7 @@ export default function TaskBriefPanel() {
 
       {/* Feature D: version history sheet — newest first, restore = pointer move.
           Inline colors on purpose — theme-token classes go black inside RN Modal on web. */}
-      <Popup visible={!!historyFor} onClose={() => setHistoryFor(null)} dimBackdrop presentation={isDesktop ? 'centered' : 'sheet'}>
+      <Popup visible={!!historyFor} onClose={() => setHistoryFor(null)} dimBackdrop presentation="auto">
         <ScrollView className="px-6 pt-6 pb-10">
           <Text style={{ color: colors.textMain, fontSize: 18, fontWeight: '900', marginBottom: 4 }}>Version History</Text>
           {historyFor && (

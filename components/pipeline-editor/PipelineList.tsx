@@ -1,3 +1,4 @@
+import Popup from '@/components/common/Popup';
 import { useAuth } from '@/contexts/AuthContext';
 import { Pipeline, usePipelineEditor } from '@/contexts/PipelineEditorContext';
 import { usePipelineLimit } from '@/hooks/usePipelineLimit';
@@ -298,9 +299,16 @@ export default function PipelineList() {
       </ScrollView>
 
       {/* Create Modal */}
-      {showCreate && (
-        <View className="absolute inset-0 bg-black/70 items-center justify-center px-6" style={{ zIndex: 1000 }}>
-          <View className="bg-surface-card w-full max-w-lg rounded-[32px] border border-surface-border p-8 premium-shadow">
+      <Popup
+        visible={showCreate}
+        onClose={() => { setShowCreate(false); setIsQuickCreate(true); }}
+        presentation="auto"
+        dismissible={false}
+        scrollable={false}
+        maxWidth={512}
+        containerClassName="w-[92%] rounded-[32px] premium-shadow"
+      >
+          <View className="p-8">
             <Text className="text-typography-main font-black text-2xl mb-2">New Pipeline</Text>
             <Text className="text-typography-muted text-sm mb-6 leading-5">
               Design a workflow template. You can use our presets to get started faster.
@@ -308,7 +316,7 @@ export default function PipelineList() {
 
             <ScrollView showsVerticalScrollIndicator={false} className="max-h-[70vh]">
                {/* Quick Create Toggle */}
-               <TouchableOpacity 
+               <TouchableOpacity
                   onPress={() => setIsQuickCreate(!isQuickCreate)}
                   className={`flex-row items-center p-4 rounded-2xl border mb-6 ${isQuickCreate ? 'bg-brand-primary/5 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}
                >
@@ -323,7 +331,7 @@ export default function PipelineList() {
                   </View>
                </TouchableOpacity>
 
-               <PipelineSettingsForm 
+               <PipelineSettingsForm
                   roles={roles}
                   onSubmit={handleCreate}
                   onCancel={() => { setShowCreate(false); setIsQuickCreate(true); }}
@@ -332,8 +340,7 @@ export default function PipelineList() {
                 />
             </ScrollView>
           </View>
-        </View>
-      )}
+      </Popup>
     </View>
   );
 }

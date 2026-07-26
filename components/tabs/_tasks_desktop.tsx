@@ -1,6 +1,9 @@
 import AnimatedTaskCard from '@/components/common/AnimatedTaskCard';
+import { useStageTransitionFX, StageTrailLayer } from '@/components/tabs/StageTransitionFX';
 import KanbanPersonalizer from '@/components/kanban/KanbanPersonalizer';
 import LinkifiedText from '@/components/common/LinkifiedText';
+import LoadingOverlay from '@/components/common/LoadingOverlay';
+import Popup from '@/components/common/Popup';
 import RightSidebar from '@/components/kanban/RightSidebar.web';
 import ActiveSessionAvatars from '@/components/task-detail/ActiveSessionAvatars';
 import TaskCardActions, { type ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
@@ -317,6 +320,7 @@ export function TasksScreenWeb() {
   const [boardWidth, setBoardWidth] = useState(0);
   const boardWidthRef = useRef(0);
   const boardContainerRef = useRef<View>(null);
+  const stageFX = useStageTransitionFX(boardContainerRef, colors.primary);
 
   // Wait out the 300ms width transition before mounting the wrap-grid layout —
   // reflowing every card on each animation frame while the column resizes is what was dropping frames.
@@ -1151,13 +1155,24 @@ export function TasksScreenWeb() {
 
     const pingedAt = pingedTasks.get(task.id);
     const isPinged = pingedAt !== undefined;
+    // If this card just arrived from a different stage column, FLIP it in
+    // from where it used to be instead of only fading in place, and fire
+    // the connector trail once.
+    const stageTransition = stageFX.peekTransition(task.id, task.current_stage_id);
     return (
-      <AnimatedTaskCard key={task.id} disableLayoutAnimation={boardTransitioning}>
+      <AnimatedTaskCard
+        key={task.id}
+        disableLayoutAnimation={boardTransitioning}
+        flipFrom={stageTransition?.flipFrom}
+        onFlipMount={() => stageFX.commitMount(task.id, task.current_stage_id, stageTransition?.fromStageId ?? null)}
+      >
       <TouchableOpacity
         onPress={() => {
           if (isPinged) removePingedTask(task.id);
           router.push(`/task/${task.id}`);
         }}
+        // @ts-ignore - web-only hook for StageTransitionFX to find/measure this card
+        dataSet={Platform.OS === 'web' ? { stageCardId: task.id } : undefined}
         className="bg-surface-card p-5 rounded-2xl mb-4 premium-shadow hover:border-brand-primary/50 hover:z-50 transition-all relative"
         style={isPinged ? {
           borderWidth: 1.5,
@@ -1288,20 +1303,7 @@ export function TasksScreenWeb() {
   return (
     <View className="flex-1 bg-surface-background">
       {/* BOARD SWITCH OVERLAY — shown while an uncached board loads (warmed boards swap instantly) */}
-      {switchingBoard && (
-        <View
-          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, elevation: 100,
-            alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.35)' }}
-        >
-          <View
-            style={{ backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }}
-            className="flex-row items-center gap-3 px-6 py-4 rounded-2xl premium-shadow"
-          >
-            <ActivityIndicator size="small" color={colors.primary} />
-            <Text className="text-typography-main font-bold text-sm">Switching board…</Text>
-          </View>
-        </View>
-      )}
+      <LoadingOverlay visible={switchingBoard} message="Switching board…" />
 
       {/* BACKGROUND LAYER */}
       {kanban.backgroundUrl && (
@@ -1714,6 +1716,7 @@ export function TasksScreenWeb() {
                 return (
                   <View
                     key={stage.id}
+                    ref={(el) => stageFX.registerColumn(stage.id, el)}
                     className="h-full transition-[width,margin-right,opacity] duration-300 ease-in-out"
                     style={{
                       width: isFullscreen ? (boardWidth || undefined) : isHiddenByFullscreen ? 0 : 380,
@@ -1777,15 +1780,21 @@ export function TasksScreenWeb() {
                 );
               })}
             </ScrollView>
+            <StageTrailLayer trails={stageFX.trails} color={stageFX.glowColor} />
             </View>
           )}
         </View>
       </View>
 
       {/* PIPELINE PICKER - SMART BOARD SELECTOR */}
-      {showPipelinePicker && (
-         <View className="absolute inset-0 bg-surface-background/80 z-[100] items-center justify-center backdrop-blur-md p-6">
-            <View className="bg-surface-card w-full max-w-[1200px] rounded-[3rem] border border-surface-border p-10 premium-shadow max-h-[90vh] overflow-hidden flex flex-col">
+      <Popup
+        visible={showPipelinePicker}
+        onClose={() => { setShowPipelinePicker(false); setBoardPickerSearchQuery(''); }}
+        presentation="centered"
+        dismissible={false}
+        maxWidth={1200}
+        containerClassName="rounded-[3rem] p-10 premium-shadow max-h-[90vh] overflow-hidden flex flex-col"
+      >
                 <View className="mb-6 flex-row items-start justify-between">
                   <View>
                     <Text className="text-typography-main font-black text-3xl mb-2 tracking-tighter">Switch Board</Text>
@@ -2017,9 +2026,7 @@ export function TasksScreenWeb() {
                 }} className="mt-4 py-4 items-center bg-surface-background border border-surface-border rounded-2xl hover:border-brand-primary/30 transition-colors">
                    <Text className="text-typography-muted font-black uppercase tracking-widest text-xs">Close</Text>
                 </TouchableOpacity>
-            </View>
-         </View>
-      )}
+      </Popup>
 
       {/* ASSIGNMENT MODAL */}
       {selectedTask && (

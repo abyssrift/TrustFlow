@@ -7,8 +7,9 @@ import * as Clipboard from 'expo-clipboard';
 import { useFileSizeLimit } from '@/hooks/useFileSizeLimit';
 import { useImageLightbox } from '@/hooks/useImageLightbox';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { useDragSource, useDropTarget, useFileDrop, useMarqueeSelect } from '@/hooks/useWebDnd';
+import { useDragSource, useDropPulse, useDropTarget, useFileDrop, useMarqueeSelect } from '@/hooks/useWebDnd';
 import { FilePreviewModal, FilePreviewTeaser, getPreviewKind, type PreviewKind } from './../common/FilePreview';
+import Popup from '../common/Popup';
 import UserLink from '../common/UserLink';
 import FileHubAnalytics from './FileHubAnalytics';
 import FileHubBin from './FileHubBin';
@@ -25,7 +26,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Animated,
-  Easing,
   Image,
   Modal,
   Platform,
@@ -345,33 +345,11 @@ function UploadModal({
   const job = useUploadJob(launchedJobId);
   const uploading = launchedJobId !== null;
   const { height: winHeight } = useWindowDimensions();
-  const morph = useRef(new Animated.Value(0)).current; // 0 = modal, 1 = collapsed into island
-  const [morphing, setMorphing] = useState(false);
 
-  // Fly the card up toward the island (top-center), shrinking + fading, then
-  // actually close. Used for every dismissal once an upload is in flight.
-  const morphToIsland = useCallback(() => {
-    if (morphing) return;
-    setMorphing(true);
-    Animated.timing(morph, {
-      toValue: 1,
-      duration: 420,
-      easing: Easing.bezier(0.4, 0, 0.2, 1),
-      useNativeDriver: false, // RNW Animated has no native driver; false avoids the warn
-    }).start(() => {
-      morph.setValue(0);
-      setMorphing(false);
-      setLaunchedJobId(null);
-      onClose();
-    });
-  }, [morph, morphing, onClose]);
-
-  // Dismiss handler: after an upload has started, morph into the island; before
-  // that there's nothing to track, so just close.
-  const handleDismiss = useCallback(() => {
-    if (uploading) morphToIsland();
-    else onClose();
-  }, [uploading, morphToIsland, onClose]);
+  // The upload job runs in the background UploadManager/IslandContext regardless
+  // of whether this modal is open — closing it (even instantly, no transition)
+  // doesn't stop the job or hide its progress in the topbar island.
+  const handleDismiss = onClose;
 
   const patch = (updates: Partial<UploadDraft>) => setDraft(prev => ({ ...prev, ...updates }));
 
@@ -477,6 +455,20 @@ function UploadModal({
     e.target.value = '';
   };
 
+  // The screen-level useFileDrop (in the FileHub browser) only fires before this
+  // modal is open — it seeds initialFiles and opens the composer. Once open, the
+  // modal sits in front of that drop zone, so dropping more files onto it needs
+  // its own listener; otherwise the OS drop target dies the moment the modal appears.
+  const { ref: modalDropRef, isOver: modalDropOver } = useFileDrop(
+    (files) => {
+      const valid = processWebFiles(files as any);
+      if (valid.length) setDraft(prev => ({ ...prev, files: [...prev.files, ...valid] }));
+    },
+    visible && !uploading,
+  );
+
+  const { iconScale: dropIconScale, glowOpacity: dropGlowOpacity } = useDropPulse(modalDropOver);
+
   // The upload engine (worker pool, dup/conflict handling, per-file commit,
   // progress, ETA, cancel) lives in UploadManagerContext so the job survives
   // this modal closing. We hand off the draft and switch the modal to its live
@@ -516,20 +508,33 @@ function UploadModal({
   const canBroadcast = hasPermission('filehub:broadcast');
   const colors = useThemeColors();
 
-  // Morph transforms: shrink + fly the card up toward the island (top-center).
-  const cardScale = morph.interpolate({ inputRange: [0, 1], outputRange: [1, 0.12] });
-  const cardTranslateY = morph.interpolate({ inputRange: [0, 1], outputRange: [0, -(winHeight / 2 - 36)] });
-  const cardOpacity = morph.interpolate({ inputRange: [0, 0.65, 1], outputRange: [1, 0.2, 0] });
-  const backdropOpacity = morph.interpolate({ inputRange: [0, 1], outputRange: [1, 0] });
-
   return (
     <>
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleDismiss}>
-      <Animated.View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, backgroundColor: 'rgba(0,0,0,0.4)', opacity: backdropOpacity }}>
-        <Animated.View
-          style={{ width: '100%', maxWidth: uploading ? 560 : 900, maxHeight: '100%', opacity: cardOpacity, transform: [{ translateY: cardTranslateY }, { scale: cardScale }] }}
+    <Popup
+      visible={visible}
+      onClose={handleDismiss}
+      presentation="centered"
+      maxWidth={uploading ? 560 : 900}
+      maxHeight="90%"
+      containerClassName="rounded-[2rem] premium-shadow"
+      containerStyle={{
+        backgroundColor: colors.card,
+        borderWidth: modalDropOver ? 2 : 1,
+        borderColor: modalDropOver ? colors.primary : colors.border,
+      }}
+      scrollable={false}
+    >
+        <View
+          ref={modalDropRef}
+          style={{ maxHeight: '100%' }}
         >
-        <View className="rounded-[2rem] border premium-shadow w-full" style={{ maxHeight: '100%', backgroundColor: colors.card, borderColor: colors.border }}>
+          {modalDropOver && (
+            <Animated.View
+              pointerEvents="none"
+              className="absolute inset-0 rounded-[2rem] border-2"
+              style={{ borderColor: colors.primary, opacity: dropGlowOpacity }}
+            />
+          )}
           <View className="flex-row items-center justify-between px-8 pt-7 pb-5 border-b" style={{ borderColor: colors.border }}>
             <Text className="text-xl font-black tracking-tight" style={{ color: colors.textMain }}>
               {uploading ? 'Uploading' : activeGroup ? `Upload to ${activeGroup.name}` : 'Upload Files'}
@@ -537,7 +542,7 @@ function UploadModal({
             <View className="flex-row items-center gap-2">
               {uploading && (
                 <TouchableOpacity
-                  onPress={morphToIsland}
+                  onPress={handleDismiss}
                   className="flex-row items-center gap-2 h-8 px-3 rounded-xl border"
                   style={{ backgroundColor: colors.background, borderColor: colors.border }}
                 >
@@ -556,7 +561,7 @@ function UploadModal({
               job={job}
               fileCount={draft.files.length}
               totalBytes={totalDraftBytes}
-              onMinimize={morphToIsland}
+              onMinimize={handleDismiss}
               onCancel={() => { if (launchedJobId) cancelUpload(launchedJobId); }}
               onDone={() => { setLaunchedJobId(null); onClose(); }}
             />
@@ -574,13 +579,25 @@ function UploadModal({
 
             {/* File picker area */}
             {draft.files.length === 0 ? (
-              <View className="border-2 border-dashed rounded-2xl items-center justify-center py-10 px-6 gap-4" style={{ borderColor: colors.border }}>
-                <View className="w-14 h-14 rounded-2xl border items-center justify-center" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
-                  <FontAwesome name="cloud-upload" size={24} color={colors.textMuted} />
-                </View>
+              <View
+                className="border-2 border-dashed rounded-2xl items-center justify-center py-10 px-6 gap-4"
+                style={{ borderColor: modalDropOver ? colors.primary : colors.border, backgroundColor: modalDropOver ? colors.primary + '0d' : 'transparent' }}
+              >
+                <Animated.View
+                  className="w-14 h-14 rounded-2xl border items-center justify-center"
+                  style={{
+                    backgroundColor: colors.background,
+                    borderColor: modalDropOver ? colors.primary : colors.border,
+                    transform: [{ scale: dropIconScale }],
+                  }}
+                >
+                  <FontAwesome name="cloud-upload" size={24} color={modalDropOver ? colors.primary : colors.textMuted} />
+                </Animated.View>
                 <View className="items-center gap-1">
-                  <Text className="font-bold text-sm" style={{ color: colors.textMain }}>Choose files to upload</Text>
-                  <Text className="text-xs" style={{ color: colors.textMuted }}>Up to 500 MB per file</Text>
+                  <Text className="font-bold text-sm" style={{ color: modalDropOver ? colors.primary : colors.textMain }}>
+                    {modalDropOver ? 'Release to add files' : 'Drag and drop files here'}
+                  </Text>
+                  <Text className="text-xs" style={{ color: colors.textMuted }}>or choose below · up to 500 MB per file</Text>
                 </View>
                 <View className="flex-row gap-3">
                   <TouchableOpacity
@@ -820,9 +837,7 @@ function UploadModal({
           </>
           )}
         </View>
-        </Animated.View>
-      </Animated.View>
-    </Modal>
+    </Popup>
     </>
   );
 }
@@ -830,7 +845,8 @@ function UploadModal({
 // ─── Upload Progress Panel (in-modal live view) ───────────────────────────────
 // Shown once Upload is clicked. Reads the live job snapshot from the background
 // UploadManager (same job that drives the island) so this view and the island
-// never disagree. Minimizing morphs the whole card up into the island.
+// never disagree. Minimizing closes the modal directly — the job (and the
+// island's own progress display) keep running in UploadManagerContext regardless.
 
 function UploadProgressPanel({
   job, fileCount, totalBytes, onMinimize, onCancel, onDone,
@@ -1015,15 +1031,13 @@ function GroupCreateModal({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View className="flex-1 bg-black/40 items-center justify-center p-8">
-        <View className="rounded-[2rem] border premium-shadow w-full max-w-[480px]" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
-          <View className="flex-row items-center justify-between px-8 pt-7 pb-5 border-b" style={{ borderColor: colors.border }}>
+    <Popup visible={visible} onClose={onClose} presentation="centered" maxWidth={480} scrollable={false} containerClassName="rounded-[2rem] premium-shadow">
+        <View className="flex-row items-center justify-between px-8 pt-7 pb-5 border-b" style={{ borderColor: colors.border }}>
             <Text className="text-xl font-black" style={{ color: colors.textMain }}>New Channel</Text>
             <TouchableOpacity onPress={onClose} className="w-8 h-8 items-center justify-center rounded-xl border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
               <FontAwesome name="times" size={12} color={colors.textMuted} />
             </TouchableOpacity>
-          </View>
+        </View>
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 32, gap: 20 }}>
             {/* Avatar preview + color picker */}
@@ -1138,9 +1152,7 @@ function GroupCreateModal({
               </TouchableOpacity>
             </View>
           </ScrollView>
-        </View>
-      </View>
-    </Modal>
+    </Popup>
   );
 }
 
@@ -1684,6 +1696,7 @@ function DetailPanel({
   const [pinningId, setPinningId] = useState<string | null>(null);
   const [showShareLink, setShowShareLink] = useState(false);
     const colors = useThemeColors();
+    const { width: screenWidth, height: screenHeight } = useWindowDimensions();
 
   const hasVersionHistory = !!(file?.version_count && file.version_count > 1);
 
@@ -2180,17 +2193,26 @@ function DetailPanel({
       />
     )}
     {versionPreview && versionPreview.kind === 'image' && (
-      <Modal visible transparent animationType="fade" onRequestClose={() => setVersionPreview(null)}>
-        <View className="flex-1 items-center justify-center p-6" style={{ backgroundColor: 'rgba(0,0,0,0.85)' }}>
-          <View className="absolute top-6 left-0 right-0 items-center">
+      <Popup
+        visible
+        onClose={() => setVersionPreview(null)}
+        presentation="centered"
+        maxWidth={Math.round(screenWidth * 0.9)}
+        maxHeight={Math.round(screenHeight * 0.85)}
+        scrollable={false}
+        containerClassName=""
+        containerStyle={{ backgroundColor: 'transparent', borderWidth: 0 }}
+      >
+        <View style={{ width: Math.round(screenWidth * 0.9), height: Math.round(screenHeight * 0.85), alignItems: 'center', justifyContent: 'center' }}>
+          <View className="absolute top-0 left-0 right-0 items-center">
             <Text className="text-white font-black text-sm">{`${versionPreview.name} (v${versionPreview.versionNo})`}</Text>
           </View>
-          <Image source={{ uri: versionPreview.uri }} style={{ width: '90%', height: '85%' }} resizeMode="contain" />
-          <TouchableOpacity onPress={() => setVersionPreview(null)} className="absolute top-5 right-6 w-11 h-11 rounded-full items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}>
+          <Image source={{ uri: versionPreview.uri }} style={{ width: '100%', height: '100%' }} resizeMode="contain" />
+          <TouchableOpacity onPress={() => setVersionPreview(null)} className="absolute -top-1 right-0 w-11 h-11 rounded-full items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}>
             <FontAwesome name="times" size={20} color="#fff" />
           </TouchableOpacity>
         </View>
-      </Modal>
+      </Popup>
     )}
     {versionPreview && versionPreview.kind !== 'image' && (
       <FilePreviewModal
@@ -2275,9 +2297,7 @@ function ShareLinkModal({ visible, fileId, folderId, fileName, onClose }: {
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View className="flex-1 bg-black/50 items-center justify-center p-6">
-        <View className="rounded-2xl border w-full max-w-md" style={{ maxHeight: '75%', backgroundColor: colors.card, borderColor: colors.border }}>
+    <Popup visible={visible} onClose={onClose} presentation="centered" maxWidth={448} maxHeight="75%" scrollable={false} containerClassName="rounded-2xl">
           <View className="flex-row items-center justify-between px-6 py-4 border-b" style={{ borderColor: colors.border }}>
             <View className="flex-row items-center gap-2 flex-1 min-w-0">
               <FontAwesome name="link" size={14} color={colors.primary} />
@@ -2350,9 +2370,7 @@ function ShareLinkModal({ visible, fileId, folderId, fileName, onClose }: {
               ))
             )}
           </ScrollView>
-        </View>
-      </View>
-    </Modal>
+    </Popup>
   );
 }
 
@@ -2650,9 +2668,7 @@ function TagsManageModal({ visible, onClose, onChanged }: {
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View className="flex-1 bg-black/50 items-center justify-center p-6">
-        <View className="rounded-2xl border w-full max-w-md" style={{ maxHeight: '70%', backgroundColor: colors.card, borderColor: colors.border }}>
+    <Popup visible={visible} onClose={onClose} presentation="centered" maxWidth={448} maxHeight="70%" scrollable={false} containerClassName="rounded-2xl">
           <View className="flex-row items-center justify-between px-6 py-4 border-b" style={{ borderColor: colors.border }}>
             <View className="flex-row items-center gap-2">
               <FontAwesome name="tags" size={14} color={colors.primary} />
@@ -2736,9 +2752,7 @@ function TagsManageModal({ visible, onClose, onChanged }: {
               <View style={{ height: 12 }} />
             </ScrollView>
           )}
-        </View>
-      </View>
-    </Modal>
+    </Popup>
   );
 }
 
@@ -3201,6 +3215,7 @@ function FileHubDesktopInner() {
     (files) => { setDroppedFiles(files); setShowUpload(true); },
     canUpload,
   );
+  const { iconScale: fileDropIconScale } = useDropPulse(fileDropOver);
 
   return (
     <View ref={fileDropRef} className="flex-1 bg-surface-background flex-col">
@@ -3212,7 +3227,9 @@ function FileHubDesktopInner() {
           style={{ borderColor: colors.primary, backgroundColor: colors.primary + '14' }}
         >
           <View className="items-center gap-3 px-8 py-6 rounded-3xl" style={{ backgroundColor: colors.card }}>
-            <FontAwesome name="cloud-upload" size={28} color={colors.primary} />
+            <Animated.View style={{ transform: [{ scale: fileDropIconScale }] }}>
+              <FontAwesome name="cloud-upload" size={28} color={colors.primary} />
+            </Animated.View>
             <Text className="font-black text-base" style={{ color: colors.textMain }}>
               Drop to upload{selectedFolderId ? ` to ${folders.find(f => f.id === selectedFolderId)?.name ?? 'this folder'}` : ''}
             </Text>

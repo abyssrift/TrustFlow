@@ -1,5 +1,5 @@
-import Popup from '@/components/common/Popup';
 import PendingTimeApprovalsWidget from '@/components/common/PendingTimeApprovalsWidget';
+import Popup from '@/components/common/Popup';
 import PipelineOverviewChartNative, { DEFAULT_OVERVIEW_METRICS, OverviewMetricKey } from '@/components/intelligence/PipelineOverviewChartNative';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '@/contexts/NotificationsContext';
@@ -54,7 +54,7 @@ type ActivityEntry = {
 
 const getGreeting = (): string => {
   const hour = new Date().getHours();
-  if (hour < 12) return 'morning';
+  if (hour < 12) return 'Morning';
   if (hour < 17) return 'Good afternoon';
   return 'Good evening';
 };
@@ -576,8 +576,6 @@ function DashboardSettingsModal({ visible, onClose, config, onSave }: {
   const [useAllPipelines, setUseAllPipelines] = useState(true);
   const [loading, setLoading] = useState(false);
   const colors = useThemeColors();
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 768;
 
   useEffect(() => {
     if (visible) {
@@ -640,7 +638,7 @@ function DashboardSettingsModal({ visible, onClose, config, onSave }: {
   };
 
   return (
-    <Popup visible={visible} onClose={onClose} presentation={isDesktop ? 'centered' : 'sheet'}>
+    <Popup visible={visible} onClose={onClose} presentation="auto">
           <View className="p-6 border-b border-surface-border flex-row justify-between items-center bg-surface-card">
             <View>
               <Text className="text-typography-main text-xl font-black">Dashboard Config</Text>

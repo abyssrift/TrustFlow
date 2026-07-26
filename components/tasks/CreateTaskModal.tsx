@@ -8,6 +8,7 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DraggableSheet from '../common/DraggableSheet';
+import LoadingOverlay from '../common/LoadingOverlay';
 import ClipboardControls from '../common/ClipboardControls';
 import PremiumCalendarPicker from '../common/PremiumCalendarPicker';
 import { formatFileSize, getFileIcon } from '@/lib/taskFileHelpers';
@@ -108,7 +109,7 @@ type Props = {
   initialPipelineId?: string | null;
 };
 
-export default function CreateTaskSheet({ visible, onClose, initialPipelineId }: Props) {
+export default function CreateTaskModal({ visible, onClose, initialPipelineId }: Props) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const { showAlert, showConfirm } = useAlert();
@@ -482,14 +483,7 @@ export default function CreateTaskSheet({ visible, onClose, initialPipelineId }:
              )}
           </View>
 
-          {loading && (
-            <View className="absolute inset-0 z-50 items-center justify-center bg-surface-background/70">
-              <View className="bg-surface-card border border-surface-border rounded-3xl px-6 py-5 items-center premium-shadow">
-                <ActivityIndicator size="large" color={colors.primary} />
-                <Text className="text-typography-main font-black uppercase tracking-[0.2em] text-[10px] mt-3">Creating task</Text>
-              </View>
-            </View>
-          )}
+          <LoadingOverlay visible={loading} message="Creating task" />
         </View>
       </KeyboardAvoidingView>
     </DraggableSheet>

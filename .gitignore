@@ -34,6 +34,9 @@ yarn-error.*
 .env
 .env*.local
 
+# one-off design export, not a source file
+website/TrustFlow website design/waitlist_website/
+
 # MCP config (contains API keys)
 .mcp.json
 

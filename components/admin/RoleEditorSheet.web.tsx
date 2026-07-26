@@ -1,6 +1,6 @@
 import { FontAwesome } from '@expo/vector-icons';
 import React from 'react';
-import { ScrollView, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import Popup from '@/components/common/Popup';
 import { Permission, Role } from '@/contexts/RoleManagerContext';
@@ -28,8 +28,6 @@ export default function RoleEditorSheet({
   loading,
 }: RoleEditorSheetProps) {
   const c = useThemeColors();
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 768;
 
   return (
     <Popup
@@ -37,8 +35,9 @@ export default function RoleEditorSheet({
       onClose={onClose}
       dimBackdrop
       maxHeight="90%"
-      presentation={isDesktop ? 'centered' : 'sheet'}
-      containerClassName="w-[95%] max-w-[640px] max-h-[90vh] rounded-3xl overflow-hidden premium-shadow"
+      presentation="auto"
+      maxWidth={640}
+      containerClassName="w-[95%] max-h-[90vh] rounded-3xl overflow-hidden premium-shadow"
     >
       <View
         className="w-full rounded-3xl overflow-hidden"

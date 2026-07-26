@@ -32,6 +32,7 @@ export default function StageBuilder() {
   const [editingTransitionId, setEditingTransitionId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'graph' | 'list'>('graph');
   const [showPermPicker, setShowPermPicker] = useState(false);
+  const effectiveViewMode = isDesktop ? viewMode : 'list';
 
   // Form state
   const [formState, setFormState] = useState({
@@ -161,16 +162,17 @@ export default function StageBuilder() {
         </View>
 
         <View className="flex-row flex-wrap items-center gap-4">
-          {/* View Toggle */}
+          {/* View Toggle — Canvas mode is desktop-only */}
+          {isDesktop && (
           <View className="flex-row bg-surface-card border border-surface-border p-1 rounded-xl">
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => setViewMode('graph')}
               className={`px-3 py-1.5 rounded-lg flex-row items-center gap-2 transition-all ${viewMode === 'graph' ? 'bg-brand-primary shadow-sm' : 'hover:bg-surface-overlay active:scale-95'}`}
             >
               <FontAwesome name="th-large" size={12} color={viewMode === 'graph' ? 'white' : colors.textMuted} />
               <Text className={`text-xs font-bold ${viewMode === 'graph' ? 'text-white' : 'text-typography-muted'}`}>Canvas</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => setViewMode('list')}
               className={`px-3 py-1.5 rounded-lg flex-row items-center gap-2 transition-all ${viewMode === 'list' ? 'bg-brand-primary shadow-sm' : 'hover:bg-surface-overlay active:scale-95'}`}
             >
@@ -178,6 +180,7 @@ export default function StageBuilder() {
               <Text className={`text-xs font-bold ${viewMode === 'list' ? 'text-white' : 'text-typography-muted'}`}>List</Text>
             </TouchableOpacity>
           </View>
+          )}
 
           <TouchableOpacity
             onPress={() => { resetForm(); setShowAddForm(true); setEditingStageId(null); setEditingTransitionId(null); }}
@@ -192,7 +195,7 @@ export default function StageBuilder() {
       {/* Main Content */}
       <View className="flex-1">
         <View className="flex-1 overflow-hidden">
-          {viewMode === 'graph' ? (
+          {effectiveViewMode === 'graph' ? (
             <GraphCanvas 
               onEditStage={(s) => { populateForm(s); setEditingStageId(s.id); setEditingTransitionId(null); setShowAddForm(false); }}
               onDeleteStage={handleDelete}
@@ -235,8 +238,10 @@ export default function StageBuilder() {
           visible={!!(editingStageId || showAddForm)}
           onClose={() => { setEditingStageId(null); setShowAddForm(false); }}
           maxHeight="90%"
-          presentation={isDesktop ? 'centered' : 'sheet'}
-          containerClassName="w-[95%] max-w-[540px] max-h-[90vh] rounded-3xl overflow-hidden premium-shadow"
+          presentation="auto"
+          desktopBreakpoint={1024}
+          maxWidth={540}
+          containerClassName="w-[95%] max-h-[90vh] rounded-3xl overflow-hidden premium-shadow"
         >
           <View className="px-6 py-4 border-b border-surface-border flex-row justify-between items-center bg-surface-background/50">
             <Text className="text-typography-main font-black uppercase tracking-widest text-xs">
@@ -589,8 +594,10 @@ export default function StageBuilder() {
           visible={!!editingTransitionId}
           onClose={() => setEditingTransitionId(null)}
           maxHeight="90%"
-          presentation={isDesktop ? 'centered' : 'sheet'}
-          containerClassName="w-[95%] max-w-[540px] max-h-[90vh] rounded-3xl overflow-hidden premium-shadow"
+          presentation="auto"
+          desktopBreakpoint={1024}
+          maxWidth={540}
+          containerClassName="w-[95%] max-h-[90vh] rounded-3xl overflow-hidden premium-shadow"
         >
           <View className="px-6 py-4 border-b border-surface-border flex-row justify-between items-center bg-surface-background/50">
             <Text className="text-typography-main font-black uppercase tracking-widest text-xs">
