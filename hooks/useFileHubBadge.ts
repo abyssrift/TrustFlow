@@ -1,5 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
+import { supabase, freshChannel } from '@/lib/supabase';
 import { useCallback, useEffect, useState } from 'react';
 import { DeviceEventEmitter } from 'react-native';
 
@@ -25,8 +25,7 @@ export function useFileHubBadge() {
       }
     };
 
-    const channel = supabase
-      .channel(`filehub_badge:${user.id}`)
+    const channel = freshChannel(`filehub_badge:${user.id}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'filehub_recipients', filter: `user_id=eq.${user.id}` },

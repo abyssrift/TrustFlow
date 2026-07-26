@@ -2,13 +2,9 @@ import React, { useLayoutEffect, useRef } from 'react';
 import type { ViewStyle } from 'react-native';
 import { Platform } from 'react-native';
 import Animated, {
-  Easing,
   FadeIn,
   FadeOut,
   LinearTransition,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
 } from 'react-native-reanimated';
 
 /** Plain viewport rect (getBoundingClientRect-shaped) used to FLIP a card
@@ -46,35 +42,69 @@ export default function AnimatedTaskCard({
    * there's no move to FLIP from, or the source rect wasn't captured. */
   flipFrom?: FlipRect | null;
   /** Fired exactly once, on mount, regardless of whether a FLIP played — lets
-   * the caller record this card's resting stage / clear the consumed rect. */
-  onFlipMount?: () => void;
+   * the caller record this card's resting stage / clear the consumed rect.
+   * On web it receives the card's freshly-measured landing rect (null when
+   * unmeasurable / non-web) so FX can follow the card's true path. */
+  onFlipMount?: (landRect?: FlipRect | null) => void;
 }) {
   const ref = useRef<any>(null);
-  const translateX = useSharedValue(0);
-  const translateY = useSharedValue(0);
 
   // Mount-only: a stage move always remounts this component fresh (the task
   // moves from one stage column's list to a different one's), so this never
   // needs to re-run for an instance that's already settled.
+  //
+  // The FLIP itself runs through the Web Animations API on the DOM node
+  // directly, not a reanimated shared value: worklet-driven styles proved to
+  // silently not paint on this project's web build (babel/worklets config
+  // drift), whereas element.animate() is native to every browser and runs on
+  // the compositor — cheaper on low-end machines too. Web-only by definition,
+  // which is the only place flipFrom is ever supplied.
   useLayoutEffect(() => {
-    onFlipMount?.();
-    if (!flipFrom || Platform.OS !== 'web') return;
+    // Resolve the DOM node first — the ref sits on reanimated's Animated.View,
+    // which may hand back a wrapper instance rather than the element.
     const node: any = ref.current;
-    if (!node || typeof node.getBoundingClientRect !== 'function') return;
-    const after = node.getBoundingClientRect();
+    const domNode: any = Platform.OS !== 'web' ? null
+      : node && typeof node.animate === 'function' ? node
+      : node?._nativeTag && typeof node._nativeTag.animate === 'function' ? node._nativeTag
+      : typeof node?.getNode === 'function' ? node.getNode()
+      : null;
+    const after = domNode && typeof domNode.getBoundingClientRect === 'function'
+      ? domNode.getBoundingClientRect()
+      : null;
+    onFlipMount?.(after ? { x: after.left, y: after.top, width: after.width, height: after.height } : null);
+    if (Platform.OS !== 'web' || !flipFrom) return;
+    // TEMP diagnostics — see FX_DEBUG in StageTransitionFX.
+    if (!after || typeof domNode.animate !== 'function') {
+      console.log('[FXDBG] FLIP skip: no usable DOM node from ref');
+      return;
+    }
     const dx = flipFrom.x - after.left;
     const dy = flipFrom.y - after.top;
-    if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
-    translateX.value = dx;
-    translateY.value = dy;
-    translateX.value = withTiming(0, { duration: FLIP_DURATION, easing: Easing.out(Easing.cubic) });
-    translateY.value = withTiming(0, { duration: FLIP_DURATION, easing: Easing.out(Easing.cubic) });
+    console.log('[FXDBG] FLIP playing, dx/dy', Math.round(dx), Math.round(dy), 'after rect', Math.round(after.left), Math.round(after.top), Math.round(after.width), 'x', Math.round(after.height));
+    if (Math.abs(dx) < 1 && Math.abs(dy) < 1) { console.log('[FXDBG] FLIP skip: delta < 1px'); return; }
+    const anim = domNode.animate(
+      [
+        { transform: `translate(${dx}px, ${dy}px)` },
+        // Arrive by ~80%, overshoot into a slight pop, then settle — reads as
+        // the card physically landing rather than gliding to a dead stop.
+        { transform: 'translate(0, 0) scale(1.035)', offset: 0.8 },
+        { transform: 'translate(0, 0) scale(1)' },
+      ],
+      { duration: FLIP_DURATION, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' }
+    );
+    console.log('[FXDBG] FLIP anim created, playState:', anim?.playState);
+    if (anim) {
+      anim.onfinish = () => console.log('[FXDBG] FLIP anim finished');
+      anim.oncancel = () => console.log('[FXDBG] FLIP anim CANCELED');
+    }
+    requestAnimationFrame(() => {
+      try {
+        const cs = window.getComputedStyle(domNode);
+        console.log('[FXDBG] FLIP mid-flight check — playState:', anim?.playState, 'computed transform:', cs.transform, 'opacity:', cs.opacity, 'visibility:', cs.visibility);
+      } catch {}
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const flipStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateX.value }, { translateY: translateY.value }],
-  }));
 
   return (
     <Animated.View
@@ -82,7 +112,7 @@ export default function AnimatedTaskCard({
       entering={FadeIn.duration(220)}
       exiting={FadeOut.duration(140)}
       layout={disableLayoutAnimation ? undefined : LinearTransition.springify().damping(20).stiffness(170).mass(0.6)}
-      style={[style, flipStyle]}
+      style={style}
     >
       {children}
     </Animated.View>

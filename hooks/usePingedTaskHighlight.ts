@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated } from 'react-native';
-import { supabase } from '@/lib/supabase';
+import { supabase, freshChannel } from '@/lib/supabase';
 
 export const usePingedTaskHighlight = (taskId: string) => {
   const [wasPinged, setWasPinged] = useState(false);
@@ -9,7 +9,7 @@ export const usePingedTaskHighlight = (taskId: string) => {
 
   useEffect(() => {
     const subscribeToTaskPings = () => {
-      const channel = supabase.channel(`task:${taskId}`);
+      const channel = freshChannel(`task:${taskId}`);
 
       channel
         .on('postgres_changes', {

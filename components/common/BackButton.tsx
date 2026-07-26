@@ -19,7 +19,9 @@ interface BackButtonProps {
 export function BackButton({ label = 'Back', onPress }: BackButtonProps) {
   const router = useRouter();
 
-  const handlePress = onPress || (() => router.back());
+  const handlePress =
+    onPress ||
+    (() => (router.canGoBack() ? router.back() : router.replace('/intelligence')));
 
   return (
     <TouchableOpacity

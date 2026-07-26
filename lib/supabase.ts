@@ -20,6 +20,20 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
 });
 
+// Returns a realtime channel for `topic`, first tearing down any stale
+// channel already registered under it. react-native-screens freezes blurred
+// screens and later re-runs their effects (reconnectPassiveEffects); the prior
+// cleanup's removeChannel() is async, so a plain supabase.channel(topic) can
+// hand back the still-subscribed instance and .on() throws
+// "cannot add postgres_changes callbacks after subscribe()". removeChannel drops
+// it from the registry synchronously, so the channel below is always fresh.
+export const freshChannel = (topic: string) => {
+  supabase.getChannels()
+    .filter((c) => c.topic === `realtime:${topic}`)
+    .forEach((c) => supabase.removeChannel(c));
+  return supabase.channel(topic);
+};
+
 // Global callback for auth errors (called from AuthContext when 401 detected)
 let authErrorCallback: (() => void) | null = null;
 

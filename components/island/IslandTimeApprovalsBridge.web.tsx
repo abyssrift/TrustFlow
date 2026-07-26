@@ -28,7 +28,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useIsland, type IslandActivity } from '@/contexts/IslandContext';
 import { useToast } from '@/contexts/ToastContext';
-import { supabase } from '@/lib/supabase';
+import { supabase, freshChannel } from '@/lib/supabase';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -74,8 +74,7 @@ export default function IslandTimeApprovalsBridge() {
 
   useEffect(() => {
     if (!profile?.company_id) return;
-    const channel = supabase
-      .channel(`pending-time-approvals-${profile.company_id}`)
+    const channel = freshChannel(`pending-time-approvals-${profile.company_id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'task_manual_time_entries', filter: `company_id=eq.${profile.company_id}` }, () => fetchEntries())
       .subscribe();
     return () => { supabase.removeChannel(channel); };

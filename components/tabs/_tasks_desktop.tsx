@@ -323,6 +323,7 @@ export function TasksScreenWeb() {
   const boardWidthRef = useRef(0);
   const boardContainerRef = useRef<View>(null);
   const stageFX = useStageTransitionFX(boardContainerRef, colors.primary);
+  const fetchDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // Wait out the 300ms width transition before mounting the wrap-grid layout —
   // reflowing every card on each animation frame while the column resizes is what was dropping frames.
@@ -382,7 +383,23 @@ export function TasksScreenWeb() {
 
   const { pingedTasks, removePingedTask } = usePingHighlight();
 
+  // Optimistic local patch so a card jumps columns the instant its own action
+  // succeeds, instead of waiting on the realtime round-trip / fetchData reload.
+  const patchTaskStage = (taskId: string, toStageId: string) =>
+    setTasks(prev => prev.map(t => (t.id === taskId ? { ...t, current_stage_id: toStageId } : t)));
+
+  // Trailing debounce so one move — which triggers a card action refresh PLUS
+  // realtime echoes on tasks + pipeline_stage_history — collapses into a
+  // single ~4s reconcile fetch instead of three overlapping ones. The
+  // optimistic patch above already updated the board; this is only the
+  // eventual-consistency sweep, so nobody is waiting on it.
+  const debouncedFetchData = () => {
+    clearTimeout(fetchDebounceRef.current);
+    fetchDebounceRef.current = setTimeout(() => fetchData(), 500);
+  };
+
   const fetchData = async () => {
+    const fxT0 = Date.now(); // TEMP diagnostics — see FX_DEBUG in StageTransitionFX
     try {
       // 1. Resolve Pipeline
       let targetPipelineId = paramPipelineId;
@@ -617,6 +634,7 @@ export function TasksScreenWeb() {
     } catch (err) {
       console.error('[WEB TASK ERROR] Data fetch failed:', err);
     } finally {
+      console.log('[FXDBG] fetchData took', Date.now() - fxT0, 'ms');
       setLoading(false);
       setRefreshing(false);
       setSwitchingBoard(false);
@@ -752,17 +770,26 @@ export function TasksScreenWeb() {
     const channelName = `tasks-board-realtime-web-${Date.now()}`;
     const tasksChannel = supabase
       .channel(channelName)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => fetchData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_work_sessions' }, () => fetchData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_comments' }, () => fetchData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_submissions' }, () => fetchData())
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pipeline_stage_history' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => debouncedFetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_work_sessions' }, () => debouncedFetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_comments' }, () => debouncedFetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_submissions' }, () => debouncedFetchData())
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pipeline_stage_history' }, (payload: any) => {
+        const row = payload?.new;
+        console.log('[FXDBG] realtime stage_history', row?.task_id, '→', row?.to_stage_id, 'by', row?.transitioned_by, 'self?', row?.transitioned_by === user?.id);
+        if (row?.task_id && row?.to_stage_id && row?.transitioned_by !== user?.id) {
+          stageFX.noteActor(row.task_id, row.transitioned_by ?? null);
+          patchTaskStage(row.task_id, row.to_stage_id);
+        }
+        debouncedFetchData();
+      })
       .subscribe();
 
     return () => {
+      clearTimeout(fetchDebounceRef.current);
       supabase.removeChannel(tasksChannel);
     };
-  }, [paramPipelineId]);
+  }, [paramPipelineId, user?.id]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -1166,7 +1193,7 @@ export function TasksScreenWeb() {
         key={task.id}
         disableLayoutAnimation={boardTransitioning}
         flipFrom={stageTransition?.flipFrom}
-        onFlipMount={() => stageFX.commitMount(task.id, task.current_stage_id, stageTransition?.fromStageId ?? null)}
+        onFlipMount={(landRect) => stageFX.commitMount(task.id, task.current_stage_id, stageTransition?.fromStageId ?? null, landRect)}
       >
       <TouchableOpacity
         onPress={() => {
@@ -1293,7 +1320,14 @@ export function TasksScreenWeb() {
             transitions={stageTransitions}
             activeSessions={activeSessions}
             userId={user?.id || ''}
-            onRefresh={fetchData}
+            onRefresh={debouncedFetchData}
+            onMoved={(taskId, toStageId) => {
+              // Tag own moves too, so the actor chip shows for self-moves —
+              // realtime only notes actors for teammates' moves (own echoes
+              // are skipped, and they'd arrive after commitMount anyway).
+              stageFX.noteActor(taskId, user?.id ?? null);
+              patchTaskStage(taskId, toStageId);
+            }}
           />
         </View>
       </TouchableOpacity>
@@ -1789,7 +1823,7 @@ export function TasksScreenWeb() {
                 );
               })}
             </ScrollView>
-            <StageTrailLayer trails={stageFX.trails} color={stageFX.glowColor} />
+            <StageTrailLayer trails={stageFX.trails} color={stageFX.glowColor} actorInfo={stageFX.actorInfo} />
             </View>
           )}
         </View>

@@ -71,6 +71,8 @@ type Props = {
   activeSessions: Record<string, ActiveSessionUser[]>;
   userId: string;
   onRefresh: () => void;
+  /** Optional optimistic hook: fired the instant a stage-changing RPC succeeds, before onRefresh(). */
+  onMoved?: (taskId: string, toStageId: string) => void;
 };
 
 // ─── Style Map ────────────────────────────────────────────────
@@ -84,7 +86,7 @@ const ACTION_STYLES: Record<string, { bg: string; border: string; text: string }
 
 
 // ─── Component ────────────────────────────────────────────────
-export default function TaskCardActions({ task, stages, stageActions, transitions = [], activeSessions, userId, onRefresh }: Props) {
+export default function TaskCardActions({ task, stages, stageActions, transitions = [], activeSessions, userId, onRefresh, onMoved }: Props) {
   const router = useRouter();
   const colors = useThemeColors();
   const { hasPermission, profile } = useAuth();
@@ -194,6 +196,9 @@ export default function TaskCardActions({ task, stages, stageActions, transition
         actionId: action.id,
         actionType: action.action_type,
       });
+      const toStageId = action.transition_id ? transitions.find(t => t.id === action.transition_id)?.to_stage_id : undefined;
+      console.log('[FXDBG] action rpc ok; onMoved?', !!onMoved, 'toStageId resolved?', toStageId ?? 'NO (transition_id: ' + action.transition_id + ')');
+      if (toStageId) onMoved?.(task.id, toStageId);
       onRefresh();
       // Show success toast for card-level actions
       successToast(action.label || 'Action completed');
@@ -252,6 +257,8 @@ export default function TaskCardActions({ task, stages, stageActions, transition
         taskId: task.id,
         nextStageId: nextStage.id,
       });
+      console.log('[FXDBG] advance rpc ok; onMoved?', !!onMoved, '→', nextStage.id);
+      onMoved?.(task.id, nextStage.id);
       onRefresh();
       successToast('Task advanced.');
     } catch (err: any) {

@@ -5,6 +5,7 @@ import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-nativ
 import DraggableSheet from '@/components/common/DraggableSheet';
 import { Permission, Role } from '@/contexts/RoleManagerContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import type { RoleTemplate } from '@/lib/roleTemplates';
 
 export type RoleEditorSheetProps = {
   visible: boolean;
@@ -25,6 +26,12 @@ export type RoleEditorSheetProps = {
   canEdit: boolean;
   onSave: () => void;
   loading: boolean;
+  /** Desktop web only: prefill the editor with a copy of the current role. */
+  onClone?: () => void;
+  /** Desktop web only: select/clear a whole set of permission ids at once. */
+  onBulkToggle?: (ids: string[], select: boolean) => void;
+  /** Desktop web only: apply a template's name/color/permissions as a starting point while creating. */
+  onApplyTemplate?: (tpl: RoleTemplate) => void;
 };
 
 export default function RoleEditorSheet({

@@ -1,5 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
+import { supabase, freshChannel } from '@/lib/supabase';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
@@ -50,8 +50,7 @@ export default function PendingTimeApprovalsWidget({ refreshKey }: Props) {
   // Live-refresh whenever anyone in the company logs or reviews a manual time entry.
   useEffect(() => {
     if (!profile?.company_id) return;
-    const channel = supabase
-      .channel(`pending-time-approvals-${profile.company_id}`)
+    const channel = freshChannel(`pending-time-approvals-${profile.company_id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'task_manual_time_entries', filter: `company_id=eq.${profile.company_id}` }, () => fetchEntries())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
