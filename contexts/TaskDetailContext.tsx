@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { supabase, freshChannel } from '@/lib/supabase';
 import { taskFlowDebug, taskFlowError } from '@/lib/taskDebug';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
@@ -622,17 +622,17 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
 
   useEffect(() => {
     fetchDetails();
-    const commentChannel = supabase.channel(`task-comments-${taskId}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'task_comments', filter: `task_id=eq.${taskId}` }, (payload) => {
+    const commentChannel = freshChannel(`task-comments-${taskId}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'task_comments', filter: `task_id=eq.${taskId}` }, (payload) => {
       supabase.from('users').select('id, full_name, avatar_url').eq('id', payload.new.author_id).single().then(({ data: author }) => {
         setData(prev => prev ? { ...prev, comments: [...prev.comments, { ...payload.new, author } as any] } : null);
       });
     }).subscribe();
 
-    const subChannel = supabase.channel(`task-subs-${taskId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'task_submissions', filter: `task_id=eq.${taskId}` }, () => fetchDetails()).subscribe();
-    const histChannel = supabase.channel(`task-hist-${taskId}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pipeline_stage_history', filter: `task_id=eq.${taskId}` }, () => fetchDetails()).subscribe();
-    const metaChannel = supabase.channel(`task-meta-${taskId}`).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tasks', filter: `id=eq.${taskId}` }, () => fetchDetails()).subscribe();
-    const workSessionChannel = supabase.channel(`task-sessions-${taskId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'task_work_sessions', filter: `task_id=eq.${taskId}` }, () => fetchDetails()).subscribe();
-    const manualTimeChannel = supabase.channel(`task-manual-time-${taskId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'task_manual_time_entries', filter: `task_id=eq.${taskId}` }, () => fetchDetails()).subscribe();
+    const subChannel = freshChannel(`task-subs-${taskId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'task_submissions', filter: `task_id=eq.${taskId}` }, () => fetchDetails()).subscribe();
+    const histChannel = freshChannel(`task-hist-${taskId}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pipeline_stage_history', filter: `task_id=eq.${taskId}` }, () => fetchDetails()).subscribe();
+    const metaChannel = freshChannel(`task-meta-${taskId}`).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tasks', filter: `id=eq.${taskId}` }, () => fetchDetails()).subscribe();
+    const workSessionChannel = freshChannel(`task-sessions-${taskId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'task_work_sessions', filter: `task_id=eq.${taskId}` }, () => fetchDetails()).subscribe();
+    const manualTimeChannel = freshChannel(`task-manual-time-${taskId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'task_manual_time_entries', filter: `task_id=eq.${taskId}` }, () => fetchDetails()).subscribe();
 
     channelsRef.current = [commentChannel, subChannel, histChannel, metaChannel, workSessionChannel, manualTimeChannel];
     return () => {

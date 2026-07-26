@@ -1,5 +1,5 @@
 import { useToast } from '@/contexts/ToastContext';
-import { supabase } from '@/lib/supabase';
+import { supabase, freshChannel } from '@/lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
@@ -425,8 +425,7 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
     if (selectedPipeline) {
       refreshPipelineData();
       
-      const channel = supabase
-        .channel(`pipeline_${selectedPipeline.id}_stages`)
+      const channel = freshChannel(`pipeline_${selectedPipeline.id}_stages`)
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'pipeline_stages', filter: `pipeline_id=eq.${selectedPipeline.id}` },

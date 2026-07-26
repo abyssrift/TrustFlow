@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
-import { supabase } from '@/lib/supabase';
+import { supabase, freshChannel } from '@/lib/supabase';
 import { useToast } from '@/contexts/ToastContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePingHighlight } from '@/contexts/PingHighlightContext';
@@ -80,8 +80,7 @@ export const useGlobalPingListener = () => {
 
     console.log('[PingListener] subscribing for user:', userId);
 
-    const channel = supabase
-      .channel('global-ping-listener')
+    const channel = freshChannel('global-ping-listener')
       .on(
         'postgres_changes',
         {

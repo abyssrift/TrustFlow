@@ -7,7 +7,7 @@ import React, {
 } from 'react';
 import { Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { supabase } from '@/lib/supabase';
+import { supabase, freshChannel } from '@/lib/supabase';
 import { usePingNotification } from '@/hooks/usePingNotification';
 import { useAuth } from './AuthContext';
 
@@ -75,8 +75,7 @@ export const NotificationsProvider = ({
 
     refresh();
 
-    const channel = supabase
-      .channel(`notifications:${user.id}`)
+    const channel = freshChannel(`notifications:${user.id}`)
       .on(
         'postgres_changes',
         {

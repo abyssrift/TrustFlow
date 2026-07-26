@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useCallback, useMemo, useState, useRef, useEffect } from 'react';
 import { Platform, AppState, AppStateStatus, DeviceEventEmitter } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase, supabaseUrl, supabaseAnonKey } from '@/lib/supabase';
+import { supabase, supabaseUrl, supabaseAnonKey, freshChannel } from '@/lib/supabase';
 import { useAuth } from './AuthContext';
 import { useSmartTimer } from '@/hooks/useSmartTimer';
 
@@ -225,8 +225,7 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     if (!user) return;
-    const channel = supabase
-      .channel('global_timer_sync')
+    const channel = freshChannel('global_timer_sync')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'task_work_sessions', filter: `user_id=eq.${user.id}` }, () => {
         fetchActiveSession();
       })

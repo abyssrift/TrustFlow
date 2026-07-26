@@ -1,4 +1,4 @@
-import { supabase, supabaseUrl, supabaseAnonKey } from '@/lib/supabase';
+import { supabase, supabaseUrl, supabaseAnonKey, freshChannel } from '@/lib/supabase';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { DeviceEventEmitter } from 'react-native';
 import { useIsland } from '@/contexts/IslandContext';
@@ -365,8 +365,7 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
   const fetchFilesRef = useRef(fetchFiles);
   useEffect(() => { fetchFilesRef.current = fetchFiles; }, [fetchFiles]);
   useEffect(() => {
-    const channel = supabase
-      .channel('filehub-inbox-realtime')
+    const channel = freshChannel('filehub-inbox-realtime')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'filehub_recipients' },
