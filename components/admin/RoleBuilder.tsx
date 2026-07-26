@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Platform } from 'react-native';
 import RoleEditorSheet from '@/components/admin/RoleEditorSheet';
 import RoleTemplateGallery from '@/components/admin/RoleTemplateGallery';
 import { FontAwesome } from '@expo/vector-icons';
@@ -41,6 +41,16 @@ export default function RoleBuilder() {
     setDescription('');
     setColor('#6366f1');
     setSelectedPerms([]);
+    setIsCreating(true);
+  };
+
+  const handleCloneRole = (role: Role) => {
+    if (!canManageRoles) return;
+    setEditingRole(null);
+    setName(`${role.name} (Copy)`);
+    setDescription(role.description || '');
+    setColor(role.color?.includes('var') ? colors.primary : (role.color || colors.primary));
+    setSelectedPerms(role.permissionIds || []);
     setIsCreating(true);
   };
 
@@ -141,17 +151,30 @@ export default function RoleBuilder() {
                     </View>
                   )}
                 </View>
-                {!role.is_system && canManageRoles && (
-                  <TouchableOpacity
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      handleDelete(role);
-                    }}
-                    className="w-9 h-9 items-center justify-center border border-state-danger/10 rounded-xl bg-state-danger-dim flex-shrink-0"
-                  >
-                    <FontAwesome name="trash-o" size={14} color={colors.danger} />
-                  </TouchableOpacity>
-                )}
+                <View className="flex-row items-center gap-2 flex-shrink-0">
+                  {canManageRoles && Platform.OS === 'web' && (
+                    <TouchableOpacity
+                      onPress={(e: any) => {
+                        e.stopPropagation();
+                        handleCloneRole(role);
+                      }}
+                      className="w-9 h-9 items-center justify-center border border-surface-border rounded-xl bg-surface-background"
+                    >
+                      <FontAwesome name="clone" size={13} color={colors.textMuted} />
+                    </TouchableOpacity>
+                  )}
+                  {!role.is_system && canManageRoles && (
+                    <TouchableOpacity
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        handleDelete(role);
+                      }}
+                      className="w-9 h-9 items-center justify-center border border-state-danger/10 rounded-xl bg-state-danger-dim"
+                    >
+                      <FontAwesome name="trash-o" size={14} color={colors.danger} />
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
 
               <Text className="text-typography-muted text-xs mb-4 leading-5" numberOfLines={2}>
@@ -190,6 +213,11 @@ export default function RoleBuilder() {
         canEdit={canEdit}
         onSave={handleSave}
         loading={loading}
+        onClone={editingRole ? () => handleCloneRole(editingRole) : undefined}
+        onBulkToggle={(ids, select) => setSelectedPerms(prev =>
+          select ? Array.from(new Set([...prev, ...ids])) : prev.filter(p => !ids.includes(p))
+        )}
+        onApplyTemplate={handlePickTemplate}
       />
 
       <RoleTemplateGallery
