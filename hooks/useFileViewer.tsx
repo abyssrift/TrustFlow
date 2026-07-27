@@ -24,7 +24,7 @@ const isImageMime = (m?: string | null) => !!m && m.toLowerCase().includes('imag
 export function useFileViewer(
   items: ViewerMedia[],
   defaultBucket: string,
-  options?: { onInfo?: (item: ViewerMedia) => void }
+  options?: { onInfo?: (item: ViewerMedia) => void; onShare?: (item: ViewerMedia) => void; onOpen?: (item: ViewerMedia) => void }
 ) {
   const { signedUrls, openImage, handlePress: basePress, lightbox } = useImageLightbox(
     items,
@@ -77,10 +77,11 @@ export function useFileViewer(
   }, [previewKey, defaultBucket]);
 
   const [preview, setPreview] = useState<
-    { uri: string; name: string; kind: PreviewKind; bucket: string; storagePath: string; sizeBytes?: number } | null
+    { uri: string; name: string; kind: PreviewKind; bucket: string; storagePath: string; sizeBytes?: number; item: ViewerMedia } | null
   >(null);
 
   const handlePress = (item: ViewerMedia) => {
+    options?.onOpen?.(item);
     if (isImageMime(item.mimeType)) { basePress(item); return; }
 
     const kind = getPreviewKind(item.mimeType, item.name);
@@ -89,20 +90,20 @@ export function useFileViewer(
 
     const url = previewUrls[item.id];
     if (url) {
-      setPreview({ uri: url, name: item.name, kind, bucket, storagePath: item.storagePath, sizeBytes: item.sizeBytes });
+      setPreview({ uri: url, name: item.name, kind, bucket, storagePath: item.storagePath, sizeBytes: item.sizeBytes, item });
       return;
     }
 
     // Signed URL not resolved yet (e.g. item not in the eager list) — resolve on demand.
     if (item.storagePath.startsWith('http')) {
-      setPreview({ uri: item.storagePath, name: item.name, kind, bucket, storagePath: item.storagePath, sizeBytes: item.sizeBytes });
+      setPreview({ uri: item.storagePath, name: item.name, kind, bucket, storagePath: item.storagePath, sizeBytes: item.sizeBytes, item });
       return;
     }
     supabase.storage
       .from(bucket)
       .createSignedUrl(item.storagePath, 3600)
       .then(({ data }) => {
-        if (data?.signedUrl) setPreview({ uri: data.signedUrl, name: item.name, kind, bucket, storagePath: item.storagePath, sizeBytes: item.sizeBytes });
+        if (data?.signedUrl) setPreview({ uri: data.signedUrl, name: item.name, kind, bucket, storagePath: item.storagePath, sizeBytes: item.sizeBytes, item });
         else openStorageFile(bucket, item.storagePath, item.name, item.mimeType);
       });
   };
@@ -118,6 +119,7 @@ export function useFileViewer(
           kind={preview.kind}
           onClose={() => setPreview(null)}
           onDownload={() => openStorageFile(preview.bucket, preview.storagePath, preview.name)}
+          onShare={options?.onShare ? () => options.onShare!(preview.item) : undefined}
           sizeBytes={preview.sizeBytes}
         />
       )}

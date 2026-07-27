@@ -2,7 +2,7 @@ import { FilePreviewGrid } from '@/components/common/FilePreviewCard';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import { useFileViewer } from '@/hooks/useFileViewer';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { SUBMISSION_BUCKET } from '@/lib/storage';
+import { logTaskFileActivity, SUBMISSION_BUCKET } from '@/lib/storage';
 import React, { useMemo, useState } from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import CollapsibleCard from './CollapsibleCard';
@@ -87,7 +87,9 @@ export default function EvidencePanel() {
     return { groupedEvidence: groups, stats: currentStats, mediaItems };
   }, [data?.submissions, activeFilter, showPendingReview, colors]);
 
-  const { signedUrls, previewUrls, handlePress, viewer } = useFileViewer(mediaItems, SUBMISSION_BUCKET);
+  const { signedUrls, previewUrls, handlePress, viewer } = useFileViewer(mediaItems, SUBMISSION_BUCKET, {
+    onOpen: (it) => logTaskFileActivity(it.bucket || SUBMISSION_BUCKET, it.storagePath, 'view'),
+  });
 
   if (!data || stats.all === 0) return null;
 

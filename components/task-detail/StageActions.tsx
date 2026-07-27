@@ -18,7 +18,7 @@ import { useTicker } from '@/hooks/useTicker';
 import { formatStopwatch, formatCompact } from '@/lib/time';
 import { getPastedImageFile, fileToStaged } from '@/lib/pasteImage';
 import { useDropPulse, useFileDrop } from '@/hooks/useWebDnd';
-import { SUBMISSION_BUCKET } from '@/lib/storage';
+import { logTaskFileActivity, SUBMISSION_BUCKET } from '@/lib/storage';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
@@ -295,7 +295,8 @@ export default function StageActions() {
   );
   const { signedUrls: subSignedUrls, previewUrls: subPreviewUrls, handlePress: handleSubPress, viewer: subViewer } = useFileViewer(
     submissionMedia,
-    SUBMISSION_BUCKET
+    SUBMISSION_BUCKET,
+    { onOpen: (it) => logTaskFileActivity(it.bucket || SUBMISSION_BUCKET, it.storagePath, 'view') }
   );
 
   const toggleDeletedSubs = async () => {

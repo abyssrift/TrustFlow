@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import Tooltip from '@/components/common/Tooltip';
 import { useTaskDetail, type DeletedTaskAttachmentData, type TaskAttachmentData, type TaskAttachmentVersionData } from '@/contexts/TaskDetailContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { downloadFilesAsZip, openStorageFile, TASK_BRIEF_BUCKET } from '@/lib/storage';
+import { downloadFilesAsZip, logTaskFileActivity, openStorageFile, TASK_BRIEF_BUCKET } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as DocumentPicker from 'expo-document-picker';
@@ -398,6 +398,8 @@ export default function TaskBriefPanel() {
   };
 
   const handlePressFile = async (pf: any) => {
+    const openPath = pf.storage_path || pf.uri;
+    if (openPath) logTaskFileActivity(TASK_BRIEF_BUCKET, openPath, 'view');
     const isImage = pf.mime_type?.toLowerCase().includes('image');
     const signed = signedUrls[pf.id];
     // Images open in the lightbox (navigable, with format-convert downloads).
