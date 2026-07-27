@@ -240,7 +240,7 @@ export default function StageBuilder() {
           maxHeight="90%"
           presentation="auto"
           desktopBreakpoint={1024}
-          maxWidth={540}
+          maxWidth={680}
           containerClassName="w-[95%] max-h-[90vh] rounded-3xl overflow-hidden premium-shadow"
         >
           <View className="px-6 py-4 border-b border-surface-border flex-row justify-between items-center bg-surface-background/50">
@@ -596,7 +596,7 @@ export default function StageBuilder() {
           maxHeight="90%"
           presentation="auto"
           desktopBreakpoint={1024}
-          maxWidth={540}
+          maxWidth={680}
           containerClassName="w-[95%] max-h-[90vh] rounded-3xl overflow-hidden premium-shadow"
         >
           <View className="px-6 py-4 border-b border-surface-border flex-row justify-between items-center bg-surface-background/50">
