@@ -25,7 +25,7 @@ export function resultRoute(r: SearchResult): string {
   switch (r.type) {
     case 'task':    return `/task/${r.id}`;
     case 'comment': return r.task_id ? `/task/${r.task_id}` : '/tasks';
-    case 'file':    return r.task_id ? `/task/${r.task_id}` : '/filehub';
+    case 'file':    return r.task_id ? `/task/${r.task_id}` : `/filehub?file=${r.id}`;
     case 'report':  return '/intelligence/reports';
     case 'person':  return '/people';
     case 'archive': return '/intelligence/archives';
