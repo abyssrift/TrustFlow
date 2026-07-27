@@ -1,3 +1,28 @@
+## Popups, modals, sheets
+
+**Never use raw RN `Modal` directly.** Every popup/modal/sheet goes through
+`components/common/Popup.tsx` (or `DraggableSheet.tsx` for sheet-only cases).
+This is an ongoing standardization (issue #88) — code review will bounce a
+raw `<Modal>` in a screen component.
+
+- `<Popup presentation="sheet" | "centered" | "auto">` — `auto` picks
+  `centered` at/above `desktopBreakpoint` (default 768px) and `sheet` below
+  it, **on web only**. Native always renders `sheet` regardless of the prop.
+- `<DraggableSheet>` — bottom sheet only, no centered mode. Use directly when
+  you never want a centered variant (e.g. always a drawer).
+- **A fix must handle both desktop and mobile web, not just desktop.**
+  `.web.tsx` files render at every web width, not just wide viewports — check
+  `useWindowDimensions()` and branch, or use `Popup`'s own `auto`/`desktopBreakpoint`.
+  Shipping a desktop-only fix and calling it done is the #1 way this pattern
+  gets violated (see commit 2c08cc9 for an example that had to be redone).
+- Extra props exist for one-off needs — check `Popup.tsx`'s prop list before
+  reinventing: `sideMenu` (two-pane composers), `backdropBlur` (frosted
+  backdrop instead of the default solid dim), `overlays` (viewport-fixed
+  dropdowns/date-pickers that must escape the card's `overflow: hidden`),
+  `containerStyle`/`containerClassName` (one-off sizing/theme-color styling).
+- If a file has separate `.tsx` (native) and `.web.tsx` variants, both must
+  be checked — a native-only Modal fix rarely also fixes web, and vice versa.
+
 ## graphify
 
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
