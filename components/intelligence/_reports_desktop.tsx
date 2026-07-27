@@ -7,6 +7,7 @@ import ReportFiltersModal, {
     REPORT_TYPE_OPTIONS,
     type ReportFilters,
 } from '@/components/intelligence/ReportFiltersModal';
+import Tooltip from '@/components/common/Tooltip';
 import { useBillingPlan } from '@/hooks/useBillingPlan';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { useTicker } from '@/hooks/useTicker';
@@ -242,9 +243,11 @@ export default function IntelligenceReports() {
               </View>
             )}
           </TouchableOpacity>
-          <TouchableOpacity onPress={fetchReports} className="h-10 w-10 items-center justify-center bg-surface-card border border-surface-border rounded-xl">
-            <FontAwesome name="refresh" size={13} color={colors.primary} />
-          </TouchableOpacity>
+          <Tooltip label="Refresh reports">
+            <TouchableOpacity onPress={fetchReports} className="h-10 w-10 items-center justify-center bg-surface-card border border-surface-border rounded-xl">
+              <FontAwesome name="refresh" size={13} color={colors.primary} />
+            </TouchableOpacity>
+          </Tooltip>
           {limits.reports ? (
             <TouchableOpacity onPress={() => router.push('/intelligence/ReportGenerator')} className="bg-brand-primary px-6 py-2.5 rounded-xl flex-row items-center gap-2">
               <FontAwesome name="file-pdf-o" size={12} color="white" />

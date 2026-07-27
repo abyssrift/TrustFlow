@@ -9,6 +9,7 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import { FontAwesome } from '@expo/vector-icons';
 import React from 'react';
 import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
+import Tooltip from '@/components/common/Tooltip';
 import {
   CartesianGrid, Line, LineChart,
   Tooltip as RechartTooltip,
@@ -80,12 +81,14 @@ export default function PipelineOverviewChart({
             ))}
           </View>
           {onCustomize && (
-            <TouchableOpacity
-              onPress={onCustomize}
-              className="bg-surface-overlay border border-surface-border w-9 h-9 rounded-xl items-center justify-center active:scale-95 transition-all"
-            >
-              <FontAwesome name="sliders" size={14} color={colors.textMuted} />
-            </TouchableOpacity>
+            <Tooltip label="Customize metrics">
+              <TouchableOpacity
+                onPress={onCustomize}
+                className="bg-surface-overlay border border-surface-border w-9 h-9 rounded-xl items-center justify-center active:scale-95 transition-all"
+              >
+                <FontAwesome name="sliders" size={14} color={colors.textMuted} />
+              </TouchableOpacity>
+            </Tooltip>
           )}
         </View>
       </View>

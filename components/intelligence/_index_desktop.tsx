@@ -1,5 +1,6 @@
 import { KPIBoxWeb } from '@/components/intelligence/IntelligenceCommon';
-import { ReportConfigModal, WidgetConfigModal } from '@/components/intelligence/IntelligenceModals';
+import { WidgetConfigModal } from '@/components/intelligence/IntelligenceModals';
+import { DateRangeControls, PipelineSelector, daysBetween, useDateRange, useGranularity } from '@/components/intelligence/DateRangeFilter';
 import {
     ConversionFunnelMiniWeb,
     PipelinePointsMiniWeb,
@@ -18,12 +19,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import Tooltip from '@/components/common/Tooltip';
 
-const ALL_DAY_OPTS = [7, 30, 60, 90];
 const DEFAULT_WIDGETS = ['throughput', 'efficiency', 'flow_ratio', 'first_pass_yield'];
-
-// Minimum days required per option (must be <= plan maxDays)
-const DAY_OPT_MIN: Record<number, number> = { 7: 7, 30: 30, 60: 60, 90: 90 };
 
 function WidgetGate({ feature, limits, children }: {
   feature: keyof AnalyticsLimits;
@@ -50,40 +48,26 @@ export default function IntelligenceOverview() {
   const initDays = limits.maxDays ? Math.min(30, limits.maxDays) : 30;
   const [data, setData]           = useState<any>(null);
   const [loading, setLoading]     = useState(true);
-  const [days, setDays]           = useState(initDays);
+  const { from, to, setFrom, setTo } = useDateRange(initDays);
+  const granularity = useGranularity();
+  const days = daysBetween(from, to);
   const [pipelineId, setPipelineId] = useState<string | null>(null);
   const [pipelines, setPipelines] = useState<any[]>([]);
-  const [teams, setTeams]         = useState<any[]>([]);
-  const [users, setUsers]         = useState<any[]>([]);
   const [activeWidgets, setActiveWidgets] = useState<string[]>(DEFAULT_WIDGETS);
-  const [showReportModal, setShowReportModal]   = useState(false);
   const [showWidgetModal, setShowWidgetModal]   = useState(false);
 
   useEffect(() => {
     AsyncStorage.getItem('@TrustFlow_radar_widgets').then(v => { if (v) setActiveWidgets(JSON.parse(v)); });
-    Promise.all([
-      supabase.from('pipelines').select('id, name').is('deleted_at', null),
-      supabase.from('teams').select('id, name').is('deleted_at', null),
-      supabase.from('users').select('id, full_name'),
-    ]).then(([p, t, u]) => {
-      if (p.data) setPipelines(p.data);
-      if (t.data) setTeams(t.data);
-      if (u.data) setUsers(u.data);
-    });
+    supabase.from('pipelines').select('id, name').is('deleted_at', null)
+      .then(({ data }) => { if (data) { setPipelines(data); if (data[0]) setPipelineId(data[0].id); } });
   }, []);
 
-  // Re-clamp days if plan changes
-  useEffect(() => {
-    if (limits.maxDays && days > limits.maxDays) setDays(limits.maxDays);
-  }, [limits.maxDays]);
-
   const canViewAnalytics = hasPermission('analytics.view');
-  const canViewReports   = hasPermission('report.view') || hasPermission('report.generate');
 
   useEffect(() => {
     if (canViewAnalytics) fetchAudit();
     else setLoading(false);
-  }, [days, pipelineId, canViewAnalytics]);
+  }, [from, to, pipelineId, canViewAnalytics]);
 
   const fetchAudit = async () => {
     setLoading(true);
@@ -104,17 +88,6 @@ export default function IntelligenceOverview() {
     await AsyncStorage.setItem('@TrustFlow_radar_widgets', JSON.stringify(w));
   };
 
-  const handleGenerateReport = async (params: any) => {
-    try {
-      const { error } = await supabase.rpc('rpc_request_report', {
-        p_report_type: params.type || 'performance_audit',
-        p_parameters: { days: params.days, pipeline_id: params.pipeline_id, team_id: params.team_id, user_id: params.user_id },
-      });
-      if (error) throw error;
-      setShowReportModal(false);
-    } catch (e) { console.error(e); }
-  };
-
   const curThr  = data?.current?.throughput   || 0;
   const prevThr = data?.comparison?.throughput || 0;
   const adv     = data?.radar_advanced         || {};
@@ -132,9 +105,6 @@ export default function IntelligenceOverview() {
       default: return null;
     }
   };
-
-  // Day options: show all, but lock ones beyond plan limit
-  const isDayLocked = (d: number) => !!limits.maxDays && d > limits.maxDays;
 
   return (
     <View className="flex-1 bg-surface-background flex-col">
@@ -154,49 +124,22 @@ export default function IntelligenceOverview() {
         <View className="flex-row flex-wrap items-center gap-3">
           {canViewAnalytics && (
             <>
-              {/* Day selector — lock options beyond plan limit */}
-              <View className="flex-row bg-surface-card border border-surface-border rounded-xl p-1 gap-0.5">
-                {ALL_DAY_OPTS.map(d => {
-                  const locked = isDayLocked(d);
-                  return (
-                    <TouchableOpacity
-                      key={d}
-                      onPress={() => !locked && setDays(d)}
-                      disabled={locked}
-                      className={`px-4 py-2 rounded-lg flex-row items-center gap-1 ${
-                        days === d ? 'bg-brand-primary' : locked ? 'opacity-40' : ''
-                      }`}
-                    >
-                      <Text className={`text-[11px] font-black ${days === d ? 'text-white' : 'text-typography-muted'}`}>{d}d</Text>
-                      {locked && <FontAwesome name="lock" size={8} color="gray" />}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-              <TouchableOpacity onPress={fetchAudit} className="h-10 w-10 items-center justify-center bg-surface-card border border-surface-border rounded-xl">
-                <FontAwesome name="refresh" size={13} color={colors.primary} />
-              </TouchableOpacity>
+              {/* Shared pipeline selector + calendar range + granularity */}
+              <PipelineSelector pipelines={pipelines} selectedId={pipelineId} onSelect={setPipelineId} />
+              <DateRangeControls from={from} to={to} setFrom={setFrom} setTo={setTo} maxDays={limits.maxDays} granularity={granularity} />
+              <Tooltip label="Refresh data">
+                <TouchableOpacity onPress={fetchAudit} className="h-10 w-10 items-center justify-center bg-surface-card border border-surface-border rounded-xl">
+                  {loading && data
+                    ? <ActivityIndicator size="small" color={colors.primary} />
+                    : <FontAwesome name="refresh" size={13} color={colors.primary} />}
+                </TouchableOpacity>
+              </Tooltip>
             </>
-          )}
-
-          {/* Generate Report — locked for Free */}
-          {canViewReports && (
-            limits.reports ? (
-              <TouchableOpacity onPress={() => setShowReportModal(true)} className="bg-brand-primary px-6 py-2.5 rounded-xl flex-row items-center gap-2">
-                <FontAwesome name="file-pdf-o" size={12} color="white" />
-                <Text className="text-white font-black uppercase tracking-widest text-[11px]">Generate Report</Text>
-              </TouchableOpacity>
-            ) : (
-              <View className="flex-row items-center gap-2 bg-surface-card border border-surface-border px-6 py-2.5 rounded-xl opacity-50">
-                <FontAwesome name="lock" size={11} color={colors.muted} />
-                <Text className="text-typography-muted font-black uppercase tracking-widest text-[11px]">Reports — Pro+</Text>
-              </View>
-            )
           )}
         </View>
       </View>
 
-      {canViewAnalytics && loading ? (
+      {canViewAnalytics && loading && !data ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
@@ -211,9 +154,11 @@ export default function IntelligenceOverview() {
           <View className="px-10 pt-6 pb-0 flex-shrink-0">
             <View className="flex-row justify-between items-center mb-4">
               <Text className="text-typography-main font-black text-lg tracking-tight">Key Metrics</Text>
-              <TouchableOpacity onPress={() => setShowWidgetModal(true)} className="bg-surface-card px-4 py-1.5 rounded-xl border border-surface-border">
-                <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest">Configure</Text>
-              </TouchableOpacity>
+              <Tooltip label="Customize visible metrics">
+                <TouchableOpacity onPress={() => setShowWidgetModal(true)} className="bg-surface-card px-4 py-1.5 rounded-xl border border-surface-border">
+                  <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest">Configure</Text>
+                </TouchableOpacity>
+              </Tooltip>
             </View>
             <View className="flex-row flex-wrap gap-4 mb-8">
               {activeWidgets.map(renderWidget)}
@@ -225,12 +170,12 @@ export default function IntelligenceOverview() {
 
             {/* Throughput over time — Pro+ */}
             <WidgetGate feature="throughput" limits={limits}>
-              <ThroughputOverTimeMiniWeb pipelines={pipelines} days={days} onViewAll={() => router.push('/intelligence/graphs')} />
+              <ThroughputOverTimeMiniWeb pipelineId={pipelineId} from={from} to={to} buckets={granularity.buckets} onViewAll={() => router.push('/intelligence/graphs')} />
             </WidgetGate>
 
             {/* Pipeline points — Pro+ */}
             <WidgetGate feature="throughput" limits={limits}>
-              <PipelinePointsMiniWeb pipelines={pipelines} days={days} onViewAll={() => router.push('/intelligence/graphs')} />
+              <PipelinePointsMiniWeb pipelineId={pipelineId} from={from} to={to} buckets={granularity.buckets} onViewAll={() => router.push('/intelligence/graphs')} />
             </WidgetGate>
 
             {/* SLA risk — always available */}
@@ -268,12 +213,6 @@ export default function IntelligenceOverview() {
         </View>
       )}
 
-      <ReportConfigModal
-        visible={showReportModal}
-        onClose={() => setShowReportModal(false)}
-        onConfirm={handleGenerateReport}
-        pipelines={pipelines} teams={teams} users={users} initialDays={days}
-      />
       <WidgetConfigModal
         visible={showWidgetModal}
         onClose={() => setShowWidgetModal(false)}

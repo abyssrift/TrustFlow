@@ -1,5 +1,6 @@
 import PendingTimeApprovalsWidget from '@/components/common/PendingTimeApprovalsWidget';
 import LiveSessionsPopup from '@/components/tabs/LiveSessionsPopup';
+import Tooltip from '@/components/common/Tooltip';
 import ActiveSessionAvatars from '@/components/task-detail/ActiveSessionAvatars';
 import type { ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
 import Popup from '@/components/common/Popup';
@@ -371,12 +372,14 @@ export default function DashboardScreen() {
                      {formatCompact(pulse.active_seconds_today)}
                   </Text>
                 </View>
-                <View>
-                  <Text className="text-typography-muted text-[9px] font-bold uppercase mb-0.5">Flap</Text>
-                  <Text className={`text-xl font-black ${pulse.flap_rate_score > 1.5 ? 'text-state-danger' : 'text-state-success'}`}>
-                    {pulse.flap_rate_score}x
-                  </Text>
-                </View>
+                <Tooltip label="Task switching frequency (lower is better)">
+                  <View>
+                    <Text className="text-typography-muted text-[9px] font-bold uppercase mb-0.5">Flap</Text>
+                    <Text className={`text-xl font-black ${pulse.flap_rate_score > 1.5 ? 'text-state-danger' : 'text-state-success'}`}>
+                      {pulse.flap_rate_score}x
+                    </Text>
+                  </View>
+                </Tooltip>
               </View>
             </View>
           )}

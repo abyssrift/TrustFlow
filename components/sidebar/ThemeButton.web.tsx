@@ -4,6 +4,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
+import Tooltip from '../common/Tooltip';
 import { THEME_OPTIONS } from './constants';
 
 cssInterop(FontAwesome, {
@@ -51,13 +52,15 @@ export default function ThemeButton() {
 
   return (
     <View ref={wrapperRef} style={{ position: 'relative', zIndex: open ? 100 : undefined }}>
-      <Pressable
-        onPress={() => setClickedOpen((v) => !v)}
-        accessibilityLabel="Theme settings"
-        className="h-9 w-9 items-center justify-center rounded-xl border border-surface-border bg-surface-card transition-all duration-200 ease-out hover:border-brand-primary/40 hover:bg-surface-overlay active:scale-95"
-      >
-        <FontAwesome name="paint-brush" size={14} color={colors.textDim} />
-      </Pressable>
+      <Tooltip label="Display & theme" side="left">
+        <Pressable
+          onPress={() => setClickedOpen((v) => !v)}
+          accessibilityLabel="Theme settings"
+          className="h-9 w-9 items-center justify-center rounded-xl border border-surface-border bg-surface-card transition-all duration-200 ease-out hover:border-brand-primary/40 hover:bg-surface-overlay active:scale-95"
+        >
+          <FontAwesome name="paint-brush" size={14} color={colors.textDim} />
+        </Pressable>
+      </Tooltip>
 
       {/* top-9 + transparent pt-2 bridges the gap so hovering into the dropdown
           never fires the wrapper's mouseleave. Right-anchored under the button. */}

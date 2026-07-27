@@ -5,6 +5,7 @@ import LinkifiedText from '@/components/common/LinkifiedText';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
 import Popup from '@/components/common/Popup';
 import RightSidebar from '@/components/kanban/RightSidebar.web';
+import Tooltip from '@/components/common/Tooltip';
 import ActiveSessionAvatars from '@/components/task-detail/ActiveSessionAvatars';
 import TaskCardActions, { type ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
 import { boardCacheMeta, prefetchOtherBoards, taskCache, type BoardSnapshot, TASK_SORT_OPTIONS, compareTasksBySortKey, type TaskSortKey } from '@/components/tabs/taskBoardCache';
@@ -1242,28 +1243,36 @@ export function TasksScreenWeb() {
               </View>
             )}
             {displayMySeconds > 0 && (
-              <View className="bg-brand-primary/10 px-2.5 py-1 rounded-lg border border-brand-primary/20 flex-row items-center gap-1">
-                <FontAwesome name="clock-o" size={9} className="text-brand-primary" />
-                <Text className="text-brand-primary text-[10px] font-black">{formatSeconds(displayMySeconds)}</Text>
-              </View>
+              <Tooltip label="Your work time">
+                <View className="bg-brand-primary/10 px-2.5 py-1 rounded-lg border border-brand-primary/20 flex-row items-center gap-1">
+                  <FontAwesome name="clock-o" size={9} className="text-brand-primary" />
+                  <Text className="text-brand-primary text-[10px] font-black">{formatSeconds(displayMySeconds)}</Text>
+                </View>
+              </Tooltip>
             )}
             {canViewAllData && displayTotalSeconds > 0 && displayMySeconds !== displayTotalSeconds && (
-              <View className="bg-surface-background px-2.5 py-1 rounded-lg border border-surface-border flex-row items-center gap-1">
-                <FontAwesome name="users" size={9} className="text-typography-muted" />
-                <Text className="text-typography-muted text-[10px] font-black">{formatSeconds(displayTotalSeconds)}</Text>
-              </View>
+              <Tooltip label="Team work time">
+                <View className="bg-surface-background px-2.5 py-1 rounded-lg border border-surface-border flex-row items-center gap-1">
+                  <FontAwesome name="users" size={9} className="text-typography-muted" />
+                  <Text className="text-typography-muted text-[10px] font-black">{formatSeconds(displayTotalSeconds)}</Text>
+                </View>
+              </Tooltip>
             )}
             {(task.submission_count?.[0]?.count ?? 0) > 0 && (
-              <View className="bg-brand-primary/10 px-2.5 py-1 rounded-lg border border-brand-primary/20 flex-row items-center gap-1">
-                <FontAwesome name="send" size={9} className="text-brand-primary" />
-                <Text className="text-brand-primary text-[10px] font-black">{task.submission_count?.[0]?.count}</Text>
-              </View>
+              <Tooltip label="Submissions">
+                <View className="bg-brand-primary/10 px-2.5 py-1 rounded-lg border border-brand-primary/20 flex-row items-center gap-1">
+                  <FontAwesome name="send" size={9} className="text-brand-primary" />
+                  <Text className="text-brand-primary text-[10px] font-black">{task.submission_count?.[0]?.count}</Text>
+                </View>
+              </Tooltip>
             )}
             {(task.comment_count?.[0]?.count ?? 0) > 0 && (
-              <View className="bg-surface-background px-2.5 py-1 rounded-lg border border-surface-border flex-row items-center gap-1">
-                <FontAwesome name="comment-o" size={9} className="text-typography-muted" />
-                <Text className="text-typography-muted text-[10px] font-black">{task.comment_count?.[0]?.count}</Text>
-              </View>
+              <Tooltip label="Comments">
+                <View className="bg-surface-background px-2.5 py-1 rounded-lg border border-surface-border flex-row items-center gap-1">
+                  <FontAwesome name="comment-o" size={9} className="text-typography-muted" />
+                  <Text className="text-typography-muted text-[10px] font-black">{task.comment_count?.[0]?.count}</Text>
+                </View>
+              </Tooltip>
             )}
           </View>
 
@@ -1278,20 +1287,22 @@ export function TasksScreenWeb() {
               </TouchableOpacity>
             )}
             {(profile?.is_owner || hasPermission('archive:create') || hasPermission('pipeline.edit')) && (
-              <TouchableOpacity
-                onPress={() => {
-                  const isCoolingDown = lastStoppedAt && (Date.now() - new Date(lastStoppedAt).getTime() < 35000);
-                  if (activeSession?.task_id === task.id || isCoolingDown) {
-                    setArchiveError('System is finalizing work logs. Please wait 30 seconds after stopping your timer before archiving.');
-                    setTimeout(() => setArchiveError(null), 6000);
-                    return;
-                  }
-                  setArchiveModal({ visible: true, taskId: task.id });
-                }}
-                className={`w-7 h-7 items-center justify-center rounded-xl border border-surface-border transition-colors ${activeSession?.task_id === task.id ? 'opacity-30 cursor-not-allowed bg-surface-card' : 'bg-surface-background hover:bg-state-warning/10'}`}
-              >
-                <FontAwesome name="archive" size={10} className="text-typography-muted" />
-              </TouchableOpacity>
+              <Tooltip label="Archive task" disabled={!!activeSession?.task_id}>
+                <TouchableOpacity
+                  onPress={() => {
+                    const isCoolingDown = lastStoppedAt && (Date.now() - new Date(lastStoppedAt).getTime() < 35000);
+                    if (activeSession?.task_id === task.id || isCoolingDown) {
+                      setArchiveError('System is finalizing work logs. Please wait 30 seconds after stopping your timer before archiving.');
+                      setTimeout(() => setArchiveError(null), 6000);
+                      return;
+                    }
+                    setArchiveModal({ visible: true, taskId: task.id });
+                  }}
+                  className={`w-7 h-7 items-center justify-center rounded-xl border border-surface-border transition-colors ${activeSession?.task_id === task.id ? 'opacity-30 cursor-not-allowed bg-surface-card' : 'bg-surface-background hover:bg-state-warning/10'}`}
+                >
+                  <FontAwesome name="archive" size={10} className="text-typography-muted" />
+                </TouchableOpacity>
+              </Tooltip>
             )}
           </View>
         </View>
@@ -1468,9 +1479,11 @@ export function TasksScreenWeb() {
                    className="flex-1 text-typography-main text-sm font-bold"
                  />
                  {searchQuery.length > 0 && (
-                   <TouchableOpacity onPress={() => setSearchQuery('')}>
-                     <FontAwesome name="times" size={12} className="text-typography-muted" />
-                   </TouchableOpacity>
+                   <Tooltip label="Clear search">
+                     <TouchableOpacity onPress={() => setSearchQuery('')}>
+                       <FontAwesome name="times" size={12} className="text-typography-muted" />
+                     </TouchableOpacity>
+                   </Tooltip>
                  )}
                </View>
                {/* Mine toggle */}
@@ -1481,37 +1494,44 @@ export function TasksScreenWeb() {
                  <FontAwesome name="user" size={14} className={mineOnly ? 'text-white' : 'text-typography-muted'} />
                  <Text className={`font-black text-xs uppercase tracking-widest ${mineOnly ? 'text-white' : 'text-typography-muted'}`}>Mine</Text>
                </TouchableOpacity>
-               <TouchableOpacity
-                 onPress={() => setShowPersonalizer(true)}
-                 className="h-14 w-14 items-center justify-center bg-surface-card border border-surface-border rounded-2xl premium-shadow hover:bg-surface-overlay"
-               >
-                 <FontAwesome name="paint-brush" size={16} className="text-brand-primary" />
-               </TouchableOpacity>
-               <TouchableOpacity
-                 onPress={() => setShowFilters(v => !v)}
-                 className={`h-14 px-4 items-center justify-center flex-row gap-2 border rounded-2xl premium-shadow transition-all ${showFilters || activeFilterCount > 0 ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-card border-surface-border hover:bg-surface-overlay'}`}
-               >
-                 <FontAwesome name="sliders" size={14} className={showFilters || activeFilterCount > 0 ? 'text-brand-primary' : 'text-typography-muted'} />
-                 {activeFilterCount > 0 && (
-                   <View className="bg-brand-primary rounded-full w-5 h-5 items-center justify-center">
-                     <Text className="text-white text-[10px] font-black">{activeFilterCount}</Text>
-                   </View>
-                 )}
-               </TouchableOpacity>
-               <TouchableOpacity
-                 onPress={onRefresh}
-                 className="h-14 w-14 items-center justify-center bg-surface-card border border-surface-border rounded-2xl premium-shadow hover:bg-surface-overlay"
-               >
-                 <FontAwesome name="refresh" size={16} className="text-brand-primary" />
-               </TouchableOpacity>
-               {(hasPermission('task.create') || hasPermission('report.export') || hasPermission('task.view_all')) && (
+               <Tooltip label="Customize board view">
                  <TouchableOpacity
-                   onPress={() => setShowMobility(true)}
+                   onPress={() => setShowPersonalizer(true)}
                    className="h-14 w-14 items-center justify-center bg-surface-card border border-surface-border rounded-2xl premium-shadow hover:bg-surface-overlay"
-                   {...(Platform.OS === 'web' ? { title: 'Import / Export tasks' } as any : {})}
                  >
-                   <FontAwesome name="exchange" size={16} className="text-brand-primary" />
+                   <FontAwesome name="paint-brush" size={16} className="text-brand-primary" />
                  </TouchableOpacity>
+               </Tooltip>
+               <Tooltip label={`${showFilters ? 'Hide' : 'Show'} filters`}>
+                 <TouchableOpacity
+                   onPress={() => setShowFilters(v => !v)}
+                   className={`h-14 px-4 items-center justify-center flex-row gap-2 border rounded-2xl premium-shadow transition-all ${showFilters || activeFilterCount > 0 ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-card border-surface-border hover:bg-surface-overlay'}`}
+                 >
+                   <FontAwesome name="sliders" size={14} className={showFilters || activeFilterCount > 0 ? 'text-brand-primary' : 'text-typography-muted'} />
+                   {activeFilterCount > 0 && (
+                     <View className="bg-brand-primary rounded-full w-5 h-5 items-center justify-center">
+                       <Text className="text-white text-[10px] font-black">{activeFilterCount}</Text>
+                     </View>
+                   )}
+                 </TouchableOpacity>
+               </Tooltip>
+               <Tooltip label="Refresh board">
+                 <TouchableOpacity
+                   onPress={onRefresh}
+                   className="h-14 w-14 items-center justify-center bg-surface-card border border-surface-border rounded-2xl premium-shadow hover:bg-surface-overlay"
+                 >
+                   <FontAwesome name="refresh" size={16} className="text-brand-primary" />
+                 </TouchableOpacity>
+               </Tooltip>
+               {(hasPermission('task.create') || hasPermission('report.export') || hasPermission('task.view_all')) && (
+                 <Tooltip label="Import or export tasks">
+                   <TouchableOpacity
+                     onPress={() => setShowMobility(true)}
+                     className="h-14 w-14 items-center justify-center bg-surface-card border border-surface-border rounded-2xl premium-shadow hover:bg-surface-overlay"
+                   >
+                     <FontAwesome name="exchange" size={16} className="text-brand-primary" />
+                   </TouchableOpacity>
+                 </Tooltip>
                )}
                {hasPermission('task.create') && (
                  <TouchableOpacity
@@ -1531,10 +1551,12 @@ export function TasksScreenWeb() {
               <View className="flex-row items-center justify-between mb-4">
                 <Text className="text-typography-main font-black text-sm uppercase tracking-widest">Filters</Text>
                 {activeFilterCount > 0 && (
-                  <TouchableOpacity onPress={clearFilters} className="flex-row items-center gap-1.5 bg-state-danger/10 border border-state-danger/20 px-3 py-1.5 rounded-xl">
-                    <FontAwesome name="times" size={10} className="text-state-danger" />
-                    <Text className="text-state-danger text-[10px] font-black uppercase tracking-wider">Clear All</Text>
-                  </TouchableOpacity>
+                  <Tooltip label="Clear all filters">
+                    <TouchableOpacity onPress={clearFilters} className="flex-row items-center gap-1.5 bg-state-danger/10 border border-state-danger/20 px-3 py-1.5 rounded-xl">
+                      <FontAwesome name="times" size={10} className="text-state-danger" />
+                      <Text className="text-state-danger text-[10px] font-black uppercase tracking-wider">Clear All</Text>
+                    </TouchableOpacity>
+                  </Tooltip>
                 )}
               </View>
 
@@ -1834,9 +1856,11 @@ export function TasksScreenWeb() {
                     <Text className="text-typography-main font-black text-3xl mb-2 tracking-tighter">Switch Board</Text>
                     <Text className="text-typography-muted text-sm font-medium">Tip: Use Ctrl+] / Ctrl+[ or scroll on the board name to switch</Text>
                   </View>
-                  <TouchableOpacity onPress={() => { setShowPipelinePicker(false); setBoardPickerSearchQuery(''); }} className="p-2 hover:bg-surface-overlay rounded-xl transition-colors">
-                    <FontAwesome name="times" size={18} color={colors.textMuted} />
-                  </TouchableOpacity>
+                  <Tooltip label="Close">
+                    <TouchableOpacity onPress={() => { setShowPipelinePicker(false); setBoardPickerSearchQuery(''); }} className="p-2 hover:bg-surface-overlay rounded-xl transition-colors">
+                      <FontAwesome name="times" size={18} color={colors.textMuted} />
+                    </TouchableOpacity>
+                  </Tooltip>
                 </View>
 
                 {/* Search Input */}
@@ -1850,9 +1874,11 @@ export function TasksScreenWeb() {
                     className="flex-1 ml-3 text-typography-main text-sm font-bold"
                   />
                   {boardPickerSearchQuery.length > 0 && (
-                    <TouchableOpacity onPress={() => setBoardPickerSearchQuery('')}>
-                      <FontAwesome name="times" size={10} className="text-typography-muted" />
-                    </TouchableOpacity>
+                    <Tooltip label="Clear search">
+                      <TouchableOpacity onPress={() => setBoardPickerSearchQuery('')}>
+                        <FontAwesome name="times" size={10} className="text-typography-muted" />
+                      </TouchableOpacity>
+                    </Tooltip>
                   )}
                 </View>
 

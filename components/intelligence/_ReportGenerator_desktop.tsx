@@ -1,3 +1,4 @@
+import Tooltip from '@/components/common/Tooltip';
 import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { useTicker } from '@/hooks/useTicker';
@@ -413,9 +414,11 @@ export default function ReportGeneratorDesktop() {
                 <View className="bg-state-danger/10 border border-state-danger/30 rounded-2xl px-8 py-5 mb-8 flex-row items-center gap-4">
                   <FontAwesome name="exclamation-circle" size={18} color={colors.danger} />
                   <Text className="text-state-danger font-bold flex-1">{genError}</Text>
-                  <TouchableOpacity onPress={() => setGenError(null)}>
-                    <FontAwesome name="times" size={16} color={colors.danger} />
-                  </TouchableOpacity>
+                  <Tooltip label="Dismiss" side="bottom">
+                    <TouchableOpacity onPress={() => setGenError(null)}>
+                      <FontAwesome name="times" size={16} color={colors.danger} />
+                    </TouchableOpacity>
+                  </Tooltip>
                 </View>
               )}
 

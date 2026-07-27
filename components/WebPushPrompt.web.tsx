@@ -2,6 +2,7 @@
 // Visible on every fresh session until the user enables push or has explicitly
 // opted out in their preferences.
 import React, { useEffect, useState } from 'react';
+import Tooltip from '@/components/common/Tooltip';
 import { Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
@@ -72,12 +73,14 @@ export default function WebPushPrompt() {
                   : 'Get notified instantly when tasks are assigned, comments mention you, or deadlines approach.'}
               </Text>
             </View>
-            <TouchableOpacity
-              onPress={() => setDismissed(true)}
-              className="w-7 h-7 rounded-full bg-surface-background items-center justify-center border border-surface-border"
-            >
-              <FontAwesome name="times" size={11} color={colors.textMuted} />
-            </TouchableOpacity>
+            <Tooltip label="Dismiss">
+              <TouchableOpacity
+                onPress={() => setDismissed(true)}
+                className="w-7 h-7 rounded-full bg-surface-background items-center justify-center border border-surface-border"
+              >
+                <FontAwesome name="times" size={11} color={colors.textMuted} />
+              </TouchableOpacity>
+            </Tooltip>
           </View>
 
           {!isDenied && (

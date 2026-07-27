@@ -9,6 +9,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAlert } from '@/contexts/AlertContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import Tooltip from '@/components/common/Tooltip';
 
 export default function IntelligenceArchives() {
   const colors = useThemeColors();
@@ -124,14 +125,18 @@ export default function IntelligenceArchives() {
               className="flex-1 text-typography-main text-sm font-medium outline-none bg-transparent"
             />
             {search.length > 0 && (
-              <TouchableOpacity onPress={() => setSearch('')}>
-                <FontAwesome name="times-circle" size={12} color={colors.textMuted} />
-              </TouchableOpacity>
+              <Tooltip label="Clear search">
+                <TouchableOpacity onPress={() => setSearch('')}>
+                  <FontAwesome name="times-circle" size={12} color={colors.textMuted} />
+                </TouchableOpacity>
+              </Tooltip>
             )}
           </View>
-          <TouchableOpacity onPress={fetchArchives} className="h-10 w-10 items-center justify-center bg-surface-card border border-surface-border rounded-xl shrink-0">
-            <FontAwesome name="refresh" size={13} color={colors.primary} />
-          </TouchableOpacity>
+          <Tooltip label="Refresh archives">
+            <TouchableOpacity onPress={fetchArchives} className="h-10 w-10 items-center justify-center bg-surface-card border border-surface-border rounded-xl shrink-0">
+              <FontAwesome name="refresh" size={13} color={colors.primary} />
+            </TouchableOpacity>
+          </Tooltip>
         </View>
       </View>
 
@@ -172,13 +177,15 @@ export default function IntelligenceArchives() {
             {/* Table header */}
             <View className="flex-row items-center px-8 py-4 border-b border-surface-border bg-surface-background/50">
               {hasPermission('archive.delete') && (
-                <TouchableOpacity onPress={toggleSelectAll} className="w-8 items-start">
-                  <FontAwesome
-                    name={selected.size > 0 && selected.size === archives.length ? 'check-square' : 'square-o'}
-                    size={16}
-                    color={selected.size > 0 ? colors.primary : colors.textMuted}
-                  />
-                </TouchableOpacity>
+                <Tooltip label={selected.size === 0 ? 'Select all' : 'Deselect all'}>
+                  <TouchableOpacity onPress={toggleSelectAll} className="w-8 items-start">
+                    <FontAwesome
+                      name={selected.size > 0 && selected.size === archives.length ? 'check-square' : 'square-o'}
+                      size={16}
+                      color={selected.size > 0 ? colors.primary : colors.textMuted}
+                    />
+                  </TouchableOpacity>
+                </Tooltip>
               )}
               <Text className="flex-[3] text-typography-muted text-[9px] font-black uppercase tracking-widest">Entity</Text>
               <Text className="flex-1 text-typography-muted text-[9px] font-black uppercase tracking-widest">Type</Text>

@@ -1,4 +1,5 @@
 import { AppNotification, useNotifications } from '@/contexts/NotificationsContext';
+import Tooltip from '@/components/common/Tooltip';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { getNotificationRoute } from '@/lib/notificationRouting';
 import { FontAwesome } from '@expo/vector-icons';
@@ -202,12 +203,14 @@ export default function NotificationsModal() {
       >
         <View className="flex-row items-center justify-between">
           <View className="flex-row items-center gap-3">
-            <TouchableOpacity
-              onPress={() => router.dismiss()}
-              className="w-9 h-9 bg-surface-overlay rounded-xl border border-surface-border items-center justify-center"
-            >
-              <FontAwesome name="chevron-down" size={14} className="text-typography-muted" />
-            </TouchableOpacity>
+            <Tooltip label="Dismiss">
+              <TouchableOpacity
+                onPress={() => router.dismiss()}
+                className="w-9 h-9 bg-surface-overlay rounded-xl border border-surface-border items-center justify-center"
+              >
+                <FontAwesome name="chevron-down" size={14} className="text-typography-muted" />
+              </TouchableOpacity>
+            </Tooltip>
             <View>
               <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-typography-muted mb-0.5">
                 Signal Feed
@@ -229,12 +232,14 @@ export default function NotificationsModal() {
                 </Text>
               </TouchableOpacity>
             )}
-            <TouchableOpacity
-              onPress={() => router.push('/notifications/preferences' as any)}
-              className="w-9 h-9 bg-surface-overlay rounded-xl border border-surface-border items-center justify-center"
-            >
-              <FontAwesome name="sliders" size={14} className="text-typography-muted" />
-            </TouchableOpacity>
+            <Tooltip label="Preferences">
+              <TouchableOpacity
+                onPress={() => router.push('/notifications/preferences' as any)}
+                className="w-9 h-9 bg-surface-overlay rounded-xl border border-surface-border items-center justify-center"
+              >
+                <FontAwesome name="sliders" size={14} className="text-typography-muted" />
+              </TouchableOpacity>
+            </Tooltip>
           </View>
         </View>
 

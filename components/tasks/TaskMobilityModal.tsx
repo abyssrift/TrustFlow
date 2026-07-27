@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Platform, TextInput } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import Popup from '@/components/common/Popup';
+import Tooltip from '@/components/common/Tooltip';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -627,9 +628,11 @@ export default function TaskMobilityModal({ visible, onClose, onImported, pipeli
           <Text style={{ color: colors.textMuted, fontSize: 9, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 3, marginBottom: 2 }}>Task Data Mobility</Text>
           <Text style={{ color: colors.textMain, fontSize: 20, fontWeight: '900', letterSpacing: -0.5 }}>Import / Export</Text>
         </View>
-        <TouchableOpacity onPress={handleClose} disabled={busy} style={{ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.background }}>
-          <FontAwesome name="times" size={15} color={colors.textMain} />
-        </TouchableOpacity>
+        <Tooltip label="Close">
+          <TouchableOpacity onPress={handleClose} disabled={busy} style={{ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.background }}>
+            <FontAwesome name="times" size={15} color={colors.textMain} />
+          </TouchableOpacity>
+        </Tooltip>
       </View>
 
       <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 22, paddingTop: 10, paddingBottom: 6 }}>

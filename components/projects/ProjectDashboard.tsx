@@ -5,6 +5,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import Popup from '@/components/common/Popup';
+import Tooltip from '@/components/common/Tooltip';
 import UserLink from '@/components/common/UserLink';
 
 // ── Types mirror rpc_project_dashboard ────────────────────────────────────────
@@ -123,9 +124,11 @@ export default function ProjectDashboard({
                 <Text className="text-typography-muted font-black text-xs uppercase tracking-wider">Edit</Text>
               </TouchableOpacity>
             )}
-            <TouchableOpacity onPress={onClose} className="w-10 h-10 items-center justify-center bg-surface-background border border-surface-border rounded-full hover:bg-surface-overlay">
-              <FontAwesome name="times" size={16} color={colors.textMuted} />
-            </TouchableOpacity>
+            <Tooltip label="Close">
+              <TouchableOpacity onPress={onClose} className="w-10 h-10 items-center justify-center bg-surface-background border border-surface-border rounded-full hover:bg-surface-overlay">
+                <FontAwesome name="times" size={16} color={colors.textMuted} />
+              </TouchableOpacity>
+            </Tooltip>
           </View>
         </View>
 

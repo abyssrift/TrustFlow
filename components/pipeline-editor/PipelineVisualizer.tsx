@@ -4,6 +4,7 @@ import { FontAwesome } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
+import Tooltip from '@/components/common/Tooltip';
 import { resolveNativeColorToken } from './colorCompat';
 
 export default function PipelineVisualizer() {
@@ -151,12 +152,14 @@ export default function PipelineVisualizer() {
 
                   {/* Action Buttons */}
                   {!isAdding && (
-                    <TouchableOpacity 
-                      onPress={() => handleStartAdd(stage.id)}
-                      className="bg-brand-primary/10 w-8 h-8 rounded-full items-center justify-center"
-                    >
-                      <FontAwesome name="plus" size={12} color={colors.primary} />
-                    </TouchableOpacity>
+                    <Tooltip label="Add transition">
+                      <TouchableOpacity
+                        onPress={() => handleStartAdd(stage.id)}
+                        className="bg-brand-primary/10 w-8 h-8 rounded-full items-center justify-center"
+                      >
+                        <FontAwesome name="plus" size={12} color={colors.primary} />
+                      </TouchableOpacity>
+                    </Tooltip>
                   )}
                   {canBeTarget && (
                     <View className="bg-state-success px-2 py-1 rounded-lg">
@@ -205,9 +208,11 @@ export default function PipelineVisualizer() {
                                 </TouchableOpacity>
                               </View>
                             ) : (
-                              <TouchableOpacity onPress={() => setConfirmDeleteId(t.id)} className="p-1">
-                                <FontAwesome name="times-circle" size={10} color={colors.textMuted} />
-                              </TouchableOpacity>
+                              <Tooltip label="Delete transition">
+                                <TouchableOpacity onPress={() => setConfirmDeleteId(t.id)} className="p-1">
+                                  <FontAwesome name="times-circle" size={10} color={colors.textMuted} />
+                                </TouchableOpacity>
+                              </Tooltip>
                             )
                           )}
                         </View>

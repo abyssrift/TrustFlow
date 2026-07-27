@@ -1,4 +1,5 @@
 import Popup from '@/components/common/Popup';
+import Tooltip from '@/components/common/Tooltip';
 import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { User, useRoleManager } from '@/contexts/RoleManagerContext';
@@ -11,7 +12,7 @@ import { useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { Image, Platform, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
-import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from 'recharts';
 
 cssInterop(FontAwesome, {
   className: {
@@ -292,9 +293,11 @@ export default function UserAssignmentGrid() {
                     </Text>
                   </View>
                 </View>
-                <TouchableOpacity onPress={() => setSelectedUser(null)} className="w-10 h-10 items-center justify-center rounded-full border" style={{ backgroundColor: `${colors.primary}15`, borderColor: colors.primary }}>
-                  <FontAwesome name="times" size={16} color={colors.primary} />
-                </TouchableOpacity>
+                <Tooltip label="Close">
+                  <TouchableOpacity onPress={() => setSelectedUser(null)} className="w-10 h-10 items-center justify-center rounded-full border" style={{ backgroundColor: `${colors.primary}15`, borderColor: colors.primary }}>
+                    <FontAwesome name="times" size={16} color={colors.primary} />
+                  </TouchableOpacity>
+                </Tooltip>
               </View>
 
               {/* Tabs */}
@@ -460,7 +463,7 @@ export default function UserAssignmentGrid() {
                           <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
                           <XAxis dataKey="date" stroke={colors.textMuted} style={{ fontSize: '12px' }} />
                           <YAxis stroke={colors.textMuted} style={{ fontSize: '12px' }} />
-                          <Tooltip contentStyle={{ backgroundColor: colors.card, border: `1px solid ${colors.border}`, borderRadius: '8px' }} />
+                          <RechartsTooltip contentStyle={{ backgroundColor: colors.card, border: `1px solid ${colors.border}`, borderRadius: '8px' }} />
                           <Bar dataKey="tasks" fill={colors.primary} radius={[8, 8, 0, 0]} />
                         </BarChart>
                       </ResponsiveContainer>
@@ -472,7 +475,7 @@ export default function UserAssignmentGrid() {
                           <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
                           <XAxis dataKey="date" stroke={colors.textMuted} style={{ fontSize: '12px' }} />
                           <YAxis stroke={colors.textMuted} style={{ fontSize: '12px' }} />
-                          <Tooltip contentStyle={{ backgroundColor: colors.card, border: `1px solid ${colors.border}`, borderRadius: '8px' }} />
+                          <RechartsTooltip contentStyle={{ backgroundColor: colors.card, border: `1px solid ${colors.border}`, borderRadius: '8px' }} />
                           <Line type="monotone" dataKey="hours" stroke={colors.primary} dot={{ fill: colors.primary }} />
                         </LineChart>
                       </ResponsiveContainer>
@@ -633,9 +636,11 @@ export default function UserAssignmentGrid() {
                         </Text>
                       </View>
                     </View>
-                    <TouchableOpacity onPress={() => setSelectedUser(null)} className="w-9 h-9 items-center justify-center rounded-full border flex-shrink-0" style={{ backgroundColor: `${colors.primary}15`, borderColor: colors.primary }}>
-                      <FontAwesome name="times" size={14} color={colors.primary} />
-                    </TouchableOpacity>
+                    <Tooltip label="Close">
+                      <TouchableOpacity onPress={() => setSelectedUser(null)} className="w-9 h-9 items-center justify-center rounded-full border flex-shrink-0" style={{ backgroundColor: `${colors.primary}15`, borderColor: colors.primary }}>
+                        <FontAwesome name="times" size={14} color={colors.primary} />
+                      </TouchableOpacity>
+                    </Tooltip>
                   </View>
 
                   {/* Tabs */}

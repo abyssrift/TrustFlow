@@ -2,6 +2,7 @@ import ConfirmModal from '@/components/common/ConfirmModal';
 import Popup from '@/components/common/Popup';
 import { BackButton } from '@/components/common/BackButton';
 import { IntelligencePicker } from '@/components/intelligence/IntelligenceCommon';
+import Tooltip from '@/components/common/Tooltip';
 
 import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -365,9 +366,11 @@ const RadarSection = ({ data, activeWidgets, onEditWidgets }: any) => {
     <View>
       <View className="flex-row justify-between items-end mb-4">
         <Text className="text-typography-main font-bold text-lg">Active Telemetry</Text>
-        <TouchableOpacity onPress={onEditWidgets}>
-          <Text className="text-brand-primary text-[10px] font-bold uppercase tracking-wider">Customize</Text>
-        </TouchableOpacity>
+        <Tooltip label="Customize visible metrics">
+          <TouchableOpacity onPress={onEditWidgets}>
+            <Text className="text-brand-primary text-[10px] font-bold uppercase tracking-wider">Customize</Text>
+          </TouchableOpacity>
+        </Tooltip>
       </View>
       <View className="flex-row flex-wrap justify-between mb-6">
         {activeWidgets.map((w: string, i: number) => renderWidget(w, i))}
@@ -393,13 +396,17 @@ const ArchivesSection = ({ reports, onDownload, onNew, coldArchives, activeSchem
   return (
   <View>
     <View className="flex-row bg-surface-background p-1 rounded-xl mb-6">
-      <TouchableOpacity onPress={() => setSubSection('reports')} className={`flex-1 py-2 rounded-lg items-center ${currentSubSection === 'reports' ? 'bg-brand-primary' : ''}`}>
-        <Text className={`font-bold text-[10px] uppercase ${currentSubSection === 'reports' ? 'text-white' : 'text-typography-muted'}`}>Audit Reports</Text>
-      </TouchableOpacity>
-      {hasPermission('archive.view') && (
-        <TouchableOpacity onPress={() => setSubSection('storage')} className={`flex-1 py-2 rounded-lg items-center ${currentSubSection === 'storage' ? 'bg-brand-primary' : ''}`}>
-          <Text className={`font-bold text-[10px] uppercase ${currentSubSection === 'storage' ? 'text-white' : 'text-typography-muted'}`}>Cold Storage</Text>
+      <Tooltip label="View generated reports" disabled={currentSubSection === 'reports'}>
+        <TouchableOpacity onPress={() => setSubSection('reports')} className={`flex-1 py-2 rounded-lg items-center ${currentSubSection === 'reports' ? 'bg-brand-primary' : ''}`}>
+          <Text className={`font-bold text-[10px] uppercase ${currentSubSection === 'reports' ? 'text-white' : 'text-typography-muted'}`}>Audit Reports</Text>
         </TouchableOpacity>
+      </Tooltip>
+      {hasPermission('archive.view') && (
+        <Tooltip label="View archived assets" disabled={currentSubSection === 'storage'}>
+          <TouchableOpacity onPress={() => setSubSection('storage')} className={`flex-1 py-2 rounded-lg items-center ${currentSubSection === 'storage' ? 'bg-brand-primary' : ''}`}>
+            <Text className={`font-bold text-[10px] uppercase ${currentSubSection === 'storage' ? 'text-white' : 'text-typography-muted'}`}>Cold Storage</Text>
+          </TouchableOpacity>
+        </Tooltip>
       )}
     </View>
     {currentSubSection === 'reports' ? (

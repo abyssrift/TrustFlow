@@ -3,6 +3,7 @@ import React from 'react';
 import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import Popup from '@/components/common/Popup';
+import Tooltip from '@/components/common/Tooltip';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { ALL_EVENT_TYPES, ALL_STRATEGIES, EVENT_META, STRATEGY_LABELS } from '@/lib/notificationRuleConstants';
 import { useRuleEditorForm } from '@/lib/useRuleEditorForm';
@@ -38,13 +39,15 @@ export default function RuleEditorModal({ visible, existing, onClose, onSaved }:
             <Text style={{ color: c.textMain }} className="font-black text-xl tracking-tight">
               {existing ? 'Edit Rule' : 'New Rule'}
             </Text>
-            <TouchableOpacity
-              onPress={onClose}
-              className="w-8 h-8 rounded-full items-center justify-center"
-              style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}
-            >
-              <FontAwesome name="times" size={14} color={c.textMuted} />
-            </TouchableOpacity>
+            <Tooltip label="Close">
+              <TouchableOpacity
+                onPress={onClose}
+                className="w-8 h-8 rounded-full items-center justify-center"
+                style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}
+              >
+                <FontAwesome name="times" size={14} color={c.textMuted} />
+              </TouchableOpacity>
+            </Tooltip>
           </View>
 
           <ScrollView className="px-6" contentContainerStyle={{ paddingTop: 20, paddingBottom: 20 }} showsVerticalScrollIndicator={false}>

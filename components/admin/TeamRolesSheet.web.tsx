@@ -5,6 +5,7 @@ import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { Role } from '@/contexts/RoleManagerContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import Popup from '@/components/common/Popup';
+import Tooltip from '@/components/common/Tooltip';
 import type { TeamRolesSheetProps } from './TeamRolesSheet';
 
 export default function TeamRolesSheet({ visible, onClose, team, roles, draftRoleIds, onToggleRole, onSave, loading }: TeamRolesSheetProps) {
@@ -31,13 +32,15 @@ export default function TeamRolesSheet({ visible, onClose, team, roles, draftRol
                 {team?.name}
               </Text>
             </View>
-            <TouchableOpacity
-              onPress={onClose}
-              className="w-10 h-10 items-center justify-center rounded-full"
-              style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}
-            >
-              <FontAwesome name="times" size={16} color={c.textMuted} />
-            </TouchableOpacity>
+            <Tooltip label="Close">
+              <TouchableOpacity
+                onPress={onClose}
+                className="w-10 h-10 items-center justify-center rounded-full"
+                style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}
+              >
+                <FontAwesome name="times" size={16} color={c.textMuted} />
+              </TouchableOpacity>
+            </Tooltip>
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} className="px-7" contentContainerStyle={{ paddingTop: 16 }}>

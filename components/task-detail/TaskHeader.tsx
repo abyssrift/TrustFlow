@@ -1,6 +1,7 @@
 import ActiveSessionAvatars from '@/components/task-detail/ActiveSessionAvatars';
 import ConfirmModal from '@/components/common/ConfirmModal';
 import ManualTimeModal from '@/components/common/ManualTimeModal';
+import Tooltip from '@/components/common/Tooltip';
 import type { ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
@@ -211,12 +212,14 @@ export default function TaskHeader() {
     <View className={`px-5 ${Platform.OS === 'web' ? 'pt-4' : 'pt-12'} pb-4 bg-surface-card border-b border-surface-border relative z-50`}>
       {/* Top row: back + badges. Elevated so the presence popover clears the rows below it. */}
       <View className="flex-row items-center mb-3 relative z-50">
-        <TouchableOpacity
-          onPress={handleBack}
-          className="mr-4 bg-surface-background p-2 rounded-xl border border-surface-border active:opacity-50"
-        >
-          <FontAwesome name="chevron-left" size={16} className="text-typography-muted" />
-        </TouchableOpacity>
+        <Tooltip label="Go back">
+          <TouchableOpacity
+            onPress={handleBack}
+            className="mr-4 bg-surface-background p-2 rounded-xl border border-surface-border active:opacity-50"
+          >
+            <FontAwesome name="chevron-left" size={16} className="text-typography-muted" />
+          </TouchableOpacity>
+        </Tooltip>
 
         <View className="flex-1 flex-row items-center flex-wrap gap-2">
           {/* Priority badge */}

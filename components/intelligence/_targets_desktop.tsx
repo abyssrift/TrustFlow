@@ -1,5 +1,6 @@
 import Popup from '@/components/common/Popup';
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
+import CustomTooltip from '@/components/common/Tooltip';
 import { TargetCreationModal } from '@/components/intelligence/IntelligenceModals';
 import { useAuth } from '@/contexts/AuthContext';
 import type { ThemeType } from '@/contexts/ThemeContext';
@@ -480,14 +481,16 @@ export default function IntelligenceTargets() {
               <FontAwesome name="plus" size={12} color="white" />
               <Text className="text-white font-black uppercase tracking-widest text-[11px]">New Target</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setShowRightSidebar(!showRightSidebar)}
-              className={`px-4 py-2.5 rounded-xl border flex-row items-center gap-2 transition-all ${
-                showRightSidebar ? 'bg-brand-primary border-brand-primary premium-shadow' : 'bg-surface-card border-surface-border hover:bg-surface-overlay'
-              }`}
-            >
-              <FontAwesome name="columns" size={14} color={showRightSidebar ? 'white' : colors.muted} />
-            </TouchableOpacity>
+            <CustomTooltip label="Toggle activity panel">
+              <TouchableOpacity
+                onPress={() => setShowRightSidebar(!showRightSidebar)}
+                className={`px-4 py-2.5 rounded-xl border flex-row items-center gap-2 transition-all ${
+                  showRightSidebar ? 'bg-brand-primary border-brand-primary premium-shadow' : 'bg-surface-card border-surface-border hover:bg-surface-overlay'
+                }`}
+              >
+                <FontAwesome name="columns" size={14} color={showRightSidebar ? 'white' : colors.muted} />
+              </TouchableOpacity>
+            </CustomTooltip>
           </View>
         </View>
 
@@ -685,9 +688,11 @@ export default function IntelligenceTargets() {
                   <View className="w-1.5 h-1.5 rounded-full bg-state-info" />
                   <Text className="text-typography-main font-black uppercase tracking-[0.2em] text-[10px]">Recent Activity</Text>
                 </View>
-                <TouchableOpacity onPress={fetchTargets}>
-                  <FontAwesome name="refresh" size={10} color={colors.muted} />
-                </TouchableOpacity>
+                <CustomTooltip label="Refresh targets">
+                  <TouchableOpacity onPress={fetchTargets}>
+                    <FontAwesome name="refresh" size={10} color={colors.muted} />
+                  </TouchableOpacity>
+                </CustomTooltip>
               </View>
 
               {filteredHistory.length === 0 ? (

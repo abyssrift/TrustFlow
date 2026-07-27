@@ -3,6 +3,7 @@ import { FontAwesome } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import Tooltip from '@/components/common/Tooltip';
 import {
     Bar,
     BarChart,
@@ -174,9 +175,11 @@ export const ArchivesSectionWeb = ({ reports, archives, search, activeSchema, on
                 <TextInput value={search} onChangeText={onSearch} placeholder="Search snapshots by ID, metadata, or title..." className="flex-1 text-typography-main font-bold outline-none" placeholderTextColor={colors.textMuted} />
               </View>
             </View>
-            <TouchableOpacity onPress={onRefresh} className="h-14 w-14 items-center justify-center bg-surface-card border border-surface-border rounded-2xl premium-shadow hover:border-brand-primary">
-              <FontAwesome name="refresh" size={16} color={colors.primary} />
-            </TouchableOpacity>
+            <Tooltip label="Refresh snapshots">
+              <TouchableOpacity onPress={onRefresh} className="h-14 w-14 items-center justify-center bg-surface-card border border-surface-border rounded-2xl premium-shadow hover:border-brand-primary">
+                <FontAwesome name="refresh" size={16} color={colors.primary} />
+              </TouchableOpacity>
+            </Tooltip>
           </View>
           <View className="flex-row flex-wrap gap-4">
             {archives.map((archive: any) => {

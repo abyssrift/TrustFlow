@@ -1,4 +1,5 @@
 import { useAlert } from '@/contexts/AlertContext';
+import Tooltip from '@/components/common/Tooltip';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useEffect, useState } from 'react';
@@ -104,13 +105,15 @@ export default function ManualTimeApprovalsModal({ visible, onClose, entries, on
               </Text>
             </View>
           </View>
-          <TouchableOpacity
-            onPress={onClose}
-            className="w-8 h-8 rounded-full items-center justify-center"
-            style={{ backgroundColor: colors.background }}
-          >
-            <FontAwesome name="close" size={13} color={colors.textMuted} />
-          </TouchableOpacity>
+          <Tooltip label="Close">
+            <TouchableOpacity
+              onPress={onClose}
+              className="w-8 h-8 rounded-full items-center justify-center"
+              style={{ backgroundColor: colors.background }}
+            >
+              <FontAwesome name="close" size={13} color={colors.textMuted} />
+            </TouchableOpacity>
+          </Tooltip>
         </View>
 
         {/* Queue position dots — a real signal of where you are in review, not decoration */}

@@ -3,6 +3,7 @@ import { FontAwesome } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import React, { useState } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
+import Tooltip from './Tooltip';
 
 type Props = {
   /** Current field value — enables the Copy button. */
@@ -40,24 +41,28 @@ export default function ClipboardControls({ value, onPaste, showCopy = true, sho
   return (
     <View className="flex-row items-center gap-3">
       {showCopy && (
-        <TouchableOpacity
-          onPress={handleCopy}
-          disabled={!value}
-          className={`flex-row items-center gap-1 ${!value ? 'opacity-30' : 'active:opacity-60'}`}
-        >
-          <FontAwesome name={copied ? 'check' : 'copy'} size={11} color={copied ? colors.success : colors.primary} />
-          {!iconOnly && (
-            <Text className="text-brand-primary text-[10px] font-black uppercase tracking-wider">{copied ? 'Copied' : 'Copy'}</Text>
-          )}
-        </TouchableOpacity>
+        <Tooltip label={copied ? 'Copied' : 'Copy'} disabled={!value || !iconOnly}>
+          <TouchableOpacity
+            onPress={handleCopy}
+            disabled={!value}
+            className={`flex-row items-center gap-1 ${!value ? 'opacity-30' : 'active:opacity-60'}`}
+          >
+            <FontAwesome name={copied ? 'check' : 'copy'} size={11} color={copied ? colors.success : colors.primary} />
+            {!iconOnly && (
+              <Text className="text-brand-primary text-[10px] font-black uppercase tracking-wider">{copied ? 'Copied' : 'Copy'}</Text>
+            )}
+          </TouchableOpacity>
+        </Tooltip>
       )}
       {showPaste && (
-        <TouchableOpacity onPress={handlePaste} className="flex-row items-center gap-1 active:opacity-60">
-          <FontAwesome name="clipboard" size={11} color={colors.primary} />
-          {!iconOnly && (
-            <Text className="text-brand-primary text-[10px] font-black uppercase tracking-wider">Paste</Text>
-          )}
-        </TouchableOpacity>
+        <Tooltip label="Paste" disabled={!iconOnly}>
+          <TouchableOpacity onPress={handlePaste} className="flex-row items-center gap-1 active:opacity-60">
+            <FontAwesome name="clipboard" size={11} color={colors.primary} />
+            {!iconOnly && (
+              <Text className="text-brand-primary text-[10px] font-black uppercase tracking-wider">Paste</Text>
+            )}
+          </TouchableOpacity>
+        </Tooltip>
       )}
     </View>
   );

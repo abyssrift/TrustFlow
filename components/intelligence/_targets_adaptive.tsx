@@ -1,5 +1,6 @@
 import Popup from '@/components/common/Popup';
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
+import Tooltip from '@/components/common/Tooltip';
 import { BackButton } from '@/components/common/BackButton';
 import { CompletionVelocityMobile, IntelligencePicker } from '@/components/intelligence/IntelligenceCommon';
 import { useAlert } from '@/contexts/AlertContext';
@@ -506,9 +507,11 @@ export default function IntelligenceTargetsNative() {
           <BackButton label="" />
         </View>
         <View className="flex-row flex-wrap justify-end gap-2 mt-3">
-          <TouchableOpacity onPress={fetchTargets} className="w-11 h-11 items-center justify-center bg-surface-card border border-surface-border rounded-2xl">
-            <FontAwesome name="refresh" size={13} color={colors.primary} />
-          </TouchableOpacity>
+          <Tooltip label="Refresh targets">
+            <TouchableOpacity onPress={fetchTargets} className="w-11 h-11 items-center justify-center bg-surface-card border border-surface-border rounded-2xl">
+              <FontAwesome name="refresh" size={13} color={colors.primary} />
+            </TouchableOpacity>
+          </Tooltip>
           <TouchableOpacity onPress={() => setShowCreate(true)} className="bg-brand-primary px-5 py-3 rounded-2xl flex-row items-center gap-2">
             <FontAwesome name="plus" size={11} color="white" />
             <Text className="text-white font-black text-[11px]">New</Text>

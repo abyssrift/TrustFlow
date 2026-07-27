@@ -7,6 +7,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Popup from '@/components/common/Popup';
+import Tooltip from '@/components/common/Tooltip';
 
 // ── Types mirror rpc_project_dashboard ────────────────────────────────────────
 type Totals = {
@@ -100,17 +101,21 @@ export default function ProjectDashboardSheet({
       <View style={{ flex: 1, backgroundColor: c.background }}>
         {/* Header */}
         <View className="px-5 py-4 flex-row items-center justify-between border-b" style={{ borderColor: c.border }}>
-          <TouchableOpacity onPress={onClose} className="w-10 h-10 items-center justify-center rounded-full" style={{ backgroundColor: c.card }}>
-            <FontAwesome name="chevron-left" size={16} color={c.textMuted} />
-          </TouchableOpacity>
+          <Tooltip label="Back">
+            <TouchableOpacity onPress={onClose} className="w-10 h-10 items-center justify-center rounded-full" style={{ backgroundColor: c.card }}>
+              <FontAwesome name="chevron-left" size={16} color={c.textMuted} />
+            </TouchableOpacity>
+          </Tooltip>
           <View className="flex-1 items-center px-3">
             <Text className="text-[8px] font-black uppercase tracking-[0.3em]" style={{ color: c.primary }}>Project Intelligence</Text>
             <Text numberOfLines={1} className="text-base font-black tracking-tight" style={{ color: c.textMain }}>{data?.project?.name || 'Project'}</Text>
           </View>
           {onEdit ? (
-            <TouchableOpacity onPress={onEdit} className="w-10 h-10 items-center justify-center rounded-full" style={{ backgroundColor: c.card }}>
-              <FontAwesome name="pencil" size={14} color={c.textMuted} />
-            </TouchableOpacity>
+            <Tooltip label="Edit">
+              <TouchableOpacity onPress={onEdit} className="w-10 h-10 items-center justify-center rounded-full" style={{ backgroundColor: c.card }}>
+                <FontAwesome name="pencil" size={14} color={c.textMuted} />
+              </TouchableOpacity>
+            </Tooltip>
           ) : <View className="w-10" />}
         </View>
 

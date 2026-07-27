@@ -3,12 +3,14 @@ import { RecentActivitySidebar } from '@/components/intelligence/RecentActivityS
 import ProfileAvatar from '@/components/profile/ProfileAvatar';
 import ProfileGeneralForm from '@/components/profile/ProfileGeneralForm';
 import SecurityForm from '@/components/profile/SecurityForm';
+import Tooltip from '@/components/common/Tooltip';
 import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { ThemeType, useTheme } from '@/contexts/ThemeContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import Constants from 'expo-constants';
 import { Stack } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
@@ -185,6 +187,10 @@ export default function ProfilePageWeb() {
             <FontAwesome name="sign-out" size={14} color={colors.textMuted} style={{ marginRight: 12 }} />
             <Text className="text-xs font-black uppercase tracking-widest text-typography-main">Sign Out</Text>
           </Pressable>
+
+          <Text selectable className="mt-3 px-4 text-[10px] text-typography-dim">
+            v{Constants.expoConfig?.version ?? '?'}
+          </Text>
         </View>
       </View>
 
@@ -223,28 +229,29 @@ export default function ProfilePageWeb() {
                   <Text className="mb-6 text-[10px] font-black uppercase tracking-[0.3em] text-typography-dim">Color Theme</Text>
                   <View className="flex-row flex-wrap gap-4">
                     {THEME_OPTIONS.map((option) => (
-                      <Pressable
-                        key={option.id}
-                        onPress={() => setTheme(option.id)}
-                        className={`h-24 w-32 items-center justify-center rounded-2xl border transition-all ${
-                          activeTheme === option.id
-                            ? 'border-brand-primary bg-brand-primary/10'
-                            : 'border-surface-border bg-surface-background/50 hover:bg-surface-overlay'
-                        }`}
-                      >
-                        <View className={`h-10 w-10 items-center justify-center rounded-xl ${activeTheme === option.id ? 'bg-brand-primary/20' : 'bg-surface-overlay'}`}>
-                          <FontAwesome
-                            name={option.icon as any}
-                            size={18}
-                            color={activeTheme === option.id ? colors.primary : colors.textDim}
-                          />
-                        </View>
-                        <Text className={`mt-3 text-[10px] font-black uppercase tracking-widest ${
-                          activeTheme === option.id ? 'text-brand-primary' : 'text-typography-muted'
-                        }`}>
-                          {option.label}
-                        </Text>
-                      </Pressable>
+                      <Tooltip key={option.id} label={`Switch to ${option.label}`}>
+                        <Pressable
+                          onPress={() => setTheme(option.id)}
+                          className={`h-24 w-32 items-center justify-center rounded-2xl border transition-all ${
+                            activeTheme === option.id
+                              ? 'border-brand-primary bg-brand-primary/10'
+                              : 'border-surface-border bg-surface-background/50 hover:bg-surface-overlay'
+                          }`}
+                        >
+                          <View className={`h-10 w-10 items-center justify-center rounded-xl ${activeTheme === option.id ? 'bg-brand-primary/20' : 'bg-surface-overlay'}`}>
+                            <FontAwesome
+                              name={option.icon as any}
+                              size={18}
+                              color={activeTheme === option.id ? colors.primary : colors.textDim}
+                            />
+                          </View>
+                          <Text className={`mt-3 text-[10px] font-black uppercase tracking-widest ${
+                            activeTheme === option.id ? 'text-brand-primary' : 'text-typography-muted'
+                          }`}>
+                            {option.label}
+                          </Text>
+                        </Pressable>
+                      </Tooltip>
                     ))}
                   </View>
                 </View>

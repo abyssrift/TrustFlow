@@ -1,4 +1,5 @@
 import { useThemeColors } from '@/hooks/useThemeColors';
+import Tooltip from './Tooltip';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Platform, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
@@ -424,13 +425,17 @@ export function FilePreviewModal({
         <FontAwesome name={icon as any} size={14} color="#fff" />
         <Text numberOfLines={1} className="flex-1 text-white font-bold text-sm">{fileName}</Text>
         {onDownload && (
-          <TouchableOpacity onPress={onDownload} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} className="w-9 h-9 rounded-full bg-white/10 items-center justify-center" style={isWeb ? ({ cursor: 'pointer' } as any) : undefined}>
-            <FontAwesome name="download" size={14} color="#fff" />
-          </TouchableOpacity>
+          <Tooltip label="Download">
+            <TouchableOpacity onPress={onDownload} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} className="w-9 h-9 rounded-full bg-white/10 items-center justify-center" style={isWeb ? ({ cursor: 'pointer' } as any) : undefined}>
+              <FontAwesome name="download" size={14} color="#fff" />
+            </TouchableOpacity>
+          </Tooltip>
         )}
-        <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} className="w-9 h-9 rounded-full bg-white/10 items-center justify-center" style={isWeb ? ({ cursor: 'pointer' } as any) : undefined}>
-          <FontAwesome name="times" size={16} color="#fff" />
-        </TouchableOpacity>
+        <Tooltip label="Close">
+          <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} className="w-9 h-9 rounded-full bg-white/10 items-center justify-center" style={isWeb ? ({ cursor: 'pointer' } as any) : undefined}>
+            <FontAwesome name="times" size={16} color="#fff" />
+          </TouchableOpacity>
+        </Tooltip>
       </View>
       <View className="flex-1 rounded-2xl overflow-hidden border" style={{ borderColor: colors.border, backgroundColor: colors.card, padding: kind === 'spreadsheet' || kind === 'text' ? 8 : 0 }}>
         {visible && <KindBody uri={uri} kind={kind} sizeBytes={sizeBytes} />}

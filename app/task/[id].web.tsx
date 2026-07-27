@@ -9,6 +9,7 @@ import TaskBriefPanel from '@/components/task-detail/TaskBriefPanel';
 import TaskHeader from '@/components/task-detail/TaskHeader';
 import TaskMetadata from '@/components/task-detail/TaskMetadata';
 import TimerPanel from '@/components/task-detail/TimerPanel';
+import Tooltip from '@/components/common/Tooltip';
 import { TaskDetailProvider, useTaskDetail } from '@/contexts/TaskDetailContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -86,13 +87,14 @@ function TaskDetailContentWeb() {
       {/* Quick jump to the mobile Deadlines screen — narrow web only. Desktop
           already has this one tap away via the topbar calendar strip. */}
       {!isWide && (
-        <TouchableOpacity
-          onPress={() => router.push('/deadlines' as any)}
-          className="absolute right-4 bg-surface-background p-2 rounded-xl border border-surface-border hover:border-brand-primary transition-colors z-50"
-          style={{ top: insets.top + 12 }}
-        >
-          <FontAwesome name="calendar" size={16} color={colors.textMuted} />
-        </TouchableOpacity>
+        <Tooltip label="View deadlines" className="absolute right-4 z-50" style={{ top: insets.top + 12 }}>
+          <TouchableOpacity
+            onPress={() => router.push('/deadlines' as any)}
+            className="bg-surface-background p-2 rounded-xl border border-surface-border hover:border-brand-primary transition-colors"
+          >
+            <FontAwesome name="calendar" size={16} color={colors.textMuted} />
+          </TouchableOpacity>
+        </Tooltip>
       )}
 
       {isWide ? (

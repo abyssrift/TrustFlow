@@ -33,6 +33,7 @@ import {
   type SortKey
 } from '@/components/platform-admin/useControlPlaneData';
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
+import AppTooltip from '@/components/common/Tooltip';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
@@ -208,9 +209,11 @@ function CompanyDetailPanel({ companyId, onClose, onDeleted }: { companyId: stri
                 </>
               )}
             </View>
-            <TouchableOpacity onPress={onClose} className="w-9 h-9 rounded-full items-center justify-center" style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}>
-              <FontAwesome name="times" size={13} color={colors.textMuted} />
-            </TouchableOpacity>
+            <AppTooltip label="Close">
+              <TouchableOpacity onPress={onClose} className="w-9 h-9 rounded-full items-center justify-center" style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}>
+                <FontAwesome name="times" size={13} color={colors.textMuted} />
+              </TouchableOpacity>
+            </AppTooltip>
           </View>
 
           {loading || !detail ? (
@@ -823,13 +826,15 @@ function LiveSection() {
             {sessions.length > 0 ? `${sessions.length} active · ${companiesLive} workspace${companiesLive !== 1 ? 's' : ''}` : 'No active sessions'}
           </Text>
         </View>
-        <TouchableOpacity
-          onPress={fetchSessions}
-          className="flex-row items-center gap-2 bg-surface-card border border-surface-border px-4 py-2 rounded-xl hover:bg-surface-overlay transition-colors"
-        >
-          <FontAwesome name="refresh" size={11} className="text-typography-muted" />
-          <Text className="text-typography-dim text-xs">{secsAgo}s ago</Text>
-        </TouchableOpacity>
+        <AppTooltip label="Refresh live sessions">
+          <TouchableOpacity
+            onPress={fetchSessions}
+            className="flex-row items-center gap-2 bg-surface-card border border-surface-border px-4 py-2 rounded-xl hover:bg-surface-overlay transition-colors"
+          >
+            <FontAwesome name="refresh" size={11} className="text-typography-muted" />
+            <Text className="text-typography-dim text-xs">{secsAgo}s ago</Text>
+          </TouchableOpacity>
+        </AppTooltip>
       </View>
 
       {sessions.length === 0 ? (
@@ -1036,13 +1041,15 @@ function UserDetailPanel({
                   </TouchableOpacity>
                 </View>
               )}
-              <TouchableOpacity
-                onPress={onClose}
-                className="w-9 h-9 rounded-full items-center justify-center"
-                style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}
-              >
-                <FontAwesome name="times" size={13} color={colors.textMuted} />
-              </TouchableOpacity>
+              <AppTooltip label="Close">
+                <TouchableOpacity
+                  onPress={onClose}
+                  className="w-9 h-9 rounded-full items-center justify-center"
+                  style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}
+                >
+                  <FontAwesome name="times" size={13} color={colors.textMuted} />
+                </TouchableOpacity>
+              </AppTooltip>
             </View>
           </View>
 

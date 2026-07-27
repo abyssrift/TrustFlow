@@ -4,6 +4,7 @@ import { FontAwesome } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import Popup from '@/components/common/Popup';
+import Tooltip from '@/components/common/Tooltip';
 import { resolveNativeColorToken } from './colorCompat';
 
 const CONDITION_TYPES = [
@@ -327,18 +328,22 @@ export default function AutomationEditor() {
 
                     {/* Actions */}
                     <View className="flex-row items-center gap-2">
-                      <TouchableOpacity
-                        onPress={() => handleToggleActive(a)}
-                        className={`w-10 h-6 rounded-full flex-row items-center px-0.5 ${a.is_active ? 'bg-brand-primary justify-end' : 'bg-surface-overlay justify-start'}`}
-                      >
-                        <View className="w-5 h-5 rounded-full bg-white" />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() => setConfirmDeleteId(a.id)}
-                        className="p-2 rounded-lg border border-surface-border bg-surface-background"
-                      >
-                        <FontAwesome name="trash-o" size={10} color={colors.textDim} />
-                      </TouchableOpacity>
+                      <Tooltip label={a.is_active ? 'Pause rule' : 'Resume rule'}>
+                        <TouchableOpacity
+                          onPress={() => handleToggleActive(a)}
+                          className={`w-10 h-6 rounded-full flex-row items-center px-0.5 ${a.is_active ? 'bg-brand-primary justify-end' : 'bg-surface-overlay justify-start'}`}
+                        >
+                          <View className="w-5 h-5 rounded-full bg-white" />
+                        </TouchableOpacity>
+                      </Tooltip>
+                      <Tooltip label="Delete rule">
+                        <TouchableOpacity
+                          onPress={() => setConfirmDeleteId(a.id)}
+                          className="p-2 rounded-lg border border-surface-border bg-surface-background"
+                        >
+                          <FontAwesome name="trash-o" size={10} color={colors.textDim} />
+                        </TouchableOpacity>
+                      </Tooltip>
                     </View>
                   </View>
 

@@ -1,5 +1,6 @@
 import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
+import Tooltip from '@/components/common/Tooltip';
 import { useTaskDetail, type DeletedTaskAttachmentData, type TaskAttachmentData, type TaskAttachmentVersionData } from '@/contexts/TaskDetailContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { downloadFilesAsZip, openStorageFile, TASK_BRIEF_BUCKET } from '@/lib/storage';
@@ -136,36 +137,42 @@ function AdaptiveFileGrid({
             </TouchableOpacity>
 
             {onRemove && !isUploading && (
-              <TouchableOpacity
-                onPress={() => onRemove(pf.id)}
-                className="absolute top-1.5 right-1.5 w-6 h-6 bg-black/60 rounded-full items-center justify-center hover:bg-black/80"
-              >
-                <FontAwesome name="times" size={10} color="#fff" />
-              </TouchableOpacity>
+              <Tooltip label="Delete file" className="absolute top-1.5 right-1.5">
+                <TouchableOpacity
+                  onPress={() => onRemove(pf.id)}
+                  className="w-6 h-6 bg-black/60 rounded-full items-center justify-center hover:bg-black/80"
+                >
+                  <FontAwesome name="times" size={10} color="#fff" />
+                </TouchableOpacity>
+              </Tooltip>
             )}
 
             {onReplace && !isUploading && (
-              <TouchableOpacity
-                onPress={() => onReplace(pf)}
-                disabled={replacingId !== null}
-                className={`absolute top-1.5 ${onRemove ? 'right-9' : 'right-1.5'} w-6 h-6 bg-black/60 rounded-full items-center justify-center hover:bg-black/80`}
-              >
-                {replacingId === pf.id ? (
-                  <ActivityIndicator size="small" color="#fff" style={{ transform: [{ scale: 0.5 }] }} />
-                ) : (
-                  <FontAwesome name="refresh" size={10} color="#fff" />
-                )}
-              </TouchableOpacity>
+              <Tooltip label="Replace file" className={`absolute top-1.5 ${onRemove ? 'right-9' : 'right-1.5'}`}>
+                <TouchableOpacity
+                  onPress={() => onReplace(pf)}
+                  disabled={replacingId !== null}
+                  className="w-6 h-6 bg-black/60 rounded-full items-center justify-center hover:bg-black/80"
+                >
+                  {replacingId === pf.id ? (
+                    <ActivityIndicator size="small" color="#fff" style={{ transform: [{ scale: 0.5 }] }} />
+                  ) : (
+                    <FontAwesome name="refresh" size={10} color="#fff" />
+                  )}
+                </TouchableOpacity>
+              </Tooltip>
             )}
 
             {onHistory && (pf.version_count ?? 1) > 1 && (
-              <TouchableOpacity
-                onPress={() => onHistory(pf)}
-                className="absolute top-1.5 left-1.5 flex-row items-center bg-black/60 rounded-full px-2 py-1 hover:bg-black/80"
-              >
-                <FontAwesome name="history" size={8} color="#fff" />
-                <Text className="text-white text-[8px] font-black ml-1">v{pf.version_count}</Text>
-              </TouchableOpacity>
+              <Tooltip label="View version history" className="absolute top-1.5 left-1.5">
+                <TouchableOpacity
+                  onPress={() => onHistory(pf)}
+                  className="flex-row items-center bg-black/60 rounded-full px-2 py-1 hover:bg-black/80"
+                >
+                  <FontAwesome name="history" size={8} color="#fff" />
+                  <Text className="text-white text-[8px] font-black ml-1">v{pf.version_count}</Text>
+                </TouchableOpacity>
+              </Tooltip>
             )}
 
             <View pointerEvents="none" className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1">
@@ -446,22 +453,24 @@ export default function TaskBriefPanel() {
   };
 
   const downloadAllBtn = data.task_attachments.length > 0 && Platform.OS === 'web' ? (
-    <TouchableOpacity
-      onPress={downloadAll}
-      disabled={zipping}
-      hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-      className="flex-row items-center bg-surface-background px-2 py-0.5 rounded-md border border-surface-border active:opacity-70"
-      style={Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : undefined}
-    >
-      {zipping ? (
-        <ActivityIndicator size="small" color={colors.primary} style={{ transform: [{ scale: 0.7 }] }} />
-      ) : (
-        <FontAwesome name="download" size={9} color={colors.primary} />
-      )}
-      <Text className="text-brand-primary text-[8px] font-black uppercase tracking-tighter ml-1">
-        {zipping ? (zipProgress ? `${zipProgress.done}/${zipProgress.total}` : 'Zipping') : 'Download all'}
-      </Text>
-    </TouchableOpacity>
+    <Tooltip label="Download all">
+      <TouchableOpacity
+        onPress={downloadAll}
+        disabled={zipping}
+        hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+        className="flex-row items-center bg-surface-background px-2 py-0.5 rounded-md border border-surface-border active:opacity-70"
+        style={Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : undefined}
+      >
+        {zipping ? (
+          <ActivityIndicator size="small" color={colors.primary} style={{ transform: [{ scale: 0.7 }] }} />
+        ) : (
+          <FontAwesome name="download" size={9} color={colors.primary} />
+        )}
+        <Text className="text-brand-primary text-[8px] font-black uppercase tracking-tighter ml-1">
+          {zipping ? (zipProgress ? `${zipProgress.done}/${zipProgress.total}` : 'Zipping') : 'Download all'}
+        </Text>
+      </TouchableOpacity>
+    </Tooltip>
   ) : null;
 
   return (

@@ -1,4 +1,5 @@
 import { useThemeColors } from '@/hooks/useThemeColors';
+import Tooltip from '@/components/common/Tooltip';
 import React from 'react';
 import { Modal, Platform, Pressable, StyleProp, Text, View, ViewStyle, useWindowDimensions } from 'react-native';
 import DraggableSheet from './DraggableSheet';
@@ -117,11 +118,11 @@ export default function Popup({
             {title && (
               <View className="flex-row items-center justify-between px-6 pt-5 pb-4" style={{ borderBottomWidth: 1, borderBottomColor: c.border }}>
                 <Text className="text-xl font-black tracking-tight flex-1" style={{ color: c.textMain }}>{title}</Text>
-                { (
+                <Tooltip label="Close">
                   <Pressable onPress={onClose} className="w-9 h-9 items-center justify-center rounded-full" style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}>
                     <Text style={{ color: c.textMuted, fontSize: 16, fontWeight: 'bold' }}>x</Text>
                   </Pressable>
-                )}
+                </Tooltip>
               </View>
             )}
             {children}

@@ -1,6 +1,7 @@
 import Popup from '@/components/common/Popup';
 import ConfirmModal from '@/components/common/ConfirmModal';
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
+import Tooltip from '@/components/common/Tooltip';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { PROJECT_STATUS_OPTIONS, useProjectFolderForm } from '@/lib/useProjectFolderForm';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -65,9 +66,11 @@ export default function ProjectFolderModal({
               <Text style={{ color: c.textMain }} className="text-xl font-bold">
                 {project ? 'Edit Project' : 'New Project'}
               </Text>
-              <TouchableOpacity onPress={onClose} className="p-2">
-                <FontAwesome name="close" size={20} color={c.textMuted} />
-              </TouchableOpacity>
+              <Tooltip label="Close">
+                <TouchableOpacity onPress={onClose} className="p-2">
+                  <FontAwesome name="close" size={20} color={c.textMuted} />
+                </TouchableOpacity>
+              </Tooltip>
             </View>
 
             {/* Form Content */}
@@ -119,13 +122,15 @@ export default function ProjectFolderModal({
                     <FontAwesome name="calendar" size={14} color={c.textDim} />
                   </TouchableOpacity>
                   {expiryDate && (
-                    <TouchableOpacity
-                      onPress={() => { setExpiryDate(null); setShowCalendar(false); }}
-                      className="w-14 rounded-xl items-center justify-center"
-                      style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}
-                    >
-                      <FontAwesome name="times" size={14} color={c.textDim} />
-                    </TouchableOpacity>
+                    <Tooltip label="Clear date">
+                      <TouchableOpacity
+                        onPress={() => { setExpiryDate(null); setShowCalendar(false); }}
+                        className="w-14 rounded-xl items-center justify-center"
+                        style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}
+                      >
+                        <FontAwesome name="times" size={14} color={c.textDim} />
+                      </TouchableOpacity>
+                    </Tooltip>
                   )}
                 </View>
                 {showCalendar && (

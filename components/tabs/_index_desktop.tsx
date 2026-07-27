@@ -1,5 +1,6 @@
 import PipelineOverviewChart, { DEFAULT_OVERVIEW_METRICS, OverviewMetricKey } from '@/components/intelligence/PipelineOverviewChart';
 import LiveSessionsPopup from '@/components/tabs/LiveSessionsPopup';
+import Tooltip from '@/components/common/Tooltip';
 import ActiveSessionAvatars from '@/components/task-detail/ActiveSessionAvatars';
 import type { ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
 import { useAuth } from '@/contexts/AuthContext';
@@ -474,12 +475,14 @@ export default function DashboardScreenWeb() {
                       <Text className="text-xs text-typography-muted ml-1 font-bold">{Math.floor((pulse.active_seconds_today % 3600) / 60)}m</Text>
                     </View>
                   </View>
-                  <View>
-                    <Text className="text-[10px] text-typography-muted font-black uppercase tracking-widest mb-1">Flap Score</Text>
-                    <Text className={`text-3xl font-black ${pulse.flap_rate_score > 1.5 ? 'text-state-danger' : 'text-state-success'}`}>
-                      {pulse.flap_rate_score}x
-                    </Text>
-                  </View>
+                  <Tooltip label="Task switching frequency (lower is better)">
+                    <View>
+                      <Text className="text-[10px] text-typography-muted font-black uppercase tracking-widest mb-1">Flap Score</Text>
+                      <Text className={`text-3xl font-black ${pulse.flap_rate_score > 1.5 ? 'text-state-danger' : 'text-state-success'}`}>
+                        {pulse.flap_rate_score}x
+                      </Text>
+                    </View>
+                  </Tooltip>
                 </View>
                 {pulse.is_working && (
                   <View className="flex-row items-center bg-state-success/10 px-5 py-3 rounded-full border border-state-success/20">

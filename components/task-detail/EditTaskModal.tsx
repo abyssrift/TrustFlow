@@ -1,5 +1,6 @@
 import DraggableSheet from '@/components/common/DraggableSheet';
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
+import Tooltip from '@/components/common/Tooltip';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
@@ -125,12 +126,14 @@ export default function EditTaskModal({ visible, onClose, focusField }: Props) {
               <Text className="text-typography-muted text-[9px] font-black uppercase tracking-[0.2em]">Modify Task</Text>
               <Text className="text-typography-main text-xl font-black tracking-tight mt-0.5">Edit Details</Text>
             </View>
-            <TouchableOpacity
-              onPress={onClose}
-              className="w-9 h-9 items-center justify-center rounded-full bg-surface-background border border-surface-border"
-            >
-              <FontAwesome name="times" size={14} color={colors.textMuted} />
-            </TouchableOpacity>
+            <Tooltip label="Close" side="left">
+              <TouchableOpacity
+                onPress={onClose}
+                className="w-9 h-9 items-center justify-center rounded-full bg-surface-background border border-surface-border"
+              >
+                <FontAwesome name="times" size={14} color={colors.textMuted} />
+              </TouchableOpacity>
+            </Tooltip>
           </View>
 
           <ScrollView
@@ -229,12 +232,14 @@ export default function EditTaskModal({ visible, onClose, focusField }: Props) {
                         <FontAwesome name="calendar" size={11} color={dueDate ? colors.primary : colors.textMuted} />
                       </TouchableOpacity>
                       {dueDate && (
-                        <TouchableOpacity
-                          onPress={() => { setDueDate(null); if (activeDateField === 'due') setActiveDateField(null); }}
-                          className="w-11 h-11 bg-surface-background border border-surface-border rounded-2xl items-center justify-center"
-                        >
-                          <FontAwesome name="times" size={11} color={colors.textMuted} />
-                        </TouchableOpacity>
+                        <Tooltip label="Clear date">
+                          <TouchableOpacity
+                            onPress={() => { setDueDate(null); if (activeDateField === 'due') setActiveDateField(null); }}
+                            className="w-11 h-11 bg-surface-background border border-surface-border rounded-2xl items-center justify-center"
+                          >
+                            <FontAwesome name="times" size={11} color={colors.textMuted} />
+                          </TouchableOpacity>
+                        </Tooltip>
                       )}
                     </View>
                   </View>
@@ -257,12 +262,14 @@ export default function EditTaskModal({ visible, onClose, focusField }: Props) {
                         <FontAwesome name="calendar-o" size={11} color={startDate ? colors.secondary : colors.textMuted} />
                       </TouchableOpacity>
                       {startDate && (
-                        <TouchableOpacity
-                          onPress={() => { setStartDate(null); if (activeDateField === 'start') setActiveDateField(null); }}
-                          className="w-11 h-11 bg-surface-background border border-surface-border rounded-2xl items-center justify-center"
-                        >
-                          <FontAwesome name="times" size={11} color={colors.textMuted} />
-                        </TouchableOpacity>
+                        <Tooltip label="Clear date">
+                          <TouchableOpacity
+                            onPress={() => { setStartDate(null); if (activeDateField === 'start') setActiveDateField(null); }}
+                            className="w-11 h-11 bg-surface-background border border-surface-border rounded-2xl items-center justify-center"
+                          >
+                            <FontAwesome name="times" size={11} color={colors.textMuted} />
+                          </TouchableOpacity>
+                        </Tooltip>
                       )}
                     </View>
                   </View>

@@ -5,6 +5,7 @@ import { FontAwesome } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { ActivityIndicator, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import HorizontalScroll from '../common/HorizontalScroll';
+import Tooltip from '../common/Tooltip';
 import { resolveNativeColorToken } from './colorCompat';
 
 export default function StageBuilder() {
@@ -472,21 +473,29 @@ export default function StageBuilder() {
                 <View className="flex-row items-center">
                   {/* Position & Color */}
                   <View className="mr-3 items-center">
-                    <TouchableOpacity onPress={() => handleMoveToTop(index)} disabled={isOperationInFlight || index === 0} className="py-1 px-3 items-center justify-center">
-                      <FontAwesome name="angle-double-up" size={18} color={isOperationInFlight || index === 0 ? colors.border : colors.textDim} />
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleMoveUp(index)} disabled={isOperationInFlight || index === 0} className="py-1 px-3 items-center justify-center mb-1">
-                      <FontAwesome name="caret-up" size={24} color={isOperationInFlight || index === 0 ? colors.border : colors.textDim} />
-                    </TouchableOpacity>
+                    <Tooltip label="Move to top" disabled={isOperationInFlight || index === 0}>
+                      <TouchableOpacity onPress={() => handleMoveToTop(index)} disabled={isOperationInFlight || index === 0} className="py-1 px-3 items-center justify-center">
+                        <FontAwesome name="angle-double-up" size={18} color={isOperationInFlight || index === 0 ? colors.border : colors.textDim} />
+                      </TouchableOpacity>
+                    </Tooltip>
+                    <Tooltip label="Move up" disabled={isOperationInFlight || index === 0}>
+                      <TouchableOpacity onPress={() => handleMoveUp(index)} disabled={isOperationInFlight || index === 0} className="py-1 px-3 items-center justify-center mb-1">
+                        <FontAwesome name="caret-up" size={24} color={isOperationInFlight || index === 0 ? colors.border : colors.textDim} />
+                      </TouchableOpacity>
+                    </Tooltip>
                     <View className={`w-9 h-9 rounded-lg items-center justify-center ${isOperationInFlight ? 'opacity-50' : ''}`} style={{ backgroundColor: resolveNativeColorToken(s.color, colors) }}>
                       <Text className="text-brand-on-primary font-black text-sm">{s.position}</Text>
                     </View>
-                    <TouchableOpacity onPress={() => handleMoveDown(index)} disabled={isOperationInFlight || index === stages.length - 1} className="py-1 px-3 items-center justify-center mt-1">
-                      <FontAwesome name="caret-down" size={24} color={isOperationInFlight || index === stages.length - 1 ? colors.border : colors.textDim} />
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleMoveToEnd(index)} disabled={isOperationInFlight || index === stages.length - 1} className="py-1 px-3 items-center justify-center">
-                      <FontAwesome name="angle-double-down" size={18} color={isOperationInFlight || index === stages.length - 1 ? colors.border : colors.textDim} />
-                    </TouchableOpacity>
+                    <Tooltip label="Move down" disabled={isOperationInFlight || index === stages.length - 1}>
+                      <TouchableOpacity onPress={() => handleMoveDown(index)} disabled={isOperationInFlight || index === stages.length - 1} className="py-1 px-3 items-center justify-center mt-1">
+                        <FontAwesome name="caret-down" size={24} color={isOperationInFlight || index === stages.length - 1 ? colors.border : colors.textDim} />
+                      </TouchableOpacity>
+                    </Tooltip>
+                    <Tooltip label="Move to bottom" disabled={isOperationInFlight || index === stages.length - 1}>
+                      <TouchableOpacity onPress={() => handleMoveToEnd(index)} disabled={isOperationInFlight || index === stages.length - 1} className="py-1 px-3 items-center justify-center">
+                        <FontAwesome name="angle-double-down" size={18} color={isOperationInFlight || index === stages.length - 1 ? colors.border : colors.textDim} />
+                      </TouchableOpacity>
+                    </Tooltip>
                   </View>
 
                   {/* Stage Info */}
@@ -544,18 +553,22 @@ export default function StageBuilder() {
 
                   {/* Actions */}
                   <View className="flex-row gap-2">
-                    <TouchableOpacity
-                      onPress={() => { populateForm(s); setEditingStage(s.id); }}
-                      className="p-2 rounded-lg border border-surface-border bg-surface-background"
-                    >
-                      <FontAwesome name="pencil" size={12} color={colors.textDim} />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => setConfirmDeleteId(s.id)}
-                      className="p-2 rounded-lg border border-surface-border bg-surface-background"
-                    >
-                      <FontAwesome name="trash-o" size={12} color={colors.textDim} />
-                    </TouchableOpacity>
+                    <Tooltip label="Edit stage">
+                      <TouchableOpacity
+                        onPress={() => { populateForm(s); setEditingStage(s.id); }}
+                        className="p-2 rounded-lg border border-surface-border bg-surface-background"
+                      >
+                        <FontAwesome name="pencil" size={12} color={colors.textDim} />
+                      </TouchableOpacity>
+                    </Tooltip>
+                    <Tooltip label="Delete stage">
+                      <TouchableOpacity
+                        onPress={() => setConfirmDeleteId(s.id)}
+                        className="p-2 rounded-lg border border-surface-border bg-surface-background"
+                      >
+                        <FontAwesome name="trash-o" size={12} color={colors.textDim} />
+                      </TouchableOpacity>
+                    </Tooltip>
                   </View>
                 </View>
 
@@ -837,18 +850,26 @@ function StageActionManager({ stageId }: { stageId: string }) {
                 </Text>
               </View>
               <View className="flex-row gap-1 items-center">
-                <TouchableOpacity onPress={() => moveAction(idx, -1)} disabled={idx === 0} className="p-1.5 opacity-70">
-                  <FontAwesome name="arrow-up" size={10} color="#64748b" />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => moveAction(idx, 1)} disabled={idx === actions.length - 1} className="p-1.5 opacity-70">
-                  <FontAwesome name="arrow-down" size={10} color="#64748b" />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => startEdit(act)} className="p-1.5 bg-surface-card rounded-lg border border-surface-border ml-1">
-                  <FontAwesome name="pencil" size={10} color="#64748b" />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => setConfirmDeleteId(act.id)} className="p-1.5 bg-state-danger-dim rounded-lg border border-state-danger/20">
-                  <FontAwesome name="times" size={10} color={colors.danger} />
-                </TouchableOpacity>
+                <Tooltip label="Move up" disabled={idx === 0}>
+                  <TouchableOpacity onPress={() => moveAction(idx, -1)} disabled={idx === 0} className="p-1.5 opacity-70">
+                    <FontAwesome name="arrow-up" size={10} color="#64748b" />
+                  </TouchableOpacity>
+                </Tooltip>
+                <Tooltip label="Move down" disabled={idx === actions.length - 1}>
+                  <TouchableOpacity onPress={() => moveAction(idx, 1)} disabled={idx === actions.length - 1} className="p-1.5 opacity-70">
+                    <FontAwesome name="arrow-down" size={10} color="#64748b" />
+                  </TouchableOpacity>
+                </Tooltip>
+                <Tooltip label="Edit action">
+                  <TouchableOpacity onPress={() => startEdit(act)} className="p-1.5 bg-surface-card rounded-lg border border-surface-border ml-1">
+                    <FontAwesome name="pencil" size={10} color="#64748b" />
+                  </TouchableOpacity>
+                </Tooltip>
+                <Tooltip label="Remove action">
+                  <TouchableOpacity onPress={() => setConfirmDeleteId(act.id)} className="p-1.5 bg-state-danger-dim rounded-lg border border-state-danger/20">
+                    <FontAwesome name="times" size={10} color={colors.danger} />
+                  </TouchableOpacity>
+                </Tooltip>
               </View>
             </View>
           )}

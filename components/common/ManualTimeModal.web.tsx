@@ -1,5 +1,6 @@
 import Popup from '@/components/common/Popup';
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
+import Tooltip from '@/components/common/Tooltip';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -89,13 +90,15 @@ export default function ManualTimeModal({ visible, taskId, stageId, transitionId
 
         {/* Header */}
         <View className="p-10 pb-0 items-center relative">
-          <TouchableOpacity
-            onPress={handleCancel}
-            disabled={loading}
-            className="absolute top-6 right-6 w-9 h-9 bg-surface-background rounded-full items-center justify-center border border-surface-border hover:bg-surface-overlay transition-colors"
-          >
-            <FontAwesome name="times" size={14} color={colors.textMuted} />
-          </TouchableOpacity>
+          <Tooltip label="Close" className="absolute top-6 right-6">
+            <TouchableOpacity
+              onPress={handleCancel}
+              disabled={loading}
+              className="w-9 h-9 bg-surface-background rounded-full items-center justify-center border border-surface-border hover:bg-surface-overlay transition-colors"
+            >
+              <FontAwesome name="times" size={14} color={colors.textMuted} />
+            </TouchableOpacity>
+          </Tooltip>
 
           <View className="w-20 h-20 rounded-full bg-state-warning/10 items-center justify-center mb-6">
             <FontAwesome name="clock-o" size={32} color={colors.warning} />

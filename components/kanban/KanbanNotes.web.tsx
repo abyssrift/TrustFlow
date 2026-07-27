@@ -2,6 +2,7 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import Tooltip from '@/components/common/Tooltip';
 
 type Note = { id: string; body: string; updatedAt: number };
 
@@ -84,13 +85,15 @@ export default function KanbanNotes({ userId }: { userId?: string }) {
             </Pressable>
           );
         })}
-        <Pressable
-          onPress={addNote}
-          accessibilityLabel="New note"
-          className="h-8 w-8 items-center justify-center rounded-full border border-dashed border-surface-border hover:bg-surface-overlay"
-        >
-          <FontAwesome name="plus" size={11} color={colors.muted} />
-        </Pressable>
+        <Tooltip label="New note">
+          <Pressable
+            onPress={addNote}
+            accessibilityLabel="New note"
+            className="h-8 w-8 items-center justify-center rounded-full border border-dashed border-surface-border hover:bg-surface-overlay"
+          >
+            <FontAwesome name="plus" size={11} color={colors.muted} />
+          </Pressable>
+        </Tooltip>
       </ScrollView>
 
       {active ? (

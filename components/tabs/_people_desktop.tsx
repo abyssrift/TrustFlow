@@ -13,6 +13,7 @@ import TeamAssignmentGrid from '@/components/admin/TeamAssignmentGrid';
 import UserAssignmentGrid from '@/components/admin/UserAssignmentGrid';
 import CompanyEditSettings from '@/components/profile/CompanyEditSettings';
 import WorkspaceSettings from '@/components/profile/WorkspaceSettings';
+import Tooltip from '@/components/common/Tooltip';
 import { useAuth } from '@/contexts/AuthContext';
 import { RoleManagerProvider, useRoleManager } from '@/contexts/RoleManagerContext';
 import { useMemberLimit } from '@/hooks/useMemberLimit';
@@ -171,13 +172,15 @@ export default function PeopleScreenWeb() {
               <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-1">Join Code</Text>
               <View className="flex-row items-center justify-between">
                 <Text className={`font-black text-base tracking-[0.2em] ${membersAtLimit ? 'text-typography-muted' : 'text-brand-primary'}`}>{joinCode}</Text>
-                <TouchableOpacity
-                  onPress={() => Clipboard.setStringAsync(joinCode)}
-                  disabled={membersAtLimit}
-                  className={`w-8 h-8 rounded-lg items-center justify-center transition-colors ${membersAtLimit ? 'bg-surface-border opacity-40' : 'bg-brand-primary/10 hover:bg-brand-primary/20'}`}
-                >
-                  <FontAwesome name="copy" size={12} color={membersAtLimit ? colors.textMuted : colors.primary} />
-                </TouchableOpacity>
+                <Tooltip label="Copy join code" disabled={membersAtLimit}>
+                  <TouchableOpacity
+                    onPress={() => Clipboard.setStringAsync(joinCode)}
+                    disabled={membersAtLimit}
+                    className={`w-8 h-8 rounded-lg items-center justify-center transition-colors ${membersAtLimit ? 'bg-surface-border opacity-40' : 'bg-brand-primary/10 hover:bg-brand-primary/20'}`}
+                  >
+                    <FontAwesome name="copy" size={12} color={membersAtLimit ? colors.textMuted : colors.primary} />
+                  </TouchableOpacity>
+                </Tooltip>
               </View>
               {membersAtLimit ? (
                 <Text className="text-state-danger text-[10px] font-bold mt-2">

@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabase';
 import { cssInterop } from 'react-native-css-interop';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import Popup from '@/components/common/Popup';
+import Tooltip from '@/components/common/Tooltip';
 
 cssInterop(FontAwesome, {
   className: {
@@ -116,9 +117,11 @@ export default function KanbanPersonalizer({ onClose }: Props) {
             <Text className="text-typography-main font-black text-xl">Board Settings</Text>
             <Text className="text-typography-muted text-[10px] uppercase font-bold">Personalize your workspace</Text>
           </View>
-          <TouchableOpacity onPress={onClose} className="p-2 bg-surface-overlay rounded-full">
-            <FontAwesome name="times" size={16} className="text-typography-muted" />
-          </TouchableOpacity>
+          <Tooltip label="Close">
+            <TouchableOpacity onPress={onClose} className="p-2 bg-surface-overlay rounded-full">
+              <FontAwesome name="times" size={16} className="text-typography-muted" />
+            </TouchableOpacity>
+          </Tooltip>
         </View>
 
         <ScrollView className="p-6 max-h-[70vh]">

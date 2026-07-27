@@ -13,6 +13,7 @@ import {
     View
 } from 'react-native';
 import DraggableSheet from '@/components/common/DraggableSheet';
+import Tooltip from '@/components/common/Tooltip';
 import { useAlert } from '@/contexts/AlertContext';
 
 interface AssignmentModalProps {
@@ -155,9 +156,11 @@ export default function AssignmentModal({
               <Text className="text-typography-main font-black text-2xl">Assign Task</Text>
               <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest">Protocol Assignment</Text>
             </View>
-            <TouchableOpacity onPress={onClose} className="p-2">
-              <FontAwesome name="close" size={20} color={colors.textMuted} />
-            </TouchableOpacity>
+            <Tooltip label="Close">
+              <TouchableOpacity onPress={onClose} className="p-2">
+                <FontAwesome name="close" size={20} color={colors.textMuted} />
+              </TouchableOpacity>
+            </Tooltip>
           </View>
 
           {/* TABS */}

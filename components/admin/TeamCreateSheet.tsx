@@ -3,6 +3,7 @@ import React from 'react';
 import { Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import DraggableSheet from '@/components/common/DraggableSheet';
+import Tooltip from '@/components/common/Tooltip';
 import { useThemeColors } from '@/hooks/useThemeColors';
 
 export type TeamCreateSheetProps = {
@@ -31,12 +32,14 @@ export default function TeamCreateSheet({
           <Text className="text-typography-muted text-[9px] font-black uppercase tracking-[0.3em] mb-1">New Team</Text>
           <Text className="text-typography-main text-xl font-black tracking-tight">Create Team</Text>
         </View>
-        <TouchableOpacity
-          onPress={onClose}
-          className="w-10 h-10 items-center justify-center rounded-full bg-surface-background border border-surface-border"
-        >
-          <FontAwesome name="times" size={16} className="text-typography-muted" />
-        </TouchableOpacity>
+        <Tooltip label="Close">
+          <TouchableOpacity
+            onPress={onClose}
+            className="w-10 h-10 items-center justify-center rounded-full bg-surface-background border border-surface-border"
+          >
+            <FontAwesome name="times" size={16} className="text-typography-muted" />
+          </TouchableOpacity>
+        </Tooltip>
       </View>
 
       <View className="px-5 pb-5 gap-4">

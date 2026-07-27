@@ -1,4 +1,5 @@
 import { useThemeColors } from '@/hooks/useThemeColors';
+import Tooltip from '@/components/common/Tooltip';
 import { FontAwesome } from '@expo/vector-icons';
 import React, { useMemo, useState } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
@@ -247,12 +248,14 @@ export default function PremiumCalendarPicker({ selectedDate, onSelect, accentCo
             </View>
           )}
   
-          <TouchableOpacity
-            onPress={handleNextMonth}
-            className={`items-center justify-center rounded-xl bg-surface-overlay border border-surface-border hover:border-brand-primary transition-colors ${resolvedCompact ? 'w-8 h-8' : 'w-10 h-10'}`}
-          >
-            <FontAwesome name="chevron-right" size={12} className="text-typography-muted" />
-          </TouchableOpacity>
+          <Tooltip label="Next month">
+            <TouchableOpacity
+              onPress={handleNextMonth}
+              className={`items-center justify-center rounded-xl bg-surface-overlay border border-surface-border hover:border-brand-primary transition-colors ${resolvedCompact ? 'w-8 h-8' : 'w-10 h-10'}`}
+            >
+              <FontAwesome name="chevron-right" size={12} className="text-typography-muted" />
+            </TouchableOpacity>
+          </Tooltip>
         </View>
 
         {showDaysBetween && rangeDays !== null && (

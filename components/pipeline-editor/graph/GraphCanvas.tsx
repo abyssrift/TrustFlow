@@ -1,20 +1,21 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, Dimensions, TouchableOpacity, Platform } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { 
-  Gesture, 
-  GestureDetector, 
-  GestureHandlerRootView 
+import {
+  Gesture,
+  GestureDetector,
+  GestureHandlerRootView
 } from 'react-native-gesture-handler';
-import Animated, { 
-  useSharedValue, 
-  useAnimatedStyle, 
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
   useAnimatedProps,
   withSpring,
   runOnJS
 } from 'react-native-reanimated';
 import Svg, { Circle, Line, Defs, Pattern, Rect } from 'react-native-svg';
 import { usePipelineEditor, Stage } from '@/contexts/PipelineEditorContext';
+import Tooltip from '@/components/common/Tooltip';
 import StageNode from './StageNode';
 import ConnectionLines from './ConnectionLines';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -182,12 +183,14 @@ export default function GraphCanvas({ onEditStage, onDeleteStage, onEditTransiti
         {/* Reset View Button */}
         {Platform.OS === 'web' && (
           <View className="absolute bottom-6 right-6 z-[1000] flex-row gap-2">
-            <TouchableOpacity 
-              onPress={() => { translateX.value = withSpring(0); translateY.value = withSpring(0); scale.value = withSpring(1); }}
-              className="bg-surface-card p-3 rounded-xl border border-surface-border shadow-xl hover:bg-surface-overlay active:scale-95 transition-all group"
-            >
-              <FontAwesome name="compress" size={16} className="text-brand-primary group-active:text-brand-primary-active" />
-            </TouchableOpacity>
+            <Tooltip label="Reset view">
+              <TouchableOpacity
+                onPress={() => { translateX.value = withSpring(0); translateY.value = withSpring(0); scale.value = withSpring(1); }}
+                className="bg-surface-card p-3 rounded-xl border border-surface-border shadow-xl hover:bg-surface-overlay active:scale-95 transition-all group"
+              >
+                <FontAwesome name="compress" size={16} className="text-brand-primary group-active:text-brand-primary-active" />
+              </TouchableOpacity>
+            </Tooltip>
           </View>
         )}
 

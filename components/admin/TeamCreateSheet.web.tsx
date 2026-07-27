@@ -3,6 +3,7 @@ import React from 'react';
 import { Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import Popup from '@/components/common/Popup';
+import Tooltip from '@/components/common/Tooltip';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import type { TeamCreateSheetProps } from './TeamCreateSheet';
 
@@ -27,13 +28,15 @@ export default function TeamCreateSheet({
           <Text style={{ color: c.textMuted }} className="text-[10px] font-black uppercase tracking-[0.3em] mb-1">New Team</Text>
           <Text style={{ color: c.textMain }} className="text-2xl font-black tracking-tight">Create Team</Text>
         </View>
-        <TouchableOpacity
-          onPress={onClose}
-          className="w-10 h-10 items-center justify-center rounded-full"
-          style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}
-        >
-          <FontAwesome name="times" size={16} color={c.textMuted} />
-        </TouchableOpacity>
+        <Tooltip label="Close">
+          <TouchableOpacity
+            onPress={onClose}
+            className="w-10 h-10 items-center justify-center rounded-full"
+            style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}
+          >
+            <FontAwesome name="times" size={16} color={c.textMuted} />
+          </TouchableOpacity>
+        </Tooltip>
       </View>
 
       <View className="px-7 pt-5 pb-7 gap-4">
