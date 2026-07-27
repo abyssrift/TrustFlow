@@ -28,6 +28,7 @@ type BrowseItem = {
   project_id: string | null;
   project_name: string | null;
   task_category: string | null;
+  submission_id: string | null;
 };
 
 type Facets = {
@@ -312,6 +313,7 @@ export default function FileHubBrowse({ compact }: { compact?: boolean }) {
     source: detail.source, file_id: detail.file_id, bucket: detail.bucket, storage_path: detail.storage_path,
     file_name: detail.file_name, mime_type: detail.mime_type, size_bytes: detail.size_bytes, created_at: detail.created_at,
     task_id: detail.task_id, task_title: detail.task_title, project_name: detail.project_name, task_category: detail.task_category,
+    submission_id: detail.submission_id,
   };
 
   const onDeleted = (fileId: string) => setItems(prev => prev.filter(it => !(it.source === 'filehub' && it.file_id === fileId)));
