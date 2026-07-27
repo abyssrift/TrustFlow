@@ -198,6 +198,8 @@ function newSummary(mode: 'cron' | 'instant'): Summary {
 async function countBin(db: SupabaseClient, companyId: string, cutoffIso: string): Promise<number> {
   let files = db.from('filehub_files').select('id', { count: 'exact', head: true })
     .not('deleted_at', 'is', null).lt('deleted_at', cutoffIso).eq('company_id', companyId)
+    .neq('visibility', 'task') // task-file pointers are owned by the task, not the Bin — never purge them
+
   let folders = db.from('filehub_folders').select('id', { count: 'exact', head: true })
     .not('deleted_at', 'is', null).lt('deleted_at', cutoffIso).eq('company_id', companyId)
   const [f, d] = await Promise.all([files, folders])
@@ -220,6 +222,7 @@ async function purge(
       .select('id, deleted_at')
       .not('deleted_at', 'is', null)
       .lt('deleted_at', cutoffIso)
+      .neq('visibility', 'task') // task-file pointers are owned by the task, not the Bin — never purge them
       .order('deleted_at', { ascending: true })
       .limit(BATCH_SIZE)
     if (scopeCompanyId) query = query.eq('company_id', scopeCompanyId)
