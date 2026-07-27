@@ -18,6 +18,7 @@ export default function RoleTemplateGallery({ visible, onClose, permissions, onP
       dimBackdrop
       maxHeight="90%"
       presentation="sheet"
+      sheetMaxWidth={560}
       containerClassName="max-h-[90vh] rounded-3xl overflow-hidden premium-shadow"
     >
       <View className="flex-row items-center justify-between px-7 pt-6 pb-4" style={{ borderBottomWidth: 1, borderBottomColor: c.border }}>
