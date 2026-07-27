@@ -2742,10 +2742,13 @@ function Sidebar({ section, setSection, liveCount, alertCount }: {
 
       {/* Live indicator */}
       {liveCount > 0 && (
-        <View className="mx-3 mt-4 bg-state-success/10 rounded-xl px-4 py-3 flex-row items-center gap-2">
+        <TouchableOpacity
+          onPress={() => setSection('live')}
+          className="mx-3 mt-4 bg-state-success/10 rounded-xl px-4 py-3 flex-row items-center gap-2 hover:bg-state-success/20 transition-colors"
+        >
           <View className="w-2 h-2 bg-state-success rounded-full" />
           <Text className="text-state-success text-xs font-black">{liveCount} live now</Text>
-        </View>
+        </TouchableOpacity>
       )}
     </View>
   );

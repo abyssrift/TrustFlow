@@ -2,7 +2,7 @@ import { useElapsedTime } from '@/hooks/useElapsedTime';
 import { useTicker } from '@/hooks/useTicker';
 import { IDLE_MS, idleLabel, idleMsOf } from '@/lib/sessionPresence';
 import React, { useState } from 'react';
-import { Image, Text, View } from 'react-native';
+import { Image, ScrollView, Text, View } from 'react-native';
 import type { ActiveSessionUser } from './TaskCardActions';
 
 // The "who's working now" affordance on a task card. At rest it's just an
@@ -88,7 +88,7 @@ export default function ActiveSessionAvatars({
   useTicker(sessions?.[0]?.startedAt ?? null);
   if (!sessions?.length) return null;
 
-  const shown = sessions.slice(0, 3);
+  const shown = sessions.slice(0, 5);
   const extra = sessions.length - shown.length;
   // Stack dot summarizes the group: amber only when nobody is actively working.
   const allIdle = sessions.every(s => idleMsOf(s.lastHeartbeatAt) > IDLE_MS);
@@ -139,7 +139,10 @@ export default function ActiveSessionAvatars({
           { transform: [{ translateY: hovered ? 0 : -6 }, { scale: hovered ? 1 : 0.97 }] },
         ]}
       >
-        {sessions.map((s) => <SessionRow key={s.userId} s={s} />)}
+        {/* Cap the list so a busy company (dashboard usage) can't grow the popover past the viewport. */}
+        <ScrollView style={{ maxHeight: 300 }} showsVerticalScrollIndicator={false}>
+          {sessions.map((s) => <SessionRow key={s.userId} s={s} />)}
+        </ScrollView>
       </View>
     </View>
   );

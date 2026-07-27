@@ -798,12 +798,15 @@ export default function PlatformAdminScreen() {
             <Text className="text-typography-main font-black text-xl tracking-tight">Control Plane</Text>
           </View>
           <View className="items-end">
-            <View className="flex-row items-center gap-1.5 bg-surface-background border border-surface-border rounded-xl px-3 py-1.5">
+            <TouchableOpacity
+              onPress={() => setSection('live')}
+              className="flex-row items-center gap-1.5 bg-surface-background border border-surface-border rounded-xl px-3 py-1.5"
+            >
               <View className={`w-1.5 h-1.5 rounded-full ${liveCount > 0 ? 'bg-state-success' : 'bg-surface-border'}`} />
               <Text className="text-typography-muted text-[10px] font-bold">
                 {liveCount > 0 ? `${liveCount} live` : 'All quiet'}
               </Text>
-            </View>
+            </TouchableOpacity>
           </View>
         </View>
 

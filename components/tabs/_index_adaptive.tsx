@@ -1,4 +1,7 @@
 import PendingTimeApprovalsWidget from '@/components/common/PendingTimeApprovalsWidget';
+import LiveSessionsPopup from '@/components/tabs/LiveSessionsPopup';
+import ActiveSessionAvatars from '@/components/task-detail/ActiveSessionAvatars';
+import type { ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
 import Popup from '@/components/common/Popup';
 import PipelineOverviewChartNative, { DEFAULT_OVERVIEW_METRICS, OverviewMetricKey } from '@/components/intelligence/PipelineOverviewChartNative';
 import { useAuth } from '@/contexts/AuthContext';
@@ -66,6 +69,8 @@ const timeAgo = (dateStr: string): string => formatRelative(dateStr);
 export default function DashboardScreen() {
   const { width } = useWindowDimensions();
   const [stats, setStats] = useState<DashboardStats>({ totalTasks: 0, activeNow: 0, completed: 0, failed: 0, activeSessions: 0 });
+  const [showLiveSessions, setShowLiveSessions] = useState(false);
+  const [liveUsers, setLiveUsers] = useState<ActiveSessionUser[]>([]);
   const [pulse, setPulse] = useState<PersonalPulse | null>(null);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -164,7 +169,7 @@ export default function DashboardScreen() {
       const [
         { data: terminalStages },
         { data: tasks },
-        { count: sessionCount },
+        { data: sessionRows },
         { data: historyData },
       ] = await Promise.all([
         supabase.from('pipeline_stages')
@@ -175,7 +180,7 @@ export default function DashboardScreen() {
           .select('id, current_stage_id')
           .in('pipeline_id', targetPipelineIds),
         supabase.from('task_work_sessions')
-          .select('*', { count: 'exact', head: true })
+          .select('user_id, started_at, last_heartbeat_at, user:user_id(full_name, avatar_url)')
           .eq('status', 'active'),
         supabase.from('pipeline_stage_history')
           .select(`
@@ -207,12 +212,27 @@ export default function DashboardScreen() {
       const activeNow = tasks?.filter((t: any) => !terminalStageIds.includes(t.current_stage_id)).length || 0;
       const failed = total - completed - activeNow;
 
+      // One avatar per person, even if they somehow hold multiple sessions.
+      const byUser = new Map<string, ActiveSessionUser>();
+      for (const s of sessionRows || []) {
+        if (!byUser.has(s.user_id)) {
+          byUser.set(s.user_id, {
+            userId: s.user_id,
+            name: (s.user as any)?.full_name || 'User',
+            avatar: (s.user as any)?.avatar_url ?? null,
+            startedAt: s.started_at,
+            lastHeartbeatAt: (s as any).last_heartbeat_at,
+          });
+        }
+      }
+      setLiveUsers([...byUser.values()]);
+
       setStats({
         totalTasks: total,
         activeNow,
         completed,
         failed,
-        activeSessions: sessionCount || 0,
+        activeSessions: sessionRows?.length || 0,
       });
 
       const activityEntries: ActivityEntry[] = (historyData || [])
@@ -404,16 +424,19 @@ export default function DashboardScreen() {
                 <Text className="text-state-danger text-[9px] font-black uppercase tracking-widest mt-1">{failedRate}% of total</Text>
               </TouchableOpacity>
             ) : (
-              <TouchableOpacity onPress={() => router.push('/tasks' as any)} activeOpacity={0.75} className="w-[48%] bg-surface-card p-5 rounded-2xl border border-surface-border mb-4 premium-shadow">
+              <TouchableOpacity onPress={() => setShowLiveSessions(true)} activeOpacity={0.75} className="w-[48%] bg-surface-card p-5 rounded-2xl border border-surface-border mb-4 premium-shadow">
                 <View className="w-10 h-10 rounded-xl bg-state-info/10 items-center justify-center mb-3 border border-state-info/20">
                   <FontAwesome name="bolt" size={16} color={colors.info} />
                 </View>
                 <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-1">Live Sessions</Text>
                 <Text className="text-typography-main text-3xl font-black">{stats.activeSessions}</Text>
                 <Text className="text-state-info text-[9px] font-black uppercase tracking-widest mt-1">Working now</Text>
+                <ActiveSessionAvatars sessions={liveUsers} className="mt-3 self-start" />
               </TouchableOpacity>
             )}
           </View>
+
+          <LiveSessionsPopup visible={showLiveSessions} onClose={() => setShowLiveSessions(false)} />
 
           {canViewOverview ? (
             <View className="mb-6">
