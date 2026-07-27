@@ -108,6 +108,22 @@ export interface PipelinePointsPeriod {
   weight_points: number;
 }
 
+// Range-bucketed series (#139): arbitrary [from, to] split into N equal
+// buckets; labels are derived client-side from the bucket bounds.
+export interface ThroughputBucket {
+  bucket_start: string;
+  bucket_end: string;
+  tasks_succeeded: number;
+  tasks_failed: number;
+  success_rate: number | null;
+}
+
+export interface PointsBucket {
+  bucket_start: string;
+  bucket_end: string;
+  weight_points: number;
+}
+
 export interface PipelineHoursPeriod {
   period_label: string;
   period_start: string;
@@ -133,6 +149,8 @@ interface AnalyticsContextType {
   getUserPerformanceSummary: (userId: string, from: string, to: string) => Promise<PerformanceSummary>;
   getPipelineStageDwell: (pipelineId: string, from: string, to: string) => Promise<StageDwell[]>;
   getPipelineThroughput: (pipelineId: string, periodType: string, nPeriods: number) => Promise<ThroughputPeriod[]>;
+  getPipelineThroughputRange: (pipelineId: string, from: string, to: string, buckets: number) => Promise<ThroughputBucket[]>;
+  getPipelinePointsRange: (pipelineId: string, from: string, to: string, buckets: number) => Promise<PointsBucket[]>;
   getTargetsStatus: () => Promise<TargetStatus[]>;
   comparePersonnel: (userIds: string[], from: string, to: string, salaries: Record<string, number>) => Promise<PersonnelRow[]>;
   getPipelinePointsSeries: (pipelineId: string, periodType: string, nPeriods: number) => Promise<PipelinePointsPeriod[]>;
@@ -305,6 +323,48 @@ export const AnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       SERIES_TTL_MS,
     );
 
+  const getPipelineThroughputRange = (
+    pipelineId: string,
+    from: string,
+    to: string,
+    buckets: number,
+  ): Promise<ThroughputBucket[]> =>
+    fetchWithDedup(
+      `throughput_range:${pipelineId}:${from}:${to}:${buckets}`,
+      async () => {
+        const { data, error } = await supabase.rpc('rpc_get_pipeline_throughput_range', {
+          p_pipeline_id: pipelineId,
+          p_from:        from,
+          p_to:          to,
+          p_buckets:     buckets,
+        });
+        if (error) throw error;
+        return (data ?? []) as ThroughputBucket[];
+      },
+      SERIES_TTL_MS,
+    );
+
+  const getPipelinePointsRange = (
+    pipelineId: string,
+    from: string,
+    to: string,
+    buckets: number,
+  ): Promise<PointsBucket[]> =>
+    fetchWithDedup(
+      `points_range:${pipelineId}:${from}:${to}:${buckets}`,
+      async () => {
+        const { data, error } = await supabase.rpc('rpc_get_pipeline_points_range', {
+          p_pipeline_id: pipelineId,
+          p_from:        from,
+          p_to:          to,
+          p_buckets:     buckets,
+        });
+        if (error) throw error;
+        return (data ?? []) as PointsBucket[];
+      },
+      SERIES_TTL_MS,
+    );
+
   const getPipelinePointsSeries = (
     pipelineId: string,
     periodType: string,
@@ -422,6 +482,8 @@ export const AnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       getUserPerformanceSummary,
       getPipelineStageDwell,
       getPipelineThroughput,
+      getPipelineThroughputRange,
+      getPipelinePointsRange,
       getPipelinePointsSeries,
       getPipelineHoursSeries,
       getTargetsStatus,

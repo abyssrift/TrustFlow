@@ -1,19 +1,14 @@
-import { PipelinePointsPeriod, StageDwell, ThroughputPeriod, useAnalytics } from '@/contexts/AnalyticsContext';
+import { PointsBucket, StageDwell, ThroughputBucket, useAnalytics } from '@/contexts/AnalyticsContext';
 import { supabase } from '@/lib/supabase';
 import { BackButton } from '@/components/common/BackButton';
+import { DateRangeControls, useDateRange, useGranularity } from '@/components/intelligence/DateRangeFilter';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { bucketLabel } from '@/lib/chartBuckets';
 import { formatDuration as fmtSec } from '@/lib/duration';
 import { ActivityIndicator, Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-
-const PERIOD_OPTS = [
-  { label: '4W',  type: 'week',  n: 4  },
-  { label: '8W',  type: 'week',  n: 8  },
-  { label: '6M',  type: 'month', n: 6  },
-  { label: '12M', type: 'month', n: 12 },
-];
 
 // ─── SLA Risk Section ─────────────────────────────────────────────────────────
 
@@ -60,7 +55,7 @@ function SLARiskSection({ data }: { data: any }) {
 
 // ─── Points Over Time Section ─────────────────────────────────────────────────
 
-function PointsSection({ data }: { data: PipelinePointsPeriod[] }) {
+function PointsSection({ data }: { data: PointsBucket[] }) {
   const colors = useThemeColors();
   const totalPts = data.reduce((s, d) => s + (d.weight_points || 0), 0);
   const maxPts = Math.max(1, ...data.map(d => d.weight_points || 0));
@@ -80,12 +75,12 @@ function PointsSection({ data }: { data: PipelinePointsPeriod[] }) {
       {data.length === 0 || !data.some(d => d.weight_points > 0) ? (
         <Text className="text-typography-muted text-sm">No points data for this period.</Text>
       ) : (
-        [...data].reverse().slice(0, 8).map((d, i, arr) => {
+        [...data].reverse().map((d, i, arr) => {
           const pct = (d.weight_points / maxPts) * 100;
           return (
             <View key={i} className={`py-2.5 ${i < arr.length - 1 ? 'border-b border-surface-border/50' : ''}`}>
               <View className="flex-row justify-between items-center mb-1.5">
-                <Text className="text-typography-muted text-xs">{d.period_label}</Text>
+                <Text className="text-typography-muted text-xs">{bucketLabel(d.bucket_start, d.bucket_end)}</Text>
                 <Text className="text-brand-primary text-xs font-black">{(d.weight_points || 0).toLocaleString()} pts</Text>
               </View>
               <View className="h-1.5 bg-surface-overlay rounded-full overflow-hidden">
@@ -237,16 +232,19 @@ function QualitySection({ data }: { data: any }) {
 
 export default function IntelligenceGraphsNative() {
   const colors = useThemeColors();
-  const { getPipelineStageDwell, getPipelineThroughput, getPipelinePointsSeries } = useAnalytics();
+  const { getPipelineStageDwell, getPipelineThroughputRange, getPipelinePointsRange } = useAnalytics();
 
   const [pipelineId, setPipelineId] = useState<string | null>(null);
   const [pipelines, setPipelines]   = useState<any[]>([]);
-  const [periodOpt, setPeriodOpt]   = useState(PERIOD_OPTS[1]);
+  const { from, to, setFrom, setTo, nDays } = useDateRange(56);
+  const granularity = useGranularity();
+  const buckets = granularity.buckets;
   const [dwell, setDwell]           = useState<StageDwell[]>([]);
-  const [throughput, setThroughput] = useState<ThroughputPeriod[]>([]);
-  const [pointsData, setPointsData] = useState<PipelinePointsPeriod[]>([]);
+  const [throughput, setThroughput] = useState<ThroughputBucket[]>([]);
+  const [pointsData, setPointsData] = useState<PointsBucket[]>([]);
   const [auditData, setAuditData]   = useState<any>(null);
   const [loading, setLoading]       = useState(true);
+  const [loaded, setLoaded]         = useState(false);
 
   useEffect(() => {
     supabase.from('pipelines').select('id, name').is('deleted_at', null)
@@ -257,23 +255,20 @@ export default function IntelligenceGraphsNative() {
     if (!pipelineId) return;
     setLoading(true);
     try {
-      const today  = new Date();
-      const nDays  = periodOpt.type === 'week' ? periodOpt.n * 7 : periodOpt.n * 30;
-      const from   = new Date(today.getTime() - nDays * 86400000).toISOString().split('T')[0];
-      const to     = today.toISOString().split('T')[0];
       const [d, t, pts, a] = await Promise.all([
         getPipelineStageDwell(pipelineId, from, to),
-        getPipelineThroughput(pipelineId, periodOpt.type, periodOpt.n),
-        getPipelinePointsSeries(pipelineId, periodOpt.type, periodOpt.n).catch(() => []),
+        getPipelineThroughputRange(pipelineId, from, to, buckets),
+        getPipelinePointsRange(pipelineId, from, to, buckets).catch(() => []),
         supabase.rpc('rpc_get_organizational_audit', { p_pipeline_id: pipelineId, p_days: nDays }),
       ]);
       setDwell(d || []);
       setThroughput(t || []);
       setPointsData(pts || []);
       setAuditData(a.data);
+      setLoaded(true);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
-  }, [pipelineId, periodOpt]);
+  }, [pipelineId, from, to, buckets, nDays]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -308,20 +303,11 @@ export default function IntelligenceGraphsNative() {
             </View>
           </ScrollView>
         )}
-        <View className="flex-row flex-wrap bg-surface-card border border-surface-border rounded-xl p-1 gap-0.5 self-start">
-          {PERIOD_OPTS.map(opt => (
-            <TouchableOpacity
-              key={opt.label}
-              onPress={() => setPeriodOpt(opt)}
-              className={`px-4 py-2 rounded-lg ${periodOpt.label === opt.label ? 'bg-brand-primary' : ''}`}
-            >
-              <Text className={`text-[11px] font-black ${periodOpt.label === opt.label ? 'text-white' : 'text-typography-muted'}`}>{opt.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        <DateRangeControls from={from} to={to} setFrom={setFrom} setTo={setTo} granularity={granularity} />
+        {loading && loaded && <ActivityIndicator size="small" color={colors.primary} className="self-start" />}
       </View>
 
-      {loading ? (
+      {!loaded ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
@@ -369,13 +355,13 @@ export default function IntelligenceGraphsNative() {
             {throughput.length === 0 ? (
               <Text className="text-typography-muted text-sm">No throughput data for this period.</Text>
             ) : (
-              [...throughput].reverse().slice(0, 8).map((t, i, arr) => {
+              [...throughput].reverse().map((t, i, arr) => {
                 const total = t.tasks_succeeded + t.tasks_failed;
                 const successPct = total > 0 ? (t.tasks_succeeded / total) * 100 : 0;
                 return (
                   <View key={i} className={`py-3 ${i < arr.length - 1 ? 'border-b border-surface-border/50' : ''}`}>
                     <View className="flex-row flex-wrap justify-between items-end mb-1.5 gap-x-2">
-                      <Text className="text-typography-muted text-xs">{t.period_label}</Text>
+                      <Text className="text-typography-muted text-xs">{bucketLabel(t.bucket_start, t.bucket_end)}</Text>
                       <View className="flex-row flex-wrap gap-3">
                         <Text className="text-state-success text-xs font-bold">↑ {t.tasks_succeeded}</Text>
                         <Text className="text-state-danger text-xs font-bold">↓ {t.tasks_failed}</Text>
