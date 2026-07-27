@@ -2129,6 +2129,37 @@ function DetailPanel({
         <Text className="text-typography-muted text-xs">
           {formatFileSize(file.size_bytes)}{file.mime_type ? ` · ${file.mime_type.split('/').pop()?.toUpperCase()}` : ''}
         </Text>
+        {/* Compact action row (desktop-fit; replaces the old full-width stack) */}
+        <View className="flex-row flex-wrap items-center gap-2 mt-3">
+          <TouchableOpacity onPress={handleDownload} disabled={downloadLoading} className="flex-row items-center gap-1.5 px-3.5 py-2 rounded-xl bg-brand-primary">
+            {downloadLoading ? <ActivityIndicator size="small" color="#fff" /> : <FontAwesome name="download" size={11} color="#fff" />}
+            <Text className="text-white font-black text-[12px]">Download</Text>
+          </TouchableOpacity>
+          {isUnread && (
+            <TouchableOpacity onPress={() => markRead(file.id)} className="flex-row items-center gap-1.5 px-3.5 py-2 rounded-xl bg-surface-background border border-surface-border">
+              <FontAwesome name="check" size={11} color={colors.primary} />
+              <Text className="text-typography-main font-black text-[12px]">Mark Read</Text>
+            </TouchableOpacity>
+          )}
+          {isOwner && (
+            <TouchableOpacity onPress={() => setShowShareLink(true)} className="flex-row items-center gap-1.5 px-3.5 py-2 rounded-xl bg-surface-background border border-surface-border">
+              <FontAwesome name="link" size={11} color={colors.primary} />
+              <Text className="text-typography-main font-black text-[12px]">Share</Text>
+            </TouchableOpacity>
+          )}
+          {mode === 'inbox' && (
+            <TouchableOpacity onPress={handleHide} className="flex-row items-center gap-1.5 px-3.5 py-2 rounded-xl bg-surface-background border border-surface-border">
+              <FontAwesome name="eye-slash" size={11} color={colors.textMuted} />
+              <Text className="text-typography-muted font-black text-[12px]">Hide</Text>
+            </TouchableOpacity>
+          )}
+          {isOwner && (
+            <TouchableOpacity onPress={handleDelete} className="flex-row items-center gap-1.5 px-3.5 py-2 rounded-xl bg-state-danger/10 border border-state-danger/20">
+              <FontAwesome name="trash-o" size={11} color={colors.danger} />
+              <Text className="text-state-danger font-black text-[12px]">Delete</Text>
+            </TouchableOpacity>
+          )}
+        </View>
         <View className="flex-row gap-2 mt-3">
           {([
             'details',
@@ -2219,57 +2250,6 @@ function DetailPanel({
             </View>
           )}
 
-          <View className="gap-2.5">
-            <TouchableOpacity
-              onPress={handleDownload}
-              disabled={downloadLoading}
-              className="flex-row items-center justify-center bg-brand-primary rounded-xl px-4 py-3.5 gap-2"
-            >
-              {downloadLoading ? <ActivityIndicator size="small" color="#fff" /> : <FontAwesome name="download" size={13} color="#fff" />}
-              <Text className="text-white font-black text-sm">Download</Text>
-            </TouchableOpacity>
-
-            {isUnread && (
-              <TouchableOpacity
-                onPress={() => markRead(file.id)}
-                className="flex-row items-center justify-center bg-surface-card border border-surface-border rounded-xl px-4 py-3 gap-2"
-              >
-                <FontAwesome name="check" size={13} color={colors.primary} />
-                <Text className="text-brand-primary font-black text-sm">Mark as Read</Text>
-              </TouchableOpacity>
-            )}
-
-            {isOwner && (
-              <TouchableOpacity
-                onPress={() => setShowShareLink(true)}
-                className="flex-row items-center justify-center bg-surface-card border border-surface-border rounded-xl px-4 py-3 gap-2"
-              >
-                <FontAwesome name="link" size={13} color={colors.primary} />
-                <Text className="text-brand-primary font-black text-sm">Share Link</Text>
-              </TouchableOpacity>
-            )}
-
-            <View className="flex-row gap-2">
-              {mode === 'inbox' && (
-                <TouchableOpacity
-                  onPress={handleHide}
-                  className="flex-1 flex-row items-center justify-center bg-surface-background border border-surface-border rounded-xl px-3 py-2.5 gap-1.5"
-                >
-                  <FontAwesome name="eye-slash" size={11} color={colors.textMuted} />
-                  <Text className="text-typography-muted font-bold text-xs">Hide</Text>
-                </TouchableOpacity>
-              )}
-              {isOwner && (
-                <TouchableOpacity
-                  onPress={handleDelete}
-                  className="flex-1 flex-row items-center justify-center bg-state-danger/10 border border-state-danger/20 rounded-xl px-3 py-2.5 gap-1.5"
-                >
-                  <FontAwesome name="trash-o" size={11} color={colors.danger} />
-                  <Text className="text-state-danger font-bold text-xs">Delete</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
         </ScrollView>
       ) : tab === 'activity' ? (
         <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 16 }}>

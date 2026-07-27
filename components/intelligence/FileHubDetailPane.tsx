@@ -173,8 +173,8 @@ export default function FileHubDetailPane({
       {isFileHub && (
         <View className="px-5 pt-3 flex-row items-center gap-2">
           {(['details', 'versions', 'activity'] as const).map(t => (
-            <TouchableOpacity key={t} onPress={() => setTab(t)} className={`px-3 py-1.5 rounded-lg ${tab === t ? 'bg-brand-primary/10' : ''}`}>
-              <Text className={`text-[11px] font-black uppercase tracking-wider ${tab === t ? 'text-brand-primary' : 'text-typography-muted'}`}>{t}</Text>
+            <TouchableOpacity key={t} onPress={() => setTab(t)} className={`px-4 py-1.5 rounded-xl border ${tab === t ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}>
+              <Text className={`text-xs font-black capitalize ${tab === t ? 'text-brand-primary' : 'text-typography-muted'}`}>{t}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -265,10 +265,10 @@ function ActionBtn({ icon, label, onPress, colors, primary, danger }: { icon: an
   return (
     <TouchableOpacity
       onPress={onPress}
-      className={`flex-1 flex-row items-center justify-center gap-1.5 py-2.5 rounded-xl ${primary ? 'bg-brand-primary' : danger ? 'bg-state-danger/10 border border-state-danger/20' : 'bg-surface-background border border-surface-border'}`}
+      className={`flex-row items-center gap-1.5 px-3.5 py-2 rounded-xl ${primary ? 'bg-brand-primary' : danger ? 'bg-state-danger/10 border border-state-danger/20' : 'bg-surface-background border border-surface-border'}`}
     >
       <FontAwesome name={icon} size={11} color={primary ? '#fff' : danger ? colors.danger : colors.textMuted} />
-      <Text className={`font-black text-[11px] ${primary ? 'text-white' : danger ? 'text-state-danger' : 'text-typography-main'}`}>{label}</Text>
+      <Text className={`font-black text-[12px] ${primary ? 'text-white' : danger ? 'text-state-danger' : 'text-typography-main'}`}>{label}</Text>
     </TouchableOpacity>
   );
 }
