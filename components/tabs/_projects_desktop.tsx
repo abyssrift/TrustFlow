@@ -19,6 +19,7 @@ import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import ProjectFolderModal from '@/components/projects/ProjectFolderModal';
 import ProjectDashboard from '@/components/projects/ProjectDashboard';
+import Tooltip from '@/components/common/Tooltip';
 
 type Project = {
   id: string;
@@ -184,27 +185,31 @@ export default function ProjectsScreenWeb() {
            </View>
            <View className="flex-row items-center gap-2">
               {hasPermission('project.edit') && (
-                <TouchableOpacity
-                  onPress={(e) => { e.stopPropagation(); handleEdit(project); }}
-                  className="w-10 h-10 items-center justify-center rounded-xl border border-surface-border bg-surface-background hover:bg-brand-primary/10"
-                >
-                  <FontAwesome name="pencil" size={13} className="text-typography-muted" />
-                </TouchableOpacity>
+                <Tooltip label="Edit project">
+                  <TouchableOpacity
+                    onPress={(e) => { e.stopPropagation(); handleEdit(project); }}
+                    className="w-10 h-10 items-center justify-center rounded-xl border border-surface-border bg-surface-background hover:bg-brand-primary/10"
+                  >
+                    <FontAwesome name="pencil" size={13} className="text-typography-muted" />
+                  </TouchableOpacity>
+                </Tooltip>
               )}
               {hasPermission('archive:create') && (
-                <TouchableOpacity
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    if (activeSession || isCoolingDown) {
-                      showAlert('Archival Locked', 'Cannot archive while agents are recording time. Please stop all timers and wait 30 seconds for strategic sync.');
-                      return;
-                    }
-                    setArchiveModal({ visible: true, projectId: project.id });
-                  }}
-                  className={`w-10 h-10 items-center justify-center rounded-xl border border-surface-border transition-colors ${activeSession || isCoolingDown ? 'bg-surface-card opacity-30 cursor-not-allowed' : 'bg-surface-background hover:bg-state-warning/10'}`}
-                >
-                  <FontAwesome name="archive" size={14} className="text-typography-muted hover:text-state-warning" />
-                </TouchableOpacity>
+                <Tooltip label="Deep archive project" disabled={!!(activeSession || isCoolingDown)}>
+                  <TouchableOpacity
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      if (activeSession || isCoolingDown) {
+                        showAlert('Archival Locked', 'Cannot archive while agents are recording time. Please stop all timers and wait 30 seconds for strategic sync.');
+                        return;
+                      }
+                      setArchiveModal({ visible: true, projectId: project.id });
+                    }}
+                    className={`w-10 h-10 items-center justify-center rounded-xl border border-surface-border transition-colors ${activeSession || isCoolingDown ? 'bg-surface-card opacity-30 cursor-not-allowed' : 'bg-surface-background hover:bg-state-warning/10'}`}
+                  >
+                    <FontAwesome name="archive" size={14} className="text-typography-muted hover:text-state-warning" />
+                  </TouchableOpacity>
+                </Tooltip>
               )}
               <View className={`px-4 py-1.5 rounded-full border ${project.status === 'active' ? 'bg-state-success/10 border-[var(--color-success)]/30' : 'bg-surface-background border-surface-border'}`}>
                   <Text className={`text-[10px] font-black uppercase tracking-widest ${project.status === 'active' ? 'text-state-success' : 'text-typography-muted'}`}>
@@ -215,7 +220,11 @@ export default function ProjectsScreenWeb() {
         </View>
 
         <View className="flex-row items-center gap-3 mb-2">
-          {project.is_featured && <FontAwesome name="star" size={16} color={colors.warning} />}
+          {project.is_featured && (
+            <Tooltip label="Featured project">
+              <FontAwesome name="star" size={16} color={colors.warning} />
+            </Tooltip>
+          )}
           <Text className="text-typography-main text-2xl font-black tracking-tight flex-1" numberOfLines={1}>{project.name}</Text>
         </View>
         
@@ -275,15 +284,17 @@ export default function ProjectsScreenWeb() {
           </View>
           
           <View className="flex-row items-center gap-6">
-            <View className="flex-row items-center bg-surface-card px-6 py-3 rounded-2xl border border-surface-border premium-shadow">
-              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mr-4">Archive View</Text>
-              <Switch 
-                value={showClosed} 
-                onValueChange={setShowClosed}
-                trackColor={{ false: colors.border, true: colors.primary }}
-                thumbColor="white"
-              />
-            </View>
+            <Tooltip label="Toggle archive view">
+              <View className="flex-row items-center bg-surface-card px-6 py-3 rounded-2xl border border-surface-border premium-shadow">
+                <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mr-4">Archive View</Text>
+                <Switch
+                  value={showClosed}
+                  onValueChange={setShowClosed}
+                  trackColor={{ false: colors.border, true: colors.primary }}
+                  thumbColor="white"
+                />
+              </View>
+            </Tooltip>
             
             <TouchableOpacity 
               onPress={handleCreateNew}

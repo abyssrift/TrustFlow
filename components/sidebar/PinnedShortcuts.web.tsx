@@ -4,6 +4,7 @@ import { Link } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
+import Tooltip from '../common/Tooltip';
 import { PIPELINE_ICONS, PinnedShortcut, Shortcut } from './constants';
 import { usePinnedShortcuts } from './usePinnedShortcuts';
 
@@ -126,13 +127,15 @@ export default function PinnedShortcuts({
       })}
 
       <View ref={wrapperRef} style={{ position: 'relative', zIndex: showPicker ? 100 : undefined }}>
-        <Pressable
-          onPress={() => setClickedOpen((v) => !v)}
-          accessibilityLabel="Pin a shortcut"
-          className="h-9 w-9 items-center justify-center rounded-xl border border-dashed border-surface-border bg-surface-card transition-all duration-200 ease-out hover:rotate-90 hover:border-brand-primary/40 hover:bg-surface-overlay active:scale-95"
-        >
-          <FontAwesome name="plus" size={12} color={colors.textDim} />
-        </Pressable>
+        <Tooltip label="Pin shortcut" side="left">
+          <Pressable
+            onPress={() => setClickedOpen((v) => !v)}
+            accessibilityLabel="Pin a shortcut"
+            className="h-9 w-9 items-center justify-center rounded-xl border border-dashed border-surface-border bg-surface-card transition-all duration-200 ease-out hover:rotate-90 hover:border-brand-primary/40 hover:bg-surface-overlay active:scale-95"
+          >
+            <FontAwesome name="plus" size={12} color={colors.textDim} />
+          </Pressable>
+        </Tooltip>
 
         {/* Outer view starts flush under the trigger (top-9 = 36px) with
             transparent top padding, bridging the old 8px hover-gap so moving the

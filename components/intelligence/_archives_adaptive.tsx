@@ -9,6 +9,7 @@ import React, { useEffect, useState } from 'react';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAlert } from '@/contexts/AlertContext';
+import Tooltip from '@/components/common/Tooltip';
 
 export default function IntelligenceArchivesNative() {
   const colors = useThemeColors();
@@ -120,14 +121,18 @@ export default function IntelligenceArchivesNative() {
             className="flex-1 text-typography-main text-sm"
           />
           {search.length > 0 && (
-            <TouchableOpacity onPress={() => setSearch('')}>
-              <FontAwesome name="times-circle" size={12} color={colors.textMuted} />
-            </TouchableOpacity>
+            <Tooltip label="Clear search">
+              <TouchableOpacity onPress={() => setSearch('')}>
+                <FontAwesome name="times-circle" size={12} color={colors.textMuted} />
+              </TouchableOpacity>
+            </Tooltip>
           )}
         </View>
-        <TouchableOpacity onPress={fetchArchives} className="w-11 h-11 items-center justify-center bg-surface-card border border-surface-border rounded-2xl">
-          <FontAwesome name="refresh" size={13} color={colors.primary} />
-        </TouchableOpacity>
+        <Tooltip label="Refresh archives">
+          <TouchableOpacity onPress={fetchArchives} className="w-11 h-11 items-center justify-center bg-surface-card border border-surface-border rounded-2xl">
+            <FontAwesome name="refresh" size={13} color={colors.primary} />
+          </TouchableOpacity>
+        </Tooltip>
       </View>
 
       {selected.size > 0 && hasPermission('archive.delete') && (

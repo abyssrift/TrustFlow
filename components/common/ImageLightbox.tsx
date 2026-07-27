@@ -2,6 +2,7 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Modal, Platform, Pressable, Text, TouchableOpacity, View } from 'react-native';
+import Tooltip from './Tooltip';
 
 type Format = { label: string; mime: string | null; ext: string };
 
@@ -180,56 +181,78 @@ export default function ImageLightbox({
     { scaleY: flipV ? -1 : 1 },
   ];
 
-  const Tool = ({ icon, onPress, active }: { icon: string; onPress: () => void; active?: boolean }) => (
-    <TouchableOpacity
-      onPress={onPress}
-      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-      className="w-9 h-9 rounded-lg items-center justify-center border"
-      style={[
-        {
-          backgroundColor: active ? colors.primary + '33' : colors.background,
-          borderColor: active ? colors.primary + '66' : colors.border,
-        },
-        Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null,
-      ]}
-    >
-      <FontAwesome name={icon as any} size={13} color={active ? colors.primary : colors.muted} />
-    </TouchableOpacity>
-  );
+  const Tool = ({ icon, onPress, active }: { icon: string; onPress: () => void; active?: boolean }) => {
+    const labels: Record<string, string> = {
+      'rotate-left': 'Rotate left',
+      'rotate-right': 'Rotate right',
+      'arrows-h': 'Flip horizontal',
+      'arrows-v': 'Flip vertical',
+      'refresh': 'Reset',
+    };
+    return (
+      <Tooltip label={labels[icon] || icon} side="top">
+        <TouchableOpacity
+          onPress={onPress}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+          className="w-9 h-9 rounded-lg items-center justify-center border"
+          style={[
+            {
+              backgroundColor: active ? colors.primary + '33' : colors.background,
+              borderColor: active ? colors.primary + '66' : colors.border,
+            },
+            Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null,
+          ]}
+        >
+          <FontAwesome name={icon as any} size={13} color={active ? colors.primary : colors.muted} />
+        </TouchableOpacity>
+      </Tooltip>
+    );
+  };
 
   const NavArrow = ({ side, onPress }: { side: 'left' | 'right'; onPress?: () => void }) => (
-    <TouchableOpacity
-      onPress={onPress}
-      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-      className={`absolute ${side === 'left' ? 'left-4' : 'right-4'} top-1/2 w-11 h-11 rounded-full bg-white/10 items-center justify-center z-10`}
-      style={[{ marginTop: -22 }, Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null]}
+    <Tooltip
+      label={side === 'left' ? 'Previous' : 'Next'}
+      side={side === 'left' ? 'right' : 'left'}
+      className={`absolute ${side === 'left' ? 'left-4' : 'right-4'} top-1/2 z-10`}
+      style={{ marginTop: -22 }}
     >
-      <FontAwesome name={side === 'left' ? 'chevron-left' : 'chevron-right'} size={18} color="#fff" />
-    </TouchableOpacity>
+      <TouchableOpacity
+        onPress={onPress}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        className="w-11 h-11 rounded-full bg-white/10 items-center justify-center"
+        style={Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null}
+      >
+        <FontAwesome name={side === 'left' ? 'chevron-left' : 'chevron-right'} size={18} color="#fff" />
+      </TouchableOpacity>
+    </Tooltip>
   );
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable className="flex-1 bg-black/90 items-center justify-center" onPress={onClose}>
         {/* Close */}
-        <TouchableOpacity
-          onPress={onClose}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          className="absolute top-6 right-6 w-10 h-10 rounded-full bg-white/10 items-center justify-center z-10"
-          style={Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : undefined}
-        >
-          <FontAwesome name="times" size={18} color="#fff" />
-        </TouchableOpacity>
-
-        {onInfo && (
+        <Tooltip label="Close" side="left" className="absolute top-6 right-6 z-10">
           <TouchableOpacity
-            onPress={onInfo}
+            onPress={onClose}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            className="absolute top-6 left-6 w-10 h-10 rounded-full bg-white/10 items-center justify-center z-10"
+            className="w-10 h-10 rounded-full bg-white/10 items-center justify-center"
             style={Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : undefined}
           >
-            <FontAwesome name="info" size={16} color="#fff" />
+            <FontAwesome name="times" size={18} color="#fff" />
           </TouchableOpacity>
+        </Tooltip>
+
+        {onInfo && (
+          <Tooltip label="File info" side="right" className="absolute top-6 left-6 z-10">
+            <TouchableOpacity
+              onPress={onInfo}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              className="w-10 h-10 rounded-full bg-white/10 items-center justify-center"
+              style={Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : undefined}
+            >
+              <FontAwesome name="info" size={16} color="#fff" />
+            </TouchableOpacity>
+          </Tooltip>
         )}
 
         {hasPrev && <NavArrow side="left" onPress={onPrev} />}

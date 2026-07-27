@@ -1,4 +1,5 @@
 import Popup from '@/components/common/Popup';
+import Tooltip from '@/components/common/Tooltip';
 import { useTimer } from '@/contexts/TimerContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -186,27 +187,31 @@ export default function TimerIsland({ floating = true }: { floating?: boolean })
         {/* Right: Controls */}
         <View className="flex-row items-center gap-1.5 pr-1">
           {expanded && (
-            <TouchableOpacity 
-               onPress={async () => {
-                 try {
-                   await stopWork();
-                   successToast('Work session stopped.');
-                 } catch (err: any) {
-                   errorToast(err?.message || 'Could not stop work session.');
-                 }
-               }}
-               className="w-7 h-7 rounded-full bg-state-danger/10 items-center justify-center border border-state-danger/20 active:bg-state-danger/30"
-             >
-               <FontAwesome name="stop" size={9} color={colors.danger} />
-            </TouchableOpacity>
+            <Tooltip label="Stop timer">
+              <TouchableOpacity
+                 onPress={async () => {
+                   try {
+                     await stopWork();
+                     successToast('Work session stopped.');
+                   } catch (err: any) {
+                     errorToast(err?.message || 'Could not stop work session.');
+                   }
+                 }}
+                 className="w-7 h-7 rounded-full bg-state-danger/10 items-center justify-center border border-state-danger/20 active:bg-state-danger/30"
+               >
+                 <FontAwesome name="stop" size={9} color={colors.danger} />
+              </TouchableOpacity>
+            </Tooltip>
           )}
-          
-          <TouchableOpacity 
-            onPress={toggleExpand}
-            className="w-7 h-7 rounded-full bg-white/10 items-center justify-center active:bg-white/20"
-          >
-            <FontAwesome name={expanded ? 'compress' : 'expand'} size={9} color={colors.textMain} />
-          </TouchableOpacity>
+
+          <Tooltip label={expanded ? 'Collapse' : 'Expand'}>
+            <TouchableOpacity
+              onPress={toggleExpand}
+              className="w-7 h-7 rounded-full bg-white/10 items-center justify-center active:bg-white/20"
+            >
+              <FontAwesome name={expanded ? 'compress' : 'expand'} size={9} color={colors.textMain} />
+            </TouchableOpacity>
+          </Tooltip>
         </View>
       </View>
     </Animated.View>

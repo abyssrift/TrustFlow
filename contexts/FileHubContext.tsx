@@ -1,10 +1,11 @@
 import { supabase, supabaseUrl, supabaseAnonKey, freshChannel } from '@/lib/supabase';
+import { recordChannelVisit } from '@/lib/filehubRecentChannels';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { DeviceEventEmitter } from 'react-native';
 import { useIsland } from '@/contexts/IslandContext';
 import { useAlert } from '@/contexts/AlertContext';
 
-export type FileHubMode = 'inbox' | 'sent' | 'broadcast' | 'groups';
+export type FileHubMode = 'overview' | 'browse' | 'inbox' | 'sent' | 'broadcast' | 'groups';
 
 export type FileHubFile = {
   id: string;
@@ -171,6 +172,7 @@ type FileHubContextType = {
   mode: FileHubMode;
   setMode: (m: FileHubMode) => void;
   search: string;
+  searchDebounced: string;
   setSearch: (s: string) => void;
   // Cross-source search results (task submission / brief files) for the current query
   taskResults: CrossSearchResult[];
@@ -263,7 +265,7 @@ export function useFileHub() {
 export function FileHubProvider({ children }: { children: React.ReactNode }) {
   const island = useIsland();
   const { showAlert } = useAlert();
-  const [mode, setModeState] = useState<FileHubMode>('groups');
+  const [mode, setModeState] = useState<FileHubMode>('overview');
   const [search, setSearchState] = useState('');
   const [searchDebounced, setSearchDebounced] = useState('');
   const [selectedFolderId, setSelectedFolderIdState] = useState<string | null>(null);
@@ -316,7 +318,10 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
   const setSearch = useCallback((s: string) => setSearchState(s), []);
   const setSelectedFolderId = useCallback((id: string | null) => setSelectedFolderIdState(id), []);
   const setSelectedTag = useCallback((tag: string | null) => setSelectedTagState(tag), []);
-  const setActiveGroupId = useCallback((id: string | null) => setActiveGroupIdState(id), []);
+  const setActiveGroupId = useCallback((id: string | null) => {
+    setActiveGroupIdState(id);
+    if (id) recordChannelVisit(id); // feeds the Overview "recently visited channels"
+  }, []);
 
   const emitUnreadCount = useCallback((count: number) => {
     // DeviceEventEmitter works on both native and web (react-native-web),
@@ -327,7 +332,9 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
 
   // ── Inbox / Sent / Broadcast ────────────────────────────────────────────────
   const fetchFiles = useCallback(async () => {
-    if (mode === 'groups') return;
+    // Overview/Browse own their data via dedicated RPCs; only Inbox/Sent/Broadcast
+    // use rpc_filehub_list (Channels handled separately).
+    if (mode === 'groups' || mode === 'overview' || mode === 'browse') return;
     setLoading(true);
     try {
       const { data, error } = await supabase.rpc('rpc_filehub_list', {
@@ -839,7 +846,7 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
   return (
     <FileHubContext.Provider value={{
       mode, setMode,
-      search, setSearch,
+      search, searchDebounced, setSearch,
       taskResults,
       selectedFolderId, setSelectedFolderId,
       selectedTag, setSelectedTag,

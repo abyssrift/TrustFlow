@@ -1,4 +1,5 @@
 import Popup from '@/components/common/Popup';
+import Tooltip from '@/components/common/Tooltip';
 import { useAuth } from '@/contexts/AuthContext';
 import { Pipeline, usePipelineEditor } from '@/contexts/PipelineEditorContext';
 import { usePipelineLimit } from '@/hooks/usePipelineLimit';
@@ -259,29 +260,35 @@ export default function PipelineList() {
                       <View className="flex-row items-center gap-2">
                         {canEdit && (
                           <>
-                            <TouchableOpacity
-                              onPress={(e: any) => { e.stopPropagation(); handleToggleDefault(p); }}
-                              className={`p-2.5 rounded-xl border ${p.is_default ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
-                            >
-                              <FontAwesome name="star" size={12} className={p.is_default ? 'text-brand-on-primary' : 'text-typography-muted'} />
-                            </TouchableOpacity>
+                            <Tooltip label={p.is_default ? 'Unset as default' : 'Set as default'}>
+                              <TouchableOpacity
+                                onPress={(e: any) => { e.stopPropagation(); handleToggleDefault(p); }}
+                                className={`p-2.5 rounded-xl border ${p.is_default ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
+                              >
+                                <FontAwesome name="star" size={12} className={p.is_default ? 'text-brand-on-primary' : 'text-typography-muted'} />
+                              </TouchableOpacity>
+                            </Tooltip>
 
-                            <TouchableOpacity
-                              onPress={(e: any) => {
-                                e.stopPropagation();
-                                setEditingId(p.id);
-                              }}
-                              className="p-2.5 rounded-xl border border-surface-border bg-surface-background"
-                            >
-                              <FontAwesome name="pencil" size={12} className="text-typography-muted" />
-                            </TouchableOpacity>
+                            <Tooltip label="Edit pipeline">
+                              <TouchableOpacity
+                                onPress={(e: any) => {
+                                  e.stopPropagation();
+                                  setEditingId(p.id);
+                                }}
+                                className="p-2.5 rounded-xl border border-surface-border bg-surface-background"
+                              >
+                                <FontAwesome name="pencil" size={12} className="text-typography-muted" />
+                              </TouchableOpacity>
+                            </Tooltip>
 
-                            <TouchableOpacity
-                              onPress={(e: any) => { e.stopPropagation(); setConfirmDelete(p.id); }}
-                              className="p-2.5 rounded-xl border border-surface-border bg-surface-background"
-                            >
-                              <FontAwesome name="trash-o" size={12} className="text-typography-muted" />
-                            </TouchableOpacity>
+                            <Tooltip label="Delete pipeline">
+                              <TouchableOpacity
+                                onPress={(e: any) => { e.stopPropagation(); setConfirmDelete(p.id); }}
+                                className="p-2.5 rounded-xl border border-surface-border bg-surface-background"
+                              >
+                                <FontAwesome name="trash-o" size={12} className="text-typography-muted" />
+                              </TouchableOpacity>
+                            </Tooltip>
                           </>
                         )}
                         <View className="ml-2">

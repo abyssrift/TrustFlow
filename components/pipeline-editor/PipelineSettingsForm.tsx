@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import Tooltip from '@/components/common/Tooltip';
 
 type PipelineFormData = {
   id?: string;
@@ -474,13 +475,15 @@ export default function PipelineSettingsForm({
                               </Text>
                             </TouchableOpacity>
                             {isSelected && (
-                              <TouchableOpacity onPress={() => togglePoolWithdrawn(opt.id)} className="ml-2">
-                                <FontAwesome
-                                  name={isWithdrawn ? 'undo' : 'ban'}
-                                  size={9}
-                                  color={isWithdrawn ? colors.success : (isSelected ? colors.textMain : colors.danger)}
-                                />
-                              </TouchableOpacity>
+                              <Tooltip label={isWithdrawn ? 'Restore to pool' : 'Withdraw from pool'}>
+                                <TouchableOpacity onPress={() => togglePoolWithdrawn(opt.id)} className="ml-2">
+                                  <FontAwesome
+                                    name={isWithdrawn ? 'undo' : 'ban'}
+                                    size={9}
+                                    color={isWithdrawn ? colors.success : (isSelected ? colors.textMain : colors.danger)}
+                                  />
+                                </TouchableOpacity>
+                              </Tooltip>
                             )}
                             {isWithdrawn && (
                               <Text className="text-state-warning text-[7px] font-black uppercase ml-1.5">Withdrawn</Text>

@@ -10,9 +10,12 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import { useDragSource, useDropPulse, useDropTarget, useFileDrop, useMarqueeSelect } from '@/hooks/useWebDnd';
 import { FilePreviewModal, FilePreviewTeaser, getPreviewKind, type PreviewKind } from './../common/FilePreview';
 import Popup from '../common/Popup';
+import Tooltip from '../common/Tooltip';
 import UserLink from '../common/UserLink';
 import FileHubAnalytics from './FileHubAnalytics';
 import FileHubBin from './FileHubBin';
+import FileHubOverview from './FileHubOverview';
+import FileHubBrowse from './FileHubBrowse';
 import { groupPickedFiles, relDir, resolveExistingFolderLeaf } from '@/lib/filehubFolderTree';
 import FolderTreePicker from './FolderTreePicker';
 import { randomId } from '@/lib/randomId';
@@ -1518,14 +1521,16 @@ function FolderRow({
       }`}
     >
       {selectionMode ? (
-        <TouchableOpacity
-          onPress={(e) => { e?.stopPropagation?.(); onToggleSelect?.(); }}
-          className={`w-9 h-9 rounded-xl items-center justify-center mr-3.5 flex-shrink-0 border-2 ${
-            isSelected ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'
-          }`}
-        >
-          {isSelected && <FontAwesome name="check" size={14} color="#fff" />}
-        </TouchableOpacity>
+        <Tooltip label={isSelected ? 'Deselect folder' : 'Select folder'}>
+          <TouchableOpacity
+            onPress={(e) => { e?.stopPropagation?.(); onToggleSelect?.(); }}
+            className={`w-9 h-9 rounded-xl items-center justify-center mr-3.5 flex-shrink-0 border-2 ${
+              isSelected ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'
+            }`}
+          >
+            {isSelected && <FontAwesome name="check" size={14} color="#fff" />}
+          </TouchableOpacity>
+        </Tooltip>
       ) : (
         <View className="w-9 h-9 rounded-xl bg-surface-background border border-surface-border items-center justify-center mr-3.5 flex-shrink-0">
           <FontAwesome name="folder" size={16} color={colors.primary} />
@@ -1550,31 +1555,39 @@ function FolderRow({
           className="flex-row items-center gap-0.5 flex-shrink-0 opacity-0 -translate-x-1.5 scale-95 group-hover:opacity-100 group-hover:translate-x-0 group-hover:scale-100 transition-all duration-200"
         >
           {onInfo && (
+            <Tooltip label="Folder details">
+              <TouchableOpacity
+                onPress={(e) => { e?.stopPropagation?.(); onInfo(); }}
+                className="w-7 h-7 items-center justify-center rounded-lg hover:bg-brand-primary/10 hover:scale-110 active:scale-90 transition-all"
+              >
+                <FontAwesome name="info-circle" size={12} color={colors.textMuted} />
+              </TouchableOpacity>
+            </Tooltip>
+          )}
+          <Tooltip label="Rename folder">
             <TouchableOpacity
-              onPress={(e) => { e?.stopPropagation?.(); onInfo(); }}
+              onPress={(e) => { e?.stopPropagation?.(); setRenameValue(folder.name); setIsRenaming(true); }}
               className="w-7 h-7 items-center justify-center rounded-lg hover:bg-brand-primary/10 hover:scale-110 active:scale-90 transition-all"
             >
-              <FontAwesome name="info-circle" size={12} color={colors.textMuted} />
+              <FontAwesome name="pencil" size={11} color={colors.textMuted} />
             </TouchableOpacity>
-          )}
-          <TouchableOpacity
-            onPress={(e) => { e?.stopPropagation?.(); setRenameValue(folder.name); setIsRenaming(true); }}
-            className="w-7 h-7 items-center justify-center rounded-lg hover:bg-brand-primary/10 hover:scale-110 active:scale-90 transition-all"
-          >
-            <FontAwesome name="pencil" size={11} color={colors.textMuted} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={(e) => { e?.stopPropagation?.(); setShowQuickShare(true); }}
-            className="w-7 h-7 items-center justify-center rounded-lg hover:bg-brand-primary/10 hover:scale-110 active:scale-90 transition-all"
-          >
-            <FontAwesome name="link" size={12} color={colors.textMuted} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={(e) => { e?.stopPropagation?.(); onDelete(); }}
-            className="w-7 h-7 items-center justify-center rounded-lg hover:bg-state-danger/10 hover:scale-110 active:scale-90 transition-all"
-          >
-            <FontAwesome name="trash-o" size={12} color={colors.danger} />
-          </TouchableOpacity>
+          </Tooltip>
+          <Tooltip label="Share link">
+            <TouchableOpacity
+              onPress={(e) => { e?.stopPropagation?.(); setShowQuickShare(true); }}
+              className="w-7 h-7 items-center justify-center rounded-lg hover:bg-brand-primary/10 hover:scale-110 active:scale-90 transition-all"
+            >
+              <FontAwesome name="link" size={12} color={colors.textMuted} />
+            </TouchableOpacity>
+          </Tooltip>
+          <Tooltip label="Delete folder">
+            <TouchableOpacity
+              onPress={(e) => { e?.stopPropagation?.(); onDelete(); }}
+              className="w-7 h-7 items-center justify-center rounded-lg hover:bg-state-danger/10 hover:scale-110 active:scale-90 transition-all"
+            >
+              <FontAwesome name="trash-o" size={12} color={colors.danger} />
+            </TouchableOpacity>
+          </Tooltip>
         </View>
       )}
       <ShareLinkModal
@@ -1675,11 +1688,13 @@ function FileRow({
       }`}
     >
       {selectionMode ? (
-        <View className={`w-9 h-9 rounded-xl items-center justify-center mr-3.5 flex-shrink-0 border-2 ${
-          isFileSelected ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'
-        }`}>
-          {isFileSelected && <FontAwesome name="check" size={14} color="#fff" />}
-        </View>
+        <Tooltip label={isFileSelected ? 'Deselect file' : 'Select file'}>
+          <View className={`w-9 h-9 rounded-xl items-center justify-center mr-3.5 flex-shrink-0 border-2 ${
+            isFileSelected ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'
+          }`}>
+            {isFileSelected && <FontAwesome name="check" size={14} color="#fff" />}
+          </View>
+        </Tooltip>
       ) : (
         <View className="w-9 h-9 rounded-xl bg-surface-background border border-surface-border items-center justify-center mr-3.5 flex-shrink-0 overflow-hidden">
           {thumbUri ? (
@@ -1729,30 +1744,36 @@ function FileRow({
         <View
           className="flex-row items-center gap-0.5 mr-1.5 flex-shrink-0 opacity-0 -translate-x-1.5 scale-95 group-hover:opacity-100 group-hover:translate-x-0 group-hover:scale-100 transition-all duration-200"
         >
-          <TouchableOpacity
-            onPress={handleQuickDownload}
-            disabled={quickDownloading}
-            className="w-7 h-7 items-center justify-center rounded-lg hover:bg-brand-primary/10 hover:scale-110 active:scale-90 transition-all"
-          >
-            {quickDownloading
-              ? <ActivityIndicator size="small" color={colors.primary} style={{ transform: [{ scale: 0.6 }] }} />
-              : <FontAwesome name="download" size={12} color={colors.textMuted} />}
-          </TouchableOpacity>
-          {isOwner && (
+          <Tooltip label="Download file">
             <TouchableOpacity
-              onPress={handleQuickShare}
+              onPress={handleQuickDownload}
+              disabled={quickDownloading}
               className="w-7 h-7 items-center justify-center rounded-lg hover:bg-brand-primary/10 hover:scale-110 active:scale-90 transition-all"
             >
-              <FontAwesome name="link" size={12} color={colors.textMuted} />
+              {quickDownloading
+                ? <ActivityIndicator size="small" color={colors.primary} style={{ transform: [{ scale: 0.6 }] }} />
+                : <FontAwesome name="download" size={12} color={colors.textMuted} />}
             </TouchableOpacity>
+          </Tooltip>
+          {isOwner && (
+            <Tooltip label="Share link">
+              <TouchableOpacity
+                onPress={handleQuickShare}
+                className="w-7 h-7 items-center justify-center rounded-lg hover:bg-brand-primary/10 hover:scale-110 active:scale-90 transition-all"
+              >
+                <FontAwesome name="link" size={12} color={colors.textMuted} />
+              </TouchableOpacity>
+            </Tooltip>
           )}
           {isOwner && (
-            <TouchableOpacity
-              onPress={handleQuickDelete}
-              className="w-7 h-7 items-center justify-center rounded-lg hover:bg-state-danger/10 hover:scale-110 active:scale-90 transition-all"
-            >
-              <FontAwesome name="trash-o" size={12} color={colors.danger} />
-            </TouchableOpacity>
+            <Tooltip label="Delete file">
+              <TouchableOpacity
+                onPress={handleQuickDelete}
+                className="w-7 h-7 items-center justify-center rounded-lg hover:bg-state-danger/10 hover:scale-110 active:scale-90 transition-all"
+              >
+                <FontAwesome name="trash-o" size={12} color={colors.danger} />
+              </TouchableOpacity>
+            </Tooltip>
           )}
         </View>
       )}
@@ -3006,7 +3027,7 @@ function FileHubDesktopInner() {
   }, [lastCompletedAt]);
 
   const router = useRouter();
-  const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
+  const { tab: tabParam, file: fileParam } = useLocalSearchParams<{ tab?: string; file?: string }>();
 
   const [selectedFile, setSelectedFile] = useState<FileHubFile | null>(null);
   const [detailPanelFile, setDetailPanelFile] = useState<FileHubFile | null>(null);
@@ -3082,6 +3103,7 @@ function FileHubDesktopInner() {
   const [showManageTags, setShowManageTags] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showBin, setShowBin] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [zipDownloading, setZipDownloading] = useState(false);
 
   const exitSelection = useCallback(() => {
@@ -3309,11 +3331,24 @@ function FileHubDesktopInner() {
 
   // Restore tab from URL param on mount
   useEffect(() => {
-    const validModes: FileHubMode[] = ['inbox', 'sent', 'broadcast', 'groups'];
+    const validModes: FileHubMode[] = ['overview', 'browse', 'inbox', 'sent', 'broadcast', 'groups'];
     if (tabParam && validModes.includes(tabParam as FileHubMode)) {
       setMode(tabParam as FileHubMode);
     }
   }, []);
+
+  // Deep link (?file=<id>) from global search — open the file directly. Opening
+  // the viewer beats trying to scroll-and-highlight across the four mode layouts.
+  useEffect(() => {
+    if (!fileParam) return;
+    let cancelled = false;
+    supabase.rpc('rpc_filehub_browse', { p_file_id: fileParam }).then(({ data }) => {
+      const row = (data as any)?.items?.[0];
+      if (!cancelled && row) openStorageFile(row.bucket, row.storage_path, row.file_name, row.mime_type);
+    });
+    router.setParams({ file: undefined });
+    return () => { cancelled = true; };
+  }, [fileParam]);
 
   useEffect(() => {
     if (!selectedFile) return;
@@ -3395,6 +3430,8 @@ function FileHubDesktopInner() {
   }, [mode, activeGroupId, activeGroup?.id]);
 
   const tabs: { key: FileHubMode; label: string; count?: number }[] = [
+    { key: 'overview', label: 'Overview' },
+    { key: 'browse', label: 'Browse' },
     { key: 'groups', label: 'Channels' },
     { key: 'inbox', label: 'Inbox', count: inboxUnreadCount > 0 ? inboxUnreadCount : undefined },
     ...(canBroadcast ? [{ key: 'broadcast' as FileHubMode, label: 'Broadcast' }] : []),
@@ -3408,6 +3445,7 @@ function FileHubDesktopInner() {
   };
 
   const handleRefresh = () => {
+    if (mode === 'overview' || mode === 'browse') { setRefreshKey(k => k + 1); return; }
     if (mode === 'groups') { refreshGroups(); if (activeGroupId) refreshGroupFiles(); }
     else refresh();
   };
@@ -3461,9 +3499,11 @@ function FileHubDesktopInner() {
               className="flex-1 text-typography-main text-sm font-medium outline-none bg-transparent"
             />
             {search.length > 0 && (
-              <TouchableOpacity onPress={() => setSearch('')}>
-                <FontAwesome name="times-circle" size={12} color={colors.textMuted} />
-              </TouchableOpacity>
+              <Tooltip label="Clear search">
+                <TouchableOpacity onPress={() => setSearch('')}>
+                  <FontAwesome name="times-circle" size={12} color={colors.textMuted} />
+                </TouchableOpacity>
+              </Tooltip>
             )}
           </View>
           <TouchableOpacity
@@ -3473,24 +3513,30 @@ function FileHubDesktopInner() {
             <FontAwesome name="bar-chart" size={12} color={colors.primary} />
             <Text className="text-typography-main font-black text-sm tracking-wide">Insights</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => handleTabChange('sent')}
-            className={`h-10 w-10 items-center justify-center border rounded-xl shrink-0 ${mode === 'sent' ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-card border-surface-border'}`}
-          >
-            <FontAwesome name="paper-plane-o" size={12} color={mode === 'sent' ? colors.primary : colors.textMuted} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setShowBin(true)}
-            className="h-10 w-10 items-center justify-center bg-surface-card border border-surface-border rounded-xl shrink-0"
-          >
-            <FontAwesome name="trash-o" size={13} color={colors.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={handleRefresh}
-            className="h-10 w-10 items-center justify-center bg-surface-card border border-surface-border rounded-xl shrink-0"
-          >
-            <FontAwesome name="refresh" size={13} color={colors.primary} />
-          </TouchableOpacity>
+          <Tooltip label="View sent files">
+            <TouchableOpacity
+              onPress={() => handleTabChange('sent')}
+              className={`h-10 w-10 items-center justify-center border rounded-xl shrink-0 ${mode === 'sent' ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-card border-surface-border'}`}
+            >
+              <FontAwesome name="paper-plane-o" size={12} color={mode === 'sent' ? colors.primary : colors.textMuted} />
+            </TouchableOpacity>
+          </Tooltip>
+          <Tooltip label="View deleted files">
+            <TouchableOpacity
+              onPress={() => setShowBin(true)}
+              className="h-10 w-10 items-center justify-center bg-surface-card border border-surface-border rounded-xl shrink-0"
+            >
+              <FontAwesome name="trash-o" size={13} color={colors.primary} />
+            </TouchableOpacity>
+          </Tooltip>
+          <Tooltip label="Refresh">
+            <TouchableOpacity
+              onPress={handleRefresh}
+              className="h-10 w-10 items-center justify-center bg-surface-card border border-surface-border rounded-xl shrink-0"
+            >
+              <FontAwesome name="refresh" size={13} color={colors.primary} />
+            </TouchableOpacity>
+          </Tooltip>
           {/* Upload button — show if not on groups list (no activeGroupId in groups mode). Hidden
               for view-only override channels: you're not a member and lack manage-tier override,
               so the server would reject the upload. Manage-tier override can upload like any admin. */}
@@ -3554,7 +3600,19 @@ function FileHubDesktopInner() {
         ))}
       </View>
 
+      {/* ── Overview / Browse tabs (own their data, full-width) ── */}
+      {mode === 'overview' && (
+        <FileHubOverview
+          key={`overview-${refreshKey}`}
+          onUpload={() => setShowUpload(true)}
+          onNewChannel={() => setShowCreateGroup(true)}
+          onGoTab={handleTabChange}
+        />
+      )}
+      {mode === 'browse' && <FileHubBrowse key={`browse-${refreshKey}`} />}
+
       {/* ── Two-column body ── */}
+      {mode !== 'overview' && mode !== 'browse' && (
       <View className="flex-1 flex-row" style={{ minHeight: 0 }}>
 
         {/* ══ LEFT COLUMN ══ */}
@@ -3667,17 +3725,19 @@ function FileHubDesktopInner() {
                   <Text className="text-typography-dim text-[11px]">{activeGroup?.member_count} members · {activeGroup?.file_count} files</Text>
                 </View>
                 {displayFiles.length > 0 && (
-                  <TouchableOpacity
-                    onPress={() => handleDownloadAll(activeGroup?.name ?? 'Channel Files')}
-                    disabled={zipDownloading}
-                    className="flex-row items-center gap-1.5 px-3 py-2 bg-surface-background border border-surface-border rounded-lg flex-shrink-0"
-                  >
-                    {zipDownloading
-                      ? <ActivityIndicator size="small" color={colors.primary} />
-                      : <FontAwesome name="download" size={11} color={colors.textMuted} />
-                    }
-                    <Text className="text-typography-muted text-xs font-bold">ZIP</Text>
-                  </TouchableOpacity>
+                  <Tooltip label="Download channel as ZIP">
+                    <TouchableOpacity
+                      onPress={() => handleDownloadAll(activeGroup?.name ?? 'Channel Files')}
+                      disabled={zipDownloading}
+                      className="flex-row items-center gap-1.5 px-3 py-2 bg-surface-background border border-surface-border rounded-lg flex-shrink-0"
+                    >
+                      {zipDownloading
+                        ? <ActivityIndicator size="small" color={colors.primary} />
+                        : <FontAwesome name="download" size={11} color={colors.textMuted} />
+                      }
+                      <Text className="text-typography-muted text-xs font-bold">ZIP</Text>
+                    </TouchableOpacity>
+                  </Tooltip>
                 )}
               </View>
 
@@ -3705,12 +3765,14 @@ function FileHubDesktopInner() {
                       );
                     })}
                   </ScrollView>
-                  <TouchableOpacity
-                    onPress={() => setShowManageTags(true)}
-                    className="px-3 py-2.5 border-l border-surface-border flex-shrink-0"
-                  >
-                    <FontAwesome name="tags" size={13} color={colors.textMuted} />
-                  </TouchableOpacity>
+                  <Tooltip label="Manage tags">
+                    <TouchableOpacity
+                      onPress={() => setShowManageTags(true)}
+                      className="px-3 py-2.5 border-l border-surface-border flex-shrink-0"
+                    >
+                      <FontAwesome name="tags" size={13} color={colors.textMuted} />
+                    </TouchableOpacity>
+                  </Tooltip>
                 </View>
               )}
 
@@ -3743,19 +3805,21 @@ function FileHubDesktopInner() {
                 <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
                   {selectionMode ? (
                     <View className="flex-row items-center px-6 py-3 bg-brand-primary/5 border-b border-brand-primary/20 gap-2">
-                      <TouchableOpacity
-                        onPress={toggleSelectAll}
-                        className={`w-9 h-9 rounded-xl items-center justify-center border-2 mr-0 flex-shrink-0 ${
-                          allVisibleSelected
-                            ? 'bg-brand-primary border-brand-primary'
-                            : totalSelected > 0 ? 'border-brand-primary bg-surface-background' : 'border-surface-border bg-surface-background'
-                        }`}
-                      >
-                        {allVisibleSelected
-                          ? <FontAwesome name="check" size={13} color="#fff" />
-                          : totalSelected > 0 ? <View className="w-3 h-0.5 bg-brand-primary rounded-full" /> : null
-                        }
-                      </TouchableOpacity>
+                      <Tooltip label={allVisibleSelected ? 'Deselect all' : 'Select all'}>
+                        <TouchableOpacity
+                          onPress={toggleSelectAll}
+                          className={`w-9 h-9 rounded-xl items-center justify-center border-2 mr-0 flex-shrink-0 ${
+                            allVisibleSelected
+                              ? 'bg-brand-primary border-brand-primary'
+                              : totalSelected > 0 ? 'border-brand-primary bg-surface-background' : 'border-surface-border bg-surface-background'
+                          }`}
+                        >
+                          {allVisibleSelected
+                            ? <FontAwesome name="check" size={13} color="#fff" />
+                            : totalSelected > 0 ? <View className="w-3 h-0.5 bg-brand-primary rounded-full" /> : null
+                          }
+                        </TouchableOpacity>
+                      </Tooltip>
                       <Text className="flex-1 text-brand-primary text-xs font-black ml-2">
                         {totalSelected === 0 ? 'Tap to select' : `${totalSelected} of ${totalVisible} selected`}
                       </Text>
@@ -3778,9 +3842,11 @@ function FileHubDesktopInner() {
                           <Text className="text-state-danger text-xs font-black">Delete {totalSelected}</Text>
                         </TouchableOpacity>
                       )}
-                      <TouchableOpacity onPress={exitSelection} className="w-7 h-7 items-center justify-center ml-1">
-                        <FontAwesome name="times" size={13} color={colors.textMuted} />
-                      </TouchableOpacity>
+                      <Tooltip label="Clear selection">
+                        <TouchableOpacity onPress={exitSelection} className="w-7 h-7 items-center justify-center ml-1">
+                          <FontAwesome name="times" size={13} color={colors.textMuted} />
+                        </TouchableOpacity>
+                      </Tooltip>
                     </View>
                   ) : (
                     <View className="flex-row items-center px-6 py-3 bg-surface-background/60 border-b border-surface-border/60">
@@ -3892,12 +3958,14 @@ function FileHubDesktopInner() {
                       );
                     })}
                   </ScrollView>
-                  <TouchableOpacity
-                    onPress={() => setShowManageTags(true)}
-                    className="px-3 py-2.5 border-l border-surface-border flex-shrink-0"
-                  >
-                    <FontAwesome name="tags" size={13} color={colors.textMuted} />
-                  </TouchableOpacity>
+                  <Tooltip label="Manage tags">
+                    <TouchableOpacity
+                      onPress={() => setShowManageTags(true)}
+                      className="px-3 py-2.5 border-l border-surface-border flex-shrink-0"
+                    >
+                      <FontAwesome name="tags" size={13} color={colors.textMuted} />
+                    </TouchableOpacity>
+                  </Tooltip>
                 </View>
               )}
 
@@ -3925,19 +3993,21 @@ function FileHubDesktopInner() {
                 <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
                   {selectionMode ? (
                     <View className="flex-row items-center px-6 py-3 bg-brand-primary/5 border-b border-brand-primary/20 gap-2">
-                      <TouchableOpacity
-                        onPress={toggleSelectAll}
-                        className={`w-9 h-9 rounded-xl items-center justify-center border-2 mr-0 flex-shrink-0 ${
-                          allVisibleSelected
-                            ? 'bg-brand-primary border-brand-primary'
-                            : totalSelected > 0 ? 'border-brand-primary bg-surface-background' : 'border-surface-border bg-surface-background'
-                        }`}
-                      >
-                        {allVisibleSelected
-                          ? <FontAwesome name="check" size={13} color="#fff" />
-                          : totalSelected > 0 ? <View className="w-3 h-0.5 bg-brand-primary rounded-full" /> : null
-                        }
-                      </TouchableOpacity>
+                      <Tooltip label={allVisibleSelected ? 'Deselect all' : 'Select all'}>
+                        <TouchableOpacity
+                          onPress={toggleSelectAll}
+                          className={`w-9 h-9 rounded-xl items-center justify-center border-2 mr-0 flex-shrink-0 ${
+                            allVisibleSelected
+                              ? 'bg-brand-primary border-brand-primary'
+                              : totalSelected > 0 ? 'border-brand-primary bg-surface-background' : 'border-surface-border bg-surface-background'
+                          }`}
+                        >
+                          {allVisibleSelected
+                            ? <FontAwesome name="check" size={13} color="#fff" />
+                            : totalSelected > 0 ? <View className="w-3 h-0.5 bg-brand-primary rounded-full" /> : null
+                          }
+                        </TouchableOpacity>
+                      </Tooltip>
                       <Text className="flex-1 text-brand-primary text-xs font-black ml-2">
                         {totalSelected === 0 ? 'Tap to select' : `${totalSelected} of ${totalVisible} selected`}
                       </Text>
@@ -3960,29 +4030,35 @@ function FileHubDesktopInner() {
                           <Text className="text-state-danger text-xs font-black">Delete {totalSelected}</Text>
                         </TouchableOpacity>
                       )}
-                      <TouchableOpacity onPress={exitSelection} className="w-7 h-7 items-center justify-center ml-1">
-                        <FontAwesome name="times" size={13} color={colors.textMuted} />
-                      </TouchableOpacity>
+                      <Tooltip label="Clear selection">
+                        <TouchableOpacity onPress={exitSelection} className="w-7 h-7 items-center justify-center ml-1">
+                          <FontAwesome name="times" size={13} color={colors.textMuted} />
+                        </TouchableOpacity>
+                      </Tooltip>
                     </View>
                   ) : (
                     <View className="flex-row items-center px-6 py-3 bg-surface-background/60 border-b border-surface-border/60">
                       <View className="w-9 mr-3.5" />
                       <Text className="flex-1 text-typography-muted text-[9px] font-black uppercase tracking-widest">Name</Text>
                       {displayFiles.length > 0 && (
-                        <TouchableOpacity
-                          onPress={() => handleDownloadAll(selectedFolderId ? folders.find(f => f.id === selectedFolderId)?.name ?? 'Files' : mode === 'inbox' ? 'Inbox Files' : mode === 'sent' ? 'Sent Files' : 'Files')}
-                          disabled={zipDownloading}
-                          className="w-7 h-7 items-center justify-center mr-1"
-                        >
-                          {zipDownloading
-                            ? <ActivityIndicator size="small" color={colors.primary} style={{ transform: [{ scale: 0.6 }] }} />
-                            : <FontAwesome name="download" size={11} color={colors.textMuted} />
-                          }
-                        </TouchableOpacity>
+                        <Tooltip label="Download all">
+                          <TouchableOpacity
+                            onPress={() => handleDownloadAll(selectedFolderId ? folders.find(f => f.id === selectedFolderId)?.name ?? 'Files' : mode === 'inbox' ? 'Inbox Files' : mode === 'sent' ? 'Sent Files' : 'Files')}
+                            disabled={zipDownloading}
+                            className="w-7 h-7 items-center justify-center mr-1"
+                          >
+                            {zipDownloading
+                              ? <ActivityIndicator size="small" color={colors.primary} style={{ transform: [{ scale: 0.6 }] }} />
+                              : <FontAwesome name="download" size={11} color={colors.textMuted} />
+                            }
+                          </TouchableOpacity>
+                        </Tooltip>
                       )}
-                      <TouchableOpacity onPress={() => setSelectionMode(true)} className="w-7 h-7 items-center justify-center mr-1">
-                        <FontAwesome name="check-square-o" size={11} color={colors.textMuted} />
-                      </TouchableOpacity>
+                      <Tooltip label="Select multiple">
+                        <TouchableOpacity onPress={() => setSelectionMode(true)} className="w-7 h-7 items-center justify-center mr-1">
+                          <FontAwesome name="check-square-o" size={11} color={colors.textMuted} />
+                        </TouchableOpacity>
+                      </Tooltip>
                       <Text className="w-16 text-right text-typography-muted text-[9px] font-black uppercase tracking-widest">Date</Text>
                     </View>
                   )}
@@ -4133,6 +4209,7 @@ function FileHubDesktopInner() {
           )}
         </View>
       </View>
+      )}
 
       {/* ── Upload Modal ── */}
       <UploadModal

@@ -1,4 +1,8 @@
 import PipelineOverviewChart, { DEFAULT_OVERVIEW_METRICS, OverviewMetricKey } from '@/components/intelligence/PipelineOverviewChart';
+import LiveSessionsPopup from '@/components/tabs/LiveSessionsPopup';
+import Tooltip from '@/components/common/Tooltip';
+import ActiveSessionAvatars from '@/components/task-detail/ActiveSessionAvatars';
+import type { ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
 import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { isAuthError, supabase, triggerAuthError } from '@/lib/supabase';
@@ -70,6 +74,8 @@ const timeAgo = (dateStr: string): string => formatRelative(dateStr);
 export default function DashboardScreenWeb() {
   const colors = useThemeColors();
   const [stats, setStats] = useState<DashboardStats>({ totalTasks: 0, activeNow: 0, completed: 0, failed: 0, activeSessions: 0 });
+  const [showLiveSessions, setShowLiveSessions] = useState(false);
+  const [liveUsers, setLiveUsers] = useState<ActiveSessionUser[]>([]);
   const [pulse, setPulse] = useState<PersonalPulse | null>(null);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
@@ -205,14 +211,29 @@ export default function DashboardScreenWeb() {
       // Tasks in a terminal stage that isn't a success stage (failed, rejected, cancelled)
       const failed = total - completed - activeNow;
 
-      const { count: sessionCount, error: sessionError } = await supabase
+      const { data: sessionRows, error: sessionError } = await supabase
         .from('task_work_sessions')
-        .select('*', { count: 'exact', head: true })
+        .select('user_id, started_at, last_heartbeat_at, user:user_id(full_name, avatar_url)')
         .eq('status', 'active');
       if (isAuthError(sessionError)) {
         triggerAuthError();
         return;
       }
+      const sessionCount = sessionRows?.length || 0;
+      // One avatar per person, even if they somehow hold multiple sessions.
+      const byUser = new Map<string, ActiveSessionUser>();
+      for (const s of sessionRows || []) {
+        if (!byUser.has(s.user_id)) {
+          byUser.set(s.user_id, {
+            userId: s.user_id,
+            name: (s.user as any)?.full_name || 'User',
+            avatar: (s.user as any)?.avatar_url ?? null,
+            startedAt: s.started_at,
+            lastHeartbeatAt: (s as any).last_heartbeat_at,
+          });
+        }
+      }
+      setLiveUsers([...byUser.values()]);
 
       setStats({
         totalTasks: total,
@@ -335,12 +356,16 @@ export default function DashboardScreenWeb() {
     value,
     subtitle,
     accentType = 'brand',
+    onPress,
+    children,
   }: {
     icon: React.ComponentProps<typeof FontAwesome>['name'];
     label: string;
     value: number;
     subtitle: string;
     accentType?: 'brand' | 'success' | 'warning' | 'info' | 'danger';
+    onPress?: () => void;
+    children?: React.ReactNode;
   }) => {
     const iconBgClass =
       accentType === 'success' ? 'bg-state-success/10' :
@@ -371,7 +396,12 @@ export default function DashboardScreenWeb() {
       'text-brand-primary';
 
     return (
-      <View className="flex-1 min-w-[240px] bg-surface-card p-8 rounded-[32px] border border-surface-border premium-shadow">
+      <TouchableOpacity
+        onPress={onPress}
+        disabled={!onPress}
+        activeOpacity={0.75}
+        className={`flex-1 min-w-[240px] bg-surface-card p-8 rounded-[32px] border border-surface-border premium-shadow ${onPress ? 'hover:border-brand-primary/50 transition-colors' : ''}`}
+      >
         <View className={`w-14 h-14 rounded-2xl ${iconBgClass} items-center justify-center mb-6 border ${iconBorderClass}`}>
           <FontAwesome name={icon} size={22} className={iconColorClass} />
         </View>
@@ -380,7 +410,8 @@ export default function DashboardScreenWeb() {
         <View className="mt-3 flex-row items-center">
           <Text className={`${subtitleClass} text-[10px] font-black uppercase tracking-widest`}>{subtitle}</Text>
         </View>
-      </View>
+        {children}
+      </TouchableOpacity>
     );
   };
 
@@ -444,12 +475,14 @@ export default function DashboardScreenWeb() {
                       <Text className="text-xs text-typography-muted ml-1 font-bold">{Math.floor((pulse.active_seconds_today % 3600) / 60)}m</Text>
                     </View>
                   </View>
-                  <View>
-                    <Text className="text-[10px] text-typography-muted font-black uppercase tracking-widest mb-1">Flap Score</Text>
-                    <Text className={`text-3xl font-black ${pulse.flap_rate_score > 1.5 ? 'text-state-danger' : 'text-state-success'}`}>
-                      {pulse.flap_rate_score}x
-                    </Text>
-                  </View>
+                  <Tooltip label="Task switching frequency (lower is better)">
+                    <View>
+                      <Text className="text-[10px] text-typography-muted font-black uppercase tracking-widest mb-1">Flap Score</Text>
+                      <Text className={`text-3xl font-black ${pulse.flap_rate_score > 1.5 ? 'text-state-danger' : 'text-state-success'}`}>
+                        {pulse.flap_rate_score}x
+                      </Text>
+                    </View>
+                  </Tooltip>
                 </View>
                 {pulse.is_working && (
                   <View className="flex-row items-center bg-state-success/10 px-5 py-3 rounded-full border border-state-success/20">
@@ -497,23 +530,33 @@ export default function DashboardScreenWeb() {
                   value={stats.activeSessions}
                   subtitle="Users working now"
                   accentType="info"
-                />
+                  onPress={() => setShowLiveSessions(true)}
+                >
+                  <ActiveSessionAvatars sessions={liveUsers} className="mt-4 self-start" />
+                </KPICard>
               )}
             </View>
 
             {/* Show Live Sessions as a 5th card only when there are also failed tasks */}
             {stats.failed > 0 && stats.activeSessions > 0 && (
               <View className="flex-row mb-10">
-                <View className="flex-1 min-w-[240px] bg-surface-card p-8 rounded-[32px] border border-surface-border premium-shadow max-w-[300px]">
+                <TouchableOpacity
+                  onPress={() => setShowLiveSessions(true)}
+                  activeOpacity={0.75}
+                  className="flex-1 min-w-[240px] bg-surface-card p-8 rounded-[32px] border border-surface-border premium-shadow max-w-[300px] hover:border-brand-primary/50 transition-colors"
+                >
                   <View className="w-14 h-14 rounded-2xl bg-state-info/10 items-center justify-center mb-6 border border-state-info/20">
                     <FontAwesome name="bolt" size={22} className="text-state-info" />
                   </View>
                   <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mb-2">Live Sessions</Text>
                   <Text className="text-typography-main text-5xl font-black tracking-tighter">{stats.activeSessions}</Text>
                   <Text className="text-state-info text-[10px] font-black uppercase tracking-widest mt-3">Users working now</Text>
-                </View>
+                  <ActiveSessionAvatars sessions={liveUsers} className="mt-4 self-start" />
+                </TouchableOpacity>
               </View>
             )}
+
+            <LiveSessionsPopup visible={showLiveSessions} onClose={() => setShowLiveSessions(false)} />
 
             <View className="flex-row gap-8 mb-10">
               {canViewOverview ? (

@@ -1,13 +1,13 @@
 import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
-import { 
-  Gesture, 
+import {
+  Gesture,
   GestureDetector,
   TouchableOpacity as GHTouchableOpacity
 } from 'react-native-gesture-handler';
-import Animated, { 
-  useSharedValue, 
-  useAnimatedStyle, 
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
   withSpring,
   runOnJS,
   useDerivedValue,
@@ -15,6 +15,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { FontAwesome } from '@expo/vector-icons';
 import { Stage } from '@/contexts/PipelineEditorContext';
+import Tooltip from '@/components/common/Tooltip';
 import { useThemeColors } from '@/hooks/useThemeColors';
 
 interface StageNodeProps {
@@ -165,18 +166,22 @@ export default function StageNode({
               </Text>
             </View>
             <View className="flex-row gap-3">
-              <TouchableOpacity 
-                onPress={onEdit}
-                className="p-1 hover:bg-surface-overlay rounded-md transition-all"
-              >
-                <FontAwesome name="pencil" size={10} color={stage.color || colors.textDim} />
-              </TouchableOpacity>
-              <TouchableOpacity 
-                onPress={onDelete}
-                className="p-1 hover:bg-surface-overlay rounded-md transition-all"
-              >
-                <FontAwesome name="trash" size={10} color={colors.danger} />
-              </TouchableOpacity>
+              <Tooltip label="Edit stage">
+                <TouchableOpacity
+                  onPress={onEdit}
+                  className="p-1 hover:bg-surface-overlay rounded-md transition-all"
+                >
+                  <FontAwesome name="pencil" size={10} color={stage.color || colors.textDim} />
+                </TouchableOpacity>
+              </Tooltip>
+              <Tooltip label="Delete stage">
+                <TouchableOpacity
+                  onPress={onDelete}
+                  className="p-1 hover:bg-surface-overlay rounded-md transition-all"
+                >
+                  <FontAwesome name="trash" size={10} color={colors.danger} />
+                </TouchableOpacity>
+              </Tooltip>
             </View>
           </View>
 

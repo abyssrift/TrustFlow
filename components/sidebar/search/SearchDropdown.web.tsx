@@ -4,6 +4,7 @@ import type { ParsedQuery } from '@/hooks/useSearchQuery';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import Tooltip from '@/components/common/Tooltip';
 import SearchResultRow from './SearchResultRow';
 
 const GROUP_ORDER: ResultType[] = ['task', 'person', 'file', 'report', 'comment'];
@@ -129,9 +130,11 @@ export default function SearchDropdown({
                     <FontAwesome name="history" size={13} color={colors.textDim} />
                     <Text numberOfLines={1} className="text-typography-main text-sm flex-1">{q}</Text>
                   </Pressable>
-                  <Pressable onPress={() => onRemoveRecent(q)} hitSlop={6} className="px-3">
-                    <FontAwesome name="times" size={12} color={colors.textDim} />
-                  </Pressable>
+                  <Tooltip label="Remove" side="left">
+                    <Pressable onPress={() => onRemoveRecent(q)} hitSlop={6} className="px-3">
+                      <FontAwesome name="times" size={12} color={colors.textDim} />
+                    </Pressable>
+                  </Tooltip>
                 </View>
               ))}
             </View>

@@ -18,6 +18,7 @@ import {
   type SortKey
 } from '@/components/platform-admin/useControlPlaneData';
 import { BackButton } from '@/components/common/BackButton';
+import Tooltip from '@/components/common/Tooltip';
 import { useAlert } from '@/contexts/AlertContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { FontAwesome } from '@expo/vector-icons';
@@ -131,12 +132,14 @@ const CompanyDetailModal = ({
                     Workspace · {workspaceAge(detail.company.created_at)} old
                   </Text>
                 </View>
-                <TouchableOpacity
-                  onPress={onClose}
-                  className="bg-surface-card border border-surface-border rounded-full w-9 h-9 items-center justify-center"
-                >
-                  <FontAwesome name="times" size={14} color={colors.textMuted} />
-                </TouchableOpacity>
+                <Tooltip label="Close">
+                  <TouchableOpacity
+                    onPress={onClose}
+                    className="bg-surface-card border border-surface-border rounded-full w-9 h-9 items-center justify-center"
+                  >
+                    <FontAwesome name="times" size={14} color={colors.textMuted} />
+                  </TouchableOpacity>
+                </Tooltip>
               </View>
 
               <Divider />
@@ -546,10 +549,12 @@ const LiveSection = () => {
             {sessions.length > 0 ? `${sessions.length} active · ${companiesLive} workspace${companiesLive !== 1 ? 's' : ''}` : 'No active sessions'}
           </Text>
         </View>
-        <TouchableOpacity onPress={fetchSessions} className="flex-row items-center gap-1.5">
-          <FontAwesome name="refresh" size={10} color={colors.textMuted} />
-          <Text className="text-typography-dim text-[10px]">{secsAgo}s ago</Text>
-        </TouchableOpacity>
+        <Tooltip label="Refresh live sessions">
+          <TouchableOpacity onPress={fetchSessions} className="flex-row items-center gap-1.5">
+            <FontAwesome name="refresh" size={10} color={colors.textMuted} />
+            <Text className="text-typography-dim text-[10px]">{secsAgo}s ago</Text>
+          </TouchableOpacity>
+        </Tooltip>
       </View>
 
       <Divider />
@@ -798,12 +803,15 @@ export default function PlatformAdminScreen() {
             <Text className="text-typography-main font-black text-xl tracking-tight">Control Plane</Text>
           </View>
           <View className="items-end">
-            <View className="flex-row items-center gap-1.5 bg-surface-background border border-surface-border rounded-xl px-3 py-1.5">
+            <TouchableOpacity
+              onPress={() => setSection('live')}
+              className="flex-row items-center gap-1.5 bg-surface-background border border-surface-border rounded-xl px-3 py-1.5"
+            >
               <View className={`w-1.5 h-1.5 rounded-full ${liveCount > 0 ? 'bg-state-success' : 'bg-surface-border'}`} />
               <Text className="text-typography-muted text-[10px] font-bold">
                 {liveCount > 0 ? `${liveCount} live` : 'All quiet'}
               </Text>
-            </View>
+            </TouchableOpacity>
           </View>
         </View>
 

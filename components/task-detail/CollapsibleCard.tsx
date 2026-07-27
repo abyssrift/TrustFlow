@@ -1,3 +1,4 @@
+import Tooltip from '@/components/common/Tooltip';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React from 'react';
@@ -60,9 +61,11 @@ export default function CollapsibleCard({
         {/* Right area — headerRight has its own touch target; chevron also toggles */}
         <View className="flex-row items-center gap-2">
           {headerRight}
-          <TouchableOpacity onPress={toggle} activeOpacity={0.6} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}>
-            <FontAwesome name={collapsed ? 'chevron-down' : 'chevron-up'} size={10} color={colors.muted} />
-          </TouchableOpacity>
+          <Tooltip label={collapsed ? 'Expand' : 'Collapse'} side="left">
+            <TouchableOpacity onPress={toggle} activeOpacity={0.6} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}>
+              <FontAwesome name={collapsed ? 'chevron-down' : 'chevron-up'} size={10} color={colors.muted} />
+            </TouchableOpacity>
+          </Tooltip>
         </View>
       </View>
 

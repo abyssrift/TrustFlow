@@ -5,15 +5,16 @@ import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
+import Tooltip from '../common/Tooltip';
 
-function formatSize(bytes: number): string {
+export function formatSize(bytes: number): string {
   if (!bytes) return '0 B';
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function fileIcon(mime: string | null): React.ComponentProps<typeof FontAwesome>['name'] {
+export function fileIcon(mime: string | null): React.ComponentProps<typeof FontAwesome>['name'] {
   const m = (mime || '').toLowerCase();
   if (m.includes('image')) return 'file-image-o';
   if (m.includes('pdf')) return 'file-pdf-o';
@@ -65,15 +66,17 @@ export default function TaskFileResults({ pad = true }: { pad?: boolean }) {
                 {isSubmission ? 'Submission' : 'Brief'}
               </Text>
             </View>
-            <TouchableOpacity
-              onPress={(e: any) => {
-                e?.stopPropagation?.();
-                openStorageFile(r.bucket, r.storage_path, r.file_name, r.mime_type);
-              }}
-              className="w-8 h-8 rounded-lg items-center justify-center border border-surface-border flex-shrink-0"
-            >
-              <FontAwesome name="eye" size={12} color={colors.textMuted} />
-            </TouchableOpacity>
+            <Tooltip label="Preview file">
+              <TouchableOpacity
+                onPress={(e: any) => {
+                  e?.stopPropagation?.();
+                  openStorageFile(r.bucket, r.storage_path, r.file_name, r.mime_type);
+                }}
+                className="w-8 h-8 rounded-lg items-center justify-center border border-surface-border flex-shrink-0"
+              >
+                <FontAwesome name="eye" size={12} color={colors.textMuted} />
+              </TouchableOpacity>
+            </Tooltip>
           </TouchableOpacity>
         );
       })}

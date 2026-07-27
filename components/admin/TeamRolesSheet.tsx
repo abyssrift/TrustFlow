@@ -3,6 +3,7 @@ import React from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 import DraggableSheet from '@/components/common/DraggableSheet';
+import Tooltip from '@/components/common/Tooltip';
 import { Role, Team } from '@/contexts/RoleManagerContext';
 
 export type TeamRolesSheetProps = {
@@ -27,12 +28,14 @@ export default function TeamRolesSheet({ visible, onClose, team, roles, draftRol
             {team?.name}
           </Text>
         </View>
-        <TouchableOpacity
-          onPress={onClose}
-          className="w-10 h-10 items-center justify-center rounded-full bg-surface-background border border-surface-border"
-        >
-          <FontAwesome name="times" size={16} className="text-typography-muted" />
-        </TouchableOpacity>
+        <Tooltip label="Close">
+          <TouchableOpacity
+            onPress={onClose}
+            className="w-10 h-10 items-center justify-center rounded-full bg-surface-background border border-surface-border"
+          >
+            <FontAwesome name="times" size={16} className="text-typography-muted" />
+          </TouchableOpacity>
+        </Tooltip>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} className="px-5">

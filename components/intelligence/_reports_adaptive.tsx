@@ -8,6 +8,7 @@ import ReportFiltersModal, {
 } from '@/components/intelligence/ReportFiltersModal';
 import { BackButton } from '@/components/common/BackButton';
 import Popup from '@/components/common/Popup';
+import Tooltip from '@/components/common/Tooltip';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
@@ -161,28 +162,32 @@ export default function IntelligenceReportsNative() {
           <BackButton label="" />
         </View>
         <View className="flex-row gap-2 mt-3">
-          <TouchableOpacity
-            onPress={() => setShowFilters(true)}
-            className={`w-11 h-11 items-center justify-center rounded-2xl border ${
-              activeFilterCount > 0
-                ? 'bg-brand-primary/10 border-brand-primary'
-                : 'bg-surface-card border-surface-border'
-            }`}
-          >
-            <FontAwesome
-              name="filter"
-              size={13}
-              color={activeFilterCount > 0 ? colors.primary : colors.textMuted}
-            />
-            {activeFilterCount > 0 && (
-              <View className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-brand-primary items-center justify-center">
-                <Text className="text-white text-[9px] font-black">{activeFilterCount}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-          <TouchableOpacity onPress={fetchReports} className="w-11 h-11 items-center justify-center bg-surface-card border border-surface-border rounded-2xl">
-            <FontAwesome name="refresh" size={13} color={colors.primary} />
-          </TouchableOpacity>
+          <Tooltip label="Filter reports">
+            <TouchableOpacity
+              onPress={() => setShowFilters(true)}
+              className={`w-11 h-11 items-center justify-center rounded-2xl border ${
+                activeFilterCount > 0
+                  ? 'bg-brand-primary/10 border-brand-primary'
+                  : 'bg-surface-card border-surface-border'
+              }`}
+            >
+              <FontAwesome
+                name="filter"
+                size={13}
+                color={activeFilterCount > 0 ? colors.primary : colors.textMuted}
+              />
+              {activeFilterCount > 0 && (
+                <View className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-brand-primary items-center justify-center">
+                  <Text className="text-white text-[9px] font-black">{activeFilterCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </Tooltip>
+          <Tooltip label="Refresh reports">
+            <TouchableOpacity onPress={fetchReports} className="w-11 h-11 items-center justify-center bg-surface-card border border-surface-border rounded-2xl">
+              <FontAwesome name="refresh" size={13} color={colors.primary} />
+            </TouchableOpacity>
+          </Tooltip>
           <TouchableOpacity onPress={() => router.push('/intelligence/ReportGenerator')} className="bg-brand-primary px-5 py-3 rounded-2xl flex-row items-center gap-2">
             <FontAwesome name="file-pdf-o" size={11} color="white" />
             <Text className="text-white font-black text-[11px]">Generate</Text>

@@ -7,6 +7,7 @@ import { Link } from 'expo-router';
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
+import Tooltip from '@/components/common/Tooltip';
 
 cssInterop(FontAwesome, {
   className: {
@@ -71,14 +72,20 @@ export default function BillingMeter({ isExpanded }: { isExpanded: boolean }) {
   );
 
   if (!canManage) {
-    return <View className="mt-2">{body}</View>;
+    return (
+      <Tooltip label="Billing & storage" side="right" disabled={isExpanded}>
+        <View className="mt-2">{body}</View>
+      </Tooltip>
+    );
   }
 
   return (
-    <Link href="/people?section=billing" asChild>
-      <Pressable className="mt-2" accessibilityLabel="Billing & storage">
-        {body}
-      </Pressable>
-    </Link>
+    <Tooltip label="Billing & storage" side="right" disabled={isExpanded}>
+      <Link href="/people?section=billing" asChild>
+        <Pressable className="mt-2" accessibilityLabel="Billing & storage">
+          {body}
+        </Pressable>
+      </Link>
+    </Tooltip>
   );
 }

@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import DraggableSheet from '@/components/common/DraggableSheet';
 import RuleEditorModal from '@/components/admin/RuleEditorModal';
+import Tooltip from '@/components/common/Tooltip';
 import {
   EVENT_META,
   NotificationRule,
@@ -240,20 +241,24 @@ const RuleInspector = ({
               />
             </View>
             <View className="flex-row gap-2">
-              <TouchableOpacity
-                onPress={() => onEdit(rule)}
-                className="w-10 h-10 rounded-xl border items-center justify-center"
-                style={{ backgroundColor: colors.background, borderColor: colors.border }}
-              >
-                <FontAwesome name="pencil" size={14} color={colors.primary} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => onDelete(rule)}
-                className="w-10 h-10 rounded-xl border items-center justify-center"
-                style={{ backgroundColor: colors.background, borderColor: colors.border }}
-              >
-                <FontAwesome name="trash" size={14} color={colors.danger} />
-              </TouchableOpacity>
+              <Tooltip label="Edit rule">
+                <TouchableOpacity
+                  onPress={() => onEdit(rule)}
+                  className="w-10 h-10 rounded-xl border items-center justify-center"
+                  style={{ backgroundColor: colors.background, borderColor: colors.border }}
+                >
+                  <FontAwesome name="pencil" size={14} color={colors.primary} />
+                </TouchableOpacity>
+              </Tooltip>
+              <Tooltip label="Delete rule">
+                <TouchableOpacity
+                  onPress={() => onDelete(rule)}
+                  className="w-10 h-10 rounded-xl border items-center justify-center"
+                  style={{ backgroundColor: colors.background, borderColor: colors.border }}
+                >
+                  <FontAwesome name="trash" size={14} color={colors.danger} />
+                </TouchableOpacity>
+              </Tooltip>
             </View>
           </View>
         </View>
@@ -512,15 +517,17 @@ const RuleInspector = ({
               <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>
                 Recent Deliveries{logs ? ` (${logs.length})` : ''}
               </Text>
-              <TouchableOpacity
-                onPress={loadLogs}
-                disabled={logsLoading}
-                className="px-3 py-1.5 rounded-lg border flex-row items-center gap-2"
-                style={{ backgroundColor: colors.background, borderColor: colors.border }}
-              >
-                <FontAwesome name="refresh" size={10} color={colors.textMuted} />
-                <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>Refresh</Text>
-              </TouchableOpacity>
+              <Tooltip label="Reload delivery logs">
+                <TouchableOpacity
+                  onPress={loadLogs}
+                  disabled={logsLoading}
+                  className="px-3 py-1.5 rounded-lg border flex-row items-center gap-2"
+                  style={{ backgroundColor: colors.background, borderColor: colors.border }}
+                >
+                  <FontAwesome name="refresh" size={10} color={colors.textMuted} />
+                  <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>Refresh</Text>
+                </TouchableOpacity>
+              </Tooltip>
             </View>
 
             {logsLoading && (

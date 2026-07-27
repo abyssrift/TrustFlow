@@ -4,6 +4,7 @@ import { Link } from 'expo-router';
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
+import Tooltip from '@/components/common/Tooltip';
 import type { IconName } from './constants';
 
 cssInterop(FontAwesome, {
@@ -29,13 +30,12 @@ export default function SidebarItem({
   badge?: number;
 }) {
   const colors = useThemeColors();
-  return (
-    <Link href={href as any} asChild>
-      <Pressable
-        className={`group relative mb-2 min-h-11 flex-row items-center overflow-hidden rounded-xl border p-3 ${isActive ? 'border-brand-primary/30 bg-brand-primary/10' : 'border-transparent hover:bg-surface-card'
-          }`}
-        accessibilityLabel={label}
-      >
+  const pressable = (
+    <Pressable
+      className={`group relative mb-2 min-h-11 flex-row items-center overflow-hidden rounded-xl border p-3 ${isActive ? 'border-brand-primary/30 bg-brand-primary/10' : 'border-transparent hover:bg-surface-card'
+        }`}
+      accessibilityLabel={label}
+    >
         <View className={`absolute left-0 top-2 bottom-2 w-1 rounded-r-full ${isActive ? 'bg-brand-primary' : 'bg-transparent group-hover:bg-surface-border'}`} />
         <View className={`${collapsed ? 'w-full' : 'w-8'} items-center`} style={{ position: 'relative' }}>
           <FontAwesome
@@ -70,6 +70,13 @@ export default function SidebarItem({
         )}
         {isActive && !collapsed && (!badge || badge === 0) && <View className="ml-auto h-2 w-2 rounded-full bg-brand-primary" />}
       </Pressable>
-    </Link>
+  );
+
+  return (
+    <Tooltip label={label} side="right" disabled={!collapsed}>
+      <Link href={href as any} asChild>
+        {pressable}
+      </Link>
+    </Tooltip>
   );
 }

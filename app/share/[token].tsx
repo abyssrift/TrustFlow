@@ -1,6 +1,7 @@
 import { supabaseUrl } from '@/lib/supabase';
 import { formatFileSize, getFileIcon } from '@/lib/taskFileHelpers';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import Tooltip from '@/components/common/Tooltip';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -75,12 +76,14 @@ function SharedFolderRow({ item }: { item: SharedFileItem }) {
         <Text className="text-typography-main text-sm font-bold" numberOfLines={1}>{item.name}</Text>
         <Text className="text-typography-dim text-[11px]">{formatFileSize(item.size_bytes)}</Text>
       </View>
-      <TouchableOpacity
-        onPress={() => Linking.openURL(item.signed_url)}
-        className="w-9 h-9 rounded-xl bg-brand-primary/10 border border-brand-primary/20 items-center justify-center flex-shrink-0"
-      >
-        <FontAwesome name="download" size={13} color={colors.primary} />
-      </TouchableOpacity>
+      <Tooltip label="Download file">
+        <TouchableOpacity
+          onPress={() => Linking.openURL(item.signed_url)}
+          className="w-9 h-9 rounded-xl bg-brand-primary/10 border border-brand-primary/20 items-center justify-center flex-shrink-0"
+        >
+          <FontAwesome name="download" size={13} color={colors.primary} />
+        </TouchableOpacity>
+      </Tooltip>
     </View>
   );
 }

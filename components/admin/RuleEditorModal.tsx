@@ -3,6 +3,7 @@ import React from 'react';
 import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import DraggableSheet from '@/components/common/DraggableSheet';
+import Tooltip from '@/components/common/Tooltip';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { ALL_EVENT_TYPES, ALL_STRATEGIES, EVENT_META, NotificationRule, STRATEGY_LABELS } from '@/lib/notificationRuleConstants';
 import { useRuleEditorForm } from '@/lib/useRuleEditorForm';
@@ -38,12 +39,14 @@ export default function RuleEditorModal({ visible, existing, onClose, onSaved }:
         <Text className="text-typography-main font-black text-xl tracking-tight">
           {existing ? 'Edit Rule' : 'New Rule'}
         </Text>
-        <TouchableOpacity
-          onPress={onClose}
-          className="w-8 h-8 bg-surface-background rounded-full items-center justify-center border border-surface-border"
-        >
-          <FontAwesome name="times" size={14} color={colors.textMuted} />
-        </TouchableOpacity>
+        <Tooltip label="Close">
+          <TouchableOpacity
+            onPress={onClose}
+            className="w-8 h-8 bg-surface-background rounded-full items-center justify-center border border-surface-border"
+          >
+            <FontAwesome name="times" size={14} color={colors.textMuted} />
+          </TouchableOpacity>
+        </Tooltip>
       </View>
 
       <ScrollView className="px-6 py-5" showsVerticalScrollIndicator={false}>

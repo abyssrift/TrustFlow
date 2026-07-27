@@ -1,8 +1,9 @@
-import { PipelinePointsPeriod, StageDwell, ThroughputPeriod, useAnalytics } from '@/contexts/AnalyticsContext';
+import { PointsBucket, StageDwell, ThroughputBucket, useAnalytics } from '@/contexts/AnalyticsContext';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Text, TouchableOpacity, View } from 'react-native';
+import Tooltip from '@/components/common/Tooltip';
 import {
     Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ComposedChart, Line,
     Tooltip as RechartTooltip,
@@ -11,8 +12,8 @@ import {
 } from 'recharts';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { SLARiskPulseDot, slaPulseStagger } from '@/components/intelligence/SLARiskPulse';
+import { bucketLabel } from '@/lib/chartBuckets';
 import { formatDuration as fmtDwell } from '@/lib/duration';
-import { daysToPeriodParams } from '@/lib/analyticsPeriods';
 
 // SLA risk driver -> label + colour tone. `reason` from rpc_get_organizational_audit
 // (deadline | over_budget | stalled). Colour is keyed to the DRIVER, not raw severity,
@@ -119,12 +120,14 @@ export const SLARiskAlertWeb = ({ data, className }: { data: any, className?: st
               <Text className="text-typography-main text-[10px] font-black">{counts[k]}</Text>
             </View>
           ))}
-          <TouchableOpacity
-            onPress={() => setShowInfo(v => !v)}
-            className={`w-6 h-6 rounded-md items-center justify-center border transition-all ${showInfo ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
-          >
-            <FontAwesome name="question" size={10} color={showInfo ? 'var(--color-on-primary)' : colors.textDim} />
-          </TouchableOpacity>
+          <Tooltip label="Learn about SLA risk drivers">
+            <TouchableOpacity
+              onPress={() => setShowInfo(v => !v)}
+              className={`w-6 h-6 rounded-md items-center justify-center border transition-all ${showInfo ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
+            >
+              <FontAwesome name="question" size={10} color={showInfo ? 'var(--color-on-primary)' : colors.textDim} />
+            </TouchableOpacity>
+          </Tooltip>
         </View>
       </View>
 
@@ -322,12 +325,14 @@ export const QualityLeaderboardWeb = ({ data, className }: { data: any, classNam
               <Text className="text-state-success text-[10px] font-black">Zero rework</Text>
             </View>
           )}
-          <TouchableOpacity
-            onPress={() => setShowInfo(v => !v)}
-            className={`w-6 h-6 rounded-md items-center justify-center border transition-all ${showInfo ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
-          >
-            <FontAwesome name="question" size={10} color={showInfo ? 'var(--color-on-primary)' : colors.textDim} />
-          </TouchableOpacity>
+          <Tooltip label="How quality integrity is calculated">
+            <TouchableOpacity
+              onPress={() => setShowInfo(v => !v)}
+              className={`w-6 h-6 rounded-md items-center justify-center border transition-all ${showInfo ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
+            >
+              <FontAwesome name="question" size={10} color={showInfo ? 'var(--color-on-primary)' : colors.textDim} />
+            </TouchableOpacity>
+          </Tooltip>
         </View>
       </View>
 
@@ -528,39 +533,31 @@ export const TrendComparisonMiniWeb = ({ data, onViewAll, className }: { data: a
   );
 };
 
-export const ThroughputOverTimeMiniWeb = ({ pipelines, days, onViewAll, className }: { pipelines: any[], days: number, onViewAll: () => void, className?: string }) => {
+export const ThroughputOverTimeMiniWeb = ({ pipelineId, from, to, buckets, onViewAll, className }: { pipelineId: string | null, from: string, to: string, buckets: number, onViewAll: () => void, className?: string }) => {
   const colors = useThemeColors();
-  const { getPipelineThroughput } = useAnalytics();
-  const [pipelineId, setPipelineId] = useState<string | null>(null);
-  const [throughput, setThroughput] = useState<ThroughputPeriod[]>([]);
+  const { getPipelineThroughputRange } = useAnalytics();
+  const [throughput, setThroughput] = useState<ThroughputBucket[]>([]);
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (pipelines.length > 0 && !pipelineId) {
-      setPipelineId(pipelines[0].id);
-    }
-  }, [pipelines]);
 
   const load = useCallback(async () => {
     if (!pipelineId) return;
     setLoading(true);
     try {
-      const { periodType, nPeriods } = daysToPeriodParams(days);
-      const t = await getPipelineThroughput(pipelineId, periodType, nPeriods);
+      const t = await getPipelineThroughputRange(pipelineId, from, to, buckets);
       setThroughput(t || []);
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
     }
-  }, [pipelineId, days]);
+  }, [pipelineId, from, to, buckets]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const chartData = [...throughput].reverse().map(t => ({
-    label: t.period_label,
+  const chartData = throughput.map(t => ({
+    label: bucketLabel(t.bucket_start, t.bucket_end),
     succeeded: t.tasks_succeeded,
     failed: t.tasks_failed,
     success_rate: t.success_rate ?? 0,
@@ -586,21 +583,7 @@ export const ThroughputOverTimeMiniWeb = ({ pipelines, days, onViewAll, classNam
         </TouchableOpacity>
       </View>
 
-      <View className="flex-row justify-between items-center mb-8">
-        <View className="flex-row bg-surface-background border border-surface-border rounded-lg p-0.5">
-          {pipelines.slice(0, 3).map(p => (
-            <TouchableOpacity
-              key={p.id}
-              onPress={() => setPipelineId(p.id)}
-              className={`px-3 py-1.5 rounded-md transition-all ${pipelineId === p.id ? 'bg-brand-primary premium-shadow' : ''}`}
-            >
-              <Text className={`text-[9px] font-black uppercase ${pipelineId === p.id ? 'text-brand-on-primary' : 'text-typography-muted'}`}>
-                {p.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
+      <View className="flex-row justify-end items-center mb-8">
         <View className="flex-row gap-4 items-center">
           <View className="flex-row items-center gap-1.5">
             <View className="w-2.5 h-2.5 rounded bg-state-success" />
@@ -753,20 +736,22 @@ export const StageDwellChartWeb = ({ data, onViewDetails, className }: { data: S
         </View>
 
         <View className="flex-row items-center gap-2">
-          <View className="flex-row bg-surface-overlay border border-surface-border rounded-xl overflow-hidden">
-            <TouchableOpacity
-              onPress={() => setMode('avg')}
-              className={`px-3 py-1.5 transition-all ${!isSnapshot ? 'bg-brand-primary' : ''}`}
-            >
-              <Text className={`text-[9px] font-black uppercase tracking-wider ${!isSnapshot ? 'text-white' : 'text-typography-muted'}`}>Avg</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setMode('snapshot')}
-              className={`px-3 py-1.5 transition-all ${isSnapshot ? 'bg-brand-primary' : ''}`}
-            >
-              <Text className={`text-[9px] font-black uppercase tracking-wider ${isSnapshot ? 'text-white' : 'text-typography-muted'}`}>Snapshot</Text>
-            </TouchableOpacity>
-          </View>
+          <Tooltip label="Toggle between average duration and accumulated load" side="bottom">
+            <View className="flex-row bg-surface-overlay border border-surface-border rounded-xl overflow-hidden">
+              <TouchableOpacity
+                onPress={() => setMode('avg')}
+                className={`px-3 py-1.5 transition-all ${!isSnapshot ? 'bg-brand-primary' : ''}`}
+              >
+                <Text className={`text-[9px] font-black uppercase tracking-wider ${!isSnapshot ? 'text-white' : 'text-typography-muted'}`}>Avg</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setMode('snapshot')}
+                className={`px-3 py-1.5 transition-all ${isSnapshot ? 'bg-brand-primary' : ''}`}
+              >
+                <Text className={`text-[9px] font-black uppercase tracking-wider ${isSnapshot ? 'text-white' : 'text-typography-muted'}`}>Snapshot</Text>
+              </TouchableOpacity>
+            </View>
+          </Tooltip>
           {onViewDetails && (
             <TouchableOpacity
               onPress={onViewDetails}
@@ -830,43 +815,41 @@ export const StageDwellChartWeb = ({ data, onViewDetails, className }: { data: S
 // ─── Pipeline Points Over Time Mini Widget ────────────────────────────────────
 
 export const PipelinePointsMiniWeb = ({
-  pipelines,
-  days,
+  pipelineId,
+  from,
+  to,
+  buckets,
   onViewAll,
   className,
 }: {
-  pipelines: any[];
-  days: number;
+  pipelineId: string | null;
+  from: string;
+  to: string;
+  buckets: number;
   onViewAll: () => void;
   className?: string;
 }) => {
-  const { getPipelinePointsSeries } = useAnalytics();
-  const [pipelineId, setPipelineId] = useState<string | null>(null);
-  const [data, setData]             = useState<PipelinePointsPeriod[]>([]);
+  const { getPipelinePointsRange } = useAnalytics();
+  const [data, setData]             = useState<PointsBucket[]>([]);
   const [loading, setLoading]       = useState(false);
   const colors = useThemeColors();
-
-  useEffect(() => {
-    if (pipelines.length > 0 && !pipelineId) setPipelineId(pipelines[0].id);
-  }, [pipelines]);
 
   const load = useCallback(async () => {
     if (!pipelineId) return;
     setLoading(true);
     try {
-      const { periodType, nPeriods } = daysToPeriodParams(days);
-      const result = await getPipelinePointsSeries(pipelineId, periodType, nPeriods);
+      const result = await getPipelinePointsRange(pipelineId, from, to, buckets);
       setData(result || []);
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
     }
-  }, [pipelineId, days]);
+  }, [pipelineId, from, to, buckets]);
 
   useEffect(() => { load(); }, [load]);
 
-  const chartData   = [...data].reverse().map(d => ({ label: d.period_label, points: d.weight_points }));
+  const chartData   = data.map(d => ({ label: bucketLabel(d.bucket_start, d.bucket_end), points: d.weight_points }));
   const totalPoints = data.reduce((sum, d) => sum + (d.weight_points || 0), 0);
 
   const tooltipStyle = {
@@ -889,21 +872,7 @@ export const PipelinePointsMiniWeb = ({
         </TouchableOpacity>
       </View>
 
-      <View className="flex-row justify-between items-center mb-6">
-        <View className="flex-row bg-surface-background border border-surface-border rounded-lg p-0.5">
-          {pipelines.slice(0, 3).map(p => (
-            <TouchableOpacity
-              key={p.id}
-              onPress={() => setPipelineId(p.id)}
-              className={`px-3 py-1.5 rounded-md transition-all ${pipelineId === p.id ? 'bg-brand-primary premium-shadow' : ''}`}
-            >
-              <Text className={`text-[9px] font-black uppercase ${pipelineId === p.id ? 'text-brand-on-primary' : 'text-typography-muted'}`}>
-                {p.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
+      <View className="flex-row justify-end items-center mb-6">
         <View className="flex-row items-center gap-2 bg-surface-background border border-surface-border rounded-xl px-4 py-2">
           <View className="w-2 h-2 rounded-full bg-brand-primary" />
           <Text className="text-typography-muted text-[9px] font-bold uppercase">Total</Text>

@@ -1,8 +1,8 @@
-import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
-import Popup from '@/components/common/Popup';
 import { BackButton } from '@/components/common/BackButton';
 import UserLink from '@/components/common/UserLink';
-import { PersonnelRow, StageDwell, ThroughputPeriod, useAnalytics } from '@/contexts/AnalyticsContext';
+import { DateRangeControls, useGranularity } from '@/components/intelligence/DateRangeFilter';
+import { PersonnelRow, StageDwell, ThroughputBucket, useAnalytics } from '@/contexts/AnalyticsContext';
+import { bucketLabel } from '@/lib/chartBuckets';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBillingPlan } from '@/hooks/useBillingPlan';
 import { getAnalyticsLimits } from '@/lib/planLimits';
@@ -26,127 +26,12 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
 type AdminTab = 'pipeline' | 'personnel';
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-const PRESETS = [
-  { label: '7D',  days: 7  },
-  { label: '30D', days: 30 },
-  { label: '90D', days: 90 },
-];
-
-// ─── Calendar Modal ───────────────────────────────────────────────────────────
-
-function CalendarModal({ visible, title, value, onSelect, onClose, accentColor, rangeDate, rangeColor }: {
-  visible: boolean; title: string; value: string; onSelect: (d: string) => void; onClose: () => void;
-  accentColor?: string; rangeDate?: string; rangeColor?: string;
-}) {
-  const colors = useThemeColors();
-  return (
-    <Popup visible={visible} onClose={onClose} presentation="auto">
-          <View className="px-6 pt-2 pb-4 flex-row justify-between items-center border-b border-surface-border">
-            <Text className="text-typography-main font-black text-lg">{title}</Text>
-            <TouchableOpacity onPress={onClose} className="w-8 h-8 rounded-full bg-surface-background border border-surface-border items-center justify-center">
-              <FontAwesome name="times" size={12} color={colors.textDim} />
-            </TouchableOpacity>
-          </View>
-          <PremiumCalendarPicker
-            selectedDate={value}
-            onSelect={d => { onSelect(d); onClose(); }}
-            accentColor={accentColor}
-            rangeDate={rangeDate}
-            rangeColor={rangeColor}
-            scale="compact"
-            showDaysBetween
-          />
-    </Popup>
-  );
-}
-
-// ─── Date Range Controls ──────────────────────────────────────────────────────
-
-function DateRangeControls({ from, to, setFrom, setTo }: {
-  from: string; to: string; setFrom: (d: string) => void; setTo: (d: string) => void;
-}) {
-  const colors = useThemeColors();
-  const [activePreset, setActivePreset] = useState<number | null>(30);
-  const [showFrom, setShowFrom] = useState(false);
-  const [showTo, setShowTo] = useState(false);
-
-  const applyPreset = (days: number) => {
-    const today = new Date();
-    const start = new Date(today.getTime() - days * 86400000);
-    setFrom(start.toISOString().split('T')[0]);
-    setTo(today.toISOString().split('T')[0]);
-    setActivePreset(days);
-  };
-
-  return (
-    <View className="gap-3">
-      {/* Quick presets */}
-      <View className="flex-row gap-2">
-        {PRESETS.map(p => (
-          <TouchableOpacity
-            key={p.label}
-            onPress={() => applyPreset(p.days)}
-            className={`px-4 py-2 rounded-xl border ${activePreset === p.days ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border'}`}
-          >
-            <Text className={`text-xs font-black ${activePreset === p.days ? 'text-white' : 'text-typography-muted'}`}>{p.label}</Text>
-          </TouchableOpacity>
-        ))}
-        <TouchableOpacity
-          onPress={() => { setActivePreset(null); setShowFrom(true); }}
-          className={`px-4 py-2 rounded-xl border flex-row items-center gap-2 ${activePreset === null ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border'}`}
-        >
-          <FontAwesome name="calendar" size={11} color={activePreset === null ? '#fff' : colors.textMuted} />
-          <Text className={`text-xs font-black ${activePreset === null ? 'text-white' : 'text-typography-muted'}`}>Custom</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Date buttons — visible when custom is active */}
-      {activePreset === null && (
-        <View className="flex-row gap-2 items-center">
-          <TouchableOpacity
-            onPress={() => setShowFrom(true)}
-            className="flex-1 bg-surface-card border border-surface-border rounded-xl px-4 py-2.5 flex-row items-center gap-2"
-          >
-            <FontAwesome name="calendar-o" size={12} color={colors.textMuted} />
-            <Text className="text-typography-main text-sm">{fmtDate(from)}</Text>
-          </TouchableOpacity>
-          <Text className="text-typography-dim font-bold">→</Text>
-          <TouchableOpacity
-            onPress={() => setShowTo(true)}
-            className="flex-1 bg-surface-card border border-surface-border rounded-xl px-4 py-2.5 flex-row items-center gap-2"
-          >
-            <FontAwesome name="calendar-o" size={12} color={colors.textMuted} />
-            <Text className="text-typography-main text-sm">{fmtDate(to)}</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      <CalendarModal
-        visible={showFrom} title="Start Date" value={from}
-        onSelect={v => { setFrom(v); setActivePreset(null); }} onClose={() => setShowFrom(false)}
-        accentColor={colors.primary} rangeDate={to} rangeColor={colors.secondary}
-      />
-      <CalendarModal
-        visible={showTo} title="End Date" value={to}
-        onSelect={v => { setTo(v); setActivePreset(null); }} onClose={() => setShowTo(false)}
-        accentColor={colors.secondary} rangeDate={from} rangeColor={colors.primary}
-      />
-    </View>
-  );
-}
-
 // ─── Throughput SVG Bar Chart ─────────────────────────────────────────────────
 
-function ThroughputChart({ data }: { data: ThroughputPeriod[] }) {
+function ThroughputChart({ data }: { data: ThroughputBucket[] }) {
   const colors = useThemeColors();
   const [width, setWidth] = useState(0);
-  const chartData = [...data].reverse().slice(0, 10);
+  const chartData = data.map(d => ({ ...d, period_label: bucketLabel(d.bucket_start, d.bucket_end) }));
   const chartH = 180;
   if (!chartData.length) return (
     <View className="h-32 items-center justify-center">
@@ -306,10 +191,11 @@ function PipelineTab() {
   const colors = useThemeColors();
   const { limits: planLimits } = useBillingPlan();
   const limits = getAnalyticsLimits(planLimits);
-  const { getPipelineStageDwell, getPipelineThroughput } = useAnalytics();
+  const { getPipelineStageDwell, getPipelineThroughputRange } = useAnalytics();
   const [pipelines, setPipelines]       = useState<any[]>([]);
   const [selectedPipeline, setSelected] = useState<string | null>(null);
-  const [period, setPeriod]             = useState<'week' | 'month'>('month');
+  const granularity = useGranularity();
+  const buckets = granularity.buckets;
 
   const today = new Date();
   const defaultFrom = new Date(today.getTime() - 30 * 86400000);
@@ -317,8 +203,9 @@ function PipelineTab() {
   const [to, setTo]     = useState(today.toISOString().split('T')[0]);
 
   const [dwell, setDwell]           = useState<StageDwell[]>([]);
-  const [throughput, setThroughput] = useState<ThroughputPeriod[]>([]);
+  const [throughput, setThroughput] = useState<ThroughputBucket[]>([]);
   const [loading, setLoading]       = useState(false);
+  const [loaded, setLoaded]         = useState(false);
 
   useEffect(() => {
     supabase.from('pipelines').select('id, name').is('deleted_at', null).order('name')
@@ -329,15 +216,15 @@ function PipelineTab() {
     if (!selectedPipeline) return;
     setLoading(true);
     try {
-      const nPeriods = period === 'week' ? 12 : 8;
       const [d, t] = await Promise.all([
         getPipelineStageDwell(selectedPipeline, from, to),
-        getPipelineThroughput(selectedPipeline, period, nPeriods),
+        getPipelineThroughputRange(selectedPipeline, from, to, buckets),
       ]);
       setDwell(d);
       setThroughput(t);
+      setLoaded(true);
     } finally { setLoading(false); }
-  }, [selectedPipeline, from, to, period]);
+  }, [selectedPipeline, from, to, buckets]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -346,7 +233,7 @@ function PipelineTab() {
       {/* Date Range */}
       <View className="gap-2">
         <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">Time Frame</Text>
-        <DateRangeControls from={from} to={to} setFrom={setFrom} setTo={setTo} />
+        <DateRangeControls from={from} to={to} setFrom={setFrom} setTo={setTo} maxDays={limits.maxDays} granularity={granularity} />
       </View>
 
       {/* Pipeline selector */}
@@ -369,23 +256,7 @@ function PipelineTab() {
         </View>
       )}
 
-      {/* Throughput granularity */}
-      <View className="gap-2">
-        <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">Throughput Granularity</Text>
-        <View className="flex-row gap-2">
-          {(['week', 'month'] as const).map(p => (
-            <TouchableOpacity
-              key={p}
-              onPress={() => setPeriod(p)}
-              className={`px-5 py-2 rounded-xl border ${period === p ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border'}`}
-            >
-              <Text className={`text-xs font-black uppercase ${period === p ? 'text-white' : 'text-typography-muted'}`}>{p}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      {loading ? (
+      {loading && !loaded ? (
         <View className="py-16 items-center"><ActivityIndicator color={colors.primary} /></View>
       ) : (
         <>

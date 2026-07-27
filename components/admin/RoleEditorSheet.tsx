@@ -3,6 +3,7 @@ import React from 'react';
 import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import DraggableSheet from '@/components/common/DraggableSheet';
+import Tooltip from '@/components/common/Tooltip';
 import { Permission, Role } from '@/contexts/RoleManagerContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import type { RoleTemplate } from '@/lib/roleTemplates';
@@ -72,12 +73,14 @@ export default function RoleEditorSheet({
             {isCreating ? 'New Role' : (editingRole?.name || 'Edit Role')}
           </Text>
         </View>
-        <TouchableOpacity
-          onPress={onClose}
-          className="w-10 h-10 items-center justify-center rounded-full bg-surface-background border border-surface-border"
-        >
-          <FontAwesome name="times" size={16} color={colors.textMain} />
-        </TouchableOpacity>
+        <Tooltip label="Close">
+          <TouchableOpacity
+            onPress={onClose}
+            className="w-10 h-10 items-center justify-center rounded-full bg-surface-background border border-surface-border"
+          >
+            <FontAwesome name="times" size={16} color={colors.textMain} />
+          </TouchableOpacity>
+        </Tooltip>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} className="px-5" contentContainerStyle={{ paddingBottom: 24 }}>

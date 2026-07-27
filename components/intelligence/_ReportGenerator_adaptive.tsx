@@ -1,6 +1,7 @@
 import HorizontalScroll from '@/components/common/HorizontalScroll';
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 import { BackButton } from '@/components/common/BackButton';
+import Tooltip from '@/components/common/Tooltip';
 import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { useTicker } from '@/hooks/useTicker';
@@ -345,9 +346,11 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
           </View>
         </View>
         {!isPage && (
-          <Pressable onPress={onClose} className="h-10 w-10 items-center justify-center rounded-full bg-surface-background border border-surface-border active:scale-90">
-            <FontAwesome name="close" size={16} color={colors.primary} />
-          </Pressable>
+          <Tooltip label="Close" side="bottom">
+            <Pressable onPress={onClose} className="h-10 w-10 items-center justify-center rounded-full bg-surface-background border border-surface-border active:scale-90">
+              <FontAwesome name="close" size={16} color={colors.primary} />
+            </Pressable>
+          </Tooltip>
         )}
       </View>
 
@@ -377,9 +380,11 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
               <View className="bg-state-danger/10 border border-state-danger/30 rounded-2xl px-5 py-4 mb-5 flex-row items-center gap-3">
                 <FontAwesome name="exclamation-circle" size={16} color={colors.danger} />
                 <Text className="text-state-danger font-bold flex-1 text-sm">{genError}</Text>
-                <TouchableOpacity onPress={() => setGenError(null)}>
-                  <FontAwesome name="times" size={14} color={colors.danger} />
-                </TouchableOpacity>
+                <Tooltip label="Dismiss" side="bottom">
+                  <TouchableOpacity onPress={() => setGenError(null)}>
+                    <FontAwesome name="times" size={14} color={colors.danger} />
+                  </TouchableOpacity>
+                </Tooltip>
               </View>
             )}
 

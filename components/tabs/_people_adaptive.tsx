@@ -10,6 +10,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import Tooltip from '@/components/common/Tooltip';
 
 import NotificationRules from '@/components/admin/NotificationRules';
 import BillingPanel from '@/components/admin/BillingPanel';
@@ -127,30 +128,34 @@ export default function PeopleScreen() {
             <Text className="text-typography-main text-3xl font-black">Corporate</Text>
             <Text className="text-typography-dim text-xs font-medium">Members, teams, and roles</Text>
           </View>
-          <TouchableOpacity className="bg-brand-primary w-11 h-11 rounded-2xl items-center justify-center">
-            <FontAwesome name="gear" size={16} color="white" />
-          </TouchableOpacity>
+          <Tooltip label="Workspace settings">
+            <TouchableOpacity className="bg-brand-primary w-11 h-11 rounded-2xl items-center justify-center">
+              <FontAwesome name="gear" size={16} color="white" />
+            </TouchableOpacity>
+          </Tooltip>
         </View>
 
         {joinCode && (
           <View className={`mb-4 border rounded-2xl p-4 ${membersAtLimit ? 'bg-state-danger/5 border-state-danger/30' : 'bg-brand-primary/10 border-brand-primary/30'}`}>
-            <TouchableOpacity
-              onPress={() => {
-                if (membersAtLimit) return;
-                Clipboard.setStringAsync(joinCode);
-                showAlert('Copied', 'Join code copied to clipboard');
-              }}
-              className="flex-row items-center justify-between"
-              disabled={membersAtLimit}
-            >
-              <View>
-                <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">Share Join Code</Text>
-                <Text className={`font-black text-xl tracking-[0.2em] ${membersAtLimit ? 'text-typography-muted' : 'text-brand-primary'}`}>{joinCode}</Text>
-              </View>
-              <View className={`w-10 h-10 rounded-xl items-center justify-center ${membersAtLimit ? 'bg-surface-border' : 'bg-brand-primary'}`}>
-                <FontAwesome name="copy" size={14} color={membersAtLimit ? colors.textMuted : 'white'} />
-              </View>
-            </TouchableOpacity>
+            <Tooltip label="Copy to clipboard" disabled={membersAtLimit}>
+              <TouchableOpacity
+                onPress={() => {
+                  if (membersAtLimit) return;
+                  Clipboard.setStringAsync(joinCode);
+                  showAlert('Copied', 'Join code copied to clipboard');
+                }}
+                className="flex-row items-center justify-between"
+                disabled={membersAtLimit}
+              >
+                <View>
+                  <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">Share Join Code</Text>
+                  <Text className={`font-black text-xl tracking-[0.2em] ${membersAtLimit ? 'text-typography-muted' : 'text-brand-primary'}`}>{joinCode}</Text>
+                </View>
+                <View className={`w-10 h-10 rounded-xl items-center justify-center ${membersAtLimit ? 'bg-surface-border' : 'bg-brand-primary'}`}>
+                  <FontAwesome name="copy" size={14} color={membersAtLimit ? colors.textMuted : 'white'} />
+                </View>
+              </TouchableOpacity>
+            </Tooltip>
             {membersAtLimit ? (
               <Text className="text-state-danger text-[10px] font-bold mt-2">
                 Seat limit reached —{' '}

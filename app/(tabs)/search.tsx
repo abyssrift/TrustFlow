@@ -6,6 +6,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useLocalSearchParams } from 'expo-router';
 import React from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import Tooltip from '@/components/common/Tooltip';
 
 const TABS: { key: SearchType | 'all'; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -47,9 +48,11 @@ export default function SearchScreen() {
           style={{ paddingVertical: 0 }}
         />
         {query ? (
-          <Pressable onPress={() => setQuery('')} hitSlop={6}>
-            <FontAwesome name="times-circle" size={16} color={colors.textDim} />
-          </Pressable>
+          <Tooltip label="Clear search">
+            <Pressable onPress={() => setQuery('')} hitSlop={6}>
+              <FontAwesome name="times-circle" size={16} color={colors.textDim} />
+            </Pressable>
+          </Tooltip>
         ) : null}
       </View>
 

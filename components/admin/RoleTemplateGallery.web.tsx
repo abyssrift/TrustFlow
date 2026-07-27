@@ -3,6 +3,7 @@ import React from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 import Popup from '@/components/common/Popup';
+import Tooltip from '@/components/common/Tooltip';
 import { Permission } from '@/contexts/RoleManagerContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { ROLE_TEMPLATES } from '@/lib/roleTemplates';
@@ -26,13 +27,15 @@ export default function RoleTemplateGallery({ visible, onClose, permissions, onP
           <Text style={{ color: c.textMuted }} className="text-[10px] font-black uppercase tracking-[0.3em] mb-1">Role Templates</Text>
           <Text style={{ color: c.textMain }} className="text-2xl font-black tracking-tight">Start from a Preset</Text>
         </View>
-        <TouchableOpacity
-          onPress={onClose}
-          className="w-10 h-10 items-center justify-center rounded-full"
-          style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}
-        >
-          <FontAwesome name="times" size={16} color={c.textMain} />
-        </TouchableOpacity>
+        <Tooltip label="Close">
+          <TouchableOpacity
+            onPress={onClose}
+            className="w-10 h-10 items-center justify-center rounded-full"
+            style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}
+          >
+            <FontAwesome name="times" size={16} color={c.textMain} />
+          </TouchableOpacity>
+        </Tooltip>
       </View>
 
       <Text style={{ color: c.textMuted }} className="text-xs leading-5 px-7 pt-4 mb-4">

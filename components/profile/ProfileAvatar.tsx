@@ -6,6 +6,7 @@ import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
 import { Image, Platform, Pressable, Text, View } from 'react-native';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
+import Tooltip from '@/components/common/Tooltip';
 
 interface ProfileAvatarProps {
   url: string | null;
@@ -129,13 +130,15 @@ export default function ProfileAvatar({ url, name, onUpload, size = 120 }: Profi
         <LoadingOverlay visible={uploading} variant="inline" />
       </View>
 
-      <Pressable
-        onPress={uploadAvatar}
-        disabled={uploading}
-        className="absolute bottom-0 right-0 h-10 w-10 items-center justify-center rounded-full border-2 border-surface-card bg-brand-primary shadow-lg active:scale-95 transition-transform"
-      >
-        <FontAwesome name="camera" size={16} color="white" />
-      </Pressable>
+      <Tooltip label="Change profile picture" className="absolute bottom-0 right-0">
+        <Pressable
+          onPress={uploadAvatar}
+          disabled={uploading}
+          className="h-10 w-10 items-center justify-center rounded-full border-2 border-surface-card bg-brand-primary shadow-lg active:scale-95 transition-transform"
+        >
+          <FontAwesome name="camera" size={16} color="white" />
+        </Pressable>
+      </Tooltip>
     </View>
   );
 }

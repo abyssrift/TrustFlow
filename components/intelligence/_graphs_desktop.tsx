@@ -1,6 +1,8 @@
 import { QualityLeaderboardWeb, SLARiskAlertWeb, StageDwellChartWeb, TrendComparisonCardsWeb, WorkDistributionChartWeb } from '@/components/intelligence/RadarWidgets';
-import { PipelinePointsPeriod, StageDwell, ThroughputPeriod, useAnalytics } from '@/contexts/AnalyticsContext';
+import { DateRangeControls, useDateRange, useGranularity } from '@/components/intelligence/DateRangeFilter';
+import { PointsBucket, StageDwell, ThroughputBucket, useAnalytics } from '@/contexts/AnalyticsContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { bucketLabel } from '@/lib/chartBuckets';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -18,13 +20,6 @@ import {
   XAxis, YAxis
 } from 'recharts';
 
-const PERIOD_OPTS = [
-  { label: '4W',   type: 'week',  n: 4  },
-  { label: '8W',   type: 'week',  n: 8  },
-  { label: '6M',   type: 'month', n: 6  },
-  { label: '12M',  type: 'month', n: 12 },
-];
-
 export default function IntelligenceGraphs() {
   const colors = useThemeColors();
   const tooltipStyle = {
@@ -34,16 +29,19 @@ export default function IntelligenceGraphs() {
     color: colors.textMain,
     boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
   };
-  const { getPipelineStageDwell, getPipelineThroughput, getPipelinePointsSeries } = useAnalytics();
+  const { getPipelineStageDwell, getPipelineThroughputRange, getPipelinePointsRange } = useAnalytics();
 
   const [pipelineId, setPipelineId]     = useState<string | null>(null);
   const [pipelines, setPipelines]       = useState<any[]>([]);
-  const [periodOpt, setPeriodOpt]       = useState(PERIOD_OPTS[1]);
+  const { from, to, setFrom, setTo, nDays } = useDateRange(56);
+  const granularity = useGranularity();
+  const buckets = granularity.buckets;
   const [dwell, setDwell]               = useState<StageDwell[]>([]);
-  const [throughput, setThroughput]     = useState<ThroughputPeriod[]>([]);
-  const [pointsData, setPointsData]     = useState<PipelinePointsPeriod[]>([]);
+  const [throughput, setThroughput]     = useState<ThroughputBucket[]>([]);
+  const [pointsData, setPointsData]     = useState<PointsBucket[]>([]);
   const [auditData, setAuditData]       = useState<any>(null);
   const [loading, setLoading]           = useState(true);
+  const [loaded, setLoaded]             = useState(false);
 
   useEffect(() => {
     supabase.from('pipelines').select('id, name').is('deleted_at', null)
@@ -54,28 +52,25 @@ export default function IntelligenceGraphs() {
     if (!pipelineId) return;
     setLoading(true);
     try {
-      const today   = new Date();
-      const nDays   = periodOpt.type === 'week' ? periodOpt.n * 7 : periodOpt.n * 30;
-      const from    = new Date(today.getTime() - nDays * 86400000).toISOString().split('T')[0];
-      const to      = today.toISOString().split('T')[0];
       const [d, t, pts, a] = await Promise.all([
         getPipelineStageDwell(pipelineId, from, to),
-        getPipelineThroughput(pipelineId, periodOpt.type, periodOpt.n),
-        getPipelinePointsSeries(pipelineId, periodOpt.type, periodOpt.n).catch(() => []),
+        getPipelineThroughputRange(pipelineId, from, to, buckets),
+        getPipelinePointsRange(pipelineId, from, to, buckets).catch(() => []),
         supabase.rpc('rpc_get_organizational_audit', { p_pipeline_id: pipelineId, p_days: nDays }),
       ]);
       setDwell(d || []);
       setThroughput(t || []);
       setPointsData(pts || []);
       setAuditData(a.data);
+      setLoaded(true);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
-  }, [pipelineId, periodOpt]);
+  }, [pipelineId, from, to, buckets, nDays]);
 
   useEffect(() => { load(); }, [load]);
 
-  const throughputChartData = [...throughput].reverse().map(t => ({
-    label:       t.period_label,
+  const throughputChartData = throughput.map(t => ({
+    label:       bucketLabel(t.bucket_start, t.bucket_end),
     succeeded:   t.tasks_succeeded,
     failed:      t.tasks_failed,
     success_rate: t.success_rate ?? 0,
@@ -107,27 +102,17 @@ export default function IntelligenceGraphs() {
               ))}
             </View>
           )}
-          {/* Period selector */}
-          <View className="flex-row bg-surface-card border border-surface-border rounded-xl p-1 gap-0.5 shrink-0">
-            {PERIOD_OPTS.map(opt => (
-              <TouchableOpacity
-                key={opt.label}
-                onPress={() => setPeriodOpt(opt)}
-                className={`px-4 py-2 rounded-lg ${periodOpt.label === opt.label ? 'bg-brand-primary' : ''}`}
-              >
-                <Text className={`text-[11px] font-black ${periodOpt.label === opt.label ? 'text-white' : 'text-typography-muted'}`}>
-                  {opt.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          {/* Calendar range filter + shared granularity */}
+          <DateRangeControls from={from} to={to} setFrom={setFrom} setTo={setTo} granularity={granularity} />
           <TouchableOpacity onPress={load} className="h-10 w-10 items-center justify-center bg-surface-card border border-surface-border rounded-xl">
-            <FontAwesome name="refresh" size={13} color={colors.primary} />
+            {loading && loaded
+              ? <ActivityIndicator size="small" color={colors.primary} />
+              : <FontAwesome name="refresh" size={13} color={colors.primary} />}
           </TouchableOpacity>
         </View>
       </View>
 
-      {loading ? (
+      {!loaded ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
@@ -183,7 +168,7 @@ export default function IntelligenceGraphs() {
 
           {/* ── Points Generated Over Time ── */}
           {(() => {
-            const ptsChart = [...pointsData].reverse().map(d => ({ label: d.period_label, points: d.weight_points }));
+            const ptsChart = pointsData.map(d => ({ label: bucketLabel(d.bucket_start, d.bucket_end), points: d.weight_points }));
             const totalPts = pointsData.reduce((s, d) => s + (d.weight_points || 0), 0);
             return (
               <View className="bg-surface-card p-8 rounded-[32px] border border-surface-border premium-shadow mb-6">

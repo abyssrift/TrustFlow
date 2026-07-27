@@ -1,3 +1,4 @@
+import Tooltip from '@/components/common/Tooltip';
 import { BackButton } from '@/components/common/BackButton';
 import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -36,6 +37,8 @@ import { FilePreviewModal, FilePreviewTeaser, getPreviewKind, type PreviewKind }
 import UserLink from '../common/UserLink';
 import FileHubAnalytics from './FileHubAnalytics';
 import FileHubBin from './FileHubBin';
+import FileHubOverview from './FileHubOverview';
+import FileHubBrowse from './FileHubBrowse';
 import TaskFileResults from './TaskFileResults';
 
 
@@ -777,9 +780,11 @@ function FileDetailSheet({
             <Text className="text-white font-black text-xs text-center" numberOfLines={1}>{`${versionPreview.name} (v${versionPreview.versionNo})`}</Text>
           </View>
           <Image source={{ uri: versionPreview.uri }} style={{ width: '92%', height: '80%' }} resizeMode="contain" />
-          <TouchableOpacity onPress={() => setVersionPreview(null)} className="absolute top-10 right-5 w-11 h-11 rounded-full items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}>
-            <FontAwesome name="times" size={20} color="#fff" />
-          </TouchableOpacity>
+          <Tooltip label="Close">
+            <TouchableOpacity onPress={() => setVersionPreview(null)} className="absolute top-10 right-5 w-11 h-11 rounded-full items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}>
+              <FontAwesome name="times" size={20} color="#fff" />
+            </TouchableOpacity>
+          </Tooltip>
         </View>
       </Modal>
     )}
@@ -1191,9 +1196,11 @@ function UploadSheet({
               <Text className="text-typography-main text-xl font-black tracking-tight">
                 {activeGroup ? `Upload to ${activeGroup.name}` : 'Upload Files'}
               </Text>
-              <TouchableOpacity onPress={onClose} className="w-8 h-8 bg-surface-background border border-surface-border rounded-xl items-center justify-center">
-                <FontAwesome name="times" size={12} color={colors.textMuted} />
-              </TouchableOpacity>
+              <Tooltip label="Close">
+                <TouchableOpacity onPress={onClose} className="w-8 h-8 bg-surface-background border border-surface-border rounded-xl items-center justify-center">
+                  <FontAwesome name="times" size={12} color={colors.textMuted} />
+                </TouchableOpacity>
+              </Tooltip>
             </View>
               {/* File picker area */}
               {pickedFiles.length === 0 ? (
@@ -1273,14 +1280,15 @@ function UploadSheet({
                     {selectedRecipients.length > 0 && (
                       <View className="flex-row flex-wrap gap-2">
                         {selectedRecipients.map(r => (
-                          <TouchableOpacity
-                            key={r.id}
-                            onPress={() => toggleRecipient(r)}
-                            className="flex-row items-center gap-1.5 bg-brand-primary/10 border border-brand-primary/20 rounded-full px-3 py-1"
-                          >
-                            <Text className="text-brand-primary text-xs font-bold">{r.full_name}</Text>
-                            <FontAwesome name="times" size={9} color={colors.primary} />
-                          </TouchableOpacity>
+                          <Tooltip key={r.id} label="Remove recipient">
+                            <TouchableOpacity
+                              onPress={() => toggleRecipient(r)}
+                              className="flex-row items-center gap-1.5 bg-brand-primary/10 border border-brand-primary/20 rounded-full px-3 py-1"
+                            >
+                              <Text className="text-brand-primary text-xs font-bold">{r.full_name}</Text>
+                              <FontAwesome name="times" size={9} color={colors.primary} />
+                            </TouchableOpacity>
+                          </Tooltip>
                         ))}
                       </View>
                     )}
@@ -1337,14 +1345,15 @@ function UploadSheet({
                   {tags.length > 0 && (
                     <View className="flex-row flex-wrap gap-2">
                       {tags.map(t => (
-                        <TouchableOpacity
-                          key={t}
-                          onPress={() => setTags(prev => prev.filter(x => x !== t))}
-                          className="flex-row items-center gap-1.5 bg-surface-background border border-surface-border rounded-full px-3 py-1"
-                        >
-                          <Text className="text-typography-muted text-xs font-bold">{t}</Text>
-                          <FontAwesome name="times" size={8} color={colors.textMuted} />
-                        </TouchableOpacity>
+                        <Tooltip key={t} label="Remove tag">
+                          <TouchableOpacity
+                            onPress={() => setTags(prev => prev.filter(x => x !== t))}
+                            className="flex-row items-center gap-1.5 bg-surface-background border border-surface-border rounded-full px-3 py-1"
+                          >
+                            <Text className="text-typography-muted text-xs font-bold">{t}</Text>
+                            <FontAwesome name="times" size={8} color={colors.textMuted} />
+                          </TouchableOpacity>
+                        </Tooltip>
                       ))}
                     </View>
                   )}
@@ -1583,9 +1592,11 @@ function GroupCreateSheet({
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40, gap: 20 }}>
             <View className="flex-row items-center justify-between">
               <Text className="text-typography-main text-xl font-black">New Channel</Text>
-              <TouchableOpacity onPress={onClose} className="w-8 h-8 bg-surface-background border border-surface-border rounded-xl items-center justify-center">
-                <FontAwesome name="times" size={12} color={colors.textMuted} />
-              </TouchableOpacity>
+              <Tooltip label="Close">
+                <TouchableOpacity onPress={onClose} className="w-8 h-8 bg-surface-background border border-surface-border rounded-xl items-center justify-center">
+                  <FontAwesome name="times" size={12} color={colors.textMuted} />
+                </TouchableOpacity>
+              </Tooltip>
             </View>
 
             {/* Color + Preview */}
@@ -1645,14 +1656,15 @@ function GroupCreateSheet({
               {selectedMembers.length > 0 && (
                 <View className="flex-row flex-wrap gap-2 mb-1">
                   {selectedMembers.map(m => (
-                    <TouchableOpacity
-                      key={m.id}
-                      onPress={() => toggleMember(m)}
-                      className="flex-row items-center gap-1.5 bg-brand-primary/10 border border-brand-primary/20 rounded-full px-3 py-1"
-                    >
-                      <Text className="text-brand-primary text-xs font-bold">{m.full_name}</Text>
-                      <FontAwesome name="times" size={9} color={colors.primary} />
-                    </TouchableOpacity>
+                    <Tooltip key={m.id} label="Remove member">
+                      <TouchableOpacity
+                        onPress={() => toggleMember(m)}
+                        className="flex-row items-center gap-1.5 bg-brand-primary/10 border border-brand-primary/20 rounded-full px-3 py-1"
+                      >
+                        <Text className="text-brand-primary text-xs font-bold">{m.full_name}</Text>
+                        <FontAwesome name="times" size={9} color={colors.primary} />
+                      </TouchableOpacity>
+                    </Tooltip>
                   ))}
                 </View>
               )}
@@ -1864,9 +1876,11 @@ function GroupMembersSheet({
                   {myRole === 'admin' && <FontAwesome name="pencil" size={12} color={colors.textMuted} />}
                 </TouchableOpacity>
               )}
-              <TouchableOpacity onPress={onClose} className="w-8 h-8 bg-surface-background border border-surface-border rounded-xl items-center justify-center flex-shrink-0">
-                <FontAwesome name="times" size={12} color={colors.textMuted} />
-              </TouchableOpacity>
+              <Tooltip label="Close">
+                <TouchableOpacity onPress={onClose} className="w-8 h-8 bg-surface-background border border-surface-border rounded-xl items-center justify-center flex-shrink-0">
+                  <FontAwesome name="times" size={12} color={colors.textMuted} />
+                </TouchableOpacity>
+              </Tooltip>
             </View>
 
             {/* Add member search */}
@@ -1926,16 +1940,18 @@ function GroupMembersSheet({
                         </View>
                       )}
                       {(myRole === 'admin' || m.id === currentUserId) && (
-                        <TouchableOpacity
-                          onPress={() => handleRemove(m.id)}
-                          disabled={removingId === m.id}
-                          className="w-7 h-7 items-center justify-center rounded-lg bg-state-danger/10"
-                        >
-                          {removingId === m.id
-                            ? <ActivityIndicator size="small" color={colors.danger} />
-                            : <FontAwesome name={m.id === currentUserId ? 'sign-out' : 'user-times'} size={11} color={colors.danger} />
-                          }
-                        </TouchableOpacity>
+                        <Tooltip label={m.id === currentUserId ? 'Leave channel' : 'Remove member'}>
+                          <TouchableOpacity
+                            onPress={() => handleRemove(m.id)}
+                            disabled={removingId === m.id}
+                            className="w-7 h-7 items-center justify-center rounded-lg bg-state-danger/10"
+                          >
+                            {removingId === m.id
+                              ? <ActivityIndicator size="small" color={colors.danger} />
+                              : <FontAwesome name={m.id === currentUserId ? 'sign-out' : 'user-times'} size={11} color={colors.danger} />
+                            }
+                          </TouchableOpacity>
+                        </Tooltip>
                       )}
                     </View>
                   ))}
@@ -2311,7 +2327,7 @@ function FileHubAdaptiveInner() {
   const canManageOverride = hasPermission('filehub:group_override_manage');
 
   const router = useRouter();
-  const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
+  const { tab: tabParam, file: fileParam } = useLocalSearchParams<{ tab?: string; file?: string }>();
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   // Floating tab bar sits at insets.bottom + 24/16 and is ~76px tall; clear it with margin.
@@ -2331,6 +2347,7 @@ function FileHubAdaptiveInner() {
   const [showManageTags, setShowManageTags] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showBin, setShowBin] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [zipDownloading, setZipDownloading] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set());
@@ -2351,11 +2368,23 @@ function FileHubAdaptiveInner() {
 
   // Restore tab from URL param on mount
   useEffect(() => {
-    const validModes: FileHubMode[] = ['inbox', 'sent', 'broadcast', 'groups'];
+    const validModes: FileHubMode[] = ['overview', 'browse', 'inbox', 'sent', 'broadcast', 'groups'];
     if (tabParam && validModes.includes(tabParam as FileHubMode)) {
       setMode(tabParam as FileHubMode);
     }
   }, []);
+
+  // Deep link (?file=<id>) from global search — open the file directly.
+  useEffect(() => {
+    if (!fileParam) return;
+    let cancelled = false;
+    supabase.rpc('rpc_filehub_browse', { p_file_id: fileParam }).then(({ data }) => {
+      const row = (data as any)?.items?.[0];
+      if (!cancelled && row) openStorageFile(row.bucket, row.storage_path, row.file_name, row.mime_type);
+    });
+    router.setParams({ file: undefined });
+    return () => { cancelled = true; };
+  }, [fileParam]);
 
   // Channel files come back flat (unfiltered by folder) from rpc_filehub_group_list_files,
   // so folder scoping for channels happens client-side to match the server-side
@@ -2516,6 +2545,8 @@ function FileHubAdaptiveInner() {
   }, [folders, deleteFolder, showConfirm]);
 
   const tabs: { key: FileHubMode; label: string; count?: number }[] = [
+    { key: 'overview', label: 'Overview' },
+    { key: 'browse', label: 'Browse' },
     { key: 'groups', label: 'Channels' },
     { key: 'inbox', label: 'Inbox', count: inboxUnreadCount > 0 ? inboxUnreadCount : undefined },
     ...(canBroadcast ? [{ key: 'broadcast' as FileHubMode, label: 'Broadcast' }] : []),
@@ -2529,6 +2560,7 @@ function FileHubAdaptiveInner() {
   };
 
   const handleRefresh = () => {
+    if (mode === 'overview' || mode === 'browse') { setRefreshKey(k => k + 1); return; }
     if (mode === 'groups') {
       refreshGroups();
       if (activeGroupId) refreshGroupFiles();
@@ -2679,6 +2711,19 @@ function FileHubAdaptiveInner() {
       </ScrollView>
       </View>
 
+      {/* ── Overview / Browse tabs (own their data, full-height) ── */}
+      {mode === 'overview' && (
+        <FileHubOverview
+          key={`overview-${refreshKey}`}
+          compact
+          onUpload={() => setShowUpload(true)}
+          onNewChannel={() => setShowCreateGroup(true)}
+          onGoTab={handleTabChange}
+        />
+      )}
+      {mode === 'browse' && <FileHubBrowse key={`browse-${refreshKey}`} compact />}
+
+      {mode !== 'overview' && mode !== 'browse' && (<>
       {/* ── Tag filter (shown when viewing files) ── */}
       {(mode !== 'groups' || activeGroupId) && allTags.length > 0 && (
         <View className="flex-row items-center flex-shrink-0 mb-3">
@@ -2921,6 +2966,8 @@ function FileHubAdaptiveInner() {
           )}
         </>
       )}
+
+      </>)}
 
       {/* ── Selection toolbar (replaces FAB when in selection mode) ── */}
       {selectionMode ? (

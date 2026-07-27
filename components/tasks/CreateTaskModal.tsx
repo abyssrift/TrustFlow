@@ -5,6 +5,7 @@ import { FontAwesome } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
+import Tooltip from '@/components/common/Tooltip';
 import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DraggableSheet from '../common/DraggableSheet';
@@ -80,13 +81,15 @@ function AdaptiveFileGrid({
                 <ActivityIndicator size="small" color="#fff" style={{ transform: [{ scale: 0.6 }] }} />
               </View>
             ) : (
-              <TouchableOpacity
-                onPress={() => onRemove(pf.id)}
-                className="absolute top-1.5 right-1.5 w-6 h-6 bg-black/60 rounded-full items-center justify-center hover:bg-black/80 transition-colors"
-                style={Platform.OS === 'web' ? { cursor: 'pointer' } as any : {}}
-              >
-                <FontAwesome name="times" size={10} color="#fff" />
-              </TouchableOpacity>
+              <Tooltip label="Remove file">
+                <TouchableOpacity
+                  onPress={() => onRemove(pf.id)}
+                  className="absolute top-1.5 right-1.5 w-6 h-6 bg-black/60 rounded-full items-center justify-center hover:bg-black/80 transition-colors"
+                  style={Platform.OS === 'web' ? { cursor: 'pointer' } as any : {}}
+                >
+                  <FontAwesome name="times" size={10} color="#fff" />
+                </TouchableOpacity>
+              </Tooltip>
             )}
 
             <View className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1 backdrop-blur-md">
@@ -114,7 +117,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
   const insets = useSafeAreaInsets();
   const { showAlert, showConfirm } = useAlert();
   const {
-    draft, setDraft, loading, recentTasks, briefFiles, setBriefFiles,
+    draft, setDraft, toggleTeamAssignee, loading, recentTasks, briefFiles, setBriefFiles,
     step, setStep,
     bulkMode, toggleBulkMode,
     bulkText, setBulkText,
@@ -401,7 +404,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                    {teams.map(t => (
                      <TouchableOpacity
                        key={t.id}
-                       onPress={() => setDraft({ assigneeTeamIds: draft.assigneeTeamIds.includes(t.id) ? draft.assigneeTeamIds.filter(id => id !== t.id) : [...draft.assigneeTeamIds, t.id] })}
+                       onPress={() => toggleTeamAssignee(t.id)}
                        className={`px-4 py-2 rounded-lg border ${draft.assigneeTeamIds.includes(t.id) ? 'bg-brand-accent border-brand-accent' : 'bg-surface-background border-surface-border'}`}
                      >
                        <Text className={`text-[10px] font-bold ${draft.assigneeTeamIds.includes(t.id) ? 'text-white' : 'text-typography-main'}`}>{t.name}</Text>

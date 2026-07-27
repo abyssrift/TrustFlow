@@ -1,17 +1,18 @@
 import React, { useEffect, useMemo } from 'react';
 import { View, TouchableOpacity, Text } from 'react-native';
 import Svg, { Path, Marker, Defs } from 'react-native-svg';
-import Animated, { 
-  useSharedValue, 
+import Animated, {
+  useSharedValue,
   useAnimatedStyle,
-  useAnimatedProps, 
-  withRepeat, 
-  withTiming, 
+  useAnimatedProps,
+  withRepeat,
+  withTiming,
   LinearTransition,
   Easing
 } from 'react-native-reanimated';
 import { FontAwesome } from '@expo/vector-icons';
 import { usePipelineEditor, Stage, Transition } from '@/contexts/PipelineEditorContext';
+import Tooltip from '@/components/common/Tooltip';
 import { useThemeColors } from '@/hooks/useThemeColors';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
@@ -158,19 +159,23 @@ export default function ConnectionLines({ stages, transitions, onEditTransition 
               </View>
             )}
 
-            <TouchableOpacity
-              onPress={() => onEditTransition?.(item.id)}
-              className="w-6 h-6 rounded-full bg-surface-card border border-brand-primary items-center justify-center shadow-lg hover:bg-brand-primary/10 transition-all active:scale-90"
-            >
-              <FontAwesome name="pencil" size={10} color={colors.primary} />
-            </TouchableOpacity>
+            <Tooltip label="Edit transition">
+              <TouchableOpacity
+                onPress={() => onEditTransition?.(item.id)}
+                className="w-6 h-6 rounded-full bg-surface-card border border-brand-primary items-center justify-center shadow-lg hover:bg-brand-primary/10 transition-all active:scale-90"
+              >
+                <FontAwesome name="pencil" size={10} color={colors.primary} />
+              </TouchableOpacity>
+            </Tooltip>
 
-            <TouchableOpacity
-              onPress={() => deleteTransition(item.id)}
-              className="w-6 h-6 rounded-full bg-surface-card border border-state-danger items-center justify-center shadow-lg hover:bg-state-danger/10 transition-all active:scale-90"
-            >
-              <FontAwesome name="times" size={11} color={colors.danger} />
-            </TouchableOpacity>
+            <Tooltip label="Delete transition">
+              <TouchableOpacity
+                onPress={() => deleteTransition(item.id)}
+                className="w-6 h-6 rounded-full bg-surface-card border border-state-danger items-center justify-center shadow-lg hover:bg-state-danger/10 transition-all active:scale-90"
+              >
+                <FontAwesome name="times" size={11} color={colors.danger} />
+              </TouchableOpacity>
+            </Tooltip>
           </View>
         );
       })}

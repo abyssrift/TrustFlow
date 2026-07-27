@@ -10,6 +10,7 @@ import React from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
 import CalendarOverlay from '../calendar/CalendarOverlay.web';
+import Tooltip from '../common/Tooltip';
 import type { Shortcut } from './constants';
 import PinnedShortcuts from './PinnedShortcuts.web';
 import ProfilePill from './ProfilePill.web';
@@ -203,20 +204,22 @@ export default function TopBar({
 
         <ThemeButton />
 
-        <Link href="/modal" asChild>
-          <Pressable className="h-9 w-9 items-center justify-center rounded-xl border border-surface-border bg-surface-card hover:bg-surface-overlay">
-            <View>
-              <FontAwesome name="bell" size={14} color={colors.primary} />
-              {unreadCount > 0 && (
-                <View className="absolute -top-1.5 -right-1.5 min-w-4 h-4 rounded-full bg-state-danger items-center justify-center px-0.5">
-                  <Text className="text-[9px] font-black text-white leading-none">
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </Text>
-                </View>
-              )}
-            </View>
-          </Pressable>
-        </Link>
+        <Tooltip label="Notifications">
+          <Link href="/modal" asChild>
+            <Pressable className="h-9 w-9 items-center justify-center rounded-xl border border-surface-border bg-surface-card hover:bg-surface-overlay">
+              <View>
+                <FontAwesome name="bell" size={14} color={colors.primary} />
+                {unreadCount > 0 && (
+                  <View className="absolute -top-1.5 -right-1.5 min-w-4 h-4 rounded-full bg-state-danger items-center justify-center px-0.5">
+                    <Text className="text-[9px] font-black text-white leading-none">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </Pressable>
+          </Link>
+        </Tooltip>
 
         <ProfilePill profileAvatarUrl={profileAvatarUrl} profileLabel={profileLabel} />
       </View>

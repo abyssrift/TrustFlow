@@ -3,6 +3,7 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useState } from 'react';
 import { Image, Platform, Text, TouchableOpacity, View } from 'react-native';
+import Tooltip from './Tooltip';
 
 const isWeb = Platform.OS === 'web';
 
@@ -54,17 +55,19 @@ export function FilePreviewCard({
     >
       {/* Inline preview box */}
       {isImage && imageUri ? (
-        <TouchableOpacity
-          onPress={onPress}
-          activeOpacity={0.9}
-          className="w-full overflow-hidden relative"
-          style={[{ height: previewHeight, backgroundColor: colors.card }, isWeb ? ({ cursor: 'pointer' } as any) : null]}
-        >
-          <Image source={{ uri: imageUri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-          <View className="absolute bottom-1.5 right-1.5 w-5 h-5 rounded-full bg-black/55 items-center justify-center">
-            <FontAwesome name="search-plus" size={9} color="#fff" />
-          </View>
-        </TouchableOpacity>
+        <Tooltip label="Preview">
+          <TouchableOpacity
+            onPress={onPress}
+            activeOpacity={0.9}
+            className="w-full overflow-hidden relative"
+            style={[{ height: previewHeight, backgroundColor: colors.card }, isWeb ? ({ cursor: 'pointer' } as any) : null]}
+          >
+            <Image source={{ uri: imageUri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+            <View className="absolute bottom-1.5 right-1.5 w-5 h-5 rounded-full bg-black/55 items-center justify-center">
+              <FontAwesome name="search-plus" size={9} color="#fff" />
+            </View>
+          </TouchableOpacity>
+        </Tooltip>
       ) : kind && previewUri ? (
         <View className="-mb-3">
           <FilePreviewTeaser uri={previewUri} kind={kind} height={previewHeight} onPress={onPress} sizeBytes={sizeBytes} />
@@ -84,22 +87,24 @@ export function FilePreviewCard({
       )}
 
       {/* Meta footer */}
-      <TouchableOpacity
-        onPress={onPress}
-        activeOpacity={0.7}
-        className="flex-row items-center px-2.5 py-2 gap-2 border-t border-surface-border/40"
-      >
-        <FontAwesome name={icon as any} size={12} color={color} />
-        <View className="flex-1">
-          <Text className="text-typography-main text-[11px] font-bold" numberOfLines={1}>{fileName}</Text>
-          {!!subtitle && <Text className="text-typography-muted text-[9px] mt-0.5" numberOfLines={1}>{subtitle}</Text>}
-        </View>
-        <FontAwesome
-          name={isImage || kind ? 'search-plus' : 'external-link'}
-          size={9}
-          color={colors.textMuted}
-        />
-      </TouchableOpacity>
+      <Tooltip label={isImage || kind ? 'Preview file' : 'Open file'}>
+        <TouchableOpacity
+          onPress={onPress}
+          activeOpacity={0.7}
+          className="flex-row items-center px-2.5 py-2 gap-2 border-t border-surface-border/40"
+        >
+          <FontAwesome name={icon as any} size={12} color={color} />
+          <View className="flex-1">
+            <Text className="text-typography-main text-[11px] font-bold" numberOfLines={1}>{fileName}</Text>
+            {!!subtitle && <Text className="text-typography-muted text-[9px] mt-0.5" numberOfLines={1}>{subtitle}</Text>}
+          </View>
+          <FontAwesome
+            name={isImage || kind ? 'search-plus' : 'external-link'}
+            size={9}
+            color={colors.textMuted}
+          />
+        </TouchableOpacity>
+      </Tooltip>
     </View>
   );
 }

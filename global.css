@@ -237,19 +237,34 @@ body {
   }
 }
 
-/* Premium Scrollbars */
+/* Premium Scrollbars — thin, translucent, reveal on hover so they stay out of
+   the way instead of drawing a hard bar across every panel. */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgb(var(--surface-border));
+  background: rgba(128, 128, 128, 0.22);
   border-radius: 10px;
-  border: 2px solid rgb(var(--surface-background));
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgb(var(--brand-primary));
+  background: rgba(128, 128, 128, 0.45);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(128, 128, 128, 0.22) transparent;
+}
+/* Opt-out utility: hide the scrollbar entirely (still scrollable). */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }

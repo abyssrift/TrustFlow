@@ -5,6 +5,7 @@ import { FontAwesome } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import HorizontalScroll from '../common/HorizontalScroll';
+import Tooltip from '../common/Tooltip';
 
 export default function HandshakeEditor() {
   const colors = useThemeColors();
@@ -190,12 +191,14 @@ export default function HandshakeEditor() {
                     </View>
                   </View>
                 </View>
-                <TouchableOpacity
-                  onPress={() => deleteLinkedOutcome(lk.id)}
-                  className="w-10 h-10 items-center justify-center bg-state-danger-dim rounded-xl border border-state-danger/10 ml-2"
-                >
-                  <FontAwesome name="trash-o" size={14} color={colors.danger} />
-                </TouchableOpacity>
+                <Tooltip label="Delete handshake">
+                  <TouchableOpacity
+                    onPress={() => deleteLinkedOutcome(lk.id)}
+                    className="w-10 h-10 items-center justify-center bg-state-danger-dim rounded-xl border border-state-danger/10 ml-2"
+                  >
+                    <FontAwesome name="trash-o" size={14} color={colors.danger} />
+                  </TouchableOpacity>
+                </Tooltip>
               </View>
             );
           })

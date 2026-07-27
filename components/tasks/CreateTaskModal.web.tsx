@@ -4,6 +4,7 @@ import DraggableSheet from '@/components/common/DraggableSheet';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
 import Popup from '@/components/common/Popup';
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
+import Tooltip from '@/components/common/Tooltip';
 import { useCalendarPosition } from '@/lib/calendarPicker';
 import { usePipelineAssignmentPreview } from '@/lib/usePipelineAssignmentPreview';
 import { useAuth } from '@/contexts/AuthContext';
@@ -142,13 +143,15 @@ function AdaptiveFileGrid({
                 <ActivityIndicator size="small" color="#fff" style={{ transform: [{ scale: 0.6 }] }} />
               </View>
             ) : (
-              <TouchableOpacity 
-                onPress={() => onRemove(pf.id)}
-                className="absolute top-1.5 right-1.5 w-6 h-6 bg-black/60 rounded-full items-center justify-center hover:bg-black/80 transition-colors"
-                style={Platform.OS === 'web' ? { cursor: 'pointer' } as any : {}}
-              >
-                <FontAwesome name="times" size={10} color="#fff" />
-              </TouchableOpacity>
+              <Tooltip label="Remove file">
+                <TouchableOpacity
+                  onPress={() => onRemove(pf.id)}
+                  className="absolute top-1.5 right-1.5 w-6 h-6 bg-black/60 rounded-full items-center justify-center hover:bg-black/80 transition-colors"
+                  style={Platform.OS === 'web' ? { cursor: 'pointer' } as any : {}}
+                >
+                  <FontAwesome name="times" size={10} color="#fff" />
+                </TouchableOpacity>
+              </Tooltip>
             )}
 
             <View className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1 backdrop-blur-md">
@@ -168,7 +171,7 @@ function AdaptiveFileGrid({
 export default function CreateTaskModal({ visible, onClose, initialPipelineId }: Props) {
   const colors = useThemeColors();
   const { hasPermission } = useAuth();
-  const { draft, setDraft, createTask, createBulkTasks, loading, recentTasks, loadRecentTasks, briefFiles, setBriefFiles } = useTaskCreation();
+  const { draft, setDraft, toggleTeamAssignee, loadTeamMembers, createTask, createBulkTasks, loading, recentTasks, loadRecentTasks, briefFiles, setBriefFiles } = useTaskCreation();
   // Desktop keeps the fixed two-pane composer below untouched; narrow viewports
   // (phones, and the mobile-web browser generally) get MobileCreateTaskWizard
   // instead — see components/tasks/CreateTaskModal.web.tsx's isDesktop branch.
@@ -201,6 +204,9 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [projects,  setProjects]  = useState<Project[]>([]);
   const [weightText, setWeightText] = useState(String(draft.weight ?? 1));
+  // Secondary fields (project/weight/category/max hours) collapse by default;
+  // forced open while any of them holds a non-default value so nothing set is hidden.
+  const [showMore, setShowMore] = useState(false);
   const [search, setSearch]       = useState('');
   const [pipelineSearch, setPipelineSearch] = useState('');
   const [projectSearch,  setProjectSearch]  = useState('');
@@ -268,7 +274,10 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
     if (visible) {
       loadRecentTasks();
       fetchResources();
-      if (initialPipelineId && !draft.pipelineId) setDraft({ pipelineId: initialPipelineId });
+      loadTeamMembers();
+      // Pipeline always follows the board you're on — the one draft field that
+      // deliberately overrides local persistence on every open.
+      if (initialPipelineId) setDraft({ pipelineId: initialPipelineId });
       setWeightText(String(draft.weight ?? 1));
     } else {
       setBulkMode(false);
@@ -325,11 +334,6 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
     setDraft({ assigneeUserIds: exists ? draft.assigneeUserIds.filter(u => u !== id) : [...draft.assigneeUserIds, id] });
   };
 
-  const toggleTeam = (id: string) => {
-    const exists = draft.assigneeTeamIds.includes(id);
-    setDraft({ assigneeTeamIds: exists ? draft.assigneeTeamIds.filter(t => t !== id) : [...draft.assigneeTeamIds, id] });
-  };
-
   const handleCreateProject = async () => {
     if (!newProjectName.trim()) return;
     setCreatingProject(true);
@@ -355,6 +359,10 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
       setCreatingProject(false);
     }
   };
+
+  const advancedInUse = !!draft.projectId || draft.estimatedHours != null
+    || (!!draft.category && draft.category !== 'General') || (draft.weight ?? 1) !== 1;
+  const advancedOpen = showMore || advancedInUse;
 
   const selectedPipeline   = pipelines.find(p => p.id === draft.pipelineId);
   const selectedProject    = projects.find(p => p.id === draft.projectId);
@@ -563,13 +571,17 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                 <View>
                   <Text className="text-[10px] font-black uppercase tracking-widest mb-3 ml-1" style={{ color: colors.textMuted }}>Weight</Text>
                   <View className="flex-row items-center gap-4">
-                    <TouchableOpacity onPress={() => setDraft({ weight: Math.max(1, draft.weight - 1) })} className="w-12 h-12 rounded-xl items-center justify-center" style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}>
-                      <FontAwesome name="minus" size={14} color={colors.textMain} />
-                    </TouchableOpacity>
+                    <Tooltip label="Decrease weight">
+                      <TouchableOpacity onPress={() => setDraft({ weight: Math.max(1, draft.weight - 1) })} className="w-12 h-12 rounded-xl items-center justify-center" style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}>
+                        <FontAwesome name="minus" size={14} color={colors.textMain} />
+                      </TouchableOpacity>
+                    </Tooltip>
                     <Text className="font-black text-2xl w-12 text-center" style={{ color: colors.textMain }}>{draft.weight}</Text>
-                    <TouchableOpacity onPress={() => setDraft({ weight: draft.weight + 1 })} className="w-12 h-12 rounded-xl items-center justify-center" style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}>
-                      <FontAwesome name="plus" size={14} color={colors.textMain} />
-                    </TouchableOpacity>
+                    <Tooltip label="Increase weight">
+                      <TouchableOpacity onPress={() => setDraft({ weight: draft.weight + 1 })} className="w-12 h-12 rounded-xl items-center justify-center" style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}>
+                        <FontAwesome name="plus" size={14} color={colors.textMain} />
+                      </TouchableOpacity>
+                    </Tooltip>
                   </View>
                 </View>
 
@@ -657,13 +669,15 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                               style={{ backgroundColor: colors.background, color: colors.textMain, borderWidth: 1, borderColor: colors.border }}
                             />
                             {hasPermission('project.create') && (
-                              <TouchableOpacity
-                                onPress={() => setShowCreateProject(true)}
-                                className="rounded-xl px-3 items-center justify-center"
-                                style={{ backgroundColor: colors.accent + '1A', borderWidth: 1, borderColor: colors.accent }}
-                              >
-                                <FontAwesome name="plus" size={13} color={colors.accent} />
-                              </TouchableOpacity>
+                              <Tooltip label="Create project">
+                                <TouchableOpacity
+                                  onPress={() => setShowCreateProject(true)}
+                                  className="rounded-xl px-3 items-center justify-center"
+                                  style={{ backgroundColor: colors.accent + '1A', borderWidth: 1, borderColor: colors.accent }}
+                                >
+                                  <FontAwesome name="plus" size={13} color={colors.accent} />
+                                </TouchableOpacity>
+                              </Tooltip>
                             )}
                           </View>
                           <ScrollView style={{ maxHeight: 220 }}>
@@ -692,9 +706,11 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                         <View className="p-5">
                           <View className="flex-row items-center justify-between mb-4">
                             <Text className="font-black text-sm" style={{ color: colors.textMain }}>Create Project</Text>
-                            <TouchableOpacity onPress={() => { setShowCreateProject(false); setNewProjectName(''); setNewProjectColor('#3B82F6'); }} disabled={creatingProject}>
-                              <FontAwesome name="times" size={14} color={colors.textDim} />
-                            </TouchableOpacity>
+                            <Tooltip label="Close">
+                              <TouchableOpacity onPress={() => { setShowCreateProject(false); setNewProjectName(''); setNewProjectColor('#3B82F6'); }} disabled={creatingProject}>
+                                <FontAwesome name="times" size={14} color={colors.textDim} />
+                              </TouchableOpacity>
+                            </Tooltip>
                           </View>
                           <TextInput
                             value={newProjectName}
@@ -756,13 +772,17 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                       </Text>
                     </TouchableOpacity>
                     {draft.startDate ? (
-                      <TouchableOpacity onPress={() => setDraft({ startDate: null })} className="px-4 py-4">
-                        <FontAwesome name="times-circle" size={14} color={colors.textDim} />
-                      </TouchableOpacity>
+                      <Tooltip label="Clear start date">
+                        <TouchableOpacity onPress={() => setDraft({ startDate: null })} className="px-4 py-4">
+                          <FontAwesome name="times-circle" size={14} color={colors.textDim} />
+                        </TouchableOpacity>
+                      </Tooltip>
                     ) : (
-                      <TouchableOpacity onPress={() => { setShowStartCalendar(v => !v); setShowCalendar(false); setShowPipelineDropdown(false); setShowProjectDropdown(false); }} className="px-4 py-4">
-                        <FontAwesome name="calendar-o" size={14} color={colors.accent} />
-                      </TouchableOpacity>
+                      <Tooltip label="Select start date">
+                        <TouchableOpacity onPress={() => { setShowStartCalendar(v => !v); setShowCalendar(false); setShowPipelineDropdown(false); setShowProjectDropdown(false); }} className="px-4 py-4">
+                          <FontAwesome name="calendar-o" size={14} color={colors.accent} />
+                        </TouchableOpacity>
+                      </Tooltip>
                     )}
                   </View>
                   {showStartCalendar && (
@@ -794,13 +814,17 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                       </Text>
                     </TouchableOpacity>
                     {draft.dueDate ? (
-                      <TouchableOpacity onPress={() => setDraft({ dueDate: null })} className="px-4 py-4">
-                        <FontAwesome name="times-circle" size={14} color={colors.textDim} />
-                      </TouchableOpacity>
+                      <Tooltip label="Clear deadline">
+                        <TouchableOpacity onPress={() => setDraft({ dueDate: null })} className="px-4 py-4">
+                          <FontAwesome name="times-circle" size={14} color={colors.textDim} />
+                        </TouchableOpacity>
+                      </Tooltip>
                     ) : (
-                      <TouchableOpacity onPress={() => { setShowCalendar(v => !v); setShowStartCalendar(false); setShowPipelineDropdown(false); setShowProjectDropdown(false); }} className="px-4 py-4">
-                        <FontAwesome name="calendar" size={14} color={colors.primary} />
-                      </TouchableOpacity>
+                      <Tooltip label="Select deadline">
+                        <TouchableOpacity onPress={() => { setShowCalendar(v => !v); setShowStartCalendar(false); setShowPipelineDropdown(false); setShowProjectDropdown(false); }} className="px-4 py-4">
+                          <FontAwesome name="calendar" size={14} color={colors.primary} />
+                        </TouchableOpacity>
+                      </Tooltip>
                     )}
                   </View>
                   {showCalendar && (
@@ -926,9 +950,11 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                       style={{ color: colors.textMain }}
                     />
                     {search.length > 0 && (
-                      <TouchableOpacity onPress={() => setSearch('')} className="ml-2 p-1">
-                        <FontAwesome name="times-circle" size={13} color={colors.textDim} />
-                      </TouchableOpacity>
+                      <Tooltip label="Clear search">
+                        <TouchableOpacity onPress={() => setSearch('')} className="ml-2 p-1">
+                          <FontAwesome name="times-circle" size={13} color={colors.textDim} />
+                        </TouchableOpacity>
+                      </Tooltip>
                     )}
                   </View>
 
@@ -961,7 +987,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                     {teams.filter(t => t.name?.toLowerCase().includes(search.toLowerCase())).map(t => (
                       <TouchableOpacity
                         key={t.id}
-                        onPress={() => toggleTeam(t.id)}
+                        onPress={() => toggleTeamAssignee(t.id)}
                         className="flex-row items-center justify-between p-4 rounded-xl"
                         style={{
                           backgroundColor: draft.assigneeTeamIds.includes(t.id) ? colors.accent + '1A' : colors.card,
@@ -1170,13 +1196,15 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                       <TextInput value={projectSearch} onChangeText={setProjectSearch} placeholder="Search projects..." placeholderTextColor={colors.textDim} className="flex-1 font-bold text-sm" style={{ color: colors.textMain }} autoFocus />
                     </View>
                     {hasPermission('project.create') && (
-                      <TouchableOpacity
-                        onPress={() => setShowCreateProject(true)}
-                        className="rounded-xl px-3 py-2.5 items-center justify-center hover:bg-brand-accent/20 transition-colors"
-                        style={{ backgroundColor: colors.accent + '1A', borderWidth: 1, borderColor: colors.accent }}
-                      >
-                        <FontAwesome name="plus" size={13} color={colors.accent} />
-                      </TouchableOpacity>
+                      <Tooltip label="Create project">
+                        <TouchableOpacity
+                          onPress={() => setShowCreateProject(true)}
+                          className="rounded-xl px-3 py-2.5 items-center justify-center hover:bg-brand-accent/20 transition-colors"
+                          style={{ backgroundColor: colors.accent + '1A', borderWidth: 1, borderColor: colors.accent }}
+                        >
+                          <FontAwesome name="plus" size={13} color={colors.accent} />
+                        </TouchableOpacity>
+                      </Tooltip>
                     )}
                   </View>
                   <ScrollView style={{ maxHeight: 330 }}>
@@ -1280,14 +1308,16 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                 <Text className="text-[10px] font-black uppercase tracking-[0.3em] mb-1" style={{ color: colors.textMuted }}>Task Orchestrator</Text>
                 <Text className="text-3xl font-black tracking-tighter" style={{ color: colors.textMain }}>Initialize Deployment</Text>
               </View>
-                <TouchableOpacity
-                  onPress={onClose}
-                  disabled={loading}
-                  className={`w-12 h-12 rounded-full items-center justify-center transition-colors ${loading ? 'opacity-40' : 'hover:border-brand-primary'}`}
-                  style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}
-                >
-                  <FontAwesome name="times" size={18} color={colors.textMuted} />
-              </TouchableOpacity>
+                <Tooltip label="Close">
+                  <TouchableOpacity
+                    onPress={onClose}
+                    disabled={loading}
+                    className={`w-12 h-12 rounded-full items-center justify-center transition-colors ${loading ? 'opacity-40' : 'hover:border-brand-primary'}`}
+                    style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}
+                  >
+                    <FontAwesome name="times" size={18} color={colors.textMuted} />
+                  </TouchableOpacity>
+                </Tooltip>
             </View>
 
             {/* Tabs */}
@@ -1371,41 +1401,24 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                     )}
                   </View>
 
-                  {/* Priority + Weight */}
-                  <View className="flex-row gap-8">
-                    <View className="flex-1">
-                      <Text className="text-[10px] font-black uppercase tracking-widest mb-3 ml-1" style={{ color: colors.textMuted }}>Priority Level</Text>
-                      <View className="flex-row rounded-2xl p-1.5" style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}>
-                        {(['low', 'normal', 'high', 'urgent'] as const).map(p => (
-                          <TouchableOpacity
-                            key={p}
-                            onPress={() => setDraft({ priority: p })}
-                            className={`flex-1 py-3 items-center rounded-xl transition-all ${draft.priority === p ? '' : 'hover:bg-surface-overlay'}`}
-                            style={{ backgroundColor: draft.priority === p ? colors.primary : undefined }}
-                          >
-                            <Text className="font-black text-[10px] uppercase tracking-widest" style={{ color: draft.priority === p ? '#fff' : colors.textMuted }}>{p}</Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    </View>
-                    <View className="w-36">
-                      <Text className="text-[10px] font-black uppercase tracking-widest mb-3 ml-1" style={{ color: colors.textMuted }}>Weight</Text>
-                      <TextInput
-                        value={weightText}
-                        onChangeText={t => {
-                          const digits = t.replace(/[^0-9]/g, '');
-                          setWeightText(digits);
-                          if (digits) setDraft({ weight: parseInt(digits, 10) });
-                        }}
-                        onBlur={() => setWeightText(String(draft.weight ?? 1))}
-                        keyboardType="numeric"
-                        className="rounded-2xl px-6 py-4 font-black text-center"
-                        style={{ backgroundColor: colors.background, color: colors.textMain, borderWidth: 1, borderColor: colors.border }}
-                      />
+                  {/* Priority */}
+                  <View>
+                    <Text className="text-[10px] font-black uppercase tracking-widest mb-3 ml-1" style={{ color: colors.textMuted }}>Priority Level</Text>
+                    <View className="flex-row rounded-2xl p-1.5" style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}>
+                      {(['low', 'normal', 'high', 'urgent'] as const).map(p => (
+                        <TouchableOpacity
+                          key={p}
+                          onPress={() => setDraft({ priority: p })}
+                          className={`flex-1 py-3 items-center rounded-xl transition-all ${draft.priority === p ? '' : 'hover:bg-surface-overlay'}`}
+                          style={{ backgroundColor: draft.priority === p ? colors.primary : undefined }}
+                        >
+                          <Text className="font-black text-[10px] uppercase tracking-widest" style={{ color: draft.priority === p ? '#fff' : colors.textMuted }}>{p}</Text>
+                        </TouchableOpacity>
+                      ))}
                     </View>
                   </View>
 
-                  {/* Pipeline + Project */}
+                  {/* Pipeline */}
                   <View className="flex-row gap-8">
                     <View className="flex-1">
                       <Text className="text-[10px] font-black uppercase tracking-widest mb-3 ml-1" style={{ color: colors.textMuted }}>Pipeline</Text>
@@ -1427,32 +1440,6 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                           </Text>
                         </View>
                         <FontAwesome name={showPipelineDropdown ? 'chevron-up' : 'chevron-down'} size={11} color={colors.textDim} />
-                      </TouchableOpacity>
-                    </View>
-
-                    <View className="flex-1">
-                      <Text className="text-[10px] font-black uppercase tracking-widest mb-3 ml-1" style={{ color: colors.textMuted }}>Project</Text>
-                      <TouchableOpacity
-                        ref={projectButtonRef}
-                        onPress={() => {
-                          if (!showProjectDropdown) {
-                            openOverlay(projectButtonRef, setProjectDropdownPos, setShowProjectDropdown);
-                            setShowCalendar(false); setShowStartCalendar(false); setShowPipelineDropdown(false);
-                          } else { setShowProjectDropdown(false); }
-                        }}
-                        className="rounded-2xl px-5 py-4 flex-row items-center justify-between transition-all"
-                        style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: showProjectDropdown ? colors.accent : colors.border }}
-                      >
-                        <View className="flex-row items-center gap-3 flex-1">
-                          {selectedProject?.color
-                            ? <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: selectedProject.color }} />
-                            : <FontAwesome name="folder-o" size={13} color={colors.textDim} />
-                          }
-                          <Text className="font-black text-sm flex-1" style={{ color: draft.projectId ? colors.textMain : colors.textDim }} numberOfLines={1}>
-                            {selectedProject?.name ?? 'None'}
-                          </Text>
-                        </View>
-                        <FontAwesome name={showProjectDropdown ? 'chevron-up' : 'chevron-down'} size={11} color={colors.textDim} />
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -1483,22 +1470,26 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                             </Text>
                           </TouchableOpacity>
                           {draft.startDate ? (
-                            <TouchableOpacity onPress={() => setDraft({ startDate: null })} className="px-4 py-4">
-                              <FontAwesome name="times-circle" size={14} color={colors.textDim} />
-                            </TouchableOpacity>
+                            <Tooltip label="Clear start date">
+                              <TouchableOpacity onPress={() => setDraft({ startDate: null })} className="px-4 py-4">
+                                <FontAwesome name="times-circle" size={14} color={colors.textDim} />
+                              </TouchableOpacity>
+                            </Tooltip>
                           ) : (
-                            <TouchableOpacity
-                              onPress={() => {
-                                if (!showStartCalendar) {
-                                  startCalPos.measure();
-                                  setShowStartCalendar(true);
-                                  setShowCalendar(false); setShowPipelineDropdown(false); setShowProjectDropdown(false);
-                                } else { setShowStartCalendar(false); }
-                              }}
-                              className="px-4 py-4"
-                            >
-                              <FontAwesome name="calendar-o" size={14} color={colors.accent} />
-                            </TouchableOpacity>
+                            <Tooltip label="Select start date">
+                              <TouchableOpacity
+                                onPress={() => {
+                                  if (!showStartCalendar) {
+                                    startCalPos.measure();
+                                    setShowStartCalendar(true);
+                                    setShowCalendar(false); setShowPipelineDropdown(false); setShowProjectDropdown(false);
+                                  } else { setShowStartCalendar(false); }
+                                }}
+                                className="px-4 py-4"
+                              >
+                                <FontAwesome name="calendar-o" size={14} color={colors.accent} />
+                              </TouchableOpacity>
+                            </Tooltip>
                           )}
                         </View>
                       </View>
@@ -1523,22 +1514,26 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                             </Text>
                           </TouchableOpacity>
                           {draft.dueDate ? (
-                            <TouchableOpacity onPress={() => setDraft({ dueDate: null })} className="px-4 py-4">
-                              <FontAwesome name="times-circle" size={14} color={colors.textDim} />
-                            </TouchableOpacity>
+                            <Tooltip label="Clear deadline">
+                              <TouchableOpacity onPress={() => setDraft({ dueDate: null })} className="px-4 py-4">
+                                <FontAwesome name="times-circle" size={14} color={colors.textDim} />
+                              </TouchableOpacity>
+                            </Tooltip>
                           ) : (
-                            <TouchableOpacity
-                              onPress={() => {
-                                if (!showCalendar) {
-                                  calPos.measure();
-                                  setShowCalendar(true);
-                                  setShowStartCalendar(false); setShowPipelineDropdown(false); setShowProjectDropdown(false);
-                                } else { setShowCalendar(false); }
-                              }}
-                              className="px-4 py-4"
-                            >
-                              <FontAwesome name="calendar" size={14} color={colors.primary} />
-                            </TouchableOpacity>
+                            <Tooltip label="Select deadline">
+                              <TouchableOpacity
+                                onPress={() => {
+                                  if (!showCalendar) {
+                                    calPos.measure();
+                                    setShowCalendar(true);
+                                    setShowStartCalendar(false); setShowPipelineDropdown(false); setShowProjectDropdown(false);
+                                  } else { setShowCalendar(false); }
+                                }}
+                                className="px-4 py-4"
+                              >
+                                <FontAwesome name="calendar" size={14} color={colors.primary} />
+                              </TouchableOpacity>
+                            </Tooltip>
                           )}
                         </View>
                       </View>
@@ -1551,6 +1546,70 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                         <Text className="text-[10px] font-black uppercase tracking-wider" style={{ color: colors.warning }}>Start date is after deadline</Text>
                       </View>
                     )}
+                  </View>
+
+                  {/* More options — secondary fields, collapsed by default */}
+                  <TouchableOpacity
+                    onPress={() => setShowMore(v => !v)}
+                    disabled={advancedInUse}
+                    className="rounded-2xl py-4 flex-row items-center justify-center gap-3 transition-colors hover:bg-surface-overlay"
+                    style={{ backgroundColor: colors.background, borderWidth: 1.5, borderStyle: 'dashed' as any, borderColor: advancedInUse ? colors.border : colors.primary + '66' }}
+                  >
+                    <FontAwesome name={advancedOpen ? 'chevron-up' : 'sliders'} size={13} color={advancedInUse ? colors.textDim : colors.primary} />
+                    <Text className="text-[11px] font-black uppercase tracking-widest" style={{ color: advancedInUse ? colors.textDim : colors.primary }}>
+                      {advancedOpen
+                        ? (advancedInUse ? 'More Options — in use' : 'Hide More Options')
+                        : 'More Options — Project · Category · Weight · Max Hours'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {advancedOpen && (
+                  <>
+                  {/* Project + Weight */}
+                  <View className="flex-row gap-8">
+                    <View className="flex-1">
+                      <Text className="text-[10px] font-black uppercase tracking-widest mb-3 ml-1" style={{ color: colors.textMuted }}>Project</Text>
+                      <TouchableOpacity
+                        ref={projectButtonRef}
+                        onPress={() => {
+                          if (!showProjectDropdown) {
+                            openOverlay(projectButtonRef, setProjectDropdownPos, setShowProjectDropdown);
+                            setShowCalendar(false); setShowStartCalendar(false); setShowPipelineDropdown(false);
+                          } else { setShowProjectDropdown(false); }
+                        }}
+                        className="rounded-2xl px-5 py-4 flex-row items-center justify-between transition-all"
+                        style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: showProjectDropdown ? colors.accent : colors.border }}
+                      >
+                        <View className="flex-row items-center gap-3 flex-1">
+                          {selectedProject?.color
+                            ? <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: selectedProject.color }} />
+                            : <FontAwesome name="folder-o" size={13} color={colors.textDim} />
+                          }
+                          <Text className="font-black text-sm flex-1" style={{ color: draft.projectId ? colors.textMain : colors.textDim }} numberOfLines={1}>
+                            {selectedProject?.name ?? 'None'}
+                          </Text>
+                        </View>
+                        <FontAwesome name={showProjectDropdown ? 'chevron-up' : 'chevron-down'} size={11} color={colors.textDim} />
+                      </TouchableOpacity>
+                    </View>
+                    <View className="w-36">
+                      <Text className="text-[10px] font-black uppercase tracking-widest mb-3 ml-1" style={{ color: colors.textMuted }}>Weight</Text>
+                      <TextInput
+                        value={weightText}
+                        onChangeText={t => {
+                          const digits = t.replace(/[^0-9]/g, '');
+                          if (!digits) { setWeightText(''); return; }
+                          const clamped = Math.min(10, Math.max(1, parseInt(digits, 10)));
+                          setWeightText(String(clamped));
+                          setDraft({ weight: clamped });
+                        }}
+                        onBlur={() => setWeightText(String(draft.weight ?? 1))}
+                        maxLength={2}
+                        keyboardType="numeric"
+                        className="rounded-2xl px-6 py-4 font-black text-center"
+                        style={{ backgroundColor: colors.background, color: colors.textMain, borderWidth: 1, borderColor: colors.border }}
+                      />
+                    </View>
                   </View>
 
                   {/* Category + Max Hours */}
@@ -1601,6 +1660,8 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                       </View>
                     </View>
                   </View>
+                  </>
+                  )}
 
                   {/* Mandate Documentation */}
                   <View>
@@ -1692,9 +1753,11 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                       style={{ color: colors.textMain }}
                     />
                     {search.length > 0 && (
-                      <TouchableOpacity onPress={() => setSearch('')} className="ml-2 p-1">
-                        <FontAwesome name="times-circle" size={13} color={colors.textDim} />
-                      </TouchableOpacity>
+                      <Tooltip label="Clear search">
+                        <TouchableOpacity onPress={() => setSearch('')} className="ml-2 p-1">
+                          <FontAwesome name="times-circle" size={13} color={colors.textDim} />
+                        </TouchableOpacity>
+                      </Tooltip>
                     )}
                   </View>
 
@@ -1730,7 +1793,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                         {teams.filter(t => t.name?.toLowerCase().includes(search.toLowerCase())).map(t => (
                           <TouchableOpacity
                             key={t.id}
-                            onPress={() => toggleTeam(t.id)}
+                            onPress={() => toggleTeamAssignee(t.id)}
                             className={`flex-row items-center justify-between p-4 rounded-xl border transition-all ${draft.assigneeTeamIds.includes(t.id) ? '' : 'hover:border-brand-accent/40'}`}
                             style={{
                               backgroundColor: draft.assigneeTeamIds.includes(t.id) ? colors.accent + '1A' : colors.background + '80',

@@ -1,4 +1,5 @@
 import React from 'react';
+import Tooltip from '@/components/common/Tooltip';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useSubmission } from '@/contexts/SubmissionContext';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -43,12 +44,14 @@ export default function GlobalUploadBanner() {
             {/* Progress / Actions */}
             <View className="flex-row items-center">
               {job.status === 'error' || job.status === 'completed' ? (
-                <TouchableOpacity 
-                  onPress={() => clearJob(job.taskId)}
-                  className="bg-white/20 p-2 rounded-full"
-                >
-                  <FontAwesome name="times" size={12} color="#fff" />
-                </TouchableOpacity>
+                <Tooltip label="Dismiss">
+                  <TouchableOpacity
+                    onPress={() => clearJob(job.taskId)}
+                    className="bg-white/20 p-2 rounded-full"
+                  >
+                    <FontAwesome name="times" size={12} color="#fff" />
+                  </TouchableOpacity>
+                </Tooltip>
               ) : (
                 <View className="bg-white/20 px-2 py-1 rounded-md">
                   <Text className="text-white text-[10px] font-black uppercase tracking-tighter">

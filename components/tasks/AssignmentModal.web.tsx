@@ -4,6 +4,7 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import Popup from '@/components/common/Popup';
+import Tooltip from '@/components/common/Tooltip';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -188,12 +189,14 @@ export default function AssignmentModal({
               <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em]">Resource Allocation Protocol</Text>
             </View>
           </View>
-          <TouchableOpacity 
-            onPress={onClose}
-            className="w-12 h-12 bg-surface-background rounded-full items-center justify-center border border-surface-border hover:bg-surface-overlay transition-colors"
-          >
-            <FontAwesome name="times" size={20} color={colors.textMuted} />
-          </TouchableOpacity>
+          <Tooltip label="Close">
+            <TouchableOpacity
+              onPress={onClose}
+              className="w-12 h-12 bg-surface-background rounded-full items-center justify-center border border-surface-border hover:bg-surface-overlay transition-colors"
+            >
+              <FontAwesome name="times" size={20} color={colors.textMuted} />
+            </TouchableOpacity>
+          </Tooltip>
         </View>
 
         {loading ? (

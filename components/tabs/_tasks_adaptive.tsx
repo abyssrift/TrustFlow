@@ -4,6 +4,7 @@ import HorizontalScroll from '@/components/common/HorizontalScroll';
 import LinkifiedText from '@/components/common/LinkifiedText';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
 import Popup from '@/components/common/Popup';
+import Tooltip from '@/components/common/Tooltip';
 import KanbanPersonalizer from '@/components/kanban/KanbanPersonalizer';
 import SkeletonBlock, { SkeletonList } from '@/components/Skeleton';
 import ActiveSessionAvatars from '@/components/task-detail/ActiveSessionAvatars';
@@ -1080,20 +1081,24 @@ function TasksScreen() {
           <View className="flex-row items-center gap-1.5 shrink-0">
             <TaskPingButton task={task} userId={user?.id || ''} />
             {hasPermission('task.assign') && (
-              <TouchableOpacity
-                onPress={() => handleOpenAssignments(task)}
-                className="w-7 h-7 items-center justify-center rounded-xl bg-surface-background border border-surface-border"
-              >
-                <FontAwesome name="user-plus" size={10} className="text-typography-muted" />
-              </TouchableOpacity>
+              <Tooltip label="Manage assignments">
+                <TouchableOpacity
+                  onPress={() => handleOpenAssignments(task)}
+                  className="w-7 h-7 items-center justify-center rounded-xl bg-surface-background border border-surface-border"
+                >
+                  <FontAwesome name="user-plus" size={10} className="text-typography-muted" />
+                </TouchableOpacity>
+              </Tooltip>
             )}
             {(profile?.is_owner || hasPermission('archive:create') || hasPermission('pipeline.edit')) && (
-              <TouchableOpacity
-                onPress={() => setArchiveModal({ visible: true, taskId: task.id })}
-                className="w-7 h-7 items-center justify-center rounded-xl bg-surface-background border border-surface-border"
-              >
-                <FontAwesome name="archive" size={10} className="text-typography-muted" />
-              </TouchableOpacity>
+              <Tooltip label="Archive task">
+                <TouchableOpacity
+                  onPress={() => setArchiveModal({ visible: true, taskId: task.id })}
+                  className="w-7 h-7 items-center justify-center rounded-xl bg-surface-background border border-surface-border"
+                >
+                  <FontAwesome name="archive" size={10} className="text-typography-muted" />
+                </TouchableOpacity>
+              </Tooltip>
             )}
           </View>
         </View>
@@ -1184,17 +1189,19 @@ function TasksScreen() {
                </View>
             )}
 
-            <TouchableOpacity
-              onPress={async () => {
-                if (pipeline?.id) {
-                  await AsyncStorage.setItem('@TrustFlow_selected_pipeline', pipeline.id);
-                }
-                router.push('/admin/pipelines' as any);
-              }}
-              className="p-1.5"
-            >
-               <FontAwesome name="ellipsis-h" size={14} className="text-typography-muted" />
-            </TouchableOpacity>
+            <Tooltip label="Configure stage">
+              <TouchableOpacity
+                onPress={async () => {
+                  if (pipeline?.id) {
+                    await AsyncStorage.setItem('@TrustFlow_selected_pipeline', pipeline.id);
+                  }
+                  router.push('/admin/pipelines' as any);
+                }}
+                className="p-1.5"
+              >
+                 <FontAwesome name="ellipsis-h" size={14} className="text-typography-muted" />
+              </TouchableOpacity>
+            </Tooltip>
         </View>
         
         <ScrollView 
@@ -1392,12 +1399,14 @@ function TasksScreen() {
           </View>
 
           {/* Tools toggle */}
-          <TouchableOpacity
-            onPress={() => setShowTools(v => !v)}
-            className={`p-2.5 rounded-xl border ${showTools ? 'bg-brand-primary border-brand-primary' : 'bg-brand-primary/10 border-brand-primary/20'}`}
-          >
-            <FontAwesome name="wrench" size={15} color={showTools ? 'white' : colors.primary} />
-          </TouchableOpacity>
+          <Tooltip label="Toggle tools tray">
+            <TouchableOpacity
+              onPress={() => setShowTools(v => !v)}
+              className={`p-2.5 rounded-xl border ${showTools ? 'bg-brand-primary border-brand-primary' : 'bg-brand-primary/10 border-brand-primary/20'}`}
+            >
+              <FontAwesome name="wrench" size={15} color={showTools ? 'white' : colors.primary} />
+            </TouchableOpacity>
+          </Tooltip>
         </View>
 
         {/* Row 2: tools tray — only visible when toggled */}
@@ -1409,77 +1418,95 @@ function TasksScreen() {
             contentContainerStyle={{ gap: 8, alignItems: 'center', paddingTop: 10 }}
           >
             {hasPermission('manage_notifications') && (
-              <TouchableOpacity
-                onPress={() => router.push('/admin/notifications' as any)}
-                className="bg-brand-primary/10 p-2.5 rounded-xl border border-brand-primary/20"
-              >
-                <FontAwesome name="bell" size={15} className="text-brand-primary" />
-              </TouchableOpacity>
+              <Tooltip label="Manage notifications">
+                <TouchableOpacity
+                  onPress={() => router.push('/admin/notifications' as any)}
+                  className="bg-brand-primary/10 p-2.5 rounded-xl border border-brand-primary/20"
+                >
+                  <FontAwesome name="bell" size={15} className="text-brand-primary" />
+                </TouchableOpacity>
+              </Tooltip>
             )}
             {hasPermission('role.manage') && (
-              <TouchableOpacity
-                onPress={() => router.push('/admin/roles')}
-                className="bg-brand-primary/10 p-2.5 rounded-xl border border-brand-primary/20"
-              >
-                <FontAwesome name="shield" size={15} className="text-brand-primary" />
-              </TouchableOpacity>
+              <Tooltip label="Manage roles">
+                <TouchableOpacity
+                  onPress={() => router.push('/admin/roles')}
+                  className="bg-brand-primary/10 p-2.5 rounded-xl border border-brand-primary/20"
+                >
+                  <FontAwesome name="shield" size={15} className="text-brand-primary" />
+                </TouchableOpacity>
+              </Tooltip>
             )}
-            <TouchableOpacity
-              onPress={() => setMineOnly(v => !v)}
-              className={`p-2.5 rounded-xl border ${mineOnly ? 'bg-brand-primary border-brand-primary' : 'bg-brand-primary/10 border-brand-primary/20'}`}
-            >
-              <FontAwesome name="user" size={13} color={mineOnly ? 'white' : colors.primary} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => {
-                const next = !showSearch;
-                setShowSearch(next);
-                if (!next) { setSearchQuery(''); Keyboard.dismiss(); }
-              }}
-              className={`p-2.5 rounded-xl border ${showSearch || searchQuery ? 'bg-brand-primary/10 border-brand-primary' : 'bg-brand-primary/10 border-brand-primary/20'}`}
-            >
-              <FontAwesome name="search" size={13} color={showSearch || searchQuery ? colors.primary : colors.textMuted} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setShowFilters(v => !v)}
-              className={`p-2.5 rounded-xl border flex-row items-center gap-1.5 ${showFilters || activeFilterCount > 0 ? 'bg-brand-primary/10 border-brand-primary' : 'bg-brand-primary/10 border-brand-primary/20'}`}
-            >
-              <FontAwesome name="sliders" size={15} color={colors.primary} />
-              {activeFilterCount > 0 && (
-                <View className="bg-brand-primary rounded-full w-4 h-4 items-center justify-center">
-                  <Text className="text-white text-[9px] font-black">{activeFilterCount}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setShowPersonalizer(true)}
-              className="bg-brand-primary/10 p-2.5 rounded-xl border border-brand-primary/20"
-            >
-              <FontAwesome name="paint-brush" size={15} className="text-brand-primary" />
-            </TouchableOpacity>
-            {hasPermission('pipeline.edit') && (
+            <Tooltip label="Show only my tasks">
               <TouchableOpacity
-                onPress={() => router.push('/admin/pipelines')}
+                onPress={() => setMineOnly(v => !v)}
+                className={`p-2.5 rounded-xl border ${mineOnly ? 'bg-brand-primary border-brand-primary' : 'bg-brand-primary/10 border-brand-primary/20'}`}
+              >
+                <FontAwesome name="user" size={13} color={mineOnly ? 'white' : colors.primary} />
+              </TouchableOpacity>
+            </Tooltip>
+            <Tooltip label="Search tasks">
+              <TouchableOpacity
+                onPress={() => {
+                  const next = !showSearch;
+                  setShowSearch(next);
+                  if (!next) { setSearchQuery(''); Keyboard.dismiss(); }
+                }}
+                className={`p-2.5 rounded-xl border ${showSearch || searchQuery ? 'bg-brand-primary/10 border-brand-primary' : 'bg-brand-primary/10 border-brand-primary/20'}`}
+              >
+                <FontAwesome name="search" size={13} color={showSearch || searchQuery ? colors.primary : colors.textMuted} />
+              </TouchableOpacity>
+            </Tooltip>
+            <Tooltip label="Filter tasks">
+              <TouchableOpacity
+                onPress={() => setShowFilters(v => !v)}
+                className={`p-2.5 rounded-xl border flex-row items-center gap-1.5 ${showFilters || activeFilterCount > 0 ? 'bg-brand-primary/10 border-brand-primary' : 'bg-brand-primary/10 border-brand-primary/20'}`}
+              >
+                <FontAwesome name="sliders" size={15} color={colors.primary} />
+                {activeFilterCount > 0 && (
+                  <View className="bg-brand-primary rounded-full w-4 h-4 items-center justify-center">
+                    <Text className="text-white text-[9px] font-black">{activeFilterCount}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </Tooltip>
+            <Tooltip label="Customize board">
+              <TouchableOpacity
+                onPress={() => setShowPersonalizer(true)}
                 className="bg-brand-primary/10 p-2.5 rounded-xl border border-brand-primary/20"
               >
-                <FontAwesome name="cog" size={15} className="text-brand-primary" />
+                <FontAwesome name="paint-brush" size={15} className="text-brand-primary" />
               </TouchableOpacity>
+            </Tooltip>
+            {hasPermission('pipeline.edit') && (
+              <Tooltip label="Configure pipeline">
+                <TouchableOpacity
+                  onPress={() => router.push('/admin/pipelines')}
+                  className="bg-brand-primary/10 p-2.5 rounded-xl border border-brand-primary/20"
+                >
+                  <FontAwesome name="cog" size={15} className="text-brand-primary" />
+                </TouchableOpacity>
+              </Tooltip>
             )}
             {(hasPermission('task.create') || hasPermission('report.export') || hasPermission('task.view_all')) && (
-              <TouchableOpacity
-                onPress={() => setShowMobility(true)}
-                className="bg-brand-primary/10 p-2.5 rounded-xl border border-brand-primary/20"
-              >
-                <FontAwesome name="exchange" size={15} className="text-brand-primary" />
-              </TouchableOpacity>
+              <Tooltip label="Import tasks">
+                <TouchableOpacity
+                  onPress={() => setShowMobility(true)}
+                  className="bg-brand-primary/10 p-2.5 rounded-xl border border-brand-primary/20"
+                >
+                  <FontAwesome name="exchange" size={15} className="text-brand-primary" />
+                </TouchableOpacity>
+              </Tooltip>
             )}
             {hasPermission('task.create') && (
-              <TouchableOpacity
-                onPress={handleCreateTask}
-                className="bg-brand-primary w-9 h-9 rounded-xl items-center justify-center"
-              >
-                <FontAwesome name="plus" size={15} color="white" />
-              </TouchableOpacity>
+              <Tooltip label="Create task">
+                <TouchableOpacity
+                  onPress={handleCreateTask}
+                  className="bg-brand-primary w-9 h-9 rounded-xl items-center justify-center"
+                >
+                  <FontAwesome name="plus" size={15} color="white" />
+                </TouchableOpacity>
+              </Tooltip>
             )}
           </ScrollView>
         )}
@@ -1501,9 +1528,11 @@ function TasksScreen() {
             onBlur={() => { if (!searchQuery) setShowSearch(false); }}
           />
           {searchQuery.length > 0 && Platform.OS !== 'ios' && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <FontAwesome name="times-circle" size={14} className="text-typography-muted" />
-            </TouchableOpacity>
+            <Tooltip label="Clear search">
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <FontAwesome name="times-circle" size={14} className="text-typography-muted" />
+              </TouchableOpacity>
+            </Tooltip>
           )}
         </View>
       )}
@@ -1531,9 +1560,11 @@ function TasksScreen() {
               <View className="p-5">
                 <View className="flex-row items-center justify-between mb-4">
                   <Text className="text-typography-main font-black text-2xl tracking-tighter">Switch Board</Text>
-                  <TouchableOpacity onPress={() => setShowPipelinePicker(false)} hitSlop={8}>
-                    <FontAwesome name="times" size={18} color={colors.textMuted} />
-                  </TouchableOpacity>
+                  <Tooltip label="Close" side="left">
+                    <TouchableOpacity onPress={() => setShowPipelinePicker(false)} hitSlop={8}>
+                      <FontAwesome name="times" size={18} color={colors.textMuted} />
+                    </TouchableOpacity>
+                  </Tooltip>
                 </View>
 
                 {/* Search */}
@@ -1547,9 +1578,11 @@ function TasksScreen() {
                     className="flex-1 ml-3 text-typography-main text-sm font-bold"
                   />
                   {boardPickerSearchQuery.length > 0 && (
-                    <TouchableOpacity onPress={() => setBoardPickerSearchQuery('')}>
-                      <FontAwesome name="times" size={12} color={colors.textMuted} />
-                    </TouchableOpacity>
+                    <Tooltip label="Clear search">
+                      <TouchableOpacity onPress={() => setBoardPickerSearchQuery('')}>
+                        <FontAwesome name="times" size={12} color={colors.textMuted} />
+                      </TouchableOpacity>
+                    </Tooltip>
                   )}
                 </View>
 
@@ -1599,21 +1632,25 @@ function TasksScreen() {
                         </TouchableOpacity>
 
                         {/* Personal default toggle */}
-                        <TouchableOpacity
-                          onPress={() => setMyDefaultBoard(p.id)}
-                          className="px-3 py-4 items-center justify-center"
-                        >
-                          <FontAwesome name={myDefaultPipelineId === p.id ? 'heart' : 'heart-o'} size={15} color={myDefaultPipelineId === p.id ? colors.success : colors.textMuted} />
-                        </TouchableOpacity>
+                        <Tooltip label="Set as my default">
+                          <TouchableOpacity
+                            onPress={() => setMyDefaultBoard(p.id)}
+                            className="px-3 py-4 items-center justify-center"
+                          >
+                            <FontAwesome name={myDefaultPipelineId === p.id ? 'heart' : 'heart-o'} size={15} color={myDefaultPipelineId === p.id ? colors.success : colors.textMuted} />
+                          </TouchableOpacity>
+                        </Tooltip>
 
                         {/* Workspace default toggle (admins only) */}
                         {hasPermission('pipeline.edit') && (
-                          <TouchableOpacity
-                            onPress={() => handleSetDefault(p.id)}
-                            className="px-3 py-4 items-center justify-center border-l border-surface-border/50"
-                          >
-                            <FontAwesome name={p.is_default ? 'flag' : 'flag-o'} size={15} color={p.is_default ? colors.warning : colors.textMuted} />
-                          </TouchableOpacity>
+                          <Tooltip label="Set as workspace default">
+                            <TouchableOpacity
+                              onPress={() => handleSetDefault(p.id)}
+                              className="px-3 py-4 items-center justify-center border-l border-surface-border/50"
+                            >
+                              <FontAwesome name={p.is_default ? 'flag' : 'flag-o'} size={15} color={p.is_default ? colors.warning : colors.textMuted} />
+                            </TouchableOpacity>
+                          </Tooltip>
                         )}
                       </View>
                    ); })}
@@ -1804,13 +1841,15 @@ function TasksScreen() {
       )}
 
       {hasPermission('task.create') && (
-        <TouchableOpacity
-          onPress={handleCreateTask}
-          className="absolute right-6 w-16 h-16 bg-brand-primary rounded-full items-center justify-center premium-shadow z-40 active:scale-90 transition-transform"
-          style={{ bottom: TAB_BAR_HEIGHT.native + 16 }}
-        >
-          <FontAwesome name="plus" size={24} color="white" />
-        </TouchableOpacity>
+        <Tooltip label="Create task">
+          <TouchableOpacity
+            onPress={handleCreateTask}
+            className="absolute right-6 w-16 h-16 bg-brand-primary rounded-full items-center justify-center premium-shadow z-40 active:scale-90 transition-transform"
+            style={{ bottom: TAB_BAR_HEIGHT.native + 16 }}
+          >
+            <FontAwesome name="plus" size={24} color="white" />
+          </TouchableOpacity>
+        </Tooltip>
       )}
 
       <CreateTaskModal

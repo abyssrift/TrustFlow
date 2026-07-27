@@ -5,6 +5,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import UserLink from '@/components/common/UserLink';
 import Popup from '@/components/common/Popup';
+import Tooltip from '@/components/common/Tooltip';
+import { DateRangeControls, useDateRange } from '@/components/intelligence/DateRangeFilter';
 
 // ── Types mirror rpc_filehub_analytics ───────────────────────────────────────
 type Totals = {
@@ -27,13 +29,6 @@ type Analytics = {
   channels: ChannelRow[];
 };
 
-const RANGES: { label: string; days: number }[] = [
-  { label: '7D', days: 7 },
-  { label: '30D', days: 30 },
-  { label: '90D', days: 90 },
-  { label: 'All', days: 0 },
-];
-
 function formatBytes(bytes: number): string {
   if (!bytes || bytes < 1024) return `${bytes || 0} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -55,7 +50,7 @@ const CHANNEL_KIND_LABEL: Record<ChannelRow['kind'], string> = {
 
 export default function FileHubAnalytics({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const c = useThemeColors();
-  const [days, setDays] = useState(30);
+  const { from, to, setFrom, setTo } = useDateRange(30);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<Analytics | null>(null);
@@ -66,7 +61,7 @@ export default function FileHubAnalytics({ visible, onClose }: { visible: boolea
     (async () => {
       setLoading(true);
       setError(null);
-      const { data: res, error: err } = await supabase.rpc('rpc_filehub_analytics', { p_days: days });
+      const { data: res, error: err } = await supabase.rpc('rpc_filehub_analytics', { p_from: from, p_to: to });
       if (cancelled) return;
       if (err) {
         setError(err.message);
@@ -77,7 +72,7 @@ export default function FileHubAnalytics({ visible, onClose }: { visible: boolea
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [visible, days]);
+  }, [visible, from, to]);
 
   const totals = data?.totals;
   const channelMax = useMemo(
@@ -101,29 +96,16 @@ export default function FileHubAnalytics({ visible, onClose }: { visible: boolea
               <Text className="text-2xl font-black tracking-tight" style={{ color: c.textMain }}>File Hub Analytics</Text>
               <Text className="text-xs font-medium mt-0.5" style={{ color: c.textMuted }}>Usage across your company</Text>
             </View>
-            <TouchableOpacity onPress={onClose} className="h-10 w-10 items-center justify-center rounded-full border" style={{ borderColor: c.border, backgroundColor: c.card }}>
-              <FontAwesome name="times" size={16} color={c.textMuted} />
-            </TouchableOpacity>
+            <Tooltip label="Close">
+              <TouchableOpacity onPress={onClose} className="h-10 w-10 items-center justify-center rounded-full border" style={{ borderColor: c.border, backgroundColor: c.card }}>
+                <FontAwesome name="times" size={16} color={c.textMuted} />
+              </TouchableOpacity>
+            </Tooltip>
           </View>
 
-          {/* Range selector */}
-          <View className="px-7 pt-4 flex-row items-center gap-2">
-            {RANGES.map(r => {
-              const active = r.days === days;
-              return (
-                <TouchableOpacity
-                  key={r.days}
-                  onPress={() => setDays(r.days)}
-                  className="px-4 py-1.5 rounded-lg border"
-                  style={{
-                    backgroundColor: active ? c.primary + '1A' : c.card,
-                    borderColor: active ? c.primary : c.border,
-                  }}
-                >
-                  <Text className="text-xs font-black uppercase tracking-wider" style={{ color: active ? c.primary : c.textMuted }}>{r.label}</Text>
-                </TouchableOpacity>
-              );
-            })}
+          {/* Calendar range filter */}
+          <View className="px-7 pt-4">
+            <DateRangeControls from={from} to={to} setFrom={setFrom} setTo={setTo} />
           </View>
 
           {loading ? (

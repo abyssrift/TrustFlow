@@ -1,3 +1,4 @@
+import Tooltip from '@/components/common/Tooltip';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -63,16 +64,18 @@ export default function TaskPingButton({ task, userId, className = '' }: Props) 
   };
 
   return (
-    <TouchableOpacity
-      onPress={handlePingTask}
-      disabled={pingLoading}
-      className={`w-7 h-7 items-center justify-center rounded-xl bg-surface-background border border-surface-border ${pingLoading ? 'opacity-50' : ''} ${className}`}
-    >
-      {pingLoading ? (
-        <ActivityIndicator size="small" color={colors.primary} />
-      ) : (
-        <FontAwesome name="bell" size={10} color={colors.primary} />
-      )}
-    </TouchableOpacity>
+    <Tooltip label="Ping assignee">
+      <TouchableOpacity
+        onPress={handlePingTask}
+        disabled={pingLoading}
+        className={`w-7 h-7 items-center justify-center rounded-xl bg-surface-background border border-surface-border ${pingLoading ? 'opacity-50' : ''} ${className}`}
+      >
+        {pingLoading ? (
+          <ActivityIndicator size="small" color={colors.primary} />
+        ) : (
+          <FontAwesome name="bell" size={10} color={colors.primary} />
+        )}
+      </TouchableOpacity>
+    </Tooltip>
   );
 }

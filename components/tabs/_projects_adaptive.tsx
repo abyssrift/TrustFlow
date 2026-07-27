@@ -21,6 +21,7 @@ import { useAlert } from '@/contexts/AlertContext';
 import { TAB_BAR_HEIGHT } from '@/lib/layout';
 import { useNavBarPosition } from '@/hooks/useNavBarPosition';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import Tooltip from '@/components/common/Tooltip';
 
 type Project = {
   id: string;
@@ -177,12 +178,14 @@ export default function ProjectsScreen() {
            </View>
            <View className="flex-row items-center gap-2">
               {hasPermission('project.edit') && (
-                <TouchableOpacity
-                  onPress={(e) => { e.stopPropagation(); handleEdit(project); }}
-                  className="w-9 h-9 items-center justify-center rounded-xl border border-surface-border bg-surface-background"
-                >
-                  <FontAwesome name="pencil" size={12} color={colors.textMuted} />
-                </TouchableOpacity>
+                <Tooltip label="Edit project">
+                  <TouchableOpacity
+                    onPress={(e) => { e.stopPropagation(); handleEdit(project); }}
+                    className="w-9 h-9 items-center justify-center rounded-xl border border-surface-border bg-surface-background"
+                  >
+                    <FontAwesome name="pencil" size={12} color={colors.textMuted} />
+                  </TouchableOpacity>
+                </Tooltip>
               )}
               <View className={`px-3 py-1 rounded-full border ${project.status === 'active' ? 'bg-state-success/10 border-color-success/30' : 'bg-surface-background border-surface-border'}`}>
                  <Text className={`text-[10px] font-bold uppercase ${project.status === 'active' ? 'text-state-success' : 'text-typography-muted'}`}>
@@ -289,12 +292,14 @@ export default function ProjectsScreen() {
             />
           </View>
 
-          <TouchableOpacity
-            onPress={handleCreateNew}
-            className="bg-brand-primary p-3 rounded-xl"
-          >
-            <FontAwesome name="plus" size={16} color="white" />
-          </TouchableOpacity>
+          <Tooltip label="Create project">
+            <TouchableOpacity
+              onPress={handleCreateNew}
+              className="bg-brand-primary p-3 rounded-xl"
+            >
+              <FontAwesome name="plus" size={16} color="white" />
+            </TouchableOpacity>
+          </Tooltip>
         </View>
       </View>
 

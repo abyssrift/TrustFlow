@@ -6,6 +6,7 @@ import { FontAwesome } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Platform, Text, TouchableOpacity, View } from 'react-native';
 import Popup from '@/components/common/Popup';
+import Tooltip from '@/components/common/Tooltip';
 import UserLink from '@/components/common/UserLink';
 
 function formatFileSize(bytes: number): string {
@@ -187,15 +188,17 @@ export default function FileHubBin({ visible, onClose }: { visible: boolean; onC
           style={{ borderColor: c.border + '60', paddingLeft: 28 + depth * 28 }}
         >
           {isFolder ? (
-            <TouchableOpacity
-              onPress={() => hasChildren && toggleExpand(item.id)}
-              disabled={!hasChildren}
-              className="w-5 h-5 items-center justify-center mr-1.5 flex-shrink-0"
-            >
-              {hasChildren && (
-                <FontAwesome name={isExpanded ? 'chevron-down' : 'chevron-right'} size={10} color={c.textMuted} />
-              )}
-            </TouchableOpacity>
+            <Tooltip label={isExpanded ? 'Collapse folder' : 'Expand folder'} disabled={!hasChildren}>
+              <TouchableOpacity
+                onPress={() => hasChildren && toggleExpand(item.id)}
+                disabled={!hasChildren}
+                className="w-5 h-5 items-center justify-center mr-1.5 flex-shrink-0"
+              >
+                {hasChildren && (
+                  <FontAwesome name={isExpanded ? 'chevron-down' : 'chevron-right'} size={10} color={c.textMuted} />
+                )}
+              </TouchableOpacity>
+            </Tooltip>
           ) : (
             <View style={{ width: 20 }} className="mr-1.5 flex-shrink-0" />
           )}
@@ -267,9 +270,11 @@ export default function FileHubBin({ visible, onClose }: { visible: boolean; onC
                   <Text className="text-xs font-black uppercase tracking-wider" style={{ color: c.danger }}>Empty Bin</Text>
                 </TouchableOpacity>
               )}
-              <TouchableOpacity onPress={onClose} className="h-10 w-10 items-center justify-center rounded-full border" style={{ borderColor: c.border, backgroundColor: c.card }}>
-                <FontAwesome name="times" size={16} color={c.textMuted} />
-              </TouchableOpacity>
+              <Tooltip label="Close">
+                <TouchableOpacity onPress={onClose} className="h-10 w-10 items-center justify-center rounded-full border" style={{ borderColor: c.border, backgroundColor: c.card }}>
+                  <FontAwesome name="times" size={16} color={c.textMuted} />
+                </TouchableOpacity>
+              </Tooltip>
             </View>
           </View>
 

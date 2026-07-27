@@ -4,6 +4,7 @@ import { FontAwesome } from '@expo/vector-icons';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import React, { useEffect, useState } from 'react';
 import { Modal, Platform, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import Tooltip from '@/components/common/Tooltip';
 
 export type ReportFilters = {
   statuses: string[];
@@ -158,13 +159,15 @@ export default function ReportFiltersModal({ visible, onClose, onApply, initial 
                 <Text className="text-xs mt-1" style={{ color: colors.textMuted }}>Narrow down by status, type, and date range.</Text>
               )}
             </View>
-            <TouchableOpacity
-              onPress={onClose}
-              className="w-10 h-10 items-center justify-center rounded-xl"
-              style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}
-            >
-              <FontAwesome name="close" size={14} color={colors.textMuted} />
-            </TouchableOpacity>
+            <Tooltip label="Close">
+              <TouchableOpacity
+                onPress={onClose}
+                className="w-10 h-10 items-center justify-center rounded-xl"
+                style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}
+              >
+                <FontAwesome name="close" size={14} color={colors.textMuted} />
+              </TouchableOpacity>
+            </Tooltip>
           </View>
 
           <ScrollView

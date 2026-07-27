@@ -4,6 +4,7 @@ import { FontAwesome } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { ActivityIndicator, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Popup from '@/components/common/Popup';
+import Tooltip from '@/components/common/Tooltip';
 import { resolveNativeColorToken } from './colorCompat';
 
 export default function TransitionEditor() {
@@ -416,23 +417,27 @@ export default function TransitionEditor() {
                     </View>
 
                     <View className="flex-row gap-1.5">
-                      <TouchableOpacity
-                        onPress={() => {
-                          setFormLabel(t.label);
-                          setFormPerm(t.required_permission || '');
-                          setFormType(toUiType(t.transition_type));
-                          setEditingId(t.id);
-                        }}
-                        className="p-2 rounded-lg border border-surface-border bg-surface-background"
-                      >
-                        <FontAwesome name="pencil" size={10} color="#64748b" />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() => setConfirmDeleteId(t.id)}
-                        className="p-2 rounded-lg border border-surface-border bg-surface-background"
-                      >
-                        <FontAwesome name="trash-o" size={10} color={colors.textDim} />
-                      </TouchableOpacity>
+                      <Tooltip label="Edit rule">
+                        <TouchableOpacity
+                          onPress={() => {
+                            setFormLabel(t.label);
+                            setFormPerm(t.required_permission || '');
+                            setFormType(toUiType(t.transition_type));
+                            setEditingId(t.id);
+                          }}
+                          className="p-2 rounded-lg border border-surface-border bg-surface-background"
+                        >
+                          <FontAwesome name="pencil" size={10} color="#64748b" />
+                        </TouchableOpacity>
+                      </Tooltip>
+                      <Tooltip label="Delete rule">
+                        <TouchableOpacity
+                          onPress={() => setConfirmDeleteId(t.id)}
+                          className="p-2 rounded-lg border border-surface-border bg-surface-background"
+                        >
+                          <FontAwesome name="trash-o" size={10} color={colors.textDim} />
+                        </TouchableOpacity>
+                      </Tooltip>
                     </View>
                   </View>
                 )}

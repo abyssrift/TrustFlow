@@ -10,6 +10,7 @@ import { Link, useLocalSearchParams, usePathname, useRouter } from 'expo-router'
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, LayoutAnimation, Modal, Platform, Pressable, ScrollView, Text, Vibration, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Tooltip from '../common/Tooltip';
 
 type IconName = React.ComponentProps<typeof FontAwesome>['name'];
 
@@ -219,9 +220,11 @@ export default function WebMobileNav({
         <View className="flex-1 w-full" style={{ backgroundColor: colors.background }}>
           <View className="h-16 flex-row items-center justify-between px-6" style={{ borderBottomWidth: 1, borderColor: colors.border }}>
             <Text className="text-xl font-black" style={{ color: colors.textMain }}>Menu</Text>
-            <Pressable onPress={handleClose} className="h-10 w-10 items-center justify-center rounded-full" style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}>
-              <FontAwesome name="times" size={16} color={colors.textMain} />
-            </Pressable>
+            <Tooltip label="Close">
+              <Pressable onPress={handleClose} className="h-10 w-10 items-center justify-center rounded-full" style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}>
+                <FontAwesome name="times" size={16} color={colors.textMain} />
+              </Pressable>
+            </Tooltip>
           </View>
 
           <ScrollView className="flex-1 px-4 py-4">

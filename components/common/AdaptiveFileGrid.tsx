@@ -1,4 +1,5 @@
 import { groupPickedFiles } from '@/lib/filehubFolderTree';
+import Tooltip from './Tooltip';
 import { FontAwesome } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React, { useState } from 'react';
@@ -76,13 +77,15 @@ function AdaptiveFileGrid({
                       </Text>
                     </View>
                   </View>
-                  <TouchableOpacity
-                    onPress={() => onRemove(entry.indices)}
-                    className="absolute top-2 right-2 w-7 h-7 bg-black/50 rounded-full items-center justify-center"
-                    style={Platform.OS === 'web' ? { cursor: 'pointer' } : {}}
-                  >
-                    <FontAwesome name="times" size={11} color="#fff" />
-                  </TouchableOpacity>
+                  <Tooltip label="Remove folder">
+                    <TouchableOpacity
+                      onPress={() => onRemove(entry.indices)}
+                      className="absolute top-2 right-2 w-7 h-7 bg-black/50 rounded-full items-center justify-center"
+                      style={Platform.OS === 'web' ? { cursor: 'pointer' } : {}}
+                    >
+                      <FontAwesome name="times" size={11} color="#fff" />
+                    </TouchableOpacity>
+                  </Tooltip>
                   <View className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1.5 backdrop-blur-md">
                     <Text className="text-white text-[10px] font-bold text-center" numberOfLines={1}>
                       {entry.count} files · {formatFileSize(entry.size)}
@@ -127,13 +130,15 @@ function AdaptiveFileGrid({
                 )}
 
                 {/* Delete Button */}
-                <TouchableOpacity
-                  onPress={() => onRemove([idx])}
-                  className="absolute top-2 right-2 w-7 h-7 bg-black/50 rounded-full items-center justify-center"
-                  style={Platform.OS === 'web' ? { cursor: 'pointer' } : {}}
-                >
-                  <FontAwesome name="times" size={11} color="#fff" />
-                </TouchableOpacity>
+                <Tooltip label="Remove file">
+                  <TouchableOpacity
+                    onPress={() => onRemove([idx])}
+                    className="absolute top-2 right-2 w-7 h-7 bg-black/50 rounded-full items-center justify-center"
+                    style={Platform.OS === 'web' ? { cursor: 'pointer' } : {}}
+                  >
+                    <FontAwesome name="times" size={11} color="#fff" />
+                  </TouchableOpacity>
+                </Tooltip>
 
                 {/* File Size Bar */}
                 <View className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1.5 backdrop-blur-md">

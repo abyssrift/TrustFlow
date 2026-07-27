@@ -1,6 +1,7 @@
 import ConfirmModal from '@/components/common/ConfirmModal';
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 import DraggableSheet from '@/components/common/DraggableSheet';
+import Tooltip from '@/components/common/Tooltip';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { PROJECT_STATUS_OPTIONS, useProjectFolderForm } from '@/lib/useProjectFolderForm';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -52,9 +53,11 @@ export default function ProjectFolderModal({
           <Text className="text-typography-main text-xl font-bold">
             {project ? 'Edit Project' : 'New Project'}
           </Text>
-          <TouchableOpacity onPress={onClose} className="p-2">
-            <FontAwesome name="close" size={20} color="#94a3b8" />
-          </TouchableOpacity>
+          <Tooltip label="Close">
+            <TouchableOpacity onPress={onClose} className="p-2">
+              <FontAwesome name="close" size={20} color="#94a3b8" />
+            </TouchableOpacity>
+          </Tooltip>
         </View>
 
         {/* Form Content */}
@@ -103,12 +106,14 @@ export default function ProjectFolderModal({
                 <FontAwesome name="calendar" size={14} color="#64748b" />
               </TouchableOpacity>
               {expiryDate && (
-                <TouchableOpacity
-                  onPress={() => { setExpiryDate(null); setShowCalendar(false); }}
-                  className="w-14 bg-surface-card border border-surface-border rounded-xl items-center justify-center"
-                >
-                  <FontAwesome name="times" size={14} color="#64748b" />
-                </TouchableOpacity>
+                <Tooltip label="Clear date">
+                  <TouchableOpacity
+                    onPress={() => { setExpiryDate(null); setShowCalendar(false); }}
+                    className="w-14 bg-surface-card border border-surface-border rounded-xl items-center justify-center"
+                  >
+                    <FontAwesome name="times" size={14} color="#64748b" />
+                  </TouchableOpacity>
+                </Tooltip>
               )}
             </View>
             {showCalendar && (

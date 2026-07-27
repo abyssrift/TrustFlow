@@ -1,5 +1,6 @@
 import ClipboardControls from '@/components/common/ClipboardControls';
 import Popup from '@/components/common/Popup';
+import Tooltip from '@/components/common/Tooltip';
 import { FilePreviewGrid } from '@/components/common/FilePreviewCard';
 import LinkifiedText from '@/components/common/LinkifiedText';
 import ManualTimeApprovalsModal from '@/components/common/ManualTimeApprovalsModal';
@@ -952,13 +953,15 @@ export default function StageActions() {
                     <Text className="text-typography-dim text-[9px] font-bold">by <UserLink userId={s.submitted_by?.id} name={s.submitted_by?.full_name} fallback="Unknown" className="text-typography-dim text-[9px] font-bold" /></Text>
                     <Text className="text-typography-dim text-[9px]">{new Date(s.submitted_at).toLocaleDateString()}</Text>
                     {s.version_count > 1 && (
-                      <TouchableOpacity
-                        onPress={() => openHistory(s.id)}
-                        className="flex-row items-center bg-surface-background px-1.5 py-0.5 rounded-md border border-surface-border"
-                      >
-                        <FontAwesome name="history" size={9} color={colors.textMuted} />
-                        <Text className="text-typography-muted text-[9px] font-black ml-1">v{s.version_count}</Text>
-                      </TouchableOpacity>
+                      <Tooltip label="View version history">
+                        <TouchableOpacity
+                          onPress={() => openHistory(s.id)}
+                          className="flex-row items-center bg-surface-background px-1.5 py-0.5 rounded-md border border-surface-border"
+                        >
+                          <FontAwesome name="history" size={9} color={colors.textMuted} />
+                          <Text className="text-typography-muted text-[9px] font-black ml-1">v{s.version_count}</Text>
+                        </TouchableOpacity>
+                      </Tooltip>
                     )}
                     {!!s.content && (
                       <View className="ml-2">
@@ -967,23 +970,27 @@ export default function StageActions() {
                     )}
                     {(s.submitted_by?.id === user?.id || data.permissions.is_manager || data.permissions.is_owner) && (
                       <>
-                        <TouchableOpacity onPress={() => openEdit(s)} className="ml-auto p-1">
-                          <FontAwesome name="pencil" size={11} color={colors.textMuted} />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          onPress={() => showConfirm(
-                            'Delete Submission',
-                            'The submission and its attachments will be removed. Management can restore it later.',
-                            () => deleteSubmission(s.id).catch(err => setErrorMsg({ title: 'Delete Failed', message: err.message })),
-                            undefined,
-                            'Delete',
-                            'Cancel',
-                            'destructive'
-                          )}
-                          className="p-1"
-                        >
-                          <FontAwesome name="trash-o" size={11} color={colors.danger} />
-                        </TouchableOpacity>
+                        <Tooltip label="Edit submission">
+                          <TouchableOpacity onPress={() => openEdit(s)} className="ml-auto p-1">
+                            <FontAwesome name="pencil" size={11} color={colors.textMuted} />
+                          </TouchableOpacity>
+                        </Tooltip>
+                        <Tooltip label="Delete submission">
+                          <TouchableOpacity
+                            onPress={() => showConfirm(
+                              'Delete Submission',
+                              'The submission and its attachments will be removed. Management can restore it later.',
+                              () => deleteSubmission(s.id).catch(err => setErrorMsg({ title: 'Delete Failed', message: err.message })),
+                              undefined,
+                              'Delete',
+                              'Cancel',
+                              'destructive'
+                            )}
+                            className="p-1"
+                          >
+                            <FontAwesome name="trash-o" size={11} color={colors.danger} />
+                          </TouchableOpacity>
+                        </Tooltip>
                       </>
                     )}
                   </View>

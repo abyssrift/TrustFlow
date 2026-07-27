@@ -1,5 +1,6 @@
 import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
+import Tooltip from '@/components/common/Tooltip';
 import { CommentData, useTaskDetail } from '@/contexts/TaskDetailContext';
 import { useTimer } from '@/contexts/TimerContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -76,9 +77,11 @@ function CommentNode({ comment, depth, onReply, onDelete, canComment, currentUse
 
           {/* Delete button (only for own comments) */}
           {currentUserId === comment.author?.id && (
-            <TouchableOpacity onPress={() => onDelete(comment.id)} className="p-1">
-              <FontAwesome name="trash-o" size={10} color={colors.textMuted} />
-            </TouchableOpacity>
+            <Tooltip label="Delete comment">
+              <TouchableOpacity onPress={() => onDelete(comment.id)} className="p-1">
+                <FontAwesome name="trash-o" size={10} color={colors.textMuted} />
+              </TouchableOpacity>
+            </Tooltip>
           )}
         </View>
 
@@ -330,9 +333,11 @@ export default function CommentsSection() {
               <Text className="text-typography-muted text-[10px] ml-2 flex-1" numberOfLines={1}>
                 Replying to <UserLink userId={replyComment.author?.id} name={replyComment.author?.full_name} className="text-typography-muted text-[10px]" />: {replyComment.content}
               </Text>
-              <TouchableOpacity onPress={() => setReplyTo(null)}>
-                <FontAwesome name="times" size={10} color={colors.textMuted} />
-              </TouchableOpacity>
+              <Tooltip label="Cancel reply">
+                <TouchableOpacity onPress={() => setReplyTo(null)}>
+                  <FontAwesome name="times" size={10} color={colors.textMuted} />
+                </TouchableOpacity>
+              </Tooltip>
             </View>
           )}
 
@@ -375,17 +380,19 @@ export default function CommentsSection() {
               multiline
               className="flex-1 bg-surface-background border border-surface-border rounded-xl px-3 py-2.5 text-typography-main text-sm max-h-[100px]"
             />
-            <TouchableOpacity
-              onPress={handleSend}
-              disabled={sending || !input.trim()}
-              className={`bg-brand-primary p-2.5 rounded-xl ${(!input.trim() || sending) ? 'opacity-50' : ''}`}
-            >
-              {sending ? (
-                <ActivityIndicator size="small" color={colors.textMain} />
-              ) : (
-                <FontAwesome name="paper-plane" size={14} color={colors.textMain} />
-              )}
-            </TouchableOpacity>
+            <Tooltip label="Send comment">
+              <TouchableOpacity
+                onPress={handleSend}
+                disabled={sending || !input.trim()}
+                className={`bg-brand-primary p-2.5 rounded-xl ${(!input.trim() || sending) ? 'opacity-50' : ''}`}
+              >
+                {sending ? (
+                  <ActivityIndicator size="small" color={colors.textMain} />
+                ) : (
+                  <FontAwesome name="paper-plane" size={14} color={colors.textMain} />
+                )}
+              </TouchableOpacity>
+            </Tooltip>
           </View>
         </View>
       </PermissionGate>

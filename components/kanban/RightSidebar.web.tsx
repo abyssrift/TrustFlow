@@ -9,6 +9,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
 import UserLink from '@/components/common/UserLink';
+import Tooltip from '@/components/common/Tooltip';
 import KanbanNotes from './KanbanNotes.web';
 import KanbanActivity from './KanbanActivity.web';
 import TimeByCategoryPie from './TimeByCategoryPie.web';
@@ -295,14 +296,15 @@ export default function RightSidebar({
       />
 
       {/* PULL TAB — circular bump near the top; click pins/unpins. */}
-      <Pressable
-        onPress={toggle}
-        accessibilityLabel={pinned ? 'Hide board info' : 'Show board info'}
-        style={{ position: 'absolute', top: 80, right: 0 }}
-        className="h-9 w-6 items-center justify-center rounded-l-full border border-r-0 border-surface-border bg-surface-card/95 premium-shadow glass-card hover:bg-surface-overlay transition-colors duration-150"
-      >
-        <FontAwesome name={chevron} size={11} color={colors.textDim} />
-      </Pressable>
+      <Tooltip label={pinned ? 'Hide board info' : 'Show board info'} style={{ position: 'absolute', top: 80, right: 0 }}>
+        <Pressable
+          onPress={toggle}
+          accessibilityLabel={pinned ? 'Hide board info' : 'Show board info'}
+          className="h-9 w-6 items-center justify-center rounded-l-full border border-r-0 border-surface-border bg-surface-card/95 premium-shadow glass-card hover:bg-surface-overlay transition-colors duration-150"
+        >
+          <FontAwesome name={chevron} size={11} color={colors.textDim} />
+        </Pressable>
+      </Tooltip>
     </View>
   );
 }

@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { IntelligencePicker } from './IntelligenceCommon';
+import Tooltip from '@/components/common/Tooltip';
 
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 
@@ -370,9 +371,11 @@ export const SnapshotDetailModal = ({ visible, onClose, data }: any) => {
               <Text className="text-3xl font-black mb-1" style={{ color: colors.textMain }}>Snapshot Telemetry</Text>
               <Text className="text-xs" style={{ color: colors.textMuted }}>Deep-inspecting historical data trace (PII Masked)</Text>
             </View>
-            <TouchableOpacity onPress={onClose} className="w-12 h-12 rounded-full border items-center justify-center" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
-              <FontAwesome name="times" size={16} color={colors.textDim} />
-            </TouchableOpacity>
+            <Tooltip label="Close">
+              <TouchableOpacity onPress={onClose} className="w-12 h-12 rounded-full border items-center justify-center" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
+                <FontAwesome name="times" size={16} color={colors.textDim} />
+              </TouchableOpacity>
+            </Tooltip>
           </View>
           <ScrollView className="p-10" style={{ backgroundColor: colors.background }}>
             <Text className="font-mono text-[11px] leading-relaxed" style={{ color: colors.textMain }}>

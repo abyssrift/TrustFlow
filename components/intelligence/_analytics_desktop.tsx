@@ -1,7 +1,8 @@
-import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 import UserLink from '@/components/common/UserLink';
+import { DateRangeControls, useGranularity } from '@/components/intelligence/DateRangeFilter';
 import { ConversionFunnelChartWeb, StageDwellChartWeb } from '@/components/intelligence/RadarWidgets';
-import { PersonnelRow, StageDwell, ThroughputPeriod, useAnalytics } from '@/contexts/AnalyticsContext';
+import { PersonnelRow, StageDwell, ThroughputBucket, useAnalytics } from '@/contexts/AnalyticsContext';
+import { bucketLabel } from '@/lib/chartBuckets';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useBillingPlan } from '@/hooks/useBillingPlan';
@@ -11,7 +12,7 @@ import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -43,17 +44,6 @@ function fmtPct(v: number | null): string {
 function fmtUSD(v: number | null): string {
   if (v === null) return '—';
   return `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-function maxFromDate(maxDays: number | null): string | null {
-  if (!maxDays) return null;
-  const d = new Date(Date.now() - maxDays * 86400000);
-  return d.toISOString().split('T')[0];
-}
-
-function clampDate(date: string, min: string | null): string {
-  if (!min) return date;
-  return date < min ? min : date;
 }
 
 function PlanGate({ feature, limits, children }: {
@@ -88,7 +78,7 @@ const ThroughputTooltip = ({ active, payload, label }: any) => {
   );
 };
 
-function ThroughputChart({ data }: { data: ThroughputPeriod[] }) {
+function ThroughputChart({ data }: { data: ThroughputBucket[] }) {
   const colors = useThemeColors();
   if (!data.length) {
     return (
@@ -98,7 +88,7 @@ function ThroughputChart({ data }: { data: ThroughputPeriod[] }) {
     );
   }
 
-  const chartData = [...data].reverse();
+  const chartData = data.map(d => ({ ...d, period_label: bucketLabel(d.bucket_start, d.bucket_end) }));
 
   return (
     <View style={{ height: 280, width: '100%' }}>
@@ -149,11 +139,12 @@ function ThroughputChart({ data }: { data: ThroughputPeriod[] }) {
 
 function PipelineTab({ planCode, limits }: { planCode: string; limits: AnalyticsLimits }) {
   const colors = useThemeColors();
-  const { getPipelineStageDwell, getPipelineThroughput } = useAnalytics();
+  const { getPipelineStageDwell, getPipelineThroughputRange } = useAnalytics();
   const { theme: activeTheme } = useTheme();
   const [pipelines, setPipelines] = useState<any[]>([]);
   const [selectedPipeline, setSelectedPipeline] = useState<string | null>(null);
-  const [period, setPeriod] = useState('month');
+  const granularity = useGranularity();
+  const buckets = granularity.buckets;
 
   const today = new Date();
   const initDays = Math.min(limits.maxDays ?? 30, 30);
@@ -162,32 +153,12 @@ function PipelineTab({ planCode, limits }: { planCode: string; limits: Analytics
 
   const [from, setFrom] = useState(defaultFrom.toISOString().split('T')[0]);
   const [to, setTo]     = useState(today.toISOString().split('T')[0]);
-  const minFrom = maxFromDate(limits.maxDays);
 
   const [dwell, setDwell]         = useState<StageDwell[]>([]);
-  const [throughput, setThroughput] = useState<ThroughputPeriod[]>([]);
+  const [throughput, setThroughput] = useState<ThroughputBucket[]>([]);
   const [auditData, setAuditData]   = useState<any>(null);
   const [loading, setLoading]     = useState(false);
-
-  // Calendar State
-  const [showFromCalendar, setShowFromCalendar] = useState(false);
-  const [showToCalendar, setShowToCalendar] = useState(false);
-  const fromRef = useRef<any>(null);
-  const toRef = useRef<any>(null);
-  const [fromPos, setFromPos] = useState({ top: 0, left: 0 });
-  const [toPos, setToPos] = useState({ top: 0, left: 0 });
-
-  const openOverlay = (
-    ref: React.RefObject<any>,
-    setPos: (p: { top: number; left: number }) => void,
-    setShow: (v: boolean) => void
-  ) => {
-    if (ref.current?.getBoundingClientRect) {
-      const rect = ref.current.getBoundingClientRect();
-      setPos({ top: rect.bottom + 6, left: rect.left });
-    }
-    setShow(true);
-  };
+  const [loaded, setLoaded]       = useState(false);
 
   useEffect(() => {
     supabase
@@ -211,16 +182,17 @@ function PipelineTab({ planCode, limits }: { planCode: string; limits: Analytics
       const nDays = Math.max(7, Math.ceil((new Date(to).getTime() - new Date(from).getTime()) / 86400000));
       const [d, t, a] = await Promise.all([
         getPipelineStageDwell(selectedPipeline, from, to),
-        getPipelineThroughput(selectedPipeline, period, 12),
+        getPipelineThroughputRange(selectedPipeline, from, to, buckets),
         supabase.rpc('rpc_get_organizational_audit', { p_pipeline_id: selectedPipeline, p_days: nDays }),
       ]);
       setDwell(d);
       setThroughput(t);
       setAuditData(a.data);
+      setLoaded(true);
     } finally {
       setLoading(false);
     }
-  }, [selectedPipeline, from, to, period]);
+  }, [selectedPipeline, from, to, buckets]);
 
 
 
@@ -262,50 +234,13 @@ function PipelineTab({ planCode, limits }: { planCode: string; limits: Analytics
                 <Text className="text-typography-muted text-[9px] font-bold">Max {limits.maxDays}d · {planCode.charAt(0).toUpperCase() + planCode.slice(1)}</Text>
               </View>
             )}
+            {loading && loaded && <ActivityIndicator size="small" color={colors.primary} />}
           </View>
-          <View className="flex-row flex-wrap gap-3 items-center">
-            <TouchableOpacity
-              ref={fromRef}
-              onPress={() => openOverlay(fromRef, setFromPos, setShowFromCalendar)}
-              className="bg-surface-card border border-surface-border rounded-xl px-4 py-2 flex-row items-center w-full max-w-[11rem]"
-            >
-              <FontAwesome name="calendar" size={12} color={colors.muted} className="mr-3" />
-              <Text className="text-typography-main text-sm flex-1">
-                {from ? new Date(from).toLocaleDateString(undefined, { dateStyle: 'medium' }) : 'Start Date'}
-              </Text>
-            </TouchableOpacity>
-            <Text className="text-typography-dim text-sm">→</Text>
-            <TouchableOpacity
-              ref={toRef}
-              onPress={() => openOverlay(toRef, setToPos, setShowToCalendar)}
-              className="bg-surface-card border border-surface-border rounded-xl px-4 py-2 flex-row items-center w-full max-w-[11rem]"
-            >
-              <FontAwesome name="calendar" size={12} color={colors.muted} className="mr-3" />
-              <Text className="text-typography-main text-sm flex-1">
-                {to ? new Date(to).toLocaleDateString(undefined, { dateStyle: 'medium' }) : 'End Date'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Period toggle for throughput */}
-        <View className="gap-2">
-          <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">Throughput Granularity</Text>
-          <View className="flex-row flex-wrap gap-2">
-            {['week', 'month', 'year'].map(p => (
-              <TouchableOpacity
-                key={p}
-                onPress={() => setPeriod(p)}
-                className={`px-4 py-2 rounded-xl border min-w-[86px] items-center ${period === p ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border'}`}
-              >
-                <Text className={`text-xs font-black uppercase ${period === p ? 'text-white' : 'text-typography-muted'}`}>{p}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <DateRangeControls from={from} to={to} setFrom={setFrom} setTo={setTo} maxDays={limits.maxDays} granularity={granularity} />
         </View>
       </View>
 
-      {loading ? (
+      {loading && !loaded ? (
         <View className="py-16 items-center">
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
@@ -338,41 +273,6 @@ function PipelineTab({ planCode, limits }: { planCode: string; limits: Analytics
           </PlanGate>
         </View>
       )}
-
-      {/* Calendar Overlays */}
-      {showFromCalendar && (
-        <>
-          <TouchableOpacity activeOpacity={1} className="fixed inset-0 z-[998]" onPress={() => setShowFromCalendar(false)} />
-          <View style={{ position: 'fixed', top: fromPos.top, zIndex: 999, width: 820,
-            ...( (fromPos.left + 840) > window.innerWidth ? { right: 20 } : { left: Math.max(20, fromPos.left) } )
-          } as any}>
-            <PremiumCalendarPicker
-              selectedDate={from}
-              onSelect={date => setFrom(clampDate(date, minFrom))}
-              accentColor={colors.primary}
-              rangeDate={to}
-              rangeColor={colors.secondary}
-            />
-          </View>
-        </>
-      )}
-
-      {showToCalendar && (
-        <>
-          <TouchableOpacity activeOpacity={1} className="fixed inset-0 z-[998]" onPress={() => setShowToCalendar(false)} />
-          <View style={{ position: 'fixed', top: toPos.top, zIndex: 999, width: 820,
-            ...( (toPos.left + 840) > window.innerWidth ? { right: 20 } : { left: Math.max(20, toPos.left) } )
-          } as any}>
-            <PremiumCalendarPicker
-              selectedDate={to}
-              onSelect={date => setTo(date)}
-              accentColor={colors.secondary}
-              rangeDate={from}
-              rangeColor={colors.primary}
-            />
-          </View>
-        </>
-      )}
     </View>
   );
 }
@@ -399,27 +299,6 @@ function PersonnelTab({ planCode, limits, catalog }: { planCode: string; limits:
 
   const [from, setFrom] = useState(defaultFrom.toISOString().split('T')[0]);
   const [to, setTo]     = useState(today.toISOString().split('T')[0]);
-  const minFrom = maxFromDate(limits.maxDays);
-
-  // Calendar State
-  const [showFromCalendar, setShowFromCalendar] = useState(false);
-  const [showToCalendar, setShowToCalendar] = useState(false);
-  const fromRef = useRef<any>(null);
-  const toRef = useRef<any>(null);
-  const [fromPos, setFromPos] = useState({ top: 0, left: 0 });
-  const [toPos, setToPos] = useState({ top: 0, left: 0 });
-
-  const openOverlay = (
-    ref: React.RefObject<any>,
-    setPos: (p: { top: number; left: number }) => void,
-    setShow: (v: boolean) => void
-  ) => {
-    if (ref.current?.getBoundingClientRect) {
-      const rect = ref.current.getBoundingClientRect();
-      setPos({ top: rect.bottom + 6, left: rect.left });
-    }
-    setShow(true);
-  };
 
   const [results, setResults]   = useState<PersonnelRow[]>([]);
   const [loading, setLoading]   = useState(false);
@@ -761,29 +640,7 @@ function PersonnelTab({ planCode, limits, catalog }: { planCode: string; limits:
             <View className="gap-5">
               <View className="gap-2">
                 <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest ml-1">Time Window</Text>
-                <View className="flex-row items-center gap-2">
-                  <TouchableOpacity
-                    ref={fromRef}
-                    onPress={() => openOverlay(fromRef, setFromPos, setShowFromCalendar)}
-                    className="flex-1 bg-surface-background border border-surface-border rounded-xl px-4 py-2 flex-row items-center"
-                  >
-                    <FontAwesome name="calendar" size={10} color={colors.muted} className="mr-2" />
-                    <Text className="text-typography-main text-xs flex-1">
-                      {from ? new Date(from).toLocaleDateString(undefined, { dateStyle: 'medium' }) : 'Start Date'}
-                    </Text>
-                  </TouchableOpacity>
-                  <Text className="text-typography-muted font-bold">→</Text>
-                  <TouchableOpacity
-                    ref={toRef}
-                    onPress={() => openOverlay(toRef, setToPos, setShowToCalendar)}
-                    className="flex-1 bg-surface-background border border-surface-border rounded-xl px-4 py-2 flex-row items-center"
-                  >
-                    <FontAwesome name="calendar" size={10} color={colors.muted} className="mr-2" />
-                    <Text className="text-typography-main text-xs flex-1">
-                      {to ? new Date(to).toLocaleDateString(undefined, { dateStyle: 'medium' }) : 'End Date'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+                <DateRangeControls from={from} to={to} setFrom={setFrom} setTo={setTo} maxDays={limits.maxDays} />
               </View>
 
               {selected.length > 0 && (
@@ -981,47 +838,6 @@ function PersonnelTab({ planCode, limits, catalog }: { planCode: string; limits:
         <View className="bg-surface-card border border-surface-border rounded-2xl p-10 items-center gap-3">
           <Text className="text-typography-main font-black">No data for selected users in this range.</Text>
         </View>
-      )}
-      {showFromCalendar && (
-        <>
-          <TouchableOpacity 
-            activeOpacity={1} 
-            className="fixed inset-0 z-[998]" 
-            onPress={() => setShowFromCalendar(false)} 
-          />
-          <View style={{ 
-            position: 'fixed', 
-            top: fromPos.top, 
-            zIndex: 999, 
-            width: 820,
-            ...( (fromPos.left + 840) > window.innerWidth ? { right: 20 } : { left: Math.max(20, fromPos.left) } )
-          } as any}>
-            <PremiumCalendarPicker
-              selectedDate={from}
-              onSelect={date => setFrom(clampDate(date, minFrom))}
-              accentColor={colors.primary}
-              rangeDate={to}
-              rangeColor={colors.secondary}
-            />
-          </View>
-        </>
-      )}
-
-      {showToCalendar && (
-        <>
-          <TouchableOpacity activeOpacity={1} className="fixed inset-0 z-[998]" onPress={() => setShowToCalendar(false)} />
-          <View style={{ position: 'fixed', top: toPos.top, zIndex: 999, width: 820,
-            ...( (toPos.left + 840) > window.innerWidth ? { right: 20 } : { left: Math.max(20, toPos.left) } )
-          } as any}>
-            <PremiumCalendarPicker
-              selectedDate={to}
-              onSelect={date => setTo(date)}
-              accentColor={colors.secondary}
-              rangeDate={from}
-              rangeColor={colors.primary}
-            />
-          </View>
-        </>
       )}
     </View>
   );
