@@ -11,6 +11,7 @@ import { ProfileAnalytics } from '@/components/analytics/ProfileAnalytics';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTheme, ThemeType } from '@/contexts/ThemeContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import Constants from 'expo-constants';
 
 const THEME_OPTIONS: { id: ThemeType; label: string; icon: string }[] = [
   { id: 'indigo', label: 'Indigo', icon: 'moon-o' },
@@ -249,6 +250,10 @@ export default function ProfilePage() {
           <FontAwesome name="sign-out" size={18} color={colors.textMain} style={{ marginRight: 12 }} />
           <Text className="text-sm font-black uppercase tracking-widest text-typography-main">Sign Out of Account</Text>
         </Pressable>
+
+        <Text selectable className="mt-4 text-center text-[10px] text-typography-dim">
+          v{Constants.expoConfig?.version ?? '?'}
+        </Text>
       </View>
     </ScrollView>
   );

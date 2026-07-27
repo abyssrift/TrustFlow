@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAlert } from '@/contexts/AlertContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { RoleTemplate } from '@/lib/roleTemplates';
+import Tooltip from '@/components/common/Tooltip';
 
 export default function RoleBuilder() {
   const colors = useThemeColors();
@@ -161,26 +162,30 @@ export default function RoleBuilder() {
                 </View>
                 <View className="flex-row items-center gap-2 flex-shrink-0">
                   {canManageRoles && Platform.OS === 'web' && (
-                    <TouchableOpacity
-                      onPress={(e: any) => {
-                        e.stopPropagation();
-                        handleCloneRole(role);
-                      }}
-                      className="w-9 h-9 items-center justify-center border border-surface-border rounded-xl bg-surface-background"
-                    >
-                      <FontAwesome name="clone" size={13} color={colors.textMuted} />
-                    </TouchableOpacity>
+                    <Tooltip label="Duplicate role">
+                      <TouchableOpacity
+                        onPress={(e: any) => {
+                          e.stopPropagation();
+                          handleCloneRole(role);
+                        }}
+                        className="w-9 h-9 items-center justify-center border border-surface-border rounded-xl bg-surface-background"
+                      >
+                        <FontAwesome name="clone" size={13} color={colors.textMuted} />
+                      </TouchableOpacity>
+                    </Tooltip>
                   )}
                   {!role.is_system && canManageRoles && (
-                    <TouchableOpacity
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        handleDelete(role);
-                      }}
-                      className="w-9 h-9 items-center justify-center border border-state-danger/10 rounded-xl bg-state-danger-dim"
-                    >
-                      <FontAwesome name="trash-o" size={14} color={colors.danger} />
-                    </TouchableOpacity>
+                    <Tooltip label="Delete role">
+                      <TouchableOpacity
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleDelete(role);
+                        }}
+                        className="w-9 h-9 items-center justify-center border border-state-danger/10 rounded-xl bg-state-danger-dim"
+                      >
+                        <FontAwesome name="trash-o" size={14} color={colors.danger} />
+                      </TouchableOpacity>
+                    </Tooltip>
                   )}
                 </View>
               </View>
@@ -190,20 +195,24 @@ export default function RoleBuilder() {
               </Text>
 
               <View className="flex-row items-center gap-2">
-                <View className="bg-surface-background px-3 py-1.5 rounded-lg border border-surface-border flex-row items-center">
-                  <FontAwesome name="key" size={10} color={colors.primary} />
-                  <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest ml-2">
-                    {role.permissionIds?.length || 0} permissions
-                  </Text>
-                </View>
-                <View className="bg-surface-background px-3 py-1.5 rounded-lg border border-surface-border flex-row items-center">
-                  <FontAwesome name="user" size={10} color={colors.textMuted} />
-                  <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest ml-2">
-                    {nPeople + nTeams > 0
-                      ? `${nPeople} ${nPeople === 1 ? 'person' : 'people'} · ${nTeams} ${nTeams === 1 ? 'team' : 'teams'}`
-                      : 'Unassigned'}
-                  </Text>
-                </View>
+                <Tooltip label="Permissions granted to this role">
+                  <View className="bg-surface-background px-3 py-1.5 rounded-lg border border-surface-border flex-row items-center">
+                    <FontAwesome name="key" size={10} color={colors.primary} />
+                    <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest ml-2">
+                      {role.permissionIds?.length || 0} permissions
+                    </Text>
+                  </View>
+                </Tooltip>
+                <Tooltip label="Members with this role">
+                  <View className="bg-surface-background px-3 py-1.5 rounded-lg border border-surface-border flex-row items-center">
+                    <FontAwesome name="user" size={10} color={colors.textMuted} />
+                    <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest ml-2">
+                      {nPeople + nTeams > 0
+                        ? `${nPeople} ${nPeople === 1 ? 'person' : 'people'} · ${nTeams} ${nTeams === 1 ? 'team' : 'teams'}`
+                        : 'Unassigned'}
+                    </Text>
+                  </View>
+                </Tooltip>
               </View>
             </TouchableOpacity>
             );

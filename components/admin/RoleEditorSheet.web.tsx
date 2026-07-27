@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import Popup from '@/components/common/Popup';
+import Tooltip from '@/components/common/Tooltip';
 import { Permission } from '@/contexts/RoleManagerContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { ROLE_TEMPLATES } from '@/lib/roleTemplates';
@@ -126,13 +127,15 @@ export default function RoleEditorSheet({
               <Text style={{ color: c.textMain }} className="font-black text-[10px] uppercase tracking-widest ml-2">Duplicate</Text>
             </TouchableOpacity>
           )}
-          <TouchableOpacity
-            onPress={requestClose}
-            className="w-10 h-10 items-center justify-center rounded-full"
-            style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}
-          >
-            <FontAwesome name="times" size={16} color={c.textMain} />
-          </TouchableOpacity>
+          <Tooltip label="Close">
+            <TouchableOpacity
+              onPress={requestClose}
+              className="w-10 h-10 items-center justify-center rounded-full"
+              style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}
+            >
+              <FontAwesome name="times" size={16} color={c.textMain} />
+            </TouchableOpacity>
+          </Tooltip>
         </View>
 
         {/* Body: two columns */}
@@ -263,9 +266,11 @@ export default function RoleEditorSheet({
                 style={{ color: c.textMain, outlineWidth: 0 } as any}
               />
               {q.length > 0 && (
-                <TouchableOpacity onPress={() => setQuery('')} className="w-7 h-7 items-center justify-center rounded-full" style={{ backgroundColor: c.background }}>
-                  <FontAwesome name="times" size={11} color={c.textMuted} />
-                </TouchableOpacity>
+                <Tooltip label="Clear search">
+                  <TouchableOpacity onPress={() => setQuery('')} className="w-7 h-7 items-center justify-center rounded-full" style={{ backgroundColor: c.background }}>
+                    <FontAwesome name="times" size={11} color={c.textMuted} />
+                  </TouchableOpacity>
+                </Tooltip>
               )}
             </View>
 
@@ -284,15 +289,17 @@ export default function RoleEditorSheet({
                       <Text style={{ color: c.textMain }} className="text-[11px] font-black uppercase tracking-widest flex-1">{cat}</Text>
                       <Text style={{ color: c.textMuted }} className="text-[10px] font-black mr-3">{selCount(cat)}/{catTotal(cat)}</Text>
                       {canEdit && onBulkToggle && (
-                        <TouchableOpacity
-                          onPress={() => onBulkToggle(catIds, !allSelected)}
-                          className="px-3 py-1.5 rounded-lg"
-                          style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}
-                        >
-                          <Text style={{ color: allSelected ? c.textMuted : c.primary }} className="text-[9px] font-black uppercase tracking-widest">
-                            {allSelected ? 'Clear' : 'All'}
-                          </Text>
-                        </TouchableOpacity>
+                        <Tooltip label={allSelected ? 'Deselect all in this category' : 'Select all in this category'}>
+                          <TouchableOpacity
+                            onPress={() => onBulkToggle(catIds, !allSelected)}
+                            className="px-3 py-1.5 rounded-lg"
+                            style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}
+                          >
+                            <Text style={{ color: allSelected ? c.textMuted : c.primary }} className="text-[9px] font-black uppercase tracking-widest">
+                              {allSelected ? 'Clear' : 'All'}
+                            </Text>
+                          </TouchableOpacity>
+                        </Tooltip>
                       )}
                     </View>
                     <View className="gap-1.5">

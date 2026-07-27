@@ -43,6 +43,8 @@ export type StagedBriefFile = {
 type TaskCreationContextType = {
   draft: TaskDraft;
   setDraft: (draft: Partial<TaskDraft>) => void;
+  toggleTeamAssignee: (teamId: string) => void;
+  loadTeamMembers: () => Promise<void>;
   resetDraft: () => void;
   recentTasks: any[];
   loadRecentTasks: () => Promise<void>;
@@ -74,7 +76,7 @@ const normalizeDraft = (draft: Partial<TaskDraft> | null | undefined): TaskDraft
     description: merged.description ?? '',
     priority,
     category: merged.category ?? 'General',
-    weight: Number.isFinite(merged.weight) && merged.weight > 0 ? merged.weight : 1,
+    weight: Number.isFinite(merged.weight) ? Math.min(10, Math.max(1, Math.round(merged.weight))) : 1,
     startDate: merged.startDate ?? null,
     dueDate: merged.dueDate ?? null,
     estimatedHours: merged.estimatedHours ?? null,
@@ -125,6 +127,39 @@ export const TaskCreationProvider = ({ children }: { children: React.ReactNode }
   const setDraft = useCallback((updates: Partial<TaskDraft>) => {
     setDraftState(prev => normalizeDraft({ ...prev, ...updates }));
   }, []);
+
+  // Team membership map, preloaded by the create modals on open so team
+  // toggles are instant (no fetch on tap). RLS scopes the query to the company.
+  const [teamMembers, setTeamMembers] = useState<Record<string, string[]>>({});
+  const loadTeamMembers = useCallback(async () => {
+    const { data } = await supabase
+      .from('team_members')
+      .select('team_id, user_id')
+      .is('removed_at', null);
+    const map: Record<string, string[]> = {};
+    (data || []).forEach((m: any) => { (map[m.team_id] = map[m.team_id] || []).push(m.user_id); });
+    setTeamMembers(map);
+  }, []);
+
+  // Selecting a team also selects its members so the pick is visible in the
+  // users list; deselecting removes them unless another still-selected team
+  // covers them (manually picked users outside the team are kept).
+  const toggleTeamAssignee = useCallback((teamId: string) => {
+    const members = teamMembers[teamId] || [];
+    if (!draft.assigneeTeamIds.includes(teamId)) {
+      setDraft({
+        assigneeTeamIds: [...draft.assigneeTeamIds, teamId],
+        assigneeUserIds: [...new Set([...draft.assigneeUserIds, ...members])],
+      });
+    } else {
+      const remainingTeams = draft.assigneeTeamIds.filter(t => t !== teamId);
+      const covered = new Set(remainingTeams.flatMap(t => teamMembers[t] || []));
+      setDraft({
+        assigneeTeamIds: remainingTeams,
+        assigneeUserIds: draft.assigneeUserIds.filter(u => !members.includes(u) || covered.has(u)),
+      });
+    }
+  }, [teamMembers, draft.assigneeTeamIds, draft.assigneeUserIds, setDraft]);
 
   const resetDraft = useCallback(async () => {
     setDraftState(INITIAL_DRAFT);
@@ -310,7 +345,7 @@ export const TaskCreationProvider = ({ children }: { children: React.ReactNode }
 
   return (
     <TaskCreationContext.Provider value={{
-      draft, setDraft, resetDraft,
+      draft, setDraft, toggleTeamAssignee, loadTeamMembers, resetDraft,
       recentTasks, loadRecentTasks,
       createTask, createBulkTasks, loading,
       briefFiles, setBriefFiles,

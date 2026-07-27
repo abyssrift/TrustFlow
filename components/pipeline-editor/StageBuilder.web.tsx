@@ -5,6 +5,7 @@ import { usePipelineEditor, Stage } from '@/contexts/PipelineEditorContext';
 import { useAlert } from '@/contexts/AlertContext';
 import GraphCanvas from './graph/GraphCanvas';
 import Popup from '@/components/common/Popup';
+import Tooltip from '@/components/common/Tooltip';
 import { useThemeColors } from '@/hooks/useThemeColors';
 
 const COLOR_PALETTE = [
@@ -247,12 +248,14 @@ export default function StageBuilder() {
             <Text className="text-typography-main font-black uppercase tracking-widest text-xs">
               {editingStageId ? 'Edit Stage' : 'New Stage'}
             </Text>
-            <TouchableOpacity 
-              onPress={() => { setEditingStageId(null); setShowAddForm(false); }}
-              className="p-2 hover:bg-surface-overlay rounded-lg transition-all"
-            >
-               <FontAwesome name="times" size={16} color={colors.textMuted} />
-            </TouchableOpacity>
+            <Tooltip label="Close">
+              <TouchableOpacity
+                onPress={() => { setEditingStageId(null); setShowAddForm(false); }}
+                className="p-2 hover:bg-surface-overlay rounded-lg transition-all"
+              >
+                 <FontAwesome name="times" size={16} color={colors.textMuted} />
+              </TouchableOpacity>
+            </Tooltip>
           </View>
 
             <ScrollView className="p-6">
@@ -537,12 +540,14 @@ export default function StageBuilder() {
                                 }
                               </TouchableOpacity>
                               {!isCanvas && (
-                                <TouchableOpacity
-                                  onPress={async () => { await deleteStageAction(action.id); setEditingActionId(null); }}
-                                  className="p-2 rounded-xl border border-state-danger/30 bg-state-danger/5 items-center justify-center"
-                                >
-                                  <FontAwesome name="trash-o" size={12} color={colors.danger} />
-                                </TouchableOpacity>
+                                <Tooltip label="Delete action">
+                                  <TouchableOpacity
+                                    onPress={async () => { await deleteStageAction(action.id); setEditingActionId(null); }}
+                                    className="p-2 rounded-xl border border-state-danger/30 bg-state-danger/5 items-center justify-center"
+                                  >
+                                    <FontAwesome name="trash-o" size={12} color={colors.danger} />
+                                  </TouchableOpacity>
+                                </Tooltip>
                               )}
                             </View>
                             {isCanvas && (
@@ -603,12 +608,14 @@ export default function StageBuilder() {
             <Text className="text-typography-main font-black uppercase tracking-widest text-xs">
               Edit Connection
             </Text>
-            <TouchableOpacity 
-              onPress={() => setEditingTransitionId(null)}
-              className="p-2 hover:bg-surface-overlay rounded-lg transition-all"
-            >
-               <FontAwesome name="times" size={16} color={colors.textMuted} />
-            </TouchableOpacity>
+            <Tooltip label="Close">
+              <TouchableOpacity
+                onPress={() => setEditingTransitionId(null)}
+                className="p-2 hover:bg-surface-overlay rounded-lg transition-all"
+              >
+                 <FontAwesome name="times" size={16} color={colors.textMuted} />
+              </TouchableOpacity>
+            </Tooltip>
           </View>
 
           <ScrollView className="p-6">

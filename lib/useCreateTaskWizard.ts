@@ -17,7 +17,7 @@ export type TaskTemplate = {
 const TEMPLATES_KEY = '@TrustFlow_task_templates';
 
 export function useCreateTaskWizard({ visible, initialPipelineId }: { visible: boolean; initialPipelineId?: string | null }) {
-  const { draft, setDraft, createTask, createBulkTasks, loading, recentTasks, loadRecentTasks, briefFiles, setBriefFiles } = useTaskCreation();
+  const { draft, setDraft, toggleTeamAssignee, loadTeamMembers, createTask, createBulkTasks, loading, recentTasks, loadRecentTasks, briefFiles, setBriefFiles } = useTaskCreation();
   const { showAlert } = useAlert();
   const [step, setStep] = useState(1);
   // Bulk quick-add: one task title per line, sharing all other draft fields.
@@ -102,7 +102,10 @@ export function useCreateTaskWizard({ visible, initialPipelineId }: { visible: b
       loadRecentTasks();
       loadTemplates();
       fetchResources();
-      if (initialPipelineId && !draft.pipelineId) {
+      loadTeamMembers();
+      // Pipeline always follows the board you're on — the one draft field that
+      // deliberately overrides local persistence on every open.
+      if (initialPipelineId) {
         setDraft({ pipelineId: initialPipelineId });
       }
     } else {
@@ -127,7 +130,7 @@ export function useCreateTaskWizard({ visible, initialPipelineId }: { visible: b
   };
 
   return {
-    draft, setDraft, loading, recentTasks, briefFiles, setBriefFiles,
+    draft, setDraft, toggleTeamAssignee, loading, recentTasks, briefFiles, setBriefFiles,
     step, setStep,
     bulkMode, setBulkMode, toggleBulkMode,
     bulkText, setBulkText,
