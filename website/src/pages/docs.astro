@@ -19,10 +19,10 @@ type DocItem = {
   steps?: string[];
   isFaq?: boolean;
   answer?: string;
-  /** Illustrative screenshot/diagram. No real product screenshots exist yet
-   * (same as every other page on the site) — renders as a labeled
-   * placeholder via ImageSlot until real assets land. */
-  image?: { label: string };
+  /** Illustrative screenshot/diagram. Set `src` to a file under /shots/ to
+   * render the real asset (framed per DESIGN_SPEC §6); without it, falls
+   * back to a labeled placeholder. */
+  image?: { label: string; src?: string; alt?: string };
   /** Product walkthrough video. Pass youtubeId once a real video exists —
    * it renders as a facade (click-to-load thumbnail, no iframe/tracking
    * script until clicked). Without youtubeId, shows an honest
@@ -231,7 +231,15 @@ const defaultId = items[0].id;
           {!item.isFaq && <p class="mb-2 max-w-[620px] text-[16px] leading-[1.7] text-text-muted">{item.summary}</p>}
 
           {item.image && (
-            <ImageSlot label={item.image.label} height={280} variant="feature" class="mt-6 max-w-[560px]" />
+            <ImageSlot
+              label={item.image.label}
+              alt={item.image.alt}
+              src={item.image.src}
+              framed={!!item.image.src}
+              height={280}
+              variant="feature"
+              class="mt-6 max-w-[560px]"
+            />
           )}
 
           {item.video && (

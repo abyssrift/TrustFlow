@@ -24,6 +24,9 @@ type Post = {
   date: string;
   readTime: string;
   imageLabel: string;
+  /** Real asset under /shots/. Omit to keep the labeled placeholder. */
+  image?: string;
+  imageAlt?: string;
   featured?: boolean;
 };
 
@@ -134,7 +137,14 @@ const featuredPost = posts.find((p) => p.featured);
               <span class="text-[13px] text-text-dim">{featuredPost.readTime}</span>
             </div>
           </div>
-          <ImageSlot label={featuredPost.imageLabel} height={280} variant="feature" />
+          <ImageSlot
+            label={featuredPost.imageLabel}
+            alt={featuredPost.imageAlt}
+            src={featuredPost.image}
+            framed={!!featuredPost.image}
+            height={280}
+            variant="feature"
+          />
         </a>
       </section>
     )}
@@ -143,7 +153,14 @@ const featuredPost = posts.find((p) => p.featured);
       <div id="post-grid" class="mx-auto grid max-w-content grid-cols-1 gap-7 sm:grid-cols-2 lg:grid-cols-3">
         {posts.map((post) => (
           <a href="#" class="reveal block" data-post-card data-category={post.category}>
-            <ImageSlot label={post.imageLabel} height={190} variant="feature" />
+            <ImageSlot
+              label={post.imageLabel}
+              alt={post.imageAlt}
+              src={post.image}
+              framed={!!post.image}
+              height={190}
+              variant="feature"
+            />
             <span class="mt-4 block text-[11.5px] font-semibold uppercase tracking-[0.06em] text-text-dim">{post.category}</span>
             <h3 class="my-2 text-[18px] font-bold leading-[1.35] text-text-main">{post.title}</h3>
             <p class="text-[14px] leading-[1.6] text-text-muted">{post.excerpt}</p>

@@ -40,7 +40,7 @@ handoff's `README.md`, not from this table.
 | 2 | **Typeface** | System font stack (matches app, zero load cost) vs. a webfont like Inter (more distinctive, what Linear/most SaaS landing pages use) | System stack placeholder in `tokens.css` |
 | 3 | **Hero visual** | Real product screenshot/recording vs. abstract illustration built from the brand mark | Not started |
 | 4 | **Pages** | Resolved — Home + Product + Plans + content hub, see §0 | N/A |
-| 5 | **Domain** | Netlify subdomain now, `trustflow.com` later, or an interim free subdomain of `trustedgellc.com` | See §7 |
+| 5 | **Domain** | Resolved — live at `waitlist.trustedgellc.com` on Hostinger; `trustflow.com` later | See §7 |
 | 6 | **Analytics** | None / cookieless (Plausible, Fathom) / GA4 | Not wired up |
 | 7 | **Visual asset sourcing** | "Going all out" implies real photography/mockups/illustration, not free stock (Undraw/Blush) or generic AI-generated art — needs either a designer/photographer engaged or a premium asset budget (mockup tools like Rotato/Screely/Mockuuups, licensed photography) | Not started |
 | 8 | **Video production & hosting** | Who shoots/edits the product videos; host self-hosted (Cloudflare Stream/Mux, costs money, best perf control) vs. YouTube/Vimeo embed (free, easy, adds 3rd-party JS/cookies unless facade-loaded) | Not started |
@@ -50,7 +50,7 @@ handoff's `README.md`, not from this table.
 
 - **#1 Brand color / visual direction → RESOLVED.** Dark-first site in the spirit of `linear.app`, matching the app's own dark mode (Adam's preferred theme). Background = the app's dark `--surface-background` **#080d18** (near-black navy), accent = the app's live indigo **#4f46e5** (`--brand-primary`), text/borders = the app's dark slate tokens. This settles the #144ed5-vs-#4f46e5 drift *for the site* toward indigo; the logo mark can keep its blue. `tokens.css` (currently ported from the app's *light* theme, defaulting to logo blue) gets rewritten dark-first as step 1 of the build.
 - **#2 Typeface → leaning Inter.** The Linear look is largely Inter; self-host via `@fontsource`, latin subset, `font-display: swap`. Confirm before build.
-- **#5 Domain → deferred.** Build against the host's preview URL for now; pick the real subdomain (candidate: `trustflow.trustedgellc.com`, one DNS record) right before launch, `trustflow.com` later. See §7.
+- **#5 Domain → RESOLVED (live).** Shipped to Hostinger at `waitlist.trustedgellc.com`. The earlier `trustflow.trustedgellc.com` candidate was never used and does not resolve. `trustflow.com` later. See §7.
 
 ## 2. Home page — content structure (7-8 sections)
 
@@ -107,15 +107,16 @@ Goes deeper than Home's feature sections: full tour of the pipeline engine (stag
 
 Budget doesn't cover `trustflow.com` right now, and `trustedgellc.com` is already the company's own separate corporate site — so this does **not** reuse that domain's root or app subdomain. Path:
 
-**Host = Hostinger, next to `portal.` (RESOLVED 2026-07-19).** The app was moved off Netlify to Hostinger because of an ISP-level block on Netlify's edge in the target region (Egypt). A marketing site's whole job is being reachable by clients, and a custom subdomain CNAME'd to Netlify still resolves to the same blocked IPs — renaming the door doesn't move the house. So this site ships to Hostinger, the same static-file way the Expo web export does. The scaffold's `netlify.toml` is now vestigial; it can stay as a fallback/preview config but is not the launch target. (Cloudflare Pages is a fine free preview host — not ISP-blocked — if a hosted preview URL is wanted during dev.)
+**Host = Hostinger, next to `portal.` (RESOLVED 2026-07-19). Netlify is fully scrapped.** Netlify's service is blocked at ISP level in the target region (Egypt), which took the whole platform off the table — not just for the app but for anything client-facing. A custom subdomain CNAME'd to Netlify still resolves to the same blocked IPs, so renaming the door doesn't move the house. Both the app and this site ship to Hostinger as plain static files. **Do not reintroduce Netlify config, adapters, or preview URLs anywhere in this repo.** (Cloudflare Pages is a fine free preview host — not ISP-blocked — if a hosted preview URL is ever wanted during dev.)
 
-1. **Now:** build locally / on a Cloudflare Pages preview; deploy `dist/` to Hostinger when ready.
-2. **Interim URL:** point `trustflow.trustedgellc.com` (one DNS record on a domain already owned) at the Hostinger deploy when a "real" URL is wanted. Subdomain name still open (see §1a #5).
-3. **Later:** buy `trustflow.com` (or a fallback like `.io`/`.app`) when budget allows (~$10-20/yr at-cost via Cloudflare Registrar or Porkbun) and repoint DNS — no rebuild required, just update `site:` in `astro.config.mjs` and the sitemap/robots URLs.
+1. **Live now:** `npm run build` in `website/`, upload `dist/` to Hostinger. Site is up at **`https://waitlist.trustedgellc.com`**.
+2. **Later:** buy `trustflow.com` (or a fallback like `.io`/`.app`) when budget allows (~$10-20/yr at-cost via Cloudflare Registrar or Porkbun) and repoint DNS — no rebuild required, just update `site:` in `astro.config.mjs` and the sitemap/robots URLs.
 
 This is a genuinely separate deploy from the main app — the app keeps deploying itself unaffected.
 
-**Subdomain map (for coherence with future plans):** `trustedgellc.com` = corporate site (not this) · `portal.trustedgellc.com` = the app · `trustflow.trustedgellc.com` = this marketing site · `client.trustedgellc.com` = future client-request intake (a separate authenticated app feature, **out of scope for this issue** — reserve the name, don't build it here).
+**Subdomain map:** `trustedgellc.com` = corporate site (not this) · `portal.trustedgellc.com` = the app (live) · `waitlist.trustedgellc.com` = this marketing site (live) · `client.trustedgellc.com` = future client-request intake (a separate authenticated app feature, **out of scope for this issue** — reserve the name, don't build it here).
+
+> The earlier plan named `trustflow.trustedgellc.com` for this site. That was never provisioned and does not resolve — `waitlist.` is the real one.
 
 ## 8. Accessibility
 
@@ -132,7 +133,7 @@ This is a genuinely separate deploy from the main app — the app keeps deployin
 4. Wire real screenshots/mockups/photography last, once layout is proven with placeholders.
 5. Design the OG image (one per page), add JSON-LD, do a final SEO pass.
 6. Cross-browser/device pass + `prefers-reduced-motion` check.
-7. Deploy to Netlify, attach domain per §7.
+7. Build and upload `dist/` to Hostinger per §7 (domain already attached).
 
 **Phase 2 — Content hub:**
 8. Ship FAQ first (cheapest, no production dependency).
@@ -157,9 +158,8 @@ website/
     styles/tokens.css          # DONE — monochrome tokens ported from the design handoff README
     styles/global.css          # tailwind + tokens entrypoint, btn system matches handoff
   public/                      # favicons + logo marks copied from ../assets/images
-  astro.config.mjs             # static output, sitemap integration, placeholder `site` URL
+  astro.config.mjs             # static output, sitemap integration, `site` = https://waitlist.trustedgellc.com
   tailwind.config.mjs          # DONE — token-driven, matches handoff type scale/radius/color
-  netlify.toml                 # scoped for a separate Netlify site (base dir = website) — not the launch target, see §7
 ```
 
 ## Build progress (living log, most recent first)

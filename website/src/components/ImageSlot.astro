@@ -1,16 +1,35 @@
 ---
-// Placeholder for a real product screenshot/mockup. Renders the 3-layer
-// ambient-glow + contact-shadow treatment from the design handoff behind a
-// labeled placeholder box, so page layout is provable before real assets
-// land — swap the placeholder box for an <Image> once a screenshot exists.
+// Product screenshot/mockup slot. Renders the 3-layer ambient-glow +
+// contact-shadow treatment from the design handoff, wrapping either a real
+// image (when `src` is set) or a labeled placeholder box (when it isn't),
+// so page layout is provable before real assets land.
+//
+// To drop in a real asset: put the file in `public/shots/` and add
+// `src="/shots/your-file.png"` to the slot. That's the whole change — no
+// import, no build step. Files in `public/` are served as-is, so a missing
+// file can't break the build (it just 404s), which is the right tradeoff
+// while assets are still arriving. Revisit `astro:assets` (<Image />, auto
+// avif/webp + responsive srcset) once the set is stable and complete.
 interface Props {
   label: string;
   height: number;
   variant?: 'hero' | 'feature' | 'testimonial' | 'avatar';
   class?: string;
+  /** Path to a real asset, e.g. "/shots/task-board.png". Omit for placeholder. */
+  src?: string;
+  /** Alt text. Falls back to `label`. Pass "" for purely decorative shots. */
+  alt?: string;
+  /**
+   * Flat screenshot (no device frame) — gets the hairline border + card
+   * radius from DESIGN_SPEC §6. Transparent device mockups must NOT set
+   * this: their frame is part of the image, so a border would draw a box
+   * around the empty space surrounding the laptop.
+   */
+  framed?: boolean;
 }
 
-const { label, height, variant = 'feature', class: className = '' } = Astro.props;
+const { label, height, variant = 'feature', class: className = '', src, alt, framed = false } = Astro.props;
+const altText = alt ?? label;
 
 const glowByVariant = {
   hero: { ambient: '70% -10% 40px 0.22', mid: '52% 6% 24px 0.17', contactH: 44, contactBlur: 16, contactOpacity: 0.72 },
@@ -24,12 +43,24 @@ const glow = glowByVariant[variant];
 
 {
   variant === 'avatar' ? (
-    <div
-      class:list={['flex flex-none items-center justify-center rounded-full border border-hairline bg-surface-card text-[10px] text-text-faint', className]}
-      style={{ width: `${height}px`, height: `${height}px` }}
-    >
-      {label}
-    </div>
+    src ? (
+      <img
+        src={src}
+        alt={altText}
+        width={height}
+        height={height}
+        loading="lazy"
+        class:list={['flex-none rounded-full object-cover', className]}
+        style={{ width: `${height}px`, height: `${height}px` }}
+      />
+    ) : (
+      <div
+        class:list={['flex flex-none items-center justify-center rounded-full border border-hairline bg-surface-card text-[10px] text-text-faint', className]}
+        style={{ width: `${height}px`, height: `${height}px` }}
+      >
+        {label}
+      </div>
+    )
   ) : (
     <div class:list={['relative min-w-0', className]}>
       {glow && (() => {
@@ -73,12 +104,34 @@ const glow = glowByVariant[variant];
           }}
         />
       )}
-      <div
-        class="relative z-10 flex w-full items-center justify-center rounded-card border border-dashed border-hairline-strong bg-surface-card px-6 text-center text-[13px] text-text-faint"
-        style={{ height: `${height}px` }}
-      >
-        {label}
-      </div>
+      {src ? (
+        /* Real assets size from their own aspect ratio (w-full + h-auto)
+           rather than the slot's `height`, which would letterbox a
+           transparent device mockup inside a fixed box and leave dead
+           space. `height` still governs the placeholder below, and
+           max-height keeps an unusually tall asset from blowing out the
+           section. Device mockups are transparent PNGs, so no rounding —
+           the frame is part of the image. */
+        <img
+          src={src}
+          alt={altText}
+          loading={variant === 'hero' ? 'eager' : 'lazy'}
+          fetchpriority={variant === 'hero' ? 'high' : undefined}
+          decoding="async"
+          class:list={[
+            'relative z-10 h-auto w-full object-contain',
+            framed && 'rounded-card border border-hairline',
+          ]}
+          style={{ maxHeight: `${Math.round(height * 1.4)}px` }}
+        />
+      ) : (
+        <div
+          class="relative z-10 flex w-full items-center justify-center rounded-card border border-dashed border-hairline-strong bg-surface-card px-6 text-center text-[13px] text-text-faint"
+          style={{ height: `${height}px` }}
+        >
+          {label}
+        </div>
+      )}
     </div>
   )
 }
