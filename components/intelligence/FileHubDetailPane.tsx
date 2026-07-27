@@ -211,8 +211,8 @@ export default function FileHubDetailPane({
         </View>
       </View>
 
-      {/* Actions */}
-      <View className="px-5 py-3 flex-row items-center gap-2 border-b border-surface-border">
+      {/* Actions — wrap into the abundant vertical space instead of overflowing the narrow pane */}
+      <View className="px-5 py-3 flex-row flex-wrap items-center gap-2 border-b border-surface-border">
         <ActionBtn icon="external-link" label="Open" onPress={openFull} colors={colors} primary />
         <ActionBtn icon="download" label="Download" onPress={download} colors={colors} />
         <ActionBtn icon="share" label="Share" onPress={shareOut} colors={colors} />
