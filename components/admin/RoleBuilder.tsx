@@ -14,7 +14,7 @@ export default function RoleBuilder() {
   const { showAlert, showConfirm } = useAlert();
   const { hasPermission } = useAuth();
   const canManageRoles = hasPermission('role.manage');
-  const { roles, permissions, createRole, updateRole, deleteRole, loading } = useRoleManager();
+  const { roles, permissions, userRoles, teamRoles, createRole, updateRole, deleteRole, loading } = useRoleManager();
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
@@ -91,9 +91,14 @@ export default function RoleBuilder() {
 
   const handleDelete = async (role: Role) => {
     if (role.is_system) return;
+    const nPeople = userRoles.filter(u => u.role_id === role.id).length;
+    const nTeams = teamRoles.filter(t => t.role_id === role.id).length;
+    const impact = nPeople + nTeams > 0
+      ? `It is assigned to ${nPeople} ${nPeople === 1 ? 'person' : 'people'} and ${nTeams} ${nTeams === 1 ? 'team' : 'teams'} — they will lose its permissions.`
+      : 'It is not assigned to anyone.';
     showConfirm(
       'Confirm Deletion',
-      `Are you sure you want to delete the role "${role.name}"?`,
+      `Delete the role "${role.name}"? ${impact}`,
       async () => await deleteRole(role.id),
       undefined,
       'Delete',
@@ -132,7 +137,10 @@ export default function RoleBuilder() {
         </View>
 
         <View className="gap-3 pb-32">
-          {roles.map(role => (
+          {roles.map(role => {
+            const nPeople = userRoles.filter(u => u.role_id === role.id).length;
+            const nTeams = teamRoles.filter(t => t.role_id === role.id).length;
+            return (
             <TouchableOpacity
               key={role.id}
               onPress={() => handleEditRole(role)}
@@ -181,16 +189,25 @@ export default function RoleBuilder() {
                 {role.description || 'No description provided.'}
               </Text>
 
-              <View className="flex-row items-center">
+              <View className="flex-row items-center gap-2">
                 <View className="bg-surface-background px-3 py-1.5 rounded-lg border border-surface-border flex-row items-center">
                   <FontAwesome name="key" size={10} color={colors.primary} />
                   <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest ml-2">
                     {role.permissionIds?.length || 0} permissions
                   </Text>
                 </View>
+                <View className="bg-surface-background px-3 py-1.5 rounded-lg border border-surface-border flex-row items-center">
+                  <FontAwesome name="user" size={10} color={colors.textMuted} />
+                  <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest ml-2">
+                    {nPeople + nTeams > 0
+                      ? `${nPeople} ${nPeople === 1 ? 'person' : 'people'} · ${nTeams} ${nTeams === 1 ? 'team' : 'teams'}`
+                      : 'Unassigned'}
+                  </Text>
+                </View>
               </View>
             </TouchableOpacity>
-          ))}
+            );
+          })}
         </View>
       </ScrollView>
 

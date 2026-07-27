@@ -1,5 +1,5 @@
 import { FontAwesome } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import Popup from '@/components/common/Popup';
@@ -7,6 +7,27 @@ import { Permission } from '@/contexts/RoleManagerContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { ROLE_TEMPLATES } from '@/lib/roleTemplates';
 import type { RoleEditorSheetProps } from './RoleEditorSheet';
+
+// Legacy duplicate permission keys still in the DB. The legacy twin is hidden in
+// the UI and kept in sync with its modern key on toggle so old checks keep working.
+const LEGACY_TWINS: Record<string, string> = {
+  'task.create': 'tasks.create',
+  'task.assign': 'tasks.assign',
+  'task.view_all': 'tasks.view_all',
+  'task.delete': 'tasks.delete',
+  'task.edit': 'tasks.update',
+};
+
+// Permissions that grant destructive or company-wide power; badged in the list.
+const SENSITIVE_KEYS = new Set([
+  'archive.delete',
+  'system.view_all_data',
+  'role.manage_global',
+  'role.manage',
+  'filehub:bin_empty',
+  'user.deactivate',
+  'company.billing',
+]);
 
 export default function RoleEditorSheet({
   visible,
@@ -34,26 +55,53 @@ export default function RoleEditorSheet({
   const c = useThemeColors();
   const [query, setQuery] = useState('');
 
+  const idByKey = new Map(permissions.map(p => [p.key, p.id]));
+  const legacyIds = new Set(Object.values(LEGACY_TWINS).map(k => idByKey.get(k)).filter((id): id is string => !!id));
+  const basePerms = permissions.filter(p => !legacyIds.has(p.id));
+  const twinIds = (p: Permission) => {
+    const legacyId = LEGACY_TWINS[p.key] ? idByKey.get(LEGACY_TWINS[p.key]) : undefined;
+    return legacyId ? [p.id, legacyId] : [p.id];
+  };
+  const isPermActive = (p: Permission) => twinIds(p).some(id => selectedPerms.includes(id));
+  const togglePerm = (p: Permission) => {
+    const ids = twinIds(p);
+    if (ids.length > 1 && onBulkToggle) onBulkToggle(ids, !isPermActive(p));
+    else onTogglePerm(p.id);
+  };
+
+  // Unsaved-changes guard: snapshot on open, confirm before discarding on close.
+  const snap = () => JSON.stringify([name, description, color, [...selectedPerms].sort()]);
+  const snapRef = useRef('');
   useEffect(() => {
-    if (visible) setQuery('');
+    if (visible) {
+      setQuery('');
+      snapRef.current = snap();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
+  const requestClose = () => {
+    if (snapRef.current !== snap() && !window.confirm('Discard unsaved changes?')) return;
+    onClose();
+  };
 
   const q = query.trim().toLowerCase();
   const visiblePerms = q
-    ? permissions.filter((p: Permission) =>
+    ? basePerms.filter((p: Permission) =>
         p.label.toLowerCase().includes(q) ||
         (p.description || '').toLowerCase().includes(q) ||
         p.category.toLowerCase().includes(q))
-    : permissions;
+    : basePerms;
   const visibleCategories = categories.filter(cat => visiblePerms.some(p => p.category === cat));
 
-  const selCount = (cat: string) => permissions.filter(p => p.category === cat && selectedPerms.includes(p.id)).length;
-  const catTotal = (cat: string) => permissions.filter(p => p.category === cat).length;
+  const selCount = (cat: string) => basePerms.filter(p => p.category === cat && isPermActive(p)).length;
+  const catTotal = (cat: string) => basePerms.filter(p => p.category === cat).length;
+  const activeCount = basePerms.filter(isPermActive).length;
+  const sensitiveActive = basePerms.filter(p => SENSITIVE_KEYS.has(p.key) && isPermActive(p)).length;
 
   return (
     <Popup
       visible={visible}
-      onClose={onClose}
+      onClose={requestClose}
       presentation="centered"
       maxWidth={1020}
       scrollable={false}
@@ -79,7 +127,7 @@ export default function RoleEditorSheet({
             </TouchableOpacity>
           )}
           <TouchableOpacity
-            onPress={onClose}
+            onPress={requestClose}
             className="w-10 h-10 items-center justify-center rounded-full"
             style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}
           >
@@ -180,9 +228,15 @@ export default function RoleEditorSheet({
 
             {/* Live summary */}
             <Text style={{ color: c.primary }} className="text-[10px] font-black uppercase mb-3 tracking-widest">Summary</Text>
-            <Text style={{ color: c.textMain }} className="font-black text-sm mb-3">
-              {selectedPerms.length} of {permissions.length} permissions
+            <Text style={{ color: c.textMain }} className="font-black text-sm mb-1">
+              {activeCount} of {basePerms.length} permissions
             </Text>
+            {sensitiveActive > 0 && (
+              <Text style={{ color: c.danger }} className="text-[10px] font-black uppercase tracking-widest mb-3">
+                {sensitiveActive} high-impact
+              </Text>
+            )}
+            <View className="mb-2" />
             <View className="gap-1.5">
               {categories.map(cat => {
                 const n = selCount(cat);
@@ -221,8 +275,8 @@ export default function RoleEditorSheet({
               )}
               {visibleCategories.map(cat => {
                 const catPerms = visiblePerms.filter(p => p.category === cat);
-                const catIds = catPerms.map(p => p.id);
-                const allSelected = catIds.every(id => selectedPerms.includes(id));
+                const catIds = catPerms.flatMap(twinIds);
+                const allSelected = catPerms.every(isPermActive);
                 return (
                   <View key={cat}>
                     <View className="flex-row items-center mb-2.5">
@@ -243,11 +297,11 @@ export default function RoleEditorSheet({
                     </View>
                     <View className="gap-1.5">
                       {catPerms.map(perm => {
-                        const isActive = selectedPerms.includes(perm.id);
+                        const isActive = isPermActive(perm);
                         return (
                           <TouchableOpacity
                             key={perm.id}
-                            onPress={() => canEdit && onTogglePerm(perm.id)}
+                            onPress={() => canEdit && togglePerm(perm)}
                             className="flex-row items-center px-3.5 py-2.5 rounded-xl"
                             style={{
                               backgroundColor: isActive ? c.primary + '0D' : 'transparent',
@@ -263,7 +317,14 @@ export default function RoleEditorSheet({
                               {isActive && <FontAwesome name="check" size={9} color="white" />}
                             </View>
                             <View className="flex-1" style={{ minWidth: 0 }}>
-                              <Text style={{ color: isActive ? c.textMain : c.textMuted }} className="font-black text-xs tracking-tight" numberOfLines={1}>{perm.label}</Text>
+                              <View className="flex-row items-center">
+                                <Text style={{ color: isActive ? c.textMain : c.textMuted }} className="font-black text-xs tracking-tight flex-shrink" numberOfLines={1}>{perm.label}</Text>
+                                {SENSITIVE_KEYS.has(perm.key) && (
+                                  <View className="ml-2 px-1.5 py-0.5 rounded flex-shrink-0" style={{ backgroundColor: c.danger + '1A' }}>
+                                    <Text style={{ color: c.danger }} className="text-[8px] font-black uppercase tracking-widest">High impact</Text>
+                                  </View>
+                                )}
+                              </View>
                               <Text style={{ color: c.textDim }} className="text-[10px] font-bold leading-4" numberOfLines={1}>{perm.description || '(no documentation)'}</Text>
                             </View>
                           </TouchableOpacity>
@@ -280,10 +341,10 @@ export default function RoleEditorSheet({
         {/* Footer */}
         <View className="flex-row items-center px-7 py-4 gap-3" style={{ borderTopWidth: 1, borderTopColor: c.border }}>
           <Text style={{ color: c.textMuted }} className="flex-1 text-[10px] font-black uppercase tracking-widest">
-            {selectedPerms.length} permissions selected
+            {activeCount} permissions selected{sensitiveActive > 0 ? ` · ${sensitiveActive} high-impact` : ''}
           </Text>
           <TouchableOpacity
-            onPress={onClose}
+            onPress={requestClose}
             className="px-8 py-3.5 rounded-xl items-center"
             style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}
           >
