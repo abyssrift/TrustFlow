@@ -1,8 +1,9 @@
 import { FontAwesome } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
-import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import Popup from '@/components/common/Popup';
+import SidebarLayout from '@/components/common/SidebarLayout';
 import Tooltip from '@/components/common/Tooltip';
 import { Permission } from '@/contexts/RoleManagerContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -141,11 +142,7 @@ export default function RoleEditorSheet({
         {/* Body: two columns */}
         <View style={{ flexDirection: 'row', flex: 1, minHeight: 0 }}>
           {/* Left: identity, color, summary */}
-          <ScrollView
-            style={{ width: 320, flexGrow: 0, borderRightWidth: 1, borderRightColor: c.border }}
-            contentContainerStyle={{ padding: 24, paddingBottom: 32 }}
-            showsVerticalScrollIndicator={false}
-          >
+          <SidebarLayout width={320} style={{ borderRightWidth: 1, borderRightColor: c.border }}>
             {isGlobal && (
               <View
                 className="p-4 rounded-2xl mb-5 flex-row items-center"
@@ -251,7 +248,7 @@ export default function RoleEditorSheet({
                 );
               })}
             </View>
-          </ScrollView>
+          </SidebarLayout>
 
           {/* Right: searchable permissions */}
           <View style={{ flex: 1, minWidth: 0 }}>

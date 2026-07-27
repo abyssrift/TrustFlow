@@ -3,6 +3,7 @@ import ClipboardControls from '@/components/common/ClipboardControls';
 import DraggableSheet from '@/components/common/DraggableSheet';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
 import Popup from '@/components/common/Popup';
+import SidebarLayout from '@/components/common/SidebarLayout';
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 import Tooltip from '@/components/common/Tooltip';
 import { useCalendarPosition } from '@/lib/calendarPicker';
@@ -1052,43 +1053,41 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
   }
 
   const sideMenuContent = (
-    <View className="w-80 p-8" style={{ backgroundColor: colors.background + '4D' }}>
+    <SidebarLayout width={320}>
       <View className="flex-row items-center mb-8">
         <FontAwesome name="history" size={14} color={colors.primary} />
         <Text className="text-[10px] font-black uppercase tracking-[0.2em] ml-3" style={{ color: colors.textMuted }}>Tactical Archive</Text>
       </View>
       <Text className="font-black text-xl mb-2 tracking-tight" style={{ color: colors.textMain }}>Recent Tasks</Text>
       <Text className="text-[10px] font-bold mb-5" style={{ color: colors.textDim }}>Tap any card to clone it</Text>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {recentTasks.map(t => (
-          <TouchableOpacity
-            key={t.id}
-            onPress={() => handleCopyRecent(t)}
-            className="p-4 rounded-2xl mb-3 hover:border-brand-primary/50 transition-all group"
-            style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}
-          >
-            <View className="flex-row items-center justify-between mb-1">
-              <Text className="font-bold text-sm flex-1 group-hover:text-brand-primary" style={{ color: colors.textMain }} numberOfLines={1}>{t.title}</Text>
-              {t.priority && (
-                <View className="ml-2 px-2 py-0.5 rounded-md" style={{ backgroundColor: priorityBgColor(colors, t.priority) }}>
-                  <Text className="text-[9px] font-black uppercase" style={{ color: priorityTextColor(colors, t.priority) }}>{t.priority}</Text>
-                </View>
-              )}
-            </View>
-            <View className="flex-row items-center justify-between mt-1">
-              <Text className="text-[10px] uppercase font-black tracking-widest" style={{ color: colors.textMuted }}>{t.category || 'General'}</Text>
-              <Text className="text-[9px] font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-all" style={{ color: colors.primary }}>Clone →</Text>
-            </View>
-          </TouchableOpacity>
-        ))}
-        {recentTasks.length === 0 && (
-          <View className="py-20 items-center opacity-30">
-            <FontAwesome name="inbox" size={32} color={colors.textMuted} />
-            <Text className="text-[10px] font-black uppercase tracking-widest mt-4" style={{ color: colors.textMuted }}>Empty Stack</Text>
+      {recentTasks.map(t => (
+        <TouchableOpacity
+          key={t.id}
+          onPress={() => handleCopyRecent(t)}
+          className="p-4 rounded-2xl mb-3 hover:border-brand-primary/50 transition-all group"
+          style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}
+        >
+          <View className="flex-row items-center justify-between mb-1">
+            <Text className="font-bold text-sm flex-1 group-hover:text-brand-primary" style={{ color: colors.textMain }} numberOfLines={1}>{t.title}</Text>
+            {t.priority && (
+              <View className="ml-2 px-2 py-0.5 rounded-md" style={{ backgroundColor: priorityBgColor(colors, t.priority) }}>
+                <Text className="text-[9px] font-black uppercase" style={{ color: priorityTextColor(colors, t.priority) }}>{t.priority}</Text>
+              </View>
+            )}
           </View>
-        )}
-      </ScrollView>
-    </View>
+          <View className="flex-row items-center justify-between mt-1">
+            <Text className="text-[10px] uppercase font-black tracking-widest" style={{ color: colors.textMuted }}>{t.category || 'General'}</Text>
+            <Text className="text-[9px] font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-all" style={{ color: colors.primary }}>Clone →</Text>
+          </View>
+        </TouchableOpacity>
+      ))}
+      {recentTasks.length === 0 && (
+        <View className="py-20 items-center opacity-30">
+          <FontAwesome name="inbox" size={32} color={colors.textMuted} />
+          <Text className="text-[10px] font-black uppercase tracking-widest mt-4" style={{ color: colors.textMuted }}>Empty Stack</Text>
+        </View>
+      )}
+    </SidebarLayout>
   );
 
   return (
