@@ -1,5 +1,7 @@
 # TrustFlow Modal & Sheet Standards
 
+**Design tokens and CSS conventions are in `.agents/rules/ui-consistency.md`. Cross-platform strategy is in `.agents/rules/ui-style-guide.md`. This doc covers only modal/sheet/overlay primitives — read alongside those files.**
+
 ## Popup
 
 The universal overlay. Default choice for any popup/modal/sheet unless you have a reason to use something else.
