@@ -5,12 +5,24 @@ import React, { createContext, ReactNode, useCallback, useContext, useEffect, us
 
 // ── Types ──────────────────────────────────────────────────
 
+export type FileVisibilityPreset = 'task_members' | 'submitters_reviewers' | 'company' | 'custom';
+
+/** Who can see a task's files, configured per pipeline (see fn_task_file_accessible). */
+export type FileVisibility = {
+  preset: FileVisibilityPreset;
+  assignees?: boolean;   // task assignees can view (custom preset)
+  reviewers?: boolean;   // submission reviewers can view (custom preset)
+  roles?: string[];      // role UUIDs that can view (custom preset)
+  users?: string[];      // explicit user UUIDs (custom preset)
+};
+
 export type Pipeline = {
   id: string;
   name: string;
   description: string | null;
   is_default: boolean;
   visibility_permissions: string[];
+  file_visibility: FileVisibility;
   task_visibility_mode: 'all' | 'assigned_only';
   assignment_mode: 'manual' | 'round_robin' | 'smart';
   assignment_pool_type: 'users' | 'teams';
@@ -171,6 +183,7 @@ type PipelineEditorState = {
   createPipeline: (name: string, desc: string, stages: any[], transitions: any[], visibility_permissions?: string[], task_visibility_mode?: string) => Promise<string | null>;
   updatePipeline: (id: string, name?: string, desc?: string | null, isDefault?: boolean, visibility_permissions?: string[], task_visibility_mode?: string, assignmentMode?: string, assignmentPoolType?: string) => Promise<boolean>;
   deletePipeline: (id: string) => Promise<boolean>;
+  setFileVisibility: (id: string, config: FileVisibility) => Promise<boolean>;
   // Assignment pool CRUD
   setAssignmentPool: (memberType: 'user' | 'team', memberIds: string[]) => Promise<boolean>;
   setPoolMemberWithdrawn: (memberType: 'user' | 'team', memberId: string, isWithdrawn: boolean) => Promise<boolean>;
@@ -665,6 +678,23 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
     }
   }, [refreshPipelines, selectedPipeline, successToast, errorToast]);
 
+  const setFileVisibility = useCallback(async (id: string, config: FileVisibility): Promise<boolean> => {
+    try {
+      const { error: e } = await supabase.rpc('rpc_pipeline_set_file_visibility', {
+        p_pipeline_id: id,
+        p_config: config,
+      });
+      if (e) throw e;
+      setSelectedPipeline(prev => prev && prev.id === id ? { ...prev, file_visibility: config } : prev);
+      setPipelines(prev => prev.map(p => p.id === id ? { ...p, file_visibility: config } : p));
+      return true;
+    } catch (e: any) {
+      setError(e.message);
+      errorToast(e.message || 'Unable to update file visibility.');
+      return false;
+    }
+  }, [errorToast]);
+
   const deletePipeline = useCallback(async (id: string): Promise<boolean> => {
     setLoading(true);
     try {
@@ -1154,7 +1184,7 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
         },
 
         // Flat compatibility layer
-        createPipeline, updatePipeline, deletePipeline,
+        createPipeline, updatePipeline, deletePipeline, setFileVisibility,
         setAssignmentPool, setPoolMemberWithdrawn,
         addStage, updateStage, updateStagePosition, deleteStage, reorderStages,
         addTransition, updateTransition, deleteTransition,

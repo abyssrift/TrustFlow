@@ -55,6 +55,7 @@ function PipelinesWebInner() {
     companyTeams,
     setAssignmentPool,
     setPoolMemberWithdrawn,
+    setFileVisibility,
   } = usePipelineEditor();
 
   const { hasPermission } = useAuth();
@@ -119,6 +120,7 @@ function PipelinesWebInner() {
                   name: selectedPipeline.name,
                   description: selectedPipeline.description,
                   visibility_permissions: selectedPipeline.visibility_permissions || [],
+                  file_visibility: selectedPipeline.file_visibility || { preset: 'task_members' },
                   task_visibility_mode: selectedPipeline.task_visibility_mode || 'all',
                   is_default: selectedPipeline.is_default || false,
                   assignment_mode: selectedPipeline.assignment_mode || 'manual',
@@ -148,6 +150,7 @@ function PipelinesWebInner() {
                     data.assignment_mode,
                     data.assignment_pool_type
                   );
+                  await setFileVisibility(selectedPipeline.id, data.file_visibility);
                 }}
                 onDelete={async () => {
                   await pipelineActions.remove(selectedPipeline.id);
