@@ -143,14 +143,25 @@ export default function PinnedShortcuts({
         <View
           pointerEvents={showPicker ? 'auto' : 'none'}
           style={{
+            // `pointerEvents="none"` is NOT enough: RNW compiles a *disabled*
+            // Pressable to `pointer-events: box-none`, which re-enables
+            // `pointer-events: auto` on its own children. At 4/4 pinned every
+            // row + "Add custom link" is disabled, so the closed 288x400 panel
+            // stayed hit-testable and hovering the page under it (the date
+            // filters) fired the wrapper's mouseenter and popped it open.
+            // visibility:hidden takes the whole subtree out of hit testing.
+            // ponytail: kept in the tree (not unmounted) only for the open transition.
+            visibility: showPicker ? 'visible' : 'hidden',
             opacity: showPicker ? 1 : 0,
             transform: [
               { scale: showPicker ? 1 : 0.96 },
               { translateY: showPicker ? 0 : -6 },
             ],
             zIndex: 100,
-          }}
-          className="absolute left-0 top-9 w-72 pt-2 transition-all duration-300 ease-in-out"
+          } as any}
+          // `transition` (not `transition-all`) so visibility flips instantly
+          // instead of transitioning — no 300ms ghost panel on the way out.
+          className="absolute left-0 top-9 w-72 pt-2 transition duration-300 ease-in-out"
         >
           <View className="rounded-2xl border border-surface-border bg-surface-card/95 p-3 premium-shadow glass-card">
             <Text className="mb-2 px-1 text-[10px] font-black uppercase tracking-widest text-typography-dim">

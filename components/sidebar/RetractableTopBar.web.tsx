@@ -28,7 +28,10 @@ export default function RetractableTopBar({
   ...topBarProps
 }: TopBarProps & { collapsed: boolean; onToggle: () => void }) {
   const [peek, setPeek] = useState(false);
-  const expanded = !collapsed || peek;
+  // An open shortcut picker pins the bar — otherwise leaving the bar to reach
+  // the picker (which hangs below it) collapses the bar out from under it.
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const expanded = !collapsed || peek || pickerOpen;
 
   const leaveTimer = useRef<any>(null);
   const suppressPeek = useRef(false); // set on click-collapse so a lingering hover can't re-peek
@@ -89,7 +92,7 @@ export default function RetractableTopBar({
           }}
           className="transition-all duration-300 ease-in-out"
         >
-          <TopBar {...topBarProps} />
+          <TopBar {...topBarProps} onPickerOpenChange={setPickerOpen} />
         </View>
       </div>
 
