@@ -1,6 +1,9 @@
 import { Alert, Linking, Platform } from 'react-native';
 import { supabase } from './supabase';
+import { toastError, toastWarning } from './toast';
 import { shareFileViaWeb, type ShareResult } from './webShare';
+
+const NO_ACCESS_MSG = "You may not have access to this file, or it's no longer available.";
 
 export type { ShareResult };
 
@@ -148,7 +151,7 @@ export async function openStorageFile(
   }
 
   const signed = await signedUrlFor(bucket, storagePath);
-  if (!signed) return;
+  if (!signed) { toastError(NO_ACCESS_MSG, "Couldn't open file"); return; }
 
   let url = signed;
   // Stream previewable media inline on mobile; otherwise request an attachment
@@ -212,6 +215,7 @@ export async function downloadFilesAsZip(
   const JSZip = (await import('jszip')).default;
   const zip = new JSZip();
   const usedNames = new Map<string, number>();
+  let added = 0;
 
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
@@ -229,12 +233,21 @@ export async function downloadFilesAsZip(
       const blob = await response.blob();
       const entryName = file.zip_path ? `${file.zip_path}/${file.original_name}` : file.original_name;
       zip.file(dedupeName(entryName, usedNames), blob);
+      added++;
     } catch {
       // skip files that fail to fetch
     }
   }
 
   onProgress?.(files.length, files.length);
+
+  if (added === 0) {
+    toastError(`None of these files could be downloaded — ${NO_ACCESS_MSG}`, 'Download failed');
+    return;
+  }
+  if (added < files.length) {
+    toastWarning(`${files.length - added} file(s) were skipped — no access, or they were removed.`);
+  }
 
   const content = await zip.generateAsync({ type: 'blob' });
   const url = URL.createObjectURL(content);
