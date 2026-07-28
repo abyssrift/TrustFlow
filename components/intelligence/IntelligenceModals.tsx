@@ -6,7 +6,7 @@ import { Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'reac
 import { IntelligencePicker } from './IntelligenceCommon';
 import Tooltip from '@/components/common/Tooltip';
 
-import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
+import Calendar from '@/components/common/Calendar';
 
 export const TargetCreationModal = ({ visible, onClose, onConfirm, pipelines, stages }: any) => {
   const colors = useThemeColors();
@@ -75,7 +75,7 @@ export const TargetCreationModal = ({ visible, onClose, onConfirm, pipelines, st
             </View>
             <View>
               <Text className="text-[10px] font-bold mb-3" style={{ color: colors.textMuted }}>Expiration Deadline</Text>
-              <PremiumCalendarPicker
+              <Calendar
                 selectedDate={deadline?.toISOString() || null}
                 onSelect={(date) => setDeadline(new Date(date))}
                 scale="compact"

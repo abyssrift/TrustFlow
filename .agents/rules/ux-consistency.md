@@ -39,6 +39,36 @@ Pre-built scrollable column for the left pane of two-column Popups.
 
 **When to use:** Always inside `Popup.sideMenu` for two-pane composers. Not used standalone.
 
+## Calendar
+
+The universal date picker. **Never build a one-off date grid or pull in a calendar
+library.** Every date/date-range input goes through `components/common/Calendar.tsx`.
+It auto-detects its presentation from the props you pass — you never set a "mode"
+prop for this part:
+
+- **Floating** (`floatingStyle` prop provided) — a positioned panel anchored near a
+  trigger, viewport-safe, sized/flipped via `useCalendarPosition()` from
+  `lib/calendarPicker`. Use for calendar icons inline in a form row (task due dates,
+  expiry dates) where the field stays visible while picking.
+- **Popup** (`visible`/`onClose` props provided) — renders through `Popup`
+  (`presentation="auto"`) so it's centered on desktop, a sheet on mobile, for free.
+  Use when the date picker is the primary/only action, not an inline field.
+- **Inline** (neither prop given) — a bare grid embedded in a parent (a manual
+  `Popup` wrapper, a `ScrollView` body, a form section). Use when the calendar is
+  one field among several inside a container you already control.
+
+Other props: `mode="single" | "range"` (range needs `onApplyRange`, `maxDays`,
+`onUpgrade` for plan-cap enforcement — see `DateRangeFilter.tsx` for the reference
+implementation), `showQuickSelect` (Today/Tomorrow/+3 Days/+1 Week/+2 Weeks/+1 Month
+sidebar), `dual_display` (two months side by side — Popup mode only, must be
+explicit, never auto-detected from viewport width), `accentColor`/`rangeColor`.
+
+**Layout gotcha:** `MonthGrid`'s day cells are percentage-widths, which only
+resolve correctly if every ancestor up to the floating/popup panel has a *definite*
+width — give any wrapper around a `Calendar` `flex-1` (or an explicit width), never
+a plain `flex-row` child with no sizing. Getting this wrong is the exact bug that
+made the day grid render 3 columns wide instead of 7.
+
 ## When to use what
 
 | You need this | Use this |
@@ -50,6 +80,7 @@ Pre-built scrollable column for the left pane of two-column Popups.
 | Styled confirmation dialog | `ConfirmModal` |
 | Saving/loading overlay | `LoadingOverlay` |
 | Initial data load placeholder | `SkeletonBlock` / `SkeletonList` |
+| Any date or date-range input | `Calendar` (see Calendar section above) |
 
 ## Mobile overflow: what to do when content is too much
 

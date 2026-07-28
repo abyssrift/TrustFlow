@@ -4,7 +4,7 @@ import DraggableSheet from '@/components/common/DraggableSheet';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
 import Popup from '@/components/common/Popup';
 import SidebarLayout from '@/components/common/SidebarLayout';
-import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
+import Calendar from '@/components/common/Calendar';
 import Tooltip from '@/components/common/Tooltip';
 import { useCalendarPosition } from '@/lib/calendarPicker';
 import { usePipelineAssignmentPreview } from '@/lib/usePipelineAssignmentPreview';
@@ -788,7 +788,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                   </View>
                   {showStartCalendar && (
                     <View className="mt-3">
-                      <PremiumCalendarPicker
+                      <Calendar
                         selectedDate={draft.startDate}
                         onSelect={date => { setDraft({ startDate: date }); setShowStartCalendar(false); }}
                         accentColor={colors.accent}
@@ -830,7 +830,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                   </View>
                   {showCalendar && (
                     <View className="mt-3">
-                      <PremiumCalendarPicker
+                      <Calendar
                         selectedDate={draft.dueDate}
                         onSelect={date => { setDraft({ dueDate: date }); setShowCalendar(false); }}
                         accentColor={colors.primary}
@@ -1113,34 +1113,32 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
 
           {/* Deadline calendar */}
           {showCalendar && (
-            <View style={calPos.style as any}>
-              <PremiumCalendarPicker
-                selectedDate={draft.dueDate}
-                onSelect={date => setDraft({ dueDate: date })}
-                accentColor={colors.primary}
-                rangeDate={draft.startDate}
-                rangeColor={colors.accent}
-                scale="compact"
-                showQuickSelect
-                showDaysBetween
-              />
-            </View>
+            <Calendar
+              selectedDate={draft.dueDate}
+              onSelect={date => setDraft({ dueDate: date })}
+              accentColor={colors.primary}
+              rangeDate={draft.startDate}
+              rangeColor={colors.accent}
+              scale="compact"
+              showQuickSelect
+              showDaysBetween
+              floatingStyle={calPos.style as any}
+            />
           )}
 
           {/* Start date calendar */}
           {showStartCalendar && (
-            <View style={startCalPos.style as any}>
-              <PremiumCalendarPicker
-                selectedDate={draft.startDate}
-                accentColor={colors.accent}
-                onSelect={date => setDraft({ startDate: date })}
-                rangeDate={draft.dueDate}
-                rangeColor={colors.primary}
-                scale="compact"
-                showQuickSelect
-                showDaysBetween
-              />
-            </View>
+            <Calendar
+              selectedDate={draft.startDate}
+              accentColor={colors.accent}
+              onSelect={date => setDraft({ startDate: date })}
+              rangeDate={draft.dueDate}
+              rangeColor={colors.primary}
+              scale="compact"
+              showQuickSelect
+              showDaysBetween
+              floatingStyle={startCalPos.style as any}
+            />
           )}
 
           {/* Pipeline dropdown */}

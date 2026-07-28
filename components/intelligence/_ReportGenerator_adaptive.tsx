@@ -1,5 +1,5 @@
 import HorizontalScroll from '@/components/common/HorizontalScroll';
-import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
+import Calendar from '@/components/common/Calendar';
 import { BackButton } from '@/components/common/BackButton';
 import Tooltip from '@/components/common/Tooltip';
 import { useAuth } from '@/contexts/AuthContext';
@@ -452,7 +452,7 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
                           </Text>
                         </TouchableOpacity>
                       </View>
-                      <PremiumCalendarPicker
+                      <Calendar
                         scale="compact"
                         showDaysBetween
                         selectedDate={activeDateField === 'start' ? dateStart : dateEnd}
