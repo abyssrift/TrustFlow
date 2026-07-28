@@ -398,6 +398,7 @@ export function FilePreviewModal({
   kind,
   onClose,
   onDownload,
+  onShare,
   sizeBytes,
 }: {
   visible: boolean;
@@ -406,6 +407,8 @@ export function FilePreviewModal({
   kind: PreviewKind;
   onClose: () => void;
   onDownload?: () => void;
+  /** Hands the file to the OS share sheet. Omitted where no sharing context exists (see useShareFile). */
+  onShare?: () => void;
   sizeBytes?: number;
 }) {
   const colors = useThemeColors();
@@ -424,6 +427,13 @@ export function FilePreviewModal({
       <View className="flex-row items-center mb-3 gap-2">
         <FontAwesome name={icon as any} size={14} color="#fff" />
         <Text numberOfLines={1} className="flex-1 text-white font-bold text-sm">{fileName}</Text>
+        {onShare && (
+          <Tooltip label="Share">
+            <TouchableOpacity onPress={onShare} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} className="w-9 h-9 rounded-full bg-white/10 items-center justify-center" style={isWeb ? ({ cursor: 'pointer' } as any) : undefined}>
+              <FontAwesome name="share" size={14} color="#fff" />
+            </TouchableOpacity>
+          </Tooltip>
+        )}
         {onDownload && (
           <Tooltip label="Download">
             <TouchableOpacity onPress={onDownload} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} className="w-9 h-9 rounded-full bg-white/10 items-center justify-center" style={isWeb ? ({ cursor: 'pointer' } as any) : undefined}>

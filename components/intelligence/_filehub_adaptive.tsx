@@ -39,6 +39,7 @@ import FileHubAnalytics from './FileHubAnalytics';
 import FileHubBin from './FileHubBin';
 import FileHubOverview from './FileHubOverview';
 import FileHubBrowse from './FileHubBrowse';
+import { useShareFile } from '../common/ShareFile';
 import TaskFileResults from './TaskFileResults';
 
 
@@ -147,6 +148,7 @@ function FileDetailSheet({
   const { markRead, hideFile, deleteFile, logActivity, fileActivity, fileVersions, restoreVersion, pinVersion, folders, moveFile, createShareLink, revokeShareLink, listShareLinks } = useFileHub();
   const { showConfirm } = useAlert();
   const { successToast } = useToast();
+  const { share, shareSheet } = useShareFile();
   const [downloading, setDownloading] = useState(false);
   const [showMoveFolder, setShowMoveFolder] = useState(false);
   const [showShareLink, setShowShareLink] = useState(false);
@@ -253,6 +255,15 @@ function FileDetailSheet({
       setDownloading(false);
     }
   };
+
+  const handleShareOut = () => share({
+    fileId: file.id,
+    bucket: file.bucket || 'filehub-files',
+    storagePath: file.storage_path,
+    name: file.original_name,
+    mimeType: file.mime_type,
+    sizeBytes: file.size_bytes,
+  });
 
   const handleDelete = () => {
     showConfirm(
@@ -451,6 +462,14 @@ function FileDetailSheet({
               >
                 {downloading ? <ActivityIndicator size="small" color="#fff" /> : <FontAwesome name="download" size={14} color="#fff" />}
                 <Text className="text-white font-black text-base">Download</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleShareOut}
+                className="flex-row items-center justify-center bg-surface-background border border-surface-border rounded-2xl py-3.5 gap-2"
+              >
+                <FontAwesome name="share" size={13} color={colors.primary} />
+                <Text className="text-brand-primary font-black text-sm">Share</Text>
               </TouchableOpacity>
 
               {isUnread && (
@@ -770,9 +789,11 @@ function FileDetailSheet({
         fileName={file.original_name}
         onClose={() => setPreviewOpen(false)}
         onDownload={handleDownload}
+        onShare={handleShareOut}
         sizeBytes={file.size_bytes}
       />
     )}
+    {shareSheet}
     {versionPreview && versionPreview.kind === 'image' && (
       <Modal visible transparent animationType="fade" onRequestClose={() => setVersionPreview(null)}>
         <View className="flex-1 items-center justify-center p-5" style={{ backgroundColor: 'rgba(0,0,0,0.85)' }}>

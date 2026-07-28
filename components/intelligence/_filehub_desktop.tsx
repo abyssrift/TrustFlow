@@ -21,6 +21,7 @@ import FolderTreePicker from './FolderTreePicker';
 import { randomId } from '@/lib/randomId';
 import { downloadFilesAsZip, openStorageFile } from '@/lib/storage';
 import { isMultiSelectModifierActive } from '@/lib/webModifierKeys';
+import { useShareFile } from '../common/ShareFile';
 import TaskFileResults from './TaskFileResults';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
@@ -1438,6 +1439,7 @@ function FileRow({
   const { deleteFile, logActivity } = useFileHub();
   const { showConfirm } = useAlert();
   const isOwner = file.uploader?.id === user?.id;
+  const { share, shareSheet } = useShareFile();
   const [quickDownloading, setQuickDownloading] = useState(false);
   const [showQuickShare, setShowQuickShare] = useState(false);
 
@@ -1455,6 +1457,18 @@ function FileRow({
   const handleQuickShare = (e: any) => {
     e?.stopPropagation?.();
     setShowQuickShare(true);
+  };
+
+  const handleQuickShareOut = (e: any) => {
+    e?.stopPropagation?.();
+    share({
+      fileId: file.id,
+      bucket: file.bucket || 'filehub-files',
+      storagePath: file.storage_path,
+      name: file.original_name,
+      mimeType: file.mime_type,
+      sizeBytes: file.size_bytes,
+    });
   };
 
   const handleQuickDelete = (e: any) => {
@@ -1547,6 +1561,14 @@ function FileRow({
                 : <FontAwesome name="download" size={12} color={colors.textMuted} />}
             </TouchableOpacity>
           </Tooltip>
+          <Tooltip label="Share file">
+            <TouchableOpacity
+              onPress={handleQuickShareOut}
+              className="w-7 h-7 items-center justify-center rounded-lg hover:bg-brand-primary/10 hover:scale-110 active:scale-90 transition-all"
+            >
+              <FontAwesome name="share" size={12} color={colors.textMuted} />
+            </TouchableOpacity>
+          </Tooltip>
           {isOwner && (
             <Tooltip label="Share link">
               <TouchableOpacity
@@ -1578,6 +1600,7 @@ function FileRow({
           onClose={() => setShowQuickShare(false)}
         />
       )}
+      {shareSheet}
     </TouchableOpacity>
   );
 }
@@ -1716,6 +1739,7 @@ function DetailPanel({
   const [restoringLatest, setRestoringLatest] = useState(false);
   const [pinningId, setPinningId] = useState<string | null>(null);
   const [showShareLink, setShowShareLink] = useState(false);
+  const { share, shareSheet } = useShareFile();
     const colors = useThemeColors();
     const { width: screenWidth, height: screenHeight } = useWindowDimensions();
 
@@ -1820,6 +1844,18 @@ function DetailPanel({
     } finally {
       setDownloadLoading(false);
     }
+  };
+
+  const handleShareOut = () => {
+    if (!file) return;
+    share({
+      fileId: file.id,
+      bucket: file.bucket || 'filehub-files',
+      storagePath: file.storage_path,
+      name: file.original_name,
+      mimeType: file.mime_type,
+      sizeBytes: file.size_bytes,
+    });
   };
 
   const handleDelete = () => {
@@ -1933,10 +1969,14 @@ function DetailPanel({
               <Text className="text-typography-main font-black text-[12px]">Mark Read</Text>
             </TouchableOpacity>
           )}
+          <TouchableOpacity onPress={handleShareOut} className="flex-row items-center gap-1.5 px-3.5 py-2 rounded-xl bg-surface-background border border-surface-border">
+            <FontAwesome name="share" size={11} color={colors.primary} />
+            <Text className="text-typography-main font-black text-[12px]">Share</Text>
+          </TouchableOpacity>
           {isOwner && (
             <TouchableOpacity onPress={() => setShowShareLink(true)} className="flex-row items-center gap-1.5 px-3.5 py-2 rounded-xl bg-surface-background border border-surface-border">
               <FontAwesome name="link" size={11} color={colors.primary} />
-              <Text className="text-typography-main font-black text-[12px]">Share</Text>
+              <Text className="text-typography-main font-black text-[12px]">Link</Text>
             </TouchableOpacity>
           )}
           {mode === 'inbox' && (
@@ -2190,6 +2230,7 @@ function DetailPanel({
         fileName={file.original_name}
         onClose={() => setPreviewOpen(false)}
         onDownload={handleDownload}
+        onShare={handleShareOut}
         sizeBytes={file.size_bytes}
       />
     )}
@@ -2231,6 +2272,7 @@ function DetailPanel({
       fileName={file.original_name}
       onClose={() => setShowShareLink(false)}
     />
+    {shareSheet}
     </>
   );
 }

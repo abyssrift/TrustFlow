@@ -12,6 +12,7 @@ import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'rea
 import { FilePreviewCard } from '../common/FilePreviewCard';
 import Tooltip from '../common/Tooltip';
 import FileHubDetailPane, { type DetailFile } from './FileHubDetailPane';
+import { useShareFile } from '../common/ShareFile';
 import { fileIcon, formatSize } from './TaskFileResults';
 
 type BrowseItem = {
@@ -79,6 +80,18 @@ export default function FileHubBrowse({ compact }: { compact?: boolean }) {
     [items],
   );
   const { signedUrls } = useImageLightbox(media, 'filehub-files');
+  const { share, shareSheet } = useShareFile();
+
+  // Only filehub-native rows have a share-link row to fall back to; task-sourced
+  // files still get the OS share sheet.
+  const shareItem = (it: BrowseItem) => share({
+    fileId: it.source === 'filehub' ? it.file_id : null,
+    bucket: it.bucket,
+    storagePath: it.storage_path,
+    name: it.file_name,
+    mimeType: it.mime_type,
+    sizeBytes: it.size_bytes,
+  });
 
   const fetchPage = useCallback(async (before: string | null, withFacets: boolean) => {
     const { data, error } = await supabase.rpc('rpc_filehub_browse', {
@@ -262,6 +275,11 @@ export default function FileHubBrowse({ compact }: { compact?: boolean }) {
                     <FontAwesome name="download" size={11} color={colors.textMuted} />
                   </TouchableOpacity>
                 </Tooltip>
+                <Tooltip label="Share file">
+                  <TouchableOpacity onPress={(e: any) => { e?.stopPropagation?.(); shareItem(it); }} className="w-8 h-8 rounded-lg items-center justify-center border border-surface-border flex-shrink-0">
+                    <FontAwesome name="share" size={11} color={colors.textMuted} />
+                  </TouchableOpacity>
+                </Tooltip>
               </TouchableOpacity>
             );
           })}
@@ -306,6 +324,7 @@ export default function FileHubBrowse({ compact }: { compact?: boolean }) {
           </TouchableOpacity>
         </View>
       )}
+      {shareSheet}
     </ScrollView>
   );
 

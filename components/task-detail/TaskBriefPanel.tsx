@@ -14,6 +14,7 @@ import { ActivityIndicator, Animated, Image, Platform, ScrollView, Text, Touchab
 import Popup from '@/components/common/Popup';
 import ImageLightbox from '@/components/common/ImageLightbox';
 import { FilePreviewModal, getPreviewKind, type PreviewKind } from '@/components/common/FilePreview';
+import { useShareFile } from '@/components/common/ShareFile';
 import UserLink from '@/components/common/UserLink';
 import CollapsibleCard from './CollapsibleCard';
 import { useDropPulse, useFileDrop } from '@/hooks/useWebDnd';
@@ -205,7 +206,13 @@ export default function TaskBriefPanel() {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   // Inline preview for non-image previewable files (spreadsheet / pdf / docx /
   // text) so they open in-app instead of bouncing to a browser/download.
-  const [preview, setPreview] = useState<{ uri: string; name: string; kind: PreviewKind; storagePath: string; sizeBytes?: number } | null>(null);
+  const [preview, setPreview] = useState<{ uri: string; name: string; kind: PreviewKind; storagePath: string; sizeBytes?: number; mimeType?: string | null } | null>(null);
+  const { share, shareSheet } = useShareFile();
+
+  // Brief attachments aren't filehub-native — no fileId, so no link fallback;
+  // the object still shares and activity logs against the pointer row by path.
+  const shareBriefFile = (f: { storagePath: string; name: string; mimeType?: string | null; sizeBytes?: number }) =>
+    share({ bucket: TASK_BRIEF_BUCKET, storagePath: f.storagePath, name: f.name, mimeType: f.mimeType, sizeBytes: f.sizeBytes });
 
   // Feature D: replace / history / soft-delete
   const [replacingId, setReplacingId] = useState<string | null>(null);
@@ -596,6 +603,12 @@ export default function TaskBriefPanel() {
           onDownloadOriginal={() =>
             openStorageFile(TASK_BRIEF_BUCKET, lightboxItem.storage_path || lightboxItem.file_url, lightboxItem.file_name)
           }
+          onShare={() => shareBriefFile({
+            storagePath: lightboxItem.storage_path || lightboxItem.file_url,
+            name: lightboxItem.file_name,
+            mimeType: lightboxItem.mime_type,
+            sizeBytes: lightboxItem.file_size || undefined,
+          })}
         />
       )}
 
@@ -607,9 +620,11 @@ export default function TaskBriefPanel() {
           kind={preview.kind}
           onClose={() => setPreview(null)}
           onDownload={() => openStorageFile(TASK_BRIEF_BUCKET, preview.storagePath, preview.name)}
+          onShare={() => shareBriefFile(preview)}
           sizeBytes={preview.sizeBytes}
         />
       )}
+      {shareSheet}
 
       {/* Feature D: version history sheet — newest first, restore = pointer move.
           Inline colors on purpose — theme-token classes go black inside RN Modal on web. */}

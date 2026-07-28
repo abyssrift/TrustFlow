@@ -11,7 +11,7 @@ import { ActivityIndicator, Image, ScrollView, Text, TouchableOpacity, View } fr
 
 import { FilePreviewTeaser, getPreviewKind } from '../common/FilePreview';
 import Tooltip from '../common/Tooltip';
-import { useShareFile } from './ShareFallbackSheet';
+import { useShareFile } from '../common/ShareFile';
 import { fileIcon, formatSize } from './TaskFileResults';
 
 export type DetailFile = {

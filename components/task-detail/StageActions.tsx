@@ -2,6 +2,7 @@ import ClipboardControls from '@/components/common/ClipboardControls';
 import Popup from '@/components/common/Popup';
 import Tooltip from '@/components/common/Tooltip';
 import { FilePreviewGrid } from '@/components/common/FilePreviewCard';
+import { useShareFile } from '@/components/common/ShareFile';
 import LinkifiedText from '@/components/common/LinkifiedText';
 import ManualTimeApprovalsModal from '@/components/common/ManualTimeApprovalsModal';
 import ManualTimeModal from '@/components/common/ManualTimeModal';
@@ -293,10 +294,20 @@ export default function StageActions() {
       ),
     [data?.submissions]
   );
+  const { share: shareSubmissionFile, shareSheet: submissionShareSheet } = useShareFile();
   const { signedUrls: subSignedUrls, previewUrls: subPreviewUrls, handlePress: handleSubPress, viewer: subViewer } = useFileViewer(
     submissionMedia,
     SUBMISSION_BUCKET,
-    { onOpen: (it) => logTaskFileActivity(it.bucket || SUBMISSION_BUCKET, it.storagePath, 'view') }
+    {
+      onOpen: (it) => logTaskFileActivity(it.bucket || SUBMISSION_BUCKET, it.storagePath, 'view'),
+      onShare: (it) => shareSubmissionFile({
+        bucket: it.bucket || SUBMISSION_BUCKET,
+        storagePath: it.storagePath,
+        name: it.name,
+        mimeType: it.mimeType,
+        sizeBytes: it.sizeBytes,
+      }),
+    }
   );
 
   const toggleDeletedSubs = async () => {
@@ -1288,6 +1299,7 @@ export default function StageActions() {
       </Popup>
 
       {subViewer}
+      {submissionShareSheet}
     </View>
   );
 }

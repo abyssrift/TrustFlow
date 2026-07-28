@@ -1,4 +1,5 @@
 import { FilePreviewGrid } from '@/components/common/FilePreviewCard';
+import { useShareFile } from '@/components/common/ShareFile';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import { useFileViewer } from '@/hooks/useFileViewer';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -87,8 +88,18 @@ export default function EvidencePanel() {
     return { groupedEvidence: groups, stats: currentStats, mediaItems };
   }, [data?.submissions, activeFilter, showPendingReview, colors]);
 
+  const { share, shareSheet } = useShareFile();
   const { signedUrls, previewUrls, handlePress, viewer } = useFileViewer(mediaItems, SUBMISSION_BUCKET, {
     onOpen: (it) => logTaskFileActivity(it.bucket || SUBMISSION_BUCKET, it.storagePath, 'view'),
+    // No fileId — submissions aren't filehub-native, so this shares the object
+    // and logs against the pointer row by path.
+    onShare: (it) => share({
+      bucket: it.bucket || SUBMISSION_BUCKET,
+      storagePath: it.storagePath,
+      name: it.name,
+      mimeType: it.mimeType,
+      sizeBytes: it.sizeBytes,
+    }),
   });
 
   if (!data || stats.all === 0) return null;
@@ -147,6 +158,7 @@ export default function EvidencePanel() {
       </View>
 
       {viewer}
+      {shareSheet}
     </CollapsibleCard>
   );
 }

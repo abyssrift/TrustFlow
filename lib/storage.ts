@@ -31,7 +31,7 @@ function isInlinePreviewable(filename?: string, mimeType?: string | null): boole
 }
 
 /** Signed URL for a private-bucket path. Legacy records that stored a full http URL pass through. */
-async function signedUrlFor(bucket: string, storagePath: string): Promise<string | null> {
+export async function signedUrlFor(bucket: string, storagePath: string): Promise<string | null> {
   if (storagePath.startsWith('http')) return storagePath;
   const { data, error } = await supabase.storage.from(bucket).createSignedUrl(storagePath, 3600);
   if (error || !data?.signedUrl) {
