@@ -1,4 +1,4 @@
-import { Role } from '@/contexts/PipelineEditorContext';
+import { Role, FileVisibility, FileVisibilityPreset } from '@/contexts/PipelineEditorContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
@@ -11,6 +11,7 @@ type PipelineFormData = {
   name: string;
   description: string | null;
   visibility_permissions: string[];   // stores role UUIDs
+  file_visibility: FileVisibility;
   task_visibility_mode: 'all' | 'assigned_only';
   is_default?: boolean;
   assignment_mode: 'manual' | 'round_robin' | 'smart';
@@ -76,6 +77,12 @@ export default function PipelineSettingsForm({
   const [taskVisibilityMode, setTaskVisibilityMode] = useState<'all' | 'assigned_only'>(
     initialData?.task_visibility_mode || 'all'
   );
+  const initFv = initialData?.file_visibility;
+  const [fvPreset, setFvPreset] = useState<FileVisibilityPreset>(initFv?.preset || 'task_members');
+  const [fvAssignees, setFvAssignees] = useState<boolean>(initFv?.assignees ?? true);
+  const [fvReviewers, setFvReviewers] = useState<boolean>(initFv?.reviewers ?? true);
+  const [fvRoleIds, setFvRoleIds] = useState<string[]>(initFv?.roles || []);
+  const [fvRoleSearch, setFvRoleSearch] = useState('');
   const [isDefault, setIsDefault] = useState(initialData?.is_default || false);
   const [assignmentMode, setAssignmentMode] = useState<'manual' | 'round_robin' | 'smart'>(
     initialData?.assignment_mode || 'manual'
@@ -125,12 +132,26 @@ export default function PipelineSettingsForm({
     );
   };
 
+  const toggleFvRole = (id: string) =>
+    setFvRoleIds(prev => prev.includes(id) ? prev.filter(k => k !== id) : [...prev, id]);
+
+  const fvFilteredRoles = useMemo(() => {
+    if (!fvRoleSearch) return roles;
+    return roles.filter(r => r.name.toLowerCase().includes(fvRoleSearch.toLowerCase()));
+  }, [roles, fvRoleSearch]);
+
+  const buildFileVisibility = (): FileVisibility =>
+    fvPreset === 'custom'
+      ? { preset: 'custom', assignees: fvAssignees, reviewers: fvReviewers, roles: fvRoleIds }
+      : { preset: fvPreset };
+
   const handleApply = () => {
     if (!name.trim()) return;
     onSubmit({
       name: name.trim(),
       description: desc,
       visibility_permissions: selectedRoleIds,
+      file_visibility: buildFileVisibility(),
       task_visibility_mode: taskVisibilityMode,
       is_default: isDefault,
       assignment_mode: assignmentMode,
@@ -353,6 +374,122 @@ export default function PipelineSettingsForm({
             </TouchableOpacity>
           </View>
         </View>
+      </View>
+
+      {/* File Visibility Section */}
+      <View className="bg-surface-overlay/50 p-4 rounded-2xl border border-surface-border">
+        <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-1">File Visibility</Text>
+        <Text className="text-typography-muted text-[9px] mb-4 leading-3 italic">
+          Who can open files attached to tasks in this pipeline (briefs & submissions). The task owner and managers can always see them.
+        </Text>
+
+        <View className="flex-row flex-wrap gap-2">
+          {([
+            { key: 'task_members', label: 'Task Members', icon: 'users' },
+            { key: 'submitters_reviewers', label: 'Submitters & Reviewers', icon: 'user-secret' },
+            { key: 'company', label: 'Company', icon: 'building' },
+            { key: 'custom', label: 'Custom', icon: 'sliders' },
+          ] as const).map(opt => (
+            <TouchableOpacity
+              key={opt.key}
+              onPress={() => setFvPreset(opt.key)}
+              style={{ flexBasis: '48%', flexGrow: 1 }}
+              className={`py-2.5 rounded-xl border items-center flex-row justify-center gap-2 ${
+                fvPreset === opt.key ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'
+              }`}
+            >
+              <FontAwesome name={opt.icon as any} size={10} color={fvPreset === opt.key ? colors.textMain : colors.textMuted} />
+              <Text className={`text-[10px] font-black uppercase tracking-tighter ${fvPreset === opt.key ? 'text-brand-on-primary' : 'text-typography-muted'}`}>
+                {opt.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <Text className="text-typography-muted text-[9px] mt-2 ml-1 leading-3 italic">
+          {fvPreset === 'task_members'
+            ? 'Anyone assigned to the task, plus submission reviewers.'
+            : fvPreset === 'submitters_reviewers'
+            ? 'Only whoever uploaded the file and submission reviewers.'
+            : fvPreset === 'company'
+            ? 'Anyone in the company can view this pipeline’s task files.'
+            : 'Choose exactly who can view below.'}
+        </Text>
+
+        {fvPreset === 'custom' && (
+          <View className="mt-4 gap-3">
+            <View className="flex-row items-center justify-between">
+              <Text className="text-typography-main font-bold text-xs">Task assignees can view</Text>
+              <TouchableOpacity
+                onPress={() => setFvAssignees(v => !v)}
+                className={`w-12 h-7 rounded-full flex-row items-center px-1 ${fvAssignees ? 'bg-brand-primary justify-end' : 'bg-surface-overlay justify-start'}`}
+              >
+                <View className="w-5 h-5 rounded-full bg-white shadow-sm" />
+              </TouchableOpacity>
+            </View>
+
+            <View className="flex-row items-center justify-between">
+              <Text className="text-typography-main font-bold text-xs">Submission reviewers can view</Text>
+              <TouchableOpacity
+                onPress={() => setFvReviewers(v => !v)}
+                className={`w-12 h-7 rounded-full flex-row items-center px-1 ${fvReviewers ? 'bg-brand-primary justify-end' : 'bg-surface-overlay justify-start'}`}
+              >
+                <View className="w-5 h-5 rounded-full bg-white shadow-sm" />
+              </TouchableOpacity>
+            </View>
+
+            <View>
+              <View className="flex-row items-center justify-between mb-2 px-1">
+                <Text className="text-typography-main font-bold text-xs">Roles that can view</Text>
+                <Text className="text-typography-muted text-[10px]">
+                  {fvRoleIds.length === 0 ? 'None' : `${fvRoleIds.length} selected`}
+                </Text>
+              </View>
+              <View className="relative mb-3">
+                <View className="absolute left-3 top-2.5 z-10">
+                  <FontAwesome name="search" size={10} color={colors.textDim} />
+                </View>
+                <TextInput
+                  value={fvRoleSearch}
+                  onChangeText={setFvRoleSearch}
+                  placeholder="Search roles..."
+                  placeholderTextColor={colors.textDim}
+                  className="bg-surface-background border border-surface-border rounded-lg pl-8 pr-3 py-2 text-[11px] text-typography-main"
+                />
+              </View>
+              <View className="max-h-40 bg-surface-background rounded-xl border border-surface-border overflow-hidden">
+                <ScrollView nestedScrollEnabled className="p-2">
+                  <View className="flex-row flex-wrap gap-2">
+                    {fvFilteredRoles.length === 0 ? (
+                      <Text className="text-typography-muted text-[10px] italic p-2">No matching roles</Text>
+                    ) : (
+                      fvFilteredRoles.map(role => {
+                        const isSelected = fvRoleIds.includes(role.id);
+                        return (
+                          <TouchableOpacity
+                            key={role.id}
+                            onPress={() => toggleFvRole(role.id)}
+                            className={`px-3 py-1.5 rounded-lg border flex-row items-center ${
+                              isSelected ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border'
+                            }`}
+                          >
+                            {isSelected && <FontAwesome name="check" size={8} color={colors.textMain} style={{ marginRight: 6 }} />}
+                            {role.color && (
+                              <View style={{ backgroundColor: role.color, width: 6, height: 6, borderRadius: 3, marginRight: 5 }} />
+                            )}
+                            <Text className={`text-[10px] font-bold ${isSelected ? 'text-brand-on-primary' : 'text-typography-main'}`}>
+                              {role.name}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })
+                    )}
+                  </View>
+                </ScrollView>
+              </View>
+            </View>
+          </View>
+        )}
       </View>
 
       {/* Assignment Section */}

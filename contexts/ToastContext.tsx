@@ -1,4 +1,5 @@
 import GlobalToastOverlay from '@/components/common/GlobalToastOverlay';
+import { registerToastHandler } from '@/lib/toast';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 
@@ -69,6 +70,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     timersRef.current.set(id, timer);
     return id;
   }, [dismissToast]);
+
+  // Let non-React modules (lib/*) raise toasts via lib/toast.
+  useEffect(() => {
+    registerToastHandler(showToast);
+    return () => registerToastHandler(null);
+  }, [showToast]);
 
   const value = useMemo<ToastContextType>(() => ({
     showToast,

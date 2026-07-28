@@ -76,6 +76,7 @@ export default function ImageLightbox({
   onClose,
   onDownloadOriginal,
   onInfo,
+  onShare,
   onPrev,
   onNext,
   hasPrev = false,
@@ -90,6 +91,8 @@ export default function ImageLightbox({
   onDownloadOriginal?: () => void;
   /** When provided, shows an info button (e.g. to open the file's detail view). */
   onInfo?: () => void;
+  /** When provided, shows a share button (hands the image to the OS share sheet). */
+  onShare?: () => void;
   onPrev?: () => void;
   onNext?: () => void;
   hasPrev?: boolean;
@@ -251,6 +254,19 @@ export default function ImageLightbox({
               style={Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : undefined}
             >
               <FontAwesome name="info" size={16} color="#fff" />
+            </TouchableOpacity>
+          </Tooltip>
+        )}
+
+        {onShare && (
+          <Tooltip label="Share" side="right" className={`absolute top-6 ${onInfo ? 'left-20' : 'left-6'} z-10`}>
+            <TouchableOpacity
+              onPress={onShare}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              className="w-10 h-10 rounded-full bg-white/10 items-center justify-center"
+              style={Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : undefined}
+            >
+              <FontAwesome name="share" size={16} color="#fff" />
             </TouchableOpacity>
           </Tooltip>
         )}

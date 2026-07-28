@@ -11,6 +11,7 @@ import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'rea
 
 import { FilePreviewGrid, type FileTile } from '../common/FilePreviewCard';
 import Tooltip from '../common/Tooltip';
+import { useShareFile } from '../common/ShareFile';
 import { fileIcon, formatSize } from './TaskFileResults';
 
 type RecentFile = {
@@ -91,6 +92,18 @@ export default function FileHubOverview({
     inbox.forEach(f => m.push({ id: `i:${f.id}`, name: f.original_name, storagePath: f.storage_path, mimeType: f.mime_type, bucket: f.bucket, sizeBytes: f.size_bytes }));
     return m;
   }, [recent, assigned, inbox]);
+  const { share, shareSheet } = useShareFile();
+  // Share links only exist for filehub-native files; task-sourced rows still get
+  // the OS share sheet, just no link fallback.
+  const shareRow = (f: { file_id?: string; id?: string; source?: string; bucket: string; storage_path: string; name: string; mime_type: string | null; size_bytes: number }) =>
+    share({
+      fileId: !f.source || f.source === 'filehub' ? (f.file_id ?? f.id ?? null) : null,
+      bucket: f.bucket,
+      storagePath: f.storage_path,
+      name: f.name,
+      mimeType: f.mime_type,
+      sizeBytes: f.size_bytes,
+    });
   const { signedUrls, handlePress, viewer } = useFileViewer(media, 'filehub-files');
 
   // Channels ordered by recent visit, then by latest activity.
@@ -146,6 +159,7 @@ export default function FileHubOverview({
               onPress={() => handlePress({ id: `a:${r.file_id}`, name: r.file_name, storagePath: r.storage_path, mimeType: r.mime_type, bucket: r.bucket, sizeBytes: r.size_bytes })}
               actions={[
                 { icon: 'download', label: 'Download', onPress: () => openStorageFile(r.bucket, r.storage_path, r.file_name, r.mime_type) },
+                { icon: 'share', label: 'Share', onPress: () => shareRow({ ...r, name: r.file_name }) },
                 { icon: 'external-link', label: 'View task', onPress: () => router.push(`/task/${r.task_id}` as any) },
               ]}
               colors={colors}
@@ -203,6 +217,7 @@ export default function FileHubOverview({
               onPress={() => { handlePress({ id: `i:${f.id}`, name: f.original_name, storagePath: f.storage_path, mimeType: f.mime_type, bucket: f.bucket, sizeBytes: f.size_bytes }); logActivity(f.id, 'view'); }}
               actions={[
                 { icon: 'download', label: 'Download', onPress: () => openStorageFile(f.bucket, f.storage_path, f.original_name, f.mime_type) },
+                { icon: 'share', label: 'Share', onPress: () => shareRow({ ...f, name: f.original_name }) },
               ]}
               colors={colors}
             />
@@ -254,6 +269,7 @@ export default function FileHubOverview({
       </View>
     </ScrollView>
     {viewer}
+    {shareSheet}
     </View>
   );
 }

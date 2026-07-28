@@ -12,6 +12,7 @@ import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'rea
 import { FilePreviewCard } from '../common/FilePreviewCard';
 import Tooltip from '../common/Tooltip';
 import FileHubDetailPane, { type DetailFile } from './FileHubDetailPane';
+import { useShareFile } from '../common/ShareFile';
 import { fileIcon, formatSize } from './TaskFileResults';
 
 type BrowseItem = {
@@ -28,6 +29,7 @@ type BrowseItem = {
   project_id: string | null;
   project_name: string | null;
   task_category: string | null;
+  submission_id: string | null;
 };
 
 type Facets = {
@@ -78,6 +80,18 @@ export default function FileHubBrowse({ compact }: { compact?: boolean }) {
     [items],
   );
   const { signedUrls } = useImageLightbox(media, 'filehub-files');
+  const { share, shareSheet } = useShareFile();
+
+  // Only filehub-native rows have a share-link row to fall back to; task-sourced
+  // files still get the OS share sheet.
+  const shareItem = (it: BrowseItem) => share({
+    fileId: it.source === 'filehub' ? it.file_id : null,
+    bucket: it.bucket,
+    storagePath: it.storage_path,
+    name: it.file_name,
+    mimeType: it.mime_type,
+    sizeBytes: it.size_bytes,
+  });
 
   const fetchPage = useCallback(async (before: string | null, withFacets: boolean) => {
     const { data, error } = await supabase.rpc('rpc_filehub_browse', {
@@ -261,6 +275,11 @@ export default function FileHubBrowse({ compact }: { compact?: boolean }) {
                     <FontAwesome name="download" size={11} color={colors.textMuted} />
                   </TouchableOpacity>
                 </Tooltip>
+                <Tooltip label="Share file">
+                  <TouchableOpacity onPress={(e: any) => { e?.stopPropagation?.(); shareItem(it); }} className="w-8 h-8 rounded-lg items-center justify-center border border-surface-border flex-shrink-0">
+                    <FontAwesome name="share" size={11} color={colors.textMuted} />
+                  </TouchableOpacity>
+                </Tooltip>
               </TouchableOpacity>
             );
           })}
@@ -305,6 +324,7 @@ export default function FileHubBrowse({ compact }: { compact?: boolean }) {
           </TouchableOpacity>
         </View>
       )}
+      {shareSheet}
     </ScrollView>
   );
 
@@ -312,6 +332,7 @@ export default function FileHubBrowse({ compact }: { compact?: boolean }) {
     source: detail.source, file_id: detail.file_id, bucket: detail.bucket, storage_path: detail.storage_path,
     file_name: detail.file_name, mime_type: detail.mime_type, size_bytes: detail.size_bytes, created_at: detail.created_at,
     task_id: detail.task_id, task_title: detail.task_title, project_name: detail.project_name, task_category: detail.task_category,
+    submission_id: detail.submission_id,
   };
 
   const onDeleted = (fileId: string) => setItems(prev => prev.filter(it => !(it.source === 'filehub' && it.file_id === fileId)));

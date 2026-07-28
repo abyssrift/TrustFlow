@@ -1,3 +1,5 @@
+**Before working on any UI-visible change, always read `.agents/rules/ui-consistency.md`, `.agents/rules/ux-consistency.md`, and `.agents/rules/ui-style-guide.md` first and follow their conventions.**
+
 ## Popups, modals, sheets
 
 **Never use raw RN `Modal` directly.** Every popup/modal/sheet goes through
@@ -22,6 +24,12 @@ raw `<Modal>` in a screen component.
   `containerStyle`/`containerClassName` (one-off sizing/theme-color styling).
 - If a file has separate `.tsx` (native) and `.web.tsx` variants, both must
   be checked — a native-only Modal fix rarely also fixes web, and vice versa.
+
+- `<SidebarLayout>` — pre-built scrollable sidebar for desktop two-pane Popups.
+  Props: `width` (default 288), `header` (sticky header above scroll body),
+  `style` (outer container). Check the file for details — use this instead
+  of inline `View + ScrollView` in sidebars. Must fall back to DraggableSheet
+  on mobile web (< 768px) — see RoleEditorSheet.web.tsx for the pattern.
 
 ## graphify
 

@@ -99,6 +99,8 @@ All layout must follow consistent spacing rules.
 
 ---
 
+**Modal/sheet patterns are documented in `.agents/rules/ux-consistency.md`. Always read it before creating or modifying popups, sheets, or overlays.**
+
 ## 6. Component Rules (STRICT)
 
 ### Buttons

@@ -262,6 +262,15 @@ export function useFileHub() {
   return ctx;
 }
 
+/**
+ * FileHub context where it exists, `null` where it doesn't — for features that
+ * work on any file but gain something extra inside FileHub (e.g. sharing: the
+ * OS share sheet needs no context, only the share-link fallback does).
+ */
+export function useFileHubOptional() {
+  return useContext(FileHubContext) ?? null;
+}
+
 export function FileHubProvider({ children }: { children: React.ReactNode }) {
   const island = useIsland();
   const { showAlert } = useAlert();

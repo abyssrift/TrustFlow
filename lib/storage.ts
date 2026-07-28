@@ -1,5 +1,11 @@
 import { Alert, Linking, Platform } from 'react-native';
 import { supabase } from './supabase';
+import { toastError, toastWarning } from './toast';
+import { shareFileViaWeb, type ShareResult } from './webShare';
+
+const NO_ACCESS_MSG = "You may not have access to this file, or it's no longer available.";
+
+export type { ShareResult };
 
 export const SUBMISSION_BUCKET = 'submission-attachments';
 export const TASK_BRIEF_BUCKET = 'task-attachments';
@@ -27,6 +33,100 @@ function isInlinePreviewable(filename?: string, mimeType?: string | null): boole
   return INLINE_PREVIEW_EXTS.has(ext);
 }
 
+/** Signed URL for a private-bucket path. Legacy records that stored a full http URL pass through. */
+export async function signedUrlFor(bucket: string, storagePath: string): Promise<string | null> {
+  if (storagePath.startsWith('http')) return storagePath;
+  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(storagePath, 3600);
+  if (error || !data?.signedUrl) {
+    console.error('[Storage] Failed to generate signed URL:', error);
+    return null;
+  }
+  return data.signedUrl;
+}
+
+// The cache filename ends up as the name the receiving app shows, so keep spaces
+// and only strip what would break the path.
+const safeFileName = (name: string) => name.replace(/[/\\?%*:|"<>]/g, '_') || 'file';
+
+export type ShareTarget = {
+  bucket: string;
+  storagePath: string;
+  name: string;
+  mimeType?: string | null;
+  sizeBytes?: number | null;
+};
+
+// Downloads a file locally and hands it to whatever app the OS has for it via
+// the native share sheet. Returns 'unsupported' on any failure so the caller can
+// fall back to Linking.openURL / a link-based sheet.
+async function shareViaNativeSheet(url: string, filename: string, mimeType?: string | null): Promise<ShareResult> {
+  try {
+    const FS = await import('expo-file-system/legacy');
+    const Sharing = await import('expo-sharing');
+    if (!(await Sharing.isAvailableAsync())) return 'unsupported';
+
+    const cacheUri = `${FS.cacheDirectory}${safeFileName(filename)}`;
+    const { status } = await FS.downloadAsync(url, cacheUri);
+    if (status !== 200) return 'unsupported';
+
+    // ponytail: expo-sharing can't distinguish "user dismissed" from "sent" on
+    // iOS, so a dismiss reads as 'shared'. Either way the file was handled and
+    // the caller must NOT also bounce the user to the browser.
+    await Sharing.shareAsync(cacheUri, { mimeType: mimeType || undefined, dialogTitle: filename });
+    return 'shared';
+  } catch (err) {
+    console.error('[Storage] Native share failed:', err);
+    return 'unsupported';
+  }
+}
+
+/**
+ * Hands the actual file to the OS share sheet, so it lands in WhatsApp / Drive /
+ * OneDrive / Mail as a real attachment rather than a link.
+ *
+ * - native → expo-sharing (every install-time share target)
+ * - web    → Web Share API level 2 (Chrome Android, iOS Safari, Chrome/Edge on
+ *            Windows, Safari macOS). Firefox and desktop Chrome on Linux have no
+ *            `navigator.share` at all.
+ *
+ * Returns 'unsupported' whenever nothing happened, which is the caller's cue to
+ * open a link-based fallback sheet instead.
+ */
+export async function shareFile(t: ShareTarget): Promise<ShareResult> {
+  if (!t.storagePath) return 'unsupported';
+
+  const url = await signedUrlFor(t.bucket, t.storagePath);
+  if (!url) return 'unsupported';
+
+  return Platform.OS === 'web'
+    ? shareFileViaWeb(url, { name: safeFileName(t.name), mimeType: t.mimeType, sizeBytes: t.sizeBytes })
+    : shareViaNativeSheet(url, t.name, t.mimeType);
+}
+
+/**
+ * Fire-and-forget: log an activity entry on a task file's FileHub pointer,
+ * resolved by (bucket, storage_path). No-op for files that aren't unified task
+ * files (no matching visibility='task' pointer) or tasks the caller can't see.
+ * Lets task-side surfaces (brief panel, submission/evidence viewers) feed the
+ * same Activity tab FileHub does. See migration 20260728_filehub_activity_by_path.
+ */
+export function logTaskFileActivity(
+  bucket: string,
+  storagePath: string,
+  action: 'view' | 'download' | 'share' = 'view',
+  metadata?: Record<string, any> | null,
+): void {
+  if (!bucket || !storagePath) return;
+  supabase
+    .rpc('rpc_filehub_log_activity_by_path', {
+      p_bucket: bucket,
+      p_storage_path: storagePath,
+      p_action: action,
+      p_metadata: metadata ?? null,
+    })
+    .then(undefined, () => {});
+}
+
 /**
  * Opens a storage file. Uses signed URLs for private buckets.
  * Falls back to direct URL open for legacy records that stored full http URLs.
@@ -34,28 +134,6 @@ function isInlinePreviewable(filename?: string, mimeType?: string | null): boole
  * On mobile, previewable media (images / video / PDFs) open inline in the device's
  * native viewer rather than being forced to download as an opaque attachment.
  */
-// Downloads a file locally and hands it to whatever app the OS has for it via
-// the native share sheet, instead of bouncing through the browser to download
-// it and stranding the user outside the app. Returns false on any failure so
-// the caller can fall back to Linking.openURL.
-async function openWithNativeApp(url: string, filename: string, mimeType?: string | null): Promise<boolean> {
-  try {
-    const FS = await import('expo-file-system/legacy');
-    const Sharing = await import('expo-sharing');
-    if (!(await Sharing.isAvailableAsync())) return false;
-
-    const cacheUri = `${FS.cacheDirectory}${filename}`;
-    const { status } = await FS.downloadAsync(url, cacheUri);
-    if (status !== 200) return false;
-
-    await Sharing.shareAsync(cacheUri, { mimeType: mimeType || undefined, dialogTitle: filename });
-    return true;
-  } catch (err) {
-    console.error('[Storage] Native open-with failed, falling back to browser:', err);
-    return false;
-  }
-}
-
 export async function openStorageFile(
   bucket: string,
   storagePath: string,
@@ -72,16 +150,10 @@ export async function openStorageFile(
     return;
   }
 
-  const { data, error } = await supabase.storage
-    .from(bucket)
-    .createSignedUrl(storagePath, 3600);
+  const signed = await signedUrlFor(bucket, storagePath);
+  if (!signed) { toastError(NO_ACCESS_MSG, "Couldn't open file"); return; }
 
-  if (error || !data?.signedUrl) {
-    console.error('[Storage] Failed to generate signed URL:', error);
-    return;
-  }
-
-  let url = data.signedUrl;
+  let url = signed;
   // Stream previewable media inline on mobile; otherwise request an attachment
   // download with the original filename.
   const openInline = isMobileDevice() && isInlinePreviewable(filename, mimeType);
@@ -97,7 +169,9 @@ export async function openStorageFile(
     return;
   }
 
-  if (!openInline && filename && await openWithNativeApp(url, filename, mimeType)) {
+  // Non-previewable files go straight to the app that handles them instead of
+  // stranding the user in a browser download.
+  if (!openInline && filename && (await shareViaNativeSheet(url, filename, mimeType)) !== 'unsupported') {
     return;
   }
 
@@ -141,6 +215,7 @@ export async function downloadFilesAsZip(
   const JSZip = (await import('jszip')).default;
   const zip = new JSZip();
   const usedNames = new Map<string, number>();
+  let added = 0;
 
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
@@ -158,12 +233,21 @@ export async function downloadFilesAsZip(
       const blob = await response.blob();
       const entryName = file.zip_path ? `${file.zip_path}/${file.original_name}` : file.original_name;
       zip.file(dedupeName(entryName, usedNames), blob);
+      added++;
     } catch {
       // skip files that fail to fetch
     }
   }
 
   onProgress?.(files.length, files.length);
+
+  if (added === 0) {
+    toastError(`None of these files could be downloaded — ${NO_ACCESS_MSG}`, 'Download failed');
+    return;
+  }
+  if (added < files.length) {
+    toastWarning(`${files.length - added} file(s) were skipped — no access, or they were removed.`);
+  }
 
   const content = await zip.generateAsync({ type: 'blob' });
   const url = URL.createObjectURL(content);

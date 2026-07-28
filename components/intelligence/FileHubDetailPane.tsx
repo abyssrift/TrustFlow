@@ -1,5 +1,5 @@
 import { useAlert } from '@/contexts/AlertContext';
-import { FileActivity, FileVersion, useFileHub } from '@/contexts/FileHubContext';
+import { FileActivity, useFileHub } from '@/contexts/FileHubContext';
 import { useFileViewer, type ViewerMedia } from '@/hooks/useFileViewer';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { openStorageFile } from '@/lib/storage';
@@ -11,6 +11,7 @@ import { ActivityIndicator, Image, ScrollView, Text, TouchableOpacity, View } fr
 
 import { FilePreviewTeaser, getPreviewKind } from '../common/FilePreview';
 import Tooltip from '../common/Tooltip';
+import { useShareFile } from '../common/ShareFile';
 import { fileIcon, formatSize } from './TaskFileResults';
 
 export type DetailFile = {
@@ -26,6 +27,14 @@ export type DetailFile = {
   task_title?: string | null;
   project_name?: string | null;
   task_category?: string | null;
+  submission_id?: string | null;
+};
+
+// Unified version row across sources (filehub versions, brief per-file versions,
+// submission revisions). `dl` present when the version is a downloadable file.
+type VRow = {
+  id: string; version_no: number; created_at: string; is_current: boolean;
+  sub?: string; dl?: { bucket: string; storage_path: string; name: string; mime: string | null };
 };
 
 const isImage = (m: string | null) => !!m && m.toLowerCase().includes('image');
@@ -45,11 +54,11 @@ const ACTION_ICON: Record<FileActivity['action'], any> = {
 };
 
 /**
- * Preview-biased detail pane for the Browse tab (#146). FileHub files get the
- * full treatment — inline preview + Details / Versions / Activity, reusing the
- * context data methods (fileVersions / fileActivity) rather than the desktop
- * DetailPanel component. Submission / brief files get the light properties view
- * (no filehub version lineage exists for them yet — see FILEHUB_UNIFICATION_PLAN).
+ * Preview-biased detail pane for the Browse tab (#146). Every source now gets
+ * Details / Versions / Activity (#143 Phase 3): FileHub files via the context
+ * data methods; brief/submission files via their own version RPCs
+ * (rpc_task_attachment_versions / rpc_submission_versions) and the filehub_files
+ * pointer row (rpc_filehub_pointer_id) for FK-logged activity.
  */
 export default function FileHubDetailPane({
   file, onClose, onDeleted, compact,
@@ -63,6 +72,7 @@ export default function FileHubDetailPane({
   const router = useRouter();
   const { fileVersions, fileActivity, deleteFile, logActivity } = useFileHub();
   const { showConfirm } = useAlert();
+  const { share, shareSheet } = useShareFile();
 
   const isFileHub = file.source === 'filehub';
   const kind = getPreviewKind(file.mime_type, file.file_name);
@@ -70,21 +80,25 @@ export default function FileHubDetailPane({
 
   const [tab, setTab] = useState<'details' | 'versions' | 'activity'>('details');
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
-  const [versions, setVersions] = useState<FileVersion[] | null>(null);
+  const [versions, setVersions] = useState<VRow[] | null>(null);
   const [activity, setActivity] = useState<FileActivity[] | null>(null);
   const [deleting, setDeleting] = useState(false);
+  // filehub_files id used for activity — the file's own id for filehub, the
+  // pointer row for task files (resolved async so activity can be FK-logged).
+  const [pointerId, setPointerId] = useState<string | null>(null);
+  const activityId = isFileHub ? file.file_id : pointerId;
 
   // Single-item viewer for the fullscreen "Open" action.
   const media: ViewerMedia[] = useMemo(
     () => [{ id: file.file_id, name: file.file_name, storagePath: file.storage_path, mimeType: file.mime_type, bucket: file.bucket, sizeBytes: file.size_bytes }],
     [file.file_id, file.storage_path],
   );
-  const { handlePress, viewer } = useFileViewer(media, file.bucket);
-  const openFull = () => { handlePress(media[0]); if (isFileHub) logActivity(file.file_id, 'view'); };
+  const { handlePress, viewer } = useFileViewer(media, file.bucket, { onShare: () => shareOut() });
+  const openFull = () => { handlePress(media[0]); if (activityId) logActivity(activityId, 'view'); };
 
   // Reset + resolve preview URL when the selected file changes.
   useEffect(() => {
-    setTab('details'); setVersions(null); setActivity(null); setSignedUrl(null);
+    setTab('details'); setVersions(null); setActivity(null); setSignedUrl(null); setPointerId(null);
     let cancelled = false;
     if ((image || kind) && !file.storage_path.startsWith('http')) {
       supabase.storage.from(file.bucket).createSignedUrl(file.storage_path, 3600)
@@ -95,12 +109,47 @@ export default function FileHubDetailPane({
     return () => { cancelled = true; };
   }, [file.file_id, file.storage_path]);
 
+  // Resolve the activity id + log a view on open (filehub: own id; task: pointer row).
   useEffect(() => {
-    if (tab === 'versions' && isFileHub && versions === null) fileVersions(file.file_id).then(setVersions).catch(() => setVersions([]));
-    if (tab === 'activity' && isFileHub && activity === null) fileActivity(file.file_id).then(setActivity).catch(() => setActivity([]));
-  }, [tab, file.file_id]);
+    let cancelled = false;
+    if (isFileHub) { logActivity(file.file_id, 'view'); return; }
+    supabase.rpc('rpc_filehub_pointer_id', { p_source: file.source, p_source_id: file.file_id })
+      .then(({ data }) => { if (!cancelled && data) { setPointerId(data as string); logActivity(data as string, 'view'); } });
+    return () => { cancelled = true; };
+  }, [file.file_id]);
 
-  const download = () => { logActivity(file.file_id, 'download'); openStorageFile(file.bucket, file.storage_path, file.file_name, file.mime_type); };
+  // Version history — filehub versions, brief per-file versions, or submission revisions.
+  const loadVersions = async () => {
+    try {
+      if (file.source === 'filehub') {
+        const vs = await fileVersions(file.file_id);
+        setVersions(vs.map(v => ({ id: v.id, version_no: v.version_no, created_at: v.created_at, is_current: v.is_current, sub: formatSize(v.size_bytes), dl: { bucket: v.bucket || file.bucket, storage_path: v.storage_path, name: v.original_name, mime: v.mime_type } })));
+      } else if (file.source === 'task_brief') {
+        const { data } = await supabase.rpc('rpc_task_attachment_versions', { p_attachment_id: file.file_id });
+        setVersions(((data as any[]) || []).map(v => ({ id: v.id, version_no: v.version_no, created_at: v.created_at, is_current: v.is_current, dl: { bucket: v.bucket || file.bucket, storage_path: v.storage_path, name: v.file_name, mime: v.mime_type } })));
+      } else if (file.submission_id) {
+        const { data } = await supabase.rpc('rpc_submission_versions', { p_submission_id: file.submission_id });
+        setVersions(((data as any[]) || []).map(v => ({ id: v.id, version_no: v.version_no, created_at: v.created_at, is_current: v.is_current, sub: v.content ? String(v.content).slice(0, 60) : undefined })));
+      } else { setVersions([]); }
+    } catch { setVersions([]); }
+  };
+
+  useEffect(() => {
+    if (tab === 'versions' && versions === null) loadVersions();
+    if (tab === 'activity' && activity === null && activityId) fileActivity(activityId).then(setActivity).catch(() => setActivity([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, file.file_id, pointerId]);
+
+  const download = () => { if (activityId) logActivity(activityId, 'download'); openStorageFile(file.bucket, file.storage_path, file.file_name, file.mime_type); };
+
+  const shareOut = () => share({
+    fileId: isFileHub ? file.file_id : null,
+    bucket: file.bucket,
+    storagePath: file.storage_path,
+    name: file.file_name,
+    mimeType: file.mime_type,
+    sizeBytes: file.size_bytes,
+  });
 
   const confirmDelete = () => {
     showConfirm(
@@ -162,23 +211,24 @@ export default function FileHubDetailPane({
         </View>
       </View>
 
-      {/* Actions */}
-      <View className="px-5 py-3 flex-row items-center gap-2 border-b border-surface-border">
+      {/* Actions — wrap into the abundant vertical space instead of overflowing the narrow pane */}
+      <View className="px-5 py-3 flex-row flex-wrap items-center gap-2 border-b border-surface-border">
         <ActionBtn icon="external-link" label="Open" onPress={openFull} colors={colors} primary />
         <ActionBtn icon="download" label="Download" onPress={download} colors={colors} />
+        <ActionBtn icon="share" label="Share" onPress={shareOut} colors={colors} />
         {isFileHub && <ActionBtn icon="trash-o" label={deleting ? '…' : 'Delete'} onPress={confirmDelete} colors={colors} danger />}
       </View>
+      {shareSheet}
 
-      {/* Tabs (versions/activity only for filehub files) */}
-      {isFileHub && (
-        <View className="px-5 pt-3 flex-row items-center gap-2">
-          {(['details', 'versions', 'activity'] as const).map(t => (
-            <TouchableOpacity key={t} onPress={() => setTab(t)} className={`px-4 py-1.5 rounded-xl border ${tab === t ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}>
-              <Text className={`text-xs font-black capitalize ${tab === t ? 'text-brand-primary' : 'text-typography-muted'}`}>{t}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
+      {/* Tabs — Details / Versions / Activity for every source (task files use
+          their own version RPCs + the filehub pointer row for activity). */}
+      <View className="px-5 pt-3 flex-row items-center gap-2">
+        {(['details', 'versions', 'activity'] as const).map(t => (
+          <TouchableOpacity key={t} onPress={() => setTab(t)} className={`px-4 py-1.5 rounded-xl border ${tab === t ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}>
+            <Text className={`text-xs font-black capitalize ${tab === t ? 'text-brand-primary' : 'text-typography-muted'}`}>{t}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
       <ScrollView className="flex-1 no-scrollbar" contentContainerStyle={{ padding: 20, paddingTop: 12 }}>
         {tab === 'details' && (
@@ -192,7 +242,7 @@ export default function FileHubDetailPane({
           </View>
         )}
 
-        {tab === 'versions' && isFileHub && (
+        {tab === 'versions' && (
           versions === null ? <ActivityIndicator color={colors.primary} />
             : versions.length === 0 ? <Text className="text-typography-muted text-sm">No version history.</Text>
             : (
@@ -203,25 +253,26 @@ export default function FileHubDetailPane({
                       <View className="flex-row items-center gap-2">
                         <Text className="text-typography-main text-sm font-bold">v{v.version_no}</Text>
                         {v.is_current && <View className="bg-brand-primary/15 px-2 py-0.5 rounded-full"><Text className="text-brand-primary text-[8px] font-black uppercase">Current</Text></View>}
-                        {v.pinned && <FontAwesome name="thumb-tack" size={9} color={colors.textMuted} />}
                       </View>
-                      <Text className="text-typography-muted text-[10px] mt-0.5">{formatSize(v.size_bytes)} · {ago(v.created_at)}</Text>
+                      <Text className="text-typography-muted text-[10px] mt-0.5" numberOfLines={1}>{[v.sub, ago(v.created_at)].filter(Boolean).join(' · ')}</Text>
                     </View>
-                    <Tooltip label="Download this version">
-                      <TouchableOpacity
-                        onPress={() => { logActivity(file.file_id, 'download', { version_no: v.version_no }); openStorageFile(v.bucket || file.bucket, v.storage_path, v.original_name, v.mime_type ?? file.mime_type); }}
-                        className="w-8 h-8 rounded-lg items-center justify-center border border-surface-border"
-                      >
-                        <FontAwesome name="download" size={11} color={colors.textMuted} />
-                      </TouchableOpacity>
-                    </Tooltip>
+                    {v.dl && (
+                      <Tooltip label="Download this version">
+                        <TouchableOpacity
+                          onPress={() => { if (activityId) logActivity(activityId, 'download', { version_no: v.version_no }); openStorageFile(v.dl!.bucket, v.dl!.storage_path, v.dl!.name, v.dl!.mime); }}
+                          className="w-8 h-8 rounded-lg items-center justify-center border border-surface-border"
+                        >
+                          <FontAwesome name="download" size={11} color={colors.textMuted} />
+                        </TouchableOpacity>
+                      </Tooltip>
+                    )}
                   </View>
                 ))}
               </View>
             )
         )}
 
-        {tab === 'activity' && isFileHub && (
+        {tab === 'activity' && (
           activity === null ? <ActivityIndicator color={colors.primary} />
             : activity.length === 0 ? <Text className="text-typography-muted text-sm">No activity yet.</Text>
             : (

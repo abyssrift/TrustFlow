@@ -26,7 +26,7 @@ const isImageMime = (m?: string | null) => !!m && m.toLowerCase().includes('imag
 export function useImageLightbox(
   items: LightboxMedia[],
   defaultBucket: string,
-  options?: { onInfo?: (item: LightboxMedia) => void }
+  options?: { onInfo?: (item: LightboxMedia) => void; onShare?: (item: LightboxMedia) => void }
 ) {
   // Only images participate in the lightbox; keep a stable, ordered list for navigation.
   const images = useMemo(
@@ -122,6 +122,8 @@ export function useImageLightbox(
               }
             : undefined
         }
+        // Stays open — sharing returns the user to the image they were looking at.
+        onShare={options?.onShare ? () => options.onShare!(current) : undefined}
       />
     ) : null;
 

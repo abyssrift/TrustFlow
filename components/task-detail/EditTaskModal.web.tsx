@@ -1,5 +1,6 @@
 import DraggableSheet from '@/components/common/DraggableSheet';
 import Popup from '@/components/common/Popup';
+import SidebarLayout from '@/components/common/SidebarLayout';
 import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
 import Tooltip from '@/components/common/Tooltip';
 import UserLink from '@/components/common/UserLink';
@@ -477,57 +478,58 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
   }
 
   const sideMenuContent = (
-    <View className="w-72 flex-col" style={{ backgroundColor: colors.background + '66' }}>
-      <View className="px-7 pt-8 pb-5" style={{ borderBottomWidth: 1, borderColor: colors.border + '4D' }}>
-        <View className="flex-row items-center gap-2.5 mb-5">
-          <FontAwesome name="pencil-square-o" size={13} color={colors.primary} />
-          <Text className="text-[9px] font-black uppercase tracking-[0.25em]" style={{ color: colors.textMuted }}>Modify Task</Text>
+    <SidebarLayout
+      width={288}
+      header={(
+        <View className="px-7 pt-8 pb-5">
+          <View className="flex-row items-center gap-2.5 mb-5">
+            <FontAwesome name="pencil-square-o" size={13} color={colors.primary} />
+            <Text className="text-[9px] font-black uppercase tracking-[0.25em]" style={{ color: colors.textMuted }}>Modify Task</Text>
+          </View>
+          <Text className="font-black text-2xl tracking-tight leading-tight" style={{ color: colors.textMain }} numberOfLines={4}>
+            {task.title}
+          </Text>
         </View>
-        <Text className="font-black text-2xl tracking-tight leading-tight" style={{ color: colors.textMain }} numberOfLines={4}>
-          {task.title}
+      )}
+    >
+      {/* Stage */}
+      {current_stage && (
+        <View className="mb-4 p-3 rounded-2xl" style={{ borderWidth: 1, borderColor: colors.border + '4D', backgroundColor: colors.card + '80' }}>
+          <Text className="text-[9px] font-black uppercase tracking-widest mb-1.5" style={{ color: colors.textMuted }}>Current Stage</Text>
+          <View className="flex-row items-center gap-2">
+            <View style={{ backgroundColor: current_stage.color || colors.primary }} className="w-2 h-2 rounded-full" />
+            <Text className="font-black text-sm" style={{ color: colors.textMain }}>{current_stage.name}</Text>
+          </View>
+        </View>
+      )}
+
+      {/* Priority pill */}
+      <View className="mb-4 px-3 py-2 rounded-xl self-start" style={{ backgroundColor: priorityBgColor(colors, task.priority) }}>
+        <Text className="font-black text-[10px] uppercase tracking-widest" style={{ color: priorityTextColor(colors, task.priority) }}>
+          {PRIORITY_LABEL[task.priority] ?? task.priority}
         </Text>
       </View>
 
-      <ScrollView className="flex-1 px-7 py-5" showsVerticalScrollIndicator={false}>
-        {/* Stage */}
-        {current_stage && (
-          <View className="mb-4 p-3 rounded-2xl" style={{ borderWidth: 1, borderColor: colors.border + '4D', backgroundColor: colors.card + '80' }}>
-            <Text className="text-[9px] font-black uppercase tracking-widest mb-1.5" style={{ color: colors.textMuted }}>Current Stage</Text>
-            <View className="flex-row items-center gap-2">
-              <View style={{ backgroundColor: current_stage.color || colors.primary }} className="w-2 h-2 rounded-full" />
-              <Text className="font-black text-sm" style={{ color: colors.textMain }}>{current_stage.name}</Text>
-            </View>
-          </View>
-        )}
+      <View className="mb-2">
+        <StatRow icon="code-fork"       label="Pipeline"      value={pipeline?.name || '—'} accent />
+        <StatRow icon="user"            label="Creator"       value={creator?.full_name || '—'} valueNode={creator?.id ? <UserLink userId={creator.id} name={creator.full_name} className="text-[11px] font-black" style={{ color: colors.textMain }} /> : undefined} />
+        <StatRow icon="briefcase"       label="Manager"       value={manager?.full_name || '—'} valueNode={manager?.id ? <UserLink userId={manager.id} name={manager.full_name} className="text-[11px] font-black" style={{ color: colors.textMain }} /> : undefined} />
+        <StatRow icon="calendar-o"      label="Created"       value={fmtDate(task.created_at)} />
+        <StatRow icon="calendar"        label="Due"           value={fmtDate(task.due_date)} />
+        <StatRow icon="clock-o"         label="In Pipeline"   value={`${stats.days_in_pipeline}d`} />
+        <StatRow icon="balance-scale"   label="Weight"        value={task.weight?.toString() || '1'} />
+        {task.is_recurring && <StatRow icon="repeat" label="Recurring" value="Yes" accent />}
+      </View>
 
-        {/* Priority pill */}
-        <View className="mb-4 px-3 py-2 rounded-xl self-start" style={{ backgroundColor: priorityBgColor(colors, task.priority) }}>
-          <Text className="font-black text-[10px] uppercase tracking-widest" style={{ color: priorityTextColor(colors, task.priority) }}>
-            {PRIORITY_LABEL[task.priority] ?? task.priority}
+      {task.description && (
+        <View className="mt-3 p-3 rounded-xl" style={{ backgroundColor: colors.border + '20' }}>
+          <Text className="text-[9px] font-black uppercase tracking-wider mb-1.5" style={{ color: colors.textMuted }}>Description</Text>
+          <Text className="text-xs leading-4 font-medium" style={{ color: colors.textMuted }} numberOfLines={5}>
+            {task.description}
           </Text>
         </View>
-
-        <View className="mb-2">
-          <StatRow icon="code-fork"       label="Pipeline"      value={pipeline?.name || '—'} accent />
-          <StatRow icon="user"            label="Creator"       value={creator?.full_name || '—'} valueNode={creator?.id ? <UserLink userId={creator.id} name={creator.full_name} className="text-[11px] font-black" style={{ color: colors.textMain }} /> : undefined} />
-          <StatRow icon="briefcase"       label="Manager"       value={manager?.full_name || '—'} valueNode={manager?.id ? <UserLink userId={manager.id} name={manager.full_name} className="text-[11px] font-black" style={{ color: colors.textMain }} /> : undefined} />
-          <StatRow icon="calendar-o"      label="Created"       value={fmtDate(task.created_at)} />
-          <StatRow icon="calendar"        label="Due"           value={fmtDate(task.due_date)} />
-          <StatRow icon="clock-o"         label="In Pipeline"   value={`${stats.days_in_pipeline}d`} />
-          <StatRow icon="balance-scale"   label="Weight"        value={task.weight?.toString() || '1'} />
-          {task.is_recurring && <StatRow icon="repeat" label="Recurring" value="Yes" accent />}
-        </View>
-
-        {task.description && (
-          <View className="mt-3 p-3 rounded-xl" style={{ backgroundColor: colors.border + '20' }}>
-            <Text className="text-[9px] font-black uppercase tracking-wider mb-1.5" style={{ color: colors.textMuted }}>Description</Text>
-            <Text className="text-xs leading-4 font-medium" style={{ color: colors.textMuted }} numberOfLines={5}>
-              {task.description}
-            </Text>
-          </View>
-        )}
-      </ScrollView>
-    </View>
+      )}
+    </SidebarLayout>
   );
 
   return (
