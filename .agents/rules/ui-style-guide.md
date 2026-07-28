@@ -29,7 +29,7 @@ Use this when a Desktop UI paradigm provides a terrible Mobile experience (or vi
     *   *Desktop:* Floating popover/tooltip. -> *Mobile:* Modal or bottom sheet.
 *   **Action:** Implement conditional rendering or distinct sub-components (e.g., `<DesktopNav />` and `<MobileNav />`) that share the same underlying state and business logic but diverge in presentation.
 
-**Mobile overflow strategy (drill-in within sheets, dedicated picker screens) is documented in `UI_UX.md` (root). Read it alongside this guide for modal-specific cross-platform patterns.**
+**Mobile overflow strategy (drill-in within sheets, dedicated picker screens) is documented in `.agents/rules/ux-consistency.md`. Read it alongside this guide for modal-specific cross-platform patterns.**
 
 ## 4. Output Requirements
 When delivering the code, you must:

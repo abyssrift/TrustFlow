@@ -1,4 +1,4 @@
-**Before working on any UI-visible change (screens, components, modals, styling), always read `docs/UI_UX.md` first and follow its conventions.**
+**Before working on any UI-visible change, always read `.agents/rules/ui-consistency.md`, `.agents/rules/ux-consistency.md`, and `.agents/rules/ui-style-guide.md` first and follow their conventions.**
 
 ## Popups, modals, sheets
 

@@ -1,6 +1,8 @@
-# TrustFlow Modal & Sheet Standards
+---
+trigger: always_on
+---
 
-**Design tokens and CSS conventions are in `.agents/rules/ui-consistency.md`. Cross-platform strategy is in `.agents/rules/ui-style-guide.md`. This doc covers only modal/sheet/overlay primitives — read alongside those files.**
+# TrustFlow Modal & Sheet Standards
 
 ## Popup
 
