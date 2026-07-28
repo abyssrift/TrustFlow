@@ -1,3 +1,5 @@
+**Before working on any UI-visible change (screens, components, modals, styling), always read `docs/UI_UX.md` first and follow its conventions.**
+
 ## Popups, modals, sheets
 
 **Never use raw RN `Modal` directly.** Every popup/modal/sheet goes through
