@@ -83,6 +83,9 @@ export default function PipelineSettingsForm({
   const [fvReviewers, setFvReviewers] = useState<boolean>(initFv?.reviewers ?? true);
   const [fvRoleIds, setFvRoleIds] = useState<string[]>(initFv?.roles || []);
   const [fvRoleSearch, setFvRoleSearch] = useState('');
+  const [fvCategories, setFvCategories] = useState<{ category: string; policy: FileVisibility }[]>(
+    initFv?.categories ? Object.entries(initFv.categories).map(([category, policy]) => ({ category, policy })) : []
+  );
   const [isDefault, setIsDefault] = useState(initialData?.is_default || false);
   const [assignmentMode, setAssignmentMode] = useState<'manual' | 'round_robin' | 'smart'>(
     initialData?.assignment_mode || 'manual'
@@ -135,15 +138,28 @@ export default function PipelineSettingsForm({
   const toggleFvRole = (id: string) =>
     setFvRoleIds(prev => prev.includes(id) ? prev.filter(k => k !== id) : [...prev, id]);
 
+  const addFvCategory = () =>
+    setFvCategories(prev => [...prev, { category: '', policy: { preset: 'task_members' } }]);
+  const updateFvCategory = (idx: number, next: { category: string; policy: FileVisibility }) =>
+    setFvCategories(prev => prev.map((c, i) => (i === idx ? next : c)));
+  const removeFvCategory = (idx: number) =>
+    setFvCategories(prev => prev.filter((_, i) => i !== idx));
+
   const fvFilteredRoles = useMemo(() => {
     if (!fvRoleSearch) return roles;
     return roles.filter(r => r.name.toLowerCase().includes(fvRoleSearch.toLowerCase()));
   }, [roles, fvRoleSearch]);
 
-  const buildFileVisibility = (): FileVisibility =>
-    fvPreset === 'custom'
+  const buildFileVisibility = (): FileVisibility => {
+    const base: FileVisibility = fvPreset === 'custom'
       ? { preset: 'custom', assignees: fvAssignees, reviewers: fvReviewers, roles: fvRoleIds }
       : { preset: fvPreset };
+    const overrides = fvCategories.filter(c => c.category.trim());
+    if (overrides.length > 0) {
+      base.categories = Object.fromEntries(overrides.map(c => [c.category.trim(), c.policy]));
+    }
+    return base;
+  };
 
   const handleApply = () => {
     if (!name.trim()) return;
@@ -490,6 +506,36 @@ export default function PipelineSettingsForm({
             </View>
           </View>
         )}
+
+        {/* Category overrides */}
+        <View className="mt-4 pt-4 border-t border-surface-border">
+          <View className="flex-row items-center justify-between mb-1">
+            <Text className="text-typography-main font-bold text-xs">Category overrides</Text>
+            <TouchableOpacity onPress={addFvCategory} className="flex-row items-center gap-1.5 px-2.5 py-1 rounded-lg bg-brand-primary/10">
+              <FontAwesome name="plus" size={9} color={colors.primary} />
+              <Text className="text-brand-primary text-[10px] font-black uppercase">Add</Text>
+            </TouchableOpacity>
+          </View>
+          <Text className="text-typography-muted text-[9px] mb-3 leading-3 italic">
+            Give tasks of a specific category their own rule. The category must match the task’s category exactly.
+          </Text>
+          {fvCategories.length === 0 ? (
+            <Text className="text-typography-muted text-[9px] italic">No overrides — every task uses the policy above.</Text>
+          ) : (
+            <View className="gap-2">
+              {fvCategories.map((row, idx) => (
+                <CategoryOverrideRow
+                  key={idx}
+                  value={row}
+                  roles={roles}
+                  colors={colors}
+                  onChange={(next) => updateFvCategory(idx, next)}
+                  onRemove={() => removeFvCategory(idx)}
+                />
+              ))}
+            </View>
+          )}
+        </View>
       </View>
 
       {/* Assignment Section */}
@@ -746,6 +792,94 @@ export default function PipelineSettingsForm({
           )}
         </TouchableOpacity>
       </View>
+    </View>
+  );
+}
+
+/** One per-category file-visibility override row (category name + its own policy). */
+function CategoryOverrideRow({
+  value, roles, colors, onChange, onRemove,
+}: {
+  value: { category: string; policy: FileVisibility };
+  roles: Role[];
+  colors: ReturnType<typeof useThemeColors>;
+  onChange: (next: { category: string; policy: FileVisibility }) => void;
+  onRemove: () => void;
+}) {
+  const { category, policy } = value;
+  const preset = policy.preset;
+
+  const setPreset = (p: FileVisibilityPreset) =>
+    onChange({ category, policy: p === 'custom'
+      ? { preset: 'custom', assignees: policy.assignees ?? true, reviewers: policy.reviewers ?? true, roles: policy.roles ?? [] }
+      : { preset: p } });
+  const patchPolicy = (patch: Partial<FileVisibility>) =>
+    onChange({ category, policy: { ...policy, ...patch } });
+  const toggleRole = (id: string) => {
+    const cur = policy.roles ?? [];
+    patchPolicy({ roles: cur.includes(id) ? cur.filter(r => r !== id) : [...cur, id] });
+  };
+
+  return (
+    <View className="bg-surface-background rounded-xl border border-surface-border p-3">
+      <View className="flex-row items-center gap-2 mb-2">
+        <TextInput
+          value={category}
+          onChangeText={(t) => onChange({ category: t, policy })}
+          placeholder="Category name (exact)"
+          placeholderTextColor={colors.textDim}
+          className="flex-1 bg-surface-card border border-surface-border rounded-lg px-3 py-2 text-[11px] text-typography-main"
+        />
+        <TouchableOpacity onPress={onRemove} className="w-8 h-8 rounded-lg items-center justify-center border border-surface-border">
+          <FontAwesome name="trash-o" size={11} color={colors.danger} />
+        </TouchableOpacity>
+      </View>
+
+      <View className="flex-row flex-wrap gap-1.5">
+        {(['task_members', 'submitters_reviewers', 'company', 'custom'] as const).map(p => (
+          <TouchableOpacity
+            key={p}
+            onPress={() => setPreset(p)}
+            className={`px-2.5 py-1 rounded-lg border ${preset === p ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border'}`}
+          >
+            <Text className={`text-[9px] font-black uppercase tracking-tighter ${preset === p ? 'text-brand-on-primary' : 'text-typography-muted'}`}>
+              {p === 'task_members' ? 'Members' : p === 'submitters_reviewers' ? 'Submitters' : p === 'company' ? 'Company' : 'Custom'}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {preset === 'custom' && (
+        <View className="mt-2 gap-2">
+          <View className="flex-row items-center gap-4">
+            <TouchableOpacity onPress={() => patchPolicy({ assignees: !(policy.assignees ?? true) })} className="flex-row items-center gap-1.5">
+              <FontAwesome name={(policy.assignees ?? true) ? 'check-square' : 'square-o'} size={12} color={(policy.assignees ?? true) ? colors.primary : colors.textMuted} />
+              <Text className="text-typography-main text-[10px]">Assignees</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => patchPolicy({ reviewers: !(policy.reviewers ?? true) })} className="flex-row items-center gap-1.5">
+              <FontAwesome name={(policy.reviewers ?? true) ? 'check-square' : 'square-o'} size={12} color={(policy.reviewers ?? true) ? colors.primary : colors.textMuted} />
+              <Text className="text-typography-main text-[10px]">Reviewers</Text>
+            </TouchableOpacity>
+          </View>
+          {roles.length > 0 && (
+            <View className="flex-row flex-wrap gap-1.5">
+              {roles.map(role => {
+                const sel = (policy.roles ?? []).includes(role.id);
+                return (
+                  <TouchableOpacity
+                    key={role.id}
+                    onPress={() => toggleRole(role.id)}
+                    className={`px-2.5 py-1 rounded-lg border flex-row items-center ${sel ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border'}`}
+                  >
+                    {sel && <FontAwesome name="check" size={7} color={colors.textMain} style={{ marginRight: 4 }} />}
+                    <Text className={`text-[9px] font-bold ${sel ? 'text-brand-on-primary' : 'text-typography-main'}`}>{role.name}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+        </View>
+      )}
     </View>
   );
 }

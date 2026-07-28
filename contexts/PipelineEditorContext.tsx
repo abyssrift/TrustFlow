@@ -14,6 +14,8 @@ export type FileVisibility = {
   reviewers?: boolean;   // submission reviewers can view (custom preset)
   roles?: string[];      // role UUIDs that can view (custom preset)
   users?: string[];      // explicit user UUIDs (custom preset)
+  /** Per task-category overrides — a task whose category matches uses this block instead. */
+  categories?: Record<string, FileVisibility>;
 };
 
 export type Pipeline = {
