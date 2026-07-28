@@ -23,6 +23,12 @@ raw `<Modal>` in a screen component.
 - If a file has separate `.tsx` (native) and `.web.tsx` variants, both must
   be checked — a native-only Modal fix rarely also fixes web, and vice versa.
 
+- `<SidebarLayout>` — pre-built scrollable sidebar for desktop two-pane Popups.
+  Props: `width` (default 288), `header` (sticky header above scroll body),
+  `style` (outer container). Check the file for details — use this instead
+  of inline `View + ScrollView` in sidebars. Must fall back to DraggableSheet
+  on mobile web (< 768px) — see RoleEditorSheet.web.tsx for the pattern.
+
 ## graphify
 
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.

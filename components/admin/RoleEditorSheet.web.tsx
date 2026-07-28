@@ -1,7 +1,8 @@
 import { FontAwesome } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
-import { Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScrollView, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 
+import DraggableSheet from '@/components/common/DraggableSheet';
 import Popup from '@/components/common/Popup';
 import SidebarLayout from '@/components/common/SidebarLayout';
 import Tooltip from '@/components/common/Tooltip';
@@ -99,6 +100,209 @@ export default function RoleEditorSheet({
   const catTotal = (cat: string) => basePerms.filter(p => p.category === cat).length;
   const activeCount = basePerms.filter(isPermActive).length;
   const sensitiveActive = basePerms.filter(p => SENSITIVE_KEYS.has(p.key) && isPermActive(p)).length;
+
+  const { width: windowWidth } = useWindowDimensions();
+  const isDesktop = windowWidth >= 768;
+
+  if (!isDesktop) {
+    return (
+      <DraggableSheet
+        visible={visible}
+        onClose={requestClose}
+        dimBackdrop
+        maxHeight="95%"
+        containerClassName="bg-surface-card w-full rounded-t-3xl border-t border-x border-surface-border"
+      >
+        {/* Mobile header */}
+        <View className="flex-row items-center justify-between px-5 pt-3 pb-5">
+          <View className="flex-1 mr-4">
+            <Text style={{ color: c.textMuted }} className="text-[9px] font-black uppercase tracking-[0.3em] mb-1">Role Editor</Text>
+            <Text style={{ color: c.textMain }} className="text-xl font-black tracking-tight" numberOfLines={1}>
+              {isCreating ? 'New Role' : (editingRole?.name || 'Edit Role')}
+            </Text>
+          </View>
+          <Tooltip label="Close">
+            <TouchableOpacity
+              onPress={requestClose}
+              className="w-10 h-10 items-center justify-center rounded-full"
+              style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}
+            >
+              <FontAwesome name="times" size={16} color={c.textMain} />
+            </TouchableOpacity>
+          </Tooltip>
+        </View>
+
+        <ScrollView showsVerticalScrollIndicator={false} className="px-5" contentContainerStyle={{ paddingBottom: 24 }}>
+          {isGlobal && (
+            <View className="p-4 rounded-2xl mb-5 flex-row items-center" style={{ backgroundColor: c.info + '1A', borderWidth: 1, borderColor: c.info + '4D' }}>
+              <View className="w-9 h-9 rounded-full items-center justify-center mr-3 flex-shrink-0" style={{ backgroundColor: c.info + '33' }}>
+                <FontAwesome name="shield" size={16} color={c.info} />
+              </View>
+              <View className="flex-1">
+                <Text style={{ color: c.textMain }} className="font-black text-xs uppercase tracking-tight mb-1">System Protected</Text>
+                <Text style={{ color: c.textMuted }} className="text-[10px] leading-4">This is a platform-wide role. Create a custom role to modify permissions.</Text>
+              </View>
+            </View>
+          )}
+
+          {/* Quick start templates (creating only) */}
+          {isCreating && onApplyTemplate && (
+            <>
+              <Text style={{ color: c.primary }} className="text-[10px] font-black uppercase mb-3 tracking-widest">Quick Start</Text>
+              <View className="flex-row flex-wrap gap-2 mb-6">
+                {ROLE_TEMPLATES.map(tpl => (
+                  <TouchableOpacity
+                    key={tpl.id}
+                    onPress={() => onApplyTemplate(tpl)}
+                    className="flex-row items-center px-3 py-2 rounded-xl"
+                    style={{ backgroundColor: c.background, borderWidth: 1, borderColor: name === tpl.name ? tpl.color : c.border }}
+                  >
+                    <FontAwesome name={tpl.icon as any} size={11} color={tpl.color} />
+                    <Text style={{ color: c.textMain }} className="font-black text-[10px] ml-2">{tpl.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </>
+          )}
+
+          {/* Identity section */}
+          <Text style={{ color: c.primary }} className="text-[10px] font-black uppercase mb-3 tracking-widest">Identity</Text>
+          <TextInput
+            value={name}
+            onChangeText={onChangeName}
+            editable={canEdit}
+            placeholder="Role name"
+            placeholderTextColor={c.textMuted}
+            className="rounded-xl px-4 py-4 font-black text-sm mb-3"
+            style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border, color: c.textMain, opacity: !canEdit ? 0.5 : 1 }}
+          />
+          <TextInput
+            value={description}
+            onChangeText={onChangeDescription}
+            editable={canEdit}
+            placeholder="Description..."
+            placeholderTextColor={c.textMuted}
+            multiline
+            numberOfLines={3}
+            textAlignVertical="top"
+            className="rounded-xl px-4 py-4 text-sm mb-5 h-24 leading-5"
+            style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border, color: c.textMain, opacity: !canEdit ? 0.5 : 1 }}
+          />
+
+          {/* Color section */}
+          <View className="flex-row items-center justify-between mb-3">
+            <Text style={{ color: c.textMuted }} className="text-[10px] font-black uppercase tracking-widest">Color</Text>
+            <Text style={{ color: c.primary }} className="font-black text-[10px]">{color}</Text>
+          </View>
+          <View className="flex-row flex-wrap gap-3 mb-6" style={{ opacity: !canEdit ? 0.5 : 1 }}>
+            {[c.primary, c.success, c.warning, c.danger, '#6366f1', '#10b981', c.info, c.border].map(swatch => (
+              <TouchableOpacity key={swatch} onPress={() => canEdit && onChangeColor(swatch)} className="w-9 h-9 rounded-xl" style={{ backgroundColor: swatch, borderWidth: 2, borderColor: color === swatch ? '#fff' : 'transparent' }} />
+            ))}
+          </View>
+
+          {/* Permissions search */}
+          <View className="flex-row items-center px-4 py-3 rounded-xl mb-4 gap-3" style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}>
+            <FontAwesome name="search" size={13} color={c.textMuted} />
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Filter permissions..."
+              placeholderTextColor={c.textMuted}
+              className="flex-1 text-sm font-bold py-1.5"
+              style={{ color: c.textMain, outlineWidth: 0 } as any}
+            />
+            {q.length > 0 && (
+              <TouchableOpacity onPress={() => setQuery('')}>
+                <FontAwesome name="times-circle" size={14} color={c.textMuted} />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Permissions list */}
+          <View className="gap-5">
+            {visibleCategories.length === 0 && (
+              <Text style={{ color: c.textMuted }} className="text-xs font-bold text-center mt-4">No permissions match "{query}".</Text>
+            )}
+            {visibleCategories.map(cat => {
+              const catPerms = visiblePerms.filter(p => p.category === cat);
+              return (
+                <View key={cat}>
+                  <View className="flex-row items-center mb-3">
+                    <View className="w-1.5 h-1.5 rounded-full mr-2 flex-shrink-0" style={{ backgroundColor: c.primary }} />
+                    <Text style={{ color: c.textMain }} className="text-[11px] font-black uppercase tracking-widest">{cat}</Text>
+                  </View>
+                  <View className="gap-2">
+                    {catPerms.map(perm => {
+                      const isActive = isPermActive(perm);
+                      return (
+                        <TouchableOpacity
+                          key={perm.id}
+                          onPress={() => canEdit && togglePerm(perm)}
+                          className="flex-row items-center justify-between p-4 rounded-2xl"
+                          style={{
+                            backgroundColor: isActive ? c.primary + '0D' : c.background + '30',
+                            borderWidth: 1,
+                            borderColor: isActive ? c.primary + '66' : c.border,
+                            opacity: !canEdit ? 0.7 : 1,
+                          }}
+                        >
+                          <View className="flex-1 mr-3">
+                            <View className="flex-row items-center">
+                              <Text style={{ color: isActive ? c.textMain : c.textMuted }} className="font-black text-xs uppercase tracking-tight">{perm.label}</Text>
+                              {SENSITIVE_KEYS.has(perm.key) && (
+                                <View className="ml-2 px-1.5 py-0.5 rounded" style={{ backgroundColor: c.danger + '1A' }}>
+                                  <Text style={{ color: c.danger }} className="text-[8px] font-black uppercase tracking-widest">High impact</Text>
+                                </View>
+                              )}
+                            </View>
+                            <Text style={{ color: c.textDim }} className="text-[10px] font-bold mt-1 leading-4">{perm.description || '(no documentation)'}</Text>
+                          </View>
+                          <View className="w-6 h-6 rounded-full items-center justify-center flex-shrink-0" style={{ backgroundColor: isActive ? c.primary : 'transparent', borderWidth: 1, borderColor: isActive ? c.primary : c.border }}>
+                            {isActive && <FontAwesome name="check" size={10} color="white" />}
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        </ScrollView>
+
+        {/* Footer */}
+        <View className="flex-row gap-3 px-5 py-4" style={{ borderTopWidth: 1, borderTopColor: c.border }}>
+          <TouchableOpacity
+            onPress={requestClose}
+            className="flex-1 py-4 rounded-xl items-center"
+            style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}
+          >
+            <Text style={{ color: c.textMuted }} className="font-black text-[11px] uppercase tracking-widest">Cancel</Text>
+          </TouchableOpacity>
+          {canEdit ? (
+            <TouchableOpacity
+              onPress={onSave}
+              disabled={loading}
+              className="flex-[2] py-4 rounded-xl items-center"
+              style={{ backgroundColor: c.primary, opacity: loading ? 0.6 : 1 }}
+            >
+              <Text className="text-white font-black text-[11px] uppercase tracking-widest">Save Role</Text>
+            </TouchableOpacity>
+          ) : (
+            editingRole && onClone && (
+              <TouchableOpacity
+                onPress={onClone}
+                className="flex-[2] py-4 rounded-xl items-center"
+                style={{ backgroundColor: c.primary }}
+              >
+                <Text className="text-white font-black text-[11px] uppercase tracking-widest">Duplicate to Edit</Text>
+              </TouchableOpacity>
+            )
+          )}
+        </View>
+      </DraggableSheet>
+    );
+  }
 
   return (
     <Popup
