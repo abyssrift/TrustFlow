@@ -1,4 +1,4 @@
-// Self-check for session presence — run: npx tsx lib/sessionPresence.test.ts
+// Self-check for session presence — run: npx tsx lib/sessionPresence.check.ts
 // No framework (ponytail): plain asserts, fixed "now" so heartbeat math is deterministic.
 import assert from 'node:assert';
 import { IDLE_MS, idleLabel, idleMsOf, isIdle } from './sessionPresence';

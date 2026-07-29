@@ -1,4 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/contexts/ToastContext';
 import { supabase } from '@/lib/supabase';
 import React, { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 
@@ -105,6 +106,10 @@ export function RoleManagerProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   const { profile } = useAuth();
+  // `error` drives a full-screen "Unable to load team workspace" state, so it
+  // belongs to refreshAll only. A failed mutation is a transient action
+  // failure — toast it, don't blank the page the user is standing on.
+  const { errorToast } = useToast();
 
   const refreshAll = useCallback(async () => {
     const companyId = profile?.company_id;
@@ -196,12 +201,12 @@ export function RoleManagerProvider({ children }: { children: ReactNode }) {
       await refreshAll();
       return data;
     } catch (e: any) {
-      setError(e.message);
+      errorToast(e.message);
       return null;
     } finally {
       setLoading(false);
     }
-  }, [refreshAll]);
+  }, [refreshAll, errorToast]);
 
   const updateRole = useCallback(async (id: string, name: string, description: string, color: string, permissions: string[]) => {
     setLoading(true);
@@ -217,12 +222,12 @@ export function RoleManagerProvider({ children }: { children: ReactNode }) {
       await refreshAll();
       return true;
     } catch (e: any) {
-      setError(e.message);
+      errorToast(e.message);
       return false;
     } finally {
       setLoading(false);
     }
-  }, [refreshAll]);
+  }, [refreshAll, errorToast]);
 
   const deleteRole = useCallback(async (id: string) => {
     setLoading(true);
@@ -232,12 +237,12 @@ export function RoleManagerProvider({ children }: { children: ReactNode }) {
       await refreshAll();
       return true;
     } catch (e: any) {
-      setError(e.message);
+      errorToast(e.message);
       return false;
     } finally {
       setLoading(false);
     }
-  }, [refreshAll]);
+  }, [refreshAll, errorToast]);
 
   const updateUserAssignments = useCallback(async (userId: string, roleIds: string[], teamIds: string[]) => {
     setLoading(true);
@@ -254,12 +259,12 @@ export function RoleManagerProvider({ children }: { children: ReactNode }) {
       await refreshAll();
       return true;
     } catch (e: any) {
-      setError(e.message);
+      errorToast(e.message);
       return false;
     } finally {
       setLoading(false);
     }
-  }, [refreshAll]);
+  }, [refreshAll, errorToast]);
 
   const updateTeamAssignments = useCallback(async (teamId: string, roleIds: string[]) => {
     setLoading(true);
@@ -272,12 +277,12 @@ export function RoleManagerProvider({ children }: { children: ReactNode }) {
       await refreshAll();
       return true;
     } catch (e: any) {
-      setError(e.message);
+      errorToast(e.message);
       return false;
     } finally {
       setLoading(false);
     }
-  }, [refreshAll]);
+  }, [refreshAll, errorToast]);
 
   const createTeam = useCallback(async (name: string, description: string, color: string) => {
     setLoading(true);
@@ -291,12 +296,12 @@ export function RoleManagerProvider({ children }: { children: ReactNode }) {
       await refreshAll();
       return data;
     } catch (e: any) {
-      setError(e.message);
+      errorToast(e.message);
       return null;
     } finally {
       setLoading(false);
     }
-  }, [refreshAll]);
+  }, [refreshAll, errorToast]);
 
   const removeUserFromCompany = useCallback(async (userId: string) => {
     setLoading(true);
@@ -307,12 +312,12 @@ export function RoleManagerProvider({ children }: { children: ReactNode }) {
       await refreshAll();
       return true;
     } catch (e: any) {
-      setError(e.message);
+      errorToast(e.message);
       return false;
     } finally {
       setLoading(false);
     }
-  }, [refreshAll]);
+  }, [refreshAll, errorToast]);
 
   return (
     <RoleManagerContext.Provider

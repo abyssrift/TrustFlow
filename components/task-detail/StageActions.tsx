@@ -17,6 +17,7 @@ import { useFileViewer } from '@/hooks/useFileViewer';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { useTicker } from '@/hooks/useTicker';
 import { formatStopwatch, formatCompact } from '@/lib/time';
+import { buildSegments, totalsOf, type ActivityMark, type ActivitySegment, type ActivityState } from '@/lib/time/activity';
 import { getPastedImageFile, fileToStaged } from '@/lib/pasteImage';
 import { useDropPulse, useFileDrop } from '@/hooks/useWebDnd';
 import { logTaskFileActivity, SUBMISSION_BUCKET } from '@/lib/storage';
@@ -154,6 +155,80 @@ function LiveTimerChip({
           </Text>
         </View>
       )}
+    </View>
+  );
+}
+
+// Session activity timeline: one bar per observed active/idle/away span, plus
+// totals. Own subtree + own tick for the same reason as LiveTimerChip above.
+// Collapsed by default — the marks keep accumulating in TimerContext either way,
+// so opening it later still shows the whole session.
+function ActivityStrip({ getActivityMarks }: { getActivityMarks: () => ActivityMark[] }) {
+  const colors = useThemeColors();
+  const [open, setOpen] = React.useState(false);
+  const [segments, setSegments] = React.useState<ActivitySegment[]>([]);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const tick = () => setSegments(buildSegments(getActivityMarks(), Date.now()));
+    tick();
+    const timer = setInterval(tick, 5000);
+    return () => clearInterval(timer);
+  }, [open, getActivityMarks]);
+
+  const toggle = (
+    <TouchableOpacity
+      onPress={() => setOpen(!open)}
+      className="flex-row items-center gap-1.5 self-end mt-2 py-1 active:opacity-60"
+      style={Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : undefined}
+    >
+      <Text className="text-typography-dim text-[9px] font-bold uppercase tracking-wider">Timeline</Text>
+      <FontAwesome name={open ? 'chevron-up' : 'chevron-down'} size={8} color={colors.textDim} />
+    </TouchableOpacity>
+  );
+
+  if (!open || segments.length === 0) return toggle;
+
+  const tone: Record<ActivityState, string> = {
+    active: colors.success,
+    idle: colors.warning,
+    away: colors.textDim,
+  };
+  const label: Record<ActivityState, string> = { active: 'In app', idle: 'Idle', away: 'Away' };
+  const totals = totalsOf(segments);
+  const clock = (t: number) =>
+    new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  return (
+    <View>
+      {toggle}
+      <View
+        className="flex-row h-2 rounded-full overflow-hidden mt-1"
+        style={{ backgroundColor: colors.border }}
+      >
+        {segments.map((s) => (
+          <View
+            key={s.start}
+            style={{ flexGrow: s.end - s.start, flexBasis: 0, minWidth: 2, backgroundColor: tone[s.state] }}
+          />
+        ))}
+      </View>
+      <View className="flex-row items-center justify-between mt-1.5">
+        <Text className="text-typography-dim text-[9px] font-mono">{clock(segments[0].start)}</Text>
+        <View className="flex-row items-center gap-3">
+          {(Object.keys(label) as ActivityState[])
+            .filter((state) => totals[state] > 0)
+            .map((state) => (
+              <View key={state} className="flex-row items-center gap-1.5">
+                <View className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: tone[state] }} />
+                <Text className="text-typography-dim text-[9px] font-bold uppercase tracking-wider">
+                  {label[state]} {formatCompact(totals[state] / 1000)}
+                </Text>
+              </View>
+            ))}
+        </View>
+        <Text className="text-typography-dim text-[9px] font-mono">now</Text>
+      </View>
     </View>
   );
 }
@@ -791,6 +866,10 @@ export default function StageActions() {
               </TouchableOpacity>
             )}
           </View>
+
+          {isActive && activeSession?.task_id === data.task.id && (
+            <ActivityStrip getActivityMarks={smartTimer.getActivityMarks} />
+          )}
         </View>
       )}
 

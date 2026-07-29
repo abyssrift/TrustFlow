@@ -1,4 +1,4 @@
-// Self-check for stage-name guessing — run: npx tsx lib/imports/statusMapper.test.ts
+// Self-check for stage-name guessing — run: npx tsx lib/imports/statusMapper.check.ts
 // No framework (ponytail): plain asserts.
 import assert from 'node:assert';
 import { guessStageMapping } from './statusMapper';

@@ -1,5 +1,4 @@
-import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
-import Popup from '@/components/common/Popup';
+import Calendar from '@/components/common/Calendar';
 import { bucketsForWidth } from '@/lib/chartBuckets';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -89,40 +88,13 @@ const PRESETS = [
   { label: '12M', days: 365 },
 ];
 
-function CalendarModal({ visible, title, value, onSelect, onClose, accentColor, rangeDate, rangeColor }: {
-  visible: boolean; title: string; value: string; onSelect: (d: string) => void; onClose: () => void;
-  accentColor?: string; rangeDate?: string; rangeColor?: string;
-}) {
-  const colors = useThemeColors();
-  return (
-    <Popup visible={visible} onClose={onClose} presentation="auto">
-      <View className="px-6 pt-2 pb-4 flex-row justify-between items-center border-b border-surface-border">
-        <Text className="text-typography-main font-black text-lg">{title}</Text>
-        <TouchableOpacity onPress={onClose} className="w-8 h-8 rounded-full bg-surface-background border border-surface-border items-center justify-center">
-          <FontAwesome name="times" size={12} color={colors.textDim} />
-        </TouchableOpacity>
-      </View>
-      <PremiumCalendarPicker
-        selectedDate={value}
-        onSelect={d => { onSelect(d); onClose(); }}
-        accentColor={accentColor}
-        rangeDate={rangeDate}
-        rangeColor={rangeColor}
-        scale="compact"
-        showDaysBetween
-      />
-    </Popup>
-  );
-}
-
 export function DateRangeControls({ from, to, setFrom, setTo, maxDays, granularity }: {
   from: string; to: string; setFrom: (d: string) => void; setTo: (d: string) => void;
   maxDays?: number | null;
   granularity?: Granularity;
 }) {
   const colors = useThemeColors();
-  const [showFrom, setShowFrom] = useState(false);
-  const [showTo, setShowTo] = useState(false);
+  const [showRangePicker, setShowRangePicker] = useState(false);
 
   // Active preset is derived, not stored: highlighted only when the range
   // actually matches "last N days ending today".
@@ -161,7 +133,7 @@ export function DateRangeControls({ from, to, setFrom, setTo, maxDays, granulari
       })}
 
       <TouchableOpacity
-        onPress={() => setShowFrom(true)}
+        onPress={() => setShowRangePicker(true)}
         className={`px-3.5 py-2 rounded-xl border flex-row items-center gap-2 ${activePreset === null ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-card border-surface-border'}`}
       >
         <FontAwesome name="calendar-o" size={11} color={activePreset === null ? colors.primary : colors.textMuted} />
@@ -169,7 +141,7 @@ export function DateRangeControls({ from, to, setFrom, setTo, maxDays, granulari
       </TouchableOpacity>
       <Text className="text-typography-dim font-bold">→</Text>
       <TouchableOpacity
-        onPress={() => setShowTo(true)}
+        onPress={() => setShowRangePicker(true)}
         className={`px-3.5 py-2 rounded-xl border flex-row items-center gap-2 ${activePreset === null ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-card border-surface-border'}`}
       >
         <FontAwesome name="calendar-o" size={11} color={activePreset === null ? colors.primary : colors.textMuted} />
@@ -194,15 +166,19 @@ export function DateRangeControls({ from, to, setFrom, setTo, maxDays, granulari
         </View>
       )}
 
-      <CalendarModal
-        visible={showFrom} title="Start Date" value={from}
-        onSelect={v => setFrom(clampFrom(v, to))} onClose={() => setShowFrom(false)}
-        accentColor={colors.primary} rangeDate={to} rangeColor={colors.secondary}
-      />
-      <CalendarModal
-        visible={showTo} title="End Date" value={to}
-        onSelect={v => { setTo(v); setFrom(clampFrom(from, v)); }} onClose={() => setShowTo(false)}
-        accentColor={colors.secondary} rangeDate={from} rangeColor={colors.primary}
+      <Calendar
+        visible={showRangePicker}
+        onClose={() => setShowRangePicker(false)}
+        onSelect={() => {}}
+        mode="range"
+        dual_display
+        showQuickSelect
+        selectedDate={from}
+        rangeDate={to}
+        maxDays={maxDays}
+        onApplyRange={(f, t) => { setFrom(f); setTo(t); }}
+        accentColor={colors.primary}
+        rangeColor={colors.secondary}
       />
     </View>
   );

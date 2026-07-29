@@ -8,6 +8,7 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAlert } from '@/contexts/AlertContext';
+import { useToast } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import Tooltip from '@/components/common/Tooltip';
 
@@ -16,6 +17,7 @@ export default function IntelligenceArchives() {
   const { hasPermission }           = useAuth();
   const router                      = useRouter();
   const { showAlert }               = useAlert();
+  const { errorToast }              = useToast();
   const [archives, setArchives]     = useState<any[]>([]);
   const [loading, setLoading]       = useState(true);
   const [restoringId, setRestoringId] = useState<string | null>(null);
@@ -92,7 +94,7 @@ export default function IntelligenceArchives() {
       else router.push(`/task/${newId}`);
     } catch (e: any) {
       console.error(e);
-      showAlert('Restoration Failed', e.message);
+      errorToast(e.message || 'Could not restore this snapshot.', 'Restoration failed');
     } finally { setRestoringId(null); }
   };
 

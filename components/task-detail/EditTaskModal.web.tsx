@@ -1,7 +1,7 @@
 import DraggableSheet from '@/components/common/DraggableSheet';
 import Popup from '@/components/common/Popup';
 import SidebarLayout from '@/components/common/SidebarLayout';
-import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
+import Calendar from '@/components/common/Calendar';
 import Tooltip from '@/components/common/Tooltip';
 import UserLink from '@/components/common/UserLink';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
@@ -129,8 +129,17 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
     return () => window.removeEventListener('keydown', handler);
   }, [visible, saving, title]);
 
+  // Only re-populate fields when the sheet opens (or on first data load while
+  // open) — NOT on every `data` change. `data` is refetched on any realtime
+  // update to the task row (heartbeats, progress recalcs, etc. — see
+  // metaChannel in TaskDetailContext), and re-running this on those refetches
+  // was silently overwriting whatever the user had typed, particularly the
+  // description field.
+  const didInitRef = useRef(false);
   useEffect(() => {
-    if (data?.task && visible) {
+    if (!visible) { didInitRef.current = false; return; }
+    if (data?.task && !didInitRef.current) {
+      didInitRef.current = true;
       setTitle(data.task.title || '');
       setDescription(data.task.description || '');
       setPriority(data.task.priority || 'medium');
@@ -361,7 +370,7 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
 
               {mobileActiveDateField && (
                 <View className="mt-3">
-                  <PremiumCalendarPicker
+                  <Calendar
                     selectedDate={mobileActiveDateField === 'due' ? dueDate : startDate}
                     onSelect={(d) => mobileActiveDateField === 'due' ? setDueDate(d) : setStartDate(d)}
                     accentColor={mobileActiveDateField === 'due' ? colors.primary : colors.secondary}
@@ -556,32 +565,30 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
 
           {/* Due Date Calendar */}
           {showDueCal && (
-            <View style={dueCalPos.style as any}>
-              <PremiumCalendarPicker
-                selectedDate={dueDate}
-                onSelect={(d) => setDueDate(d)}
-                accentColor={colors.primary}
-                rangeDate={startDate}
-                rangeColor={colors.secondary}
-                scale="compact"
-                showDaysBetween
-              />
-            </View>
+            <Calendar
+              selectedDate={dueDate}
+              onSelect={(d) => setDueDate(d)}
+              accentColor={colors.primary}
+              rangeDate={startDate}
+              rangeColor={colors.secondary}
+              scale="compact"
+              showDaysBetween
+              floatingStyle={dueCalPos.style as any}
+            />
           )}
 
           {/* Start Date Calendar */}
           {showStartCal && (
-            <View style={startCalPos.style as any}>
-              <PremiumCalendarPicker
-                selectedDate={startDate}
-                onSelect={(d) => setStartDate(d)}
-                accentColor={colors.secondary}
-                rangeDate={dueDate}
-                rangeColor={colors.primary}
-                scale="compact"
-                showDaysBetween
-              />
-            </View>
+            <Calendar
+              selectedDate={startDate}
+              onSelect={(d) => setStartDate(d)}
+              accentColor={colors.secondary}
+              rangeDate={dueDate}
+              rangeColor={colors.primary}
+              scale="compact"
+              showDaysBetween
+              floatingStyle={startCalPos.style as any}
+            />
           )}
 
           {/* Manager Dropdown */}

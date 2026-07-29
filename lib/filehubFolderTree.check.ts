@@ -1,4 +1,4 @@
-// Self-check for folder-tree upload helpers — run: npx tsx lib/filehubFolderTree.test.ts
+// Self-check for folder-tree upload helpers — run: npx tsx lib/filehubFolderTree.check.ts
 // No framework (ponytail): plain asserts.
 import assert from 'node:assert';
 import { groupPickedFiles, relDir, resolveExistingFolderLeaf } from './filehubFolderTree';

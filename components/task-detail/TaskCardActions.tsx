@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTimer } from '@/contexts/TimerContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { offerForceStopOnArchiveError } from '@/lib/archiveForceStop';
 import { supabase } from '@/lib/supabase';
 import { taskFlowDebug, taskFlowError } from '@/lib/taskDebug';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -73,6 +74,10 @@ type Props = {
   onRefresh: () => void;
   /** Optional optimistic hook: fired the instant a stage-changing RPC succeeds, before onRefresh(). */
   onMoved?: (taskId: string, toStageId: string) => void;
+  /** Optional optimistic hook: fired the instant start-timer succeeds, instead of a full onRefresh() reload. */
+  onSessionStarted?: (taskId: string) => void;
+  /** Optional optimistic hook: fired the instant archive succeeds, instead of a full onRefresh() reload. */
+  onArchived?: (taskId: string) => void;
 };
 
 // ─── Style Map ────────────────────────────────────────────────
@@ -86,16 +91,15 @@ const ACTION_STYLES: Record<string, { bg: string; border: string; text: string }
 
 
 // ─── Component ────────────────────────────────────────────────
-export default function TaskCardActions({ task, stages, stageActions, transitions = [], activeSessions, userId, onRefresh, onMoved }: Props) {
+export default function TaskCardActions({ task, stages, stageActions, transitions = [], activeSessions, userId, onRefresh, onMoved, onSessionStarted, onArchived }: Props) {
   const router = useRouter();
   const colors = useThemeColors();
   const { hasPermission, profile } = useAuth();
   const { startWork } = useTimer();
-  const { successToast, errorToast } = useToast();
-  const { showAlert } = useAlert();
+  const { successToast, errorToast, warningToast } = useToast();
+  const { showAlert, showConfirm } = useAlert();
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [needsTimerActionId, setNeedsTimerActionId] = useState<string | null>(null);
-  const [errorMsg, setErrorMsg] = useState<{ title: string; message: string; variant?: 'danger' | 'warning' } | null>(null);
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [showManualTimeModal, setShowManualTimeModal] = useState(false);
   const [pendingAction, setPendingAction] = useState<StageAction | null>(null);
@@ -217,14 +221,7 @@ export default function TaskCardActions({ task, stages, stageActions, transition
         stageId: action.stage_id,
       });
       
-      setErrorMsg({
-        title: 'Action Error',
-        message: displayMessage
-      });
-      errorToast(displayMessage);
-      
-      // Auto-clear after 5 seconds
-      setTimeout(() => setErrorMsg(null), 5000);
+      errorToast(displayMessage, 'Action error');
     } finally {
       setLoadingAction(null);
     }
@@ -278,7 +275,12 @@ export default function TaskCardActions({ task, stages, stageActions, transition
     setLoadingAction('__timer__');
     try {
       await startWork(task.id, task.title ?? '');
-      onRefresh();
+      // startWork is itself optimistic (commits to the DB up to 15s later), so
+      // a full board reload here would refetch before anything changed. Patch
+      // this card's session locally instead; the debounced realtime reconcile
+      // still runs once the RPC actually lands, for other viewers.
+      if (onSessionStarted) onSessionStarted(task.id);
+      else onRefresh();
       successToast('Work session started.');
     } catch (err: any) {
       errorToast(err.message || 'Could not start work session.');
@@ -314,11 +316,10 @@ export default function TaskCardActions({ task, stages, stageActions, transition
       const now = Date.now();
       if (lastArchived && now - parseInt(lastArchived) < 35000) {
         const remaining = Math.ceil((35000 - (now - parseInt(lastArchived))) / 1000);
-        setErrorMsg({
-          title: 'Sync Cooldown',
-          message: `Network synchronization in progress. Please wait ${remaining}s for cross-platform safety.`
-        });
-        setTimeout(() => setErrorMsg(null), 3000);
+        warningToast(
+          `Network synchronization in progress. Please wait ${remaining}s for cross-platform safety.`,
+          'Sync cooldown',
+        );
         return;
       }
 
@@ -327,9 +328,14 @@ export default function TaskCardActions({ task, stages, stageActions, transition
       if (error) throw error;
       successToast('Task archived.');
       await AsyncStorage.setItem('last_archival_at', now.toString());
-      onRefresh();
+      // Remove the card locally (AnimatedTaskCard's exit animation handles the
+      // fade) instead of a full board reload; the debounced realtime reconcile
+      // still runs once the delete lands.
+      if (onArchived) onArchived(task.id);
+      else onRefresh();
     } catch (err: any) {
-      setErrorMsg({ title: 'Archival Failed', message: err.message || 'Could not archive task.' });
+      if (offerForceStopOnArchiveError(err, { hasPermission, showConfirm, errorToast, retry: handleArchive })) return;
+      errorToast(err.message || 'Could not archive task.', 'Archival failed');
     } finally {
       setLoadingAction(null);
       setShowArchiveConfirm(false);
@@ -342,12 +348,10 @@ export default function TaskCardActions({ task, stages, stageActions, transition
     const actionToRetry = pendingAction;
     setPendingAction(null);
     if (isFlagged) {
-      setErrorMsg({
-        title: 'Entry Flagged for Review',
-        message: 'Your time declaration has been forwarded to your manager. Proceeding with transition.',
-        variant: 'warning',
-      });
-      setTimeout(() => setErrorMsg(null), 5000);
+      warningToast(
+        'Your time declaration has been forwarded to your manager. Proceeding with transition.',
+        'Entry flagged for review',
+      );
     }
     if (actionToRetry) {
       await handleExecuteAction(actionToRetry);
@@ -484,26 +488,6 @@ export default function TaskCardActions({ task, stages, stageActions, transition
   // Render action buttons — all actions shown (conditional branching)
   return (
     <View>
-      {/* Error / Warning Message Display */}
-      {errorMsg && (
-        <View className={`mb-2 rounded-xl p-3 ${
-          errorMsg.variant === 'warning'
-            ? 'bg-state-warning/10 border border-state-warning/30'
-            : 'bg-state-danger/10 border border-state-danger/30'
-        }`}>
-          <Text className={`font-black text-xs uppercase tracking-wider mb-1 ${
-            errorMsg.variant === 'warning' ? 'text-state-warning' : 'text-state-danger'
-          }`}>
-            {errorMsg.title}
-          </Text>
-          <Text className={`text-sm leading-5 ${
-            errorMsg.variant === 'warning' ? 'text-state-warning' : 'text-state-danger'
-          }`}>
-            {errorMsg.message}
-          </Text>
-        </View>
-      )}
-
       {/* Inline timer prompt if backend rejected action due to missing session */}
       {needsTimerActionId && (
         <View className="mb-2">

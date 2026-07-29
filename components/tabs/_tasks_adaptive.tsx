@@ -15,12 +15,14 @@ import AssignmentModal from '@/components/tasks/AssignmentModal';
 import CreateTaskModal from '@/components/tasks/CreateTaskModal';
 import TaskMobilityModal from '@/components/tasks/TaskMobilityModal';
 import { useAlert } from '@/contexts/AlertContext';
+import { useToast } from '@/contexts/ToastContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePingHighlight } from '@/contexts/PingHighlightContext';
 import { TaskCreationProvider } from '@/contexts/TaskCreationContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useNavBarPosition } from '@/hooks/useNavBarPosition';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { offerForceStopOnArchiveError } from '@/lib/archiveForceStop';
 import { TAB_BAR_HEIGHT } from '@/lib/layout';
 import { supabase } from '@/lib/supabase';
 import { formatCompact, formatRelative } from '@/lib/time';
@@ -351,7 +353,8 @@ function TasksScreen() {
    const colors = useThemeColors();
    const router = useRouter();
    const { user, hasPermission, profile } = useAuth();
-   const { showAlert } = useAlert();
+   const { showAlert, showConfirm } = useAlert();
+   const { errorToast } = useToast();
    const isLargeScreen = width > 768;
    const { position: navPosition } = useNavBarPosition();
 
@@ -975,7 +978,7 @@ function TasksScreen() {
 
   const handleCreateTask = () => {
     if (!hasPermission('task.create')) {
-      showAlert('Access Denied', 'Your current authorization level does not permit task initialization.');
+      errorToast('Your current authorization level does not permit task initialization.', 'Access denied');
       return;
     }
     setShowCreateSheet(true);
@@ -992,7 +995,8 @@ function TasksScreen() {
       setArchiveModal({ visible: false, taskId: null });
       fetchData();
     } catch (err: any) {
-      showAlert('Archival Failed', err.message || 'Could not archive task.');
+      if (offerForceStopOnArchiveError(err, { hasPermission, showConfirm, errorToast, retry: handleArchiveTask })) return;
+      errorToast(err.message || 'Could not archive task.', 'Archival failed');
     } finally {
       setArchiving(false);
     }

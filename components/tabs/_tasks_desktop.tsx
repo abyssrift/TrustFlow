@@ -15,12 +15,14 @@ import TaskPingButton from '@/components/task-detail/TaskPingButton';
 import AssignmentModal from '@/components/tasks/AssignmentModal';
 import CreateTaskModal from '@/components/tasks/CreateTaskModal.web';
 import TaskMobilityModal from '@/components/tasks/TaskMobilityModal';
+import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePingHighlight } from '@/contexts/PingHighlightContext';
 import { TaskCreationProvider } from '@/contexts/TaskCreationContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTimer } from '@/contexts/TimerContext';
 import { useToast } from '@/contexts/ToastContext';
+import { offerForceStopOnArchiveError } from '@/lib/archiveForceStop';
 import { supabase } from '@/lib/supabase';
 import { formatCompact, formatRelative } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -362,7 +364,9 @@ export function TasksScreenWeb() {
   // Archival State
   const [archiveModal, setArchiveModal] = useState<{ visible: boolean, taskId: string | null }>({ visible: false, taskId: null });
   const [archiving, setArchiving] = useState(false);
-  const [archiveError, setArchiveError] = useState<string | null>(null);
+  // Cards currently playing their WAAPI exit animation (see AnimatedTaskCard)
+  // — stay in `tasks` until that finishes, then patchTaskArchived drops them.
+  const [exitingTaskIds, setExitingTaskIds] = useState<Set<string>>(new Set());
 
   // Smart Board Picker State
   const [favoriteBoardIds, setFavoriteBoardIds] = useState<Set<string>>(new Set());
@@ -380,7 +384,8 @@ export function TasksScreenWeb() {
   const { width } = useWindowDimensions();
   const router = useRouter();
   const { user, hasPermission, profile } = useAuth();
-  const { errorToast } = useToast();
+  const { errorToast, warningToast } = useToast();
+  const { showConfirm } = useAlert();
 
   const { pingedTasks, removePingedTask } = usePingHighlight();
 
@@ -388,6 +393,49 @@ export function TasksScreenWeb() {
   // succeeds, instead of waiting on the realtime round-trip / fetchData reload.
   const patchTaskStage = (taskId: string, toStageId: string) =>
     setTasks(prev => prev.map(t => (t.id === taskId ? { ...t, current_stage_id: toStageId } : t)));
+
+  // Same idea for archive, but two-phase: reanimated's declarative `exiting`
+  // doesn't paint on this web build (same reason the stage FLIP is hand-rolled
+  // — see AnimatedTaskCard), so a card removed from `tasks` immediately just
+  // vanishes. beginArchiveExit only marks it "exiting" — AnimatedTaskCard
+  // plays a WAAPI shrink+fade on that card's own DOM node, and patchTaskArchived
+  // (the actual removal) runs from its onExited callback once that finishes.
+  const beginArchiveExit = (taskId: string) =>
+    setExitingTaskIds(prev => (prev.has(taskId) ? prev : new Set(prev).add(taskId)));
+
+  const patchTaskArchived = (taskId: string) => {
+    setTasks(prev => prev.filter(t => t.id !== taskId));
+    setExitingTaskIds(prev => {
+      if (!prev.has(taskId)) return prev;
+      const next = new Set(prev);
+      next.delete(taskId);
+      return next;
+    });
+  };
+
+  // And for starting a timer: rpc_start_work doesn't even land for up to 15s
+  // (TimerContext's own optimistic-commit delay), so refetching immediately
+  // just repaints the board with nothing new. Show this user's own session
+  // locally; the debounced realtime reconcile below still runs once the RPC
+  // actually commits, for other viewers.
+  const patchTaskSessionStarted = (taskId: string) => {
+    if (!user) return;
+    setActiveSessions(prev => {
+      const existing = prev[taskId] || [];
+      if (existing.some(s => s.userId === user.id)) return prev;
+      const now = new Date().toISOString();
+      return {
+        ...prev,
+        [taskId]: [...existing, {
+          userId: user.id,
+          name: profile?.full_name || user.email || 'You',
+          avatar: profile?.avatar_url ?? null,
+          startedAt: now,
+          lastHeartbeatAt: now,
+        }],
+      };
+    });
+  };
 
   // Trailing debounce so one move — which triggers a card action refresh PLUS
   // realtime echoes on tasks + pipeline_stage_history — collapses into a
@@ -808,15 +856,13 @@ export function TasksScreenWeb() {
       const { data: allPipes } = await supabase.from('pipelines').select('id, name, task_visibility_mode, is_default').is('deleted_at', null);
       setAvailablePipelines(allPipes as Pipeline[] || []);
     } catch (err: any) {
-      setArchiveError(err.message || 'Could not update default pipeline.');
-      setTimeout(() => setArchiveError(null), 6000);
+      errorToast(err.message || 'Could not update default pipeline.');
     }
   };
 
   const handleCreateTask = () => {
     if (!hasPermission('task.create')) {
-      setArchiveError('You do not have permission to create tasks.');
-      setTimeout(() => setArchiveError(null), 6000);
+      errorToast('You do not have permission to create tasks.', 'Access denied');
       return;
     }
     setShowCreateModal(true);
@@ -837,11 +883,11 @@ export function TasksScreenWeb() {
       if (error) throw error;
 
       setArchiveModal({ visible: false, taskId: null });
-      fetchData();
+      beginArchiveExit(taskId);
     } catch (err: any) {
       setArchiveModal({ visible: false, taskId: null });
-      setArchiveError(err.message || 'Could not archive task.');
-      setTimeout(() => setArchiveError(null), 8000);
+      if (offerForceStopOnArchiveError(err, { hasPermission, showConfirm, errorToast, retry: handleArchiveTask })) return;
+      errorToast(err.message || 'Could not archive task.', 'Archival failed');
     } finally {
       setArchiving(false);
     }
@@ -1195,6 +1241,8 @@ export function TasksScreenWeb() {
         disableLayoutAnimation={boardTransitioning}
         flipFrom={stageTransition?.flipFrom}
         onFlipMount={(landRect) => stageFX.commitMount(task.id, task.current_stage_id, stageTransition?.fromStageId ?? null, landRect)}
+        exiting={exitingTaskIds.has(task.id)}
+        onExited={() => patchTaskArchived(task.id)}
       >
       <TouchableOpacity
         onPress={() => {
@@ -1294,8 +1342,7 @@ export function TasksScreenWeb() {
                   onPress={() => {
                     const isCoolingDown = lastStoppedAt && (Date.now() - new Date(lastStoppedAt).getTime() < 35000);
                     if (activeSession?.task_id === task.id || isCoolingDown) {
-                      setArchiveError('System is finalizing work logs. Please wait 30 seconds after stopping your timer before archiving.');
-                      setTimeout(() => setArchiveError(null), 6000);
+                      warningToast('System is finalizing work logs. Please wait 30 seconds after stopping your timer before archiving.', 'Sync cooldown');
                       return;
                     }
                     setArchiveModal({ visible: true, taskId: task.id });
@@ -1339,6 +1386,8 @@ export function TasksScreenWeb() {
               stageFX.noteActor(taskId, user?.id ?? null);
               patchTaskStage(taskId, toStageId);
             }}
+            onSessionStarted={patchTaskSessionStarted}
+            onArchived={beginArchiveExit}
           />
         </View>
       </TouchableOpacity>
@@ -2132,15 +2181,6 @@ export function TasksScreenWeb() {
         pipelineId={pipeline?.id}
       />
 
-      {archiveError && (
-        <View className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-state-danger/10 border border-state-danger/30 rounded-2xl px-6 py-4 flex-row items-center gap-3 premium-shadow">
-          <FontAwesome name="exclamation-circle" size={14} className="text-state-danger" />
-          <Text className="text-state-danger font-bold text-sm">
-            <Text className="font-black uppercase tracking-wider">Archival Failed: </Text>
-            {archiveError}
-          </Text>
-        </View>
-      )}
 
       <ConfirmModal
         visible={archiveModal.visible}

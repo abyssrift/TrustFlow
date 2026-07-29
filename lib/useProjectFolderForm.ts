@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 
 import { useAlert } from '@/contexts/AlertContext';
+import { useToast } from '@/contexts/ToastContext';
 import { supabase } from '@/lib/supabase';
 
 export type ProjectFolderProject = {
@@ -29,6 +30,7 @@ export function useProjectFolderForm({
   onClose: () => void;
 }) {
   const { showAlert } = useAlert();
+  const { successToast, errorToast, warningToast } = useToast();
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -105,7 +107,7 @@ export function useProjectFolderForm({
       const now = Date.now();
       if (lastArchived && now - parseInt(lastArchived) < 35000) {
         const remaining = Math.ceil((35000 - (now - parseInt(lastArchived))) / 1000);
-        showAlert('Sync Cooldown', `Network synchronization in progress. Please wait ${remaining}s for cross-platform safety.`);
+        warningToast(`Network synchronization in progress. Please wait ${remaining}s for cross-platform safety.`, 'Sync cooldown');
         return;
       }
 
@@ -114,12 +116,12 @@ export function useProjectFolderForm({
       if (error) throw error;
 
       await AsyncStorage.setItem('last_archival_at', now.toString());
-      showAlert('Success', 'Project and all associated tasks have been snapshotted to Cold Storage.');
+      successToast('Project and all associated tasks have been snapshotted to Cold Storage.');
       onSuccess();
       onClose();
     } catch (err: any) {
       console.error('Error archiving project:', err);
-      showAlert('Archival Error', err.message || 'Failed to archive project');
+      errorToast(err.message || 'Failed to archive project', 'Archival failed');
     } finally {
       setLoading(false);
       setShowArchiveConfirm(false);

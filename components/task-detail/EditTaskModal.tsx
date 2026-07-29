@@ -1,11 +1,11 @@
 import DraggableSheet from '@/components/common/DraggableSheet';
-import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
+import Calendar from '@/components/common/Calendar';
 import Tooltip from '@/components/common/Tooltip';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -49,8 +49,17 @@ export default function EditTaskModal({ visible, onClose, focusField }: Props) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Only re-populate fields when the sheet opens (or on first data load while
+  // open) — NOT on every `data` change. `data` is refetched on any realtime
+  // update to the task row (heartbeats, progress recalcs, etc. — see
+  // metaChannel in TaskDetailContext), and re-running this on those refetches
+  // was silently overwriting whatever the user had typed, particularly the
+  // description field.
+  const didInitRef = useRef(false);
   useEffect(() => {
-    if (data?.task && visible) {
+    if (!visible) { didInitRef.current = false; return; }
+    if (data?.task && !didInitRef.current) {
+      didInitRef.current = true;
       setTitle(data.task.title || '');
       setDescription(data.task.description || '');
       setPriority(data.task.priority || 'medium');
@@ -277,7 +286,7 @@ export default function EditTaskModal({ visible, onClose, focusField }: Props) {
 
                 {activeDateField && (
                   <View className="mt-2">
-                    <PremiumCalendarPicker
+                    <Calendar
                       selectedDate={activeDateField === 'due' ? dueDate : startDate}
                       onSelect={(d) => activeDateField === 'due' ? setDueDate(d) : setStartDate(d)}
                       accentColor={activeDateField === 'due' ? colors.primary : colors.secondary}

@@ -5,6 +5,7 @@
   "scripts": {
     "start": "expo start",
     "test": "vitest run",
+    "check": "node scripts/run-checks.mjs",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",

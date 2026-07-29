@@ -1,5 +1,5 @@
 import DraggableSheet from '@/components/common/DraggableSheet';
-import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
+import Calendar from '@/components/common/Calendar';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -151,7 +151,7 @@ export default function ManualTimeModal({ visible, taskId, stageId, transitionId
               </TouchableOpacity>
               {showDatePicker && (
                 <View className="mt-2">
-                  <PremiumCalendarPicker
+                  <Calendar
                     selectedDate={workedDate}
                     onSelect={d => { setWorkedDate(d > todayIso() ? todayIso() : d); setShowDatePicker(false); }}
                     accentColor={colors.warning}

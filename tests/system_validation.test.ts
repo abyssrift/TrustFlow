@@ -10,7 +10,10 @@ const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 
 const createTestClient = () => createClient(supabaseUrl, supabaseAnonKey);
 
-describe('TrustFlow Full System E2E Validation', () => {
+// Needs live e2e-founder@/e2e-manager@/e2e-worker@example.com accounts seeded
+// against EXPO_PUBLIC_SUPABASE_URL -- not available in a bare `npm test`.
+// Seed them, then: RUN_E2E=1 npm test -- system_validation
+describe.skipIf(!process.env.RUN_E2E)('TrustFlow Full System E2E Validation', () => {
   let founderClient: SupabaseClient;
   let managerClient: SupabaseClient;
   let workerClient: SupabaseClient;

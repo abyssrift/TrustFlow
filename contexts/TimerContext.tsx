@@ -4,6 +4,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, supabaseUrl, supabaseAnonKey, freshChannel } from '@/lib/supabase';
 import { useAuth } from './AuthContext';
 import { useSmartTimer } from '@/hooks/useSmartTimer';
+import { useActivityMarks } from '@/hooks/useActivityMarks';
+import type { ActivityMark } from '@/lib/time/activity';
 
 const ASYNC_STORAGE_KEY = 'TRUSTFLOW_PENDING_TIMER';
 const SESSION_STORAGE_KEY = 'tf_reload_session';
@@ -33,6 +35,7 @@ type TimerContextType = {
     lastHeartbeat: number | null;
     lastActivityTime: number;
     getLastActivityTime: () => number;
+    getActivityMarks: () => ActivityMark[];
   };
 };
 
@@ -369,6 +372,13 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
 
   const handleAutoStart = useCallback(async () => {}, []);
 
+  const getLastActivityTime = useCallback(() => lastActivityTimeRef.current, []);
+  const getActivityMarks = useActivityMarks(
+    !!activeSession,
+    activeSession?.started_at || null,
+    getLastActivityTime
+  );
+
   const smartTimer = useSmartTimer({
     onAutoStop: handleAutoStop,
     onAutoStart: handleAutoStart,
@@ -396,7 +406,8 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
       recordActivity: () => { lastActivityTimeRef.current = Date.now(); smartTimer.recordActivity(); },
       lastHeartbeat: smartTimer.lastHeartbeat,
       lastActivityTime: lastActivityTimeRef.current,
-      getLastActivityTime: () => lastActivityTimeRef.current,
+      getLastActivityTime,
+      getActivityMarks,
     },
   }), [
     activeSession,
@@ -410,6 +421,8 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
     smartTimer.setShowIdleModal,
     smartTimer.recordActivity,
     smartTimer.lastHeartbeat,
+    getLastActivityTime,
+    getActivityMarks,
   ]);
 
   return (
