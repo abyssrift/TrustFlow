@@ -1,5 +1,7 @@
 **Before working on any UI-visible change, always read `.agents/rules/ui-consistency.md`, `.agents/rules/ux-consistency.md`, and `.agents/rules/ui-style-guide.md` first and follow their conventions.**
 
+**Before adding or touching any animation, always read `.agents/rules/animation-consistency.md` first — it has a decision tree for which of the app's four animation systems to use and documents a couple of confirmed platform gotchas (`LayoutAnimation` no-ops on web, reanimated's declarative `entering`/`exiting`/`layout` props don't paint on this app's web build).**
+
 ## Popups, modals, sheets
 
 **Never use raw RN `Modal` directly.** Every popup/modal/sheet goes through
