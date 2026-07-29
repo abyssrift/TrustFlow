@@ -362,6 +362,9 @@ export function TasksScreenWeb() {
   // Archival State
   const [archiveModal, setArchiveModal] = useState<{ visible: boolean, taskId: string | null }>({ visible: false, taskId: null });
   const [archiving, setArchiving] = useState(false);
+  // Cards currently playing their WAAPI exit animation (see AnimatedTaskCard)
+  // — stay in `tasks` until that finishes, then patchTaskArchived drops them.
+  const [exitingTaskIds, setExitingTaskIds] = useState<Set<string>>(new Set());
 
   // Smart Board Picker State
   const [favoriteBoardIds, setFavoriteBoardIds] = useState<Set<string>>(new Set());
@@ -388,6 +391,49 @@ export function TasksScreenWeb() {
   // succeeds, instead of waiting on the realtime round-trip / fetchData reload.
   const patchTaskStage = (taskId: string, toStageId: string) =>
     setTasks(prev => prev.map(t => (t.id === taskId ? { ...t, current_stage_id: toStageId } : t)));
+
+  // Same idea for archive, but two-phase: reanimated's declarative `exiting`
+  // doesn't paint on this web build (same reason the stage FLIP is hand-rolled
+  // — see AnimatedTaskCard), so a card removed from `tasks` immediately just
+  // vanishes. beginArchiveExit only marks it "exiting" — AnimatedTaskCard
+  // plays a WAAPI shrink+fade on that card's own DOM node, and patchTaskArchived
+  // (the actual removal) runs from its onExited callback once that finishes.
+  const beginArchiveExit = (taskId: string) =>
+    setExitingTaskIds(prev => (prev.has(taskId) ? prev : new Set(prev).add(taskId)));
+
+  const patchTaskArchived = (taskId: string) => {
+    setTasks(prev => prev.filter(t => t.id !== taskId));
+    setExitingTaskIds(prev => {
+      if (!prev.has(taskId)) return prev;
+      const next = new Set(prev);
+      next.delete(taskId);
+      return next;
+    });
+  };
+
+  // And for starting a timer: rpc_start_work doesn't even land for up to 15s
+  // (TimerContext's own optimistic-commit delay), so refetching immediately
+  // just repaints the board with nothing new. Show this user's own session
+  // locally; the debounced realtime reconcile below still runs once the RPC
+  // actually commits, for other viewers.
+  const patchTaskSessionStarted = (taskId: string) => {
+    if (!user) return;
+    setActiveSessions(prev => {
+      const existing = prev[taskId] || [];
+      if (existing.some(s => s.userId === user.id)) return prev;
+      const now = new Date().toISOString();
+      return {
+        ...prev,
+        [taskId]: [...existing, {
+          userId: user.id,
+          name: profile?.full_name || user.email || 'You',
+          avatar: profile?.avatar_url ?? null,
+          startedAt: now,
+          lastHeartbeatAt: now,
+        }],
+      };
+    });
+  };
 
   // Trailing debounce so one move — which triggers a card action refresh PLUS
   // realtime echoes on tasks + pipeline_stage_history — collapses into a
@@ -835,7 +881,7 @@ export function TasksScreenWeb() {
       if (error) throw error;
 
       setArchiveModal({ visible: false, taskId: null });
-      fetchData();
+      beginArchiveExit(taskId);
     } catch (err: any) {
       setArchiveModal({ visible: false, taskId: null });
       if (offerForceStopOnArchiveError(err, { hasPermission, showConfirm, errorToast, retry: handleArchiveTask })) return;
@@ -1193,6 +1239,8 @@ export function TasksScreenWeb() {
         disableLayoutAnimation={boardTransitioning}
         flipFrom={stageTransition?.flipFrom}
         onFlipMount={(landRect) => stageFX.commitMount(task.id, task.current_stage_id, stageTransition?.fromStageId ?? null, landRect)}
+        exiting={exitingTaskIds.has(task.id)}
+        onExited={() => patchTaskArchived(task.id)}
       >
       <TouchableOpacity
         onPress={() => {
@@ -1336,6 +1384,8 @@ export function TasksScreenWeb() {
               stageFX.noteActor(taskId, user?.id ?? null);
               patchTaskStage(taskId, toStageId);
             }}
+            onSessionStarted={patchTaskSessionStarted}
+            onArchived={beginArchiveExit}
           />
         </View>
       </TouchableOpacity>

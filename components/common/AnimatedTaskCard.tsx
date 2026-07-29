@@ -12,6 +12,19 @@ import Animated, {
 export type FlipRect = { x: number; y: number; width: number; height: number };
 
 const FLIP_DURATION = 480;
+const EXIT_DURATION = 320;
+const FLIP_EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
+
+/** Same DOM-node resolution the FLIP effect uses — react-native-web's
+ * Animated.View ref can hand back a few different shapes depending on
+ * version/wrapper. */
+function resolveDomNode(node: any): any {
+  if (Platform.OS !== 'web' || !node) return null;
+  if (typeof node.animate === 'function') return node;
+  if (node._nativeTag && typeof node._nativeTag.animate === 'function') return node._nativeTag;
+  if (typeof node.getNode === 'function') return node.getNode();
+  return null;
+}
 
 /**
  * Wraps a task/kanban card so it animates fluidly instead of snapping:
@@ -30,6 +43,8 @@ export default function AnimatedTaskCard({
   disableLayoutAnimation,
   flipFrom,
   onFlipMount,
+  exiting,
+  onExited,
 }: {
   children: React.ReactNode;
   style?: ViewStyle;
@@ -46,8 +61,45 @@ export default function AnimatedTaskCard({
    * On web it receives the card's freshly-measured landing rect (null when
    * unmeasurable / non-web) so FX can follow the card's true path. */
   onFlipMount?: (landRect?: FlipRect | null) => void;
+  /** Set true to play a shrink+fade WAAPI exit (same technique/easing as the
+   * FLIP) and THEN unmount — the caller must keep this card in its list
+   * until `onExited` fires, since reanimated's own declarative `exiting`
+   * (below) proved to silently not paint on this project's web build, same
+   * as the FLIP. Removing the card from state immediately is why it used to
+   * just vanish with no animation. */
+  exiting?: boolean;
+  /** Fired once the exit animation finishes (or immediately, on native /
+   * when WAAPI isn't available) — the caller should now actually remove the
+   * card from its list. */
+  onExited?: () => void;
 }) {
   const ref = useRef<any>(null);
+  const exitFiredRef = useRef(false);
+
+  // Plays once, the instant `exiting` flips true. Mirrors the FLIP effect
+  // below: WAAPI directly on the DOM node, not reanimated's `exiting` prop,
+  // which doesn't paint here (see FLIP_DURATION comment).
+  useLayoutEffect(() => {
+    if (!exiting || exitFiredRef.current) return;
+    exitFiredRef.current = true;
+    const domNode: any = resolveDomNode(ref.current);
+    if (!domNode || typeof domNode.animate !== 'function') {
+      onExited?.();
+      return;
+    }
+    const anim = domNode.animate(
+      [
+        { transform: 'scale(1)', opacity: 1 },
+        { transform: 'scale(0.92)', opacity: 0 },
+      ],
+      { duration: EXIT_DURATION, easing: FLIP_EASING, fill: 'forwards' }
+    );
+    const finish = () => onExited?.();
+    if (!anim) { finish(); return; }
+    anim.onfinish = finish;
+    anim.oncancel = finish;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exiting]);
 
   // Mount-only: a stage move always remounts this component fresh (the task
   // moves from one stage column's list to a different one's), so this never
@@ -62,12 +114,7 @@ export default function AnimatedTaskCard({
   useLayoutEffect(() => {
     // Resolve the DOM node first — the ref sits on reanimated's Animated.View,
     // which may hand back a wrapper instance rather than the element.
-    const node: any = ref.current;
-    const domNode: any = Platform.OS !== 'web' ? null
-      : node && typeof node.animate === 'function' ? node
-      : node?._nativeTag && typeof node._nativeTag.animate === 'function' ? node._nativeTag
-      : typeof node?.getNode === 'function' ? node.getNode()
-      : null;
+    const domNode: any = resolveDomNode(ref.current);
     const after = domNode && typeof domNode.getBoundingClientRect === 'function'
       ? domNode.getBoundingClientRect()
       : null;
@@ -90,7 +137,7 @@ export default function AnimatedTaskCard({
         { transform: 'translate(0, 0) scale(1.035)', offset: 0.8 },
         { transform: 'translate(0, 0) scale(1)' },
       ],
-      { duration: FLIP_DURATION, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' }
+      { duration: FLIP_DURATION, easing: FLIP_EASING }
     );
     console.log('[FXDBG] FLIP anim created, playState:', anim?.playState);
     if (anim) {
@@ -113,6 +160,7 @@ export default function AnimatedTaskCard({
       exiting={FadeOut.duration(140)}
       layout={disableLayoutAnimation ? undefined : LinearTransition.springify().damping(20).stiffness(170).mass(0.6)}
       style={style}
+      pointerEvents={exiting ? 'none' : undefined}
     >
       {children}
     </Animated.View>

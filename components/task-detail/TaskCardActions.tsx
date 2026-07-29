@@ -74,6 +74,10 @@ type Props = {
   onRefresh: () => void;
   /** Optional optimistic hook: fired the instant a stage-changing RPC succeeds, before onRefresh(). */
   onMoved?: (taskId: string, toStageId: string) => void;
+  /** Optional optimistic hook: fired the instant start-timer succeeds, instead of a full onRefresh() reload. */
+  onSessionStarted?: (taskId: string) => void;
+  /** Optional optimistic hook: fired the instant archive succeeds, instead of a full onRefresh() reload. */
+  onArchived?: (taskId: string) => void;
 };
 
 // ─── Style Map ────────────────────────────────────────────────
@@ -87,7 +91,7 @@ const ACTION_STYLES: Record<string, { bg: string; border: string; text: string }
 
 
 // ─── Component ────────────────────────────────────────────────
-export default function TaskCardActions({ task, stages, stageActions, transitions = [], activeSessions, userId, onRefresh, onMoved }: Props) {
+export default function TaskCardActions({ task, stages, stageActions, transitions = [], activeSessions, userId, onRefresh, onMoved, onSessionStarted, onArchived }: Props) {
   const router = useRouter();
   const colors = useThemeColors();
   const { hasPermission, profile } = useAuth();
@@ -271,7 +275,12 @@ export default function TaskCardActions({ task, stages, stageActions, transition
     setLoadingAction('__timer__');
     try {
       await startWork(task.id, task.title ?? '');
-      onRefresh();
+      // startWork is itself optimistic (commits to the DB up to 15s later), so
+      // a full board reload here would refetch before anything changed. Patch
+      // this card's session locally instead; the debounced realtime reconcile
+      // still runs once the RPC actually lands, for other viewers.
+      if (onSessionStarted) onSessionStarted(task.id);
+      else onRefresh();
       successToast('Work session started.');
     } catch (err: any) {
       errorToast(err.message || 'Could not start work session.');
@@ -319,7 +328,11 @@ export default function TaskCardActions({ task, stages, stageActions, transition
       if (error) throw error;
       successToast('Task archived.');
       await AsyncStorage.setItem('last_archival_at', now.toString());
-      onRefresh();
+      // Remove the card locally (AnimatedTaskCard's exit animation handles the
+      // fade) instead of a full board reload; the debounced realtime reconcile
+      // still runs once the delete lands.
+      if (onArchived) onArchived(task.id);
+      else onRefresh();
     } catch (err: any) {
       if (offerForceStopOnArchiveError(err, { hasPermission, showConfirm, errorToast, retry: handleArchive })) return;
       errorToast(err.message || 'Could not archive task.', 'Archival failed');
