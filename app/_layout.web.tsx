@@ -10,6 +10,7 @@ import 'react-native-reanimated';
 import '../global.css';
 
 import BrandSplash from '@/components/BrandSplash';
+import LocalEnvBadge from '@/components/LocalEnvBadge';
 import NetworkStatusBanner from '@/components/NetworkStatusBanner';
 import Sidebar from '@/components/Sidebar.web';
 import IslandTimeApprovalsBridge from '@/components/island/IslandTimeApprovalsBridge.web';
@@ -144,6 +145,7 @@ function RootLayoutNav() {
             <View className="absolute top-0 left-0 right-0 z-[999]">
               <NetworkStatusBanner />
             </View>
+            <LocalEnvBadge />
             {showSidebar ? (
               <Sidebar>
                 <Slot />

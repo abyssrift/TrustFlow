@@ -37,6 +37,7 @@ export const unstable_settings = {
 
 import BrandSplash from '@/components/BrandSplash';
 import GlobalUploadBanner from '@/components/GlobalUploadBanner';
+import LocalEnvBadge from '@/components/LocalEnvBadge';
 import NetworkStatusBanner from '@/components/NetworkStatusBanner';
 import TimerIsland from '@/components/TimerIsland';
 import WelcomeTour from '@/components/onboarding/WelcomeTour';
@@ -268,6 +269,7 @@ function ThemedRoot() {
           <NetworkStatusBanner />
           <GlobalUploadBanner />
         </View>
+        <LocalEnvBadge />
         {session && <WebPushPrompt />}
         {session && <WelcomeTour />}
       </View>

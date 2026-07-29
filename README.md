@@ -105,6 +105,9 @@ Run tests:
 npm test
 ```
 
+Want a fully local backend (Postgres/Auth/Storage in Docker) instead of pointing at a
+shared Supabase project? See [docs/LOCAL_SUPABASE_DEV.md](docs/LOCAL_SUPABASE_DEV.md).
+
 ## License
 
 Proprietary — © TrustEdge LLC. All rights reserved.

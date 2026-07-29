@@ -11,6 +11,8 @@
     "web": "expo start --web",
     "seed": "tsx seed_acme_corp.ts",
     "seed:full": "tsx seed_comprehensive.ts",
+    "env:local": "node -e \"require('fs').copyFileSync('.env.local.example','.env.local')\"",
+    "env:prod": "node -e \"try{require('fs').unlinkSync('.env.local')}catch(e){}\"",
     "postinstall": "npx patch-package"
   },
   "dependencies": {
@@ -76,7 +78,7 @@
     "@types/react": "~19.2.10",
     "dotenv": "^17.4.2",
     "react-test-renderer": "19.1.0",
-    "supabase": "^2.97.0",
+    "supabase": "^2.110.0",
     "tsx": "^4.22.0",
     "typescript": "~5.9.2",
     "vitest": "^4.1.4"

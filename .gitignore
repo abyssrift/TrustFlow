@@ -34,6 +34,12 @@ yarn-error.*
 .env
 .env*.local
 
+# real prod data dumped for local dev — never commit customer data
+supabase/seed.sql
+
+# local edge function secrets (dummy or real, either way don't commit)
+supabase/functions.env.local
+
 # one-off design export, not a source file
 website/TrustFlow website design/waitlist_website/
 
