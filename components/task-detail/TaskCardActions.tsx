@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTimer } from '@/contexts/TimerContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { offerForceStopOnArchiveError } from '@/lib/archiveForceStop';
 import { supabase } from '@/lib/supabase';
 import { taskFlowDebug, taskFlowError } from '@/lib/taskDebug';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -92,7 +93,7 @@ export default function TaskCardActions({ task, stages, stageActions, transition
   const { hasPermission, profile } = useAuth();
   const { startWork } = useTimer();
   const { successToast, errorToast, warningToast } = useToast();
-  const { showAlert } = useAlert();
+  const { showAlert, showConfirm } = useAlert();
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [needsTimerActionId, setNeedsTimerActionId] = useState<string | null>(null);
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
@@ -320,6 +321,7 @@ export default function TaskCardActions({ task, stages, stageActions, transition
       await AsyncStorage.setItem('last_archival_at', now.toString());
       onRefresh();
     } catch (err: any) {
+      if (offerForceStopOnArchiveError(err, { hasPermission, showConfirm, errorToast, retry: handleArchive })) return;
       errorToast(err.message || 'Could not archive task.', 'Archival failed');
     } finally {
       setLoadingAction(null);

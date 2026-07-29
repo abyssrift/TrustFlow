@@ -3,12 +3,14 @@ import ConfirmModal from '@/components/common/ConfirmModal';
 import ManualTimeModal from '@/components/common/ManualTimeModal';
 import Tooltip from '@/components/common/Tooltip';
 import type { ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
+import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTimer } from '@/contexts/TimerContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { offerForceStopOnArchiveError } from '@/lib/archiveForceStop';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
@@ -53,6 +55,7 @@ export default function TaskHeader() {
 
   const router = useRouter();
   const { successToast, errorToast, infoToast } = useToast();
+  const { showConfirm } = useAlert();
   const colors = useThemeColors();
 
   const handleArchive = async () => {
@@ -66,6 +69,7 @@ export default function TaskHeader() {
       router.replace('/(tabs)/tasks' as any);
     } catch (err: any) {
       setShowArchiveConfirm(false);
+      if (offerForceStopOnArchiveError(err, { hasPermission, showConfirm, errorToast, retry: handleArchive })) return;
       errorToast(err.message || 'Could not archive task.', 'Archival failed');
     } finally {
       setArchiving(false);

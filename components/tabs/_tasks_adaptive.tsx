@@ -22,6 +22,7 @@ import { TaskCreationProvider } from '@/contexts/TaskCreationContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useNavBarPosition } from '@/hooks/useNavBarPosition';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { offerForceStopOnArchiveError } from '@/lib/archiveForceStop';
 import { TAB_BAR_HEIGHT } from '@/lib/layout';
 import { supabase } from '@/lib/supabase';
 import { formatCompact, formatRelative } from '@/lib/time';
@@ -352,7 +353,7 @@ function TasksScreen() {
    const colors = useThemeColors();
    const router = useRouter();
    const { user, hasPermission, profile } = useAuth();
-   const { showAlert } = useAlert();
+   const { showAlert, showConfirm } = useAlert();
    const { errorToast } = useToast();
    const isLargeScreen = width > 768;
    const { position: navPosition } = useNavBarPosition();
@@ -994,6 +995,7 @@ function TasksScreen() {
       setArchiveModal({ visible: false, taskId: null });
       fetchData();
     } catch (err: any) {
+      if (offerForceStopOnArchiveError(err, { hasPermission, showConfirm, errorToast, retry: handleArchiveTask })) return;
       errorToast(err.message || 'Could not archive task.', 'Archival failed');
     } finally {
       setArchiving(false);

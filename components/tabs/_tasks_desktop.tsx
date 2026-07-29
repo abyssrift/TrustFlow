@@ -13,12 +13,14 @@ import TaskPingButton from '@/components/task-detail/TaskPingButton';
 import AssignmentModal from '@/components/tasks/AssignmentModal';
 import CreateTaskModal from '@/components/tasks/CreateTaskModal.web';
 import TaskMobilityModal from '@/components/tasks/TaskMobilityModal';
+import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePingHighlight } from '@/contexts/PingHighlightContext';
 import { TaskCreationProvider } from '@/contexts/TaskCreationContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTimer } from '@/contexts/TimerContext';
 import { useToast } from '@/contexts/ToastContext';
+import { offerForceStopOnArchiveError } from '@/lib/archiveForceStop';
 import { supabase } from '@/lib/supabase';
 import { formatCompact, formatRelative } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -378,6 +380,7 @@ export function TasksScreenWeb() {
   const router = useRouter();
   const { user, hasPermission, profile } = useAuth();
   const { errorToast, warningToast } = useToast();
+  const { showConfirm } = useAlert();
 
   const { pingedTasks, removePingedTask } = usePingHighlight();
 
@@ -835,6 +838,7 @@ export function TasksScreenWeb() {
       fetchData();
     } catch (err: any) {
       setArchiveModal({ visible: false, taskId: null });
+      if (offerForceStopOnArchiveError(err, { hasPermission, showConfirm, errorToast, retry: handleArchiveTask })) return;
       errorToast(err.message || 'Could not archive task.', 'Archival failed');
     } finally {
       setArchiving(false);
