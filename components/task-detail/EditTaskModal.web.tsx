@@ -129,8 +129,17 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
     return () => window.removeEventListener('keydown', handler);
   }, [visible, saving, title]);
 
+  // Only re-populate fields when the sheet opens (or on first data load while
+  // open) — NOT on every `data` change. `data` is refetched on any realtime
+  // update to the task row (heartbeats, progress recalcs, etc. — see
+  // metaChannel in TaskDetailContext), and re-running this on those refetches
+  // was silently overwriting whatever the user had typed, particularly the
+  // description field.
+  const didInitRef = useRef(false);
   useEffect(() => {
-    if (data?.task && visible) {
+    if (!visible) { didInitRef.current = false; return; }
+    if (data?.task && !didInitRef.current) {
+      didInitRef.current = true;
       setTitle(data.task.title || '');
       setDescription(data.task.description || '');
       setPriority(data.task.priority || 'medium');
