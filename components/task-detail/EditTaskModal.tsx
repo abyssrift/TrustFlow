@@ -1,5 +1,5 @@
 import DraggableSheet from '@/components/common/DraggableSheet';
-import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
+import Calendar from '@/components/common/Calendar';
 import Tooltip from '@/components/common/Tooltip';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -286,7 +286,7 @@ export default function EditTaskModal({ visible, onClose, focusField }: Props) {
 
                 {activeDateField && (
                   <View className="mt-2">
-                    <PremiumCalendarPicker
+                    <Calendar
                       selectedDate={activeDateField === 'due' ? dueDate : startDate}
                       onSelect={(d) => activeDateField === 'due' ? setDueDate(d) : setStartDate(d)}
                       accentColor={activeDateField === 'due' ? colors.primary : colors.secondary}

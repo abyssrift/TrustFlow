@@ -32,7 +32,7 @@ import {
   type SignalMetric,
   type SortKey
 } from '@/components/platform-admin/useControlPlaneData';
-import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
+import Calendar from '@/components/common/Calendar';
 import AppTooltip from '@/components/common/Tooltip';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
@@ -2065,16 +2065,15 @@ function TrialCodesSection() {
                 )}
               </TouchableOpacity>
               {showExpiryCalendar && (
-                <View style={{ position: 'absolute' as any, top: '110%', left: 0, zIndex: 200, width: 320 }}>
-                  <PremiumCalendarPicker
-                    scale="compact"
-                    selectedDate={form.expires_at || null}
-                    onSelect={date => {
-                      setForm(f => ({ ...f, expires_at: date }));
-                      setShowExpiryCalendar(false);
-                    }}
-                  />
-                </View>
+                <Calendar
+                  scale="compact"
+                  selectedDate={form.expires_at || null}
+                  onSelect={date => {
+                    setForm(f => ({ ...f, expires_at: date }));
+                    setShowExpiryCalendar(false);
+                  }}
+                  floatingStyle={{ position: 'absolute' as any, top: '110%', left: 0, zIndex: 200, width: 320 }}
+                />
               )}
             </View>
           </View>

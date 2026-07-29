@@ -1,5 +1,5 @@
 import Popup from '@/components/common/Popup';
-import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
+import Calendar from '@/components/common/Calendar';
 import { FontAwesome } from '@expo/vector-icons';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import React, { useEffect, useState } from 'react';
@@ -302,7 +302,7 @@ export default function ReportFiltersModal({ visible, onClose, onApply, initial 
               </TouchableOpacity>
             </View>
 
-            <PremiumCalendarPicker
+            <Calendar
               scale="compact"
               showDaysBetween
               selectedDate={activeDateField === 'from' ? dateFrom : dateTo}

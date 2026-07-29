@@ -1,5 +1,5 @@
 import Popup from '@/components/common/Popup';
-import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
+import Calendar from '@/components/common/Calendar';
 import CustomTooltip from '@/components/common/Tooltip';
 import { TargetCreationModal } from '@/components/intelligence/IntelligenceModals';
 import { useAuth } from '@/contexts/AuthContext';
@@ -102,7 +102,7 @@ const EditTargetModal = ({
                 <Text className="text-[9px] font-black uppercase tracking-widest mb-3" style={{ color: colors.textMuted }}>
                   Expiration Deadline
                 </Text>
-                <PremiumCalendarPicker selectedDate={deadline} onSelect={setDeadline} scale="compact" />
+                <Calendar selectedDate={deadline} onSelect={setDeadline} scale="compact" />
               </View>
             </>
           ) : (

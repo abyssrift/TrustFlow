@@ -1,5 +1,5 @@
 import ConfirmModal from '@/components/common/ConfirmModal';
-import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
+import Calendar from '@/components/common/Calendar';
 import DraggableSheet from '@/components/common/DraggableSheet';
 import Tooltip from '@/components/common/Tooltip';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -117,7 +117,7 @@ export default function ProjectFolderModal({
               )}
             </View>
             {showCalendar && (
-              <PremiumCalendarPicker
+              <Calendar
                 selectedDate={expiryDate}
                 onSelect={(date) => { setExpiryDate(date); setShowCalendar(false); }}
                 scale="compact"

@@ -1,7 +1,7 @@
 import DraggableSheet from '@/components/common/DraggableSheet';
 import Popup from '@/components/common/Popup';
 import SidebarLayout from '@/components/common/SidebarLayout';
-import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
+import Calendar from '@/components/common/Calendar';
 import Tooltip from '@/components/common/Tooltip';
 import UserLink from '@/components/common/UserLink';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
@@ -370,7 +370,7 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
 
               {mobileActiveDateField && (
                 <View className="mt-3">
-                  <PremiumCalendarPicker
+                  <Calendar
                     selectedDate={mobileActiveDateField === 'due' ? dueDate : startDate}
                     onSelect={(d) => mobileActiveDateField === 'due' ? setDueDate(d) : setStartDate(d)}
                     accentColor={mobileActiveDateField === 'due' ? colors.primary : colors.secondary}
@@ -565,32 +565,30 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
 
           {/* Due Date Calendar */}
           {showDueCal && (
-            <View style={dueCalPos.style as any}>
-              <PremiumCalendarPicker
-                selectedDate={dueDate}
-                onSelect={(d) => setDueDate(d)}
-                accentColor={colors.primary}
-                rangeDate={startDate}
-                rangeColor={colors.secondary}
-                scale="compact"
-                showDaysBetween
-              />
-            </View>
+            <Calendar
+              selectedDate={dueDate}
+              onSelect={(d) => setDueDate(d)}
+              accentColor={colors.primary}
+              rangeDate={startDate}
+              rangeColor={colors.secondary}
+              scale="compact"
+              showDaysBetween
+              floatingStyle={dueCalPos.style as any}
+            />
           )}
 
           {/* Start Date Calendar */}
           {showStartCal && (
-            <View style={startCalPos.style as any}>
-              <PremiumCalendarPicker
-                selectedDate={startDate}
-                onSelect={(d) => setStartDate(d)}
-                accentColor={colors.secondary}
-                rangeDate={dueDate}
-                rangeColor={colors.primary}
-                scale="compact"
-                showDaysBetween
-              />
-            </View>
+            <Calendar
+              selectedDate={startDate}
+              onSelect={(d) => setStartDate(d)}
+              accentColor={colors.secondary}
+              rangeDate={dueDate}
+              rangeColor={colors.primary}
+              scale="compact"
+              showDaysBetween
+              floatingStyle={startCalPos.style as any}
+            />
           )}
 
           {/* Manager Dropdown */}

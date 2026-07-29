@@ -1,5 +1,5 @@
 import Popup from '@/components/common/Popup';
-import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
+import Calendar from '@/components/common/Calendar';
 import Tooltip from '@/components/common/Tooltip';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
@@ -157,7 +157,7 @@ export default function ManualTimeModal({ visible, taskId, stageId, transitionId
             </TouchableOpacity>
             {showDatePicker && (
               <View className="mt-2">
-                <PremiumCalendarPicker
+                <Calendar
                   selectedDate={workedDate}
                   onSelect={d => { setWorkedDate(d > todayIso() ? todayIso() : d); setShowDatePicker(false); }}
                   accentColor={colors.warning}

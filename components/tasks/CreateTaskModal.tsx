@@ -11,7 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DraggableSheet from '../common/DraggableSheet';
 import LoadingOverlay from '../common/LoadingOverlay';
 import ClipboardControls from '../common/ClipboardControls';
-import PremiumCalendarPicker from '../common/PremiumCalendarPicker';
+import Calendar from '@/components/common/Calendar';
 import { formatFileSize, getFileIcon } from '@/lib/taskFileHelpers';
 import { useCreateTaskWizard } from '@/lib/useCreateTaskWizard';
 import { usePipelineAssignmentPreview } from '@/lib/usePipelineAssignmentPreview';
@@ -305,7 +305,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
 
                 {showCalendar && (
                   <View className="mt-4">
-                    <PremiumCalendarPicker
+                    <Calendar
                       selectedDate={draft.dueDate}
                       onSelect={(date) => {
                         setDraft({ dueDate: date });

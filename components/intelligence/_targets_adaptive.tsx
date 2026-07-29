@@ -1,5 +1,5 @@
 import Popup from '@/components/common/Popup';
-import PremiumCalendarPicker from '@/components/common/PremiumCalendarPicker';
+import Calendar from '@/components/common/Calendar';
 import Tooltip from '@/components/common/Tooltip';
 import { BackButton } from '@/components/common/BackButton';
 import { CompletionVelocityMobile, IntelligencePicker } from '@/components/intelligence/IntelligenceCommon';
@@ -110,7 +110,7 @@ const CreateModal = ({ visible, onClose, onConfirm, pipelines, stages }: any) =>
                 </View>
                 <View>
                   <Text className="text-typography-muted text-[9px] font-black uppercase mb-3">Expiration Deadline</Text>
-                  <PremiumCalendarPicker
+                  <Calendar
                     selectedDate={deadline ?? null}
                     onSelect={(d) => setDeadline(d)}
                     scale="compact"
@@ -201,7 +201,7 @@ const EditModal = ({ target, onClose, onSave }: { target: any; onClose: () => vo
                 </View>
                 <View>
                   <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-3">Expiration Deadline</Text>
-                  <PremiumCalendarPicker
+                  <Calendar
                     selectedDate={deadline}
                     onSelect={setDeadline}
                     scale="compact"
