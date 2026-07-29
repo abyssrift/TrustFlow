@@ -1,4 +1,4 @@
-// Self-check for the activity timeline — run: npx tsx lib/time/activity.test.ts
+// Self-check for the activity timeline — run: npx tsx lib/time/activity.check.ts
 // No framework (ponytail): plain asserts, fixed "now".
 import assert from 'node:assert';
 import { buildSegments, totalsOf, type ActivityMark } from './activity';
@@ -28,4 +28,4 @@ const m = (min: number, state: ActivityMark['state']): ActivityMark => ({ t: T +
 // Empty marks (no session) yields nothing.
 assert.deepEqual(buildSegments([], T), []);
 
-console.log('activity.test.ts OK');
+console.log('activity.check.ts OK');

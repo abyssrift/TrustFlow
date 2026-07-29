@@ -1,4 +1,4 @@
-// Self-check for parseQuery — run: npx tsx hooks/useSearchQuery.test.ts
+// Self-check for parseQuery — run: npx tsx hooks/useSearchQuery.check.ts
 // No framework (ponytail): plain asserts, fixed "now" so date math is deterministic.
 import assert from 'node:assert';
 import { parseQuery } from './useSearchQuery';

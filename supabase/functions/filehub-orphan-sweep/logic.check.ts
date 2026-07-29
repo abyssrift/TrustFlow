@@ -1,6 +1,6 @@
 // Self-check for the orphan-sweep selection logic — run:
-//   npx tsx supabase/functions/filehub-orphan-sweep/logic.test.ts
-// No framework (matches lib/filehubFolderTree.test.ts): plain asserts.
+//   npx tsx supabase/functions/filehub-orphan-sweep/logic.check.ts
+// No framework (matches lib/filehubFolderTree.check.ts): plain asserts.
 //
 // The #1 invariant under test: a path that is referenced by ANY filehub_files
 // row (live or in the Bin) or ANY filehub_file_versions row must never be
@@ -117,4 +117,4 @@ const HOUR = 60 * 60 * 1000;
   );
 }
 
-console.log('filehub-orphan-sweep logic.test.ts: all assertions passed');
+console.log('filehub-orphan-sweep logic.check.ts: all assertions passed');

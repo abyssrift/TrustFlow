@@ -1,4 +1,4 @@
-// Self-check for HTML → text — run: npx tsx lib/imports/htmlToText.test.ts
+// Self-check for HTML → text — run: npx tsx lib/imports/htmlToText.check.ts
 import assert from 'node:assert';
 import { htmlToText } from './htmlToText';
 

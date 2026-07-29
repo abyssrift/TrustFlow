@@ -1,4 +1,4 @@
-// Self-check for randomId — run: npx tsx lib/randomId.test.ts
+// Self-check for randomId — run: npx tsx lib/randomId.check.ts
 // No framework (ponytail): plain asserts. Swaps globalThis.crypto to prove each
 // fallback tier works, since the whole point is surviving envs where
 // crypto.randomUUID is missing (non-secure context / Hermes).

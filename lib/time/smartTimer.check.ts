@@ -1,4 +1,4 @@
-// Self-check for computeTimerAction — run: npx tsx lib/time/smartTimer.test.ts
+// Self-check for computeTimerAction — run: npx tsx lib/time/smartTimer.check.ts
 // No framework (ponytail): plain asserts, fixed "now" so elapsed-time math is deterministic.
 import assert from 'node:assert';
 import { computeTimerAction, IDLE_TIMEOUT, SESSION_MAX_DURATION } from './smartTimer';

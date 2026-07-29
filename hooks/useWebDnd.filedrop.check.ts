@@ -1,6 +1,6 @@
 // Self-check for walkEntry: dropped-folder traversal must reproduce
 // webkitRelativePath exactly (folder nesting depends on it). Framework-free —
-// run with: npx tsx hooks/useWebDnd.filedrop.test.ts
+// run with: npx tsx hooks/useWebDnd.filedrop.check.ts
 import assert from 'node:assert';
 import { walkEntry } from '../lib/fileDropEntries';
 
