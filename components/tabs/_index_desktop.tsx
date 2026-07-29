@@ -85,6 +85,7 @@ export default function DashboardScreenWeb() {
   const [config, setConfig] = useState<DashboardConfig | null>(null);
   const [trackedPipelineIds, setTrackedPipelineIds] = useState<string[]>([]);
   const [widgetRefreshKey, setWidgetRefreshKey] = useState(0);
+  const [activityCardHeight, setActivityCardHeight] = useState(0);
 
   const { user, profile, hasPermission } = useAuth();
   const router = useRouter();
@@ -255,7 +256,7 @@ export default function DashboardScreenWeb() {
           transitioned_by_user:users!transitioned_by(full_name, display_name)
         `)
         .order('transitioned_at', { ascending: false })
-        .limit(4);
+        .limit(20);
       if (isAuthError(historyError)) {
         triggerAuthError();
         return;
@@ -263,7 +264,7 @@ export default function DashboardScreenWeb() {
 
       const activityEntries: ActivityEntry[] = (historyData || [])
         .filter((h: any) => targetPipelineIds.includes(h.task?.pipeline_id))
-        .slice(0, 10)
+        .slice(0, 20)
         .map((h: any) => ({
           id: h.id,
           taskId: h.task_id,
@@ -642,7 +643,10 @@ export default function DashboardScreenWeb() {
               </View>
               )}
 
-              <View className="flex-1 bg-surface-card p-10 rounded-[32px] border border-surface-border premium-shadow">
+              <View
+                className="flex-1 bg-surface-card p-10 rounded-[32px] border border-surface-border premium-shadow"
+                onLayout={(e) => setActivityCardHeight(e.nativeEvent.layout.height)}
+              >
                 <View className="flex-row items-center justify-between mb-8">
                   <View className="flex-row items-center gap-3">
                     <View className="w-1.5 h-4 bg-brand-primary rounded-full" />
@@ -661,13 +665,16 @@ export default function DashboardScreenWeb() {
                   </View>
                 ) : (
                   <View className="gap-0">
-                    {activity.map((entry, idx) => (
+                    {/* Header (~56px) + p-10 padding (~80px) eat into the stretched card height; ~60px per row. */}
+                    {activity
+                      .slice(0, activityCardHeight ? Math.max(1, Math.floor((activityCardHeight - 136) / 60)) : 4)
+                      .map((entry, idx, visible) => (
                       <TouchableOpacity
                         key={entry.id}
                         activeOpacity={0.6}
                         disabled={!entry.taskId}
                         onPress={() => entry.taskId && router.push(`/task/${entry.taskId}` as any)}
-                        className={`flex-row items-center py-3 ${idx !== activity.length - 1 ? 'border-b border-surface-border/30' : ''}`}
+                        className={`flex-row items-center py-3 ${idx !== visible.length - 1 ? 'border-b border-surface-border/30' : ''}`}
                       >
                         <View className="w-8 h-8 rounded-lg bg-surface-background items-center justify-center mr-4 border border-surface-border">
                           <FontAwesome name="exchange" size={12} color={colors.primary} />
