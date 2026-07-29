@@ -6,6 +6,7 @@ import DraggableSheet from '@/components/common/DraggableSheet';
 import Popup from '@/components/common/Popup';
 import SidebarLayout from '@/components/common/SidebarLayout';
 import Tooltip from '@/components/common/Tooltip';
+import { useAlert } from '@/contexts/AlertContext';
 import { Permission } from '@/contexts/RoleManagerContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { ROLE_TEMPLATES } from '@/lib/roleTemplates';
@@ -56,6 +57,7 @@ export default function RoleEditorSheet({
   onApplyTemplate,
 }: RoleEditorSheetProps) {
   const c = useThemeColors();
+  const { showConfirm } = useAlert();
   const [query, setQuery] = useState('');
   const [mobilePage, setMobilePage] = useState<'identity' | 'permissions'>('identity');
 
@@ -85,7 +87,10 @@ export default function RoleEditorSheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
   const requestClose = () => {
-    if (snapRef.current !== snap() && !window.confirm('Discard unsaved changes?')) return;
+    if (snapRef.current !== snap()) {
+      showConfirm('Discard Changes?', 'You have unsaved changes to this role. Discard them?', onClose, undefined, 'Discard', 'Keep Editing', 'destructive');
+      return;
+    }
     onClose();
   };
 
