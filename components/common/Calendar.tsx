@@ -207,6 +207,7 @@ export default function Calendar({
     ? fmtISO(new Date(Math.min(new Date(rangeStart).getTime(), new Date(rangeEnd).getTime()))) : null;
   const displayTo = mode === 'range' && rangePhase === 'committed' && rangeStart && rangeEnd
     ? fmtISO(new Date(Math.max(new Date(rangeStart).getTime(), new Date(rangeEnd).getTime()))) : null;
+  const displayDays = displayFrom && displayTo ? daysBetween(displayFrom, displayTo) + 1 : null;
 
   const rangeModeSidebar = mode === 'range' && (sidebarContent ?? (showQuickSelect ? <RangePresetRail maxDays={maxDays} onPreset={handlePreset} onShowUpgrade={setUpgradeMsg} /> : null));
   const singleModeSidebar = mode === 'single' && (sidebarContent ?? (resolvedShowQuickSelect ? <QuickMenuSidebar onSelect={handleDayClick} isFull={isFull} isFloating={isFloating} /> : null));
@@ -313,6 +314,12 @@ export default function Calendar({
             <Text className="text-typography-dim text-[9px] font-black uppercase tracking-widest">To</Text>
             <Text className="text-typography-main font-bold text-sm mt-0.5">{fmtShort(displayTo)}</Text>
           </View>
+          {displayDays !== null && (
+            <View className="items-center px-3">
+              <Text className="text-typography-main font-black text-sm">{displayDays}</Text>
+              <Text className="text-typography-dim text-[9px] font-black uppercase tracking-widest">{displayDays === 1 ? 'day' : 'days'}</Text>
+            </View>
+          )}
           <TouchableOpacity onPress={handleApply} className="px-6 py-3 rounded-2xl" style={{ backgroundColor: colors.primary }}>
             <Text className="text-white text-[10px] font-black uppercase tracking-widest">Apply</Text>
           </TouchableOpacity>
@@ -337,7 +344,8 @@ export default function Calendar({
   if (isPopup) {
     const hasSidebar = !!resolvedSidebar;
     const MONTH_WIDTH = isFull ? 340 : 260;
-    const SIDEBAR_WIDTH = isFull ? 192 : 80;
+    // RangePresetRail is always w-44 (176); QuickMenuSidebar is w-44 full / w-[124px] compact.
+    const SIDEBAR_WIDTH = isFull || mode === 'range' ? 176 : 124;
     const GAP = 48;
     const monthCount = showTwoMonths ? 2 : 1;
     const computedMaxWidth = monthCount * MONTH_WIDTH + GAP + (hasSidebar ? SIDEBAR_WIDTH + 1 : 0);

@@ -172,6 +172,7 @@ export function DateRangeControls({ from, to, setFrom, setTo, maxDays, granulari
         onSelect={() => {}}
         mode="range"
         dual_display
+        showQuickSelect
         selectedDate={from}
         rangeDate={to}
         maxDays={maxDays}
