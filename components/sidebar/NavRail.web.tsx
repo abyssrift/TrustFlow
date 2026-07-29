@@ -66,11 +66,10 @@ export default function NavRail({
                   </View>
                 </View>
               )}
-              <Tooltip label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} side="right">
+              <Tooltip label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} side="right" className={isExpanded ? 'w-11' : 'w-full'}>
                 <Pressable
                   onPress={toggleCollapse}
-                  className={`h-11 items-center justify-center rounded-xl border border-surface-border bg-surface-card hover:bg-surface-overlay ${isExpanded ? 'w-11' : 'w-full'
-                    }`}
+                  className={`h-11 w-full items-center justify-center rounded-xl border border-surface-border bg-surface-card hover:bg-surface-overlay`}
                 >
                   <FontAwesome
                     name={isCollapsed ? 'indent' : 'outdent'}
