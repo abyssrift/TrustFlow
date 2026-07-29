@@ -15,6 +15,7 @@ import AssignmentModal from '@/components/tasks/AssignmentModal';
 import CreateTaskModal from '@/components/tasks/CreateTaskModal';
 import TaskMobilityModal from '@/components/tasks/TaskMobilityModal';
 import { useAlert } from '@/contexts/AlertContext';
+import { useToast } from '@/contexts/ToastContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePingHighlight } from '@/contexts/PingHighlightContext';
 import { TaskCreationProvider } from '@/contexts/TaskCreationContext';
@@ -352,6 +353,7 @@ function TasksScreen() {
    const router = useRouter();
    const { user, hasPermission, profile } = useAuth();
    const { showAlert } = useAlert();
+   const { errorToast } = useToast();
    const isLargeScreen = width > 768;
    const { position: navPosition } = useNavBarPosition();
 
@@ -975,7 +977,7 @@ function TasksScreen() {
 
   const handleCreateTask = () => {
     if (!hasPermission('task.create')) {
-      showAlert('Access Denied', 'Your current authorization level does not permit task initialization.');
+      errorToast('Your current authorization level does not permit task initialization.', 'Access denied');
       return;
     }
     setShowCreateSheet(true);
@@ -992,7 +994,7 @@ function TasksScreen() {
       setArchiveModal({ visible: false, taskId: null });
       fetchData();
     } catch (err: any) {
-      showAlert('Archival Failed', err.message || 'Could not archive task.');
+      errorToast(err.message || 'Could not archive task.', 'Archival failed');
     } finally {
       setArchiving(false);
     }

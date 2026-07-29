@@ -6,13 +6,12 @@ import {
   RefreshControl,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
-  Platform,
   Switch,
   useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAlert } from '@/contexts/AlertContext';
+import { useToast } from '@/contexts/ToastContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTimer } from '@/contexts/TimerContext';
 import { supabase } from '@/lib/supabase';
@@ -37,6 +36,7 @@ type Project = {
 export default function ProjectsScreenWeb() {
   const colors = useThemeColors();
   const { showAlert } = useAlert();
+  const { errorToast } = useToast();
   const { hasPermission } = useAuth();
   const { activeSession, lastStoppedAt } = useTimer();
   const { width } = useWindowDimensions();
@@ -159,11 +159,7 @@ export default function ProjectsScreenWeb() {
       setArchiveModal({ visible: false, projectId: null });
       fetchProjects();
     } catch (err: any) {
-      if (Platform.OS === 'web') {
-        alert('Archival Failed: ' + err.message);
-      } else {
-        Alert.alert('Archival Failed', err.message);
-      }
+      errorToast(err.message || 'Could not archive project.', 'Archival failed');
     } finally {
       setArchiving(false);
     }

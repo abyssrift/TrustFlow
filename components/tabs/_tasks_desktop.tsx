@@ -360,7 +360,6 @@ export function TasksScreenWeb() {
   // Archival State
   const [archiveModal, setArchiveModal] = useState<{ visible: boolean, taskId: string | null }>({ visible: false, taskId: null });
   const [archiving, setArchiving] = useState(false);
-  const [archiveError, setArchiveError] = useState<string | null>(null);
 
   // Smart Board Picker State
   const [favoriteBoardIds, setFavoriteBoardIds] = useState<Set<string>>(new Set());
@@ -378,7 +377,7 @@ export function TasksScreenWeb() {
   const { width } = useWindowDimensions();
   const router = useRouter();
   const { user, hasPermission, profile } = useAuth();
-  const { errorToast } = useToast();
+  const { errorToast, warningToast } = useToast();
 
   const { pingedTasks, removePingedTask } = usePingHighlight();
 
@@ -806,15 +805,13 @@ export function TasksScreenWeb() {
       const { data: allPipes } = await supabase.from('pipelines').select('id, name, task_visibility_mode, is_default').is('deleted_at', null);
       setAvailablePipelines(allPipes as Pipeline[] || []);
     } catch (err: any) {
-      setArchiveError(err.message || 'Could not update default pipeline.');
-      setTimeout(() => setArchiveError(null), 6000);
+      errorToast(err.message || 'Could not update default pipeline.');
     }
   };
 
   const handleCreateTask = () => {
     if (!hasPermission('task.create')) {
-      setArchiveError('You do not have permission to create tasks.');
-      setTimeout(() => setArchiveError(null), 6000);
+      errorToast('You do not have permission to create tasks.', 'Access denied');
       return;
     }
     setShowCreateModal(true);
@@ -838,8 +835,7 @@ export function TasksScreenWeb() {
       fetchData();
     } catch (err: any) {
       setArchiveModal({ visible: false, taskId: null });
-      setArchiveError(err.message || 'Could not archive task.');
-      setTimeout(() => setArchiveError(null), 8000);
+      errorToast(err.message || 'Could not archive task.', 'Archival failed');
     } finally {
       setArchiving(false);
     }
@@ -1292,8 +1288,7 @@ export function TasksScreenWeb() {
                   onPress={() => {
                     const isCoolingDown = lastStoppedAt && (Date.now() - new Date(lastStoppedAt).getTime() < 35000);
                     if (activeSession?.task_id === task.id || isCoolingDown) {
-                      setArchiveError('System is finalizing work logs. Please wait 30 seconds after stopping your timer before archiving.');
-                      setTimeout(() => setArchiveError(null), 6000);
+                      warningToast('System is finalizing work logs. Please wait 30 seconds after stopping your timer before archiving.', 'Sync cooldown');
                       return;
                     }
                     setArchiveModal({ visible: true, taskId: task.id });
@@ -2123,15 +2118,6 @@ export function TasksScreenWeb() {
         pipelineId={pipeline?.id}
       />
 
-      {archiveError && (
-        <View className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-state-danger/10 border border-state-danger/30 rounded-2xl px-6 py-4 flex-row items-center gap-3 premium-shadow">
-          <FontAwesome name="exclamation-circle" size={14} className="text-state-danger" />
-          <Text className="text-state-danger font-bold text-sm">
-            <Text className="font-black uppercase tracking-wider">Archival Failed: </Text>
-            {archiveError}
-          </Text>
-        </View>
-      )}
 
       <ConfirmModal
         visible={archiveModal.visible}

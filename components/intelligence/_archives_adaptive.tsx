@@ -9,6 +9,7 @@ import React, { useEffect, useState } from 'react';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAlert } from '@/contexts/AlertContext';
+import { useToast } from '@/contexts/ToastContext';
 import Tooltip from '@/components/common/Tooltip';
 
 export default function IntelligenceArchivesNative() {
@@ -16,6 +17,7 @@ export default function IntelligenceArchivesNative() {
   const { hasPermission } = useAuth();
   const router = useRouter();
   const { showAlert } = useAlert();
+  const { successToast, errorToast } = useToast();
   const [archives, setArchives] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [restoringId, setRestoringId] = useState<string | null>(null);
@@ -84,9 +86,9 @@ export default function IntelligenceArchivesNative() {
       if (error) throw error;
       await fetchArchives();
       setRestoreModal({ visible: false });
-      showAlert('Restored', 'Asset has been returned to the active pipeline.');
+      successToast('Asset has been returned to the active pipeline.', 'Restored');
     } catch (e: any) {
-      showAlert('Restoration Failed', e.message);
+      errorToast(e.message || 'Could not restore this snapshot.', 'Restoration failed');
     } finally { setRestoringId(null); }
   };
 

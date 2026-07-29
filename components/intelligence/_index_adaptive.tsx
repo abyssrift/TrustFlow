@@ -5,6 +5,7 @@ import { IntelligencePicker } from '@/components/intelligence/IntelligenceCommon
 import Tooltip from '@/components/common/Tooltip';
 
 import { useAlert } from '@/contexts/AlertContext';
+import { useToast } from '@/contexts/ToastContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { useBillingPlan } from '@/hooks/useBillingPlan';
@@ -660,6 +661,7 @@ export default function IntelligenceScreen() {
   const router = useRouter();
   const { hasPermission, profile } = useAuth();
   const { showAlert } = useAlert();
+  const { successToast, errorToast } = useToast();
 
   const [activeSection, setActiveSection] = useState((section as string) || 'radar');
   const [loading, setLoading] = useState(true);
@@ -822,12 +824,12 @@ export default function IntelligenceScreen() {
 
       if (error) throw error;
 
-      showAlert('Success', 'Asset has been restored to the active pipeline.');
+      successToast('Asset has been restored to the active pipeline.', 'Restored');
       setConfirmRestore({ visible: false, archiveId: null });
       setSelectedArchive(null);
       fetchColdArchives();
     } catch (err: any) {
-      showAlert('Restoration Failed', err.message);
+      errorToast(err.message || 'Could not restore this snapshot.', 'Restoration failed');
     } finally {
       setRestoring(false);
     }

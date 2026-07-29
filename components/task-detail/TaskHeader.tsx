@@ -46,7 +46,6 @@ export default function TaskHeader() {
   const [busy, setBusy] = React.useState(false);
   const [loadingActionId, setLoadingActionId] = React.useState<string | null>(null);
   const [pingLoading, setPingLoading] = React.useState(false);
-  const [errorMsg, setErrorMsg] = React.useState<{ title: string; message: string } | null>(null);
   const [showArchiveConfirm, setShowArchiveConfirm] = React.useState(false);
   const [archiving, setArchiving] = React.useState(false);
   const [showManualTimeModal, setShowManualTimeModal] = React.useState(false);
@@ -67,9 +66,7 @@ export default function TaskHeader() {
       router.replace('/(tabs)/tasks' as any);
     } catch (err: any) {
       setShowArchiveConfirm(false);
-      setErrorMsg({ title: 'Archival Failed', message: err.message || 'Could not archive task.' });
-      errorToast(err.message || 'Could not archive task.');
-      setTimeout(() => setErrorMsg(null), 10000);
+      errorToast(err.message || 'Could not archive task.', 'Archival failed');
     } finally {
       setArchiving(false);
     }
@@ -171,11 +168,10 @@ export default function TaskHeader() {
         return;
       }
       if (err.message?.includes('TIME_APPROVAL_PENDING')) {
-        setErrorMsg({
-          title: 'Awaiting Manager Approval',
-          message: 'Your time declaration is awaiting manager approval. The stage will advance automatically once approved.',
-        });
-        setTimeout(() => setErrorMsg(null), 8000);
+        infoToast(
+          'Your time declaration is awaiting manager approval. The stage will advance automatically once approved.',
+          'Awaiting manager approval',
+        );
         return;
       }
 
@@ -186,13 +182,7 @@ export default function TaskHeader() {
         displayMessage = 'This stage requires a submission with text or attachments to proceed.';
       }
 
-      setErrorMsg({
-        title: 'Action Failed',
-        message: displayMessage
-      });
-
-      // Auto-clear error after 5 seconds
-      setTimeout(() => setErrorMsg(null), 5000);
+      errorToast(displayMessage, 'Action failed');
     } finally {
       setLoadingActionId(null);
     }
@@ -201,11 +191,10 @@ export default function TaskHeader() {
   const handleManualTimeSuccess = async () => {
     setShowManualTimeModal(false);
     setPendingAction(null);
-    setErrorMsg({
-      title: 'Awaiting Manager Approval',
-      message: 'Your time declaration has been sent to your manager. The stage will advance automatically once approved.',
-    });
-    setTimeout(() => setErrorMsg(null), 8000);
+    infoToast(
+      'Your time declaration has been sent to your manager. The stage will advance automatically once approved.',
+      'Awaiting manager approval',
+    );
   };
 
   return (
@@ -259,7 +248,7 @@ export default function TaskHeader() {
             both must go when nobody's working or the badges lose half the row. */}
         {activeSessions.length > 0 && (
           <>
-            <ActiveSessionAvatars sessions={activeSessions} align="center" className="mx-3" />
+            <ActiveSessionAvatars sessions={activeSessions} className="mx-3" />
             <View className="flex-1" />
           </>
         )}
@@ -295,11 +284,10 @@ export default function TaskHeader() {
 
             const onAct = () => {
               if (isLocked) {
-                setErrorMsg({
-                  title: 'Locked — Awaiting Manager Approval',
-                  message: 'Your time declaration is pending review. This action will unlock once your manager approves it.',
-                });
-                setTimeout(() => setErrorMsg(null), 6000);
+                infoToast(
+                  'Your time declaration is pending review. This action will unlock once your manager approves it.',
+                  'Locked — awaiting manager approval',
+                );
                 return;
               }
               handleAction(a);
@@ -384,18 +372,6 @@ export default function TaskHeader() {
             </TouchableOpacity>
           )}
       </ScrollView>
-
-      {/* Error Message Display */}
-      {errorMsg && (
-        <View className="mt-3 bg-state-danger/10 border border-state-danger/30 rounded-xl p-3">
-          <Text className="text-state-danger font-black text-xs uppercase tracking-wider mb-1">
-            {errorMsg.title}
-          </Text>
-          <Text className="text-state-danger text-sm leading-5">
-            {errorMsg.message}
-          </Text>
-        </View>
-      )}
 
       <ConfirmModal
         visible={showArchiveConfirm}

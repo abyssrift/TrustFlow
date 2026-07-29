@@ -91,11 +91,10 @@ export default function TaskCardActions({ task, stages, stageActions, transition
   const colors = useThemeColors();
   const { hasPermission, profile } = useAuth();
   const { startWork } = useTimer();
-  const { successToast, errorToast } = useToast();
+  const { successToast, errorToast, warningToast } = useToast();
   const { showAlert } = useAlert();
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [needsTimerActionId, setNeedsTimerActionId] = useState<string | null>(null);
-  const [errorMsg, setErrorMsg] = useState<{ title: string; message: string; variant?: 'danger' | 'warning' } | null>(null);
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [showManualTimeModal, setShowManualTimeModal] = useState(false);
   const [pendingAction, setPendingAction] = useState<StageAction | null>(null);
@@ -217,14 +216,7 @@ export default function TaskCardActions({ task, stages, stageActions, transition
         stageId: action.stage_id,
       });
       
-      setErrorMsg({
-        title: 'Action Error',
-        message: displayMessage
-      });
-      errorToast(displayMessage);
-      
-      // Auto-clear after 5 seconds
-      setTimeout(() => setErrorMsg(null), 5000);
+      errorToast(displayMessage, 'Action error');
     } finally {
       setLoadingAction(null);
     }
@@ -314,11 +306,10 @@ export default function TaskCardActions({ task, stages, stageActions, transition
       const now = Date.now();
       if (lastArchived && now - parseInt(lastArchived) < 35000) {
         const remaining = Math.ceil((35000 - (now - parseInt(lastArchived))) / 1000);
-        setErrorMsg({
-          title: 'Sync Cooldown',
-          message: `Network synchronization in progress. Please wait ${remaining}s for cross-platform safety.`
-        });
-        setTimeout(() => setErrorMsg(null), 3000);
+        warningToast(
+          `Network synchronization in progress. Please wait ${remaining}s for cross-platform safety.`,
+          'Sync cooldown',
+        );
         return;
       }
 
@@ -329,7 +320,7 @@ export default function TaskCardActions({ task, stages, stageActions, transition
       await AsyncStorage.setItem('last_archival_at', now.toString());
       onRefresh();
     } catch (err: any) {
-      setErrorMsg({ title: 'Archival Failed', message: err.message || 'Could not archive task.' });
+      errorToast(err.message || 'Could not archive task.', 'Archival failed');
     } finally {
       setLoadingAction(null);
       setShowArchiveConfirm(false);
@@ -342,12 +333,10 @@ export default function TaskCardActions({ task, stages, stageActions, transition
     const actionToRetry = pendingAction;
     setPendingAction(null);
     if (isFlagged) {
-      setErrorMsg({
-        title: 'Entry Flagged for Review',
-        message: 'Your time declaration has been forwarded to your manager. Proceeding with transition.',
-        variant: 'warning',
-      });
-      setTimeout(() => setErrorMsg(null), 5000);
+      warningToast(
+        'Your time declaration has been forwarded to your manager. Proceeding with transition.',
+        'Entry flagged for review',
+      );
     }
     if (actionToRetry) {
       await handleExecuteAction(actionToRetry);
@@ -484,26 +473,6 @@ export default function TaskCardActions({ task, stages, stageActions, transition
   // Render action buttons — all actions shown (conditional branching)
   return (
     <View>
-      {/* Error / Warning Message Display */}
-      {errorMsg && (
-        <View className={`mb-2 rounded-xl p-3 ${
-          errorMsg.variant === 'warning'
-            ? 'bg-state-warning/10 border border-state-warning/30'
-            : 'bg-state-danger/10 border border-state-danger/30'
-        }`}>
-          <Text className={`font-black text-xs uppercase tracking-wider mb-1 ${
-            errorMsg.variant === 'warning' ? 'text-state-warning' : 'text-state-danger'
-          }`}>
-            {errorMsg.title}
-          </Text>
-          <Text className={`text-sm leading-5 ${
-            errorMsg.variant === 'warning' ? 'text-state-warning' : 'text-state-danger'
-          }`}>
-            {errorMsg.message}
-          </Text>
-        </View>
-      )}
-
       {/* Inline timer prompt if backend rejected action due to missing session */}
       {needsTimerActionId && (
         <View className="mb-2">
