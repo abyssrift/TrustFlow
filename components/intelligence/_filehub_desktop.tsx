@@ -4,6 +4,7 @@ import { FileActivity, FileHubFile, FileHubFolder, FileHubFolderScope, FileHubGr
 import { useToast } from '@/contexts/ToastContext';
 import { useUploadJob, useUploadManager, type UploadJobState } from '@/contexts/UploadManagerContext';
 import * as Clipboard from 'expo-clipboard';
+import { createPortal } from 'react-dom';
 import { useFileSizeLimit } from '@/hooks/useFileSizeLimit';
 import { useImageLightbox } from '@/hooks/useImageLightbox';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -17,6 +18,7 @@ import FileHubBin from './FileHubBin';
 import FileHubOverview from './FileHubOverview';
 import FileHubBrowse from './FileHubBrowse';
 import { groupPickedFiles, relDir, resolveExistingFolderLeaf } from '@/lib/filehubFolderTree';
+import { computeMorphGeometry, type Rect } from '@/lib/uploadIslandMorph';
 import FolderTreePicker from './FolderTreePicker';
 import { randomId } from '@/lib/randomId';
 import { downloadFilesAsZip, openStorageFile } from '@/lib/storage';
@@ -30,6 +32,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Animated,
+  Easing,
   Image,
   Modal,
   Platform,
@@ -350,10 +353,48 @@ function UploadModal({
   const uploading = launchedJobId !== null;
   const { height: winHeight } = useWindowDimensions();
 
+  // DOM node of the card content, measured on minimize to compute the morph's
+  // start rect. Merged into the same node as modalDropRef (below) via a
+  // combined callback ref — RN View only accepts one ref.
+  const cardNodeRef = useRef<HTMLElement | null>(null);
+  // Set only while the fly-to-island overlay is animating; cleared by the
+  // overlay itself when its animation completes (not by the `!visible`
+  // cleanup effect below — that fires on the very next render after
+  // handleMinimize calls onClose(), which would cut the animation off
+  // before it has a chance to play).
+  const [morph, setMorph] = useState<{ id: number; cardRect: Rect; islandRect: Rect } | null>(null);
+
   // The upload job runs in the background UploadManager/IslandContext regardless
   // of whether this modal is open — closing it (even instantly, no transition)
   // doesn't stop the job or hide its progress in the topbar island.
   const handleDismiss = onClose;
+
+  // Minimize while a job is live: measure the card and the real island pill,
+  // hand off to the morph overlay, and close the modal immediately (matching
+  // today's instant-close feel) — the overlay keeps flying independently on
+  // top of whatever's revealed underneath. If either rect can't be measured
+  // (island not mounted, etc.), fall back to a plain instant close.
+  const handleMinimize = () => {
+    const cardEl = cardNodeRef.current;
+    const islandEl = typeof document !== 'undefined' ? document.getElementById('dynamic-island-pill') : null;
+    if (!cardEl || !islandEl || typeof cardEl.getBoundingClientRect !== 'function') {
+      onClose();
+      return;
+    }
+    const cardBox = cardEl.getBoundingClientRect();
+    const islandBox = islandEl.getBoundingClientRect();
+    setMorph({
+      // Unique per invocation so a second minimize before the first overlay's
+      // onDone fires keys a fresh <UploadIslandMorphOverlay>, forcing React to
+      // remount it (fresh Animated.Value) instead of reusing the running one
+      // mid-flight — handleMinimize only fires once per click, so Date.now()
+      // is a safe-enough id.
+      id: Date.now(),
+      cardRect: { x: cardBox.x, y: cardBox.y, width: cardBox.width, height: cardBox.height },
+      islandRect: { x: islandBox.x, y: islandBox.y, width: islandBox.width, height: islandBox.height },
+    });
+    onClose();
+  };
 
   const patch = (updates: Partial<UploadDraft>) => setDraft(prev => ({ ...prev, ...updates }));
 
@@ -473,6 +514,15 @@ function UploadModal({
 
   const { iconScale: dropIconScale, glowOpacity: dropGlowOpacity } = useDropPulse(modalDropOver);
 
+  // Stable identity across re-renders (this component re-renders on every
+  // upload progress tick via useUploadJob) — an inline ref here would tear
+  // down and re-attach useFileDrop's DOM listeners every tick while the
+  // modal is open.
+  const combinedCardRef = useCallback((node: any) => {
+    modalDropRef(node);
+    cardNodeRef.current = node;
+  }, [modalDropRef]);
+
   // The upload engine (worker pool, dup/conflict handling, per-file commit,
   // progress, ETA, cancel) lives in UploadManagerContext so the job survives
   // this modal closing. We hand off the draft and switch the modal to its live
@@ -516,7 +566,7 @@ function UploadModal({
     <>
     <Popup
       visible={visible}
-      onClose={handleDismiss}
+      onClose={uploading ? handleMinimize : handleDismiss}
       presentation="centered"
       maxWidth={uploading ? 560 : 900}
       maxHeight="90%"
@@ -529,7 +579,7 @@ function UploadModal({
       scrollable={false}
     >
         <View
-          ref={modalDropRef}
+          ref={combinedCardRef}
           style={{ maxHeight: '100%' }}
         >
           {modalDropOver && (
@@ -546,7 +596,7 @@ function UploadModal({
             <View className="flex-row items-center gap-2">
               {uploading && (
                 <TouchableOpacity
-                  onPress={handleDismiss}
+                  onPress={handleMinimize}
                   className="flex-row items-center gap-2 h-8 px-3 rounded-xl border"
                   style={{ backgroundColor: colors.background, borderColor: colors.border }}
                 >
@@ -554,7 +604,7 @@ function UploadModal({
                   <Text className="text-xs font-black" style={{ color: colors.textMuted }}>Minimize to island</Text>
                 </TouchableOpacity>
               )}
-              <TouchableOpacity onPress={handleDismiss} className="w-8 h-8 items-center justify-center rounded-xl border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
+              <TouchableOpacity onPress={uploading ? handleMinimize : handleDismiss} className="w-8 h-8 items-center justify-center rounded-xl border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
                 <FontAwesome name="times" size={12} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
@@ -565,7 +615,7 @@ function UploadModal({
               job={job}
               fileCount={draft.files.length}
               totalBytes={totalDraftBytes}
-              onMinimize={handleDismiss}
+              onMinimize={handleMinimize}
               onCancel={() => { if (launchedJobId) cancelUpload(launchedJobId); }}
               onDone={() => { setLaunchedJobId(null); onClose(); }}
             />
@@ -842,8 +892,179 @@ function UploadModal({
           )}
         </View>
     </Popup>
+    {morph && (
+      <UploadIslandMorphOverlay
+        key={morph.id}
+        cardRect={morph.cardRect}
+        islandRect={morph.islandRect}
+        color={colors.card}
+        onDone={() => setMorph(null)}
+      />
+    )}
     </>
   );
+}
+
+// ─── Upload → Island Morph Overlay ────────────────────────────────────────────
+// The goo-merge flourish for #120/#129: a viewport-fixed overlay, independent
+// of Popup's own visibility, so it keeps playing after the modal closes.
+// Two shapes (a shrinking square ghost of the card, a growing circle on the
+// island) share an SVG goo filter so they visually fuse mid-flight instead of
+// cutting between two separate elements. Web-only — the whole file this lives
+// in is desktop-web-gated already (see _filehub_web.tsx).
+
+function UploadIslandMorphOverlay({
+  cardRect,
+  islandRect,
+  color,
+  onDone,
+}: {
+  cardRect: Rect;
+  islandRect: Rect;
+  color: string;
+  onDone: () => void;
+}) {
+  const progress = useRef(new Animated.Value(0)).current;
+  const geo = useMemo(() => computeMorphGeometry(cardRect, islandRect), [cardRect, islandRect]);
+
+  // Filtered layer only needs to cover the two rects it's morphing between (plus
+  // blur bleed), not the whole viewport — a full-viewport filtered layer means the
+  // browser re-runs the blur+colormatrix over every pixel on screen each frame,
+  // which is the perf risk the "must not be laggy" requirement flagged.
+  const UNION_PAD = 30;
+  const unionRect = useMemo(() => {
+    const minX = Math.min(cardRect.x, islandRect.x);
+    const minY = Math.min(cardRect.y, islandRect.y);
+    const maxX = Math.max(cardRect.x + cardRect.width, islandRect.x + islandRect.width);
+    const maxY = Math.max(cardRect.y + cardRect.height, islandRect.y + islandRect.height);
+    return {
+      x: minX - UNION_PAD,
+      y: minY - UNION_PAD,
+      width: maxX - minX + UNION_PAD * 2,
+      height: maxY - minY + UNION_PAD * 2,
+    };
+  }, [cardRect, islandRect]);
+
+  useEffect(() => {
+    const anim = Animated.timing(progress, {
+      toValue: 1,
+      duration: 380,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    });
+    anim.start(({ finished }) => { if (finished) onDone(); });
+    // Unmounting mid-flight (e.g. viewport resized below the desktop breakpoint)
+    // must stop the animation so its completion callback doesn't fire onDone()
+    // (a setState) on a tree that's already gone.
+    return () => anim.stop();
+    // progress/onDone are stable for the overlay's lifetime (new instance per morph).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (Platform.OS !== 'web') return null;
+
+  // Shape A keeps the card's exact size/position as its base box and animates
+  // via transform only (translate + non-uniform scale) instead of interpolating
+  // left/top/width/height — transform is compositor-only, no layout recalculation
+  // on every frame. All positions below are relative to unionRect's top-left,
+  // since the outer container is now sized to unionRect rather than the viewport.
+  const cardRelX = cardRect.x - unionRect.x;
+  const cardRelY = cardRect.y - unionRect.y;
+  const cardCenterX = cardRelX + cardRect.width / 2;
+  const cardCenterY = cardRelY + cardRect.height / 2;
+  const shapeATo = geo.shapeA.to;
+  const targetCenterX = (shapeATo.x - unionRect.x) + shapeATo.width / 2;
+  const targetCenterY = (shapeATo.y - unionRect.y) + shapeATo.height / 2;
+  const translateToX = targetCenterX - cardCenterX;
+  const translateToY = targetCenterY - cardCenterY;
+  const scaleToX = shapeATo.width / cardRect.width;
+  const scaleToY = shapeATo.height / cardRect.height;
+
+  const shapeAStyle = {
+    position: 'absolute',
+    left: cardRelX,
+    top: cardRelY,
+    width: cardRect.width,
+    height: cardRect.height,
+    // Invisible under the blur+alpha-threshold goo filter, per review — a
+    // constant radius avoids an interpolation that never reads as motion.
+    borderRadius: 18,
+    backgroundColor: color,
+    transform: [
+      { translateX: progress.interpolate({ inputRange: [0, 1], outputRange: [0, translateToX] }) },
+      { translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [0, translateToY] }) },
+      { scaleX: progress.interpolate({ inputRange: [0, 1], outputRange: [1, scaleToX] }) },
+      { scaleY: progress.interpolate({ inputRange: [0, 1], outputRange: [1, scaleToY] }) },
+    ],
+  } as any;
+
+  const shapeBSize = geo.shapeB.size;
+  const shapeBStyle = {
+    position: 'absolute',
+    left: (geo.shapeB.center.x - unionRect.x) - shapeBSize / 2,
+    top: (geo.shapeB.center.y - unionRect.y) - shapeBSize / 2,
+    width: shapeBSize,
+    height: shapeBSize,
+    borderRadius: shapeBSize / 2,
+    backgroundColor: color,
+    transform: [{ scale: progress.interpolate({ inputRange: [0, 0.4, 1], outputRange: [0, 1, 1] }) }],
+  } as any;
+
+  // Per-shape opacity fades were fought by the goo filter's own alpha threshold
+  // (feColorMatrix's `20a - 10` clamps anything below ~0.5 alpha to fully
+  // transparent, since opacity is baked into SourceGraphic before the filter
+  // runs) — they read as a hard pop/blink, not a fade. The shapes stay fully
+  // opaque through the goo-merge itself; only the whole overlay fades at the
+  // very end, applied here on the unfiltered outer wrapper where opacity
+  // actually blends smoothly.
+  const outerOpacity = progress.interpolate({ inputRange: [0, 0.85, 1], outputRange: [1, 1, 0] });
+
+  const overlay = (
+    <Animated.View
+      pointerEvents="none"
+      style={{
+        position: 'fixed',
+        left: unionRect.x,
+        top: unionRect.y,
+        width: unionRect.width,
+        height: unionRect.height,
+        // Above Popup's Modal (react-native-web portals it to a body-appended
+        // div at zIndex 9999 with its own ~250ms fade-out) so the still-fading
+        // modal backdrop can never paint on top of the blob during the handoff.
+        zIndex: 10001,
+        opacity: outerOpacity,
+      } as any}
+    >
+      <svg width={0} height={0} style={{ position: 'absolute' } as any}>
+        <defs>
+          <filter id="upload-goo">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="7" result="blur" />
+            <feColorMatrix
+              in="blur"
+              mode="matrix"
+              values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -10"
+              result="goo"
+            />
+          </filter>
+        </defs>
+      </svg>
+      {/* Raw DOM div, not RN View: the `filter` CSS property isn't a known RN
+          style key, and this project's NativeWind/css-interop style pipeline
+          (which the animated transform/opacity above pass through fine)
+          silently drops properties it doesn't recognize — a literal <div>
+          guarantees the browser actually receives it. */}
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, filter: 'url(#upload-goo)' }}>
+        <Animated.View style={shapeAStyle} />
+        <Animated.View style={shapeBStyle} />
+      </div>
+    </Animated.View>
+  );
+
+  // Portalled straight to document.body: this component renders inline in the
+  // React tree (as an earlier DOM sibling of Popup's own body-appended Modal
+  // portal), so without a portal here DOM order — not zIndex — would decide
+  // who paints on top while both are equal-ish stacking contexts mid-fade.
+  return createPortal(overlay, document.body);
 }
 
 // ─── Upload Progress Panel (in-modal live view) ───────────────────────────────

@@ -90,6 +90,7 @@ export default function DynamicIsland({ leading }: { leading: IslandLeading }) {
       {/* Collapsed pill — always visible; the chevron toggle lives here so it's
           reachable whether or not anything's active. */}
       <div
+        id="dynamic-island-pill"
         style={{
           display: 'flex', alignItems: 'center', gap: 6,
           height: hasActivities ? 26 : 22,
