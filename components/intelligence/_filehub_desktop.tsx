@@ -913,6 +913,28 @@ function UploadModal({
 // cutting between two separate elements. Web-only — the whole file this lives
 // in is desktop-web-gated already (see _filehub_web.tsx).
 
+// Blur radius of the goo filter, and the blob size shape A collapses to mid-flight.
+// The ratio between them is the whole effect: shapes have to get down to a few blur
+// radii before the alpha threshold produces visible metaball necking.
+const GOO_BLUR = 12;
+const GOO_BLOB = 86;
+
+// The droplet chain trailing shape A. Lags are close enough (and sizes big enough
+// relative to GOO_BLUR) that adjacent droplets neck into each other and into both
+// end blobs — a single droplet read as one lonely dot, not goo. Each droplet's lag
+// is scaled by sin(pi * progress) below, so the strand stretches out mid-flight and
+// pulls back into both ends: no stranded beads left behind at either end.
+const DROPS = [
+  { lag: 0.08, size: 52 },
+  { lag: 0.16, size: 47 },
+  { lag: 0.24, size: 42 },
+  { lag: 0.31, size: 37 },
+];
+// sin(pi * t) sampled — Animated.interpolate is piecewise-linear only, so the lag
+// envelope has to be supplied as keyframes.
+const LAG_T = [0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1];
+const LAG_SIN = [0, 0.383, 0.707, 0.924, 1, 0.924, 0.707, 0.383, 0];
+
 function UploadIslandMorphOverlay({
   cardRect,
   islandRect,
@@ -931,7 +953,7 @@ function UploadIslandMorphOverlay({
   // blur bleed), not the whole viewport — a full-viewport filtered layer means the
   // browser re-runs the blur+colormatrix over every pixel on screen each frame,
   // which is the perf risk the "must not be laggy" requirement flagged.
-  const UNION_PAD = 30;
+  const UNION_PAD = GOO_BLUR * 6;
   const unionRect = useMemo(() => {
     const minX = Math.min(cardRect.x, islandRect.x);
     const minY = Math.min(cardRect.y, islandRect.y);
@@ -980,23 +1002,46 @@ function UploadIslandMorphOverlay({
   const scaleToX = shapeATo.width / cardRect.width;
   const scaleToY = shapeATo.height / cardRect.height;
 
+  // The goo only reads as goo when the shapes are within ~one blur radius of each
+  // other AND are themselves of blur-comparable size — a 12px blur on a 640px card
+  // is imperceptible, which is why the previous version looked like a plain shrink.
+  // So shape A collapses to blob scale over the first 45% of the path, then flies
+  // the rest as a blob that necks into the island blob on arrival.
   const shapeAStyle = {
     position: 'absolute',
     left: cardRelX,
     top: cardRelY,
     width: cardRect.width,
     height: cardRect.height,
-    // Invisible under the blur+alpha-threshold goo filter, per review — a
-    // constant radius avoids an interpolation that never reads as motion.
     borderRadius: 18,
     backgroundColor: color,
     transform: [
       { translateX: progress.interpolate({ inputRange: [0, 1], outputRange: [0, translateToX] }) },
       { translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [0, translateToY] }) },
-      { scaleX: progress.interpolate({ inputRange: [0, 1], outputRange: [1, scaleToX] }) },
-      { scaleY: progress.interpolate({ inputRange: [0, 1], outputRange: [1, scaleToY] }) },
+      { scaleX: progress.interpolate({ inputRange: [0, 0.45, 1], outputRange: [1, GOO_BLOB / cardRect.width, scaleToX] }) },
+      { scaleY: progress.interpolate({ inputRange: [0, 0.45, 1], outputRange: [1, GOO_BLOB / cardRect.height, scaleToY] }) },
     ],
   } as any;
+
+  // Droplet chain: each follows shape A's path but lagging by its own amount, so
+  // the gaps between them are what the goo filter renders as stretched liquid necks.
+  const dropStyles = DROPS.map(({ lag, size }) => {
+    const path = LAG_T.map((t, i) => Math.max(0, t - lag * LAG_SIN[i]));
+    return {
+      position: 'absolute',
+      left: cardCenterX - size / 2,
+      top: cardCenterY - size / 2,
+      width: size,
+      height: size,
+      borderRadius: size / 2,
+      backgroundColor: color,
+      transform: [
+        { translateX: progress.interpolate({ inputRange: LAG_T, outputRange: path.map(v => v * translateToX) }) },
+        { translateY: progress.interpolate({ inputRange: LAG_T, outputRange: path.map(v => v * translateToY) }) },
+        { scale: progress.interpolate({ inputRange: [0, 0.12, 0.9, 1], outputRange: [0, 1, 1, 0] }) },
+      ],
+    } as any;
+  });
 
   const shapeBSize = geo.shapeB.size;
   const shapeBStyle = {
@@ -1007,7 +1052,9 @@ function UploadIslandMorphOverlay({
     height: shapeBSize,
     borderRadius: shapeBSize / 2,
     backgroundColor: color,
-    transform: [{ scale: progress.interpolate({ inputRange: [0, 0.4, 1], outputRange: [0, 1, 1] }) }],
+    // Holds at 0 until the incoming blob is close, then overshoots — so it emerges
+    // *out of* the merge instead of sitting on the island as a stranded dot.
+    transform: [{ scale: progress.interpolate({ inputRange: [0, 0.55, 0.9, 1], outputRange: [0, 0, 1.12, 1] }) }],
   } as any;
 
   // Per-shape opacity fades were fought by the goo filter's own alpha threshold
@@ -1017,7 +1064,7 @@ function UploadIslandMorphOverlay({
   // opaque through the goo-merge itself; only the whole overlay fades at the
   // very end, applied here on the unfiltered outer wrapper where opacity
   // actually blends smoothly.
-  const outerOpacity = progress.interpolate({ inputRange: [0, 0.85, 1], outputRange: [1, 1, 0] });
+  const outerOpacity = progress.interpolate({ inputRange: [0, 0.9, 1], outputRange: [1, 1, 0] });
 
   const overlay = (
     <Animated.View
@@ -1035,26 +1082,36 @@ function UploadIslandMorphOverlay({
         opacity: outerOpacity,
       } as any}
     >
+      {/* Alpha-threshold goo (not reactbits' `blur() contrast()` + `mix-blend-mode:
+          lighten`, which needs an opaque black backdrop inside the filtered box and
+          therefore only works for light blobs on dark UI — this overlay floats over
+          arbitrary app content in both themes). The explicit filter region matters:
+          the default (-10%/120%) clips the blur bleed and eats the necking.
+          sRGB interpolation keeps the blob the same colour as the card. */}
       <svg width={0} height={0} style={{ position: 'absolute' } as any}>
         <defs>
-          <filter id="upload-goo">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="7" result="blur" />
+          <filter
+            id="upload-goo"
+            x="-30%"
+            y="-30%"
+            width="160%"
+            height="160%"
+            colorInterpolationFilters="sRGB"
+          >
+            <feGaussianBlur in="SourceGraphic" stdDeviation={GOO_BLUR} result="blur" />
             <feColorMatrix
               in="blur"
               mode="matrix"
-              values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -10"
+              values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7"
               result="goo"
             />
           </filter>
         </defs>
       </svg>
-      {/* Raw DOM div, not RN View: the `filter` CSS property isn't a known RN
-          style key, and this project's NativeWind/css-interop style pipeline
-          (which the animated transform/opacity above pass through fine)
-          silently drops properties it doesn't recognize — a literal <div>
-          guarantees the browser actually receives it. */}
+      {/* Raw DOM div, not RN View: `filter` isn't a known RN style key. */}
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, filter: 'url(#upload-goo)' }}>
         <Animated.View style={shapeAStyle} />
+        {dropStyles.map((s, i) => <Animated.View key={i} style={s} />)}
         <Animated.View style={shapeBStyle} />
       </div>
     </Animated.View>
