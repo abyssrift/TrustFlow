@@ -898,6 +898,7 @@ function UploadModal({
         cardRect={morph.cardRect}
         islandRect={morph.islandRect}
         color={colors.card}
+        glowColor={colors.primary}
         onDone={() => setMorph(null)}
       />
     )}
@@ -939,11 +940,13 @@ function UploadIslandMorphOverlay({
   cardRect,
   islandRect,
   color,
+  glowColor,
   onDone,
 }: {
   cardRect: Rect;
   islandRect: Rect;
   color: string;
+  glowColor: string;
   onDone: () => void;
 }) {
   const progress = useRef(new Animated.Value(0)).current;
@@ -968,10 +971,19 @@ function UploadIslandMorphOverlay({
   }, [cardRect, islandRect]);
 
   useEffect(() => {
+    // Linear driver is deliberate: every stage below (shape-A collapse at 0.45,
+    // the droplet chain, shape-B's hold/overshoot/settle at 0.55-0.9-1, the outer
+    // fade at 0.9-1) is already its own hand-tuned curve expressed as breakpoints
+    // against `progress`. Easing `progress` itself on top of that double-applies
+    // the curve — cubic-out hits ~90% of its range by ~53% of real elapsed time,
+    // so those breakpoints fired far earlier than designed and the "last 10%"
+    // opacity fade actually spanned most of the second half of the real 380ms
+    // (measured via getComputedStyle on a live run: opacity 0.82 at 200ms, 0.017
+    // at 320ms), fading the overlay out while the shapes were still mid-flight.
     const anim = Animated.timing(progress, {
       toValue: 1,
       duration: 380,
-      easing: Easing.out(Easing.cubic),
+      easing: Easing.linear,
       useNativeDriver: false,
     });
     anim.start(({ finished }) => { if (finished) onDone(); });
@@ -1080,6 +1092,11 @@ function UploadIslandMorphOverlay({
         // modal backdrop can never paint on top of the blob during the handoff.
         zIndex: 10001,
         opacity: outerOpacity,
+        // Glow applied here, outside the goo filter chain: a drop-shadow inside
+        // the alpha-thresholded filter would get clamped away exactly like the
+        // per-shape opacity fades were (see the comment below) — this layer sees
+        // the already-merged silhouette and glows around its actual outline.
+        filter: `drop-shadow(0 0 6px ${glowColor}) drop-shadow(0 0 18px ${glowColor})`,
       } as any}
     >
       {/* Alpha-threshold goo (not reactbits' `blur() contrast()` + `mix-blend-mode:
