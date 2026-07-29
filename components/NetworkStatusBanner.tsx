@@ -3,6 +3,7 @@ import { useNetInfo } from '@react-native-community/netinfo';
 import { useEffect, useMemo, useState } from 'react';
 import { Platform, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { supabaseUrl } from '@/lib/supabase';
 
 type BannerState = {
   visible: boolean;
@@ -15,13 +16,34 @@ type WebConnectionInfo = {
   online: boolean;
   effectiveType?: string;
   saveData?: boolean;
+  // navigator.onLine only reflects whether the OS reports an active network
+  // interface — a dead router or ISP outage still reads "online". This is a
+  // real reachability probe against our own backend to catch that case.
+  reachable?: boolean;
 };
+
+const REACHABILITY_PROBE_INTERVAL_MS = 20000;
+const REACHABILITY_PROBE_TIMEOUT_MS = 5000;
 
 function useWebConnectionInfo() {
   const [connectionInfo, setConnectionInfo] = useState<WebConnectionInfo | null>(null);
 
   useEffect(() => {
     if (Platform.OS !== 'web') return;
+
+    let cancelled = false;
+
+    const probeReachability = async () => {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), REACHABILITY_PROBE_TIMEOUT_MS);
+        await fetch(`${supabaseUrl}/auth/v1/health`, { cache: 'no-store', signal: controller.signal });
+        clearTimeout(timeout);
+        if (!cancelled) setConnectionInfo(prev => (prev ? { ...prev, reachable: true } : prev));
+      } catch {
+        if (!cancelled) setConnectionInfo(prev => (prev ? { ...prev, reachable: false } : prev));
+      }
+    };
 
     const updateConnectionInfo = () => {
       const nav = navigator as any;
@@ -30,11 +52,14 @@ function useWebConnectionInfo() {
         nav.mozConnection ||
         nav.webkitConnection;
 
-      setConnectionInfo({
+      setConnectionInfo(prev => ({
         online: navigator.onLine,
         effectiveType: navigatorConnection?.effectiveType,
         saveData: navigatorConnection?.saveData,
-      });
+        reachable: prev?.reachable,
+      }));
+
+      probeReachability();
     };
 
     updateConnectionInfo();
@@ -50,10 +75,14 @@ function useWebConnectionInfo() {
 
     navigatorConnection?.addEventListener?.('change', updateConnectionInfo);
 
+    const interval = setInterval(probeReachability, REACHABILITY_PROBE_INTERVAL_MS);
+
     return () => {
+      cancelled = true;
       window.removeEventListener('online', updateConnectionInfo);
       window.removeEventListener('offline', updateConnectionInfo);
       navigatorConnection?.removeEventListener?.('change', updateConnectionInfo);
+      clearInterval(interval);
     };
   }, []);
 
@@ -74,7 +103,7 @@ function useBannerState(): BannerState | null {
         webConnectionInfo.effectiveType === '2g' ||
         webConnectionInfo.effectiveType === '3g';
 
-      if (!webConnectionInfo.online) {
+      if (!webConnectionInfo.online || webConnectionInfo.reachable === false) {
         return {
           visible: true,
           title: 'Offline',
