@@ -31,7 +31,7 @@ export {
 } from 'expo-router';
 
 export const unstable_settings = {
-  // Ensure that reloading on `/modal` keeps a back button present.
+  // Ensure that reloading on a modal route keeps a back button present.
   initialRouteName: '(tabs)',
 };
 
@@ -261,7 +261,7 @@ function ThemedRoot() {
           <Stack.Screen name="admin/notifications" options={{ headerShown: false }} />
           <Stack.Screen name="notifications/preferences" options={{ headerShown: false }} />
           <Stack.Screen name="task/[id]" options={{ headerShown: false }} />
-          <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="notifications/index" options={{ presentation: 'modal' }} />
         </Stack>
         <TimerIsland />
         <View className="absolute top-0 left-0 right-0 z-[999]">

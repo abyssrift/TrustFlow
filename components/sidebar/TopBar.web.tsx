@@ -205,7 +205,7 @@ export default function TopBar({
         <ThemeButton />
 
         <Tooltip label="Notifications">
-          <Link href="/modal" asChild>
+          <Link href="/notifications" asChild>
             <Pressable className="h-9 w-9 items-center justify-center rounded-xl border border-surface-border bg-surface-card hover:bg-surface-overlay">
               <View>
                 <FontAwesome name="bell" size={14} color={colors.primary} />

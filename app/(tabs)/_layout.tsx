@@ -31,7 +31,7 @@ function NotificationBell() {
   const { unreadCount } = useNotifications();
   useUnreadNotificationAttention(unreadCount);
   return (
-    <Link href="/modal" asChild>
+    <Link href="/notifications" asChild>
       <Pressable>
         {({ pressed }) => (
           <View className="bg-brand-primary/10 p-2 rounded-full mr-2" style={{ opacity: pressed ? 0.5 : 1 }}>

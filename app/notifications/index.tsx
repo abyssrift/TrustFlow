@@ -141,7 +141,7 @@ function EmptyState() {
 }
 
 // ── Main screen ──────────────────────────────────────────────────────────────
-export default function NotificationsModal() {
+export default function NotificationsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { notifications, unreadCount, loading, refresh, markRead, markAllRead } =
@@ -206,6 +206,7 @@ export default function NotificationsModal() {
             <Tooltip label="Dismiss">
               <TouchableOpacity
                 onPress={() => router.dismiss()}
+                hitSlop={4}
                 className="w-9 h-9 bg-surface-overlay rounded-xl border border-surface-border items-center justify-center"
               >
                 <FontAwesome name="chevron-down" size={14} className="text-typography-muted" />
@@ -235,6 +236,7 @@ export default function NotificationsModal() {
             <Tooltip label="Preferences">
               <TouchableOpacity
                 onPress={() => router.push('/notifications/preferences' as any)}
+                hitSlop={4}
                 className="w-9 h-9 bg-surface-overlay rounded-xl border border-surface-border items-center justify-center"
               >
                 <FontAwesome name="sliders" size={14} className="text-typography-muted" />

@@ -213,7 +213,7 @@ export default function MenuScreen() {
             <Text className="font-bold ml-2 text-typography-main">Toggle Theme ({theme === 'dark' ? 'Dark' : 'Light'})</Text>
           </Pressable>
 
-          <Link href="/modal" asChild>
+          <Link href="/notifications" asChild>
             <Pressable className="flex-row items-center p-4">
               <View className="w-8 items-center">
                 <FontAwesome name="bell" size={18} color={colors.textMain} />

@@ -319,7 +319,7 @@ export default function DashboardScreen() {
             <FontAwesome name="search" size={15} color={colors.primary} />
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => router.push('/modal' as any)}
+            onPress={() => router.push('/notifications' as any)}
             className="w-10 h-10 bg-surface-card rounded-full items-center justify-center border border-surface-border flex-shrink-0"
           >
             <FontAwesome name="bell" size={15} color={colors.primary} />

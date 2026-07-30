@@ -301,7 +301,7 @@ export default function WebMobileNav({
                 <Text className="font-bold ml-2" style={{ color: colors.textMain }}>Toggle Theme</Text>
               </Pressable>
 
-              <Link href="/modal" asChild onPress={handleClose}>
+              <Link href="/notifications" asChild onPress={handleClose}>
                 <Pressable className="flex-row items-center p-4 rounded-xl mb-2 border" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
                   <FontAwesome name="bell" size={18} color={colors.textMain} className="w-8" />
                   <Text className="font-bold ml-2" style={{ color: colors.textMain }}>Notifications</Text>
