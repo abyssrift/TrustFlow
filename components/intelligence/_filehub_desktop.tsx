@@ -433,15 +433,6 @@ function UploadGooMorph({ from, to, label, cardColor, accent }: {
             }}
           />
         ))}
-        {/* The island end, swelling up to meet the incoming blob. */}
-        <div
-          style={{
-            position: 'absolute', width: to.width, height: to.height, borderRadius: 999, background: cardColor,
-            left: to.left - minX, top: to.top - minY, willChange: 'transform',
-            transform: settled ? 'scale(1)' : 'scale(0)',
-            transition: `transform ${MORPH_MS - 150}ms cubic-bezier(0.34, 1.3, 0.64, 1) 150ms`,
-          }}
-        />
       </div>
 
       {/* Progress read rides on top, outside the filter — the threshold would
