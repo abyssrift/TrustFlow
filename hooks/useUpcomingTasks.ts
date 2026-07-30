@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Platform } from 'react-native';
 import { supabase } from '@/lib/supabase';
+import { toastError } from '@/lib/toast';
 import { useAuth } from '@/contexts/AuthContext';
 
 export type UpcomingTask = {
@@ -15,6 +16,9 @@ export type UpcomingTask = {
   stageName: string;
   pipelineName: string;
   overdue: boolean;
+  // tasks.weight — the app's "points" unit (1-10), summed by the calendar's
+  // range readout and by the analytics engine's daily/monthly point totals.
+  points: number;
 };
 
 const REFRESH_MS = 60_000;
@@ -48,7 +52,7 @@ export function formatRelativeDue(dueDate: string, overdue: boolean): string {
 }
 
 const TASK_SELECT = `
-  id, title, due_date, manager_id,
+  id, title, due_date, manager_id, weight,
   pipeline:pipeline_id(name),
   stage:current_stage_id(name, color, terminal_type),
   assignments:task_assignments(assignee_user_id, assignee_team_id)
@@ -107,6 +111,7 @@ export async function fetchDeadlineTasks(
       stageName: t.stage?.name || '',
       pipelineName: t.pipeline?.name || '',
       overdue: new Date(t.due_date) < today,
+      points: t.weight ?? 0,
     }));
 }
 
@@ -132,6 +137,105 @@ export async function fetchUnscheduledTasks(userId: string): Promise<Unscheduled
       stageColor: t.stage?.color || '#94a3b8',
       stageName: t.stage?.name || '',
     }));
+}
+
+export type CompletedTask = {
+  id: string;
+  title: string;
+  completedDate: string;
+  stageColor: string;
+  stageName: string;
+  pipelineName: string;
+  archived: boolean;
+  points: number;
+};
+
+// Completed tasks for the calendar's "show completed" toggle — two sources:
+// live tasks.completed_at (still in the pipeline) and archived tasks, which
+// rpc_archive_task deletes from `tasks` entirely and snapshots as JSONB into
+// `archives`. Archived rows carry no stage/pipeline name, only ids, so those
+// are resolved with a follow-up lookup (best-effort — the stage may since
+// have been renamed or deleted). Restored archives are excluded so a
+// restore-then-recomplete doesn't double-count.
+export async function fetchCompletedTasks(
+  userId: string,
+  opts: { gte: string; lt: string },
+): Promise<CompletedTask[]> {
+  const teamIds = await fetchMyTeamIds(userId);
+
+  const [liveRes, archiveRes] = await Promise.all([
+    supabase
+      .from('tasks')
+      .select('id, title, completed_at, manager_id, weight, pipeline:pipeline_id(name), stage:current_stage_id(name, color), assignments:task_assignments(assignee_user_id, assignee_team_id)')
+      .not('completed_at', 'is', null)
+      .is('deleted_at', null)
+      .gte('completed_at', opts.gte)
+      .lt('completed_at', opts.lt)
+      .limit(500),
+    supabase.rpc('rpc_get_archives', { p_entity_type: 'task' }),
+  ]);
+  if (liveRes.error) throw liveRes.error;
+  // Archives are the optional half: no archive.view permission (or any other
+  // archive-side failure) must not zero out the live completed tasks, which
+  // are the part every user can see.
+  if (archiveRes.error) toastError('Archived tasks could not be loaded.', 'Calendar');
+
+  const live: CompletedTask[] = (liveRes.data || [])
+    .filter((t: any) => isMine(t, userId, teamIds))
+    .map((t: any) => ({
+      id: t.id,
+      title: t.title,
+      completedDate: t.completed_at,
+      stageColor: t.stage?.color || '#94a3b8',
+      stageName: t.stage?.name || '',
+      pipelineName: t.pipeline?.name || '',
+      archived: false,
+      points: t.weight ?? 0,
+    }));
+
+  const archiveRows = (archiveRes.error ? [] : ((archiveRes.data || []) as any[])).filter((a) => !a.restored_at);
+  const candidates = archiveRows
+    .map((a) => {
+      const task = a.snapshot?.task;
+      if (!task?.completed_at) return null;
+      if (task.completed_at < opts.gte || task.completed_at >= opts.lt) return null;
+      const involved: string[] = a.metadata?.involved_user_ids || [];
+      const assignments = a.snapshot?.assignments || [];
+      const mine = task.manager_id === userId
+        || involved.includes(userId)
+        || assignments.some((asg: any) => asg.assignee_user_id === userId || (asg.assignee_team_id && teamIds.includes(asg.assignee_team_id)));
+      return mine ? { archiveId: a.id as string, task } : null;
+    })
+    .filter((c): c is { archiveId: string; task: any } => c !== null);
+
+  const stageIds = Array.from(new Set(candidates.map((c) => c.task.current_stage_id).filter(Boolean)));
+  const pipelineIds = Array.from(new Set(candidates.map((c) => c.task.pipeline_id).filter(Boolean)));
+  const [stageRes, pipelineRes] = await Promise.all([
+    stageIds.length > 0
+      ? supabase.from('pipeline_stages').select('id, name, color').in('id', stageIds)
+      : Promise.resolve({ data: [] as any[] }),
+    pipelineIds.length > 0
+      ? supabase.from('pipelines').select('id, name').in('id', pipelineIds)
+      : Promise.resolve({ data: [] as any[] }),
+  ]);
+  const stageMap = new Map((stageRes.data || []).map((s: any) => [s.id, s]));
+  const pipelineMap = new Map((pipelineRes.data || []).map((p: any) => [p.id, p.name]));
+
+  const archived: CompletedTask[] = candidates.map(({ archiveId, task }) => {
+    const stage = stageMap.get(task.current_stage_id);
+    return {
+      id: archiveId,
+      title: task.title,
+      completedDate: task.completed_at,
+      stageColor: stage?.color || '#64748b',
+      stageName: stage?.name || 'Archived',
+      pipelineName: pipelineMap.get(task.pipeline_id) || '',
+      archived: true,
+      points: task.weight ?? 0,
+    };
+  });
+
+  return [...live, ...archived];
 }
 
 // Live updates for deadline data: task edits/creates (due date, stage, delete)
