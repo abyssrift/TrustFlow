@@ -110,19 +110,28 @@ export async function fetchDeadlineTasks(
     }));
 }
 
-// Personal count of non-terminal tasks with no due date (nudge copy in the
-// calendar sidebar). Client-counted for the same reason as above; capped by
-// the row limit, which is fine for a nudge.
-export async function fetchUnscheduledCount(userId: string): Promise<number> {
+export type UnscheduledTask = { id: string; title: string; stageColor: string; stageName: string };
+
+// Personal list of non-terminal tasks with no due date (nudge list in the
+// calendar sidebar, so assignees don't lose track of undated work). Client-
+// filtered for the same reason as fetchDeadlineTasks; capped by the row limit.
+export async function fetchUnscheduledTasks(userId: string): Promise<UnscheduledTask[]> {
   const teamIds = await fetchMyTeamIds(userId);
   const { data, error } = await supabase
     .from('tasks')
-    .select('id, manager_id, stage:current_stage_id(terminal_type), assignments:task_assignments(assignee_user_id, assignee_team_id)')
+    .select('id, title, manager_id, stage:current_stage_id(name, color, terminal_type), assignments:task_assignments(assignee_user_id, assignee_team_id)')
     .is('due_date', null)
     .is('deleted_at', null)
     .limit(200);
   if (error) throw error;
-  return (data || []).filter((t: any) => t.stage && !t.stage.terminal_type && isMine(t, userId, teamIds)).length;
+  return (data || [])
+    .filter((t: any) => t.stage && !t.stage.terminal_type && isMine(t, userId, teamIds))
+    .map((t: any) => ({
+      id: t.id,
+      title: t.title,
+      stageColor: t.stage?.color || '#94a3b8',
+      stageName: t.stage?.name || '',
+    }));
 }
 
 // Live updates for deadline data: task edits/creates (due date, stage, delete)

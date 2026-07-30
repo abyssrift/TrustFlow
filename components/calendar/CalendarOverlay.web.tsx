@@ -1,6 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { fetchDeadlineTasks, fetchUnscheduledCount, subscribeDeadlineChanges, type UpcomingTask } from '@/hooks/useUpcomingTasks';
+import { fetchDeadlineTasks, fetchUnscheduledTasks, subscribeDeadlineChanges, type UnscheduledTask, type UpcomingTask } from '@/hooks/useUpcomingTasks';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -53,7 +53,7 @@ export default function CalendarOverlay({
 
   const [monthAnchor, setMonthAnchor] = useState(() => startOfMonth(new Date()));
   const [monthTasks, setMonthTasks] = useState<UpcomingTask[]>([]);
-  const [unscheduledCount, setUnscheduledCount] = useState(0);
+  const [unscheduledTasks, setUnscheduledTasks] = useState<UnscheduledTask[]>([]);
   const [hiddenStages, setHiddenStages] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -164,12 +164,12 @@ export default function CalendarOverlay({
     }
   }, [userId, monthAnchor]);
 
-  // Personal unscheduled-tasks count (nudge copy in the sidebar).
+  // Personal unscheduled-tasks list (nudge in the sidebar so undated work assigned to me isn't forgotten).
   const refetchUnscheduled = useCallback(async () => {
     if (!userId) return;
     try {
-      const count = await fetchUnscheduledCount(userId);
-      setUnscheduledCount(count);
+      const tasks = await fetchUnscheduledTasks(userId);
+      setUnscheduledTasks(tasks);
     } catch {
       // ignore
     }
@@ -401,7 +401,8 @@ export default function CalendarOverlay({
               colors={colors}
               monthAnchor={monthAnchor}
               monthTasks={monthTasks}
-              unscheduledCount={unscheduledCount}
+              unscheduledTasks={unscheduledTasks}
+              goToTask={goToTask}
             />
           </div>
 
@@ -500,12 +501,13 @@ function relDue(dueDate: string): string {
 }
 
 function CalendarInsights({
-  colors, monthAnchor, monthTasks, unscheduledCount,
+  colors, monthAnchor, monthTasks, unscheduledTasks, goToTask,
 }: {
   colors: ReturnType<typeof useThemeColors>;
   monthAnchor: Date;
   monthTasks: UpcomingTask[];
-  unscheduledCount: number;
+  unscheduledTasks: UnscheduledTask[];
+  goToTask: (id: string) => void;
 }) {
   const { nextDeadline, overdue, heaviest } = useMemo(() => {
     const overdueList = monthTasks.filter((t) => t.overdue);
@@ -539,44 +541,70 @@ function CalendarInsights({
   return (
     <div style={{
       width: 270, flexShrink: 0, borderLeft: `1px solid ${colors.border}`,
-      overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 18,
+      minHeight: 0, padding: 16, display: 'flex', flexDirection: 'column', gap: 18,
     }}>
-      {nextDeadline && (
-        <div>
-          <div style={labelStyle}>Next deadline</div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: colors.textMain }}>{nextDeadline.title}</div>
-          <div style={{ fontSize: 11.5, color: colors.textMuted, marginTop: 2 }}>{relDue(nextDeadline.dueDate)}</div>
-        </div>
-      )}
+      <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 18 }}>
+        {nextDeadline && (
+          <div>
+            <div style={labelStyle}>Next deadline</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: colors.textMain }}>{nextDeadline.title}</div>
+            <div style={{ fontSize: 11.5, color: colors.textMuted, marginTop: 2 }}>{relDue(nextDeadline.dueDate)}</div>
+          </div>
+        )}
 
-      {overdue.length > 0 && (
-        <div>
-          <div style={labelStyle}>Overdue</div>
-          <div style={{ fontSize: 13, fontWeight: 800, color: colors.danger, marginBottom: 4 }}>{overdue.length}</div>
-          {overdue.slice(0, 3).map((t) => (
-            <div key={t.id} style={{ fontSize: 11.5, color: colors.textMuted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {t.title}
-            </div>
-          ))}
-        </div>
-      )}
+        {overdue.length > 0 && (
+          <div>
+            <div style={labelStyle}>Overdue</div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: colors.danger, marginBottom: 4 }}>{overdue.length}</div>
+            {overdue.slice(0, 3).map((t) => (
+              <div key={t.id} style={{ fontSize: 11.5, color: colors.textMuted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {t.title}
+              </div>
+            ))}
+          </div>
+        )}
 
-      {monthTasks.length > 0 && (
-        <div>
-          <div style={labelStyle}>This month</div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: colors.textMain }}>{monthTasks.length} tasks due</div>
-          {heaviest && (
-            <div style={{ fontSize: 11.5, color: colors.textMuted, marginTop: 2 }}>
-              Heaviest: {heaviest.date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} — {heaviest.count} tasks
-            </div>
-          )}
-        </div>
-      )}
+        {monthTasks.length > 0 && (
+          <div>
+            <div style={labelStyle}>This month</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: colors.textMain }}>{monthTasks.length} tasks due</div>
+            {heaviest && (
+              <div style={{ fontSize: 11.5, color: colors.textMuted, marginTop: 2 }}>
+                Heaviest: {heaviest.date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} — {heaviest.count} tasks
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
-      {unscheduledCount > 0 && (
-        <div style={{ opacity: 0.7 }}>
-          <div style={labelStyle}>Unscheduled</div>
-          <div style={{ fontSize: 11.5, color: colors.textDim }}>{unscheduledCount} tasks have no due date</div>
+      {unscheduledTasks.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }}>
+          <div style={labelStyle}>Unscheduled ({unscheduledTasks.length})</div>
+          <div style={{ fontSize: 11, color: colors.textDim, marginBottom: 6 }}>Assigned to you, no due date</div>
+          <div style={{ overflowY: 'auto', minHeight: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {unscheduledTasks.map((t) => (
+              <div
+                key={t.id}
+                title={t.title}
+                onClick={() => goToTask(t.id)}
+                style={{
+                  fontSize: 11.5,
+                  color: colors.textMain,
+                  backgroundColor: `${t.stageColor}22`,
+                  borderLeft: `3px solid ${t.stageColor}`,
+                  borderRadius: 4,
+                  padding: '4px 6px',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                }}
+              >
+                {t.title}
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
