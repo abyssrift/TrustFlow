@@ -348,42 +348,20 @@ function UploadGooMorph({ from, to, label, cardColor, accent }: {
   const boxW = Math.max(from.left + from.width, to.left + to.width) + GOO_PAD - minX;
   const boxH = Math.max(from.top + from.height, to.top + to.height) + GOO_PAD - minY;
 
-  // Position travels the full MORPH_MS, but size collapses to the island's
-  // real dimensions in a much shorter window — without this split the panel
-  // stays card-sized for most of the flight (a card-sized shape next to a
-  // ~30px droplet is nowhere near blur-comparable, so the goo filter has
-  // nothing to bridge until the very last instant). Shrinking early instead
-  // makes the panel blob-sized for most of the trip, so the droplet chain
-  // below actually necks into it throughout the flight, not just at landing.
-  const PANEL_SHRINK_MS = Math.round(MORPH_MS * 0.4);
-  const blobTransition = [
-    `left ${MORPH_MS}ms ${GOO_EASE}`,
-    `top ${MORPH_MS}ms ${GOO_EASE}`,
-    `width ${PANEL_SHRINK_MS}ms ${GOO_EASE}`,
-    `height ${PANEL_SHRINK_MS}ms ${GOO_EASE}`,
-    `border-radius ${PANEL_SHRINK_MS}ms ${GOO_EASE}`,
-  ].join(', ');
+  const blobTransition = ['left', 'top', 'width', 'height', 'border-radius']
+    .map(p => `${p} ${MORPH_MS}ms ${GOO_EASE}`).join(', ');
 
   // The card's own footprint, collapsing onto the island's measured rect.
   const panel = settled
     ? { left: to.left - minX, top: to.top - minY, width: to.width, height: to.height, borderRadius: 999 }
     : { left: from.left - minX, top: from.top - minY, width: from.width, height: from.height, borderRadius: 32 };
 
-  // A chain of droplets runs the same straight-line path as the panel, each
-  // arriving early by a different amount (shorter transition-duration, same
-  // start time) — so they spread out and settle near the island at staggered
-  // moments while the panel is still catching up, instead of one lonely dot
-  // bridging the gap. That spread is what reads as multiple beads necking
-  // into a liquid strand rather than a single blob shrinking.
-  const dropBaseSize = Math.max(18, Math.min(34, to.height * 1.2));
-  const DROPS = [
-    { early: 90, size: dropBaseSize },
-    { early: 150, size: dropBaseSize * 0.85 },
-    { early: 210, size: dropBaseSize * 0.7 },
-    { early: 270, size: dropBaseSize * 0.55 },
-  ];
-  const dropCenterX = settled ? to.left + to.width / 2 : from.left + from.width / 2;
-  const dropCenterY = settled ? to.top + to.height / 2 : from.top + from.height / 2;
+  // A droplet runs the same path slightly ahead of the panel, so something is
+  // always bridging the two ends while the gap is at its widest — that bridge
+  // is what makes the merge read as liquid rather than as a shrink.
+  const dropSize = Math.max(18, Math.min(34, to.height * 1.2));
+  const dropX = (settled ? to.left + to.width / 2 : from.left + from.width / 2) - minX - dropSize / 2;
+  const dropY = (settled ? to.top + to.height / 2 : from.top + from.height / 2) - minY - dropSize / 2;
 
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 200, pointerEvents: 'none' }}>
@@ -423,16 +401,22 @@ function UploadGooMorph({ from, to, label, cardColor, accent }: {
         }}
       >
         <div style={{ position: 'absolute', background: cardColor, willChange: 'left, top, width, height', transition: blobTransition, ...panel }} />
-        {DROPS.map(({ early, size }, i) => (
-          <div
-            key={i}
-            style={{
-              position: 'absolute', width: size, height: size, borderRadius: 999, background: cardColor,
-              left: dropCenterX - minX - size / 2, top: dropCenterY - minY - size / 2, willChange: 'left, top',
-              transition: `left ${MORPH_MS - early}ms ${GOO_EASE}, top ${MORPH_MS - early}ms ${GOO_EASE}`,
-            }}
-          />
-        ))}
+        <div
+          style={{
+            position: 'absolute', width: dropSize, height: dropSize, borderRadius: 999, background: cardColor,
+            left: dropX, top: dropY, willChange: 'left, top',
+            transition: `left ${MORPH_MS - 90}ms ${GOO_EASE}, top ${MORPH_MS - 90}ms ${GOO_EASE}`,
+          }}
+        />
+        {/* The island end, swelling up to meet the incoming blob. */}
+        <div
+          style={{
+            position: 'absolute', width: to.width, height: to.height, borderRadius: 999, background: cardColor,
+            left: to.left - minX, top: to.top - minY, willChange: 'transform',
+            transform: settled ? 'scale(1)' : 'scale(0)',
+            transition: `transform ${MORPH_MS - 150}ms cubic-bezier(0.34, 1.3, 0.64, 1) 150ms`,
+          }}
+        />
       </div>
 
       {/* Progress read rides on top, outside the filter — the threshold would
