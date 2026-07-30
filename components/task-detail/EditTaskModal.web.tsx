@@ -5,6 +5,7 @@ import Calendar from '@/components/common/Calendar';
 import Tooltip from '@/components/common/Tooltip';
 import UserLink from '@/components/common/UserLink';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
+import { useToast } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import { useCalendarPosition } from '@/lib/calendarPicker';
@@ -33,6 +34,7 @@ type Props = {
 };
 
 type UserOption = { id: string; full_name: string };
+type PipelineOption = { id: string; name: string };
 type Tab = 'details' | 'scheduling';
 
 const PRIORITY_OPTIONS = ['low', 'medium', 'high', 'urgent'] as const;
@@ -64,6 +66,7 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
   const { width: winWidth } = useWindowDimensions();
   const isNarrow = winWidth < 768;
   const { data, updateTask } = useTaskDetail();
+  const { errorToast } = useToast();
 
   const [tab, setTab] = useState<Tab>('details');
 
@@ -78,6 +81,9 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
   const [estimatedHours, setEstimatedHours]     = useState('');
   const [isRecurring, setIsRecurring]           = useState(false);
   const [managerId, setManagerId]               = useState<string | null>(null);
+  const [pipelineId, setPipelineId]             = useState<string | null>(null);
+  const [showPipelinePicker, setShowPipelinePicker] = useState(false);
+  const [pipelines, setPipelines]               = useState<PipelineOption[]>([]);
 
   // Overlay state
   const [showDueCal, setShowDueCal]           = useState(false);
@@ -152,6 +158,8 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
       setStartDate(rawStart ? new Date(rawStart).toISOString().split('T')[0] : null);
       const rawHours = (data as any).task.estimated_hours;
       setEstimatedHours(rawHours?.toString() || '');
+      setPipelineId((data as any).task.pipeline_id ?? null);
+      setShowPipelinePicker(false);
       closeAllOverlays();
       setMobileActiveDateField(focusField === 'due_date' ? 'due' : null);
       setShowMobileManagerPicker(false);
@@ -164,6 +172,9 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
     if (visible && users.length === 0) {
       supabase.from('users').select('id, full_name').is('deleted_at', null).order('full_name')
         .then(({ data: u }) => setUsers(u || []));
+      // RLS (pipelines_select) already narrows this to boards the user may access.
+      supabase.from('pipelines').select('id, name').is('deleted_at', null).order('name')
+        .then(({ data: p }) => setPipelines(p || []));
     }
   }, [visible]);
 
@@ -171,6 +182,8 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
 
   const { task, current_stage, pipeline, creator, manager, stats, permissions } = data;
   const selectedManager = users.find(u => u.id === managerId);
+  const selectedPipeline = pipelines.find(p => p.id === pipelineId);
+  const pipelineChanged = !!pipelineId && pipelineId !== (task as any).pipeline_id;
   const dateConflict = !!(startDate && dueDate && startDate > dueDate);
   const filteredUsers = users.filter(u =>
     u.full_name.toLowerCase().includes(managerSearch.toLowerCase())
@@ -193,6 +206,16 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
         is_recurring: isRecurring,
         manager_id: managerId || null,
       };
+      if (pipelineChanged) {
+        const { error: moveErr } = await supabase.rpc('rpc_move_task_pipeline', {
+          p_task_id: task.id,
+          p_pipeline_id: pipelineId,
+        });
+        // Toast as well as setError: the banner sits at the top of a long
+        // scroll, so a failure while scrolled down otherwise looks like a no-op.
+        // (updateTask already toasts its own failures.)
+        if (moveErr) { errorToast(moveErr.message || 'Could not move the task.'); throw moveErr; }
+      }
       await updateTask(updates);
       onClose();
     } catch (err: any) {
@@ -214,6 +237,50 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
       {valueNode ?? <Text className="text-[11px] font-black" style={{ color: accent ? colors.primary : colors.textMain }}>{value}</Text>}
     </View>
   );
+
+  // Pipeline picker — same block on mobile and desktop web. Only boards
+  // pipelines_select RLS returns are listed; the RPC re-checks access server-side.
+  const pipelineField = pipelines.length > 1 ? (
+    <View>
+      <Text className="text-[10px] font-black uppercase tracking-[0.15em] mb-2 ml-1" style={{ color: colors.textMuted }}>Pipeline</Text>
+      <TouchableOpacity
+        onPress={() => setShowPipelinePicker(v => !v)}
+        className="rounded-2xl px-5 py-4 flex-row items-center justify-between transition-all"
+        style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: pipelineChanged || showPipelinePicker ? colors.primary : colors.border }}
+      >
+        <View className="flex-row items-center gap-3">
+          <FontAwesome name="code-fork" size={13} color={selectedPipeline ? colors.primary : colors.textDim} />
+          <Text className="font-bold text-sm" style={{ color: selectedPipeline ? colors.textMain : colors.textDim }}>
+            {selectedPipeline?.name ?? 'Select pipeline'}
+          </Text>
+        </View>
+        <FontAwesome name={showPipelinePicker ? 'chevron-up' : 'chevron-down'} size={11} color={colors.textDim} />
+      </TouchableOpacity>
+
+      {showPipelinePicker && (
+        <View className="mt-2 rounded-2xl overflow-hidden" style={{ maxHeight: 220, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}>
+          <ScrollView nestedScrollEnabled>
+            {pipelines.map(p => (
+              <TouchableOpacity
+                key={p.id}
+                onPress={() => { setPipelineId(p.id); setShowPipelinePicker(false); }}
+                className="px-4 py-3"
+                style={{ borderBottomWidth: 1, borderColor: colors.border + '4D', backgroundColor: pipelineId === p.id ? colors.primary + '1A' : undefined }}
+              >
+                <Text className="font-bold text-sm" style={{ color: pipelineId === p.id ? colors.primary : colors.textMain }}>{p.name}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
+      {pipelineChanged && (
+        <Text className="text-[10px] font-bold mt-2 ml-1" style={{ color: colors.primary }}>
+          Saving moves this task to that board&apos;s first stage.
+        </Text>
+      )}
+    </View>
+  ) : null;
 
   // ─── Mobile-web layout (narrow viewports) ───────────────────────────────────
   // Mirrors native's EditTaskModal.tsx (single-scroll DraggableSheet, no tabs,
@@ -449,6 +516,8 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
                 </View>
               )}
             </View>
+
+            {pipelineField}
 
             {/* Recurring */}
             <TouchableOpacity onPress={() => setIsRecurring(v => !v)} className="flex-row items-center gap-3">
@@ -770,6 +839,8 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
                       <FontAwesome name={showManagerDrop ? 'chevron-up' : 'chevron-down'} size={11} color={colors.textDim} />
                     </TouchableOpacity>
                   </View>
+
+                  {pipelineField}
 
                   {/* Description */}
                   <View>

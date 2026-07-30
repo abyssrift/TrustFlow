@@ -2,6 +2,7 @@ import DraggableSheet from '@/components/common/DraggableSheet';
 import Calendar from '@/components/common/Calendar';
 import Tooltip from '@/components/common/Tooltip';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
+import { useToast } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -24,6 +25,7 @@ type Props = {
 };
 
 type UserOption = { id: string; full_name: string };
+type PipelineOption = { id: string; name: string };
 
 const PRIORITY_OPTIONS = ['low', 'medium', 'high', 'urgent'] as const;
 const PRIORITY_LABELS: Record<string, string> = { low: 'Low', medium: 'Normal', high: 'High', urgent: 'Urgent' };
@@ -31,6 +33,7 @@ const PRIORITY_LABELS: Record<string, string> = { low: 'Low', medium: 'Normal', 
 export default function EditTaskModal({ visible, onClose, focusField }: Props) {
   const colors = useThemeColors();
   const { data, updateTask } = useTaskDetail();
+  const { errorToast } = useToast();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -43,8 +46,12 @@ export default function EditTaskModal({ visible, onClose, focusField }: Props) {
   const [isRecurring, setIsRecurring] = useState(false);
   const [managerId, setManagerId] = useState<string | null>(null);
 
+  const [pipelineId, setPipelineId] = useState<string | null>(null);
+
   const [activeDateField, setActiveDateField] = useState<'due' | 'start' | null>(null);
   const [showManagerPicker, setShowManagerPicker] = useState(false);
+  const [showPipelinePicker, setShowPipelinePicker] = useState(false);
+  const [pipelines, setPipelines] = useState<PipelineOption[]>([]);
   const [users, setUsers] = useState<UserOption[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,8 +79,10 @@ export default function EditTaskModal({ visible, onClose, focusField }: Props) {
       setStartDate(rawStart ? new Date(rawStart).toISOString().split('T')[0] : null);
       const rawHours = (data as any).task.estimated_hours;
       setEstimatedHours(rawHours?.toString() || '');
+      setPipelineId((data as any).task.pipeline_id ?? null);
       setActiveDateField(focusField === 'due_date' ? 'due' : null);
       setShowManagerPicker(false);
+      setShowPipelinePicker(false);
       setError(null);
     }
   }, [data, visible, focusField]);
@@ -82,12 +91,17 @@ export default function EditTaskModal({ visible, onClose, focusField }: Props) {
     if (visible && users.length === 0) {
       supabase.from('users').select('id, full_name').is('deleted_at', null).order('full_name')
         .then(({ data: u }) => setUsers(u || []));
+      // RLS (pipelines_select) already narrows this to boards the user may access.
+      supabase.from('pipelines').select('id, name').is('deleted_at', null).order('name')
+        .then(({ data: p }) => setPipelines(p || []));
     }
   }, [visible]);
 
   if (!data) return null;
 
   const selectedManager = users.find(u => u.id === managerId);
+  const selectedPipeline = pipelines.find(p => p.id === pipelineId);
+  const pipelineChanged = !!pipelineId && pipelineId !== (data as any).task.pipeline_id;
 
   const handleSave = async () => {
     if (!title.trim()) {
@@ -109,6 +123,16 @@ export default function EditTaskModal({ visible, onClose, focusField }: Props) {
         is_recurring: isRecurring,
         manager_id: managerId || null,
       };
+      if (pipelineChanged) {
+        const { error: moveErr } = await supabase.rpc('rpc_move_task_pipeline', {
+          p_task_id: data.task.id,
+          p_pipeline_id: pipelineId,
+        });
+        // Toast as well as setError: the banner sits at the top of a long
+        // scroll, so a failure while scrolled down otherwise looks like a no-op.
+        // (updateTask already toasts its own failures.)
+        if (moveErr) { errorToast(moveErr.message || 'Could not move the task.'); throw moveErr; }
+      }
       await updateTask(updates);
       onClose();
     } catch (err: any) {
@@ -362,6 +386,47 @@ export default function EditTaskModal({ visible, onClose, focusField }: Props) {
                   </View>
                 )}
               </View>
+
+              {/* Pipeline — only boards RLS lets this user see are listed */}
+              {pipelines.length > 1 && (
+                <View>
+                  <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em] mb-2">Pipeline</Text>
+                  <TouchableOpacity
+                    onPress={() => setShowPipelinePicker(v => !v)}
+                    className="bg-surface-background border px-4 py-3.5 rounded-2xl flex-row items-center justify-between"
+                    style={{ borderColor: pipelineChanged ? colors.primary : colors.border }}
+                  >
+                    <Text className={`font-medium ${selectedPipeline ? 'text-typography-main' : 'text-typography-muted'}`}>
+                      {selectedPipeline ? selectedPipeline.name : 'Select pipeline'}
+                    </Text>
+                    <FontAwesome name={showPipelinePicker ? 'chevron-up' : 'chevron-down'} size={11} color={colors.textMuted} />
+                  </TouchableOpacity>
+
+                  {showPipelinePicker && (
+                    <View className="mt-2 bg-surface-background border border-surface-border rounded-2xl overflow-hidden" style={{ maxHeight: 200 }}>
+                      <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+                        {pipelines.map(p => (
+                          <TouchableOpacity
+                            key={p.id}
+                            onPress={() => { setPipelineId(p.id); setShowPipelinePicker(false); }}
+                            className={`px-4 py-3 border-b border-surface-border/30 ${pipelineId === p.id ? 'bg-brand-primary/10' : ''}`}
+                          >
+                            <Text className={`font-bold text-sm ${pipelineId === p.id ? 'text-brand-primary' : 'text-typography-main'}`}>
+                              {p.name}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
+
+                  {pipelineChanged && (
+                    <Text className="text-[10px] font-bold mt-2 ml-1" style={{ color: colors.primary }}>
+                      Saving moves this task to that board&apos;s first stage.
+                    </Text>
+                  )}
+                </View>
+              )}
 
               {/* Recurring */}
               <TouchableOpacity
