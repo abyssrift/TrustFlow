@@ -4,6 +4,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React from 'react';
 import { LayoutAnimation, Platform, Text, TouchableOpacity, UIManager, View } from 'react-native';
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
+import { noticeReducedMotion } from '@/lib/reducedMotionNotice';
 
 // Enable LayoutAnimation on Android/iOS for smooth expand/collapse. Native only —
 // react-native-web's UIManager.configureNextLayoutAnimation is a no-op stub (it
@@ -55,6 +56,7 @@ export default function CollapsibleCard({
     const willOpen = collapsed; // collapsed now => about to open
     if (isWeb) {
       if (willOpen) setEverOpened(true);
+      if (reduceMotion) noticeReducedMotion();
       openProgress.value = reduceMotion ? (willOpen ? 1 : 0) : withTiming(willOpen ? 1 : 0, { duration: 220 });
     } else {
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);

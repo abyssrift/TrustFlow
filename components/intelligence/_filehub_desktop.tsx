@@ -19,6 +19,7 @@ import FileHubBrowse from './FileHubBrowse';
 import { groupPickedFiles, relDir, resolveExistingFolderLeaf } from '@/lib/filehubFolderTree';
 import FolderTreePicker from './FolderTreePicker';
 import { randomId } from '@/lib/randomId';
+import { noticeReducedMotion } from '@/lib/reducedMotionNotice';
 import { downloadFilesAsZip, openStorageFile } from '@/lib/storage';
 import { isMultiSelectModifierActive } from '@/lib/webModifierKeys';
 import { useShareFile } from '../common/ShareFile';
@@ -666,7 +667,10 @@ function UploadModal({
   // plain close they have today.
   const handleDismiss = useCallback(() => {
     if (uploading && Platform.OS === 'web' && !reducedMotion) morphToIsland();
-    else onClose();
+    else {
+      if (uploading && reducedMotion) noticeReducedMotion();
+      onClose();
+    }
   }, [uploading, reducedMotion, morphToIsland, onClose]);
 
   // The upload engine (worker pool, dup/conflict handling, per-file commit,

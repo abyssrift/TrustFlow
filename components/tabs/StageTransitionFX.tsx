@@ -3,6 +3,7 @@ import { Image, Platform, Text, View } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 import type { FlipRect } from '@/components/common/AnimatedTaskCard';
+import { noticeReducedMotion } from '@/lib/reducedMotionNotice';
 import { supabase } from '@/lib/supabase';
 
 // ─── Comet-trail stage transition FX ──────────────────────────────────────
@@ -336,6 +337,7 @@ export function useStageTransitionFX(boardContainerRef: React.RefObject<View | n
       // firing synchronously found `to: false` and dropped the trail. By the
       // next frame every column ref is re-attached.
       if (!reducedMotion) requestAnimationFrame(() => fireTrail(fromStageId, currentStageId, actorUserId, cardRect, landRect));
+      else noticeReducedMotion();
     }
   }, [fireTrail, reducedMotion]);
 
