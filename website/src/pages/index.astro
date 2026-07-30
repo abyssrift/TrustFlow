@@ -57,13 +57,19 @@ const ideaWords = 'Most tools make work visible. TrustFlow makes it'.split(' ');
           aria-hidden="true"
         >
         </div>
+        <!-- Grows past its grid column on desktop so the mockup reads at
+             something like the 480px the design called for — inside the
+             column a 16:9 asset only renders ~320px tall. body has
+             overflow-x:hidden, so the spill never creates a scrollbar.
+             translate-x corrects the source PNG's own off-centre framing
+             (36px transparent margin left vs 108px right, measured). -->
         <ImageSlot
-          label="MacBook mockup — dashboard screenshot"
+          label="MacBook mockup — Task Board screenshot"
+          alt="The TrustFlow task board, showing work moving through Pending, In progress, Review, and Completed stages."
+          src={heroMockup}
           height={480}
           variant="hero"
-          class="reveal reveal-delay-1"
-          src={heroMockup}
-          alt="TrustFlow Task Board on desktop"
+          class="reveal reveal-delay-1 lg:w-[116%] lg:translate-x-[1.9%]"
         />
       </div>
     </section>

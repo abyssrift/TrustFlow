@@ -3,8 +3,8 @@ import ConfirmModal from '@/components/common/ConfirmModal';
 import HorizontalScroll from '@/components/common/HorizontalScroll';
 import LinkifiedText from '@/components/common/LinkifiedText';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
-import Popup from '@/components/common/Popup';
 import Tooltip from '@/components/common/Tooltip';
+import BoardSwitcherPopup from '@/components/kanban/BoardSwitcherPopup';
 import KanbanPersonalizer from '@/components/kanban/KanbanPersonalizer';
 import SkeletonBlock, { SkeletonList } from '@/components/Skeleton';
 import ActiveSessionAvatars from '@/components/task-detail/ActiveSessionAvatars';
@@ -14,6 +14,7 @@ import TaskPingButton from '@/components/task-detail/TaskPingButton';
 import AssignmentModal from '@/components/tasks/AssignmentModal';
 import CreateTaskModal from '@/components/tasks/CreateTaskModal';
 import TaskMobilityModal from '@/components/tasks/TaskMobilityModal';
+import { useBoardPicker } from '@/hooks/useBoardPicker';
 import { useAlert } from '@/contexts/AlertContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -125,50 +126,8 @@ type Pipeline = {
 // Board data cache + prefetch live in the shared module so the desktop board
 // reuses the exact same warm cache (see taskBoardCache.ts).
 
-// ---------------------------------------------------------------------------
-// Board picker state (favorites / recents) — shares the same AsyncStorage keys
-// as the desktop board selector so preferences carry across layouts.
-// ---------------------------------------------------------------------------
-const BOARD_PICKER_KEYS = {
-  FAVORITE_BOARDS: '@TrustFlow_favorite_boards',
-  RECENTLY_USED_BOARDS: '@TrustFlow_recently_used_boards',
-  MY_DEFAULT: '@TrustFlow_my_default_pipeline',
-} as const;
-
-const MAX_RECENTLY_USED = 5;
-
-type RecentBoard = { id: string; timestamp: number };
-
-async function loadBoardPickerState(): Promise<{ favorites: Set<string>; recentlyUsed: RecentBoard[] }> {
-  try {
-    const [favStr, recentStr] = await Promise.all([
-      AsyncStorage.getItem(BOARD_PICKER_KEYS.FAVORITE_BOARDS),
-      AsyncStorage.getItem(BOARD_PICKER_KEYS.RECENTLY_USED_BOARDS),
-    ]);
-    return {
-      favorites: new Set<string>(favStr ? JSON.parse(favStr) : []),
-      recentlyUsed: recentStr ? JSON.parse(recentStr) : [],
-    };
-  } catch {
-    return { favorites: new Set<string>(), recentlyUsed: [] };
-  }
-}
-
-async function saveBoardPickerState(favorites: Set<string>, recentlyUsed: RecentBoard[]) {
-  try {
-    await Promise.all([
-      AsyncStorage.setItem(BOARD_PICKER_KEYS.FAVORITE_BOARDS, JSON.stringify(Array.from(favorites))),
-      AsyncStorage.setItem(BOARD_PICKER_KEYS.RECENTLY_USED_BOARDS, JSON.stringify(recentlyUsed)),
-    ]);
-  } catch (e) {
-    console.error('Failed to save board picker state:', e);
-  }
-}
-
-function trackBoardSelection(boardId: string, current: RecentBoard[]): RecentBoard[] {
-  const filtered = current.filter(b => b.id !== boardId);
-  return [{ id: boardId, timestamp: Date.now() }, ...filtered].slice(0, MAX_RECENTLY_USED);
-}
+// Board picker state (favourites / recents / counts) lives in useBoardPicker,
+// shared with the desktop layout so preferences carry across both.
 
 // Pulsing "activity" dot — the web build uses a CSS `pulse-animation` class that
 // no-ops on native, so this drives the pulse with Animated for cross-platform parity.
@@ -337,14 +296,9 @@ function TasksScreen() {
   const [myTeamIds, setMyTeamIds] = useState<string[]>(seed?.myTeamIds ?? []);
   const [skeletonBg, setSkeletonBg] = useState<string | null>(null);
 
-  // Board picker notifications (parity with the desktop board selector)
-  const [favoriteBoardIds, setFavoriteBoardIds] = useState<Set<string>>(new Set());
-  const [recentlyUsedBoards, setRecentlyUsedBoards] = useState<RecentBoard[]>([]);
-  const [boardTaskCounts, setBoardTaskCounts] = useState<Record<string, number>>({});
-  const [boardNewTaskCount, setBoardNewTaskCount] = useState<Record<string, number>>({});
-  const [boardLastVisitedTime, setBoardLastVisitedTime] = useState<Record<string, number>>({});
-  const [myDefaultPipelineId, setMyDefaultPipelineId] = useState<string | null>(null);
-  const [boardPickerSearchQuery, setBoardPickerSearchQuery] = useState('');
+  // Board picker state — shared with the desktop layout via useBoardPicker.
+  const boardPicker = useBoardPicker(availablePipelines, pipeline?.id);
+  const { recordBoardVisit } = boardPicker;
 
   const { kanban } = useTheme();
 
@@ -365,16 +319,10 @@ function TasksScreen() {
   const [peekCounts, setPeekCounts] = useState<Record<string, number>>({});
   const peekCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { prevBoard, nextBoard } = useMemo(() => {
-    if (!pipeline || availablePipelines.length < 2) return { prevBoard: null, nextBoard: null };
-    const idx = availablePipelines.findIndex(p => p.id === pipeline.id);
-    if (idx === -1) return { prevBoard: null, nextBoard: null };
-    const len = availablePipelines.length;
-    return {
-      prevBoard: availablePipelines[(idx - 1 + len) % len],
-      nextBoard: availablePipelines[(idx + 1) % len],
-    };
-  }, [pipeline, availablePipelines]);
+  // Peek walks the same stable order the desktop layout cycles through — this
+  // used to use raw `availablePipelines` order, so the two layouts disagreed
+  // about which board was "next".
+  const { prev: prevBoard, next: nextBoard } = boardPicker.neighbours;
 
   const openPeek = useCallback(() => {
     if (peekCloseTimer.current) { clearTimeout(peekCloseTimer.current); peekCloseTimer.current = null; }
@@ -412,9 +360,12 @@ function TasksScreen() {
   const switchBoard = useCallback(async (id: string) => {
     setShowBoardPeek(false);
     prepareBoardSwitch(id);
+    // Not an explicit pick — marks the board visited (so "new since last visit"
+    // stays accurate) without pushing it into Recents.
+    recordBoardVisit(id);
     await AsyncStorage.setItem('@TrustFlow_tasks_pipeline', id);
     router.setParams({ pipelineId: id });
-  }, [router, prepareBoardSwitch]);
+  }, [router, prepareBoardSwitch, recordBoardVisit]);
 
   // Lazily fetch task counts for the two neighbours when the peek opens.
   useEffect(() => {
@@ -435,84 +386,15 @@ function TasksScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showBoardPeek, prevBoard?.id, nextBoard?.id]);
 
-  // Load board picker state (favorites / recents / personal default) on mount.
-  useEffect(() => {
-    (async () => {
-      const state = await loadBoardPickerState();
-      setFavoriteBoardIds(state.favorites);
-      setRecentlyUsedBoards(state.recentlyUsed);
-      const myDefault = await AsyncStorage.getItem(BOARD_PICKER_KEYS.MY_DEFAULT);
-      if (myDefault) setMyDefaultPipelineId(myDefault);
-    })();
-  }, []);
-
-  // Record the first time the current board is seen so "new since last visit" counts work.
-  useEffect(() => {
-    if (pipeline?.id) {
-      setBoardLastVisitedTime(prev => (prev[pipeline.id] ? prev : { ...prev, [pipeline.id]: Date.now() }));
-    }
-  }, [pipeline?.id]);
-
-  // Fetch task counts for every board (total + new since last visit) for the picker badges.
-  useEffect(() => {
-    if (availablePipelines.length === 0) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const counts: Record<string, number> = {};
-        const newCounts: Record<string, number> = {};
-        await Promise.all(availablePipelines.map(async (board) => {
-          const { count } = await supabase
-            .from('tasks')
-            .select('id', { count: 'exact', head: true })
-            .eq('pipeline_id', board.id);
-          counts[board.id] = count || 0;
-
-          const lastVisit = boardLastVisitedTime[board.id] || 0;
-          if (lastVisit > 0) {
-            const { count: newCount } = await supabase
-              .from('tasks')
-              .select('id', { count: 'exact', head: true })
-              .eq('pipeline_id', board.id)
-              .gt('created_at', new Date(lastVisit).toISOString());
-            newCounts[board.id] = newCount || 0;
-          }
-        }));
-        if (!cancelled) {
-          setBoardTaskCounts(counts);
-          setBoardNewTaskCount(newCounts);
-        }
-      } catch (e) {
-        console.error('Failed to fetch board task counts:', e);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [availablePipelines, boardLastVisitedTime]);
-
-  // Keep counts live as tasks are created/deleted across any pipeline.
-  useEffect(() => {
-    if (availablePipelines.length === 0) return;
-    const channel = supabase
-      .channel(`adaptive-board-task-counts-${Date.now()}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tasks' }, (payload) => {
-        const pid = (payload.new as any).pipeline_id;
-        setBoardTaskCounts(prev => ({ ...prev, [pid]: (prev[pid] || 0) + 1 }));
-      })
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'tasks' }, (payload) => {
-        const pid = (payload.old as any).pipeline_id;
-        setBoardTaskCounts(prev => ({ ...prev, [pid]: Math.max(0, (prev[pid] || 0) - 1) }));
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [availablePipelines]);
+  // Favourites, recents, counts, live count updates and last-visit times are all
+  // hydrated and persisted by useBoardPicker.
 
   // Select a board from the picker: track it as recent, mark visited, switch, and close.
-  const handleSelectBoard = useCallback(async (boardId: string) => {
+  // `explicit` separates a deliberate pick from cycling past a board via peek —
+  // only the former should land in Recents.
+  const handleSelectBoard = useCallback(async (boardId: string, opts?: { explicit?: boolean }) => {
     try {
-      const updated = trackBoardSelection(boardId, recentlyUsedBoards);
-      setRecentlyUsedBoards(updated);
-      await saveBoardPickerState(favoriteBoardIds, updated);
-      setBoardLastVisitedTime(prev => ({ ...prev, [boardId]: Date.now() }));
+      recordBoardVisit(boardId, { explicit: opts?.explicit });
       prepareBoardSwitch(boardId);
       await AsyncStorage.setItem('@TrustFlow_tasks_pipeline', boardId);
       router.setParams({ pipelineId: boardId });
@@ -520,39 +402,7 @@ function TasksScreen() {
     } catch (e) {
       console.error('Failed to select board:', e);
     }
-  }, [recentlyUsedBoards, favoriteBoardIds, router, prepareBoardSwitch]);
-
-  const toggleFavoriteBoard = useCallback(async (boardId: string) => {
-    const updated = new Set(favoriteBoardIds);
-    if (updated.has(boardId)) updated.delete(boardId); else updated.add(boardId);
-    setFavoriteBoardIds(updated);
-    await saveBoardPickerState(updated, recentlyUsedBoards);
-  }, [favoriteBoardIds, recentlyUsedBoards]);
-
-  const setMyDefaultBoard = useCallback(async (boardId: string) => {
-    await AsyncStorage.setItem(BOARD_PICKER_KEYS.MY_DEFAULT, boardId);
-    setMyDefaultPipelineId(boardId);
-  }, []);
-
-  // Sort: favorites first, then most-recently used, then alphabetical — honouring search.
-  const getSortedBoards = useCallback(() => {
-    let sorted = [...availablePipelines];
-    if (boardPickerSearchQuery) {
-      const q = boardPickerSearchQuery.toLowerCase();
-      sorted = sorted.filter(b => b.name.toLowerCase().includes(q));
-    }
-    return sorted.sort((a, b) => {
-      const aFav = favoriteBoardIds.has(a.id) ? 0 : 1;
-      const bFav = favoriteBoardIds.has(b.id) ? 0 : 1;
-      if (aFav !== bFav) return aFav - bFav;
-      const aRecent = recentlyUsedBoards.findIndex(r => r.id === a.id);
-      const bRecent = recentlyUsedBoards.findIndex(r => r.id === b.id);
-      const aR = aRecent >= 0 ? aRecent : Infinity;
-      const bR = bRecent >= 0 ? bRecent : Infinity;
-      if (aR !== bR) return aR - bR;
-      return a.name.localeCompare(b.name);
-    });
-  }, [availablePipelines, boardPickerSearchQuery, favoriteBoardIds, recentlyUsedBoards]);
+  }, [recordBoardVisit, router, prepareBoardSwitch]);
 
   const fetchData = async () => {
     try {
@@ -1551,122 +1401,13 @@ function TasksScreen() {
       )}
 
       {/* PIPELINE PICKER MODAL */}
-      <Popup
+      <BoardSwitcherPopup
         visible={showPipelinePicker}
         onClose={() => setShowPipelinePicker(false)}
-        presentation="auto"
-        dismissible={false}
-        scrollable={false}
-        maxWidth={480}
-        maxHeight="80%"
-        containerClassName="w-[92%] rounded-3xl"
-      >
-              <View className="p-5">
-                <View className="flex-row items-center justify-between mb-4">
-                  <Text className="text-typography-main font-black text-2xl tracking-tighter">Switch Board</Text>
-                  <Tooltip label="Close" side="left">
-                    <TouchableOpacity onPress={() => setShowPipelinePicker(false)} hitSlop={8}>
-                      <FontAwesome name="times" size={18} color={colors.textMuted} />
-                    </TouchableOpacity>
-                  </Tooltip>
-                </View>
-
-                {/* Search */}
-                <View className="mb-4 h-11 px-4 flex-row items-center bg-surface-background border border-surface-border rounded-2xl">
-                  <FontAwesome name="search" size={12} color={colors.textMuted} />
-                  <TextInput
-                    value={boardPickerSearchQuery}
-                    onChangeText={setBoardPickerSearchQuery}
-                    placeholder="Search boards..."
-                    placeholderTextColor={colors.textDim}
-                    className="flex-1 ml-3 text-typography-main text-sm font-bold"
-                  />
-                  {boardPickerSearchQuery.length > 0 && (
-                    <Tooltip label="Clear search">
-                      <TouchableOpacity onPress={() => setBoardPickerSearchQuery('')}>
-                        <FontAwesome name="times" size={12} color={colors.textMuted} />
-                      </TouchableOpacity>
-                    </Tooltip>
-                  )}
-                </View>
-
-                <ScrollView className="max-h-96" keyboardShouldPersistTaps="handled">
-                   {getSortedBoards().map(p => {
-                      const isCurrent = pipeline?.id === p.id;
-                      const isFavorite = favoriteBoardIds.has(p.id);
-                      const taskCount = boardTaskCounts[p.id] || 0;
-                      const newCount = boardNewTaskCount[p.id] || 0;
-                      const hasActivity = taskCount > 0;
-                      return (
-                      <View
-                        key={p.id}
-                        className={`flex-row items-center mb-2.5 rounded-2xl border overflow-hidden ${isCurrent ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border'}`}
-                      >
-                        <TouchableOpacity
-                          className="flex-1 p-3.5"
-                          onPress={() => handleSelectBoard(p.id)}
-                        >
-                          <View className="flex-row items-center justify-between">
-                            <View className="flex-1 mr-2">
-                              <View className="flex-row items-center gap-2">
-                                {hasActivity && !isCurrent && <ActivityDot color={colors.warning} />}
-                                <Text className={`font-black text-base ${isCurrent ? 'text-brand-primary' : 'text-typography-main'}`} numberOfLines={1}>{p.name}</Text>
-                              </View>
-                              {(p.is_default || myDefaultPipelineId === p.id) && (
-                                <View className="flex-row flex-wrap gap-1.5 mt-1.5">
-                                  {p.is_default && (
-                                    <View className="bg-surface-overlay px-2 py-0.5 rounded-full border border-surface-border">
-                                      <Text className="text-typography-muted text-[9px] font-bold uppercase">Workspace Default</Text>
-                                    </View>
-                                  )}
-                                  {myDefaultPipelineId === p.id && (
-                                    <View className="bg-state-success/10 px-2 py-0.5 rounded-full border border-state-success/20">
-                                      <Text className="text-state-success text-[9px] font-bold uppercase">My Default</Text>
-                                    </View>
-                                  )}
-                                </View>
-                              )}
-                            </View>
-                            {!isCurrent && taskCount > 0 && (
-                              <View className={`px-3 py-1 rounded-full border-2 ${newCount > 0 ? 'bg-state-danger border-state-danger' : 'bg-state-warning border-state-warning'}`}>
-                                <Text className={`text-xs font-black ${newCount > 0 ? 'text-white' : 'text-black'}`}>{taskCount}</Text>
-                              </View>
-                            )}
-                          </View>
-                        </TouchableOpacity>
-
-                        {/* Personal default toggle */}
-                        <Tooltip label="Set as my default">
-                          <TouchableOpacity
-                            onPress={() => setMyDefaultBoard(p.id)}
-                            className="px-3 py-4 items-center justify-center"
-                          >
-                            <FontAwesome name={myDefaultPipelineId === p.id ? 'heart' : 'heart-o'} size={15} color={myDefaultPipelineId === p.id ? colors.success : colors.textMuted} />
-                          </TouchableOpacity>
-                        </Tooltip>
-
-                        {/* Workspace default toggle (admins only) */}
-                        {hasPermission('pipeline.edit') && (
-                          <Tooltip label="Set as workspace default">
-                            <TouchableOpacity
-                              onPress={() => handleSetDefault(p.id)}
-                              className="px-3 py-4 items-center justify-center border-l border-surface-border/50"
-                            >
-                              <FontAwesome name={p.is_default ? 'flag' : 'flag-o'} size={15} color={p.is_default ? colors.warning : colors.textMuted} />
-                            </TouchableOpacity>
-                          </Tooltip>
-                        )}
-                      </View>
-                   ); })}
-                   {getSortedBoards().length === 0 && (
-                     <Text className="text-typography-muted text-sm font-medium text-center py-6">No boards found</Text>
-                   )}
-                </ScrollView>
-                <TouchableOpacity onPress={() => setShowPipelinePicker(false)} className="mt-4 pt-4 items-center">
-                   <Text className="text-typography-muted font-bold">Cancel</Text>
-                </TouchableOpacity>
-              </View>
-      </Popup>
+        picker={boardPicker}
+        currentBoardId={pipeline?.id}
+        onSelectBoard={(id) => handleSelectBoard(id, { explicit: true })}
+      />
 
       {/* ASSIGNMENT MODAL */}
       {selectedTask && (

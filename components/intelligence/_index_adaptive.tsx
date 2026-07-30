@@ -2,6 +2,7 @@ import ConfirmModal from '@/components/common/ConfirmModal';
 import Popup from '@/components/common/Popup';
 import { BackButton } from '@/components/common/BackButton';
 import { IntelligencePicker } from '@/components/intelligence/IntelligenceCommon';
+import { SLARiskPulseDot, slaPulseStagger } from '@/components/intelligence/SLARiskPulse';
 import Tooltip from '@/components/common/Tooltip';
 
 import { useAlert } from '@/contexts/AlertContext';
@@ -75,7 +76,14 @@ const SLARiskAlert = ({ data }: any) => {
         <Text className="text-state-danger font-bold">SLA Breach Risks</Text>
       </View>
       {data.sla_risks.slice(0, 3).map((r: any, i: number) => (
-        <View key={i} className="flex-row justify-between items-center mb-2">
+        <View key={i} className="flex-row justify-between items-center gap-3 mb-2">
+          {/* Severity as tempo — the driver colouring below is untouched.
+              Kept off RadarWidgets on purpose: that module imports `recharts`. */}
+          <SLARiskPulseDot
+            riskPercent={r.risk_percent}
+            color={r.reason === 'deadline' ? colors.danger : r.reason === 'over_budget' ? colors.warning : colors.textMuted}
+            stagger={slaPulseStagger(i)}
+          />
           <View className="flex-1 flex-row items-center gap-2">
             <Text className="text-typography-main text-xs font-bold">{r.task_number || 'TASK'}</Text>
             <Text className={`text-[9px] font-black uppercase ${

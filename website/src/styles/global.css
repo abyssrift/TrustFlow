@@ -79,8 +79,8 @@ body::before {
   .reveal-delay-5 { transition-delay: 0.4s; }
 
   /* Staggered word reveal — each word fades up on its own beat instead of
-     the whole line at once. delay is per-word via inline style (--wi), set
-     by the splitWords() helper wherever it's used. */
+     the whole line at once. Delay is per-word via inline style (--wi).
+     Layout for this lives OUTSIDE the media query — see below. */
   .word-reveal .w {
     opacity: 0;
     transform: translateY(10px);
@@ -93,6 +93,19 @@ body::before {
     opacity: 1;
     transform: none;
   }
+}
+
+/* Word-reveal LAYOUT — deliberately outside the reduced-motion query.
+   Headlines render each word as an adjacent <span> with no whitespace
+   between them, so this column-gap is the only thing creating word
+   spacing. Scoping it to a motion preference collapsed headlines to
+   "Runyourteam'swork" for anyone with reduced motion enabled. Spacing is
+   layout, not motion — it must apply unconditionally. */
+.word-reveal {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 0.28em;
+  row-gap: 0.08em;
 }
 
 /* Shared button system, reused across every section so styling never drifts. */

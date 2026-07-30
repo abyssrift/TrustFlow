@@ -88,8 +88,12 @@ export default function DynamicIsland({ leading }: { leading: IslandLeading }) {
       onMouseLeave={() => { setHoverLead(false); scheduleClose(); }}
     >
       {/* Collapsed pill — always visible; the chevron toggle lives here so it's
-          reachable whether or not anything's active. */}
+          reachable whether or not anything's active. The data attribute is how
+          other surfaces find the pill's live on-screen rect (getBoundingClientRect)
+          when they want to animate something into it — the island floats and
+          slides with the top bar, so its position can never be hardcoded. */}
       <div
+        data-island-anchor=""
         style={{
           display: 'flex', alignItems: 'center', gap: 6,
           height: hasActivities ? 26 : 22,

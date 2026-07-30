@@ -3,8 +3,12 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React from 'react';
 import { LayoutAnimation, Platform, Text, TouchableOpacity, UIManager, View } from 'react-native';
+import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 
-// Enable LayoutAnimation on Android for smooth expand/collapse.
+// Enable LayoutAnimation on Android/iOS for smooth expand/collapse. Native only —
+// react-native-web's UIManager.configureNextLayoutAnimation is a no-op stub (it
+// just fires the completion callback), so LayoutAnimation animates nothing on
+// web. Web gets its own height-driven reanimated path below instead.
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
@@ -35,11 +39,33 @@ export default function CollapsibleCard({
 }: CollapsibleCardProps) {
   const colors = useThemeColors();
   const [collapsed, setCollapsed] = React.useState(defaultCollapsed);
+  const isWeb = Platform.OS === 'web';
+
+  // Web: height-driven reanimated instead of LayoutAnimation (see the no-op
+  // note above). Lazy-mounts children on first expand — same cost profile as
+  // native's `!collapsed && children`, so a default-collapsed card doesn't
+  // pay to render content nobody has opened yet — then keeps them mounted so
+  // later collapses can animate closed instead of vanishing.
+  const [everOpened, setEverOpened] = React.useState(!defaultCollapsed);
+  const [contentHeight, setContentHeight] = React.useState(0);
+  const reduceMotion = useReducedMotion();
+  const openProgress = useSharedValue(defaultCollapsed ? 0 : 1);
 
   const toggle = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setCollapsed((c) => !c);
+    const willOpen = collapsed; // collapsed now => about to open
+    if (isWeb) {
+      if (willOpen) setEverOpened(true);
+      openProgress.value = reduceMotion ? (willOpen ? 1 : 0) : withTiming(willOpen ? 1 : 0, { duration: 220 });
+    } else {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    }
+    setCollapsed(!willOpen);
   };
+
+  const animatedBodyStyle = useAnimatedStyle(() => ({
+    height: contentHeight * openProgress.value,
+    opacity: openProgress.value,
+  }));
 
   return (
     <View className="bg-surface-card rounded-2xl border border-surface-border p-4">
@@ -69,7 +95,17 @@ export default function CollapsibleCard({
         </View>
       </View>
 
-      {!collapsed && children}
+      {isWeb ? (
+        everOpened && (
+          <Animated.View style={[animatedBodyStyle, { overflow: 'hidden' }]}>
+            <View onLayout={(e) => setContentHeight(e.nativeEvent.layout.height)}>
+              {children}
+            </View>
+          </Animated.View>
+        )
+      ) : (
+        !collapsed && children
+      )}
     </View>
   );
 }

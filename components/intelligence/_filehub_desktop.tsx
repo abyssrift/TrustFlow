@@ -40,6 +40,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { useReducedMotion } from 'react-native-reanimated';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -294,6 +295,144 @@ const EMPTY_DRAFT = (defaultVisibility: 'direct' | 'group' = 'direct'): UploadDr
   caption: '',
 });
 
+// ─── Upload → island goo morph (web) ─────────────────────────────────────────
+// Minimising an in-flight upload used to just cut the card away. Instead the
+// card's footprint flies up and *fuses* with the topbar island through an SVG
+// metaball filter — a heavy blur followed by an alpha threshold, which snaps
+// the two blurred shapes back into one hard-edged liquid blob wherever they
+// overlap. The eye then tracks a single continuous object from "uploading
+// here" to "docked up there" instead of two elements cutting past each other.
+//
+// What is deliberately NOT filtered: the card itself. Running a goo filter
+// over a live subtree is the expensive way to do this — it re-rasterises real
+// text and progress rings every frame. Three solid divs sized from the
+// measured rects give the same read for almost nothing, and the filter is
+// mounted only for the length of the transition, never persistently.
+
+type MorphRect = { top: number; left: number; width: number; height: number };
+
+const MORPH_MS = 480;
+const MODAL_EXIT_MS = 260; // Popup's Modal fades itself out over 250ms after visible flips
+const GOO_FILTER_ID = 'filehub-upload-goo';
+const GOO_BLUR = 8;   // stdDeviation — wide enough to bridge the blobs, tight enough to stay smooth
+const GOO_PAD = 30;   // slack around the travel box so the blur isn't clipped at its edges
+const GOO_EASE = 'cubic-bezier(0.62, 0, 0.2, 1)';
+
+const domRect = (el: HTMLElement): MorphRect => {
+  const r = el.getBoundingClientRect();
+  return { top: r.top, left: r.left, width: r.width, height: r.height };
+};
+
+function UploadGooMorph({ from, to, label, cardColor, accent }: {
+  from: MorphRect;
+  to: MorphRect;
+  label: string;
+  cardColor: string;
+  accent: string;
+}) {
+  const [settled, setSettled] = useState(false);
+
+  // Two frames: the first paints the "from" geometry, the second flips to
+  // "to" — a single frame isn't guaranteed to have painted yet, and a
+  // transition with nothing to transition from just snaps.
+  useEffect(() => {
+    let inner = 0;
+    const outer = requestAnimationFrame(() => { inner = requestAnimationFrame(() => setSettled(true)); });
+    return () => { cancelAnimationFrame(outer); if (inner) cancelAnimationFrame(inner); };
+  }, []);
+
+  // Filter region = just the box the blobs travel through, not the viewport.
+  const minX = Math.min(from.left, to.left) - GOO_PAD;
+  const minY = Math.min(from.top, to.top) - GOO_PAD;
+  const boxW = Math.max(from.left + from.width, to.left + to.width) + GOO_PAD - minX;
+  const boxH = Math.max(from.top + from.height, to.top + to.height) + GOO_PAD - minY;
+
+  const blobTransition = ['left', 'top', 'width', 'height', 'border-radius']
+    .map(p => `${p} ${MORPH_MS}ms ${GOO_EASE}`).join(', ');
+
+  // The card's own footprint, collapsing onto the island's measured rect.
+  const panel = settled
+    ? { left: to.left - minX, top: to.top - minY, width: to.width, height: to.height, borderRadius: 999 }
+    : { left: from.left - minX, top: from.top - minY, width: from.width, height: from.height, borderRadius: 32 };
+
+  // A droplet runs the same path slightly ahead of the panel, so something is
+  // always bridging the two ends while the gap is at its widest — that bridge
+  // is what makes the merge read as liquid rather than as a shrink.
+  const dropSize = Math.max(18, Math.min(34, to.height * 1.2));
+  const dropX = (settled ? to.left + to.width / 2 : from.left + from.width / 2) - minX - dropSize / 2;
+  const dropY = (settled ? to.top + to.height / 2 : from.top + from.height / 2) - minY - dropSize / 2;
+
+  return (
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 200, pointerEvents: 'none' }}>
+      {/* The modal's dim, taken over for the transition so it can fade rather
+          than cut — the blob has to land on a page that's already back. */}
+      <div
+        style={{
+          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.7)',
+          opacity: settled ? 0 : 1,
+          transition: `opacity ${MORPH_MS - 120}ms ease`,
+        }}
+      />
+
+      {/* Filter def lives and dies with this component. */}
+      <svg width={0} height={0} style={{ position: 'absolute' }} aria-hidden="true">
+        <defs>
+          <filter id={GOO_FILTER_ID} x="-25%" y="-25%" width="150%" height="150%" colorInterpolationFilters="sRGB">
+            <feGaussianBlur in="SourceGraphic" stdDeviation={GOO_BLUR} result="blurred" />
+            <feColorMatrix
+              in="blurred"
+              type="matrix"
+              values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -11"
+            />
+          </filter>
+        </defs>
+      </svg>
+
+      <div
+        style={{
+          position: 'absolute', left: minX, top: minY, width: boxW, height: boxH,
+          filter: `url(#${GOO_FILTER_ID})`,
+        }}
+      >
+        <div style={{ position: 'absolute', background: cardColor, willChange: 'left, top, width, height', transition: blobTransition, ...panel }} />
+        <div
+          style={{
+            position: 'absolute', width: dropSize, height: dropSize, borderRadius: 999, background: cardColor,
+            left: dropX, top: dropY, willChange: 'left, top',
+            transition: `left ${MORPH_MS - 90}ms ${GOO_EASE}, top ${MORPH_MS - 90}ms ${GOO_EASE}`,
+          }}
+        />
+        {/* The island end, swelling up to meet the incoming blob. */}
+        <div
+          style={{
+            position: 'absolute', width: to.width, height: to.height, borderRadius: 999, background: cardColor,
+            left: to.left - minX, top: to.top - minY, willChange: 'transform',
+            transform: settled ? 'scale(1)' : 'scale(0)',
+            transition: `transform ${MORPH_MS - 150}ms cubic-bezier(0.34, 1.3, 0.64, 1) 150ms`,
+          }}
+        />
+      </div>
+
+      {/* Progress read rides on top, outside the filter — the threshold would
+          eat the glyphs, and it carries the card's identity into the flight. */}
+      <div
+        style={{
+          position: 'absolute',
+          left: settled ? to.left + to.width / 2 : from.left + from.width / 2,
+          top: settled ? to.top + to.height / 2 : from.top + from.height / 2,
+          transform: `translate(-50%, -50%) scale(${settled ? 0.42 : 1})`,
+          opacity: settled ? 0 : 1,
+          color: accent, fontSize: 28, fontWeight: 900, fontVariantNumeric: 'tabular-nums',
+          transition: `left ${MORPH_MS}ms ${GOO_EASE}, top ${MORPH_MS}ms ${GOO_EASE}, transform ${MORPH_MS}ms ${GOO_EASE}, opacity ${Math.round(MORPH_MS * 0.55)}ms ease`,
+        }}
+      >
+        {label}
+      </div>
+    </div>
+  );
+}
+
 function UploadModal({
   visible,
   folders,
@@ -349,11 +488,26 @@ function UploadModal({
   const job = useUploadJob(launchedJobId);
   const uploading = launchedJobId !== null;
   const { height: winHeight } = useWindowDimensions();
+  const reducedMotion = useReducedMotion();
 
   // The upload job runs in the background UploadManager/IslandContext regardless
   // of whether this modal is open — closing it (even instantly, no transition)
-  // doesn't stop the job or hide its progress in the topbar island.
-  const handleDismiss = onClose;
+  // doesn't stop the job or hide its progress in the topbar island. The morph
+  // below is therefore purely a visual hand-off: it only exists so the user can
+  // see WHERE the upload went, and any path that skips it is still correct.
+  // `morph` mounts the goo layer (and its filter) for exactly the flight; the
+  // separate `handingOff` flag outlives it, because the Modal keeps painting
+  // its backdrop through a 250ms exit fade and letting the dim snap back for
+  // that fade would flash black over the landing.
+  const [morph, setMorph] = useState<{ from: MorphRect; to: MorphRect; label: string } | null>(null);
+  const [handingOff, setHandingOff] = useState(false);
+  const morphTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const morphCardRef = useRef<any>(null);
+  const clearMorphTimers = useCallback(() => {
+    morphTimers.current.forEach(clearTimeout);
+    morphTimers.current = [];
+  }, []);
+  useEffect(() => clearMorphTimers, [clearMorphTimers]);
 
   const patch = (updates: Partial<UploadDraft>) => setDraft(prev => ({ ...prev, ...updates }));
 
@@ -376,8 +530,13 @@ function UploadModal({
       // Smart leveling: open with the folder the user is currently viewing
       // preselected, so uploads land where they're looking instead of at root.
       setDraft(prev => ({ ...prev, visibility: activeGroup ? 'group' : prev.visibility, folderId: defaultFolderId ?? null }));
+      // Reopening inside the tail of a hand-off cancels what's left of it, so
+      // the card can't come back invisible.
+      clearMorphTimers();
+      setMorph(null);
+      setHandingOff(false);
     }
-  }, [visible, activeGroup?.id, defaultFolderId]);
+  }, [visible, activeGroup?.id, defaultFolderId, clearMorphTimers]);
 
   // Seed the composer from an OS-file drop (parent hands over the dropped files
   // when it opens the modal). Same allow-list filter as the manual picker.
@@ -473,6 +632,43 @@ function UploadModal({
 
   const { iconScale: dropIconScale, glowOpacity: dropGlowOpacity } = useDropPulse(modalDropOver);
 
+  // One node, two consumers: the OS-file drop listener and the morph's "where is
+  // the card right now" measurement.
+  const setCardRef = useCallback((node: any) => {
+    morphCardRef.current = node;
+    modalDropRef(node);
+  }, [modalDropRef]);
+
+  // Measure both ends in the click's own frame, then hand off to the goo layer.
+  // getBoundingClientRect is synchronous — RN's measure() isn't, even on RNW,
+  // and a frame of lag here shows up as a visible snap. The island's rect is
+  // read live rather than hardcoded: it floats and slides with the top bar, so
+  // there is no fixed coordinate to aim at.
+  const morphToIsland = useCallback(() => {
+    if (handingOff) return;
+    const cardEl = morphCardRef.current as HTMLElement | null;
+    const islandEl = typeof document !== 'undefined'
+      ? (document.querySelector('[data-island-anchor]') as HTMLElement | null)
+      : null;
+    const from = cardEl?.getBoundingClientRect ? domRect(cardEl) : null;
+    const to = islandEl?.getBoundingClientRect ? domRect(islandEl) : null;
+    // Island not mounted, card already gone, anything unmeasurable — just close.
+    if (!from || !to || !from.width || !to.width) { onClose(); return; }
+    setHandingOff(true);
+    setMorph({ from, to, label: `${Math.round(job?.progress ?? 0)}%` });
+    morphTimers.current.push(
+      setTimeout(() => { setMorph(null); onClose(); }, MORPH_MS),
+      setTimeout(() => setHandingOff(false), MORPH_MS + MODAL_EXIT_MS),
+    );
+  }, [handingOff, onClose, job?.progress]);
+
+  // Web with motion allowed gets the merge; native and reduced-motion get the
+  // plain close they have today.
+  const handleDismiss = useCallback(() => {
+    if (uploading && Platform.OS === 'web' && !reducedMotion) morphToIsland();
+    else onClose();
+  }, [uploading, reducedMotion, morphToIsland, onClose]);
+
   // The upload engine (worker pool, dup/conflict handling, per-file commit,
   // progress, ETA, cancel) lives in UploadManagerContext so the job survives
   // this modal closing. We hand off the draft and switch the modal to its live
@@ -525,11 +721,22 @@ function UploadModal({
         backgroundColor: colors.card,
         borderWidth: modalDropOver ? 2 : 1,
         borderColor: modalDropOver ? colors.primary : colors.border,
+        // While the goo layer is flying the card's footprint up to the island,
+        // the real card steps aside — the blob is standing in for it, pixel for
+        // pixel, so there's nothing to see underneath.
+        opacity: handingOff ? 0 : 1,
       }}
+      // The dim moves into the goo layer for the duration of the morph, where a
+      // raw DOM node can fade it out in step with the flight — by the time we
+      // unmount, the island the blob landed on is the real one, already visible.
+      backdropStyle={handingOff ? { backgroundColor: 'rgba(0,0,0,0)' } : undefined}
+      overlays={morph ? (
+        <UploadGooMorph from={morph.from} to={morph.to} label={morph.label} cardColor={colors.card} accent={colors.primary} />
+      ) : undefined}
       scrollable={false}
     >
         <View
-          ref={modalDropRef}
+          ref={setCardRef}
           style={{ maxHeight: '100%' }}
         >
           {modalDropOver && (
@@ -849,8 +1056,9 @@ function UploadModal({
 // ─── Upload Progress Panel (in-modal live view) ───────────────────────────────
 // Shown once Upload is clicked. Reads the live job snapshot from the background
 // UploadManager (same job that drives the island) so this view and the island
-// never disagree. Minimizing closes the modal directly — the job (and the
-// island's own progress display) keep running in UploadManagerContext regardless.
+// never disagree. Minimizing hands the card over to the island (see
+// UploadGooMorph) — the job, and the island's own progress display, keep
+// running in UploadManagerContext regardless of what the transition does.
 
 function UploadProgressPanel({
   job, fileCount, totalBytes, onMinimize, onCancel, onDone,
