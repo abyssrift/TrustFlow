@@ -2,7 +2,13 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Nav from '../components/Nav.astro';
 import Footer from '../components/Footer.astro';
+import BrowserMockup from '../components/BrowserMockup.astro';
 import ImageSlot from '../components/ImageSlot.astro';
+import busyBoard from '../assets/BusyBoard.png';
+import heroMockup from '../assets/hero-task-board-macbook.png';
+import analyticsPhone from '../assets/phone-analytics-dashboard.png';
+import multiDeviceDashboard from '../assets/multi-device-dashboard.png';
+import fileHubScreenshot from '../assets/file-hub-screenshot.png';
 
 const audiences = [
   { label: 'Small teams', body: 'Keep everyone aligned without extra process or overhead.' },
@@ -25,7 +31,7 @@ const ideaWords = 'Most tools make work visible. TrustFlow makes it'.split(' ');
 
   <main>
     <!-- Hero -->
-    <section id="hero" class="mx-auto grid max-w-content grid-cols-1 items-center gap-12 px-6 pb-16 pt-14 sm:px-12 sm:pt-16 lg:grid-cols-[minmax(320px,0.9fr)_minmax(0,1.1fr)] lg:gap-16">
+    <section id="hero" class="mx-auto grid max-w-[1400px] grid-cols-1 items-center gap-12 px-6 pb-16 pt-14 sm:px-12 sm:pt-16 lg:grid-cols-[minmax(280px,0.7fr)_minmax(0,1.5fr)] lg:gap-10">
       <div class="reveal min-w-0">
         <span class="text-eyebrow uppercase text-text-dim">Operations, without the chaos</span>
         <h1 class="word-reveal mt-[18px] mb-4 text-h1 text-text-heading">
@@ -51,10 +57,13 @@ const ideaWords = 'Most tools make work visible. TrustFlow makes it'.split(' ');
           aria-hidden="true"
         >
         </div>
-        <Image
+        <ImageSlot
+          label="MacBook mockup — dashboard screenshot"
+          height={480}
+          variant="hero"
+          class="reveal reveal-delay-1"
           src={heroMockup}
-          alt="TrustFlow on desktop and mobile"
-          class="reveal reveal-delay-1 h-auto w-full"
+          alt="TrustFlow Task Board on desktop"
         />
       </div>
     </section>
@@ -87,7 +96,7 @@ const ideaWords = 'Most tools make work visible. TrustFlow makes it'.split(' ');
     <!-- Feature sections -->
     <section id="features" class="px-6 pb-10 pt-5 sm:px-12">
       <div class="mx-auto flex max-w-content flex-col gap-24 lg:gap-[120px]">
-        <div id="task-boards" class="reveal grid grid-cols-1 items-center gap-12 lg:grid-cols-2 lg:gap-[72px]">
+        <div id="task-boards" class="reveal grid grid-cols-1 items-center gap-12 lg:grid-cols-[minmax(240px,0.75fr)_minmax(0,1.35fr)] lg:gap-10">
           <div class="min-w-0">
             <span class="text-eyebrow uppercase text-text-dim">Task boards</span>
             <h3 class="my-[14px] text-h3 text-text-heading">Every task, one board</h3>
@@ -95,11 +104,23 @@ const ideaWords = 'Most tools make work visible. TrustFlow makes it'.split(' ');
               Pending, in progress, and completed — always visible, always up to date. Priority, timers, and ownership live right on the card, so status updates stop being a meeting.
             </p>
           </div>
-          <ImageSlot label="MacBook mockup — Task Board screenshot" height={400} variant="feature" class="lg:order-2" />
+          <BrowserMockup
+            src={busyBoard}
+            alt="TrustFlow Task Board"
+            variant="feature"
+            class="lg:order-2"
+          />
         </div>
 
-        <div id="reporting" class="reveal grid grid-cols-1 items-center gap-12 lg:grid-cols-2 lg:gap-[72px]">
-          <ImageSlot label="MacBook mockup — Pipeline / analytics dashboard" height={400} variant="feature" class="lg:order-1" />
+        <div id="reporting" class="reveal grid grid-cols-1 items-center gap-12 lg:grid-cols-[minmax(0,320px)_1fr] lg:gap-16">
+          <ImageSlot
+            label="MacBook mockup — Pipeline / analytics dashboard"
+            height={400}
+            variant="feature"
+            class="mx-auto w-full max-w-[320px] lg:order-1 lg:mx-0"
+            src={analyticsPhone}
+            alt="TrustFlow SLA risk and pipeline load analytics on mobile"
+          />
           <div class="min-w-0 lg:order-2">
             <span class="text-eyebrow uppercase text-text-dim">Reporting</span>
             <h3 class="my-[14px] text-h3 text-text-heading">See the whole pipeline</h3>
@@ -109,7 +130,7 @@ const ideaWords = 'Most tools make work visible. TrustFlow makes it'.split(' ');
           </div>
         </div>
 
-        <div id="file-hub" class="reveal grid grid-cols-1 items-center gap-12 lg:grid-cols-2 lg:gap-[72px]">
+        <div id="file-hub" class="reveal grid grid-cols-1 items-center gap-12 lg:grid-cols-[minmax(240px,0.75fr)_minmax(0,1.35fr)] lg:gap-10">
           <div class="min-w-0">
             <span class="text-eyebrow uppercase text-text-dim">File hub</span>
             <h3 class="my-[14px] text-h3 text-text-heading">Files and conversations, together</h3>
@@ -117,7 +138,12 @@ const ideaWords = 'Most tools make work visible. TrustFlow makes it'.split(' ');
               Channels, broadcasts, and shared files in one place — so the right version is never buried three inboxes deep.
             </p>
           </div>
-          <ImageSlot label="MacBook mockup — File Hub screenshot" height={400} variant="feature" class="lg:order-2" />
+          <BrowserMockup
+            src={fileHubScreenshot}
+            alt="TrustFlow File Hub"
+            variant="feature"
+            class="lg:order-2"
+          />
         </div>
       </div>
     </section>
@@ -151,7 +177,14 @@ const ideaWords = 'Most tools make work visible. TrustFlow makes it'.split(' ');
             </div>
           </div>
         </div>
-        <ImageSlot label="MacBook mockup — Activity view" height={350} variant="testimonial" class="tilt-card" />
+        <ImageSlot
+          label="MacBook mockup — Activity view"
+          height={350}
+          variant="testimonial"
+          class="tilt-card"
+          src={multiDeviceDashboard}
+          alt="TrustFlow dashboard across tablet and mobile"
+        />
       </div>
     </section>
 

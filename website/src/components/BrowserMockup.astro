@@ -1,0 +1,114 @@
+---
+// Dark macOS-style browser chrome wrapping a real screenshot — the "swap
+// ImageSlot for a real asset" step from ImageSlot.astro's own header
+// comment, once a screenshot exists. Reuses ImageSlot's 3-layer ambient
+// glow so a page can swap one for the other without the glow treatment
+// shifting underneath it.
+import { Image } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+
+interface Props {
+  src: ImageMetadata;
+  alt: string;
+  height?: number;
+  url?: string;
+  variant?: 'hero' | 'feature' | 'testimonial';
+  /** Chrome color scheme — 'light' for a screenshot shot in the app's light
+      mode, so the frame doesn't fight the content inside it. Independent of
+      the site's own (dark-only) theme, so these are hardcoded, not tokens. */
+  chrome?: 'dark' | 'light';
+  class?: string;
+}
+
+const {
+  src,
+  alt,
+  height,
+  url = 'app.trustflow.com',
+  variant = 'feature',
+  chrome = 'dark',
+  class: className = '',
+} = Astro.props;
+
+const isLight = chrome === 'light';
+
+const glowByVariant = {
+  hero: { ambient: '70% -10% 40px 0.22', mid: '52% 6% 24px 0.17', contactH: 44, contactBlur: 16, contactOpacity: 0.72 },
+  feature: { ambient: '65% -10% 34px 0.2', mid: '48% 8% 20px 0.15', contactH: 36, contactBlur: 14, contactOpacity: 0.68 },
+  testimonial: { ambient: '65% -10% 34px 0.2', mid: null, contactH: 28, contactBlur: 12, contactOpacity: 0.6 },
+} as const;
+
+const glow = glowByVariant[variant];
+const [ambientH, ambientTop, ambientBlur, ambientOpacity] = glow.ambient.split(' ');
+const mid = glow.mid ? glow.mid.split(' ') : null;
+---
+
+<div class:list={['relative min-w-0', className]}>
+  <div
+    aria-hidden="true"
+    class="pointer-events-none absolute left-[2%] right-[2%] z-0"
+    style={{
+      top: ambientTop,
+      height: ambientH,
+      filter: `blur(${ambientBlur})`,
+      background: `radial-gradient(closest-side, rgba(180,195,215,${ambientOpacity}), rgba(180,195,215,0) 70%)`,
+    }}
+  />
+  {mid && (
+    <div
+      aria-hidden="true"
+      class="pointer-events-none absolute left-[8%] right-[8%] z-0"
+      style={{
+        top: mid[1],
+        height: mid[0],
+        filter: `blur(${mid[2]})`,
+        background: `radial-gradient(closest-side, rgba(215,228,242,${mid[3]}), rgba(215,228,242,0) 65%)`,
+      }}
+    />
+  )}
+  <div
+    aria-hidden="true"
+    class="pointer-events-none absolute bottom-0 left-[10%] right-[10%] z-0"
+    style={{
+      height: `${glow.contactH}px`,
+      filter: `blur(${glow.contactBlur}px)`,
+      background: `radial-gradient(closest-side, rgba(0,0,0,${glow.contactOpacity}), rgba(0,0,0,0) 75%)`,
+    }}
+  />
+
+  <div
+    class:list={[
+      'relative z-10 w-full overflow-hidden rounded-card border',
+      isLight ? 'border-black/10 bg-white' : 'border-hairline-strong bg-surface-card',
+    ]}
+    style={height ? { height: `${height}px` } : undefined}
+  >
+    <div
+      class:list={[
+        'flex h-9 flex-none items-center gap-3 border-b px-3.5 sm:h-10',
+        isLight ? 'border-black/10 bg-[#ececee]' : 'border-hairline bg-surface-elevated',
+      ]}
+    >
+      <div class="flex flex-none items-center gap-[7px]">
+        <span class:list={['h-[11px] w-[11px] rounded-full bg-[#ff5f57]', isLight ? '' : 'opacity-80']} />
+        <span class:list={['h-[11px] w-[11px] rounded-full bg-[#febc2e]', isLight ? '' : 'opacity-80']} />
+        <span class:list={['h-[11px] w-[11px] rounded-full bg-[#28c840]', isLight ? '' : 'opacity-80']} />
+      </div>
+      <div class:list={['flex flex-none items-center gap-2', isLight ? 'text-black/35' : 'text-text-faint']}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"><path d="M15 18l-6-6 6-6" /></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6" /></svg>
+      </div>
+      <div
+        class:list={[
+          'flex h-6 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full border px-3',
+          isLight ? 'border-black/10 bg-white' : 'border-hairline bg-surface-card',
+        ]}
+      >
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class:list={['flex-none', isLight ? 'text-black/35' : 'text-text-faint']}><rect x="5" y="11" width="14" height="9" rx="1.5" /><path d="M8 11V8a4 4 0 018 0v3" /></svg>
+        <span class:list={['truncate text-[11px]', isLight ? 'text-black/45' : 'text-text-faint']}>{url}</span>
+      </div>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" class:list={['flex-none', isLight ? 'text-black/35' : 'text-text-faint']}><circle cx="5" cy="12" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="19" cy="12" r="1.6" /></svg>
+    </div>
+    <Image src={src} alt={alt} class="block h-auto w-full" />
+  </div>
+</div>

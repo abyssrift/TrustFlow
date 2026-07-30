@@ -48,6 +48,15 @@ body::before {
 /* Scroll reveals — fade + slide up on first entry into the viewport (see the
    IntersectionObserver in BaseLayout.astro). Only hidden once JS confirms
    it's ready to reveal them, and only animated when motion is welcome. */
+/* Layout only (word spacing) — must hold regardless of motion preference,
+   since each word is its own <span> with no literal space in the markup. */
+.word-reveal {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 0.28em;
+  row-gap: 0.08em;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .js-reveal-ready .reveal {
     opacity: 0;
@@ -70,15 +79,8 @@ body::before {
   .reveal-delay-5 { transition-delay: 0.4s; }
 
   /* Staggered word reveal — each word fades up on its own beat instead of
-     the whole line at once. flex-wrap (not inline-block + manual spaces)
-     so word spacing is robust across browsers; delay is per-word via
-     inline style (--wi), set by the splitWords() helper wherever it's used. */
-  .word-reveal {
-    display: flex;
-    flex-wrap: wrap;
-    column-gap: 0.28em;
-    row-gap: 0.08em;
-  }
+     the whole line at once. delay is per-word via inline style (--wi), set
+     by the splitWords() helper wherever it's used. */
   .word-reveal .w {
     opacity: 0;
     transform: translateY(10px);

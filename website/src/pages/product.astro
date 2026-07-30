@@ -8,7 +8,11 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Nav from '../components/Nav.astro';
 import Footer from '../components/Footer.astro';
+import BrowserMockup from '../components/BrowserMockup.astro';
 import ImageSlot from '../components/ImageSlot.astro';
+import fileHubScreenshot from '../assets/file-hub-screenshot.png';
+import analyticsScreenshot from '../assets/analytics-overview-screenshot.png';
+import heroMockup from '../assets/hero-task-board-macbook.png';
 
 const subnav = [
   { id: 'task-boards', label: 'Task boards' },
@@ -68,12 +72,24 @@ const h1Words = 'One workspace. Every part of the work.'.split(' ');
         <p class="mx-auto mt-3.5 max-w-[480px] text-body text-text-muted">
           Pending, active, done — cards carry priority, owner, and time spent so no one has to ask for a status update.
         </p>
-        <ImageSlot label="MacBook mockup — Task Board screenshot" height={580} variant="hero" class="mx-auto mt-12 max-w-[960px]" />
+        <ImageSlot
+          label="MacBook mockup — Task Board screenshot"
+          height={580}
+          variant="hero"
+          class="mx-auto mt-12 max-w-[960px]"
+          src={heroMockup}
+          alt="TrustFlow Task Board on desktop"
+        />
       </div>
 
       <!-- Reporting -->
       <div id="reporting" data-subnav-section class="grid scroll-mt-[150px] grid-cols-1 items-center gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:gap-[72px]">
-        <ImageSlot label="MacBook mockup — Pipeline / analytics dashboard" height={400} variant="feature" class="lg:order-1" />
+        <BrowserMockup
+          src={analyticsScreenshot}
+          alt="TrustFlow Intelligence Hub overview"
+          variant="feature"
+          class="lg:order-1"
+        />
         <div class="reveal min-w-0 lg:order-2">
           <span class="text-eyebrow uppercase text-text-dim">Reporting</span>
           <h2 class="my-[14px] text-h2 text-text-heading">Numbers that tell you if work is moving</h2>
@@ -98,7 +114,7 @@ const h1Words = 'One workspace. Every part of the work.'.split(' ');
       </div>
 
       <!-- File hub -->
-      <div id="file-hub" data-subnav-section class="grid scroll-mt-[150px] grid-cols-1 items-center gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:gap-[72px]">
+      <div id="file-hub" data-subnav-section class="grid scroll-mt-[150px] grid-cols-1 items-center gap-12 lg:grid-cols-[0.75fr_1.25fr] lg:gap-10">
         <div class="reveal min-w-0">
           <span class="text-eyebrow uppercase text-text-dim">File hub</span>
           <h2 class="my-[14px] text-h2 text-text-heading">Files and conversation, finally in one place</h2>
@@ -111,7 +127,7 @@ const h1Words = 'One workspace. Every part of the work.'.split(' ');
             ))}
           </div>
         </div>
-        <ImageSlot label="MacBook mockup — File Hub screenshot" height={400} variant="feature" class="lg:order-2" />
+        <BrowserMockup src={fileHubScreenshot} alt="TrustFlow File Hub" variant="feature" class="lg:order-2" />
       </div>
 
       <!-- Automations -->
@@ -225,6 +241,17 @@ const h1Words = 'One workspace. Every part of the work.'.split(' ');
 
   const first = links.find((l) => l.classList.contains('is-active')) ?? links[0];
   if (first) requestAnimationFrame(() => slideTo(first));
+
+  // Labels render in a fallback font until the self-hosted Inter file loads
+  // (font-display: swap in BaseLayout.astro) — that swap reflows link widths
+  // after the indicator already measured them, leaving it the wrong size/
+  // position until the next scroll-triggered update. Re-measure once the
+  // real font is in.
+  document.fonts?.ready.then(() => {
+    const active = links.find((l) => l.classList.contains('is-active')) ?? links[0];
+    if (active) slideTo(active);
+  });
+
   window.addEventListener('resize', () => {
     const active = links.find((l) => l.classList.contains('is-active'));
     if (active) slideTo(active);

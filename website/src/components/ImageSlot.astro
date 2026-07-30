@@ -2,15 +2,21 @@
 // Placeholder for a real product screenshot/mockup. Renders the 3-layer
 // ambient-glow + contact-shadow treatment from the design handoff behind a
 // labeled placeholder box, so page layout is provable before real assets
-// land — swap the placeholder box for an <Image> once a screenshot exists.
+// land. Pass `src` once a screenshot exists — it swaps the dashed box for a
+// real <Image> inside the same glow, so the treatment doesn't shift.
+import { Image } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+
 interface Props {
   label: string;
   height: number;
   variant?: 'hero' | 'feature' | 'testimonial' | 'avatar';
   class?: string;
+  src?: ImageMetadata;
+  alt?: string;
 }
 
-const { label, height, variant = 'feature', class: className = '' } = Astro.props;
+const { label, height, variant = 'feature', class: className = '', src, alt } = Astro.props;
 
 const glowByVariant = {
   hero: { ambient: '70% -10% 40px 0.22', mid: '52% 6% 24px 0.17', contactH: 44, contactBlur: 16, contactOpacity: 0.72 },
@@ -73,12 +79,16 @@ const glow = glowByVariant[variant];
           }}
         />
       )}
-      <div
-        class="relative z-10 flex w-full items-center justify-center rounded-card border border-dashed border-hairline-strong bg-surface-card px-6 text-center text-[13px] text-text-faint"
-        style={{ height: `${height}px` }}
-      >
-        {label}
-      </div>
+      {src ? (
+        <Image src={src} alt={alt ?? label} class="relative z-10 block h-auto w-full" />
+      ) : (
+        <div
+          class="relative z-10 flex w-full items-center justify-center rounded-card border border-dashed border-hairline-strong bg-surface-card px-6 text-center text-[13px] text-text-faint"
+          style={{ height: `${height}px` }}
+        >
+          {label}
+        </div>
+      )}
     </div>
   )
 }
