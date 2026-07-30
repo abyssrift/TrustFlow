@@ -137,6 +137,17 @@ const items: DocItem[] = [
     ],
   },
 
+  {
+    id: 'tut-6', group: 'Tutorials', title: 'Moving a task to a different pipeline',
+    summary: 'Work that started on the wrong board doesn’t have to be recreated — move the task itself, and its history, comments, files, and logged time come with it.',
+    steps: [
+      'Open the task and choose Edit.',
+      'Pick a new board from the Pipeline field. Only boards you have access to are listed, and you need permission to edit the task.',
+      'Stop any running timer on the task first — a move is blocked while someone is actively tracking time, so no one’s session gets split across two boards.',
+      'Save. The task arrives in the new board’s first stage, and the move is recorded in its history.',
+    ],
+  },
+
   // ── Guides ───────────────────────────────────────────────────
   {
     id: 'gd-1', group: 'Guides', title: 'How pipelines, stages, and transitions fit together',
@@ -176,6 +187,10 @@ const items: DocItem[] = [
   {
     id: 'faq-4', group: 'FAQs', title: 'Can I export my data?', summary: 'Data export & reporting', isFaq: true,
     answer: 'Reports and analytics export to CSV on Business and Enterprise plans. We’re not yet offering a full account-data export on every plan.',
+  },
+  {
+    id: 'faq-5', group: 'FAQs', title: 'What happens to logged time when a task moves to another pipeline?', summary: 'Pipelines & reporting', isFaq: true,
+    answer: 'Nothing is deleted — every timer session, comment, file, and submission stays attached to the task, and its total logged effort is unchanged. What shifts is where that effort is counted in board-level reports: periods that have already closed stay credited to the old board, while the current period follows the task to the new one, so expect a one-period step in both boards’ hours and points. Stage history stays on the board it happened on. One thing to know: stage time gates start fresh in the new stage — time logged in the old board’s stage doesn’t count toward a minimum on the new one.',
   },
 ];
 
