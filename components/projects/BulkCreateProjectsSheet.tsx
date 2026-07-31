@@ -25,7 +25,7 @@ function randomKey(): string {
 
 type Template = { id: string; name: string; body: any[] };
 
-type ParsedLine = { raw: string; name: string; start_date: string | null };
+type ParsedLine = { raw: string; name: string; start_date: string | null; external_ref: string | null };
 
 // One line = one project. "Name" doubles as the client name to upsert — the
 // issue frames this feature as "paste a list of client names", and the
@@ -33,21 +33,29 @@ type ParsedLine = { raw: string; name: string; start_date: string | null };
 // client column, so project name and client_ref are the same string here.
 // Judgment call: split into a real "Name | Client" column later if a firm's
 // project names and client names diverge often enough to need it.
+//
+// Third optional field: a stable client identifier (issue #171 gap 1 / plan
+// §13.3) — e.g. a commercial-registration or file number. When present, the
+// client is matched/created on that ref instead of on name, so "Abdallah
+// Group" this year and "Abdallah Group LLC" next year resolve to the same
+// client instead of silently forking into two. Leave a line's date field
+// blank (two commas) to supply a ref with no date.
 function parseLines(text: string): ParsedLine[] {
   return text
     .split('\n')
     .map(l => l.trim())
     .filter(Boolean)
     .map(raw => {
-      const [namePart, datePart] = raw.split(',');
+      const [namePart, datePart, refPart] = raw.split(',');
       const name = (namePart || '').trim();
       const dateStr = (datePart || '').trim();
+      const external_ref = (refPart || '').trim() || null;
       let start_date: string | null = null;
       if (dateStr) {
         const d = new Date(dateStr);
         if (!isNaN(d.getTime())) start_date = d.toISOString();
       }
-      return { raw, name, start_date };
+      return { raw, name, start_date, external_ref };
     })
     .filter(p => p.name.length > 0);
 }
@@ -106,7 +114,7 @@ export default function BulkCreateProjectsSheet({
         name: portfolioName.trim() || null,
         manifest: parsed.map(p => ({ name: p.name, instantiated: true })),
       },
-      p_projects: parsed.map(p => ({ name: p.name, client_ref: p.name, start_date: p.start_date })),
+      p_projects: parsed.map(p => ({ name: p.name, client_ref: p.name, client_external_ref: p.external_ref, start_date: p.start_date })),
       p_idempotency_key: idempotencyKey,
     });
     setCreating(false);
@@ -181,12 +189,12 @@ export default function BulkCreateProjectsSheet({
         {/* Textarea — one project per line */}
         <View>
           <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2">
-            Projects — one per line, optionally "Name, 2026-08-01"
+            Projects — one per line, optionally "Name, 2026-08-01, ref"
           </Text>
           <TextInput
             value={text}
             onChangeText={setText}
-            placeholder={'Abdallah Group\nCentro Trading, 2026-08-15\nNorthgate LLC'}
+            placeholder={'Abdallah Group\nCentro Trading, 2026-08-15, CR-4471\nNorthgate LLC, , NG-002'}
             placeholderTextColor={c.textDim}
             multiline
             numberOfLines={8}
