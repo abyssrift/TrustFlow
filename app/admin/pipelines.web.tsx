@@ -56,6 +56,7 @@ function PipelinesWebInner() {
     setAssignmentPool,
     setPoolMemberWithdrawn,
     setFileVisibility,
+    setPipelineSubjectKind,
   } = usePipelineEditor();
 
   const { hasPermission } = useAuth();
@@ -124,7 +125,8 @@ function PipelinesWebInner() {
                   task_visibility_mode: selectedPipeline.task_visibility_mode || 'all',
                   is_default: selectedPipeline.is_default || false,
                   assignment_mode: selectedPipeline.assignment_mode || 'manual',
-                  assignment_pool_type: selectedPipeline.assignment_pool_type || 'users'
+                  assignment_pool_type: selectedPipeline.assignment_pool_type || 'users',
+                  subject_kind: selectedPipeline.subject_kind || 'task'
                 }}
                 roles={roles}
                 error={error}
@@ -151,6 +153,9 @@ function PipelinesWebInner() {
                     data.assignment_pool_type
                   );
                   await setFileVisibility(selectedPipeline.id, data.file_visibility);
+                  if (data.subject_kind !== selectedPipeline.subject_kind) {
+                    await setPipelineSubjectKind(selectedPipeline.id, data.subject_kind);
+                  }
                 }}
                 onDelete={async () => {
                   await pipelineActions.remove(selectedPipeline.id);
@@ -226,13 +231,22 @@ function PipelinesWebInner() {
                       </View>
                     </View>
                     
-                    {p.is_default && (
-                       <View className={`px-2 py-0.5 rounded-md ${selectedPipeline?.id === p.id ? 'bg-white/20' : 'bg-brand-primary/10'}`}>
-                         <Text className={`text-[8px] font-black ${selectedPipeline?.id === p.id ? 'text-white' : 'text-brand-primary'}`}>
-                           DEFAULT
-                         </Text>
-                       </View>
-                    )}
+                    <View className="flex-row items-center gap-1.5">
+                      {p.is_default && (
+                         <View className={`px-2 py-0.5 rounded-md ${selectedPipeline?.id === p.id ? 'bg-white/20' : 'bg-brand-primary/10'}`}>
+                           <Text className={`text-[8px] font-black ${selectedPipeline?.id === p.id ? 'text-white' : 'text-brand-primary'}`}>
+                             DEFAULT
+                           </Text>
+                         </View>
+                      )}
+                      {p.subject_kind === 'project' && (
+                         <View className={`px-2 py-0.5 rounded-md ${selectedPipeline?.id === p.id ? 'bg-white/20' : 'bg-state-info/10'}`}>
+                           <Text className={`text-[8px] font-black ${selectedPipeline?.id === p.id ? 'text-white' : 'text-state-info'}`}>
+                             PROJECT
+                           </Text>
+                         </View>
+                      )}
+                    </View>
                   </View>
                 </TouchableOpacity>
               ))

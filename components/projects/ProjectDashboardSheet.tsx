@@ -9,6 +9,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Popup from '@/components/common/Popup';
 import Tooltip from '@/components/common/Tooltip';
 import SaveAsTemplateSheet from '@/components/projects/SaveAsTemplateSheet';
+import ProjectStagePicker from '@/components/projects/ProjectStagePicker';
+import ProjectBlockedToggle from '@/components/projects/ProjectBlockedToggle';
+import { useProjectLifecycle } from '@/hooks/useProjectLifecycle';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAlert } from '@/contexts/AlertContext';
 
@@ -64,6 +67,9 @@ export default function ProjectDashboardSheet({
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<Dashboard | null>(null);
   const [saveTemplateVisible, setSaveTemplateVisible] = useState(false);
+  const [stagePickerVisible, setStagePickerVisible] = useState(false);
+  const canEditProject = hasPermission('project.edit');
+  const { data: lifecycle, advanceStage, setBlocked } = useProjectLifecycle(projectId, visible);
 
   useEffect(() => {
     if (!visible || !projectId) return;
@@ -104,13 +110,21 @@ export default function ProjectDashboardSheet({
       maxHeight="94%"
       presentation="auto"
       overlays={
-        <SaveAsTemplateSheet
-          visible={saveTemplateVisible}
-          projectId={projectId}
-          projectName={data?.project?.name}
-          onClose={() => setSaveTemplateVisible(false)}
-          onSaved={(t) => showAlert('Template Saved', `"${t.name}" is ready to use for bulk instantiation.`)}
-        />
+        <>
+          <SaveAsTemplateSheet
+            visible={saveTemplateVisible}
+            projectId={projectId}
+            projectName={data?.project?.name}
+            onClose={() => setSaveTemplateVisible(false)}
+            onSaved={(t) => showAlert('Template Saved', `"${t.name}" is ready to use for bulk instantiation.`)}
+          />
+          <ProjectStagePicker
+            visible={stagePickerVisible}
+            currentStageId={lifecycle?.currentStageId ?? null}
+            onClose={() => setStagePickerVisible(false)}
+            onSelectStage={advanceStage}
+          />
+        </>
       }
     >
       <View style={{ flex: 1, backgroundColor: c.background }}>
@@ -168,6 +182,36 @@ export default function ProjectDashboardSheet({
             {!!data?.project?.description && (
               <Text className="text-sm mb-5" style={{ color: c.textMuted }}>{data.project.description}</Text>
             )}
+
+            {/* Lifecycle — stage + blocked flag (#172 P2) */}
+            <View style={{ gap: 10 }} className="mb-4">
+              <TouchableOpacity
+                disabled={!canEditProject}
+                onPress={() => setStagePickerVisible(true)}
+                className="rounded-2xl border p-4 flex-row items-center justify-between"
+                style={{ backgroundColor: c.card, borderColor: c.border }}
+              >
+                <View className="flex-1 pr-3">
+                  <Text className="text-[9px] font-black uppercase tracking-widest mb-1.5" style={{ color: c.textMuted }}>Stage</Text>
+                  {lifecycle?.stageName ? (
+                    <View className="flex-row items-center gap-2 self-start px-2.5 py-1 rounded-full border" style={{ borderColor: c.border }}>
+                      <View style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: lifecycle.stageColor ?? c.primary }} />
+                      <Text className="font-black text-sm" style={{ color: c.textMain }} numberOfLines={1}>{lifecycle.stageName}</Text>
+                    </View>
+                  ) : (
+                    <Text className="text-sm font-bold" style={{ color: c.textDim }}>No stage set</Text>
+                  )}
+                </View>
+                {canEditProject && <FontAwesome name="exchange" size={13} color={c.textMuted} />}
+              </TouchableOpacity>
+
+              <ProjectBlockedToggle
+                blocked={lifecycle?.blocked ?? false}
+                blockedReason={lifecycle?.blockedReason ?? null}
+                onSave={setBlocked}
+                disabled={!canEditProject}
+              />
+            </View>
 
             {/* KPI grid — 2 per row */}
             <View className="flex-row flex-wrap" style={{ gap: 10 }}>

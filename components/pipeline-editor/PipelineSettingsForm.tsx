@@ -16,6 +16,8 @@ type PipelineFormData = {
   is_default?: boolean;
   assignment_mode: 'manual' | 'round_robin' | 'smart';
   assignment_pool_type: 'users' | 'teams';
+  /** #172 P2 -- whether this pipeline's stages describe tasks or projects. */
+  subject_kind: 'task' | 'project';
 };
 
 type AssignmentPoolMember = {
@@ -87,6 +89,7 @@ export default function PipelineSettingsForm({
     initFv?.categories ? Object.entries(initFv.categories).map(([category, policy]) => ({ category, policy })) : []
   );
   const [isDefault, setIsDefault] = useState(initialData?.is_default || false);
+  const [subjectKind, setSubjectKind] = useState<'task' | 'project'>(initialData?.subject_kind || 'task');
   const [assignmentMode, setAssignmentMode] = useState<'manual' | 'round_robin' | 'smart'>(
     initialData?.assignment_mode || 'manual'
   );
@@ -172,6 +175,7 @@ export default function PipelineSettingsForm({
       is_default: isDefault,
       assignment_mode: assignmentMode,
       assignment_pool_type: assignmentPoolType,
+      subject_kind: subjectKind,
     });
   };
 
@@ -253,6 +257,40 @@ export default function PipelineSettingsForm({
           multiline
           numberOfLines={2}
         />
+      </View>
+
+      {/* Pipeline Type (#172 P2) */}
+      <View className="bg-surface-overlay/50 p-4 rounded-2xl border border-surface-border">
+        <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-3">This Pipeline Governs</Text>
+        <View className="flex-row gap-2">
+          <TouchableOpacity
+            onPress={() => setSubjectKind('task')}
+            className={`flex-1 py-2.5 rounded-xl border items-center flex-row justify-center gap-2 ${
+              subjectKind === 'task' ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'
+            }`}
+          >
+            <FontAwesome name="check-square-o" size={10} color={subjectKind === 'task' ? colors.textMain : colors.textMuted} />
+            <Text className={`text-[10px] font-black uppercase tracking-tighter ${subjectKind === 'task' ? 'text-brand-on-primary' : 'text-typography-muted'}`}>
+              Tasks
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setSubjectKind('project')}
+            className={`flex-1 py-2.5 rounded-xl border items-center flex-row justify-center gap-2 ${
+              subjectKind === 'project' ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'
+            }`}
+          >
+            <FontAwesome name="folder-o" size={10} color={subjectKind === 'project' ? colors.textMain : colors.textMuted} />
+            <Text className={`text-[10px] font-black uppercase tracking-tighter ${subjectKind === 'project' ? 'text-brand-on-primary' : 'text-typography-muted'}`}>
+              Projects
+            </Text>
+          </TouchableOpacity>
+        </View>
+        <Text className="text-typography-muted text-[9px] mt-2 ml-1 leading-4 italic">
+          {subjectKind === 'task'
+            ? 'Stages describe how an individual task moves through work — the default for every pipeline.'
+            : 'Stages describe a project’s lifecycle instead, and are set from the project detail view, not by moving a task. Tasks cannot be created on a project pipeline.'}
+        </Text>
       </View>
 
       {/* Visibility Section */}

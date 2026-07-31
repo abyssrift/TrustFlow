@@ -29,7 +29,7 @@ export default function PipelineList() {
   const {
     pipelines, loading, error,
     refreshPipelines, selectPipeline,
-    createPipeline, updatePipeline, deletePipeline,
+    createPipeline, updatePipeline, deletePipeline, setPipelineSubjectKind,
     roles,
   } = usePipelineEditor();
   const { hasPermission, profile } = useAuth();
@@ -60,7 +60,7 @@ export default function PipelineList() {
       : [{ name: 'START', color: colors.textDim, position: 1, is_initial: true, is_terminal: false, requires_submission: false }];
     const trans = isQuickCreate ? TRANSITION_PRESETS : [];
 
-    const id = await createPipeline(data.name, data.description, stgs, trans, data.visibility_permissions, data.task_visibility_mode);
+    const id = await createPipeline(data.name, data.description, stgs, trans, data.visibility_permissions, data.task_visibility_mode, data.subject_kind);
     if (id) {
       setShowCreate(false);
     }
@@ -75,6 +75,12 @@ export default function PipelineList() {
   const handleSaveEdit = async (id: string, data: any) => {
     if (!canEdit) return;
     await updatePipeline(id, data.name, data.description, undefined, data.visibility_permissions, data.task_visibility_mode);
+    // rpc_update_pipeline has no subject_kind param -- a separate direct-table
+    // write, only issued when it actually changed.
+    const current = pipelines.find(p => p.id === id);
+    if (data.subject_kind && data.subject_kind !== current?.subject_kind) {
+      await setPipelineSubjectKind(id, data.subject_kind);
+    }
     setEditingId(null);
   };
 
@@ -235,6 +241,14 @@ export default function PipelineList() {
                             <View className="bg-brand-primary/15 px-2 py-0.5 rounded-md ml-2">
                               <Text className="text-brand-primary text-[9px] font-black uppercase">Default</Text>
                             </View>
+                          )}
+                          {p.subject_kind === 'project' && (
+                            <Tooltip label="Stages describe projects, not tasks — tasks cannot be created on this pipeline">
+                              <View className="bg-state-info/15 px-2 py-0.5 rounded-md ml-2 flex-row items-center gap-1">
+                                <FontAwesome name="folder-o" size={8} className="text-state-info" />
+                                <Text className="text-state-info text-[9px] font-black uppercase">Project Pipeline</Text>
+                              </View>
+                            </Tooltip>
                           )}
                         </View>
                         <Text className="text-typography-muted text-sm" numberOfLines={1}>
