@@ -33,7 +33,12 @@ export async function shareFileViaWeb(
     // fallback. NotAllowedError = Safari expired the click's transient activation
     // during the fetch above — that one legitimately falls back to link sharing.
     if (err?.name === 'AbortError') return 'cancelled';
-    console.error('[webShare] share failed:', err);
+    // NotAllowedError is an EXPECTED branch (see above) that falls back cleanly,
+    // so it must not go through console.error — the console-error middleware
+    // turns that into a user-facing error toast, making a working fallback look
+    // like a failure. Genuine surprises still get console.error.
+    if (err?.name === 'NotAllowedError') console.warn('[webShare] no transient activation; falling back to link sharing');
+    else console.error('[webShare] share failed:', err);
     return 'unsupported';
   }
 }

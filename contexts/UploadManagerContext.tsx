@@ -208,6 +208,11 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
       const errors: string[] = [];
       let dupeAll: string | null = null;
       let conflictAll: string | null = null;
+      // One id for this whole upload job. Every version row it produces carries
+      // it, which is what makes the destination folder read as a single new
+      // version instead of N unrelated file changes. Generated here (not per
+      // file) precisely so the 4 parallel workers all stamp the same batch.
+      const batchId = randomId();
       let done = 0;
       let bytesDone = 0; // bytes from fully-committed files
       const startedAt = Date.now();
@@ -355,6 +360,7 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
                 p_content_hash: contentHash,
                 p_mime_type: file.type || null,
                 p_caption: job.caption || null,
+                p_batch_id: batchId,
               });
               if (replaceErr) {
                 await supabase.storage.from('filehub-files').remove([replacePath]).catch(() => {});
@@ -390,6 +396,7 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
             p_replaces_file_id: null,
             p_group_id: groupId,
             p_rel_dir: relDirPath || null,
+            p_batch_id: batchId,
           });
           if (rpcError) {
             await supabase.storage.from('filehub-files').remove([storagePath]).catch(() => {});

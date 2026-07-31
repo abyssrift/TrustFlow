@@ -1,9 +1,10 @@
 import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { FileActivity, FileHubFile, FileHubFolder, FileHubFolderScope, FileHubGroup, FileHubGroupMember, FileHubMode, FileHubProvider, FileHubShareLink, FileVersion, folderAncestors, folderDescendantIds, folderPath, shareLinkUrl, useFileHub } from '@/contexts/FileHubContext';
+import { FileActivity, FileHubFile, FileHubFolder, FileHubFolderScope, FileHubGroup, FileHubGroupMember, FileHubMode, FileHubProvider, FileHubShareLink, FileVersion, FolderVersion, folderAncestors, folderDescendantIds, folderPath, shareLinkUrl, useFileHub } from '@/contexts/FileHubContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useUploadJob, useUploadManager, type UploadJobState } from '@/contexts/UploadManagerContext';
 import * as Clipboard from 'expo-clipboard';
+import { useDoubleTap } from '@/hooks/useDoubleTap';
 import { useFileSizeLimit } from '@/hooks/useFileSizeLimit';
 import { useImageLightbox } from '@/hooks/useImageLightbox';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -1838,11 +1839,50 @@ function FolderDetailPanel({
   downloading: boolean;
 }) {
   const colors = useThemeColors();
+  const { folderVersions, restoreFolderVersion } = useFileHub();
+  const { showConfirm } = useAlert();
+  const { successToast } = useToast();
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(folder.name);
   const [displayName, setDisplayName] = useState(folder.name);
   const [showShareLink, setShowShareLink] = useState(false);
+  const [versions, setVersions] = useState<FolderVersion[]>([]);
+  const [restoringBatch, setRestoringBatch] = useState<string | null>(null);
   useEffect(() => { setIsRenaming(false); setDisplayName(folder.name); }, [folder.id]);
+
+  // Folder versions = upload batches that touched it. Cheap (derived, index-only),
+  // so it just loads with the panel rather than hiding behind a tab.
+  const loadVersions = useCallback(() => {
+    folderVersions(folder.id).then(setVersions).catch(() => setVersions([]));
+  }, [folder.id, folderVersions]);
+  useEffect(() => { setVersions([]); loadVersions(); }, [loadVersions]);
+
+  // The version the folder's files actually point at — not always the newest,
+  // since restoring to v1 leaves v2 in history.
+  const effective = versions.find(v => v.is_effective) ?? versions[0];
+
+  const handleRestore = (v: FolderVersion) => {
+    showConfirm(
+      `Restore folder to v${v.seq}?`,
+      `Every file in this folder goes back to how it was after v${v.seq}. Newer versions stay in history, and files added since are left untouched — nothing is deleted.`,
+      async () => {
+        setRestoringBatch(v.batch_id);
+        try {
+          const res = await restoreFolderVersion(folder.id, v.batch_id);
+          loadVersions();
+          successToast(
+            res.restored === 0
+              ? 'Already at that version'
+              : `Restored ${res.restored} file${res.restored === 1 ? '' : 's'} to v${v.seq}` +
+                (res.skipped_newer > 0 ? ` · ${res.skipped_newer} newer file${res.skipped_newer === 1 ? '' : 's'} left as-is` : '')
+          );
+        } catch { /* alerted in context */ } finally {
+          setRestoringBatch(null);
+        }
+      },
+      undefined, 'Restore', 'Cancel'
+    );
+  };
 
   const subfolderCount = useMemo(
     () => folders.filter(f => f.parent_id === folder.id).length,
@@ -1876,7 +1916,16 @@ function FolderDetailPanel({
         ) : (
           <Text className="text-typography-main text-base font-black tracking-tight mb-0.5 leading-snug" numberOfLines={2}>{displayName}</Text>
         )}
-        <Text className="text-typography-muted text-xs">Folder · {scopeLabel}</Text>
+        <View className="flex-row items-center gap-2">
+          <Text className="text-typography-muted text-xs">Folder · {scopeLabel}</Text>
+          {effective && (
+            <Tooltip label={`This folder has ${versions.length} version${versions.length === 1 ? '' : 's'}. Showing v${effective.seq}.`}>
+              <View className="rounded-full px-2 py-0.5 border" style={{ backgroundColor: colors.primary + '1a', borderColor: colors.primary + '4d' }}>
+                <Text className="text-[10px] font-black" style={{ color: colors.primary }}>v{effective.seq}</Text>
+              </View>
+            </Tooltip>
+          )}
+        </View>
       </View>
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 28, paddingTop: 20 }}>
@@ -1892,6 +1941,58 @@ function FolderDetailPanel({
           <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-1">Contains</Text>
           <Text className="text-typography-main text-sm font-bold">{subfolderCount} subfolder{subfolderCount === 1 ? '' : 's'}</Text>
         </View>
+
+        {/* Folder version history — one entry per upload batch. Only shown once
+            there is actually something to compare against. */}
+        {versions.length > 1 && (
+          <View className="mb-5 pb-4 border-b border-surface-border/50">
+            <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-2">Folder Versions</Text>
+            {versions.map(v => (
+              <View
+                key={v.batch_id}
+                className="rounded-xl border px-3 py-2.5 mb-1.5"
+                style={{
+                  borderColor: v.is_effective ? colors.primary + '4d' : colors.border,
+                  backgroundColor: v.is_effective ? colors.primary + '0f' : colors.background,
+                }}
+              >
+                <View className="flex-row items-center gap-2">
+                  <Text className="text-sm font-black" style={{ color: v.is_effective ? colors.primary : colors.textMain }}>
+                    v{v.seq}
+                  </Text>
+                  {v.is_effective && (
+                    <Text className="text-[9px] font-black uppercase tracking-wider" style={{ color: colors.primary }}>Current</Text>
+                  )}
+                  <View className="flex-1" />
+                  <Text className="text-[10px]" style={{ color: colors.textDim }}>
+                    {new Date(v.created_at).toLocaleDateString()}
+                  </Text>
+                </View>
+                <Text className="text-[11px] mt-0.5" style={{ color: colors.textMuted }}>
+                  {[
+                    v.files_added > 0 ? `${v.files_added} added` : null,
+                    v.files_replaced > 0 ? `${v.files_replaced} replaced` : null,
+                  ].filter(Boolean).join(' · ') || `${v.files_touched} file${v.files_touched === 1 ? '' : 's'}`}
+                  {v.actor?.full_name ? ` · ${v.actor.full_name}` : ''}
+                </Text>
+                {!v.is_effective && (
+                  <TouchableOpacity
+                    onPress={() => handleRestore(v)}
+                    disabled={restoringBatch === v.batch_id}
+                    className="flex-row items-center gap-1.5 mt-2"
+                  >
+                    {restoringBatch === v.batch_id
+                      ? <ActivityIndicator size="small" color={colors.primary} />
+                      : <FontAwesome name="history" size={10} color={colors.primary} />}
+                    <Text className="text-xs font-bold" style={{ color: colors.primary }}>
+                      Restore folder to v{v.seq}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            ))}
+          </View>
+        )}
 
         <View className="gap-2.5">
           <TouchableOpacity onPress={onOpen} className="flex-row items-center justify-center bg-brand-primary rounded-xl px-4 py-3.5 gap-2">
@@ -2514,6 +2615,8 @@ function ShareLinkModal({ visible, fileId, folderId, fileName, onClose }: {
   const { createShareLink, revokeShareLink, listShareLinks, createFolderShareLink, listFolderShareLinks } = useFileHub();
   const { showConfirm } = useAlert();
   const { successToast } = useToast();
+  const { user: shareUser } = useAuth();
+  const userId = shareUser?.id;
   const [links, setLinks] = useState<FileHubShareLink[]>([]);
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -2606,6 +2709,8 @@ function ShareLinkModal({ visible, fileId, folderId, fileName, onClose }: {
                   <Text className="text-xs font-bold mb-1" style={{ color: colors.textMain }} numberOfLines={1}>{shareLinkUrl(link.token)}</Text>
                   <Text className="text-[10px] mb-2" style={{ color: colors.textDim }}>
                     Expires {new Date(link.expires_at).toLocaleDateString()} · {link.view_count} view{link.view_count === 1 ? '' : 's'}
+                    {/* The list now includes other people's links, so say whose. */}
+                    {link.created_by && link.created_by !== userId && link.creator_name ? ` · by ${link.creator_name}` : ''}
                   </Text>
                   <View className="flex-row gap-2">
                     <TouchableOpacity
@@ -2616,14 +2721,19 @@ function ShareLinkModal({ visible, fileId, folderId, fileName, onClose }: {
                       <FontAwesome name="copy" size={10} color={colors.primary} />
                       <Text className="text-xs font-bold" style={{ color: colors.primary }}>Copy</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => handleRevoke(link)}
-                      className="flex-1 flex-row items-center justify-center gap-1.5 border rounded-lg py-2"
-                      style={{ backgroundColor: colors.danger + '1a', borderColor: colors.danger + '33' }}
-                    >
-                      <FontAwesome name="ban" size={10} color={colors.danger} />
-                      <Text className="text-xs font-bold" style={{ color: colors.danger }}>Revoke</Text>
-                    </TouchableOpacity>
+                    {/* can_revoke is undefined on a link this session just minted
+                        (create returns only id/token/expires_at) — that's always
+                        our own, so treat missing as allowed. */}
+                    {link.can_revoke !== false && (
+                      <TouchableOpacity
+                        onPress={() => handleRevoke(link)}
+                        className="flex-1 flex-row items-center justify-center gap-1.5 border rounded-lg py-2"
+                        style={{ backgroundColor: colors.danger + '1a', borderColor: colors.danger + '33' }}
+                      >
+                        <FontAwesome name="ban" size={10} color={colors.danger} />
+                        <Text className="text-xs font-bold" style={{ color: colors.danger }}>Revoke</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 </View>
               ))
@@ -2647,6 +2757,8 @@ function GroupMembersPanel({
   onGroupChanged: () => void;
 }) {
   const { addGroupMember, removeGroupMember, fetchGroupMembers, renameGroup, deleteGroup } = useFileHub();
+  const { hasPermission } = useAuth();
+  const router = useRouter();
   const [members, setMembers] = useState<FileHubGroupMember[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [addSearch, setAddSearch] = useState('');
@@ -2752,6 +2864,12 @@ function GroupMembersPanel({
   // show up in the roster themselves).
   const myRole = members.find(m => m.id === currentUserId)?.role ?? (canManageOverride ? 'admin' : undefined);
 
+  // The server decides whether we're allowed to know who can share (role.manage,
+  // channel admin, or group_override_manage) and sends can_share as null if not.
+  // Trust that answer rather than re-deriving the rule on the client.
+  const showsShareColumn = members.some(m => m.can_share !== null && m.can_share !== undefined);
+  const canEditRoles = hasPermission('role.manage');
+
   return (
     <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 24 }}>
       {/* Group header */}
@@ -2826,7 +2944,12 @@ function GroupMembersPanel({
       )}
 
       {/* Members list */}
-      <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-3">Members ({members.length})</Text>
+      <View className="flex-row items-center justify-between mb-3">
+        <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest">Members ({members.length})</Text>
+        {showsShareColumn && (
+          <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest">Can share</Text>
+        )}
+      </View>
       {loadingMembers ? (
         <ActivityIndicator size="small" color={colors.primary} />
       ) : (
@@ -2840,6 +2963,21 @@ function GroupMembersPanel({
                 <Text className="text-brand-primary text-[10px] font-black">{getInitials(m.full_name)}</Text>
               </View>
               <UserLink userId={m.id} name={m.full_name} className="flex-1 text-typography-main text-sm font-medium" />
+              {/* can_share is null when the server decided we may not know. */}
+              {m.can_share !== null && m.can_share !== undefined && (
+                <Tooltip
+                  label={m.can_share
+                    ? `${m.full_name} can create share links for files they can access`
+                    : `${m.full_name} can only share files they uploaded themselves`}
+                >
+                  <FontAwesome
+                    name={m.can_share ? 'share-alt' : 'ban'}
+                    size={11}
+                    color={m.can_share ? colors.primary : colors.textDim}
+                    style={{ width: 18, textAlign: 'center' }}
+                  />
+                </Tooltip>
+              )}
               {m.role === 'admin' && (
                 <View className="bg-brand-primary/10 border border-brand-primary/20 rounded-full px-2 py-0.5 mr-1">
                   <Text className="text-brand-primary text-[9px] font-black">Admin</Text>
@@ -2860,6 +2998,28 @@ function GroupMembersPanel({
               )}
             </View>
           ))}
+        </View>
+      )}
+
+      {/* File sharing is a role permission, not a per-channel setting, so the
+          only real fix is in the role editor — link straight there instead of
+          leaving the reader to hunt for it. */}
+      {showsShareColumn && (
+        <View className="mt-3 border border-surface-border rounded-xl px-4 py-3 bg-surface-background">
+          <Text className="text-typography-dim text-[11px] leading-relaxed">
+            Sharing is granted by role, not per channel. Members without it can only
+            share files they uploaded themselves.
+          </Text>
+          {canEditRoles && (
+            <TouchableOpacity
+              onPress={() => router.push('/admin/roles?tab=roles')}
+              className="flex-row items-center gap-2 mt-2.5"
+            >
+              <FontAwesome name="sliders" size={11} color={colors.primary} />
+              <Text className="text-brand-primary font-black text-xs">Change sharing permissions</Text>
+              <FontAwesome name="angle-right" size={12} color={colors.primary} />
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
@@ -3067,6 +3227,7 @@ function FileHubDesktopInner() {
   const [selectedFolderDetail, setSelectedFolderDetail] = useState<FileHubFolder | null>(null);
   const [detailPanelFolder, setDetailPanelFolder] = useState<FileHubFolder | null>(null);
   const [fastTrackPreview, setFastTrackPreview] = useState(false);
+  const isDoubleTap = useDoubleTap();
 
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set());
@@ -3088,9 +3249,9 @@ function FileHubDesktopInner() {
     });
   }, []);
 
-  // Standard click → detail panel (toggles); Shift+Click (web) → fullscreen
-  // viewer; Ctrl/Cmd+Click (web, Explorer-style) → add to multi-selection
-  // without opening the detail panel.
+  // Standard click → detail panel (toggles); Double-click or Shift+Click (web)
+  // → fullscreen viewer; Ctrl/Cmd+Click (web, Explorer-style) → add to
+  // multi-selection without opening the detail panel.
   const openFile = useCallback((file: FileHubFile, e?: any) => {
     // RNW zeroes nativeEvent.ctrlKey, so fall back to the live DOM modifier state
     // to detect Ctrl+Click on Windows/Linux (isMultiSelectModifierActive).
@@ -3100,10 +3261,16 @@ function FileHubDesktopInner() {
       toggleFileSelect(file.id);
       return;
     }
-    const shift = !!(e?.shiftKey || e?.nativeEvent?.shiftKey);
-    setFastTrackPreview(shift);
-    setSelectedFile(prev => (prev?.id === file.id && !shift ? null : file));
-  }, [toggleFileSelect]);
+    // Double-click is Explorer's "open it" gesture, so it takes the same
+    // fast-track the Shift modifier already had. Checked even when shift is
+    // held so the ref stays in step and a later double still registers.
+    const isDouble = isDoubleTap(file.id);
+    const fast = !!(e?.shiftKey || e?.nativeEvent?.shiftKey) || isDouble;
+    setFastTrackPreview(fast);
+    // A fast-track press must never be the toggle that closes the panel —
+    // the first click of a double already opened it.
+    setSelectedFile(prev => (prev?.id === file.id && !fast ? null : file));
+  }, [toggleFileSelect, isDoubleTap]);
 
   // Ctrl/Cmd+Click a folder → add it to the multi-selection (Explorer-style);
   // a plain click still navigates into it.

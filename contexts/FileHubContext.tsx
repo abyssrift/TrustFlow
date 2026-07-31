@@ -45,6 +45,13 @@ export type FileHubShareLink = {
   revoked_at: string | null;
   view_count: number;
   last_viewed_at: string | null;
+  // A file/folder you can share now lists EVERYONE's links on it, not just your
+  // own — so the UI has to say whose link it is, and whether you may kill it
+  // (own link, or filehub:share_override). Optional: rpc_filehub_share_link_create
+  // returns only id/token/expires_at, so a freshly minted link has neither.
+  created_by?: string;
+  creator_name?: string | null;
+  can_revoke?: boolean;
 };
 
 // Builds the public /share/<token> URL. EXPO_PUBLIC_APP_URL covers native
@@ -158,6 +165,38 @@ export type FileHubGroupMember = {
   avatar_url: string | null;
   role: 'admin' | 'member';
   joined_at: string;
+  /**
+   * Whether this member holds filehub:share / filehub:share_override (or is the
+   * owner). `null` when the caller isn't privileged enough to be told — the RPC
+   * only populates it for role.manage / channel admins / group_override_manage,
+   * so a null must render as nothing rather than as "cannot share".
+   */
+  can_share: boolean | null;
+};
+
+/**
+ * One version of a FOLDER — i.e. one upload batch that touched it. `seq` is the
+ * user-facing v-number (v1, v2, …). `is_effective` marks the version the
+ * folder's files currently point at, which is NOT always the newest: restoring
+ * to v1 leaves v2 in history with is_effective false.
+ */
+export type FolderVersion = {
+  batch_id: string;
+  seq: number;
+  created_at: string;
+  files_touched: number;
+  files_added: number;
+  files_replaced: number;
+  live_files: number;
+  is_effective: boolean;
+  actor: { id: string | null; full_name: string | null; avatar_url: string | null };
+};
+
+export type FolderRestoreResult = {
+  restored: number;
+  unchanged: number;
+  /** Files that did not exist at the target version — left alone, never deleted. */
+  skipped_newer: number;
 };
 
 export type FileActivity = {
@@ -214,11 +253,14 @@ type FileHubContextType = {
   ) => Promise<any | null>;
   replaceFile: (
     targetId: string,
-    args: { storagePath: string; size: number; hash: string | null; mime: string | null; caption?: string | null }
+    args: { storagePath: string; size: number; hash: string | null; mime: string | null; caption?: string | null; batchId?: string | null }
   ) => Promise<void>;
   fileVersions: (fileId: string) => Promise<FileVersion[]>;
   restoreVersion: (versionId: string) => Promise<void>;
   pinVersion: (versionId: string, pinned: boolean) => Promise<void>;
+  // Folder-level versions: one entry per upload batch that touched the folder.
+  folderVersions: (folderId: string) => Promise<FolderVersion[]>;
+  restoreFolderVersion: (folderId: string, batchId: string) => Promise<FolderRestoreResult>;
   // Share links (public, read-only, expiring)
   createShareLink: (fileId: string, expiresInHours: number) => Promise<FileHubShareLink>;
   revokeShareLink: (id: string) => Promise<void>;
@@ -754,7 +796,7 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
 
   const replaceFile = useCallback(async (
     targetId: string,
-    args: { storagePath: string; size: number; hash: string | null; mime: string | null; caption?: string | null }
+    args: { storagePath: string; size: number; hash: string | null; mime: string | null; caption?: string | null; batchId?: string | null }
   ): Promise<void> => {
     const { error } = await supabase.rpc('rpc_filehub_replace_file', {
       p_target_id: targetId,
@@ -763,6 +805,7 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
       p_content_hash: args.hash,
       p_mime_type: args.mime,
       p_caption: args.caption ?? null,
+      p_batch_id: args.batchId ?? null,
     });
     if (error) { showAlert('Error', error.message); throw error; }
     refresh();
@@ -786,6 +829,25 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
     const { error } = await supabase.rpc('rpc_filehub_pin_version', { p_version_id: versionId, p_pinned: pinned });
     if (error) { showAlert('Error', error.message); throw error; }
   }, []);
+
+  const folderVersions = useCallback(async (folderId: string): Promise<FolderVersion[]> => {
+    const { data, error } = await supabase.rpc('rpc_filehub_folder_versions', { p_folder_id: folderId });
+    if (error) { showAlert('Error', error.message); throw error; }
+    return (data as FolderVersion[]) || [];
+  }, []);
+
+  const restoreFolderVersion = useCallback(async (folderId: string, batchId: string): Promise<FolderRestoreResult> => {
+    const { data, error } = await supabase.rpc('rpc_filehub_folder_restore_batch', {
+      p_folder_id: folderId,
+      p_batch_id: batchId,
+    });
+    if (error) { showAlert('Error', error.message); throw error; }
+    // Restoring moves pointers on files the listing already holds, so both the
+    // main list and the channel list are stale until they refetch.
+    refresh();
+    refreshGroupFiles();
+    return data as FolderRestoreResult;
+  }, [refresh, refreshGroupFiles]);
 
   const createShareLink = useCallback(async (fileId: string, expiresInHours: number): Promise<FileHubShareLink> => {
     const { data, error } = await supabase.rpc('rpc_filehub_share_link_create', {
@@ -868,6 +930,7 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
       createFolder, renameFolder, deleteFolder, moveFolder, moveFile,
       tagSuggestions, checkDuplicate,
       checkNameConflict, replaceFile, fileVersions, restoreVersion, pinVersion,
+      folderVersions, restoreFolderVersion,
       createShareLink, revokeShareLink, listShareLinks,
       createFolderShareLink, listFolderShareLinks,
       groups, groupsLoading,

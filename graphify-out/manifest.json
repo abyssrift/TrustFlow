@@ -50,8 +50,8 @@
     "semantic_hash": ""
   },
   "app/(tabs)/_layout.tsx": {
-    "mtime": 1785413909.9762988,
-    "ast_hash": "75cf053917fc73895b74cf739acc35c2",
+    "mtime": 1785414729.1090658,
+    "ast_hash": "b8517c927a279096acfc1766a20cef44",
     "semantic_hash": ""
   },
   "app/(tabs)/_layout.web.tsx": {
@@ -125,8 +125,8 @@
     "semantic_hash": ""
   },
   "app/(tabs)/menu.tsx": {
-    "mtime": 1785413909.9223018,
-    "ast_hash": "748b03101f9c031d7dc42419d795cdd1",
+    "mtime": 1785414729.1130557,
+    "ast_hash": "6d70bd46cf640298e66a5c9801a46087",
     "semantic_hash": ""
   },
   "app/(tabs)/people.tsx": {
@@ -165,7 +165,7 @@
     "semantic_hash": ""
   },
   "app/_layout.tsx": {
-    "mtime": 1785413921.675447,
+    "mtime": 1785414729.116054,
     "ast_hash": "742b9e98b78e1fa8ac775cc177748a5b",
     "semantic_hash": ""
   },
@@ -655,13 +655,13 @@
     "semantic_hash": ""
   },
   "components/intelligence/_filehub_adaptive.tsx": {
-    "mtime": 1785197758.1238852,
-    "ast_hash": "63e73d06670fe344ed5888c65eb0e476",
+    "mtime": 1785418605.6681993,
+    "ast_hash": "6f84a6dc7e741e6ed291c1fcaebd004e",
     "semantic_hash": ""
   },
   "components/intelligence/_filehub_desktop.tsx": {
-    "mtime": 1785413215.520742,
-    "ast_hash": "aaf13e096b91dac11244617c2d664be6",
+    "mtime": 1785418744.6316297,
+    "ast_hash": "6f171f86fb44101f74bfd7de29e67e10",
     "semantic_hash": ""
   },
   "components/intelligence/_filehub_web.tsx": {
@@ -810,8 +810,8 @@
     "semantic_hash": ""
   },
   "components/navigation/WebMobileNav.tsx": {
-    "mtime": 1785413910.0302968,
-    "ast_hash": "b801522634c22ea7b676619d4ec0e9ab",
+    "mtime": 1785414729.1350577,
+    "ast_hash": "7ad7087afd2a0fdb86c904bd320951d0",
     "semantic_hash": ""
   },
   "components/onboarding/WelcomeTour.tsx": {
@@ -965,8 +965,8 @@
     "semantic_hash": ""
   },
   "components/tabs/_index_adaptive.tsx": {
-    "mtime": 1785413910.127278,
-    "ast_hash": "3856322d3cfad0a396868e7a8624765a",
+    "mtime": 1785414729.1430488,
+    "ast_hash": "afd1126b68bb4f7ca99723b4d5a9d4d0",
     "semantic_hash": ""
   },
   "components/tabs/_index_desktop.tsx": {
@@ -1205,8 +1205,8 @@
     "semantic_hash": ""
   },
   "contexts/FileHubContext.tsx": {
-    "mtime": 1785197758.1238852,
-    "ast_hash": "2734ba5863815982beed345a4dd5bcfb",
+    "mtime": 1785418671.298001,
+    "ast_hash": "7ebed4ecb416d2c95be3bdb196120479",
     "semantic_hash": ""
   },
   "contexts/NotificationsContext.tsx": {
@@ -1540,13 +1540,13 @@
     "semantic_hash": ""
   },
   "supabase/functions/notify/index.ts": {
-    "mtime": 1779880401.425236,
-    "ast_hash": "fa4d2a4850bdc05714ebc82653e03d75",
+    "mtime": 1785414742.8157568,
+    "ast_hash": "fbece2fedc3e773163091a6a27ca4100",
     "semantic_hash": ""
   },
   "supabase/functions/process-notification-event/index.ts": {
-    "mtime": 1784706664.309734,
-    "ast_hash": "6c9b1dbaa0dcc2550778822e128dc066",
+    "mtime": 1785414739.723198,
+    "ast_hash": "98d5624f0216ae1b2b750a4f6a604a8e",
     "semantic_hash": ""
   },
   "supabase/functions/purge-filehub-bin/index.ts": {
@@ -1555,8 +1555,8 @@
     "semantic_hash": ""
   },
   "supabase/functions/purge-filehub-versions/index.ts": {
-    "mtime": 1782121484.509597,
-    "ast_hash": "f55593968e17ff909bdfd4f771d6b556",
+    "mtime": 1785414756.2481744,
+    "ast_hash": "9367f714b571034b5fc5c69458bf57bc",
     "semantic_hash": ""
   },
   "supabase/migrations/20260430_final_bunker_timer.sql": {
@@ -2735,8 +2735,8 @@
     "semantic_hash": ""
   },
   "components/sidebar/TopBar.web.tsx": {
-    "mtime": 1785413910.0792968,
-    "ast_hash": "2412dbd1f4b809568e96ecfd923d5598",
+    "mtime": 1785414729.1400476,
+    "ast_hash": "5982e05c989c81aa52ff4aa2d0c38cce",
     "semantic_hash": ""
   },
   "components/sidebar/constants.ts": {
@@ -2955,8 +2955,8 @@
     "semantic_hash": ""
   },
   "supabase/functions/filehub-orphan-sweep/index.ts": {
-    "mtime": 1784706664.3037286,
-    "ast_hash": "5c7a7ed2286d5b66ec8a4b414af9ffde",
+    "mtime": 1785414759.1212304,
+    "ast_hash": "2785cc0f2a1a85f83e0c83f920cf27fa",
     "semantic_hash": ""
   },
   "supabase/functions/filehub-orphan-sweep/logic.ts": {
@@ -2975,8 +2975,8 @@
     "semantic_hash": ""
   },
   "lib/randomId.ts": {
-    "mtime": 1784706664.2663536,
-    "ast_hash": "85ea200a83b1247495603637bc05372c",
+    "mtime": 1785418500.4903796,
+    "ast_hash": "1f9c17bfa4cfc24e45c86625cc04fe3e",
     "semantic_hash": ""
   },
   "components/island/DynamicIsland.web.tsx": {
@@ -3010,8 +3010,8 @@
     "semantic_hash": ""
   },
   "contexts/UploadManagerContext.tsx": {
-    "mtime": 1784706663.948632,
-    "ast_hash": "9f0465af5c229ac596d4e0c3fe027d62",
+    "mtime": 1785418536.2953823,
+    "ast_hash": "8ebbf2d13e356a68b7b6fb6324d94cce",
     "semantic_hash": ""
   },
   "lib/uploadHelpers.ts": {
@@ -3665,8 +3665,8 @@
     "semantic_hash": ""
   },
   "components/intelligence/FileHubBrowse.tsx": {
-    "mtime": 1785197758.1238852,
-    "ast_hash": "f709375dc63e1ba30a8fd99ef7cda202",
+    "mtime": 1785416827.1529639,
+    "ast_hash": "a847d5740284879365e7d0b2623be9b5",
     "semantic_hash": ""
   },
   "components/intelligence/FileHubOverview.tsx": {
@@ -3690,8 +3690,8 @@
     "semantic_hash": ""
   },
   "components/intelligence/FileHubDetailPane.tsx": {
-    "mtime": 1785197758.1238852,
-    "ast_hash": "4a92d1966e250c9b37eb9108a5bbb0e0",
+    "mtime": 1785416754.3441064,
+    "ast_hash": "612291fda0cf1ea5b3bade8a42fdbdd8",
     "semantic_hash": ""
   },
   "lib/webShare.test.ts": {
@@ -3700,8 +3700,8 @@
     "semantic_hash": ""
   },
   "lib/webShare.ts": {
-    "mtime": 1785197758.291389,
-    "ast_hash": "eee9e21f6f96887437b556f14fe719db",
+    "mtime": 1785416961.4451392,
+    "ast_hash": "496e1bd26ac98842ffe97a457dd079a1",
     "semantic_hash": ""
   },
   "supabase/migrations/20260727_filehub_unify_phase1_schema.sql": {
@@ -4000,8 +4000,8 @@
     "semantic_hash": ""
   },
   "supabase/seed.sql": {
-    "mtime": 1785413978.2846763,
-    "ast_hash": "6612fefb4987d8612a83d4d620bc18f6",
+    "mtime": 1785415691.5631032,
+    "ast_hash": "88fcedb2e3abb3ac079a540f194ee573",
     "semantic_hash": ""
   },
   "website/src/components/BrowserMockup.astro": {
@@ -4045,13 +4045,13 @@
     "semantic_hash": ""
   },
   "app/notifications/index.tsx": {
-    "mtime": 1785414121.717911,
+    "mtime": 1785414729.11905,
     "ast_hash": "e30d3b131dbf1ec8f5e3ef5ffcf47e93",
     "semantic_hash": ""
   },
   "app/notifications/index.web.tsx": {
-    "mtime": 1785414127.4238186,
-    "ast_hash": "26d4ffcf06197ce83a7e5da22d7338c6",
+    "mtime": 1785414729.1280472,
+    "ast_hash": "03c4f360fc18b009acd48438e2e260e0",
     "semantic_hash": ""
   },
   "lib/calendarRange.test.ts": {
@@ -4087,6 +4087,26 @@
   "supabase/migrations/20260730_rpc_move_task_pipeline.sql": {
     "mtime": 1785401423.4265945,
     "ast_hash": "46375c48dec552cb5a5e738a1f23d183",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20260730_filehub_share_permission.sql": {
+    "mtime": 1785414521.671563,
+    "ast_hash": "2a3f765fa44ee760be17e08f54d37efa",
+    "semantic_hash": ""
+  },
+  "hooks/useDoubleTap.ts": {
+    "mtime": 1785416612.2685714,
+    "ast_hash": "1d4169df909aab2ab8bfc75259b58462",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20260730_filehub_file_accessible_channel_override.sql": {
+    "mtime": 1785416393.1774704,
+    "ast_hash": "78110fe00acfe296382b4d5aaa609ab7",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20260730_filehub_folder_versions.sql": {
+    "mtime": 1785418239.8330617,
+    "ast_hash": "474852efa8c189600f978290b77a4e7b",
     "semantic_hash": ""
   }
 }

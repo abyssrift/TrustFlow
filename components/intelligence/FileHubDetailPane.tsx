@@ -6,7 +6,7 @@ import { openStorageFile } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 import { FilePreviewTeaser, getPreviewKind } from '../common/FilePreview';
@@ -61,12 +61,14 @@ const ACTION_ICON: Record<FileActivity['action'], any> = {
  * pointer row (rpc_filehub_pointer_id) for FK-logged activity.
  */
 export default function FileHubDetailPane({
-  file, onClose, onDeleted, compact,
+  file, onClose, onDeleted, compact, autoPreview = false,
 }: {
   file: DetailFile;
   onClose: () => void;
   onDeleted?: (fileId: string) => void;
   compact?: boolean;
+  /** When true (double-click fast-track), jump straight to the fullscreen viewer. */
+  autoPreview?: boolean;
 }) {
   const colors = useThemeColors();
   const router = useRouter();
@@ -95,6 +97,16 @@ export default function FileHubDetailPane({
   );
   const { handlePress, viewer } = useFileViewer(media, file.bucket, { onShare: () => shareOut() });
   const openFull = () => { handlePress(media[0]); if (activityId) logActivity(activityId, 'view'); };
+
+  // Double-click fast-track. handlePress resolves its own signed URL on demand,
+  // so there's nothing to wait for. Keyed by file id so re-rendering the same
+  // selection can't reopen the viewer after the user closes it.
+  const autoPreviewedId = useRef<string | null>(null);
+  useEffect(() => {
+    if (!autoPreview || autoPreviewedId.current === file.file_id) return;
+    autoPreviewedId.current = file.file_id;
+    openFull();
+  }, [autoPreview, file.file_id]);
 
   // Reset + resolve preview URL when the selected file changes.
   useEffect(() => {

@@ -1,5 +1,6 @@
 import { useAlert } from '@/contexts/AlertContext';
 import { useFileHub } from '@/contexts/FileHubContext';
+import { useDoubleTap } from '@/hooks/useDoubleTap';
 import { useImageLightbox, type LightboxMedia } from '@/hooks/useImageLightbox';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { downloadFilesAsZip, openStorageFile } from '@/lib/storage';
@@ -69,6 +70,8 @@ export default function FileHubBrowse({ compact }: { compact?: boolean }) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [anchorIdx, setAnchorIdx] = useState<number | null>(null);
   const [detail, setDetail] = useState<BrowseItem | null>(null);
+  const [fastPreview, setFastPreview] = useState(false);
+  const isDoubleTap = useDoubleTap();
   const [zipping, setZipping] = useState(false);
   const [gridW, setGridW] = useState(0);
 
@@ -131,7 +134,8 @@ export default function FileHubBrowse({ compact }: { compact?: boolean }) {
     setLoadingMore(false);
   };
 
-  // Click = open detail pane; Ctrl/Cmd-click = toggle selection; Shift-click = range.
+  // Click = open detail pane; double-click = fullscreen preview;
+  // Ctrl/Cmd-click = toggle selection; Shift-click = range.
   const onItemClick = (it: BrowseItem, idx: number) => {
     if (webModifierKeys.shift && anchorIdx !== null) {
       const [a, b] = [anchorIdx, idx].sort((x, y) => x - y);
@@ -141,6 +145,9 @@ export default function FileHubBrowse({ compact }: { compact?: boolean }) {
       return;
     }
     if (isMultiSelectModifierActive()) { toggleOne(it, idx); return; }
+    // Shift is range-select here, so double-click is the only fast-track on
+    // this surface — the detail pane opens it via its autoPreview prop.
+    setFastPreview(isDoubleTap(idOf(it)));
     setDetail(it); setAnchorIdx(idx);
   };
 
@@ -341,7 +348,7 @@ export default function FileHubBrowse({ compact }: { compact?: boolean }) {
   if (compact && detailFile) {
     return (
       <View className="flex-1 p-4">
-        <FileHubDetailPane file={detailFile} onClose={() => setDetail(null)} onDeleted={onDeleted} compact />
+        <FileHubDetailPane file={detailFile} onClose={() => setDetail(null)} onDeleted={onDeleted} compact autoPreview={fastPreview} />
       </View>
     );
   }
@@ -352,7 +359,7 @@ export default function FileHubBrowse({ compact }: { compact?: boolean }) {
       <View className="flex-1 flex-row" style={{ minHeight: 0 }}>
         <View style={{ flex: 1, minWidth: 0 }} className="border-r border-surface-border">{Results}</View>
         <View style={{ flexGrow: 1.5, flexBasis: 0, minWidth: 0, padding: 20 }}>
-          <FileHubDetailPane file={detailFile} onClose={() => setDetail(null)} onDeleted={onDeleted} />
+          <FileHubDetailPane file={detailFile} onClose={() => setDetail(null)} onDeleted={onDeleted} autoPreview={fastPreview} />
         </View>
       </View>
     );

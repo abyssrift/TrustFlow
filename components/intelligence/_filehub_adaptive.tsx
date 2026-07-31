@@ -29,6 +29,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Popup from '@/components/common/Popup';
+import { useDoubleTap } from '@/hooks/useDoubleTap';
 import { useFileSizeLimit } from '@/hooks/useFileSizeLimit';
 import { useImageLightbox } from '@/hooks/useImageLightbox';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -741,6 +742,8 @@ function FileDetailSheet({
                 <Text className="text-typography-main text-xs font-bold mb-1" numberOfLines={1}>{shareLinkUrl(link.token)}</Text>
                 <Text className="text-typography-dim text-[9px] mb-2">
                   Expires {new Date(link.expires_at).toLocaleDateString()} · {link.view_count} view{link.view_count === 1 ? '' : 's'}
+                  {/* Other people's links show here too now — say whose. */}
+                  {link.creator_name && link.can_revoke === false ? ` · by ${link.creator_name}` : ''}
                 </Text>
                 <View className="flex-row gap-1.5">
                   <TouchableOpacity
@@ -753,6 +756,9 @@ function FileDetailSheet({
                     <FontAwesome name="copy" size={10} color={colors.primary} />
                     <Text className="text-brand-primary text-xs font-bold">Copy</Text>
                   </TouchableOpacity>
+                  {/* undefined on a link minted this session (create returns no
+                      can_revoke) — always ours, so missing means allowed. */}
+                  {link.can_revoke !== false && (
                   <TouchableOpacity
                     onPress={() => {
                       showConfirm(
@@ -773,6 +779,7 @@ function FileDetailSheet({
                     <FontAwesome name="ban" size={10} color={colors.danger} />
                     <Text className="text-state-danger text-xs font-bold">Revoke</Text>
                   </TouchableOpacity>
+                  )}
                 </View>
               </View>
             ))}
@@ -1037,6 +1044,10 @@ function UploadSheet({
     // Remembered "…for all" answers so a huge batch needs one click, not one per file.
     let dupeAll: string | null = null;
     let conflictAll: string | null = null;
+    // One id for this whole upload, so the destination folder reads as a single
+    // new version rather than N unrelated file changes. Same contract as the
+    // desktop path in UploadManagerContext.
+    const batchId = randomId();
 
     // Folder uploads keep their Explorer structure, but the folders are no
     // longer pre-created here. Each file passes its relative directory to
@@ -1125,6 +1136,7 @@ function UploadSheet({
                 hash: contentHash || null,
                 mime: pf.type ?? null,
                 caption: caption || null,
+                batchId,
               });
             } catch (commitErr) {
               // Bytes landed but the DB row didn't — remove the orphan object
@@ -1168,6 +1180,7 @@ function UploadSheet({
           // Server get-or-creates this sub-tree under p_folder_id and lands the
           // file in the leaf, atomically with the row insert.
           p_rel_dir: relDirPath || null,
+          p_batch_id: batchId,
         });
         if (rpcError) {
           // Bytes landed but the commit failed — drop the orphan object so it
@@ -1751,6 +1764,8 @@ function GroupMembersSheet({
   onMembersChanged: () => void;
 }) {
   const { addGroupMember, removeGroupMember, fetchGroupMembers, renameGroup, deleteGroup } = useFileHub();
+  const { hasPermission } = useAuth();
+  const router = useRouter();
   const [members, setMembers] = useState<FileHubGroupMember[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [addSearch, setAddSearch] = useState('');
@@ -1873,6 +1888,10 @@ function GroupMembersSheet({
   // show up in the roster themselves).
   const myRole = members.find(m => m.id === currentUserId)?.role ?? (canManageOverride ? 'admin' : undefined);
 
+  // Server decides whether we may know who can share (null = not our business).
+  const showsShareColumn = members.some(m => m.can_share !== null && m.can_share !== undefined);
+  const canEditRoles = hasPermission('role.manage');
+
   return (
     <Popup visible={visible} onClose={onClose} presentation="auto">
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40, gap: 16 }}>
@@ -1939,9 +1958,14 @@ function GroupMembersSheet({
 
             {/* Members list */}
             <View className="gap-2">
-              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">
-                Members ({members.length})
-              </Text>
+              <View className="flex-row items-center justify-between">
+                <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">
+                  Members ({members.length})
+                </Text>
+                {showsShareColumn && (
+                  <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Can share</Text>
+                )}
+              </View>
               {loadingMembers ? (
                 <ActivityIndicator size="small" color={colors.primary} />
               ) : (
@@ -1955,6 +1979,21 @@ function GroupMembersSheet({
                         <Text className="text-brand-primary text-[10px] font-black">{getInitials(m.full_name)}</Text>
                       </View>
                       <UserLink userId={m.id} name={m.full_name} className="flex-1 text-typography-main text-sm font-medium" />
+                      {/* can_share is null when the server decided we may not know. */}
+                      {m.can_share !== null && m.can_share !== undefined && (
+                        <Tooltip
+                          label={m.can_share
+                            ? `${m.full_name} can create share links for files they can access`
+                            : `${m.full_name} can only share files they uploaded themselves`}
+                        >
+                          <FontAwesome
+                            name={m.can_share ? 'share-alt' : 'ban'}
+                            size={11}
+                            color={m.can_share ? colors.primary : colors.textDim}
+                            style={{ width: 18, textAlign: 'center' }}
+                          />
+                        </Tooltip>
+                      )}
                       {m.role === 'admin' && (
                         <View className="bg-brand-primary/10 border border-brand-primary/20 rounded-full px-2 py-0.5 mr-2">
                           <Text className="text-brand-primary text-[9px] font-black">Admin</Text>
@@ -1979,6 +2018,27 @@ function GroupMembersSheet({
                 </View>
               )}
             </View>
+
+            {/* Sharing is a role permission, so send the reader straight to the
+                role editor rather than making them hunt for it. */}
+            {showsShareColumn && (
+              <View className="border border-surface-border rounded-2xl px-4 py-3 bg-surface-background">
+                <Text className="text-typography-dim text-[11px] leading-relaxed">
+                  Sharing is granted by role, not per channel. Members without it can only
+                  share files they uploaded themselves.
+                </Text>
+                {canEditRoles && (
+                  <TouchableOpacity
+                    onPress={() => { onClose(); router.push('/admin/roles?tab=roles'); }}
+                    className="flex-row items-center gap-2 mt-2.5"
+                  >
+                    <FontAwesome name="sliders" size={11} color={colors.primary} />
+                    <Text className="text-brand-primary font-black text-xs">Change sharing permissions</Text>
+                    <FontAwesome name="angle-right" size={12} color={colors.primary} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
 
             {myRole === 'admin' && (
               <TouchableOpacity
@@ -2355,13 +2415,15 @@ function FileHubAdaptiveInner() {
   const tabBarClearance = Math.max(insets.bottom, Platform.OS === 'ios' ? 24 : 16) + 76;
   const [selectedFile, setSelectedFile] = useState<FileHubFile | null>(null);
   const [fastTrackPreview, setFastTrackPreview] = useState(false);
+  const isDoubleTap = useDoubleTap();
 
-  // Standard click → metadata sheet; Shift+Click (web) → straight to fullscreen viewer.
+  // Standard click → metadata sheet; double-tap/double-click, or Shift+Click
+  // (web) → straight to fullscreen viewer.
   const openFile = useCallback((file: FileHubFile, e?: any) => {
-    const shift = !!(e?.shiftKey || e?.nativeEvent?.shiftKey);
-    setFastTrackPreview(shift);
+    const isDouble = isDoubleTap(file.id);
+    setFastTrackPreview(!!(e?.shiftKey || e?.nativeEvent?.shiftKey) || isDouble);
     setSelectedFile(file);
-  }, []);
+  }, [isDoubleTap]);
   const [showUpload, setShowUpload] = useState(false);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [showManageMembers, setShowManageMembers] = useState(false);
