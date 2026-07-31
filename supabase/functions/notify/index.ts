@@ -59,12 +59,11 @@ if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
 
 // ── Entry point ──────────────────────────────────────────────────────
 serve(async (req: Request) => {
-  // Internal auth — only process-notification-event and trusted callers
-  if (NOTIFY_INTERNAL_SECRET) {
-    const auth = req.headers.get('Authorization') ?? ''
-    if (auth !== `Bearer ${NOTIFY_INTERNAL_SECRET}`) {
-      return respond({ error: 'unauthorized' }, 401)
-    }
+  // Internal auth — only process-notification-event and trusted callers.
+  // Fail CLOSED: an unset secret must not mean "anyone may push notifications".
+  const auth = req.headers.get('Authorization') ?? ''
+  if (!NOTIFY_INTERNAL_SECRET || auth !== `Bearer ${NOTIFY_INTERNAL_SECRET}`) {
+    return respond({ error: 'unauthorized' }, 401)
   }
 
   try {

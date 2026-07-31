@@ -26,11 +26,11 @@ const PROCESS_NOTIFICATION_SECRET = Deno.env.get('PROCESS_NOTIFICATION_SECRET') 
 
 // ── Entry point ──────────────────────────────────────────────────────
 serve(async (req: Request) => {
-  if (PROCESS_NOTIFICATION_SECRET) {
-    const auth = req.headers.get('Authorization') ?? ''
-    if (auth !== `Bearer ${PROCESS_NOTIFICATION_SECRET}`) {
-      return respond({ error: 'unauthorized' }, 401)
-    }
+  // Fail CLOSED. An unset secret used to mean "no gate", which left this
+  // endpoint (verify_jwt=false) open to the internet.
+  const auth = req.headers.get('Authorization') ?? ''
+  if (!PROCESS_NOTIFICATION_SECRET || auth !== `Bearer ${PROCESS_NOTIFICATION_SECRET}`) {
+    return respond({ error: 'unauthorized' }, 401)
   }
 
   try {

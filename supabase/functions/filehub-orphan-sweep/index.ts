@@ -62,11 +62,11 @@ const REMOVE_BATCH = 100
 const MAX_OBJECTS = 50000
 
 serve(async (req: Request) => {
-  if (SWEEP_SECRET) {
-    const auth = req.headers.get('Authorization') ?? ''
-    if (auth !== `Bearer ${SWEEP_SECRET}`) {
-      return respond({ error: 'unauthorized' }, 401)
-    }
+  // Fail CLOSED — deletes storage objects, verify_jwt=false. An unset secret
+  // must never open it.
+  const auth = req.headers.get('Authorization') ?? ''
+  if (!SWEEP_SECRET || auth !== `Bearer ${SWEEP_SECRET}`) {
+    return respond({ error: 'unauthorized' }, 401)
   }
 
   // Dry run: report what WOULD be removed but delete nothing. Off by default so

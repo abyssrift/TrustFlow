@@ -54,11 +54,11 @@ interface VersionRow {
 }
 
 serve(async (req: Request) => {
-  if (PURGE_FILEHUB_SECRET) {
-    const auth = req.headers.get('Authorization') ?? ''
-    if (auth !== `Bearer ${PURGE_FILEHUB_SECRET}`) {
-      return respond({ error: 'unauthorized' }, 401)
-    }
+  // Fail CLOSED — this endpoint permanently deletes storage objects and
+  // runs with verify_jwt=false. An unset secret must never open it.
+  const auth = req.headers.get('Authorization') ?? ''
+  if (!PURGE_FILEHUB_SECRET || auth !== `Bearer ${PURGE_FILEHUB_SECRET}`) {
+    return respond({ error: 'unauthorized' }, 401)
   }
 
   const summary = {
