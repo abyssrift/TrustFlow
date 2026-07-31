@@ -149,7 +149,11 @@ export default function ProjectsScreenWeb() {
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
-          <ProjectsTable refreshKey={tableRefreshKey} onOpenProject={setDashboardProjectId} />
+          <ProjectsTable
+            refreshKey={tableRefreshKey}
+            onOpenProject={setDashboardProjectId}
+            onBrowseStarters={hasPermission('project.create') ? () => setBulkCreateVisible(true) : undefined}
+          />
           <View className="h-20" />
         </ScrollView>
       </View>

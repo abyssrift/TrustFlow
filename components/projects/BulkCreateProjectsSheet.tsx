@@ -1,4 +1,5 @@
 import Popup from '@/components/common/Popup';
+import StarterTemplatePickerSheet from '@/components/projects/StarterTemplatePickerSheet';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -78,6 +79,7 @@ export default function BulkCreateProjectsSheet({
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [idempotencyKey, setIdempotencyKey] = useState('');
+  const [starterPickerVisible, setStarterPickerVisible] = useState(false);
 
   useEffect(() => {
     if (!visible) return;
@@ -128,6 +130,7 @@ export default function BulkCreateProjectsSheet({
   };
 
   return (
+    <>
     <Popup
       visible={visible}
       onClose={onClose}
@@ -146,6 +149,14 @@ export default function BulkCreateProjectsSheet({
       // mobile bottom sheet's edge-to-edge layout if applied unconditionally.
       containerClassName={isCentered ? 'w-[90%] max-w-[640px] rounded-3xl overflow-hidden premium-shadow' : undefined}
     >
+      {/*
+        StarterTemplatePickerSheet is rendered as a return-level sibling below
+        (not nested here, not via Popup's `overlays` prop) because this Popup
+        uses presentation="auto" — on mobile web it resolves to `sheet`, and
+        `overlays` is documented as centered-only (ignored in sheet mode), so
+        putting it there would silently vanish on mobile. A plain sibling
+        Modal-returning component works identically in both presentations.
+      */}
       <View className="px-6 py-5" style={{ gap: 16 }}>
         {/* Template picker */}
         <View>
@@ -153,9 +164,19 @@ export default function BulkCreateProjectsSheet({
           {loadingTemplates ? (
             <ActivityIndicator color={c.primary} />
           ) : templates.length === 0 ? (
-            <Text className="text-typography-muted text-sm">
-              No templates yet. Open a finished project and use "Save as Template" first.
-            </Text>
+            <View style={{ gap: 10 }}>
+              <Text className="text-typography-muted text-sm">
+                No templates yet. Start from a researched starter template below, or open a finished project and use "Save as Template".
+              </Text>
+              <TouchableOpacity
+                onPress={() => setStarterPickerVisible(true)}
+                className="self-start px-4 py-2.5 rounded-xl bg-brand-primary flex-row items-center gap-2"
+                style={{ minHeight: 44 }}
+              >
+                <FontAwesome name="magic" size={12} color="white" />
+                <Text className="text-white text-xs font-black uppercase tracking-wider">Browse Starter Templates</Text>
+              </TouchableOpacity>
+            </View>
           ) : (
             <View className="flex-row flex-wrap gap-2">
               {templates.map(t => (
@@ -163,12 +184,21 @@ export default function BulkCreateProjectsSheet({
                   key={t.id}
                   onPress={() => setTemplateId(t.id)}
                   className={`px-4 py-2 rounded-xl border ${templateId === t.id ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
+                  style={{ minHeight: 44, justifyContent: 'center' }}
                 >
                   <Text className={`text-xs font-black uppercase tracking-wider ${templateId === t.id ? 'text-white' : 'text-typography-muted'}`}>
                     {t.name} · {t.body?.length || 0} tasks
                   </Text>
                 </TouchableOpacity>
               ))}
+              <TouchableOpacity
+                onPress={() => setStarterPickerVisible(true)}
+                className="px-4 py-2 rounded-xl border border-dashed border-surface-border flex-row items-center gap-1.5"
+                style={{ minHeight: 44, justifyContent: 'center' }}
+              >
+                <FontAwesome name="plus" size={10} color={c.textMuted} />
+                <Text className="text-typography-muted text-xs font-black uppercase tracking-wider">Starter</Text>
+              </TouchableOpacity>
             </View>
           )}
         </View>
@@ -219,5 +249,15 @@ export default function BulkCreateProjectsSheet({
         {error && <Text className="text-state-danger text-xs font-bold">{error}</Text>}
       </View>
     </Popup>
+
+    <StarterTemplatePickerSheet
+      visible={starterPickerVisible}
+      onClose={() => setStarterPickerVisible(false)}
+      onCreated={(t) => {
+        setTemplates(prev => [...prev, t]);
+        setTemplateId(t.id);
+      }}
+    />
+    </>
   );
 }

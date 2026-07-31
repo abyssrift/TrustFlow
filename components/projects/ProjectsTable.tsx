@@ -98,7 +98,7 @@ function ErrorBanner({ rpcMissing, error }: { rpcMissing: boolean; error: string
   );
 }
 
-function EmptyState({ search }: { search: string }) {
+function EmptyState({ search, onBrowseStarters }: { search: string; onBrowseStarters?: () => void }) {
   const c = useThemeColors();
   return (
     <View className="items-center justify-center py-16 px-6">
@@ -107,6 +107,20 @@ function EmptyState({ search }: { search: string }) {
       <Text className="text-typography-muted text-sm text-center mt-2">
         {search ? `No projects match "${search}".` : 'Projects will show up here once created.'}
       </Text>
+      {/* Only on the genuinely-empty state, not a no-search-results state — a
+          brand-new company has zero projects AND zero templates, so this is
+          the other place (besides BulkCreateProjectsSheet itself) it makes
+          sense to meet the starter library, per PROJECT_HIERARCHY_PLAN.md §7. */}
+      {!search && onBrowseStarters && (
+        <TouchableOpacity
+          onPress={onBrowseStarters}
+          className="mt-5 px-6 py-3 rounded-xl bg-brand-primary flex-row items-center gap-2"
+          style={{ minHeight: 44 }}
+        >
+          <FontAwesome name="magic" size={12} color="white" />
+          <Text className="text-white text-xs font-black uppercase tracking-widest">Browse Starter Templates</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -123,9 +137,12 @@ function EmptyState({ search }: { search: string }) {
 export default function ProjectsTable({
   onOpenProject,
   refreshKey = 0,
+  onBrowseStarters,
 }: {
   onOpenProject: (id: string) => void;
   refreshKey?: number;
+  /** Shown as a CTA on the genuinely-empty state (no search, zero projects). Omit to hide it (e.g. no project.create permission). */
+  onBrowseStarters?: () => void;
 }) {
   const c = useThemeColors();
   const { width } = useWindowDimensions();
@@ -313,7 +330,7 @@ export default function ProjectsTable({
   ) : error ? (
     <ErrorBanner rpcMissing={rpcMissing} error={error} />
   ) : sortedRows.length === 0 ? (
-    <EmptyState search={debouncedSearch} />
+    <EmptyState search={debouncedSearch} onBrowseStarters={onBrowseStarters} />
   ) : isDesktop ? (
     sortedRows.map((row, i) => (
       <TouchableOpacity

@@ -172,7 +172,11 @@ export default function ProjectsScreen() {
         className="flex-1 px-6 pt-4"
         contentContainerStyle={{ paddingBottom: isWeb ? 32 : TAB_BAR_HEIGHT.native + 16 }}
       >
-        <ProjectsTable refreshKey={tableRefreshKey} onOpenProject={setDashboardProjectId} />
+        <ProjectsTable
+          refreshKey={tableRefreshKey}
+          onOpenProject={setDashboardProjectId}
+          onBrowseStarters={hasPermission('project.create') ? () => setBulkCreateVisible(true) : undefined}
+        />
       </ScrollView>
 
       <ProjectFolderModal
