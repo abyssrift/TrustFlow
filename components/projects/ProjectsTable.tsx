@@ -227,7 +227,10 @@ export default function ProjectsTable({
       >
         <TouchableOpacity
           onPress={() => setStageId(null)}
-          className={`px-3 py-1.5 rounded-full border ${!stageId ? 'bg-brand-primary/10 border-brand-primary' : 'border-surface-border'}`}
+          // ui-style-guide.md 4.3: 44x44 minimum tap target on mobile. These chips
+          // ARE the mobile control (they replace clickable column headers below
+          // 768px), so they cannot stay at py-1.5 (~26px). Desktop keeps compact.
+          className={`${isDesktop ? 'px-3 py-1.5' : 'px-4 min-h-[44px] justify-center'} rounded-full border ${!stageId ? 'bg-brand-primary/10 border-brand-primary' : 'border-surface-border'}`}
         >
           <Text className={`text-[10px] font-black uppercase ${!stageId ? 'text-brand-primary' : 'text-typography-muted'}`}>All Stages</Text>
         </TouchableOpacity>
@@ -235,7 +238,7 @@ export default function ProjectsTable({
           <TouchableOpacity
             key={id}
             onPress={() => setStageId(prev => (prev === id ? null : id))}
-            className={`flex-row items-center gap-1.5 px-3 py-1.5 rounded-full border ${stageId === id ? 'bg-brand-primary/10 border-brand-primary' : 'border-surface-border'}`}
+            className={`flex-row items-center gap-1.5 ${isDesktop ? 'px-3 py-1.5' : 'px-4 min-h-[44px]'} rounded-full border ${stageId === id ? 'bg-brand-primary/10 border-brand-primary' : 'border-surface-border'}`}
           >
             <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: s.color ?? c.primary }} />
             <Text className={`text-[10px] font-black uppercase ${stageId === id ? 'text-brand-primary' : 'text-typography-muted'}`} numberOfLines={1}>{s.name}</Text>
@@ -257,7 +260,7 @@ export default function ProjectsTable({
         <TouchableOpacity
           key={key}
           onPress={() => toggleSort(key)}
-          className={`flex-row items-center gap-1.5 px-3 py-1.5 rounded-full border ${sortKey === key ? 'bg-brand-primary/10 border-brand-primary' : 'border-surface-border'}`}
+          className={`flex-row items-center gap-1.5 ${isDesktop ? 'px-3 py-1.5' : 'px-4 min-h-[44px]'} rounded-full border ${sortKey === key ? 'bg-brand-primary/10 border-brand-primary' : 'border-surface-border'}`}
         >
           <Text className={`text-[10px] font-black uppercase ${sortKey === key ? 'text-brand-primary' : 'text-typography-muted'}`}>{SORT_LABELS[key]}</Text>
           {sortKey === key && <FontAwesome name={sortDir === 'asc' ? 'sort-asc' : 'sort-desc'} size={10} color={c.primary} />}
