@@ -7,6 +7,9 @@ import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'rea
 import Popup from '@/components/common/Popup';
 import Tooltip from '@/components/common/Tooltip';
 import UserLink from '@/components/common/UserLink';
+import SaveAsTemplateSheet from '@/components/projects/SaveAsTemplateSheet';
+import { useAuth } from '@/contexts/AuthContext';
+import { useAlert } from '@/contexts/AlertContext';
 
 // ── Types mirror rpc_project_dashboard ────────────────────────────────────────
 type Totals = {
@@ -53,9 +56,12 @@ export default function ProjectDashboard({
   onEdit?: () => void;
 }) {
   const colors = useThemeColors();
+  const { hasPermission } = useAuth();
+  const { showAlert } = useAlert();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<Dashboard | null>(null);
+  const [saveTemplateVisible, setSaveTemplateVisible] = useState(false);
 
   useEffect(() => {
     if (!visible || !projectId) return;
@@ -97,6 +103,15 @@ export default function ProjectDashboard({
       maxWidth={1400}
       maxHeight="92%"
       containerClassName="rounded-[2rem] overflow-hidden premium-shadow-lg flex-col"
+      overlays={
+        <SaveAsTemplateSheet
+          visible={saveTemplateVisible}
+          projectId={projectId}
+          projectName={data?.project?.name}
+          onClose={() => setSaveTemplateVisible(false)}
+          onSaved={(t) => showAlert('Template Saved', `"${t.name}" is ready to use for bulk instantiation.`)}
+        />
+      }
     >
         {/* Header */}
         <View className="px-8 py-6 border-b border-surface-border flex-row items-start justify-between">
@@ -118,6 +133,12 @@ export default function ProjectDashboard({
             )}
           </View>
           <View className="flex-row items-center gap-3">
+            {hasPermission('project.create') && (
+              <TouchableOpacity onPress={() => setSaveTemplateVisible(true)} className="flex-row items-center gap-2 px-4 h-10 bg-surface-background border border-surface-border rounded-xl hover:bg-surface-overlay">
+                <FontAwesome name="save" size={12} color={colors.textMuted} />
+                <Text className="text-typography-muted font-black text-xs uppercase tracking-wider">Save as Template</Text>
+              </TouchableOpacity>
+            )}
             {onEdit && (
               <TouchableOpacity onPress={onEdit} className="flex-row items-center gap-2 px-4 h-10 bg-surface-background border border-surface-border rounded-xl hover:bg-surface-overlay">
                 <FontAwesome name="pencil" size={12} color={colors.textMuted} />
