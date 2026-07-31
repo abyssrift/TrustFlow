@@ -86,7 +86,53 @@ BEGIN
     END IF;
   END;
 
-  RAISE NOTICE 'OK: rpc_advance_project_stage moves stage, records history, and rejects task-kind targets';
+  -- Assert 4 (#172 gap fix): a *direct* UPDATE outside the RPC still
+  -- records history. This is the enforcement gap from the newest issue
+  -- comment -- before the trigger, this UPDATE moved the project and wrote
+  -- nothing to project_stage_history.
+  UPDATE public.projects SET current_stage_id = v_stage_a WHERE id = v_project_id;
+
+  SELECT COUNT(*) INTO v_hist_count
+  FROM public.project_stage_history
+  WHERE project_id = v_project_id
+    AND from_stage_id = v_stage_b
+    AND to_stage_id = v_stage_a;
+
+  IF v_hist_count <> 1 THEN
+    RAISE EXCEPTION 'CHECK FAILED: direct UPDATE on projects.current_stage_id did not record history (got % rows, expected 1)', v_hist_count;
+  END IF;
+
+  -- Assert 5: rpc_advance_project_stage no longer double-writes now that
+  -- the trigger is the sole writer. Total rows so far must be exactly 2
+  -- (assert 2's RPC move + assert 4's direct move) -- a no-op UPDATE
+  -- (same value) must not add a spurious third.
+  UPDATE public.projects SET current_stage_id = v_stage_a WHERE id = v_project_id;
+
+  SELECT COUNT(*) INTO v_hist_count
+  FROM public.project_stage_history
+  WHERE project_id = v_project_id;
+
+  IF v_hist_count <> 2 THEN
+    RAISE EXCEPTION 'CHECK FAILED: total history rows is % (expected 2) -- either a double-write or a spurious no-op row', v_hist_count;
+  END IF;
+
+  -- Assert 6: clearing current_stage_id to NULL must succeed and must not
+  -- write history. Regression guard for the trigger's WHEN clause --
+  -- to_stage_id is NOT NULL on project_stage_history, and current_stage_id's
+  -- FK is ON DELETE SET NULL, so a deleted pipeline_stages row fires this
+  -- same UPDATE path. Without the NEW.current_stage_id IS NOT NULL guard,
+  -- that delete would abort on a NOT NULL violation.
+  UPDATE public.projects SET current_stage_id = NULL WHERE id = v_project_id;
+
+  SELECT COUNT(*) INTO v_hist_count
+  FROM public.project_stage_history
+  WHERE project_id = v_project_id;
+
+  IF v_hist_count <> 2 THEN
+    RAISE EXCEPTION 'CHECK FAILED: clearing current_stage_id to NULL should not write history (total %, expected still 2)', v_hist_count;
+  END IF;
+
+  RAISE NOTICE 'OK: rpc_advance_project_stage moves stage, records history, rejects task-kind targets, and a direct UPDATE on projects.current_stage_id (bypassing the RPC) now also records history via trg_projects_stage_history -- #172 gap closed';
 END $$;
 
 ROLLBACK;
