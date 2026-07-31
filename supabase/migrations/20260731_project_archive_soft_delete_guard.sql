@@ -11,7 +11,24 @@
 -- (see #156's own writeup: "rpc_archive_project is not affected -- its loop
 -- deliberately picks leaf tasks first") already archives children via
 -- rpc_archive_task, which since #156/#160 guards + locks + snapshots + hard
--- deletes each task itself. That part is untouched here.
+-- deletes each task itself.
+--
+-- The loop's SHAPE is unchanged, but it does gain `AND deleted_at IS NULL` in
+-- two places (an earlier draft of this header wrongly said it was untouched).
+-- Prod's loop has no such filter, so this is a real behavioural difference and
+-- worth stating plainly:
+--   * Prod hard-deleted the project, so already-soft-deleted tasks HAD to be
+--     swept into archives or the cascade would have destroyed them.
+--   * Here the project row survives as soft-deleted, so its soft-deleted tasks
+--     can stay soft-deleted too. That is the consistent behaviour, not a loss.
+-- Both reachable shapes were tested against a local stack:
+--   A. soft-deleted child under a live parent -> still archived, because
+--      rpc_archive_task recurses over the subtree without filtering deleted_at
+--      (verified: 1 archive row written).
+--   B. soft-deleted leaf directly under the project -> skipped, and simply
+--      stays in `tasks` as soft-deleted (verified: row survives).
+-- Neither destroys data. The residual wart is that A and B are treated
+-- differently; harmless today, but do not assume symmetry here.
 --
 -- What changes:
 --   1. Soft-delete the project row (deleted_at) instead of DELETE. Every
