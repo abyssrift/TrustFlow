@@ -37,6 +37,16 @@ yarn-error.*
 # supabase/functions.env.local (live Paymob/Jira/Resend/VAPID secrets) slip past it.
 *.env.local
 
+# Local Supabase stack — see docs/LOCAL_SUPABASE_DEV.md (on local-supabase-dev-env).
+# seed.sql is a full prod data dump containing real customer records (names,
+# emails). It is passed between developers out-of-band, NEVER through git.
+supabase/seed.sql
+# Supabase CLI local state: linked project ref, pooler URL, container versions,
+# and .temp/start-secrets/ (local container credentials). Machine-specific and
+# rewritten on every `supabase start`.
+supabase/.temp/
+supabase/.branches/
+
 # one-off design export, not a source file
 website/TrustFlow website design/waitlist_website/
 
