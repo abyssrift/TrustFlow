@@ -19,6 +19,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import ProjectFolderModal from '@/components/projects/ProjectFolderModal';
 import ProjectDashboard from '@/components/projects/ProjectDashboard';
 import Tooltip from '@/components/common/Tooltip';
+import BulkCreateProjectsSheet from '@/components/projects/BulkCreateProjectsSheet';
 
 type Project = {
   id: string;
@@ -50,6 +51,7 @@ export default function ProjectsScreenWeb() {
   const [archiveModal, setArchiveModal] = useState<{ visible: boolean, projectId: string | null }>({ visible: false, projectId: null });
   const [archiving, setArchiving] = useState(false);
   const [dashboardProjectId, setDashboardProjectId] = useState<string | null>(null);
+  const [bulkCreateVisible, setBulkCreateVisible] = useState(false);
 
   // Switch to 2-col grid on smaller desktops (sidebar eats ~256px of the viewport)
   const cardWidth = width >= 1280 ? 'w-[calc(33.33%-20px)]' : 'w-[calc(50%-15px)]';
@@ -292,7 +294,17 @@ export default function ProjectsScreenWeb() {
               </View>
             </Tooltip>
             
-            <TouchableOpacity 
+            {hasPermission('project.create') && (
+              <TouchableOpacity
+                onPress={() => setBulkCreateVisible(true)}
+                className="bg-surface-card border border-surface-border px-6 py-4 rounded-2xl premium-shadow active:scale-95 transition-transform flex-row items-center"
+              >
+                <FontAwesome name="magic" size={14} color={colors.primary} className="mr-3" />
+                <Text className="text-typography-main font-black uppercase tracking-widest text-sm">Bulk Create</Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
               onPress={handleCreateNew}
               className="bg-brand-primary px-8 py-4 rounded-2xl premium-shadow active:scale-95 transition-transform flex-row items-center"
             >
@@ -352,6 +364,15 @@ export default function ProjectsScreenWeb() {
           const p = projects.find(pr => pr.id === dashboardProjectId);
           setDashboardProjectId(null);
           if (p) handleEdit(p);
+        }}
+      />
+
+      <BulkCreateProjectsSheet
+        visible={bulkCreateVisible}
+        onClose={() => setBulkCreateVisible(false)}
+        onCreated={(res) => {
+          showAlert('Bulk Create Complete', `Created ${res.projects_created} projects and ${res.tasks_created} tasks.`);
+          fetchProjects();
         }}
       />
 

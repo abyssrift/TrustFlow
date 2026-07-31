@@ -16,6 +16,7 @@ import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import ProjectFolderModal from '@/components/projects/ProjectFolderModal';
 import ProjectDashboardSheet from '@/components/projects/ProjectDashboardSheet';
+import BulkCreateProjectsSheet from '@/components/projects/BulkCreateProjectsSheet';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAlert } from '@/contexts/AlertContext';
 import { TAB_BAR_HEIGHT } from '@/lib/layout';
@@ -47,6 +48,7 @@ export default function ProjectsScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | undefined>();
   const [dashboardProjectId, setDashboardProjectId] = useState<string | null>(null);
+  const [bulkCreateVisible, setBulkCreateVisible] = useState(false);
 
   const { hasPermission } = useAuth();
   const isWeb = Platform.OS === 'web';
@@ -292,6 +294,17 @@ export default function ProjectsScreen() {
             />
           </View>
 
+          {hasPermission('project.create') && (
+            <Tooltip label="Bulk create from template">
+              <TouchableOpacity
+                onPress={() => setBulkCreateVisible(true)}
+                className="bg-surface-card border border-surface-border p-3 rounded-xl"
+              >
+                <FontAwesome name="magic" size={16} color={colors.primary} />
+              </TouchableOpacity>
+            </Tooltip>
+          )}
+
           <Tooltip label="Create project">
             <TouchableOpacity
               onPress={handleCreateNew}
@@ -341,6 +354,15 @@ export default function ProjectsScreen() {
           setDashboardProjectId(null);
           if (p) handleEdit(p);
         } : undefined}
+      />
+
+      <BulkCreateProjectsSheet
+        visible={bulkCreateVisible}
+        onClose={() => setBulkCreateVisible(false)}
+        onCreated={(res) => {
+          showAlert('Bulk Create Complete', `Created ${res.projects_created} projects and ${res.tasks_created} tasks.`);
+          fetchProjects();
+        }}
       />
     </View>
   );

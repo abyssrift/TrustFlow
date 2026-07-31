@@ -8,6 +8,9 @@ import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'rea
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Popup from '@/components/common/Popup';
 import Tooltip from '@/components/common/Tooltip';
+import SaveAsTemplateSheet from '@/components/projects/SaveAsTemplateSheet';
+import { useAuth } from '@/contexts/AuthContext';
+import { useAlert } from '@/contexts/AlertContext';
 
 // ── Types mirror rpc_project_dashboard ────────────────────────────────────────
 type Totals = {
@@ -55,9 +58,12 @@ export default function ProjectDashboardSheet({
 }) {
   const c = useThemeColors();
   const insets = useSafeAreaInsets();
+  const { hasPermission } = useAuth();
+  const { showAlert } = useAlert();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<Dashboard | null>(null);
+  const [saveTemplateVisible, setSaveTemplateVisible] = useState(false);
 
   useEffect(() => {
     if (!visible || !projectId) return;
@@ -97,6 +103,15 @@ export default function ProjectDashboardSheet({
       dimBackdrop
       maxHeight="94%"
       presentation="auto"
+      overlays={
+        <SaveAsTemplateSheet
+          visible={saveTemplateVisible}
+          projectId={projectId}
+          projectName={data?.project?.name}
+          onClose={() => setSaveTemplateVisible(false)}
+          onSaved={(t) => showAlert('Template Saved', `"${t.name}" is ready to use for bulk instantiation.`)}
+        />
+      }
     >
       <View style={{ flex: 1, backgroundColor: c.background }}>
         {/* Header */}
@@ -110,13 +125,22 @@ export default function ProjectDashboardSheet({
             <Text className="text-[8px] font-black uppercase tracking-[0.3em]" style={{ color: c.primary }}>Project Intelligence</Text>
             <Text numberOfLines={1} className="text-base font-black tracking-tight" style={{ color: c.textMain }}>{data?.project?.name || 'Project'}</Text>
           </View>
-          {onEdit ? (
-            <Tooltip label="Edit">
-              <TouchableOpacity onPress={onEdit} className="w-10 h-10 items-center justify-center rounded-full" style={{ backgroundColor: c.card }}>
-                <FontAwesome name="pencil" size={14} color={c.textMuted} />
-              </TouchableOpacity>
-            </Tooltip>
-          ) : <View className="w-10" />}
+          <View className="flex-row items-center gap-2">
+            {hasPermission('project.create') && (
+              <Tooltip label="Save as template">
+                <TouchableOpacity onPress={() => setSaveTemplateVisible(true)} className="w-10 h-10 items-center justify-center rounded-full" style={{ backgroundColor: c.card }}>
+                  <FontAwesome name="save" size={14} color={c.textMuted} />
+                </TouchableOpacity>
+              </Tooltip>
+            )}
+            {onEdit ? (
+              <Tooltip label="Edit">
+                <TouchableOpacity onPress={onEdit} className="w-10 h-10 items-center justify-center rounded-full" style={{ backgroundColor: c.card }}>
+                  <FontAwesome name="pencil" size={14} color={c.textMuted} />
+                </TouchableOpacity>
+              </Tooltip>
+            ) : <View className="w-10" />}
+          </View>
         </View>
 
         {loading ? (
