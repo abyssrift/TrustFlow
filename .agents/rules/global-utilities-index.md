@@ -14,6 +14,10 @@ Before writing new utility functions, hooks, or database RPCs, check this regist
 
 ## Global UI Components (`/components/ui`)
 * **ConfirmModal**: (Global Common) A premium, themed confirmation dialog for sensitive tactical actions (archival, deletion, restoration). Supports danger/warning/info variants.
+* **Tooltip** (`components/common/Tooltip.tsx` + `.web.tsx`): Cross-platform hint bubble — hover/focus on web, long-press on native. Portals/Modals out so it never clips. Wrap any control: `<Tooltip label="...">{child}</Tooltip>`. See the Tooltip section in `ux-consistency.md` before using.
+
+## Frontend Positioning Helpers (`/lib`)
+* **positionTooltip** (`lib/tooltipPosition.ts`): Pure flip + viewport-clamp placement math shared by both Tooltip variants (inputs: anchor rect, tip size, viewport, preferred side).
 
 ## Supabase Database (RPCs & Edge Functions)
 * **get_server_time**: Returns the current server timestamp for NTP synchronization.

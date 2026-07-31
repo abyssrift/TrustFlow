@@ -69,6 +69,42 @@ width — give any wrapper around a `Calendar` `flex-1` (or an explicit width), 
 a plain `flex-row` child with no sizing. Getting this wrong is the exact bug that
 made the day grid render 3 columns wide instead of 7.
 
+## Tooltip
+
+Hint text on hover/focus (web) or long-press (native). **Never build a one-off
+absolute-positioned hint `View`** — every tooltip goes through
+`components/common/Tooltip.tsx` / `.web.tsx` (issue #135 is the ongoing rollout).
+
+```tsx
+<Tooltip label="Archive task"><IconButton ... /></Tooltip>
+```
+
+- **Props:** `label` (required — empty label renders the child bare), `side`
+  (`'top' | 'bottom' | 'left' | 'right'`, default `'top'`), `disabled`,
+  `className`/`style` on the wrapper, and `delay` (web only, default 350ms).
+- **Two implementations, one API.** Web portals the bubble to `document.body`
+  with `position: fixed`; native renders it in a transparent `Modal`. Both are
+  therefore immune to `overflow: hidden` clipping and z-index fights — never
+  reach for a manual portal or `zIndex` bump around a Tooltip.
+- **Placement is not your job.** Both variants call `positionTooltip()` from
+  `lib/tooltipPosition.ts`, which flips to the opposite side when the preferred
+  one lacks room and clamps the bubble inside the viewport. `side` is a
+  preference, not a guarantee. Change placement math there, not in a component.
+- **Layout gotcha:** Tooltip wraps the child in a `View`, so it takes the
+  child's place in the layout. If the child relied on `flex-1`, `self-end`,
+  `absolute`, etc., move those classes to the Tooltip's `className` or the child
+  will collapse or mis-position.
+- **Styling is inline from `useThemeColors` on purpose.** Theme token classes go
+  black inside a portal / RN `Modal` on web — this is the one sanctioned
+  exception to the "no inline styles" rule in `ui-consistency.md`. Don't
+  "fix" it back to `className` tokens.
+- **Native caveat:** releasing a long-press can still fire the child's
+  `onPress`. Known and accepted (`ponytail:` comment in `Tooltip.tsx`).
+- **Don't use it for:** anything interactive (links, buttons, inputs inside the
+  bubble) — the web bubble is `pointer-events: none`. That's a popover; use
+  `Popup`. And don't use a tooltip as the *only* carrier of information a user
+  needs to complete a task — mobile discoverability is a long-press away.
+
 ## When to use what
 
 | You need this | Use this |
@@ -81,6 +117,8 @@ made the day grid render 3 columns wide instead of 7.
 | Saving/loading overlay | `LoadingOverlay` |
 | Initial data load placeholder | `SkeletonBlock` / `SkeletonList` |
 | Any date or date-range input | `Calendar` (see Calendar section above) |
+| Hint text on an icon/control | `Tooltip` (hover on web, long-press on native) |
+| Hint content with links/buttons in it | `Popup` — not `Tooltip` |
 
 ## Mobile overflow: what to do when content is too much
 
