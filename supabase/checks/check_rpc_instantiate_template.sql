@@ -48,7 +48,8 @@ BEGIN
   v_result1 := public.rpc_instantiate_template(
     v_template_id,
     jsonb_build_object('name', 'selfcheck-portfolio'),
-    '[{"name":"Selfcheck Client One"},{"name":"Selfcheck Client Two"}]'::jsonb,
+    '[{"name":"Selfcheck Client One","client_ref":"Selfcheck Client One"},
+      {"name":"Selfcheck Client Two","client_ref":"Selfcheck Client Two"}]'::jsonb,
     v_key
   );
 
@@ -64,7 +65,8 @@ BEGIN
   v_result2 := public.rpc_instantiate_template(
     v_template_id,
     jsonb_build_object('name', 'selfcheck-portfolio'),
-    '[{"name":"Selfcheck Client One"},{"name":"Selfcheck Client Two"}]'::jsonb,
+    '[{"name":"Selfcheck Client One","client_ref":"Selfcheck Client One"},
+      {"name":"Selfcheck Client Two","client_ref":"Selfcheck Client Two"}]'::jsonb,
     v_key
   );
   ASSERT (v_result2->>'already_processed')::boolean = true, 'repeat call with the same idempotency_key must be a no-op';
