@@ -28,6 +28,8 @@ export type Pipeline = {
   task_visibility_mode: 'all' | 'assigned_only';
   assignment_mode: 'manual' | 'round_robin' | 'smart';
   assignment_pool_type: 'users' | 'teams';
+  /** #172 P2 -- discriminates whether this pipeline's stages describe tasks or projects. */
+  subject_kind: 'task' | 'project';
   created_at: string;
 };
 
@@ -182,10 +184,11 @@ type PipelineEditorState = {
   };
 
   // Deprecated flat access (keeping for compatibility)
-  createPipeline: (name: string, desc: string, stages: any[], transitions: any[], visibility_permissions?: string[], task_visibility_mode?: string) => Promise<string | null>;
+  createPipeline: (name: string, desc: string, stages: any[], transitions: any[], visibility_permissions?: string[], task_visibility_mode?: string, subjectKind?: 'task' | 'project') => Promise<string | null>;
   updatePipeline: (id: string, name?: string, desc?: string | null, isDefault?: boolean, visibility_permissions?: string[], task_visibility_mode?: string, assignmentMode?: string, assignmentPoolType?: string) => Promise<boolean>;
   deletePipeline: (id: string) => Promise<boolean>;
   setFileVisibility: (id: string, config: FileVisibility) => Promise<boolean>;
+  setPipelineSubjectKind: (id: string, kind: 'task' | 'project') => Promise<boolean>;
   // Assignment pool CRUD
   setAssignmentPool: (memberType: 'user' | 'team', memberIds: string[]) => Promise<boolean>;
   setPoolMemberWithdrawn: (memberType: 'user' | 'team', memberId: string, isWithdrawn: boolean) => Promise<boolean>;
@@ -487,7 +490,8 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
 
   // ═══ Pipeline CRUD ═══
   const createPipeline = useCallback(async (
-    name: string, desc: string, stagesArr: any[], transArr: any[], visibility_permissions: string[] = [], task_visibility_mode: string = 'all'
+    name: string, desc: string, stagesArr: any[], transArr: any[], visibility_permissions: string[] = [], task_visibility_mode: string = 'all',
+    subjectKind: 'task' | 'project' = 'task'
   ): Promise<string | null> => {
     setLoading(true);
     try {
@@ -511,6 +515,7 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
           description: desc,
           visibility_permissions: visibility_permissions.length > 0 ? visibility_permissions : [],
           task_visibility_mode,
+          subject_kind: subjectKind,
           is_default: false,
           deleted_at: null,
         })
@@ -693,6 +698,25 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
     } catch (e: any) {
       setError(e.message);
       errorToast(e.message || 'Unable to update file visibility.');
+      return false;
+    }
+  }, [errorToast]);
+
+  // #172 P2 -- rpc_update_pipeline has no p_subject_kind param, and widening it
+  // is a backend change this issue's scope explicitly doesn't call for. A
+  // direct table UPDATE mirrors the direct .insert() createPipeline already
+  // does above; RLS's pipelines_update policy (owner OR pipeline.edit) is the
+  // only gate needed, same gate the edit form is already behind.
+  const setPipelineSubjectKind = useCallback(async (id: string, kind: 'task' | 'project'): Promise<boolean> => {
+    try {
+      const { error: e } = await supabase.from('pipelines').update({ subject_kind: kind }).eq('id', id);
+      if (e) throw e;
+      setSelectedPipeline(prev => prev && prev.id === id ? { ...prev, subject_kind: kind } : prev);
+      setPipelines(prev => prev.map(p => p.id === id ? { ...p, subject_kind: kind } : p));
+      return true;
+    } catch (e: any) {
+      setError(e.message);
+      errorToast(e.message || 'Unable to update pipeline type.');
       return false;
     }
   }, [errorToast]);
@@ -1186,7 +1210,7 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
         },
 
         // Flat compatibility layer
-        createPipeline, updatePipeline, deletePipeline, setFileVisibility,
+        createPipeline, updatePipeline, deletePipeline, setFileVisibility, setPipelineSubjectKind,
         setAssignmentPool, setPoolMemberWithdrawn,
         addStage, updateStage, updateStagePosition, deleteStage, reorderStages,
         addTransition, updateTransition, deleteTransition,
