@@ -1,6 +1,8 @@
+import Calendar from '@/components/common/Calendar';
 import Popup from '@/components/common/Popup';
 import StarterTemplatePickerSheet from '@/components/projects/StarterTemplatePickerSheet';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { getQuickActionDate } from '@/lib/calendarPicker';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -24,7 +26,34 @@ function randomKey(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
+// "Next Monday" / "End of quarter" aren't in lib/calendarPicker's QUICK_ACTIONS
+// (those are relative +N-day offsets) — issue #182 asks for these two by name,
+// so they're computed locally rather than added to a shared picker that has no
+// other caller wanting them yet. Same YYYY-MM-DD shape getQuickActionDate(0)
+// returns, so all three stay directly comparable as strings.
+function nextMondayISO(): string {
+  const d = new Date();
+  const diff = ((8 - d.getDay()) % 7) || 7; // always strictly in the future, never "today"
+  d.setDate(d.getDate() + diff);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function endOfQuarterISO(): string {
+  const d = new Date();
+  const q = Math.floor(d.getMonth() / 3);
+  const end = new Date(d.getFullYear(), q * 3 + 3, 0); // day 0 of the month after = last day of the quarter
+  return `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`;
+}
+function fmtShort(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
 type Template = { id: string; name: string; body: any[] };
+type Pipeline = { id: string; name: string; hasStages: boolean };
+type Team = { id: string; name: string; color: string | null };
+type CategoryValue = { pipeline_id: string | null; assignee_team_id: string | null };
+type CategoryMapping = Record<string, CategoryValue>;
+type PreviewResult = { projects: number; tasks: number; boards: number; first_task_date: string | null; last_task_date: string | null };
 
 type ParsedLine = { raw: string; name: string; start_date: string | null; external_ref: string | null };
 
@@ -61,6 +90,96 @@ function parseLines(text: string): ParsedLine[] {
     .filter(p => p.name.length > 0);
 }
 
+// One row per DISTINCT category the template body uses (issue #182 — "a
+// 25-task template becomes four decisions, not twenty-five"). Board is the
+// sole source of pipeline_id/current_stage_id server-side and is required;
+// team is optional. Deliberately kept inline in this file rather than
+// extracted to components/common — plan §13.11 notes this same "category ->
+// board/team" picker will get mounted again from the Work tab (#184), at
+// which point it's worth promoting to a shared component. One call site
+// today; extracting now would be a speculative abstraction.
+function CategoryMappingRow({
+  category, value, pipelines, teams, onChange, c,
+}: {
+  category: string;
+  value: CategoryValue;
+  pipelines: Pipeline[];
+  teams: Team[];
+  onChange: (next: CategoryValue) => void;
+  c: ReturnType<typeof useThemeColors>;
+}) {
+  const [openField, setOpenField] = useState<'board' | 'team' | null>(null);
+  const board = pipelines.find(p => p.id === value.pipeline_id) || null;
+  const team = teams.find(t => t.id === value.assignee_team_id) || null;
+
+  return (
+    <View className="bg-surface-background border border-surface-border rounded-2xl p-3" style={{ gap: 8 }}>
+      <Text className="text-typography-main text-sm font-black">{category || 'Uncategorized'}</Text>
+      <View className="flex-row gap-2">
+        <TouchableOpacity
+          onPress={() => setOpenField(f => (f === 'board' ? null : 'board'))}
+          className={`flex-1 flex-row items-center justify-between px-3 rounded-lg border ${board ? 'border-surface-border' : 'border-state-danger'}`}
+          style={{ minHeight: 44 }}
+        >
+          <Text className={`text-xs font-bold flex-1 ${board ? 'text-typography-main' : 'text-typography-dim'}`} numberOfLines={1}>
+            {board ? board.name : 'Board (required)'}
+          </Text>
+          <FontAwesome name={openField === 'board' ? 'chevron-up' : 'chevron-down'} size={10} color={c.textDim} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => setOpenField(f => (f === 'team' ? null : 'team'))}
+          className="flex-1 flex-row items-center justify-between px-3 rounded-lg border border-surface-border"
+          style={{ minHeight: 44 }}
+        >
+          <Text className={`text-xs font-bold flex-1 ${team ? 'text-typography-main' : 'text-typography-dim'}`} numberOfLines={1}>
+            {team ? team.name : 'Team (optional)'}
+          </Text>
+          <FontAwesome name={openField === 'team' ? 'chevron-up' : 'chevron-down'} size={10} color={c.textDim} />
+        </TouchableOpacity>
+      </View>
+
+      {openField === 'board' && (
+        <View className="border-t border-surface-border pt-2" style={{ gap: 2 }}>
+          {pipelines.length === 0 && <Text className="text-typography-dim text-xs italic px-2 py-1">No boards yet — create one first.</Text>}
+          {pipelines.map(p => (
+            <TouchableOpacity
+              key={p.id}
+              disabled={!p.hasStages}
+              onPress={() => { onChange({ ...value, pipeline_id: p.id }); setOpenField(null); }}
+              className="flex-row items-center justify-between px-3 py-2.5 rounded-lg"
+              style={{ opacity: p.hasStages ? 1 : 0.4 }}
+            >
+              <Text className={`text-xs font-bold ${p.id === value.pipeline_id ? 'text-brand-primary' : 'text-typography-main'}`}>{p.name}</Text>
+              {!p.hasStages && <Text className="text-state-danger text-[9px] font-black uppercase">No stages</Text>}
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      {openField === 'team' && (
+        <View className="border-t border-surface-border pt-2" style={{ gap: 2 }}>
+          <TouchableOpacity
+            onPress={() => { onChange({ ...value, assignee_team_id: null }); setOpenField(null); }}
+            className="flex-row items-center px-3 py-2.5 rounded-lg"
+          >
+            <Text className={`text-xs font-bold ${!value.assignee_team_id ? 'text-brand-primary' : 'text-typography-muted'}`}>No team</Text>
+          </TouchableOpacity>
+          {teams.map(t => (
+            <TouchableOpacity
+              key={t.id}
+              onPress={() => { onChange({ ...value, assignee_team_id: t.id }); setOpenField(null); }}
+              className="flex-row items-center gap-2 px-3 py-2.5 rounded-lg"
+            >
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: t.color ?? c.primary }} />
+              <Text className={`text-xs font-bold ${t.id === value.assignee_team_id ? 'text-brand-primary' : 'text-typography-main'}`}>{t.name}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
 export default function BulkCreateProjectsSheet({
   visible, onClose, onCreated,
 }: {
@@ -70,6 +189,9 @@ export default function BulkCreateProjectsSheet({
 }) {
   const c = useThemeColors();
   const isCentered = useIsCentered();
+  const todayISO = getQuickActionDate(0);
+
+  const [step, setStep] = useState<'setup' | 'configure'>('setup');
 
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(true);
@@ -81,10 +203,32 @@ export default function BulkCreateProjectsSheet({
   const [idempotencyKey, setIdempotencyKey] = useState('');
   const [starterPickerVisible, setStarterPickerVisible] = useState(false);
 
+  // Batch configuration (issue #182 / plan §13.10) — the step this whole
+  // issue exists to add. Category mapping and the schedule anchor share this
+  // one step because rpc_instantiate_template requires both before it will
+  // write anything reachable.
+  const [pipelines, setPipelines] = useState<Pipeline[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [loadingResources, setLoadingResources] = useState(true);
+  const [mapping, setMapping] = useState<CategoryMapping>({});
+  const [anchorDate, setAnchorDate] = useState<string | null>(null);
+  const [anchorDirection, setAnchorDirection] = useState<'start' | 'deadline' | null>(null);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [preview, setPreview] = useState<PreviewResult | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+
   useEffect(() => {
     if (!visible) return;
     setError(null);
+    setStep('setup');
     setIdempotencyKey(randomKey());
+    setMapping({});
+    setAnchorDate(null);
+    setAnchorDirection(null);
+    setShowCalendar(false);
+    setPreview(null);
+    setPreviewError(null);
     setLoadingTemplates(true);
     supabase
       .from('project_templates')
@@ -100,14 +244,112 @@ export default function BulkCreateProjectsSheet({
       });
   }, [visible]);
 
+  // Boards + teams for the mapping step. Boards are scoped to subject_kind
+  // 'task' (default kind, see 20260731_pipeline_subject_kind.sql) — these are
+  // the boards generated TASKS land on, mirroring what CreateTaskModal offers,
+  // not project-lifecycle pipelines (subject_kind='project', ProjectStagePicker's
+  // domain). "Own company only" is enforced by pipelines_select RLS, not a
+  // client-side filter — there is no way for this list to contain another
+  // company's boards.
+  useEffect(() => {
+    if (!visible) return;
+    let cancelled = false;
+    setLoadingResources(true);
+    (async () => {
+      const [{ data: pipelineRows }, { data: teamRows }] = await Promise.all([
+        supabase.from('pipelines').select('id, name').eq('subject_kind', 'task').is('deleted_at', null).order('name'),
+        supabase.from('teams').select('id, name, color').is('deleted_at', null).order('name'),
+      ]);
+      const ids = (pipelineRows || []).map(p => p.id);
+      const { data: stageRows } = ids.length
+        ? await supabase.from('pipeline_stages').select('pipeline_id').in('pipeline_id', ids)
+        : { data: [] as any[] };
+      if (cancelled) return;
+      const withStages = new Set((stageRows || []).map(s => s.pipeline_id));
+      setPipelines((pipelineRows || []).map(p => ({ id: p.id, name: p.name, hasStages: withStages.has(p.id) })));
+      setTeams((teamRows || []) as Team[]);
+      setLoadingResources(false);
+    })();
+    return () => { cancelled = true; };
+  }, [visible]);
+
   const selectedTemplate = useMemo(() => templates.find(t => t.id === templateId) || null, [templates, templateId]);
   const parsed = useMemo(() => parseLines(text), [text]);
   const taskCountPerProject = selectedTemplate?.body?.length || 0;
+  const pastLines = useMemo(() => parsed.filter(p => p.start_date && p.start_date.slice(0, 10) < todayISO), [parsed, todayISO]);
+
+  // The mapping unit is the category, not the task — a 25-task template
+  // collapses to however many distinct categories it uses (plan §13.10).
+  const categories = useMemo(() => {
+    const seen = new Set<string>();
+    for (const item of selectedTemplate?.body || []) seen.add((item && item.category) || '');
+    return Array.from(seen).sort();
+  }, [selectedTemplate]);
+
+  // Seed a mapping entry for every category as templates change; entries for
+  // categories no longer present are simply never read (buildCategoryMapping
+  // below only iterates the CURRENT `categories`), so switching templates back
+  // and forth can't accidentally submit a stale "category the template
+  // doesn't use" row — the exact typo-guard RAISE this form must avoid.
+  useEffect(() => {
+    setMapping(prev => {
+      const next: CategoryMapping = {};
+      for (const cat of categories) next[cat] = prev[cat] || { pipeline_id: null, assignee_team_id: null };
+      return next;
+    });
+  }, [categories.join('\u0000')]);
+
+  const allCategoriesMapped = categories.length > 0 && categories.every(cat => !!mapping[cat]?.pipeline_id);
+  const anchorIsPast = !!anchorDate && anchorDate < todayISO;
+  const anchorReady = !!anchorDate && !!anchorDirection && !anchorIsPast;
+
+  const canProceedToConfigure = !!templateId && taskCountPerProject > 0 && parsed.length > 0 && pastLines.length === 0;
+
+  function buildProjectsPayload() {
+    return parsed.map(p => ({ name: p.name, client_ref: p.name, client_external_ref: p.external_ref, start_date: p.start_date }));
+  }
+  function buildCategoryMapping() {
+    return categories.map(cat => ({
+      category: cat,
+      pipeline_id: mapping[cat]?.pipeline_id ?? null,
+      assignee_team_id: mapping[cat]?.assignee_team_id ?? null,
+    }));
+  }
+
+  // Live preview — calls the SAME resolver/span math as commit (plan §13.10),
+  // so a successful preview is a promise commit will also succeed. That means
+  // a preview error IS this form's validation feedback for anything the UI
+  // can't cheaply pre-check itself (e.g. a mapped pipeline losing its stages
+  // between page load and submit). Debounced with a plain setTimeout — no
+  // library needed for one call site.
+  useEffect(() => {
+    if (step !== 'configure' || !templateId || !allCategoriesMapped || !anchorReady) {
+      setPreview(null);
+      setPreviewError(null);
+      return;
+    }
+    let cancelled = false;
+    setPreviewLoading(true);
+    const timer = setTimeout(async () => {
+      const { data, error: err } = await supabase.rpc('rpc_preview_instantiate_template', {
+        p_template_id: templateId,
+        p_portfolio: { target_date: new Date(anchorDate as string).toISOString(), anchor_direction: anchorDirection },
+        p_projects: buildProjectsPayload(),
+        p_category_mapping: buildCategoryMapping(),
+      });
+      if (cancelled) return;
+      setPreviewLoading(false);
+      if (err) { setPreviewError(err.message); setPreview(null); }
+      else { setPreview(data as PreviewResult); setPreviewError(null); }
+    }, 350);
+    return () => { cancelled = true; clearTimeout(timer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, templateId, JSON.stringify(mapping), anchorDate, anchorDirection, text]);
+
+  const canCreate = !creating && !previewLoading && !!preview && !previewError;
 
   const handleCreate = async () => {
-    if (!templateId) { setError('Pick a template first.'); return; }
-    if (parsed.length === 0) { setError('Paste at least one project name.'); return; }
-
+    if (!canCreate || !templateId || !anchorDate || !anchorDirection) return;
     setCreating(true);
     setError(null);
     const { data, error: err } = await supabase.rpc('rpc_instantiate_template', {
@@ -115,8 +357,11 @@ export default function BulkCreateProjectsSheet({
       p_portfolio: {
         name: portfolioName.trim() || null,
         manifest: parsed.map(p => ({ name: p.name, instantiated: true })),
+        target_date: new Date(anchorDate).toISOString(),
+        anchor_direction: anchorDirection,
       },
-      p_projects: parsed.map(p => ({ name: p.name, client_ref: p.name, client_external_ref: p.external_ref, start_date: p.start_date })),
+      p_projects: buildProjectsPayload(),
+      p_category_mapping: buildCategoryMapping(),
       p_idempotency_key: idempotencyKey,
     });
     setCreating(false);
@@ -129,6 +374,143 @@ export default function BulkCreateProjectsSheet({
     onClose();
   };
 
+  const containerClassName = isCentered ? 'w-[90%] max-w-[640px] rounded-3xl overflow-hidden premium-shadow' : undefined;
+
+  if (step === 'configure') {
+    return (
+      <Popup
+        visible={visible}
+        onClose={onClose}
+        presentation="auto"
+        title="Configure Batch"
+        footer="dual-action"
+        secondaryAction={{ label: 'Back', onPress: () => setStep('setup') }}
+        primaryAction={{
+          label: creating ? 'Creating…' : `Create ${parsed.length} Project${parsed.length === 1 ? '' : 's'}`,
+          onPress: handleCreate,
+          variant: canCreate ? 'default' : 'disabled',
+        }}
+        dismissible={!creating}
+        containerClassName={containerClassName}
+      >
+        <View className="px-6 py-5" style={{ gap: 20 }}>
+          <Text className="text-typography-muted text-xs">
+            Step 2 of 2 — "{selectedTemplate?.name}" · {categories.length} categor{categories.length === 1 ? 'y' : 'ies'} · {parsed.length * taskCountPerProject} tasks total.
+          </Text>
+
+          {/* Category → board/team mapping */}
+          <View style={{ gap: 8 }}>
+            <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest">Map Each Category To A Board</Text>
+            {loadingResources ? (
+              <ActivityIndicator color={c.primary} />
+            ) : (
+              <View style={{ gap: 8 }}>
+                {categories.map(cat => (
+                  <CategoryMappingRow
+                    key={cat}
+                    category={cat}
+                    value={mapping[cat] || { pipeline_id: null, assignee_team_id: null }}
+                    pipelines={pipelines}
+                    teams={teams}
+                    onChange={next => setMapping(prev => ({ ...prev, [cat]: next }))}
+                    c={c}
+                  />
+                ))}
+              </View>
+            )}
+          </View>
+
+          {/* Schedule anchor */}
+          <View style={{ gap: 8 }}>
+            <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest">Schedule</Text>
+
+            {/* Back-scheduling (deadline) listed first — this domain typically
+                receives a deadline ("six months to complete them"), not a
+                start date (issue #182), so it must not read as the secondary
+                option. */}
+            <View className="flex-row gap-2">
+              <TouchableOpacity
+                onPress={() => setAnchorDirection('deadline')}
+                className={`flex-1 rounded-xl border ${isCentered ? 'px-3 py-1.5' : 'px-3 min-h-[44px] justify-center'} ${anchorDirection === 'deadline' ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
+              >
+                <Text className={`text-xs font-black uppercase tracking-wider ${anchorDirection === 'deadline' ? 'text-white' : 'text-typography-main'}`}>Due by</Text>
+                <Text className={`text-[10px] mt-0.5 ${anchorDirection === 'deadline' ? 'text-white/80' : 'text-typography-muted'}`}>Tasks land on this date; start is worked backward</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setAnchorDirection('start')}
+                className={`flex-1 rounded-xl border ${isCentered ? 'px-3 py-1.5' : 'px-3 min-h-[44px] justify-center'} ${anchorDirection === 'start' ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
+              >
+                <Text className={`text-xs font-black uppercase tracking-wider ${anchorDirection === 'start' ? 'text-white' : 'text-typography-main'}`}>Starts on</Text>
+                <Text className={`text-[10px] mt-0.5 ${anchorDirection === 'start' ? 'text-white/80' : 'text-typography-muted'}`}>Tasks are due on their researched offset from this date</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View className="flex-row flex-wrap gap-2">
+              {[
+                { label: 'Today', date: todayISO },
+                { label: 'Next Monday', date: nextMondayISO() },
+                { label: 'End of Quarter', date: endOfQuarterISO() },
+              ].map(preset => (
+                <TouchableOpacity
+                  key={preset.label}
+                  onPress={() => setAnchorDate(preset.date)}
+                  className={`rounded-lg border ${isCentered ? 'px-3 py-1.5' : 'px-4 min-h-[44px] justify-center'} ${anchorDate === preset.date ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
+                >
+                  <Text className={`text-[10px] font-black uppercase tracking-wider ${anchorDate === preset.date ? 'text-white' : 'text-typography-muted'}`}>{preset.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TouchableOpacity
+              onPress={() => setShowCalendar(v => !v)}
+              className={`flex-row items-center justify-between px-4 rounded-lg border ${anchorIsPast ? 'border-state-danger' : 'border-surface-border'} bg-surface-background`}
+              style={{ minHeight: 44 }}
+            >
+              <Text className="text-sm font-black" style={{ color: anchorDate ? c.textMain : c.textDim }}>
+                {anchorDate ? new Date(anchorDate).toLocaleDateString(undefined, { dateStyle: 'medium' }) : 'Pick a date'}
+              </Text>
+              <FontAwesome name="calendar-o" size={14} color={c.primary} />
+            </TouchableOpacity>
+            {showCalendar && (
+              <Calendar
+                selectedDate={anchorDate}
+                onSelect={d => { setAnchorDate(d); setShowCalendar(false); }}
+                accentColor={c.primary}
+                scale="compact"
+              />
+            )}
+            {anchorIsPast && <Text className="text-state-danger text-xs font-bold">{anchorDate} is in the past — pick a current or future date.</Text>}
+            {pastLines.length > 0 && (
+              <Text className="text-state-danger text-xs font-bold">
+                Per-line override(s) in the past: {pastLines.map(p => p.name).join(', ')}. Fix on the previous step.
+              </Text>
+            )}
+          </View>
+
+          {/* Preview — the outcome, not the row count (issue #182). A preview
+              error doubles as this form's validation feedback: preview shares
+              the exact resolver/span math the commit path uses. */}
+          <View className="bg-surface-background border border-surface-border rounded-2xl p-4 flex-row items-start gap-3">
+            <FontAwesome name="magic" size={14} color={previewError ? c.danger : c.primary} style={{ marginTop: 2 }} />
+            {previewLoading ? (
+              <ActivityIndicator color={c.primary} />
+            ) : previewError ? (
+              <Text className="text-state-danger text-sm font-bold flex-1">{previewError}</Text>
+            ) : preview ? (
+              <Text className="text-typography-main text-sm font-bold flex-1">
+                {preview.projects} project{preview.projects === 1 ? '' : 's'} · {preview.tasks} task{preview.tasks === 1 ? '' : 's'} · {preview.boards} board{preview.boards === 1 ? '' : 's'} · first task {fmtShort(preview.first_task_date)}, last {fmtShort(preview.last_task_date)}
+              </Text>
+            ) : (
+              <Text className="text-typography-muted text-sm font-bold flex-1">Map every category and set a schedule anchor above to preview the outcome.</Text>
+            )}
+          </View>
+
+          {error && <Text className="text-state-danger text-xs font-bold">{error}</Text>}
+        </View>
+      </Popup>
+    );
+  }
+
   return (
     <>
     <Popup
@@ -138,16 +520,16 @@ export default function BulkCreateProjectsSheet({
       title="Bulk Create Projects"
       footer="single-action"
       primaryAction={{
-        label: creating ? 'Creating…' : `Create ${parsed.length || ''} Project${parsed.length === 1 ? '' : 's'}`.trim(),
-        onPress: handleCreate,
-        variant: creating || parsed.length === 0 || !templateId ? 'disabled' : 'default',
+        label: `Next: Configure Batch`,
+        onPress: () => setStep('configure'),
+        variant: canProceedToConfigure ? 'default' : 'disabled',
       }}
       dismissible={!creating}
       // Only override width for the centered (desktop) variant — Popup
       // forwards the same containerClassName to DraggableSheet on the sheet
       // path too, so a fixed "centered" width class would wrongly clip the
       // mobile bottom sheet's edge-to-edge layout if applied unconditionally.
-      containerClassName={isCentered ? 'w-[90%] max-w-[640px] rounded-3xl overflow-hidden premium-shadow' : undefined}
+      containerClassName={containerClassName}
     >
       {/*
         StarterTemplatePickerSheet is rendered as a return-level sibling below
@@ -201,6 +583,9 @@ export default function BulkCreateProjectsSheet({
               </TouchableOpacity>
             </View>
           )}
+          {selectedTemplate && taskCountPerProject === 0 && (
+            <Text className="text-state-danger text-xs font-bold mt-2">This template has no tasks — pick another.</Text>
+          )}
         </View>
 
         {/* Portfolio name (optional) */}
@@ -232,16 +617,23 @@ export default function BulkCreateProjectsSheet({
             className="bg-surface-background border border-surface-border rounded-lg px-4 py-3"
             style={{ color: c.textMain, minHeight: 160 }}
           />
+          {pastLines.length > 0 && (
+            <Text className="text-state-danger text-xs font-bold mt-2">
+              Line date in the past: {pastLines.map(p => p.name).join(', ')}. Remove or fix the date to continue.
+            </Text>
+          )}
         </View>
 
-        {/* Preview */}
+        {/* Row count is a real number here (how much you're about to type into
+            the next step), not the outcome preview — that lives in step 2
+            once boards/dates are known, per issue #182's framing. */}
         {selectedTemplate && (
           <View className="bg-surface-background border border-surface-border rounded-2xl p-4 flex-row items-center gap-3">
             <FontAwesome name="magic" size={14} color={c.primary} />
             <Text className="text-typography-main text-sm font-bold flex-1">
               {parsed.length === 0
-                ? 'Paste project names above to preview what this will create.'
-                : `This will create ${parsed.length} project${parsed.length === 1 ? '' : 's'} and ${parsed.length * taskCountPerProject} task${parsed.length * taskCountPerProject === 1 ? '' : 's'}.`}
+                ? 'Paste project names above, then configure boards and a schedule on the next step.'
+                : `${parsed.length} project${parsed.length === 1 ? '' : 's'} · ${parsed.length * taskCountPerProject} task${parsed.length * taskCountPerProject === 1 ? '' : 's'} pending board + schedule configuration.`}
             </Text>
           </View>
         )}
