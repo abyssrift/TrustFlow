@@ -6,10 +6,12 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 // #172 P2 -- lets a project be placed on / moved between stages of a
-// project-kind pipeline via rpc_advance_project_stage. Shared by
-// ProjectDashboard.tsx (desktop) and ProjectDashboardSheet.tsx (mobile),
-// rendered through each one's `overlays` prop exactly like
-// SaveAsTemplateSheet.tsx already does -- same Popup, same layering.
+// project-kind pipeline via rpc_advance_project_stage. Originally shared by
+// ProjectDashboard.tsx (desktop) and ProjectDashboardSheet.tsx (mobile); #184
+// retired both in favor of the /projects/[id] route, so this is now rendered
+// directly by ProjectHeader.tsx (no longer through a parent Popup's
+// `overlays` prop -- the header is a full-screen route, not a Popup, so
+// there is no outer card's `overflow: hidden` to escape).
 
 type PipelineGroup = {
   pipelineId: string;

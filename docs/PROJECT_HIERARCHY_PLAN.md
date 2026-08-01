@@ -925,6 +925,65 @@ years, output at the **project**. The Files tab *surfaces* both. It must never
 copy client files into each project, or year five holds five copies of the same
 reference sheet.
 
+#### Shipped (issue #184, branch `feat-project-route`)
+
+**The route and header, not the tab contents.** `/projects/[id]` — one file,
+`app/projects/[id].tsx`, not a `.tsx`/`.web.tsx` split like `app/task/[id]`:
+that split exists there because desktop web wants a genuinely different
+2-pane arrangement from native/mobile-web; this route has no such
+divergence, so one width-aware component serves both, same reasoning §8
+already applied to boards ("write a purpose-built X" over speculative
+generalization). Tab state lives in `?tab=` via `useLocalSearchParams` +
+`router.setParams`, the exact mechanism FileHub's `?tab=`/`?file=` deep link
+already established (`_filehub_desktop.tsx`) — extended, not reinvented.
+`ProjectDetailContext` (mirrors `TaskDetailContext`'s provider-per-route
+shape) fetches `rpc_project_dashboard` once; all three tabs read from it.
+
+**Overview and Work render real data now; Files is a pure stub.** Overview
+is the KPI/panel body moved (not copied) out of the two Popups this issue
+retired, marked as #183's to restructure. Work shows the tasks already on
+the project plus a banner naming what's missing (#182's mapping component,
+not yet built — building a second one here would be exactly the divergence
+this section warned about, so it wasn't). Files has zero backing data
+(`rpc_project_dashboard` carries none) and is an explicit empty state
+pointing at #174.
+
+**`ProjectDashboard.tsx` / `ProjectDashboardSheet.tsx` deleted, not kept as
+a quick-peek.** Both were 90%-identical Popups (desktop `centered` /
+mobile `sheet`) with zero remaining callers once `ProjectsTable`'s row-click
+was repointed at the route on both list screens (`_projects_desktop.tsx`,
+`_projects_adaptive.tsx`). Keeping either as a "quick peek" would have been
+the second project-detail surface #184 itself was written to prevent (see
+#167's board-picker drift, cited in the issue). `ProjectStagePicker.tsx` and
+`SaveAsTemplateSheet.tsx`, previously mounted inside those Popups, are now
+mounted directly by `ProjectHeader.tsx` instead — same components, new host.
+
+**Flags shipped as `flags text[]` + `flag_note`, additive.** §13.12's fixed
+set (blocked / awaiting_client / at_risk) needed real schema to back the
+header, and the "cheap because nothing's deployed yet" premise in §13.12 was
+already stale by the time this issue started: `blocked`/`blocked_reason`
+(20260731_projects_lifecycle_columns.sql) had shipped with live readers —
+`rpc_projects_table`'s list badge/sort/"blocked only" filter. Folding those
+into `flags` would have meant touching that RPC's fixed contract, out of
+scope for a route/tab-shell issue. So `20260801_project_header_flags.sql`
+adds `flags`/`flag_note` alongside the existing columns rather than
+replacing them, and `useProjectLifecycle.setFlags` (the only write path now
+— `ProjectBlockedToggle.tsx`, the old boolean's only editor, was deleted
+with its callers) keeps both representations in sync in one `UPDATE`, so
+`rpc_projects_table` stays correct without being touched. Reconciling the
+two into one column everywhere is flagged, not answered — same posture
+§13.14 took on `clients_select`/`portfolios_select`.
+
+**Denial and non-existence verified indistinguishable end to end**, not
+assumed from reading `rpc_project_dashboard`'s exception message. Live test:
+a user with base `project.view` but no `project.view_all`, assigned to
+project A and not project B — `/projects/<A>` renders the workspace,
+`/projects/<B>` and `/projects/<random-uuid>` render the byte-identical
+"Project not found" screen (question-mark icon, no mention of permissions).
+Confirmed both at the SQL layer (`fn_project_accessible` /
+`rpc_project_dashboard` under an impersonated JWT) and by driving a real
+logged-in browser session to both URLs and diffing the screenshots.
+
 ### 13.12 Flags are a fixed composable set, not custom states (settles §5)
 
 Confirmed with the domain: **blocked · awaiting client · at risk**. Fixed for now,

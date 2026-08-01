@@ -1,17 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
-  InteractionManager,
   Platform,
   useWindowDimensions
 } from 'react-native';
-import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { useRouter } from 'expo-router';
 import ProjectFolderModal from '@/components/projects/ProjectFolderModal';
-import ProjectDashboardSheet from '@/components/projects/ProjectDashboardSheet';
 import BulkCreateProjectsSheet from '@/components/projects/BulkCreateProjectsSheet';
 import ProjectsTable from '@/components/projects/ProjectsTable';
 import { useAuth } from '@/contexts/AuthContext';
@@ -21,26 +19,16 @@ import { useNavBarPosition } from '@/hooks/useNavBarPosition';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import Tooltip from '@/components/common/Tooltip';
 
-type Project = {
-  id: string;
-  name: string;
-  description: string;
-  status: 'active' | 'closed' | 'archived';
-  expiry_date: string | null;
-};
-
 export default function ProjectsScreen() {
   const colors = useThemeColors();
   const { showAlert } = useAlert();
   const { width } = useWindowDimensions();
-  // Raw project rows are still fetched for the edit modal (ProjectFolderModal
-  // needs name/description/status/expiry_date, which the table RPC doesn't
-  // carry) — the dense listing itself is fetched independently inside
-  // ProjectsTable via rpc_projects_table.
-  const [projects, setProjects] = useState<Project[]>([]);
+  const router = useRouter();
+  // #184: project edit now happens inside the /projects/[id] route's
+  // ProjectHeader.tsx (which has the project row from its own context), so
+  // this screen's ProjectFolderModal is create-only -- it no longer needs a
+  // local `projects` fetch just to hand an existing row to the modal.
   const [modalVisible, setModalVisible] = useState(false);
-  const [selectedProject, setSelectedProject] = useState<Project | undefined>();
-  const [dashboardProjectId, setDashboardProjectId] = useState<string | null>(null);
   const [bulkCreateVisible, setBulkCreateVisible] = useState(false);
   const [tableRefreshKey, setTableRefreshKey] = useState(0);
   const bumpTable = () => setTableRefreshKey(k => k + 1);
@@ -51,38 +39,6 @@ export default function ProjectsScreen() {
   const { position: navPosition } = useNavBarPosition();
 
   const canViewProjects = hasPermission('project.view');
-
-  const fetchProjects = async () => {
-    try {
-      const { data, error: projError } = await supabase
-        .from('projects')
-        .select('id, name, description, status, expiry_date')
-        .order('created_at', { ascending: false });
-      if (projError) throw projError;
-      setProjects(data || []);
-    } catch (err: any) {
-      console.error('Error fetching projects:', err);
-    }
-  };
-
-  useEffect(() => {
-    // Permission can still be loading (false) on the very first render and
-    // flip true once auth resolves — this effect's deps include canViewProjects
-    // so the fetch fires once it does, instead of only ever firing (or not)
-    // based on whatever the permission happened to be at mount time.
-    if (!canViewProjects) return;
-    // On web, InteractionManager.runAfterInteractions can hang indefinitely
-    // (its handle never clears with ongoing subscriptions/animations), so the
-    // callback never fires and loading stays true forever. Run directly on web.
-    if (Platform.OS === 'web') {
-      fetchProjects();
-      return;
-    }
-    const task = InteractionManager.runAfterInteractions(() => {
-      fetchProjects();
-    });
-    return () => task.cancel();
-  }, [canViewProjects]);
 
   // Permission check: user must have project.view permission. Placed after
   // every hook call above (never before) so the same hooks run on every
@@ -100,21 +56,11 @@ export default function ProjectsScreen() {
     );
   }
 
-  const handleEdit = (project: Project) => {
-    if (!hasPermission('project.edit')) {
-      showAlert('Permission Denied', 'You do not have permission to edit projects.');
-      return;
-    }
-    setSelectedProject(project);
-    setModalVisible(true);
-  };
-
   const handleCreateNew = () => {
     if (!hasPermission('project.create')) {
       showAlert('Permission Denied', 'You do not have permission to create projects.');
       return;
     }
-    setSelectedProject(undefined);
     setModalVisible(true);
   };
 
@@ -174,7 +120,7 @@ export default function ProjectsScreen() {
       >
         <ProjectsTable
           refreshKey={tableRefreshKey}
-          onOpenProject={setDashboardProjectId}
+          onOpenProject={(id) => router.push(`/projects/${id}` as any)}
           onBrowseStarters={hasPermission('project.create') ? () => setBulkCreateVisible(true) : undefined}
         />
       </ScrollView>
@@ -182,19 +128,7 @@ export default function ProjectsScreen() {
       <ProjectFolderModal
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
-        onSuccess={() => { fetchProjects(); bumpTable(); }}
-        project={selectedProject}
-      />
-
-      <ProjectDashboardSheet
-        visible={!!dashboardProjectId}
-        projectId={dashboardProjectId}
-        onClose={() => setDashboardProjectId(null)}
-        onEdit={hasPermission('project.edit') ? () => {
-          const p = projects.find(pr => pr.id === dashboardProjectId);
-          setDashboardProjectId(null);
-          if (p) handleEdit(p);
-        } : undefined}
+        onSuccess={bumpTable}
       />
 
       <BulkCreateProjectsSheet
@@ -202,7 +136,6 @@ export default function ProjectsScreen() {
         onClose={() => setBulkCreateVisible(false)}
         onCreated={(res) => {
           showAlert('Bulk Create Complete', `Created ${res.projects_created} projects and ${res.tasks_created} tasks.`);
-          fetchProjects();
           bumpTable();
         }}
       />
