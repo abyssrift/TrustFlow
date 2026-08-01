@@ -63,6 +63,7 @@ DECLARE
   v_portfolio_id          UUID;
   v_project_id            UUID;
   v_caught                BOOLEAN;
+  v_msg                   TEXT;
   v_events_before         INT;
   v_events_after          INT;
   v_t_start                TIMESTAMPTZ;
@@ -230,6 +231,62 @@ BEGIN
   END;
   ASSERT v_caught, 'expected an empty template body to RAISE, it did not';
 
+  -- ══ 1h. duplicate names WITHIN the pasted list must RAISE ═══════════════
+  -- These collide with each other, not with any existing row, so the partial
+  -- unique index would not have caught them either — both inserts land in one
+  -- statement. Preview is the only thing standing between the user and a
+  -- failed commit here.
+  v_caught := false; v_msg := NULL;
+  BEGIN
+    PERFORM public.rpc_preview_instantiate_template(
+      v_template_id,
+      jsonb_build_object('target_date', (CURRENT_DATE + 7)::text, 'anchor_direction', 'start'),
+      jsonb_build_array(
+        jsonb_build_object('name', 'Dupe Twin ' || v_tag),
+        jsonb_build_object('name', 'Dupe Twin ' || v_tag)
+      ),
+      v_mapping_full
+    );
+  EXCEPTION WHEN OTHERS THEN v_caught := true; GET STACKED DIAGNOSTICS v_msg = MESSAGE_TEXT;
+  END;
+  ASSERT v_caught, 'expected two identical names in one paste to RAISE, it did not';
+  ASSERT v_msg LIKE '%Dupe Twin%',
+    format('the duplicate-name error must NAME the offending project, got: %s', v_msg);
+
+  -- ══ 1i. a name matching an ACTIVE project must RAISE ════════════════════
+  -- The live failure this check exists for: preview went green and commit
+  -- then died on projects_company_id_name_key. Preview must catch it first.
+  INSERT INTO public.projects (company_id, name, status, created_by)
+  VALUES (v_company_id, 'Already Live ' || v_tag, 'active', v_user_id);
+
+  v_caught := false; v_msg := NULL;
+  BEGIN
+    PERFORM public.rpc_preview_instantiate_template(
+      v_template_id,
+      jsonb_build_object('target_date', (CURRENT_DATE + 7)::text, 'anchor_direction', 'start'),
+      jsonb_build_array(jsonb_build_object('name', 'Already Live ' || v_tag)),
+      v_mapping_full
+    );
+  EXCEPTION WHEN OTHERS THEN v_caught := true; GET STACKED DIAGNOSTICS v_msg = MESSAGE_TEXT;
+  END;
+  ASSERT v_caught, 'expected a name colliding with an ACTIVE project to RAISE in preview, it did not';
+  ASSERT v_msg LIKE '%Already Live%',
+    format('the collision error must NAME the offending project, got: %s', v_msg);
+
+  -- ══ 1j. a name matching a SOFT-DELETED project must be ALLOWED ══════════
+  -- The partial index permits this (WHERE deleted_at IS NULL); re-forbidding
+  -- it here would contradict the constraint this validation mirrors, and
+  -- would resurrect #180 — archived names staying reserved forever.
+  UPDATE public.projects SET deleted_at = now()
+  WHERE company_id = v_company_id AND name = 'Already Live ' || v_tag;
+
+  PERFORM public.rpc_preview_instantiate_template(
+    v_template_id,
+    jsonb_build_object('target_date', (CURRENT_DATE + 7)::text, 'anchor_direction', 'start'),
+    jsonb_build_array(jsonb_build_object('name', 'Already Live ' || v_tag)),
+    v_mapping_full
+  );
+
   -- ══ 2/3. forward + back scheduling, via preview-vs-commit agreement ═════
   -- Forward: anchor is a start date. Span = MAX(due_offset_days) = 10.
   v_preview := public.rpc_preview_instantiate_template(
@@ -284,10 +341,16 @@ BEGIN
 
   -- Back-scheduling: anchor is a DEADLINE. start_date = deadline - span(10).
   -- The last task's due_date must land exactly on the deadline.
+  -- Preview the SAME names this block is about to commit. Previously this
+  -- reused v_projects_2, whose names were committed by the forward batch
+  -- above — harmless before duplicate-name validation existed, now a real
+  -- collision. Preview must mirror the commit it precedes; that is the whole
+  -- contract being asserted here.
   v_preview := public.rpc_preview_instantiate_template(
     v_template_id,
     jsonb_build_object('target_date', (CURRENT_DATE + 40)::text, 'anchor_direction', 'deadline'),
-    v_projects_2, v_mapping_full
+    jsonb_build_array(jsonb_build_object('name', 'BatchCfg A-back ' || v_tag), jsonb_build_object('name', 'BatchCfg B-back ' || v_tag)),
+    v_mapping_full
   );
   ASSERT (v_preview->>'last_task_date')::date = (CURRENT_DATE + 40), 'back-scheduling: last_task_date must equal the supplied deadline exactly';
   ASSERT (v_preview->>'first_task_date')::date = (CURRENT_DATE + 40 - 10), 'back-scheduling: first_task_date must equal deadline - span';
