@@ -1,6 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectDetail } from '@/contexts/ProjectDetailContext';
-import { PROJECT_FLAGS, ProjectFlag, useProjectLifecycle } from '@/hooks/useProjectLifecycle';
+import { PROJECT_FLAGS, ProjectFlag } from '@/hooks/useProjectLifecycle';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
@@ -17,6 +17,13 @@ import Tooltip from '@/components/common/Tooltip';
 // retires -- see that hook's file header. Edit / Save-as-template reuse
 // ProjectFolderModal and SaveAsTemplateSheet unchanged, same components the
 // retired popups used.
+//
+// #183 -- useProjectLifecycle itself is now called once inside
+// ProjectDetailContext, not here. This header and ProjectOverviewTab both
+// need it (stage/blocked for the header's chips, stage/blocked/due-date for
+// the Overview tab's answer line); two separate hook instances meant
+// toggling a flag here left Overview showing stale state until an unrelated
+// remount. Reading it off useProjectDetail() keeps both in sync for free.
 //
 // Styled with inline useThemeColors values (not className tokens) -- flag
 // colors are data-driven (per-flag color, active/inactive), which className
@@ -35,8 +42,7 @@ export default function ProjectHeader() {
   const c = useThemeColors();
   const router = useRouter();
   const { hasPermission } = useAuth();
-  const { projectId, data, refresh } = useProjectDetail();
-  const { data: lifecycle, advanceStage, setFlags } = useProjectLifecycle(projectId, true);
+  const { projectId, data, refresh, lifecycle, advanceStage, setFlags } = useProjectDetail();
 
   const [stagePickerVisible, setStagePickerVisible] = useState(false);
   const [editVisible, setEditVisible] = useState(false);

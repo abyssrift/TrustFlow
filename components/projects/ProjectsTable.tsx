@@ -34,7 +34,7 @@ type ProjectRow = {
 };
 
 type SortKey = 'name' | 'stage' | 'age' | 'due' | 'progress' | 'owner' | 'blocked' | 'hours';
-type ThemeColors = ReturnType<typeof useThemeColors>;
+export type ThemeColors = ReturnType<typeof useThemeColors>;
 
 const LIMIT = 25;
 
@@ -57,30 +57,33 @@ function sortValue(row: ProjectRow, key: SortKey): number | string {
 }
 
 // ponytail: fixed thresholds, not a config value — revisit if a company wants a custom ageing scale.
-function ageColor(days: number | null, c: ThemeColors): string {
+// #183 -- exported so ProjectOverviewTab's answer line / panels use the exact
+// same ageing thresholds and wording as this table, instead of a second copy
+// that can silently drift (see global-utilities-index.md's standing rule).
+export function ageColor(days: number | null, c: ThemeColors): string {
   if (days == null) return c.textMuted;
   if (days >= 14) return c.danger;
   if (days >= 7) return c.warning;
   return c.textMuted;
 }
-function dueColor(daysRemaining: number | null, c: ThemeColors): string {
+export function dueColor(daysRemaining: number | null, c: ThemeColors): string {
   if (daysRemaining == null) return c.textMuted;
   if (daysRemaining < 0) return c.danger;
   if (daysRemaining <= 3) return c.warning;
   return c.textMuted;
 }
-function fmtDate(d: string | null): string {
+export function fmtDate(d: string | null): string {
   if (!d) return '—';
   return new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
-function fmtDue(daysRemaining: number | null, dueDate: string | null): string {
+export function fmtDue(daysRemaining: number | null, dueDate: string | null): string {
   if (!dueDate) return '—';
   if (daysRemaining == null) return fmtDate(dueDate);
   if (daysRemaining < 0) return `${Math.abs(daysRemaining)}d overdue`;
   if (daysRemaining === 0) return 'Due today';
   return `${daysRemaining}d left`;
 }
-function initials(name: string | null): string {
+export function initials(name: string | null): string {
   if (!name) return '?';
   const p = name.trim().split(/\s+/);
   return ((p[0]?.[0] || '') + (p[1]?.[0] || '')).toUpperCase() || '?';
