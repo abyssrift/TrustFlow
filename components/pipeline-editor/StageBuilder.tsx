@@ -43,6 +43,7 @@ export default function StageBuilder() {
   const [formManagerRouting, setFormManagerRouting] = useState('INHERIT');
   const [formMaxEscalation, setFormMaxEscalation] = useState(3);
   const [formReassignOnEntry, setFormReassignOnEntry] = useState(false);
+  const [formHarvestsToDeliverable, setFormHarvestsToDeliverable] = useState(false);
 
   const resetForm = () => {
     setFormName('');
@@ -59,6 +60,7 @@ export default function StageBuilder() {
     setFormManagerRouting('INHERIT');
     setFormMaxEscalation(3);
     setFormReassignOnEntry(false);
+    setFormHarvestsToDeliverable(false);
   };
 
   const populateForm = (s: Stage) => {
@@ -76,6 +78,7 @@ export default function StageBuilder() {
     setFormManagerRouting(s.manager_routing_rule || 'INHERIT');
     setFormMaxEscalation(s.max_escalation_depth || 3);
     setFormReassignOnEntry(s.reassign_on_entry);
+    setFormHarvestsToDeliverable(s.harvests_to_deliverable);
   };
 
   const handleAdd = async () => {
@@ -94,6 +97,7 @@ export default function StageBuilder() {
       manager_routing_rule: formManagerRouting,
       max_escalation_depth: formMaxEscalation,
       reassign_on_entry: formReassignOnEntry,
+      harvests_to_deliverable: formHarvestsToDeliverable,
     } as any);
     resetForm();
     setShowAddForm(false);
@@ -115,6 +119,7 @@ export default function StageBuilder() {
       manager_routing_rule: formManagerRouting,
       max_escalation_depth: formMaxEscalation,
       reassign_on_entry: formReassignOnEntry,
+      harvests_to_deliverable: formHarvestsToDeliverable,
     } as any);
     setEditingStage(null);
     resetForm();
@@ -295,6 +300,16 @@ export default function StageBuilder() {
             onToggle={() => setFormReassignOnEntry(!formReassignOnEntry)}
             icon="random"
             color={colors.accent}
+          />
+        )}
+        {selectedPipeline?.subject_kind !== 'project' && (
+          <FlagToggle
+            label="Seal to Project Deliverable"
+            desc="Tasks entering this stage promote their latest submission's files into their project's sealed deliverable folder (issue #174)"
+            active={formHarvestsToDeliverable}
+            onToggle={() => setFormHarvestsToDeliverable(!formHarvestsToDeliverable)}
+            icon="lock"
+            color={colors.info}
           />
         )}
       </View>

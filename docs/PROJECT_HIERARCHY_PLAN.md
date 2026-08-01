@@ -1175,6 +1175,114 @@ raises rather than blanking) and that `view_all` is not a tenant escape.
 is correct for Phase 2 — but it is speculative schema until Phase 3 uses it,
 and should be counted as such rather than as shipped.
 
+### 13.16 Phase 4 shipped — the sealed deliverable (settles §6, #174)
+
+`projects.deliverable_folder_id` and `clients.standing_folder_id` (the latter
+already existed as a column, unwritten until now) are live. Harvest is exactly
+what §6 specified: no new file mechanism, no counter column — a version
+snapshot via FileHub's existing `filehub_file_versions.batch_id` folder
+versioning (`rpc_filehub_folder_versions`, `20260730133142` /
+`20260730133225`). One correction discovered building this: those two
+migrations, plus `20260730122954_filehub_share_permission.sql`, existed as
+files but had **not actually been applied to the local stack** — confirmed by
+direct `pg_proc`/`information_schema` introspection, not assumed from the
+migration folder. Applied via `psql -f` (never `supabase migration up`) as
+prerequisite groundwork; this is the same class of drift §13's opening line
+warns about, just on the infra side rather than the schema side.
+
+**The mechanism (`supabase/migrations/20260801_project_deliverable.sql`):**
+
+- **Visibility is a one-value extension, not a new model.** `filehub_files`
+  gains `visibility='project'` + a `project_id` column, and
+  `filehub_folders` gains `scope='project'` + `project_id`, each gated by
+  `fn_project_accessible()` — the exact predicate #186 already wired into
+  every other project read path. A sealed deliverable can therefore never
+  become a way to read a file its viewer could not already reach via the
+  project. Mirrors precisely how `'task'` was added for #143/#151.
+- **Trigger-enforced, not RPC-enforced** — `trg_tasks_harvest_deliverable`
+  (`AFTER UPDATE OF current_stage_id ON tasks`) reads
+  `pipeline_stages.harvests_to_deliverable` and calls
+  `fn_harvest_task_output`. This is §13.2's lesson ("a rule written in prose
+  that the database does not enforce") applied here on purpose: tasks change
+  stage via drag-drop, RPCs, and bulk paths alike, and a single RPC hook
+  would have missed some of them.
+- **Output = the task's latest submission's attachments** (`submission_attachments`,
+  not `task_attachments` — the brief is input, not output). Each promoted file
+  becomes its own `filehub_files` row pointing at the SAME `storage_path` as
+  the source (no bytes copied) with its own `filehub_file_versions` row and a
+  fresh `batch_id`. That is what makes immutability free: a later change to
+  the task's file is a new submission with a new `storage_path`, so the
+  earlier harvested row is never touched, and the folder's version count
+  (`count(distinct batch_id)`) advances by exactly one per harvest event. A
+  re-harvest of an unchanged file is a no-op (matched on folder + storage_path
+  + bucket) — moving a task in and out of the stage doesn't pile up
+  duplicates.
+- **The toggle is reachable, not just schema** — `rpc_add_stage` /
+  `rpc_update_stage` were extended (trailing defaulted params, no arity
+  break) and a "Seal to Project Deliverable" switch was added to both
+  `StageBuilder.web.tsx` and `StageBuilder.tsx`, hidden for `subject_kind='project'`
+  pipelines (the trigger is task-stage-only). §13.8's exact trap — "nothing in
+  the app can reach any of it" — was checked against directly, not assumed.
+- **Read path:** `rpc_project_files(p_project_id)` returns the deliverable's
+  files + `rpc_filehub_folder_versions` output, plus the client's standing
+  files, in one call. Denial/non-existence folded together exactly like
+  `rpc_project_dashboard` (`'Project not found.'`, never a distinguishable
+  "denied" — #186 / §13.14). `components/projects/ProjectFilesTab.tsx` (#184's
+  placeholder) renders both sections read-only, reusing
+  `FilePreviewGrid`/`FilePreviewCard`/`FilePreviewModal` — no new file-listing
+  UI. Upload is explicitly out of scope here and stays out — nothing here
+  writes a file.
+- **Client standing folder** — `rpc_client_ensure_standing_folder`, lazy
+  get-or-create nested under a dedicated "Client Files" root, calling the
+  existing `rpc_filehub_folder_create` twice (root then leaf) rather than a
+  raw insert — same shape as `BulkCreateProjectsSheet.getOrCreateStandingFolder`
+  (#188). Deliberately distinct from the deliverable folder (own scope, own
+  lifecycle, no lazy-create-on-harvest).
+
+**Two pre-existing bugs found and fixed at the root while proving visibility
+under real RLS (not just via the `SECURITY DEFINER` RPC layer that normally
+hides this).** `filehub_files_select_visibility`'s `'direct'` branch queries
+`filehub_recipients`, whose own policy queries `filehub_files` right back —
+and separately, `filehub_files`'s `'group'` branch queries
+`filehub_group_members`, whose own policy self-joins. Both are two-table (or
+self-referential) RLS cycles that Postgres's planner has always tripped on
+("infinite recursion detected in policy for relation ..."), on **any** raw
+`SELECT` against `filehub_files` under RLS, regardless of which visibility
+branch a given row actually matches — never hit before because every real
+read goes through a `SECURITY DEFINER` RPC (`BYPASSRLS`), and nothing had
+exercised a raw table read under `authenticated` until this check tried to.
+Fixed by wrapping both cross-table checks in `SECURITY DEFINER STABLE`
+functions (`fn_filehub_is_direct_recipient`, `fn_filehub_is_group_member`) —
+the exact same technique `task_accessible`/`fn_project_accessible` already
+exist for. Without this fix, the acceptance criterion "prove a user who
+cannot see a file cannot reach it via the deliverable" could not have been
+proven at the RLS level at all, for any visibility value.
+
+**Verified** (`supabase/checks/check_project_deliverable.sql`, `BEGIN`/`ROLLBACK`,
+local): first harvest lazily creates the deliverable folder and promotes v1
+with the source's exact `storage_path`; a second submission changes the
+task's file without mutating the sealed v1 row; a genuine re-entry into the
+harvest stage adds v2 as its own row while v1 stays byte-identical and still
+opens, and the folder reads as 2 distinct versions both by raw
+`count(distinct batch_id)` and via `rpc_filehub_folder_versions`; re-entering
+again with no new submission creates zero new rows; a user with no
+assignment and no `project.view_all` gets zero rows from `filehub_files`,
+`filehub_folder_accessible()=false`, and `rpc_project_files` raising
+`'Project not found.'`, while the task's own assignee sees both harvested
+versions through `rpc_project_files`; and `rpc_add_stage`/`rpc_update_stage`
+round-trip the toggle. `check_rpc_batch_config.sql` and
+`check_rpc_spreadsheet_intake.sql` re-run clean, unaffected.
+
+**Not built:** a manual "harvest now" / "seal project" button. §6 described
+harvest as the per-stage toggle only ("tasks entering this stage promote
+their output"); there is no separate whole-project seal action in scope, so
+none was added. Also not built: category-based folder structure inside the
+deliverable (flat for now — one folder per project, files listed
+chronologically) and a "restore deliverable to version N" UI (the RPC,
+`rpc_filehub_folder_restore_batch`, already exists and works against a
+`scope='project'` folder for free via the `filehub_folder_accessible`
+extension, but no button calls it yet).
+
 ---
 
 ## 14. Phase 8 — re-brand and interaction polish

@@ -54,6 +54,8 @@ export type Stage = {
   max_escalation_depth: number | null;
   ui_metadata: { x: number; y: number } | null;
   reassign_on_entry: boolean;
+  /** #174 -- tasks entering this stage promote their latest submission's output into the project's sealed deliverable folder. */
+  harvests_to_deliverable: boolean;
 };
 
 /** A single user or team in a pipeline's assignment rotation pool */
@@ -802,6 +804,7 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
         p_use_business_hours: args.use_business_hours || false,
         p_ui_metadata: args.ui_metadata || { x: 0, y: 0 },
         p_min_timer_seconds: args.min_timer_seconds ?? 300,
+        p_harvests_to_deliverable: args.harvests_to_deliverable || false,
       });
       if (e) throw e;
       await refreshPipelineData();
@@ -835,6 +838,7 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
         p_ui_metadata: args.ui_metadata ?? null,
         p_min_timer_seconds: args.min_timer_seconds ?? null,
         p_reassign_on_entry: args.reassign_on_entry ?? null,
+        p_harvests_to_deliverable: args.harvests_to_deliverable ?? null,
       });
       if (e) throw e;
       await refreshPipelineData();
