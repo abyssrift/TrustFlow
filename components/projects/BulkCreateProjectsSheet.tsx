@@ -297,7 +297,7 @@ export default function BulkCreateProjectsSheet({
       for (const cat of categories) next[cat] = prev[cat] || { pipeline_id: null, assignee_team_id: null };
       return next;
     });
-  }, [categories.join(' ')]);
+  }, [categories.join('\u0000')]);
 
   const allCategoriesMapped = categories.length > 0 && categories.every(cat => !!mapping[cat]?.pipeline_id);
   const anchorIsPast = !!anchorDate && anchorDate < todayISO;
