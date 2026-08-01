@@ -436,18 +436,13 @@ everything after it.
 
 **Blocking Phase 1 — security:**
 
-- **Project visibility.** `projects_select` is currently
-  `company_id = my_company_id()` — **every user in the company sees every
-  project.** Fine for a colourless folder with 6 rows; not fine once a project
-  carries client identity, a sealed deliverable, and financial rollups, and 120
-  arrive split across auditors. Project access **cannot** inherit
-  `pipelines.visibility_permissions`, because a project's tasks span several
-  boards by design (§3.4) — that orthogonality was deliberate and this is its
-  bill. `pipelines_select` has the role-array pattern to copy; what is missing is
-  the policy decision: role-based, owner-based, or portfolio-scoped.
-  **Question for the domain expert: within a backoffice, can any auditor see any
-  other auditor's companies?** The expected answer is no, and that expectation is
-  load-bearing.
+- ~~**Project visibility.**~~ **Resolved — see §13.14.** Domain confirmed no
+  auditor sees another auditor's engagements, and that seeing rollup numbers
+  without row contents is itself a leak. Shipped as issue #186: default deny
+  + `project.view_all`, one predicate (`fn_project_accessible`) wired into
+  RLS and every SECURITY DEFINER RPC that reads a project — RLS alone would
+  have been a no-op, since all three read RPCs are SECURITY DEFINER and
+  bypass it entirely.
 
 **Non-blocking — these fill in boxes rather than move them:**
 
@@ -483,4 +478,87 @@ and `subject_kind` defaulting to `'task'` so every existing pipeline is unchange
 
 **The single real risk is §11's visibility question**, because RLS mistakes are
 security bugs rather than bugs. It must be answered before Phase 1 ships, since
-Phase 1 is what makes projects worth reading.
+Phase 1 is what makes projects worth reading. **Resolved, see §13.14.**
+
+---
+
+## 13. Amendments
+
+Numbered subsections, one per issue that changed something this plan already
+described. §13.14 is the first entry landed — earlier numbers are reserved
+for other in-flight work against this same plan and may land out of order.
+
+### 13.14 Project visibility: default deny + `project.view_all` (issue #186)
+
+§11 named the open question; #186 is where it turned out to be framed
+wrongly. It looked like an RLS problem — tighten `projects_select` from
+`company_id = my_company_id()` to something narrower. It is not: every real
+read path is a `SECURITY DEFINER` RPC (`rpc_projects_table`,
+`rpc_project_dashboard`, `rpc_get_projects`), and `SECURITY DEFINER` runs as
+the function owner, so `projects_select` never fires for any screen a user
+actually looks at. Tightening the policy alone would have changed nothing
+while appearing to fix it.
+
+**Fifth call site found, not in the issue's original list of three RPCs:**
+`rpc_create_template_from_project` reads an arbitrary project's full task
+structure (titles, descriptions, categories, priorities, weights, hours)
+into a template body, gated only by `project.create`/`is_owner` — no
+per-project accessibility check existed. Found by querying `pg_proc` for
+every `SECURITY DEFINER` function whose body touches `public.projects`, not
+just the three named in the issue. Closed the same way as the other four.
+
+**Model**, reusing existing RBAC rather than a new ACL: a project is visible
+if the caller is its `owner_id`, OR is assigned a task in it (directly or via
+team), OR holds `project.view_all`. Access follows assignment — no
+membership table to maintain; a freshly bulk-created project with no
+assignments is visible only to `project.view_all` holders (unallocated
+work), which is correct.
+
+**One predicate, five call sites** — `fn_project_accessible(project_id)`,
+mirroring #163's `fn_task_file_accessible` shape exactly (same floor
+pattern: existence + company scope first, then owner/assignment/bypass
+checks). Wired into: `projects_select` RLS (defence in depth — this is what
+covers a direct `supabase.from('projects')` read; does nothing for the four
+`SECURITY DEFINER` functions below), `rpc_projects_table`,
+`rpc_project_dashboard`, `rpc_get_projects`, `rpc_create_template_from_project`.
+Denial and non-existence are folded into the same query/branch everywhere,
+so they raise/return identically — no distinguishing signal that would
+itself disclose a project's existence.
+
+**Not touched:** `clients_select` / `portfolios_select` /
+`project_templates_select` — the other three policies in
+`20260731_project_hierarchy_4_rls_placeholder.sql` stay on the company-wide
+placeholder, unchanged. Issue #186 enumerates exactly the `projects` table's
+read paths; whether a client/portfolio/template should inherit visibility
+from the projects that reference it is a separate, still-undecided question
+and answering it here would have been scope creep past what was asked.
+
+**Permission naming:** `project.view_all`, dot notation — not
+`project:view_all`. The `project.*` namespace (`project.view`,
+`project.create`, `project.edit`, `project.delete`, `project.archived`,
+`project.created`, `project.restored`, `project.created_from_template`) is
+100% dot-notation with zero colon usage; `filehub:view_all_files`'s colon is
+an isolated convention scoped to FileHub only, not the dominant pattern for
+this permission's own namespace. Seeded onto system roles Owner, Admin,
+Manager (Owner needs no explicit grant — `has_permission()` already returns
+true for every key when `users.is_owner` — included anyway to match
+`20260728_filehub_file_view_all_permission.sql`'s belt-and-suspenders seed).
+
+**Performance:** `fn_project_accessible` is `STABLE SECURITY DEFINER`. The
+task-assignment lookup joins `tasks.project_id` (`idx_tasks_project_id`,
+partial on `deleted_at IS NULL`) into `task_assignments.task_id`
+(`idx_task_ast_task_id`) — both already indexed; no new index was needed.
+Measured on local seeded data (a company with 3 projects / 66 tasks),
+`EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM rpc_projects_table(p_limit:=100)`,
+warm cache: **6.400 ms / 117 buffer hits before → 6.431 ms / 395 buffer
+hits after** — buffer touches roughly tripled (the per-row accessibility
+check) but wall-clock impact was negligible at this scale because every
+extra touch is an indexed lookup, not a sequential scan.
+
+Shipped: `supabase/migrations/20260801_project_visibility.sql` (replaces
+`20260731_project_hierarchy_4_rls_placeholder.sql`'s effect on `projects`
+only — see "Not touched" above). Self-check:
+`supabase/checks/20260801_project_visibility_check.sql` (BEGIN/ROLLBACK,
+asserts all five behaviours: zero access with no assignment, direct
+assignee, team assignee, `owner_id`, and `project.view_all` including
+cross-company isolation).
