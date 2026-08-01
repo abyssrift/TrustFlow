@@ -261,6 +261,7 @@ function ThemedRoot() {
           <Stack.Screen name="admin/notifications" options={{ headerShown: false }} />
           <Stack.Screen name="notifications/preferences" options={{ headerShown: false }} />
           <Stack.Screen name="task/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="projects/[id]" options={{ headerShown: false }} />
           <Stack.Screen name="notifications/index" options={{ presentation: 'modal' }} />
         </Stack>
         <TimerIsland />
