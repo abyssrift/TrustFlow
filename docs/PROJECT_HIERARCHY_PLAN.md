@@ -417,6 +417,8 @@ Projects get treated like tasks for **input and output**, which concretely means
 | **5** | Analytics — CFD, throughput, forecast, capacity | yes |
 | **6** | Project board (purpose-built) | yes |
 | **7** | Template editor | yes |
+| **8** | **Re-brand + interaction polish** — see §14 | **longest** |
+| **9** | **"Smartness" — spreadsheet intake that sets itself up** — see §15 | needs Phase 1 only |
 
 **Phase 0 is blocking, not foldable.** #156 (archiving a parent hard-deletes
 subtasks), #158 (`rpc_delete_pipeline` bulk-deletes with no timer guard), #159
@@ -1062,3 +1064,157 @@ raises rather than blanking) and that `view_all` is not a tenant escape.
 `companies.terminology_labels` (§2's terminology layer) has zero readers. That
 is correct for Phase 2 — but it is speculative schema until Phase 3 uses it,
 and should be counted as such rather than as shipped.
+
+---
+
+## 14. Phase 8 — re-brand and interaction polish
+
+The last phase, and the longest. Everything before it is judged on whether the
+data is correct and reachable. This one is judged on whether the product feels
+like one product.
+
+**Why it is last and not first.** Polishing a screen whose data model is still
+moving means polishing it twice. #182 is the argument: the batch-config screen
+was rebuilt three times in one day — once for the missing step, once for
+density, once for duplicate handling — and any visual work done on the first
+version would have been thrown away with it. Structure settles, then surface.
+
+**Why it is not optional.** Every phase before this ships correctness, and
+correctness is invisible when the screen presenting it reads as unfinished. A
+list of four projects rendered as four lines of plain text is technically an
+accurate view of the data and tells the user nothing about what a project *is*.
+
+### 14.1 The standard: nothing renders as bare text
+
+Every entity a user can act on gets an identity — icon or avatar, colour,
+state, and the one number that matters for it. A project is a thing with a
+client, a deadline, a stage and a completion; showing only its name discards
+all four.
+
+Concretely, per entity:
+
+| Entity | Must carry |
+|---|---|
+| Project | icon/colour, client, stage chip, due date, completion |
+| Client | avatar or monogram, active project count |
+| Portfolio | source, size, target date, progress |
+| Template | sector icon, task count, category spread |
+| Task (in project context) | board, stage, assignee, due date |
+
+Density follows §"Desktop density" in `.agents/rules/ux-consistency.md` — this
+phase is where the modals annotated `maxWidth={420}` during the Popup
+enforcement pass get re-judged and widened where they are genuinely info-dense.
+
+### 14.2 Interaction polish is a first-class deliverable, not a garnish
+
+Named explicitly because it is the part that gets deferred and then never
+happens. The recurring failures are small, human, and repetitive:
+
+- **Duplication** — duplicate a project, a template, a batch, a task. Currently
+  nothing duplicates. The name-collision handling built in §13.10 is the *floor*
+  for this, not the feature: a duplicate action should propose `"X (copy)"`,
+  not reject `"X"`.
+- **Rename in place**, without opening a modal.
+- **Undo** beyond the bulk-instantiate case — deletes, moves, stage changes.
+- **Multi-select and bulk act** on the selection.
+- **Empty states that offer the next action**, not a shrug.
+- **Errors that name the thing and offer the fix** — §13.10's duplicate-name
+  message is the pattern; a raw constraint name is the anti-pattern.
+- **Keyboard**: escape closes, enter submits, arrows move within a list.
+- **Loading that shows shape** (`SkeletonBlock`/`SkeletonList`), not a spinner.
+
+### 14.3 Scope guard
+
+This phase re-skins and re-sequences. It does **not** change the schema, the
+RPC contracts, or the access model — if it wants to, that is a defect in an
+earlier phase and belongs there. The one exception is columns that exist purely
+to be displayed (an icon key, a colour), which are cheap and additive.
+
+### 14.4 Acceptance
+
+Not "it looks better" — that cannot be checked. The tests are:
+
+1. No entity list in the product renders as bare text (§14.1's table).
+2. Every action in §14.2 exists on projects, clients, templates and tasks, or is
+   explicitly declined in writing with a reason.
+3. Every modal has been judged at 1400px, 1000px and 390px — per
+   `.agents/rules/walkthroughs.md`, which now requires multi-width walkthroughs.
+4. No screen shipped in Phases 1–7 still shows a raw database error string.
+
+---
+
+## 15. Phase 9 — "Smartness": spreadsheet intake that sets itself up
+
+§2's loop starts with a file: *a client office sends a portfolio of ~120
+companies.* Today that file becomes a person retyping 120 names into a
+textarea. This phase makes the file the input.
+
+**Scope:** drop an Excel/CSV of clients or a portfolio manifest, and get
+clients, a portfolio, projects and their tasks — configured, scheduled and on
+boards — with the human confirming rather than transcribing.
+
+### 15.1 It must reuse the batch path, not add a second one
+
+The importers that exist (`lib/imports/adapters/*`, #100) create tasks **one at
+a time from the client**. That is the shape this phase must not copy — it is
+slow, it cannot be transactional, and it produced the notification storm §7
+Hazard 1 exists to prevent.
+
+A spreadsheet import ends by calling **`rpc_preview_instantiate_template` then
+`rpc_instantiate_template`** (§13.10). The parser's job is to produce that
+payload — a projects array and a category mapping — and nothing else. This
+matters more than it sounds: every guarantee already proven (one notification
+per batch, no orphan tasks, required anchor, duplicate-name detection,
+one-call undo) comes free, and cannot drift, because there is one writer.
+
+If a spreadsheet needs something the batch RPC cannot express, extend the RPC.
+Do not add an import-specific insert.
+
+### 15.2 Where the "smart" actually is
+
+Four inference problems, in increasing order of how wrong they can be:
+
+1. **Find the table.** Real files have a title row, a merged banner, a logo,
+   blank leading columns, and the header on row 7. Detect the header row rather
+   than assuming A1.
+2. **Map the columns.** Propose `name` / `client_ref` / `external_ref` /
+   `start_date` / `due_date` from header text and cell shape. This is where
+   most of the felt "seamlessness" lives — a correct auto-mapping is the
+   difference between confirming and configuring.
+3. **Resolve clients.** Match against existing clients by `external_ref` first,
+   name second — §13.3's rule, already load-bearing: *identity is a stable key,
+   not a name.* Ambiguous matches are a question, never a guess.
+4. **Pick a template.** Suggest from sector/history. Lowest confidence of the
+   four; always a suggestion.
+
+**Learning is scoped to mapping, not to writes.** Remember a company's confirmed
+column mapping per source so the second file from the same office is a
+one-click confirm. Never let it drift into inferring *values*.
+
+### 15.3 Non-negotiables
+
+- **A human confirms before any write.** The output of parsing is a filled-in
+  §13.10 configure step, not a completed import. "Seamless" means the form
+  arrives already answered — not that it is skipped.
+- **Show confidence, and show unmatched rows first.** A row the parser is unsure
+  about must surface above the 118 it got right. Burying failures in a success
+  count is how #182 shipped 66 invisible tasks.
+- **Re-importing the same file is a no-op.** Content-hash the file into the
+  existing `idempotency_key`. Someone will drag the same file twice.
+- **Partial import is not allowed.** All rows commit or none — the batch is
+  already one transaction, so this is free unless someone breaks it.
+- **The file is evidence.** Store it in FileHub against the portfolio; when a
+  number is disputed six months later, the source is the answer.
+
+### 15.4 Acceptance
+
+Measured on a *real* messy file, not a clean fixture:
+
+1. A 120-row file with a banner, merged cells and a header on row 7 parses to a
+   correct preview without the user touching the mapping.
+2. Clients already known are matched, not duplicated — verified by row count in
+   `clients` before and after.
+3. Every created task lands on a board with a date and an owner (§13.10's
+   reachability rule — the same query shape the board uses).
+4. The same file dropped twice creates one portfolio.
+5. Unmatched/low-confidence rows are visible without scrolling.
