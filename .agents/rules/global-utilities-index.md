@@ -86,6 +86,11 @@ Root-level and widely consumed. Use these rather than local state for anything t
 * **TimerContext**: the single work-session timer. A project must never become a timer target.
 * Others, same rule — reuse before inventing: `AuthContext`, `ThemeContext`, `NotificationsContext`, `AnalyticsContext`, `PipelineEditorContext`, `TaskCreationContext`, `TaskDetailContext`, `SubmissionContext`, `RoleManagerContext`, `PingHighlightContext`.
 
+## Repo checks (`supabase/checks/`)
+Runnable, assert-based, safe to re-run. Run the relevant one before claiming a backend change works.
+* **migration_drift.js** — `node supabase/checks/migration_drift.js`. Answers "is the local DB actually running what the repo says?" by checking that every object each migration CREATEs exists (functions, tables, indexes, columns, triggers). **Do not use `supabase_migrations.schema_migrations` for this** — local is seeded from a prod dump, so its ledger reflects prod's history; on 2026-08-01 it held **2 rows against 223 files**. Exits 1 on drift so it can gate a script. This is not hypothetical: `rpc_move_task_pipeline` was missing locally while `EditTaskModal` called it, so moving a task between pipelines was silently broken, and every `supabase/checks/*.sql` was validating a schema that did not match the repo.
+* The `*.sql` checks are `BEGIN`/`ROLLBACK` and leave no residue. Success wording varies (`ALL CHECKS PASSED`, `ALL OK`, `OK:`, `... PASSED`) — grep loosely or read the tail, or you will misread a pass as a failure.
+
 ## Frontend Positioning Helpers (`/lib`)
 * **positionTooltip** (`lib/tooltipPosition.ts`): Pure flip + viewport-clamp placement math shared by both Tooltip variants (inputs: anchor rect, tip size, viewport, preferred side).
 
