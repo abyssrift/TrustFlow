@@ -840,6 +840,60 @@ component. §13.11 anticipates mounting the same "which board, which team"
 picker from the future Work tab (#184) — worth extracting when there is a
 second call site, not before.
 
+#### Corrected after review (branch `fix-batch-config-density`)
+
+Running the above on a real screen produced two defects the automated
+verification could not see.
+
+**1. It violated the documented desktop-density rule.** The wizard passed no
+`maxWidth`, silently inheriting `Popup`'s 420px default, and shipped as the
+tall single-column scroll `.agents/rules/ux-consistency.md` §"Desktop density"
+forbids. Corrected to `maxWidth={1080}` with **three peer columns** — projects
+being created, category mapping, schedule + preview — each `flex-1` with its
+own `ScrollView` so a long list in one cannot push the others out of view.
+That is the property that makes the screen survive a batch of hundreds of
+projects across dozens of categories, which is the case this feature exists
+for. Below 768px it collapses to the documented `mobilePage` drill-in
+(schedule + preview, with a summary row into a full-height category page),
+mirroring `RoleEditorSheet.web.tsx`. Step 1 stays `presentation="auto"` at 640
+— one decision, correctly narrow.
+
+**The root cause is worth more than the fix.** `Popup`'s default is 420, so
+*omitting* `maxWidth` and *choosing* a narrow dialog are indistinguishable —
+doing nothing produces a violation and nothing in code objects. 15 files
+repo-wide had the same omission. This is §13.2's "a rule written in prose that
+the system does not enforce", moved to the UI; the standing guardrail work is
+tracked separately.
+
+**2. Preview promised success, then commit failed.** A green preview —
+`4 projects · 56 tasks · 1 board` — was followed by a raw
+`duplicate key value violates unique constraint "projects_company_id_name_key"`.
+The constraint is correct: it is the **partial** index from #180
+(`WHERE deleted_at IS NULL`) working as designed, and an *active* project
+already held the name. The defect was that nothing upstream checked, so
+§13.10's own contract — *a successful preview is a promise the commit will
+also succeed* — was false.
+
+Fixed server-side in `fn_check_batch_duplicate_names`, called by **both**
+preview and commit at the same point in their pre-flight order, so the two
+cannot disagree. A client-side pre-check would have needed its own copy of
+"what counts as a collision", which is the duplication this design avoids
+everywhere else. It covers both shapes: two identical names **within one
+paste** (which the unique index would never catch — both inserts are in one
+statement) and a name matching an **active** project. A name matching a
+*soft-deleted* project is explicitly still allowed; forbidding it would
+contradict the partial index and resurrect #180's "archived names stay
+reserved forever". Errors name the offending projects, matching how unmapped
+categories already behave; the UI renders them in the preview slot and keeps
+Create disabled.
+
+Cost measured directly: the duplicate lookup is **0.4 ms** for a 20-project
+batch. Self-check gained four cases — in-paste duplicate, active collision,
+soft-deleted name permitted, and that both messages name the project. One
+pre-existing assertion had to be corrected: the back-scheduling block
+previewed the *forward* batch's already-committed names, which was harmless
+before this validation existed and is a genuine collision now.
+
 ### 13.11 Project detail becomes a workspace (amends §8)
 
 §8 assumed project detail was a readout and called `ProjectDashboard` an extend.

@@ -1,4 +1,5 @@
 import Calendar from '@/components/common/Calendar';
+import DraggableSheet from '@/components/common/DraggableSheet';
 import Popup from '@/components/common/Popup';
 import StarterTemplatePickerSheet from '@/components/projects/StarterTemplatePickerSheet';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -6,13 +7,16 @@ import { getQuickActionDate } from '@/lib/calendarPicker';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 
-// Popup's presentation="auto" resolves sheet-vs-centered itself, but the
-// wider containerClassName below must only apply in the centered case (it
-// would break the mobile bottom sheet's full-width layout). Mirror Popup's
-// own default desktopBreakpoint of 768 so the two never disagree.
-function useIsCentered(): boolean {
+// Popup's presentation="auto" resolves sheet-vs-centered itself for the
+// "setup" step, but the "configure" step below is hand-rolled per-branch
+// (DraggableSheet vs centered Popup) because the two need structurally
+// different children (mobile drill-in vs a 3-column desktop layout), not
+// just a different width — see .agents/rules/ux-consistency.md's mobile
+// overflow / desktop density guidance. Mirror Popup's own default
+// desktopBreakpoint of 768 so the two never disagree.
+function useIsDesktop(): boolean {
   const { width } = useWindowDimensions();
   return width >= 768;
 }
@@ -188,7 +192,7 @@ export default function BulkCreateProjectsSheet({
   onCreated?: (result: { portfolio_id: string; projects_created: number; tasks_created: number }) => void;
 }) {
   const c = useThemeColors();
-  const isCentered = useIsCentered();
+  const isDesktop = useIsDesktop();
   const todayISO = getQuickActionDate(0);
 
   const [step, setStep] = useState<'setup' | 'configure'>('setup');
@@ -217,6 +221,11 @@ export default function BulkCreateProjectsSheet({
   const [preview, setPreview] = useState<PreviewResult | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  // Mobile-only drill-in (ux-consistency.md "mobile overflow" tier 2): the
+  // category list can be dozens of rows for a big template, so it gets its
+  // own full-height page rather than stacking under the schedule/preview in
+  // one sheet. Desktop doesn't need this — it gets its own column instead.
+  const [mobilePage, setMobilePage] = useState<'schedule' | 'categories'>('schedule');
 
   useEffect(() => {
     if (!visible) return;
@@ -229,6 +238,7 @@ export default function BulkCreateProjectsSheet({
     setShowCalendar(false);
     setPreview(null);
     setPreviewError(null);
+    setMobilePage('schedule');
     setLoadingTemplates(true);
     supabase
       .from('project_templates')
@@ -300,6 +310,7 @@ export default function BulkCreateProjectsSheet({
   }, [categories.join('\u0000')]);
 
   const allCategoriesMapped = categories.length > 0 && categories.every(cat => !!mapping[cat]?.pipeline_id);
+  const mappedCount = categories.filter(cat => !!mapping[cat]?.pipeline_id).length;
   const anchorIsPast = !!anchorDate && anchorDate < todayISO;
   const anchorReady = !!anchorDate && !!anchorDirection && !anchorIsPast;
 
@@ -320,8 +331,10 @@ export default function BulkCreateProjectsSheet({
   // so a successful preview is a promise commit will also succeed. That means
   // a preview error IS this form's validation feedback for anything the UI
   // can't cheaply pre-check itself (e.g. a mapped pipeline losing its stages
-  // between page load and submit). Debounced with a plain setTimeout — no
-  // library needed for one call site.
+  // between page load and submit, or a pasted name colliding with an active
+  // project — rpc_preview_instantiate_template now checks both duplicate
+  // shapes server-side, see 20260801_batch_duplicate_name_check.sql). Debounced
+  // with a plain setTimeout — no library needed for one call site.
   useEffect(() => {
     if (step !== 'configure' || !templateId || !allCategoriesMapped || !anchorReady) {
       setPreview(null);
@@ -367,6 +380,14 @@ export default function BulkCreateProjectsSheet({
     setCreating(false);
 
     if (err) {
+      // rpc_instantiate_template runs the identical duplicate-name check
+      // preview does (20260801_batch_duplicate_name_check.sql), so this path
+      // is now a defence-in-depth backstop (e.g. another project created the
+      // colliding name between preview and commit), not the primary way a
+      // duplicate is surfaced — the message is still the RPC's named-offender
+      // text, never the raw "duplicate key value violates..." constraint
+      // error, because that RAISE fires before Postgres ever reaches the
+      // unique index.
       setError(err.message);
       return;
     }
@@ -374,14 +395,256 @@ export default function BulkCreateProjectsSheet({
     onClose();
   };
 
-  const containerClassName = isCentered ? 'w-[90%] max-w-[640px] rounded-3xl overflow-hidden premium-shadow' : undefined;
+  const openConfigure = () => {
+    setMobilePage('schedule');
+    setStep('configure');
+  };
+
+  // ─── Shared "configure" step content — desktop columns and the mobile
+  // "schedule" page render the identical schedule/preview UI; only the
+  // wrapping (ScrollView column vs full sheet page) differs. ───────────────
+  const scheduleAndPreview = (
+    <>
+      <View style={{ gap: 8 }}>
+        <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest">Schedule</Text>
+
+        {/* Back-scheduling (deadline) listed first — this domain typically
+            receives a deadline ("six months to complete them"), not a
+            start date (issue #182), so it must not read as the secondary
+            option. */}
+        <View className="flex-row gap-2">
+          <TouchableOpacity
+            onPress={() => setAnchorDirection('deadline')}
+            className={`flex-1 rounded-xl border px-3 justify-center ${anchorDirection === 'deadline' ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
+            style={{ minHeight: 44 }}
+          >
+            <Text className={`text-xs font-black uppercase tracking-wider ${anchorDirection === 'deadline' ? 'text-white' : 'text-typography-main'}`}>Due by</Text>
+            <Text className={`text-[10px] mt-0.5 ${anchorDirection === 'deadline' ? 'text-white/80' : 'text-typography-muted'}`}>Tasks land on this date; start is worked backward</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setAnchorDirection('start')}
+            className={`flex-1 rounded-xl border px-3 justify-center ${anchorDirection === 'start' ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
+            style={{ minHeight: 44 }}
+          >
+            <Text className={`text-xs font-black uppercase tracking-wider ${anchorDirection === 'start' ? 'text-white' : 'text-typography-main'}`}>Starts on</Text>
+            <Text className={`text-[10px] mt-0.5 ${anchorDirection === 'start' ? 'text-white/80' : 'text-typography-muted'}`}>Tasks are due on their researched offset from this date</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View className="flex-row flex-wrap gap-2">
+          {[
+            { label: 'Today', date: todayISO },
+            { label: 'Next Monday', date: nextMondayISO() },
+            { label: 'End of Quarter', date: endOfQuarterISO() },
+          ].map(preset => (
+            <TouchableOpacity
+              key={preset.label}
+              onPress={() => setAnchorDate(preset.date)}
+              className={`rounded-lg border px-3 justify-center ${anchorDate === preset.date ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
+              style={{ minHeight: 44 }}
+            >
+              <Text className={`text-[10px] font-black uppercase tracking-wider ${anchorDate === preset.date ? 'text-white' : 'text-typography-muted'}`}>{preset.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <TouchableOpacity
+          onPress={() => setShowCalendar(v => !v)}
+          className={`flex-row items-center justify-between px-4 rounded-lg border ${anchorIsPast ? 'border-state-danger' : 'border-surface-border'} bg-surface-background`}
+          style={{ minHeight: 44 }}
+        >
+          <Text className="text-sm font-black" style={{ color: anchorDate ? c.textMain : c.textDim }}>
+            {anchorDate ? new Date(anchorDate).toLocaleDateString(undefined, { dateStyle: 'medium' }) : 'Pick a date'}
+          </Text>
+          <FontAwesome name="calendar-o" size={14} color={c.primary} />
+        </TouchableOpacity>
+        {showCalendar && (
+          <Calendar
+            selectedDate={anchorDate}
+            onSelect={d => { setAnchorDate(d); setShowCalendar(false); }}
+            accentColor={c.primary}
+            scale="compact"
+          />
+        )}
+        {anchorIsPast && <Text className="text-state-danger text-xs font-bold">{anchorDate} is in the past — pick a current or future date.</Text>}
+      </View>
+
+      {/* Preview — the outcome, not the row count (issue #182). A preview
+          error doubles as this form's validation feedback: preview shares
+          the exact resolver/span math the commit path uses, including the
+          duplicate-name check (20260801_batch_duplicate_name_check.sql). */}
+      <View className="bg-surface-background border border-surface-border rounded-2xl p-4 flex-row items-start gap-3">
+        <FontAwesome name="magic" size={14} color={previewError ? c.danger : c.primary} style={{ marginTop: 2 }} />
+        {previewLoading ? (
+          <ActivityIndicator color={c.primary} />
+        ) : previewError ? (
+          <Text className="text-state-danger text-sm font-bold flex-1">{previewError}</Text>
+        ) : preview ? (
+          <Text className="text-typography-main text-sm font-bold flex-1">
+            {preview.projects} project{preview.projects === 1 ? '' : 's'} · {preview.tasks} task{preview.tasks === 1 ? '' : 's'} · {preview.boards} board{preview.boards === 1 ? '' : 's'} · first task {fmtShort(preview.first_task_date)}, last {fmtShort(preview.last_task_date)}
+          </Text>
+        ) : (
+          <Text className="text-typography-muted text-sm font-bold flex-1">Map every category and set a schedule anchor above to preview the outcome.</Text>
+        )}
+      </View>
+
+      {error && <Text className="text-state-danger text-xs font-bold">{error}</Text>}
+    </>
+  );
+
+  const categoryList = (
+    loadingResources ? (
+      <ActivityIndicator color={c.primary} />
+    ) : (
+      <View style={{ gap: 8 }}>
+        {categories.map(cat => (
+          <CategoryMappingRow
+            key={cat}
+            category={cat}
+            value={mapping[cat] || { pipeline_id: null, assignee_team_id: null }}
+            pipelines={pipelines}
+            teams={teams}
+            onChange={next => setMapping(prev => ({ ...prev, [cat]: next }))}
+            c={c}
+          />
+        ))}
+      </View>
+    )
+  );
+
+  const projectsList = (
+    <View style={{ gap: 6 }}>
+      {pastLines.length > 0 && (
+        <Text className="text-state-danger text-xs font-bold">
+          Per-line override(s) in the past: {pastLines.map(p => p.name).join(', ')}. Fix on the previous step.
+        </Text>
+      )}
+      {parsed.map((p, i) => {
+        const isPast = !!p.start_date && p.start_date.slice(0, 10) < todayISO;
+        return (
+          <View
+            key={`${p.raw}-${i}`}
+            className={`bg-surface-background border rounded-xl px-3 py-2 ${isPast ? 'border-state-danger' : 'border-surface-border'}`}
+          >
+            <Text className="text-typography-main text-xs font-bold" numberOfLines={1}>{p.name}</Text>
+            {(p.start_date || p.external_ref) && (
+              <Text className={`text-[10px] mt-0.5 ${isPast ? 'text-state-danger' : 'text-typography-muted'}`} numberOfLines={1}>
+                {p.start_date ? fmtShort(p.start_date) : ''}{p.start_date && p.external_ref ? ' · ' : ''}{p.external_ref || ''}
+              </Text>
+            )}
+          </View>
+        );
+      })}
+    </View>
+  );
 
   if (step === 'configure') {
+    // ── Mobile (<768): drill-in, per .agents/rules/ux-consistency.md's
+    // "mobile overflow" tiers. Page 1 is the schedule + preview (the form
+    // the user is most likely editing) with a summary row that navigates to
+    // a dedicated full-height category-mapping page — the list most likely
+    // to be "dozens" long. The pasted project list itself isn't re-shown
+    // here: it was just typed on the previous step and re-browsing it isn't
+    // needed to finish configuring the batch, so skipping it avoids a second
+    // long list competing for the same screen.
+    if (!isDesktop) {
+      return (
+        <DraggableSheet
+          visible={visible}
+          onClose={onClose}
+          dimBackdrop
+          maxHeight="95%"
+          dismissible={!creating}
+          scrollable={false}
+          containerClassName="rounded-t-[2rem] overflow-hidden"
+        >
+          <View style={{ flex: 1, minHeight: 0 }}>
+            {mobilePage === 'schedule' ? (
+              <>
+                <View className="flex-row items-center justify-between px-5 pt-3 pb-4">
+                  <View className="flex-1 mr-3">
+                    <Text className="text-typography-muted text-[9px] font-black uppercase tracking-[0.3em] mb-1">Step 2 of 2</Text>
+                    <Text className="text-typography-main text-xl font-black tracking-tight" numberOfLines={1}>Configure Batch</Text>
+                  </View>
+                  <TouchableOpacity onPress={onClose} disabled={creating} className="w-10 h-10 items-center justify-center rounded-full" style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}>
+                    <FontAwesome name="times" size={16} color={c.textMain} />
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView className="px-5" showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 16, paddingBottom: 20 }}>
+                  <Text className="text-typography-muted text-xs">
+                    "{selectedTemplate?.name}" · {categories.length} categor{categories.length === 1 ? 'y' : 'ies'} · {parsed.length} project{parsed.length === 1 ? '' : 's'} · {parsed.length * taskCountPerProject} tasks total.
+                  </Text>
+
+                  <TouchableOpacity
+                    onPress={() => setMobilePage('categories')}
+                    className="flex-row items-center justify-between p-4 rounded-2xl"
+                    style={{ backgroundColor: c.card, borderWidth: 1, borderColor: mappedCount === categories.length ? c.border : c.danger, minHeight: 44 }}
+                  >
+                    <View className="flex-1 mr-3">
+                      <Text className="text-typography-main font-black text-sm">Map Categories To Boards</Text>
+                      <Text className="text-typography-muted text-[10px] font-bold mt-0.5">{mappedCount} of {categories.length} mapped</Text>
+                    </View>
+                    <FontAwesome name="chevron-right" size={14} color={c.textMuted} />
+                  </TouchableOpacity>
+
+                  {scheduleAndPreview}
+                </ScrollView>
+
+                <View className="flex-row gap-3 px-5 py-4" style={{ borderTopWidth: 1, borderTopColor: c.border }}>
+                  <TouchableOpacity
+                    onPress={() => setStep('setup')}
+                    disabled={creating}
+                    className="flex-1 py-3.5 rounded-2xl items-center"
+                    style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}
+                  >
+                    <Text className="font-black uppercase tracking-widest text-xs" style={{ color: c.textMuted }}>Back</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={handleCreate}
+                    disabled={!canCreate}
+                    className="flex-[2] py-3.5 rounded-2xl items-center shadow-lg"
+                    style={{ backgroundColor: canCreate ? c.primary : c.border }}
+                  >
+                    <Text className="font-black uppercase tracking-widest text-xs" style={{ color: canCreate ? 'white' : c.textMuted }}>
+                      {creating ? 'Creating…' : `Create ${parsed.length} Project${parsed.length === 1 ? '' : 's'}`}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : (
+              <>
+                <View className="flex-row items-center px-3 pt-3 pb-3" style={{ borderBottomWidth: 1, borderBottomColor: c.border }}>
+                  <TouchableOpacity onPress={() => setMobilePage('schedule')} className="w-10 h-10 items-center justify-center rounded-full mr-2" style={{ backgroundColor: c.background }}>
+                    <FontAwesome name="chevron-left" size={14} color={c.textMain} />
+                  </TouchableOpacity>
+                  <View className="flex-1">
+                    <Text className="text-typography-muted text-[9px] font-black uppercase tracking-[0.3em] mb-0.5">Configure Batch</Text>
+                    <Text className="text-typography-main font-black text-base tracking-tight">Map Categories</Text>
+                  </View>
+                  <Text className="text-typography-muted text-[10px] font-black mr-1">{mappedCount}/{categories.length}</Text>
+                </View>
+                <ScrollView className="px-5 pt-4" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
+                  {categoryList}
+                </ScrollView>
+              </>
+            )}
+          </View>
+        </DraggableSheet>
+      );
+    }
+
+    // ── Desktop (>=768): 3 peer columns, per ux-consistency.md's density
+    // rule — projects (what's being created), category mapping (dozens of
+    // rows in a large batch), and schedule + preview (the outcome). Each is
+    // a plain flex-1 column with its own ScrollView so a long list in one
+    // doesn't push the others out of view; maxWidth=1080 sits in the
+    // documented 720-1100 info-dense range for 3 genuine peer groups.
     return (
       <Popup
         visible={visible}
         onClose={onClose}
-        presentation="auto"
+        presentation="centered"
         title="Configure Batch"
         footer="dual-action"
         secondaryAction={{ label: 'Back', onPress: () => setStep('setup') }}
@@ -391,121 +654,37 @@ export default function BulkCreateProjectsSheet({
           variant: canCreate ? 'default' : 'disabled',
         }}
         dismissible={!creating}
-        containerClassName={containerClassName}
+        maxWidth={1080}
+        containerStyle={{ height: '86%' }}
       >
-        <View className="px-6 py-5" style={{ gap: 20 }}>
-          <Text className="text-typography-muted text-xs">
-            Step 2 of 2 — "{selectedTemplate?.name}" · {categories.length} categor{categories.length === 1 ? 'y' : 'ies'} · {parsed.length * taskCountPerProject} tasks total.
-          </Text>
-
-          {/* Category → board/team mapping */}
-          <View style={{ gap: 8 }}>
-            <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest">Map Each Category To A Board</Text>
-            {loadingResources ? (
-              <ActivityIndicator color={c.primary} />
-            ) : (
-              <View style={{ gap: 8 }}>
-                {categories.map(cat => (
-                  <CategoryMappingRow
-                    key={cat}
-                    category={cat}
-                    value={mapping[cat] || { pipeline_id: null, assignee_team_id: null }}
-                    pipelines={pipelines}
-                    teams={teams}
-                    onChange={next => setMapping(prev => ({ ...prev, [cat]: next }))}
-                    c={c}
-                  />
-                ))}
-              </View>
-            )}
+        <View style={{ flex: 1, minHeight: 0 }}>
+          <View className="px-6 pt-4 pb-3">
+            <Text className="text-typography-muted text-xs">
+              "{selectedTemplate?.name}" · {categories.length} categor{categories.length === 1 ? 'y' : 'ies'} · {parsed.length * taskCountPerProject} tasks total.
+            </Text>
           </View>
 
-          {/* Schedule anchor */}
-          <View style={{ gap: 8 }}>
-            <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest">Schedule</Text>
-
-            {/* Back-scheduling (deadline) listed first — this domain typically
-                receives a deadline ("six months to complete them"), not a
-                start date (issue #182), so it must not read as the secondary
-                option. */}
-            <View className="flex-row gap-2">
-              <TouchableOpacity
-                onPress={() => setAnchorDirection('deadline')}
-                className={`flex-1 rounded-xl border ${isCentered ? 'px-3 py-1.5' : 'px-3 min-h-[44px] justify-center'} ${anchorDirection === 'deadline' ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
-              >
-                <Text className={`text-xs font-black uppercase tracking-wider ${anchorDirection === 'deadline' ? 'text-white' : 'text-typography-main'}`}>Due by</Text>
-                <Text className={`text-[10px] mt-0.5 ${anchorDirection === 'deadline' ? 'text-white/80' : 'text-typography-muted'}`}>Tasks land on this date; start is worked backward</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setAnchorDirection('start')}
-                className={`flex-1 rounded-xl border ${isCentered ? 'px-3 py-1.5' : 'px-3 min-h-[44px] justify-center'} ${anchorDirection === 'start' ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
-              >
-                <Text className={`text-xs font-black uppercase tracking-wider ${anchorDirection === 'start' ? 'text-white' : 'text-typography-main'}`}>Starts on</Text>
-                <Text className={`text-[10px] mt-0.5 ${anchorDirection === 'start' ? 'text-white/80' : 'text-typography-muted'}`}>Tasks are due on their researched offset from this date</Text>
-              </TouchableOpacity>
+          <View className="px-6 pb-5" style={{ flexDirection: 'row', flex: 1, minHeight: 0, gap: 24 }}>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2">Projects ({parsed.length})</Text>
+              <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 8 }}>
+                {projectsList}
+              </ScrollView>
             </View>
 
-            <View className="flex-row flex-wrap gap-2">
-              {[
-                { label: 'Today', date: todayISO },
-                { label: 'Next Monday', date: nextMondayISO() },
-                { label: 'End of Quarter', date: endOfQuarterISO() },
-              ].map(preset => (
-                <TouchableOpacity
-                  key={preset.label}
-                  onPress={() => setAnchorDate(preset.date)}
-                  className={`rounded-lg border ${isCentered ? 'px-3 py-1.5' : 'px-4 min-h-[44px] justify-center'} ${anchorDate === preset.date ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
-                >
-                  <Text className={`text-[10px] font-black uppercase tracking-wider ${anchorDate === preset.date ? 'text-white' : 'text-typography-muted'}`}>{preset.label}</Text>
-                </TouchableOpacity>
-              ))}
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2">Map Each Category To A Board</Text>
+              <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 8 }}>
+                {categoryList}
+              </ScrollView>
             </View>
 
-            <TouchableOpacity
-              onPress={() => setShowCalendar(v => !v)}
-              className={`flex-row items-center justify-between px-4 rounded-lg border ${anchorIsPast ? 'border-state-danger' : 'border-surface-border'} bg-surface-background`}
-              style={{ minHeight: 44 }}
-            >
-              <Text className="text-sm font-black" style={{ color: anchorDate ? c.textMain : c.textDim }}>
-                {anchorDate ? new Date(anchorDate).toLocaleDateString(undefined, { dateStyle: 'medium' }) : 'Pick a date'}
-              </Text>
-              <FontAwesome name="calendar-o" size={14} color={c.primary} />
-            </TouchableOpacity>
-            {showCalendar && (
-              <Calendar
-                selectedDate={anchorDate}
-                onSelect={d => { setAnchorDate(d); setShowCalendar(false); }}
-                accentColor={c.primary}
-                scale="compact"
-              />
-            )}
-            {anchorIsPast && <Text className="text-state-danger text-xs font-bold">{anchorDate} is in the past — pick a current or future date.</Text>}
-            {pastLines.length > 0 && (
-              <Text className="text-state-danger text-xs font-bold">
-                Per-line override(s) in the past: {pastLines.map(p => p.name).join(', ')}. Fix on the previous step.
-              </Text>
-            )}
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 20, paddingBottom: 8 }}>
+                {scheduleAndPreview}
+              </ScrollView>
+            </View>
           </View>
-
-          {/* Preview — the outcome, not the row count (issue #182). A preview
-              error doubles as this form's validation feedback: preview shares
-              the exact resolver/span math the commit path uses. */}
-          <View className="bg-surface-background border border-surface-border rounded-2xl p-4 flex-row items-start gap-3">
-            <FontAwesome name="magic" size={14} color={previewError ? c.danger : c.primary} style={{ marginTop: 2 }} />
-            {previewLoading ? (
-              <ActivityIndicator color={c.primary} />
-            ) : previewError ? (
-              <Text className="text-state-danger text-sm font-bold flex-1">{previewError}</Text>
-            ) : preview ? (
-              <Text className="text-typography-main text-sm font-bold flex-1">
-                {preview.projects} project{preview.projects === 1 ? '' : 's'} · {preview.tasks} task{preview.tasks === 1 ? '' : 's'} · {preview.boards} board{preview.boards === 1 ? '' : 's'} · first task {fmtShort(preview.first_task_date)}, last {fmtShort(preview.last_task_date)}
-              </Text>
-            ) : (
-              <Text className="text-typography-muted text-sm font-bold flex-1">Map every category and set a schedule anchor above to preview the outcome.</Text>
-            )}
-          </View>
-
-          {error && <Text className="text-state-danger text-xs font-bold">{error}</Text>}
         </View>
       </Popup>
     );
@@ -521,15 +700,11 @@ export default function BulkCreateProjectsSheet({
       footer="single-action"
       primaryAction={{
         label: `Next: Configure Batch`,
-        onPress: () => setStep('configure'),
+        onPress: openConfigure,
         variant: canProceedToConfigure ? 'default' : 'disabled',
       }}
       dismissible={!creating}
-      // Only override width for the centered (desktop) variant — Popup
-      // forwards the same containerClassName to DraggableSheet on the sheet
-      // path too, so a fixed "centered" width class would wrongly clip the
-      // mobile bottom sheet's edge-to-edge layout if applied unconditionally.
-      containerClassName={containerClassName}
+      maxWidth={640}
     >
       {/*
         StarterTemplatePickerSheet is rendered as a return-level sibling below
