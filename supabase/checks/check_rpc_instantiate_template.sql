@@ -21,6 +21,12 @@
 --      (UPDATE tasks SET project_id = ...) must re-derive portfolio_id from
 --      the new project, not leave the old (now-stale) value in place — and
 --      undo must then leave that moved task alone.
+--   6. (issue #182 / plan §13.10) every task produced carries a real
+--      pipeline_id AND current_stage_id AND due_date — see
+--      check_rpc_batch_config.sql for the full batch-configuration
+--      coverage (category mapping, back-scheduling, reachability, perf);
+--      this file only asserts the signature it calls still exists and still
+--      produces non-NULL rows, so it doesn't silently bitrot.
 --
 -- Cleans up after itself (undoes the batch, deletes the scratch template/
 -- projects/clients/tasks it created) so it's safe to re-run.
@@ -33,6 +39,8 @@ DECLARE
   v_key                   TEXT := 'selfcheck-' || gen_random_uuid();
   v_tag                   TEXT;
   v_projects_payload      JSONB;
+  v_category_mapping      JSONB;
+  v_pipeline_id           UUID;
   v_result1               JSONB;
   v_result2               JSONB;
   v_project_count         INT;
@@ -44,7 +52,7 @@ DECLARE
   v_portfolio_after_move  UUID;
   v_template_id_on_portfolio UUID;
   v_snapshot              JSONB;
-  v_orig_body             JSONB := '[{"title":"Task A","priority":"medium"},{"title":"Task B","priority":"low"}]'::jsonb;
+  v_orig_body             JSONB := '[{"title":"Task A","priority":"medium","category":"General"},{"title":"Task B","priority":"low","category":"General"}]'::jsonb;
 BEGIN
   SELECT id, company_id INTO v_user_id, v_company_id
   FROM public.users WHERE is_owner = true LIMIT 1;
@@ -63,6 +71,21 @@ BEGIN
   -- suffix per run instead of relying on cleanup to free names back up.
   v_tag := replace(gen_random_uuid()::text, '-', '');
 
+  -- issue #182: rpc_instantiate_template now requires a real, owned pipeline
+  -- for every category the template body uses — reuse any pipeline that
+  -- already has a stage rather than seed a scratch one.
+  SELECT p.id INTO v_pipeline_id
+  FROM public.pipelines p
+  WHERE p.company_id = v_company_id AND p.deleted_at IS NULL
+    AND EXISTS (SELECT 1 FROM public.pipeline_stages s WHERE s.pipeline_id = p.id)
+  LIMIT 1;
+
+  IF v_pipeline_id IS NULL THEN
+    RAISE EXCEPTION 'No pipeline with at least one stage found for this company — seed one before running this check.';
+  END IF;
+
+  v_category_mapping := jsonb_build_array(jsonb_build_object('category', 'General', 'pipeline_id', v_pipeline_id));
+
   INSERT INTO public.project_templates (company_id, name, body, created_by)
   VALUES (v_company_id, 'selfcheck-template-' || v_tag, v_orig_body, v_user_id)
   RETURNING id INTO v_template_id;
@@ -79,8 +102,9 @@ BEGIN
 
   v_result1 := public.rpc_instantiate_template(
     v_template_id,
-    jsonb_build_object('name', 'selfcheck-portfolio-' || v_tag),
+    jsonb_build_object('name', 'selfcheck-portfolio-' || v_tag, 'target_date', (CURRENT_DATE + 7)::text, 'anchor_direction', 'start'),
     v_projects_payload,
+    v_category_mapping,
     v_key
   );
 
@@ -107,6 +131,22 @@ BEGIN
       AND name IN ('Abdallah A ' || v_tag, 'Abdallah B ' || v_tag)
   ) = 1, 'expected both same-ref projects to point at the SAME client_id';
 
+  -- issue #182: this is the whole point of the batch-config step. A task
+  -- with NULL pipeline_id/current_stage_id/due_date is invisible — the bug
+  -- this issue exists to close. See check_rpc_batch_config.sql for full
+  -- coverage; this is the smoke-test slice for THIS RPC's default call shape.
+  ASSERT (
+    SELECT COUNT(*) FROM public.tasks
+    WHERE portfolio_id = v_portfolio_id AND deleted_at IS NULL
+      AND (pipeline_id IS NULL OR current_stage_id IS NULL OR due_date IS NULL)
+  ) = 0, 'expected zero tasks with a NULL pipeline_id/current_stage_id/due_date';
+
+  ASSERT (
+    SELECT COUNT(*) FROM public.projects
+    WHERE portfolio_id = v_portfolio_id AND deleted_at IS NULL
+      AND (start_date IS NULL OR due_date IS NULL)
+  ) = 0, 'expected zero projects with a NULL start_date/due_date';
+
   -- Gap 2: the portfolio records what produced it.
   SELECT template_id, template_body_snapshot INTO v_template_id_on_portfolio, v_snapshot
   FROM public.portfolios WHERE id = v_portfolio_id;
@@ -123,8 +163,9 @@ BEGIN
   -- Idempotency: same key again must be a no-op, not a second batch.
   v_result2 := public.rpc_instantiate_template(
     v_template_id,
-    jsonb_build_object('name', 'selfcheck-portfolio-' || v_tag),
+    jsonb_build_object('name', 'selfcheck-portfolio-' || v_tag, 'target_date', (CURRENT_DATE + 7)::text, 'anchor_direction', 'start'),
     v_projects_payload,
+    v_category_mapping,
     v_key
   );
   ASSERT (v_result2->>'already_processed')::boolean = true, 'repeat call with the same idempotency_key must be a no-op';

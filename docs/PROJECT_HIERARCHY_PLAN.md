@@ -293,17 +293,23 @@ shape. An editor to author 25 tasks from scratch rebuilds the exact manual pain
 the feature exists to kill. The editor comes later, to *maintain* saved
 templates.
 
-### Two RPCs
+### Two RPCs — now three (§13, issue #182)
 
 ```
 rpc_create_template_from_project(p_project_id, p_name)
 rpc_instantiate_template(p_template_id, p_portfolio jsonb, p_projects jsonb,
-                         p_idempotency_key)
+                         p_category_mapping jsonb, p_idempotency_key)
+rpc_preview_instantiate_template(p_template_id, p_portfolio jsonb,
+                         p_projects jsonb, p_category_mapping jsonb)
 ```
 
 `p_projects` is **plural** — `[{name, client_ref, start_date}, ...]`. Set-based
 insert from `jsonb_to_recordset`, single transaction, not a loop. Upserts
 `clients` by name in the same call.
+
+`p_category_mapping` and the required `p_portfolio.target_date` /
+`anchor_direction` pair were added after the first ship exposed the gap §13
+below documents — see there for why and for the exact contract.
 
 This is also what #100 needs — the importers currently create tasks one at a time
 from the client. Building it once serves both.
@@ -324,13 +330,18 @@ from the client. Building it once serves both.
    in the first phase** — do not ship a 2,500-row button without an undo. Folds
    into #138.
 
-Plus a **preview before commit**: *"This will create 20 projects and 500 tasks."*
+Plus a **preview before commit** — as shipped (§13), `rpc_preview_instantiate_template`
+states the outcome, not the row count: *"20 projects · 500 tasks · 4 boards ·
+first task Aug 2, last Sep 15."*
 
 ### UI — one sheet and one button
 
 - **"Save as template"** on project detail.
-- **Bulk create sheet:** pick template → textarea, one project per line
-  (optionally `Name, 2026-08-01`) → preview counts → create.
+- **Bulk create sheet:** pick template → **configure the batch** (category →
+  board/team mapping, schedule anchor + direction, §13) → textarea, one
+  project per line (optionally `Name, 2026-08-01`) → preview outcome → create.
+  UI half not yet built as of this writing — see §13.10 for the backend
+  contract it builds against.
 
 A textarea beats a CSV upload or a grid; paste from Excel is newline-separated
 anyway. Template list can live in settings.
@@ -484,3 +495,100 @@ and `subject_kind` defaulting to `'task'` so every existing pipeline is unchange
 **The single real risk is §11's visibility question**, because RLS mistakes are
 security bugs rather than bugs. It must be answered before Phase 1 ships, since
 Phase 1 is what makes projects worth reading.
+
+---
+
+## 13. Amendments from building bulk instantiation (issue #182)
+
+### 13.9 Starter templates left `due_offset_days` inert (amends §4, §7)
+
+`rpc_instantiate_template` derived `due_date` from `due_offset_days` **only
+when the caller supplied `start_date`**, and nothing forced that. Verified: a
+batch with no dates produced tasks with `due_date IS NULL`. §4/§7's starter
+library shipped 194 researched offsets that sat unused unless a user typed a
+date on every textarea line, which nobody does.
+
+### 13.10 Batch create produces orphans — the missing batch-configuration step
+
+Running the real feature against real data:
+
+```
+66 tasks created:  pipeline_id = 0   current_stage_id = 0   due_date = 0
+ 3 projects:       start_date  = 0   due_date         = 0
+```
+
+A task with no `pipeline_id`/`current_stage_id` is on no board — invisible.
+§7 measured this feature by rows-inserted and transaction time; neither
+notices the output is unreachable. Root cause: §4's "a template must not
+carry `pipeline_id`" was right, but the fix was left as "leave it NULL and
+hope something downstream resolves it" — nothing did.
+
+**Shipped fix — extended `rpc_instantiate_template`, not a parallel path**
+(two ways to create projects from templates would drift):
+
+```
+rpc_instantiate_template(
+  p_template_id      UUID,
+  p_portfolio        JSONB,   -- {name?, source?, received_at?, manifest?,
+                               --  target_date (REQUIRED — the anchor),
+                               --  anchor_direction (REQUIRED: 'start'|'deadline')}
+  p_projects         JSONB,   -- [{name, client_ref?, client_external_ref?,
+                               --   start_date?}] — start_date is a PER-LINE
+                               --   override of the batch anchor, same
+                               --   anchor_direction semantics
+  p_category_mapping JSONB,   -- [{category, pipeline_id, assignee_team_id?}]
+                               --  — one row per DISTINCT category the
+                               --  template body uses. Map by category, not
+                               --  by task (a 25-task template becomes ~4
+                               --  decisions).
+  p_idempotency_key  TEXT
+) RETURNS JSONB  -- {portfolio_id, already_processed, projects_created, tasks_created}
+
+rpc_preview_instantiate_template(
+  p_template_id, p_portfolio, p_projects, p_category_mapping
+) RETURNS JSONB  -- {projects, tasks, boards, first_task_date, last_task_date}
+-- Read-only. Calls the exact same resolver + span math as the commit path,
+-- so a preview that succeeds is a promise the commit will also succeed.
+```
+
+**Category mapping is now the SOLE source of `pipeline_id`/`current_stage_id`/
+`assignee_team_id`.** The template body's legacy per-item `pipeline_id` /
+`assignee_team_id` fields (§4) are no longer read — honoring them would be
+exactly the per-task mapping input this design deliberately avoids, and it's
+what let templates carry silent NULLs in the first place. Each task lands on
+its mapped pipeline's **first stage by `position`**, resolved server-side —
+`fn_resolve_batch_category_mapping` RAISEs loudly (naming the category) if
+any category the body uses has no mapping row, if a mapping row references a
+category the body doesn't use (typo guard), if a `pipeline_id` doesn't belong
+to the caller's company, or if a mapped pipeline has zero stages.
+
+**The schedule anchor is required, never defaulted.** `target_date` missing,
+`anchor_direction` missing/invalid, or the anchor date being in the past all
+RAISE — no `COALESCE(start_date, now())`. **Back-scheduling**
+(`anchor_direction = 'deadline'`): the anchor is read as a deadline, and the
+batch's span (`MAX(due_offset_days)`) is computed from the *same*
+`project_templates.body` the tasks are generated from (`fn_batch_offset_range`),
+so `start_date = deadline - span` can never drift from what actually gets
+inserted. `due_offset_days` missing on a template item defaults to `0` (due
+the day the project starts), not `NULL` — the one default that stayed, since
+an unscheduled item defaulting to "no later than start" is a defensible
+content-level default, unlike the anchor itself. `projects.due_date` (added
+in Phase 3, previously never written by this RPC) is now set to
+`start_date + span` on every row.
+
+**Verification** (`supabase/checks/check_rpc_batch_config.sql`, run against
+local): every trust-boundary RAISE fires as specified; forward and
+back-scheduling both land tasks with the correct `due_date` and zero NULL
+`pipeline_id`/`current_stage_id`/`due_date` across the batch; preview's
+`{projects, tasks, boards, first_task_date, last_task_date}` matches what the
+commit actually writes; every created task is reachable through the exact
+query shape `components/tabs/_tasks_desktop.tsx` uses to render the board
+(`tasks` filtered by `pipeline_id`, grouped client-side by
+`current_stage_id`) and lands on the mapped pipeline's first stage. A 20
+project × 25 task (500-task) batch completed in **72–80ms** and emitted
+**exactly 1** `notification_events` row across three local runs — the §7
+Hazard 1 fix still holds at this scale.
+
+**Not built here:** the UI half (batch-configuration screen, category →
+board/team picker, anchor date+direction picker). This section is the
+contract it builds against — see issue #182.
