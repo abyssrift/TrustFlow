@@ -293,23 +293,17 @@ shape. An editor to author 25 tasks from scratch rebuilds the exact manual pain
 the feature exists to kill. The editor comes later, to *maintain* saved
 templates.
 
-### Two RPCs — now three (§13, issue #182)
+### Two RPCs
 
 ```
 rpc_create_template_from_project(p_project_id, p_name)
 rpc_instantiate_template(p_template_id, p_portfolio jsonb, p_projects jsonb,
-                         p_category_mapping jsonb, p_idempotency_key)
-rpc_preview_instantiate_template(p_template_id, p_portfolio jsonb,
-                         p_projects jsonb, p_category_mapping jsonb)
+                         p_idempotency_key)
 ```
 
 `p_projects` is **plural** — `[{name, client_ref, start_date}, ...]`. Set-based
 insert from `jsonb_to_recordset`, single transaction, not a loop. Upserts
 `clients` by name in the same call.
-
-`p_category_mapping` and the required `p_portfolio.target_date` /
-`anchor_direction` pair were added after the first ship exposed the gap §13
-below documents — see there for why and for the exact contract.
 
 This is also what #100 needs — the importers currently create tasks one at a time
 from the client. Building it once serves both.
@@ -330,18 +324,13 @@ from the client. Building it once serves both.
    in the first phase** — do not ship a 2,500-row button without an undo. Folds
    into #138.
 
-Plus a **preview before commit** — as shipped (§13), `rpc_preview_instantiate_template`
-states the outcome, not the row count: *"20 projects · 500 tasks · 4 boards ·
-first task Aug 2, last Sep 15."*
+Plus a **preview before commit**: *"This will create 20 projects and 500 tasks."*
 
 ### UI — one sheet and one button
 
 - **"Save as template"** on project detail.
-- **Bulk create sheet:** pick template → **configure the batch** (category →
-  board/team mapping, schedule anchor + direction, §13) → textarea, one
-  project per line (optionally `Name, 2026-08-01`) → preview outcome → create.
-  UI half not yet built as of this writing — see §13.10 for the backend
-  contract it builds against.
+- **Bulk create sheet:** pick template → textarea, one project per line
+  (optionally `Name, 2026-08-01`) → preview counts → create.
 
 A textarea beats a CSV upload or a grid; paste from Excel is newline-separated
 anyway. Template list can live in settings.
@@ -498,97 +487,437 @@ Phase 1 is what makes projects worth reading.
 
 ---
 
-## 13. Amendments from building bulk instantiation (issue #182)
+## 13. Amendments from building Phases 1–2
 
-### 13.9 Starter templates left `due_offset_days` inert (amends §4, §7)
+Phases 1 and 2 were implemented and applied to a local stack on 2026-07-31
+(20×25 → 20 projects / 500 tasks in 54 ms, one notification event instead of
+500, undo verified). Building them exposed five gaps in the sections above.
+Four are the same failure: **a rule written in prose that the database does not
+enforce.**
 
-`rpc_instantiate_template` derived `due_date` from `due_offset_days` **only
-when the caller supplied `start_date`**, and nothing forced that. Verified: a
-batch with no dates produced tasks with `due_date IS NULL`. §4/§7's starter
-library shipped 194 researched offsets that sat unused unless a user typed a
-date on every textarea line, which nobody does.
+### 13.1 Container deletion must be safe at *every* level (amends §10)
 
-### 13.10 Batch create produces orphans — the missing batch-configuration step
+`rpc_archive_project` hard-deletes (`DELETE FROM public.projects`, verified).
+§10 made Phase 0 blocking because archiving a parent destroyed its children —
+then this plan added a new parent level without applying that same rule to it.
 
-Running the real feature against real data:
+**Rule:** any level that can own children (client, portfolio, project) must
+soft-delete and must refuse while children hold running timers. Phase 0's fix
+is the template. This is a prerequisite for §6's sealed deliverable — a hard
+delete would orphan the deliverable folder.
+
+### 13.2 Stage history must be trigger-enforced, not RPC-enforced (amends §5, §8)
+
+Exactly one function writes `project_stage_history`, and the only user trigger
+on `projects` is `updated_at`. Any other write to `current_stage_id` moves the
+project and records no history.
+
+§8 calls days-in-current-stage the highest-leverage field, and §9's CFD and
+cycle time are derived from the same rows. The failure is silent — no error,
+just numbers that quietly understate. **A trigger on `current_stage_id` change
+is the enforcement point.** The RPC stays as the permission/validation layer.
+
+The same reasoning applies to §3.3's rollup-only rule, which is currently also
+unenforced: nothing stops a project number being written directly.
+
+### 13.3 Client identity needs a stable key, not a name (amends §4, §6)
+
+`clients` is UNIQUE `(company_id, name)` and the bulk path upserts by name with
+`external_ref` left NULL. But §6 gives the client level one job — persisting
+across years so standing files and rollforward work. Exact-string matching
+defeats it: "Abdallah Group" and "Abdallah Group LLC" become two clients and
+year-two continuity breaks with no error.
+
+**`external_ref` is the intended key** (a commercial-registration or file
+number). Match on it when present, fall back to name. Open question for the
+domain expert: what identifier does the firm already use?
+
+### 13.4 Instantiation needs provenance (amends §4, §11)
+
+`portfolios` has no `template_id`, and `project_templates` has no version. A
+batch does not record what produced it, and editing a template retroactively
+changes the apparent shape of every past batch.
+
+§11 already asks how long a sealed project must stay retrievable; this is the
+same concern one level up. Cheapest fix: `portfolios.template_id` plus a frozen
+copy of the template `body` on the portfolio at instantiate time. Snapshot, not
+a version table — matching §4's reasoning for keeping the body as one jsonb.
+
+### 13.5 `portfolio_id` is denormalized and needs a guard (amends §7)
+
+§7 put `portfolio_id` on both `projects` and `tasks` so rollback is one call.
+Nothing keeps the two in agreement: move a task between projects and its
+`portfolio_id` is stale, so undo silently takes the wrong rows — which is the
+one operation that must never be approximate.
+
+**Rule:** a task's `portfolio_id` derives from its project. Enforce on write
+rather than trusting callers.
+
+### 13.6 Soft-delete and uniqueness must be decided together (issue #180)
+
+Found by testing the undo path rather than reading it. `rpc_undo_portfolio_instantiation`
+soft-deletes, but `UNIQUE (company_id, name)` on `projects` and `clients`
+carried no predicate, so archived rows kept their names reserved:
+
+```
+first create  -> 3 projects
+after undo    -> live projects = 0
+RETRY FAILED  -> duplicate key on projects_company_id_name_key
+```
+
+Undo therefore reported success and left the user unable to redo — worse than
+no undo, because it looks like recovery worked. §7 hazard 3 asked for undo and
+got something that only half exists.
+
+**Rule:** wherever this schema soft-deletes, uniqueness must be partial on
+`deleted_at`. A gone row does not reserve a name. **One deliberate exception:**
+`portfolios_company_idempotency_key` stays total — an idempotency key must keep
+blocking a replay after its batch is undone, which is the opposite requirement.
+
+This generalises past projects. It applies to any future level that soft-deletes
+(§13.1's clients and portfolios), and it is a prerequisite for §13.1 itself:
+converting `rpc_archive_project` from hard to soft delete creates exactly the
+case that triggers it.
+
+### 13.7 `estimated_hours` is derived, not stored (amends §4)
+
+§4 listed `estimated_hours` among the columns `projects` gains. That contradicts
+§3.3: every project number is derived from its children, never written directly.
+A stored estimate on the project can drift from the sum of its tasks, and once
+two screens disagree nobody can say which is right.
+
+**Decision (Phase 3):** `estimated_hours` and `tracked_seconds` are **computed in
+the read RPC**, never columns. Of §4's original list, only the true *inputs*
+become columns:
+
+| Column | Kind | Verdict |
+|---|---|---|
+| `due_date`, `owner_id` | input | column |
+| `weight` | input — relative importance for weighted progress | column |
+| `estimated_hours` | rollup of child tasks | **derived, no column** |
+| `tracked_seconds` | rollup of child work sessions | **derived, no column** |
+
+The test for any future field: *could a child change make this stale?* If yes it
+is a rollup and must be derived. This is §3.3 applied rather than restated —
+the rule was prose until it had a column to refuse.
+
+### 13.8 Phase 3 does NOT ship alone — §10's independence claim was wrong
+
+§10 marked Phases 2 and 3 as each "ships alone: yes". Building Phase 3 disproved
+it. Measured on a seeded local stack after Phases 1–2 were applied:
+
+```
+projects total = 5    with current_stage_id = 0
+stage history rows    = 0
+project-kind pipelines= 0
+```
+
+Phase 2 delivered the stage engine as **schema only** — `subject_kind`,
+`current_stage_id`, `project_stage_history`, the trigger, and
+`rpc_advance_project_stage` all exist and are correct, but **nothing in the app
+can reach any of it.** No screen creates a `subject_kind='project'` pipeline, and
+none assigns a project a stage.
+
+The consequence lands squarely on Phase 3: **Stage** and **Days in current
+stage** are the table's two headline columns — §8 calls the latter the
+highest-leverage field available — and both render empty for every row, forever,
+until a project can be given a stage.
+
+**Corrected dependency:** Phase 3 requires a minimal Phase 2 UI — somewhere to
+mark a pipeline as project-kind, and somewhere to move a project between stages.
+That is small (the pipeline editor already exists; the mover RPC already exists)
+but it is not optional, and it was invisible in a phase table that only tracked
+schema.
+
+**The general lesson for the remaining phases:** "ships alone" was assessed
+against *database* dependencies only. Phases 5 (analytics) and 6 (board) read the
+same stage data and inherit the same hidden prerequisite. A phase is only
+independent when its data can actually be *produced*, not merely stored.
+
+### 13.9 Starter templates, and the anchor their offsets need (amends §4, §7)
+
+§7 said capture-from-a-finished-project should come before an editor, because
+authoring 25 tasks cold rebuilds the pain the feature exists to kill. True — but
+it left a dead end nobody spotted until the screen existed: **Bulk Create
+requires a template, templates can only be made from a finished project, and a
+new workspace has no projects.** The highest-value feature in the plan was
+unreachable precisely when it was most needed.
+
+Fixed with a **code-level starter library** (`lib/starterTemplates.ts`, 13
+templates / 12 sectors / 194 tasks) rather than seeded rows or a global table.
+Picking one materialises it into an ordinary per-company `project_templates`
+row, so nothing downstream changes. This is §2's argument made concrete: the
+audit template says "Trial Balance" and "Management Letter", and none of that
+vocabulary reaches a column, a component or a type. Templates are content.
+
+One correction to §4's claim that a starter needs "no migration": true of the
+data, false of the write path. `project_templates` ships **no INSERT policy** —
+all writes go through `SECURITY DEFINER` RPCs — so a client insert is
+hard-denied. One RPC mirroring the existing one was the right answer;
+weakening the RLS would not have been.
+
+**Was open, now settled (see §13.10).** `rpc_instantiate_template` derived
+`due_date` from `due_offset_days` **only when the caller supplied `start_date`**,
+and the bulk-create textarea treated the date as optional. Before starters this
+barely mattered — save-as-template capture produces no offsets at all. Now 194
+researched offsets sat inert unless a user typed a date on every line, which
+nobody will. Verified: a 3-project batch with no dates produced 9 tasks with
+`due_date IS NULL`.
+
+The tempting fix was one `COALESCE(x.start_date, now())`. **It was rejected.** A
+silent default is exactly how 66 tasks shipped with `due_date = 0` and nobody
+noticed — a defaulted date looks identical to a chosen one at every later
+surface. The anchor is now **required and raises when absent** (§13.10); the
+only default retained is a template item's missing `due_offset_days`, which
+means "due the day the project starts". That is a content-level default with a
+visible consequence, not a schedule invented on the user's behalf.
+
+### 13.10 Bulk create produces orphans — the missing batch-configuration step
+
+Phase 1 was called shipped. Running it against real data says otherwise:
 
 ```
 66 tasks created:  pipeline_id = 0   current_stage_id = 0   due_date = 0
  3 projects:       start_date  = 0   due_date         = 0
 ```
 
-A task with no `pipeline_id`/`current_stage_id` is on no board — invisible.
-§7 measured this feature by rows-inserted and transaction time; neither
-notices the output is unreachable. Root cause: §4's "a template must not
-carry `pipeline_id`" was right, but the fix was left as "leave it NULL and
-hope something downstream resolves it" — nothing did.
+Every task is **invisible**. A task with no `pipeline_id` and no `current_stage_id`
+appears on no board. The 500-task button works and produces 500 rows nobody can
+see or schedule. §7 measured this feature by rows inserted and transaction time;
+neither notices that the output is unusable.
 
-**Shipped fix — extended `rpc_instantiate_template`, not a parallel path**
-(two ways to create projects from templates would drift):
+Three separate-looking gaps — no pipeline, no team, no dates — are **one missing
+step**: nothing ever asks *how this batch should be configured*. §7's UI was "pick
+template → paste names → create", which is the right shape and one step short.
+
+**§4's "no `pipeline_id` in a template" reasoning was right and the conclusion was
+wrong.** A template genuinely cannot know a company's boards. But the fix is to
+resolve it at *instantiate* time, when the company is known — not to leave it null
+and hope something downstream fills it in. Nothing does.
+
+**The design: map by category, not by task.**
+
+Template bodies already carry `category` (§3.1 — grouping within a level is a
+field). The starter research produced exactly this: the audit template's 22 tasks
+fall into Planning / Fieldwork / Review / Reporting. So the mapping unit is the
+category, and a 25-task template becomes **four decisions, not twenty-five**:
+
+| Category | Board | Team |
+|---|---|---|
+| Planning | Audit Intake | Seniors |
+| Fieldwork | Audit Fieldwork | Field Team |
+| … | | |
+
+Same step carries the schedule anchor, because it is the same moment:
+
+- **Anchor + direction** — *starts on* / *due by* a date. Back-scheduling is not
+  optional politeness; §2's domain arrives with a deadline ("six months to
+  complete them"), not a start date. `portfolios.target_date` already exists.
+- **Stage** — each task lands on its chosen pipeline's first stage. Without this,
+  a `pipeline_id` alone still leaves it off the board.
+
+**Rule this establishes:** a bulk operation must produce rows that are *reachable*
+by the app's existing surfaces. "Inserted successfully" is not the acceptance
+test; "appears on a board, with a date, owned by someone" is. Every future bulk
+path (#100's importers) inherits this.
+
+#### Shipped — backend (branch `feat-project-batch-config`)
+
+`rpc_instantiate_template` was **extended, not paralleled** — two ways to create
+projects from a template would drift. The old 4-argument overload is dropped, so
+callers cannot silently keep using the orphan-producing path:
 
 ```
 rpc_instantiate_template(
   p_template_id      UUID,
-  p_portfolio        JSONB,   -- {name?, source?, received_at?, manifest?,
-                               --  target_date (REQUIRED — the anchor),
-                               --  anchor_direction (REQUIRED: 'start'|'deadline')}
-  p_projects         JSONB,   -- [{name, client_ref?, client_external_ref?,
-                               --   start_date?}] — start_date is a PER-LINE
-                               --   override of the batch anchor, same
-                               --   anchor_direction semantics
-  p_category_mapping JSONB,   -- [{category, pipeline_id, assignee_team_id?}]
-                               --  — one row per DISTINCT category the
-                               --  template body uses. Map by category, not
-                               --  by task (a 25-task template becomes ~4
-                               --  decisions).
+  p_portfolio        JSONB,  -- + target_date (REQUIRED anchor)
+                             --   anchor_direction (REQUIRED 'start'|'deadline')
+  p_projects         JSONB,  -- [{name, client_ref?, start_date?}]
+                             --   start_date = per-line override of the anchor
+  p_category_mapping JSONB,  -- [{category, pipeline_id, assignee_team_id?}]
+                             --   one row per DISTINCT category in the body
   p_idempotency_key  TEXT
 ) RETURNS JSONB  -- {portfolio_id, already_processed, projects_created, tasks_created}
 
-rpc_preview_instantiate_template(
-  p_template_id, p_portfolio, p_projects, p_category_mapping
-) RETURNS JSONB  -- {projects, tasks, boards, first_task_date, last_task_date}
--- Read-only. Calls the exact same resolver + span math as the commit path,
--- so a preview that succeeds is a promise the commit will also succeed.
+rpc_preview_instantiate_template(p_template_id, p_portfolio, p_projects, p_category_mapping)
+  RETURNS JSONB  -- {projects, tasks, boards, first_task_date, last_task_date}
 ```
 
-**Category mapping is now the SOLE source of `pipeline_id`/`current_stage_id`/
-`assignee_team_id`.** The template body's legacy per-item `pipeline_id` /
-`assignee_team_id` fields (§4) are no longer read — honoring them would be
-exactly the per-task mapping input this design deliberately avoids, and it's
-what let templates carry silent NULLs in the first place. Each task lands on
-its mapped pipeline's **first stage by `position`**, resolved server-side —
-`fn_resolve_batch_category_mapping` RAISEs loudly (naming the category) if
-any category the body uses has no mapping row, if a mapping row references a
-category the body doesn't use (typo guard), if a `pipeline_id` doesn't belong
-to the caller's company, or if a mapped pipeline has zero stages.
+`rpc_preview_instantiate_template` is read-only and calls the **same** resolver
+and span maths as the commit path, so a preview that succeeds is a promise the
+commit will too — it cannot become an optimistic estimate that disagrees with
+what gets written.
 
-**The schedule anchor is required, never defaulted.** `target_date` missing,
-`anchor_direction` missing/invalid, or the anchor date being in the past all
-RAISE — no `COALESCE(start_date, now())`. **Back-scheduling**
-(`anchor_direction = 'deadline'`): the anchor is read as a deadline, and the
-batch's span (`MAX(due_offset_days)`) is computed from the *same*
-`project_templates.body` the tasks are generated from (`fn_batch_offset_range`),
-so `start_date = deadline - span` can never drift from what actually gets
-inserted. `due_offset_days` missing on a template item defaults to `0` (due
-the day the project starts), not `NULL` — the one default that stayed, since
-an unscheduled item defaulting to "no later than start" is a defensible
-content-level default, unlike the anchor itself. `projects.due_date` (added
-in Phase 3, previously never written by this RPC) is now set to
-`start_date + span` on every row.
+**Category mapping is the sole source** of `pipeline_id` / `current_stage_id` /
+`assignee_team_id`. The template body's legacy per-item `pipeline_id` and
+`assignee_team_id` fields are **no longer read** — honouring them would
+reintroduce the per-task mapping this design exists to avoid, and they are what
+carried the silent NULLs. Each task lands on its mapped pipeline's **first stage
+by `position`**, resolved server-side.
 
-**Verification** (`supabase/checks/check_rpc_batch_config.sql`, run against
-local): every trust-boundary RAISE fires as specified; forward and
-back-scheduling both land tasks with the correct `due_date` and zero NULL
-`pipeline_id`/`current_stage_id`/`due_date` across the batch; preview's
-`{projects, tasks, boards, first_task_date, last_task_date}` matches what the
-commit actually writes; every created task is reachable through the exact
-query shape `components/tabs/_tasks_desktop.tsx` uses to render the board
-(`tasks` filtered by `pipeline_id`, grouped client-side by
-`current_stage_id`) and lands on the mapped pipeline's first stage. A 20
-project × 25 task (500-task) batch completed in **72–80ms** and emitted
-**exactly 1** `notification_events` row across three local runs — the §7
-Hazard 1 fix still holds at this scale.
+Three shared helpers keep preview and commit honest:
+`fn_resolve_batch_category_mapping` (validation + first-stage resolution),
+`fn_batch_offset_range` (span from the body), `fn_resolve_batch_start_date`
+(forward/back-scheduling formula).
 
-**Not built here:** the UI half (batch-configuration screen, category →
-board/team picker, anchor date+direction picker). This section is the
-contract it builds against — see issue #182.
+**Everything that can silently lose work raises instead**, naming the offender:
+a category in the body with no mapping row; a mapping row for a category the
+body never uses (typo guard — this is the one that would otherwise route tasks
+nowhere); a `pipeline_id` outside the caller's company; a mapped pipeline with
+zero stages; an empty body; a missing/invalid anchor or direction; an anchor in
+the past.
+
+**Back-scheduling** (`anchor_direction = 'deadline'`): span is `MAX(due_offset_days)`
+read from the *same* `project_templates.body` the tasks generate from, so
+`start_date = deadline − span` cannot drift from what is actually inserted.
+`projects.due_date` — added in Phase 3 and never previously written by this RPC —
+is now set to `start_date + span`.
+
+**Verified** (`supabase/checks/check_rpc_batch_config.sql`, local): every RAISE
+fires as specified; forward and back-scheduling both land correct `due_date`s;
+zero NULL `pipeline_id` / `current_stage_id` / `due_date` across a batch; preview
+matches what commit writes; and every created task is reachable through the exact
+query shape `components/tabs/_tasks_desktop.tsx` uses to render a board — the
+reachability rule above, checked rather than asserted in prose. A 20 × 25
+(500-task) batch ran in **58–94 ms** emitting **exactly 1** `notification_events`
+row, so §7's Hazard 1 fix still holds at this scale.
+
+**Not built here:** the UI half — category → board/team picker, anchor date +
+direction, and the preview line that must state the outcome ("20 projects · 500
+tasks · 4 boards · first task Aug 2, last Sep 15") rather than a row count. The
+existing `BulkCreateProjectsSheet.tsx` calls the dropped 4-arg signature and will
+fail until it is updated; that is intended, not a regression.
+
+### 13.11 Project detail becomes a workspace (amends §8)
+
+§8 assumed project detail was a readout and called `ProjectDashboard` an extend.
+The vision it has to serve is larger: assign work to boards and teams, raise
+flags, reach every file, and roll the engagement forward next year. That is a
+**workspace**, and it forces three corrections.
+
+**It stops being a `Popup` and becomes a route** — `/projects/[id]` with
+Overview / Work / Files. Tabs of that weight need deep links, bookmarks and
+back-button behaviour; a modal has none. §8's "only one genuinely new route" was
+true of a readout and false of this.
+
+**The tabs are things already planned, not new work:**
+
+| Tab | Is |
+|---|---|
+| Overview | §13.10's dashboard cleanup (#183) — state, read-mostly |
+| Work | #182's batch configuration, generalised — control |
+| Files | Phase 4's deliverable, plus a *view* over client-level inputs |
+
+**#182's mapping step and the manager's assignment surface are one component
+mounted at two moments** — configure the batch at creation, revisit it any time
+after. Building it twice would guarantee they diverge.
+
+Files keep §6's split: inputs live at the **client** so they survive across
+years, output at the **project**. The Files tab *surfaces* both. It must never
+copy client files into each project, or year five holds five copies of the same
+reference sheet.
+
+### 13.12 Flags are a fixed composable set, not custom states (settles §5)
+
+Confirmed with the domain: **blocked · awaiting client · at risk**. Fixed for now,
+expected to grow.
+
+Custom *states* were considered and rejected. They rebuild the stage engine as a
+second parallel lifecycle, after which nothing can authoritatively answer "what
+stage is this in" — the exact loss §5 avoided by making "awaiting client" a flag.
+One stage machine, many flags, flags compose with any stage and with each other.
+
+Shape: **one `flags text[]` with a CHECK on allowed values, plus one note**, not
+three booleans. "For now" is the tell that a fourth is coming, and a fourth flag
+should be a CHECK change rather than a schema-plus-UI change. `projects.blocked` /
+`blocked_reason` fold into it — cheap precisely because none of this has been
+deployed yet.
+
+### 13.13 Rollforward is template-instantiate against a live project (settles §11)
+
+§11 asked whether rollforward or templates would dominate, and predicted "one
+extra RPC reading a live project instead of a template body — same shape". That
+holds, and the domain's answer is **both, configurably**: some firms clone last
+year's engagement wholesale, others want a subset of files plus fresh structure.
+
+`rpc_rollforward_project(p_source_project_id, p_new_name, p_options jsonb)` —
+`rpc_create_template_from_project` and `rpc_instantiate_template` composed, with
+the source being a live project.
+
+"Configurable" means **a handful of toggles, not a rules engine**: carry
+assignments · carry the category→board mapping · carry estimates · carry file
+references. Task structure always carries; that is what rollforward is. Defaults
+per company (a jsonb on `companies`, like the terminology layer), overridable per
+use.
+
+**Files are referenced, never duplicated.** Client-level standing files are
+already shared across years by §6. Last year's working papers should be *linked*
+from this year, not copied — otherwise year five holds five copies. Deliberately
+copying a blank template spreadsheet to fill in fresh is a different, explicit
+action, and is §11's open "standard starting files per template task".
+
+Rollforward is not a new phase — it is a sibling RPC in Phase 1, with the file
+half arriving in Phase 4.
+
+### 13.14 Project visibility settled — and it is not an RLS problem (settles §11)
+
+§11 called this the single blocking risk and framed it as choosing an RLS policy.
+The framing was wrong. Verified:
+
+```
+rpc_projects_table     security_definer = true
+rpc_project_dashboard  security_definer = true
+rpc_get_projects       security_definer = true
+```
+
+**Every project read path bypasses RLS.** `SECURITY DEFINER` runs as the function
+owner, so `projects_select` never fires for the table, the dashboard or the list.
+Tightening that policy would have changed nothing on any screen a user looks at,
+while appearing to fix it — the worst possible outcome for a security control.
+
+**The decision, confirmed with the domain:**
+
+- An auditor must **not** see another auditor's engagements.
+- Seeing the *numbers* without the contents is **also** a leak. Completion %,
+  tracked hours, contributor names and estimates are themselves disclosure.
+
+That second answer is what settles the design: the gate is the **project row**.
+Either you can see the project and its rollups are correct, or the row does not
+exist for you. There is no partial state — a redacted row still tells you the
+engagement exists.
+
+**Model: default deny, plus a `project.view_all` escape hatch.** Visible if you
+are `owner_id`, or you are assigned a task in it, or your team is — unless you
+hold `project.view_all`, which manager/organiser roles carry. This reuses RBAC
+rather than inventing an ACL, and mirrors `task.view_all` and
+`filehub:view_all_files`, which already exist.
+
+**Access follows assignment.** No separate membership table to maintain: assign
+someone a task and access arrives with it. A freshly bulk-created project with no
+assignments is visible only to `project.view_all` holders — which is correct, that
+is unallocated work.
+
+**Enforcement: one predicate, four call sites.** `fn_project_accessible(project_id)`
+used by `projects_select` (defence in depth), and inside `rpc_projects_table`,
+`rpc_project_dashboard` and `rpc_get_projects`. This is exactly the pattern #163
+already proved with `fn_task_file_accessible` spanning table RLS, storage RLS and
+FileHub. Three RPCs each carrying their own copy of the rule would drift, and the
+drift would be silent and security-relevant.
+
+Two things to get right when building it:
+
+- **Performance.** The predicate runs per row in `rpc_projects_table`. It must be
+  `STABLE`, and the task-assignment lookup it depends on must be indexed. This is
+  the one place the access model could make the main screen slow.
+- **Naming.** The codebase carries both `task.view_all` and `tasks.view_all`, and
+  `filehub:view_all_files` uses a colon. #181 surfaced a live bug caused by exactly
+  this dot/colon drift. Pick `project.view_all` deliberately and do not inherit
+  the mess.
+
+**Phase 1 is no longer blocked on an open question** — only on building this.
+
+### 13.15 Not yet load-bearing
+
+`companies.terminology_labels` (§2's terminology layer) has zero readers. That
+is correct for Phase 2 — but it is speculative schema until Phase 3 uses it,
+and should be counted as such rather than as shipped.
