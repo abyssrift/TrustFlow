@@ -1218,3 +1218,124 @@ Measured on a *real* messy file, not a clean fixture:
    reachability rule — the same query shape the board uses).
 4. The same file dropped twice creates one portfolio.
 5. Unmatched/low-confidence rows are visible without scrolling.
+
+### 15.5 Shipped (branch `feat-spreadsheet-intake`)
+
+**Pipeline:** `lib/imports/spreadsheetMapping.ts` (pure — header detection,
+column-mapping proposal, row extraction, client-name matching; has zero
+`lib/supabase`/xlsx imports on purpose so its self-check runs under plain
+`npx tsx`, unlike the orchestration layer) + `lib/imports/spreadsheetIntake.ts`
+(I/O — reads bytes via the **already-installed** `xlsx` library through the
+existing `components/common/loadXlsx(.native).ts` lazy-loader, same one
+`lib/taskMobility.ts`'s export/import already uses; queries `clients` directly,
+RLS-scoped, no new RPC needed for read).
+
+1. **Find the table** — `detectHeaderRow` scores every row in the first 30 by
+   filled-cell count + "mostly non-numeric" + "the next row also has data",
+   so a banner/logo/blank-spacer row never outscores the real header.
+2. **Map the columns** — `proposeColumnMapping` matches header text against a
+   small keyword-per-field rule set (`client_external_ref` checked before
+   `client_ref`/`name` — most specific first), nudges confidence from cell
+   shape (does the column look date-like / code-like), and mirrors a single
+   name-ish column into BOTH `name` and `client_ref` — the same
+   name-doubles-as-client convention the paste-textarea already used. Fully
+   editable in `SpreadsheetImportSheet`'s mapping step; edits re-run
+   `buildIntakeRows` live against the retained AOA, never a stale proposal.
+3. **Resolve clients** — `resolveClientMatch`: `external_ref` exact match
+   first; else case-insensitive exact name; else a normalized
+   (lowercased, suffix-stripped: LLC/Ltd/Group/…) substring match surfaces as
+   `ambiguous` — a question, rendered as pick-one-or-"actually new" buttons,
+   never auto-resolved. **Correctness note the self-check exercises
+   directly:** a resolved `ref`/`exact_name`/user-confirmed match sends the
+   *existing client's DB-canonical name* as `client_ref`, not the row's raw
+   text — `rpc_instantiate_template`'s name-fallback join (`c.name =
+   i.client_ref`) is case-**sensitive**, so echoing back a differently-cased
+   row would have silently forked a duplicate client.
+4. **Template suggestion — deferred, not built** (§15.2 #4, explicitly
+   lowest-confidence). The user still picks a template by hand in
+   `BulkCreateProjectsSheet`'s existing setup step.
+5. **Per-source mapping memory — deferred, not built.** §15.2's "remember a
+   company's confirmed mapping for the next file from the same office" has no
+   storage yet (no new table, no local-storage cache). Every file gets fresh
+   header detection + a proposed mapping every time. Flagged as a real gap,
+   not silently dropped — worth a `company_id + header-signature -> mapping`
+   cache (client-side is enough; the rule already says "scoped to mapping,
+   not writes") if repeat imports from the same office turn out to be common.
+
+**Hand-off, not a second writer:** `SpreadsheetImportSheet.tsx` produces a
+resolved rows array and renders the **existing**
+`components/projects/BulkCreateProjectsSheet.tsx` with it via new *optional*
+props (`initialRows`, `initialPortfolioName`, `initialSource`,
+`initialIdempotencyKey`, `initialSourceFile`) — every existing caller (the
+plain "Bulk Create" button) passes none of them and is byte-for-byte
+unchanged. `BulkCreateProjectsSheet` still owns template pick, category
+mapping, and the schedule anchor; still calls
+`rpc_preview_instantiate_template` then `rpc_instantiate_template`, unchanged.
+`ParsedLine` gained one field, `client_ref`, so an imported row's client name
+can differ from its project name (the textarea path sets `client_ref = name`,
+preserving its exact prior behavior).
+
+**Idempotency (§15.3):** the dropped file's SHA-256 (via the existing
+`computeSHA256` in `lib/uploadHelpers.ts` — no new hashing code) becomes
+`spreadsheet:<hash>`, fed into the SAME `idempotency_key` param
+`rpc_instantiate_template` already required. `SpreadsheetImportSheet` also
+pre-checks it client-side (one indexed `portfolios` select) so a repeat drop
+short-circuits to "Already Imported" before the user re-walks the wizard —
+the server-side `already_processed` short-circuit is the actual correctness
+guarantee; the client check is a courtesy.
+
+**Evidence trail (§15.3 "the file is evidence"), routed through the existing
+upload manager, not a new upload path:** on Create,
+`BulkCreateProjectsSheet.getOrCreateStandingFolder` calls the **existing**
+idempotent `rpc_filehub_folder_create` (`scope='broadcast'`) to get-or-create
+"Portfolio Imports/<batch name>", passes that folder id as
+`p_portfolio.standing_folder_id` into `rpc_instantiate_template` (now written
+to a new `portfolios.standing_folder_id` column in the SAME transaction —
+migration `20260801_spreadsheet_intake_portfolio_folder.sql`, body-only
+`CREATE OR REPLACE`, dumped from the LIVE function via `pg_get_functiondef`
+and edited minimally rather than retyped from a migration file, per this
+doc's own standing warning about that class of regression), and — only after
+a successful, non-replayed commit — calls the **existing**
+`useUploadManager().startUpload()` to upload the source file into that folder
+with `visibility: 'broadcast'`. No change to `UploadManagerContext.tsx`, no
+new FileHub visibility value, no bespoke drop zone/upload path: file
+*selection* uses the same shared `hooks/useWebDnd.ts` (`useFileDrop`,
+`useDropPulse`) and the same hidden-`<input type="file">` pattern
+`components/intelligence/_filehub_desktop.tsx` already uses; file *upload*
+goes through the one existing engine. A FileHub failure degrades to "no
+source file attached" — it never blocks or fails the actual data write.
+
+**Trust-boundary validation:** not-a-spreadsheet / unreadable file, empty
+sheet, no detectable header, and a hard `MAX_INTAKE_ROWS = 5000` ceiling
+(ponytail — arbitrary but documented and named in the error; raise it or
+chunk the RPC calls if a real file needs more) all raise
+`SpreadsheetIntakeError` with a specific message before the wizard advances.
+Duplicate names within the file are NOT re-validated client-side — the
+existing `fn_check_batch_duplicate_names` (both duplicate-in-paste and
+duplicate-active-project shapes) already runs inside
+`rpc_preview_instantiate_template`/`rpc_instantiate_template` at the
+configure step that follows, so re-implementing that check here would be the
+exact kind of duplicated validation this design avoids everywhere else — it
+still surfaces before the user reaches Create, just one step later than a
+purely-client-side check could.
+
+**Self-checks:** `lib/imports/spreadsheetIntake.check.ts` (`npx tsx
+lib/imports/spreadsheetIntake.check.ts`) — pure-function asserts against a
+fixture with a banner, a logo row, a blank leading column, header on row 7,
+and a blank-name row (must be *kept*, never silently dropped). SQL:
+`supabase/checks/check_rpc_spreadsheet_intake.sql`, verified locally —
+`rpc_filehub_folder_create` get-or-create is idempotent,
+`portfolios.standing_folder_id` lands correctly, a ref-matched row does not
+duplicate an existing client (`clients` row-count delta = exactly the new
+ones), and replaying one `idempotency_key` yields ONE portfolio and zero new
+`clients` rows (the literal §15.4 #2/#4 acceptance tests, checked at the SQL
+level). `supabase/checks/check_rpc_batch_config.sql` (pre-existing,
+re-verified against the new migration) still passes unchanged.
+
+**Not verified end-to-end in a browser.** The worktree this was built in has
+no `node_modules` of its own (Metro's dev-server bundler resolves strictly
+within its own project root and does not walk up to the parent checkout the
+way `npx tsc`/`npx tsx` do), so the Expo web dev server could not bundle here
+— confirmed via a direct Metro bundle request, `UnableToResolveError` on
+`expo-router/entry`, not a code defect. `npx tsc --noEmit` stays at the
+project's 5 pre-existing baseline errors with zero new ones.
