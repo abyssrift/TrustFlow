@@ -148,7 +148,6 @@ export default function ProjectsScreenWeb() {
         onClose={() => setSpreadsheetImportVisible(false)}
         onCreated={(res) => {
           showAlert('Import Complete', `Created ${res.projects_created} projects and ${res.tasks_created} tasks.`);
-          fetchProjects();
           bumpTable();
         }}
       />
