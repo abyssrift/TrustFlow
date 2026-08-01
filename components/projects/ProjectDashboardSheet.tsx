@@ -104,6 +104,7 @@ export default function ProjectDashboardSheet({
 
   return (
     <Popup
+      maxWidth={420}
       visible={visible}
       onClose={onClose}
       dimBackdrop

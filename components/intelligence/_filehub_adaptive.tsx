@@ -341,7 +341,7 @@ function FileDetailSheet({
 
   return (
     <>
-    <Popup visible={!!file} onClose={onClose} presentation="auto">
+    <Popup visible={!!file} onClose={onClose} presentation="auto" maxWidth={420}>
 
           {/* File header */}
           <View className="items-center px-6 pt-2 pb-4 border-b border-surface-border/50">
@@ -665,7 +665,7 @@ function FileDetailSheet({
           </ScrollView>
           )}
     </Popup>
-    <Popup visible={showMoveFolder} onClose={() => setShowMoveFolder(false)} presentation="auto">
+    <Popup visible={showMoveFolder} onClose={() => setShowMoveFolder(false)} presentation="auto" maxWidth={420}>
       <View className="px-6 pt-2 pb-6">
         <Text className="text-typography-main font-black text-lg mb-4">Move to Folder</Text>
         <ScrollView showsVerticalScrollIndicator={false}>
@@ -691,7 +691,7 @@ function FileDetailSheet({
         </ScrollView>
       </View>
     </Popup>
-    <Popup visible={showShareLink} onClose={() => setShowShareLink(false)} presentation="auto">
+    <Popup visible={showShareLink} onClose={() => setShowShareLink(false)} presentation="auto" maxWidth={420}>
       <View className="px-6 pt-2 pb-6">
         <Text className="text-typography-main font-black text-lg mb-4">Share "{file.original_name}"</Text>
 
@@ -1216,7 +1216,7 @@ function UploadSheet({
 
   return (
     <>
-    <Popup visible={visible} onClose={onClose} presentation="auto">
+    <Popup visible={visible} onClose={onClose} presentation="auto" maxWidth={420}>
 
           {Platform.OS === 'web' && (
             <>
@@ -1622,7 +1622,7 @@ function GroupCreateSheet({
   };
 
   return (
-    <Popup visible={visible} onClose={onClose} presentation="auto">
+    <Popup visible={visible} onClose={onClose} presentation="auto" maxWidth={420}>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40, gap: 20 }}>
             <View className="flex-row items-center justify-between">
               <Text className="text-typography-main text-xl font-black">New Channel</Text>
@@ -1893,7 +1893,7 @@ function GroupMembersSheet({
   const canEditRoles = hasPermission('role.manage');
 
   return (
-    <Popup visible={visible} onClose={onClose} presentation="auto">
+    <Popup visible={visible} onClose={onClose} presentation="auto" maxWidth={420}>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40, gap: 16 }}>
             <View className="flex-row items-center justify-between gap-2">
               {isRenaming ? (
@@ -2298,7 +2298,7 @@ function TagsManageSheet({ visible, onClose, onChanged }: {
   };
 
   return (
-    <Popup visible={visible} onClose={onClose} presentation="auto">
+    <Popup visible={visible} onClose={onClose} presentation="auto" maxWidth={420}>
           <View className="flex-row items-center justify-between px-6 py-4 border-b border-surface-border">
             <View className="flex-row items-center gap-2">
               <FontAwesome name="tags" size={14} color={colors.primary} />

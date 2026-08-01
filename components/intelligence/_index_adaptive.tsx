@@ -491,7 +491,7 @@ const ReportConfigModal = ({ visible, onClose, onConfirm, pipelines, teams, user
   const [u, setU] = useState<string | null>(null);
   const [type, setType] = useState('performance_audit');
   return (
-    <Popup visible={visible} onClose={onClose} presentation="auto">
+    <Popup visible={visible} onClose={onClose} presentation="auto" maxWidth={420}>
           <View className="p-8 pt-2 pb-4">
             <Text className="text-typography-main text-2xl font-black mb-1">Audit Configuration</Text>
             <Text className="text-typography-muted text-xs">Define intelligence boundaries</Text>
@@ -541,7 +541,7 @@ const WidgetConfigModal = ({ visible, onClose, onSave, currentWidgets }: any) =>
     else if (selected.length < 4) setSelected([...selected, id]);
   };
   return (
-    <Popup visible={visible} onClose={onClose} presentation="auto">
+    <Popup visible={visible} onClose={onClose} presentation="auto" maxWidth={420}>
           <View className="p-8 pt-2 pb-4">
             <Text className="text-typography-main text-2xl font-black mb-1">Radar Matrix</Text>
             <Text className="text-typography-muted text-xs">Select up to 4 core telemetry widgets</Text>
@@ -617,7 +617,7 @@ const ArchiveDetailModal = ({ visible, onClose, archive, activeSchema, onRestore
   const pipelineId = archive.snapshot?.pipeline_id || archive.snapshot?.child_tasks?.[0]?.pipeline_id;
   const hasIntegrityIssue = pipelineId && !activeSchema.pipelines.has(pipelineId);
   return (
-    <Popup visible={visible} onClose={onClose} presentation="auto">
+    <Popup visible={visible} onClose={onClose} presentation="auto" maxWidth={420}>
           <View className="px-8 pt-2 pb-4 border-b border-surface-border flex-row justify-between items-center">
             <View className="flex-1">
               <Text className="text-typography-main text-xl font-black mb-1">

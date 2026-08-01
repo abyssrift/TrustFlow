@@ -309,7 +309,7 @@ export default function FileHubBin({ visible, onClose }: { visible: boolean; onC
   );
 
   return (
-    <Popup visible={visible} onClose={onClose} dimBackdrop presentation="auto" maxHeight="85%">
+    <Popup visible={visible} onClose={onClose} dimBackdrop presentation="auto" maxHeight="85%" maxWidth={420}>
       {body}
     </Popup>
   );

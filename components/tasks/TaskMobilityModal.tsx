@@ -678,7 +678,7 @@ export default function TaskMobilityModal({ visible, onClose, onImported, pipeli
   );
 
   return (
-    <Popup visible={visible} onClose={handleClose} dimBackdrop presentation="auto">
+    <Popup visible={visible} onClose={handleClose} dimBackdrop presentation="auto" maxWidth={420}>
       {body}
     </Popup>
   );

@@ -664,7 +664,7 @@ function DashboardSettingsModal({ visible, onClose, config, onSave }: {
   };
 
   return (
-    <Popup visible={visible} onClose={onClose} presentation="auto">
+    <Popup visible={visible} onClose={onClose} presentation="auto" maxWidth={420}>
           <View className="p-6 border-b border-surface-border flex-row justify-between items-center bg-surface-card">
             <View>
               <Text className="text-typography-main text-xl font-black">Dashboard Config</Text>

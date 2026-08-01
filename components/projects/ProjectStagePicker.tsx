@@ -72,7 +72,7 @@ export default function ProjectStagePicker({
   const noProjectPipelines = !loading && groups.length === 0;
 
   return (
-    <Popup visible={visible} onClose={onClose} presentation="auto" title="Move to Stage" scrollable={false}>
+    <Popup visible={visible} onClose={onClose} presentation="auto" title="Move to Stage" scrollable={false} maxWidth={420}>
       <View className="px-6 py-5" style={{ minHeight: 160 }}>
         {loading ? (
           <View className="items-center py-10"><ActivityIndicator color={c.primary} /></View>
