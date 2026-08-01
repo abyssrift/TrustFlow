@@ -143,10 +143,13 @@ export default function Popup({
                 {primaryAction && (
                   <Pressable
                     onPress={primaryAction.onPress}
+                    disabled={primaryAction.variant === 'disabled'}
                     className="flex-[2] py-3.5 rounded-2xl items-center shadow-lg"
-                    style={{ backgroundColor: primaryAction.variant === 'danger' ? c.danger : c.primary }}
+                    style={{
+                      backgroundColor: primaryAction.variant === 'danger' ? c.danger : primaryAction.variant === 'disabled' ? c.border : c.primary,
+                    }}
                   >
-                    <Text className="font-black uppercase tracking-widest text-xs" style={{ color: 'white' }}>
+                    <Text className="font-black uppercase tracking-widest text-xs" style={{ color: primaryAction.variant === 'disabled' ? c.textMuted : 'white' }}>
                       {primaryAction.label}
                     </Text>
                   </Pressable>

@@ -782,11 +782,63 @@ reachability rule above, checked rather than asserted in prose. A 20 × 25
 (500-task) batch ran in **58–94 ms** emitting **exactly 1** `notification_events`
 row, so §7's Hazard 1 fix still holds at this scale.
 
-**Not built here:** the UI half — category → board/team picker, anchor date +
-direction, and the preview line that must state the outcome ("20 projects · 500
-tasks · 4 boards · first task Aug 2, last Sep 15") rather than a row count. The
-existing `BulkCreateProjectsSheet.tsx` calls the dropped 4-arg signature and will
-fail until it is updated; that is intended, not a regression.
+#### Shipped — UI (branch `feat-project-batch-config-ui`)
+
+`BulkCreateProjectsSheet.tsx` is now a two-step wizard inside the same
+`Popup presentation="auto"` it already used — "setup" (template, batch name,
+paste-names textarea, unchanged) and a new "configure" step inserted before
+commit, matching this section's design exactly:
+
+- **Category → board/team mapping**, one row per distinct category the
+  selected template's `body` uses (four rows for the 22-task audit template,
+  not twenty-two) — board required, team optional. Boards are fetched
+  `subject_kind='task'` and scoped to the caller's company by
+  `pipelines_select` RLS, not a client filter, so there is no way to select
+  another company's board. Boards with zero stages are shown but disabled
+  (greyed, "No stages" label) so the "mapped pipeline has no stages" RAISE is
+  structurally unreachable through the form.
+- **Schedule anchor**: a required date + direction picker. *Due by*
+  (back-scheduling) is listed first and pre-styled no differently from
+  *Starts on* — deliberately not buried as the secondary option, per this
+  section's "the domain receives a deadline, not a start date." Quick presets:
+  Today, Next Monday, End of Quarter. A date in the past — batch-level or a
+  per-line override in the textarea — is flagged inline and blocks
+  proceeding/creating rather than reaching the RAISE.
+- **Preview**: calls `rpc_preview_instantiate_template` live (debounced) once
+  every category is mapped and the anchor is set, and renders its result as
+  the sentence this section specifies — `3 projects · 66 tasks · 4 boards ·
+  first task Aug 26, last Sep 30` — never a row count. A preview error (e.g. a
+  mapped pipeline that lost its stages between load and submit) renders in
+  place as the form's validation feedback, per design: preview and commit
+  share the same resolver, so a successful preview is a promise commit will
+  also succeed.
+- Create is disabled until preview succeeds; Create calls
+  `rpc_instantiate_template` with the exact payload preview just validated.
+
+Verified end-to-end against local (no prod writes): logged into a seeded
+company, picked the 22-task audit starter template, batch-created 3 projects
+on both desktop (centered) and mobile web (< 768px, `DraggableSheet`)
+viewports, mapped all 4 categories to distinct boards/teams, back-scheduled
+from a deadline via the "End of Quarter" preset, confirmed the preview
+sentence, created, and confirmed by SQL: 6 projects / 132 tasks across both
+runs, zero NULL `pipeline_id` / `current_stage_id` / `due_date` / project
+`start_date` / `due_date`. Opened the mapped "Internal Audit Workflow" board
+in the app and saw the new Fieldwork tasks landed on its first stage
+(`AUDITING`).
+
+Found and fixed one pre-existing bug in `components/common/Popup.tsx` while
+testing: the centered (desktop) footer's `primaryAction` never gated
+`onPress`/styling on `variant === 'disabled'` — only `DraggableSheet` did.
+Every centered-presentation `Popup` caller with a disabled primary action
+(including this sheet's own step 1) was clickable when it shouldn't have
+been; `handleCreate` here already no-op'd on an unready state, so this was a
+dead click, not data loss, but it's now fixed at the root for every caller.
+
+Deliberately not built (out of scope for this issue): promoting the
+category-mapping row to a shared component. Plan §13.11 already anticipates
+mounting the same "which board, which team" picker from the future Work tab
+(#184) — worth extracting then, when there's a second call site; one caller
+today would be a speculative abstraction.
 
 ### 13.11 Project detail becomes a workspace (amends §8)
 
