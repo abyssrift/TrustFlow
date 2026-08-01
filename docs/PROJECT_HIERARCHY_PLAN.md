@@ -984,6 +984,57 @@ Confirmed both at the SQL layer (`fn_project_accessible` /
 `rpc_project_dashboard` under an impersonated JWT) and by driving a real
 logged-in browser session to both URLs and diffing the screenshots.
 
+#### Shipped (issue #183, branch `feat-project-overview`)
+
+**The Overview tab's redesign** — the twelve-region, equal-weight body #184
+moved into `ProjectOverviewTab.tsx` as an explicit placeholder is now the
+four-question layout this section's table row promised: one answer-line
+sentence (stage · days in stage · % complete · days remaining ·
+blocked-or-not) above four panels grouped *On Track? / What's Stuck? /
+Who's on It? / What's the Shape?* — the last visibly quieter (muted
+background, no header icon, narrower column) since category/priority
+breakdowns are reference, not decision-support, per the issue. Empty panels
+("No tasks yet", "No tracked time yet", "Nothing stuck") collapse to a
+single demoted row instead of a card reserving the same height as a
+populated one. Ageing colours and due-date wording are imported from
+`ProjectsTable.tsx` (now exported: `ageColor`, `dueColor`, `fmtDate`,
+`fmtDue`, `initials`), not re-derived, so the table row a user clicked from
+and the workspace they land on agree on what "7 days in this stage" means.
+
+**A real data gap, resolved without new SQL.** `rpc_project_dashboard`
+carries task rollups only — no `blocked`, `current_stage_id`'s age, or
+`due_date`, all of which live on the `projects` row itself and were already
+fetched by `useProjectLifecycle` for `ProjectHeader`. That hook gained two
+additive fields (`dueDate`/`daysRemaining`, one extra selected column;
+`daysInStage`, a second tiny select on `project_stage_history` scoped to
+the current, already-accessible `project_id` — safe without a new
+SECURITY DEFINER RPC because reaching the hook already required passing
+`rpc_project_dashboard`'s `fn_project_accessible` check for that exact
+project). No migration, no RPC change.
+
+**A stale-state bug found by actually clicking the app, not by reading the
+diff.** The first version called `useProjectLifecycle` a second time from
+`ProjectOverviewTab` (reuse the hook, not a new fetch shape). That created
+two independent instances: toggling "Blocked" in `ProjectHeader` updated
+the header's own copy but left the Overview tab's answer line and "What's
+Stuck?" panel showing the old state until an unrelated remount. Fixed by
+lifting the hook one level up — `ProjectDetailContext` now calls it once
+and exposes `lifecycle`/`lifecycleLoading`/`refreshLifecycle`/
+`advanceStage`/`setFlags` alongside `data`/`loading` (additive fields, the
+existing `data`/`loading`/`notFound`/`refresh` shape is untouched); both
+`ProjectHeader` and `ProjectOverviewTab` read the same state now. Verified
+live: toggled "Blocked" in the header with the Overview tab open, watched
+the answer line flip to "Blocked" and the Stuck panel populate with a
+danger-bordered reason card in the same render, then toggled it back off
+and watched both revert — no reload involved.
+
+**Not verified**: a project with literally zero tasks (`totals.total === 0`,
+which also empties `by_category`/`by_priority`). No project in the local
+seed data has zero tasks, so the "On Track?"/"Shape" panels' own `noTasks`-
+guarded `EmptyLine` branches are exercised only by code inspection — same
+conditional shape as the "No tracked time yet" / "Nothing stuck" branches
+that *were* driven live, but not independently screenshotted.
+
 ### 13.12 Flags are a fixed composable set, not custom states (settles §5)
 
 Confirmed with the domain: **blocked · awaiting client · at risk**. Fixed for now,

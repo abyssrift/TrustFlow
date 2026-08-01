@@ -38,6 +38,18 @@ export type ProjectLifecycle = {
   blockedReason: string | null;
   flags: ProjectFlag[];
   flagNote: string | null;
+  // #183 -- additive, for the Overview tab's answer line. dueDate/daysRemaining
+  // come from the same `projects` row this hook already selects (one extra
+  // column, zero new queries). daysInStage needs project_stage_history's
+  // latest transition -- not on `projects` itself -- so it's a second, tiny
+  // select scoped to this one project_id. Safe to read directly (not routed
+  // through a SECURITY DEFINER RPC like rpc_projects_table's identical
+  // calculation): a caller only reaches this hook for a project it already
+  // passed rpc_project_dashboard's fn_project_accessible check to open, so
+  // there is no project_id this queries that the caller couldn't already see.
+  dueDate: string | null;
+  daysRemaining: number | null;
+  daysInStage: number | null;
 };
 
 // rpc_advance_project_stage's RAISE EXCEPTION messages, verbatim -> readable copy.
@@ -61,13 +73,23 @@ export function useProjectLifecycle(projectId: string | null, active: boolean) {
   const refresh = useCallback(async () => {
     if (!projectId) return;
     setLoading(true);
-    const { data: row, error } = await supabase
-      .from('projects')
-      .select('pipeline_id, current_stage_id, blocked, blocked_reason, flags, flag_note, stage:pipeline_stages!projects_current_stage_id_fkey(name, color)')
-      .eq('id', projectId)
-      .single();
+    const [{ data: row, error }, { data: histRow }] = await Promise.all([
+      supabase
+        .from('projects')
+        .select('pipeline_id, current_stage_id, blocked, blocked_reason, flags, flag_note, due_date, stage:pipeline_stages!projects_current_stage_id_fkey(name, color)')
+        .eq('id', projectId)
+        .single(),
+      supabase
+        .from('project_stage_history')
+        .select('transitioned_at')
+        .eq('project_id', projectId)
+        .order('transitioned_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
     if (!error && row) {
       const stage = row.stage as unknown as { name: string; color: string | null } | null;
+      const dayMs = 24 * 60 * 60 * 1000;
       setData({
         pipelineId: row.pipeline_id,
         currentStageId: row.current_stage_id,
@@ -77,6 +99,9 @@ export function useProjectLifecycle(projectId: string | null, active: boolean) {
         blockedReason: row.blocked_reason,
         flags: (row.flags ?? []) as ProjectFlag[],
         flagNote: row.flag_note ?? null,
+        dueDate: row.due_date,
+        daysRemaining: row.due_date ? Math.ceil((new Date(row.due_date).getTime() - Date.now()) / dayMs) : null,
+        daysInStage: histRow?.transitioned_at ? Math.floor((Date.now() - new Date(histRow.transitioned_at).getTime()) / dayMs) : null,
       });
     }
     setLoading(false);

@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { useProjectLifecycle } from '@/hooks/useProjectLifecycle';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 // #184 -- data provider for the /projects/[id] route, mirroring
@@ -38,12 +39,27 @@ export type ProjectDashboardData = {
   due_soon: ProjectDueRow[];
 };
 
+type LifecycleHook = ReturnType<typeof useProjectLifecycle>;
+
 type ProjectDetailContextType = {
   projectId: string;
   data: ProjectDashboardData | null;
   loading: boolean;
   notFound: boolean;
   refresh: () => Promise<void>;
+  // #183 -- useProjectLifecycle lifted here (was called separately inside
+  // ProjectHeader) so every consumer shares ONE fetch and ONE piece of
+  // state. Two independent instances meant toggling a flag in the header
+  // updated the header's own copy but left ProjectOverviewTab's answer
+  // line reading stale data until an unrelated remount -- found by
+  // clicking "Blocked" in a live browser and watching the Overview tab
+  // not move. Renamed (not spread) to avoid colliding with this context's
+  // own `data`/`loading`/`refresh`, which are rpc_project_dashboard's.
+  lifecycle: LifecycleHook['data'];
+  lifecycleLoading: boolean;
+  refreshLifecycle: LifecycleHook['refresh'];
+  advanceStage: LifecycleHook['advanceStage'];
+  setFlags: LifecycleHook['setFlags'];
 };
 
 const ProjectDetailContext = createContext<ProjectDetailContextType | null>(null);
@@ -58,6 +74,7 @@ export const ProjectDetailProvider = ({ projectId, children }: { projectId: stri
   const [data, setData] = useState<ProjectDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const { data: lifecycle, loading: lifecycleLoading, refresh: refreshLifecycle, advanceStage, setFlags } = useProjectLifecycle(projectId, true);
 
   const fetchDetails = useCallback(async () => {
     setLoading(true);
@@ -78,7 +95,7 @@ export const ProjectDetailProvider = ({ projectId, children }: { projectId: stri
   }, [fetchDetails]);
 
   return (
-    <ProjectDetailContext.Provider value={{ projectId, data, loading, notFound, refresh: fetchDetails }}>
+    <ProjectDetailContext.Provider value={{ projectId, data, loading, notFound, refresh: fetchDetails, lifecycle, lifecycleLoading, refreshLifecycle, advanceStage, setFlags }}>
       {children}
     </ProjectDetailContext.Provider>
   );
