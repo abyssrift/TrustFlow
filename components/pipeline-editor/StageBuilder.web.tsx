@@ -51,6 +51,7 @@ export default function StageBuilder() {
     manager_routing_rule: 'INHERIT',
     max_escalation_depth: 3,
     reassign_on_entry: false,
+    harvests_to_deliverable: false,
   });
 
   const [transForm, setTransForm] = useState({
@@ -75,6 +76,7 @@ export default function StageBuilder() {
       manager_routing_rule: 'INHERIT',
       max_escalation_depth: 3,
       reassign_on_entry: false,
+      harvests_to_deliverable: false,
     });
     setShowPermPicker(false);
   };
@@ -95,6 +97,7 @@ export default function StageBuilder() {
       manager_routing_rule: s.manager_routing_rule || 'INHERIT',
       max_escalation_depth: s.max_escalation_depth || 3,
       reassign_on_entry: s.reassign_on_entry,
+      harvests_to_deliverable: s.harvests_to_deliverable,
     });
   };
 
@@ -341,6 +344,14 @@ export default function StageBuilder() {
                     desc="Re-evaluates and may change the assignee every time a task enters this stage — including manually assigned tasks"
                     active={formState.reassign_on_entry}
                     onToggle={(val: boolean) => setFormState(prev => ({ ...prev, reassign_on_entry: val }))}
+                  />
+                )}
+                {selectedPipeline?.subject_kind !== 'project' && (
+                  <Toggle
+                    label="Seal to Project Deliverable"
+                    desc="Tasks entering this stage promote their latest submission's files into their project's sealed deliverable folder (issue #174)"
+                    active={formState.harvests_to_deliverable}
+                    onToggle={(val: boolean) => setFormState(prev => ({ ...prev, harvests_to_deliverable: val }))}
                   />
                 )}
               </Section>
