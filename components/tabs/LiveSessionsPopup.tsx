@@ -100,7 +100,7 @@ export default function LiveSessionsPopup({ visible, onClose }: { visible: boole
   };
 
   return (
-    <Popup visible={visible} onClose={onClose} title="Live now" dimBackdrop presentation="auto" maxHeight="80%">
+    <Popup visible={visible} onClose={onClose} title="Live now" dimBackdrop presentation="auto" maxHeight="80%" maxWidth={420}>
       {rows === null ? (
         <View className="items-center py-12">
           <ActivityIndicator />

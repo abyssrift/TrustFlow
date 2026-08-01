@@ -72,6 +72,7 @@ export default function StarterTemplatePickerSheet({
 
   return (
     <Popup
+      maxWidth={420}
       visible={visible}
       onClose={handleClose}
       presentation="auto"

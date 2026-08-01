@@ -628,7 +628,7 @@ export default function TaskBriefPanel() {
 
       {/* Feature D: version history sheet — newest first, restore = pointer move.
           Inline colors on purpose — theme-token classes go black inside RN Modal on web. */}
-      <Popup visible={!!historyFor} onClose={() => setHistoryFor(null)} dimBackdrop presentation="auto">
+      <Popup visible={!!historyFor} onClose={() => setHistoryFor(null)} dimBackdrop presentation="auto" maxWidth={420}>
         <ScrollView className="px-6 pt-6 pb-10">
           <Text style={{ color: colors.textMain, fontSize: 18, fontWeight: '900', marginBottom: 4 }}>Version History</Text>
           {historyFor && (

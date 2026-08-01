@@ -15,35 +15,10 @@ interface PrimaryAction extends Action {
   variant?: ActionVariant;
 }
 
-export default function Popup({
-  visible,
-  onClose,
-  children,
-  presentation = 'sheet',
-  title,
-  footer = 'none',
-  primaryAction,
-  secondaryAction,
-  scrollable = true,
-  draggable = true,
-  dismissible = true,
-  maxHeight,
-  maxWidth = 420,
-  sheetMaxWidth,
-  desktopBreakpoint = 768,
-  dimBackdrop = false,
-  containerClassName,
-  containerStyle,
-  sideMenu,
-  backdropBlur = false,
-  backdropStyle,
-  overlays,
-}: {
+type PopupCommonProps = {
   visible: boolean;
   onClose: () => void;
   children: React.ReactNode;
-  /** 'auto' picks 'centered' at/above desktopBreakpoint and 'sheet' below it (web only; native always renders as a sheet). */
-  presentation?: 'sheet' | 'centered' | 'auto';
   title?: string;
   footer?: 'none' | 'single-action' | 'dual-action';
   primaryAction?: PrimaryAction;
@@ -52,8 +27,6 @@ export default function Popup({
   draggable?: boolean;
   dismissible?: boolean;
   maxHeight?: number | `${number}%`;
-  /** Centered-presentation width cap in px. Immune to OS/browser text-scale, unlike a `max-w-[Npx]` class. */
-  maxWidth?: number;
   /** Optional width cap (px) for sheet presentation, for sheets that stay centered/capped on wide viewports. Immune to text-scale, unlike a `max-w-[Npx]` class. */
   sheetMaxWidth?: number;
   /** Viewport width (px) at which 'auto' presentation switches from sheet to centered. */
@@ -70,13 +43,87 @@ export default function Popup({
   backdropStyle?: StyleProp<ViewStyle>;
   /** Centered-presentation only: rendered as a sibling of the card, inside the same backdrop/Modal layer but outside the card's `overflow: hidden` — for `position: fixed` floating content (dropdowns, date pickers) anchored via viewport coordinates, which would otherwise get clipped by the card's rounded corners. */
   overlays?: React.ReactNode;
-}) {
+};
+
+/**
+ * `maxWidth` is the centered card's width cap in px. Immune to OS/browser
+ * text-scale, unlike a `max-w-[Npx]` class.
+ *
+ * **It is REQUIRED whenever the popup can render centered** (`presentation`
+ * of `'centered'` or `'auto'`), and irrelevant for a sheet-only popup, which
+ * never uses it.
+ *
+ * It used to be optional with a silent `= 420` default, which made "I chose a
+ * narrow dialog" and "I never thought about it" indistinguishable — so an
+ * info-dense modal written without it shipped as exactly the tall
+ * single-column scroll `.agents/rules/ux-consistency.md` §"Desktop density"
+ * forbids. That happened (#182's batch-config wizard, caught only by a human
+ * looking at it running) and the compiler found 29 call sites across 18 files
+ * with the same omission. Requiring it turns an invisible layout bug into a
+ * build error.
+ *
+ * Choosing a value — see that rule for the full version:
+ * - **400–512** for a single decision (confirm, share). The rule says do NOT
+ *   widen these.
+ * - **720–1100** for anything info-dense — and that then owes you real
+ *   columns: 2 for two distinct groups, 3 only at >= ~1000, each with its own
+ *   scroll. A 4th column means it should be a screen, not a popup.
+ */
+type PopupProps = PopupCommonProps &
+  (
+    | {
+        /** Sheet-only: never renders centered, so `maxWidth` does not apply — use `sheetMaxWidth` to cap a wide-viewport sheet. */
+        presentation?: 'sheet';
+        maxWidth?: never;
+      }
+    | {
+        /**
+         * 'auto' picks 'centered' at/above desktopBreakpoint and 'sheet' below it
+         * (web only; native always renders as a sheet).
+         *
+         * `'sheet'` is included here so a caller computing the value at runtime —
+         * `presentation={isDesktop ? 'centered' : 'sheet'}` — still type-checks.
+         * That union can render centered, so it owes a `maxWidth` like any other.
+         */
+        presentation: 'centered' | 'auto' | 'sheet';
+        maxWidth: number;
+      }
+  );
+
+export default function Popup({
+  visible,
+  onClose,
+  children,
+  presentation = 'sheet',
+  title,
+  footer = 'none',
+  primaryAction,
+  secondaryAction,
+  scrollable = true,
+  draggable = true,
+  dismissible = true,
+  maxHeight,
+  maxWidth,
+  sheetMaxWidth,
+  desktopBreakpoint = 768,
+  dimBackdrop = false,
+  containerClassName,
+  containerStyle,
+  sideMenu,
+  backdropBlur = false,
+  backdropStyle,
+  overlays,
+}: PopupProps) {
   const c = useThemeColors();
   const { width: screenWidth } = useWindowDimensions();
   const isWeb = Platform.OS === 'web';
   const resolvedPresentation = presentation === 'auto' ? (screenWidth >= desktopBreakpoint ? 'centered' : 'sheet') : presentation;
   const effectivePresentation = isWeb ? resolvedPresentation : 'sheet';
-  const centeredWidth = Math.min(screenWidth * 0.9, maxWidth);
+  // `?? 420` is unreachable for a centered card: PopupProps requires maxWidth
+  // whenever presentation is 'centered' or 'auto', and those are the only ways
+  // effectivePresentation becomes 'centered'. It exists to satisfy the
+  // narrowing, not to reinstate the old silent default.
+  const centeredWidth = Math.min(screenWidth * 0.9, maxWidth ?? 420);
 
   if (effectivePresentation === 'sheet') {
     return (

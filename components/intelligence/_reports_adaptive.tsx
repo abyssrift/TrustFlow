@@ -49,7 +49,7 @@ const GenerateModal = ({ visible, onClose, onConfirm, pipelines, teams, users }:
   const [team, setTeam]         = useState<string | null>(null);
   const [user, setUser]         = useState<string | null>(null);
   return (
-    <Popup visible={visible} onClose={onClose} presentation="auto">
+    <Popup visible={visible} onClose={onClose} presentation="auto" maxWidth={420}>
           <View className="p-8 pt-2 pb-4">
             <Text className="text-typography-main text-2xl font-black mb-1">Generate Report</Text>
             <Text className="text-typography-muted text-xs">Configure audit parameters</Text>

@@ -1194,7 +1194,7 @@ export default function StageActions() {
         </View>
       )}
 
-      <Popup visible={!!editingSub} onClose={closeEdit} dimBackdrop presentation={width >= 768 ? 'centered' : 'sheet'}>
+      <Popup visible={!!editingSub} onClose={closeEdit} dimBackdrop presentation={width >= 768 ? 'centered' : 'sheet'} maxWidth={420}>
         <ScrollView className="px-6 pt-6 pb-10">
           <Text style={{ color: colors.textMain, fontSize: 18, fontWeight: '900', marginBottom: 4 }}>Edit Submission</Text>
           <Text style={{ color: colors.textMuted, fontSize: 11, marginBottom: 16 }}>
@@ -1315,7 +1315,7 @@ export default function StageActions() {
       </Popup>
 
       {/* Feature A: version history sheet — newest first, restore = pointer move */}
-      <Popup visible={!!historyFor} onClose={() => setHistoryFor(null)} dimBackdrop presentation={width >= 768 ? 'centered' : 'sheet'}>
+      <Popup visible={!!historyFor} onClose={() => setHistoryFor(null)} dimBackdrop presentation={width >= 768 ? 'centered' : 'sheet'} maxWidth={420}>
         <ScrollView className="px-6 pt-6 pb-10">
           <Text style={{ color: colors.textMain, fontSize: 18, fontWeight: '900', marginBottom: 16 }}>Version History</Text>
 

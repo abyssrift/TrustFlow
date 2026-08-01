@@ -33,7 +33,7 @@ const CreateModal = ({ visible, onClose, onConfirm, pipelines, stages }: any) =>
   const filteredStages = stages.filter((s: any) => s.pipeline_id === pipeline);
 
   return (
-    <Popup visible={visible} onClose={onClose} presentation="auto">
+    <Popup visible={visible} onClose={onClose} presentation="auto" maxWidth={420}>
           <View className="p-8 pb-4 items-center">
             <Text className="text-typography-main text-2xl font-black mb-1">Define Objective</Text>
             <Text className="text-typography-muted text-xs">Establish high-fidelity benchmarks</Text>
@@ -178,7 +178,7 @@ const EditModal = ({ target, onClose, onSave }: { target: any; onClose: () => vo
   };
 
   return (
-    <Popup visible onClose={onClose} presentation="auto">
+    <Popup visible onClose={onClose} presentation="auto" maxWidth={420}>
           <View className="p-8 pb-4 items-center">
             <Text className="text-typography-main text-2xl font-black mb-1">Edit Target</Text>
             <Text className="text-typography-muted text-xs">

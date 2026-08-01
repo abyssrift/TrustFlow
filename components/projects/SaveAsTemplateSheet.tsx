@@ -47,6 +47,7 @@ export default function SaveAsTemplateSheet({
 
   return (
     <Popup
+      maxWidth={420}
       visible={visible}
       onClose={onClose}
       presentation="auto"

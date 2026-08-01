@@ -120,6 +120,63 @@ absolute-positioned hint `View`** — every tooltip goes through
 | Hint text on an icon/control | `Tooltip` (hover on web, long-press on native) |
 | Hint content with links/buttons in it | `Popup` — not `Tooltip` |
 
+## Desktop density: use the width, go multi-column
+
+A desktop Popup that shows a lot at once must **not** be a single narrow column of
+stacked sections with a long scroll. Desktop has horizontal room — use it.
+
+> **`maxWidth` is a required prop, enforced by the compiler.** Mandatory whenever
+> `presentation` can resolve to `centered` — `'centered'`, `'auto'`, or a runtime
+> union like `isDesktop ? 'centered' : 'sheet'`. Rejected (`maxWidth?: never`) for a
+> sheet-only Popup, which never uses it. Omitting it is a build error, not a silent
+> narrow dialog.
+>
+> **Why enforced rather than merely written down.** `maxWidth` used to default to
+> `420`, which made *"I chose a narrow dialog"* and *"I never thought about it"*
+> indistinguishable — doing nothing produced a violation and nothing objected.
+> #182's batch-config wizard shipped as exactly the tall single-column scroll this
+> section forbids. Removing the default turned that invisible layout bug into a
+> build error and immediately surfaced **25 more call sites across 16 files** with
+> the same omission. Those were annotated `maxWidth={420}` — their existing width,
+> preserved deliberately — so the status quo is a recorded decision instead of an
+> accident. Several are info-dense and should be widened; that is a design change
+> that needs someone looking at it running, not a mechanical pass.
+>
+> **Do not restore a default to make this easier. The friction is the feature.**
+>
+> Second lesson, bigger than the first: this section sat **uncommitted in one
+> working tree** while the wizard was built. Every agent worktree branches from a
+> committed ref, so the rule did not exist for the people breaking it. A rule that
+> is not committed cannot be followed — keep this file in git, not in a scratch
+> edit.
+
+- **`maxWidth={420}` or narrower is a one-column dialog.** Any info-dense modal
+  must raise it (720–1100px is the useful range) or the columns have nowhere to go.
+- **2 columns** when the content has two distinct groups (form + preview, fields +
+  list, details + activity).
+- **3 columns** when there are genuinely three peer groups and `maxWidth >= ~1000`.
+  Stop at 3 — a 4th column means the modal should be a screen, not a popup.
+- **Nav/context pane → `sideMenu={<SidebarLayout>}`**, not a hand-rolled column.
+  Columns beyond that are a plain `flex-row` with `flex-1` children and `gap-6`.
+- **Give each column its own scroll**, not one scroll for the whole card, so a long
+  list in one column doesn't push the others out of view.
+- **Every column needs a definite width** (`flex-1` or explicit) — percentage-based
+  children like `Calendar`'s `MonthGrid` render wrong otherwise (see Calendar gotcha).
+
+Columns are desktop-only. Below `768px` they collapse to the stacked/drill-in
+patterns below — a `flex-row` that survives to mobile is a bug, not a layout.
+
+### Existing modals to copy from
+
+| Modal | `maxWidth` | Layout |
+|---|---|---|
+| `CreateTaskModal.web.tsx:1100` | 1200 | `sideMenu` (SidebarLayout 320) + main pane, fixed `height: 800`, `overlays` for the calendars/dropdowns |
+| `EditTaskModal.web.tsx:620` | 1100 | `sideMenu` (SidebarLayout 288, sticky `header`) + main pane with paired `flex-row gap-6` field columns |
+| `UserAssignmentGrid.tsx:269` | 1150 | No `sideMenu` — header band + multi-column body inside the card |
+| `RoleEditorSheet.web.tsx:308` | 1020 | `SidebarLayout` two-pane; below 768 the whole thing becomes a `DraggableSheet` with the identity → permissions drill-in |
+| `IntelligenceModals.tsx:27` | 896 | Mid-density single pane — the ceiling before you should be splitting into columns |
+| `ConfirmModal.tsx:90` (512), `ShareFile.tsx:124` (400) | 512 / 400 | Correctly single-column — one decision, don't widen these |
+
 ## Mobile overflow: what to do when content is too much
 
 If the content that fits in a two-column Popup on desktop does **not** fit comfortably in a single bottom sheet on mobile:
