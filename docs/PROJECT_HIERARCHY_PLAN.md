@@ -798,47 +798,47 @@ commit, matching this section's design exactly:
   (greyed, "No stages" label) so the "mapped pipeline has no stages" RAISE is
   structurally unreachable through the form.
 - **Schedule anchor**: a required date + direction picker. *Due by*
-  (back-scheduling) is listed first and pre-styled no differently from
-  *Starts on* — deliberately not buried as the secondary option, per this
-  section's "the domain receives a deadline, not a start date." Quick presets:
-  Today, Next Monday, End of Quarter. A date in the past — batch-level or a
-  per-line override in the textarea — is flagged inline and blocks
-  proceeding/creating rather than reaching the RAISE.
+  (back-scheduling) is listed first and styled no differently from *Starts on*
+  — deliberately not buried as the secondary option, per this section's "the
+  domain receives a deadline, not a start date." Quick presets: Today, Next
+  Monday, End of Quarter. A date in the past — batch-level or a per-line
+  override in the textarea — is flagged inline and blocks proceeding rather
+  than reaching the RAISE.
 - **Preview**: calls `rpc_preview_instantiate_template` live (debounced) once
   every category is mapped and the anchor is set, and renders its result as
   the sentence this section specifies — `3 projects · 66 tasks · 4 boards ·
-  first task Aug 26, last Sep 30` — never a row count. A preview error (e.g. a
-  mapped pipeline that lost its stages between load and submit) renders in
-  place as the form's validation feedback, per design: preview and commit
+  first task Aug 26, last Sep 30` — never a row count. A preview error renders
+  in place as the form's validation feedback, per design: preview and commit
   share the same resolver, so a successful preview is a promise commit will
   also succeed.
-- Create is disabled until preview succeeds; Create calls
-  `rpc_instantiate_template` with the exact payload preview just validated.
+- Create is disabled until preview succeeds, and sends the exact payload
+  preview just validated.
 
 Verified end-to-end against local (no prod writes): logged into a seeded
-company, picked the 22-task audit starter template, batch-created 3 projects
-on both desktop (centered) and mobile web (< 768px, `DraggableSheet`)
-viewports, mapped all 4 categories to distinct boards/teams, back-scheduled
-from a deadline via the "End of Quarter" preset, confirmed the preview
-sentence, created, and confirmed by SQL: 6 projects / 132 tasks across both
-runs, zero NULL `pipeline_id` / `current_stage_id` / `due_date` / project
-`start_date` / `due_date`. Opened the mapped "Internal Audit Workflow" board
-in the app and saw the new Fieldwork tasks landed on its first stage
-(`AUDITING`).
+company, picked the 22-task audit starter template, batch-created 3 projects on
+both desktop (centered) and mobile web (< 768px, `DraggableSheet`) viewports,
+mapped all 4 categories to distinct boards/teams, back-scheduled from a
+deadline via "End of Quarter", confirmed the preview sentence, created, and
+confirmed by SQL: 6 projects / 132 tasks across both runs, **zero** NULL
+`pipeline_id` / `current_stage_id` / `due_date` / project `start_date` /
+`due_date`. Opened the mapped "Internal Audit Workflow" board in the app and
+saw the new Fieldwork tasks on its first stage (`AUDITING`) — the §13.10
+reachability rule checked in the app, not only in SQL.
 
-Found and fixed one pre-existing bug in `components/common/Popup.tsx` while
-testing: the centered (desktop) footer's `primaryAction` never gated
-`onPress`/styling on `variant === 'disabled'` — only `DraggableSheet` did.
-Every centered-presentation `Popup` caller with a disabled primary action
-(including this sheet's own step 1) was clickable when it shouldn't have
-been; `handleCreate` here already no-op'd on an unready state, so this was a
-dead click, not data loss, but it's now fixed at the root for every caller.
+**One pre-existing bug found and fixed at the root** in
+`components/common/Popup.tsx`: the centered (desktop) footer's `primaryAction`
+never gated `onPress` or styling on `variant === 'disabled'` — only
+`DraggableSheet` did. Every centered-presentation `Popup` caller with a
+disabled primary action was clickable when it shouldn't have been. A dead click
+rather than data loss, since callers no-op'd internally, but it is fixed for
+every caller rather than worked around here. Mirrors `DraggableSheet`'s
+existing pattern; no caller passes `variant: 'disabled'` as a literal today, so
+the blast radius is limited to expression-driven callers like this one.
 
-Deliberately not built (out of scope for this issue): promoting the
-category-mapping row to a shared component. Plan §13.11 already anticipates
-mounting the same "which board, which team" picker from the future Work tab
-(#184) — worth extracting then, when there's a second call site; one caller
-today would be a speculative abstraction.
+Deliberately not built: promoting the category-mapping row to a shared
+component. §13.11 anticipates mounting the same "which board, which team"
+picker from the future Work tab (#184) — worth extracting when there is a
+second call site, not before.
 
 ### 13.11 Project detail becomes a workspace (amends §8)
 
@@ -949,24 +949,59 @@ someone a task and access arrives with it. A freshly bulk-created project with n
 assignments is visible only to `project.view_all` holders — which is correct, that
 is unallocated work.
 
-**Enforcement: one predicate, four call sites.** `fn_project_accessible(project_id)`
-used by `projects_select` (defence in depth), and inside `rpc_projects_table`,
-`rpc_project_dashboard` and `rpc_get_projects`. This is exactly the pattern #163
-already proved with `fn_task_file_accessible` spanning table RLS, storage RLS and
-FileHub. Three RPCs each carrying their own copy of the rule would drift, and the
-drift would be silent and security-relevant.
+#### Shipped (branch `feat-project-visibility`)
 
-Two things to get right when building it:
+**One predicate, five call sites** — not the four this section predicted.
+`fn_project_accessible(project_id)` is `STABLE SECURITY DEFINER`, mirroring
+#163's `fn_task_file_accessible` shape (existence + company floor first, then
+owner / assignment / bypass). Wired into `projects_select` RLS — which is what
+covers a direct `supabase.from('projects')` read and does nothing for the four
+definer functions — plus `rpc_projects_table`, `rpc_project_dashboard`,
+`rpc_get_projects`, and:
 
-- **Performance.** The predicate runs per row in `rpc_projects_table`. It must be
-  `STABLE`, and the task-assignment lookup it depends on must be indexed. This is
-  the one place the access model could make the main screen slow.
-- **Naming.** The codebase carries both `task.view_all` and `tasks.view_all`, and
-  `filehub:view_all_files` uses a colon. #181 surfaced a live bug caused by exactly
-  this dot/colon drift. Pick `project.view_all` deliberately and do not inherit
-  the mess.
+**`rpc_create_template_from_project`, a fifth reader this section missed.** It
+captured an arbitrary project's full task structure — titles, descriptions,
+categories, priorities, weights, hours — into a template body, gated only by
+`project.create` / `is_owner`, with no per-project check at all. Found by
+querying `pg_proc` for *every* `SECURITY DEFINER` function whose body touches
+`public.projects` rather than trusting the three this plan named. The lesson
+generalises: the call-site list for a predicate must be derived from the
+catalogue, not from a document. `rpc_advance_project_stage` and
+`rpc_restore_project` were checked and deliberately left alone — a write path
+and an already-archived-rows domain, neither leaking rollups.
 
-**Phase 1 is no longer blocked on an open question** — only on building this.
+Denial and non-existence are folded into the same branch everywhere, so both
+answer identically. A distinguishable "denied" would itself disclose that the
+engagement exists — the same reasoning that ruled out a redacted row.
+
+**Naming resolved: `project.view_all`, dot notation.** The `project.*` namespace
+(`project.view`, `.create`, `.edit`, `.delete`, `.archived`, `.created`,
+`.restored`, `.created_from_template`) is 100% dots with zero colons;
+`filehub:view_all_files`'s colon is an isolated FileHub-scoped convention, not
+the dominant pattern for this permission's own namespace. Seeded on system
+Owner / Admin / Manager.
+
+**Performance: no new index required.** `tasks.project_id` (`idx_tasks_project_id`,
+partial on `deleted_at IS NULL`) into `task_assignments.task_id`
+(`idx_task_ast_task_id`) already cover the join. `EXPLAIN (ANALYZE, BUFFERS)` on
+`rpc_projects_table`, warm cache, local seed (3 projects / 66 tasks):
+**6.400 ms / 117 buffers → 6.431 ms / 395 buffers.** Buffer touches roughly
+tripled — that is the per-row check — but wall-clock was flat because every
+extra touch is an indexed lookup, not a seq scan. Worth re-measuring at a
+few thousand projects before assuming it stays flat.
+
+**Deliberately not touched:** `clients_select` / `portfolios_select` /
+`project_templates_select` remain on the §13.14-era company-wide placeholder.
+Whether a client or portfolio should inherit visibility from the projects
+referencing it is a separate undecided question, flagged rather than silently
+answered.
+
+Migration `20260801_project_visibility.sql`; self-check
+`supabase/checks/20260801_project_visibility_check.sql` proves all five
+behaviours including that a denied caller gets zero rollups (the dashboard
+raises rather than blanking) and that `view_all` is not a tenant escape.
+
+**Phase 1 is no longer blocked on an open question.**
 
 ### 13.15 Not yet load-bearing
 
