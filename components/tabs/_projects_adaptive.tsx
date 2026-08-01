@@ -13,6 +13,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import ProjectFolderModal from '@/components/projects/ProjectFolderModal';
 import ProjectDashboardSheet from '@/components/projects/ProjectDashboardSheet';
 import BulkCreateProjectsSheet from '@/components/projects/BulkCreateProjectsSheet';
+import SpreadsheetImportSheet from '@/components/projects/SpreadsheetImportSheet';
 import ProjectsTable from '@/components/projects/ProjectsTable';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAlert } from '@/contexts/AlertContext';
@@ -42,6 +43,7 @@ export default function ProjectsScreen() {
   const [selectedProject, setSelectedProject] = useState<Project | undefined>();
   const [dashboardProjectId, setDashboardProjectId] = useState<string | null>(null);
   const [bulkCreateVisible, setBulkCreateVisible] = useState(false);
+  const [spreadsheetImportVisible, setSpreadsheetImportVisible] = useState(false);
   const [tableRefreshKey, setTableRefreshKey] = useState(0);
   const bumpTable = () => setTableRefreshKey(k => k + 1);
 
@@ -131,6 +133,17 @@ export default function ProjectsScreen() {
 
         <View className="flex-row items-center gap-3 flex-shrink-0">
           {hasPermission('project.create') && (
+            <Tooltip label="Import from spreadsheet">
+              <TouchableOpacity
+                onPress={() => setSpreadsheetImportVisible(true)}
+                className="bg-surface-card border border-surface-border p-3 rounded-xl"
+              >
+                <FontAwesome name="file-excel-o" size={16} color={colors.primary} />
+              </TouchableOpacity>
+            </Tooltip>
+          )}
+
+          {hasPermission('project.create') && (
             <Tooltip label="Bulk create from template">
               <TouchableOpacity
                 onPress={() => setBulkCreateVisible(true)}
@@ -202,6 +215,16 @@ export default function ProjectsScreen() {
         onClose={() => setBulkCreateVisible(false)}
         onCreated={(res) => {
           showAlert('Bulk Create Complete', `Created ${res.projects_created} projects and ${res.tasks_created} tasks.`);
+          fetchProjects();
+          bumpTable();
+        }}
+      />
+
+      <SpreadsheetImportSheet
+        visible={spreadsheetImportVisible}
+        onClose={() => setSpreadsheetImportVisible(false)}
+        onCreated={(res) => {
+          showAlert('Import Complete', `Created ${res.projects_created} projects and ${res.tasks_created} tasks.`);
           fetchProjects();
           bumpTable();
         }}

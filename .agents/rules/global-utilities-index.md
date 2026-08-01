@@ -11,6 +11,18 @@ Before writing new utility functions, hooks, or database RPCs, check this regist
 
 ## Frontend Utilities (`/lib`)
 * **formatDate**: (Example) Converts ISO strings to human-readable format.
+* **Spreadsheet intake** (issue #188, `lib/imports/spreadsheetMapping.ts` +
+  `lib/imports/spreadsheetIntake.ts`): `detectHeaderRow` (finds the table in a
+  messy file — banner/logo/blank rows scored out), `proposeColumnMapping`
+  (header-text + cell-shape heuristic -> `name`/`client_ref`/
+  `client_external_ref`/`start_date`), `buildIntakeRows`, `matchClientByName`
+  / `resolveClientMatch` (external_ref first, name second, near-miss ->
+  `ambiguous`, per plan §13.3). The mapping module is deliberately
+  supabase/xlsx-import-free so its self-check (`spreadsheetIntake.check.ts`)
+  runs under plain `npx tsx`; `spreadsheetIntake.ts` is the thin I/O layer
+  (`parseSpreadsheetBytes`, `fetchExistingClients`) on top of it. Reuse this
+  before writing another "propose a column mapping" or "fuzzy-match a client
+  name" anywhere else in the app.
 
 ## Global UI Components (`/components/ui`)
 * **ConfirmModal**: (Global Common) A premium, themed confirmation dialog for sensitive tactical actions (archival, deletion, restoration). Supports danger/warning/info variants.
@@ -37,3 +49,5 @@ Before writing new utility functions, hooks, or database RPCs, check this regist
 * **rpc_instantiate_template**: Bulk-creates many projects and their tasks from a template in ONE set-based transaction (inputs: p_template_id, p_portfolio jsonb, p_projects jsonb **plural**, p_idempotency_key). Suppresses per-row task notifications via the transaction-local `trustflow.bulk_instantiate` GUC; idempotent on `(company_id, idempotency_key)`.
 * **rpc_undo_portfolio_instantiation**: One-call rollback of a bulk instantiation — soft-deletes every project and task carrying that `portfolio_id` (input: p_portfolio_id).
 * **rpc_advance_project_stage**: Moves a project between stages with permission + transition-path validation; rejects a stage belonging to a task-kind pipeline (inputs: p_project_id, p_to_stage_id). **Use this, never a raw UPDATE** — history is trigger-written, so a direct UPDATE records history but skips validation.
+* **rpc_preview_instantiate_template** / **rpc_instantiate_template** (issue #182/#188, plan §13.10): the ONLY writer for bulk project+task creation from a template — category->board/team mapping, a required schedule anchor, duplicate-name detection, one notification per batch. `rpc_instantiate_template` now also accepts `p_portfolio.standing_folder_id` (issue #188) to record which FileHub folder holds the batch's source file, in the same transaction. **Any bulk-create path (a future importer, a manifest upload, …) must call these, never insert projects/tasks directly** — see `docs/PROJECT_HIERARCHY_PLAN.md` §15.1's "reuse the batch path" rule.
+* **rpc_filehub_folder_create**: Idempotent get-or-create of a FileHub folder by `(company_id, parent_id, scope, name)` (inputs: p_name, p_parent_id?, p_scope, p_group_id?). Returns the existing folder's id if one already matches — safe to call on every "attach evidence to X" flow without a pre-check.

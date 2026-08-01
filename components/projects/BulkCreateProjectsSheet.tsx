@@ -2,6 +2,8 @@ import Calendar from '@/components/common/Calendar';
 import DraggableSheet from '@/components/common/DraggableSheet';
 import Popup from '@/components/common/Popup';
 import StarterTemplatePickerSheet from '@/components/projects/StarterTemplatePickerSheet';
+import { useAuth } from '@/contexts/AuthContext';
+import { useUploadManager } from '@/contexts/UploadManagerContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { getQuickActionDate } from '@/lib/calendarPicker';
 import { supabase } from '@/lib/supabase';
@@ -59,7 +61,10 @@ type CategoryValue = { pipeline_id: string | null; assignee_team_id: string | nu
 type CategoryMapping = Record<string, CategoryValue>;
 type PreviewResult = { projects: number; tasks: number; boards: number; first_task_date: string | null; last_task_date: string | null };
 
-type ParsedLine = { raw: string; name: string; start_date: string | null; external_ref: string | null };
+// client_ref defaults to `name` for the textarea path (see parseLines below);
+// spreadsheet intake (issue #188) is the first caller that can supply a
+// client_ref distinct from the project name, via `initialRows`.
+type ParsedLine = { raw: string; name: string; client_ref: string; start_date: string | null; external_ref: string | null };
 
 // One line = one project. "Name" doubles as the client name to upsert — the
 // issue frames this feature as "paste a list of client names", and the
@@ -89,7 +94,7 @@ function parseLines(text: string): ParsedLine[] {
         const d = new Date(dateStr);
         if (!isNaN(d.getTime())) start_date = d.toISOString();
       }
-      return { raw, name, start_date, external_ref };
+      return { raw, name, client_ref: name, start_date, external_ref };
     })
     .filter(p => p.name.length > 0);
 }
@@ -186,14 +191,30 @@ function CategoryMappingRow({
 
 export default function BulkCreateProjectsSheet({
   visible, onClose, onCreated,
+  initialRows, initialPortfolioName, initialSource, initialIdempotencyKey, initialSourceFile,
 }: {
   visible: boolean;
   onClose: () => void;
   onCreated?: (result: { portfolio_id: string; projects_created: number; tasks_created: number }) => void;
+  // Spreadsheet intake hand-off (issue #188 / plan §15) — when set, this step
+  // opens with the projects array already answered instead of an empty
+  // textarea: the human confirms a filled-in form rather than typing it.
+  // Nothing here is required — every existing caller (the plain "Bulk
+  // Create" button) omits all five and gets the unchanged textarea flow.
+  initialRows?: ParsedLine[];
+  initialPortfolioName?: string;
+  initialSource?: string; // portfolios.source, e.g. "spreadsheet:Company X Q3.xlsx"
+  initialIdempotencyKey?: string; // sha256-derived — makes re-dropping the same file a no-op
+  // The original file + its content hash, uploaded to FileHub (visibility
+  // 'broadcast', a get-or-create folder) AFTER a successful create — evidence
+  // trail per plan §15.3, never blocking the data write if it fails.
+  initialSourceFile?: { file: File; contentHash: string } | null;
 }) {
   const c = useThemeColors();
   const isDesktop = useIsDesktop();
   const todayISO = getQuickActionDate(0);
+  const { profile } = useAuth();
+  const { startUpload } = useUploadManager();
 
   const [step, setStep] = useState<'setup' | 'configure'>('setup');
 
@@ -231,7 +252,11 @@ export default function BulkCreateProjectsSheet({
     if (!visible) return;
     setError(null);
     setStep('setup');
-    setIdempotencyKey(randomKey());
+    setPortfolioName(initialPortfolioName ?? '');
+    // Content-hash-derived key (spreadsheet intake) makes re-dropping the
+    // same file a no-op at the RPC's existing idempotency check — falls back
+    // to a random key for the manual paste-textarea path, unchanged.
+    setIdempotencyKey(initialIdempotencyKey ?? randomKey());
     setMapping({});
     setAnchorDate(null);
     setAnchorDirection(null);
@@ -284,7 +309,9 @@ export default function BulkCreateProjectsSheet({
   }, [visible]);
 
   const selectedTemplate = useMemo(() => templates.find(t => t.id === templateId) || null, [templates, templateId]);
-  const parsed = useMemo(() => parseLines(text), [text]);
+  // Spreadsheet-imported rows (already parsed + client-resolved upstream)
+  // pre-fill this step entirely; otherwise fall back to the textarea, unchanged.
+  const parsed = useMemo(() => initialRows ?? parseLines(text), [initialRows, text]);
   const taskCountPerProject = selectedTemplate?.body?.length || 0;
   const pastLines = useMemo(() => parsed.filter(p => p.start_date && p.start_date.slice(0, 10) < todayISO), [parsed, todayISO]);
 
@@ -317,7 +344,7 @@ export default function BulkCreateProjectsSheet({
   const canProceedToConfigure = !!templateId && taskCountPerProject > 0 && parsed.length > 0 && pastLines.length === 0;
 
   function buildProjectsPayload() {
-    return parsed.map(p => ({ name: p.name, client_ref: p.name, client_external_ref: p.external_ref, start_date: p.start_date }));
+    return parsed.map(p => ({ name: p.name, client_ref: p.client_ref, client_external_ref: p.external_ref, start_date: p.start_date }));
   }
   function buildCategoryMapping() {
     return categories.map(cat => ({
@@ -361,17 +388,50 @@ export default function BulkCreateProjectsSheet({
 
   const canCreate = !creating && !previewLoading && !!preview && !previewError;
 
+  // Evidence trail (plan §15.3): get-or-create a FileHub folder for the
+  // source file and hand its id to rpc_instantiate_template so it lands on
+  // portfolios.standing_folder_id in the SAME transaction as the rest of the
+  // batch (20260801_spreadsheet_intake_portfolio_folder.sql). Uses the
+  // EXISTING idempotent rpc_filehub_folder_create — no new upload path, no
+  // new FileHub visibility value. Never blocks or fails the actual data
+  // write: a FileHub problem here degrades to "no source file attached",
+  // not "batch creation failed".
+  async function getOrCreateStandingFolder(): Promise<string | null> {
+    try {
+      const { data: rootId, error: rootErr } = await supabase.rpc('rpc_filehub_folder_create', {
+        p_name: 'Portfolio Imports',
+        p_scope: 'broadcast',
+      });
+      if (rootErr || !rootId) return null;
+      const leafName = (portfolioName.trim() || `${selectedTemplate?.name ?? 'Batch'} batch`).slice(0, 80);
+      const { data: leafId, error: leafErr } = await supabase.rpc('rpc_filehub_folder_create', {
+        p_name: leafName,
+        p_parent_id: rootId,
+        p_scope: 'broadcast',
+      });
+      if (leafErr || !leafId) return null;
+      return leafId as string;
+    } catch {
+      return null;
+    }
+  }
+
   const handleCreate = async () => {
     if (!canCreate || !templateId || !anchorDate || !anchorDirection) return;
     setCreating(true);
     setError(null);
+
+    const standingFolderId = initialSourceFile ? await getOrCreateStandingFolder() : null;
+
     const { data, error: err } = await supabase.rpc('rpc_instantiate_template', {
       p_template_id: templateId,
       p_portfolio: {
         name: portfolioName.trim() || null,
+        source: initialSource ?? null,
         manifest: parsed.map(p => ({ name: p.name, instantiated: true })),
         target_date: new Date(anchorDate).toISOString(),
         anchor_direction: anchorDirection,
+        standing_folder_id: standingFolderId,
       },
       p_projects: buildProjectsPayload(),
       p_category_mapping: buildCategoryMapping(),
@@ -391,6 +451,26 @@ export default function BulkCreateProjectsSheet({
       setError(err.message);
       return;
     }
+
+    // Upload the source file AFTER the transaction lands, and only for a
+    // genuinely new batch — a replayed idempotency key (already_processed)
+    // means the file from the original run is already there.
+    if (initialSourceFile && standingFolderId && !data?.already_processed && profile?.company_id) {
+      startUpload({
+        files: [initialSourceFile.file],
+        companyId: profile.company_id,
+        visibility: 'broadcast',
+        folderId: standingFolderId,
+        recipientIds: [],
+        groupId: null,
+        tags: ['portfolio-import'],
+        caption: `Source file for "${portfolioName.trim() || selectedTemplate?.name || 'this'}" batch`,
+        maxFileSizeBytes: null,
+        scopedFolders: [],
+        label: 'Portfolio source file',
+      });
+    }
+
     onCreated?.(data);
     onClose();
   };
@@ -527,8 +607,9 @@ export default function BulkCreateProjectsSheet({
             className={`bg-surface-background border rounded-xl px-3 py-2 ${isPast ? 'border-state-danger' : 'border-surface-border'}`}
           >
             <Text className="text-typography-main text-xs font-bold" numberOfLines={1}>{p.name}</Text>
-            {(p.start_date || p.external_ref) && (
+            {(p.client_ref !== p.name || p.start_date || p.external_ref) && (
               <Text className={`text-[10px] mt-0.5 ${isPast ? 'text-state-danger' : 'text-typography-muted'}`} numberOfLines={1}>
+                {p.client_ref !== p.name ? `${p.client_ref} · ` : ''}
                 {p.start_date ? fmtShort(p.start_date) : ''}{p.start_date && p.external_ref ? ' · ' : ''}{p.external_ref || ''}
               </Text>
             )}
@@ -776,28 +857,61 @@ export default function BulkCreateProjectsSheet({
           />
         </View>
 
-        {/* Textarea — one project per line */}
-        <View>
-          <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2">
-            Projects — one per line, optionally "Name, 2026-08-01, ref"
-          </Text>
-          <TextInput
-            value={text}
-            onChangeText={setText}
-            placeholder={'Abdallah Group\nCentro Trading, 2026-08-15, CR-4471\nNorthgate LLC, , NG-002'}
-            placeholderTextColor={c.textDim}
-            multiline
-            numberOfLines={8}
-            textAlignVertical="top"
-            className="bg-surface-background border border-surface-border rounded-lg px-4 py-3"
-            style={{ color: c.textMain, minHeight: 160 }}
-          />
-          {pastLines.length > 0 && (
-            <Text className="text-state-danger text-xs font-bold mt-2">
-              Line date in the past: {pastLines.map(p => p.name).join(', ')}. Remove or fix the date to continue.
+        {/* Textarea — one project per line. Replaced by a read-only review
+            list when rows arrived pre-filled from spreadsheet intake (issue
+            #188): those rows were already mapped + client-resolved upstream,
+            so re-exposing them as free text would let a stray edit silently
+            diverge from what the user already confirmed there. */}
+        {initialRows ? (
+          <View>
+            <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2">
+              Projects — {initialRows.length} imported from {initialSource?.replace(/^spreadsheet:/, '') || 'spreadsheet'}
             </Text>
-          )}
-        </View>
+            <ScrollView
+              style={{ maxHeight: 220 }}
+              showsVerticalScrollIndicator={false}
+              className="bg-surface-background border border-surface-border rounded-lg"
+              contentContainerStyle={{ padding: 8, gap: 6 }}
+            >
+              {parsed.map((p, i) => (
+                <View key={`${p.raw}-${i}`} className="px-2 py-1.5 rounded-lg">
+                  <Text className="text-typography-main text-xs font-bold" numberOfLines={1}>{p.name}</Text>
+                  <Text className="text-typography-muted text-[10px]" numberOfLines={1}>
+                    {p.client_ref !== p.name ? `Client: ${p.client_ref} · ` : ''}
+                    {p.start_date ? fmtShort(p.start_date) : 'no start date'}{p.external_ref ? ` · ${p.external_ref}` : ''}
+                  </Text>
+                </View>
+              ))}
+            </ScrollView>
+            {pastLines.length > 0 && (
+              <Text className="text-state-danger text-xs font-bold mt-2">
+                In the past: {pastLines.map(p => p.name).join(', ')}. Fix the date on the previous step to continue.
+              </Text>
+            )}
+          </View>
+        ) : (
+          <View>
+            <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2">
+              Projects — one per line, optionally "Name, 2026-08-01, ref"
+            </Text>
+            <TextInput
+              value={text}
+              onChangeText={setText}
+              placeholder={'Abdallah Group\nCentro Trading, 2026-08-15, CR-4471\nNorthgate LLC, , NG-002'}
+              placeholderTextColor={c.textDim}
+              multiline
+              numberOfLines={8}
+              textAlignVertical="top"
+              className="bg-surface-background border border-surface-border rounded-lg px-4 py-3"
+              style={{ color: c.textMain, minHeight: 160 }}
+            />
+            {pastLines.length > 0 && (
+              <Text className="text-state-danger text-xs font-bold mt-2">
+                Line date in the past: {pastLines.map(p => p.name).join(', ')}. Remove or fix the date to continue.
+              </Text>
+            )}
+          </View>
+        )}
 
         {/* Row count is a real number here (how much you're about to type into
             the next step), not the outcome preview — that lives in step 2

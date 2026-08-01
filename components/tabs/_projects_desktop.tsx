@@ -13,6 +13,7 @@ import ProjectFolderModal from '@/components/projects/ProjectFolderModal';
 import ProjectDashboard from '@/components/projects/ProjectDashboard';
 import Tooltip from '@/components/common/Tooltip';
 import BulkCreateProjectsSheet from '@/components/projects/BulkCreateProjectsSheet';
+import SpreadsheetImportSheet from '@/components/projects/SpreadsheetImportSheet';
 import ProjectsTable from '@/components/projects/ProjectsTable';
 
 type Project = {
@@ -37,6 +38,7 @@ export default function ProjectsScreenWeb() {
   const [selectedProject, setSelectedProject] = useState<Project | undefined>();
   const [dashboardProjectId, setDashboardProjectId] = useState<string | null>(null);
   const [bulkCreateVisible, setBulkCreateVisible] = useState(false);
+  const [spreadsheetImportVisible, setSpreadsheetImportVisible] = useState(false);
   const [tableRefreshKey, setTableRefreshKey] = useState(0);
 
   const canViewProjects = hasPermission('project.view');
@@ -110,6 +112,16 @@ export default function ProjectsScreenWeb() {
           <View className="flex-row items-center gap-6">
             {hasPermission('project.create') && (
               <TouchableOpacity
+                onPress={() => setSpreadsheetImportVisible(true)}
+                className="bg-surface-card border border-surface-border px-6 py-4 rounded-2xl premium-shadow active:scale-95 transition-transform flex-row items-center"
+              >
+                <FontAwesome name="file-excel-o" size={14} color={colors.primary} className="mr-3" />
+                <Text className="text-typography-main font-black uppercase tracking-widest text-sm">Import Spreadsheet</Text>
+              </TouchableOpacity>
+            )}
+
+            {hasPermission('project.create') && (
+              <TouchableOpacity
                 onPress={() => setBulkCreateVisible(true)}
                 className="bg-surface-card border border-surface-border px-6 py-4 rounded-2xl premium-shadow active:scale-95 transition-transform flex-row items-center"
               >
@@ -181,6 +193,16 @@ export default function ProjectsScreenWeb() {
         onClose={() => setBulkCreateVisible(false)}
         onCreated={(res) => {
           showAlert('Bulk Create Complete', `Created ${res.projects_created} projects and ${res.tasks_created} tasks.`);
+          fetchProjects();
+          bumpTable();
+        }}
+      />
+
+      <SpreadsheetImportSheet
+        visible={spreadsheetImportVisible}
+        onClose={() => setSpreadsheetImportVisible(false)}
+        onCreated={(res) => {
+          showAlert('Import Complete', `Created ${res.projects_created} projects and ${res.tasks_created} tasks.`);
           fetchProjects();
           bumpTable();
         }}
