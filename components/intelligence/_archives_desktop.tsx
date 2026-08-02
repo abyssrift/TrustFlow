@@ -124,7 +124,7 @@ export default function IntelligenceArchives() {
               onChangeText={setSearch}
               placeholder="Search archives..."
               placeholderTextColor={colors.textDim}
-              className="flex-1 text-typography-main text-sm font-medium outline-none bg-transparent"
+              className="flex-1 text-typography-main text-sm font-medium bg-transparent"
             />
             {search.length > 0 && (
               <Tooltip label="Clear search">

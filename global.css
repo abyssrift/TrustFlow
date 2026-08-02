@@ -268,3 +268,39 @@ body {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* --- FOCUS ---
+   The app's single focus treatment. Do not write `outline: none`,
+   `outline-none`, or `outlineWidth: 0` in a component — see the "Focus" section
+   of .agents/rules/ui-consistency.md.
+
+   There are two different problems here and they need two different answers:
+
+   1. The browser's default ring fires on mouse clicks and on elements that are
+      only focusable by accident — react-native-web puts `tabindex` on
+      pressables, and recharts marks its plot surface focusable for its
+      accessibility layer. That is the black box that showed up around the
+      Portfolio Flow charts. `:focus:not(:focus-visible)` removes that case and
+      only that case.
+
+   2. Keyboard focus has to stay visible. Every `outline-none` in this tree was
+      someone deleting the ring from (1) and taking the keyboard indicator with
+      it: 24 inputs across the app currently show nothing at all when tabbed to.
+      These rules are emitted after `@tailwind utilities` and carry the same
+      specificity as `.outline-none`, so source order restores the ring on all
+      of them without editing a single component. Inline `style={{ outline }}`
+      still wins over this and has to be removed at the call site. */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid rgb(var(--brand-primary));
+  outline-offset: 2px;
+}
+
+/* The sanctioned opt-out, for an element that is genuinely not a control.
+   Greppable, unlike an inline `outline: none`. */
+.focus-ring-none:focus-visible {
+  outline: none;
+}

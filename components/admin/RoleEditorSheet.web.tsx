@@ -232,7 +232,7 @@ export default function RoleEditorSheet({
             {/* Search bar */}
             <View className="flex-row items-center px-4 py-3 mx-4 mt-3 rounded-xl gap-2" style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}>
               <FontAwesome name="search" size={13} color={c.textMuted} />
-              <TextInput value={query} onChangeText={setQuery} placeholder="Search permissions..." placeholderTextColor={c.textMuted} className="flex-1 text-sm font-bold py-1" style={{ color: c.textMain, outlineWidth: 0 } as any} />
+              <TextInput value={query} onChangeText={setQuery} placeholder="Search permissions..." placeholderTextColor={c.textMuted} className="flex-1 text-sm font-bold py-1" style={{ color: c.textMain } as any} />
               {q.length > 0 && (
                 <TouchableOpacity onPress={() => setQuery('')} className="w-7 h-7 items-center justify-center rounded-full" style={{ backgroundColor: c.border + '40' }}>
                   <FontAwesome name="times" size={11} color={c.textMuted} />
@@ -460,7 +460,7 @@ export default function RoleEditorSheet({
                 placeholder="Filter permissions..."
                 placeholderTextColor={c.textMuted}
                 className="flex-1 text-sm font-bold py-1.5"
-                style={{ color: c.textMain, outlineWidth: 0 } as any}
+                style={{ color: c.textMain } as any}
               />
               {q.length > 0 && (
                 <Tooltip label="Clear search">

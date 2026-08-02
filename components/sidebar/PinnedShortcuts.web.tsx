@@ -206,7 +206,7 @@ export default function PinnedShortcuts({
                     onChangeText={setLinkLabel}
                     placeholder="Label"
                     placeholderTextColor={colors.textDim}
-                    className="rounded-lg border border-surface-border bg-surface-background px-2.5 py-2 text-xs text-typography-main outline-none"
+                    className="rounded-lg border border-surface-border bg-surface-background px-2.5 py-2 text-xs text-typography-main"
                   />
                   <TextInput
                     value={linkUrl}
@@ -214,7 +214,7 @@ export default function PinnedShortcuts({
                     onSubmitEditing={addCustomLink}
                     placeholder="/share/… or https://…"
                     placeholderTextColor={colors.textDim}
-                    className="rounded-lg border border-surface-border bg-surface-background px-2.5 py-2 text-xs text-typography-main outline-none"
+                    className="rounded-lg border border-surface-border bg-surface-background px-2.5 py-2 text-xs text-typography-main"
                   />
                   <View className="flex-row gap-2">
                     <Pressable

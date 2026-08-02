@@ -13,6 +13,7 @@ import ProjectFolderModal from '@/components/projects/ProjectFolderModal';
 import BulkCreateProjectsSheet from '@/components/projects/BulkCreateProjectsSheet';
 import SpreadsheetImportSheet from '@/components/projects/SpreadsheetImportSheet';
 import ProjectsTable from '@/components/projects/ProjectsTable';
+import ProjectBoard from '@/components/projects/ProjectBoard';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAlert } from '@/contexts/AlertContext';
 import { TAB_BAR_HEIGHT } from '@/lib/layout';
@@ -34,6 +35,8 @@ export default function ProjectsScreen() {
   const [spreadsheetImportVisible, setSpreadsheetImportVisible] = useState(false);
   const [tableRefreshKey, setTableRefreshKey] = useState(0);
   const bumpTable = () => setTableRefreshKey(k => k + 1);
+  // #176 Projects P6 -- Table/Board toggle. Timeline stays disabled/future.
+  const [view, setView] = useState<'table' | 'board'>('table');
 
   const { hasPermission } = useAuth();
   const isWeb = Platform.OS === 'web';
@@ -111,32 +114,47 @@ export default function ProjectsScreen() {
         </View>
       </View>
 
-      {/* View toggle — Board (#173 Phase 6) and Timeline are future phases, shown disabled rather than stubbed */}
+      {/* View toggle — Board shipped #176 (Phase 6). Timeline is still future, shown disabled. */}
       <View className="flex-row items-center gap-2 px-6 pt-4">
-        <View className="px-4 py-2 rounded-xl bg-brand-primary/10 border border-brand-primary flex-row items-center gap-1.5">
-          <FontAwesome name="table" size={11} color={colors.primary} />
-          <Text className="text-brand-primary text-[11px] font-black uppercase tracking-widest">Table</Text>
-        </View>
-        <View className="px-4 py-2 rounded-xl border border-surface-border opacity-40 flex-row items-center gap-1.5">
-          <FontAwesome name="columns" size={11} color={colors.textMuted} />
-          <Text className="text-typography-muted text-[11px] font-black uppercase tracking-widest">Board</Text>
-        </View>
+        <TouchableOpacity
+          onPress={() => setView('table')}
+          className={`px-4 py-2 rounded-xl border flex-row items-center gap-1.5 ${view === 'table' ? 'bg-brand-primary/10 border-brand-primary' : 'border-surface-border'}`}
+        >
+          <FontAwesome name="table" size={11} color={view === 'table' ? colors.primary : colors.textMuted} />
+          <Text className={`text-[11px] font-black uppercase tracking-widest ${view === 'table' ? 'text-brand-primary' : 'text-typography-muted'}`}>Table</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => setView('board')}
+          className={`px-4 py-2 rounded-xl border flex-row items-center gap-1.5 ${view === 'board' ? 'bg-brand-primary/10 border-brand-primary' : 'border-surface-border'}`}
+        >
+          <FontAwesome name="columns" size={11} color={view === 'board' ? colors.primary : colors.textMuted} />
+          <Text className={`text-[11px] font-black uppercase tracking-widest ${view === 'board' ? 'text-brand-primary' : 'text-typography-muted'}`}>Board</Text>
+        </TouchableOpacity>
         <View className="px-4 py-2 rounded-xl border border-surface-border opacity-40 flex-row items-center gap-1.5">
           <FontAwesome name="long-arrow-right" size={11} color={colors.textMuted} />
           <Text className="text-typography-muted text-[11px] font-black uppercase tracking-widest">Timeline</Text>
         </View>
       </View>
 
-      <ScrollView
-        className="flex-1 px-6 pt-4"
-        contentContainerStyle={{ paddingBottom: isWeb ? 32 : TAB_BAR_HEIGHT.native + 16 }}
-      >
-        <ProjectsTable
-          refreshKey={tableRefreshKey}
-          onOpenProject={(id) => router.push(`/projects/${id}` as any)}
-          onBrowseStarters={hasPermission('project.create') ? () => setBulkCreateVisible(true) : undefined}
-        />
-      </ScrollView>
+      {view === 'table' ? (
+        <ScrollView
+          className="flex-1 px-6 pt-4"
+          contentContainerStyle={{ paddingBottom: isWeb ? 32 : TAB_BAR_HEIGHT.native + 16 }}
+        >
+          <ProjectsTable
+            refreshKey={tableRefreshKey}
+            onOpenProject={(id) => router.push(`/projects/${id}` as any)}
+            onBrowseStarters={hasPermission('project.create') ? () => setBulkCreateVisible(true) : undefined}
+          />
+        </ScrollView>
+      ) : (
+        <View className="flex-1 pt-4">
+          <ProjectBoard
+            refreshKey={tableRefreshKey}
+            onOpenProject={(id) => router.push(`/projects/${id}` as any)}
+          />
+        </View>
+      )}
 
       <ProjectFolderModal
         visible={modalVisible}

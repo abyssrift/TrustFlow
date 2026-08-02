@@ -603,7 +603,7 @@ export default function IntelligenceTargets() {
               <TextInput
                 placeholder="Search stage targets..."
                 placeholderTextColor={colors.textMuted}
-                className="flex-1 text-typography-main text-xs font-bold outline-none"
+                className="flex-1 text-typography-main text-xs font-bold"
                 value={searchQuery}
                 onChangeText={setSearchQuery}
               />

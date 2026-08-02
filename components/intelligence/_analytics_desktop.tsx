@@ -592,7 +592,7 @@ function PersonnelTab({ planCode, limits, catalog }: { planCode: string; limits:
               onChangeText={setSearch}
               placeholder="Search by name..."
               placeholderTextColor={colors.muted}
-              className="flex-1 text-typography-main text-sm outline-none"
+              className="flex-1 text-typography-main text-sm"
             />
           </View>
 
@@ -661,7 +661,7 @@ function PersonnelTab({ planCode, limits, catalog }: { planCode: string; limits:
                         onChangeText={setBulkRate}
                         placeholder="Monthly salary..."
                         keyboardType="numeric"
-                        className="py-2 px-2 text-typography-main text-xs flex-1 outline-none"
+                        className="py-2 px-2 text-typography-main text-xs flex-1"
                       />
                     </View>
                     <TouchableOpacity 
@@ -687,7 +687,7 @@ function PersonnelTab({ planCode, limits, catalog }: { planCode: string; limits:
                                 onChangeText={v => setSalaries(prev => ({ ...prev, [uid]: v }))}
                                 placeholder="Monthly"
                                 keyboardType="numeric"
-                                className="py-1 px-2 text-typography-main text-xs flex-1 outline-none"
+                                className="py-1 px-2 text-typography-main text-xs flex-1"
                               />
                             </View>
                           </View>
