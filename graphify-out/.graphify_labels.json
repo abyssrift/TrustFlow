@@ -191,18 +191,11 @@
   "189": "UserAssignmentGrid.tsx",
   "190": "LinkifiedText.tsx",
   "191": "migration_drift.js",
-  "192": "UserLink.tsx",
   "193": "run-checks.mjs",
   "194": "vitest.config.ts",
   "195": "TimeByCategoryPie.web.tsx",
   "196": "wheelGesture.ts",
-  "197": "DraggableSheet.web.tsx",
   "198": "ManualTimeModal.web.tsx",
   "199": "StageCountOdometer.tsx",
-  "200": "DEV_TOOLS_PAGE.md",
-  "201": "What You Get",
-  "202": "Method 2: Using Command Line Script (Most Complete)",
-  "203": "tasks.tsx",
-  "204": "13.11 Project detail becomes a workspace (amends §8)",
-  "205": "8. Views"
+  "204": "13.11 Project detail becomes a workspace (amends §8)"
 }
