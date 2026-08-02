@@ -1077,6 +1077,89 @@ action, and is §11's open "standard starting files per template task".
 Rollforward is not a new phase — it is a sibling RPC in Phase 1, with the file
 half arriving in Phase 4.
 
+#### Shipped (branch `feat-rollforward`, migration `20260801_rollforward_project.sql`)
+
+`rpc_rollforward_project(p_source_project_id, p_new_name, p_options jsonb)`
+literally calls the two existing RPCs rather than reimplementing their insert
+logic: step 1 calls `rpc_create_template_from_project` to snapshot the source
+project into a real (but transient) `project_templates` row — which is also
+where the access gate comes from for free, since that RPC is already call
+site 5 of `fn_project_accessible` (§13.14). Step 2 calls
+`rpc_instantiate_template` with a single-row `p_projects` batch built from
+that template, so every guarantee already proven — one notification per
+batch, a required schedule anchor, first-stage resolution, duplicate-name
+detection naming the offender, `portfolio_id` as the one-call undo unit —
+carries over unmodified. The transient template row is soft-deleted before
+the function returns (the portfolio's own `template_body_snapshot`, already
+written by `rpc_instantiate_template`, is the permanent record), so
+rollforward never clutters the "Save as Template" list.
+
+**Four toggles, defaulted per company.** `companies.rollforward_defaults`
+mirrors `terminology_labels`' shape exactly — one jsonb,
+`{carry_assignments, carry_mapping, carry_estimates, carry_files}`, all
+`true` by default (the issue's stated common case: wholesale clone),
+overridable per call via `p_options`. `carry_mapping=true` auto-derives
+`p_category_mapping` from the SAME captured body — each category maps back
+to the board it already used — so nothing loses its board unless the caller
+explicitly turns this off, in which case a fresh mapping is required (same
+shape/step `BulkCreateProjectsSheet` already collects). `carry_estimates`
+strips `estimated_hours` from the body with one `jsonb_agg(elem - 'key')`
+when off. `carry_assignments` governs the category mapping's
+`assignee_team_id` — **team-level only**: the underlying
+`project_templates.body` item shape has never carried per-user assignment
+(team-level only, "no interpolation/template language", plan §4), and
+`rpc_instantiate_template`'s insert never writes `assignee_user_id`.
+Extending that shared shape to also carry person-level assignment would be
+an invasive change to infrastructure three other features depend on —
+flagged, not built silently.
+
+**Files are referenced, never duplicated — provably.**
+`projects.rolled_forward_from_project_id` is set **only** when
+`carry_files=true`; its presence is the entire toggle effect, not a flag that
+could drift from it. `filehub_folder_accessible` and the
+`filehub_files_select_visibility` RLS policy (both body-only
+`CREATE OR REPLACE`, every existing caller unaffected) grow one additional
+`EXISTS` branch: a folder/file scoped to project P is also visible to anyone
+who can see a project whose `rolled_forward_from_project_id = P`. No
+`filehub_files` row is read, inserted, or touched by the rollforward RPC
+itself — access is resolved entirely at read time through the FK.
+`supabase/checks/check_rpc_rollforward_project.sql` proves this directly:
+zero new `filehub_files` rows after a `carry_files=true` rollforward, a user
+assigned only to the NEW project's task can reach the OLD project's
+deliverable folder (`filehub_folder_accessible` true, and the raw RLS-gated
+`SELECT ... FROM filehub_files` also surfaces the row under `SET LOCAL ROLE
+authenticated`), while `fn_project_accessible` on the source project stays
+false for that same user — the grant never widens into general access.
+
+**Access gating, reachability, and undo — all inherited, all checked.** A
+caller who cannot see the source project gets the identical
+`rpc_create_template_from_project` "Project not found." (folded, not a
+distinguishable "denied", per §13.14). Every rolled-forward task has a
+non-NULL `pipeline_id`/`current_stage_id`/`due_date` — checked with the same
+query shape `components/tabs/_tasks_desktop.tsx` uses. A colliding project
+name raises `fn_check_batch_duplicate_names`'s offender-naming error, not a
+raw constraint violation. `rpc_undo_portfolio_instantiation` reverses a
+rollforward exactly like any other `portfolio_id` batch — no special-casing
+needed, since a rollforward's portfolio row looks like any other batch's.
+
+**UI:** `components/projects/RollforwardSheet.tsx` — one name field, four
+toggles, a schedule anchor (reusing the "due by"/"starts on" + preset +
+`Calendar` pattern `BulkCreateProjectsSheet` established), and a
+category→board/team mapping panel that only becomes editable when
+`carry_mapping` is turned off (pre-filled with each category's *current*
+board as a starting point). `Popup maxWidth={820}`, two peer columns
+(form+toggles / mapping) on desktop, a single `DraggableSheet` with a
+mapping drill-in page on mobile web. Not yet wired into
+`ProjectOverviewTab.tsx` / a "Roll Forward" action — that call site belongs
+to the agent owning that file; flagged, not added here.
+
+**Deliberately not built:** a `rpc_preview_rollforward_project` mirroring
+`rpc_preview_instantiate_template`. The sheet shows category/task counts
+computed directly from the source project's own tasks (no server round-trip
+needed for a single-project batch), which is enough signal for a one-project
+action; add a real preview RPC if rollforward grows a multi-project variant
+where preview-vs-commit drift becomes a real risk again.
+
 ### 13.14 Project visibility settled — and it is not an RLS problem (settles §11)
 
 §11 called this the single blocking risk and framed it as choosing an RLS policy.
