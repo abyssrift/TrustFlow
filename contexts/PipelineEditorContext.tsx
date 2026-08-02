@@ -638,8 +638,17 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
       successToast(`Pipeline "${name}" created.`, 'Pipeline saved');
       return pipelineId;
     } catch (e: any) {
-      setError(e.message);
-      errorToast(e.message || 'Unable to create pipeline.');
+      // Creation is a direct .insert(), not an RPC, so there is no server-side
+      // place to RAISE a named-offender message the way rpc_instantiate_template
+      // does for projects. Translate the one collision a user can actually cause
+      // here; anything else still surfaces verbatim rather than being swallowed
+      // behind a vague catch-all.
+      const msg =
+        e?.code === '23505' && String(e?.message ?? '').includes('pipelines_company_id_name_key')
+          ? `A pipeline named "${name}" already exists. Pick a different name.`
+          : e?.message || 'Unable to create pipeline.';
+      setError(msg);
+      errorToast(msg);
       return null;
     } finally {
       setLoading(false);
