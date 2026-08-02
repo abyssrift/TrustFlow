@@ -113,12 +113,12 @@ function CfdTip({ active, payload, label }: any) {
   const colors = useThemeColors();
   if (!active || !payload?.length) return null;
   return (
-    <View className="bg-surface-overlay border border-surface-border rounded-xl p-3">
-      <Text className="text-typography-dim text-[10px] mb-1">{label}</Text>
+    <div style={tipStyle(colors)}>
+      <div style={{ color: colors.textDim, fontSize: 10, marginBottom: 4 }}>{label}</div>
       {[...payload].reverse().map((p: any) => (
-        <Text key={p.dataKey} className="text-xs font-bold" style={{ color: p.color }}>{p.name}: {p.value}</Text>
+        <div key={p.dataKey} style={{ color: p.color, fontSize: 12, fontWeight: 700 }}>{p.name}: {p.value}</div>
       ))}
-    </View>
+    </div>
   );
 }
 
@@ -191,16 +191,16 @@ function ThroughputTip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   const d: PortfolioThroughputBucket = payload[0]?.payload;
   return (
-    <View className="bg-surface-overlay border border-surface-border rounded-xl p-3">
-      <Text className="text-typography-dim text-[10px] mb-1">{label}</Text>
+    <div style={tipStyle(colors)}>
+      <div style={{ color: colors.textDim, fontSize: 10, marginBottom: 4 }}>{label}</div>
       {payload.map((p: any) => (
-        <Text key={p.dataKey} className="text-xs font-bold" style={{ color: p.color }}>{p.name}: {p.value}</Text>
+        <div key={p.dataKey} style={{ color: p.color, fontSize: 12, fontWeight: 700 }}>{p.name}: {p.value}</div>
       ))}
-      <Text className="text-typography-dim text-[10px] mt-1">WIP at end: {d.wip_end}</Text>
+      <div style={{ color: colors.textDim, fontSize: 10, marginTop: 4 }}>WIP at end: {d.wip_end}</div>
       {d.cycle_time_days != null && (
-        <Text className="text-typography-dim text-[10px]">Cycle time: {d.cycle_time_days.toFixed(1)}d</Text>
+        <div style={{ color: colors.textDim, fontSize: 10 }}>Cycle time: {d.cycle_time_days.toFixed(1)}d</div>
       )}
-    </View>
+    </div>
   );
 }
 
@@ -255,12 +255,12 @@ function CapacityTip({ active, payload, label }: any) {
   const colors = useThemeColors();
   if (!active || !payload?.length) return null;
   return (
-    <View className="bg-surface-overlay border border-surface-border rounded-xl p-3">
-      <Text className="text-typography-main font-black text-xs mb-1">{label}</Text>
+    <div style={tipStyle(colors)}>
+      <div style={{ fontWeight: 900, fontSize: 12, marginBottom: 4 }}>{label}</div>
       {payload.map((p: any) => (
-        <Text key={p.dataKey} className="text-xs font-bold" style={{ color: p.color }}>{p.name}: {Number(p.value).toFixed(1)}h</Text>
+        <div key={p.dataKey} style={{ color: p.color, fontSize: 12, fontWeight: 700 }}>{p.name}: {Number(p.value).toFixed(1)}h</div>
       ))}
-    </View>
+    </div>
   );
 }
 
