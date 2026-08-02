@@ -1841,3 +1841,147 @@ way `npx tsc`/`npx tsx` do), so the Expo web dev server could not bundle here
 — confirmed via a direct Metro bundle request, `UnableToResolveError` on
 `expo-router/entry`, not a code defect. `npx tsc --noEmit` stays at the
 project's 5 pre-existing baseline errors with zero new ones.
+
+---
+
+## 16. Phase 10 — Integration: projects everywhere
+
+Phases 1–9 build the projects tree and its own screens. Nothing else in the app
+knows projects exist. The dashboard shows tasks. Intelligence → Overview shows
+pipelines. The calendar shows task deadlines. A firm running twelve engagements
+sees none of that on the screen it opens first.
+
+This phase is not new features. It is making the rest of the product aware of
+the entity we just built.
+
+### 16.1 The one thing that will go wrong
+
+**Five surfaces will each invent their own definition of "blocked", "on pace",
+and "projected end date", and they will disagree on screen.**
+
+That is the failure mode this whole document has hit repeatedly under other
+names — #167's diverged board pickers, the two upload paths, the four
+`SECURITY DEFINER` readers that each re-implemented project visibility before
+`fn_project_accessible` (§13.14). It is worse here because the output is a
+*number*. Two screens showing a different projected completion date for the
+same project does not read as a bug, it reads as the product being untrustworthy.
+
+**So the deliverable is one server-side definition first, consumed everywhere
+second.** A `rpc_project_health` (or an extension of `rpc_projects_table`,
+preferred if it can carry the columns without another round trip) returns per
+project: `blocked` / `blocked_reason`, days in current stage, completion, pace,
+projected end, and a confidence flag on that projection. Dashboard, Intelligence
+Overview, calendar, timeline and the projects table all read those columns. No
+surface computes any of them client-side. If a surface needs a number the RPC
+does not return, the RPC grows a column — it does not get a second
+implementation next to it.
+
+### 16.2 Do not invent the forecast math — Phase 5 already shipped it
+
+`rpc_portfolio_throughput` and `rpc_portfolio_capacity` (§13.18) already compute
+completion rate over a window from real `project_stage_history` timestamps.
+"Projected end at current pace" is that throughput applied to remaining scope.
+Writing a second pace calculation for the dashboard is the §16.1 failure with
+extra steps.
+
+**And it must be honest about confidence.** A projection from three stage
+transitions is noise wearing a date's clothing. The RPC returns the sample size
+it used and the surface renders a projection differently — or refuses to render
+one — below a threshold. Shipping a confident wrong date is worse than shipping
+no date; this is the same standard §13.9 applied when it rejected a silent
+`COALESCE` default, and the same one that made 66 tasks with `due_date = 0` a
+defect rather than a cosmetic issue.
+
+### 16.3 Surfaces, and what each one owes
+
+| Surface | Files | Owes |
+|---|---|---|
+| Dashboard | `components/tabs/_index_*.tsx` | blocked projects surfaced by exception (not a list of all projects — the point is what needs attention), output this period, projects at risk of their due date |
+| Intelligence → Overview | `components/intelligence/_analytics_*.tsx`, alongside `PipelineOverviewChart` | project-level rollup next to the existing pipeline rollup, reusing that chart's tooltip/theming, not a new chart idiom |
+| Calendar | `components/calendar/CalendarOverlay.web.tsx`, `components/common/Calendar.tsx` | project start/due/expiry as first-class entries beside task deadlines, filterable by portfolio and client |
+| **Timeline tab** | `components/tabs/_projects_*.tsx` | **the disabled placeholder shipped in Phase 6 gets built here** as the projection view — per project, actual dates vs projected end. §8 left it a stub with no phase and no issue. See §16.3.1 for why it stays on the Projects screen |
+| Deadline strip | existing top-bar strip | projects appear beside tasks |
+
+#### 16.3.1 Why the projection timeline lives in Projects, not only Intelligence
+
+The instinct to put a projections view in Intelligence is right about the
+*content* and wrong about the *audience*, and the permission model settles it:
+
+    project.view    — held by 22 roles
+    analytics.view  — held by 15 roles
+
+**Seven roles can see Projects and cannot open Intelligence.** They are the
+people actually running the engagements. Putting projected completion only
+behind `analytics.view` means the person responsible for a deadline cannot see
+whether they will hit it, while someone who does not work the engagement can.
+That is the wrong way round, and no amount of navigation design fixes a
+permission boundary.
+
+So the two views are different products of the same data, not duplicates:
+
+| | Projects → Timeline | Intelligence → Portfolio Flow |
+|---|---|---|
+| Question | "when does *this* land, and what is late?" | "is the firm keeping up?" |
+| Grain | one row per project, actual vs projected | aggregate — CFD, throughput, capacity |
+| Next action | open the project and fix it | staffing / commitment decisions |
+| Gate | `project.view` | `analytics.view` |
+| Status | to build (this phase) | shipped, Phase 5 (§13.18) |
+
+Both read the same `rpc_project_health` projection columns. That is §16.1
+applied: two presentations, one definition, never two pace calculations. If the
+timeline and the portfolio charts ever disagree about a date, that is a bug in
+having computed it twice.
+
+### 16.4 Access control is not automatic here
+
+Every one of these surfaces is a **new place a project can leak**. The dashboard
+and Intelligence read across the whole company by design — that is exactly the
+shape of the #185 escalation and the reason §13.14 has one predicate and five
+call sites. Every new read path goes through `fn_project_accessible`, and the
+self-check for this phase proves a three-actor case (owner / assigned / no
+access) on **each** new surface, not once for the phase.
+
+Note this interacts directly with #190: until per-company roles actually hold
+`project.view_all`, most of these surfaces render empty for most users. #190
+lands before this phase, or the integration cannot be evaluated.
+
+### 16.5 Acceptance
+
+1. A blocked project appears on the dashboard without the user opening Projects.
+2. The projected end date shown on the dashboard is byte-identical to the one on
+   the project's own page and in the timeline — same RPC, same number.
+3. A project with too little history shows no projection, not a confident guess.
+4. Project dates appear in the calendar and filter by portfolio.
+5. The Timeline toggle is no longer disabled.
+6. Three-actor visibility proven on every new surface.
+
+---
+
+## 17. Project QOL — folded into Phase 8, not a phase of its own
+
+Raised separately, but it is already §14's second half and belongs there.
+Splitting it out would mean touching the same files twice: you cannot re-skin a
+project card in one phase and fix its interactions in another without redoing
+the first pass. §14 already carries "handling small user human interactions such
+as duplication" as an explicit priority.
+
+What the separate raise adds is the diagnosis, which §14 should state plainly:
+**the average user does not understand what a project is versus a portfolio
+versus a pipeline versus a task.** That is a naming and affordance problem, not
+a polish problem, and it is the thing §14.1 ("nothing renders as bare text")
+exists to fix. Concretely it needs, inside Phase 8:
+
+- an empty state on every projects surface that explains the entity rather than
+  saying "No projects"
+- duplicate / rename / archive reachable from where the user is looking, not
+  only from a detail route
+- the four entities visually distinguishable at a glance — a portfolio must not
+  look like a project which must not look like a pipeline
+- destructive actions confirmed via `useAlert().showConfirm`, never `Alert.alert`
+- terminology consistent with the §13 terminology layer wherever a label is user-facing
+
+**Ordering caveat.** §16 renders projects on five more surfaces. If §16 ships
+before §14, the shared presentational primitives (project icon, status chip,
+health badge) do not exist yet and each surface invents its own — the §16.1
+failure in visual form. So Phase 8 defines the primitives, then Phase 10 consumes
+them; or the two ship together. They do not ship in the other order.
