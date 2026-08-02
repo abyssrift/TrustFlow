@@ -140,6 +140,43 @@ export interface ActivityEntry {
   is_completion: boolean;
 }
 
+// Portfolio flow analytics (#175) -- project stages, not task stages.
+export interface PortfolioWipStage {
+  pipeline_id: string;
+  pipeline_name: string;
+  stage_id: string;
+  stage_name: string;
+  stage_position: number;
+  is_terminal: boolean;
+  wip_count: number;
+}
+
+export interface PortfolioCfdPoint {
+  bucket_start: string;
+  bucket_end: string;
+  stage_id: string;
+  stage_name: string;
+  stage_position: number;
+  cumulative_count: number;
+}
+
+export interface PortfolioThroughputBucket {
+  bucket_start: string;
+  bucket_end: string;
+  arrivals: number;
+  completions: number;
+  wip_end: number;
+  cycle_time_days: number | null;
+}
+
+export interface PortfolioCapacityRow {
+  user_id: string;
+  full_name: string;
+  avatar_url: string | null;
+  committed_hours: number;
+  available_hours: number;
+}
+
 // ── Context interface ──────────────────────────────────────────────────────
 
 interface AnalyticsContextType {
@@ -156,6 +193,10 @@ interface AnalyticsContextType {
   getPipelinePointsSeries: (pipelineId: string, periodType: string, nPeriods: number) => Promise<PipelinePointsPeriod[]>;
   getPipelineHoursSeries: (pipelineId: string, periodType: string, nPeriods: number) => Promise<PipelineHoursPeriod[]>;
   getRecentActivity: (userId: string, limit?: number) => Promise<ActivityEntry[]>;
+  getPortfolioWipByStage: (pipelineId: string | null) => Promise<PortfolioWipStage[]>;
+  getPortfolioCfd: (pipelineId: string, from: string, to: string, buckets: number) => Promise<PortfolioCfdPoint[]>;
+  getPortfolioThroughput: (pipelineId: string, from: string, to: string, buckets: number) => Promise<PortfolioThroughputBucket[]>;
+  getPortfolioCapacity: (from: string, to: string) => Promise<PortfolioCapacityRow[]>;
   invalidate: (keyPrefix?: string) => void;
 }
 
@@ -467,6 +508,77 @@ export const AnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       PULSE_TTL_MS,
     );
 
+  // ── Portfolio flow analytics (#175) ─────────────────────────────────────
+
+  const getPortfolioWipByStage = (pipelineId: string | null): Promise<PortfolioWipStage[]> =>
+    fetchWithDedup(
+      `portfolio_wip:${pipelineId ?? 'all'}`,
+      async () => {
+        const { data, error } = await supabase.rpc('rpc_portfolio_wip_by_stage', {
+          p_pipeline_id: pipelineId,
+        });
+        if (error) throw error;
+        return (data ?? []) as PortfolioWipStage[];
+      },
+      SERIES_TTL_MS,
+    );
+
+  const getPortfolioCfd = (
+    pipelineId: string,
+    from: string,
+    to: string,
+    buckets: number,
+  ): Promise<PortfolioCfdPoint[]> =>
+    fetchWithDedup(
+      `portfolio_cfd:${pipelineId}:${from}:${to}:${buckets}`,
+      async () => {
+        const { data, error } = await supabase.rpc('rpc_portfolio_cfd', {
+          p_pipeline_id: pipelineId,
+          p_from:        from,
+          p_to:          to,
+          p_buckets:     buckets,
+        });
+        if (error) throw error;
+        return (data ?? []) as PortfolioCfdPoint[];
+      },
+      SERIES_TTL_MS,
+    );
+
+  const getPortfolioThroughput = (
+    pipelineId: string,
+    from: string,
+    to: string,
+    buckets: number,
+  ): Promise<PortfolioThroughputBucket[]> =>
+    fetchWithDedup(
+      `portfolio_throughput:${pipelineId}:${from}:${to}:${buckets}`,
+      async () => {
+        const { data, error } = await supabase.rpc('rpc_portfolio_throughput', {
+          p_pipeline_id: pipelineId,
+          p_from:        from,
+          p_to:          to,
+          p_buckets:     buckets,
+        });
+        if (error) throw error;
+        return (data ?? []) as PortfolioThroughputBucket[];
+      },
+      SERIES_TTL_MS,
+    );
+
+  const getPortfolioCapacity = (from: string, to: string): Promise<PortfolioCapacityRow[]> =>
+    fetchWithDedup(
+      `portfolio_capacity:${from}:${to}`,
+      async () => {
+        const { data, error } = await supabase.rpc('rpc_portfolio_capacity', {
+          p_from: from,
+          p_to:   to,
+        });
+        if (error) throw error;
+        return (data ?? []) as PortfolioCapacityRow[];
+      },
+      SERIES_TTL_MS,
+    );
+
   const invalidate = (keyPrefix?: string) => {
     if (!keyPrefix) { cache.current.clear(); return; }
     for (const key of cache.current.keys()) {
@@ -489,6 +601,10 @@ export const AnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       getTargetsStatus,
       comparePersonnel,
       getRecentActivity,
+      getPortfolioWipByStage,
+      getPortfolioCfd,
+      getPortfolioThroughput,
+      getPortfolioCapacity,
       invalidate,
     }}>
       {children}

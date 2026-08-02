@@ -1,6 +1,7 @@
 import { BackButton } from '@/components/common/BackButton';
 import UserLink from '@/components/common/UserLink';
 import { DateRangeControls, useGranularity } from '@/components/intelligence/DateRangeFilter';
+import PortfolioFlowTab from '@/components/intelligence/PortfolioFlowTab';
 import { PersonnelRow, StageDwell, ThroughputBucket, useAnalytics } from '@/contexts/AnalyticsContext';
 import { bucketLabel } from '@/lib/chartBuckets';
 import { useAuth } from '@/contexts/AuthContext';
@@ -24,7 +25,7 @@ import {
 } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
-type AdminTab = 'pipeline' | 'personnel';
+type AdminTab = 'pipeline' | 'personnel' | 'portfolio';
 
 // ─── Throughput SVG Bar Chart ─────────────────────────────────────────────────
 
@@ -512,10 +513,19 @@ export default function AdminAnalyticsNative() {
             Personnel
           </Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => setActiveTab('portfolio')}
+          className={`flex-1 py-2.5 rounded-xl items-center ${activeTab === 'portfolio' ? 'bg-brand-primary' : ''}`}
+        >
+          <Text className={`text-xs font-black uppercase tracking-widest ${activeTab === 'portfolio' ? 'text-white' : 'text-typography-muted'}`}>
+            Portfolio
+          </Text>
+        </TouchableOpacity>
       </View>
 
       <View className="px-6">
         {activeTab === 'pipeline' && <PipelineTab />}
+        {activeTab === 'portfolio' && <PortfolioFlowTab />}
         {activeTab === 'personnel' && canCompare && limits.personnel && <PersonnelTab />}
         {activeTab === 'personnel' && canCompare && !limits.personnel && (
           <View className="rounded-2xl border border-surface-border/50 px-4 py-3 flex-row items-center gap-2 mt-2">

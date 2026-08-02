@@ -1,5 +1,6 @@
 import UserLink from '@/components/common/UserLink';
 import { DateRangeControls, useGranularity } from '@/components/intelligence/DateRangeFilter';
+import PortfolioFlowTab from '@/components/intelligence/PortfolioFlowTab';
 import { ConversionFunnelChartWeb, StageDwellChartWeb } from '@/components/intelligence/RadarWidgets';
 import { PersonnelRow, StageDwell, ThroughputBucket, useAnalytics } from '@/contexts/AnalyticsContext';
 import { bucketLabel } from '@/lib/chartBuckets';
@@ -36,7 +37,7 @@ import {
   XAxis, YAxis
 } from 'recharts';
 
-type AdminTab = 'pipeline' | 'personnel';
+type AdminTab = 'pipeline' | 'personnel' | 'portfolio';
 function fmtPct(v: number | null): string {
   return v !== null ? `${v.toFixed(1)}%` : '—';
 }
@@ -933,6 +934,19 @@ export default function AdminAnalyticsWeb() {
                 {!canPersonnel && <FontAwesome name="lock" size={10} color="rgb(100,116,139)" />}
               </View>
             </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setActiveTab('portfolio')}
+              className={`px-6 py-3 -mb-px border-b-2 transition-all ${
+                activeTab === 'portfolio'
+                  ? 'border-brand-primary'
+                  : 'border-transparent hover:border-surface-border'
+              }`}
+            >
+              <Text className={`font-black text-sm ${activeTab === 'portfolio' ? 'text-brand-primary' : 'text-typography-muted'}`}>
+                Portfolio Flow
+              </Text>
+            </TouchableOpacity>
           </View>
 
           {activeTab === 'pipeline' && <PipelineTab planCode={planCode} limits={limits} />}
@@ -946,6 +960,11 @@ export default function AdminAnalyticsWeb() {
               <Text className="text-typography-muted text-sm text-center">
                 Personnel benchmarking is available on the {requiredPlan('personnel', catalog)} plan and above.
               </Text>
+            </View>
+          )}
+          {activeTab === 'portfolio' && (
+            <View style={{ maxWidth: 1100 }}>
+              <PortfolioFlowTab />
             </View>
           )}
         </View>
