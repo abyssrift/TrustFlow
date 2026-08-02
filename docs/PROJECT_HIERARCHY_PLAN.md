@@ -216,8 +216,20 @@ This containment is most of why the plan is buildable.
 The shape is read whole, written whole, and never queried across. JSONB saves a
 table, its FKs, and an RLS policy.
 
-Per task item: `title, description, pipeline_id, category, priority, weight,
-estimated_hours, due_offset_days?, assignee_team_id?`.
+Per task item: `title, description, category, priority, weight,
+estimated_hours, due_offset_days?`.
+
+**Amended by §13.10 / #182, then by the Phase 7 editor:** the original list
+below still names `pipeline_id` and `assignee_team_id` as body-item fields.
+They are not — §13.10 moved board/team resolution to *instantiate* time via
+`p_category_mapping`, and both fields are **no longer read** by
+`rpc_instantiate_template`. `category` is what carries that mapping now, so
+it is load-bearing rather than decorative: the batch step maps categories to
+boards, not tasks. The Phase 7 template editor (`components/templates/`,
+issue #177) enforces this at the UI level too — no per-item pipeline picker,
+a category *picker* (reuse from the template's own list) instead of a
+free-typed field, so a typo can't silently orphan a task's category from its
+board mapping.
 
 - **Relative dates only.** `due_offset_days` from project start — absolute dates
   in a template are dead on arrival. Optional; the firm confirmed most due dates
@@ -347,7 +359,7 @@ already exists, as do `components/projects/` and `components/tabs/_projects_*.ts
 | `/projects` with **Table / Board / Timeline** toggle | upgrade existing route |
 | Project detail | [`ProjectDashboard.tsx`](../components/projects/ProjectDashboard.tsx) already has KPIs, stage distribution, contributors, deadlines — extend |
 | Portfolio flow analytics | new **tab inside** existing `components/intelligence/` |
-| Template editor | genuinely new, and last |
+| Template editor | genuinely new, and last — shipped, issue #177, see §13.17 |
 
 **The table comes before the board.** The board answers *"what's stuck and
 where"* — the right standup surface, and at ~120 projects across ~6 stages it is
@@ -416,7 +428,7 @@ Projects get treated like tasks for **input and output**, which concretely means
 | **4** | Deliverable folder + harvest toggle | needs #143 read-paths verified |
 | **5** | Analytics — CFD, throughput, forecast, capacity | yes |
 | **6** | Project board (purpose-built) | yes |
-| **7** | Template editor | yes |
+| **7** | Template editor — shipped (#177) | yes |
 | **8** | **Re-brand + interaction polish** — see §14 | **longest** |
 | **9** | **"Smartness" — spreadsheet intake that sets itself up** — see §15 | needs Phase 1 only |
 
@@ -1365,6 +1377,80 @@ chronologically) and a "restore deliverable to version N" UI (the RPC,
 `rpc_filehub_folder_restore_batch`, already exists and works against a
 `scope='project'` folder for free via the `filehub_folder_accessible`
 extension, but no button calls it yet).
+
+### 13.17 Phase 7 shipped — the template editor (settles §4/§8/§10, #177)
+
+Firms can now author and edit `project_templates.body` directly —
+`components/templates/TemplateEditor.tsx` — instead of only capturing one from
+a finished project. Reachable from two existing entry points, both of which
+already committed a `project_templates` row before the editor ever opens, so
+"cancel" in the editor still leaves the captured/materialized template
+in place: `SaveAsTemplateSheet.tsx` (opens the editor right after
+`rpc_create_template_from_project` commits, so an author fixes categories on
+what was just snapshotted before it goes stale) and
+`StarterTemplatePickerSheet.tsx`'s new "Customize First" action (materializes
+the same starter row `rpc_create_starter_template` would for "Use This
+Template", then routes into the editor instead of handing the researched
+offsets back sight-unseen).
+
+**§4 correction, not a new decision:** the body-item contract there still
+listed `pipeline_id` as an editable field. It is not, and has not been since
+§13.10 — the editor does not expose a per-item pipeline picker, and
+`fn_validate_template_body` does not validate one. See §4's amendment above.
+
+**Backend:** one migration
+(`supabase/migrations/20260801_rpc_template_editor.sql`) adds exactly the
+write path `project_templates`'s RLS was missing —
+`rpc_create_project_template` (blank-slate authoring),
+`rpc_update_project_template` (full replace of
+name/description/color/body, gated the same way the existing capture RPCs
+are), `rpc_delete_project_template` (soft delete, `project.delete`-gated,
+matching the schema migration's documented convention). No RLS weakened —
+`project_templates` still ships no INSERT/UPDATE/DELETE policy;
+everything routes through these `SECURITY DEFINER` functions.
+`fn_validate_template_body` mirrors the exact constraints the DB enforces at
+task-insert time (priority enum, weight 1–10, non-negative
+`estimated_hours`/`due_offset_days`) so a bad template fails loud, naming the
+offending task, at save time — not as a raw constraint error mid bulk-create.
+
+**Categories are made reusable, not free-typed per row.** The editor's
+category field is a picker sourced from categories already used elsewhere in
+*this* template (plus an explicit "new category" affordance), not a bare
+text input on every task row. This is the direct fix for the failure mode
+§13.10 exists to prevent — "Planning" on one row and "Planing" on the next
+would otherwise silently split one category's tasks across two (or zero)
+board mappings at instantiate time.
+
+**The schedule anchor is surfaced, not left as a bare integer.** Per §13.9's
+own lesson (194 researched offsets sat inert until an anchor existed to
+interpret them), the editor shows the implied span — "22 tasks · 4
+categories · Day 0 → Day 35" at the template level, a Day-0-to-Day-N position
+bar per task — instead of a naked `due_offset_days` number box.
+
+**Layout follows ux-consistency.md's desktop-density rule**, not the
+single-column shape #182 had to be rebuilt out of:
+`Popup presentation="centered"` `maxWidth={1100}` with `sideMenu={<SidebarLayout width={320}>}`
+(template fields + reorderable task list) and a paired-column form in the
+main pane — same shape as `EditTaskModal.web.tsx`. Below 768px it collapses
+to a `DraggableSheet` two-page drill-in (list page, then a full-height item
+page with a back chevron), the same pattern as `RoleEditorSheet.web.tsx`.
+Reordering is plain up/down buttons, not `hooks/useWebDnd.ts` drag — array
+order only has to roughly track `due_offset_days`, and two buttons per row
+cover that without cross-browser DnD's surface area.
+
+**Round-tripped, not just saved.** `supabase/checks/check_rpc_template_editor.sql`
+creates a blank template, exercises every `fn_validate_template_body`
+rejection path (each asserting the error names the offending task), saves a
+valid two-task body, then calls `rpc_preview_instantiate_template` — the
+same read-only resolver `BulkCreateProjectsSheet` uses — and asserts it
+reports 1 project, 2 tasks, 1 board, and real first/last task dates. A
+template that saves through this editor is therefore provably instantiable,
+not just schema-valid. Manually re-verified against two more real starter
+templates (22-task audit, 14-task tax prep, 12-task bookkeeping close)
+through the actual UI at 1400px and 390px: opened via "Customize First",
+edited a task's `due_offset_days` in the browser, saved, and confirmed the
+new value landed in `project_templates.body` via a direct DB read — not just
+that the UI looked like it saved.
 
 ---
 
