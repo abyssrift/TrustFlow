@@ -1502,6 +1502,73 @@ that the UI looked like it saved.
 
 ---
 
+### 13.18 Phase 5 shipped — portfolio flow analytics (settles §9, #175)
+
+`components/intelligence/PortfolioFlowTab.tsx` (native, react-native-svg) /
+`PortfolioFlowTab.web.tsx` (web, any width, recharts with hover tooltips) —
+a "Portfolio" tab mounted unchanged from both `_analytics_adaptive.tsx` and
+`_analytics_desktop.tsx`. Same data behind both: `hooks/
+usePortfolioFlowData.ts` calls `rpc_portfolio_wip_by_stage` /
+`rpc_portfolio_cfd` / `rpc_portfolio_throughput` / `rpc_portfolio_capacity`
+(all `SECURITY DEFINER`, `analytics.view` + `fn_project_accessible` per row).
+
+**Where the CFD's timestamps come from.** `project_stage_history` is
+trigger-written (§13.2), so `rpc_portfolio_cfd` can compute, for stage S at
+bucket-end D, `COUNT(DISTINCT project)` that has EVER reached position >= S
+by D — a real cumulative-flow diagram, not a synthetic one. The client only
+diffs adjacent-stage `cumulative_count` to draw stage band widths.
+
+**Two real bugs found building this, neither about the numbers:**
+
+- The native/svg WIP chart's `onLayout`-measuring `<View>` combined
+  `onLayout` with `onStartShouldSetResponder` on one node. On web,
+  react-native-web's ResizeObserver-backed `onLayout` never fires when both
+  props share a node — `width` state stuck at 0 forever, so the chart
+  rendered nothing despite the RPC returning 5 real rows (confirmed by
+  instrumenting: DOM measured 782px wide / 0px tall, no layout event ever
+  arrived). Fixed by splitting onto two nested Views + giving the measured
+  node an explicit height, matching `CfdChart`'s already-working structure.
+- A pre-existing Rules-of-Hooks violation in `_analytics_adaptive.tsx`:
+  `useBillingPlan()` was called after two early returns, so
+  `permissionsLoaded` flipping true mid-session changed the hook count
+  between renders ("Rendered more hooks than during the previous render"),
+  crashing the whole Analytics screen on native/narrow web — not specific to
+  Portfolio, just first surfaced by actually loading this tab at 390px.
+  Hoisted above the early returns, matching `_analytics_desktop.tsx`.
+
+**Verified, not just rendered:** `rpc_portfolio_wip_by_stage`'s `wip_count`
+for the QA pipeline matched a hand `COUNT(*)` on `projects`/
+`pipeline_stages` exactly (Intake=1, In Progress=2, Awaiting Client=2,
+Review=0, Done=2, both ways), from three different callers (owner sees all,
+direct assignee sees only their own project, zero-access sees zero — not an
+error). Self-check `supabase/checks/20260801_portfolio_flow_analytics_check.sql`
+covers the same for CFD (hand `COUNT(DISTINCT project_id)`), throughput/
+cycle-time (Little's Law arithmetic), capacity (hand `SUM`s gated by the
+CALLING user, not the assignee), and cross-tenant isolation.
+
+**What local data actually supported:** a real, if small, "Portfolio Flow QA
+Pipeline" with 18 real trigger-written stage-history rows across 7 projects
+and 5 stages spanning ~11 days — enough to draw a genuine (not fabricated)
+CFD with visible arrival/completion bands. Bulk-seeded volume (2,500+ rows in
+one stage) exists in the same DB from a sibling agent's perf testing and was
+used only to confirm the WIP chart doesn't choke on a large count, never
+presented as evidence of correctness.
+
+**Mobile web touch gap, reported plainly rather than papered over:**
+recharts' tooltip only updates on `touchmove`, not `touchstart`/`touchend`
+(confirmed by reading `RechartsWrapper.js` and by dispatching a real
+`Input.dispatchTouchEvent` tap in a live browser — no tooltip appeared). A
+stationary tap on a touch device shows nothing; only a touch-drag would. This
+is inherited from recharts' default trigger behavior and is not unique to
+this tab — every other recharts chart in Intelligence (`PipelineOverviewChart.tsx`,
+`IntelligenceSections.tsx`) has the same characteristic. Fixing it app-wide
+is out of scope here; flagged, not silently shipped.
+
+Focus ring: matches the app's single global focus treatment (`global.css`,
+commit 0452396) — no local `outline`/focus code in this tab.
+
+---
+
 ## 14. Phase 8 — re-brand and interaction polish
 
 The last phase, and the longest. Everything before it is judged on whether the
