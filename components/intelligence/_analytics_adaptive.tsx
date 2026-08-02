@@ -451,6 +451,14 @@ function PersonnelTab() {
 export default function AdminAnalyticsNative() {
   const colors = useThemeColors();
   const { hasPermission, permissionsLoaded } = useAuth();
+  // Rules-of-Hooks fix: useBillingPlan() used to be called AFTER the two
+  // early returns below, so the first render (permissionsLoaded still
+  // false) called 3 hooks and a later render called 3 + useBillingPlan's 8
+  // -- "Rendered more hooks than during the previous render", reproduced by
+  // simply loading this screen at native/narrow-web width. The desktop
+  // sibling (_analytics_desktop.tsx) already calls it unconditionally
+  // before its own early returns; this just matches that.
+  const { limits: planLimits } = useBillingPlan();
   const [activeTab, setActiveTab] = useState<AdminTab>('pipeline');
 
   if (!permissionsLoaded) {
@@ -476,7 +484,6 @@ export default function AdminAnalyticsNative() {
   }
 
   const canCompare = hasPermission('analytics.compare');
-  const { limits: planLimits } = useBillingPlan();
   const limits = getAnalyticsLimits(planLimits);
 
   return (

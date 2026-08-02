@@ -261,31 +261,50 @@ END $$;
 DO $$
 DECLARE
   c RECORD;
-  v_row RECORD;
-  v_bucket_days NUMERIC;
-  v_expected_cycle NUMERIC;
+  v_arrivals_total    INT;
+  v_completions_total INT;
+  v_final_row         RECORD;
 BEGIN
   SELECT * INTO c FROM pfa_check_ctx;
   PERFORM set_config('request.jwt.claim.sub', c.creator::text, true);
 
-  SELECT * INTO v_row
+  -- Sum across ALL buckets, not just the final one -- with only 3 buckets
+  -- spanning [now-2d, now+1d], the fixture's "now" transitions can land in
+  -- the MIDDLE bucket depending on where "now" falls in that span (bucket
+  -- boundaries are evenly spaced across the whole range, not date-aligned to
+  -- "today"). Asserting against the final bucket alone was a check bug, not
+  -- an RPC bug -- confirmed against a raw arrival_events query landing the
+  -- event in bucket 2 of 3.
+  SELECT COALESCE(SUM(arrivals), 0), COALESCE(SUM(completions), 0)
+  INTO v_arrivals_total, v_completions_total
+  FROM public.rpc_portfolio_throughput(c.pipeline1, (now() - interval '2 days')::date, (now() + interval '1 day')::date, 3);
+
+  IF v_arrivals_total IS DISTINCT FROM 2 THEN
+    RAISE EXCEPTION 'CHECK FAILED (3): expected 2 arrivals total across all buckets, got %', v_arrivals_total;
+  END IF;
+  IF v_completions_total IS DISTINCT FROM 0 THEN
+    RAISE EXCEPTION 'CHECK FAILED (3): expected 0 completions total across all buckets, got %', v_completions_total;
+  END IF;
+
+  -- wip_end is a running total (arrived-so-far minus completed-so-far as of
+  -- each bucket's end), so the FINAL bucket's wip_end/cycle_time are
+  -- well-defined regardless of which bucket the arrival itself landed in.
+  SELECT * INTO v_final_row
   FROM public.rpc_portfolio_throughput(c.pipeline1, (now() - interval '2 days')::date, (now() + interval '1 day')::date, 3)
   ORDER BY bucket_end DESC LIMIT 1;
 
-  IF v_row.arrivals IS DISTINCT FROM 2 THEN
-    RAISE EXCEPTION 'CHECK FAILED (3): expected 2 arrivals in the final bucket, got %', v_row.arrivals;
-  END IF;
-  IF v_row.wip_end IS DISTINCT FROM 2 THEN
-    RAISE EXCEPTION 'CHECK FAILED (3): expected wip_end=2 (both parked in Intake, none terminal), got %', v_row.wip_end;
+  IF v_final_row.wip_end IS DISTINCT FROM 2 THEN
+    RAISE EXCEPTION 'CHECK FAILED (3): expected wip_end=2 (both parked in Intake, none terminal), got %', v_final_row.wip_end;
   END IF;
   -- Neither project reached Done -- completions must be 0 and cycle time
-  -- undefined (NULL), never a divide-by-zero or a misleading 0.
-  IF v_row.completions IS DISTINCT FROM 0 OR v_row.cycle_time_days IS NOT NULL THEN
-    RAISE EXCEPTION 'CHECK FAILED (3): expected 0 completions / NULL cycle time, got completions=%, cycle=%',
-      v_row.completions, v_row.cycle_time_days;
+  -- undefined (NULL) in the final bucket too, never a divide-by-zero or a
+  -- misleading 0.
+  IF v_final_row.completions IS DISTINCT FROM 0 OR v_final_row.cycle_time_days IS NOT NULL THEN
+    RAISE EXCEPTION 'CHECK FAILED (3): expected 0 completions / NULL cycle time in final bucket, got completions=%, cycle=%',
+      v_final_row.completions, v_final_row.cycle_time_days;
   END IF;
 
-  RAISE NOTICE 'OK (3): throughput bucket matches fixture (arrivals=2, wip_end=2, completions=0 -> cycle_time NULL, no div-by-zero)';
+  RAISE NOTICE 'OK (3): throughput totals match fixture (arrivals=2 total, wip_end=2, completions=0 -> cycle_time NULL, no div-by-zero)';
 END $$;
 
 -- ── 4. Capacity: hand SUM matches, and it tracks the CALLER's access ───────

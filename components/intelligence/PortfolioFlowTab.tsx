@@ -1,16 +1,15 @@
-import { PipelineSelector, DateRangeControls, useGranularity } from '@/components/intelligence/DateRangeFilter';
+import { PipelineSelector, DateRangeControls } from '@/components/intelligence/DateRangeFilter';
 import UserLink from '@/components/common/UserLink';
 import {
   PortfolioCapacityRow,
   PortfolioCfdPoint,
   PortfolioThroughputBucket,
   PortfolioWipStage,
-  useAnalytics,
 } from '@/contexts/AnalyticsContext';
+import { usePortfolioFlowData } from '@/hooks/usePortfolioFlowData';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
@@ -18,10 +17,18 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 // cycle time (Little's Law: WIP / throughput), and capacity (committed vs
 // tracked hours per person). Reuses the #139 shared calendar range picker +
 // screen-driven granularity (DateRangeFilter.tsx) rather than a per-chart
-// date control, and the same react-native-svg approach as the Pipeline tab's
-// ThroughputChart/DwellChart in _analytics_adaptive.tsx -- one implementation
-// that renders on native, mobile web and desktop web alike, so it is mounted
-// unchanged from both _analytics_adaptive.tsx and _analytics_desktop.tsx.
+// date control. Pipeline/date-range state and the four getPortfolio* fetches
+// live in hooks/usePortfolioFlowData.ts, shared with the web variant below --
+// only chart rendering differs by platform.
+//
+// This file (PortfolioFlowTab.tsx, no platform suffix) is the NATIVE +
+// fallback implementation, using react-native-svg -- the same approach as
+// the Pipeline tab's ThroughputChart/DwellChart in _analytics_adaptive.tsx.
+// PortfolioFlowTab.web.tsx is the web sibling (any width): recharts, with
+// real hover tooltips, matching every other Intelligence chart
+// (PipelineOverviewChart.tsx, IntelligenceSections.tsx's AnalyticsSectionWeb)
+// -- recharts is web-only and cannot render on native RN, which is why this
+// split exists rather than one shared implementation.
 //
 // All four numbers come from rpc_portfolio_wip_by_stage / rpc_portfolio_cfd /
 // rpc_portfolio_throughput / rpc_portfolio_capacity -- SECURITY DEFINER RPCs
@@ -60,25 +67,37 @@ function WipByStageChart({ data }: { data: PortfolioWipStage[] }) {
     </View>
   );
 
+  // Two fixes, both matching CfdChart's already-working structure:
+  // 1. Explicit height (row count * row height) on the measured node --
+  //    a 0-height box that only gets content once width>0 is a chicken/egg
+  //    deadlock on web.
+  // 2. onLayout and onStartShouldSetResponder must be on SEPARATE Views --
+  //    combined on one node, react-native-web's ResizeObserver-backed
+  //    onLayout never fires at all (confirmed by instrumenting: `wip` had
+  //    5 real rows, the DOM node measured 782px wide / 0px tall, and no
+  //    layout event ever arrived while both props shared one View).
+  const rowH = 26;
   return (
-    <View onLayout={e => setWidth(e.nativeEvent.layout.width)} onStartShouldSetResponder={() => true}>
-      {width > 0 && sorted.map((s, i) => {
-        const barW = Math.max(2, (s.wip_count / maxCount) * barAreaW);
-        const color = STAGE_COLORS[i % STAGE_COLORS.length];
-        return (
-          <View key={s.stage_id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-            <Text style={{ width: labelW, fontSize: 10, fontWeight: '700', color: colors.textMuted }} numberOfLines={1}>
-              {s.stage_name}
-            </Text>
-            <Svg height={18} width={barAreaW}>
-              <Rect x={0} y={2} width={barW} height={14} fill={color} rx={4} />
-            </Svg>
-            <Text style={{ width: countW, fontSize: 11, fontWeight: '900', textAlign: 'right', color: colors.textMain }}>
-              {s.wip_count}
-            </Text>
-          </View>
-        );
-      })}
+    <View onStartShouldSetResponder={() => true}>
+      <View style={{ height: sorted.length * rowH }} onLayout={e => setWidth(e.nativeEvent.layout.width)}>
+        {width > 0 && sorted.map((s, i) => {
+          const barW = Math.max(2, (s.wip_count / maxCount) * barAreaW);
+          const color = STAGE_COLORS[i % STAGE_COLORS.length];
+          return (
+            <View key={s.stage_id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+              <Text style={{ width: labelW, fontSize: 10, fontWeight: '700', color: colors.textMuted }} numberOfLines={1}>
+                {s.stage_name}
+              </Text>
+              <Svg height={18} width={barAreaW}>
+                <Rect x={0} y={2} width={barW} height={14} fill={color} rx={4} />
+              </Svg>
+              <Text style={{ width: countW, fontSize: 11, fontWeight: '900', textAlign: 'right', color: colors.textMain }}>
+                {s.wip_count}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
     </View>
   );
 }
@@ -315,63 +334,11 @@ function CapacityList({ rows }: { rows: PortfolioCapacityRow[] }) {
 export default function PortfolioFlowTab() {
   const colors = useThemeColors();
   const {
-    getPortfolioWipByStage,
-    getPortfolioCfd,
-    getPortfolioThroughput,
-    getPortfolioCapacity,
-  } = useAnalytics();
-
-  const [pipelines, setPipelines] = useState<{ id: string; name: string }[]>([]);
-  const [selectedPipeline, setSelectedPipeline] = useState<string | null>(null);
-  const granularity = useGranularity();
-  const buckets = granularity.buckets;
-
-  const today = new Date();
-  const defaultFrom = new Date(today.getTime() - 56 * 86400000);
-  const [from, setFrom] = useState(defaultFrom.toISOString().split('T')[0]);
-  const [to, setTo] = useState(today.toISOString().split('T')[0]);
-
-  const [wip, setWip] = useState<PortfolioWipStage[]>([]);
-  const [cfd, setCfd] = useState<PortfolioCfdPoint[]>([]);
-  const [throughput, setThroughput] = useState<PortfolioThroughputBucket[]>([]);
-  const [capacity, setCapacity] = useState<PortfolioCapacityRow[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    supabase
-      .from('pipelines')
-      .select('id, name')
-      .eq('subject_kind', 'project')
-      .is('deleted_at', null)
-      .order('name')
-      .then(({ data }) => {
-        if (data?.length) { setPipelines(data); setSelectedPipeline(data[0].id); }
-      });
-  }, []);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const capacityPromise = getPortfolioCapacity(from, to);
-      if (!selectedPipeline) {
-        setCapacity(await capacityPromise);
-        setWip([]); setCfd([]); setThroughput([]);
-        setLoaded(true);
-        return;
-      }
-      const [w, c, t, cap] = await Promise.all([
-        getPortfolioWipByStage(selectedPipeline),
-        getPortfolioCfd(selectedPipeline, from, to, buckets),
-        getPortfolioThroughput(selectedPipeline, from, to, buckets),
-        capacityPromise,
-      ]);
-      setWip(w); setCfd(c); setThroughput(t); setCapacity(cap);
-      setLoaded(true);
-    } finally { setLoading(false); }
-  }, [selectedPipeline, from, to, buckets]);
-
-  useEffect(() => { load(); }, [load]);
+    pipelines, selectedPipeline, setSelectedPipeline,
+    granularity, from, to, setFrom, setTo,
+    wip, cfd, throughput, capacity,
+    loading, loaded,
+  } = usePortfolioFlowData();
 
   if (pipelines.length === 0 && loaded) {
     return (
