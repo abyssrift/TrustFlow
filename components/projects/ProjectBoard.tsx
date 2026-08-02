@@ -401,7 +401,15 @@ export default function ProjectBoard({
   const openPicker = useCallback((row: BoardRow) => setPickerProject({ id: row.id, stageId: row.current_stage_id }), []);
 
   const pipelineChips = pipelines.length > 1 && (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4" contentContainerStyle={{ gap: 8 }}>
+    // flexGrow:0 -- react-native-web's ScrollView defaults to flexGrow:1
+    // regardless of the `horizontal` prop, so nested inside a `flex-1`
+    // column (both the desktop and mobile branches below) this chip row
+    // would otherwise swallow all remaining vertical space and, combined
+    // with alignItems:'stretch', stretch every rounded-full chip into a
+    // giant pill filling the column -- caught by driving the mobile board
+    // in a real browser at 390px, not visible at the single-pipeline count
+    // this repo happens to seed locally.
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} className="mb-4" contentContainerStyle={{ gap: 8 }}>
       {pipelines.map(p => (
         <TouchableOpacity
           key={p.id}
@@ -468,7 +476,10 @@ export default function ProjectBoard({
   return (
     <View className="flex-1 px-4">
       {pipelineChips}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4" contentContainerStyle={{ gap: 8 }}>
+      {/* flexGrow:0 -- see the identical note on pipelineChips above; without
+          it this horizontal chip row stretches to fill the flex-1 column
+          and its rounded-full chips balloon into full-height pills. */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} className="mb-4" contentContainerStyle={{ gap: 8 }}>
         {stages.map(s => (
           <TouchableOpacity
             key={s.id}
@@ -481,42 +492,50 @@ export default function ProjectBoard({
         ))}
       </ScrollView>
 
-      {activeCol.loading && activeCol.rows.length === 0 ? (
-        <SkeletonList count={3} itemHeight={110} />
-      ) : activeCol.rows.length === 0 ? (
-        <View className="items-center py-16 px-2">
-          <FontAwesome name="inbox" size={24} color={c.textDim} />
-          <Text className="text-typography-dim text-sm mt-3">No projects in this stage</Text>
-        </View>
-      ) : (
-        <>
-          {activeStage && activeCol.rows.map(row => (
-            <ProjectCard
-              key={row.id}
-              row={row}
-              stageId={activeStage.id}
-              canEdit={canEdit}
-              dragEnabled={false}
-              isMoving={movePendingId === row.id}
-              justMoved={justMovedId === row.id}
-              onOpen={onOpenProject}
-              onTapMove={openPicker}
-            />
-          ))}
-          {activeCol.hasMore && activeStage && (
-            <TouchableOpacity
-              onPress={() => loadStage(activeStage.id, activeCol.offset + PAGE_SIZE)}
-              disabled={activeCol.loading}
-              className="items-center py-3 rounded-xl border border-surface-border mb-6"
-              style={{ minHeight: 44 }}
-            >
-              <Text className="text-typography-muted text-[10px] font-black uppercase">
-                {activeCol.loading ? 'Loading…' : `Load ${PAGE_SIZE} more`}
-              </Text>
-            </TouchableOpacity>
-          )}
-        </>
-      )}
+      {/* The stage-chip row above is a fixed header; only the card list
+          scrolls. Without this ScrollView the outer flex-1 View has no
+          scroll affordance at all, so a stage with more cards than fit one
+          screen (easy once "Load 30 more" is tapped a couple of times) was
+          simply unreachable below the fold -- caught the same way as the
+          chip-stretch bug, by actually driving this at 390px. */}
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
+        {activeCol.loading && activeCol.rows.length === 0 ? (
+          <SkeletonList count={3} itemHeight={110} />
+        ) : activeCol.rows.length === 0 ? (
+          <View className="items-center py-16 px-2">
+            <FontAwesome name="inbox" size={24} color={c.textDim} />
+            <Text className="text-typography-dim text-sm mt-3">No projects in this stage</Text>
+          </View>
+        ) : (
+          <>
+            {activeStage && activeCol.rows.map(row => (
+              <ProjectCard
+                key={row.id}
+                row={row}
+                stageId={activeStage.id}
+                canEdit={canEdit}
+                dragEnabled={false}
+                isMoving={movePendingId === row.id}
+                justMoved={justMovedId === row.id}
+                onOpen={onOpenProject}
+                onTapMove={openPicker}
+              />
+            ))}
+            {activeCol.hasMore && activeStage && (
+              <TouchableOpacity
+                onPress={() => loadStage(activeStage.id, activeCol.offset + PAGE_SIZE)}
+                disabled={activeCol.loading}
+                className="items-center py-3 rounded-xl border border-surface-border mb-6"
+                style={{ minHeight: 44 }}
+              >
+                <Text className="text-typography-muted text-[10px] font-black uppercase">
+                  {activeCol.loading ? 'Loading…' : `Load ${PAGE_SIZE} more`}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </>
+        )}
+      </ScrollView>
 
       <ProjectStagePicker
         visible={!!pickerProject}

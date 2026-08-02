@@ -387,6 +387,54 @@ with no `limit`, no `range`, and no virtualization. Project boards make it a
 drill-down, which helps, but at ~2,500 tasks it still needs pagination or this
 work lands as a performance regression. Ties to #45.
 
+### Phase 6 shipped — the purpose-built board (#176)
+
+`components/projects/ProjectBoard.tsx` is new, standalone, and imports
+nothing from `_tasks_desktop.tsx`/`_tasks_adaptive.tsx` — no
+`taskBoardCache`, no personalizer, no StageTransitionFX, no
+submission/claiming/timer machinery. It duplicates only the task board's
+*visual* shell (column header treatment, card shadow/radius, rounded
+stage-body chrome). `/projects` gained a `Table / Board` toggle
+(`components/tabs/_projects_desktop.tsx` and `_projects_adaptive.tsx`);
+Timeline stays a disabled placeholder.
+
+**Shared, on purpose:** `rpc_projects_table` (#173, already
+`fn_project_accessible`-gated) for card data, called once per stage column
+with `p_stage_id`/`p_limit`/`p_offset` — never a new RPC. Every stage move,
+drag-and-drop or tap-to-move alike, funnels through
+`rpc_advance_project_stage` (#172) — never a raw `UPDATE
+current_stage_id`. `ageColor`/`dueColor`/`fmtDue` are imported from
+`ProjectsTable.tsx` (not re-derived). Cards route to `/projects/[id]` (#184).
+`ProjectStagePicker` (#172) is the tap-to-move affordance and the *only* move
+path on mobile.
+
+**Pagination:** each stage column is its own bounded page,
+`PAGE_SIZE=30`, fetched in parallel (one `rpc_projects_table` call per
+stage, not per project) with a manual "Load 30 more" per column — the
+initial payload is bounded by `stage count × PAGE_SIZE`, never by total
+project count. Verified locally against 2,501 projects seeded into one
+stage: the board still renders that column as a `30+` badge with a bounded
+30-row page (~350-800ms per `rpc_projects_table` call against the seeded
+data; the query's own cost — company-wide rollup CTEs shared with the
+table view — is unaffected by the board's pagination, and is
+`rpc_projects_table`'s existing, out-of-scope-for-this-phase behavior, not
+something the board introduced).
+
+**Mobile (<768px), driven live at 390px, not just assumed:** one stage at a
+time via a horizontal chip row, cards stacked vertically below, tap-to-move
+only (no drag surface on touch). Building this surfaced two real bugs,
+both fixed in the same phase, not deferred: (1) react-native-web's
+`ScrollView` defaults to `flexGrow: 1` regardless of the `horizontal` prop,
+so both chip rows (pipeline switcher and mobile stage filter), nested in a
+`flex-1` column with no counter-style, stretched to fill the remaining
+column height and turned every `rounded-full` chip into a full-height pill
+— fixed with an explicit `style={{ flexGrow: 0 }}` on each. (2) the mobile
+card list itself had no scroll container at all, so a stage with more cards
+than fit one screen was unreachable below the fold — fixed by wrapping the
+card list (not the chip row) in its own `ScrollView`. Neither was caught by
+`tsc` or the desktop screenshot; both only showed up driving a real browser
+at a narrow width.
+
 ---
 
 ## 9. Analytics
@@ -415,7 +463,7 @@ Projects get treated like tasks for **input and output**, which concretely means
 | **3** | Portfolio table view + days-in-stage | yes |
 | **4** | Deliverable folder + harvest toggle | needs #143 read-paths verified |
 | **5** | Analytics — CFD, throughput, forecast, capacity | yes |
-| **6** | Project board (purpose-built) | yes |
+| **6** | Project board (purpose-built) — **shipped** | yes |
 | **7** | Template editor | yes |
 | **8** | **Re-brand + interaction polish** — see §14 | **longest** |
 | **9** | **"Smartness" — spreadsheet intake that sets itself up** — see §15 | needs Phase 1 only |
