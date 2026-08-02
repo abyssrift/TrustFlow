@@ -2101,3 +2101,89 @@ Measured against the real file, not a fixture we wrote to pass:
    created without confirmation.
 6. Re-importing the same file with a saved mapping requires no re-mapping.
 7. The self-check runs against this actual workbook, checked into the repo.
+
+### 18.6 Shipped — the parser (branch `feat-spreadsheet-classifier`)
+
+Pure functions only; extends `lib/imports/spreadsheetMapping.ts` rather than
+adding a module beside it, and keeps its zero-`lib/supabase`/zero-xlsx
+constraint so the self-check still runs under plain `npx tsx`. No UI, no
+schema, no RPC — §18.3's `project_field_defs`/`project_field_values` are a
+separate piece of work and this layer only hands them the candidates.
+
+**The classifier.** `profileColumn`/`profileColumns` emit an industry-neutral
+primitive per column — `email | phone | date | year | money | unique_id | enum
+| freetext | empty | unknown` — each with a **coverage fraction over non-empty
+cells** and a confidence, plus every runner-up candidate, the distinct count,
+the enum vocabulary, and up to five cells the winner does *not* explain.
+Coverage carries the weight §18.1 asked for: "Expected date" arrives as a date
+column at **0.62**, not as a pass or a fail, and names the prose that did not
+parse. The returned array is **dense and index-aligned**, so §18.5 #1's "zero
+silently discarded" is structural rather than a promise — a caller iterating it
+cannot skip a column, and `empty`/`unknown` are explicit reports, not absences.
+
+**Header demoted to nomination.** `proposeColumnMapping` now profiles first and
+reads headers second. `client_external_ref`/`start_date` need a supporting
+content primitive **and** a header nomination (a file holds several date
+columns and only the header says which one is meant); `name` is decided by
+content ranking — unique, populated, textual — with the header able only to
+re-rank columns that already qualify. `headerHintFor` records what the header
+*wanted* even when content overrules it: "Proposed fee" nominates `money` and
+profiles as `empty`, which is the rule made visible.
+
+**Column context, a separate second pass.** `detectColumnRelations` reads the
+column *sequence* and emits `sibling_group` / `total_of` / `contact_block` /
+`single_period`. Prior art: Sherlock classifies columns in isolation and is
+weak on the rarer types; Sato adds table- and neighbour-context for ~0.925 F1.
+We are not doing ML — no corpus, no inference infra, and §15.3's confirmation
+step covers the gap — but the finding transfers for free: `AUDIT 2025 |
+ARABIC3 2025 | TAX | TOTAL A&T 2025` are four identical MONEY columns one at a
+time, and a fee breakdown plus its total as a neighbourhood. `total_of` reports
+`reconciles: false` and names the offending rows; it never computes a corrected
+total (§18.4 / §13.9). Kept a separate function so a relationship can never
+quietly change a column's primitive.
+
+**Row shape.** `classifyRowShapes` returns `data | blank | continuation` for
+every row, and `buildIntakeRows` carries `shape` on each `IntakeRow` — the
+continuation row is neither dropped nor merged nor imported as a project, it
+arrives tagged. Making `shape` a *required* field was deliberate: an optional
+one is a flag every caller can forget.
+
+**Dates.** `resolveDateOrder` decides DD/MM vs MM/DD **once per column** by
+looking for a value > 12 in the first position, returns `'ambiguous'` when no
+cell is decisive or cells contradict, and `undefined` when the column has no
+slash dates so the question is never asked pointlessly. `parseDateValue`
+deliberately does **not** fall through to `new Date(s)` — V8 reads "8/2/26" as
+August 2nd in local time, which is exactly the per-cell guess §18.4 forbids.
+`parseSpreadsheetBytes` feeds the resolved order into `buildIntakeRows`.
+
+**Measured, on the real 22-column register.** 22/22 columns classified, 0
+discarded, 0 `unknown`. `name` -> col 1 "Company Name" (*"values are unique,
+96% populated"*), never col 13. "Follow -up Status" -> `date` at coverage 1.00
+with order DMY, from content alone — its header nominates nothing. "Expected
+date" -> `date` at 0.62, surfacing `1st week of January` / `still pending` /
+`started`. One continuation row and one blank separator flagged. `total_of`
+finds col 10 summing cols 7-9 and reports 8 non-reconciling rows. Ten columns
+are marked `needsConfirmation` (seven enums, three free-text) — §18.2 rule 2,
+and the same auto-suggest-then-require-review shape OneSchema and Flatfile
+both ship.
+
+**Deviation from §18.5 #7, deliberate.** The real workbook is **not** checked
+in — it carries a client's company names, personal mobile numbers and personal
+email addresses, and this repo is pushed to GitHub. `lib/imports/spreadsheetMapping.check.ts`
+asserts against an **anonymised rebuild**: the 22 headers verbatim (trailing
+spaces included), invented companies/people/emails/phones, and every structural
+trap preserved — continuation row, blank separator, multi-valued display-name
+emails, `"8,000"` text money, a non-reconciling total, a case-variant person
+name, an all-empty column with a real header. The fixture is *stricter* than
+the source in one place on purpose: its "Expected date" is genuinely ambiguous
+(1/2/26, 8/2/26, 2/3/26 — nothing over 12) where the real file resolves DMY, so
+both branches of the order question are covered. The real file was run through
+the same code out-of-tree and produces the numbers above.
+
+**Known ceilings, named in the code.** An Excel serial is just a number, so a
+money column whose values all land in 20 000–80 000 reads as dates — the fix
+belongs one layer up (`sheet_to_json` with `cellDates: true`), not in a better
+range guess. Profiling samples the first 500 body rows, not all 5 000. And
+`parseSpreadsheetBytes` still reads with `blankrows: false`, so `rowNumber` is
+an index into the *compacted* sheet, not the user's row number — pre-existing,
+and worth fixing when the UI starts quoting row numbers at people.
