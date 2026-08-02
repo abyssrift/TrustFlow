@@ -1985,3 +1985,119 @@ before §14, the shared presentational primitives (project icon, status chip,
 health badge) do not exist yet and each surface invents its own — the §16.1
 failure in visual form. So Phase 8 defines the primitives, then Phase 10 consumes
 them; or the two ship together. They do not ship in the other order.
+
+---
+
+## 18. Phase 9 redesign — the smart parser (supersedes §15's mapping layer)
+
+§15 shipped an intake that reads a spreadsheet whose columns are named the way
+we expected. Measured against a real client file (22 columns, a Qatari audit
+firm's 2025 engagement register), it recovers **3 columns of 22 — and names
+every project wrong**:
+
+    name       <- col 13 "Name of focal Point"   (a CONTACT PERSON)
+    client_ref <- col 1  "Company Name"
+    start_date <- col 19 "Expected date"         ("1st week of January", "still pending")
+
+`proposeColumnMapping`'s `/\bname\b/i` rule matched "**Name** of focal Point"
+before it reached "Company Name". This is not an incomplete feature; it is a
+confidently wrong one, and it fails in the direction that silently corrupts
+every row.
+
+### 18.1 Headers are not the signal. Content is.
+
+The same file disproves header-matching twice over:
+
+| Column | Header claims | Cells actually contain |
+|---|---|---|
+| 21 | "Follow -up **Status**" | dates — `25/1/2026` |
+| 19 | "Expected **date**" | half dates, half prose |
+| 13 | "**Name** of focal Point" | a person, not the entity |
+
+A content profile over the same 22 columns classifies all three correctly,
+including *declining* to treat col 13 as the entity name:
+
+    1  Company Name           UNIQUE-ID/NAME   Bitumen Trading
+    2  Group / Individual     ENUM(4)          Individual
+    4  Audit status           ENUM(2)          Issued
+    5  Service                ENUM(1)          Audit & Tax
+    6  Planned auditor        ENUM(1)          Abdallah Kamel
+    7  AUDIT 2025             MONEY            8,000
+    16 Emails                 EMAIL            nazar@bitumentrading.com
+    21 Follow -up Status      DATE             25/1/2026
+
+**So: the header nominates, the content votes, and content wins ties.** The
+primitives — email, phone, money, date, year, enum, free text, unique id — are
+industry-neutral. "Audit status" is not a universal concept; "a column holding
+two repeated values" is.
+
+### 18.2 The three rules that keep this industry-agnostic
+
+1. **Content-first classification.** Header text is one weak signal among
+   several, never sufficient on its own. A header may only *raise* a candidate
+   the cell content already supports.
+2. **Enums are where the product asks.** A 4-value column may be a stage, a
+   category, or a grouping. Nothing can distinguish those automatically, and
+   guessing is precisely how col 13 happened. Propose, then require one
+   confirmation.
+3. **Nothing is ever discarded.** An industry we have not seen has columns we
+   cannot name. `Inventory Count Needed`, `EL Status 2025`, `Position` must
+   survive an import into a product that has no concept for any of them.
+   **This is the whole answer to "how do we not limit Excel users."** The
+   parser's job is to recognise what it can and *carry* what it cannot.
+
+### 18.3 Decisions taken
+
+**Unmapped columns become typed custom fields**, not a JSONB blob.
+`project_field_defs` (per company: key, label, data type, enum options,
+source column) + `project_field_values` (per project). A field is filterable,
+sortable, showable as a projects-table column, editable after import, and
+reusable by the next import. A blob would preserve the bytes and lose the
+product: a firm that filters on "Inventory Count Needed = YES" every week
+cannot do so against inert JSON.
+
+**Enum values fuzzy-match, then require confirmation.** `Abdallah kamel` must
+find `Abdallah Kamel`; case and whitespace drift is the norm in real files, not
+the exception. But nothing is created until the user confirms the pairing.
+Auto-creating unmatched values is explicitly rejected — a typo would become a
+permanent duplicate user, which is #182's failure (66 unreachable tasks) with a
+new face.
+
+### 18.4 Row shape — the traps in the real file
+
+Column classification is the interesting half; row handling is the half that
+silently corrupts data.
+
+- **Continuation rows.** Row 7 is `["", "Contracting W.L.L.", "", ...]` — the
+  tail of row 6's company name, wrapped in the source. Imported naively it
+  becomes a junk project named "Contracting W.L.L.". A row whose *only*
+  populated cell is in the name column, following a populated row, is a
+  continuation candidate and must be surfaced, not silently merged **or**
+  silently imported.
+- **Blank separator rows** (row 20) are structure, not data.
+- **Multi-valued cells.** `Emails` holds
+  `accounts& HR department <administration@...> , Sunil <sunil@...>` — two
+  addresses, display-name form, comma-separated.
+- **Money as text** — `"8,000"`, and the components do not reconcile with the
+  stated total (row 3: 4,000 + 0 + 1,000 vs a TOTAL of 3,000). Import the
+  numbers; never compute a "corrected" total silently. §13.9 again.
+- **Ambiguous dates** — `25/1/2026`, `1/2/26`, `8/2/26`. DD/MM vs MM/DD cannot
+  be resolved per-cell; resolve per-column by finding a value > 12 in the first
+  position, and if the column is genuinely ambiguous, ask once for the column
+  rather than guessing 400 times.
+- **Case-variant entities** — `Abdallah Kamel` / `Abdallah kamel`.
+
+### 18.5 Acceptance
+
+Measured against the real file, not a fixture we wrote to pass:
+
+1. Every one of the 22 columns is either mapped to a concept or created as a
+   custom field. **Zero silently discarded.**
+2. Projects are named from "Company Name", never from "Name of focal Point".
+3. "Follow -up Status" is offered as a date; "Expected date" reports that half
+   its cells are not dates rather than importing them as null.
+4. The continuation row does not become a project without the user seeing it.
+5. `Abdallah kamel` binds to the existing `Abdallah Kamel`, and nothing is
+   created without confirmation.
+6. Re-importing the same file with a saved mapping requires no re-mapping.
+7. The self-check runs against this actual workbook, checked into the repo.
