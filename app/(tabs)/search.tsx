@@ -44,7 +44,7 @@ export default function SearchScreen() {
           autoFocus
           placeholder="Search tasks, files, reports…"
           placeholderTextColor={colors.textDim}
-          className="flex-1 text-base text-typography-main outline-none"
+          className="flex-1 text-base text-typography-main"
           style={{ paddingVertical: 0 }}
         />
         {query ? (

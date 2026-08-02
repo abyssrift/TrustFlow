@@ -172,7 +172,7 @@ export const ArchivesSectionWeb = ({ reports, archives, search, activeSchema, on
                 <View className="mr-4">
                   <FontAwesome name="search" size={16} color={colors.textDim} />
                 </View>
-                <TextInput value={search} onChangeText={onSearch} placeholder="Search snapshots by ID, metadata, or title..." className="flex-1 text-typography-main font-bold outline-none" placeholderTextColor={colors.textMuted} />
+                <TextInput value={search} onChangeText={onSearch} placeholder="Search snapshots by ID, metadata, or title..." className="flex-1 text-typography-main font-bold" placeholderTextColor={colors.textMuted} />
               </View>
             </View>
             <Tooltip label="Refresh snapshots">

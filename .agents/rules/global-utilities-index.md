@@ -23,6 +23,7 @@ these was already solved before someone nearly rebuilt it:
 | A date or date range | `Calendar` | see `ux-consistency.md` |
 | Confirming a destructive action | `useAlert().showConfirm` | `Alert.alert` with multiple buttons is a **silent no-op on web** |
 | Failure surfacing from non-React `lib/*` | `lib/toast` | `Alert` does nothing there |
+| A focus ring you want gone | nothing — `global.css` already did it | the click-focus ring and the stray ring RNW/recharts put on non-controls are both suppressed globally; what's left is the keyboard ring, which is an accessibility feature. **Never** write `outline-none` / `outline: 'none'` / `outlineWidth: 0` — `global.css.check.ts` fails the build. Genuine non-control: `className="focus-ring-none"` |
 
 A second implementation is not merely duplicate code — **it drifts, and the
 drift is silent and usually security- or data-relevant.** #167's board pickers

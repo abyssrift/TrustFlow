@@ -2089,7 +2089,7 @@ function FolderCard({ folder, onNavigate, onRename, onDelete }: {
           onBlur={commitRename}
           onSubmitEditing={commitRename}
           autoFocus
-          className="flex-1 text-typography-main font-black text-sm outline-none bg-transparent"
+          className="flex-1 text-typography-main font-black text-sm bg-transparent"
         />
       </View>
     );
@@ -2140,7 +2140,7 @@ function NewFolderCard({ onCreate }: { onCreate: (name: string) => Promise<void>
           placeholder="Folder name"
           placeholderTextColor={colors.textDim}
           autoFocus
-          className="flex-1 text-typography-main text-sm outline-none bg-transparent"
+          className="flex-1 text-typography-main text-sm bg-transparent"
         />
         <TouchableOpacity onPress={handleCreate} disabled={creating} className="px-3 py-1.5 bg-brand-primary rounded-xl">
           <Text className="text-white text-xs font-black">Add</Text>

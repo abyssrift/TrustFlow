@@ -915,7 +915,7 @@ function EditField({ label, value, onChange }: { label: string; value: string; o
         <input
           value={value}
           onChange={(e: any) => onChange(e.target.value)}
-          style={{ background: 'transparent', border: 'none', outline: 'none', color: colors.textMain, fontSize: 13, fontWeight: '600', width: '100%' } as any}
+          style={{ background: 'transparent', border: 'none', color: colors.textMain, fontSize: 13, fontWeight: '600', width: '100%' } as any}
         />
       </View>
     </View>
@@ -1271,7 +1271,7 @@ function UsersSection({ companies, onUserDeleted }: { companies: CompanyOverview
               value={query}
               onChange={(e: any) => setQuery(e.target.value)}
               placeholder="Search by name or email…"
-              style={{ background: 'transparent', border: 'none', outline: 'none', color: 'inherit', fontSize: 13, flex: 1, fontWeight: '500' } as any}
+              style={{ background: 'transparent', border: 'none', color: 'inherit', fontSize: 13, flex: 1, fontWeight: '500' } as any}
             />
             {query.length > 0 && (
               <TouchableOpacity onPress={() => setQuery('')}>
@@ -2037,7 +2037,7 @@ function TrialCodesSection() {
                 value={form.max_redemptions}
                 min={1}
                 onChange={(e: any) => setForm(f => ({ ...f, max_redemptions: Math.max(1, parseInt(e.target.value) || 1) }))}
-                style={{ background: 'transparent', border: 'none', outline: 'none', color: 'inherit', fontSize: 13, fontWeight: '600', width: '100%' } as any}
+                style={{ background: 'transparent', border: 'none', color: 'inherit', fontSize: 13, fontWeight: '600', width: '100%' } as any}
               />
             </View>
           </View>
@@ -2087,7 +2087,7 @@ function TrialCodesSection() {
                 value={form.notes}
                 onChange={(e: any) => setForm(f => ({ ...f, notes: e.target.value }))}
                 placeholder="e.g. for Acme Inc demo"
-                style={{ background: 'transparent', border: 'none', outline: 'none', color: 'inherit', fontSize: 13, fontWeight: '500', width: '100%' } as any}
+                style={{ background: 'transparent', border: 'none', color: 'inherit', fontSize: 13, fontWeight: '500', width: '100%' } as any}
               />
             </View>
           </View>
@@ -2647,7 +2647,7 @@ function WaitlistSection() {
             placeholder="Search email or company..."
             style={{
               background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 10,
-              padding: '8px 12px', fontSize: 13, color: colors.textMain, outline: 'none', width: 240,
+              padding: '8px 12px', fontSize: 13, color: colors.textMain, width: 240,
             } as any}
           />
         </View>

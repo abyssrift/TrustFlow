@@ -146,7 +146,7 @@ export default function TopBar({
             returnKeyType="search"
             placeholder="Search tasks, files, reports…"
             placeholderTextColor={colors.textDim}
-            className="flex-1 text-sm text-typography-main outline-none"
+            className="flex-1 text-sm text-typography-main"
             style={{ paddingVertical: 0 }}
           />
           <SearchDropdown

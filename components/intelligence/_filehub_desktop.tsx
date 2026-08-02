@@ -930,7 +930,7 @@ function UploadModal({
                     onChangeText={searchMembers}
                     placeholder="Search team members..."
                     placeholderTextColor={colors.textDim}
-                    className="flex-1 text-sm outline-none bg-transparent"
+                    className="flex-1 text-sm bg-transparent"
                     style={{ color: colors.textMain }}
                   />
                   {searchingMembers && <ActivityIndicator size="small" color={colors.primary} />}
@@ -998,7 +998,7 @@ function UploadModal({
                   onSubmitEditing={() => addTag(draft.tagInput)}
                   placeholder="Add tag and press Enter..."
                   placeholderTextColor={colors.textDim}
-                  className="flex-1 text-sm outline-none bg-transparent"
+                  className="flex-1 text-sm bg-transparent"
                   style={{ color: colors.textMain }}
                 />
               </View>
@@ -1023,7 +1023,7 @@ function UploadModal({
                 placeholderTextColor={colors.textDim}
                 multiline
                 numberOfLines={3}
-                className="border rounded-xl px-4 py-3 text-sm outline-none"
+                className="border rounded-xl px-4 py-3 text-sm"
                 style={{ minHeight: 80, textAlignVertical: 'top', backgroundColor: colors.background, borderColor: colors.border, color: colors.textMain }}
               />
             </View>
@@ -1292,7 +1292,7 @@ function GroupCreateModal({
                 placeholder="e.g. Design Team"
                 placeholderTextColor={colors.textDim}
                 maxLength={80}
-                className="border rounded-xl px-4 py-3 text-sm font-bold outline-none"
+                className="border rounded-xl px-4 py-3 text-sm font-bold"
                 style={{ backgroundColor: colors.background, borderColor: colors.border, color: colors.textMain }}
               />
             </View>
@@ -1308,7 +1308,7 @@ function GroupCreateModal({
                 multiline
                 numberOfLines={2}
                 maxLength={300}
-                className="border rounded-xl px-4 py-3 text-sm outline-none"
+                className="border rounded-xl px-4 py-3 text-sm"
                 style={{ minHeight: 70, textAlignVertical: 'top', backgroundColor: colors.background, borderColor: colors.border, color: colors.textMain }}
               />
             </View>
@@ -1338,7 +1338,7 @@ function GroupCreateModal({
                   onChangeText={searchMembers}
                   placeholder="Search team members..."
                   placeholderTextColor={colors.textDim}
-                  className="flex-1 text-sm outline-none bg-transparent"
+                  className="flex-1 text-sm bg-transparent"
                   style={{ color: colors.textMain }}
                 />
               </View>
@@ -1430,7 +1430,7 @@ function FolderBreadcrumb({
             placeholder="Folder name"
             placeholderTextColor={colors.textDim}
             autoFocus
-            className="text-typography-main text-sm border border-brand-primary/40 bg-brand-primary/5 rounded-xl px-3 py-1.5 outline-none w-40"
+            className="text-typography-main text-sm border border-brand-primary/40 bg-brand-primary/5 rounded-xl px-3 py-1.5 w-40"
           />
           <TouchableOpacity onPress={handleCreate} disabled={creating} className="px-3 py-1.5 bg-brand-primary rounded-xl">
             <Text className="text-white text-xs font-black">Add</Text>
@@ -1553,7 +1553,7 @@ function FolderRow({
           onBlur={commitRename}
           onSubmitEditing={commitRename}
           autoFocus
-          className="flex-1 text-typography-main font-bold text-sm outline-none bg-transparent mr-3"
+          className="flex-1 text-typography-main font-bold text-sm bg-transparent mr-3"
         />
       ) : (
         <View className="flex-1 mr-3">
@@ -1911,7 +1911,7 @@ function FolderDetailPanel({
             onBlur={commitRename}
             onSubmitEditing={commitRename}
             autoFocus
-            className="text-typography-main text-base font-black tracking-tight mb-0.5 outline-none bg-transparent"
+            className="text-typography-main text-base font-black tracking-tight mb-0.5 bg-transparent"
           />
         ) : (
           <Text className="text-typography-main text-base font-black tracking-tight mb-0.5 leading-snug" numberOfLines={2}>{displayName}</Text>
@@ -2924,7 +2924,7 @@ function GroupMembersPanel({
           onChangeText={searchAdd}
           placeholder="Search to invite..."
           placeholderTextColor={colors.textDim}
-          className="flex-1 text-typography-main text-sm outline-none bg-transparent"
+          className="flex-1 text-typography-main text-sm bg-transparent"
         />
       </View>
       {addResults.length > 0 && (
@@ -3693,7 +3693,7 @@ function FileHubDesktopInner() {
               onChangeText={setSearch}
               placeholder={mode === 'groups' && activeGroupId ? 'Search channel files...' : 'Search files...'}
               placeholderTextColor={colors.textDim}
-              className="flex-1 text-typography-main text-sm font-medium outline-none bg-transparent"
+              className="flex-1 text-typography-main text-sm font-medium bg-transparent"
             />
             {search.length > 0 && (
               <Tooltip label="Clear search">

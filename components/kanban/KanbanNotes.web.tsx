@@ -106,7 +106,7 @@ export default function KanbanNotes({ userId }: { userId?: string }) {
               placeholder="Write anything — reminders, things to look out for…"
               placeholderTextColor={colors.muted}
               className="flex-1 text-sm text-typography-main"
-              style={{ textAlignVertical: 'top', outlineWidth: 0 } as any}
+              style={{ textAlignVertical: 'top' } as any}
             />
           </View>
           <View className="mt-2 flex-row items-center justify-between px-1">

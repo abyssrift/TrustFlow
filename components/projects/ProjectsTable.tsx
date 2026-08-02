@@ -230,7 +230,7 @@ export default function ProjectsTable({
           onChangeText={setSearch}
           placeholder="Search projects..."
           placeholderTextColor={c.textDim}
-          className="flex-1 text-typography-main text-sm outline-none bg-transparent"
+          className="flex-1 text-typography-main text-sm bg-transparent"
         />
         {search.length > 0 && (
           <TouchableOpacity onPress={() => setSearch('')}>

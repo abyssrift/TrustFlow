@@ -122,6 +122,30 @@ All layout must follow consistent spacing rules.
 * Must include border token
 * Must use `text-typography-main`
 
+### Focus
+
+Focus is handled **once, globally**, at the bottom of `global.css`. A component
+never styles or removes it.
+
+* **Never** write `outline: none`, `outline-none`, `outlineWidth: 0`, or
+  `outlineStyle: 'none'`. Not in a class, not in a `style` object.
+* The global rule already suppresses the ugly ring — the one that appears when
+  you *click* a control, or that lands on a container react-native-web or
+  recharts marked focusable without it being a control. That is the case
+  everybody was reaching for `outline: none` to kill.
+* What survives is `:focus-visible`: a `brand-primary` ring on keyboard focus.
+  That ring is an accessibility feature, not a bug. A user tabbing through a
+  form has to be able to see where they are.
+* If an element genuinely is not a control and still takes focus, use
+  `className="focus-ring-none"`. It says the same thing as `outline: none` but
+  it is greppable and it is a claim you can be held to.
+
+Why this is a rule: 24 inputs across the app shipped with `outline-none`, so
+they showed *nothing at all* when tabbed to, and the app still had a stray UA
+ring around a chart. Both symptoms had the same cause — no global focus
+treatment, so every author invented a local one. Fixing it globally deleted
+both without touching a component.
+
 **Do NOT create custom component styles without following these rules.**
 
 ---
