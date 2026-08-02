@@ -14,6 +14,7 @@ import Tooltip from '@/components/common/Tooltip';
 import BulkCreateProjectsSheet from '@/components/projects/BulkCreateProjectsSheet';
 import SpreadsheetImportSheet from '@/components/projects/SpreadsheetImportSheet';
 import ProjectsTable from '@/components/projects/ProjectsTable';
+import ProjectBoard from '@/components/projects/ProjectBoard';
 
 export default function ProjectsScreenWeb() {
   const colors = useThemeColors();
@@ -29,6 +30,8 @@ export default function ProjectsScreenWeb() {
   const [bulkCreateVisible, setBulkCreateVisible] = useState(false);
   const [spreadsheetImportVisible, setSpreadsheetImportVisible] = useState(false);
   const [tableRefreshKey, setTableRefreshKey] = useState(0);
+  // #176 Projects P6 -- Table/Board toggle. Timeline stays disabled/future.
+  const [view, setView] = useState<'table' | 'board'>('table');
 
   const canViewProjects = hasPermission('project.view');
 
@@ -98,18 +101,22 @@ export default function ProjectsScreenWeb() {
           </View>
         </View>
 
-        {/* View toggle — Board (#173 Phase 6) and Timeline are future phases, shown disabled rather than stubbed */}
+        {/* View toggle — Board shipped #176 (Phase 6). Timeline is still future, shown disabled. */}
         <View className="flex-row items-center gap-2 mb-6">
-          <View className="px-5 py-2.5 rounded-xl bg-brand-primary/10 border border-brand-primary flex-row items-center gap-2">
-            <FontAwesome name="table" size={12} color={colors.primary} />
-            <Text className="text-brand-primary text-xs font-black uppercase tracking-widest">Table</Text>
-          </View>
-          <Tooltip label="Coming in Phase 6">
-            <View className="px-5 py-2.5 rounded-xl border border-surface-border opacity-40 flex-row items-center gap-2">
-              <FontAwesome name="columns" size={12} color={colors.textMuted} />
-              <Text className="text-typography-muted text-xs font-black uppercase tracking-widest">Board</Text>
-            </View>
-          </Tooltip>
+          <TouchableOpacity
+            onPress={() => setView('table')}
+            className={`px-5 py-2.5 rounded-xl border flex-row items-center gap-2 ${view === 'table' ? 'bg-brand-primary/10 border-brand-primary' : 'border-surface-border'}`}
+          >
+            <FontAwesome name="table" size={12} color={view === 'table' ? colors.primary : colors.textMuted} />
+            <Text className={`text-xs font-black uppercase tracking-widest ${view === 'table' ? 'text-brand-primary' : 'text-typography-muted'}`}>Table</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setView('board')}
+            className={`px-5 py-2.5 rounded-xl border flex-row items-center gap-2 ${view === 'board' ? 'bg-brand-primary/10 border-brand-primary' : 'border-surface-border'}`}
+          >
+            <FontAwesome name="columns" size={12} color={view === 'board' ? colors.primary : colors.textMuted} />
+            <Text className={`text-xs font-black uppercase tracking-widest ${view === 'board' ? 'text-brand-primary' : 'text-typography-muted'}`}>Board</Text>
+          </TouchableOpacity>
           <Tooltip label="Coming later">
             <View className="px-5 py-2.5 rounded-xl border border-surface-border opacity-40 flex-row items-center gap-2">
               <FontAwesome name="long-arrow-right" size={12} color={colors.textMuted} />
@@ -118,14 +125,21 @@ export default function ProjectsScreenWeb() {
           </Tooltip>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
-          <ProjectsTable
+        {view === 'table' ? (
+          <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
+            <ProjectsTable
+              refreshKey={tableRefreshKey}
+              onOpenProject={(id) => router.push(`/projects/${id}` as any)}
+              onBrowseStarters={hasPermission('project.create') ? () => setBulkCreateVisible(true) : undefined}
+            />
+            <View className="h-20" />
+          </ScrollView>
+        ) : (
+          <ProjectBoard
             refreshKey={tableRefreshKey}
             onOpenProject={(id) => router.push(`/projects/${id}` as any)}
-            onBrowseStarters={hasPermission('project.create') ? () => setBulkCreateVisible(true) : undefined}
           />
-          <View className="h-20" />
-        </ScrollView>
+        )}
       </View>
 
       <ProjectFolderModal
