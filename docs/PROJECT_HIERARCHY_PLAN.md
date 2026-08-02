@@ -2063,6 +2063,57 @@ Auto-creating unmatched values is explicitly rejected — a typo would become a
 permanent duplicate user, which is #182's failure (66 unreachable tasks) with a
 new face.
 
+#### Shipped — the custom-field schema (branch `feat-project-custom-fields`)
+
+`20260802_project_custom_fields.sql`. Two tables, three RPCs, one added column
+on `rpc_projects_table`. Four decisions this section left open, settled by
+building it:
+
+**Values are four typed columns, not one TEXT column with a cast.**
+`value_text` / `value_num` / `value_date` / `value_bool`, a CHECK that exactly
+one is populated, and a BEFORE trigger that requires the populated one to match
+the def's `data_type`. A cast at read time was rejected for the §13.2 reason: it
+would surface the bad row to the *reader*, long after the writer that created
+it. Filtering and sorting also want a real `numeric`/`date`.
+
+**Deleting a def soft-deletes it and RETAINS its values.** §18.2 rule 3 applied
+to the delete path — the entire reason this table exists is that unrecognised
+data must survive, so "hide this column" must not destroy an import. Every
+reader joins through `deleted_at IS NULL`, so a deleted field vanishes from the
+API and from `rpc_projects_table` while its rows stay on disk. **Re-saving the
+same key revives the same def id**, so the values come back — which is also what
+makes a repeat import idempotent rather than a duplicate-def generator. No purge
+RPC ships; add one when erasure is actually asked for.
+
+**A populated field's `data_type` is frozen, and an in-use enum option cannot be
+withdrawn.** Otherwise the def-edit path manufactures exactly the rows the value
+trigger exists to refuse, and the type guarantee is a lie one `UPDATE` later.
+Converting a populated field is a data migration, not an edit.
+
+**`rpc_projects_table` carries them — no second RPC.** It already returns one
+row per project and already aggregates three per-project CTEs; custom fields
+ride along as a fourth, appended as `custom_fields JSONB` (object keyed by field
+key, `{}` when empty). A separate reader would be a second request per table
+page for data the first is already shaped to carry, and the two could disagree
+about which defs are deleted. Signature unchanged; existing callers select by
+name and are unaffected.
+
+Visibility is `fn_project_accessible` on `project_field_values` (§13.14 — no
+sixth definition; a custom field can hold a fee, a status or a contact, so
+seeing it is the same disclosure as seeing the row). Field *defs* stay on the
+company-wide policy — a column's name and type is not project data — which the
+self-check asserts explicitly so it reads as a decision. `(company_id, key)` is
+UNIQUE **partial on `deleted_at IS NULL`** per §13.6, so a deleted key is
+reusable instead of burnt. No new permission key: `project.edit`.
+
+`supabase/checks/check_project_custom_fields.sql` proves three-actor visibility
+(owner / assignee-of-that-project-only / zero rows, not an error), cross-tenant
+isolation in both directions including attaching company A's def to company B's
+own project, type rejection through the RPC *and* through a direct INSERT that
+bypasses it, and the retain-on-delete + revive semantics. Verified to have teeth
+by breaking each guarantee in turn: a company-wide values policy fails (1b), a
+disabled trigger fails (3b), cascading the values on delete fails (4b).
+
 ### 18.4 Row shape — the traps in the real file
 
 Column classification is the interesting half; row handling is the half that
