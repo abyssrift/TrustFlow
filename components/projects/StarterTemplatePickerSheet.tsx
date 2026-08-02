@@ -1,4 +1,5 @@
 import Popup from '@/components/common/Popup';
+import TemplateEditor from '@/components/templates/TemplateEditor';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import { starterTemplatesBySector, StarterTemplate } from '@/lib/starterTemplates';
@@ -44,14 +45,26 @@ export default function StarterTemplatePickerSheet({
   const [selected, setSelected] = useState<StarterTemplate | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Issue #177 — "Customize First" materializes the same starter row as "Use
+  // This Template" (same RPC), then routes into the editor before handing
+  // back to the caller, instead of using the researched offsets/categories
+  // sight-unseen.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  // TemplateEditor always fires onClose LAST regardless of path (cancel,
+  // after onSaved, or after onDeleted) — so onSaved/onDeleted below only
+  // record the outcome, and the single onClose handler is what actually
+  // reports to this sheet's own caller. See SaveAsTemplateSheet.tsx for the
+  // identical pattern and why acting inside onSaved/onDeleted directly
+  // double-fires onCreated.
+  const editorResultRef = React.useRef<{ id: string; name: string; body: any[] } | 'deleted' | null>(null);
 
   const bySector = useMemo(() => starterTemplatesBySector(), []);
 
-  const reset = () => { setSelected(null); setError(null); setSaving(false); };
+  const reset = () => { setSelected(null); setError(null); setSaving(false); setEditingId(null); editorResultRef.current = null; };
   const handleClose = () => { reset(); onClose(); };
 
-  const handleUse = async () => {
-    if (!selected) return;
+  const materialize = async (): Promise<{ id: string; name: string; body: any[] } | null> => {
+    if (!selected) return null;
     setSaving(true);
     setError(null);
     const { data, error: err } = await supabase.rpc('rpc_create_starter_template', {
@@ -60,15 +73,50 @@ export default function StarterTemplatePickerSheet({
       p_color: selected.color,
       p_body: selected.tasks,
     });
+    setSaving(false);
     if (err) {
-      setSaving(false);
       setError(err.message);
-      return;
+      return null;
     }
+    return data;
+  };
+
+  const handleUse = async () => {
+    const data = await materialize();
+    if (!data) return;
     onCreated(data);
     reset();
     onClose();
   };
+
+  const handleCustomize = async () => {
+    const data = await materialize();
+    if (!data) return;
+    setEditingId(data.id);
+  };
+
+  if (editingId) {
+    const capturedName = selected?.name ?? '';
+    const capturedBody = selected?.tasks ?? [];
+    return (
+      <TemplateEditor
+        visible={visible}
+        templateId={editingId}
+        onSaved={(t) => { editorResultRef.current = { id: t.id, name: t.name, body: t.body }; }}
+        onDeleted={() => { editorResultRef.current = 'deleted'; }}
+        onClose={() => {
+          const result = editorResultRef.current;
+          // Cancel-without-saving still leaves the materialized starter row
+          // in place (rpc_create_starter_template already committed it
+          // before the editor opened) — report it as-materialized. Deleted
+          // is the one path that must not report a template back.
+          if (result !== 'deleted') onCreated(result ?? { id: editingId, name: capturedName, body: capturedBody });
+          reset();
+          onClose();
+        }}
+      />
+    );
+  }
 
   return (
     <Popup
@@ -77,7 +125,8 @@ export default function StarterTemplatePickerSheet({
       onClose={handleClose}
       presentation="auto"
       title={selected ? selected.name : 'Starter Templates'}
-      footer={selected ? 'single-action' : 'none'}
+      footer={selected ? 'dual-action' : 'none'}
+      secondaryAction={selected ? { label: 'Customize First', onPress: handleCustomize } : undefined}
       primaryAction={selected ? {
         label: saving ? 'Adding…' : 'Use This Template',
         onPress: handleUse,
