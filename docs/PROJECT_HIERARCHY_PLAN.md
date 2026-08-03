@@ -1643,6 +1643,65 @@ Not "it looks better" — that cannot be checked. The tests are:
    `.agents/rules/walkthroughs.md`, which now requires multi-width walkthroughs.
 4. No screen shipped in Phases 1–7 still shows a raw database error string.
 
+### 14.5 Shipped — the projects surfaces (branch `feat-projects-rebrand`, #187)
+
+**The vocabulary, which is the deliverable Phase 10 consumes.** Three new files;
+every projects surface routes through them, and §16 must reuse them rather than
+invent a sixth project card:
+
+- `lib/projectPresentation.ts` — pure, dependency-free. Entity identity
+  (`ENTITY_META`: label, icon, glyph *shape*, hue, and the one sentence that
+  explains the entity), the ageing/due thresholds that used to be exported out
+  of `ProjectsTable.tsx`, and `projectHealth()` — one precedence
+  (blocked > overdue > awaiting client > at risk > due soon > on track) with a
+  `detail` string so a badge, or a control disabled because of it, can always
+  say why. `lib/projectPresentation.check.ts` asserts that precedence and that
+  the four confusable entities never share a shape or a hue. `npm run check`
+  is 18/18.
+- `components/entities/EntityUI.tsx` — `EntityGlyph`, `EntityTag`,
+  `EntityHeading`, `ClientMark`, `StageChip`, `HealthBadge`, `ProgressMeter`,
+  `MetaStat`, `ProjectCard` (+ the structural `ProjectCardRow` both
+  `rpc_projects_table` consumers satisfy), `EntityEmptyState`, `SectionCard`,
+  `SegmentedControl`, `FilterChip`.
+- `components/board/BoardChrome.tsx` — the board column shell, extracted from
+  the copy `ProjectBoard.tsx` was carrying. Values are `_tasks_desktop.tsx`'s
+  own, so adopting it there is visually a no-op; **that adoption is still
+  owed** (the task board was out of #187's scope), and until it happens there
+  are still two call sites' worth of chrome even though there is now one
+  definition.
+
+**How §17's four entities became distinguishable.** Shape carries the class,
+not decoration: circle = a who (client, owner), rounded square = one body of
+work (project), stacked square = a group of them (portfolio), outlined
+column-mark = a route work travels (board), dashed square = a pattern rather
+than an instance (template), tick = one unit (task). Every projects surface
+also states the entity in an `EntityTag` eyebrow — including the Portfolio Flow
+charts, so it is explicit those count projects and not tasks.
+
+**Interaction (§14.2 / §17).** `components/projects/ProjectActionsMenu.tsx`
+gives every row, card and the detail header the same menu: open, rename **in
+place** (no modal), roll forward, save as template, archive via
+`useAlert().showConfirm`. It wires `RollforwardSheet`, which #185 shipped with
+**no entry point anywhere in the app** — rollforward is this product's
+"duplicate", and it was unreachable. Renames surface `23505` as
+*"Another project is already called X"*, never a constraint name.
+
+**Declined, with reasons:** undo beyond bulk-instantiate (needs a server-side
+inverse per action — belongs with the RPC that would provide it, not here);
+multi-select + bulk act on the list (no bulk RPC accepts a project id list
+yet); the detail header showing the project's client (`rpc_project_dashboard`
+does not carry `client_id`/`color`, and §14.3 forbids changing an RPC contract
+in this phase — the list rows and the Files tab do show it).
+
+**Verified in a browser** at 1400px and 390px against local Supabase, which is
+what found the three defects `tsc` could not: a nested `<button>` (RNW emits a
+real `<button>` for `accessibilityRole`, and the card contains its own buttons)
+that Expo's LogBox showed the user as a red error toast over the board; a
+desktop stage-filter rail collapsed to zero width by an inline `flexGrow: 0`
+beating its `flex-1` class; and client + portfolio both truncating to nothing
+on one line. Screens driven: projects list and board, project detail (Overview,
+Work, Files), the row-actions menu, the stage picker, Portfolio Flow.
+
 ---
 
 ## 15. Phase 9 — "Smartness": spreadsheet intake that sets itself up
