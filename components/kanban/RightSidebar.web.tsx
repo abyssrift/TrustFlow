@@ -12,7 +12,7 @@ import UserLink from '@/components/common/UserLink';
 import Tooltip from '@/components/common/Tooltip';
 import KanbanNotes from './KanbanNotes.web';
 import KanbanActivity from './KanbanActivity.web';
-import TimeByCategoryPie from './TimeByCategoryPie.web';
+import TimeByCategoryPie from './TimeByCategoryPie';
 
 cssInterop(FontAwesome, {
   className: { target: 'style', nativeStyleToProp: { color: true, size: true } },
