@@ -311,7 +311,23 @@ export default function BulkCreateProjectsSheet({
   const selectedTemplate = useMemo(() => templates.find(t => t.id === templateId) || null, [templates, templateId]);
   // Spreadsheet-imported rows (already parsed + client-resolved upstream)
   // pre-fill this step entirely; otherwise fall back to the textarea, unchanged.
-  const parsed = useMemo(() => initialRows ?? parseLines(text), [initialRows, text]);
+  // Past start dates are normal for a spreadsheet import — you import LAST
+  // year's register, so every dated row is behind today. The original rule
+  // hard-blocked on any past date and told the user to "fix the date on the
+  // previous step", which for imported rows does not exist: there is no
+  // per-row date editor upstream, so the import became unreachable with no
+  // remedy. Now the user chooses, and the choice is remembered for the batch.
+  //   'keep'  — import the historical dates as written (an archive import)
+  //   'clear' — drop them; the batch schedule anchor supplies dates instead
+  const [pastDatePolicy, setPastDatePolicy] = useState<'undecided' | 'keep' | 'clear'>('undecided');
+
+  const parsedRaw = useMemo(() => initialRows ?? parseLines(text), [initialRows, text]);
+  const parsed = useMemo(
+    () => (pastDatePolicy === 'clear'
+      ? parsedRaw.map(p => (p.start_date && p.start_date.slice(0, 10) < todayISO ? { ...p, start_date: null } : p))
+      : parsedRaw),
+    [parsedRaw, pastDatePolicy, todayISO],
+  );
   const taskCountPerProject = selectedTemplate?.body?.length || 0;
   const pastLines = useMemo(() => parsed.filter(p => p.start_date && p.start_date.slice(0, 10) < todayISO), [parsed, todayISO]);
 
@@ -341,7 +357,9 @@ export default function BulkCreateProjectsSheet({
   const anchorIsPast = !!anchorDate && anchorDate < todayISO;
   const anchorReady = !!anchorDate && !!anchorDirection && !anchorIsPast;
 
-  const canProceedToConfigure = !!templateId && taskCountPerProject > 0 && parsed.length > 0 && pastLines.length === 0;
+  const canProceedToConfigure =
+    !!templateId && taskCountPerProject > 0 && parsed.length > 0
+    && (pastLines.length === 0 || pastDatePolicy === 'keep');
 
   function buildProjectsPayload() {
     return parsed.map(p => ({ name: p.name, client_ref: p.client_ref, client_external_ref: p.external_ref, start_date: p.start_date }));
@@ -884,9 +902,38 @@ export default function BulkCreateProjectsSheet({
               ))}
             </ScrollView>
             {pastLines.length > 0 && (
-              <Text className="text-state-danger text-xs font-bold mt-2">
-                In the past: {pastLines.map(p => p.name).join(', ')}. Fix the date on the previous step to continue.
-              </Text>
+              <View className="mt-3 p-3 rounded-xl border" style={{ borderColor: c.warning, backgroundColor: c.warning + "22" }}>
+                <Text className="text-typography-main text-xs font-black mb-1">
+                  {pastLines.length} project{pastLines.length === 1 ? ' has a start date' : 's have start dates'} before today
+                </Text>
+                <Text className="text-typography-muted text-[11px] leading-4 mb-2">
+                  {fmtShort(pastLines[0].start_date)}
+                  {pastLines.length > 1 ? ` – ${fmtShort(pastLines[pastLines.length - 1].start_date)}` : ''} from your spreadsheet.
+                  That is normal when importing an existing portfolio. Keep them to record work that already happened, or clear them
+                  and let this batch&apos;s schedule set the dates instead.
+                </Text>
+                <View className="flex-row items-center gap-2 flex-wrap">
+                  <TouchableOpacity
+                    onPress={() => setPastDatePolicy('keep')}
+                    className={`px-3 py-2 rounded-lg border ${pastDatePolicy === 'keep' ? 'border-brand-primary bg-brand-primary/10' : 'border-surface-border'}`}
+                  >
+                    <Text className={`text-[11px] font-black uppercase tracking-wider ${pastDatePolicy === 'keep' ? 'text-brand-primary' : 'text-typography-muted'}`}>
+                      Keep these dates
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => setPastDatePolicy('clear')}
+                    className={`px-3 py-2 rounded-lg border ${pastDatePolicy === 'clear' ? 'border-brand-primary bg-brand-primary/10' : 'border-surface-border'}`}
+                  >
+                    <Text className={`text-[11px] font-black uppercase tracking-wider ${pastDatePolicy === 'clear' ? 'text-brand-primary' : 'text-typography-muted'}`}>
+                      Clear them
+                    </Text>
+                  </TouchableOpacity>
+                  <Text className="text-typography-dim text-[10px]">
+                    {pastLines.slice(0, 3).map(p => p.name).join(', ')}{pastLines.length > 3 ? ` +${pastLines.length - 3} more` : ''}
+                  </Text>
+                </View>
+              </View>
             )}
           </View>
         ) : (
