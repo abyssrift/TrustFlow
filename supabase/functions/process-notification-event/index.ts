@@ -76,24 +76,26 @@ serve(async (req: Request) => {
     // 3. Exclude the actor who triggered the event
     if (event.actor_id) recipientSet.delete(event.actor_id)
 
-    // 4. Fetch task title for notification content
+    // 4. Fetch the subject's name for notification content.
     // Fall back to entity_id when payload.task_id is absent (e.g. task.manual_time_flagged)
     const taskId = event.payload?.task_id ??
       (event.entity_type === 'task' ? event.entity_id : null)
-    let taskTitle = 'A task'
-    if (taskId) {
+    let subjectName = 'A task'
+    if (event.entity_type === 'project') {
+      subjectName = (event.payload?.project_name as string | undefined) ?? 'A project'
+    } else if (taskId) {
       const { data: task } = await db
         .from('tasks')
         .select('title')
         .eq('id', taskId)
         .single()
-      if (task?.title) taskTitle = task.title
+      if (task?.title) subjectName = task.title
     }
 
     // 5. Build human-readable title + body
     const { title, body: notifBody } = buildContent(
       event.event_type,
-      taskTitle,
+      subjectName,
       event.payload ?? {}
     )
 
@@ -119,6 +121,8 @@ serve(async (req: Request) => {
               pipeline_id: event.payload?.pipeline_id ?? null,
               comment_id: event.payload?.comment_id ?? null,
               file_id: event.payload?.file_id ?? null,
+              project_id: event.payload?.project_id ??
+                (event.entity_type === 'project' ? event.entity_id : null),
             },
           }),
         })
@@ -269,6 +273,18 @@ async function resolveStrategy(
       return userId ? [userId] : []
     }
 
+    case 'payload_users': {
+      // Same as payload_user, but the field holds an ARRAY of user IDs.
+      // Used by project.stage_transition (#142 Phase 12): "who can see this
+      // project" is fn_project_accessible, which is auth.uid()-bound and so
+      // unreachable from this service-role client. The database resolves the
+      // list at emit time and hands it over; this strategy must not widen it.
+      const field = config.payload_field as string | undefined
+      if (!field) return []
+      const ids = payload[field]
+      return Array.isArray(ids) ? (ids as string[]).filter((id) => typeof id === 'string') : []
+    }
+
     case 'filehub_group_members': {
       // Notify all members of the group that received a file.
       // payload must contain group_id.
@@ -302,10 +318,10 @@ async function resolveStrategy(
 // ── Notification content templates ───────────────────────────────────
 function buildContent(
   eventType: string,
-  taskTitle: string,
+  subjectName: string,
   payload: Record<string, unknown>
 ): { title: string; body: string } {
-  const q = `"${taskTitle}"`
+  const q = `"${subjectName}"`
 
   switch (eventType) {
     case 'task.created':
@@ -347,6 +363,13 @@ function buildContent(
     case 'task.submission_deleted': {
       const who = (payload.deleted_by_name as string | undefined) ?? 'Someone'
       return { title: 'Submission Deleted', body: `${who} deleted a submission on ${q}. It can be restored from the task.` }
+    }
+    case 'project.stage_transition': {
+      const tag = (payload.stage_tag as string | undefined) ?? 'a new stage'
+      return {
+        title: 'Project Stage Updated',
+        body: `${q} has moved to ${tag.replace(/_/g, ' ')}.`,
+      }
     }
     case 'pipeline.member_added':
       return { title: 'Added to Pipeline', body: `You have been added to a pipeline.` }

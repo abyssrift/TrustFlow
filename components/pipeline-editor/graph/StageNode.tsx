@@ -14,7 +14,7 @@ import Animated, {
   type SharedValue
 } from 'react-native-reanimated';
 import { FontAwesome } from '@expo/vector-icons';
-import { Stage } from '@/contexts/PipelineEditorContext';
+import { Stage, usePipelineEditor } from '@/contexts/PipelineEditorContext';
 import Tooltip from '@/components/common/Tooltip';
 import { useThemeColors } from '@/hooks/useThemeColors';
 
@@ -40,6 +40,8 @@ export default function StageNode({
   isConnecting
 }: StageNodeProps) {
   const colors = useThemeColors();
+  const { selectedPipeline } = usePipelineEditor();
+  const isProjectPipeline = selectedPipeline?.subject_kind === 'project';
 
   // Layout Logic
   const calcInitialX = () => stage.ui_metadata?.x ?? 50 + (index * 300) % 1200;
@@ -197,18 +199,23 @@ export default function StageNode({
                 </Text>
               )}
               
+              {/* Plan §20.6: on a project pipeline these three flags are not
+                  enforced by anything, and a stage that badges "submission
+                  required" is the same false promise the editor stopped
+                  making. A pre-existing project stage can still carry them
+                  from before those controls were hidden. */}
               <View className="flex-row gap-1.5 mt-4">
-                {stage.requires_submission && (
+                {!isProjectPipeline && stage.requires_submission && (
                   <View className="bg-surface-background/40 px-2 py-0.5 rounded border border-surface-border">
                     <FontAwesome name="upload" size={8} color={stage.color || colors.warning} />
                   </View>
                 )}
-                {stage.requires_timer && (
+                {!isProjectPipeline && stage.requires_timer && (
                   <View className="bg-surface-background/40 px-2 py-0.5 rounded border border-surface-border">
                     <FontAwesome name="clock-o" size={8} color={stage.color || colors.info} />
                   </View>
                 )}
-                {!!stage.linked_pipeline_id && (
+                {!isProjectPipeline && !!stage.linked_pipeline_id && (
                   <View className="bg-surface-background/40 px-2 py-0.5 rounded border border-surface-border">
                     <FontAwesome name="bolt" size={8} color={stage.color || colors.primary} />
                   </View>

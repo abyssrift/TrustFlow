@@ -7,10 +7,16 @@ import Popup from '@/components/common/Popup';
 import Tooltip from '@/components/common/Tooltip';
 import { resolveNativeColorToken } from './colorCompat';
 
+// `implemented` is not decoration. rpc_process_automations understands
+// exactly ONE condition_type, 'overdue' — for tasks as well as for projects
+// (#142 Phase 12, plan §20.5). 'idle' and 'due_soon' are accepted by
+// rpc_create_automation and then never evaluated by anything. Offering them
+// as if they worked is the same silent no-op §20.6 exists to stop, so they
+// are shown disabled with the reason instead of quietly doing nothing.
 const CONDITION_TYPES = [
-  { value: 'overdue', label: 'Overdue', desc: 'Task past its due date', icon: 'clock-o', color: '#ef4444' },
-  { value: 'idle', label: 'Idle', desc: 'Task not updated for X hours', icon: 'pause-circle', color: '#f59e0b' },
-  { value: 'due_soon', label: 'Due Soon', desc: 'Task approaching due date', icon: 'bell', color: '#3b82f6' },
+  { value: 'overdue', label: 'Overdue', desc: 'Past its due date', icon: 'clock-o', color: '#ef4444', implemented: true },
+  { value: 'idle', label: 'Idle', desc: 'Not updated for X hours', icon: 'pause-circle', color: '#f59e0b', implemented: false },
+  { value: 'due_soon', label: 'Due Soon', desc: 'Approaching its due date', icon: 'bell', color: '#3b82f6', implemented: false },
 ];
 
 export default function AutomationEditor() {
@@ -18,7 +24,13 @@ export default function AutomationEditor() {
   const {
     stages, automations, loading, error,
     createAutomation, updateAutomation, deleteAutomation,
+    selectedPipeline,
   } = usePipelineEditor();
+
+  // Automations are the one piece of pipeline machinery projects DO get
+  // (plan §20.4), so the copy names the right subject instead of saying
+  // "task" on a project pipeline.
+  const subject = selectedPipeline?.subject_kind === 'project' ? 'project' : 'task';
 
   const [showAdd, setShowAdd] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -130,7 +142,9 @@ export default function AutomationEditor() {
               {CONDITION_TYPES.map(ct => (
                 <TouchableOpacity
                   key={ct.value}
-                  onPress={() => setFormCondition(ct.value)}
+                  onPress={() => ct.implemented && setFormCondition(ct.value)}
+                  disabled={!ct.implemented}
+                  accessibilityState={{ disabled: !ct.implemented }}
                   className={`flex-row items-center p-3 rounded-xl border ${formCondition === ct.value ? 'bg-brand-primary-dim border-brand-primary/30' : 'border-surface-border bg-surface-background'}`}
                 >
                   <View className="w-8 h-8 rounded-lg items-center justify-center mr-3" style={{ backgroundColor: ct.color, opacity: 0.2 }}>
@@ -140,11 +154,21 @@ export default function AutomationEditor() {
                     <Text className={`font-bold text-sm ${formCondition === ct.value ? 'text-typography-main' : 'text-typography-muted'}`}>
                       {ct.label}
                     </Text>
-                    <Text className="text-typography-dim text-[10px]">{ct.desc}</Text>
+                    <Text className="text-typography-dim text-[10px]">
+                      {ct.implemented
+                        ? `The ${subject} is ${ct.desc.toLowerCase()}`
+                        : `${ct.desc} — not built yet, so this would never fire`}
+                    </Text>
                   </View>
-                  <View className={`w-5 h-5 rounded-full border-2 items-center justify-center ${formCondition === ct.value ? 'bg-brand-primary border-brand-primary' : 'border-surface-border'}`}>
-                    {formCondition === ct.value && <View className="w-2 h-2 rounded-full bg-white" />}
-                  </View>
+                  {ct.implemented ? (
+                    <View className={`w-5 h-5 rounded-full border-2 items-center justify-center ${formCondition === ct.value ? 'bg-brand-primary border-brand-primary' : 'border-surface-border'}`}>
+                      {formCondition === ct.value && <View className="w-2 h-2 rounded-full bg-white" />}
+                    </View>
+                  ) : (
+                    <View className="px-2 py-0.5 rounded-md border border-surface-border bg-surface-overlay">
+                      <Text className="text-typography-dim text-[9px] font-black uppercase tracking-wide">Soon</Text>
+                    </View>
+                  )}
                 </TouchableOpacity>
               ))}
             </View>
@@ -375,7 +399,7 @@ export default function AutomationEditor() {
             <FontAwesome name="bolt" size={40} color="#1e293b" />
             <Text className="text-typography-muted text-base font-bold mt-4">No Automation Rules</Text>
             <Text className="text-typography-dim text-sm mt-1 text-center px-8">
-              Create rules to automatically move tasks when conditions like overdue or idle are met.
+              Create rules to automatically move a {subject} on when it is past its due date.
             </Text>
           </View>
         )}

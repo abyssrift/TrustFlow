@@ -2610,6 +2610,64 @@ part of THIS phase's definition of done, not a follow-up — the controls that d
 nothing for `subject_kind = 'project'` are hidden or disabled with a reason, in
 the same change that ships the two that work.
 
+### 20.7 SHIPPED — `20260803_project_stage_engine.sql`
+
+**Notifications.** `trg_projects_notify_stage` (`AFTER UPDATE OF
+current_stage_id ON projects`, WHEN clause copied from
+`trg_projects_stage_history` so the event and the history row can never
+disagree about what counts as a move) calls `fn_emit_notification_event` with
+`project.stage_transition`, mirroring `fn_trg_tasks_notify_update`. It honours
+the same `trustflow.bulk_instantiate` suppression the task triggers use. A
+seeded `notification_rules` row consumes it via a new `payload_users` strategy
+in `process-notification-event`.
+
+**Who hears about it.** Everyone for whom `fn_project_accessible` is true —
+in practice the owner, anyone assigned a task in it, and every
+`project.view_all` holder, because those are that predicate's three branches.
+`fn_project_stage_notify_recipients(p_project_id)` resolves the list at emit
+time and puts it in the payload. It does NOT re-derive the rule: it enumerates
+the whole company as candidates and filters each through
+`fn_project_accessible` evaluated as that user (`request.jwt.claims` +
+the legacy `request.jwt.claim.sub`, both saved and restored). The candidate set
+is deliberately the widest possible one so it can never be the thing that
+decides access — §13.14 stays one predicate, five call sites.
+
+Recipients are resolved in the DB rather than by the Edge Function because
+`fn_project_accessible` is `auth.uid()`-bound and a service-role client cannot
+evaluate it — and because that is what makes the guarantee provable from SQL.
+
+**Automations.** `pipeline_automations` needed no change, exactly as §20.5
+predicted; `rpc_create/update/delete_automation` are already subject-agnostic.
+`rpc_process_automations` now branches on `pipelines.subject_kind` and reads
+`projects.due_date` where the task branch reads `tasks.due_date`. `'overdue'`
+is still the ONLY `condition_type` the processor understands, for tasks as
+well — `'idle'` and `'due_soon'` are accepted by `rpc_create_automation` and
+never evaluated, so `AutomationEditor` now shows them disabled with that
+reason rather than pretending. One schema change was needed after all, to the
+LOG table, not to `pipeline_automations`: `automation_execution_log.task_id`
+was `NOT NULL` and backs the 3-fires-per-hour circuit breaker, so `task_id` is
+now nullable, `project_id` joins it, and a CHECK keeps exactly one populated.
+
+Note that nothing schedules `rpc_process_automations` — there is no `pg_cron`
+entry for it, for tasks either. Projects will not actually self-advance until
+something calls it.
+
+**§20.6.** `StageBuilder.tsx` and `StageBuilder.web.tsx` both hide, for
+`subject_kind='project'`: the submission gate, requires-timer + minimum timer,
+business hours, re-assign on entry, recursive spawning, manager routing / max
+escalation depth, and stage actions. `ProjectStageNote.tsx` (shared by both, so
+a native-only fix cannot be mistaken for a fix) stands in their place and says
+what a project stage does instead. `graph/StageNode.tsx` stops badging
+`requires_submission` / `requires_timer` / `linked_pipeline_id` on a project
+stage — a stage already carrying those flags from before this change would
+otherwise still be making the promise the editor stopped making.
+
+Nothing to do for review-by-transition: `pipeline_stage_transitions` has no
+review flag, and transitions themselves ARE enforced for projects
+(`rpc_advance_project_stage` validates the path), so `TransitionEditor` stays.
+
+Self-check: `supabase/checks/check_project_stage_engine.sql`.
+
 ---
 
 ## 21. Messiness is the feature, not the edge case
