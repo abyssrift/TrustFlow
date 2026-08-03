@@ -1,21 +1,33 @@
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  View,
+  ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
-  ScrollView,
-  Switch,
   useWindowDimensions,
+  View,
 } from 'react-native';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { supabase } from '@/lib/supabase';
-import { useThemeColors } from '@/hooks/useThemeColors';
-import { useDebounce } from '@/hooks/useDebounce';
-import { formatCompact } from '@/lib/time';
-import UserLink from '@/components/common/UserLink';
+
 import Tooltip from '@/components/common/Tooltip';
+import UserLink from '@/components/common/UserLink';
+import {
+  ClientMark,
+  EntityEmptyState,
+  EntityGlyph,
+  FilterChip,
+  HealthBadge,
+  ProgressMeter,
+  ProjectCard,
+  StageChip,
+} from '@/components/entities/EntityUI';
 import { SkeletonList } from '@/components/Skeleton';
+import { useDebounce } from '@/hooks/useDebounce';
+import { useThemeColors } from '@/hooks/useThemeColors';
+import { ageColor, dueColor, fmtDate, fmtDue } from '@/lib/projectPresentation';
+import { supabase } from '@/lib/supabase';
+import { formatCompact } from '@/lib/time';
+import { InlineRename, ProjectActionsButton, useProjectActions } from './ProjectActionsMenu';
 
 // Mirrors the rpc_projects_table contract (issue #173, Phase 3).
 type ProjectRow = {
@@ -34,13 +46,12 @@ type ProjectRow = {
 };
 
 type SortKey = 'name' | 'stage' | 'age' | 'due' | 'progress' | 'owner' | 'blocked' | 'hours';
-export type ThemeColors = ReturnType<typeof useThemeColors>;
 
 const LIMIT = 25;
 
 const SORT_LABELS: Record<SortKey, string> = {
-  name: 'Name', stage: 'Stage', age: 'Days in Stage', due: 'Due',
-  progress: 'Progress', owner: 'Owner', blocked: 'Blocked', hours: 'Hours',
+  name: 'Name', stage: 'Stage', age: 'Days in stage', due: 'Due',
+  progress: 'Completion', owner: 'Owner', blocked: 'Health', hours: 'Tracked',
 };
 
 function sortValue(row: ProjectRow, key: SortKey): number | string {
@@ -56,96 +67,55 @@ function sortValue(row: ProjectRow, key: SortKey): number | string {
   }
 }
 
-// ponytail: fixed thresholds, not a config value — revisit if a company wants a custom ageing scale.
-// #183 -- exported so ProjectOverviewTab's answer line / panels use the exact
-// same ageing thresholds and wording as this table, instead of a second copy
-// that can silently drift (see global-utilities-index.md's standing rule).
-export function ageColor(days: number | null, c: ThemeColors): string {
-  if (days == null) return c.textMuted;
-  if (days >= 14) return c.danger;
-  if (days >= 7) return c.warning;
-  return c.textMuted;
-}
-export function dueColor(daysRemaining: number | null, c: ThemeColors): string {
-  if (daysRemaining == null) return c.textMuted;
-  if (daysRemaining < 0) return c.danger;
-  if (daysRemaining <= 3) return c.warning;
-  return c.textMuted;
-}
-export function fmtDate(d: string | null): string {
-  if (!d) return '—';
-  return new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-}
-export function fmtDue(daysRemaining: number | null, dueDate: string | null): string {
-  if (!dueDate) return '—';
-  if (daysRemaining == null) return fmtDate(dueDate);
-  if (daysRemaining < 0) return `${Math.abs(daysRemaining)}d overdue`;
-  if (daysRemaining === 0) return 'Due today';
-  return `${daysRemaining}d left`;
-}
-export function initials(name: string | null): string {
-  if (!name) return '?';
-  const p = name.trim().split(/\s+/);
-  return ((p[0]?.[0] || '') + (p[1]?.[0] || '')).toUpperCase() || '?';
-}
-
 function ErrorBanner({ rpcMissing, error }: { rpcMissing: boolean; error: string | null }) {
   const c = useThemeColors();
   return (
-    <View className="mx-4 my-4 px-4 py-3 rounded-xl bg-state-danger/10 border border-state-danger/30 flex-row items-center gap-3">
-      <FontAwesome name="exclamation-triangle" size={14} color={c.danger} />
-      <Text className="text-state-danger text-xs font-bold flex-1">
-        {rpcMissing ? 'The projects table backend is not deployed yet on this environment.' : (error || 'Could not load projects.')}
-      </Text>
-    </View>
-  );
-}
-
-function EmptyState({ search, onBrowseStarters }: { search: string; onBrowseStarters?: () => void }) {
-  const c = useThemeColors();
-  return (
-    <View className="items-center justify-center py-16 px-6">
-      <FontAwesome name="folder-open-o" size={32} color={c.textMuted} />
-      <Text className="text-typography-main text-lg font-black mt-4">{search ? 'No matches' : 'No projects yet'}</Text>
-      <Text className="text-typography-muted text-sm text-center mt-2">
-        {search ? `No projects match "${search}".` : 'Projects will show up here once created.'}
-      </Text>
-      {/* Only on the genuinely-empty state, not a no-search-results state — a
-          brand-new company has zero projects AND zero templates, so this is
-          the other place (besides BulkCreateProjectsSheet itself) it makes
-          sense to meet the starter library, per PROJECT_HIERARCHY_PLAN.md §7. */}
-      {!search && onBrowseStarters && (
-        <TouchableOpacity
-          onPress={onBrowseStarters}
-          className="mt-5 px-6 py-3 rounded-xl bg-brand-primary flex-row items-center gap-2"
-          style={{ minHeight: 44 }}
-        >
-          <FontAwesome name="magic" size={12} color="white" />
-          <Text className="text-white text-xs font-black uppercase tracking-widest">Browse Starter Templates</Text>
-        </TouchableOpacity>
-      )}
+    <View className="mx-4 my-4 px-4 py-3 rounded-xl bg-state-danger/10 border border-state-danger/30 flex-row items-start gap-3">
+      <FontAwesome name="exclamation-triangle" size={14} color={c.danger} style={{ marginTop: 2 }} />
+      <View className="flex-1">
+        <Text className="text-state-danger text-xs font-bold">
+          {rpcMissing ? 'Projects can’t load on this environment' : 'Projects couldn’t load'}
+        </Text>
+        {/* §14.4.4 — never a raw database error string on its own. The cause
+            still shows, but under a sentence that says what it means. */}
+        <Text className="text-typography-muted text-[11px] mt-1 leading-4">
+          {rpcMissing
+            ? 'The projects backend hasn’t been deployed here yet. Ask an admin to run the pending migrations.'
+            : (error || 'Reload the page; if it keeps happening, tell an admin.')}
+        </Text>
+      </View>
     </View>
   );
 }
 
 /**
- * Dense, sortable projects table (issue #173, Phase 3). Renders a true dense
- * table at >= 768px and a stacked card list below it — both are driven by
- * the same fetch/sort/filter state so the two are never out of sync.
+ * The projects list (issue #173 Phase 3; re-skinned in Phase 8 / #187).
  *
- * Sorting is client-side over the currently fetched page (not the whole
- * dataset) — simplest option that satisfies "sortable" without a second
- * server contract; paging via p_limit/p_offset keeps each fetch bounded.
+ * A true dense table at >= 768px and a stacked `ProjectCard` list below it —
+ * both driven by the same fetch/sort/filter state, and both routed through
+ * `components/entities/EntityUI.tsx` so a project looks identical here, on the
+ * board, and on every surface Phase 10 adds. Sorting is client-side over the
+ * fetched page; paging via p_limit/p_offset keeps each fetch bounded.
+ *
+ * Phase 8 changes, all §14/§17: every row leads with the project's glyph and
+ * its client rather than a bare name; the "blocked" boolean became a health
+ * badge that can always explain itself; the loud Switch and the three
+ * separately-outlined controls in the filter bar became one chip row; and
+ * rename / roll-forward / save-as-template / archive are reachable from the
+ * row (`useProjectActions`) instead of only from the detail route.
  */
 export default function ProjectsTable({
   onOpenProject,
   refreshKey = 0,
   onBrowseStarters,
+  onCreateProject,
 }: {
   onOpenProject: (id: string) => void;
   refreshKey?: number;
-  /** Shown as a CTA on the genuinely-empty state (no search, zero projects). Omit to hide it (e.g. no project.create permission). */
+  /** Shown on the genuinely-empty state (no search, zero projects). Omit to hide it (e.g. no project.create permission). */
   onBrowseStarters?: () => void;
+  /** Primary action on the genuinely-empty state. Omit when the user can't create. */
+  onCreateProject?: () => void;
 }) {
   const c = useThemeColors();
   const { width } = useWindowDimensions();
@@ -156,6 +126,7 @@ export default function ProjectsTable({
   const [error, setError] = useState<string | null>(null);
   const [rpcMissing, setRpcMissing] = useState(false);
   const [page, setPage] = useState(0);
+  const [localRefresh, setLocalRefresh] = useState(0);
 
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 400);
@@ -169,6 +140,11 @@ export default function ProjectsTable({
 
   const [sortKey, setSortKey] = useState<SortKey>('age');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
+  const actions = useProjectActions({
+    onChanged: () => setLocalRefresh(k => k + 1),
+    onOpenProject,
+  });
 
   useEffect(() => { setPage(0); }, [debouncedSearch, stageId, blockedOnly]);
 
@@ -201,7 +177,7 @@ export default function ProjectsTable({
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [debouncedSearch, stageId, blockedOnly, page, refreshKey]);
+  }, [debouncedSearch, stageId, blockedOnly, page, refreshKey, localRefresh]);
 
   const sortedRows = useMemo(() => {
     const dir = sortDir === 'asc' ? 1 : -1;
@@ -220,20 +196,25 @@ export default function ProjectsTable({
   };
 
   const hasMore = rows.length === LIMIT;
+  const activeFilters = (stageId ? 1 : 0) + (blockedOnly ? 1 : 0);
 
+  // One row of quiet controls, not a search box + a chip rail + a red Switch
+  // all competing. "Blocked only" is now the same chip shape as the stage
+  // filters because it IS a filter — the Switch read as a system setting.
   const filterBar = (
-    <View className={isDesktop ? 'flex-row items-center gap-3 px-6 py-4 border-b border-surface-border' : 'px-4 pt-4'}>
-      <View className={`flex-row items-center bg-surface-background border border-surface-border rounded-xl px-3 py-2.5 gap-2 ${isDesktop ? 'w-[240px]' : 'w-full mb-3'}`}>
+    <View className={isDesktop ? 'flex-row items-center gap-3 px-5 py-3 border-b border-surface-border' : 'px-4 pt-4'}>
+      <View className={`flex-row items-center bg-surface-background border border-surface-border rounded-xl px-3 gap-2 ${isDesktop ? 'w-[240px] py-2' : 'w-full mb-3 py-2.5'}`}>
         <FontAwesome name="search" size={12} color={c.textMuted} />
         <TextInput
           value={search}
           onChangeText={setSearch}
-          placeholder="Search projects..."
+          placeholder="Search projects or clients"
           placeholderTextColor={c.textDim}
+          accessibilityLabel="Search projects"
           className="flex-1 text-typography-main text-sm bg-transparent"
         />
         {search.length > 0 && (
-          <TouchableOpacity onPress={() => setSearch('')}>
+          <TouchableOpacity onPress={() => setSearch('')} hitSlop={8} accessibilityLabel="Clear search">
             <FontAwesome name="times-circle" size={12} color={c.textMuted} />
           </TouchableOpacity>
         )}
@@ -242,73 +223,88 @@ export default function ProjectsTable({
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={{ flexGrow: 0 }}
         className={isDesktop ? 'flex-1' : 'mb-3'}
         contentContainerStyle={{ gap: 8, alignItems: 'center' }}
       >
-        <TouchableOpacity
-          onPress={() => setStageId(null)}
-          // ui-style-guide.md 4.3: 44x44 minimum tap target on mobile. These chips
-          // ARE the mobile control (they replace clickable column headers below
-          // 768px), so they cannot stay at py-1.5 (~26px). Desktop keeps compact.
-          className={`${isDesktop ? 'px-3 py-1.5' : 'px-4 min-h-[44px] justify-center'} rounded-full border ${!stageId ? 'bg-brand-primary/10 border-brand-primary' : 'border-surface-border'}`}
-        >
-          <Text className={`text-[10px] font-black uppercase ${!stageId ? 'text-brand-primary' : 'text-typography-muted'}`}>All Stages</Text>
-        </TouchableOpacity>
+        <FilterChip label="All stages" active={!stageId} onPress={() => setStageId(null)} touchTarget={!isDesktop} />
         {Array.from(knownStages.entries()).map(([id, s]) => (
-          <TouchableOpacity
+          <FilterChip
             key={id}
+            label={s.name}
+            dotColor={s.color ?? c.primary}
+            active={stageId === id}
             onPress={() => setStageId(prev => (prev === id ? null : id))}
-            className={`flex-row items-center gap-1.5 ${isDesktop ? 'px-3 py-1.5' : 'px-4 min-h-[44px]'} rounded-full border ${stageId === id ? 'bg-brand-primary/10 border-brand-primary' : 'border-surface-border'}`}
-          >
-            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: s.color ?? c.primary }} />
-            <Text className={`text-[10px] font-black uppercase ${stageId === id ? 'text-brand-primary' : 'text-typography-muted'}`} numberOfLines={1}>{s.name}</Text>
-          </TouchableOpacity>
+            touchTarget={!isDesktop}
+          />
         ))}
+        <View className="w-px h-5 bg-surface-border mx-1" />
+        <FilterChip
+          label="Needs attention"
+          icon="ban"
+          active={blockedOnly}
+          onPress={() => setBlockedOnly(v => !v)}
+          touchTarget={!isDesktop}
+        />
       </ScrollView>
 
-      <View className={`flex-row items-center gap-2 ${isDesktop ? '' : 'mb-1'}`}>
-        <Text className="text-typography-muted text-[10px] font-black uppercase">Blocked only</Text>
-        <Switch value={blockedOnly} onValueChange={setBlockedOnly} trackColor={{ false: c.border, true: c.danger }} thumbColor="white" />
-      </View>
+      {isDesktop && activeFilters > 0 && (
+        <TouchableOpacity
+          onPress={() => { setStageId(null); setBlockedOnly(false); }}
+          className="flex-row items-center gap-1.5 px-2 py-1.5"
+        >
+          <FontAwesome name="times" size={10} color={c.textMuted} />
+          <Text className="text-typography-muted text-[11px] font-semibold">Clear</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 
   // Mobile has no clickable column headers, so sort is a chip row instead.
   const mobileSortRow = !isDesktop && (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} className="px-4 mb-3" contentContainerStyle={{ gap: 8 }}>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} className="px-4 mb-3" contentContainerStyle={{ gap: 8 }}>
+      <Text className="text-typography-dim text-[10px] font-black uppercase tracking-[0.15em] self-center mr-1">Sort</Text>
       {(Object.keys(SORT_LABELS) as SortKey[]).map(key => (
-        <TouchableOpacity
+        <FilterChip
           key={key}
+          label={SORT_LABELS[key]}
+          icon={sortKey === key ? (sortDir === 'asc' ? 'sort-asc' : 'sort-desc') : undefined}
+          active={sortKey === key}
           onPress={() => toggleSort(key)}
-          className={`flex-row items-center gap-1.5 ${isDesktop ? 'px-3 py-1.5' : 'px-4 min-h-[44px]'} rounded-full border ${sortKey === key ? 'bg-brand-primary/10 border-brand-primary' : 'border-surface-border'}`}
-        >
-          <Text className={`text-[10px] font-black uppercase ${sortKey === key ? 'text-brand-primary' : 'text-typography-muted'}`}>{SORT_LABELS[key]}</Text>
-          {sortKey === key && <FontAwesome name={sortDir === 'asc' ? 'sort-asc' : 'sort-desc'} size={10} color={c.primary} />}
-        </TouchableOpacity>
+          touchTarget
+        />
       ))}
     </ScrollView>
   );
 
   const pagination = (
-    <View className={`flex-row items-center justify-between border-t border-surface-border ${isDesktop ? 'px-6 py-3' : 'px-4 py-3'}`}>
-      <Text className="text-typography-muted text-[10px] font-bold uppercase">
-        {sortedRows.length === 0 ? 'No projects' : `Showing ${page * LIMIT + 1}–${page * LIMIT + sortedRows.length}`}
+    <View className={`flex-row items-center justify-between border-t border-surface-border ${isDesktop ? 'px-5 py-2.5' : 'px-4 py-3'}`}>
+      <Text className="text-typography-muted text-[11px] font-medium">
+        {sortedRows.length === 0
+          ? 'Nothing to show'
+          : `Showing ${page * LIMIT + 1}–${page * LIMIT + sortedRows.length}${hasMore ? '' : ' — that’s all of them'}`}
       </Text>
       <View className="flex-row items-center gap-2">
-        <TouchableOpacity
-          disabled={page === 0}
-          onPress={() => setPage(p => Math.max(0, p - 1))}
-          className={`w-8 h-8 items-center justify-center rounded-lg border border-surface-border ${page === 0 ? 'opacity-30' : ''}`}
-        >
-          <FontAwesome name="chevron-left" size={11} color={c.textMuted} />
-        </TouchableOpacity>
-        <TouchableOpacity
-          disabled={!hasMore}
-          onPress={() => setPage(p => p + 1)}
-          className={`w-8 h-8 items-center justify-center rounded-lg border border-surface-border ${!hasMore ? 'opacity-30' : ''}`}
-        >
-          <FontAwesome name="chevron-right" size={11} color={c.textMuted} />
-        </TouchableOpacity>
+        <Tooltip label={page === 0 ? 'You’re on the first page' : 'Previous page'}>
+          <TouchableOpacity
+            disabled={page === 0}
+            onPress={() => setPage(p => Math.max(0, p - 1))}
+            accessibilityLabel="Previous page"
+            className={`w-8 h-8 items-center justify-center rounded-lg border border-surface-border ${page === 0 ? 'opacity-30' : 'hover:bg-surface-overlay'}`}
+          >
+            <FontAwesome name="chevron-left" size={11} color={c.textMuted} />
+          </TouchableOpacity>
+        </Tooltip>
+        <Tooltip label={!hasMore ? 'No more projects after this page' : 'Next page'}>
+          <TouchableOpacity
+            disabled={!hasMore}
+            onPress={() => setPage(p => p + 1)}
+            accessibilityLabel="Next page"
+            className={`w-8 h-8 items-center justify-center rounded-lg border border-surface-border ${!hasMore ? 'opacity-30' : 'hover:bg-surface-overlay'}`}
+          >
+            <FontAwesome name="chevron-right" size={11} color={c.textMuted} />
+          </TouchableOpacity>
+        </Tooltip>
       </View>
     </View>
   );
@@ -317,49 +313,84 @@ export default function ProjectsTable({
     <TouchableOpacity
       onPress={() => toggleSort(sortK)}
       style={{ flex }}
+      accessibilityRole="button"
+      accessibilityLabel={`Sort by ${label}`}
       className={`flex-row items-center gap-1.5 ${align === 'center' ? 'justify-center' : align === 'right' ? 'justify-end' : ''}`}
     >
-      <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest">{label}</Text>
+      <Text className="text-typography-dim text-[9px] font-black uppercase tracking-[0.15em]">{label}</Text>
       <FontAwesome
         name={sortKey !== sortK ? 'sort' : sortDir === 'asc' ? 'sort-asc' : 'sort-desc'}
-        size={10}
+        size={9}
         color={sortKey === sortK ? c.primary : c.textDim}
       />
     </TouchableOpacity>
   );
 
+  const emptyState = (
+    <EntityEmptyState
+      kind="project"
+      title={debouncedSearch ? `Nothing matches “${debouncedSearch}”` : activeFilters > 0 ? 'No projects match these filters' : undefined}
+      body={
+        debouncedSearch
+          ? 'Search covers project and client names. Try a shorter word, or clear the search to see everything.'
+          : activeFilters > 0
+            ? 'Clear the stage or attention filter to see the rest.'
+            : undefined
+      }
+      actionLabel={!debouncedSearch && !activeFilters && onCreateProject ? 'Create a project' : undefined}
+      onAction={!debouncedSearch && !activeFilters ? onCreateProject : undefined}
+      secondaryLabel={
+        debouncedSearch || activeFilters
+          ? 'Clear filters'
+          : onBrowseStarters ? 'Start from a template' : undefined
+      }
+      onSecondary={
+        debouncedSearch || activeFilters
+          ? () => { setSearch(''); setStageId(null); setBlockedOnly(false); }
+          : onBrowseStarters
+      }
+    />
+  );
+
   const body = loading ? (
-    <View className="p-6"><SkeletonList count={isDesktop ? 6 : 4} itemHeight={isDesktop ? 52 : 120} /></View>
+    <View className="p-5"><SkeletonList count={isDesktop ? 6 : 4} itemHeight={isDesktop ? 56 : 170} /></View>
   ) : error ? (
     <ErrorBanner rpcMissing={rpcMissing} error={error} />
   ) : sortedRows.length === 0 ? (
-    <EmptyState search={debouncedSearch} onBrowseStarters={onBrowseStarters} />
+    emptyState
   ) : isDesktop ? (
     sortedRows.map((row, i) => (
       <TouchableOpacity
         key={row.id}
         onPress={() => onOpenProject(row.id)}
-        className={`flex-row items-center px-6 py-4 ${i < sortedRows.length - 1 ? 'border-b border-surface-border/50' : ''} hover:bg-surface-background/40`}
+        className={`flex-row items-center px-5 py-3 ${i < sortedRows.length - 1 ? 'border-b border-surface-border/50' : ''} hover:bg-surface-overlay/40 transition-colors`}
       >
-        <View style={{ flex: 2.4 }} className="pr-3">
-          <Text className="text-typography-main font-black text-sm" numberOfLines={1}>{row.name}</Text>
-          <Text className="text-typography-muted text-[10px] mt-0.5" numberOfLines={1}>
-            {[row.client_name, row.portfolio_name].filter(Boolean).join(' · ') || '—'}
-          </Text>
-        </View>
-
-        <View style={{ flex: 1.1 }} className="pr-3">
-          {row.stage_name ? (
-            <View className="flex-row items-center gap-1.5 self-start px-2.5 py-1 rounded-full border border-surface-border">
-              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: row.stage_color ?? c.primary }} />
-              <Text className="text-typography-main text-[10px] font-bold" numberOfLines={1}>{row.stage_name}</Text>
+        {/* Project — glyph first, so the row is identifiable before it's read */}
+        <View style={{ flex: 2.6 }} className="pr-3 flex-row items-center gap-2.5">
+          <EntityGlyph kind="project" size={28} color={row.color} />
+          <View className="flex-1 min-w-0">
+            {actions.renamingId === row.id ? (
+              <InlineRename
+                initialValue={row.name}
+                onCommit={(next) => actions.commitRename(row, next)}
+                onCancel={actions.cancelRename}
+              />
+            ) : (
+              <Text className="text-typography-main font-bold text-sm" numberOfLines={1}>{row.name}</Text>
+            )}
+            <View className="mt-0.5">
+              <ClientMark name={row.client_name} portfolioName={row.portfolio_name} size={16} />
             </View>
-          ) : <Text className="text-typography-dim text-xs">—</Text>}
+          </View>
         </View>
 
-        <View style={{ flex: 1.1 }} className="pr-3">
-          <Text style={{ color: ageColor(row.days_in_current_stage, c) }} className="text-base font-black">
-            {row.days_in_current_stage == null ? '—' : `${row.days_in_current_stage}d`}
+        <View style={{ flex: 1.2 }} className="pr-3">
+          <StageChip name={row.stage_name} color={row.stage_color} size="sm" />
+        </View>
+
+        <View style={{ flex: 0.9 }} className="pr-3">
+          <Text style={{ color: ageColor(row.days_in_current_stage, c) }} className="text-sm font-bold">
+            {row.days_in_current_stage == null ? 'Not staged' : `${row.days_in_current_stage}d`}
           </Text>
         </View>
 
@@ -367,103 +398,74 @@ export default function ProjectsTable({
           <Text style={{ color: dueColor(row.days_remaining, c) }} className="text-xs font-bold">
             {fmtDue(row.days_remaining, row.due_date)}
           </Text>
-          {row.due_date && <Text className="text-typography-dim text-[10px] mt-0.5">{fmtDate(row.due_date)}</Text>}
+          {!!row.due_date && <Text className="text-typography-dim text-[10px] mt-0.5">{fmtDate(row.due_date)}</Text>}
         </View>
 
         <View style={{ flex: 1.5 }} className="pr-3">
-          <View className="flex-row justify-between mb-1">
-            <Text className="text-typography-muted text-[10px] font-bold">{row.tasks_done}/{row.tasks_total}</Text>
-            <Text className="text-typography-main text-[10px] font-black">{Math.round(row.weighted_progress)}%</Text>
-          </View>
-          <View className="h-1.5 w-full bg-surface-background rounded-full overflow-hidden">
-            <View style={{ width: `${Math.min(100, Math.max(0, row.weighted_progress))}%`, backgroundColor: row.blocked ? c.danger : c.primary }} className="h-full rounded-full" />
-          </View>
+          <ProgressMeter
+            done={row.tasks_done}
+            total={row.tasks_total}
+            percent={row.weighted_progress}
+            tone={row.blocked ? c.danger : undefined}
+            height={5}
+          />
+        </View>
+
+        <View style={{ flex: 1.05 }} className="pr-3">
+          <HealthBadge
+            blocked={row.blocked}
+            blockedReason={row.blocked_reason}
+            daysRemaining={row.days_remaining}
+            size="sm"
+          />
         </View>
 
         <View style={{ flex: 1.2 }} className="pr-3 flex-row items-center gap-2">
           {row.owner_name ? (
             <>
-              <View className="w-6 h-6 rounded-full items-center justify-center bg-surface-background border border-surface-border">
-                <Text className="text-typography-muted text-[9px] font-black">{initials(row.owner_name)}</Text>
-              </View>
-              <UserLink userId={row.owner_id} name={row.owner_name} className="text-typography-main text-xs font-bold flex-shrink" numberOfLines={1} />
+              <EntityGlyph kind="client" size={22} name={row.owner_name} />
+              <UserLink userId={row.owner_id} name={row.owner_name} className="text-typography-main text-xs font-semibold flex-shrink" numberOfLines={1} />
             </>
-          ) : <Text className="text-typography-dim text-xs">Unassigned</Text>}
+          ) : <Text className="text-typography-dim text-xs">Nobody yet</Text>}
         </View>
 
-        <View style={{ flex: 0.8 }} className="items-center">
-          {row.blocked ? (
-            <Tooltip label={row.blocked_reason || 'Blocked'}>
-              <View className="w-6 h-6 rounded-full items-center justify-center bg-state-danger/10">
-                <FontAwesome name="exclamation" size={11} color={c.danger} />
-              </View>
-            </Tooltip>
-          ) : <FontAwesome name="check" size={11} color={c.textDim} />}
-        </View>
-
-        <View style={{ flex: 1.2 }} className="items-end">
+        <View style={{ flex: 1.05 }} className="items-end pr-2">
           <Text className="text-typography-main text-xs font-bold">{formatCompact(row.tracked_seconds)}</Text>
-          <Text className="text-typography-dim text-[10px] mt-0.5">of {row.estimated_hours != null ? `${row.estimated_hours}h` : '—'} est.</Text>
+          <Text className="text-typography-dim text-[10px] mt-0.5">
+            {row.estimated_hours != null ? `of ${row.estimated_hours}h est.` : 'no estimate'}
+          </Text>
+        </View>
+
+        <View style={{ width: 32 }} className="items-end">
+          <ProjectActionsButton onPress={() => actions.openMenu(row)} label={`Actions for ${row.name}`} />
         </View>
       </TouchableOpacity>
     ))
   ) : (
-    <View className="px-4" style={{ gap: 12 }}>
+    <View className="px-4" style={{ gap: 10 }}>
       {sortedRows.map(row => (
-        <TouchableOpacity
+        <ProjectCard
           key={row.id}
+          row={row}
+          showOwner
           onPress={() => onOpenProject(row.id)}
-          className="bg-surface-card border border-surface-border rounded-2xl p-4"
-        >
-          <View className="flex-row items-start justify-between mb-2">
-            <View className="flex-1 pr-2">
-              <Text className="text-typography-main font-black text-base" numberOfLines={1}>{row.name}</Text>
-              <Text className="text-typography-muted text-[11px]" numberOfLines={1}>
-                {[row.client_name, row.portfolio_name].filter(Boolean).join(' · ') || '—'}
-              </Text>
-            </View>
-            {row.blocked && (
-              <View className="px-2 py-1 rounded-full bg-state-danger/10 flex-row items-center gap-1">
-                <FontAwesome name="exclamation-triangle" size={9} color={c.danger} />
-                <Text className="text-state-danger text-[9px] font-black uppercase">Blocked</Text>
+          actions={<ProjectActionsButton onPress={() => actions.openMenu(row)} label={`Actions for ${row.name}`} />}
+          footer={
+            actions.renamingId === row.id ? (
+              <View className="mt-2.5">
+                <InlineRename
+                  initialValue={row.name}
+                  onCommit={(next) => actions.commitRename(row, next)}
+                  onCancel={actions.cancelRename}
+                />
               </View>
-            )}
-          </View>
-
-          <View className="flex-row items-center flex-wrap gap-2 mb-3">
-            {row.stage_name && (
-              <View className="flex-row items-center gap-1.5 px-2.5 py-1 rounded-full border border-surface-border">
-                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: row.stage_color ?? c.primary }} />
-                <Text className="text-typography-main text-[10px] font-bold">{row.stage_name}</Text>
-              </View>
-            )}
-            <Text style={{ color: ageColor(row.days_in_current_stage, c) }} className="text-sm font-black">
-              {row.days_in_current_stage == null ? 'Never staged' : `${row.days_in_current_stage}d in stage`}
-            </Text>
-          </View>
-
-          <View className="mb-3">
-            <View className="flex-row justify-between mb-1">
-              <Text className="text-typography-muted text-[10px] font-bold">{row.tasks_done}/{row.tasks_total} tasks</Text>
-              <Text className="text-typography-main text-[10px] font-black">{Math.round(row.weighted_progress)}%</Text>
-            </View>
-            <View className="h-1.5 w-full bg-surface-background rounded-full overflow-hidden">
-              <View style={{ width: `${Math.min(100, Math.max(0, row.weighted_progress))}%`, backgroundColor: row.blocked ? c.danger : c.primary }} className="h-full rounded-full" />
-            </View>
-          </View>
-
-          <View className="flex-row items-center justify-between">
-            <Text className="text-typography-muted text-[11px]" numberOfLines={1}>{row.owner_name || 'Unassigned'}</Text>
-            {row.due_date && (
-              <Text style={{ color: dueColor(row.days_remaining, c) }} className="text-[11px] font-bold">
-                {fmtDue(row.days_remaining, row.due_date)}
+            ) : (
+              <Text className="text-typography-dim text-[10px] mt-2">
+                Tracked {formatCompact(row.tracked_seconds)}{row.estimated_hours != null ? ` of ${row.estimated_hours}h est.` : ''}
               </Text>
-            )}
-          </View>
-          <Text className="text-typography-dim text-[10px] mt-1">
-            Tracked {formatCompact(row.tracked_seconds)} of {row.estimated_hours != null ? `${row.estimated_hours}h` : '—'} est.
-          </Text>
-        </TouchableOpacity>
+            )
+          }
+        />
       ))}
     </View>
   );
@@ -475,25 +477,28 @@ export default function ProjectsTable({
         {mobileSortRow}
         {body}
         {!loading && !rpcMissing && pagination}
+        {actions.overlay}
       </View>
     );
   }
 
   return (
-    <View className="bg-surface-card rounded-[24px] border border-surface-border overflow-hidden">
+    <View className="bg-surface-card rounded-2xl border border-surface-border overflow-hidden">
       {filterBar}
-      <View className="flex-row items-center px-6 py-3 border-b border-surface-border bg-surface-background/50">
-        <SortHeader label="Project" sortK="name" flex={2.4} />
-        <SortHeader label="Stage" sortK="stage" flex={1.1} />
-        <SortHeader label="Days in Stage" sortK="age" flex={1.1} />
+      <View className="flex-row items-center px-5 py-2 border-b border-surface-border bg-surface-background/50">
+        <SortHeader label="Project" sortK="name" flex={2.6} />
+        <SortHeader label="Stage" sortK="stage" flex={1.2} />
+        <SortHeader label="In stage" sortK="age" flex={0.9} />
         <SortHeader label="Due" sortK="due" flex={1.1} />
         <SortHeader label="Completion" sortK="progress" flex={1.5} />
+        <SortHeader label="Health" sortK="blocked" flex={1.05} />
         <SortHeader label="Owner" sortK="owner" flex={1.2} />
-        <SortHeader label="Blocked" sortK="blocked" flex={0.8} align="center" />
-        <SortHeader label="Tracked / Est." sortK="hours" flex={1.2} align="right" />
+        <SortHeader label="Tracked" sortK="hours" flex={1.05} align="right" />
+        <View style={{ width: 32 }} />
       </View>
       {body}
       {!loading && !rpcMissing && pagination}
+      {actions.overlay}
     </View>
   );
 }
