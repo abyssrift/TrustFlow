@@ -2609,3 +2609,90 @@ bug it hides: the user believes the gate is protecting them. So §20.2's rule is
 part of THIS phase's definition of done, not a follow-up — the controls that do
 nothing for `subject_kind = 'project'` are hidden or disabled with a reason, in
 the same change that ships the two that work.
+
+---
+
+## 21. Messiness is the feature, not the edge case
+
+The Excel-serial defect (§19.4, fixed in 7287f7d) is the clearest statement of
+what this parser is actually for. The file was not malformed. A human typed
+`8/2/26` meaning 8 February into an Excel whose locale was MDY; Excel stored 2
+August and displayed "8/2/26" back at them. The data was corrupt before it ever
+reached us, it looked correct to its author, and it was wrong on exactly the
+rows nobody can eyeball (day <= 12).
+
+**Our own 11-workbook adversarial corpus did not catch it. The user's real file
+did.** That is the finding worth generalising: synthetic fixtures are written by
+someone who knows what a date is, so they contain the mess we already imagined.
+Real files contain the mess we did not.
+
+### 21.1 The generalisable technique
+
+The fix was not "special-case Excel". It was: **use the unambiguous members of
+a set to disambiguate the ambiguous ones.** `15/2/2026` cannot be MDY, so it
+settles the order for `8/2/26` sitting in the same column.
+
+That principle re-applies everywhere and should be reached for first:
+
+- **Dates** — one value with a first part > 12 settles the whole column.
+- **Money** — one cell with a currency symbol or decimal settles that a
+  sibling bare integer is money, not an identifier.
+- **Booleans** — `TRUE` in a column of `1`/`0` settles the column.
+- **Entities** — the exact-cased `Abdallah Kamel` settles that `Abdallah kamel`
+  is the same person, not a second one.
+- **Enums** — a 40-row column with 3 distinct values settles that a 4th
+  one-off value is likely a typo, not a new category.
+
+Column-level evidence beats per-cell guessing. It is the same reasoning Sato
+uses over Sherlock (context beats isolated classification) and the same shape
+as §16.1's "one definition, consumed everywhere".
+
+### 21.2 The rule when evidence runs out
+
+**When the parser cannot resolve an inconsistency, it surfaces it. It never
+silently picks.** A silent pick is indistinguishable from correct data to
+everyone downstream, which is precisely why the serial bug survived: nothing
+looked wrong.
+
+This is already the design for ambiguous date columns (ask once, per column).
+It must be the design for every other class below.
+
+### 21.3 Classes to handle, and where each stands
+
+**A. Tool-introduced corruption.** Excel's own DMY/MDY misparse — HANDLED.
+Still open: formula error values (`#REF!`, `#N/A`, `#DIV/0!`), numbers stored
+as text and text stored as numbers, leading-apostrophe escapes, autocorrected
+values (`1-2` becoming a date, `SEPT` becoming a month).
+
+**B. Entity naming drift.** Same client written three ways across a file —
+case, trailing space, legal-suffix variants (`LLC` / `L.L.C` / `W.L.L.`),
+transliteration, plain typos. `normalizeMatchKey` and the fuzzy client matcher
+cover part of this; nothing yet detects that two rows in the SAME file are the
+same entity spelled differently.
+
+**C. Within-column format mixing.** Some dates ISO and some `d/m/y` and some
+prose in one column (the real file has this — 62% coverage on "Expected date").
+Money with and without symbols. `Y/N` and `TRUE/FALSE` and `1/0` together.
+Partially handled via coverage reporting; not resolved.
+
+**D. Structural.** Merged cells, section-header rows mid-table, hidden rows,
+duplicate rows, several tables in one sheet, a "Notes" column holding three
+facts. Continuation/footer/subtotal are handled; the rest are not, and the
+corpus only models those three.
+
+**E. Semantic.** Totals that do not reconcile — DETECTED and surfaced, never
+silently corrected. Still open: a column whose meaning changes partway down,
+and the null vocabulary (`N/A`, `-`, `TBD`, `?`, `n/a`, `none`, `--`) which is
+currently treated as content.
+
+### 21.4 What this means for the corpus
+
+The corpus needs a messiness dimension it does not have. Its trap vocabulary is
+three values (`continuation`, `footer`, `subtotal`) against the classes above.
+
+And it needs at least one workbook built by ROUND-TRIPPING through the failure
+modes rather than by writing the end state — e.g. generate DMY dates, then
+deliberately re-encode them the way an MDY-locale Excel would, so the fixture
+contains the corruption instead of a description of it. A fixture that merely
+asserts "this column is dates" cannot express "this column is dates that a
+different tool already broke".
