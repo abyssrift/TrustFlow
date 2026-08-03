@@ -2416,3 +2416,137 @@ deliberately separate work from any change to `spreadsheetMapping.ts` — a
 measurement written by the same pass that patches the thing being measured is
 worth nothing. Findings 1, 2 and 3 are the ones that corrupt data without ever
 asking the user a question, and are where a fix should start.
+
+---
+
+## 19. Phase 11 — the import journey (Phase 9's UX debt)
+
+Phase 9 built a correct engine and shipped it behind a flow nobody can follow.
+Both times a user opened it they got stuck, and both times the cause was the
+same shape: **the screen states a problem it will not let you solve.**
+
+### 19.1 The evidence, not opinion
+
+Two dead ends found within minutes of the first real use:
+
+1. **Setup step.** `canProceedToConfigure` required `pastLines.length === 0`
+   and said "Fix the date on the previous step to continue." For imported rows
+   there is no per-row date editor on any previous step — they are
+   deliberately read-only so a stray edit cannot diverge from what was
+   confirmed upstream. The user was told to fix something unreachable. It also
+   fires on the NORMAL case: you import last year's register, so every dated
+   row is behind today by construction. Fixed in a2c269f by making past dates
+   a choice — keep as historical, or clear and let the batch anchor supply them.
+2. **Configure step.** The SAME hard block, re-worded as "Per-item override(s)
+   in the past ... Fix the date on the previous step", on a screen whose
+   previous step does not offer that fix either. One instance was fixed; the
+   pattern was not.
+
+**The organising rule for this phase:** a validation that blocks must name the
+field, the reason and the remedy, and the remedy must be reachable from where
+the message appears. "Fix it somewhere else" is not a remedy, it is a dead end
+with punctuation.
+
+### 19.2 What is wrong with the journey
+
+- **No map.** Import, review, setup, configure, create is four decisions deep
+  with no indication of where you are, what remains, or what is still needed.
+  Configure shows 21 projects, 4 category-to-board pickers and a schedule
+  anchor at once, all at equal weight, with the primary button disabled and no
+  statement of which of the three is blocking it.
+- **Vocabulary the user does not share.** Category, board, schedule anchor,
+  per-item override, batch — none defined in the UI. Section 17 already named
+  this: users cannot distinguish portfolio / project / pipeline / task, and
+  this flow adds four more terms on top.
+- **Nothing explained at the point of confusion.** DUE BY / STARTS ON changes
+  the meaning of every date in the batch and is two unlabelled toggles. "Tasks
+  are due on their researched offset from this date" is not actionable.
+- **Errors are red text, not states.** The past-date block renders as a
+  paragraph of names above the list, disconnected from the rows it names,
+  while those same rows are also outlined in red below — the same information
+  twice, in two idioms, neither actionable.
+- **No preview of the outcome.** "21 projects, 294 tasks pending board +
+  schedule configuration" appears before the user can judge whether 294 is right.
+
+### 19.3 Scope
+
+1. Every blocking validation gets field, reason, remedy, and the remedy
+   reachable in place. Audit all of them; the two found are unlikely to be all.
+2. A visible spine — where am I, what remains, what is blocking the button
+   right now. A disabled primary must always be able to say why.
+3. Define the vocabulary in place, inline, not as a docs link.
+4. Errors attach to their rows, once, with the fix inline.
+5. Show the outcome before committing, for a sample project.
+6. 390px is not an afterthought. This flow has only been looked at on desktop.
+
+### 19.4 Open defect carried into this phase
+
+**Dates render swapped in the batch list.** 8/2/26 displays as "Aug 2",
+3/2/26 as "Mar 2", 10/2/26 as "Oct 2", while 15/2/2026 and 28/2/2026 render
+correctly — because a day above 12 cannot be misread as a month. That is the
+signature of a `new Date("8/2/26")` somewhere, which parses M/D/Y.
+
+The data is NOT corrupt. The full path — proposeColumnMapping,
+buildColumnDecisions, dateOrderFor (resolves DMY), buildIntakeRows — was
+replayed against the real workbook and produces 2026-02-08 for JREIJ. The swap
+is at render, downstream of correct data, and is not reproducible headlessly;
+it needs the running app instrumented.
+
+Worst class of bug in an import tool: silently wrong on half the rows (only
+days <= 12 can swap) and invisible to anyone not checking against the source.
+
+---
+
+## 20. Phase 12 — projects get the pipeline ENGINE, not just a stage column
+
+Phase 2 gave projects `pipeline_id` and `current_stage_id` and called them
+pipeline-driven. They are not. Measured:
+
+    rpc_advance_project_stage  ->  UPDATE public.projects   (the entire body)
+    rpc_execute_stage_action   ->  23 references to gates, notifications,
+                                   transitions and actions
+
+Every piece of pipeline machinery is task-only:
+
+    rpc_process_automations              TASKS ONLY
+    rpc_create/update/delete_automation  TASKS ONLY
+    rpc_execute_stage_action             TASKS ONLY
+    rpc_add/update/delete_stage_action   TASKS ONLY
+    rpc_add/update/delete_transition     TASKS ONLY
+    fn_auto_stop_timers_on_transition    TASKS ONLY
+    rpc_review_by_transition             TASKS ONLY
+
+A project pipeline therefore has stages and history, and no action buttons that
+execute, no automations, no gates (requires_submission, requires_timer,
+preconditions), no transition notifications and no timer auto-stop. A user
+configuring a project pipeline sees the same editor as a task pipeline and gets
+a fraction of the behaviour, with nothing saying so.
+
+### 20.1 The decision this phase needs first
+
+**Do projects get the full engine, or a deliberately reduced one?** They are
+not the same kind of thing: a task is worked by a person and has a timer, a
+project is a container whose progress is the aggregate of its tasks. Some
+concepts port directly (transitions, actions, notifications, preconditions),
+some are questionable (requires_timer on a project — a project must never
+become a timer target, per the existing rule), some need redefining
+(requires_submission: whose submission?).
+
+Building the full engine and then discovering half of it is meaningless for
+projects is the expensive order.
+
+### 20.2 Whatever is decided, one rule
+
+**The pipeline editor must not offer a control that does nothing for the
+subject kind it is editing.** `pipelines.subject_kind` already exists
+(20260731_pipeline_subject_kind.sql); the editor ignores it and shows every
+control regardless. That is how a user configures a gate on a project pipeline
+and never learns it was never enforced. Silent no-ops are worse than absent
+features.
+
+### 20.3 Blocks Phase 10
+
+Section 16 assumes stage transitions mean something — blocked, on pace and
+projected end are all derived from stage movement. If advancing a project stage
+is a bare column write with no gates and no events, those numbers rest on
+nothing. Phase 12 lands before or with Phase 10.
