@@ -304,9 +304,38 @@ export function detectSummaryRows(
   const out: { rowNumber: number; text: string }[] = [];
   for (let r = headerRowIndex + 1; r < aoa.length; r++) {
     const text = String((aoa[r] || [])[nameColumn] ?? '').trim();
-    if (text && SUMMARY_LABEL.test(text)) out.push({ rowNumber: r + 1, text });
+    if (text && SUMMARY_LABEL.test(text) && looksLikeArithmeticRow(aoa[r] || [], nameColumn)) {
+      out.push({ rowNumber: r + 1, text });
+    }
   }
   return out;
+}
+
+/**
+ * The label alone is not enough. `SUMMARY_LABEL` matches on a word boundary, so
+ * a real client called "Total Solutions W.L.L." matches it — and that is not a
+ * hypothetical, it is in the fixture. Flagging every such row is noise the user
+ * has to dismiss on every import, forever.
+ *
+ * A genuine total row is the sheet's arithmetic: a label, some numbers, and
+ * nothing else. A data row that merely STARTS with "Total" still carries the
+ * things that make it a record — a contact, an email, a date. So: require the
+ * row's non-name cells to be empty or numeric. Two or more populated
+ * non-numeric cells means it is data, whatever it is called.
+ */
+function looksLikeArithmeticRow(row: SheetCell[], nameColumn: number): boolean {
+  let nonNumeric = 0;
+  for (let c = 0; c < row.length; c++) {
+    if (c === nameColumn) continue;
+    const cell = String(row[c] ?? '').trim();
+    if (!cell) continue;
+    // Money/counts, with thousands separators, currency symbols and
+    // parenthesised negatives — all still "arithmetic".
+    if (/^[({[]?\s*[-+]?[$€£¥]?\s*[\d,. ]+\s*%?\s*[)}\]]?$/.test(cell)) continue;
+    nonNumeric++;
+    if (nonNumeric >= 2) return false;
+  }
+  return true;
 }
 
 /** Blank and continuation rows, both surfaced. `buildIntakeRows` already drops
