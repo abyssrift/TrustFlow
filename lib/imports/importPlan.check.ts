@@ -23,6 +23,12 @@ import {
   matchEnumValues,
   unresolvedEnumValues,
   summariseRowWarnings,
+  addDays,
+  isoDay,
+  batchOffsetRange,
+  resolveBatchStartDate,
+  sampleProjectSchedule,
+  batchSpan,
   detectSummaryRows,
   slugifyFieldKey,
   uniqueKey,
@@ -238,4 +244,53 @@ decisions.forEach((d, i) => {
   assert.strictEqual(fieldTypeForPrimitive('unknown'), 'text');
 }
 
-console.log('importPlan.check.ts: all assertions passed (22/22 columns decided, 0 defaulted to ignore)');
+// ── 11. The batch schedule preview mirrors the RPC's arithmetic (§19.2) ────
+// These four functions exist to show ONE project worked out before commit, so
+// the only thing that matters is that they agree with fn_batch_offset_range /
+// fn_resolve_batch_start_date. A drift here would produce a confident wrong
+// date, which is the exact failure class §19.4/§21 is about.
+{
+  const body = [
+    { title: 'Planning', category: 'Admin', due_offset_days: 0 },
+    { title: 'Fieldwork', category: 'Audit', due_offset_days: 14 },
+    { title: 'Report', category: 'Review', due_offset_days: 30 },
+    { title: 'Filing', category: 'Admin' }, // no offset at all -> day 0, like the SQL's COALESCE
+  ];
+
+  assert.deepStrictEqual(batchOffsetRange(body), { min: 0, max: 30 });
+  assert.deepStrictEqual(batchOffsetRange([]), { min: 0, max: 0 }, 'an empty template is a zero-day span, not NaN');
+
+  // direction 'start': the anchor IS the start date.
+  assert.strictEqual(resolveBatchStartDate('2026-02-03', 'start', 30), '2026-02-03');
+  // direction 'deadline': the anchor is the LAST task's due date, so start is
+  // anchor - span. This is the half of "DUE BY" nobody could see.
+  assert.strictEqual(resolveBatchStartDate('2026-02-03', 'deadline', 30), '2026-01-04');
+
+  // Whole-day UTC arithmetic across a DST boundary in either hemisphere.
+  assert.strictEqual(addDays('2026-03-28', 3), '2026-03-31', 'no DST off-by-one going forward');
+  assert.strictEqual(addDays('2026-11-02', -3), '2026-10-30', 'nor going back');
+  assert.strictEqual(isoDay('2026-02-08T00:00:00.000Z'), '2026-02-08', 'a full ISO timestamp is accepted');
+
+  const starts = sampleProjectSchedule(body, '2026-02-03', 'start', null);
+  assert.strictEqual(starts.length, 4);
+  assert.strictEqual(starts[0].dueDay, '2026-02-03', 'day 0 lands on the anchor');
+  assert.strictEqual(starts[3].dueDay, '2026-03-05', 'day 30 is 30 days later');
+  assert.ok(starts.every((t, i) => i === 0 || t.offsetDays >= starts[i - 1].offsetDays), 'sorted by offset');
+
+  const deadline = sampleProjectSchedule(body, '2026-02-03', 'deadline', null);
+  assert.strictEqual(deadline[deadline.length - 1].dueDay, '2026-02-03', 'under DUE BY the last task lands ON the anchor');
+  assert.strictEqual(deadline[0].dueDay, '2026-01-04', 'and everything else is worked backwards from it');
+
+  // A row's own start date overrides the anchor — and carries the SAME
+  // direction semantics, which is why a per-row date under DUE BY is that
+  // row's deadline. Mirrors the CASE in the RPC exactly.
+  const override = sampleProjectSchedule(body, '2026-02-03', 'deadline', '2026-05-01T00:00:00.000Z');
+  assert.strictEqual(override[override.length - 1].dueDay, '2026-05-01');
+
+  // batchSpan must reproduce the RPC's MIN(start)+min_offset / MAX(start)+max_offset.
+  const span = batchSpan(body, '2026-02-03', 'start', [null, '2026-04-10', '2026-01-20']);
+  assert.deepStrictEqual(span, { firstDay: '2026-01-20', lastDay: '2026-05-10' });
+  assert.strictEqual(batchSpan(body, '2026-02-03', 'start', []), null, 'no rows means no span, not a bogus one');
+}
+
+console.log('importPlan.check.ts: all assertions passed (22/22 columns decided, 0 defaulted to ignore; batch schedule mirrors the RPC)');

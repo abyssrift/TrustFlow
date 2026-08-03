@@ -382,6 +382,91 @@ export function customFieldPlans(decisions: ColumnDecision[]): CustomFieldPlan[]
     }));
 }
 
+// ── what the batch will actually look like (§19.2 "no preview of the outcome") ─
+//
+// The Configure step could say "21 projects, 294 tasks" and nothing else, so a
+// user had to commit before they could judge whether 294 was right, or what
+// "DUE BY" had just done to every date in the file. These four functions
+// reproduce the schedule arithmetic rpc_preview_instantiate_template runs
+// server-side so ONE project can be shown worked out in full first.
+//
+// They are a MIRROR of fn_batch_offset_range / fn_resolve_batch_start_date, not
+// a second definition of the rule: the caller cross-checks the batch-wide
+// min/max these produce against the `first_task_date` / `last_task_date` the
+// server returned, and hides the sample entirely if the two disagree. So a
+// drift shows up as a missing preview, never as a confident wrong date.
+
+/** `YYYY-MM-DD` from either a date-only string or a full ISO timestamp. */
+export function isoDay(value: string): string {
+  return value.slice(0, 10);
+}
+
+/** Whole-day arithmetic in UTC. Local-time `setDate` shifts across a DST
+ *  boundary, which is how an off-by-one lands in exactly one month of the year. */
+export function addDays(day: string, n: number): string {
+  return new Date(Date.parse(`${isoDay(day)}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+}
+
+/** Mirrors `fn_batch_offset_range`: a missing `due_offset_days` is day 0. */
+export function batchOffsetRange(body: { due_offset_days?: number | null }[]): { min: number; max: number } {
+  if (!body || body.length === 0) return { min: 0, max: 0 };
+  const offsets = body.map(t => t?.due_offset_days ?? 0);
+  return { min: Math.min(...offsets), max: Math.max(...offsets) };
+}
+
+/** Mirrors `fn_resolve_batch_start_date`: a deadline anchor is the day the LAST
+ *  task is due, so the project starts `span` days before it. */
+export function resolveBatchStartDate(anchorDay: string, direction: 'start' | 'deadline', spanDays: number): string {
+  return direction === 'deadline' ? addDays(anchorDay, -spanDays) : isoDay(anchorDay);
+}
+
+export type ScheduledTask = { title: string; category: string; offsetDays: number; dueDay: string };
+
+/**
+ * One project's tasks with the date each will actually carry.
+ *
+ * `projectStart` is the row's own start-date override (a spreadsheet column, or
+ * the `Name, 2026-08-01` textarea form); null means the row follows the batch
+ * anchor. Both go through `resolveBatchStartDate` with the same direction,
+ * exactly as the RPC does — a per-row date under "DUE BY" is that ROW's
+ * deadline, not its start, and that is the thing nobody could see before.
+ */
+export function sampleProjectSchedule(
+  body: { title?: string; category?: string; due_offset_days?: number | null }[],
+  anchorDay: string,
+  direction: 'start' | 'deadline',
+  projectStart: string | null,
+): ScheduledTask[] {
+  const { max } = batchOffsetRange(body);
+  const start = resolveBatchStartDate(projectStart ?? anchorDay, direction, max);
+  return body
+    .map((t, i) => {
+      const offsetDays = t?.due_offset_days ?? 0;
+      return {
+        title: t?.title || `Task ${i + 1}`,
+        category: t?.category || '',
+        offsetDays,
+        dueDay: addDays(start, offsetDays),
+      };
+    })
+    .sort((a, b) => a.offsetDays - b.offsetDays);
+}
+
+/** The batch-wide first/last task day across every row, the same way the RPC
+ *  computes them: MIN(start)+min_offset and MAX(start)+max_offset. This exists
+ *  to be compared against the server's answer, not to replace it. */
+export function batchSpan(
+  body: { due_offset_days?: number | null }[],
+  anchorDay: string,
+  direction: 'start' | 'deadline',
+  projectStarts: (string | null)[],
+): { firstDay: string; lastDay: string } | null {
+  if (projectStarts.length === 0) return null;
+  const { min, max } = batchOffsetRange(body);
+  const starts = projectStarts.map(s => resolveBatchStartDate(s ?? anchorDay, direction, max)).sort();
+  return { firstDay: addDays(starts[0], min), lastDay: addDays(starts[starts.length - 1], max) };
+}
+
 /**
  * The scalar we would store for one (row, custom field). Returns `null` for a
  * blank cell — `rpc_set_project_field_values` treats null as "clear", which is
