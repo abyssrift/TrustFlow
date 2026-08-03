@@ -14,6 +14,7 @@ import {
   detectColumnRelations,
   parseMoneyCell,
   parseDateValue,
+  type SheetCell,
 } from './spreadsheetMapping';
 import {
   buildColumnDecisions,
@@ -22,6 +23,7 @@ import {
   matchEnumValues,
   unresolvedEnumValues,
   summariseRowWarnings,
+  detectSummaryRows,
   slugifyFieldKey,
   uniqueKey,
   fieldTypeForPrimitive,
@@ -174,6 +176,27 @@ decisions.forEach((d, i) => {
   assert.strictEqual(w.continuations[0].continuesRowNumber, 7);
   assert.strictEqual(w.blankRowNumbers.length, 1, 'the separator row must be reported, not just skipped');
   assert.strictEqual(w.blankRowNumbers[0], 21);
+}
+
+// ── 7b. A footer TOTAL row is flagged, and a real client is not ─────────────
+// The fixture has no total row (its TOTAL is a COLUMN), so one is appended —
+// the shape every second real register ends with.
+{
+  const withFooter: SheetCell[][] = [
+    ...ENGAGEMENT_REGISTER,
+    ['', 'TOTAL', '', '', '', '', '', 76800, 3000, 21700, 101500, '', '', '', '', '', '', '', '', '', '', ''],
+    ['', 'Total Solutions W.L.L.', 'Individual', 2025, 'Issued', 'Audit & Tax', 'Fadi Haddad', 4000, 0, 1000, 5000, 'Active', 'Signed by client', 'Nadia', '', '', 'nadia@totalsolutions.example', 'NO', '', '', '', ''],
+  ];
+  const found = detectSummaryRows(withFooter, HEADER, mapping.name);
+  assert.strictEqual(found.length, 1, `expected exactly 1 total row, got ${found.map(f => f.text).join(' | ')}`);
+  assert.strictEqual(found[0].text, 'TOTAL');
+  assert.strictEqual(found[0].rowNumber, ENGAGEMENT_REGISTER.length + 1);
+  // The anchored regex is what keeps a real company off this list — a footer
+  // OPENS with the word, a client name merely contains it.
+  assert.deepStrictEqual(detectSummaryRows(withFooter, HEADER, undefined), [], 'no name column means no claim either way');
+
+  const w = summariseRowWarnings(classifyRowShapes(withFooter, HEADER, mapping.name), found);
+  assert.strictEqual(w.summaries.length, 1, 'the total row must reach the UI through the warnings summary');
 }
 
 // ── 8. The non-reconciling TOTAL names its rows (task #3) ───────────────────

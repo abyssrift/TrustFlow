@@ -269,7 +269,45 @@ export function unresolvedEnumValues(
 export type RowWarnings = {
   continuations: { rowNumber: number; text: string; continuesRowNumber: number }[];
   blankRowNumbers: number[];
+  /** the file's own footer arithmetic — see `detectSummaryRows` */
+  summaries: { rowNumber: number; text: string }[];
 };
+
+// "Total", "TOTAL A&T", "Grand Total", "Sub-total", "Net". Anchored at the
+// start so a real client called "Total Solutions W.L.L." is not swallowed by
+// it — the word has to OPEN the cell, which is how a spreadsheet footer reads
+// and is not how a company name does.
+const SUMMARY_LABEL = /^(grand[\s-]*)?(totals?|sums?|sub[\s-]*totals?|net|overall|average|avg)\b/i;
+
+/**
+ * Rows that are the spreadsheet's own arithmetic, not data: the `TOTAL` line
+ * under the last engagement.
+ *
+ * Same rule as §18.4's continuation rows, and the same reason: imported, it
+ * becomes a project called "Total" with a fee of everything; dropped silently,
+ * a user who genuinely has a client called "Total" loses a row and never finds
+ * out. So it is surfaced and the human decides — this function detects, it
+ * never filters.
+ *
+ * ponytail: a label match on the name cell only. It does NOT try to verify the
+ * arithmetic (that the row's money cells equal the sum of the rows above), and
+ * it will miss an unlabelled footer row. Upgrade to a column-sum check if real
+ * files turn out to carry unlabelled totals — `detectColumnRelations` already
+ * has the summing machinery to borrow.
+ */
+export function detectSummaryRows(
+  aoa: SheetCell[][],
+  headerRowIndex: number,
+  nameColumn: number | undefined,
+): { rowNumber: number; text: string }[] {
+  if (nameColumn === undefined) return [];
+  const out: { rowNumber: number; text: string }[] = [];
+  for (let r = headerRowIndex + 1; r < aoa.length; r++) {
+    const text = String((aoa[r] || [])[nameColumn] ?? '').trim();
+    if (text && SUMMARY_LABEL.test(text)) out.push({ rowNumber: r + 1, text });
+  }
+  return out;
+}
 
 /** Blank and continuation rows, both surfaced. `buildIntakeRows` already drops
  *  blanks and TAGS continuations; what it cannot do is make anyone look at
@@ -277,12 +315,14 @@ export type RowWarnings = {
  *  "Contracting W.L.L." (§18.4). */
 export function summariseRowWarnings(
   shapes: { rowNumber: number; kind: string; text?: string; continuesRowNumber?: number }[],
+  summaries: { rowNumber: number; text: string }[] = [],
 ): RowWarnings {
   return {
     continuations: shapes
       .filter(s => s.kind === 'continuation')
       .map(s => ({ rowNumber: s.rowNumber, text: s.text ?? '', continuesRowNumber: s.continuesRowNumber ?? 0 })),
     blankRowNumbers: shapes.filter(s => s.kind === 'blank').map(s => s.rowNumber),
+    summaries,
   };
 }
 

@@ -62,6 +62,7 @@ import {
   distinctColumnValues,
   matchEnumValues,
   summariseRowWarnings,
+  detectSummaryRows,
   fieldTypeForPrimitive,
   slugifyFieldKey,
   cellToFieldValue,
@@ -532,16 +533,26 @@ export default function SpreadsheetImportSheet({
   }, [parsed, mapping, dateOrders]);
 
   const rowWarnings = useMemo(() => {
-    if (!parsed) return { continuations: [], blankRowNumbers: [] };
-    return summariseRowWarnings(classifyRowShapes(parsed.aoa, parsed.headerRowIndex, mapping.name));
+    if (!parsed) return { continuations: [], blankRowNumbers: [], summaries: [] };
+    return summariseRowWarnings(
+      classifyRowShapes(parsed.aoa, parsed.headerRowIndex, mapping.name),
+      detectSummaryRows(parsed.aoa, parsed.headerRowIndex, mapping.name),
+    );
   }, [parsed, mapping.name]);
 
-  /** A continuation row is a wrapped cell, not a project — but §18.4 forbids
-   *  BOTH dropping it silently and importing it silently, so it is excluded by
-   *  default, listed by row number, and one tap away from being included. */
+  /** A continuation row is a wrapped cell and a `TOTAL` row is the file's own
+   *  arithmetic — neither is a project. §18.4 forbids BOTH dropping them
+   *  silently and importing them silently, so they are excluded by default,
+   *  listed by row number, and one tap away from being included. */
+  const summaryRowNumbers = useMemo(
+    () => new Set(rowWarnings.summaries.map(s => s.rowNumber)),
+    [rowWarnings],
+  );
   const importableRows = useMemo(
-    () => liveRows.filter(r => r.shape !== 'continuation' || continuationChoices[r.rowNumber] === 'import'),
-    [liveRows, continuationChoices],
+    () => liveRows.filter(r =>
+      (r.shape !== 'continuation' && !summaryRowNumbers.has(r.rowNumber)) ||
+      continuationChoices[r.rowNumber] === 'import'),
+    [liveRows, continuationChoices, summaryRowNumbers],
   );
 
   const brokenTotals = useMemo(
@@ -870,6 +881,32 @@ export default function SpreadsheetImportSheet({
                 onPress={() => setContinuationChoices(p => ({ ...p, [w.rowNumber]: 'skip' }))} c={c} />
               <PickerOption label="Import anyway" active={continuationChoices[w.rowNumber] === 'import'}
                 onPress={() => setContinuationChoices(p => ({ ...p, [w.rowNumber]: 'import' }))} c={c} />
+            </View>
+          ))}
+        </View>,
+      );
+    }
+    if (rowWarnings.summaries.length > 0) {
+      warningCards.push(
+        <View key="summary" className="rounded-2xl p-3" style={[{ backgroundColor: c.background, borderWidth: 1, borderColor: c.warning, gap: 8 }, cardLayout]}>
+          <View className="flex-row items-center" style={{ gap: 6 }}>
+            <FontAwesome name="calculator" size={11} color={c.warning} />
+            <Text className="text-typography-main text-xs font-black flex-1">
+              {rowWarnings.summaries.length} total row{rowWarnings.summaries.length === 1 ? '' : 's'}
+            </Text>
+          </View>
+          <Text className="text-typography-muted text-[10px]">
+            The name cell reads as the file's own arithmetic, not a client. Imported, it becomes a project called “{rowWarnings.summaries[0].text}”. Excluded unless you say otherwise.
+          </Text>
+          {rowWarnings.summaries.map(s => (
+            <View key={s.rowNumber} className="flex-row items-center flex-wrap" style={{ gap: 6 }}>
+              <Text className="text-typography-main text-[11px] font-bold" style={{ flexGrow: 1, flexBasis: 210 }} numberOfLines={2}>
+                Row {s.rowNumber}: “{s.text}”
+              </Text>
+              <PickerOption label="Skip" active={(continuationChoices[s.rowNumber] ?? 'skip') === 'skip'}
+                onPress={() => setContinuationChoices(p => ({ ...p, [s.rowNumber]: 'skip' }))} c={c} />
+              <PickerOption label="Import anyway" active={continuationChoices[s.rowNumber] === 'import'}
+                onPress={() => setContinuationChoices(p => ({ ...p, [s.rowNumber]: 'import' }))} c={c} />
             </View>
           ))}
         </View>,
