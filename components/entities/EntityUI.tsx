@@ -202,22 +202,30 @@ export function ClientMark({
   if (!name && !portfolioName) {
     return <Text className="text-typography-dim text-[11px]">No client yet</Text>;
   }
+  // Both names on one narrow line used to truncate to "Northg… · Statutory …",
+  // i.e. neither was readable — seen on a 320px board card and in the list's
+  // Project column. The client is the one a human needs first, so the
+  // portfolio shrinks three times as fast, and the tooltip carries both in
+  // full so the truncation is always recoverable.
+  const full = [name, portfolioName].filter(Boolean).join(' · ');
   return (
-    <View className="flex-row items-center gap-1.5 flex-shrink min-w-0">
-      {!!name && (
-        <>
-          <EntityGlyph kind="client" size={size} name={name} />
-          <Text numberOfLines={1} className="text-typography-muted text-[11px] font-semibold flex-shrink">{name}</Text>
-        </>
-      )}
-      {!!portfolioName && (
-        <>
-          {!!name && <Text className="text-typography-dim text-[11px]">·</Text>}
-          <EntityGlyph kind="portfolio" size={size * 0.72} />
-          <Text numberOfLines={1} className="text-typography-muted text-[11px] font-semibold flex-shrink">{portfolioName}</Text>
-        </>
-      )}
-    </View>
+    <Tooltip label={full}>
+      <View className="flex-row items-center gap-1.5 flex-shrink min-w-0">
+        {!!name && (
+          <>
+            <EntityGlyph kind="client" size={size} name={name} />
+            <Text numberOfLines={1} style={{ flexShrink: 1 }} className="text-typography-muted text-[11px] font-semibold">{name}</Text>
+          </>
+        )}
+        {!!portfolioName && (
+          <>
+            {!!name && <Text className="text-typography-dim text-[11px]">·</Text>}
+            <EntityGlyph kind="portfolio" size={Math.round(size * 0.72)} />
+            <Text numberOfLines={1} style={{ flexShrink: 3 }} className="text-typography-muted text-[11px] font-semibold">{portfolioName}</Text>
+          </>
+        )}
+      </View>
+    </Tooltip>
   );
 }
 
@@ -264,7 +272,12 @@ export function StageChip({
 
   if (!onPress) return body;
   const control = (
-    <TouchableOpacity onPress={onPress} disabled={disabled} accessibilityRole="button">
+    <TouchableOpacity
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={name ? `Stage: ${name}. Move to another stage` : 'Put this project on a stage'}
+    >
       {body}
     </TouchableOpacity>
   );
@@ -431,7 +444,14 @@ export function ProjectCard({
       ref={innerRef}
       onPress={onPress}
       disabled={dimmed}
-      accessibilityRole="button"
+      // NO accessibilityRole="button" here, deliberately. react-native-web
+      // emits a real <button> element for that role, and this card contains
+      // its own buttons (move / actions) — nesting them makes React log
+      // "<button> cannot contain a nested <button>", which Expo's LogBox
+      // then shows the user as a red error toast on top of the board. Caught
+      // by driving the board in a browser, not by tsc. RNW still gives the
+      // card role="button" + keyboard focus without the invalid element.
+      accessibilityLabel={`Open ${row.name}`}
       className="bg-surface-card rounded-2xl p-3.5 border hover:border-brand-primary/40 transition-colors"
       style={{
         borderColor: highlighted ? c.primary : c.border,

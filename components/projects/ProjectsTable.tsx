@@ -223,7 +223,13 @@ export default function ProjectsTable({
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        style={{ flexGrow: 0 }}
+        // flexGrow:0 ONLY on mobile. There this row sits in a column and RNW's
+        // ScrollView would otherwise stretch vertically and balloon the chips
+        // into full-height pills. On desktop it sits in a flex-row, where the
+        // same inline style beats the `flex-1` class and collapsed the whole
+        // stage-filter rail to zero width — the chips were in the DOM and
+        // invisible. Found by looking at the screen, not by tsc.
+        style={isDesktop ? undefined : { flexGrow: 0 }}
         className={isDesktop ? 'flex-1' : 'mb-3'}
         contentContainerStyle={{ gap: 8, alignItems: 'center' }}
       >

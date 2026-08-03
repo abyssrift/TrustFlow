@@ -5,7 +5,7 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import ProjectFolderModal from './ProjectFolderModal';
 import ProjectStagePicker from './ProjectStagePicker';
 import Tooltip from '@/components/common/Tooltip';
@@ -123,7 +123,7 @@ export default function ProjectHeader() {
           )}
 
           {/* State: the same stage chip and health badge as everywhere else. */}
-          <View className="flex-row flex-wrap items-center gap-2 mt-3">
+          <View className="flex-row flex-wrap items-center gap-2 mt-2.5">
             <StageChip
               name={lifecycle?.stageName}
               color={lifecycle?.stageColor}
@@ -140,10 +140,21 @@ export default function ProjectHeader() {
             />
           </View>
 
-          {/* Flags -- fixed set, plan §13.12: blocked / awaiting client / at risk */}
-          <View className="flex-row flex-wrap items-center gap-2 mt-2">
+          {/* Flags -- fixed set, plan §13.12: blocked / awaiting client / at risk.
+              One horizontally-scrolling rail, not a wrapping row: at 390px the
+              content column is ~250px wide, so wrapping put each chip on its own
+              line and the header ate a third of the viewport before the tabs
+              appeared. flexGrow:0 for the same reason every other chip rail in
+              this app carries it — RNW stretches a ScrollView inside a column
+              and balloons the pills. */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={{ flexGrow: 0, marginTop: 8 }}
+            contentContainerStyle={{ gap: 8, alignItems: 'center' }}
+          >
             {canEdit && (
-              <Text className="text-[9px] font-black uppercase tracking-[0.2em] mr-0.5" style={{ color: c.textDim }}>Flags</Text>
+              <Text className="text-[9px] font-black uppercase tracking-[0.2em]" style={{ color: c.textDim }}>Flags</Text>
             )}
             {PROJECT_FLAGS.map(({ key, label }) => {
               const active = activeFlags.includes(key);
@@ -170,7 +181,7 @@ export default function ProjectHeader() {
               );
             })}
             {savingFlags && <ActivityIndicator size="small" color={c.textMuted} />}
-          </View>
+          </ScrollView>
 
           {activeFlags.length > 0 && canEdit && (
             <TextInput

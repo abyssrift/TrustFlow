@@ -73,6 +73,7 @@ function FileSection({
   title,
   subtitle,
   kind,
+  glyphName,
   files,
   emptyLabel,
   headerRight,
@@ -82,6 +83,8 @@ function FileSection({
   /** Says what this pile of files IS — input vs output is the whole §6 split. */
   subtitle: string;
   kind: EntityKind;
+  /** Monogram source for the client circle. Without it the glyph renders "?". */
+  glyphName?: string | null;
   files: FileRow[];
   emptyLabel: string;
   headerRight?: React.ReactNode;
@@ -109,7 +112,7 @@ function FileSection({
     <View className="mb-7">
       <View className="flex-row items-start justify-between gap-3 mb-3">
         <View className="flex-row items-center gap-2.5 flex-1 min-w-0">
-          <EntityGlyph kind={kind} size={28} />
+          <EntityGlyph kind={kind} size={28} name={glyphName} />
           <View className="flex-1 min-w-0">
             <View className="flex-row items-center gap-2">
               <Text numberOfLines={1} className="text-typography-main text-sm font-bold flex-shrink">{title}</Text>
@@ -255,6 +258,7 @@ export default function ProjectFilesTab() {
         title={data.client_name ? `${data.client_name} — standing files` : 'Client standing files'}
         subtitle="What the client gave you. Stays put year after year, shared by every project for them."
         kind="client"
+        glyphName={data.client_name}
         files={data.standing_files}
         emptyLabel={
           !data.client_id
