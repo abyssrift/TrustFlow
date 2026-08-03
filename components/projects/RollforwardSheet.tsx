@@ -1,6 +1,8 @@
 import Calendar from '@/components/common/Calendar';
 import DraggableSheet from '@/components/common/DraggableSheet';
 import Popup from '@/components/common/Popup';
+import Tooltip from '@/components/common/Tooltip';
+import { EntityGlyph, EntityTag } from '@/components/entities/EntityUI';
 import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { getQuickActionDate } from '@/lib/calendarPicker';
@@ -292,6 +294,19 @@ export default function RollforwardSheet({
 
   const canSubmit = !creating && !loadingContext && name.trim().length > 0 && anchorReady && mappingReady && totalTasks > 0;
 
+  // §14.2 / §17 — a disabled control must always be able to say why. This used
+  // to be a greyed-out button with no explanation anywhere on the sheet.
+  const blockedReason: string | null =
+    creating ? 'Creating the new project…'
+    : loadingContext ? 'Still reading this project’s task list…'
+    : !name.trim() ? 'Give the new project a name.'
+    : totalTasks === 0 ? 'This project has no tasks to carry forward, so there is nothing to roll.'
+    : !anchorDirection ? 'Choose whether the date you pick is the start or the deadline.'
+    : !anchorDate ? 'Pick the date the new project hangs off.'
+    : anchorIsPast ? 'That date has already passed — pick today or later.'
+    : !mappingReady ? `Every category needs a board — ${mappedCount} of ${sourceCategories.length} done.`
+    : null;
+
   const handleSubmit = async () => {
     if (!canSubmit || !anchorDate || !anchorDirection) return;
     setCreating(true);
@@ -344,6 +359,21 @@ export default function RollforwardSheet({
 
   const formContent = (
     <View style={{ gap: 16 }}>
+      {/* What a rollforward IS. "Roll forward" is jargon; this is the closest
+          thing the product has to "duplicate", and users will look for it
+          under that word (plan §14.2). */}
+      <View className="flex-row items-start gap-3 bg-surface-background border border-surface-border rounded-2xl p-3.5">
+        <EntityGlyph kind="project" size={28} />
+        <View className="flex-1">
+          <Text className="text-typography-main text-xs font-bold">
+            Copies {sourceProjectName ? `“${sourceProjectName}”` : 'this project'} into a new one
+          </Text>
+          <Text className="text-typography-muted text-[11px] mt-0.5 leading-4">
+            Same task structure, new dates, nothing changed on the original. This is how next year’s engagement gets made.
+          </Text>
+        </View>
+      </View>
+
       <View>
         <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2">New Project Name</Text>
         <TextInput
@@ -454,9 +484,14 @@ export default function RollforwardSheet({
           {mobilePage === 'form' ? (
             <>
               <View className="flex-row items-center justify-between px-5 pt-3 pb-4">
-                <View className="flex-1 mr-3">
-                  <Text className="text-typography-muted text-[9px] font-black uppercase tracking-[0.3em] mb-1">Rollforward</Text>
-                  <Text className="text-typography-main text-xl font-black tracking-tight" numberOfLines={1}>{sourceProjectName || 'Create Next Year'}</Text>
+                <View className="flex-1 mr-3 flex-row items-center gap-2.5">
+                  <EntityGlyph kind="project" size={32} />
+                  <View className="flex-1">
+                    <EntityTag kind="project" />
+                    <Text className="text-typography-main text-lg font-black tracking-tight" numberOfLines={1}>
+                      {sourceProjectName ? `Roll ${sourceProjectName} forward` : 'Roll forward'}
+                    </Text>
+                  </View>
                 </View>
                 <TouchableOpacity onPress={onClose} disabled={creating} className="w-10 h-10 items-center justify-center rounded-full" style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}>
                   <FontAwesome name="times" size={16} color={c.textMain} />
@@ -478,13 +513,18 @@ export default function RollforwardSheet({
                   </TouchableOpacity>
                 )}
               </ScrollView>
-              <View className="flex-row gap-3 px-5 py-4" style={{ borderTopWidth: 1, borderTopColor: c.border }}>
-                <TouchableOpacity onPress={onClose} disabled={creating} className="flex-1 py-3.5 rounded-2xl items-center" style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}>
-                  <Text className="font-black uppercase tracking-widest text-xs" style={{ color: c.textMuted }}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={handleSubmit} disabled={!canSubmit} className="flex-[2] py-3.5 rounded-2xl items-center shadow-lg" style={{ backgroundColor: canSubmit ? c.primary : c.border }}>
-                  <Text className="font-black uppercase tracking-widest text-xs" style={{ color: canSubmit ? 'white' : c.textMuted }}>{creating ? 'Creating…' : 'Roll Forward'}</Text>
-                </TouchableOpacity>
+              <View className="px-5 py-4" style={{ borderTopWidth: 1, borderTopColor: c.border }}>
+                {!!blockedReason && (
+                  <Text className="text-typography-muted text-[11px] mb-2.5">{blockedReason}</Text>
+                )}
+                <View className="flex-row gap-3">
+                  <TouchableOpacity onPress={onClose} disabled={creating} className="flex-1 py-3.5 rounded-2xl items-center" style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}>
+                    <Text className="font-bold text-sm" style={{ color: c.textMuted }}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={handleSubmit} disabled={!canSubmit} className="flex-[2] py-3.5 rounded-2xl items-center" style={{ backgroundColor: canSubmit ? c.primary : c.border }}>
+                    <Text className="font-bold text-sm" style={{ color: canSubmit ? 'white' : c.textMuted }}>{creating ? 'Creating…' : 'Create the new project'}</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </>
           ) : (
@@ -517,10 +557,10 @@ export default function RollforwardSheet({
       visible={visible}
       onClose={onClose}
       presentation="centered"
-      title="Roll Forward This Project"
+      title={sourceProjectName ? `Roll “${sourceProjectName}” forward` : 'Roll this project forward'}
       footer="dual-action"
       secondaryAction={{ label: 'Cancel', onPress: onClose }}
-      primaryAction={{ label: creating ? 'Creating…' : 'Roll Forward', onPress: handleSubmit, variant: canSubmit ? 'default' : 'disabled' }}
+      primaryAction={{ label: creating ? 'Creating…' : 'Create the new project', onPress: handleSubmit, variant: canSubmit ? 'default' : 'disabled' }}
       dismissible={!creating}
       maxWidth={820}
       containerStyle={{ height: '82%' }}
@@ -538,6 +578,17 @@ export default function RollforwardSheet({
           <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 8 }}>
             {mappingContent}
           </ScrollView>
+          {/* Popup's own footer button can't carry an explanation, so the
+              reason it is disabled lives at the bottom of the column the user
+              is most likely still working in. */}
+          {!!blockedReason && (
+            <Tooltip label={blockedReason}>
+              <View className="flex-row items-center gap-2 mt-2 pt-2 border-t border-surface-border">
+                <FontAwesome name="info-circle" size={11} color={c.textMuted} />
+                <Text className="text-typography-muted text-[11px] flex-1">{blockedReason}</Text>
+              </View>
+            </Tooltip>
+          )}
         </View>
       </View>
     </Popup>

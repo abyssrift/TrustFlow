@@ -2,6 +2,7 @@ import { FilePreviewModal, getPreviewKind, type PreviewKind } from '@/components
 import { FilePreviewGrid, type FileTile } from '@/components/common/FilePreviewCard';
 import { useProjectDetail } from '@/contexts/ProjectDetailContext';
 import { useToast } from '@/contexts/ToastContext';
+import { EntityGlyph, type EntityKind } from '@/components/entities/EntityUI';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { formatFileSize } from '@/lib/uploadHelpers';
 import { supabase } from '@/lib/supabase';
@@ -70,14 +71,17 @@ function toTile(file: FileRow, onPress: () => void): FileTile {
 
 function FileSection({
   title,
-  icon,
+  subtitle,
+  kind,
   files,
   emptyLabel,
   headerRight,
   below,
 }: {
   title: string;
-  icon: string;
+  /** Says what this pile of files IS — input vs output is the whole §6 split. */
+  subtitle: string;
+  kind: EntityKind;
   files: FileRow[];
   emptyLabel: string;
   headerRight?: React.ReactNode;
@@ -102,12 +106,19 @@ function FileSection({
   }, []);
 
   return (
-    <View className="mb-6">
-      <View className="flex-row items-center justify-between mb-3">
-        <View className="flex-row items-center gap-2">
-          <FontAwesome name={icon as any} size={13} color={colors.textDim} />
-          <Text className="text-typography-main text-sm font-black">{title}</Text>
-          <Text className="text-typography-muted text-xs">({files.length})</Text>
+    <View className="mb-7">
+      <View className="flex-row items-start justify-between gap-3 mb-3">
+        <View className="flex-row items-center gap-2.5 flex-1 min-w-0">
+          <EntityGlyph kind={kind} size={28} />
+          <View className="flex-1 min-w-0">
+            <View className="flex-row items-center gap-2">
+              <Text numberOfLines={1} className="text-typography-main text-sm font-bold flex-shrink">{title}</Text>
+              <Text className="text-typography-muted text-xs">
+                {files.length} file{files.length === 1 ? '' : 's'}
+              </Text>
+            </View>
+            <Text className="text-typography-muted text-[11px] mt-0.5">{subtitle}</Text>
+          </View>
         </View>
         {headerRight}
       </View>
@@ -115,8 +126,8 @@ function FileSection({
       {below}
 
       {files.length === 0 ? (
-        <View className="bg-surface-card border border-surface-border rounded-xl py-6 px-4 items-center">
-          <Text className="text-typography-muted text-xs text-center">{emptyLabel}</Text>
+        <View className="bg-surface-card border border-surface-border rounded-xl py-6 px-5 items-center">
+          <Text className="text-typography-muted text-xs text-center leading-5" style={{ maxWidth: 460 }}>{emptyLabel}</Text>
         </View>
       ) : (
         <FilePreviewGrid
@@ -159,8 +170,8 @@ function VersionHistory({ versions }: { versions: VersionRow[] }) {
         style={{ minHeight: 44 }}
       >
         <FontAwesome name={expanded ? 'chevron-down' : 'chevron-right'} size={9} color={colors.textDim} />
-        <Text className="text-typography-dim text-xs font-bold">
-          Sealed {versions.length === 1 ? 'version' : `${versions.length} versions`}
+        <Text className="text-typography-dim text-xs font-semibold">
+          {versions.length === 1 ? '1 sealed version' : `${versions.length} sealed versions`}
         </Text>
       </TouchableOpacity>
 
@@ -229,24 +240,28 @@ export default function ProjectFilesTab() {
   if (!data) {
     return (
       <View className="flex-1 items-center justify-center py-24 px-8">
-        <Text className="text-typography-muted text-sm">Could not load files for this project.</Text>
+        <Text className="text-typography-main text-sm font-bold">Files couldn’t load</Text>
+        <Text className="text-typography-muted text-xs text-center mt-1.5 leading-5" style={{ maxWidth: 380 }}>
+          Reload the page. If it keeps happening, the project may have been archived while you were looking at it.
+        </Text>
       </View>
     );
   }
 
   return (
-    <View className="flex-1 px-4 py-4">
+    <View className="flex-1 p-4 md:p-8">
       {/* Client standing files -- input, persists across years */}
       <FileSection
-        title={data.client_name ? `${data.client_name} — Standing Files` : 'Client Standing Files'}
-        icon="folder-o"
+        title={data.client_name ? `${data.client_name} — standing files` : 'Client standing files'}
+        subtitle="What the client gave you. Stays put year after year, shared by every project for them."
+        kind="client"
         files={data.standing_files}
         emptyLabel={
           !data.client_id
-            ? 'This project has no client attached, so there is no standing folder.'
+            ? 'No client is attached to this project, so there is nowhere to keep standing files. Attach a client from Edit project.'
             : data.standing_folder_id
-              ? 'No reference files here yet.'
-              : 'No standing folder yet for this client.'
+              ? 'The folder exists but is empty. Add the client’s reference material in FileHub and it shows up here.'
+              : 'This client has no standing folder yet. Create one and anything you put in it stays available to every future project for them.'
         }
         headerRight={
           data.client_id && !data.standing_folder_id ? (
@@ -269,14 +284,15 @@ export default function ProjectFilesTab() {
 
       {/* Project deliverable -- output, sealed per-year via the harvest toggle */}
       <FileSection
-        title="Sealed Deliverable"
-        icon="lock"
+        title="Sealed deliverable"
+        subtitle="What this project produced. Sealed automatically, one version per round — never edited in place."
+        kind="project"
         files={data.deliverable_files}
         below={<VersionHistory versions={data.deliverable_versions} />}
         emptyLabel={
           data.deliverable_folder_id
-            ? 'No output has been sealed yet.'
-            : "No deliverable yet — files appear here automatically when a task moves into a stage configured to promote its output (set on the pipeline's stage settings)."
+            ? 'Nothing has been sealed yet. Output lands here the first time a task reaches a stage set to promote its files.'
+            : 'No deliverable yet. Files arrive here on their own when a task moves into a stage configured to promote its output — that switch lives in the board’s stage settings.'
         }
       />
     </View>
