@@ -14,12 +14,22 @@ import BulkCreateProjectsSheet from '@/components/projects/BulkCreateProjectsShe
 import SpreadsheetImportSheet from '@/components/projects/SpreadsheetImportSheet';
 import ProjectsTable from '@/components/projects/ProjectsTable';
 import ProjectBoard from '@/components/projects/ProjectBoard';
+import Popup from '@/components/common/Popup';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAlert } from '@/contexts/AlertContext';
 import { TAB_BAR_HEIGHT } from '@/lib/layout';
 import { useNavBarPosition } from '@/hooks/useNavBarPosition';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import Tooltip from '@/components/common/Tooltip';
+import { EntityGlyph, EntityTag, SegmentedControl } from '@/components/entities/EntityUI';
+
+// Phase 8 (#187) — the narrow/native sibling of _projects_desktop.tsx. Same
+// reduction: one primary action, one "add many" door, one segmented view
+// control, and an entity tag + glyph so the screen says what a project is
+// (plan §17). The two files stay separate because the header layout genuinely
+// diverges (icon-only actions and a tab-bar inset here), but every piece of
+// the vocabulary comes from components/entities/EntityUI.tsx, so a project
+// card at 390px and one at 1400px are the same object.
 
 export default function ProjectsScreen() {
   const colors = useThemeColors();
@@ -33,6 +43,7 @@ export default function ProjectsScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [bulkCreateVisible, setBulkCreateVisible] = useState(false);
   const [spreadsheetImportVisible, setSpreadsheetImportVisible] = useState(false);
+  const [addMenuVisible, setAddMenuVisible] = useState(false);
   const [tableRefreshKey, setTableRefreshKey] = useState(0);
   const bumpTable = () => setTableRefreshKey(k => k + 1);
   // #176 Projects P6 -- Table/Board toggle. Timeline stays disabled/future.
@@ -44,6 +55,7 @@ export default function ProjectsScreen() {
   const { position: navPosition } = useNavBarPosition();
 
   const canViewProjects = hasPermission('project.view');
+  const canCreate = hasPermission('project.create');
 
   // Permission check: user must have project.view permission. Placed after
   // every hook call above (never before) so the same hooks run on every
@@ -54,107 +66,133 @@ export default function ProjectsScreen() {
   if (!canViewProjects) {
     return (
       <View className="flex-1 bg-surface-background items-center justify-center p-10">
-        <FontAwesome name="lock" size={48} color={colors.textMuted} />
-        <Text className="text-typography-main text-xl font-black mt-4">Access Denied</Text>
-        <Text className="text-typography-muted text-sm text-center mt-2">You don't have permission to view projects.</Text>
+        <FontAwesome name="lock" size={40} color={colors.textMuted} />
+        <Text className="text-typography-main text-xl font-bold mt-4">You can’t see projects</Text>
+        <Text className="text-typography-muted text-sm text-center mt-2 leading-5">
+          Projects are hidden for your role. An owner can grant the “view projects” permission from Settings → Roles.
+        </Text>
       </View>
     );
   }
 
-  const handleCreateNew = () => {
-    if (!hasPermission('project.create')) {
-      showAlert('Permission Denied', 'You do not have permission to create projects.');
-      return;
-    }
-    setModalVisible(true);
-  };
-
   return (
     <View className="flex-1 bg-surface-background">
       {/* Header */}
-      <View className={`flex-row items-center justify-between px-6 ${isWeb ? 'py-8 border-b border-surface-border' : 'pb-3'}`} style={isWeb ? (!isLargeScreen && navPosition === 'top' ? { paddingTop: TAB_BAR_HEIGHT.web } : undefined) : { paddingTop: TAB_BAR_HEIGHT.native }}>
-        <View className="flex-1 mr-3">
-          <Text className={`${isWeb ? (isLargeScreen ? 'text-5xl' : 'text-3xl') : 'text-2xl'} text-typography-main font-black tracking-tighter`}>Projects</Text>
-          {isWeb && (
-            <Text className="text-typography-muted text-sm font-medium">Manage your projects and team initiatives</Text>
-          )}
+      <View
+        className={`flex-row items-center justify-between px-4 gap-3 ${isWeb ? 'py-5 border-b border-surface-border' : 'pb-3'}`}
+        style={isWeb ? (!isLargeScreen && navPosition === 'top' ? { paddingTop: TAB_BAR_HEIGHT.web } : undefined) : { paddingTop: TAB_BAR_HEIGHT.native }}
+      >
+        <View className="flex-row items-center gap-2.5 flex-1 min-w-0">
+          <EntityGlyph kind="project" size={34} />
+          <View className="flex-1 min-w-0">
+            <EntityTag kind="project" />
+            <Text className={`${isLargeScreen ? 'text-2xl' : 'text-xl'} text-typography-main font-black tracking-tight`}>Projects</Text>
+          </View>
         </View>
 
-        <View className="flex-row items-center gap-3 flex-shrink-0">
-          {hasPermission('project.create') && (
-            <Tooltip label="Import from spreadsheet">
+        <View className="flex-row items-center gap-2 flex-shrink-0">
+          {canCreate && (
+            <Tooltip label="Add several at once">
               <TouchableOpacity
-                onPress={() => setSpreadsheetImportVisible(true)}
-                className="bg-surface-card border border-surface-border p-3 rounded-xl"
+                onPress={() => setAddMenuVisible(true)}
+                accessibilityRole="button"
+                accessibilityLabel="More ways to add projects"
+                className="bg-surface-card border border-surface-border rounded-xl items-center justify-center"
+                style={{ width: 44, height: 44 }}
               >
-                <FontAwesome name="file-excel-o" size={16} color={colors.primary} />
+                <FontAwesome name="th-list" size={15} color={colors.textMuted} />
               </TouchableOpacity>
             </Tooltip>
           )}
 
-          {hasPermission('project.create') && (
-            <Tooltip label="Bulk create from template">
-              <TouchableOpacity
-                onPress={() => setBulkCreateVisible(true)}
-                className="bg-surface-card border border-surface-border p-3 rounded-xl"
-              >
-                <FontAwesome name="magic" size={16} color={colors.primary} />
-              </TouchableOpacity>
-            </Tooltip>
-          )}
-
-          <Tooltip label="Create project">
+          <Tooltip label={canCreate ? 'Create a project' : 'You need the “create projects” permission'}>
             <TouchableOpacity
-              onPress={handleCreateNew}
-              className="bg-brand-primary p-3 rounded-xl"
+              onPress={() => canCreate ? setModalVisible(true) : showAlert('Not allowed', 'You need the “create projects” permission. An owner can grant it from Settings → Roles.')}
+              accessibilityRole="button"
+              accessibilityLabel="New project"
+              className="bg-brand-primary rounded-xl items-center justify-center"
+              style={{ width: 44, height: 44, opacity: canCreate ? 1 : 0.45 }}
             >
-              <FontAwesome name="plus" size={16} color="white" />
+              <FontAwesome name="plus" size={15} color="white" />
             </TouchableOpacity>
           </Tooltip>
         </View>
       </View>
 
-      {/* View toggle — Board shipped #176 (Phase 6). Timeline is still future, shown disabled. */}
-      <View className="flex-row items-center gap-2 px-6 pt-4">
-        <TouchableOpacity
-          onPress={() => setView('table')}
-          className={`px-4 py-2 rounded-xl border flex-row items-center gap-1.5 ${view === 'table' ? 'bg-brand-primary/10 border-brand-primary' : 'border-surface-border'}`}
-        >
-          <FontAwesome name="table" size={11} color={view === 'table' ? colors.primary : colors.textMuted} />
-          <Text className={`text-[11px] font-black uppercase tracking-widest ${view === 'table' ? 'text-brand-primary' : 'text-typography-muted'}`}>Table</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => setView('board')}
-          className={`px-4 py-2 rounded-xl border flex-row items-center gap-1.5 ${view === 'board' ? 'bg-brand-primary/10 border-brand-primary' : 'border-surface-border'}`}
-        >
-          <FontAwesome name="columns" size={11} color={view === 'board' ? colors.primary : colors.textMuted} />
-          <Text className={`text-[11px] font-black uppercase tracking-widest ${view === 'board' ? 'text-brand-primary' : 'text-typography-muted'}`}>Board</Text>
-        </TouchableOpacity>
-        <View className="px-4 py-2 rounded-xl border border-surface-border opacity-40 flex-row items-center gap-1.5">
-          <FontAwesome name="long-arrow-right" size={11} color={colors.textMuted} />
-          <Text className="text-typography-muted text-[11px] font-black uppercase tracking-widest">Timeline</Text>
-        </View>
+      {/* View toggle — Board shipped #176 (Phase 6). Timeline is still future. */}
+      <View className="px-4 pt-3">
+        <SegmentedControl<'table' | 'board' | 'timeline'>
+          size="sm"
+          value={view}
+          onChange={(v) => { if (v !== 'timeline') setView(v); }}
+          options={[
+            { value: 'table', label: 'List', icon: 'table' },
+            { value: 'board', label: 'Board', icon: 'columns' },
+            { value: 'timeline', label: 'Timeline', icon: 'long-arrow-right', disabled: true, disabledReason: 'Timeline lands in a later phase. Use the board to see where work sits today.' },
+          ]}
+        />
       </View>
 
       {view === 'table' ? (
         <ScrollView
-          className="flex-1 px-6 pt-4"
+          className="flex-1 pt-3"
           contentContainerStyle={{ paddingBottom: isWeb ? 32 : TAB_BAR_HEIGHT.native + 16 }}
         >
           <ProjectsTable
             refreshKey={tableRefreshKey}
             onOpenProject={(id) => router.push(`/projects/${id}` as any)}
-            onBrowseStarters={hasPermission('project.create') ? () => setBulkCreateVisible(true) : undefined}
+            onBrowseStarters={canCreate ? () => setBulkCreateVisible(true) : undefined}
+            onCreateProject={canCreate ? () => setModalVisible(true) : undefined}
           />
         </ScrollView>
       ) : (
-        <View className="flex-1 pt-4">
+        <View className="flex-1 pt-3">
           <ProjectBoard
             refreshKey={tableRefreshKey}
             onOpenProject={(id) => router.push(`/projects/${id}` as any)}
           />
         </View>
       )}
+
+      <Popup
+        visible={addMenuVisible}
+        onClose={() => setAddMenuVisible(false)}
+        presentation="auto"
+        maxWidth={460}
+        title="Add several projects"
+        scrollable={false}
+      >
+        <View className="px-5 py-4 gap-2">
+          <TouchableOpacity
+            onPress={() => { setAddMenuVisible(false); setSpreadsheetImportVisible(true); }}
+            accessibilityRole="button"
+            className="flex-row items-start gap-3 rounded-xl border border-surface-border p-3.5"
+            style={{ minHeight: 44 }}
+          >
+            <FontAwesome name="file-excel-o" size={16} color={colors.primary} style={{ marginTop: 2 }} />
+            <View className="flex-1">
+              <Text className="text-typography-main text-sm font-bold">Import a spreadsheet</Text>
+              <Text className="text-typography-muted text-xs mt-0.5 leading-4">
+                Drop in a client list or engagement schedule. It reads the columns for you, then you confirm.
+              </Text>
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => { setAddMenuVisible(false); setBulkCreateVisible(true); }}
+            accessibilityRole="button"
+            className="flex-row items-start gap-3 rounded-xl border border-surface-border p-3.5"
+            style={{ minHeight: 44 }}
+          >
+            <FontAwesome name="magic" size={16} color={colors.primary} style={{ marginTop: 2 }} />
+            <View className="flex-1">
+              <Text className="text-typography-main text-sm font-bold">Create from a template</Text>
+              <Text className="text-typography-muted text-xs mt-0.5 leading-4">
+                Paste a list of names and pick a template. Every project starts with the same task list and schedule.
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+      </Popup>
 
       <ProjectFolderModal
         visible={modalVisible}
@@ -166,7 +204,7 @@ export default function ProjectsScreen() {
         visible={bulkCreateVisible}
         onClose={() => setBulkCreateVisible(false)}
         onCreated={(res) => {
-          showAlert('Bulk Create Complete', `Created ${res.projects_created} projects and ${res.tasks_created} tasks.`);
+          showAlert('Projects created', `${res.projects_created} projects and ${res.tasks_created} tasks are ready.`);
           bumpTable();
         }}
       />
@@ -175,7 +213,7 @@ export default function ProjectsScreen() {
         visible={spreadsheetImportVisible}
         onClose={() => setSpreadsheetImportVisible(false)}
         onCreated={(res) => {
-          showAlert('Import Complete', `Created ${res.projects_created} projects and ${res.tasks_created} tasks.`);
+          showAlert('Import finished', `${res.projects_created} projects and ${res.tasks_created} tasks are ready.`);
           bumpTable();
         }}
       />

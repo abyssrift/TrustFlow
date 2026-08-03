@@ -3,12 +3,11 @@ import ProjectHeader from '@/components/projects/ProjectHeader';
 import ProjectOverviewTab from '@/components/projects/ProjectOverviewTab';
 import ProjectWorkTab from '@/components/projects/ProjectWorkTab';
 import { SkeletonBlock, SkeletonList } from '@/components/Skeleton';
+import { EntityEmptyState, SegmentedControl } from '@/components/entities/EntityUI';
 import { ProjectDetailProvider, useProjectDetail } from '@/contexts/ProjectDetailContext';
-import { useThemeColors } from '@/hooks/useThemeColors';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 
 // #184 -- /projects/[id] route: name/stage/flags header + Overview/Work/Files
 // tab shell. Tab state lives in the URL (?tab=) via the same
@@ -27,14 +26,16 @@ import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 // later needs a genuinely different desktop arrangement, split then.
 
 type TabKey = 'overview' | 'work' | 'files';
-const TABS: { key: TabKey; label: string }[] = [
-  { key: 'overview', label: 'Overview' },
-  { key: 'work', label: 'Work' },
-  { key: 'files', label: 'Files' },
+// Phase 8 (#187): icons on the tabs, and the same `SegmentedControl` the
+// projects list uses for its view switch — three separately-outlined
+// pill buttons read as three competing actions rather than one control.
+const TABS: { value: TabKey; label: string; icon: string }[] = [
+  { value: 'overview', label: 'Overview', icon: 'dashboard' },
+  { value: 'work', label: 'Work', icon: 'check-square-o' },
+  { value: 'files', label: 'Files', icon: 'folder-o' },
 ];
 
 function ProjectDetailContent() {
-  const colors = useThemeColors();
   const router = useRouter();
   const { loading, notFound } = useProjectDetail();
   const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
@@ -42,7 +43,7 @@ function ProjectDetailContent() {
 
   // Restore tab from URL param on mount -- same as FileHub's tab restore effect.
   useEffect(() => {
-    if (tabParam && TABS.some(t => t.key === tabParam)) {
+    if (tabParam && TABS.some(t => t.value === tabParam)) {
       setActiveTab(tabParam as TabKey);
     }
   }, []);
@@ -68,21 +69,14 @@ function ProjectDetailContent() {
   // genuinely deleted/never-existed id would get.
   if (notFound) {
     return (
-      <View className="flex-1 bg-surface-background items-center justify-center p-10">
-        <View className="bg-surface-card p-6 rounded-full mb-6 border border-surface-border">
-          <FontAwesome name="question-circle-o" size={48} color={colors.textMuted} />
-        </View>
-        <Text className="text-typography-main font-black text-2xl mt-4">Project not found</Text>
-        <Text className="text-typography-muted text-center mt-2 leading-6 max-w-sm">
-          This project doesn't exist, or has been removed.
-        </Text>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          className="mt-8 bg-surface-card px-8 py-4 rounded-xl border border-surface-border active:opacity-80"
-          style={{ minHeight: 44 }}
-        >
-          <Text className="text-typography-main font-black">Back to Projects</Text>
-        </TouchableOpacity>
+      <View className="flex-1 bg-surface-background items-center justify-center p-6">
+        <EntityEmptyState
+          kind="project"
+          title="This project isn’t here"
+          body="It doesn’t exist, or it has been archived or removed. If you were sent this link, ask whoever sent it to check."
+          secondaryLabel="Back to projects"
+          onSecondary={() => router.back()}
+        />
       </View>
     );
   }
@@ -91,26 +85,10 @@ function ProjectDetailContent() {
     <View className="flex-1 bg-surface-background">
       <ProjectHeader />
 
-      {/* Tabs -- same visual language as FileHub's tab bar
-          (_filehub_desktop.tsx). Only 3 short labels, so a plain flex-row
-          fits at 390px without needing a horizontal ScrollView. */}
-      <View className="px-4 md:px-8 pt-4 pb-3 flex-row items-center gap-2 border-b border-surface-border">
-        {TABS.map(tab => (
-          <TouchableOpacity
-            key={tab.key}
-            onPress={() => handleTabChange(tab.key)}
-            style={{ minHeight: 44 }}
-            className={`flex-row items-center gap-2 px-5 rounded-xl border justify-center ${
-              activeTab === tab.key
-                ? 'bg-brand-primary/10 border-brand-primary/30'
-                : 'bg-surface-card border-surface-border hover:bg-surface-overlay'
-            }`}
-          >
-            <Text className={`text-sm font-black ${activeTab === tab.key ? 'text-brand-primary' : 'text-typography-muted'}`}>
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+      {/* Only 3 short labels, so a plain row fits at 390px without needing a
+          horizontal ScrollView. */}
+      <View className="px-4 md:px-8 pt-3 pb-3 border-b border-surface-border">
+        <SegmentedControl options={TABS} value={activeTab} onChange={handleTabChange} />
       </View>
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>

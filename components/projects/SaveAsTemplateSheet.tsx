@@ -1,4 +1,5 @@
 import Popup from '@/components/common/Popup';
+import { EntityGlyph, EntityTag } from '@/components/entities/EntityUI';
 import TemplateEditor from '@/components/templates/TemplateEditor';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
@@ -86,26 +87,39 @@ export default function SaveAsTemplateSheet({
       visible={visible}
       onClose={onClose}
       presentation="auto"
-      title="Save as Template"
+      title="Save as a template"
       footer="single-action"
-      primaryAction={{ label: saving ? 'Saving…' : 'Save Template', onPress: handleSave, variant: saving ? 'disabled' : 'default' }}
+      primaryAction={{ label: saving ? 'Saving…' : 'Save template', onPress: handleSave, variant: saving || !name.trim() ? 'disabled' : 'default' }}
       dismissible={!saving}
     >
       <View className="px-6 py-5">
-        <Text className="text-typography-muted text-sm mb-4">
-          Snapshots this project's tasks (title, category, priority, weight, estimated hours, relative due dates)
-          into a reusable template. Subtasks aren't captured.
-        </Text>
+        {/* §17: a template is one of the entities users mix up with a project.
+            Show it, name it, and say what it is for. */}
+        <View className="flex-row items-start gap-3 mb-4">
+          <EntityGlyph kind="template" size={34} />
+          <View className="flex-1">
+            <EntityTag kind="template" />
+            <Text className="text-typography-muted text-xs mt-1 leading-5">
+              Takes a snapshot of this project’s tasks — title, category, priority, weight, estimated hours and how far
+              each due date sits from the start — so future projects can begin from the same list. Subtasks aren’t captured,
+              and nothing about this project changes.
+            </Text>
+          </View>
+        </View>
         <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2">Template Name</Text>
         <TextInput
           value={name}
           onChangeText={setName}
           placeholder="e.g. 2026 Statutory Audit"
           placeholderTextColor={c.textDim}
+          accessibilityLabel="Template name"
           className="bg-surface-background border border-surface-border rounded-lg px-4 py-3 text-typography-main"
           style={{ color: c.textMain }}
           autoFocus
         />
+        {!name.trim() && !error && (
+          <Text className="text-typography-dim text-[11px] mt-2">Give the template a name to save it.</Text>
+        )}
         {error && <Text className="text-state-danger text-xs font-bold mt-3">{error}</Text>}
       </View>
     </Popup>

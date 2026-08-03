@@ -5,25 +5,29 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import ProjectFolderModal from './ProjectFolderModal';
 import ProjectStagePicker from './ProjectStagePicker';
-import SaveAsTemplateSheet from './SaveAsTemplateSheet';
 import Tooltip from '@/components/common/Tooltip';
+import { EntityGlyph, EntityTag, HealthBadge, StageChip } from '@/components/entities/EntityUI';
+import { InlineRename, ProjectActionsButton, useProjectActions } from './ProjectActionsMenu';
 
 // #184 -- the shared header every /projects/[id] tab sits under: name, stage,
-// flags. Stage picking and flag-toggling reuse useProjectLifecycle (#172 P2),
-// previously only consumed by the two Popup-based dashboards this issue
-// retires -- see that hook's file header. Edit / Save-as-template reuse
-// ProjectFolderModal and SaveAsTemplateSheet unchanged, same components the
-// retired popups used.
+// flags. Stage picking and flag-toggling reuse useProjectLifecycle (#172 P2)
+// via ProjectDetailContext (#183), so this header and ProjectOverviewTab
+// share one fetch and one piece of state instead of drifting when the
+// flags/stage change.
 //
-// #183 -- useProjectLifecycle itself is now called once inside
-// ProjectDetailContext, not here. This header and ProjectOverviewTab both
-// need it (stage/blocked for the header's chips, stage/blocked/due-date for
-// the Overview tab's answer line); two separate hook instances meant
-// toggling a flag here left Overview showing stale state until an unrelated
-// remount. Reading it off useProjectDetail() keeps both in sync for free.
+// Phase 8 (#187, plan §14.1/§17):
+// - The name never renders bare. It sits behind the project glyph and under
+//   the "PROJECT" tag, which is the whole point of §17 — the user is told
+//   which of the four entities this screen is about.
+// - Stage is `StageChip` and health is `HealthBadge` from
+//   components/entities/EntityUI.tsx — the same two components the list row
+//   and the board card use, so a project reads the same everywhere.
+// - Rename happens in place, and roll-forward / save-as-template / archive
+//   moved into the shared `useProjectActions` menu, so this header offers two
+//   controls instead of a growing row of icon buttons.
 //
 // Styled with inline useThemeColors values (not className tokens) -- flag
 // colors are data-driven (per-flag color, active/inactive), which className
@@ -46,15 +50,18 @@ export default function ProjectHeader() {
 
   const [stagePickerVisible, setStagePickerVisible] = useState(false);
   const [editVisible, setEditVisible] = useState(false);
-  const [saveTemplateVisible, setSaveTemplateVisible] = useState(false);
   const [noteDraft, setNoteDraft] = useState(lifecycle?.flagNote || '');
   const [savingFlags, setSavingFlags] = useState(false);
 
   useEffect(() => { setNoteDraft(lifecycle?.flagNote || ''); }, [lifecycle?.flagNote]);
 
   const canEdit = hasPermission('project.edit');
-  const canCreateTemplate = hasPermission('project.create');
   const activeFlags = lifecycle?.flags ?? [];
+  const project = data?.project;
+
+  // Same menu the list row and the board card open — one definition of what
+  // you can do to a project (plan §17: reachable from where you are looking).
+  const actions = useProjectActions({ onChanged: refresh, onArchived: () => router.back() });
 
   const toggleFlag = async (flag: ProjectFlag) => {
     if (!canEdit) return;
@@ -70,83 +77,120 @@ export default function ProjectHeader() {
     await setFlags(activeFlags, noteDraft);
   };
 
-  const project = data?.project;
-
   return (
-    <View className="px-4 md:px-8 py-4 md:py-6 border-b" style={{ borderColor: c.border, backgroundColor: c.background }}>
+    <View className="px-4 md:px-8 py-4 md:py-5 border-b" style={{ borderColor: c.border, backgroundColor: c.background }}>
       <View className="flex-row items-start gap-3">
         <Tooltip label="Back to Projects">
           <TouchableOpacity
             onPress={() => router.back()}
-            style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: c.card, borderWidth: 1, borderColor: c.border }}
+            accessibilityRole="button"
+            accessibilityLabel="Back to projects"
+            style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: c.card, borderWidth: 1, borderColor: c.border }}
           >
-            <FontAwesome name="chevron-left" size={16} color={c.textMuted} />
+            <FontAwesome name="chevron-left" size={15} color={c.textMuted} />
           </TouchableOpacity>
         </Tooltip>
 
-        <View className="flex-1">
-          <Text className="font-black uppercase tracking-[0.3em] text-[9px] mb-1" style={{ color: c.primary }}>Project</Text>
-          <View className="flex-row flex-wrap items-center gap-3">
-            {project?.is_featured && <FontAwesome name="star" size={16} color={c.warning} />}
-            <Text numberOfLines={1} className="text-2xl md:text-3xl font-black tracking-tight" style={{ color: c.textMain, maxWidth: '100%' }}>
-              {project?.name || 'Project'}
-            </Text>
+        <EntityGlyph kind="project" size={40} style={{ marginTop: 1 }} />
 
-            {/* Stage chip */}
-            <TouchableOpacity
-              disabled={!canEdit}
-              onPress={() => setStagePickerVisible(true)}
-              style={{ minHeight: 32, paddingHorizontal: 12, borderRadius: 999, flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: c.border, backgroundColor: c.card }}
-            >
-              {lifecycle?.stageName ? (
-                <>
-                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: lifecycle.stageColor ?? c.primary }} />
-                  <Text className="text-xs font-black" style={{ color: c.textMain }} numberOfLines={1}>{lifecycle.stageName}</Text>
-                </>
-              ) : (
-                <Text className="text-xs font-bold" style={{ color: c.textDim }}>No stage</Text>
-              )}
-              {canEdit && <FontAwesome name="exchange" size={10} color={c.textMuted} />}
-            </TouchableOpacity>
+        <View className="flex-1 min-w-0">
+          <View className="flex-row items-center gap-2">
+            <EntityTag kind="project" />
+            {project?.is_featured && (
+              <Tooltip label="Featured project">
+                <FontAwesome name="star" size={11} color={c.warning} />
+              </Tooltip>
+            )}
           </View>
 
-          {!!project?.description && (
-            <Text className="text-sm mt-2" style={{ color: c.textMuted }} numberOfLines={2}>{project.description}</Text>
+          {actions.renamingId === projectId && project ? (
+            <View style={{ maxWidth: 420 }} className="mt-1">
+              <InlineRename
+                initialValue={project.name}
+                onCommit={(next) => actions.commitRename({ id: project.id, name: project.name }, next)}
+                onCancel={actions.cancelRename}
+                style={{ height: 40, fontSize: 18 }}
+              />
+            </View>
+          ) : (
+            <Text numberOfLines={2} className="text-xl md:text-2xl font-black tracking-tight" style={{ color: c.textMain }}>
+              {project?.name || 'Project'}
+            </Text>
           )}
 
-          {/* Flags -- fixed set, plan §13.12: blocked / awaiting client / at risk */}
-          <View className="flex-row flex-wrap items-center gap-2 mt-3">
+          {!!project?.description && (
+            <Text className="text-sm mt-1" style={{ color: c.textMuted }} numberOfLines={2}>{project.description}</Text>
+          )}
+
+          {/* State: the same stage chip and health badge as everywhere else. */}
+          <View className="flex-row flex-wrap items-center gap-2 mt-2.5">
+            <StageChip
+              name={lifecycle?.stageName}
+              color={lifecycle?.stageColor}
+              onPress={() => setStagePickerVisible(true)}
+              disabled={!canEdit}
+              disabledReason="You need the “edit projects” permission to move this project between stages."
+              trailingIcon={canEdit ? 'exchange' : undefined}
+            />
+            <HealthBadge
+              blocked={lifecycle?.blocked}
+              blockedReason={lifecycle?.blockedReason}
+              flags={lifecycle?.flags}
+              daysRemaining={lifecycle?.daysRemaining}
+            />
+          </View>
+
+          {/* Flags -- fixed set, plan §13.12: blocked / awaiting client / at risk.
+              One horizontally-scrolling rail, not a wrapping row: at 390px the
+              content column is ~250px wide, so wrapping put each chip on its own
+              line and the header ate a third of the viewport before the tabs
+              appeared. flexGrow:0 for the same reason every other chip rail in
+              this app carries it — RNW stretches a ScrollView inside a column
+              and balloons the pills. */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={{ flexGrow: 0, marginTop: 8 }}
+            contentContainerStyle={{ gap: 8, alignItems: 'center' }}
+          >
+            {canEdit && (
+              <Text className="text-[9px] font-black uppercase tracking-[0.2em]" style={{ color: c.textDim }}>Flags</Text>
+            )}
             {PROJECT_FLAGS.map(({ key, label }) => {
               const active = activeFlags.includes(key);
               const color = c[FLAG_COLOR[key]];
               if (!active && !canEdit) return null; // read-only viewers only see flags that are actually set
               return (
-                <TouchableOpacity
-                  key={key}
-                  disabled={!canEdit || savingFlags}
-                  onPress={() => toggleFlag(key)}
-                  style={{
-                    minHeight: 32, paddingHorizontal: 12, borderRadius: 999,
-                    flexDirection: 'row', alignItems: 'center', gap: 6,
-                    borderWidth: 1, borderColor: active ? color + '66' : c.border,
-                    backgroundColor: active ? color + '18' : 'transparent',
-                  }}
-                >
-                  <FontAwesome name={active ? 'flag' : 'flag-o'} size={10} color={active ? color : c.textDim} />
-                  <Text className="text-[11px] font-black uppercase tracking-wider" style={{ color: active ? color : c.textDim }}>{label}</Text>
-                </TouchableOpacity>
+                <Tooltip key={key} label={active ? `Clear the “${label}” flag` : `Flag this project as ${label.toLowerCase()}`}>
+                  <TouchableOpacity
+                    disabled={!canEdit || savingFlags}
+                    onPress={() => toggleFlag(key)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                    style={{
+                      minHeight: 30, paddingHorizontal: 10, borderRadius: 999,
+                      flexDirection: 'row', alignItems: 'center', gap: 5,
+                      borderWidth: 1, borderColor: active ? color + '66' : c.border,
+                      backgroundColor: active ? color + '18' : 'transparent',
+                    }}
+                  >
+                    <FontAwesome name={active ? 'flag' : 'flag-o'} size={9} color={active ? color : c.textDim} />
+                    <Text className="text-[11px] font-semibold" style={{ color: active ? color : c.textDim }}>{label}</Text>
+                  </TouchableOpacity>
+                </Tooltip>
               );
             })}
             {savingFlags && <ActivityIndicator size="small" color={c.textMuted} />}
-          </View>
+          </ScrollView>
 
           {activeFlags.length > 0 && canEdit && (
             <TextInput
               value={noteDraft}
               onChangeText={setNoteDraft}
               onBlur={saveNote}
-              placeholder="Note (optional) — why this project is flagged"
+              placeholder="Why is it flagged? Whoever reads this next will thank you."
               placeholderTextColor={c.textDim}
+              accessibilityLabel="Flag note"
               className="rounded-xl px-3 mt-2 text-sm"
               style={{ height: 40, backgroundColor: c.card, borderWidth: 1, borderColor: c.border, color: c.textMain, maxWidth: 480 }}
             />
@@ -157,25 +201,24 @@ export default function ProjectHeader() {
         </View>
 
         <View className="flex-row items-center gap-2">
-          {canCreateTemplate && (
-            <Tooltip label="Save as template">
-              <TouchableOpacity
-                onPress={() => setSaveTemplateVisible(true)}
-                style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: c.card, borderWidth: 1, borderColor: c.border }}
-              >
-                <FontAwesome name="save" size={14} color={c.textMuted} />
-              </TouchableOpacity>
-            </Tooltip>
-          )}
-          {canEdit && (
-            <Tooltip label="Edit project">
-              <TouchableOpacity
-                onPress={() => setEditVisible(true)}
-                style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: c.card, borderWidth: 1, borderColor: c.border }}
-              >
-                <FontAwesome name="pencil" size={14} color={c.textMuted} />
-              </TouchableOpacity>
-            </Tooltip>
+          <Tooltip label={canEdit ? 'Edit name, description, due date and status' : 'You need the “edit projects” permission to change this project'}>
+            <TouchableOpacity
+              onPress={() => canEdit && setEditVisible(true)}
+              disabled={!canEdit}
+              accessibilityRole="button"
+              accessibilityLabel="Edit project"
+              style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: c.card, borderWidth: 1, borderColor: c.border, opacity: canEdit ? 1 : 0.45 }}
+            >
+              <FontAwesome name="pencil" size={14} color={c.textMuted} />
+            </TouchableOpacity>
+          </Tooltip>
+          {!!project && (
+            <View style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}>
+              <ProjectActionsButton
+                onPress={() => actions.openMenu({ id: project.id, name: project.name })}
+                label="More project actions"
+              />
+            </View>
           )}
         </View>
       </View>
@@ -185,12 +228,6 @@ export default function ProjectHeader() {
         currentStageId={lifecycle?.currentStageId ?? null}
         onClose={() => setStagePickerVisible(false)}
         onSelectStage={advanceStage}
-      />
-      <SaveAsTemplateSheet
-        visible={saveTemplateVisible}
-        projectId={projectId}
-        projectName={project?.name}
-        onClose={() => setSaveTemplateVisible(false)}
       />
       {project && (
         <ProjectFolderModal
@@ -206,6 +243,7 @@ export default function ProjectHeader() {
           }}
         />
       )}
+      {actions.overlay}
     </View>
   );
 }

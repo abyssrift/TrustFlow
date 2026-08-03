@@ -7,7 +7,16 @@ import React, { useMemo } from 'react';
 import { Text, useWindowDimensions, View } from 'react-native';
 import { SkeletonBlock, SkeletonList } from '@/components/Skeleton';
 import UserLink from '@/components/common/UserLink';
-import { ageColor, dueColor, fmtDate, fmtDue, initials, ThemeColors } from './ProjectsTable';
+import {
+  EntityGlyph,
+  HealthBadge,
+  MetaStat,
+  ProgressMeter,
+  SectionCard,
+  StageChip,
+  type ThemeColors,
+} from '@/components/entities/EntityUI';
+import { ageColor, dueColor, fmtDue } from '@/lib/projectPresentation';
 
 // #183 -- replaces the placeholder body moved here by #184 (twelve regions,
 // all equal weight -- see issue #183). Redesigned around the issue's four
@@ -72,26 +81,31 @@ export default function ProjectOverviewTab() {
 
   return (
     <View className="p-4 md:p-8 gap-5">
-      <AnswerLine c={c} t={t} lifecycle={lifecycle} />
+      <StateStrip c={c} t={t} lifecycle={lifecycle} />
 
       <View className={isDesktop ? 'flex-row gap-5 items-start' : 'gap-5'}>
         <View style={isDesktop ? { flex: 1 } : undefined} className="gap-5">
-          <Panel title="On Track?" icon="line-chart" c={c}>
+          <SectionCard title="On track?" hint="How much of the work is actually done" icon="line-chart">
             {noTasks ? (
               <EmptyLine label="No tasks yet — nothing to track" c={c} />
             ) : (
               <>
-                <View className="flex-row justify-between items-end mb-2">
-                  <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em]">Weighted Progress</Text>
-                  <Text className="text-typography-main text-xs font-black">{t!.completed}/{t!.total} tasks · {Number(t!.completed_weight)}/{Number(t!.total_weight)} pts</Text>
-                </View>
-                <View className="h-2.5 w-full bg-surface-background rounded-full overflow-hidden border border-surface-border/50 mb-4">
-                  <View style={{ width: `${t!.total_weight > 0 ? (Number(t!.completed_weight) / Number(t!.total_weight)) * 100 : 0}%`, height: '100%', backgroundColor: lifecycle?.blocked ? c.danger : c.primary }} />
+                <View className="mb-4">
+                  <ProgressMeter
+                    done={t!.completed}
+                    total={t!.total}
+                    percent={t!.total_weight > 0 ? (Number(t!.completed_weight) / Number(t!.total_weight)) * 100 : 0}
+                    tone={lifecycle?.blocked ? c.danger : undefined}
+                    height={9}
+                  />
+                  <Text className="text-typography-dim text-[10px] mt-1.5">
+                    {Number(t!.completed_weight)} of {Number(t!.total_weight)} points — bigger tasks count for more
+                  </Text>
                 </View>
 
                 {(data?.by_stage || []).length > 0 && (
                   <View className="gap-2.5">
-                    <Text className="text-typography-muted text-[9px] font-black uppercase tracking-[0.15em]">Where tasks sit</Text>
+                    <Text className="text-typography-dim text-[9px] font-black uppercase tracking-[0.15em]">Where its tasks sit</Text>
                     {data!.by_stage.map(s => (
                       <View key={s.stage_id}>
                         <View className="flex-row items-center justify-between mb-1">
@@ -110,61 +124,74 @@ export default function ProjectOverviewTab() {
                 )}
               </>
             )}
-          </Panel>
+          </SectionCard>
         </View>
 
         <View style={isDesktop ? { flex: 1 } : undefined} className="gap-5">
-          <Panel title="What's Stuck?" icon="exclamation-triangle" c={c} accent={isStuck ? c.danger : undefined}>
+          <SectionCard
+            title="What's stuck?"
+            hint={isStuck ? 'Deal with these before anything else' : 'Nothing needs a decision right now'}
+            icon="exclamation-triangle"
+            accent={isStuck ? c.danger : undefined}
+          >
             {!isStuck ? (
               <EmptyLine label="Nothing stuck — not blocked, no overdue work" c={c} tone="positive" />
             ) : (
               <View className="gap-3">
                 {lifecycle?.blocked && (
-                  <View className="bg-state-danger/10 border border-state-danger/30 rounded-xl px-3 py-2.5">
-                    <Text className="text-state-danger text-xs font-black uppercase tracking-wide mb-0.5">Blocked</Text>
-                    <Text className="text-typography-main text-xs font-medium">{lifecycle.blockedReason || 'No reason given.'}</Text>
+                  <View className="bg-state-danger/10 border border-state-danger/30 rounded-xl px-3 py-2.5 flex-row items-start gap-2.5">
+                    <FontAwesome name="ban" size={12} color={c.danger} style={{ marginTop: 2 }} />
+                    <View className="flex-1">
+                      <Text className="text-state-danger text-xs font-bold mb-0.5">Blocked</Text>
+                      <Text className="text-typography-main text-xs">
+                        {lifecycle.blockedReason || 'Nobody wrote down why. Ask whoever flagged it, then clear the flag in the header.'}
+                      </Text>
+                    </View>
                   </View>
                 )}
                 <View className="flex-row items-center justify-between">
-                  <Text className="text-typography-muted text-xs font-bold">Overdue tasks</Text>
-                  <Text className="text-base font-black" style={{ color: (t?.overdue ?? 0) > 0 ? c.danger : c.textMuted }}>{t?.overdue ?? 0}</Text>
+                  <Text className="text-typography-muted text-xs font-semibold">Overdue tasks</Text>
+                  <Text className="text-base font-bold" style={{ color: (t?.overdue ?? 0) > 0 ? c.danger : c.textMuted }}>{t?.overdue ?? 0}</Text>
                 </View>
                 {oldestOverdue && (
-                  <View className="bg-surface-background border border-surface-border rounded-xl p-3">
-                    <Text numberOfLines={1} className="text-typography-main text-sm font-bold mb-0.5">{oldestOverdue.title}</Text>
-                    <Text className="text-[11px] font-black" style={{ color: c.danger }}>
-                      {oldestOverdue.stage_name ? `${oldestOverdue.stage_name} · ` : ''}{daysOverdue}d overdue
-                    </Text>
+                  <View className="bg-surface-background border border-surface-border rounded-xl p-3 flex-row items-start gap-2.5">
+                    <EntityGlyph kind="task" size={22} />
+                    <View className="flex-1">
+                      <Text numberOfLines={1} className="text-typography-main text-sm font-bold mb-0.5">{oldestOverdue.title}</Text>
+                      <Text className="text-[11px] font-bold" style={{ color: c.danger }}>
+                        {oldestOverdue.stage_name ? `${oldestOverdue.stage_name} · ` : ''}{daysOverdue}d overdue — the oldest one
+                      </Text>
+                    </View>
                   </View>
                 )}
               </View>
             )}
-          </Panel>
+          </SectionCard>
         </View>
       </View>
 
       <View className={isDesktop ? 'flex-row gap-5 items-start' : 'gap-5'}>
         <View style={isDesktop ? { flex: 1.3 } : undefined} className="gap-5">
-          <Panel title="Who's on It?" icon="users" c={c}>
+          <SectionCard title="Who's on it?" hint="Time tracked against this project, per person" icon="users">
             {(data?.contributors || []).length === 0 ? (
-              <EmptyLine label="No tracked time yet" c={c} />
+              <EmptyLine label="Nobody has tracked time on this project yet" c={c} />
             ) : (
               <View className="gap-3">
                 <View className="flex-row items-center justify-between">
-                  <Text className="text-typography-muted text-xs font-bold">Tracked vs. estimated</Text>
-                  <Text className="text-typography-main text-xs font-black">
-                    {fmtDuration(t?.tracked_seconds ?? 0)} of {t?.est_hours ? `${Number(t.est_hours)}h` : '—'} est.
+                  <Text className="text-typography-muted text-xs font-semibold">Tracked vs. estimated</Text>
+                  <Text className="text-typography-main text-xs font-bold">
+                    {fmtDuration(t?.tracked_seconds ?? 0)} of {t?.est_hours ? `${Number(t.est_hours)}h` : 'no'} estimate
                   </Text>
                 </View>
                 <View className="gap-2.5">
                   {data!.contributors.map(cb => (
                     <View key={cb.user_id}>
                       <View className="flex-row items-center mb-1.5">
-                        <View className="w-7 h-7 rounded-full items-center justify-center mr-2.5" style={{ backgroundColor: c.primary + '22' }}>
-                          <Text className="text-[9px] font-black" style={{ color: c.primary }}>{initials(cb.full_name)}</Text>
+                        <View className="mr-2.5">
+                          <EntityGlyph kind="client" size={28} name={cb.full_name} />
                         </View>
                         <UserLink userId={cb.user_id} name={cb.full_name} numberOfLines={1} className="text-typography-label text-sm font-bold flex-1" />
-                        <Text className="text-typography-main text-xs font-black ml-2">{fmtDuration(cb.tracked_seconds)}</Text>
+                        <Text className="text-typography-main text-xs font-bold ml-2">{fmtDuration(cb.tracked_seconds)}</Text>
                       </View>
                       <View className="h-1 rounded-full overflow-hidden ml-[38px]" style={{ backgroundColor: c.border }}>
                         <View style={{ width: `${Math.max(4, (cb.tracked_seconds / contribMax) * 100)}%`, height: '100%', backgroundColor: c.primary, borderRadius: 999 }} />
@@ -174,7 +201,7 @@ export default function ProjectOverviewTab() {
                 </View>
               </View>
             )}
-          </Panel>
+          </SectionCard>
         </View>
 
         {/* "What's the shape" is deliberately the quietest panel on the page --
@@ -183,9 +210,9 @@ export default function ProjectOverviewTab() {
             muted background instead of the card surface the other three use. */}
         <View style={isDesktop ? { flex: 0.9 } : undefined} className="gap-5">
           <View className="bg-surface-background border border-surface-border/60 rounded-2xl p-4">
-            <Text className="text-typography-dim text-[9px] font-black uppercase tracking-[0.15em] mb-3">Shape (reference)</Text>
+            <Text className="text-typography-dim text-[9px] font-black uppercase tracking-[0.15em] mb-3">Shape — reference only</Text>
             {(data?.by_category || []).length === 0 && (data?.by_priority || []).length === 0 ? (
-              <EmptyLine label="No tasks yet" c={c} />
+              <EmptyLine label="No tasks yet, so there is no shape to show" c={c} />
             ) : (
               <View className="gap-4">
                 {(data?.by_category || []).length > 0 && (
@@ -225,51 +252,52 @@ export default function ProjectOverviewTab() {
   );
 }
 
-// One-sentence project state: stage, days in stage, % complete, days
-// remaining, blocked-or-not (issue #183's "answer line", replacing six equal
-// KPI tiles). Colors reuse ProjectsTable's exact ageColor/dueColor thresholds
-// so this reads as the same signal as the table row it was opened from.
-// Inline styles for the colored spans, not className, for the same reason
-// ProjectHeader's flag chips are inline: the colors are per-value/data-driven,
-// which static Tailwind classes can't express (documented exception, see
-// Tooltip.tsx / ProjectHeader.tsx).
-function AnswerLine({ c, t, lifecycle }: { c: ThemeColors; t: { completion_rate: number; overdue: number } | undefined; lifecycle: ProjectLifecycle | null }) {
+/**
+ * Project state at a glance. #183 replaced six equal KPI tiles with one
+ * dot-separated sentence; Phase 8 (#187) turns that sentence back into
+ * discrete, scannable facts — but four of them, not six, and each labelled,
+ * so the eye lands on the number rather than parsing prose. The health badge
+ * on the right is the same badge the table row and the board card show, so
+ * the project reads identically wherever you meet it.
+ *
+ * Colours reuse ageColor/dueColor from lib/projectPresentation.ts. Inline
+ * styles because the colours are per-value (documented exception — see
+ * EntityUI.tsx's header).
+ */
+function StateStrip({ c, t, lifecycle }: { c: ThemeColors; t: { completion_rate: number; overdue: number } | undefined; lifecycle: ProjectLifecycle | null }) {
   const pct = t ? Math.round(t.completion_rate) : null;
   return (
-    <View className="bg-surface-card border border-surface-border rounded-2xl px-5 py-4">
-      <Text className="text-typography-main text-sm md:text-base font-bold leading-relaxed">
-        {lifecycle?.stageName ? `${lifecycle.stageName} stage` : 'No stage set'}
-        {lifecycle?.daysInStage != null && (
-          <Text> · <Text style={{ color: ageColor(lifecycle.daysInStage, c), fontWeight: '900' }}>{lifecycle.daysInStage}d in stage</Text></Text>
-        )}
-        {pct != null && (
-          <Text> · <Text style={{ color: c.textMain, fontWeight: '900' }}>{pct}%</Text> complete</Text>
-        )}
-        {lifecycle?.dueDate && (
-          <Text> · <Text style={{ color: dueColor(lifecycle.daysRemaining, c), fontWeight: '900' }}>{fmtDue(lifecycle.daysRemaining, lifecycle.dueDate)}</Text></Text>
-        )}
-        {' · '}
-        {lifecycle?.blocked ? (
-          <Text style={{ color: c.danger, fontWeight: '900' }}>Blocked</Text>
-        ) : (
-          <Text style={{ color: c.success, fontWeight: '900' }}>On track</Text>
-        )}
-      </Text>
-      {!lifecycle?.dueDate && (
-        <Text className="text-typography-dim text-[10px] font-medium mt-1">No due date set{lifecycle?.currentStageId ? '' : ' · no stage set'}</Text>
-      )}
-    </View>
-  );
-}
-
-function Panel({ title, icon, c, accent, children }: { title: string; icon: string; c: ThemeColors; accent?: string; children: React.ReactNode }) {
-  return (
-    <View className="bg-surface-card border rounded-2xl p-5" style={{ borderColor: accent ? accent + '55' : c.border }}>
-      <View className="flex-row items-center gap-2 mb-4">
-        <FontAwesome name={icon as any} size={12} color={accent || c.primary} />
-        <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em]">{title}</Text>
+    <View className="bg-surface-card border border-surface-border rounded-2xl px-4 md:px-5 py-4">
+      <View className="flex-row items-center justify-between gap-3 mb-4">
+        <StageChip name={lifecycle?.stageName} color={lifecycle?.stageColor} />
+        <HealthBadge
+          blocked={lifecycle?.blocked}
+          blockedReason={lifecycle?.blockedReason}
+          flags={lifecycle?.flags}
+          daysRemaining={lifecycle?.daysRemaining}
+        />
       </View>
-      {children}
+      <View className="flex-row flex-wrap" style={{ gap: 20 }}>
+        <MetaStat
+          label="In stage"
+          value={lifecycle?.daysInStage == null ? 'Not staged' : `${lifecycle.daysInStage} days`}
+          color={ageColor(lifecycle?.daysInStage ?? null, c)}
+          hint="How long this project has sat in its current stage. Amber past a week, red past two."
+        />
+        <MetaStat
+          label="Due"
+          value={fmtDue(lifecycle?.daysRemaining ?? null, lifecycle?.dueDate ?? null)}
+          color={dueColor(lifecycle?.daysRemaining ?? null, c)}
+          hint={lifecycle?.dueDate ? 'The project’s own deadline, not its tasks’.' : 'Set a due date from Edit project in the header.'}
+        />
+        <MetaStat label="Complete" value={pct == null ? 'No tasks' : `${pct}%`} hint="Weighted by task points, not a plain task count." />
+        <MetaStat
+          label="Overdue tasks"
+          value={String(t?.overdue ?? 0)}
+          color={(t?.overdue ?? 0) > 0 ? c.danger : undefined}
+          hint="Incomplete tasks whose due date has passed."
+        />
+      </View>
     </View>
   );
 }

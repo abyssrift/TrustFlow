@@ -8,12 +8,21 @@ import { useToast } from '@/contexts/ToastContext';
 import { useDragSource, useDropTarget } from '@/hooks/useWebDnd';
 import { friendlyStageError } from '@/hooks/useProjectLifecycle';
 import ProjectStagePicker from './ProjectStagePicker';
+import { InlineRename, ProjectActionsButton, useProjectActions } from './ProjectActionsMenu';
 import { SkeletonList } from '@/components/Skeleton';
-// #176 Projects P6 -- import the table's exported ageing/date helpers instead
-// of re-deriving the >=7d amber / >=14d red thresholds a second time (see
-// that file's header comment -- this is exactly the second surface it warns
-// about). ProjectsTable.tsx itself is NOT edited, only imported from.
-import { ageColor, dueColor, fmtDue } from './ProjectsTable';
+import Tooltip from '@/components/common/Tooltip';
+// Phase 8 (#187): the card, the chips and the empty states are the shared
+// vocabulary in components/entities/EntityUI.tsx, and the column chrome is
+// components/board/BoardChrome.tsx -- see both files' headers. The ageing
+// thresholds this board used to import from ProjectsTable.tsx now live in
+// lib/projectPresentation.ts with a self-check on them.
+import {
+  EntityEmptyState,
+  FilterChip,
+  ProjectCard,
+  type ProjectCardRow,
+} from '@/components/entities/EntityUI';
+import { BoardColumn, BoardColumnEmpty } from '@/components/board/BoardChrome';
 
 /**
  * Projects P6 (#176) -- purpose-built project board.
@@ -22,11 +31,17 @@ import { ageColor, dueColor, fmtDue } from './ProjectsTable';
  * (`_tasks_desktop.tsx`, 1,740 lines): taskBoardCache, the personalizer,
  * StageTransitionFX/actor-chip FLIP animation, submission/claiming/timer
  * machinery, board-switcher favourites+recents. A project card needs none of
- * it (no timers, no submissions, no claiming, no stage actions) -- per the
- * issue, duplicating the visual shell (column header treatment, card
- * shadow/radius, rounded stage-body chrome) is cheaper than generalizing that
- * file, and is the one place the "extend the existing pattern" rule is
- * explicitly overridden. Nothing is imported from _tasks_desktop.tsx.
+ * it (no timers, no submissions, no claiming, no stage actions), so
+ * generalizing that file was and remains the wrong trade. Nothing is imported
+ * from _tasks_desktop.tsx.
+ *
+ * WHAT PHASE 8 (#187) CHANGED ABOUT THAT: the visual shell used to be
+ * *copied* here, which left two definitions of "what a board column looks
+ * like", free to drift. The chrome now lives once in
+ * `components/board/BoardChrome.tsx` (values taken from _tasks_desktop.tsx so
+ * adopting it there is visually a no-op -- that adoption is a separate change,
+ * the task board being out of this phase's scope). Data paths stay separate,
+ * as above; only the pixels are shared.
  *
  * WHAT IS SHARED (on purpose, per the issue's "reuse rather than re-derive"):
  * - `rpc_projects_table` (issue #173) for card data -- already paginated,
@@ -67,15 +82,11 @@ import { ageColor, dueColor, fmtDue } from './ProjectsTable';
 const PAGE_SIZE = 30;
 const DESKTOP_BREAKPOINT = 768;
 
-type BoardRow = {
-  id: string;
-  name: string;
+// rpc_projects_table's row, narrowed to what a card needs. `ProjectCardRow`
+// is the structural contract EntityUI's card accepts, so this stays a subset
+// of the table's row rather than a second, drifting shape.
+type BoardRow = ProjectCardRow & {
   current_stage_id: string | null;
-  stage_name: string | null;
-  stage_color: string | null;
-  days_in_current_stage: number | null;
-  due_date: string | null;
-  days_remaining: number | null;
   tasks_total: number;
   tasks_done: number;
   weighted_progress: number;
@@ -97,8 +108,8 @@ function emptyColumn(): ColumnState {
 // once, from this component's own render, however many card instances React
 // mounts. Calling a hook from inside a loop body in the parent would violate
 // the rules of hooks the moment the row count changes between renders.
-function ProjectCard({
-  row, stageId, canEdit, dragEnabled, isMoving, justMoved, onOpen, onTapMove,
+function BoardProjectCard({
+  row, stageId, canEdit, dragEnabled, isMoving, justMoved, renaming, onOpen, onTapMove, onOpenMenu, onCommitRename, onCancelRename,
 }: {
   row: BoardRow;
   stageId: string;
@@ -106,57 +117,54 @@ function ProjectCard({
   dragEnabled: boolean;
   isMoving: boolean;
   justMoved: boolean;
+  renaming: boolean;
   onOpen: (id: string) => void;
   onTapMove: (row: BoardRow) => void;
+  onOpenMenu: (row: BoardRow) => void;
+  onCommitRename: (row: BoardRow, next: string) => void;
+  onCancelRename: () => void;
 }) {
   const c = useThemeColors();
   const dragRef = useDragSource<DragPayload>({ projectId: row.id, fromStageId: stageId }, dragEnabled);
   return (
-    <TouchableOpacity
-      ref={dragRef}
-      onPress={() => onOpen(row.id)}
-      disabled={isMoving}
-      className="bg-surface-card p-4 rounded-2xl mb-3 premium-shadow"
-      style={{
-        borderWidth: justMoved ? 1.5 : 1,
-        borderColor: justMoved ? c.primary : 'rgba(128,128,128,0.15)',
-        opacity: isMoving ? 0.5 : 1,
-      }}
-    >
-      <View className="flex-row items-start justify-between gap-2 mb-2">
-        <Text className="text-typography-main font-black text-sm flex-1" numberOfLines={2}>{row.name}</Text>
-        {canEdit && (
-          <TouchableOpacity
-            onPress={(e) => { e.stopPropagation(); onTapMove(row); }}
-            hitSlop={8}
-            style={{ width: 26, height: 26 }}
-            className="items-center justify-center rounded-lg bg-surface-background border border-surface-border"
-          >
-            <FontAwesome name="exchange" size={10} color={c.textMuted} />
-          </TouchableOpacity>
-        )}
-      </View>
-
-      <Text style={{ color: ageColor(row.days_in_current_stage, c) }} className="text-xs font-black mb-2">
-        {row.days_in_current_stage == null ? 'Never staged' : `${row.days_in_current_stage}d in stage`}
-      </Text>
-
-      <View className="mb-2">
-        <View className="flex-row justify-between mb-1">
-          <Text className="text-typography-muted text-[10px] font-bold">{row.tasks_done}/{row.tasks_total}</Text>
-          <Text className="text-typography-main text-[10px] font-black">{Math.round(row.weighted_progress)}%</Text>
-        </View>
-        <View className="h-1.5 w-full bg-surface-background rounded-full overflow-hidden">
-          <View style={{ width: `${Math.min(100, Math.max(0, row.weighted_progress))}%`, backgroundColor: row.blocked ? c.danger : c.primary }} className="h-full rounded-full" />
-        </View>
-      </View>
-
-      {row.due_date && (
-        <Text style={{ color: dueColor(row.days_remaining, c) }} className="text-[11px] font-bold">
-          {fmtDue(row.days_remaining, row.due_date)}
-        </Text>
-      )}
-    </TouchableOpacity>
+    <View className="mb-2.5">
+      <ProjectCard
+        row={row}
+        innerRef={dragRef}
+        onPress={() => onOpen(row.id)}
+        dimmed={isMoving}
+        highlighted={justMoved}
+        actions={
+          <View className="flex-row items-center gap-1.5">
+            <Tooltip label={canEdit ? 'Move to another stage' : 'You need the “edit projects” permission to move a project'}>
+              <TouchableOpacity
+                onPress={(e) => { e.stopPropagation(); if (canEdit) onTapMove(row); }}
+                disabled={!canEdit}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={`Move ${row.name} to another stage`}
+                style={{ width: 28, height: 28, opacity: canEdit ? 1 : 0.4 }}
+                className="items-center justify-center rounded-lg border border-surface-border hover:bg-surface-overlay"
+              >
+                <FontAwesome name="exchange" size={11} color={c.textMuted} />
+              </TouchableOpacity>
+            </Tooltip>
+            <ProjectActionsButton onPress={() => onOpenMenu(row)} label={`Actions for ${row.name}`} />
+          </View>
+        }
+        footer={
+          renaming ? (
+            <View className="mt-2.5">
+              <InlineRename
+                initialValue={row.name}
+                onCommit={(next) => onCommitRename(row, next)}
+                onCancel={onCancelRename}
+              />
+            </View>
+          ) : undefined
+        }
+      />
+    </View>
   );
 }
 
@@ -165,79 +173,74 @@ function ProjectCard({
 // needs to be its own component rather than a function called from
 // stages.map() inside the parent's render.
 function ProjectColumn({
-  stage, col, canEdit, movePendingId, justMovedId, onOpen, onTapMove, onDrop, onLoadMore,
+  stage, col, canEdit, movePendingId, justMovedId, renamingId, onOpen, onTapMove, onDrop, onLoadMore, onOpenMenu, onCommitRename, onCancelRename,
 }: {
   stage: Stage;
   col: ColumnState;
   canEdit: boolean;
   movePendingId: string | null;
   justMovedId: string | null;
+  renamingId: string | null;
   onOpen: (id: string) => void;
   onTapMove: (row: BoardRow) => void;
   onDrop: (payload: DragPayload, stage: Stage) => void;
   onLoadMore: (stageId: string, nextOffset: number) => void;
+  onOpenMenu: (row: BoardRow) => void;
+  onCommitRename: (row: BoardRow, next: string) => void;
+  onCancelRename: () => void;
 }) {
-  const c = useThemeColors();
   const { ref: dropRef, isOver } = useDropTarget<DragPayload>(
     (payload) => onDrop(payload, stage),
     (payload) => payload.fromStageId !== stage.id,
   );
 
   return (
-    <View className="h-full" style={{ width: 320, marginRight: 24 }}>
-      <View className="flex-row items-center mb-4 px-1">
-        <View style={{ backgroundColor: stage.color ?? c.primary }} className="w-3 h-3 rounded-full mr-3" />
-        <Text className="text-typography-main font-black text-sm uppercase tracking-[0.2em]" numberOfLines={1}>{stage.name}</Text>
-        <View className="ml-2 bg-surface-card border border-surface-border px-2 py-0.5 rounded-lg">
-          <Text className="text-typography-muted text-[10px] font-black">{col.rows.length}{col.hasMore ? '+' : ''}</Text>
-        </View>
-      </View>
-
-      <View
-        ref={dropRef as any}
-        className="flex-1 rounded-[2.5rem] p-4 border"
-        style={{
-          backgroundColor: isOver ? `${c.primary}14` : 'rgba(128,128,128,0.03)',
-          borderColor: isOver ? c.primary : 'rgba(128,128,128,0.15)',
-        }}
-      >
-        {col.loading && col.rows.length === 0 ? (
-          <SkeletonList count={3} itemHeight={90} />
-        ) : col.rows.length === 0 ? (
-          <View className="items-center py-10 px-2">
-            <FontAwesome name="inbox" size={20} color={c.textDim} />
-            <Text className="text-typography-dim text-xs mt-2">No projects here</Text>
-          </View>
-        ) : (
-          <ScrollView showsVerticalScrollIndicator={false}>
-            {col.rows.map(row => (
-              <ProjectCard
-                key={row.id}
-                row={row}
-                stageId={stage.id}
-                canEdit={canEdit}
-                dragEnabled={canEdit}
-                isMoving={movePendingId === row.id}
-                justMoved={justMovedId === row.id}
-                onOpen={onOpen}
-                onTapMove={onTapMove}
-              />
-            ))}
-            {col.hasMore && (
-              <TouchableOpacity
-                onPress={() => onLoadMore(stage.id, col.offset + PAGE_SIZE)}
-                disabled={col.loading}
-                className="items-center py-3 rounded-xl border border-surface-border mb-4"
-              >
-                <Text className="text-typography-muted text-[10px] font-black uppercase">
-                  {col.loading ? 'Loading…' : `Load ${PAGE_SIZE} more`}
-                </Text>
-              </TouchableOpacity>
-            )}
-          </ScrollView>
-        )}
-      </View>
-    </View>
+    <BoardColumn
+      name={stage.name}
+      color={stage.color}
+      count={col.rows.length}
+      hasMore={col.hasMore}
+      isOver={isOver}
+      dropRef={dropRef}
+    >
+      {col.loading && col.rows.length === 0 ? (
+        <SkeletonList count={3} itemHeight={150} />
+      ) : col.rows.length === 0 ? (
+        <BoardColumnEmpty label={canEdit ? `Nothing is in ${stage.name}. Drag a project here to move it.` : `Nothing is in ${stage.name}.`} />
+      ) : (
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {col.rows.map(row => (
+            <BoardProjectCard
+              key={row.id}
+              row={row}
+              stageId={stage.id}
+              canEdit={canEdit}
+              dragEnabled={canEdit}
+              isMoving={movePendingId === row.id}
+              justMoved={justMovedId === row.id}
+              renaming={renamingId === row.id}
+              onOpen={onOpen}
+              onTapMove={onTapMove}
+              onOpenMenu={onOpenMenu}
+              onCommitRename={onCommitRename}
+              onCancelRename={onCancelRename}
+            />
+          ))}
+          {col.hasMore && (
+            <TouchableOpacity
+              onPress={() => onLoadMore(stage.id, col.offset + PAGE_SIZE)}
+              disabled={col.loading}
+              className="items-center justify-center py-2.5 rounded-xl border border-surface-border mb-3 hover:bg-surface-overlay"
+              style={{ minHeight: 40 }}
+            >
+              <Text className="text-typography-muted text-[11px] font-semibold">
+                {col.loading ? 'Loading…' : `Show ${PAGE_SIZE} more`}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </ScrollView>
+      )}
+    </BoardColumn>
   );
 }
 
@@ -264,6 +267,14 @@ export default function ProjectBoard({
   const [movePendingId, setMovePendingId] = useState<string | null>(null);
   const [justMovedId, setJustMovedId] = useState<string | null>(null);
   const [pickerProject, setPickerProject] = useState<{ id: string; stageId: string | null } | null>(null);
+
+  // Phase 8 (#187) -- rename / roll-forward / save-as-template / archive from
+  // the card itself, not only from the detail route (plan §17).
+  const reloadBoardRef = React.useRef<() => void>(() => {});
+  const actions = useProjectActions({
+    onChanged: () => reloadBoardRef.current(),
+    onOpenProject,
+  });
 
   // Pipelines (subject_kind='project') -- same query ProjectStagePicker.tsx
   // already runs, kept here as a second call rather than importing that
@@ -336,6 +347,7 @@ export default function ProjectBoard({
   const reloadBoard = useCallback(() => {
     stages.forEach(s => loadStage(s.id, 0));
   }, [stages, loadStage]);
+  reloadBoardRef.current = reloadBoard;
 
   const advanceProject = useCallback(async (projectId: string, toStageId: string): Promise<boolean> => {
     const { error } = await supabase.rpc('rpc_advance_project_stage', { p_project_id: projectId, p_to_stage_id: toStageId });
@@ -409,15 +421,17 @@ export default function ProjectBoard({
     // giant pill filling the column -- caught by driving the mobile board
     // in a real browser at 390px, not visible at the single-pipeline count
     // this repo happens to seed locally.
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} className="mb-4" contentContainerStyle={{ gap: 8 }}>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} className="mb-4" contentContainerStyle={{ gap: 8, alignItems: 'center' }}>
+      <Text className="text-typography-dim text-[10px] font-black uppercase tracking-[0.15em] mr-1">Board</Text>
       {pipelines.map(p => (
-        <TouchableOpacity
+        <FilterChip
           key={p.id}
+          label={p.name}
+          icon="columns"
+          active={pipelineId === p.id}
           onPress={() => setPipelineId(p.id)}
-          className={`px-4 min-h-[44px] justify-center rounded-full border ${pipelineId === p.id ? 'bg-brand-primary/10 border-brand-primary' : 'border-surface-border'}`}
-        >
-          <Text className={`text-[11px] font-black uppercase ${pipelineId === p.id ? 'text-brand-primary' : 'text-typography-muted'}`}>{p.name}</Text>
-        </TouchableOpacity>
+          touchTarget
+        />
       ))}
     </ScrollView>
   );
@@ -427,14 +441,14 @@ export default function ProjectBoard({
   }
 
   if (!shellLoading && pipelines.length === 0) {
+    // §17: explain the entity. Users confuse a board with a project — this is
+    // the screen where saying what a board IS pays for itself.
     return (
-      <View className="items-center justify-center py-16 px-6">
-        <FontAwesome name="columns" size={28} color={c.textMuted} />
-        <Text className="text-typography-main text-lg font-black mt-4">No project pipelines yet</Text>
-        <Text className="text-typography-muted text-sm text-center mt-2 max-w-sm">
-          Mark a pipeline as "Projects" in the pipeline editor to see a board here.
-        </Text>
-      </View>
+      <EntityEmptyState
+        kind="board"
+        title="No project board yet"
+        body="A board is the run of stages a project moves through — Planning, In progress, Review, Done. Open the pipeline editor and mark a pipeline as “Projects” to see one here."
+      />
     );
   }
 
@@ -451,10 +465,14 @@ export default function ProjectBoard({
               canEdit={canEdit}
               movePendingId={movePendingId}
               justMovedId={justMovedId}
+              renamingId={actions.renamingId}
               onOpen={onOpenProject}
               onTapMove={openPicker}
               onDrop={handleDrop}
               onLoadMore={loadStage}
+              onOpenMenu={actions.openMenu}
+              onCommitRename={actions.commitRename}
+              onCancelRename={actions.cancelRename}
             />
           ))}
         </ScrollView>
@@ -464,6 +482,7 @@ export default function ProjectBoard({
           onClose={() => setPickerProject(null)}
           onSelectStage={handlePickerSelect}
         />
+        {actions.overlay}
       </View>
     );
   }
@@ -479,16 +498,18 @@ export default function ProjectBoard({
       {/* flexGrow:0 -- see the identical note on pipelineChips above; without
           it this horizontal chip row stretches to fill the flex-1 column
           and its rounded-full chips balloon into full-height pills. */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} className="mb-4" contentContainerStyle={{ gap: 8 }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} className="mb-4" contentContainerStyle={{ gap: 8, alignItems: 'center' }}>
+        <Text className="text-typography-dim text-[10px] font-black uppercase tracking-[0.15em] mr-1">Stage</Text>
         {stages.map(s => (
-          <TouchableOpacity
+          <FilterChip
             key={s.id}
+            label={s.name}
+            dotColor={s.color ?? c.primary}
+            count={columns[s.id]?.rows.length}
+            active={mobileStageId === s.id}
             onPress={() => setMobileStageId(s.id)}
-            className={`flex-row items-center gap-1.5 px-4 min-h-[44px] rounded-full border ${mobileStageId === s.id ? 'bg-brand-primary/10 border-brand-primary' : 'border-surface-border'}`}
-          >
-            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: s.color ?? c.primary }} />
-            <Text className={`text-[11px] font-black uppercase ${mobileStageId === s.id ? 'text-brand-primary' : 'text-typography-muted'}`} numberOfLines={1}>{s.name}</Text>
-          </TouchableOpacity>
+            touchTarget
+          />
         ))}
       </ScrollView>
 
@@ -500,16 +521,22 @@ export default function ProjectBoard({
           chip-stretch bug, by actually driving this at 390px. */}
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
         {activeCol.loading && activeCol.rows.length === 0 ? (
-          <SkeletonList count={3} itemHeight={110} />
+          <SkeletonList count={3} itemHeight={170} />
         ) : activeCol.rows.length === 0 ? (
-          <View className="items-center py-16 px-2">
-            <FontAwesome name="inbox" size={24} color={c.textDim} />
-            <Text className="text-typography-dim text-sm mt-3">No projects in this stage</Text>
-          </View>
+          <EntityEmptyState
+            kind="project"
+            compact
+            title={activeStage ? `Nothing is in ${activeStage.name}` : 'Nothing here'}
+            body={
+              canEdit
+                ? 'Projects land in a stage when someone moves them. Open a project and use its stage chip, or tap the move button on a card in another stage.'
+                : 'Projects appear in a stage once someone moves them here.'
+            }
+          />
         ) : (
           <>
             {activeStage && activeCol.rows.map(row => (
-              <ProjectCard
+              <BoardProjectCard
                 key={row.id}
                 row={row}
                 stageId={activeStage.id}
@@ -517,19 +544,23 @@ export default function ProjectBoard({
                 dragEnabled={false}
                 isMoving={movePendingId === row.id}
                 justMoved={justMovedId === row.id}
+                renaming={actions.renamingId === row.id}
                 onOpen={onOpenProject}
                 onTapMove={openPicker}
+                onOpenMenu={actions.openMenu}
+                onCommitRename={actions.commitRename}
+                onCancelRename={actions.cancelRename}
               />
             ))}
             {activeCol.hasMore && activeStage && (
               <TouchableOpacity
                 onPress={() => loadStage(activeStage.id, activeCol.offset + PAGE_SIZE)}
                 disabled={activeCol.loading}
-                className="items-center py-3 rounded-xl border border-surface-border mb-6"
+                className="items-center justify-center py-3 rounded-xl border border-surface-border mb-6"
                 style={{ minHeight: 44 }}
               >
-                <Text className="text-typography-muted text-[10px] font-black uppercase">
-                  {activeCol.loading ? 'Loading…' : `Load ${PAGE_SIZE} more`}
+                <Text className="text-typography-muted text-[11px] font-semibold">
+                  {activeCol.loading ? 'Loading…' : `Show ${PAGE_SIZE} more`}
                 </Text>
               </TouchableOpacity>
             )}
@@ -543,6 +574,7 @@ export default function ProjectBoard({
         onClose={() => setPickerProject(null)}
         onSelectStage={handlePickerSelect}
       />
+      {actions.overlay}
     </View>
   );
 }
