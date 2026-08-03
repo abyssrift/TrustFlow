@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { starterTemplatesBySector, StarterTemplate } from '@/lib/starterTemplates';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useMemo, useState } from 'react';
-import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 
 // Path A (unified responsive component, ui-style-guide.md §4.1): a two-step
 // browse -> preview -> use drill-in reads the same way at any width — there
@@ -42,6 +42,8 @@ export default function StarterTemplatePickerSheet({
   onCreated: (template: { id: string; name: string; body: any[] }) => void;
 }) {
   const c = useThemeColors();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
   const [selected, setSelected] = useState<StarterTemplate | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -118,9 +120,54 @@ export default function StarterTemplatePickerSheet({
     );
   }
 
+  const browseList = (
+    <>
+      <Text className="text-typography-muted text-sm mb-4">
+        Researched starting points across common project types. Pick one to add it as an editable template for your company — nothing is created until you confirm.
+      </Text>
+      {bySector.map(([sector, templates]) => (
+        <View key={sector} className="mb-5">
+          <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2">{sector}</Text>
+          <View style={{ gap: 8 }}>
+            {templates.map(t => (
+              <TemplateCard key={t.id} template={t} onPress={() => setSelected(t)} />
+            ))}
+          </View>
+        </View>
+      ))}
+    </>
+  );
+
+  const preview = selected && (
+    <>
+      <Text className="text-typography-muted text-sm mb-4">{selected.description}</Text>
+      <View style={{ gap: 8 }}>
+        {selected.tasks.map((task, i) => (
+          <View key={i} className="bg-surface-background border border-surface-border rounded-xl px-4 py-3">
+            <View className="flex-row items-start justify-between mb-1">
+              <Text className="text-typography-main font-bold text-sm flex-1 pr-2">{task.title}</Text>
+              <Text className="text-typography-dim text-[10px] font-black uppercase">{task.category}</Text>
+            </View>
+            <Text className="text-typography-muted text-xs">{task.description}</Text>
+            <Text className="text-typography-dim text-[10px] mt-1 font-bold uppercase">
+              {task.estimated_hours}h · {task.priority}{task.due_offset_days != null ? ` · day ${task.due_offset_days}` : ''}
+            </Text>
+          </View>
+        ))}
+      </View>
+      {error && <Text className="text-state-danger text-xs font-bold mt-3">{error}</Text>}
+    </>
+  );
+
   return (
     <Popup
-      maxWidth={420}
+      // 13 templates across 12 sectors on one side and a 22-task preview on
+      // the other is the exact case ux-consistency.md's density rule covers,
+      // and this shipped as a 420px column that made you drill in and back out
+      // to compare two of them. `maxWidth={420}` also contradicted the
+      // `max-w-[560px]` on containerClassName — two different intended widths
+      // in one component, which is how "nobody chose this" looks. One width now.
+      maxWidth={isDesktop ? 980 : 420}
       visible={visible}
       onClose={handleClose}
       presentation="auto"
@@ -133,24 +180,29 @@ export default function StarterTemplatePickerSheet({
         variant: saving ? 'disabled' : 'default',
       } : undefined}
       dismissible={!saving}
-      containerClassName="w-[92%] max-w-[560px] rounded-3xl overflow-hidden premium-shadow"
+      containerClassName="rounded-3xl overflow-hidden premium-shadow"
     >
-      {!selected ? (
-        <ScrollView className="px-6 py-5" style={{ maxHeight: PREVIEW_MAX_HEIGHT }}>
-          <Text className="text-typography-muted text-sm mb-4">
-            Researched starting points across common project types. Pick one to add it as an editable template for your company — nothing is created until you confirm.
-          </Text>
-          {bySector.map(([sector, templates]) => (
-            <View key={sector} className="mb-5">
-              <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2">{sector}</Text>
-              <View style={{ gap: 8 }}>
-                {templates.map(t => (
-                  <TemplateCard key={t.id} template={t} onPress={() => setSelected(t)} />
-                ))}
+      {isDesktop ? (
+        // Two peer groups, each with its own scroll so a long task list does
+        // not push the sector list out of view.
+        <View className="flex-row px-6 py-5" style={{ gap: 24, height: PREVIEW_MAX_HEIGHT }}>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <ScrollView showsVerticalScrollIndicator={false}>{browseList}</ScrollView>
+          </View>
+          <View style={{ flex: 1, minWidth: 0, borderLeftWidth: 1, borderLeftColor: c.border, paddingLeft: 24 }}>
+            {selected ? (
+              <ScrollView showsVerticalScrollIndicator={false}>{preview}</ScrollView>
+            ) : (
+              <View className="flex-1 items-center justify-center">
+                <Text className="text-typography-dim text-xs text-center">
+                  Pick a template on the left to see every task it creates.
+                </Text>
               </View>
-            </View>
-          ))}
-        </ScrollView>
+            )}
+          </View>
+        </View>
+      ) : !selected ? (
+        <ScrollView className="px-6 py-5" style={{ maxHeight: PREVIEW_MAX_HEIGHT }}>{browseList}</ScrollView>
       ) : (
         <ScrollView className="px-6 py-5" style={{ maxHeight: PREVIEW_MAX_HEIGHT }}>
           <TouchableOpacity
@@ -161,25 +213,7 @@ export default function StarterTemplatePickerSheet({
             <FontAwesome name="chevron-left" size={12} color={c.primary} />
             <Text className="text-brand-primary text-xs font-black uppercase tracking-widest ml-2">All Templates</Text>
           </TouchableOpacity>
-
-          <Text className="text-typography-muted text-sm mb-4">{selected.description}</Text>
-
-          <View style={{ gap: 8 }}>
-            {selected.tasks.map((task, i) => (
-              <View key={i} className="bg-surface-background border border-surface-border rounded-xl px-4 py-3">
-                <View className="flex-row items-start justify-between mb-1">
-                  <Text className="text-typography-main font-bold text-sm flex-1 pr-2">{task.title}</Text>
-                  <Text className="text-typography-dim text-[10px] font-black uppercase">{task.category}</Text>
-                </View>
-                <Text className="text-typography-muted text-xs">{task.description}</Text>
-                <Text className="text-typography-dim text-[10px] mt-1 font-bold uppercase">
-                  {task.estimated_hours}h · {task.priority}{task.due_offset_days != null ? ` · day ${task.due_offset_days}` : ''}
-                </Text>
-              </View>
-            ))}
-          </View>
-
-          {error && <Text className="text-state-danger text-xs font-bold mt-3">{error}</Text>}
+          {preview}
         </ScrollView>
       )}
     </Popup>

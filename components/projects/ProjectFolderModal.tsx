@@ -46,6 +46,8 @@ export default function ProjectFolderModal({
     handleSave, handleArchiveProject,
   } = useProjectFolderForm({ visible, project, onSuccess, onClose });
 
+  const nameMissing = !name.trim();
+
   const body = (
       <View className="flex-1 bg-surface-background">
         {/* Header */}
@@ -67,12 +69,19 @@ export default function ProjectFolderModal({
               Folder Name
             </Text>
             <TextInput
-              className="bg-surface-card border border-surface-border p-4 rounded-xl text-typography-main"
+              className={`bg-surface-card border p-4 rounded-xl text-typography-main ${nameMissing ? 'border-state-danger' : 'border-surface-border'}`}
               placeholder="e.g. Q4 Marketing Campaign"
               placeholderTextColor="#64748b"
               value={name}
               onChangeText={setName}
             />
+            {/* §19.1: was a showAlert fired on Save — a dialog naming the field
+                then covering it. Stated where the fix is. */}
+            {nameMissing && (
+              <Text className="text-state-danger text-[11px] font-bold mt-2">
+                A project needs a name before it can be saved — type one above.
+              </Text>
+            )}
           </View>
 
           <View className="mb-6">
@@ -164,9 +173,9 @@ export default function ProjectFolderModal({
               className="mt-6 bg-state-danger/5 border border-state-danger/20 p-5 rounded-2xl flex-row items-center justify-between"
             >
               <View className="flex-1 mr-4">
-                <Text className="text-state-danger font-black text-sm uppercase tracking-widest mb-1">Cold Storage</Text>
+                <Text className="text-state-danger font-black text-sm uppercase tracking-widest mb-1">Archive This Project</Text>
                 <Text className="text-state-danger/60 text-[10px] font-medium leading-relaxed">
-                  Recursively snapshots all project tasks and telemetry before removal from the active database.
+                  Takes the project and all its tasks out of the active list and keeps a full copy. You can restore it later from Archives.
                 </Text>
               </View>
               <View className="w-10 h-10 bg-state-danger/10 rounded-full items-center justify-center">
@@ -189,9 +198,9 @@ export default function ProjectFolderModal({
 
           <TouchableOpacity
             onPress={handleSave}
-            disabled={loading}
+            disabled={loading || nameMissing}
             className={`flex-1 py-4 items-center justify-center rounded-xl bg-brand-primary ${
-              loading ? 'bg-brand-primary/50' : ''
+              loading || nameMissing ? 'bg-brand-primary/50' : ''
             }`}
           >
             {loading ? (
@@ -222,9 +231,9 @@ export default function ProjectFolderModal({
         visible={showArchiveConfirm}
         onCancel={() => setShowArchiveConfirm(false)}
         onConfirm={handleArchiveProject}
-        title="Project Snapshot Confirmation"
-        description={`Are you certain you want to move "${project?.name}" to Cold Storage? This will snapshot all historical data and recursive child tasks. This action ensures data integrity but removes the project from the active pipeline.`}
-        confirmLabel={loading ? 'Snapshotting...' : 'Confirm Archival'}
+        title="Archive this project?"
+        description={`"${project?.name}" and all of its tasks will leave the active list. A full copy is kept, and you can restore it from Archives at any time.`}
+        confirmLabel={loading ? 'Archiving…' : 'Archive Project'}
         variant="danger"
         loading={loading}
       />

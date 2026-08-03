@@ -46,6 +46,8 @@ export default function ProjectFolderModal({
     handleSave, handleArchiveProject,
   } = useProjectFolderForm({ visible, project, onSuccess, onClose });
 
+  const nameMissing = !name.trim();
+
   return (
     <>
       <Popup
@@ -80,13 +82,22 @@ export default function ProjectFolderModal({
                   Folder Name
                 </Text>
                 <TextInput
-                  style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border, color: c.textMain }}
+                  style={{ backgroundColor: c.background, borderWidth: 1, borderColor: nameMissing ? c.danger : c.border, color: c.textMain }}
                   className="p-4 rounded-xl"
                   placeholder="e.g. Q4 Marketing Campaign"
                   placeholderTextColor={c.textDim}
                   value={name}
                   onChangeText={setName}
                 />
+                {/* §19.1: this was a `showAlert('Error', 'Project name is
+                    required')` fired on Save — a dialog that names the field,
+                    then closes over the field it named. The rule is stated
+                    where the fix is, and Save says why it is off. */}
+                {nameMissing && (
+                  <Text className="text-state-danger text-[11px] font-bold mt-2">
+                    A project needs a name before it can be saved — type one above.
+                  </Text>
+                )}
               </View>
 
               <View className="mb-6">
@@ -181,10 +192,15 @@ export default function ProjectFolderModal({
                   className="mt-6 p-5 rounded-2xl flex-row items-center justify-between"
                   style={{ backgroundColor: c.danger + '0D', borderWidth: 1, borderColor: c.danger + '33' }}
                 >
+                  {/* §17/§19.2 — "Cold Storage" and "telemetry ... removal from
+                      the active database" describe an implementation, not what
+                      happens to the user's work. Plain words for a destructive
+                      action, and it says it is reversible, which it is
+                      (rpc_restore_project). */}
                   <View className="flex-1 mr-4">
-                    <Text style={{ color: c.danger }} className="font-black text-sm uppercase tracking-widest mb-1">Cold Storage</Text>
+                    <Text style={{ color: c.danger }} className="font-black text-sm uppercase tracking-widest mb-1">Archive This Project</Text>
                     <Text style={{ color: c.danger + '99' }} className="text-[10px] font-medium leading-relaxed">
-                      Recursively snapshots all project tasks and telemetry before removal from the active database.
+                      Takes the project and all its tasks out of the active list and keeps a full copy. You can restore it later from Archives.
                     </Text>
                   </View>
                   <View className="w-10 h-10 rounded-full items-center justify-center" style={{ backgroundColor: c.danger + '1A' }}>
@@ -206,9 +222,9 @@ export default function ProjectFolderModal({
 
               <TouchableOpacity
                 onPress={handleSave}
-                disabled={loading}
+                disabled={loading || nameMissing}
                 className="flex-1 py-4 items-center justify-center rounded-xl"
-                style={{ backgroundColor: loading ? c.primary + '80' : c.primary }}
+                style={{ backgroundColor: loading || nameMissing ? c.primary + '80' : c.primary }}
               >
                 {loading ? (
                   <ActivityIndicator color="white" />
@@ -225,9 +241,9 @@ export default function ProjectFolderModal({
         visible={showArchiveConfirm}
         onCancel={() => setShowArchiveConfirm(false)}
         onConfirm={handleArchiveProject}
-        title="Project Snapshot Confirmation"
-        description={`Are you certain you want to move "${project?.name}" to Cold Storage? This will snapshot all historical data and recursive child tasks. This action ensures data integrity but removes the project from the active pipeline.`}
-        confirmLabel={loading ? 'Snapshotting...' : 'Confirm Archival'}
+        title="Archive this project?"
+        description={`"${project?.name}" and all of its tasks will leave the active list. A full copy is kept, and you can restore it from Archives at any time.`}
+        confirmLabel={loading ? 'Archiving…' : 'Archive Project'}
         variant="danger"
         loading={loading}
       />
