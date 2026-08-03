@@ -110,7 +110,7 @@ const existing: ExistingClient[] = [
 
 {
   // Exact ref match wins even if the name differs.
-  const row: IntakeRow = { rowNumber: 1, name: 'Abdallah Grp (renamed)', client_ref: 'Abdallah Grp (renamed)', client_external_ref: 'CR-1001', start_date: null, start_date_raw: null };
+  const row: IntakeRow = { rowNumber: 1, name: 'Abdallah Grp (renamed)', client_ref: 'Abdallah Grp (renamed)', client_external_ref: 'CR-1001', start_date: null, start_date_raw: null, shape: 'data' };
   const m = resolveClientMatch(row, existing);
   assert.strictEqual(m.kind, 'ref');
   if (m.kind === 'ref') assert.strictEqual(m.client.id, 'c1');
@@ -118,13 +118,13 @@ const existing: ExistingClient[] = [
 
 {
   // A ref that matches nothing is a NEW client, not ambiguous, not a name guess.
-  const row: IntakeRow = { rowNumber: 2, name: 'Someone Else', client_ref: 'Someone Else', client_external_ref: 'CR-9999', start_date: null, start_date_raw: null };
+  const row: IntakeRow = { rowNumber: 2, name: 'Someone Else', client_ref: 'Someone Else', client_external_ref: 'CR-9999', start_date: null, start_date_raw: null, shape: 'data' };
   assert.strictEqual(resolveClientMatch(row, existing).kind, 'new');
 }
 
 {
   // Exact name match (no ref supplied).
-  const row: IntakeRow = { rowNumber: 3, name: 'abdallah group', client_ref: 'abdallah group', client_external_ref: null, start_date: null, start_date_raw: null };
+  const row: IntakeRow = { rowNumber: 3, name: 'abdallah group', client_ref: 'abdallah group', client_external_ref: null, start_date: null, start_date_raw: null, shape: 'data' };
   const m = resolveClientMatch(row, existing);
   assert.strictEqual(m.kind, 'exact_name');
 }

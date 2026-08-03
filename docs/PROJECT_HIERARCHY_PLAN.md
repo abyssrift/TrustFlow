@@ -2152,3 +2152,267 @@ Measured against the real file, not a fixture we wrote to pass:
    created without confirmation.
 6. Re-importing the same file with a saved mapping requires no re-mapping.
 7. The self-check runs against this actual workbook, checked into the repo.
+
+### 18.6 Shipped — the parser (branch `feat-spreadsheet-classifier`)
+
+Pure functions only; extends `lib/imports/spreadsheetMapping.ts` rather than
+adding a module beside it, and keeps its zero-`lib/supabase`/zero-xlsx
+constraint so the self-check still runs under plain `npx tsx`. No UI, no
+schema, no RPC — §18.3's `project_field_defs`/`project_field_values` are a
+separate piece of work and this layer only hands them the candidates.
+
+**The classifier.** `profileColumn`/`profileColumns` emit an industry-neutral
+primitive per column — `email | phone | date | year | money | unique_id | enum
+| freetext | empty | unknown` — each with a **coverage fraction over non-empty
+cells** and a confidence, plus every runner-up candidate, the distinct count,
+the enum vocabulary, and up to five cells the winner does *not* explain.
+Coverage carries the weight §18.1 asked for: "Expected date" arrives as a date
+column at **0.62**, not as a pass or a fail, and names the prose that did not
+parse. The returned array is **dense and index-aligned**, so §18.5 #1's "zero
+silently discarded" is structural rather than a promise — a caller iterating it
+cannot skip a column, and `empty`/`unknown` are explicit reports, not absences.
+
+**Header demoted to nomination.** `proposeColumnMapping` now profiles first and
+reads headers second. `client_external_ref`/`start_date` need a supporting
+content primitive **and** a header nomination (a file holds several date
+columns and only the header says which one is meant); `name` is decided by
+content ranking — unique, populated, textual — with the header able only to
+re-rank columns that already qualify. `headerHintFor` records what the header
+*wanted* even when content overrules it: "Proposed fee" nominates `money` and
+profiles as `empty`, which is the rule made visible.
+
+**Column context, a separate second pass.** `detectColumnRelations` reads the
+column *sequence* and emits `sibling_group` / `total_of` / `contact_block` /
+`single_period`. Prior art: Sherlock classifies columns in isolation and is
+weak on the rarer types; Sato adds table- and neighbour-context for ~0.925 F1.
+We are not doing ML — no corpus, no inference infra, and §15.3's confirmation
+step covers the gap — but the finding transfers for free: `AUDIT 2025 |
+ARABIC3 2025 | TAX | TOTAL A&T 2025` are four identical MONEY columns one at a
+time, and a fee breakdown plus its total as a neighbourhood. `total_of` reports
+`reconciles: false` and names the offending rows; it never computes a corrected
+total (§18.4 / §13.9). Kept a separate function so a relationship can never
+quietly change a column's primitive.
+
+**Row shape.** `classifyRowShapes` returns `data | blank | continuation` for
+every row, and `buildIntakeRows` carries `shape` on each `IntakeRow` — the
+continuation row is neither dropped nor merged nor imported as a project, it
+arrives tagged. Making `shape` a *required* field was deliberate: an optional
+one is a flag every caller can forget.
+
+**Dates.** `resolveDateOrder` decides DD/MM vs MM/DD **once per column** by
+looking for a value > 12 in the first position, returns `'ambiguous'` when no
+cell is decisive or cells contradict, and `undefined` when the column has no
+slash dates so the question is never asked pointlessly. `parseDateValue`
+deliberately does **not** fall through to `new Date(s)` — V8 reads "8/2/26" as
+August 2nd in local time, which is exactly the per-cell guess §18.4 forbids.
+`parseSpreadsheetBytes` feeds the resolved order into `buildIntakeRows`.
+
+**Measured, on the real 22-column register.** 22/22 columns classified, 0
+discarded, 0 `unknown`. `name` -> col 1 "Company Name" (*"values are unique,
+96% populated"*), never col 13. "Follow -up Status" -> `date` at coverage 1.00
+with order DMY, from content alone — its header nominates nothing. "Expected
+date" -> `date` at 0.62, surfacing `1st week of January` / `still pending` /
+`started`. One continuation row and one blank separator flagged. `total_of`
+finds col 10 summing cols 7-9 and reports 8 non-reconciling rows. Ten columns
+are marked `needsConfirmation` (seven enums, three free-text) — §18.2 rule 2,
+and the same auto-suggest-then-require-review shape OneSchema and Flatfile
+both ship.
+
+**Deviation from §18.5 #7, deliberate.** The real workbook is **not** checked
+in — it carries a client's company names, personal mobile numbers and personal
+email addresses, and this repo is pushed to GitHub. `lib/imports/spreadsheetMapping.check.ts`
+asserts against an **anonymised rebuild**: the 22 headers verbatim (trailing
+spaces included), invented companies/people/emails/phones, and every structural
+trap preserved — continuation row, blank separator, multi-valued display-name
+emails, `"8,000"` text money, a non-reconciling total, a case-variant person
+name, an all-empty column with a real header. The fixture is *stricter* than
+the source in one place on purpose: its "Expected date" is genuinely ambiguous
+(1/2/26, 8/2/26, 2/3/26 — nothing over 12) where the real file resolves DMY, so
+both branches of the order question are covered. The real file was run through
+the same code out-of-tree and produces the numbers above.
+
+**Known ceilings, named in the code.** An Excel serial is just a number, so a
+money column whose values all land in 20 000–80 000 reads as dates — the fix
+belongs one layer up (`sheet_to_json` with `cellDates: true`), not in a better
+range guess. Profiling samples the first 500 body rows, not all 5 000. And
+`parseSpreadsheetBytes` still reads with `blankrows: false`, so `rowNumber` is
+an index into the *compacted* sheet, not the user's row number — pre-existing,
+and worth fixing when the UI starts quoting row numbers at people.
+
+### 18.7 Measured on a multi-industry corpus — where it breaks
+
+§18.6's 22/22 was measured on the one file the code was written while looking
+at. That number cannot answer the question the product actually asks, which is
+whether content-first classification generalises past a Qatari audit register.
+
+`lib/imports/testCorpus/` answers it. Eleven invented workbooks from eleven
+industries — construction buyout schedule, law firm matter list, marketing
+campaign tracker (ES/EN), clinic appointment schedule, sprint plan (5 columns),
+manufacturing work orders (40 columns), real-estate listings, freight shipment
+register, an Arabic recruitment pipeline, a nearly-empty sheet and a
+single-column sheet. 128 columns. Ground truth is authored in `corpus.ts`
+beside each sheet, before the classifier is run over it; `generate.ts` writes
+real .xlsx bytes and reads them back with production's own `sheet_to_json`
+options, so what is measured is the pipeline and not a hand-fed array. No real
+data: every company, person, email, phone, MRN and container number is invented.
+
+    npx tsx lib/imports/testCorpus/benchmark.ts            # full report
+    npx tsx lib/imports/testCorpus/benchmark.ts --wrong    # failures only
+    npx tsx lib/imports/testCorpus/generate.ts out/        # the .xlsx files
+
+**The score, 2026-08-02.**
+
+| | |
+|---|---|
+| primitives correct | **92 / 128 (72%)** |
+| entity name correct | **5 / 11 (45%)** |
+| columns unclassified (`unknown`) | 6 |
+| columns silently dropped | 1 (the single-column sheet, which never reaches classification) |
+| date order correct / wrong / ambiguous | 3 / **0** / 2 |
+| row-shape traps caught | **2 of 12** |
+
+`corpus.check.ts` ratchets those numbers so they cannot quietly get worse.
+They are a measurement, not a pass mark — 45% on the entity name is the number
+§18.1 exists to fix, measured again outside the file it was fixed against.
+
+**What is wrong, worst first.** Ranked by how much damage the failure does to a
+real import, not by how many columns it touches.
+
+1. **A non-Latin-script sheet loses its name column and every text column.**
+   `textual` and the free-text coverage test use `/[a-z]/i`; the identifier test
+   uses `/[a-z0-9]/i`. All three are ASCII-only. In the Arabic recruitment
+   pipeline col 0 `الاسم` (nine unique candidate names) profiles as **`unknown`**,
+   as does col 8 `ملاحظات` (prose). Because no Arabic column can be `textual`, the
+   entity name falls to col 2 `المصدر` — the *source* column — and every
+   candidate imports named **"LinkedIn"** or **"Referral"**. Emails, phones,
+   dates and money in the same sheet all classify correctly, which is what makes
+   this so sharp: content-first works, the content test just cannot read the
+   script. Any Arabic, Chinese, Cyrillic or Greek register is affected. The
+   original audit file hid this because its Arabic-speaking firm typed Latin.
+
+2. **The classifier invents an entity name when the sheet has none.** The clinic
+   schedule identifies patients by numeric MRN; every other column is a repeated
+   vocabulary. `rankEntityNameColumns` accepts `enum` columns as candidates, so
+   it returns col 2 "Provider" — 3 distinct values over 14 rows — and every
+   appointment imports named **"Dr. Reyes"**. This is §18.1's failure with a new
+   face, and unlike an enum column the name proposal carries no
+   `needsConfirmation`. Declining to name anything is a behaviour the corpus
+   asserts and the code does not have.
+
+3. **An entire US-format date column silently becomes a confident identifier.**
+   Coverage is measured with `looksLikeDateCell`, which calls `parseDateValue`
+   with the **DMY default**, before `resolveDateOrder` ever runs. A MM/DD column
+   whose days are mostly past the 12th fails its own date test. Construction col
+   8 "Sub Completion" (`04/30/2026`, `08/15/2026`, …) → **`unique_id`, coverage
+   1.00, confidence 0.85, `needsConfirmation: false`**. Col 11 "COI Exp" →
+   `unknown`. Col 7 "NTP" in the same sheet *survives* at coverage 0.62 purely
+   because 6 of its 10 dates land on the 1st–12th. Whether a US date column
+   imports at all is decided by which days of the month the file happens to
+   contain. The fix belongs in the profiler: resolve the order first, or measure
+   coverage under both orders and keep the better.
+
+4. **A "Ref" header eats the entity name column.** Freight col 0 "Ref"
+   (`SHP-26-0441`) is `unique_id` and header-nominated, so `client_external_ref`
+   claims it; claimed columns are excluded from name ranking, and the entity name
+   lands on col 1 "BOL". The register has no client in it at all. Two wrongs from
+   one nomination: a client external ref invented out of the shipment's own key,
+   and every shipment named by its bill of lading.
+
+5. **Any all-distinct numeric column becomes an identifier.** `uniqueCov` has no
+   type test — distinct values, ≥3 rows, ≥50% filled, ≥50% alphanumeric, no zero
+   — and `unique_id` outranks `money` in `PRIMITIVE_PRIORITY`. Eleven columns:
+   "List Price" (`$1,250,000`), "DOM", "WIP", "Pcs", "Wgt (kg)", "Freight"
+   (`USD 18,400`), "Qty Ord", "Qty Comp", "Run Hrs", "Std Hrs", "Var Hrs",
+   "Lab Cost". Law col 9 "A/R" classifies as money **only because it contains a
+   literal `0`**, which blocks the unique test. So whether a fee column keeps its
+   numeric identity depends on whether two rows happen to share a value — the
+   audit register scored 22/22 partly because its fees repeat.
+
+6. **A hyphenated code with 7–20 digits is a phone number.** `segmentIsPhone`
+   accepts anything containing `+`, `(`, `)`, `-` or a space with 7–20 digits,
+   and a bare integer at 7–12. `phone` is second in priority, above `date`,
+   `unique_id` and `money`. Law col 0 "Matter No" (`2026-0114`) → **phone**.
+   Manufacturing col 30 "Lot" (`L-2026-0033`) → **phone**. Real-estate col 0
+   "MLS #" (`1188402`) → **phone**. The register's primary key is offered to the
+   user as a contact number.
+
+7. **Totals, subtotals and footer rows import as projects.** 6 of the 12 row
+   traps. `RowKind` has no concept for them. Construction's "TOTAL" row, freight's
+   and law's "TOTALS", manufacturing's "Line 1 subtotal" and "GRAND TOTAL", and —
+   worst — marketing's "Subtotal Q1" and "TOTAL", which sit **in the name
+   column** and therefore import as two campaigns called `Subtotal Q1` and
+   `TOTAL`. `detectColumnRelations` finds a total *column*; nothing reads rows.
+
+8. **The continuation guard is silently disabled by a wrong name column.** It
+   caught both continuation rows here (2 of 2) — but only because the name
+   resolved correctly in those two files. `classifyRowShapes` tests
+   `onlyCol === nameColumn`, so in any of the six files where the name is wrong
+   the guard is off and a wrapped cell becomes a nameless project. Construction
+   nearly demonstrated it: the name landed on "Subcontractor" over "SOW Ref" by a
+   0.15 score margin, decided by one subcontractor appearing twice.
+
+9. **Blank separator rows never reach the classifier.** `parseSpreadsheetBytes`
+   reads with `blankrows: false`, so all 3 authored blank rows were deleted
+   before `classifyRowShapes` saw them — `RowKind='blank'` is unreachable in
+   production — and every `rowNumber` below a blank row is off by the number of
+   blanks above it. §18.6 named the row-number half of this; the corpus confirms
+   both halves.
+
+10. **A single-column sheet is rejected outright.** `detectHeaderRow` needs ≥2
+    filled cells, so a one-column list of eight project names returns -1 and the
+    import dies on "Could not find a header row". That is the single most common
+    shape of a hand-made list, and it is the one file in the corpus where a
+    column is genuinely discarded.
+
+11. **Money outside the US/UK dialect is unreadable.** Marketing col 6
+    `€ 12.500,00` (European decimal separators) and col 7 `8.4k` / `22k`
+    (shorthand) both fail `MONEY_RE`. Currency *prefixes* work — `USD 18,400`,
+    `QAR 3,600`, `EUR 6,150` all parse — so the gap is separators and shorthand,
+    not currencies.
+
+12. **Percentages have no primitive.** `MONEY_RE` rejects a trailing `%`.
+    Construction col 10 "% Comp" → `unknown`, col 6 "Retention" → `enum`;
+    manufacturing col 26 "Yield" → `unknown`; marketing col 8 "ROI" is swept up by
+    finding 5.
+
+13. **Month-granular dates are not dates.** `TEXT_DATE_RE` requires a day, so
+    freight col 6 "ETA" (`Feb-26`, `Mar-26`) → `freetext`. An ETA in a shipping
+    register is normally a month.
+
+14. **`1/0` and small numeric vocabularies read as money.** Manufacturing col 28
+    "QA Pass" (1/0) and col 9 "Shift" (1/2/3) → `money`, because `money` outranks
+    `enum`. `Y/N`, `TRUE/FALSE` and `✓` all classify correctly as enums — only the
+    numeric boolean dialect fails. There is no boolean primitive.
+
+15. **The enum ratio is a cliff, not a slope.** `distinct * 2 <= filled`: freight
+    col 8 "POD" (5 port codes over 8 rows) → `freetext`; manufacturing col 1
+    "Part No" (5 parts over 10 rows) → `enum`. The same kind of column, opposite
+    answers, decided by how many rows the file has.
+
+16. **A few placeholders demote an id column.** Freight col 9 "Ctr#" — five
+    container numbers and three `—` placeholders — → `freetext` at 0.63.
+
+**What held up, and must survive the fixes.**
+
+- **Zero columns dropped** in all ten files that reached classification. §18.5
+  #1's structural promise generalises exactly as claimed.
+- **Zero wrong date orders.** Every resolvable column resolved correctly (3) and
+  every undecidable one was flagged `ambiguous` rather than guessed (2) —
+  including the clinic column where *every* value is ≤ 12. The per-column
+  decision in §18.4 is the part of this design that most clearly works.
+- **The §18.1 trap does not reproduce.** Real-estate has a column literally
+  headed **"Name"** holding the listing agent; content correctly rejected it and
+  chose "Address" instead. Construction's entity name is neither leftmost nor
+  called "name" and was still found.
+- **Header-row detection is robust**: a title banner, a printed-revision line, a
+  merged two-row group header, a leading blank column and blank rows above the
+  table — the right header row was found in all ten.
+- **Excel serial dates work** (manufacturing's three date columns, raw numbers).
+- **The small-vocabulary registers are clean**: clinic 10/10, sprint 5/5,
+  nearly-empty 3/3.
+
+**Nothing in this section was fixed.** The corpus and the benchmark are
+deliberately separate work from any change to `spreadsheetMapping.ts` — a
+measurement written by the same pass that patches the thing being measured is
+worth nothing. Findings 1, 2 and 3 are the ones that corrupt data without ever
+asking the user a question, and are where a fix should start.

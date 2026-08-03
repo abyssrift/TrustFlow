@@ -28,11 +28,15 @@ import {
   detectHeaderRow,
   proposeColumnMapping,
   buildIntakeRows,
+  detectColumnRelations,
   resolveAllClients,
   MAX_INTAKE_ROWS,
   type SheetCell,
   type ColumnMapping,
   type ColumnConfidence,
+  type ColumnProfile,
+  type ColumnRelation,
+  type DateOrder,
   type IntakeRow,
   type ExistingClient,
 } from './spreadsheetMapping';
@@ -46,6 +50,15 @@ export type ParsedSpreadsheet = {
   confidence: ColumnConfidence;
   rows: IntakeRow[];
   totalDataRows: number;
+  // Plan §18: the content profile for EVERY column (dense, index-aligned) plus
+  // the sequence-level relationships. The UI renders these — a column the
+  // mapping did not claim is a custom-field candidate, not a discarded column.
+  profiles: ColumnProfile[];
+  relations: ColumnRelation[];
+  /** columns carrying data that no MappedField claimed (§18.3 custom fields) */
+  unmapped: number[];
+  /** how the start_date column's d/m/y cells were read. 'ambiguous' = ask once. */
+  dateOrder: DateOrder;
   // Full sheet as an array-of-arrays. Kept so the caller can re-run
   // buildIntakeRows live when the user edits the proposed mapping (§15.2 #2:
   // "let the user correct the proposal") — without this, an edited mapping
@@ -66,7 +79,12 @@ export async function parseSpreadsheetBytes(bytes: Uint8Array): Promise<ParsedSp
   const sheetName = wb.SheetNames[0];
   if (!sheetName) throw new SpreadsheetIntakeError('This spreadsheet has no sheets.');
   const ws = wb.Sheets[sheetName];
-  const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', blankrows: false }) as SheetCell[][];
+  // blankrows: TRUE. With `false`, xlsx deletes blank separator rows before the
+  // classifier sees them — `RowKind='blank'` was unreachable in production, and
+  // every `rowNumber` below a blank row was off by the number of blanks above
+  // it, so "row 14 could not be matched" pointed at the wrong row. Blank rows
+  // are dropped downstream by buildIntakeRows anyway; here they are structure.
+  const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', blankrows: true }) as SheetCell[][];
 
   if (aoa.length === 0) throw new SpreadsheetIntakeError('This sheet is empty.');
 
@@ -78,10 +96,21 @@ export async function parseSpreadsheetBytes(bytes: Uint8Array): Promise<ParsedSp
   }
 
   const headers = aoa[headerRowIndex];
-  const sampleRows = aoa.slice(headerRowIndex + 1, headerRowIndex + 21);
-  const { mapping, confidence } = proposeColumnMapping(headers, sampleRows);
+  // 500, not 20: classification is now content-driven (plan §18), and 20 rows
+  // is not enough to tell a repeated vocabulary from a unique one — a value
+  // that first repeats at row 50 would make the column look like an identifier.
+  // ponytail: 500 caps the cost on a 5 000-row file and is far past the point
+  // where a non-enum column has already exceeded the 12-value enum ceiling.
+  const sampleRows = aoa.slice(headerRowIndex + 1, headerRowIndex + 501);
+  const { mapping, confidence, profiles, unmapped } = proposeColumnMapping(headers, sampleRows);
+  const relations = detectColumnRelations(profiles, aoa, headerRowIndex);
 
-  const rows = buildIntakeRows(aoa, headerRowIndex, mapping);
+  // DD/MM vs MM/DD is decided ONCE, for the whole start_date column, from that
+  // column's own cells (§18.4) — never re-guessed per row. 'ambiguous' is
+  // surfaced so the UI can ask about the column instead of guessing 400 times.
+  const dateOrder: DateOrder =
+    (mapping.start_date !== undefined ? profiles[mapping.start_date]?.dateOrder : undefined) ?? 'ambiguous';
+  const rows = buildIntakeRows(aoa, headerRowIndex, mapping, dateOrder);
   if (rows.length === 0) throw new SpreadsheetIntakeError('No data rows found below the detected header.');
   if (rows.length > MAX_INTAKE_ROWS) {
     throw new SpreadsheetIntakeError(
@@ -89,7 +118,10 @@ export async function parseSpreadsheetBytes(bytes: Uint8Array): Promise<ParsedSp
     );
   }
 
-  return { headerRowIndex, headers, mapping, confidence, rows, totalDataRows: rows.length, aoa };
+  return {
+    headerRowIndex, headers, mapping, confidence, rows, totalDataRows: rows.length, aoa,
+    profiles, relations, unmapped, dateOrder,
+  };
 }
 
 export async function fetchExistingClients(): Promise<ExistingClient[]> {
