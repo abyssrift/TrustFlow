@@ -6,9 +6,9 @@ import {
   PortfolioThroughputBucket,
   PortfolioWipStage,
 } from '@/contexts/AnalyticsContext';
+import { EntityEmptyState, SectionCard } from '@/components/entities/EntityUI';
 import { usePortfolioFlowData } from '@/hooks/usePortfolioFlowData';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
@@ -342,14 +342,14 @@ export default function PortfolioFlowTab() {
 
   if (pipelines.length === 0 && loaded) {
     return (
-      <View className="bg-surface-card border border-surface-border rounded-2xl p-10 items-center gap-3">
-        <FontAwesome name="random" size={28} color={colors.primary} />
-        <Text className="text-typography-main font-black text-center">No project pipeline yet</Text>
-        <Text className="text-typography-muted text-sm text-center">
-          Mark a pipeline as project-kind and move a project into it to see flow analytics here.
-        </Text>
+      <View className="bg-surface-card border border-surface-border rounded-2xl">
+        <EntityEmptyState
+          kind="board"
+          title="No project board yet"
+          body="These charts count projects moving across a board. Mark a pipeline as “Projects” in the pipeline editor and move a project onto it, and the flow shows up here."
+        />
         {capacity.length > 0 && (
-          <View className="w-full mt-4">
+          <View className="w-full px-5 pb-5">
             <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest mb-3">Capacity (still available)</Text>
             <CapacityList rows={capacity} />
           </View>
@@ -361,13 +361,13 @@ export default function PortfolioFlowTab() {
   return (
     <View className="gap-6">
       <View className="gap-2">
-        <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">Time Frame</Text>
+        <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">Time frame</Text>
         <DateRangeControls from={from} to={to} setFrom={setFrom} setTo={setTo} granularity={granularity} />
       </View>
 
       {pipelines.length > 1 && (
         <View className="gap-2">
-          <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">Project Pipeline</Text>
+          <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">Project board</Text>
           <PipelineSelector pipelines={pipelines} selectedId={selectedPipeline} onSelect={setSelectedPipeline} />
         </View>
       )}
@@ -376,29 +376,25 @@ export default function PortfolioFlowTab() {
         <View className="py-16 items-center"><ActivityIndicator color={colors.primary} /></View>
       ) : (
         <>
-          <View className="bg-surface-card border border-surface-border rounded-2xl p-5">
-            <Text className="text-typography-main font-black text-base mb-1">WIP per Stage</Text>
-            <Text className="text-typography-muted text-[10px] mb-5">Projects currently parked in each stage</Text>
+          {/* Phase 8 (#187): chrome only. The entity tag on the first three
+              says out loud that every number here counts PROJECTS, not tasks
+              — the exact confusion plan §17 names. Charts, data and tooltips
+              are untouched. */}
+          <SectionCard kind="project" title="WIP per stage" hint="Projects parked in each stage right now">
             <WipByStageChart data={wip} />
-          </View>
+          </SectionCard>
 
-          <View className="bg-surface-card border border-surface-border rounded-2xl p-5">
-            <Text className="text-typography-main font-black text-base mb-1">Cumulative Flow</Text>
-            <Text className="text-typography-muted text-[10px] mb-5">Arrival rate vs completion rate over project stages</Text>
+          <SectionCard kind="project" title="Cumulative flow" hint="How fast projects arrive versus how fast they finish">
             <CfdChart points={cfd} />
-          </View>
+          </SectionCard>
 
-          <View className="bg-surface-card border border-surface-border rounded-2xl p-5">
-            <Text className="text-typography-main font-black text-base mb-1">Throughput &amp; Cycle Time</Text>
-            <Text className="text-typography-muted text-[10px] mb-5">Little's Law: cycle time = WIP ÷ throughput</Text>
+          <SectionCard kind="project" title="Throughput and cycle time" hint="Little's Law: cycle time = WIP ÷ throughput">
             <ThroughputAndCycleChart buckets={throughput} />
-          </View>
+          </SectionCard>
 
-          <View className="bg-surface-card border border-surface-border rounded-2xl p-5">
-            <Text className="text-typography-main font-black text-base mb-1">Capacity</Text>
-            <Text className="text-typography-muted text-[10px] mb-5">Committed estimated hours vs tracked hours per person</Text>
+          <SectionCard icon="clock-o" title="Capacity" hint="Committed estimated hours versus tracked hours, per person">
             <CapacityList rows={capacity} />
-          </View>
+          </SectionCard>
         </>
       )}
     </View>
