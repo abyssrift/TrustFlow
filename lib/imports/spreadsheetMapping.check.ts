@@ -19,6 +19,7 @@ import {
   parseEmailCell,
   parseMoneyCell,
   parseDateValue,
+  preferDisplayedSlashDates,
   resolveDateOrder,
   normalizeMatchKey,
   looksLikePhoneCell,
@@ -362,6 +363,62 @@ profiles.forEach((p, i) => {
   assert.strictEqual(mapping.name, 0, 'distinct "Project Name" column wins');
   assert.strictEqual(mapping.client_ref, 1, 'distinct "Client Name" column maps separately');
   assert.strictEqual(mapping.start_date, 2);
+}
+
+// ── 16. THE REGRESSION (plan §19.4): a day <= 12 DMY date must never render
+// as its month-swapped twin. Shape taken cell-for-cell from the real file that
+// exposed it: the DMY dates whose day is <= 12 were swallowed by an MDY-locale
+// Excel into serials of the SWAPPED date (46236 = 2026-08-02, displayed back
+// as "8/2/26"), while 15/2 and 28/2 could not be parsed as a month and stayed
+// TEXT. Decoding the serial verbatim silently produced Aug 2 / Mar 2 / Oct 2
+// for Feb 8 / Feb 3 / Feb 10 — wrong on exactly the rows a human cannot spot,
+// and correct on the ones they can. If this ever fails, the import tool is
+// corrupting half of every date column again.
+{
+  const headers: SheetCell[] = ['Company Name', 'Expected date'];
+  //                serial      displayed-as   what the human typed & sees
+  const rawRows: SheetCell[][] = [
+    headers,
+    ['JREIJ SPORT', 46236],        // "8/2/26"   -> 8 Feb 2026
+    ['CENTRO', '15/2/2026'],       // stayed text (no month 15)
+    ['NORTHGATE', 46083],          // "3/2/26"   -> 3 Feb 2026
+    ['ABDALLAH', 46297],           // "10/2/26"  -> 10 Feb 2026
+    ['DELTA', '28/2/2026'],        // stayed text
+  ];
+  const shownRows: SheetCell[][] = [
+    headers,
+    ['JREIJ SPORT', '8/2/26'],
+    ['CENTRO', '15/2/2026'],
+    ['NORTHGATE', '3/2/26'],
+    ['ABDALLAH', '10/2/26'],
+    ['DELTA', '28/2/2026'],
+  ];
+
+  const aoa = preferDisplayedSlashDates(rawRows, shownRows);
+  // The >12 text cells are the evidence; they must still decide the column.
+  assert.strictEqual(
+    resolveDateOrder(aoa.slice(1).map(r => r[1])), 'DMY',
+    'a column with "15/2" and "28/2" in it is DMY — the serials must not hide that',
+  );
+  const rows = buildIntakeRows(aoa, 0, { name: 0, client_ref: 0, start_date: 1 }, 'DMY');
+  const got = Object.fromEntries(rows.map(r => [r.name, (r.start_date ?? '').slice(0, 10)]));
+  assert.deepStrictEqual(
+    got,
+    {
+      'JREIJ SPORT': '2026-02-08',
+      CENTRO: '2026-02-15',
+      NORTHGATE: '2026-02-03',
+      ABDALLAH: '2026-02-10',
+      DELTA: '2026-02-28',
+    },
+    'every date is February; a day <= 12 must NEVER come back as its month-swapped twin '
+    + '(2026-08-02 / 2026-03-02 / 2026-10-02) — see plan §19.4',
+  );
+  // And the raw cell shown on a parse failure is the text the user saw, not "46236".
+  assert.strictEqual(
+    rows.find(r => r.name === 'JREIJ SPORT')!.start_date_raw, '8/2/26',
+    'start_date_raw must echo the cell as displayed, not the internal serial',
+  );
 }
 
 console.log(`spreadsheetMapping.check.ts: all assertions passed (${profiles.length}/22 columns classified, 0 discarded)`);

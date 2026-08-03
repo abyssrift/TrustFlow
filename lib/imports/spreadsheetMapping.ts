@@ -257,6 +257,41 @@ const ymd = (y: number, m: number, d: number) =>
   m >= 1 && m <= 12 && d >= 1 && d <= 31 ? `${y}-${pad(m)}-${pad(d)}` : null;
 
 /**
+ * An Excel serial is NOT ground truth for a date — it can already BE the bug.
+ *
+ * Type "8/2/26" (8 Feb, DMY) into an Excel whose locale is MDY and Excel
+ * parses it as 2 Aug, stores serial 46236, and displays it back as "8/2/26"
+ * because the cell's format is `d/m/yy`. Type "15/2/2026" and Excel cannot —
+ * there is no month 15 — so that one stays TEXT and survives intact. Decoding
+ * the serial verbatim therefore reproduces Excel's own swap on exactly the
+ * rows a human cannot spot (day <= 12) while the rows above 12 stay correct.
+ * That is the observed defect (plan §19.4) and it is the worst failure an
+ * import tool has: silently wrong on half the rows.
+ *
+ * The cell's DISPLAYED text is the only thing the user ever saw, so when a
+ * numeric cell displays as an ambiguous `d/m/y`, hand the parser that text
+ * instead. It then goes through the ONE `resolveDateOrder` decision for the
+ * column, alongside the text dates — and the ">12 in first position" evidence
+ * from "15/2/2026" now arbitrates the serials too, instead of being ignored.
+ *
+ * `shown` must come from the same `sheet_to_json` call/options as `aoa` with
+ * `raw: false`, so the two are index-aligned by construction.
+ *
+ * ponytail: no per-cell re-derivation of the format code. If a column is ALL
+ * serials, nothing displays >12 first, `resolveDateOrder` returns 'ambiguous'
+ * and the UI asks once — which is the existing, correct behaviour.
+ */
+export function preferDisplayedSlashDates(aoa: SheetCell[][], shown: SheetCell[][]): SheetCell[][] {
+  return aoa.map((row, r) =>
+    row.map((cell, c) => {
+      if (typeof cell !== 'number') return cell;
+      const w = shown[r]?.[c];
+      return typeof w === 'string' && SLASH_DATE_RE.test(w.trim()) ? w.trim() : cell;
+    }),
+  );
+}
+
+/**
  * Strict date parse -> `YYYY-MM-DD`, or null. Handles ISO, Excel serials,
  * `d/m/y` (order supplied PER COLUMN by `resolveDateOrder`, never guessed per
  * cell) and `5 Jan 2026`. Deliberately does NOT fall through to `new Date(s)`:

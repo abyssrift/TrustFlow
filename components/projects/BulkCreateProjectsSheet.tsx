@@ -99,6 +99,64 @@ function parseLines(text: string): ParsedLine[] {
     .filter(p => p.name.length > 0);
 }
 
+type PastDatePolicy = 'undecided' | 'keep' | 'clear';
+
+/**
+ * Past start dates are a CHOICE, not an error (a2c269f, plan §19.1).
+ *
+ * Every step that notices past dates renders THIS, so the remedy travels with
+ * the message. The original copy — "In the past: <names>. Fix the date on the
+ * previous step." on setup, "Per-line override(s) in the past ... Fix on the
+ * previous step." on configure — pointed at an editor that does not exist for
+ * imported rows, and configure pointed BACKWARDS at a question the user had
+ * already answered. §19.1's rule: name the field, the reason and the remedy,
+ * and the remedy must be reachable from where the message appears. The toggle
+ * below is that remedy, in place, on whichever step you are standing on.
+ */
+function PastDatesNotice({
+  lines, policy, onPolicy, source, c,
+}: {
+  lines: ParsedLine[];
+  policy: PastDatePolicy;
+  onPolicy: (p: PastDatePolicy) => void;
+  source: string;
+  c: ReturnType<typeof useThemeColors>;
+}) {
+  if (lines.length === 0) return null;
+  const n = lines.length;
+  const range = `${fmtShort(lines[0].start_date)}${n > 1 ? ` – ${fmtShort(lines[n - 1].start_date)}` : ''}`;
+  return (
+    <View className="mt-3 p-3 rounded-xl border" style={{ borderColor: c.warning, backgroundColor: c.warning + '22' }}>
+      <Text className="text-typography-main text-xs font-black mb-1">
+        {policy === 'keep'
+          ? `Keeping ${n} start date${n === 1 ? '' : 's'} from before today`
+          : `${n} project${n === 1 ? ' has a start date' : 's have start dates'} before today`}
+      </Text>
+      <Text className="text-typography-muted text-[11px] leading-4 mb-2">
+        {range} {source}. That is normal when importing an existing portfolio. Keep them to record work that already
+        happened, or clear them and let this batch&apos;s schedule set the dates instead.
+      </Text>
+      <View className="flex-row items-center gap-2 flex-wrap">
+        {([['keep', 'Keep these dates'], ['clear', 'Clear them']] as const).map(([value, label]) => (
+          <TouchableOpacity
+            key={value}
+            onPress={() => onPolicy(value)}
+            className={`px-3 py-2 justify-center rounded-lg border ${policy === value ? 'border-brand-primary bg-brand-primary/10' : 'border-surface-border'}`}
+            style={{ minHeight: 44 }}
+          >
+            <Text className={`text-[11px] font-black uppercase tracking-wider ${policy === value ? 'text-brand-primary' : 'text-typography-muted'}`}>
+              {label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+        <Text className="text-typography-dim text-[10px] flex-1" numberOfLines={2}>
+          {lines.slice(0, 3).map(p => p.name).join(', ')}{n > 3 ? ` +${n - 3} more` : ''}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 // One row per DISTINCT category the template body uses (issue #182 — "a
 // 25-task template becomes four decisions, not twenty-five"). Board is the
 // sole source of pipeline_id/current_stage_id server-side and is required;
@@ -319,7 +377,7 @@ export default function BulkCreateProjectsSheet({
   // remedy. Now the user chooses, and the choice is remembered for the batch.
   //   'keep'  — import the historical dates as written (an archive import)
   //   'clear' — drop them; the batch schedule anchor supplies dates instead
-  const [pastDatePolicy, setPastDatePolicy] = useState<'undecided' | 'keep' | 'clear'>('undecided');
+  const [pastDatePolicy, setPastDatePolicy] = useState<PastDatePolicy>('undecided');
 
   const parsedRaw = useMemo(() => initialRows ?? parseLines(text), [initialRows, text]);
   const parsed = useMemo(
@@ -612,21 +670,27 @@ export default function BulkCreateProjectsSheet({
 
   const projectsList = (
     <View style={{ gap: 6 }}>
-      {pastLines.length > 0 && (
-        <Text className="text-state-danger text-xs font-bold">
-          Per-line override(s) in the past: {pastLines.map(p => p.name).join(', ')}. Fix on the previous step.
-        </Text>
-      )}
+      {/* Same notice, same toggle — NOT a pointer back to the previous step.
+          By here the user has already answered "keep"; repeating it as red
+          text re-opened a settled question and offered no way to change the
+          answer without going back. The remedy is the toggle itself. */}
+      <PastDatesNotice
+        lines={pastLines} policy={pastDatePolicy} onPolicy={setPastDatePolicy} c={c}
+        source={initialRows ? 'from your spreadsheet' : 'in this batch'}
+      />
       {parsed.map((p, i) => {
+        // Warning tone, not danger: a past date the user chose to KEEP is a
+        // state, not an error (§19.2 — "errors are red text, not states").
         const isPast = !!p.start_date && p.start_date.slice(0, 10) < todayISO;
         return (
           <View
             key={`${p.raw}-${i}`}
-            className={`bg-surface-background border rounded-xl px-3 py-2 ${isPast ? 'border-state-danger' : 'border-surface-border'}`}
+            className="bg-surface-background border border-surface-border rounded-xl px-3 py-2"
+            style={isPast ? { borderColor: c.warning } : undefined}
           >
             <Text className="text-typography-main text-xs font-bold" numberOfLines={1}>{p.name}</Text>
             {(p.client_ref !== p.name || p.start_date || p.external_ref) && (
-              <Text className={`text-[10px] mt-0.5 ${isPast ? 'text-state-danger' : 'text-typography-muted'}`} numberOfLines={1}>
+              <Text className="text-[10px] mt-0.5 text-typography-muted" style={isPast ? { color: c.warning } : undefined} numberOfLines={1}>
                 {p.client_ref !== p.name ? `${p.client_ref} · ` : ''}
                 {p.start_date ? fmtShort(p.start_date) : ''}{p.start_date && p.external_ref ? ' · ' : ''}{p.external_ref || ''}
               </Text>
@@ -901,40 +965,10 @@ export default function BulkCreateProjectsSheet({
                 </View>
               ))}
             </ScrollView>
-            {pastLines.length > 0 && (
-              <View className="mt-3 p-3 rounded-xl border" style={{ borderColor: c.warning, backgroundColor: c.warning + "22" }}>
-                <Text className="text-typography-main text-xs font-black mb-1">
-                  {pastLines.length} project{pastLines.length === 1 ? ' has a start date' : 's have start dates'} before today
-                </Text>
-                <Text className="text-typography-muted text-[11px] leading-4 mb-2">
-                  {fmtShort(pastLines[0].start_date)}
-                  {pastLines.length > 1 ? ` – ${fmtShort(pastLines[pastLines.length - 1].start_date)}` : ''} from your spreadsheet.
-                  That is normal when importing an existing portfolio. Keep them to record work that already happened, or clear them
-                  and let this batch&apos;s schedule set the dates instead.
-                </Text>
-                <View className="flex-row items-center gap-2 flex-wrap">
-                  <TouchableOpacity
-                    onPress={() => setPastDatePolicy('keep')}
-                    className={`px-3 py-2 rounded-lg border ${pastDatePolicy === 'keep' ? 'border-brand-primary bg-brand-primary/10' : 'border-surface-border'}`}
-                  >
-                    <Text className={`text-[11px] font-black uppercase tracking-wider ${pastDatePolicy === 'keep' ? 'text-brand-primary' : 'text-typography-muted'}`}>
-                      Keep these dates
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => setPastDatePolicy('clear')}
-                    className={`px-3 py-2 rounded-lg border ${pastDatePolicy === 'clear' ? 'border-brand-primary bg-brand-primary/10' : 'border-surface-border'}`}
-                  >
-                    <Text className={`text-[11px] font-black uppercase tracking-wider ${pastDatePolicy === 'clear' ? 'text-brand-primary' : 'text-typography-muted'}`}>
-                      Clear them
-                    </Text>
-                  </TouchableOpacity>
-                  <Text className="text-typography-dim text-[10px]">
-                    {pastLines.slice(0, 3).map(p => p.name).join(', ')}{pastLines.length > 3 ? ` +${pastLines.length - 3} more` : ''}
-                  </Text>
-                </View>
-              </View>
-            )}
+            <PastDatesNotice
+              lines={pastLines} policy={pastDatePolicy} onPolicy={setPastDatePolicy} c={c}
+              source="from your spreadsheet"
+            />
           </View>
         ) : (
           <View>
@@ -952,11 +986,10 @@ export default function BulkCreateProjectsSheet({
               className="bg-surface-background border border-surface-border rounded-lg px-4 py-3"
               style={{ color: c.textMain, minHeight: 160 }}
             />
-            {pastLines.length > 0 && (
-              <Text className="text-state-danger text-xs font-bold mt-2">
-                Line date in the past: {pastLines.map(p => p.name).join(', ')}. Remove or fix the date to continue.
-              </Text>
-            )}
+            <PastDatesNotice
+              lines={pastLines} policy={pastDatePolicy} onPolicy={setPastDatePolicy} c={c}
+              source="in the list above"
+            />
           </View>
         )}
 

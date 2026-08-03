@@ -29,6 +29,7 @@ import {
   proposeColumnMapping,
   buildIntakeRows,
   detectColumnRelations,
+  preferDisplayedSlashDates,
   resolveAllClients,
   MAX_INTAKE_ROWS,
   type SheetCell,
@@ -84,7 +85,14 @@ export async function parseSpreadsheetBytes(bytes: Uint8Array): Promise<ParsedSp
   // every `rowNumber` below a blank row was off by the number of blanks above
   // it, so "row 14 could not be matched" pointed at the wrong row. Blank rows
   // are dropped downstream by buildIntakeRows anyway; here they are structure.
-  const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', blankrows: true }) as SheetCell[][];
+  const opts = { header: 1 as const, defval: '', blankrows: true };
+  const raw = XLSX.utils.sheet_to_json(ws, opts) as SheetCell[][];
+  // Second pass for the DISPLAYED text only. Same sheet, same options, so the
+  // two are index-aligned; `raw: false` gives what the user actually sees in
+  // the cell. Needed because an Excel date serial can already encode Excel's
+  // own MDY/DMY misreading — see preferDisplayedSlashDates for the full case.
+  const shown = XLSX.utils.sheet_to_json(ws, { ...opts, raw: false }) as SheetCell[][];
+  const aoa = preferDisplayedSlashDates(raw, shown);
 
   if (aoa.length === 0) throw new SpreadsheetIntakeError('This sheet is empty.');
 
