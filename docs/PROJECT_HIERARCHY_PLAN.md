@@ -2550,3 +2550,62 @@ Section 16 assumes stage transitions mean something — blocked, on pace and
 projected end are all derived from stage movement. If advancing a project stage
 is a bare column write with no gates and no events, those numbers rest on
 nothing. Phase 12 lands before or with Phase 10.
+
+### 20.4 DECIDED — automations and notifications only, and hide the rest
+
+Decision taken: **projects do NOT get the full pipeline engine.** A full
+project pipeline is overkill and would confuse users who already cannot
+distinguish portfolio / project / pipeline / task (§17). What ships:
+
+**IN — automations and notifications.** These are the two that make a project
+stage mean something operationally: the firm finds out a project moved, and a
+project that sits too long moves itself.
+
+**DEFERRED — gates, action buttons, review-by-transition.** Good QOL, not now.
+`requires_timer` is not merely deferred but probably wrong forever: a project
+must never become a timer target, per the existing rule. `requires_submission`
+needs redefining before it can be built — whose submission, when a project's
+work is its tasks?
+
+**Reframing that makes this small:** projects ALREADY have stages —
+`pipeline_id`, `current_stage_id` and trigger-written `project_stage_history`
+all shipped in Phase 2. Nothing here adds a pipeline concept to projects. The
+only question was what FIRES on a stage change, and the answer is: two things.
+
+### 20.5 Why this is cheaper than it sounds
+
+**Notifications are trigger-based, not inline.** `fn_emit_notification_event`
+(5 args) is the shared entry point and `fn_trg_tasks_notify_update` /
+`fn_trg_task_assignments_notify` / `fn_trg_task_comments_notify` fire from
+table triggers — `rpc_execute_stage_action` does not create notifications
+itself. So a project stage-change notification is ONE trigger on `projects`
+calling the same entry point, mirroring the task trigger. Existing pattern,
+extended; no new machinery. (See the first rule of
+`.agents/rules/global-utilities-index.md`.)
+
+**Automations need no schema change.** `pipeline_automations` keys on
+`pipeline_id` + `source_stage_id` + `target_stage_id`, and projects use the
+SAME `pipelines` / `pipeline_stages` tables — `subject_kind` is what
+distinguishes them. So the rows already point at stages that may be project
+stages; `rpc_process_automations` simply never looks at projects.
+
+**But know what "automations" currently means.** `rpc_process_automations`
+understands exactly ONE `condition_type`: `'overdue'`. The engine is thinner
+than the name suggests. Extending it to projects means "a project that has sat
+in a stage past its due date moves on" — that is the whole feature today, and
+the scope should say so rather than implying a rules engine exists.
+
+### 20.6 Non-negotiable: stop offering what does not work
+
+Deferring gates and actions is only safe if the editor STOPS SHOWING them for
+project pipelines. `pipelines.subject_kind` already exists
+(20260731_pipeline_subject_kind.sql) and the editor ignores it, rendering every
+control regardless of subject. Today that means a user can configure a
+`requires_submission` gate on a project pipeline, save it, and never learn it
+was never enforced.
+
+**A silent no-op is worse than an absent feature**, and it is worse than the
+bug it hides: the user believes the gate is protecting them. So §20.2's rule is
+part of THIS phase's definition of done, not a follow-up — the controls that do
+nothing for `subject_kind = 'project'` are hidden or disabled with a reason, in
+the same change that ships the two that work.
