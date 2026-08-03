@@ -341,8 +341,16 @@ const CODE_NOT_PHONE = [
   /^(?:19|20)\d{2}[-/]/, // a leading four-digit year: 2026-0114
 ];
 
+// ...but a REAL number is often labelled: `Mob:+44 (0)7973 771 043` is a
+// literal value from the source client file. Strip the label first, then apply
+// the leading-letter rule to what is left — rejecting every leading alpha would
+// throw away the phone column of the file this feature exists for. The lookahead
+// means a label only strips when a number actually follows it, so `T-441` (a
+// tooling code) loses its `T-` and then fails on digit count, not on a guess.
+const PHONE_LABEL = /^(?:mob(?:ile)?|tel(?:ephone)?|ph(?:one)?|cell|fax|whats?app|m|t|w)\s*[:.\-]?\s*(?=[+(\d])/i;
+
 function segmentIsPhone(seg: string): boolean {
-  const s = seg.trim();
+  const s = seg.trim().replace(PHONE_LABEL, '');
   if (!s) return false;
   if (CODE_NOT_PHONE.some(re => re.test(s))) return false;
   const digits = s.replace(/\D/g, '');
@@ -494,11 +502,14 @@ export function profileColumn(header: string, cells: SheetCell[], index = 0): Co
   // carrying a currency symbol, a thousands separator, a decimal point or a
   // varying digit count is a quantity.
   const bareInts = filledCells.map(c => String(c).trim()).filter(s => /^\d+$/.test(s));
-  const uniformDigits =
-    bareInts.length === filled && filled > 0 &&
-    bareInts.every(s => s.length === bareInts[0].length);
+  const allBareInts = bareInts.length === filled && filled > 0;
+  // Two shapes a numeric identifier takes: fixed width (an MRN, a work-order
+  // number) or a running sequence (a row/serial number, 38 41 42 68 ...). A
+  // quantity column is neither — it is neither padded nor sorted.
+  const uniformDigits = allBareInts && bareInts.every(s => s.length === bareInts[0].length);
+  const ascending = allBareInts && bareInts.every((s, i) => i === 0 || Number(s) > Number(bareInts[i - 1]));
   const moneyShare = filledCells.filter(c => parseMoneyCell(c) !== null).length / filled;
-  const idShaped = moneyShare < 0.5 || uniformDigits;
+  const idShaped = moneyShare < 0.5 || uniformDigits || ascending;
   // An identifier is populated on essentially every row. A sparse all-distinct
   // column is notes, not a key — unless its values are code-shaped, which is
   // what keeps a container-number column with gaps an identifier.
@@ -618,7 +629,6 @@ export function rankEntityNameColumns(
   return profiles
     .filter(p =>
       !exclude.has(p.index) &&
-      p.textual &&
       // NO NAME is a valid answer. An `enum` is a repeated vocabulary, and a
       // repeated vocabulary is never what a row is called — accepting one is
       // how a clinic schedule named every appointment "Dr. Reyes". A sparse or
@@ -629,6 +639,12 @@ export function rankEntityNameColumns(
     )
     .map(p => {
       const uniqueBonus = p.primitive === 'unique_id' ? 0.5 : 0;
+      // A purely numeric key is scored but sits below the floor on its own, so
+      // it is OFFERED and never PROPOSED. Two files in the corpus are identical
+      // here — a work-order number that IS the entity, and a medical record
+      // number that is not — and no content test separates them. Guessing wins
+      // one and corrupts the other; listing it lets the user settle it.
+      const nonTextual = p.textual ? 0 : 0.6;
       // A name is something a human reads. "Split billing service from
       // checkout" is a name; "TF-1204" beside it is that row's key. Both are
       // unique and both are text — word count is what separates them.
@@ -637,17 +653,19 @@ export function rankEntityNameColumns(
       const hb = headerBoost(p.header);
       return {
         index: p.index,
-        score: uniqueBonus + 0.5 * p.fillRate + wordiness - codePenalty + hb,
-        confidence: Math.round(Math.min(1, 0.35 + uniqueBonus + wordiness - codePenalty + hb * 0.5) * 100) / 100,
+        score: uniqueBonus + 0.5 * p.fillRate + wordiness - codePenalty - nonTextual + hb,
+        confidence: Math.round(Math.min(1, 0.35 + uniqueBonus + wordiness - codePenalty - nonTextual + hb * 0.5) * 100) / 100,
         reason: [
           p.primitive === 'unique_id' ? 'values are unique' : `values repeat (${p.distinct} distinct of ${p.filled})`,
           `${Math.round(p.fillRate * 100)}% populated`,
-          codePenalty > 0 ? 'looks like a key, not a name' : `${p.avgWords.toFixed(1)} words per value`,
+          nonTextual > 0 ? 'numeric key, not text' : codePenalty > 0 ? 'looks like a key, not a name' : `${p.avgWords.toFixed(1)} words per value`,
           hb > 0 ? 'header agrees' : 'header neutral',
         ].join(', '),
       };
     })
-    .filter(c => c.score >= ENTITY_NAME_FLOOR)
+    // NOT filtered by the floor — the caller shows these as "or pick a column".
+    // `proposeColumnMapping` applies ENTITY_NAME_FLOOR to what it actually
+    // proposes, so declining to name anything still offers the alternatives.
     .sort((a, b) => b.score - a.score || a.index - b.index);
 }
 
@@ -928,7 +946,7 @@ export function proposeColumnMapping(
   // naming every shipment by its bill of lading. Nothing outranks the name.
   const nameBoost = (h: string) => (headerNominates('name', h) ? 0.3 : 0);
   const ranked = rankEntityNameColumns(profiles, nameBoost, claimed);
-  const nameHit = ranked[0];
+  const nameHit = ranked.find(c => c.score >= ENTITY_NAME_FLOOR);
   if (nameHit) {
     mapping.name = nameHit.index;
     confidence.name = nameHit.confidence;

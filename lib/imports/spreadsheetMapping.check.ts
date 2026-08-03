@@ -258,6 +258,15 @@ profiles.forEach((p, i) => {
   assert.strictEqual(looksLikePhoneCell('+974 5590 2695 / +974 3387 0057 '), true);
   assert.strictEqual(looksLikePhoneCell('Mob:+44 (0)7973 771 043'), true);
   assert.strictEqual(looksLikePhoneCell('7470 6599'), true);
+  // BOTH sides of the label rule, together. Tightening one has already traded
+  // away the other once: "reject any leading alpha" killed `2026-0114` as a
+  // phone AND `Mob:+44 ...`, which is a real value from the source client file.
+  assert.strictEqual(looksLikePhoneCell('Tel: 4432 9981'), true, 'a labelled number is still a number');
+  assert.strictEqual(looksLikePhoneCell('Cell 55560156'), true, 'label with no colon');
+  assert.strictEqual(looksLikePhoneCell('2026-0114'), false, 'a matter number is not a phone');
+  assert.strictEqual(looksLikePhoneCell('L-2026-0033'), false, 'a lot code is not a phone');
+  assert.strictEqual(looksLikePhoneCell('PO-88231'), false, 'a purchase order is not a phone');
+  assert.strictEqual(looksLikePhoneCell(1188402), false, 'a 7-digit MLS number is not a phone');
   assert.strictEqual(looksLikePhoneCell(8000), false, 'money is not a phone');
   assert.strictEqual(looksLikePhoneCell(2025), false, 'a year is not a phone');
   assert.strictEqual(looksLikePhoneCell('25/1/2026'), false, 'a date has 7 digits too, and is not a phone');
