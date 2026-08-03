@@ -28,7 +28,9 @@
 // file only reads the dropped File's bytes client-side to parse it; it never
 // uploads anything itself.
 
-import BulkCreateProjectsSheet from '@/components/projects/BulkCreateProjectsSheet';
+import BulkCreateProjectsSheet, {
+  BlockerList, Hint, StepSpine, IMPORT_JOURNEY_STEPS, type Blocker,
+} from '@/components/projects/BulkCreateProjectsSheet';
 import Popup from '@/components/common/Popup';
 import DraggableSheet from '@/components/common/DraggableSheet';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -605,6 +607,65 @@ export default function SpreadsheetImportSheet({
   const nameMapped = mapping.name !== undefined;
   const canContinueToClients = nameMapped && unresolvedEnums === 0 && importableRows.length > 0;
 
+  /** Jump to a column's editor from wherever the message about it appeared —
+   *  on mobile that means switching page too, because the columns list and the
+   *  warnings live on separate pages of the drill-in (§19.1: the remedy has to
+   *  be reachable FROM the message, and "open the column" is not reachable if
+   *  the message never says which one or takes you there). */
+  const openColumn = (index: number) => { setSelectedColumn(index); setMobilePage('detail'); };
+
+  /** The columns that still hold an unanswered value, so the message can name
+   *  them and hand over a way in rather than saying "open the column". */
+  const columnsWithUnresolvedEnums = useMemo(() => {
+    const out: { index: number; header: string; count: number }[] = [];
+    for (const d of decisions) {
+      if (d.target.kind !== 'custom' || d.target.dataType !== 'enum') continue;
+      const count = enumMatchesFor(d.index).filter(m => m.matched === null && !enumChoices[`${d.index}::${m.key}`]).length;
+      if (count > 0) out.push({ index: d.index, header: d.profile.header.trim() || `Column ${d.index + 1}`, count });
+    }
+    return out;
+  }, [decisions, enumChoices, parsed]);
+
+  /** Columns that could plausibly name a project, best first — the remedy for
+   *  "no project name column", offered as one tap instead of an instruction. */
+  const nameCandidates = useMemo(
+    () => decisions
+      .filter(d => d.profile.primitive === 'freetext' || d.profile.primitive === 'enum' || d.profile.primitive === 'unique_id')
+      .sort((a, b) => b.profile.distinct - a.profile.distinct)
+      .slice(0, 4),
+    [decisions],
+  );
+
+  const reviewBlockers = useMemo<Blocker[]>(() => {
+    const out: Blocker[] = [];
+    if (!nameMapped) {
+      out.push({
+        field: 'Project name',
+        reason: 'No column is naming the projects yet, and a project cannot be created without a name.',
+      });
+    }
+    if (columnsWithUnresolvedEnums.length > 0) {
+      const total = columnsWithUnresolvedEnums.reduce((n, x) => n + x.count, 0);
+      const first = columnsWithUnresolvedEnums[0];
+      out.push({
+        field: `“${first.header}”`,
+        reason: `${total} value${total === 1 ? '' : 's'} in ${columnsWithUnresolvedEnums.length === 1 ? 'this column' : `${columnsWithUnresolvedEnums.length} columns`} match nothing that exists. Say whether each is a new option or should be left blank — nothing is created on your behalf.`,
+        action: { label: 'Answer them', onPress: () => openColumn(first.index) },
+      });
+    }
+    if (nameMapped && importableRows.length === 0) {
+      // Previously silent: with every row excluded the button simply went grey
+      // and said nothing at all.
+      out.push({
+        field: 'Rows',
+        reason: liveRows.length === 0
+          ? 'The name column is empty on every row below the header, so there is nothing to import. Try a different column.'
+          : `All ${liveRows.length} rows were set aside as wrapped, total or blank rows. Mark at least one “Import anyway” to continue.`,
+      });
+    }
+    return out;
+  }, [nameMapped, columnsWithUnresolvedEnums, importableRows.length, liveRows.length]);
+
   // ── clients step ──────────────────────────────────────────────────────────
 
   const matches = useMemo(() => {
@@ -626,7 +687,6 @@ export default function SpreadsheetImportSheet({
   );
 
   const allAmbiguousDecided = ambiguousRows.every(r => decisionsClients.has(r.rowNumber));
-  const canFinishClients = allAmbiguousDecided;
 
   // Final payload for BulkCreateProjectsSheet — one place where every
   // resolution collapses into the {name, client_ref, external_ref,
@@ -658,6 +718,33 @@ export default function SpreadsheetImportSheet({
         }),
       );
   }, [readyRows, ambiguousRows, matches, decisionsClients]);
+
+  // finalRows.length was never checked: with every row blank in the name
+  // column, Continue stayed enabled, handed an empty array to
+  // BulkCreateProjectsSheet, and THAT step went grey with no message — a dead
+  // end one screen downstream of its cause.
+  const canFinishClients = allAmbiguousDecided && finalRows.length > 0;
+
+  const clientBlockers = useMemo<Blocker[]>(() => {
+    const out: Blocker[] = [];
+    const undecided = ambiguousRows.filter(r => !decisionsClients.has(r.rowNumber));
+    if (undecided.length > 0) {
+      out.push({
+        field: 'Client identity',
+        reason: `Row${undecided.length === 1 ? '' : 's'} ${undecided.slice(0, 5).map(r => r.rowNumber).join(', ')}${undecided.length > 5 ? `, +${undecided.length - 5} more` : ''} match more than one existing client. Pick which one above — or say it is a new client.`,
+      });
+    }
+    if (finalRows.length === 0) {
+      out.push({
+        field: 'Rows',
+        reason: blankRows.length > 0
+          ? `All ${blankRows.length} rows are blank in the column currently mapped as the project name, so there is nothing left to create.`
+          : 'No rows survived to this step.',
+        action: { label: 'Change the name column', onPress: () => { setWizStep('review'); setMobilePage('columns'); } },
+      });
+    }
+    return out;
+  }, [ambiguousRows, decisionsClients, finalRows.length, blankRows.length]);
 
   const newClientCount = useMemo(
     () => [...readyRows, ...ambiguousRows].filter(r => {
@@ -788,11 +875,12 @@ export default function SpreadsheetImportSheet({
     return (
       <Popup visible={visible} onClose={onClose} presentation="auto" title="Import Spreadsheet" maxWidth={640} dismissible={!busy}>
         <View className="px-6 py-5" style={{ gap: 12 }}>
+          <StepSpine steps={IMPORT_JOURNEY_STEPS} current={0} isDesktop={isDesktop} c={c} />
           <DropZone onFile={handleFile} busy={busy} />
           {error && <Text className="text-state-danger text-xs font-bold">{error}</Text>}
           <Text className="text-typography-dim text-[10px] text-center">
             We read the cells, not just the headers — then show you every column, every warning and every value we could not
-            match, before anything is created.
+            match, before anything is created. Five steps, and nothing exists until the last one.
           </Text>
         </View>
       </Popup>
@@ -845,9 +933,33 @@ export default function SpreadsheetImportSheet({
     const cardLayout = isDesktop ? { flex: 1, minWidth: 280 } : { alignSelf: 'stretch' as const };
     const warningCards: React.ReactNode[] = [];
     if (!nameMapped) {
+      // §19.1: "pick which column names the projects" named the field and the
+      // reason and then left the user to find the control. The likeliest
+      // candidates are right here now, one tap each.
       warningCards.push(
-        <WarningCard key="noname" tone={c.danger} icon="exclamation-triangle" title="No project name column"
-          body="Pick which column names the projects — nothing can be created without it." layout={cardLayout} c={c} />,
+        <View key="noname" className="rounded-2xl p-3" style={[{ backgroundColor: c.background, borderWidth: 1, borderColor: c.danger, gap: 8 }, cardLayout]}>
+          <View className="flex-row items-center" style={{ gap: 6 }}>
+            <FontAwesome name="exclamation-triangle" size={11} color={c.danger} />
+            <Text className="text-typography-main text-xs font-black flex-1">No project name column</Text>
+          </View>
+          <Text className="text-typography-muted text-[10px]">
+            Every project needs a name, and no column is supplying one. Pick the column holding the client or engagement
+            name — these have the most distinct values, so they are the likeliest:
+          </Text>
+          <View className="flex-row flex-wrap" style={{ gap: 6 }}>
+            {nameCandidates.length === 0
+              ? <Text className="text-typography-dim text-[10px]">No text column found — open any column on the left and set it to Project name.</Text>
+              : nameCandidates.map(d => (
+                <PickerOption
+                  key={d.index}
+                  label={`${d.profile.header.trim() || `Column ${d.index + 1}`} (${d.profile.distinct})`}
+                  active={false}
+                  onPress={() => setTarget(d.index, { kind: 'field', field: 'name' })}
+                  c={c}
+                />
+              ))}
+          </View>
+        </View>,
       );
     }
     for (const t of brokenTotals) {
@@ -947,10 +1059,27 @@ export default function SpreadsheetImportSheet({
         </View>,
       );
     }
-    if (unresolvedEnums > 0) {
+    if (columnsWithUnresolvedEnums.length > 0) {
+      // Was: "Open the column and say whether each one is a new option" — which
+      // column? The card now names them and opens them (§19.1).
       warningCards.push(
-        <WarningCard key="enums" tone={c.warning} icon="question-circle" title={`${unresolvedEnums} unmatched value${unresolvedEnums === 1 ? '' : 's'}`}
-          body="Open the column and say whether each one is a new option or should be left blank. Nothing is created on your behalf." layout={cardLayout} c={c} />,
+        <View key="enums" className="rounded-2xl p-3" style={[{ backgroundColor: c.background, borderWidth: 1, borderColor: c.warning, gap: 8 }, cardLayout]}>
+          <View className="flex-row items-center" style={{ gap: 6 }}>
+            <FontAwesome name="question-circle" size={11} color={c.warning} />
+            <Text className="text-typography-main text-xs font-black flex-1">
+              {unresolvedEnums} unmatched value{unresolvedEnums === 1 ? '' : 's'}
+            </Text>
+          </View>
+          <Text className="text-typography-muted text-[10px]">
+            These values correspond to nothing that exists yet. Each needs one answer — a new option, or left blank.
+            Nothing is created on your behalf.
+          </Text>
+          <View className="flex-row flex-wrap" style={{ gap: 6 }}>
+            {columnsWithUnresolvedEnums.map(x => (
+              <PickerOption key={x.index} label={`${x.header} · ${x.count}`} active={false} onPress={() => openColumn(x.index)} c={c} />
+            ))}
+          </View>
+        </View>,
       );
     }
 
@@ -962,7 +1091,7 @@ export default function SpreadsheetImportSheet({
             decision={d}
             mirrored={mirroredFor(d.index)}
             selected={selectedColumn === d.index}
-            onPress={() => { setSelectedColumn(d.index); setMobilePage('detail'); }}
+            onPress={() => openColumn(d.index)}
             c={c}
           />
         ))}
@@ -1004,8 +1133,8 @@ export default function SpreadsheetImportSheet({
         <DraggableSheet visible={visible} onClose={onClose} dimBackdrop maxHeight="95%" dismissible scrollable={false} containerClassName="rounded-t-[2rem] overflow-hidden">
           <View style={{ flex: 1, minHeight: 0 }}>
             <View className="flex-row items-center justify-between px-5 pt-3 pb-3">
-              <View className="flex-1 mr-3">
-                <Text className="text-typography-muted text-[9px] font-black uppercase tracking-[0.3em] mb-1">Step 1 of 2 · Nothing created yet</Text>
+              <View className="flex-1 mr-3" style={{ gap: 6 }}>
+                <StepSpine steps={IMPORT_JOURNEY_STEPS} current={1} isDesktop={false} c={c} />
                 <Text className="text-typography-main text-xl font-black tracking-tight" numberOfLines={1}>
                   {mobilePage === 'detail' ? (selected?.profile.header.trim() || 'Column') : mobilePage === 'warnings' ? 'Warnings' : 'Review Import'}
                 </Text>
@@ -1037,6 +1166,11 @@ export default function SpreadsheetImportSheet({
                   <Text className="text-typography-muted text-[11px]">
                     Header on row {parsed.headerRowIndex + 1}. Every column below is kept — as a project concept or as a new field.
                   </Text>
+                  <Hint>
+                    A <Text className="font-black">project field</Text> is a column this product has no concept for
+                    (&quot;Inventory Count&quot;), stored on every project it came from and searchable afterwards.
+                    Nothing has been created yet — this whole step is a proposal.
+                  </Hint>
                   {summaryChips}
                   {warningCards.length > 0 && (
                     <TouchableOpacity onPress={() => setMobilePage('warnings')} className="flex-row items-center rounded-xl px-3"
@@ -1053,6 +1187,9 @@ export default function SpreadsheetImportSheet({
               </>
             )}
 
+            <View className="px-4 pt-2" style={{ gap: 8 }}>
+              <BlockerList blockers={reviewBlockers} c={c} />
+            </View>
             <View className="flex-row gap-3 px-4 py-3" style={{ borderTopWidth: 1, borderTopColor: c.border }}>
               <TouchableOpacity onPress={onClose} className="flex-1 py-3.5 rounded-2xl items-center" style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}>
                 <Text className="font-black uppercase tracking-widest text-xs" style={{ color: c.textMuted }}>Cancel</Text>
@@ -1060,7 +1197,7 @@ export default function SpreadsheetImportSheet({
               <TouchableOpacity onPress={goToClients} disabled={!canContinueToClients || busy} className="flex-[2] py-3.5 rounded-2xl items-center"
                 style={{ backgroundColor: canContinueToClients && !busy ? c.primary : c.border }}>
                 <Text className="font-black uppercase tracking-widest text-xs" style={{ color: canContinueToClients && !busy ? 'white' : c.textMuted }}>
-                  {busy ? 'Loading…' : `Continue · ${importableRows.length}`}
+                  {busy ? 'Loading…' : `Next: Clients · ${importableRows.length}`}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -1085,6 +1222,7 @@ export default function SpreadsheetImportSheet({
       >
         <View style={{ flex: 1, minHeight: 0 }}>
           <View className="px-6 pt-4 pb-3" style={{ gap: 8, borderBottomWidth: 1, borderBottomColor: c.border }}>
+            <StepSpine steps={IMPORT_JOURNEY_STEPS} current={1} isDesktop c={c} />
             <View className="flex-row items-center flex-wrap" style={{ gap: 10 }}>
               <Text className="text-typography-muted text-xs">
                 {file?.name} · header on row {parsed.headerRowIndex + 1}
@@ -1092,8 +1230,10 @@ export default function SpreadsheetImportSheet({
               {summaryChips}
             </View>
             <Text className="text-typography-dim text-[11px]">
-              Nothing has been created yet. Every column is kept — as one of this product's concepts, or as a new project field with
-              the type we detected. Change any of them before continuing.
+              Nothing has been created yet. Every column is kept — as one of this product&apos;s concepts, or as a{' '}
+              <Text className="font-black">project field</Text>: a column this product has no concept for
+              (&quot;Inventory Count&quot;), stored on every project it came from and searchable afterwards.
+              Change any of them before continuing.
             </Text>
             {error && <Text className="text-state-danger text-xs font-bold">{error}</Text>}
           </View>
@@ -1116,11 +1256,13 @@ export default function SpreadsheetImportSheet({
             </View>
           </View>
 
+          <View className="px-6 pt-3" style={{ gap: 8 }}>
+            <BlockerList blockers={reviewBlockers} c={c} />
+          </View>
           <View className="flex-row items-center gap-3 px-6 py-4" style={{ borderTopWidth: 1, borderTopColor: c.border }}>
             <Text className="text-typography-dim text-[11px] flex-1">
               {importableRows.length} project{importableRows.length === 1 ? '' : 's'} · {fieldPlans.length} field{fieldPlans.length === 1 ? '' : 's'}
               {ignoredCount > 0 ? ` · ${ignoredCount} column${ignoredCount === 1 ? '' : 's'} will not be imported` : ''}
-              {unresolvedEnums > 0 ? ` · ${unresolvedEnums} value${unresolvedEnums === 1 ? '' : 's'} still unanswered` : ''}
             </Text>
             <TouchableOpacity onPress={onClose} className="px-5 py-3 rounded-2xl items-center" style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border, minHeight: 44, justifyContent: 'center' }}>
               <Text className="font-black uppercase tracking-widest text-xs" style={{ color: c.textMuted }}>Cancel</Text>
@@ -1128,7 +1270,7 @@ export default function SpreadsheetImportSheet({
             <TouchableOpacity onPress={goToClients} disabled={!canContinueToClients || busy} className="px-6 py-3 rounded-2xl items-center"
               style={{ backgroundColor: canContinueToClients && !busy ? c.primary : c.border, minHeight: 44, justifyContent: 'center' }}>
               <Text className="font-black uppercase tracking-widest text-xs" style={{ color: canContinueToClients && !busy ? 'white' : c.textMuted }}>
-                {busy ? 'Loading…' : 'Continue to Clients'}
+                {busy ? 'Loading…' : 'Next: Clients'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -1165,10 +1307,19 @@ export default function SpreadsheetImportSheet({
               );
             })}
             {blankRows.length > 0 && (
-              <View className="bg-surface-background border border-state-danger rounded-2xl p-3">
-                <Text className="text-state-danger text-xs font-black">
-                  {blankRows.length} row{blankRows.length === 1 ? '' : 's'} skipped — no name in the mapped column: rows {blankRows.map(r => r.rowNumber).join(', ')}.
+              <View className="bg-surface-background rounded-2xl p-3" style={{ borderWidth: 1, borderColor: c.warning, gap: 8 }}>
+                <Text className="text-typography-main text-xs font-black">
+                  {blankRows.length} row{blankRows.length === 1 ? '' : 's'} will not be imported
                 </Text>
+                <Text className="text-typography-muted text-[10px]">
+                  Rows {blankRows.map(r => r.rowNumber).join(', ')} are empty in
+                  “{decisions[mapping.name as number]?.profile.header.trim() || 'the name column'}”, the column currently
+                  supplying project names. If the names are in a different column, change it and they come back.
+                </Text>
+                <View className="flex-row" style={{ gap: 6 }}>
+                  <PickerOption label="Change the name column" active={false}
+                    onPress={() => { setWizStep('review'); setMobilePage('columns'); }} c={c} />
+                </View>
               </View>
             )}
           </View>
@@ -1205,21 +1356,26 @@ export default function SpreadsheetImportSheet({
     );
 
     const footer = (
-      <View className="flex-row gap-3 px-5 py-4" style={{ borderTopWidth: 1, borderTopColor: c.border }}>
-        <TouchableOpacity onPress={() => setWizStep('review')} className="flex-1 py-3.5 rounded-2xl items-center" style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}>
-          <Text className="font-black uppercase tracking-widest text-xs" style={{ color: c.textMuted }}>Back</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => setHandoff(true)}
-          disabled={!canFinishClients}
-          className="flex-[2] py-3.5 rounded-2xl items-center"
-          style={{ backgroundColor: canFinishClients ? c.primary : c.border }}
-        >
-          <Text className="font-black uppercase tracking-widest text-xs" style={{ color: canFinishClients ? 'white' : c.textMuted }}>
-            Continue to Configure ({finalRows.length})
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <>
+        <View className="px-5 pt-3">
+          <BlockerList blockers={clientBlockers} c={c} />
+        </View>
+        <View className="flex-row gap-3 px-5 py-4" style={{ borderTopWidth: 1, borderTopColor: c.border }}>
+          <TouchableOpacity onPress={() => setWizStep('review')} className="flex-1 py-3.5 rounded-2xl items-center" style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}>
+            <Text className="font-black uppercase tracking-widest text-xs" style={{ color: c.textMuted }}>Back</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setHandoff(true)}
+            disabled={!canFinishClients}
+            className="flex-[2] py-3.5 rounded-2xl items-center"
+            style={{ backgroundColor: canFinishClients ? c.primary : c.border }}
+          >
+            <Text className="font-black uppercase tracking-widest text-xs" style={{ color: canFinishClients ? 'white' : c.textMuted }}>
+              Next: Template ({finalRows.length})
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </>
     );
 
     if (!isDesktop) {
@@ -1227,8 +1383,8 @@ export default function SpreadsheetImportSheet({
         <DraggableSheet visible={visible} onClose={onClose} dimBackdrop maxHeight="95%" dismissible containerClassName="rounded-t-[2rem] overflow-hidden">
           <View style={{ flex: 1, minHeight: 0 }}>
             <View className="flex-row items-center justify-between px-5 pt-3 pb-4">
-              <View className="flex-1 mr-3">
-                <Text className="text-typography-muted text-[9px] font-black uppercase tracking-[0.3em] mb-1">Step 2 of 2</Text>
+              <View className="flex-1 mr-3" style={{ gap: 6 }}>
+                <StepSpine steps={IMPORT_JOURNEY_STEPS} current={2} isDesktop={false} c={c} />
                 <Text className="text-typography-main text-xl font-black tracking-tight">Resolve Clients</Text>
               </View>
               <TouchableOpacity onPress={onClose} className="w-10 h-10 items-center justify-center rounded-full" style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}>
@@ -1245,7 +1401,14 @@ export default function SpreadsheetImportSheet({
     return (
       <Popup visible={visible} onClose={onClose} presentation="centered" title="Resolve Clients" footer="none" maxWidth={800} containerStyle={{ height: '80%' }}>
         <View style={{ flex: 1, minHeight: 0 }}>
-          <View className="flex-1 px-6 pt-4">{body}</View>
+          <View className="px-6 pt-4" style={{ gap: 6 }}>
+            <StepSpine steps={IMPORT_JOURNEY_STEPS} current={2} isDesktop c={c} />
+            <Hint>
+              Every row names a <Text className="font-black">client</Text>. Rows matched to a client you already have
+              are joined to it; the rest create one. Nothing is written here either — this is still a proposal.
+            </Hint>
+          </View>
+          <View className="flex-1 px-6 pt-3">{body}</View>
           {footer}
         </View>
       </Popup>
