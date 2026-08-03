@@ -75,7 +75,11 @@ function ProjectDetailContent() {
           title="This project isn’t here"
           body="It doesn’t exist, or it has been archived or removed. If you were sent this link, ask whoever sent it to check."
           secondaryLabel="Back to projects"
-          onSecondary={() => router.back()}
+          // navigate, not back(): the copy above says "if you were sent this
+          // link" — someone arriving from a shared URL has NO history, so
+          // back() would do nothing at all on the one screen whose entire job
+          // is offering a way out.
+          onSecondary={() => router.navigate('/projects')}
         />
       </View>
     );

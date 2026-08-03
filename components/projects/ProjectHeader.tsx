@@ -61,7 +61,11 @@ export default function ProjectHeader() {
 
   // Same menu the list row and the board card open — one definition of what
   // you can do to a project (plan §17: reachable from where you are looking).
-  const actions = useProjectActions({ onChanged: refresh, onArchived: () => router.back() });
+  // Archiving removes the row this route renders, so "go back" is not a
+  // destination — history may point at this very project, or at a Dashboard
+  // that no longer lists it. Go to the list, which is where the user's next
+  // action is.
+  const actions = useProjectActions({ onChanged: refresh, onArchived: () => router.navigate('/projects') });
 
   const toggleFlag = async (flag: ProjectFlag) => {
     if (!canEdit) return;
@@ -82,7 +86,15 @@ export default function ProjectHeader() {
       <View className="flex-row items-start gap-3">
         <Tooltip label="Back to Projects">
           <TouchableOpacity
-            onPress={() => router.back()}
+            // NOT router.back(). This control is labelled "Back to Projects",
+            // but back() pops history — so arriving from the Dashboard, a
+            // notification, a search result, or a pasted /projects/[id] URL
+            // sent the user somewhere that is not the projects list, which is
+            // exactly what a user hit. A control that names a destination must
+            // go to that destination. `navigate` reuses the existing history
+            // entry when the list is already behind us, so the common case
+            // still behaves like Back.
+            onPress={() => router.navigate('/projects')}
             accessibilityRole="button"
             accessibilityLabel="Back to projects"
             style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: c.card, borderWidth: 1, borderColor: c.border }}
