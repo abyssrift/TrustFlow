@@ -83,7 +83,19 @@ profiles.forEach((p, i) => {
   assert.strictEqual(p.coverage, 1, `col 21 must be fully covered by dates, got ${p.coverage}`);
   assert.notStrictEqual(p.headerHint, 'date', 'the header must NOT be what nominated it — that is the point');
   assert.strictEqual(p.dateOrder, 'DMY', `col 21 resolves DD/MM from the 25s and 26s, got ${p.dateOrder}`);
-  assert.strictEqual(p.needsConfirmation, false, 'a fully-covered, order-resolved date column needs no question');
+
+  // CHANGED BEHAVIOUR, deliberately (plan §21). This column used to assert
+  // `needsConfirmation === false` — "a fully-covered, order-resolved date column
+  // needs no question". That was wrong, and this is the exact column that proves
+  // it: seven of its cells are Excel serials written by an MDY-locale Excel out
+  // of dates a human typed d/m/y, and the DMY text cells beside them are the
+  // evidence (§21.1). Coverage 1.00 and order DMY are both still true — and the
+  // data is still wrong. A clean-looking column is not the same as a correct one.
+  assert.ok(
+    p.anomalies.some(a => a.kind === 'mixed_date_encoding'),
+    `col 21 mixes DMY text with Excel serials and must say so, got ${JSON.stringify(p.anomalies.map(a => a.kind))}`,
+  );
+  assert.strictEqual(p.needsConfirmation, true, '§21.2: an unresolved inconsistency is always a question');
 }
 
 // ── 4. "Expected date" reports PARTIAL coverage (plan §18.5 #3) ──────────────

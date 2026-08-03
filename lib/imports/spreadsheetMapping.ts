@@ -101,6 +101,38 @@ export type PrimitiveCandidate = {
 
 export type DateOrder = 'DMY' | 'MDY' | 'ambiguous';
 
+/**
+ * Something inconsistent inside ONE column that the parser refuses to resolve
+ * on its own (plan §21.2). Every one of these is a question, never a fix: a
+ * silent pick is indistinguishable from correct data downstream, which is
+ * exactly how an MDY-locale Excel's swapped dates reached production.
+ *
+ * Deliberately ONE flat shape rather than a tagged union per kind — the UI
+ * renders every anomaly the same way (a headline, a count, some cells), and a
+ * union would buy nothing but a switch statement at every call site.
+ */
+export type ColumnAnomalyKind =
+  /** cells holding `#REF!` / `#N/A` / `#DIV/0!` — the source tool failed here */
+  | 'formula_error'
+  /** text d/m/y dates AND Excel serials in one column, and the serials look swapped */
+  | 'mixed_date_encoding'
+  /** `Y`/`TRUE`/`1` in the same column — one concept, three vocabularies */
+  | 'mixed_boolean_dialect'
+  /** the same entity spelled several ways inside this one file */
+  | 'entity_variants'
+  /** the column holds one kind of thing at the top and another at the bottom */
+  | 'meaning_change';
+
+export type ColumnAnomaly = {
+  kind: ColumnAnomalyKind;
+  /** cells (or variant groups) involved — for "4 of 22 cells" style messages */
+  count: number;
+  /** what to show the user, verbatim from the sheet where possible */
+  samples: string[];
+  /** one sentence: what is inconsistent and what the user is being asked */
+  detail: string;
+};
+
 export type ColumnProfile = {
   index: number;
   header: string;
@@ -131,6 +163,8 @@ export type ColumnProfile = {
   enumValues?: { key: string; label: string; count: number }[];
   /** up to 5 filled cells the winning primitive does NOT explain — the caller shows these, never nulls them silently */
   nonMatchingSamples: string[];
+  /** §21.2: inconsistencies this column contains that the parser will NOT resolve alone */
+  anomalies: ColumnAnomaly[];
 };
 
 // Unicode property escapes, NOT [a-z] / [a-z0-9]. An ASCII letter test scores
@@ -145,12 +179,27 @@ const HAS_ALNUM = /[\p{L}\p{N}]/u;
 // Cells that mean "nothing here" rather than a value: em/en dashes, a lone
 // hyphen, n/a, tbd, ?. Treated as empty everywhere, so three placeholders in a
 // container-number column no longer demote it out of being an identifier.
-const PLACEHOLDER = /^(?:[-‒–—―]+|n\/?a|na|nil|none|tbd|tba|\?+|\.+)$/i;
+// (plan §21.3 E — this vocabulary used to be counted as content.)
+// ponytail: deliberately does NOT include "pending"/"unknown" — the real client
+// file has "still pending" as prose in a date column, and a word that can be a
+// legitimate status must not be silently deleted. Only the vocabulary that has
+// no other reading is here.
+const PLACEHOLDER = /^(?:[-‒–—―]+|n\/?\.?a\.?|na|nil|none|null|tbd|tba|\?+|\.+)$/i;
+
+// A spreadsheet's own failure, not a value. `#REF!` means a formula pointed at
+// a deleted cell; importing the literal string "#REF!" as a project name is the
+// silent-corruption shape §21.2 exists to stop. Treated as EMPTY for
+// classification (it holds no data) and counted separately so the column
+// profile can say "4 cells here are broken formulas" instead of losing them.
+const FORMULA_ERROR = /^#(?:REF|N\/A|DIV\/0|VALUE|NAME|NUM|NULL|SPILL|CALC|GETTING_DATA)[!?]?$/i;
+
+const isFormulaError = (c: SheetCell): boolean =>
+  typeof c === 'string' && FORMULA_ERROR.test(c.trim());
 
 const isEmptyCell = (c: SheetCell): boolean => {
   if (c === null || c === undefined) return true;
   const s = String(c).trim();
-  return s === '' || PLACEHOLDER.test(s);
+  return s === '' || PLACEHOLDER.test(s) || FORMULA_ERROR.test(s);
 };
 
 /**
@@ -166,6 +215,22 @@ export function normalizeMatchKey(s: string): string {
     .normalize('NFKD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * `normalizeMatchKey` plus punctuation, so the legal-suffix dialects collapse:
+ * `Acme LLC` / `ACME L.L.C.` / `Acme  LLC ` / `Acme LLC.` all key to `acme llc`.
+ * Dots are DELETED rather than spaced, which is the whole trick — `L.L.C.` has
+ * to become `llc`, not `l l c`. Unicode classes, not [a-z0-9]: an ASCII-only
+ * strip erases an Arabic client name entirely and every such row then looks
+ * like a blank name.
+ */
+export function normalizeEntityKey(s: string): string {
+  return normalizeMatchKey(s)
+    .replace(/\./g, '')
+    .replace(/[^\p{L}\p{N}\s]+/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -333,6 +398,141 @@ export function resolveDateOrder(cells: SheetCell[]): DateOrder | undefined {
   return 'ambiguous';
 }
 
+// ── §21 anomaly detectors ─────────────────────────────────────────────────
+// Every one of these follows §21.1's shape: use the UNAMBIGUOUS members of the
+// column to judge the ambiguous ones, then hand the judgement to the user
+// (§21.2) rather than acting on it. None of them changes a single cell.
+
+const serialToParts = (n: number) => {
+  const d = new Date(Date.UTC(1899, 11, 30) + Math.round(n) * 86400000);
+  return { y: d.getUTCFullYear(), m: d.getUTCMonth() + 1, d: d.getUTCDate() };
+};
+
+/** ponytail: 4 serials. At 3, all-days-<=12 happens by chance ~6% of the time
+ * and the question is noise; at 4 it is ~2.6%. Raise it if users report the
+ * prompt firing on genuine start-of-month schedules. */
+const MIN_SWAP_EVIDENCE = 4;
+
+/**
+ * THE defect this section exists for (plan §21). A human typed `8/2/26` meaning
+ * 8 February into an Excel whose locale is MDY; Excel stored 2 August and
+ * displayed "8/2/26" straight back, so the file looked right to its author and
+ * was wrong only on the rows nobody can eyeball (day <= 12). The same column's
+ * `15/2/2026` could NOT be MDY, so Excel left it as text — and that surviving
+ * text is the evidence (§21.1: the unambiguous members settle the ambiguous
+ * ones).
+ *
+ * So: a column holding BOTH text d/m/y dates with a decidable order AND Excel
+ * serials, where every serial decodes to a day <= 12 — i.e. every one of them
+ * COULD be a swapped date — is reported. It is never rewritten: the swapped and
+ * unswapped readings are both real dates and only the author knows which was
+ * meant. Returns null when there is no text evidence, because then there is no
+ * inconsistency to surface, only a guess to make.
+ */
+export function detectDateEncodingConflict(cells: SheetCell[]): ColumnAnomaly | null {
+  const textOrder = resolveDateOrder(cells.filter(c => typeof c === 'string'));
+  if (textOrder !== 'DMY' && textOrder !== 'MDY') return null;
+  const serials = cells
+    .filter((c): c is number => typeof c === 'number' && c >= SERIAL_MIN && c <= SERIAL_MAX);
+  if (serials.length < MIN_SWAP_EVIDENCE) return null;
+  const parts = serials.map(serialToParts);
+  if (!parts.every(p => p.d <= 12)) return null; // one un-swappable value clears the column
+  return {
+    kind: 'mixed_date_encoding',
+    count: serials.length,
+    samples: parts.slice(0, 5).map(p =>
+      `${p.y}-${pad(p.m)}-${pad(p.d)} (stored) or ${p.y}-${pad(p.d)}-${pad(p.m)} (day/month swapped)`,
+    ),
+    detail:
+      `${serials.length} cells are real spreadsheet dates while the rest are ${textOrder} text, and EVERY ` +
+      `one of the dates has a day of 12 or less — the shape a spreadsheet leaves when it read a typed ` +
+      `${textOrder} date in the other order. Confirm which reading is meant; nothing was changed.`,
+  };
+}
+
+// One concept, four vocabularies. A column mixing them is not four categories.
+const BOOLEAN_DIALECTS: { name: string; truthy: RegExp; falsy: RegExp }[] = [
+  { name: 'Y/N', truthy: /^(?:y|yes)$/i, falsy: /^(?:n|no)$/i },
+  { name: 'TRUE/FALSE', truthy: /^(?:true|t)$/i, falsy: /^(?:false|f)$/i },
+  { name: '1/0', truthy: /^1$/, falsy: /^0$/ },
+  { name: 'tick', truthy: /^[✓✔xX]$/, falsy: /^[✗✘]$/ },
+];
+
+/**
+ * §21.1 for booleans: a `TRUE` sitting in a column of `1`/`0` settles that the
+ * column is a flag, not a quantity, and that `1` and `Y` are the same answer.
+ * Fires only when EVERY filled cell is boolean-shaped and at least two
+ * vocabularies are present — a clean `1`/`0` column is one dialect and asks
+ * nothing. The grouping is proposed, not applied: collapsing the vocabulary
+ * here would rewrite the user's cells on a guess about their own data.
+ */
+export function detectBooleanDialectMix(cells: SheetCell[]): ColumnAnomaly | null {
+  const filled = cells.filter(c => !isEmptyCell(c)).map(c => String(c).trim());
+  if (filled.length < 3) return null;
+  const used = new Map<string, { t: string[]; f: string[] }>();
+  for (const s of filled) {
+    const d = BOOLEAN_DIALECTS.find(x => x.truthy.test(s) || x.falsy.test(s));
+    if (!d) return null; // one non-boolean value and this is just an enum
+    const hit = used.get(d.name) ?? { t: [], f: [] };
+    const side = d.truthy.test(s) ? hit.t : hit.f;
+    if (!side.includes(s)) side.push(s);
+    used.set(d.name, hit);
+  }
+  if (used.size < 2) return null;
+  const all = [...used.values()];
+  return {
+    kind: 'mixed_boolean_dialect',
+    count: used.size,
+    samples: [
+      `true: ${[...new Set(all.flatMap(v => v.t))].join(' / ')}`,
+      `false: ${[...new Set(all.flatMap(v => v.f))].join(' / ')}`,
+    ],
+    detail:
+      `This column says yes/no in ${used.size} different vocabularies (${[...used.keys()].join(', ')}). ` +
+      `They look like one flag written inconsistently — confirm before they import as separate values.`,
+  };
+}
+
+export type EntityVariantGroup = { canonical: string; variants: string[]; count: number };
+
+/**
+ * §21.3 B, the half nothing covered: two rows in the SAME file that are the
+ * same entity spelled differently. `normalizeClientName` compares an imported
+ * name against EXISTING clients; nothing looked inside the file itself, so
+ * `Acme LLC` and `ACME L.L.C.` imported as two clients before anyone could see
+ * they were one.
+ *
+ * Keyed on `normalizeEntityKey` (case, whitespace, punctuation, dotted legal
+ * suffixes) and NOT on `normalizeClientName` — the latter strips whole suffix
+ * words, which would report `Acme Trading` and `Acme Holdings` as the same
+ * company. The most frequent spelling is proposed as canonical (§21.1: the
+ * well-formed members settle the malformed one); ties go to the first seen, so
+ * the result is stable across runs.
+ */
+export function detectEntityVariants(cells: SheetCell[]): EntityVariantGroup[] {
+  const groups = new Map<string, Map<string, number>>();
+  for (const c of cells) {
+    if (isEmptyCell(c)) continue;
+    const label = String(c).trim();
+    const key = normalizeEntityKey(label);
+    if (!key) continue;
+    const g = groups.get(key) ?? new Map<string, number>();
+    g.set(label, (g.get(label) ?? 0) + 1);
+    groups.set(key, g);
+  }
+  const out: EntityVariantGroup[] = [];
+  for (const g of groups.values()) {
+    if (g.size < 2) continue;
+    const spellings = [...g.entries()].sort((a, b) => b[1] - a[1]);
+    out.push({
+      canonical: spellings[0][0],
+      variants: spellings.slice(1).map(s => s[0]),
+      count: spellings.reduce((a, s) => a + s[1], 0),
+    });
+  }
+  return out;
+}
+
 // A register's primary key is not a contact number. `2026-0114` (matter no),
 // `L-2026-0033` (lot) and `1188402` (MLS) all cleared the old 7-20-digit test
 // and were offered to the user as phone numbers.
@@ -433,11 +633,28 @@ export function profileColumns(aoa: SheetCell[][], headerRowIndex: number): Colu
   return out;
 }
 
-export function profileColumn(header: string, cells: SheetCell[], index = 0): ColumnProfile {
+/**
+ * @param depth internal. `meaning_change` profiles the column's two halves with
+ *              this same function; the guard stops that recursing and stops a
+ *              half-column reporting anomalies of its own.
+ */
+export function profileColumn(header: string, cells: SheetCell[], index = 0, depth = 0): ColumnProfile {
   const rows = cells.length;
   const filledCells = cells.filter(c => !isEmptyCell(c));
   const filled = filledCells.length;
   const headerHint = headerHintFor(header);
+  const errors = cells.filter(isFormulaError).map(c => String(c).trim());
+  const anomalies: ColumnAnomaly[] = [];
+  if (depth === 0 && errors.length > 0) {
+    anomalies.push({
+      kind: 'formula_error',
+      count: errors.length,
+      samples: [...new Set(errors)].slice(0, 5),
+      detail:
+        `${errors.length} cell(s) hold a spreadsheet error value, so the source file never produced a ` +
+        `value here. They import as blank; check the original before assuming the rows are empty.`,
+    });
+  }
 
   const counts = new Map<string, { key: string; label: string; count: number }>();
   for (const c of filledCells) {
@@ -464,9 +681,12 @@ export function profileColumn(header: string, cells: SheetCell[], index = 0): Co
     codeLike: filled > 0
       ? filledCells.filter(c => { const s = String(c).trim(); return !/\s/.test(s) && /\d/.test(s); }).length / filled
       : 0,
-    needsConfirmation: false, nonMatchingSamples: [],
+    needsConfirmation: false, nonMatchingSamples: [], anomalies,
   };
-  if (filled === 0) return base;
+  if (filled === 0) {
+    base.needsConfirmation = anomalies.length > 0;
+    return base;
+  }
 
   const frac = (pred: (c: SheetCell) => boolean) => filledCells.filter(pred).length / filled;
 
@@ -601,12 +821,82 @@ export function profileColumn(header: string, cells: SheetCell[], index = 0): Co
     const order = resolveDateOrder(filledCells);
     if (order) profile.dateOrder = order;
   }
+
+  if (depth === 0) {
+    if (profile.primitive === 'date') {
+      const swap = detectDateEncodingConflict(filledCells);
+      if (swap) anomalies.push(swap);
+    }
+    if (profile.primitive === 'enum') {
+      const dialects = detectBooleanDialectMix(filledCells);
+      if (dialects) anomalies.push(dialects);
+    }
+    // Only for columns that could BE an entity. A drift report on a status
+    // column ("Open" vs "open") is noise; on a client column it is a merge the
+    // user has to approve before two clients exist for one company.
+    if (textual && (profile.primitive === 'freetext' || profile.primitive === 'unique_id' || profile.primitive === 'enum')) {
+      const groups = detectEntityVariants(filledCells);
+      if (groups.length > 0) {
+        anomalies.push({
+          kind: 'entity_variants',
+          count: groups.length,
+          samples: groups.slice(0, 5).map(g => `${g.canonical}  ←  ${g.variants.join(' / ')}`),
+          detail:
+            `${groups.length} value(s) in this column are spelled more than one way in this same file. ` +
+            `They are almost certainly one entity each — confirm the merge; nothing was combined.`,
+        });
+      }
+    }
+    const shift = detectMeaningChange(header, filledCells);
+    if (shift) anomalies.push(shift);
+  }
+
   profile.needsConfirmation =
     profile.primitive === 'enum' ||
     profile.primitive === 'unknown' ||
     profile.dateOrder === 'ambiguous' ||
-    profile.confidence < 0.6;
+    profile.confidence < 0.6 ||
+    // §21.2 in one line: an unresolved inconsistency is always a question.
+    anomalies.length > 0;
   return profile;
+}
+
+// Primitives whose meaning is a hard type. A column that changes from `date` to
+// anything else partway down changed SUBJECT; freetext turning into enum is
+// just the row count talking, and reporting it would train users to click past.
+const HARD_PRIMITIVES: ColumnPrimitive[] = ['email', 'phone', 'date', 'year', 'money'];
+
+/**
+ * §21.3 E's last open item: a column whose meaning changes partway down —
+ * "Status" holding dates for the first thirty rows and a word for the rest,
+ * because someone repurposed the column mid-file. Coverage alone cannot say
+ * this: 50% dates reads identically whether the non-dates are scattered or all
+ * at the bottom, and only the second one is a different column.
+ *
+ * ponytail: a single split at the midpoint, not changepoint detection. It finds
+ * the one shape that actually occurs (a file continued later under a new
+ * convention) and costs two profile calls. Upgrade to a scan over split points
+ * if a real file turns out to change at the 80% mark.
+ */
+export function detectMeaningChange(header: string, filledCells: SheetCell[]): ColumnAnomaly | null {
+  if (filledCells.length < 6) return null;
+  const mid = Math.floor(filledCells.length / 2);
+  const top = profileColumn(header, filledCells.slice(0, mid), 0, 1);
+  const bottom = profileColumn(header, filledCells.slice(mid), 0, 1);
+  if (top.primitive === bottom.primitive) return null;
+  if (!HARD_PRIMITIVES.includes(top.primitive) && !HARD_PRIMITIVES.includes(bottom.primitive)) return null;
+  if (top.coverage < 0.8 || bottom.coverage < 0.8) return null;
+  return {
+    kind: 'meaning_change',
+    count: filledCells.length - mid,
+    samples: [
+      `rows 1-${mid}: ${top.primitive} — ${String(filledCells[0]).trim()}`,
+      `rows ${mid + 1}-${filledCells.length}: ${bottom.primitive} — ${String(filledCells[mid]).trim()}`,
+    ],
+    detail:
+      `The top of this column holds ${top.primitive} and the bottom holds ${bottom.primitive}. ` +
+      `One column is being used for two things — confirm which rows you meant to import.`,
+  };
 }
 
 /**
@@ -784,7 +1074,7 @@ export function detectColumnRelations(
 
 // ─── 1c. Row shape (plan §18.4) ───────────────────────────────────────────
 
-export type RowKind = 'data' | 'blank' | 'continuation' | 'summary';
+export type RowKind = 'data' | 'blank' | 'continuation' | 'summary' | 'section';
 
 // A footer or mid-table roll-up. Without this every one of them imports as a
 // project — a marketing tracker's "Subtotal Q1" and "TOTAL" sit IN the name
@@ -812,9 +1102,35 @@ export type RowShape = {
   filled: number;
   /** for a continuation: the 1-based row it appears to continue */
   continuesRowNumber?: number;
-  /** for a continuation: the stray text, so the UI can offer "append to previous" */
+  /** for a continuation or a section: the stray text, so the UI can offer "append to previous" */
   text?: string;
+  /** §21.3 D: an earlier row with identical cells. Still a `data` row — reported, never dropped. */
+  duplicateOfRowNumber?: number;
 };
+
+/**
+ * Structure, not data (plan §21.3 D). Two shapes, one kind:
+ *
+ * - the header row appearing again partway down — the commonest "two tables in
+ *   one sheet", and the one that otherwise imports as a project literally named
+ *   after a column heading;
+ * - a lone textual cell OUTSIDE the name column — a section title like
+ *   `— Q2 engagements —` introducing the rows below it.
+ *
+ * A lone cell INSIDE the name column stays a `continuation`, because there it
+ * is far more often a wrapped value than a heading. Both kinds are surfaced and
+ * neither is imported, so the distinction only changes the wording of a
+ * question — which is why it is two rules and not a classifier.
+ */
+function isHeaderEcho(row: SheetCell[], headerRow: SheetCell[]): boolean {
+  const norm = (c: SheetCell) => normalizeMatchKey(String(c ?? ''));
+  const wanted = headerRow.map(norm).filter(Boolean);
+  if (wanted.length < 2) return false;
+  const got = row.map(norm).filter(Boolean);
+  if (got.length < 2) return false;
+  const hits = got.filter(g => wanted.includes(g)).length;
+  return hits >= Math.max(2, got.length * 0.6);
+}
 
 /**
  * A row whose ONLY populated cell sits in the name column, directly after a
@@ -830,7 +1146,12 @@ export function classifyRowShapes(
   nameColumn: number | undefined,
 ): RowShape[] {
   const out: RowShape[] = [];
+  const headerRow = aoa[headerRowIndex] || [];
   let lastDataRowNumber: number | null = null;
+  // key -> the first row number that carried it. Duplicates are ANNOTATED, not
+  // removed: a register legitimately repeats a row (two identical line items),
+  // and deciding that for the user is the silent pick §21.2 forbids.
+  const seenRows = new Map<string, number>();
   for (let r = headerRowIndex + 1; r < aoa.length; r++) {
     const row = aoa[r] || [];
     const filled = scoreRow(row);
@@ -843,16 +1164,29 @@ export function classifyRowShapes(
       out.push({ rowIndex: r, rowNumber, kind: 'summary', filled });
       continue; // a roll-up is not the row a continuation would continue
     }
+    if (isHeaderEcho(row, headerRow)) {
+      out.push({ rowIndex: r, rowNumber, kind: 'section', filled, text: 'repeated header row' });
+      continue;
+    }
     const onlyCol = filled === 1 ? row.findIndex(c => !isEmptyCell(c)) : -1;
-    if (onlyCol !== -1 && onlyCol === nameColumn && lastDataRowNumber !== null) {
+    if (onlyCol !== -1 && HAS_LETTER.test(String(row[onlyCol]))) {
+      const inNameColumn = onlyCol === nameColumn && lastDataRowNumber !== null;
       out.push({
-        rowIndex: r, rowNumber, kind: 'continuation', filled,
-        continuesRowNumber: lastDataRowNumber,
+        rowIndex: r, rowNumber,
+        kind: inNameColumn ? 'continuation' : 'section',
+        filled,
+        ...(inNameColumn ? { continuesRowNumber: lastDataRowNumber! } : {}),
         text: String(row[onlyCol]).trim(),
       });
       continue;
     }
-    out.push({ rowIndex: r, rowNumber, kind: 'data', filled });
+    const key = row.map(c => (isEmptyCell(c) ? '' : normalizeMatchKey(String(c)))).join('');
+    const firstSeen = seenRows.get(key);
+    if (firstSeen === undefined) seenRows.set(key, rowNumber);
+    out.push({
+      rowIndex: r, rowNumber, kind: 'data', filled,
+      ...(firstSeen !== undefined ? { duplicateOfRowNumber: firstSeen } : {}),
+    });
     lastDataRowNumber = rowNumber;
   }
   return out;
@@ -1008,6 +1342,8 @@ export type IntakeRow = {
   shape: RowKind;
   /** for a continuation: the 1-based row whose name this text appears to continue */
   continuesRowNumber?: number;
+  /** §21.3 D: an identical earlier row. Kept and flagged — the caller decides. */
+  duplicateOfRowNumber?: number;
 };
 
 function parseDateCell(raw: SheetCell, order: DateOrder): { iso: string | null; raw: string | null } {
@@ -1056,6 +1392,7 @@ export function buildIntakeRows(
       start_date_raw: raw,
       shape: shape.kind,
       ...(shape.continuesRowNumber !== undefined ? { continuesRowNumber: shape.continuesRowNumber } : {}),
+      ...(shape.duplicateOfRowNumber !== undefined ? { duplicateOfRowNumber: shape.duplicateOfRowNumber } : {}),
     });
   }
   return rows;
@@ -1079,10 +1416,13 @@ export type ClientMatch =
 // edit-distance. Ceiling: "Abdallah Group" vs "Al Abdallah Group" (word
 // reordering/insertion beyond a simple substring) won't be flagged. Upgrade
 // to a trigram/levenshtein score if false negatives show up in practice.
-const SUFFIX_WORDS = /\b(llc|ltd|inc|co|corp|company|group|holding|holdings|trading|est|establishment)\b/g;
+const SUFFIX_WORDS = /\b(llc|ltd|inc|co|corp|company|group|holding|holdings|trading|est|establishment|wll|plc|sa|srl)\b/g;
 export function normalizeClientName(s: string): string {
-  return normalizeMatchKey(s)
-    .replace(/[^a-z0-9\s]+/g, ' ')
+  // Built on normalizeEntityKey rather than its own ASCII strip: `L.L.C.` has
+  // to key the same as `LLC` before the suffix list can drop it, and an
+  // ASCII-only [^a-z0-9] strip erased Arabic client names to the empty string,
+  // which made every Arabic row an unmatchable "new" client.
+  return normalizeEntityKey(s)
     .replace(SUFFIX_WORDS, ' ')
     .replace(/\s+/g, ' ')
     .trim();
