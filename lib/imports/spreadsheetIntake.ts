@@ -79,7 +79,12 @@ export async function parseSpreadsheetBytes(bytes: Uint8Array): Promise<ParsedSp
   const sheetName = wb.SheetNames[0];
   if (!sheetName) throw new SpreadsheetIntakeError('This spreadsheet has no sheets.');
   const ws = wb.Sheets[sheetName];
-  const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', blankrows: false }) as SheetCell[][];
+  // blankrows: TRUE. With `false`, xlsx deletes blank separator rows before the
+  // classifier sees them — `RowKind='blank'` was unreachable in production, and
+  // every `rowNumber` below a blank row was off by the number of blanks above
+  // it, so "row 14 could not be matched" pointed at the wrong row. Blank rows
+  // are dropped downstream by buildIntakeRows anyway; here they are structure.
+  const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', blankrows: true }) as SheetCell[][];
 
   if (aoa.length === 0) throw new SpreadsheetIntakeError('This sheet is empty.');
 
