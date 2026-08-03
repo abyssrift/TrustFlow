@@ -22,11 +22,19 @@ export function toXlsxBytes(spec: WorkbookSpec): Uint8Array {
   return new Uint8Array(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer);
 }
 
-/** The same read `parseSpreadsheetBytes` performs — same options, same order. */
+/**
+ * The same read `parseSpreadsheetBytes` performs — same options, same order.
+ *
+ * `blankrows` was `false` here after production had already moved to `true`,
+ * which quietly made the benchmark measure a pipeline nobody runs: all the
+ * authored blank separator rows were deleted before the classifier saw them, so
+ * three row traps read as MISSED that production actually catches. Keep this
+ * line identical to spreadsheetIntake.ts or the whole corpus measures fiction.
+ */
 export function readBackAoa(bytes: Uint8Array): SheetCell[][] {
   const wb = XLSX.read(bytes, { type: 'array' });
   const ws = wb.Sheets[wb.SheetNames[0]];
-  return XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', blankrows: false }) as SheetCell[][];
+  return XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', blankrows: true }) as SheetCell[][];
 }
 
 export const roundTrip = (spec: WorkbookSpec): SheetCell[][] => readBackAoa(toXlsxBytes(spec));

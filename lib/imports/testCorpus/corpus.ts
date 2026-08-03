@@ -20,7 +20,7 @@
 // primitives are both defensible readings of the same cells (a column of story
 // points is an enum and a number), and is used three times in total.
 
-import type { ColumnPrimitive, DateOrder, SheetCell } from '../spreadsheetMapping';
+import type { ColumnAnomalyKind, ColumnPrimitive, DateOrder, SheetCell } from '../spreadsheetMapping';
 
 export type ColumnTruth = {
   /** the header text as authored (before the classifier trims it) */
@@ -31,19 +31,27 @@ export type ColumnTruth = {
   alsoOk?: ColumnPrimitive[];
   /** the order the dates were authored in, when the column holds slash dates */
   dateOrder?: DateOrder;
+  /**
+   * Inconsistencies the column was authored to CONTAIN (plan §21). The
+   * benchmark scores these both ways: a missed one is a silent corruption, and
+   * an anomaly reported on a column that has none is noise the user learns to
+   * click past — which is just as bad. Absent means "this column is clean".
+   */
+  anomalies?: ColumnAnomalyKind[];
   /** why this is the truth / what the trap is */
   note?: string;
 };
 
 /**
- * A row that is not a data row. `continuation`/`blank` are kinds the classifier
- * knows; `total`/`subtotal`/`footer` are kinds it has no concept for at all —
- * recorded so the benchmark can report the gap instead of pretending it is one.
+ * A row that is not a data row. `continuation`/`blank`/`section` are kinds the
+ * classifier knows; `total`/`subtotal`/`footer` it reports as `summary`;
+ * `duplicate` is an annotation on a row that IS data. Recorded so the benchmark
+ * can report a gap instead of pretending it is one.
  */
 export type RowTrap = {
   /** a distinctive cell value, used to locate the row after the xlsx roundtrip */
   marker: string;
-  kind: 'continuation' | 'total' | 'subtotal' | 'footer';
+  kind: 'continuation' | 'total' | 'subtotal' | 'footer' | 'section' | 'header_repeat' | 'duplicate';
   note?: string;
 };
 

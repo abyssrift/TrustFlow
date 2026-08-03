@@ -1170,12 +1170,16 @@ export function classifyRowShapes(
     }
     const onlyCol = filled === 1 ? row.findIndex(c => !isEmptyCell(c)) : -1;
     if (onlyCol !== -1 && HAS_LETTER.test(String(row[onlyCol]))) {
-      const inNameColumn = onlyCol === nameColumn && lastDataRowNumber !== null;
+      // A wrapped cell is PHYSICALLY ADJACENT to the row it wraps — that is what
+      // makes it a wrap. A lone cell after a blank separator, or in a column
+      // that is not the name, is a section title introducing the rows below it.
+      // Both are surfaced either way; the distinction is what the question says.
+      const wraps = onlyCol === nameColumn && lastDataRowNumber === rowNumber - 1;
       out.push({
         rowIndex: r, rowNumber,
-        kind: inNameColumn ? 'continuation' : 'section',
+        kind: wraps ? 'continuation' : 'section',
         filled,
-        ...(inNameColumn ? { continuesRowNumber: lastDataRowNumber! } : {}),
+        ...(wraps ? { continuesRowNumber: lastDataRowNumber! } : {}),
         text: String(row[onlyCol]).trim(),
       });
       continue;

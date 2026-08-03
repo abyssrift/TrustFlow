@@ -17,13 +17,16 @@ import {
   profileColumns,
   proposeColumnMapping,
   classifyRowShapes,
+  type ColumnAnomalyKind,
   type ColumnPrimitive,
   type ColumnProfile,
   type DateOrder,
   type RowKind,
+  type RowShape,
   type SheetCell,
 } from '../spreadsheetMapping';
 import { CORPUS, type WorkbookSpec } from './corpus';
+import { CORPUS_MESSY } from './corpusMessy';
 import { roundTrip } from './generate';
 
 export type WrongColumn = {
@@ -58,6 +61,12 @@ export type FileResult = {
   dateUnavailable: string[];
   trapsCaught: string[];
   trapsMissed: string[];
+  /** §21 anomalies the column was authored to contain and the profile reported */
+  anomaliesCaught: string[];
+  /** authored and NOT reported — the column looks clean and is not */
+  anomaliesMissed: string[];
+  /** reported on a column authored clean — noise the user learns to click past */
+  anomaliesSpurious: string[];
   /** columns neither mapped to a field nor offered as a custom field */
   dropped: number;
 };
@@ -102,6 +111,9 @@ export function scoreWorkbook(spec: WorkbookSpec): FileResult {
     dateUnavailable: [],
     trapsCaught: [],
     trapsMissed: [],
+    anomaliesCaught: [],
+    anomaliesMissed: [],
+    anomaliesSpurious: [],
     dropped: 0,
   };
 
@@ -116,6 +128,8 @@ export function scoreWorkbook(spec: WorkbookSpec): FileResult {
       })),
       nameDetail: 'no table found',
       trapsMissed: (spec.rowTraps ?? []).map(t => `${t.kind} "${t.marker}" (no table found)`),
+      anomaliesMissed: spec.columns.flatMap((c, i) =>
+        (c.anomalies ?? []).map(a => `col ${i} "${c.header}" -> ${a} (no table found)`)),
       dropped: spec.columns.length,
     };
   }
@@ -140,6 +154,21 @@ export function scoreWorkbook(spec: WorkbookSpec): FileResult {
     const holdsData = truth.primitive !== 'empty';
     if (got === 'unknown' || (got === 'empty' && holdsData)) {
       base.unclassified.push(`col ${i} "${truth.header}" -> ${got}`);
+    }
+
+    // ── §21 anomalies, scored BOTH ways ─────────────────────────────────────
+    // A missed one is a column that looks clean and is not. A spurious one is a
+    // question about nothing, and a user who is asked three of those stops
+    // reading the fourth — which is how the real one gets clicked through.
+    const wanted = new Set<ColumnAnomalyKind>(truth.anomalies ?? []);
+    const reported = new Set((profile?.anomalies ?? []).map(a => a.kind));
+    for (const w of wanted) {
+      const hit = (profile?.anomalies ?? []).find(a => a.kind === w);
+      if (hit) base.anomaliesCaught.push(`col ${i} "${truth.header}" -> ${w}: ${hit.samples[0] ?? hit.detail}`);
+      else base.anomaliesMissed.push(`col ${i} "${truth.header}" -> ${w} NOT reported${truth.note ? ` (${truth.note})` : ''}`);
+    }
+    for (const r of reported) {
+      if (!wanted.has(r)) base.anomaliesSpurious.push(`col ${i} "${truth.header}" -> ${r} reported, column authored clean`);
     }
   }
 
@@ -175,19 +204,32 @@ export function scoreWorkbook(spec: WorkbookSpec): FileResult {
   }
 
   // ── row shapes ────────────────────────────────────────────────────────────
-  const shapes = new Map<number, RowKind>(
-    classifyRowShapes(aoa, headerIdx, proposal.mapping.name).map(s => [s.rowIndex, s.kind]),
-  );
+  const allShapes = classifyRowShapes(aoa, headerIdx, proposal.mapping.name);
+  const shapes = new Map<number, RowShape>(allShapes.map(s => [s.rowIndex, s]));
   for (const trap of spec.rowTraps ?? []) {
-    const r = findRow(aoa, headerIdx + 1, trap.marker);
-    const got: RowKind | 'not found' = r === -1 ? 'not found' : shapes.get(r) ?? 'not found';
+    // A duplicate is a DATA row that must carry a back-reference, so it is
+    // located by its second occurrence, not its first.
+    const first = findRow(aoa, headerIdx + 1, trap.marker);
+    const r = trap.kind === 'duplicate' ? findRow(aoa, first + 1, trap.marker) : first;
+    const shape = r === -1 ? undefined : shapes.get(r);
+    const got: RowKind | 'not found' = shape?.kind ?? 'not found';
     const label = `${trap.kind} "${trap.marker}" -> ${got}`;
-    if (trap.kind === 'continuation' && got === 'continuation') base.trapsCaught.push(label);
-    else if (trap.kind !== 'continuation' && got !== 'data') base.trapsCaught.push(label);
-    else base.trapsMissed.push(`${label}${trap.note ? ` (${trap.note})` : ''}`);
+    // `continuation` and `duplicate` are exact claims about what the row IS.
+    // The rest only have to avoid being imported as data — a footer reported as
+    // `summary` and a section title reported as `continuation` are both
+    // surfaced, and a surfaced row is a question, not a corruption.
+    const caught =
+      trap.kind === 'continuation' ? got === 'continuation'
+      : trap.kind === 'duplicate' ? shape?.duplicateOfRowNumber !== undefined
+      : got !== 'data' && got !== 'not found';
+    if (caught) {
+      base.trapsCaught.push(
+        trap.kind === 'duplicate' ? `${label} (duplicate of row ${shape?.duplicateOfRowNumber})` : label,
+      );
+    } else base.trapsMissed.push(`${label}${trap.note ? ` (${trap.note})` : ''}`);
   }
   const blanksAuthored = spec.blankRows ?? 0;
-  const blanksSeen = [...shapes.values()].filter(k => k === 'blank').length;
+  const blanksSeen = allShapes.filter(s => s.kind === 'blank').length;
   if (blanksAuthored > 0) {
     const label = `${blanksAuthored} blank separator row(s) authored, ${blanksSeen} reached the classifier`;
     if (blanksSeen === blanksAuthored) base.trapsCaught.push(label);
@@ -197,7 +239,7 @@ export function scoreWorkbook(spec: WorkbookSpec): FileResult {
   return base;
 }
 
-export const scoreCorpus = (): FileResult[] => CORPUS.map(scoreWorkbook);
+export const scoreCorpus = (specs: WorkbookSpec[] = CORPUS): FileResult[] => specs.map(scoreWorkbook);
 
 export type Totals = {
   files: number;
@@ -212,6 +254,9 @@ export type Totals = {
   dateUnavailable: number;
   trapsCaught: number;
   trapsMissed: number;
+  anomaliesCaught: number;
+  anomaliesMissed: number;
+  anomaliesSpurious: number;
 };
 
 export function totalsOf(results: FileResult[]): Totals {
@@ -229,16 +274,30 @@ export function totalsOf(results: FileResult[]): Totals {
     dateUnavailable: sum(r => r.dateUnavailable.length),
     trapsCaught: sum(r => r.trapsCaught.length),
     trapsMissed: sum(r => r.trapsMissed.length),
+    anomaliesCaught: sum(r => r.anomaliesCaught.length),
+    anomaliesMissed: sum(r => r.anomaliesMissed.length),
+    anomaliesSpurious: sum(r => r.anomaliesSpurious.length),
   };
 }
 
-function report(onlyWrong: boolean): void {
-  const results = scoreCorpus();
-  const t = totalsOf(results);
-  const pct = (n: number, d: number) => (d === 0 ? '—' : `${Math.round((n / d) * 100)}%`);
+const pct = (n: number, d: number) => (d === 0 ? '—' : `${Math.round((n / d) * 100)}%`);
 
+// Two blocks, never one. The messiness workbooks are a NEW and harder question;
+// folding them into the eleven would let a gain on one hide a regression on the
+// other, and the eleven are the number every earlier measurement was taken on.
+function report(onlyWrong: boolean): void {
+  reportSet('the ELEVEN industry workbooks (plan §18.7)', CORPUS, onlyWrong);
+  reportSet('the FIVE messiness workbooks (plan §21.4)', CORPUS_MESSY, onlyWrong);
+}
+
+function reportSet(title: string, specs: WorkbookSpec[], onlyWrong: boolean): void {
+  const results = scoreCorpus(specs);
+  const t = totalsOf(results);
+
+  console.log(`\n\n██████████ ${title} ██████████`);
   for (const r of results) {
-    if (onlyWrong && r.primitivesWrong.length === 0 && r.nameOk && r.trapsMissed.length === 0) continue;
+    if (onlyWrong && r.primitivesWrong.length === 0 && r.nameOk && r.trapsMissed.length === 0 &&
+        r.anomaliesMissed.length === 0 && r.anomaliesSpurious.length === 0) continue;
     console.log(`\n━━ ${r.id} — ${r.industry}`);
     if (r.fatal) console.log(`   FATAL: ${r.fatal}`);
     if (r.headerRowGot !== r.headerRowExpected) {
@@ -261,6 +320,9 @@ function report(onlyWrong: boolean): void {
     for (const d of r.dateUnavailable) console.log(`   date order unavailable: ${d}`);
     for (const x of r.trapsCaught) console.log(`   trap caught: ${x}`);
     for (const x of r.trapsMissed) console.log(`   trap MISSED: ${x}`);
+    for (const x of r.anomaliesCaught) console.log(`   anomaly surfaced: ${x}`);
+    for (const x of r.anomaliesMissed) console.log(`   anomaly MISSED: ${x}`);
+    for (const x of r.anomaliesSpurious) console.log(`   anomaly SPURIOUS: ${x}`);
   }
 
   console.log(`\n━━━━━━━━━━ TOTALS over ${t.files} workbooks ━━━━━━━━━━`);
@@ -275,6 +337,9 @@ function report(onlyWrong: boolean): void {
   console.log(`date order unavailable    ${t.dateUnavailable}  (column not classified as a date at all)`);
   console.log(`row-shape traps caught    ${t.trapsCaught}`);
   console.log(`row-shape traps missed    ${t.trapsMissed}`);
+  console.log(`anomalies surfaced        ${t.anomaliesCaught}/${t.anomaliesCaught + t.anomaliesMissed}  (§21.2 — asked, not guessed)`);
+  console.log(`anomalies missed          ${t.anomaliesMissed}  (the column looks clean and is not)`);
+  console.log(`anomalies spurious        ${t.anomaliesSpurious}  (asked about a clean column — noise)`);
 }
 
 if (process.argv[1]?.replace(/\\/g, '/').endsWith('testCorpus/benchmark.ts')) {
