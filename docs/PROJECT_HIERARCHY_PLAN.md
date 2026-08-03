@@ -2550,3 +2550,207 @@ Section 16 assumes stage transitions mean something — blocked, on pace and
 projected end are all derived from stage movement. If advancing a project stage
 is a bare column write with no gates and no events, those numbers rest on
 nothing. Phase 12 lands before or with Phase 10.
+
+### 20.4 DECIDED — automations and notifications only, and hide the rest
+
+Decision taken: **projects do NOT get the full pipeline engine.** A full
+project pipeline is overkill and would confuse users who already cannot
+distinguish portfolio / project / pipeline / task (§17). What ships:
+
+**IN — automations and notifications.** These are the two that make a project
+stage mean something operationally: the firm finds out a project moved, and a
+project that sits too long moves itself.
+
+**DEFERRED — gates, action buttons, review-by-transition.** Good QOL, not now.
+`requires_timer` is not merely deferred but probably wrong forever: a project
+must never become a timer target, per the existing rule. `requires_submission`
+needs redefining before it can be built — whose submission, when a project's
+work is its tasks?
+
+**Reframing that makes this small:** projects ALREADY have stages —
+`pipeline_id`, `current_stage_id` and trigger-written `project_stage_history`
+all shipped in Phase 2. Nothing here adds a pipeline concept to projects. The
+only question was what FIRES on a stage change, and the answer is: two things.
+
+### 20.5 Why this is cheaper than it sounds
+
+**Notifications are trigger-based, not inline.** `fn_emit_notification_event`
+(5 args) is the shared entry point and `fn_trg_tasks_notify_update` /
+`fn_trg_task_assignments_notify` / `fn_trg_task_comments_notify` fire from
+table triggers — `rpc_execute_stage_action` does not create notifications
+itself. So a project stage-change notification is ONE trigger on `projects`
+calling the same entry point, mirroring the task trigger. Existing pattern,
+extended; no new machinery. (See the first rule of
+`.agents/rules/global-utilities-index.md`.)
+
+**Automations need no schema change.** `pipeline_automations` keys on
+`pipeline_id` + `source_stage_id` + `target_stage_id`, and projects use the
+SAME `pipelines` / `pipeline_stages` tables — `subject_kind` is what
+distinguishes them. So the rows already point at stages that may be project
+stages; `rpc_process_automations` simply never looks at projects.
+
+**But know what "automations" currently means.** `rpc_process_automations`
+understands exactly ONE `condition_type`: `'overdue'`. The engine is thinner
+than the name suggests. Extending it to projects means "a project that has sat
+in a stage past its due date moves on" — that is the whole feature today, and
+the scope should say so rather than implying a rules engine exists.
+
+### 20.6 Non-negotiable: stop offering what does not work
+
+Deferring gates and actions is only safe if the editor STOPS SHOWING them for
+project pipelines. `pipelines.subject_kind` already exists
+(20260731_pipeline_subject_kind.sql) and the editor ignores it, rendering every
+control regardless of subject. Today that means a user can configure a
+`requires_submission` gate on a project pipeline, save it, and never learn it
+was never enforced.
+
+**A silent no-op is worse than an absent feature**, and it is worse than the
+bug it hides: the user believes the gate is protecting them. So §20.2's rule is
+part of THIS phase's definition of done, not a follow-up — the controls that do
+nothing for `subject_kind = 'project'` are hidden or disabled with a reason, in
+the same change that ships the two that work.
+
+### 20.7 SHIPPED — `20260803_project_stage_engine.sql`
+
+**Notifications.** `trg_projects_notify_stage` (`AFTER UPDATE OF
+current_stage_id ON projects`, WHEN clause copied from
+`trg_projects_stage_history` so the event and the history row can never
+disagree about what counts as a move) calls `fn_emit_notification_event` with
+`project.stage_transition`, mirroring `fn_trg_tasks_notify_update`. It honours
+the same `trustflow.bulk_instantiate` suppression the task triggers use. A
+seeded `notification_rules` row consumes it via a new `payload_users` strategy
+in `process-notification-event`.
+
+**Who hears about it.** Everyone for whom `fn_project_accessible` is true —
+in practice the owner, anyone assigned a task in it, and every
+`project.view_all` holder, because those are that predicate's three branches.
+`fn_project_stage_notify_recipients(p_project_id)` resolves the list at emit
+time and puts it in the payload. It does NOT re-derive the rule: it enumerates
+the whole company as candidates and filters each through
+`fn_project_accessible` evaluated as that user (`request.jwt.claims` +
+the legacy `request.jwt.claim.sub`, both saved and restored). The candidate set
+is deliberately the widest possible one so it can never be the thing that
+decides access — §13.14 stays one predicate, five call sites.
+
+Recipients are resolved in the DB rather than by the Edge Function because
+`fn_project_accessible` is `auth.uid()`-bound and a service-role client cannot
+evaluate it — and because that is what makes the guarantee provable from SQL.
+
+**Automations.** `pipeline_automations` needed no change, exactly as §20.5
+predicted; `rpc_create/update/delete_automation` are already subject-agnostic.
+`rpc_process_automations` now branches on `pipelines.subject_kind` and reads
+`projects.due_date` where the task branch reads `tasks.due_date`. `'overdue'`
+is still the ONLY `condition_type` the processor understands, for tasks as
+well — `'idle'` and `'due_soon'` are accepted by `rpc_create_automation` and
+never evaluated, so `AutomationEditor` now shows them disabled with that
+reason rather than pretending. One schema change was needed after all, to the
+LOG table, not to `pipeline_automations`: `automation_execution_log.task_id`
+was `NOT NULL` and backs the 3-fires-per-hour circuit breaker, so `task_id` is
+now nullable, `project_id` joins it, and a CHECK keeps exactly one populated.
+
+Note that nothing schedules `rpc_process_automations` — there is no `pg_cron`
+entry for it, for tasks either. Projects will not actually self-advance until
+something calls it.
+
+**§20.6.** `StageBuilder.tsx` and `StageBuilder.web.tsx` both hide, for
+`subject_kind='project'`: the submission gate, requires-timer + minimum timer,
+business hours, re-assign on entry, recursive spawning, manager routing / max
+escalation depth, and stage actions. `ProjectStageNote.tsx` (shared by both, so
+a native-only fix cannot be mistaken for a fix) stands in their place and says
+what a project stage does instead. `graph/StageNode.tsx` stops badging
+`requires_submission` / `requires_timer` / `linked_pipeline_id` on a project
+stage — a stage already carrying those flags from before this change would
+otherwise still be making the promise the editor stopped making.
+
+Nothing to do for review-by-transition: `pipeline_stage_transitions` has no
+review flag, and transitions themselves ARE enforced for projects
+(`rpc_advance_project_stage` validates the path), so `TransitionEditor` stays.
+
+Self-check: `supabase/checks/check_project_stage_engine.sql`.
+
+---
+
+## 21. Messiness is the feature, not the edge case
+
+The Excel-serial defect (§19.4, fixed in 7287f7d) is the clearest statement of
+what this parser is actually for. The file was not malformed. A human typed
+`8/2/26` meaning 8 February into an Excel whose locale was MDY; Excel stored 2
+August and displayed "8/2/26" back at them. The data was corrupt before it ever
+reached us, it looked correct to its author, and it was wrong on exactly the
+rows nobody can eyeball (day <= 12).
+
+**Our own 11-workbook adversarial corpus did not catch it. The user's real file
+did.** That is the finding worth generalising: synthetic fixtures are written by
+someone who knows what a date is, so they contain the mess we already imagined.
+Real files contain the mess we did not.
+
+### 21.1 The generalisable technique
+
+The fix was not "special-case Excel". It was: **use the unambiguous members of
+a set to disambiguate the ambiguous ones.** `15/2/2026` cannot be MDY, so it
+settles the order for `8/2/26` sitting in the same column.
+
+That principle re-applies everywhere and should be reached for first:
+
+- **Dates** — one value with a first part > 12 settles the whole column.
+- **Money** — one cell with a currency symbol or decimal settles that a
+  sibling bare integer is money, not an identifier.
+- **Booleans** — `TRUE` in a column of `1`/`0` settles the column.
+- **Entities** — the exact-cased `Abdallah Kamel` settles that `Abdallah kamel`
+  is the same person, not a second one.
+- **Enums** — a 40-row column with 3 distinct values settles that a 4th
+  one-off value is likely a typo, not a new category.
+
+Column-level evidence beats per-cell guessing. It is the same reasoning Sato
+uses over Sherlock (context beats isolated classification) and the same shape
+as §16.1's "one definition, consumed everywhere".
+
+### 21.2 The rule when evidence runs out
+
+**When the parser cannot resolve an inconsistency, it surfaces it. It never
+silently picks.** A silent pick is indistinguishable from correct data to
+everyone downstream, which is precisely why the serial bug survived: nothing
+looked wrong.
+
+This is already the design for ambiguous date columns (ask once, per column).
+It must be the design for every other class below.
+
+### 21.3 Classes to handle, and where each stands
+
+**A. Tool-introduced corruption.** Excel's own DMY/MDY misparse — HANDLED.
+Still open: formula error values (`#REF!`, `#N/A`, `#DIV/0!`), numbers stored
+as text and text stored as numbers, leading-apostrophe escapes, autocorrected
+values (`1-2` becoming a date, `SEPT` becoming a month).
+
+**B. Entity naming drift.** Same client written three ways across a file —
+case, trailing space, legal-suffix variants (`LLC` / `L.L.C` / `W.L.L.`),
+transliteration, plain typos. `normalizeMatchKey` and the fuzzy client matcher
+cover part of this; nothing yet detects that two rows in the SAME file are the
+same entity spelled differently.
+
+**C. Within-column format mixing.** Some dates ISO and some `d/m/y` and some
+prose in one column (the real file has this — 62% coverage on "Expected date").
+Money with and without symbols. `Y/N` and `TRUE/FALSE` and `1/0` together.
+Partially handled via coverage reporting; not resolved.
+
+**D. Structural.** Merged cells, section-header rows mid-table, hidden rows,
+duplicate rows, several tables in one sheet, a "Notes" column holding three
+facts. Continuation/footer/subtotal are handled; the rest are not, and the
+corpus only models those three.
+
+**E. Semantic.** Totals that do not reconcile — DETECTED and surfaced, never
+silently corrected. Still open: a column whose meaning changes partway down,
+and the null vocabulary (`N/A`, `-`, `TBD`, `?`, `n/a`, `none`, `--`) which is
+currently treated as content.
+
+### 21.4 What this means for the corpus
+
+The corpus needs a messiness dimension it does not have. Its trap vocabulary is
+three values (`continuation`, `footer`, `subtotal`) against the classes above.
+
+And it needs at least one workbook built by ROUND-TRIPPING through the failure
+modes rather than by writing the end state — e.g. generate DMY dates, then
+deliberately re-encode them the way an MDY-locale Excel would, so the fixture
+contains the corruption instead of a description of it. A fixture that merely
+asserts "this column is dates" cannot express "this column is dates that a
+different tool already broke".

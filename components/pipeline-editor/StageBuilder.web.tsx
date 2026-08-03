@@ -4,6 +4,7 @@ import { FontAwesome } from '@expo/vector-icons';
 import { usePipelineEditor, Stage } from '@/contexts/PipelineEditorContext';
 import { useAlert } from '@/contexts/AlertContext';
 import GraphCanvas from './graph/GraphCanvas';
+import ProjectStageNote from './ProjectStageNote';
 import Popup from '@/components/common/Popup';
 import Tooltip from '@/components/common/Tooltip';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -34,6 +35,14 @@ export default function StageBuilder() {
   const [viewMode, setViewMode] = useState<'graph' | 'list'>('graph');
   const [showPermPicker, setShowPermPicker] = useState(false);
   const effectiveViewMode = isDesktop ? viewMode : 'list';
+
+  // #142 Phase 12 / plan §20.6. Projects get automations and notifications on
+  // a stage change, and nothing else — no submission or timer gates, no stage
+  // action buttons, no escalation routing. Those controls are HIDDEN here
+  // rather than shown-and-ignored: a gate the user configures, saves, and
+  // that was never enforced is worse than an absent one, because they believe
+  // it is protecting them.
+  const isProjectPipeline = selectedPipeline?.subject_kind === 'project';
 
   // Form state
   const [formState, setFormState] = useState({
@@ -320,25 +329,28 @@ export default function StageBuilder() {
                       </TouchableOpacity>
                    </View>
                 )}
-                <View>
-                  <Text className="text-typography-label text-[10px] font-bold uppercase tracking-wider mb-1">Submission Gate</Text>
-                  <View className="flex-row gap-2">
-                    {([
-                      { val: 'none', label: 'None', desc: 'No submissions' },
-                      { val: 'optional', label: 'Optional', desc: 'Allowed, not required' },
-                      { val: 'required', label: 'Required', desc: 'Blocks exit until submitted' },
-                    ] as const).map(opt => (
-                      <TouchableOpacity
-                        key={opt.val}
-                        onPress={() => setFormState(prev => ({ ...prev, submission_mode: opt.val }))}
-                        className={`flex-1 p-2 rounded-lg items-center border ${formState.submission_mode === opt.val ? 'bg-brand-primary/10 border-brand-primary' : 'border-surface-border'}`}
-                      >
-                        <Text className={`text-[10px] font-bold ${formState.submission_mode === opt.val ? 'text-brand-primary' : 'text-typography-muted'}`}>{opt.label}</Text>
-                      </TouchableOpacity>
-                    ))}
+                {!isProjectPipeline && (
+                  <View>
+                    <Text className="text-typography-label text-[10px] font-bold uppercase tracking-wider mb-1">Submission Gate</Text>
+                    <View className="flex-row gap-2">
+                      {([
+                        { val: 'none', label: 'None', desc: 'No submissions' },
+                        { val: 'optional', label: 'Optional', desc: 'Allowed, not required' },
+                        { val: 'required', label: 'Required', desc: 'Blocks exit until submitted' },
+                      ] as const).map(opt => (
+                        <TouchableOpacity
+                          key={opt.val}
+                          onPress={() => setFormState(prev => ({ ...prev, submission_mode: opt.val }))}
+                          className={`flex-1 p-2 rounded-lg items-center border ${formState.submission_mode === opt.val ? 'bg-brand-primary/10 border-brand-primary' : 'border-surface-border'}`}
+                        >
+                          <Text className={`text-[10px] font-bold ${formState.submission_mode === opt.val ? 'text-brand-primary' : 'text-typography-muted'}`}>{opt.label}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
                   </View>
-                </View>
-                {selectedPipeline?.assignment_mode !== 'manual' && (
+                )}
+                {isProjectPipeline && <ProjectStageNote />}
+                {!isProjectPipeline && selectedPipeline?.assignment_mode !== 'manual' && (
                   <Toggle
                     label="Re-assign on Entry"
                     desc="Re-evaluates and may change the assignee every time a task enters this stage — including manually assigned tasks"
@@ -346,7 +358,7 @@ export default function StageBuilder() {
                     onToggle={(val: boolean) => setFormState(prev => ({ ...prev, reassign_on_entry: val }))}
                   />
                 )}
-                {selectedPipeline?.subject_kind !== 'project' && (
+                {!isProjectPipeline && (
                   <Toggle
                     label="Seal to Project Deliverable"
                     desc="Tasks entering this stage promote their latest submission's files into their project's sealed deliverable folder (issue #174)"
@@ -356,7 +368,9 @@ export default function StageBuilder() {
                 )}
               </Section>
 
-              {/* Time Management */}
+              {/* Time Management — a project must never become a timer
+                  target (plan §20.4), so this whole section is task-only. */}
+              {!isProjectPipeline && (
               <Section label="Time Management">
                  <Toggle
                     label="Focus Timer"
@@ -392,10 +406,13 @@ export default function StageBuilder() {
                     onToggle={(val: boolean) => setFormState(prev => ({ ...prev, use_business_hours: val }))}
                  />
               </Section>
+              )}
 
-              {/* Advanced Routing */}
+              {/* Advanced Routing — manager routing and escalation depth are
+                  read by the task escalation path only. */}
+              {!isProjectPipeline && (
               <Section label="SLA & Escalation">
-                <Input 
+                <Input
                   label="Manager Routing"
                   placeholder="INHERIT, TEAM_LEAD, etc."
                   value={formState.manager_routing_rule}
@@ -403,7 +420,7 @@ export default function StageBuilder() {
                 />
                 <View className="mb-4">
                   <Text className="text-typography-muted text-[10px] font-bold uppercase mb-1">Max Escalation Depth</Text>
-                  <TextInput 
+                  <TextInput
                     className="bg-surface-background border border-surface-border p-3 rounded-lg text-typography-main font-bold"
                     keyboardType="numeric"
                     value={String(formState.max_escalation_depth)}
@@ -411,8 +428,12 @@ export default function StageBuilder() {
                   />
                 </View>
               </Section>
+              )}
 
-              {/* ── Actions & Conditionals ── */}
+              {/* ── Actions & Conditionals ── rpc_execute_stage_action is
+                  task-only; an action button on a project stage would render
+                  and do nothing. Deferred, per plan §20.4. */}
+              {!isProjectPipeline && (
               <Section label="Actions & Conditionals" last>
                 <Text className="text-typography-muted text-[10px] leading-relaxed mb-3">
                   Buttons shown on task cards. Canvas connections auto-generate actions. Multiple actions create branching choices.
@@ -573,6 +594,7 @@ export default function StageBuilder() {
                   });
                 })()}
               </Section>
+              )}
 
               <View className="h-20" />
             </ScrollView>

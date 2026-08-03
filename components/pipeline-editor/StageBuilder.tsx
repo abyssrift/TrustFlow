@@ -7,6 +7,7 @@ import { ActivityIndicator, Platform, ScrollView, Text, TextInput, TouchableOpac
 import HorizontalScroll from '../common/HorizontalScroll';
 import Tooltip from '../common/Tooltip';
 import { resolveNativeColorToken } from './colorCompat';
+import ProjectStageNote from './ProjectStageNote';
 
 export default function StageBuilder() {
   const {
@@ -18,6 +19,15 @@ export default function StageBuilder() {
 
   const { showAlert } = useAlert();
   const colors = useThemeColors();
+
+  // #142 Phase 12 / plan §20.6. Projects get automations and notifications on
+  // a stage change, and nothing else — no submission or timer gates, no stage
+  // action buttons, no escalation routing, no recursive spawning. Those
+  // controls are HIDDEN here rather than shown-and-ignored: a gate the user
+  // configures, saves, and that was never enforced is worse than an absent
+  // one, because they believe it is protecting them. Mirrored in
+  // StageBuilder.web.tsx — fixing one does not fix the other.
+  const isProjectPipeline = selectedPipeline?.subject_kind === 'project';
 
   const colorPalette = [
     colors.textDim, colors.primary, colors.secondary, colors.accent,
@@ -227,6 +237,8 @@ export default function StageBuilder() {
           icon="sign-in"
           color={colors.info}
         />
+        {isProjectPipeline && <ProjectStageNote />}
+        {!isProjectPipeline && (
         <View>
           <Text className="text-typography-label text-[10px] font-bold uppercase tracking-wider mb-1.5">Submission Gate</Text>
           <View className="flex-row gap-2">
@@ -242,6 +254,9 @@ export default function StageBuilder() {
           </View>
           <Text className="text-typography-dim text-[10px] mt-1 italic opacity-80">Required blocks advancing until work is submitted; optional allows it without blocking.</Text>
         </View>
+        )}
+        {/* A project must never become a timer target (plan §20.4). */}
+        {!isProjectPipeline && (
         <FlagToggle
           label="Requires Timer"
           desc="Enforces time-tracking for this stage"
@@ -250,7 +265,8 @@ export default function StageBuilder() {
           icon="clock-o"
           color={colors.warning}
         />
-        {formRequiresTimer && (
+        )}
+        {!isProjectPipeline && formRequiresTimer && (
           <View className="ml-4 pl-4 border-l-2 border-state-warning/30 py-2">
             <Text className="text-typography-label text-[10px] font-bold uppercase tracking-wider mb-1.5">
               Minimum Timer (minutes)
@@ -273,6 +289,7 @@ export default function StageBuilder() {
             </View>
           </View>
         )}
+        {!isProjectPipeline && (
         <FlagToggle
           label="Use Business Hours"
           desc="Calculates duration only during Sun-Thu 09:00-17:00"
@@ -281,6 +298,7 @@ export default function StageBuilder() {
           icon="calendar"
           color={colors.success}
         />
+        )}
         <FlagToggle
           label="Terminal Stage"
           desc="End state — no further transitions"
@@ -292,7 +310,7 @@ export default function StageBuilder() {
           icon="flag-checkered"
           color={colors.warning}
         />
-        {selectedPipeline?.assignment_mode !== 'manual' && (
+        {!isProjectPipeline && selectedPipeline?.assignment_mode !== 'manual' && (
           <FlagToggle
             label="Re-assign on Entry"
             desc="Re-evaluates and may change the assignee every time a task enters this stage — including manually assigned tasks"
@@ -302,7 +320,7 @@ export default function StageBuilder() {
             color={colors.accent}
           />
         )}
-        {selectedPipeline?.subject_kind !== 'project' && (
+        {!isProjectPipeline && (
           <FlagToggle
             label="Seal to Project Deliverable"
             desc="Tasks entering this stage promote their latest submission's files into their project's sealed deliverable folder (issue #174)"
@@ -314,7 +332,8 @@ export default function StageBuilder() {
         )}
       </View>
 
-      {/* Recursive Spawning */}
+      {/* Recursive Spawning — spawns a sub-TASK on task entry. */}
+      {!isProjectPipeline && (<>
       <Text className="text-typography-label text-[10px] font-bold uppercase tracking-wider mb-2">Recursive Spawning</Text>
       <View className="mb-4">
         <HorizontalScroll className="flex-row gap-2">
@@ -337,7 +356,7 @@ export default function StageBuilder() {
         <Text className="text-typography-dim text-[10px] mt-1 italic opacity-80">If a task enters this stage, spawn a sub-task with this pipeline.</Text>
       </View>
 
-      {/* Advanced Logic */}
+      {/* Advanced Logic — read by the task escalation path only. */}
       <Text className="text-typography-label text-[10px] font-bold uppercase tracking-wider mb-2">Advanced Logic (SLA & Routing)</Text>
       <View className="mb-4 gap-3">
          <View>
@@ -360,6 +379,7 @@ export default function StageBuilder() {
             />
          </View>
       </View>
+      </>)}
 
       {/* Terminal Type */}
       {formIsTerminal && (
@@ -389,14 +409,15 @@ export default function StageBuilder() {
         </View>
       )}
 
-      {/* Stage Actions */}
-      {isEdit && stageId ? (
+      {/* Stage Actions — rpc_execute_stage_action is task-only; an action
+          button on a project stage would render and do nothing (plan §20.4). */}
+      {!isProjectPipeline && (isEdit && stageId ? (
         <StageActionManager stageId={stageId} />
       ) : (
         <View className="mb-4 p-4 border border-surface-border border-dashed rounded-xl items-center">
           <Text className="text-typography-muted text-xs">Save this stage first to manage its Actions.</Text>
         </View>
-      )}
+      ))}
 
       {/* Actions */}
       <View className="flex-row gap-3">
