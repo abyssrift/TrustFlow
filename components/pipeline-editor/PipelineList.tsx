@@ -1,7 +1,7 @@
 import Popup from '@/components/common/Popup';
 import Tooltip from '@/components/common/Tooltip';
 import { useAuth } from '@/contexts/AuthContext';
-import { Pipeline, usePipelineEditor } from '@/contexts/PipelineEditorContext';
+import { Pipeline, PipelineDeleteImpact, usePipelineEditor } from '@/contexts/PipelineEditorContext';
 import { usePipelineLimit } from '@/hooks/usePipelineLimit';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { FontAwesome } from '@expo/vector-icons';
@@ -29,7 +29,7 @@ export default function PipelineList() {
   const {
     pipelines, loading, error,
     refreshPipelines, selectPipeline,
-    createPipeline, updatePipeline, deletePipeline, setPipelineSubjectKind,
+    createPipeline, updatePipeline, deletePipeline, previewDeletePipeline, setPipelineSubjectKind,
     roles,
   } = usePipelineEditor();
   const { hasPermission, profile } = useAuth();
@@ -39,6 +39,7 @@ export default function PipelineList() {
   const [showCreate, setShowCreate] = useState(false);
   const [isQuickCreate, setIsQuickCreate] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [deleteImpact, setDeleteImpact] = useState<PipelineDeleteImpact | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const canEdit = hasPermission('pipeline.edit');
@@ -66,10 +67,24 @@ export default function PipelineList() {
     }
   };
 
+  // #196: never open the confirm without the damage report. The same RPC the
+  // delete calls first, so if it refuses (running timer, no permission) the
+  // confirm never opens for a delete that would have failed anyway.
+  const askDelete = async (id: string) => {
+    if (!canEdit) return;
+    setDeleteImpact(null);
+    const impact = await previewDeletePipeline(id);
+    if (!impact) return;
+    setDeleteImpact(impact);
+    setConfirmDelete(id);
+  };
+
+  const closeConfirm = () => { setConfirmDelete(null); setDeleteImpact(null); };
+
   const handleDelete = async (id: string) => {
     if (!canEdit) return;
     const ok = await deletePipeline(id);
-    if (ok) setConfirmDelete(null);
+    if (ok) closeConfirm();
   };
 
   const handleSaveEdit = async (id: string, data: any) => {
@@ -210,12 +225,37 @@ export default function PipelineList() {
                 ) : confirmDelete === p.id ? (
                   <View className="bg-surface-card p-6 rounded-3xl border border-state-danger/30 premium-shadow">
                     <Text className="text-typography-main font-black text-lg mb-2">Delete "{p.name}"?</Text>
+                    {/* #196: the old copy claimed "existing tasks will remain
+                        functional", which was never true — every task on the
+                        board was soft-deleted. This says what actually happens,
+                        counted by the same RPC that will perform it. */}
+                    <Text className="text-typography-muted text-sm mb-2 leading-5">
+                      {deleteImpact && deleteImpact.tasks_total > 0
+                        ? `This board holds ${deleteImpact.tasks_total} task${deleteImpact.tasks_total === 1 ? '' : 's'}${deleteImpact.projects_affected > 0 ? ` across ${deleteImpact.projects_affected} project${deleteImpact.projects_affected === 1 ? '' : 's'}` : ''}.`
+                        : 'This board holds no tasks.'}
+                    </Text>
+                    {!!deleteImpact && deleteImpact.tasks_detached > 0 && (
+                      <Text className="text-typography-muted text-sm mb-2 leading-5">
+                        <Text className="text-typography-main font-bold">{deleteImpact.tasks_detached}</Text>
+                        {` task${deleteImpact.tasks_detached === 1 ? '' : 's'} belong to ${deleteImpact.projects_affected === 1 ? 'a project' : 'projects'} and will be kept — they stay on `}
+                        <Text className="text-typography-main font-bold">
+                          {deleteImpact.projects.map(pr => pr.name).join(', ')}
+                        </Text>
+                        {', off any board.'}
+                      </Text>
+                    )}
+                    {!!deleteImpact && deleteImpact.tasks_deleted > 0 && (
+                      <Text className="text-state-danger text-sm mb-2 leading-5">
+                        <Text className="font-bold">{deleteImpact.tasks_deleted}</Text>
+                        {` task${deleteImpact.tasks_deleted === 1 ? '' : 's'} belong to no project and will be deleted with the board. This cannot be undone.`}
+                      </Text>
+                    )}
                     <Text className="text-typography-muted text-sm mb-6 leading-5">
-                      This will archive the pipeline. Existing tasks using this pipeline will remain functional but new ones cannot be created.
+                      The pipeline is archived — no new tasks can be created on it.
                     </Text>
                     <View className="flex-row gap-3">
                       <TouchableOpacity
-                        onPress={() => setConfirmDelete(null)}
+                        onPress={closeConfirm}
                         className="flex-1 bg-surface-background py-3 rounded-xl border border-surface-border items-center justify-center h-12"
                       >
                         <Text className="text-typography-muted font-bold">Cancel</Text>
@@ -297,7 +337,7 @@ export default function PipelineList() {
 
                             <Tooltip label="Delete pipeline">
                               <TouchableOpacity
-                                onPress={(e: any) => { e.stopPropagation(); setConfirmDelete(p.id); }}
+                                onPress={(e: any) => { e.stopPropagation(); askDelete(p.id); }}
                                 className="p-2.5 rounded-xl border border-surface-border bg-surface-background"
                               >
                                 <FontAwesome name="trash-o" size={12} className="text-typography-muted" />

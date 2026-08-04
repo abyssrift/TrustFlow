@@ -18,6 +18,24 @@ export type FileVisibility = {
   categories?: Record<string, FileVisibility>;
 };
 
+/**
+ * #196 — what deleting a board would cost. Returned by BOTH
+ * rpc_preview_delete_pipeline and rpc_delete_pipeline (the commit calls the
+ * preview and returns its exact output), so the confirmation dialog and the
+ * result can never disagree.
+ */
+export type PipelineDeleteImpact = {
+  pipeline_id: string;
+  pipeline_name: string | null;
+  tasks_total: number;
+  /** Project-linked tasks that survive, detached from the board. */
+  tasks_detached: number;
+  /** Board-only tasks that are soft-deleted. */
+  tasks_deleted: number;
+  projects_affected: number;
+  projects: { id: string; name: string }[];
+};
+
 export type Pipeline = {
   id: string;
   name: string;
@@ -189,6 +207,7 @@ type PipelineEditorState = {
   createPipeline: (name: string, desc: string, stages: any[], transitions: any[], visibility_permissions?: string[], task_visibility_mode?: string, subjectKind?: 'task' | 'project') => Promise<string | null>;
   updatePipeline: (id: string, name?: string, desc?: string | null, isDefault?: boolean, visibility_permissions?: string[], task_visibility_mode?: string, assignmentMode?: string, assignmentPoolType?: string) => Promise<boolean>;
   deletePipeline: (id: string) => Promise<boolean>;
+  previewDeletePipeline: (id: string) => Promise<PipelineDeleteImpact | null>;
   setFileVisibility: (id: string, config: FileVisibility) => Promise<boolean>;
   setPipelineSubjectKind: (id: string, kind: 'task' | 'project') => Promise<boolean>;
   // Assignment pool CRUD
@@ -732,16 +751,37 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
     }
   }, [errorToast]);
 
+  // #196: same RPC the delete calls first, so a preview that succeeds is a
+  // promise the delete will too (plan §13.10). Errors are surfaced, not
+  // swallowed — a running timer blocks both paths with the same message.
+  const previewDeletePipeline = useCallback(async (id: string): Promise<PipelineDeleteImpact | null> => {
+    try {
+      const { data, error: e } = await supabase.rpc('rpc_preview_delete_pipeline', {
+        p_pipeline_id: id,
+      });
+      if (e) throw e;
+      return data as PipelineDeleteImpact;
+    } catch (e: any) {
+      errorToast(e.message || 'Unable to check what this pipeline holds.');
+      return null;
+    }
+  }, [errorToast]);
+
   const deletePipeline = useCallback(async (id: string): Promise<boolean> => {
     setLoading(true);
     try {
-      const { error: e } = await supabase.rpc('rpc_delete_pipeline', {
+      const { data, error: e } = await supabase.rpc('rpc_delete_pipeline', {
         p_pipeline_id: id,
       });
       if (e) throw e;
       if (selectedPipeline?.id === id) deselectPipeline();
       await refreshPipelines();
-      infoToast('Pipeline removed.');
+      const impact = data as PipelineDeleteImpact | null;
+      infoToast(
+        impact && impact.tasks_detached > 0
+          ? `Pipeline removed. ${impact.tasks_detached} task${impact.tasks_detached === 1 ? '' : 's'} kept on ${impact.projects_affected} project${impact.projects_affected === 1 ? '' : 's'}.`
+          : 'Pipeline removed.'
+      );
       return true;
     } catch (e: any) {
       setError(e.message);
@@ -1223,7 +1263,7 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
         },
 
         // Flat compatibility layer
-        createPipeline, updatePipeline, deletePipeline, setFileVisibility, setPipelineSubjectKind,
+        createPipeline, updatePipeline, deletePipeline, previewDeletePipeline, setFileVisibility, setPipelineSubjectKind,
         setAssignmentPool, setPoolMemberWithdrawn,
         addStage, updateStage, updateStagePosition, deleteStage, reorderStages,
         addTransition, updateTransition, deleteTransition,

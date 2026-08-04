@@ -1,4 +1,4 @@
-import { Role, FileVisibility, FileVisibilityPreset } from '@/contexts/PipelineEditorContext';
+import { Role, FileVisibility, FileVisibilityPreset, PipelineDeleteImpact } from '@/contexts/PipelineEditorContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
@@ -101,28 +101,27 @@ export default function PipelineSettingsForm({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteInput, setDeleteInput] = useState('');
   const [deleting, setDeleting] = useState(false);
-  const [taskCount, setTaskCount] = useState<number | null>(null);
+  const [impact, setImpact] = useState<PipelineDeleteImpact | null>(null);
+  const [impactError, setImpactError] = useState<string | null>(null);
 
-  // Fetch task count when delete confirmation is opened
+  // #196: this used to be its own `from('tasks').count()` — a second, drifted
+  // implementation of "what does deleting this cost", which knew nothing about
+  // projects and claimed every task would be archived. It now asks the same
+  // RPC rpc_delete_pipeline itself calls first, so the warning cannot disagree
+  // with what the delete does, and a refusal (running timer, missing
+  // permission) surfaces here instead of after Confirm.
   React.useEffect(() => {
-    if (showDeleteConfirm && initialData?.id) {
-      const fetchTaskCount = async () => {
-        try {
-          const { count, error } = await supabase
-            .from('tasks')
-            .select('*', { count: 'exact', head: true })
-            .eq('pipeline_id', initialData.id)
-            .is('deleted_at', null);
-          
-          if (!error) {
-            setTaskCount(count || 0);
-          }
-        } catch (e) {
-          console.error('Error fetching task count:', e);
-        }
-      };
-      fetchTaskCount();
-    }
+    if (!showDeleteConfirm || !initialData?.id) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error: e } = await supabase.rpc('rpc_preview_delete_pipeline', {
+        p_pipeline_id: initialData.id,
+      });
+      if (cancelled) return;
+      if (e) { setImpactError(e.message); setImpact(null); }
+      else { setImpactError(null); setImpact(data as PipelineDeleteImpact); }
+    })();
+    return () => { cancelled = true; };
   }, [showDeleteConfirm, initialData?.id]);
 
   const filteredRoles = useMemo(() => {
@@ -738,7 +737,7 @@ export default function PipelineSettingsForm({
               <View className="flex-1 mr-4">
                 <Text className="text-typography-main font-bold text-sm">Delete Pipeline</Text>
                 <Text className="text-typography-muted text-[10px] mt-1 leading-4">
-                  Permanently remove this pipeline and all its associated stages, transitions, and automations. This action cannot be undone.
+                  Archives this pipeline and its stages, transitions and automations. Tasks that belong to a project are kept — everything else on this board is deleted.
                 </Text>
               </View>
               <TouchableOpacity
@@ -758,12 +757,33 @@ export default function PipelineSettingsForm({
                   </View>
                 )}
 
-                {taskCount !== null && taskCount > 0 && (
-                  <View className="bg-state-warning/10 border border-state-warning/30 p-3 rounded-lg mb-4 flex-row items-center gap-2">
+                {impactError && (
+                  <View className="bg-state-danger/10 border border-state-danger/30 p-3 rounded-lg mb-4 flex-row items-center gap-2">
+                    <FontAwesome name="exclamation-circle" size={12} color={colors.danger} />
+                    <Text className="text-state-danger text-[10px] font-bold flex-1">{impactError}</Text>
+                  </View>
+                )}
+
+                {!!impact && impact.tasks_total > 0 && (
+                  <View className="bg-state-warning/10 border border-state-warning/30 p-3 rounded-lg mb-4 flex-row items-start gap-2">
                     <FontAwesome name="exclamation-triangle" size={12} color={colors.warning} />
                     <View className="flex-1">
-                      <Text className="text-state-warning text-[10px] font-bold">Warning: Active Tasks Detected</Text>
-                      <Text className="text-typography-muted text-[9px]">Deletion will archive {taskCount} tasks. This cannot be undone.</Text>
+                      <Text className="text-state-warning text-[10px] font-bold">
+                        {`This board holds ${impact.tasks_total} task${impact.tasks_total === 1 ? '' : 's'}`}
+                        {impact.projects_affected > 0
+                          ? ` across ${impact.projects_affected} project${impact.projects_affected === 1 ? '' : 's'}`
+                          : ''}
+                      </Text>
+                      {impact.tasks_detached > 0 && (
+                        <Text className="text-typography-muted text-[9px] mt-0.5">
+                          {`${impact.tasks_detached} kept on ${impact.projects.map(p => p.name).join(', ')} — detached from any board.`}
+                        </Text>
+                      )}
+                      {impact.tasks_deleted > 0 && (
+                        <Text className="text-typography-muted text-[9px] mt-0.5">
+                          {`${impact.tasks_deleted} belong to no project and will be deleted. This cannot be undone.`}
+                        </Text>
+                      )}
                     </View>
                   </View>
                 )}
