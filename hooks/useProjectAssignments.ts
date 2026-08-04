@@ -93,8 +93,15 @@ function buildProjection(
   dueDate: string | null,
   health: ProjectHealth | null,
 ): ProjectionSeries {
+  // Membership is the STAGE, matching fn_project_projection and
+  // rpc_projects_table.tasks_done — a task is finished when it reaches a
+  // success-terminal stage, which is the only way anything finishes here.
+  // `completed_at` is only used to place it on the x-axis; a finished task
+  // with no stamp still counts (the server counts it), it just cannot be
+  // plotted on a specific day, so it is excluded from the line rather than
+  // from the total.
   const done = tasks
-    .filter(t => !!t.completed_at)
+    .filter(t => t.is_complete && !!t.completed_at)
     .map(t => t.completed_at!.slice(0, 10))
     .sort();
 
@@ -124,7 +131,10 @@ function buildProjection(
     const from = new Date(lastActual.date + 'T00:00:00Z');
     const to = new Date(health.projectedEnd + 'T00:00:00Z');
     const spanDays = Math.round((to.getTime() - from.getTime()) / 86_400_000);
-    const remaining = tasks.length - done.length;
+    // Remaining comes from the SERVER's counts, not from `done.length`, which
+    // omits finished-but-undated tasks. Mixing the two would make the
+    // projected arm aim at the wrong number of tasks.
+    const remaining = health.tasksTotal - health.tasksDone;
 
     if (spanDays > 0 && remaining > 0) {
       for (let d = 1; d <= spanDays && d <= 400; d++) {
@@ -136,7 +146,7 @@ function buildProjection(
           // Straight line to the target — the server gave us the landing date,
           // and inventing a curve between here and there would be this file
           // doing pace maths after all.
-          projected: done.length + (remaining * d) / spanDays,
+          projected: health.tasksDone + (remaining * d) / spanDays,
         });
       }
     }

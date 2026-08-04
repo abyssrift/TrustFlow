@@ -15,19 +15,26 @@
 -- comment naming this migration. Nothing here invents a shape — it fills one.
 --
 -- ── WHICH "DONE" ────────────────────────────────────────────────────────────
--- Two definitions of a finished task already exist in this codebase:
---   rpc_projects_table.tasks_done : stage is_terminal AND terminal_type='success'
---   the chart's historical arm    : tasks.completed_at IS NOT NULL
--- On live data they agree exactly (8 and 8, zero rows differing either way),
--- because completed_at is stamped on entry to a success-terminal stage. This
--- function uses completed_at — it is the only one of the two carrying a
--- TIMESTAMP, and a projection needs timing, not just a count.
+-- Done is `is_terminal AND terminal_type = 'success'` — the pipeline
+-- architecture's own definition, and byte-identical to what
+-- rpc_projects_table.tasks_done counts. Everything in this product finishes by
+-- reaching a success-terminal stage; there is no second way to complete work,
+-- so there is no second definition of completion either.
 --
--- That agreement is load-bearing rather than incidental: the projected arm
--- must continue the same series the historical arm draws, or the chart shows
--- a forecast for a different quantity than the line it grows out of. So
--- check_project_projection.sql asserts the two definitions still match, and
--- fails loudly if they ever drift.
+-- tasks.completed_at is NOT the membership test. It is a denormalised stamp
+-- that happens to agree today (verified: 8 and 8, zero rows differing either
+-- way) but is a column that can be null, backfilled, or set by an import,
+-- whereas the stage predicate is the actual state machine. Counting the stamp
+-- would mean the forecast and the progress bar beside it could disagree about
+-- how much is left — the §16.1 failure, one table over.
+--
+-- TIMING comes from pipeline_stage_history: the FIRST transition into a
+-- success-terminal stage, per task. That is the exact task-level analogue of
+-- what rpc_portfolio_throughput already does at project level ("first
+-- transition into an is_terminal stage"), so the two read the same history the
+-- same way. MIN() rather than MAX() because a task that was reopened and
+-- re-finished completed once, on the earlier date; taking the later one would
+-- let rework quietly inflate recent pace.
 --
 -- ── WHY THE PACE IS MEASURED FROM FIRST COMPLETION TO *NOW* ─────────────────
 -- Not first-to-last completion. Measuring between completions silently
@@ -71,18 +78,47 @@ DECLARE
   v_remaining INT;
   v_days      NUMERIC;
 BEGIN
-  SELECT COUNT(*)::INT,
-         COUNT(*) FILTER (WHERE t.completed_at IS NOT NULL)::INT,
-         MIN(t.completed_at)::DATE,
-         MAX(t.completed_at)::DATE
-    INTO v_total, v_done, v_first, v_last
-  FROM public.tasks t
-  WHERE t.project_id = p_project_id AND t.deleted_at IS NULL;
+  -- done_at: the first time each task reached a success-terminal stage. Falls
+  -- back to completed_at only when a task IS in such a stage but predates the
+  -- history table (imported or migrated work) — never the other way round, so
+  -- the stamp can add a date to a task the predicate already counts, but can
+  -- never add a task the predicate does not.
+  WITH scoped AS (
+    SELECT t.id, t.completed_at,
+           COALESCE(ps.is_terminal AND ps.terminal_type = 'success', FALSE) AS is_done
+    FROM public.tasks t
+    LEFT JOIN public.pipeline_stages ps ON ps.id = t.current_stage_id
+    WHERE t.project_id = p_project_id AND t.deleted_at IS NULL
+  ),
+  done_at AS (
+    SELECT s.id,
+           COALESCE(
+             (SELECT MIN(h.transitioned_at)
+                FROM public.pipeline_stage_history h
+                JOIN public.pipeline_stages hs ON hs.id = h.to_stage_id
+               WHERE h.task_id = s.id
+                 AND COALESCE(hs.is_terminal AND hs.terminal_type = 'success', FALSE)),
+             s.completed_at
+           )::DATE AS finished_on
+    FROM scoped s
+    WHERE s.is_done
+  )
+  SELECT (SELECT COUNT(*)::INT FROM scoped),
+         (SELECT COUNT(*)::INT FROM scoped WHERE is_done),
+         (SELECT MIN(finished_on) FROM done_at),
+         (SELECT MAX(finished_on) FROM done_at)
+    INTO v_total, v_done, v_first, v_last;
 
   -- Below the shared threshold there is no forecast at all, and the reason is
   -- reported as a sample size the UI can put in a sentence rather than a bare
   -- empty state (noProjectionReason() in projection.ts does exactly that).
-  IF COALESCE(v_done, 0) < 5 THEN
+  --
+  -- v_first IS NULL is the same refusal for a different reason: enough tasks
+  -- are done, but none of them is datable (no stage history, no stamp), so
+  -- there is no elapsed window to divide by. Without this, GREATEST(NULL, 1)
+  -- yields 1 and the rate becomes "everything finished today" — the most
+  -- optimistic possible answer produced by the least possible evidence.
+  IF COALESCE(v_done, 0) < 5 OR v_first IS NULL THEN
     RETURN QUERY SELECT COALESCE(v_total, 0), COALESCE(v_done, 0), COALESCE(v_done, 0),
                         v_first, v_last, NULL::NUMERIC, NULL::DATE, 'none'::TEXT;
     RETURN;
