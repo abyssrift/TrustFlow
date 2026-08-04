@@ -37,6 +37,7 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import { useToast } from '@/contexts/ToastContext';
 import { useDropPulse, useFileDrop } from '@/hooks/useWebDnd';
 import { computeSHA256 } from '@/lib/uploadHelpers';
+import { effectiveName, idsBySheetName } from '@/lib/importConflicts';
 import { supabase } from '@/lib/supabase';
 import {
   parseSpreadsheetBytes,
@@ -374,8 +375,30 @@ function AmbiguousRow({
 
 // ─── Main wizard ─────────────────────────────────────────────────────────────
 
-type WizStep = 'drop' | 'review' | 'clients';
+type WizStep = 'drop' | 'review' | 'clients' | 'conflicts';
 type MobilePage = 'columns' | 'detail' | 'warnings';
+
+/**
+ * The re-import case. Someone imports a workbook, fixes a number in it, and
+ * drops the same file back in — and every row collides with the project it
+ * created last time. The only answers the DB offered were "rename them" (they
+ * are named correctly) and "archive the existing project" (it is live work).
+ *
+ * REPLACE is the missing one: keep the project, its tasks, its stage and
+ * everything pointing at it, and just re-write the columns the spreadsheet
+ * carries. It is deliberately narrow — see `applyReplacements` — because a
+ * re-import is a data correction, not a re-plan.
+ */
+type ConflictAction = 'replace' | 'rename' | 'skip';
+
+type NameConflict = {
+  name: string;
+  project_id: string;
+  task_count: number;
+  portfolio_name: string | null;
+  created_at: string;
+  can_edit: boolean;
+};
 
 export default function SpreadsheetImportSheet({
   visible, onClose, onCreated,
@@ -420,6 +443,14 @@ export default function SpreadsheetImportSheet({
 
   const [handoff, setHandoff] = useState(false); // true once client resolution is confirmed -> render BulkCreateProjectsSheet
 
+  // Name collisions with projects that already exist. Keyed by the name as it
+  // appears in the SHEET throughout — that is the only stable identifier a row
+  // has across a rename, and it is what the custom-field writer looks rows up
+  // by afterwards.
+  const [conflicts, setConflicts] = useState<NameConflict[]>([]);
+  const [conflictActions, setConflictActions] = useState<Map<string, ConflictAction>>(new Map());
+  const [renames, setRenames] = useState<Map<string, string>>(new Map());
+
   useEffect(() => {
     if (!visible) return;
     setWizStep('drop');
@@ -438,6 +469,9 @@ export default function SpreadsheetImportSheet({
     setDecisionsClients(new Map());
     setAlreadyImported(null);
     setHandoff(false);
+    setConflicts([]);
+    setConflictActions(new Map());
+    setRenames(new Map());
   }, [visible]);
 
   const handleFile = async (f: File) => {
@@ -755,12 +789,107 @@ export default function SpreadsheetImportSheet({
     [readyRows, ambiguousRows, matches, decisionsClients],
   );
 
+  // ── name collisions with projects that already exist ───────────────────────
+
+  const actionFor = (name: string): ConflictAction =>
+    conflictActions.get(name) ?? (conflicts.find(k => k.name === name)?.can_edit ? 'replace' : 'rename');
+
+  /** The rows that will be CREATED: skipped and replaced ones drop out, and a
+   *  renamed one goes to the server under its new name. */
+  const resolvedRows = useMemo(
+    () => finalRows
+      .filter(r => !conflicts.some(k => k.name === r.name) || actionFor(r.name) === 'rename')
+      .map(r => ({ ...r, name: effectiveName(r.name, renames) })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [finalRows, conflicts, conflictActions, renames],
+  );
+
+  /** sheet name -> existing project id, for every row the user chose to replace. */
+  const replacements = useMemo(() => {
+    const out = new Map<string, string>();
+    for (const k of conflicts) if (actionFor(k.name) === 'replace') out.set(k.name, k.project_id);
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conflicts, conflictActions]);
+
+  const renameBlockers = useMemo<Blocker[]>(() => {
+    const out: Blocker[] = [];
+    // Every name that will exist after this import — the new ones plus the
+    // existing ones the user chose to keep. A rename that lands on either is
+    // the same collision one step later.
+    const taken = new Map<string, number>();
+    for (const r of resolvedRows) taken.set(r.name, (taken.get(r.name) ?? 0) + 1);
+    for (const k of conflicts) if (actionFor(k.name) !== 'skip' && actionFor(k.name) !== 'rename') taken.set(k.name, (taken.get(k.name) ?? 0) + 1);
+    for (const k of conflicts) {
+      if (actionFor(k.name) !== 'rename') continue;
+      const next = (renames.get(k.name) ?? '').trim();
+      if (!next) out.push({ field: k.name, reason: `“${k.name}” needs a new name.` });
+      else if (next === k.name) out.push({ field: k.name, reason: `“${k.name}” still has its old name — that is the name that is taken.` });
+      else if ((taken.get(next) ?? 0) > 1) out.push({ field: k.name, reason: `“${next}” is used by more than one row — names have to be unique.` });
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conflicts, conflictActions, renames, resolvedRows]);
+
+  /**
+   * Called on the way out of the Clients step, and again on the way out of
+   * this one. Re-checking after the user renames is the point: the server is
+   * the only thing that knows whether "Acme Audit 2026" is also taken, and a
+   * client-side guess would be the same missing pre-check that produced the
+   * raw constraint error in the first place.
+   *
+   * Returns true when the wizard may proceed to the template step.
+   */
+  const checkNamesAndAdvance = async (names: string[]) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const { data, error: e } = await supabase.rpc('rpc_project_name_conflicts', { p_names: names });
+      if (e) throw e;
+      const rows = (data ?? []) as NameConflict[];
+      if (rows.length === 0) return true;
+      setConflicts(prev => {
+        // Preserve the rows already on screen. A renamed row that now clears
+        // must stay listed with its rename intact — dropping it would snap
+        // the field back to the old colliding name.
+        const merged = new Map(prev.map(k => [k.name, k]));
+        for (const k of rows) merged.set(k.name, k);
+        return [...merged.values()];
+      });
+      setWizStep('conflicts');
+      return false;
+    } catch (err: any) {
+      setError(err?.message ?? 'Could not check for existing project names.');
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** True once every listed conflict has an answer the server will accept. */
+  const conflictsCleared = useMemo(
+    () => conflicts.every(k => {
+      const a = actionFor(k.name);
+      if (a === 'rename') return !conflicts.some(o => o.name === (renames.get(k.name) ?? '').trim());
+      return true;
+    }) && renameBlockers.length === 0,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [conflicts, conflictActions, renames, renameBlockers],
+  );
+
   // ── §18.3 custom fields, written AFTER the projects exist ──────────────────
 
   /**
    * "Nothing is discarded" is only true if the carried columns actually land.
    * rpc_instantiate_template has no concept of a custom field, so the values
-   * are written in a second step, keyed off the portfolio it just created.
+   * are written in a second step.
+   *
+   * `idByName` is keyed by the name as it appears in the SPREADSHEET, not by
+   * the project's name in the database — the two differ for every renamed
+   * row, and a replaced row's project was never in this portfolio at all.
+   * Both are just entries in this map, which is why REPLACE needed no change
+   * to the commit RPC: it is the same write, aimed at a project that already
+   * existed.
    *
    * Deliberately best-effort and reported: the projects are already committed
    * by the time this runs, so throwing here would strand a successful import
@@ -768,12 +897,8 @@ export default function SpreadsheetImportSheet({
    * visible and retryable by hand, and never silently swallowed (see
    * `.agents/rules/global-utilities-index.md` on lib/toast).
    */
-  const persistCustomFields = async (portfolioId: string) => {
-    if (!parsed || fieldPlans.length === 0) return;
-    const { data: projectRows, error: projErr } = await supabase
-      .from('projects').select('id, name').eq('portfolio_id', portfolioId);
-    if (projErr || !projectRows?.length) return;
-    const idByName = new Map(projectRows.map((p: any) => [p.name, p.id as string]));
+  const persistCustomFields = async (idByName: Map<string, string>) => {
+    if (!parsed || fieldPlans.length === 0 || idByName.size === 0) return;
 
     const saved: { plan: typeof fieldPlans[number]; id: string; canonical: Map<string, string | null> }[] = [];
     for (const [i, plan] of fieldPlans.entries()) {
@@ -824,7 +949,40 @@ export default function SpreadsheetImportSheet({
     if (values.length === 0) return;
     const { error: valErr } = await supabase.rpc('rpc_set_project_field_values', { p_values: values });
     if (valErr) throw valErr;
+
     successToast(`${saved.length} extra column${saved.length === 1 ? '' : 's'} carried across as project fields.`, 'Import complete');
+  };
+
+  /**
+   * Everything REPLACE actually does.
+   *
+   * Only the spreadsheet's own columns are rewritten. Not the tasks, not the
+   * stages, not the dates, not the client link, not anything referencing the
+   * project — which is what was asked for, and is also the only version that
+   * is safe: moving a project's start date without moving the tasks under it
+   * would leave the two disagreeing, and re-pointing its client would silently
+   * re-file live work. The confirmation copy on the step says exactly this, so
+   * it has to stay true.
+   *
+   * ponytail: if replace ever needs to move dates too, it has to move the
+   * tasks with them — that is a rollforward, and rpc_rollforward_project
+   * already exists for it.
+   */
+  const applyReplacements = async () => {
+    if (replacements.size === 0) return;
+    setBusy(true);
+    try {
+      await persistCustomFields(new Map(replacements));
+      successToast(
+        `${replacements.size} existing project${replacements.size === 1 ? '' : 's'} updated from the file. Their tasks and history are untouched.`,
+        'Projects updated',
+      );
+      onClose();
+    } catch (e: any) {
+      setError(e?.message ?? 'Could not update the existing projects.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   // ── render ────────────────────────────────────────────────────────────────
@@ -853,7 +1011,15 @@ export default function SpreadsheetImportSheet({
         onClose={onClose}
         onCreated={async res => {
           try {
-            await persistCustomFields(res.portfolio_id);
+            // sheet name -> project id, for BOTH the projects just created
+            // (looked up under their post-rename name) and the existing ones
+            // the user chose to replace.
+            const { data: projectRows } = await supabase
+              .from('projects').select('id, name').eq('portfolio_id', res.portfolio_id);
+            const idByDbName = new Map((projectRows ?? []).map((p: any) => [p.name as string, p.id as string]));
+            await persistCustomFields(
+              idsBySheetName(finalRows.map(r => r.name), renames, replacements, idByDbName),
+            );
           } catch (e: any) {
             errorToast(
               `${fieldPlans.length} extra column${fieldPlans.length === 1 ? '' : 's'} could not be saved as project fields: ${e?.message ?? 'unknown error'}. The projects were created.`,
@@ -862,7 +1028,7 @@ export default function SpreadsheetImportSheet({
           }
           onCreated?.(res);
         }}
-        initialRows={finalRows}
+        initialRows={resolvedRows}
         initialPortfolioName={file ? file.name.replace(/\.(xlsx|xls|csv)$/i, '') : ''}
         initialSource={file ? `spreadsheet:${file.name}` : undefined}
         initialIdempotencyKey={contentHash ? `spreadsheet:${contentHash}` : undefined}
@@ -1365,13 +1531,13 @@ export default function SpreadsheetImportSheet({
             <Text className="font-black uppercase tracking-widest text-[13px]" style={{ color: c.textMuted }}>Back</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => setHandoff(true)}
-            disabled={!canFinishClients}
+            onPress={async () => { if (await checkNamesAndAdvance(finalRows.map(r => r.name))) setHandoff(true); }}
+            disabled={!canFinishClients || busy}
             className="flex-[2] py-3.5 rounded-2xl items-center"
-            style={{ backgroundColor: canFinishClients ? c.primary : c.border }}
+            style={{ backgroundColor: canFinishClients && !busy ? c.primary : c.border }}
           >
-            <Text className="font-black uppercase tracking-widest text-[13px]" style={{ color: canFinishClients ? 'white' : c.textMuted }}>
-              Next: Template ({finalRows.length})
+            <Text className="font-black uppercase tracking-widest text-[13px]" style={{ color: canFinishClients && !busy ? 'white' : c.textMuted }}>
+              {busy ? 'Checking names…' : `Next: Template (${finalRows.length})`}
             </Text>
           </TouchableOpacity>
         </View>
@@ -1415,7 +1581,178 @@ export default function SpreadsheetImportSheet({
     );
   }
 
+  // ─── EXISTING PROJECTS (only when something actually collides) ─────────────
+  if (wizStep === 'conflicts') {
+    const replaceCount = replacements.size;
+    const skipCount = conflicts.filter(k => actionFor(k.name) === 'skip').length;
+    const createCount = resolvedRows.length;
+    const canContinue = conflictsCleared && !busy && (createCount > 0 || replaceCount > 0);
+
+    const body = (
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingBottom: 12 }}>
+        {conflicts.map(k => (
+          <ConflictRow
+            key={k.name}
+            conflict={k}
+            action={actionFor(k.name)}
+            renameTo={renames.get(k.name) ?? ''}
+            onAction={a => setConflictActions(prev => new Map(prev).set(k.name, a))}
+            onRename={v => setRenames(prev => new Map(prev).set(k.name, v))}
+            c={c}
+          />
+        ))}
+        {error && <Text className="text-state-danger text-[13px] font-bold">{error}</Text>}
+      </ScrollView>
+    );
+
+    const footer = (
+      <>
+        <View className="px-5 pt-3">
+          <BlockerList blockers={renameBlockers} c={c} />
+        </View>
+        <View className="flex-row gap-3 px-5 py-4" style={{ borderTopWidth: 1, borderTopColor: c.border }}>
+          <TouchableOpacity onPress={() => setWizStep('clients')} className="flex-1 py-3.5 rounded-2xl items-center" style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}>
+            <Text className="font-black uppercase tracking-widest text-[13px]" style={{ color: c.textMuted }}>Back</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={async () => {
+              // Nothing new to create — this is a pure correction pass, so it
+              // finishes here instead of walking through a template and a
+              // schedule that would apply to no project.
+              if (createCount === 0) { await applyReplacements(); return; }
+              if (await checkNamesAndAdvance(resolvedRows.map(r => r.name))) setHandoff(true);
+            }}
+            disabled={!canContinue}
+            className="flex-[2] py-3.5 rounded-2xl items-center"
+            style={{ backgroundColor: canContinue ? c.primary : c.border }}
+          >
+            <Text className="font-black uppercase tracking-widest text-[13px]" style={{ color: canContinue ? 'white' : c.textMuted }}>
+              {busy
+                ? 'Working…'
+                : createCount === 0
+                  ? `Update ${replaceCount} project${replaceCount === 1 ? '' : 's'}`
+                  : `Next: Template (${createCount})`}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </>
+    );
+
+    const summary = [
+      createCount > 0 ? `${createCount} new` : null,
+      replaceCount > 0 ? `${replaceCount} updated` : null,
+      skipCount > 0 ? `${skipCount} left alone` : null,
+    ].filter(Boolean).join(' · ');
+
+    if (!isDesktop) {
+      return (
+        <DraggableSheet visible={visible} onClose={onClose} dimBackdrop maxHeight="95%" dismissible containerClassName="rounded-t-[2rem] overflow-hidden">
+          <View style={{ flex: 1, minHeight: 0 }}>
+            <View className="flex-row items-center justify-between px-5 pt-3 pb-4">
+              <View className="flex-1 mr-3" style={{ gap: 6 }}>
+                {/* The spine still reads "Clients" — this page appears only
+                    when something collides, and promoting it to a permanent
+                    sixth step would tell everyone else their import is one
+                    step longer than it is. */}
+                <StepSpine steps={IMPORT_JOURNEY_STEPS} current={2} isDesktop={false} c={c} />
+                <Text className="text-typography-main text-xl font-black tracking-tight">Already Here</Text>
+                <Text className="text-typography-muted text-[12px]">{summary}</Text>
+              </View>
+              <TouchableOpacity onPress={onClose} className="w-10 h-10 items-center justify-center rounded-full" style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}>
+                <FontAwesome name="times" size={16} color={c.textMain} />
+              </TouchableOpacity>
+            </View>
+            <View className="flex-1 px-5">{body}</View>
+            {footer}
+          </View>
+        </DraggableSheet>
+      );
+    }
+
+    return (
+      <Popup visible={visible} onClose={onClose} presentation="centered" title="Already Here" footer="none" maxWidth={1040} containerStyle={{ height: '86%' }}>
+        <View style={{ flex: 1, minHeight: 0 }}>
+          <View className="px-6 pt-4" style={{ gap: 6 }}>
+            <StepSpine steps={IMPORT_JOURNEY_STEPS} current={2} isDesktop c={c} />
+            <Hint>
+              {conflicts.length} name{conflicts.length === 1 ? '' : 's'} in this file already belong to a project you
+              have. That usually means you edited this workbook and dropped it back in — so{' '}
+              <Text className="font-black">Update</Text> re-reads the spreadsheet's columns onto the project you already
+              have and leaves its tasks, dates and history exactly where they are. Nothing is written until the end.
+            </Hint>
+            {summary.length > 0 && <Text className="text-typography-muted text-[12px] font-bold">{summary}</Text>}
+          </View>
+          <View className="flex-1 px-6 pt-3">{body}</View>
+          {footer}
+        </View>
+      </Popup>
+    );
+  }
+
   return null;
+}
+
+/**
+ * One colliding name and the three things you can do about it.
+ *
+ * Update is the default wherever it is allowed, because it is the reason this
+ * screen exists — re-importing a corrected workbook. Where the importer lacks
+ * rights on the existing project (rpc_project_name_conflicts.can_edit), the
+ * option is not shown at all rather than shown and then refused by the policy.
+ */
+function ConflictRow({
+  conflict, action, renameTo, onAction, onRename, c,
+}: {
+  conflict: NameConflict;
+  action: ConflictAction;
+  renameTo: string;
+  onAction: (a: ConflictAction) => void;
+  onRename: (v: string) => void;
+  c: ReturnType<typeof useThemeColors>;
+}) {
+  const meta = [
+    `${conflict.task_count} task${conflict.task_count === 1 ? '' : 's'}`,
+    conflict.portfolio_name ? `from “${conflict.portfolio_name}”` : null,
+    `added ${new Date(conflict.created_at).toLocaleDateString()}`,
+  ].filter(Boolean).join(' · ');
+
+  return (
+    <View className="bg-surface-background rounded-2xl p-3" style={{ borderWidth: 1, borderColor: action === 'skip' ? c.border : c.warning, gap: 8 }}>
+      <View style={{ gap: 2 }}>
+        <Text className="text-typography-main text-[14px] font-black" numberOfLines={2}>{conflict.name}</Text>
+        <Text className="text-typography-muted text-[11px]">{meta}</Text>
+      </View>
+
+      <View className="flex-row flex-wrap" style={{ gap: 6 }}>
+        {conflict.can_edit && (
+          <PickerOption label="Update it" active={action === 'replace'} onPress={() => onAction('replace')} c={c} />
+        )}
+        <PickerOption label="Import under a new name" active={action === 'rename'} onPress={() => onAction('rename')} c={c} />
+        <PickerOption label="Leave it alone" active={action === 'skip'} tone={c.textMuted} onPress={() => onAction('skip')} c={c} />
+      </View>
+
+      {action === 'rename' && (
+        <TextInput
+          value={renameTo}
+          onChangeText={onRename}
+          placeholder={`${conflict.name} (2)`}
+          placeholderTextColor={c.textDim}
+          className="rounded-xl px-3"
+          style={{ minHeight: 40, backgroundColor: c.card, borderWidth: 1, borderColor: c.border, color: c.textMain, fontSize: 13 }}
+        />
+      )}
+
+      <Text className="text-typography-dim text-[11px]">
+        {action === 'replace'
+          ? 'The spreadsheet’s columns are written onto the existing project. Its tasks, dates, stage and history are untouched.'
+          : action === 'rename'
+            ? 'A second, separate project is created. The existing one is not touched.'
+            : !conflict.can_edit
+              ? 'This row is skipped. You don’t have edit rights on the project holding this name, so it can’t be updated from here.'
+              : 'This row is skipped entirely — nothing is created and nothing is changed.'}
+      </Text>
+    </View>
+  );
 }
 
 // ─── review sub-views ────────────────────────────────────────────────────────
