@@ -1,4 +1,5 @@
 import PendingTimeApprovalsWidget from '@/components/common/PendingTimeApprovalsWidget';
+import BlockedExceptionsPanel from '@/components/dashboard/BlockedExceptionsPanel';
 import LiveSessionsPopup from '@/components/tabs/LiveSessionsPopup';
 import Tooltip from '@/components/common/Tooltip';
 import ActiveSessionAvatars from '@/components/task-detail/ActiveSessionAvatars';
@@ -440,6 +441,8 @@ export default function DashboardScreen() {
           </View>
 
           <LiveSessionsPopup visible={showLiveSessions} onClose={() => setShowLiveSessions(false)} />
+
+          <BlockedExceptionsPanel />
 
           {canViewOverview ? (
             <View className="mb-6">

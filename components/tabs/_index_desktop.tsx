@@ -1,4 +1,5 @@
 import PipelineOverviewChart, { DEFAULT_OVERVIEW_METRICS, OverviewMetricKey } from '@/components/intelligence/PipelineOverviewChart';
+import BlockedExceptionsPanel from '@/components/dashboard/BlockedExceptionsPanel';
 import LiveSessionsPopup from '@/components/tabs/LiveSessionsPopup';
 import Tooltip from '@/components/common/Tooltip';
 import ActiveSessionAvatars from '@/components/task-detail/ActiveSessionAvatars';
@@ -558,6 +559,8 @@ export default function DashboardScreenWeb() {
             )}
 
             <LiveSessionsPopup visible={showLiveSessions} onClose={() => setShowLiveSessions(false)} />
+
+            <BlockedExceptionsPanel />
 
             <View className="flex-row gap-8 mb-10">
               {canViewOverview ? (
