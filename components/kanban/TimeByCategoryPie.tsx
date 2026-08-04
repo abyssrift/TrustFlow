@@ -1,3 +1,4 @@
+import { SectionCard } from '@/components/entities/EntityUI';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { formatCompact } from '@/lib/time';
 import React, { useMemo } from 'react';
@@ -61,6 +62,7 @@ export default function TimeByCategoryPie({
   selected = null,
   onSelect,
   size = 128,
+  className,
 }: {
   tasks: { category?: string | null; total_seconds?: number }[];
   /** Defaults to 'time' so the original kanban call site is unchanged. */
@@ -72,6 +74,8 @@ export default function TimeByCategoryPie({
   /** When given, the legend becomes a filter control. */
   onSelect?: (category: string | null) => void;
   size?: number;
+  /** Passed to SectionCard — `flex-1` when this sits in a row of cards. */
+  className?: string;
 }) {
   const colors = useThemeColors();
   const dark = isDarkHex(colors.card);
@@ -99,11 +103,17 @@ export default function TimeByCategoryPie({
 
   if (total === 0) {
     return (
-      <View className="mb-3 items-center justify-center rounded-xl border border-surface-border bg-surface-card px-3 py-6">
-        <Text className="text-typography-muted text-xs font-bold">
-          {mode === 'count' ? 'No tasks yet' : 'No time tracked yet'}
-        </Text>
-      </View>
+      <SectionCard
+        title={title ?? (mode === 'count' ? 'Work by category' : 'Where time went')}
+        icon="pie-chart"
+        className={className}
+      >
+        <View className="items-center justify-center py-6">
+          <Text className="text-typography-muted text-xs font-bold">
+            {mode === 'count' ? 'No tasks yet' : 'No time tracked yet'}
+          </Text>
+        </View>
+      </SectionCard>
     );
   }
 
@@ -132,9 +142,14 @@ export default function TimeByCategoryPie({
 
   const heading = title ?? (mode === 'count' ? 'Work by category' : 'Where time went');
 
+  // SectionCard, not a hand-rolled card: this used to be `rounded-xl p-3` with
+  // its own uppercase heading and a baked-in `mb-3`, which was fine in the
+  // kanban rail it was born in and read as a foreign object beside the
+  // `rounded-2xl p-4` cards on a project screen. The margin is gone too — a
+  // component that reserves space below itself makes every parent's `gap`
+  // a lie.
   return (
-    <View className="mb-3 rounded-xl border border-surface-border bg-surface-card p-3">
-      <Text className="mb-3 text-typography-muted text-[10px] font-black uppercase tracking-widest">{heading}</Text>
+    <SectionCard title={heading} icon="pie-chart" className={className}>
       <View className="flex-row items-center gap-3 flex-wrap">
         <View style={{ width: size, height: size }}>
           <Svg width={size} height={size}>
@@ -194,6 +209,6 @@ export default function TimeByCategoryPie({
           })}
         </View>
       </View>
-    </View>
+    </SectionCard>
   );
 }

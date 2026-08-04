@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Text, View } from 'react-native';
 import Svg, { Circle, Line as SvgLine, Polyline } from 'react-native-svg';
 
+import { SectionCard } from '@/components/entities/EntityUI';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import {
   canProject,
@@ -41,11 +42,14 @@ export default function ProjectionChart({
   title,
   subtitle,
   height = 220,
+  className,
 }: {
   series: ProjectionSeries;
   title: string;
   subtitle?: string;
   height?: number;
+  /** Passed to SectionCard — `flex-1` when this sits in a row of cards. */
+  className?: string;
 }) {
   const c = useThemeColors();
   const [width, setWidth] = useState(0);
@@ -77,13 +81,15 @@ export default function ProjectionChart({
   const lastActualIdx = series.points.reduce((acc, p, i) => (p.actual != null ? i : acc), -1);
 
   return (
-    <View className="bg-surface-card border border-surface-border rounded-2xl p-4 md:p-5">
-      <View className="flex-row items-start justify-between gap-3 mb-1">
-        <View className="flex-1 min-w-0">
-          <Text className="text-typography-main text-sm font-bold">{title}</Text>
-          {!!subtitle && <Text className="text-typography-muted text-[11px] mt-0.5">{subtitle}</Text>}
-        </View>
-        {projecting && !!series.projectedEnd && (
+    // Chrome and header are SectionCard's, not this file's — kept identical to
+    // the .web sibling so the two platforms cannot drift apart.
+    <SectionCard
+      title={title}
+      hint={subtitle}
+      icon="line-chart"
+      className={className}
+      right={
+        projecting && !!series.projectedEnd ? (
           <View className="items-end">
             <Text className="text-typography-dim text-[9px] font-black uppercase tracking-[0.15em]">
               Projected finish
@@ -95,8 +101,9 @@ export default function ProjectionChart({
               {fmtShort(series.projectedEnd)}
             </Text>
           </View>
-        )}
-      </View>
+        ) : undefined
+      }
+    >
 
       <View className="flex-row items-center flex-wrap gap-4 mt-2 mb-3">
         <View className="flex-row items-center gap-1.5">
@@ -172,6 +179,6 @@ export default function ProjectionChart({
       <Text className="text-typography-dim text-[10px] leading-4 mt-3">
         {projecting ? confidenceCaption(series) : noProjectionReason(series)}
       </Text>
-    </View>
+    </SectionCard>
   );
 }

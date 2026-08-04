@@ -244,7 +244,11 @@ export default function RightSidebar({
                 </View>
               </View>
 
-              <TimeByCategoryPie tasks={tasks} />
+              {/* mb-3 is the caller's now — the component no longer reserves
+                  space below itself (see TimeByCategoryPie's card note). */}
+              <View className="mb-3">
+                <TimeByCategoryPie tasks={tasks} />
+              </View>
 
               <View className="mb-3 flex-row items-center gap-2 rounded-xl border border-surface-border bg-surface-card px-3 py-2">
                 <FontAwesome name={visibilityMode === 'assigned_only' ? 'lock' : 'globe'} size={11} color={colors.muted} />

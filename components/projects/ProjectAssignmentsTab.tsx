@@ -11,6 +11,7 @@ import {
   EntityEmptyState,
   EntityGlyph,
   FilterChip,
+  SectionCard,
   StageChip,
 } from '@/components/entities/EntityUI';
 import TimeByCategoryPie from '@/components/kanban/TimeByCategoryPie';
@@ -310,15 +311,17 @@ function CategoryMappingSection({
 
   if (categories.length === 0) return null;
 
+  // SectionCard, not `bg-surface-card border rounded-2xl p-4` with a
+  // hand-written title/hint pair — that was a fourth card style on one screen
+  // (p-4 flat where every other card is p-4 md:p-5, and no icon), which is what
+  // "not consistent with the app" looks like up close.
   return (
-    <View className="bg-surface-card border border-surface-border rounded-2xl p-4" style={{ gap: 10 }}>
-      <View>
-        <Text className="text-typography-main text-sm font-bold">Board and team by category</Text>
-        <Text className="text-typography-muted text-[11px] mt-0.5 leading-4">
-          Answer once per category and every task in it follows. Moving a category to another board moves its
-          tasks there.
-        </Text>
-      </View>
+    <SectionCard
+      title="Board and team by category"
+      hint="Answer once per category and every task in it follows. Moving a category to another board moves its tasks there."
+      icon="sitemap"
+      className="gap-2.5"
+    >
       {categories.map(cat => {
         const value = pending[cat] ?? { pipeline_id: null, assignee_team_id: null };
         const count = tasksByCategory.get(cat)?.length ?? 0;
@@ -348,7 +351,7 @@ function CategoryMappingSection({
           </View>
         );
       })}
-    </View>
+    </SectionCard>
   );
 }
 
@@ -587,26 +590,29 @@ export default function ProjectAssignmentsTab() {
         ? `${unassignedCount} of ${totalTasks} ${unassignedCount === 1 ? 'task has' : 'tasks have'} nobody on ${unassignedCount === 1 ? 'it' : 'them'}.`
         : `Everything has someone on it. ${openCount} still open, ${doneCount} done.`;
 
+  // Two cards, ONE row, equal height. Previously each sat in its own wrapper
+  // that stretched while the card inside it sized to its content, so the
+  // shorter donut left a ~130px void under itself next to the taller chart —
+  // the "uneven blocks and weird spaces" this screen was reported for. The
+  // cards carry `flex-1` themselves now, so the row has one bottom edge.
   const charts = (
-    <View className={isDesktop ? 'flex-row gap-4' : ''} style={isDesktop ? undefined : { gap: 4 }}>
-      <View className={isDesktop ? 'flex-1' : ''}>
-        <TimeByCategoryPie
-          tasks={tasks}
-          mode="count"
-          title="Work by category"
-          selected={category}
-          onSelect={setCategory}
-          size={isMobile ? 120 : 148}
-        />
-      </View>
-      <View className={isDesktop ? 'flex-1' : ''}>
-        <ProjectionChart
-          series={projection}
-          title="Progress and finish"
-          subtitle="Completed tasks over time."
-          height={isMobile ? 170 : 200}
-        />
-      </View>
+    <View className={isDesktop ? 'flex-row gap-4 items-stretch' : 'gap-4'}>
+      <TimeByCategoryPie
+        tasks={tasks}
+        mode="count"
+        title="Work by category"
+        selected={category}
+        onSelect={setCategory}
+        size={isMobile ? 120 : 148}
+        className={isDesktop ? 'flex-1' : undefined}
+      />
+      <ProjectionChart
+        series={projection}
+        title="Progress and finish"
+        subtitle="Completed tasks over time."
+        height={isMobile ? 170 : 200}
+        className={isDesktop ? 'flex-1' : undefined}
+      />
     </View>
   );
 
@@ -723,8 +729,12 @@ export default function ProjectAssignmentsTab() {
       </View>
     );
 
+  // ONE gap value down the whole screen (gap-4, per ui-consistency's "section
+  // gaps: gap-4 or gap-6"). This used to mix gap-4, gap-6, {gap:16}, {gap:12},
+  // {gap:8} and {gap:4} on nested rows, which is most of why the spacing read
+  // as arbitrary — every band was a different distance from the next.
   return (
-    <View className="p-4 md:p-8" style={{ gap: 16 }}>
+    <View className="p-4 md:p-8 gap-4">
       {!!answer && (
         <View className="flex-row items-center gap-3 flex-wrap">
           <View
@@ -757,8 +767,8 @@ export default function ProjectAssignmentsTab() {
           desktop-density rule — a dense screen must not be one narrow
           column). Below 1024 the rail collapses into a sheet reached from
           the selection bar, per the same rule's mobile mapping. */}
-      <View className={isDesktop ? 'flex-row gap-6 items-start' : ''} style={{ gap: 12 }}>
-        <View className={isDesktop ? 'flex-1 min-w-0' : ''} style={{ gap: 12 }}>
+      <View className={isDesktop ? 'flex-row gap-4 items-start' : 'gap-4'}>
+        <View className={isDesktop ? 'flex-1 min-w-0 gap-4' : 'gap-4'}>
           {filters}
           {list}
           <CategoryMappingSection

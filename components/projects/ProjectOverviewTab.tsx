@@ -66,9 +66,9 @@ export default function ProjectOverviewTab() {
 
   if (loading) {
     return (
-      <View className="p-4 md:p-8 gap-5">
+      <View className="p-4 md:p-8 gap-4">
         <SkeletonBlock height={64} borderRadius={16} />
-        <View className={isDesktop ? 'flex-row gap-5' : 'gap-5'}>
+        <View className={isDesktop ? 'flex-row gap-4' : 'gap-4'}>
           <SkeletonBlock height={220} borderRadius={16} style={{ flex: 1 }} />
           <SkeletonBlock height={220} borderRadius={16} style={{ flex: 1 }} />
         </View>
@@ -81,12 +81,12 @@ export default function ProjectOverviewTab() {
   const isStuck = !!lifecycle?.blocked || (t?.overdue ?? 0) > 0 || !!oldestOverdue;
 
   return (
-    <View className="p-4 md:p-8 gap-5">
+    <View className="p-4 md:p-8 gap-4">
       <StateStrip c={c} t={t} lifecycle={lifecycle} />
 
-      <View className={isDesktop ? 'flex-row gap-5 items-start' : 'gap-5'}>
-        <View style={isDesktop ? { flex: 1 } : undefined} className="gap-5">
-          <SectionCard title="On track?" hint="How much of the work is actually done" icon="line-chart">
+      <View className={isDesktop ? 'flex-row gap-4 items-stretch' : 'gap-4'}>
+        <View style={isDesktop ? { flex: 1 } : undefined} className="gap-4">
+          <SectionCard title="On track?" hint="How much of the work is actually done" icon="line-chart" className="flex-1">
             {noTasks ? (
               <EmptyLine label="No tasks yet — nothing to track" c={c} />
             ) : (
@@ -128,12 +128,13 @@ export default function ProjectOverviewTab() {
           </SectionCard>
         </View>
 
-        <View style={isDesktop ? { flex: 1 } : undefined} className="gap-5">
+        <View style={isDesktop ? { flex: 1 } : undefined} className="gap-4">
           <SectionCard
             title="What's stuck?"
             hint={isStuck ? 'Deal with these before anything else' : 'Nothing needs a decision right now'}
             icon="exclamation-triangle"
             accent={isStuck ? c.danger : undefined}
+            className="flex-1"
           >
             {!isStuck ? (
               <EmptyLine label="Nothing stuck — not blocked, no overdue work" c={c} tone="positive" />
@@ -171,9 +172,9 @@ export default function ProjectOverviewTab() {
         </View>
       </View>
 
-      <View className={isDesktop ? 'flex-row gap-5 items-start' : 'gap-5'}>
-        <View style={isDesktop ? { flex: 1.3 } : undefined} className="gap-5">
-          <SectionCard title="Who's on it?" hint="Time tracked against this project, per person" icon="users">
+      <View className={isDesktop ? 'flex-row gap-4 items-stretch' : 'gap-4'}>
+        <View style={isDesktop ? { flex: 1.3 } : undefined} className="gap-4">
+          <SectionCard title="Who's on it?" hint="Time tracked against this project, per person" icon="users" className="flex-1">
             {(data?.contributors || []).length === 0 ? (
               <EmptyLine label="Nobody has tracked time on this project yet" c={c} />
             ) : (
@@ -209,8 +210,8 @@ export default function ProjectOverviewTab() {
             reference for browsing, not a signal anyone opens the project to
             check first (issue #183). Smaller type, no card-header icon,
             muted background instead of the card surface the other three use. */}
-        <View style={isDesktop ? { flex: 0.9 } : undefined} className="gap-5">
-          <View className="bg-surface-background border border-surface-border/60 rounded-2xl p-4">
+        <View style={isDesktop ? { flex: 0.9 } : undefined} className="gap-4">
+          <View className="bg-surface-background border border-surface-border/60 rounded-2xl p-4 flex-1">
             <Text className="text-typography-dim text-[9px] font-black uppercase tracking-[0.15em] mb-3">Shape — reference only</Text>
             {(data?.by_category || []).length === 0 && (data?.by_priority || []).length === 0 ? (
               <EmptyLine label="No tasks yet, so there is no shape to show" c={c} />
