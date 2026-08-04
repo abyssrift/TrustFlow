@@ -83,6 +83,10 @@ serve(async (req: Request) => {
     let subjectName = 'A task'
     if (event.entity_type === 'project') {
       subjectName = (event.payload?.project_name as string | undefined) ?? 'A project'
+    } else if (event.entity_type === 'portfolio') {
+      subjectName = (event.payload?.portfolio_name as string | undefined) ?? 'A batch'
+    } else if (event.entity_type === 'project_template') {
+      subjectName = (event.payload?.template_name as string | undefined) ?? 'A template'
     } else if (taskId) {
       const { data: task } = await db
         .from('tasks')
@@ -123,6 +127,10 @@ serve(async (req: Request) => {
               file_id: event.payload?.file_id ?? null,
               project_id: event.payload?.project_id ??
                 (event.entity_type === 'project' ? event.entity_id : null),
+              portfolio_id: event.payload?.portfolio_id ??
+                (event.entity_type === 'portfolio' ? event.entity_id : null),
+              template_id: event.payload?.template_id ??
+                (event.entity_type === 'project_template' ? event.entity_id : null),
             },
           }),
         })
@@ -369,6 +377,31 @@ function buildContent(
       return {
         title: 'Project Stage Updated',
         body: `${q} has moved to ${tag.replace(/_/g, ' ')}.`,
+      }
+    }
+    case 'project.flag_raised': {
+      const flags = (payload.flags_added as string[] | undefined) ?? []
+      const label = flags.map((f) => f.replace(/_/g, ' ')).join(', ') || 'flagged'
+      const reason = payload.reason as string | undefined
+      return {
+        title: 'Project Flagged',
+        body: reason ? `${q} is ${label}: ${reason}` : `${q} is ${label}.`,
+      }
+    }
+    case 'project.due_soon':
+      return { title: 'Project Due Soon', body: `${q} is due within 3 days.` }
+    case 'portfolio.completed': {
+      const n = payload.project_count as number | undefined
+      return {
+        title: 'Batch Completed',
+        body: n ? `All ${n} projects in ${q} are done.` : `Every project in ${q} is done.`,
+      }
+    }
+    case 'project_template.updated': {
+      const n = payload.task_count as number | undefined
+      return {
+        title: 'Template Updated',
+        body: `${q} was changed${typeof n === 'number' ? ` — it now has ${n} task${n === 1 ? '' : 's'}` : ''}.`,
       }
     }
     case 'pipeline.member_added':
