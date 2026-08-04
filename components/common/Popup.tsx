@@ -1,7 +1,7 @@
 import { useThemeColors } from '@/hooks/useThemeColors';
 import Tooltip from '@/components/common/Tooltip';
 import React from 'react';
-import { Modal, Platform, Pressable, StyleProp, Text, View, ViewStyle, useWindowDimensions } from 'react-native';
+import { Modal, Platform, Pressable, ScrollView, StyleProp, StyleSheet, Text, View, ViewStyle, useWindowDimensions } from 'react-native';
 import DraggableSheet from './DraggableSheet';
 
 type ActionVariant = 'default' | 'danger' | 'disabled';
@@ -125,6 +125,27 @@ export default function Popup({
   // narrowing, not to reinstate the old silent default.
   const centeredWidth = Math.min(screenWidth * 0.9, maxWidth ?? 420);
 
+  // A centered card had NO height ceiling unless the caller thought to set one.
+  // The backdrop centres it, so tall content grew off the top AND bottom of the
+  // viewport and took the footer — the Cancel/Confirm buttons — with it. There
+  // was no scroll either: `scrollable` is forwarded to DraggableSheet in the
+  // sheet branch and was simply ignored here. So a dialog that outgrew the
+  // window became one you could neither finish nor cancel, only Escape out of.
+  //
+  // Both defaults now live HERE rather than in each caller, because ~40 call
+  // sites cannot each be trusted to remember, and the ones that forgot were
+  // indistinguishable from the ones that chose (the same lesson `maxWidth`
+  // taught in ux-consistency.md).
+  //
+  // A caller that sets its own height is opted out of both: it has a definite
+  // height and its children almost certainly use `flex: 1` with their own
+  // ScrollView, and wrapping THAT in another ScrollView collapses the layout.
+  const callerSetsHeight =
+    maxHeight !== undefined ||
+    (StyleSheet.flatten(containerStyle) as ViewStyle | undefined)?.height !== undefined;
+  const effectiveMaxHeight = callerSetsHeight ? maxHeight : ('92%' as const);
+  const scrollBody = scrollable && !callerSetsHeight;
+
   if (effectivePresentation === 'sheet') {
     return (
       <DraggableSheet
@@ -156,7 +177,7 @@ export default function Popup({
       >
           <Pressable
             className={containerClassName ?? 'rounded-3xl overflow-hidden premium-shadow'}
-            style={[{ backgroundColor: c.card, borderWidth: 1, borderColor: c.border, width: centeredWidth, flexDirection: sideMenu ? 'row' : 'column' }, maxHeight ? { maxHeight } as any : undefined, containerStyle]}
+            style={[{ backgroundColor: c.card, borderWidth: 1, borderColor: c.border, width: centeredWidth, flexDirection: sideMenu ? 'row' : 'column' }, effectiveMaxHeight ? { maxHeight: effectiveMaxHeight } as any : undefined, containerStyle]}
             onPress={() => {}}
           >
           {sideMenu && (
@@ -175,7 +196,19 @@ export default function Popup({
                 </Tooltip>
               </View>
             )}
-            {children}
+            {/* The body scrolls; the header above and the footer below stay
+                put, so the actions are reachable at any window height. */}
+            {scrollBody ? (
+              <ScrollView
+                style={{ flexShrink: 1 }}
+                contentContainerStyle={{ flexGrow: 0 }}
+                showsVerticalScrollIndicator={false}
+              >
+                {children}
+              </ScrollView>
+            ) : (
+              children
+            )}
             {footer !== 'none' && (
               <View className="px-6 py-4 flex-row gap-3" style={{ borderTopWidth: 1, borderTopColor: c.border }}>
                 {footer === 'dual-action' && secondaryAction && (
