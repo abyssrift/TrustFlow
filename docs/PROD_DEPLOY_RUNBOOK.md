@@ -140,6 +140,44 @@ A migration that adds a parameter must **`DROP` the old signature explicitly**.
 PostgREST then returns `PGRST203` for every call. This has bitten this repo
 before; it is why `20260802_drop_stale_stage_rpc_overloads` exists.
 
+### 2.3a What the 2026-08-04 rehearsal already established
+
+Three findings, all verified, that change how much §2.3 should worry you.
+
+**The body-patching migrations are NOT environment-sensitive after all.** Every
+function the four runtime patchers target — `rpc_projects_table`,
+`rpc_rollforward_project`, `rpc_save_project_field_def`,
+`rpc_instantiate_template` — **does not exist in production.** Confirmed: a
+`pg_proc` count over all nine names this batch touches returns **0**. They are
+created by earlier migrations *in this same batch*, so the bodies those
+patchers read are the ones the repo just wrote, not something production
+drifted to. Run them in order and the anchors are exactly what the author saw.
+
+The one genuine exception is `20260804_edge_base_url_from_vault`, which patches
+five pre-existing invokers. All five were verified present in production with
+the hardcoded host still in the body, and the sixth the migration names
+(`fn_invoke_billing_paymob_renew`) is absent and skips cleanly.
+
+**Three migrations are NOT safely re-runnable.** Re-applying all 45 in filename
+order to an already-migrated database gives 42 ok, 3 failed:
+
+| Migration | Fails with |
+|---|---|
+| `20260731_project_hierarchy_3_rpc_instantiate` | `function name "rpc_instantiate_template" is not unique` |
+| `20260731_project_hierarchy_5_gap_fixes` | same |
+| `20260803_project_stage_on_create_and_needs_attention` | `rpc_projects_table must have exactly 1 signature, found 2` |
+
+This is **not** a clean-apply problem. It is the overload trap seen from the
+other side: an early migration re-creates a signature that a later one
+replaced, so on a database that already has the final state you briefly get two.
+It matters for §7 — **do not blindly re-run a migration that half-applied.**
+Check `pg_get_function_identity_arguments` first and drop the stale signature.
+
+**No new overloads are introduced by this batch.** A post-run scan found eight
+`rpc_*` names with two signatures, all of them filehub/pipeline functions
+(`rpc_filehub_upload_commit`, `rpc_create_pipeline`, …) that predate this work
+and are outside it. Worth their own issue; not this deploy's business.
+
 ### 2.4 Run every check
 
 ```bash
@@ -150,6 +188,27 @@ for f in supabase/checks/*.sql; do
 done
 node supabase/checks/migration_drift.js
 ```
+
+**Five checks fail today and none of them indicates a broken build.** All five
+were verified on 2026-08-04 as stale or fragile — the code is right and the
+check is out of date. Do not let them abort the deploy, and do not "fix" the
+code to satisfy them. Tracked in #201.
+
+| Check | Why it fails |
+|---|---|
+| `20260731_projects_p3_table_check` | asserts an unstaged project keeps `current_stage_id IS NULL`. `trg_projects_default_stage` (20260803) now assigns one on insert — the check predates the feature. |
+| `20260731_project_stage_move_check` | "expected 1 history row, got 2" — same trigger. The insert now stages the project, which writes a history row, then the move writes the second. |
+| `20260801_portfolio_flow_analytics_check` | "expected wip_count=1, got 2" — same trigger again. Projects now start staged, so both count as WIP. |
+| `check_rollforward_link_guard` | written to demonstrate the vulnerability, and expects RLS to silently deny (0 rows). The fix shipped as a **raising trigger**, which aborts the check. The shipped behaviour is *louder* than the check expects, not weaker. |
+| `check_rpc_rollforward_project` | picks two arbitrary real non-owner users (`ORDER BY u.id LIMIT 2`) and assumes neither holds `project.view_all`. In the company it selects, 3 of 9 non-owner users do. Fragile by construction. |
+
+**On the last one specifically** — it was worth ruling out that
+`20260804_seed_company_default_roles` had widened someone's access, since it
+re-points `user_roles` off the global template. It provably has not: every
+company-copy role holds **fewer or equal** permissions than the template it was
+copied from, with identical `project.view_all`, and `has_permission` applies no
+company filter to roles — so a global-role row always counted exactly as the
+company copy now does. The backfill narrows or preserves; it cannot widen.
 
 **Known drift, not caused by this deploy** — do not let it block you, and do not
 "fix" it by replaying the migration:
@@ -275,6 +334,15 @@ actually arrives — that last one is the only real test that §4 worked.
 likely an overload (§2.3) or a patch migration meeting a body it did not expect.
 The schema is at the last successful file, which is a state §2 rehearsed. Fix
 forward on local, re-rehearse, come back.
+
+> **Do not simply re-run the failed file.** §2.3a proves three of these are not
+> idempotent: an early migration re-creating a signature a later one replaced
+> leaves two, and the next statement dies on ambiguity. Before any retry:
+> ```sql
+> select proname, pg_get_function_identity_arguments(oid)
+> from pg_proc where pronamespace='public'::regnamespace and proname = '<fn>';
+> ```
+> More than one row means drop the stale signature explicitly before retrying.
 
 **Applied cleanly but the app is broken.** Restore the §1 backup. Everything in
 this deploy is schema and function bodies; there is no data migration whose loss
