@@ -24,6 +24,9 @@ const SHORTCUTS: Shortcut[] = [
   { id: 'search', permissionKey: '', icon: 'search', label: 'Search', href: '/search' },
   { id: 'deadlines', permissionKey: '', icon: 'calendar', label: 'Deadlines', href: '/deadlines' },
   { id: 'projects', permissionKey: 'project.view', icon: 'folder-o', label: 'Projects', href: '/projects' },
+  // Same glyph as components/entities/EntityUI.tsx's canonical portfolio icon
+  // (ENTITY_META.portfolio.icon), same gate as the server (project.view).
+  { id: 'portfolios', permissionKey: 'project.view', icon: 'th-large', label: 'Portfolios', href: '/portfolios' },
   { id: 'radar', permissionKey: 'report.view', icon: 'bullseye', label: 'Intelligence', href: '/intelligence' },
   { id: 'targets', permissionKey: 'target.view', icon: 'crosshairs', label: 'Targets', href: '/intelligence/targets' },
   { id: 'archives', permissionKey: 'archive.view', icon: 'archive', label: 'Archives', href: '/intelligence/archives' },

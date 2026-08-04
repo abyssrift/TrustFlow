@@ -42,6 +42,12 @@ export const SHORTCUTS: Shortcut[] = [
   { id: 'search', permissionKey: '', icon: 'search', label: 'Search', href: '/search' },
   { id: 'deadlines', permissionKey: '', icon: 'calendar', label: 'Deadlines', href: '/deadlines' },
   { id: 'projects', permissionKey: 'project.edit', icon: 'folder-o', label: 'Projects', href: '/projects' },
+  // Icon/kind match components/entities/EntityUI.tsx's canonical portfolio
+  // glyph (ENTITY_META.portfolio.icon === 'th-large') — same glyph the
+  // /portfolios screen itself headers with. Gated on project.view: the same
+  // permission rpc_portfolios_table and fn_project_accessible enforce
+  // server-side, so a user without it never sees the entry point.
+  { id: 'portfolios', permissionKey: 'project.view', icon: 'th-large', label: 'Portfolios', href: '/portfolios' },
   { id: 'radar', permissionKey: '', anyPermissions: INTELLIGENCE_PERMISSIONS, icon: 'bullseye', label: 'Intelligence', href: '/intelligence' },
   { id: 'targets', permissionKey: 'target.view', icon: 'crosshairs', label: 'Targets', href: '/intelligence/targets' },
   { id: 'archives', permissionKey: 'archive.view', icon: 'archive', label: 'Archives', href: '/intelligence/archives' },
