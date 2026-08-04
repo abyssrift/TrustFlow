@@ -33,11 +33,15 @@ import { supabase } from '@/lib/supabase';
  *     exact hook the /portfolios grid and the portfolio header read. Same
  *     rows, same "done" (a success-terminal stage), same projected end.
  *   - needs-attention    -> rpc_projects_table(p_blocked := TRUE), which is
- *     the SERVER's definition of attention ("blocked OR past its due date and
- *     not finished") and the same call the projects list makes for its
- *     "Needs attention" chip. Ordering is the RPC's own (most days stuck
- *     first) — not re-sorted here, or this screen and the list would disagree
- *     about which project is worst.
+ *     the SERVER's definition of attention — public.fn_project_needs_attention
+ *     (#191, 20260806_project_needs_attention.sql): blocked through either
+ *     representation (projects.blocked or 'blocked' in flags[]), or, when the
+ *     project is not already in a success-terminal stage, past its due date or
+ *     forecast to land after it at a confidence other than 'none'. The same
+ *     function backs the RPC's needs_attention column, so this panel and the
+ *     dashboard's "Needs Attention" panel cannot disagree about a project.
+ *     Ordering is the RPC's own (most days stuck first) — not re-sorted here,
+ *     or this screen and the list would disagree about which project is worst.
  * Nothing on this screen computes a pace, a forecast or a confidence. If a
  * number is wanted that these two do not return, the RPC grows a column.
  *
@@ -86,7 +90,9 @@ export default function ProjectLens() {
     let cancelled = false;
     (async () => {
       // p_blocked := TRUE is the server's "needs attention", not a blocked-flag
-      // filter — see rpc_projects_table's own comment. One extra row is fetched
+      // filter — it calls public.fn_project_needs_attention(), the same
+      // function the RPC's needs_attention column reads, so this list and the
+      // dashboard panel are one definition. One extra row is fetched
       // so "there are more" can be honest without a second count query.
       const { data, error } = await supabase.rpc('rpc_projects_table', {
         p_search: null,

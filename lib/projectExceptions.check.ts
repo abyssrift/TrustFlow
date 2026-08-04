@@ -1,11 +1,23 @@
-// Self-check for lib/projectExceptions.ts (Phase 10, #191, plan §16.2).
+// Self-check for lib/projectExceptions.ts (Phase 10, #191, plan §16.1/§16.2).
 // Run by `npm run check` (scripts/run-checks.mjs auto-discovers *.check.ts).
 //
-// What would break without it: the "done" exclusion (a finished project must
-// never read as overdue/overrunning) and the confidence gate ('none' must
-// never fire an overrun warning) are both one `if` away from silently
-// inverting, and both are exactly the kind of thing a demo can look right
-// without a real regression check.
+// Two things it pins:
+//
+//   1. isExceptionProject() is a PASSTHROUGH of the server's needs_attention
+//      column and re-derives nothing. That is the §16.1 contract — the same
+//      predicate the p_blocked filter and the Intelligence lens use, defined
+//      once in public.fn_project_needs_attention(). The assertions below prove
+//      it by handing it rows that WOULD have qualified under the old client
+//      derivation and rows that would not, with needs_attention set the other
+//      way each time: any reintroduced local derivation fails here.
+//      supabase/checks/20260806_project_needs_attention_check.sql asserts the
+//      server half against a real database.
+//
+//   2. The DISPLAY helpers still behave — the "done" exclusion (a finished
+//      project must not be *rendered* as overdue/overrunning) and the
+//      confidence gate ('none' must never draw an overrun warning) are both one
+//      `if` away from silently inverting, and both are exactly the kind of thing
+//      a demo can look right without a real regression check.
 
 import assert from 'node:assert';
 import {
@@ -59,13 +71,21 @@ assert.strictEqual(overrunStatus({ ...overrunBase, projection_confidence: 'ok', 
 assert.strictEqual(overrunStatus({ due_date: '2026-08-10', projected_end: '2026-08-01', projection_confidence: 'ok' }).fires, false, 'projected_end before due_date is on track, not overrun');
 assert.strictEqual(overrunStatus({ projected_end: '2026-08-10', projection_confidence: 'ok' }).fires, false, 'no due_date means nothing to compare against');
 
-// ── isExceptionProject: any of the three qualifies ──────────────────────────
-assert.strictEqual(isExceptionProject({}), false);
-assert.strictEqual(isExceptionProject({ blocked: true }), true);
-assert.strictEqual(isExceptionProject({ days_remaining: -1 }), true);
-assert.strictEqual(isExceptionProject({ ...overrunBase, projection_confidence: 'ok' }), true);
-assert.strictEqual(isExceptionProject({ blocked: true, ...DONE }), true, 'blocked overrides "done" — a human explicitly flagged it');
-assert.strictEqual(isExceptionProject({ days_remaining: -30, ...DONE }), false, 'done + stale due_date is not an exception');
+// ── isExceptionProject: the SERVER decides, this file does not ─────────────
+assert.strictEqual(isExceptionProject({}), false, 'absent needs_attention is not an exception');
+assert.strictEqual(isExceptionProject({ needs_attention: true }), true);
+assert.strictEqual(isExceptionProject({ needs_attention: false }), false);
+assert.strictEqual(isExceptionProject({ needs_attention: null }), false);
+
+// Rows the OLD client derivation would have qualified, with the server saying
+// no. These must follow the server. A single reintroduced `||` fails here.
+assert.strictEqual(isExceptionProject({ needs_attention: false, blocked: true }), false, 'a local blocked flag must not override the server');
+assert.strictEqual(isExceptionProject({ needs_attention: false, flags: ['blocked'] }), false, 'flags[] is unioned server-side, not re-unioned here');
+assert.strictEqual(isExceptionProject({ needs_attention: false, days_remaining: -30 }), false, 'overdue is the server\'s call — it knows whether the project is finished');
+assert.strictEqual(isExceptionProject({ needs_attention: false, ...overrunBase, projection_confidence: 'ok' }), false, 'overrun is the server\'s call');
+// And the converse: the server qualifying a row this file can see no reason
+// for (e.g. a future flag kind) must still qualify.
+assert.strictEqual(isExceptionProject({ needs_attention: true, ...DONE }), true, 'the server can qualify a row for a reason this file does not model');
 
 // ── urgency sort: blocked > overdue > overrun ───────────────────────────────
 const blocked: ExceptionSourceRow = { blocked: true };
@@ -77,4 +97,4 @@ assert.ok(exceptionUrgencyScore(overdue) > exceptionUrgencyScore(overrunOk));
 assert.ok(exceptionUrgencyScore(overrunOk) > exceptionUrgencyScore(overrunLow), 'ok-confidence overrun ranks above uncertain overrun');
 assert.ok(exceptionUrgencyScore({ days_remaining: -30 }) > exceptionUrgencyScore({ days_remaining: -1 }), 'more overdue ranks higher');
 
-console.log('projectExceptions: all assertions passed (blocked/overdue/overrun predicate + urgency sort)');
+console.log('projectExceptions: all assertions passed (needs_attention is a server passthrough + blocked/overdue/overrun display helpers + urgency sort)');

@@ -3,15 +3,17 @@
 // an exceptions list, not a projects list, and the empty state is the state
 // it is in most of the time (see the "all clear" branch below).
 //
-// Data: rpc_projects_table already applies fn_project_accessible — the exact
-// gate #185/#186 leaked without. It doesn't return `flags`/`flag_note` or the
-// project's own stage's is_terminal/terminal_type, so this fetches those as
-// two follow-up reads: a plain `projects` select (RLS-gated by the same
-// fn_project_accessible via the projects_select policy — see
-// supabase/migrations, policyname projects_select) and a `pipeline_stages`
-// lookup (company-scoped RLS, already read the same way by this screen's own
-// DashboardSettingsModal). No new SQL — see lib/projectExceptions.ts for the
-// qualifying predicate this merges into.
+// Data: ONE call to rpc_projects_table, which already applies
+// fn_project_accessible — the exact gate #185/#186 leaked without.
+//
+// It also decides, server-side, which rows qualify: `needs_attention` is
+// public.fn_project_needs_attention(), the same function its own p_blocked
+// filter and the Intelligence lens read (§16.1, issue #191). This panel does
+// not re-derive that — see lib/projectExceptions.ts. Until
+// 20260806_project_needs_attention.sql it did, from two follow-up selects
+// (`projects` for flags/flag_note, `pipeline_stages` for the terminal-stage
+// info); the RPC now returns those columns, so both round trips are gone and
+// with them the merge that was free to drift.
 
 import { ProjectCard, type ProjectCardRow } from '@/components/entities/EntityUI';
 import { SkeletonList } from '@/components/Skeleton';
@@ -48,56 +50,20 @@ export default function BlockedExceptionsPanel() {
   const load = async () => {
     setState('loading');
     try {
+      // p_blocked is left unset on purpose: the panel needs the same rows the
+      // rest of the dashboard would show, filtered by the same predicate it
+      // renders from. Passing p_blocked: true would work identically today —
+      // it calls the same function — but would leave the count and the list
+      // depending on two calls agreeing.
       const { data: base, error } = await supabase.rpc('rpc_projects_table', { p_limit: 500 });
       if (error) throw error;
-      const projects = (base || []) as any[];
-      const ids = projects.map(p => p.id);
 
-      const [flagsRes, stageRes] = await Promise.all([
-        ids.length
-          ? supabase.from('projects').select('id, flags, flag_note').in('id', ids)
-          : Promise.resolve({ data: [] as any[], error: null }),
-        (() => {
-          const stageIds = [...new Set(projects.map(p => p.current_stage_id).filter(Boolean))];
-          return stageIds.length
-            ? supabase.from('pipeline_stages').select('id, is_terminal, terminal_type').in('id', stageIds)
-            : Promise.resolve({ data: [] as any[], error: null });
-        })(),
-      ]);
-      if (flagsRes.error) throw flagsRes.error;
-      if (stageRes.error) throw stageRes.error;
-
-      const flagsById = new Map((flagsRes.data || []).map((r: any) => [r.id, r]));
-      const stageById = new Map((stageRes.data || []).map((r: any) => [r.id, r]));
-
-      const merged: Row[] = projects.map((p) => {
-        const f = flagsById.get(p.id);
-        const s = p.current_stage_id ? stageById.get(p.current_stage_id) : null;
-        const source: ExceptionSourceRow = {
-          blocked: p.blocked,
-          blocked_reason: p.blocked_reason,
-          flags: f?.flags ?? [],
-          flag_note: f?.flag_note ?? null,
-          due_date: p.due_date,
-          days_remaining: p.days_remaining,
-          projected_end: p.projected_end,
-          projection_confidence: p.projection_confidence,
-          stage_is_terminal: s?.is_terminal ?? false,
-          stage_terminal_type: s?.terminal_type ?? null,
-        };
-        // Normalize into ProjectCard's own blocked/blocked_reason fields so
-        // its built-in HealthBadge shows the unioned state without ProjectCard
-        // needing to know about `flags` at all.
-        return {
-          ...p,
-          ...source,
-          blocked: isBlockedException(source),
-          blocked_reason: effectiveBlockedReason(source),
-        };
-      });
-
-      const exceptions = merged
+      const exceptions = ((base || []) as Row[])
         .filter(isExceptionProject)
+        // Normalize into ProjectCard's own blocked/blocked_reason fields so its
+        // built-in HealthBadge shows the unioned state without ProjectCard
+        // needing to know about `flags` at all.
+        .map((p) => ({ ...p, blocked: isBlockedException(p), blocked_reason: effectiveBlockedReason(p) }))
         .sort((a, b) => exceptionUrgencyScore(b) - exceptionUrgencyScore(a));
 
       setRows(exceptions);
