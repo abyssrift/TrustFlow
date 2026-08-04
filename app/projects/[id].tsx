@@ -1,7 +1,7 @@
 import ProjectFilesTab from '@/components/projects/ProjectFilesTab';
 import ProjectHeader from '@/components/projects/ProjectHeader';
 import ProjectOverviewTab from '@/components/projects/ProjectOverviewTab';
-import ProjectWorkTab from '@/components/projects/ProjectWorkTab';
+import ProjectAssignmentsTab from '@/components/projects/ProjectAssignmentsTab';
 import { SkeletonBlock, SkeletonList } from '@/components/Skeleton';
 import { EntityEmptyState, SegmentedControl } from '@/components/entities/EntityUI';
 import { ProjectDetailProvider, useProjectDetail } from '@/contexts/ProjectDetailContext';
@@ -9,7 +9,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 
-// #184 -- /projects/[id] route: name/stage/flags header + Overview/Work/Files
+// #184 -- /projects/[id] route: name/stage/flags header + Overview/Assignments/Files
 // tab shell. Tab state lives in the URL (?tab=) via the same
 // useLocalSearchParams/router.setParams pattern FileHub already established
 // for its ?tab=/?file= deep links (_filehub_desktop.tsx / _filehub_adaptive.tsx)
@@ -25,13 +25,17 @@ import { ScrollView, View } from 'react-native';
 // width-aware component serves both. If a tab's real content (#183/#182/#174)
 // later needs a genuinely different desktop arrangement, split then.
 
-type TabKey = 'overview' | 'work' | 'files';
+type TabKey = 'overview' | 'assignments' | 'files';
+// #198: this tab was "Work" until the screen was rebuilt around "who is on
+// what". The key is in the URL, so ?tab=work is still accepted below rather
+// than silently dropping anyone holding an old link back to Overview.
+const LEGACY_TABS: Record<string, TabKey> = { work: 'assignments' };
 // Phase 8 (#187): icons on the tabs, and the same `SegmentedControl` the
 // projects list uses for its view switch — three separately-outlined
 // pill buttons read as three competing actions rather than one control.
 const TABS: { value: TabKey; label: string; icon: string }[] = [
   { value: 'overview', label: 'Overview', icon: 'dashboard' },
-  { value: 'work', label: 'Work', icon: 'check-square-o' },
+  { value: 'assignments', label: 'Assignments', icon: 'users' },
   { value: 'files', label: 'Files', icon: 'folder-o' },
 ];
 
@@ -43,8 +47,9 @@ function ProjectDetailContent() {
 
   // Restore tab from URL param on mount -- same as FileHub's tab restore effect.
   useEffect(() => {
-    if (tabParam && TABS.some(t => t.value === tabParam)) {
-      setActiveTab(tabParam as TabKey);
+    const key = tabParam ? (LEGACY_TABS[tabParam] ?? tabParam) : undefined;
+    if (key && TABS.some(t => t.value === key)) {
+      setActiveTab(key as TabKey);
     }
   }, []);
 
@@ -97,7 +102,7 @@ function ProjectDetailContent() {
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
         {activeTab === 'overview' && <ProjectOverviewTab />}
-        {activeTab === 'work' && <ProjectWorkTab />}
+        {activeTab === 'assignments' && <ProjectAssignmentsTab />}
         {activeTab === 'files' && <ProjectFilesTab />}
       </ScrollView>
     </View>
