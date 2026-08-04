@@ -474,23 +474,31 @@ verify_jwt = true
 verify_jwt = true
 
 # ── Captured from production 2026-08-04 (#178) ──────────────────────────────
-# These three were LIVE in production with no source in this repo, so a
+# Three functions were LIVE in production with no source in this repo, so a
 # `functions deploy` had nothing to compare against and `verify_jwt` was
 # whatever the dashboard last set. Pinned here so a deploy can no longer change
-# their auth posture by accident. Values match what production actually has.
-
-[functions.generate-pdf-report-v8]
-verify_jwt = false
-
+# their auth posture by accident.
+#
+# TWO OF THE THREE HAVE SINCE BEEN DELETED FROM PRODUCTION (2026-08-04), so
+# they no longer need pinning and their entries are gone:
+#
+#   generate-pdf-report-v8      — a server-side PDF worker superseded three
+#                                 months earlier by the client-side engine in
+#                                 components/intelligence/reports/generate.ts
+#                                 (identical reporting_jobs lifecycle, identical
+#                                 storage path). verify_jwt = false, service
+#                                 role, no authorization check at all — so any
+#                                 caller holding a job id could overwrite the
+#                                 finished PDF of ANY tenant. Source archived at
+#                                 supabase/_archive/generate-pdf-report-v8/.
+#
+#   purge-ksa-templates-cleanup — a spent one-off cleanup that still hard-
+#                                 deleted every filehub file and folder for a
+#                                 hardcoded group id, service role, no caller
+#                                 check, invokable by any signed-in user of any
+#                                 tenant. See supabase/_archive/README.md.
+#
+# debug-secrets remains: it is already a 410 stub, and pinning verify_jwt keeps
+# a deploy from re-opening it.
 [functions.debug-secrets]
-verify_jwt = true
-
-# DESTRUCTIVE ONE-OFF, STILL DEPLOYED. Hard-deletes every filehub file and
-# folder for a hardcoded group_id, plus their storage objects, using the
-# service role and with NO authorization check of its own -- any signed-in user
-# of any tenant can invoke it. Its own comment says "safe to delete this
-# function from the dashboard once it has run"; it ran, and it was never
-# deleted. Pinned at verify_jwt = true (what prod has) only so a deploy cannot
-# make it worse. It should be DELETED, not maintained.
-[functions.purge-ksa-templates-cleanup]
 verify_jwt = true
