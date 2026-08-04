@@ -472,3 +472,25 @@ verify_jwt = true
 # Called from the app with the user's session. Deployed with verify_jwt = true.
 [functions.import-proxy]
 verify_jwt = true
+
+# ── Captured from production 2026-08-04 (#178) ──────────────────────────────
+# These three were LIVE in production with no source in this repo, so a
+# `functions deploy` had nothing to compare against and `verify_jwt` was
+# whatever the dashboard last set. Pinned here so a deploy can no longer change
+# their auth posture by accident. Values match what production actually has.
+
+[functions.generate-pdf-report-v8]
+verify_jwt = false
+
+[functions.debug-secrets]
+verify_jwt = true
+
+# DESTRUCTIVE ONE-OFF, STILL DEPLOYED. Hard-deletes every filehub file and
+# folder for a hardcoded group_id, plus their storage objects, using the
+# service role and with NO authorization check of its own -- any signed-in user
+# of any tenant can invoke it. Its own comment says "safe to delete this
+# function from the dashboard once it has run"; it ran, and it was never
+# deleted. Pinned at verify_jwt = true (what prod has) only so a deploy cannot
+# make it worse. It should be DELETED, not maintained.
+[functions.purge-ksa-templates-cleanup]
+verify_jwt = true
