@@ -1,4 +1,5 @@
 import { KPIBoxWeb } from '@/components/intelligence/IntelligenceCommon';
+import ProjectLens from '@/components/intelligence/ProjectLens';
 import { WidgetConfigModal } from '@/components/intelligence/IntelligenceModals';
 import { DateRangeControls, PipelineSelector, daysBetween, useDateRange, useGranularity } from '@/components/intelligence/DateRangeFilter';
 import {
@@ -163,6 +164,17 @@ export default function IntelligenceOverview() {
             <View className="flex-row flex-wrap gap-4 mb-8">
               {activeWidgets.map(renderWidget)}
             </View>
+          </View>
+
+          {/* ── The project / portfolio lens (#191 Phase 10) ──
+              Beside the pipeline rollup, not instead of it: the widgets below
+              are throughput over the chosen range, this is the state of the
+              actual batches of work right now. Every number in it comes from
+              rpc_portfolios_table / rpc_projects_table — the same readers the
+              portfolio card and the timeline use — so the three surfaces
+              cannot disagree about one project's finish date. */}
+          <View className="px-10 pb-8">
+            <ProjectLens />
           </View>
 
           {/* ── Mini Widgets ── */}

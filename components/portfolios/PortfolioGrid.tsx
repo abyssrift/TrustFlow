@@ -53,7 +53,7 @@ export default function PortfolioGrid({
   const c = useThemeColors();
   const { width } = useWindowDimensions();
   const [search, setSearch] = useState('');
-  const { rows, loading, error, refresh } = usePortfolios(search);
+  const { rows, loading, error, denied, refresh } = usePortfolios(search);
 
   // Three across on a wide screen puts six cards in view without scrolling,
   // which is the density asked for. Two on tablets, one on phones — below
@@ -72,16 +72,20 @@ export default function PortfolioGrid({
     if (error) {
       return (
         <View className="bg-surface-card border border-surface-border rounded-2xl p-6 items-center" style={{ gap: 10 }}>
-          <FontAwesome name="exclamation-triangle" size={22} color={c.danger} />
+          {/* Denied is not a failure to retry — a "Try again" button on it just
+              fails again and reads as a bug rather than an access rule. */}
+          <FontAwesome name={denied ? 'lock' : 'exclamation-triangle'} size={22} color={denied ? c.textMuted : c.danger} />
           <Text className="text-typography-main text-sm font-bold text-center">{error}</Text>
-          <TouchableOpacity
-            onPress={refresh}
-            accessibilityRole="button"
-            className="bg-brand-primary hover:bg-brand-primary-hover active:bg-brand-primary-active px-4 rounded-xl items-center justify-center"
-            style={{ minHeight: 44 }}
-          >
-            <Text className="text-white text-sm font-bold">Try again</Text>
-          </TouchableOpacity>
+          {!denied && (
+            <TouchableOpacity
+              onPress={refresh}
+              accessibilityRole="button"
+              className="bg-brand-primary hover:bg-brand-primary-hover active:bg-brand-primary-active px-4 rounded-xl items-center justify-center"
+              style={{ minHeight: 44 }}
+            >
+              <Text className="text-white text-sm font-bold">Try again</Text>
+            </TouchableOpacity>
+          )}
         </View>
       );
     }

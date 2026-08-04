@@ -41,6 +41,7 @@ export function usePortfolios(search: string = '') {
   const [rows, setRows] = useState<PortfolioRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [denied, setDenied] = useState(false);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -51,12 +52,22 @@ export function usePortfolios(search: string = '') {
       p_offset: 0,
     });
     if (e) {
-      // An empty list and a denied read are different things and must not look
-      // the same — "no portfolios yet" invites you to make one, which is bad
-      // advice if the truth is that the query failed.
-      setError('Could not load portfolios. Check your connection and try again.');
+      // An empty list, a denied read and a broken connection are three
+      // different things and must not look the same — "no portfolios yet"
+      // invites you to make one, which is bad advice if the truth is that you
+      // are not allowed to see the ones that exist. rpc_portfolios_table
+      // raises "Insufficient permissions to view portfolios." for that case;
+      // everything else is a failure the user can retry.
+      const isDenied = /insufficient permissions/i.test(e.message || '');
+      setDenied(isDenied);
+      setError(
+        isDenied
+          ? 'You don’t have access to portfolios. Ask an admin if you should.'
+          : 'Could not load portfolios. Check your connection and try again.',
+      );
       setRows([]);
     } else {
+      setDenied(false);
       setRows((data ?? []) as PortfolioRow[]);
     }
     setLoading(false);
@@ -68,5 +79,5 @@ export function usePortfolios(search: string = '') {
     return () => clearTimeout(t);
   }, [fetchAll, search]);
 
-  return { rows, loading, error, refresh: fetchAll };
+  return { rows, loading, error, denied, refresh: fetchAll };
 }
