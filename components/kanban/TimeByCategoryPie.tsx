@@ -1,7 +1,7 @@
 import { SectionCard } from '@/components/entities/EntityUI';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { formatCompact } from '@/lib/time';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, G } from 'react-native-svg';
 
@@ -61,7 +61,6 @@ export default function TimeByCategoryPie({
   title,
   selected = null,
   onSelect,
-  size = 128,
   className,
 }: {
   tasks: { category?: string | null; total_seconds?: number }[];
@@ -73,11 +72,19 @@ export default function TimeByCategoryPie({
   selected?: string | null;
   /** When given, the legend becomes a filter control. */
   onSelect?: (category: string | null) => void;
-  size?: number;
   /** Passed to SectionCard — `flex-1` when this sits in a row of cards. */
   className?: string;
 }) {
   const colors = useThemeColors();
+  // The ring measures its own container instead of taking a `size` prop.
+  //
+  // It used to be told `128` by the kanban rail and `isMobile ? 120 : 148` by
+  // the Assignments tab — a breakpoint guess about a width neither caller
+  // actually knew. Once the card started stretching to match its neighbour
+  // (#187), that guess was visibly wrong: a 148px ring adrift in a 700px card.
+  // A breakpoint describes the VIEWPORT; what this needs is the width of the
+  // box it was handed, which only onLayout can answer.
+  const [boxW, setBoxW] = useState(0);
   const dark = isDarkHex(colors.card);
   const palette = dark ? CAT_DARK : CAT_LIGHT;
 
@@ -117,6 +124,18 @@ export default function TimeByCategoryPie({
     );
   }
 
+  // Share the row with the legend, which needs LEGEND_MIN before it wraps
+  // underneath. Below that the ring gets the whole width instead, because a
+  // wrapped legend is no longer competing for it. Clamped at both ends: under
+  // ~96px the centre total stops being readable, and over ~200px a donut just
+  // looks like a mistake in a dashboard card.
+  const LEGEND_MIN = 130, ROW_GAP = 12, MIN = 96, MAX = 200;
+  const size = boxW <= 0
+    ? MIN // first paint, before onLayout — grows on the very next frame
+    : Math.max(MIN, Math.min(MAX, Math.floor(
+        boxW - LEGEND_MIN - ROW_GAP >= MIN ? boxW - LEGEND_MIN - ROW_GAP : boxW,
+      )));
+
   const stroke = Math.round(size * 0.14), r = (size - stroke) / 2, cx = size / 2, cy = size / 2;
   const C = 2 * Math.PI * r;
   const GAP = 2; // surface gap between fills (mark spec)
@@ -150,7 +169,18 @@ export default function TimeByCategoryPie({
   // a lie.
   return (
     <SectionCard title={heading} icon="pie-chart" className={className}>
-      <View className="flex-row items-center gap-3 flex-wrap">
+      <View
+        // flex-1 + justify-center: when this card is stretched to match a
+        // taller neighbour (#187), the ring sits in the middle of the space
+        // rather than clinging to the top with the surplus dumped underneath.
+        className="flex-1 flex-row items-center justify-center gap-3 flex-wrap"
+        onLayout={e => {
+          const w = Math.round(e.nativeEvent.layout.width);
+          // Only on a real change: RNW fires onLayout on every commit, and
+          // setting state unconditionally means a re-render per commit forever.
+          setBoxW(prev => (Math.abs(prev - w) > 1 ? w : prev));
+        }}
+      >
         <View style={{ width: size, height: size }}>
           <Svg width={size} height={size}>
             <G rotation={-90} origin={`${cx}, ${cy}`}>{arcs}</G>

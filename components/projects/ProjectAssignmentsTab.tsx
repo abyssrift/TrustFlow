@@ -603,7 +603,6 @@ export default function ProjectAssignmentsTab() {
         title="Work by category"
         selected={category}
         onSelect={setCategory}
-        size={isMobile ? 120 : 148}
         className={isDesktop ? 'flex-1' : undefined}
       />
       <ProjectionChart
