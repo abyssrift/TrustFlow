@@ -20,6 +20,7 @@ import { useAlert } from '@/contexts/AlertContext';
 import { TAB_BAR_HEIGHT } from '@/lib/layout';
 import { useNavBarPosition } from '@/hooks/useNavBarPosition';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { usePersistedState } from '@/hooks/usePersistedState';
 import Tooltip from '@/components/common/Tooltip';
 import { EntityGlyph, EntityTag, SegmentedControl } from '@/components/entities/EntityUI';
 
@@ -47,7 +48,16 @@ export default function ProjectsScreen() {
   const [tableRefreshKey, setTableRefreshKey] = useState(0);
   const bumpTable = () => setTableRefreshKey(k => k + 1);
   // #176 Projects P6 -- Table/Board toggle. Timeline stays disabled/future.
-  const [view, setView] = useState<'table' | 'board'>('table');
+  // Persisted: switching to Board and coming back to a List you did not choose
+  // is the kind of small betrayal that makes an app feel like it is not
+  // listening. Validated on read — 'timeline' is not selectable yet, and a
+  // stored value from a future build must not strand the screen on a view
+  // this one cannot render.
+  const [view, setView] = usePersistedState<'table' | 'board'>(
+    'projects_view',
+    'table',
+    (v): v is 'table' | 'board' => v === 'table' || v === 'board',
+  );
 
   const { hasPermission } = useAuth();
   const isWeb = Platform.OS === 'web';

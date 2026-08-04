@@ -141,7 +141,7 @@ export function StepSpine({
   if (!isDesktop) {
     return (
       <View style={{ gap: 6 }}>
-        <Text className="text-typography-muted text-[9px] font-black uppercase tracking-[0.3em]">
+        <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.3em]">
           Step {current + 1} of {steps.length} · {steps[current]}
         </Text>
         <View className="flex-row" style={{ gap: 3 }}>
@@ -162,13 +162,13 @@ export function StepSpine({
             style={{ gap: 5, backgroundColor: i === current ? `${c.primary}1f` : 'transparent' }}
           >
             <Text
-              className="text-[9px] font-black"
+              className="text-[10px] font-black"
               style={{ color: i < current ? c.success : i === current ? c.primary : c.textDim }}
             >
               {i < current ? '✓' : i + 1}
             </Text>
             <Text
-              className="text-[10px] font-black uppercase tracking-wider"
+              className="text-[11px] font-black uppercase tracking-wider"
               style={{ color: i === current ? c.primary : i < current ? c.textMuted : c.textDim }}
             >
               {s}
@@ -197,12 +197,12 @@ export function BlockerList({ blockers, c }: { blockers: Blocker[]; c: ReturnTyp
   if (blockers.length === 0) return null;
   return (
     <View className="rounded-2xl p-3" style={{ backgroundColor: `${c.warning}14`, borderWidth: 1, borderColor: c.warning, gap: 6 }}>
-      <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: c.warning }}>
+      <Text className="text-[11px] font-black uppercase tracking-widest" style={{ color: c.warning }}>
         {blockers.length} thing{blockers.length === 1 ? '' : 's'} still needed
       </Text>
       {blockers.map(b => (
         <View key={b.field} className="flex-row items-start flex-wrap" style={{ gap: 6 }}>
-          <Text className="text-typography-main text-[11px]" style={{ flexGrow: 1, flexBasis: 200 }}>
+          <Text className="text-typography-main text-[12px]" style={{ flexGrow: 1, flexBasis: 200 }}>
             <Text className="font-black">{b.field}: </Text>{b.reason}
           </Text>
           {b.action && (
@@ -211,7 +211,7 @@ export function BlockerList({ blockers, c }: { blockers: Blocker[]; c: ReturnTyp
               className="px-3 rounded-lg"
               style={{ minHeight: 36, justifyContent: 'center', backgroundColor: c.background, borderWidth: 1, borderColor: c.primary }}
             >
-              <Text className="text-[11px] font-bold" style={{ color: c.primary }}>{b.action.label}</Text>
+              <Text className="text-[12px] font-bold" style={{ color: c.primary }}>{b.action.label}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -224,7 +224,7 @@ export function BlockerList({ blockers, c }: { blockers: Blocker[]; c: ReturnTyp
  *  four terms this flow invents — category, board, schedule anchor, batch —
  *  each get one plain sentence next to the control that uses them. */
 export function Hint({ children }: { children: React.ReactNode }) {
-  return <Text className="text-typography-dim text-[10px] leading-4">{children}</Text>;
+  return <Text className="text-typography-dim text-[11px] leading-4">{children}</Text>;
 }
 
 /**
@@ -275,12 +275,12 @@ function PastDatesNotice({
   const range = `${fmtShort(lines[0].start_date)}${n > 1 ? ` – ${fmtShort(lines[n - 1].start_date)}` : ''}`;
   return (
     <View className="mt-3 p-3 rounded-xl border" style={{ borderColor: c.warning, backgroundColor: c.warning + '22' }}>
-      <Text className="text-typography-main text-xs font-black mb-1">
+      <Text className="text-typography-main text-[13px] font-black mb-1">
         {policy === 'keep' ? `Keeping ${n} start date${n === 1 ? '' : 's'} from before today`
           : policy === 'clear' ? `Clearing ${n} start date${n === 1 ? '' : 's'} from before today`
           : `${n} project${n === 1 ? ' has a start date' : 's have start dates'} before today`}
       </Text>
-      <Text className="text-typography-muted text-[11px] leading-4 mb-2">
+      <Text className="text-typography-muted text-[12px] leading-4 mb-2">
         {range} {source}. That is normal when importing an existing portfolio — the rows are marked below.
         Keep them to record work that already happened, or clear them and let this batch&apos;s schedule set the dates instead.
       </Text>
@@ -292,7 +292,7 @@ function PastDatesNotice({
             className={`px-3 py-2 justify-center rounded-lg border ${policy === value ? 'border-brand-primary bg-brand-primary/10' : 'border-surface-border'}`}
             style={{ minHeight: 44 }}
           >
-            <Text className={`text-[11px] font-black uppercase tracking-wider ${policy === value ? 'text-brand-primary' : 'text-typography-muted'}`}>
+            <Text className={`text-[12px] font-black uppercase tracking-wider ${policy === value ? 'text-brand-primary' : 'text-typography-muted'}`}>
               {label}
             </Text>
           </TouchableOpacity>
@@ -699,7 +699,7 @@ export default function BulkCreateProjectsSheet({
   const scheduleAndPreview = (
     <>
       <View style={{ gap: 8 }}>
-        <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest">Schedule anchor</Text>
+        <Text className="text-typography-label text-[11px] font-black uppercase tracking-widest">Schedule anchor</Text>
         <Hint>
           One date for the whole batch. Every task in every project is counted from it — the template spreads its{' '}
           {taskCountPerProject} task{taskCountPerProject === 1 ? '' : 's'} over {spanDays} day{spanDays === 1 ? '' : 's'}.
@@ -715,15 +715,15 @@ export default function BulkCreateProjectsSheet({
             offset from this date", which names a concept the user has never
             met and states no consequence. Both options now say what happens
             to the date they are about to pick, in days (§19.2). */}
-        <Text className="text-typography-main text-[11px] font-bold">Is that date the deadline, or the start?</Text>
+        <Text className="text-typography-main text-[12px] font-bold">Is that date the deadline, or the start?</Text>
         <View className="flex-row gap-2">
           <TouchableOpacity
             onPress={() => setAnchorDirection('deadline')}
             className={`flex-1 rounded-xl border px-3 py-2 justify-center ${anchorDirection === 'deadline' ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
             style={{ minHeight: 44 }}
           >
-            <Text className={`text-xs font-black uppercase tracking-wider ${anchorDirection === 'deadline' ? 'text-white' : 'text-typography-main'}`}>Due by</Text>
-            <Text className={`text-[10px] mt-0.5 ${anchorDirection === 'deadline' ? 'text-white/80' : 'text-typography-muted'}`}>
+            <Text className={`text-[13px] font-black uppercase tracking-wider ${anchorDirection === 'deadline' ? 'text-white' : 'text-typography-main'}`}>Due by</Text>
+            <Text className={`text-[11px] mt-0.5 ${anchorDirection === 'deadline' ? 'text-white/80' : 'text-typography-muted'}`}>
               The LAST task is due that day. Work starts {spanDays} day{spanDays === 1 ? '' : 's'} earlier.
             </Text>
           </TouchableOpacity>
@@ -732,8 +732,8 @@ export default function BulkCreateProjectsSheet({
             className={`flex-1 rounded-xl border px-3 py-2 justify-center ${anchorDirection === 'start' ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
             style={{ minHeight: 44 }}
           >
-            <Text className={`text-xs font-black uppercase tracking-wider ${anchorDirection === 'start' ? 'text-white' : 'text-typography-main'}`}>Starts on</Text>
-            <Text className={`text-[10px] mt-0.5 ${anchorDirection === 'start' ? 'text-white/80' : 'text-typography-muted'}`}>
+            <Text className={`text-[13px] font-black uppercase tracking-wider ${anchorDirection === 'start' ? 'text-white' : 'text-typography-main'}`}>Starts on</Text>
+            <Text className={`text-[11px] mt-0.5 ${anchorDirection === 'start' ? 'text-white/80' : 'text-typography-muted'}`}>
               The FIRST task begins that day. The last is due {spanDays} day{spanDays === 1 ? '' : 's'} later.
             </Text>
           </TouchableOpacity>
@@ -751,7 +751,7 @@ export default function BulkCreateProjectsSheet({
               className={`rounded-lg border px-3 justify-center ${anchorDate === preset.date ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
               style={{ minHeight: 44 }}
             >
-              <Text className={`text-[10px] font-black uppercase tracking-wider ${anchorDate === preset.date ? 'text-white' : 'text-typography-muted'}`}>{preset.label}</Text>
+              <Text className={`text-[11px] font-black uppercase tracking-wider ${anchorDate === preset.date ? 'text-white' : 'text-typography-muted'}`}>{preset.label}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -774,7 +774,7 @@ export default function BulkCreateProjectsSheet({
             scale="compact"
           />
         )}
-        {anchorIsPast && <Text className="text-state-danger text-xs font-bold">{anchorDate} is in the past — pick a current or future date.</Text>}
+        {anchorIsPast && <Text className="text-state-danger text-[13px] font-bold">{anchorDate} is in the past — pick a current or future date.</Text>}
       </View>
 
       {/* Preview — the outcome, not the row count (issue #182). A preview
@@ -786,7 +786,7 @@ export default function BulkCreateProjectsSheet({
           stated once as a reason the button is off rather than twice in two
           idioms — §19.2's complaint about the past-date paragraph. */}
       <View style={{ gap: 8 }}>
-        <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest">What you will get</Text>
+        <Text className="text-typography-label text-[11px] font-black uppercase tracking-widest">What you will get</Text>
         <View className="bg-surface-background border border-surface-border rounded-2xl p-4" style={{ gap: 10 }}>
           <View className="flex-row items-start gap-3">
             <FontAwesome name="magic" size={14} color={previewError ? c.danger : c.primary} style={{ marginTop: 2 }} />
@@ -811,20 +811,20 @@ export default function BulkCreateProjectsSheet({
               check; "JREIJ: Planning Feb 3 → Filing Mar 9" is. */}
           {sample && (
             <View style={{ gap: 4, borderTopWidth: 1, borderTopColor: c.border, paddingTop: 10 }}>
-              <Text className="text-typography-dim text-[10px] font-black uppercase tracking-wider">
+              <Text className="text-typography-dim text-[11px] font-black uppercase tracking-wider">
                 For example, “{sample.name}” gets
               </Text>
               {sample.tasks.slice(0, 6).map((t, i) => (
                 <View key={`${t.title}-${i}`} className="flex-row items-center" style={{ gap: 8 }}>
-                  <Text className="text-typography-main text-[11px] flex-1" numberOfLines={1}>{t.title}</Text>
-                  {!!t.category && <Text className="text-typography-dim text-[10px]" numberOfLines={1}>{t.category}</Text>}
-                  <Text className="text-typography-muted text-[11px] font-bold" style={{ width: 62, textAlign: 'right' }}>
+                  <Text className="text-typography-main text-[12px] flex-1" numberOfLines={1}>{t.title}</Text>
+                  {!!t.category && <Text className="text-typography-dim text-[11px]" numberOfLines={1}>{t.category}</Text>}
+                  <Text className="text-typography-muted text-[12px] font-bold" style={{ width: 62, textAlign: 'right' }}>
                     {fmtShort(t.dueDay)}
                   </Text>
                 </View>
               ))}
               {sample.tasks.length > 6 && (
-                <Text className="text-typography-dim text-[10px]">
+                <Text className="text-typography-dim text-[11px]">
                   +{sample.tasks.length - 6} more, through {fmtShort(sample.tasks[sample.tasks.length - 1].dueDay)}
                 </Text>
               )}
@@ -835,7 +835,7 @@ export default function BulkCreateProjectsSheet({
 
       <BlockerList blockers={configureBlockers} c={c} />
 
-      {error && <Text className="text-state-danger text-xs font-bold">{error}</Text>}
+      {error && <Text className="text-state-danger text-[13px] font-bold">{error}</Text>}
     </>
   );
 
@@ -891,15 +891,15 @@ export default function BulkCreateProjectsSheet({
             key={`${p.raw}-${i}`}
             className="bg-surface-background border border-surface-border rounded-xl px-3 py-2"
           >
-            <Text className="text-typography-main text-xs font-bold" numberOfLines={1}>{p.name}</Text>
+            <Text className="text-typography-main text-[13px] font-bold" numberOfLines={1}>{p.name}</Text>
             {(p.client_ref !== p.name || p.start_date || p.external_ref || rawPast) && (
-              <Text className="text-[10px] mt-0.5 text-typography-muted" numberOfLines={1}>
+              <Text className="text-[11px] mt-0.5 text-typography-muted" numberOfLines={1}>
                 {p.client_ref !== p.name ? `${p.client_ref} · ` : ''}
                 {p.start_date ? fmtShort(p.start_date) : ''}{p.start_date && p.external_ref ? ' · ' : ''}{p.external_ref || ''}
               </Text>
             )}
             {rawPast && (
-              <Text className="text-[10px] mt-0.5 font-bold" style={{ color: cleared ? c.textDim : c.warning }} numberOfLines={1}>
+              <Text className="text-[11px] mt-0.5 font-bold" style={{ color: cleared ? c.textDim : c.warning }} numberOfLines={1}>
                 {cleared
                   ? `${fmtShort(parsedRaw[i].start_date)} cleared — follows the batch anchor`
                   : `Starts ${fmtShort(p.start_date)}, before today — kept as written`}
@@ -945,7 +945,7 @@ export default function BulkCreateProjectsSheet({
                 </View>
 
                 <ScrollView className="px-5" showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 16, paddingBottom: 20 }}>
-                  <Text className="text-typography-muted text-xs">
+                  <Text className="text-typography-muted text-[13px]">
                     "{selectedTemplate?.name}" · {categories.length} categor{categories.length === 1 ? 'y' : 'ies'} · {parsed.length} project{parsed.length === 1 ? '' : 's'} · {parsed.length * taskCountPerProject} tasks total.
                   </Text>
 
@@ -956,7 +956,7 @@ export default function BulkCreateProjectsSheet({
                   >
                     <View className="flex-1 mr-3">
                       <Text className="text-typography-main font-black text-sm">Which board does each category go to?</Text>
-                      <Text className="text-typography-muted text-[10px] font-bold mt-0.5">
+                      <Text className="text-typography-muted text-[11px] font-bold mt-0.5">
                         {mappedCount} of {categories.length} answered
                         {unmappedCategories.length > 0 ? ` · still need ${unmappedCategories.slice(0, 2).map(cat => cat || 'Uncategorized').join(', ')}${unmappedCategories.length > 2 ? '…' : ''}` : ''}
                       </Text>
@@ -974,7 +974,7 @@ export default function BulkCreateProjectsSheet({
                     className="flex-1 py-3.5 rounded-2xl items-center"
                     style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}
                   >
-                    <Text className="font-black uppercase tracking-widest text-xs" style={{ color: c.textMuted }}>Back</Text>
+                    <Text className="font-black uppercase tracking-widest text-[13px]" style={{ color: c.textMuted }}>Back</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={handleCreate}
@@ -982,7 +982,7 @@ export default function BulkCreateProjectsSheet({
                     className="flex-[2] py-3.5 rounded-2xl items-center shadow-lg"
                     style={{ backgroundColor: canCreate ? c.primary : c.border }}
                   >
-                    <Text className="font-black uppercase tracking-widest text-xs" style={{ color: canCreate ? 'white' : c.textMuted }}>
+                    <Text className="font-black uppercase tracking-widest text-[13px]" style={{ color: canCreate ? 'white' : c.textMuted }}>
                       {creating ? 'Creating…' : `Create ${parsed.length} Project${parsed.length === 1 ? '' : 's'}`}
                     </Text>
                   </TouchableOpacity>
@@ -995,10 +995,10 @@ export default function BulkCreateProjectsSheet({
                     <FontAwesome name="chevron-left" size={14} color={c.textMain} />
                   </TouchableOpacity>
                   <View className="flex-1">
-                    <Text className="text-typography-muted text-[9px] font-black uppercase tracking-[0.3em] mb-0.5">Boards &amp; Schedule</Text>
+                    <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.3em] mb-0.5">Boards &amp; Schedule</Text>
                     <Text className="text-typography-main font-black text-base tracking-tight" numberOfLines={1}>Category → Board</Text>
                   </View>
-                  <Text className="text-typography-muted text-[10px] font-black mr-1">{mappedCount}/{categories.length}</Text>
+                  <Text className="text-typography-muted text-[11px] font-black mr-1">{mappedCount}/{categories.length}</Text>
                 </View>
                 <ScrollView className="px-5 pt-4" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
                   {categoryList}
@@ -1030,13 +1030,13 @@ export default function BulkCreateProjectsSheet({
           variant: canCreate ? 'default' : 'disabled',
         }}
         dismissible={!creating}
-        maxWidth={1080}
+        maxWidth={1320}
         containerStyle={{ height: '86%' }}
       >
         <View style={{ flex: 1, minHeight: 0 }}>
           <View className="px-6 pt-4 pb-3" style={{ gap: 6 }}>
             {spine}
-            <Text className="text-typography-muted text-xs">
+            <Text className="text-typography-muted text-[13px]">
               "{selectedTemplate?.name}" · {categories.length} categor{categories.length === 1 ? 'y' : 'ies'} · {parsed.length * taskCountPerProject} tasks total.
               Nothing is created until you press Create.
             </Text>
@@ -1044,14 +1044,14 @@ export default function BulkCreateProjectsSheet({
 
           <View className="px-6 pb-5" style={{ flexDirection: 'row', flex: 1, minHeight: 0, gap: 24 }}>
             <View style={{ flex: 1, minWidth: 0 }}>
-              <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2">Projects ({parsed.length})</Text>
+              <Text className="text-typography-label text-[11px] font-black uppercase tracking-widest mb-2">Projects ({parsed.length})</Text>
               <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 8 }}>
                 {projectsList}
               </ScrollView>
             </View>
 
             <View style={{ flex: 1, minWidth: 0 }}>
-              <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2">
+              <Text className="text-typography-label text-[11px] font-black uppercase tracking-widest mb-2">
                 Which board does each category go to? ({mappedCount}/{categories.length})
               </Text>
               <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 8 }}>
@@ -1084,7 +1084,7 @@ export default function BulkCreateProjectsSheet({
         variant: canProceedToConfigure ? 'default' : 'disabled',
       }}
       dismissible={!creating}
-      maxWidth={640}
+      maxWidth={860}
     >
       {/*
         StarterTemplatePickerSheet is rendered as a return-level sibling below
@@ -1099,7 +1099,7 @@ export default function BulkCreateProjectsSheet({
 
         {/* Template picker */}
         <View>
-          <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2">Template</Text>
+          <Text className="text-typography-label text-[11px] font-black uppercase tracking-widest mb-2">Template</Text>
           <View className="mb-2">
             <Hint>
               A <Text className="font-black">template</Text> is the task list every project in this batch gets a copy
@@ -1119,7 +1119,7 @@ export default function BulkCreateProjectsSheet({
                 style={{ minHeight: 44 }}
               >
                 <FontAwesome name="magic" size={12} color="white" />
-                <Text className="text-white text-xs font-black uppercase tracking-wider">Browse Starter Templates</Text>
+                <Text className="text-white text-[13px] font-black uppercase tracking-wider">Browse Starter Templates</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -1131,7 +1131,7 @@ export default function BulkCreateProjectsSheet({
                   className={`px-4 py-2 rounded-xl border ${templateId === t.id ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
                   style={{ minHeight: 44, justifyContent: 'center' }}
                 >
-                  <Text className={`text-xs font-black uppercase tracking-wider ${templateId === t.id ? 'text-white' : 'text-typography-muted'}`}>
+                  <Text className={`text-[13px] font-black uppercase tracking-wider ${templateId === t.id ? 'text-white' : 'text-typography-muted'}`}>
                     {t.name} · {t.body?.length || 0} tasks
                   </Text>
                 </TouchableOpacity>
@@ -1142,18 +1142,18 @@ export default function BulkCreateProjectsSheet({
                 style={{ minHeight: 44, justifyContent: 'center' }}
               >
                 <FontAwesome name="plus" size={10} color={c.textMuted} />
-                <Text className="text-typography-muted text-xs font-black uppercase tracking-wider">Starter</Text>
+                <Text className="text-typography-muted text-[13px] font-black uppercase tracking-wider">Starter</Text>
               </TouchableOpacity>
             </View>
           )}
           {selectedTemplate && taskCountPerProject === 0 && (
-            <Text className="text-state-danger text-xs font-bold mt-2">This template has no tasks — pick another.</Text>
+            <Text className="text-state-danger text-[13px] font-bold mt-2">This template has no tasks — pick another.</Text>
           )}
         </View>
 
         {/* Portfolio name (optional) */}
         <View>
-          <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2">Batch Name (optional)</Text>
+          <Text className="text-typography-label text-[11px] font-black uppercase tracking-widest mb-2">Batch Name (optional)</Text>
           <View className="mb-2">
             <Hint>
               The <Text className="font-black">batch</Text> is everything created by this one import, kept together so
@@ -1177,7 +1177,7 @@ export default function BulkCreateProjectsSheet({
             diverge from what the user already confirmed there. */}
         {initialRows ? (
           <View>
-            <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2">
+            <Text className="text-typography-label text-[11px] font-black uppercase tracking-widest mb-2">
               Projects — {initialRows.length} imported from {initialSource?.replace(/^spreadsheet:/, '') || 'spreadsheet'}
             </Text>
             <ScrollView
@@ -1188,8 +1188,8 @@ export default function BulkCreateProjectsSheet({
             >
               {parsed.map((p, i) => (
                 <View key={`${p.raw}-${i}`} className="px-2 py-1.5 rounded-lg">
-                  <Text className="text-typography-main text-xs font-bold" numberOfLines={1}>{p.name}</Text>
-                  <Text className="text-typography-muted text-[10px]" numberOfLines={1}>
+                  <Text className="text-typography-main text-[13px] font-bold" numberOfLines={1}>{p.name}</Text>
+                  <Text className="text-typography-muted text-[11px]" numberOfLines={1}>
                     {p.client_ref !== p.name ? `Client: ${p.client_ref} · ` : ''}
                     {p.start_date ? fmtShort(p.start_date) : 'no start date'}{p.external_ref ? ` · ${p.external_ref}` : ''}
                   </Text>
@@ -1203,7 +1203,7 @@ export default function BulkCreateProjectsSheet({
           </View>
         ) : (
           <View>
-            <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2">
+            <Text className="text-typography-label text-[11px] font-black uppercase tracking-widest mb-2">
               Projects — one per line, optionally "Name, 2026-08-01, ref"
             </Text>
             <TextInput
@@ -1242,7 +1242,7 @@ export default function BulkCreateProjectsSheet({
 
         <BlockerList blockers={setupBlockers} c={c} />
 
-        {error && <Text className="text-state-danger text-xs font-bold">{error}</Text>}
+        {error && <Text className="text-state-danger text-[13px] font-bold">{error}</Text>}
       </View>
     </Popup>
 

@@ -18,6 +18,7 @@ import ProjectsTable from '@/components/projects/ProjectsTable';
 import ProjectBoard from '@/components/projects/ProjectBoard';
 import { EntityGlyph, EntityTag, SegmentedControl } from '@/components/entities/EntityUI';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { usePersistedState } from '@/hooks/usePersistedState';
 
 // Phase 8 (#187, plan §14/§17). What changed and why:
 //
@@ -49,7 +50,16 @@ export default function ProjectsScreenWeb() {
   const [addMenuVisible, setAddMenuVisible] = useState(false);
   const [tableRefreshKey, setTableRefreshKey] = useState(0);
   // #176 Projects P6 -- Table/Board toggle. Timeline stays disabled/future.
-  const [view, setView] = useState<'table' | 'board'>('table');
+  // Persisted: switching to Board and coming back to a List you did not choose
+  // is the kind of small betrayal that makes an app feel like it is not
+  // listening. Validated on read — 'timeline' is not selectable yet, and a
+  // stored value from a future build must not strand the screen on a view
+  // this one cannot render.
+  const [view, setView] = usePersistedState<'table' | 'board'>(
+    'projects_view',
+    'table',
+    (v): v is 'table' | 'board' => v === 'table' || v === 'board',
+  );
 
   const canViewProjects = hasPermission('project.view');
   const canCreate = hasPermission('project.create');

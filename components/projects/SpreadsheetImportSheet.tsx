@@ -134,7 +134,7 @@ function DropZone({ onFile, busy }: { onFile: (file: File) => void; busy: boolea
           <Text className="text-typography-main font-black text-base mt-4">
             {Platform.OS === 'web' ? 'Drag a spreadsheet here' : 'Spreadsheet import'}
           </Text>
-          <Text className="text-typography-muted text-xs mt-1 text-center">
+          <Text className="text-typography-muted text-[13px] mt-1 text-center">
             {Platform.OS === 'web'
               ? 'Excel or CSV — clients, a portfolio manifest, or a task list. We’ll find the table for you.'
               : 'Import from spreadsheet is available on web for now.'}
@@ -145,7 +145,7 @@ function DropZone({ onFile, busy }: { onFile: (file: File) => void; busy: boolea
               className="mt-4 px-5 py-2.5 rounded-xl bg-brand-primary"
               style={{ minHeight: 44, justifyContent: 'center' }}
             >
-              <Text className="text-white text-xs font-black uppercase tracking-wider">Browse Files</Text>
+              <Text className="text-white text-[13px] font-black uppercase tracking-wider">Browse Files</Text>
             </TouchableOpacity>
           )}
         </>
@@ -166,7 +166,7 @@ function TargetChip({ target, c }: { target: ColumnTarget; c: ReturnType<typeof 
     : [`${target.defId ? 'Field' : 'New field'} · ${FIELD_TYPE_LABELS[target.dataType]}`, target.defId ? c.success : c.info] as const;
   return (
     <View className="px-2 py-1 rounded-lg" style={{ backgroundColor: `${tone}1f`, borderWidth: 1, borderColor: `${tone}59` }}>
-      <Text className="text-[10px] font-black uppercase tracking-wider" style={{ color: tone }} numberOfLines={1}>{label}</Text>
+      <Text className="text-[11px] font-black uppercase tracking-wider" style={{ color: tone }} numberOfLines={1}>{label}</Text>
     </View>
   );
 }
@@ -202,24 +202,24 @@ function ColumnRow({
       <View style={{ width: 3, backgroundColor: tone }} />
       <View className="flex-1 px-3 py-1.5" style={{ minWidth: 0 }}>
         <View className="flex-row items-center" style={{ gap: 8 }}>
-          <Text className="text-typography-dim text-[10px] font-black" style={{ width: 20 }}>{decision.index + 1}</Text>
-          <Text className="text-typography-main text-xs font-bold flex-1" numberOfLines={1}>
+          <Text className="text-typography-dim text-[11px] font-black" style={{ width: 20 }}>{decision.index + 1}</Text>
+          <Text className="text-typography-main text-[13px] font-bold flex-1" numberOfLines={1}>
             {p.header.trim() || `Column ${decision.index + 1}`}
           </Text>
           <TargetChip target={decision.target} c={c} />
         </View>
         <View className="flex-row items-center mt-0.5" style={{ gap: 8, paddingLeft: 28 }}>
           <FontAwesome name={PRIMITIVE_ICONS[p.primitive]} size={9} color={tone} />
-          <Text className="text-[10px] font-black uppercase tracking-wider" style={{ color: tone }}>
+          <Text className="text-[11px] font-black uppercase tracking-wider" style={{ color: tone }}>
             {PRIMITIVE_LABELS[p.primitive]}
             {p.filled > 0 && p.primitive !== 'empty' ? ` · ${Math.round(p.coverage * 100)}%` : ''}
           </Text>
-          <Text className="text-typography-dim text-[10px] flex-1" numberOfLines={1}>
+          <Text className="text-typography-dim text-[11px] flex-1" numberOfLines={1}>
             {decision.sample ? `“${decision.sample}”` : 'no values'}
           </Text>
         </View>
         {mirrored.length > 0 && (
-          <Text className="text-[10px] mt-1" style={{ color: c.primary, paddingLeft: 28 }} numberOfLines={1}>
+          <Text className="text-[11px] mt-1" style={{ color: c.primary, paddingLeft: 28 }} numberOfLines={1}>
             Also used as {mirrored.map(f => MAPPED_FIELD_LABELS[f]).join(' + ')}
           </Text>
         )}
@@ -243,7 +243,7 @@ function PickerOption({
         borderWidth: 1, borderColor: active ? accent : c.border,
       }}
     >
-      <Text className="text-[11px] font-bold" style={{ color: active ? '#ffffff' : c.textMain }} numberOfLines={1}>{label}</Text>
+      <Text className="text-[12px] font-bold" style={{ color: active ? '#ffffff' : c.textMain }} numberOfLines={1}>{label}</Text>
     </TouchableOpacity>
   );
 }
@@ -271,11 +271,11 @@ function EnumValuePanel({
   return (
     <View style={{ gap: 8 }}>
       <View className="flex-row items-center" style={{ gap: 6 }}>
-        <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest flex-1">
+        <Text className="text-typography-label text-[11px] font-black uppercase tracking-widest flex-1">
           {hasCatalogue ? `Values (${matches.length})` : `Options to create (${matches.length})`}
         </Text>
         {unresolved > 0 && (
-          <Text className="text-[10px] font-black uppercase" style={{ color: c.warning }}>{unresolved} unanswered</Text>
+          <Text className="text-[11px] font-black uppercase" style={{ color: c.warning }}>{unresolved} unanswered</Text>
         )}
       </View>
       {matches.map(m => {
@@ -288,18 +288,18 @@ function EnumValuePanel({
             style={{ backgroundColor: c.background, borderWidth: 1, borderColor: settled ? c.border : c.warning, gap: 6 }}
           >
             <View className="flex-row items-center" style={{ gap: 8 }}>
-              <Text className="text-typography-main text-xs font-bold flex-1" numberOfLines={1}>{m.label}</Text>
-              <Text className="text-typography-dim text-[10px]">{m.count} row{m.count === 1 ? '' : 's'}</Text>
+              <Text className="text-typography-main text-[13px] font-bold flex-1" numberOfLines={1}>{m.label}</Text>
+              <Text className="text-typography-dim text-[11px]">{m.count} row{m.count === 1 ? '' : 's'}</Text>
             </View>
             {m.spellings.length > 1 && (
-              <Text className="text-[10px]" style={{ color: c.info }} numberOfLines={2}>
+              <Text className="text-[11px]" style={{ color: c.info }} numberOfLines={2}>
                 {m.spellings.length} spellings merge here: {m.spellings.map(s => `“${s}”`).join(', ')}
               </Text>
             )}
             {m.matched !== null ? (
               <View className="flex-row items-center" style={{ gap: 6 }}>
                 <FontAwesome name={hasCatalogue ? 'check-circle' : 'plus-circle'} size={10} color={hasCatalogue ? c.success : c.info} />
-                <Text className="text-[10px] font-bold" style={{ color: hasCatalogue ? c.success : c.info }} numberOfLines={1}>
+                <Text className="text-[11px] font-bold" style={{ color: hasCatalogue ? c.success : c.info }} numberOfLines={1}>
                   {!hasCatalogue
                     ? `Will be created as the option “${m.matched}”`
                     : m.fuzzy ? `Matches existing “${m.matched}” (different casing)` : `Matches existing “${m.matched}”`}
@@ -309,7 +309,7 @@ function EnumValuePanel({
               <>
                 <View className="flex-row items-center" style={{ gap: 6 }}>
                   <FontAwesome name="question-circle" size={10} color={c.warning} />
-                  <Text className="text-[10px] font-bold" style={{ color: c.warning }}>No match — nothing is created until you say so</Text>
+                  <Text className="text-[11px] font-bold" style={{ color: c.warning }}>No match — nothing is created until you say so</Text>
                 </View>
                 <View className="flex-row" style={{ gap: 6 }}>
                   <PickerOption label="Add as a new option" active={choice === 'create'} onPress={() => onChoose(m.key, 'create')} c={c} />
@@ -341,7 +341,7 @@ function AmbiguousRow({
     <View className="bg-surface-background border border-state-warning rounded-2xl p-3" style={{ gap: 8 }}>
       <View className="flex-row items-center gap-2">
         <FontAwesome name="question-circle" size={12} color={c.warning} />
-        <Text className="text-typography-main text-xs font-black flex-1" numberOfLines={1}>
+        <Text className="text-typography-main text-[13px] font-black flex-1" numberOfLines={1}>
           Row {row.rowNumber}: "{row.client_ref}" — which client is this?
         </Text>
       </View>
@@ -353,7 +353,7 @@ function AmbiguousRow({
             className={`px-3 py-2 rounded-lg border ${decision?.kind === 'existing' && decision.client.id === cand.id ? 'bg-brand-primary border-brand-primary' : 'border-surface-border'}`}
             style={{ minHeight: 44, justifyContent: 'center' }}
           >
-            <Text className={`text-xs font-bold ${decision?.kind === 'existing' && decision.client.id === cand.id ? 'text-white' : 'text-typography-main'}`}>
+            <Text className={`text-[13px] font-bold ${decision?.kind === 'existing' && decision.client.id === cand.id ? 'text-white' : 'text-typography-main'}`}>
               Use "{cand.name}"
             </Text>
           </TouchableOpacity>
@@ -363,7 +363,7 @@ function AmbiguousRow({
           className={`px-3 py-2 rounded-lg border ${decision?.kind === 'new' ? 'bg-brand-primary border-brand-primary' : 'border-surface-border'}`}
           style={{ minHeight: 44, justifyContent: 'center' }}
         >
-          <Text className={`text-xs font-bold ${decision?.kind === 'new' ? 'text-white' : 'text-typography-main'}`}>
+          <Text className={`text-[13px] font-bold ${decision?.kind === 'new' ? 'text-white' : 'text-typography-main'}`}>
             Actually a new client
           </Text>
         </TouchableOpacity>
@@ -838,7 +838,7 @@ export default function SpreadsheetImportSheet({
           <Text className="text-typography-main text-sm font-bold text-center">
             This exact file was already imported as "{alreadyImported.name}" on {new Date(alreadyImported.createdAt).toLocaleDateString()}.
           </Text>
-          <Text className="text-typography-muted text-xs text-center">
+          <Text className="text-typography-muted text-[13px] text-center">
             Dropping the same file again is a no-op — nothing new was created.
           </Text>
         </View>
@@ -873,12 +873,12 @@ export default function SpreadsheetImportSheet({
 
   if (wizStep === 'drop') {
     return (
-      <Popup visible={visible} onClose={onClose} presentation="auto" title="Import Spreadsheet" maxWidth={640} dismissible={!busy}>
+      <Popup visible={visible} onClose={onClose} presentation="auto" title="Import Spreadsheet" maxWidth={820} dismissible={!busy}>
         <View className="px-6 py-5" style={{ gap: 12 }}>
           <StepSpine steps={IMPORT_JOURNEY_STEPS} current={0} isDesktop={isDesktop} c={c} />
           <DropZone onFile={handleFile} busy={busy} />
-          {error && <Text className="text-state-danger text-xs font-bold">{error}</Text>}
-          <Text className="text-typography-dim text-[10px] text-center">
+          {error && <Text className="text-state-danger text-[13px] font-bold">{error}</Text>}
+          <Text className="text-typography-dim text-[11px] text-center">
             We read the cells, not just the headers — then show you every column, every warning and every value we could not
             match, before anything is created. Five steps, and nothing exists until the last one.
           </Text>
@@ -917,7 +917,7 @@ export default function SpreadsheetImportSheet({
           ...(ignoredCount > 0 ? [{ label: `${ignoredCount} not imported`, tone: c.danger }] : []),
         ].map(chip => (
           <View key={chip.label} className="px-2 py-1 rounded-lg" style={{ backgroundColor: `${chip.tone}1f` }}>
-            <Text className="text-[10px] font-black uppercase tracking-wider" style={{ color: chip.tone }}>{chip.label}</Text>
+            <Text className="text-[11px] font-black uppercase tracking-wider" style={{ color: chip.tone }}>{chip.label}</Text>
           </View>
         ))}
       </View>
@@ -940,15 +940,15 @@ export default function SpreadsheetImportSheet({
         <View key="noname" className="rounded-2xl p-3" style={[{ backgroundColor: c.background, borderWidth: 1, borderColor: c.danger, gap: 8 }, cardLayout]}>
           <View className="flex-row items-center" style={{ gap: 6 }}>
             <FontAwesome name="exclamation-triangle" size={11} color={c.danger} />
-            <Text className="text-typography-main text-xs font-black flex-1">No project name column</Text>
+            <Text className="text-typography-main text-[13px] font-black flex-1">No project name column</Text>
           </View>
-          <Text className="text-typography-muted text-[10px]">
+          <Text className="text-typography-muted text-[11px]">
             Every project needs a name, and no column is supplying one. Pick the column holding the client or engagement
             name — these have the most distinct values, so they are the likeliest:
           </Text>
           <View className="flex-row flex-wrap" style={{ gap: 6 }}>
             {nameCandidates.length === 0
-              ? <Text className="text-typography-dim text-[10px]">No text column found — open any column on the left and set it to Project name.</Text>
+              ? <Text className="text-typography-dim text-[11px]">No text column found — open any column on the left and set it to Project name.</Text>
               : nameCandidates.map(d => (
                 <PickerOption
                   key={d.index}
@@ -974,11 +974,11 @@ export default function SpreadsheetImportSheet({
         <View key="cont" className="rounded-2xl p-3" style={[{ backgroundColor: c.background, borderWidth: 1, borderColor: c.warning, gap: 8 }, cardLayout]}>
           <View className="flex-row items-center" style={{ gap: 6 }}>
             <FontAwesome name="level-down" size={11} color={c.warning} />
-            <Text className="text-typography-main text-xs font-black flex-1">
+            <Text className="text-typography-main text-[13px] font-black flex-1">
               {rowWarnings.continuations.length} wrapped row{rowWarnings.continuations.length === 1 ? '' : 's'}
             </Text>
           </View>
-          <Text className="text-typography-muted text-[10px]">
+          <Text className="text-typography-muted text-[11px]">
             Only the name cell is filled — this looks like the tail of the row above it, not its own project. Excluded unless you say otherwise.
           </Text>
           {rowWarnings.continuations.map(w => (
@@ -986,7 +986,7 @@ export default function SpreadsheetImportSheet({
               {/* flexBasis, not flex-1 — at 390px the row must wrap the buttons
                   onto their own line instead of truncating away "(continues row N)",
                   which is the half of the sentence that explains the warning. */}
-              <Text className="text-typography-main text-[11px] font-bold" style={{ flexGrow: 1, flexBasis: 210 }} numberOfLines={2}>
+              <Text className="text-typography-main text-[12px] font-bold" style={{ flexGrow: 1, flexBasis: 210 }} numberOfLines={2}>
                 Row {w.rowNumber}: “{w.text}” (continues row {w.continuesRowNumber})
               </Text>
               <PickerOption label="Skip" active={(continuationChoices[w.rowNumber] ?? 'skip') === 'skip'}
@@ -1003,16 +1003,16 @@ export default function SpreadsheetImportSheet({
         <View key="summary" className="rounded-2xl p-3" style={[{ backgroundColor: c.background, borderWidth: 1, borderColor: c.warning, gap: 8 }, cardLayout]}>
           <View className="flex-row items-center" style={{ gap: 6 }}>
             <FontAwesome name="calculator" size={11} color={c.warning} />
-            <Text className="text-typography-main text-xs font-black flex-1">
+            <Text className="text-typography-main text-[13px] font-black flex-1">
               {rowWarnings.summaries.length} total row{rowWarnings.summaries.length === 1 ? '' : 's'}
             </Text>
           </View>
-          <Text className="text-typography-muted text-[10px]">
+          <Text className="text-typography-muted text-[11px]">
             The name cell reads as the file's own arithmetic, not a client. Imported, it becomes a project called “{rowWarnings.summaries[0].text}”. Excluded unless you say otherwise.
           </Text>
           {rowWarnings.summaries.map(s => (
             <View key={s.rowNumber} className="flex-row items-center flex-wrap" style={{ gap: 6 }}>
-              <Text className="text-typography-main text-[11px] font-bold" style={{ flexGrow: 1, flexBasis: 210 }} numberOfLines={2}>
+              <Text className="text-typography-main text-[12px] font-bold" style={{ flexGrow: 1, flexBasis: 210 }} numberOfLines={2}>
                 Row {s.rowNumber}: “{s.text}”
               </Text>
               <PickerOption label="Skip" active={(continuationChoices[s.rowNumber] ?? 'skip') === 'skip'}
@@ -1038,11 +1038,11 @@ export default function SpreadsheetImportSheet({
         <View key={`dord-${d.index}`} className="rounded-2xl p-3" style={[{ backgroundColor: c.background, borderWidth: 1, borderColor: c.warning, gap: 8 }, cardLayout]}>
           <View className="flex-row items-center" style={{ gap: 6 }}>
             <FontAwesome name="calendar" size={11} color={c.warning} />
-            <Text className="text-typography-main text-xs font-black flex-1" numberOfLines={1}>
+            <Text className="text-typography-main text-[13px] font-black flex-1" numberOfLines={1}>
               “{d.profile.header.trim()}” — day or month first?
             </Text>
           </View>
-          <Text className="text-typography-muted text-[10px]">
+          <Text className="text-typography-muted text-[11px]">
             {(() => {
               // The FIRST value is not necessarily a slash-date ("Expected date"
               // opens with prose) — quote a cell the question actually applies to.
@@ -1066,11 +1066,11 @@ export default function SpreadsheetImportSheet({
         <View key="enums" className="rounded-2xl p-3" style={[{ backgroundColor: c.background, borderWidth: 1, borderColor: c.warning, gap: 8 }, cardLayout]}>
           <View className="flex-row items-center" style={{ gap: 6 }}>
             <FontAwesome name="question-circle" size={11} color={c.warning} />
-            <Text className="text-typography-main text-xs font-black flex-1">
+            <Text className="text-typography-main text-[13px] font-black flex-1">
               {unresolvedEnums} unmatched value{unresolvedEnums === 1 ? '' : 's'}
             </Text>
           </View>
-          <Text className="text-typography-muted text-[10px]">
+          <Text className="text-typography-muted text-[11px]">
             These values correspond to nothing that exists yet. Each needs one answer — a new option, or left blank.
             Nothing is created on your behalf.
           </Text>
@@ -1112,7 +1112,7 @@ export default function SpreadsheetImportSheet({
       />
     ) : (
       <View className="flex-1 items-center justify-center px-6">
-        <Text className="text-typography-dim text-xs text-center">Pick a column on the left to change what it becomes.</Text>
+        <Text className="text-typography-dim text-[13px] text-center">Pick a column on the left to change what it becomes.</Text>
       </View>
     );
 
@@ -1149,13 +1149,13 @@ export default function SpreadsheetImportSheet({
                 <View className="flex-row items-center px-4 pb-2">
                   <TouchableOpacity onPress={() => setMobilePage('columns')} className="flex-row items-center rounded-full px-3" style={{ minHeight: 36, backgroundColor: c.background, borderWidth: 1, borderColor: c.border, gap: 6 }}>
                     <FontAwesome name="chevron-left" size={11} color={c.textMain} />
-                    <Text className="text-typography-main text-[11px] font-bold">All columns</Text>
+                    <Text className="text-typography-main text-[12px] font-bold">All columns</Text>
                   </TouchableOpacity>
                 </View>
                 <View className="flex-1 px-4" style={{ minHeight: 0 }}>
                   {mobilePage === 'warnings' ? (
                     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20, gap: 10 }}>
-                      {warningCards.length > 0 ? warningCards : <Text className="text-typography-dim text-xs">Nothing needs your attention.</Text>}
+                      {warningCards.length > 0 ? warningCards : <Text className="text-typography-dim text-[13px]">Nothing needs your attention.</Text>}
                     </ScrollView>
                   ) : detailPane}
                 </View>
@@ -1163,7 +1163,7 @@ export default function SpreadsheetImportSheet({
             ) : (
               <>
                 <View className="px-4 pb-2" style={{ gap: 8 }}>
-                  <Text className="text-typography-muted text-[11px]">
+                  <Text className="text-typography-muted text-[12px]">
                     Header on row {parsed.headerRowIndex + 1}. Every column below is kept — as a project concept or as a new field.
                   </Text>
                   <Hint>
@@ -1176,7 +1176,7 @@ export default function SpreadsheetImportSheet({
                     <TouchableOpacity onPress={() => setMobilePage('warnings')} className="flex-row items-center rounded-xl px-3"
                       style={{ minHeight: 44, backgroundColor: `${c.warning}1f`, borderWidth: 1, borderColor: c.warning, gap: 8 }}>
                       <FontAwesome name="exclamation-triangle" size={12} color={c.warning} />
-                      <Text className="text-xs font-black flex-1" style={{ color: c.warning }}>
+                      <Text className="text-[13px] font-black flex-1" style={{ color: c.warning }}>
                         {warningCards.length} thing{warningCards.length === 1 ? '' : 's'} to check
                       </Text>
                       <FontAwesome name="chevron-right" size={11} color={c.warning} />
@@ -1192,11 +1192,11 @@ export default function SpreadsheetImportSheet({
             </View>
             <View className="flex-row gap-3 px-4 py-3" style={{ borderTopWidth: 1, borderTopColor: c.border }}>
               <TouchableOpacity onPress={onClose} className="flex-1 py-3.5 rounded-2xl items-center" style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}>
-                <Text className="font-black uppercase tracking-widest text-xs" style={{ color: c.textMuted }}>Cancel</Text>
+                <Text className="font-black uppercase tracking-widest text-[13px]" style={{ color: c.textMuted }}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={goToClients} disabled={!canContinueToClients || busy} className="flex-[2] py-3.5 rounded-2xl items-center"
                 style={{ backgroundColor: canContinueToClients && !busy ? c.primary : c.border }}>
-                <Text className="font-black uppercase tracking-widest text-xs" style={{ color: canContinueToClients && !busy ? 'white' : c.textMuted }}>
+                <Text className="font-black uppercase tracking-widest text-[13px]" style={{ color: canContinueToClients && !busy ? 'white' : c.textMuted }}>
                   {busy ? 'Loading…' : `Next: Clients · ${importableRows.length}`}
                 </Text>
               </TouchableOpacity>
@@ -1217,25 +1217,25 @@ export default function SpreadsheetImportSheet({
         presentation="centered"
         title="Review Import"
         footer="none"
-        maxWidth={1400}
+        maxWidth={1560}
         containerStyle={{ height: '92%' }}
       >
         <View style={{ flex: 1, minHeight: 0 }}>
           <View className="px-6 pt-4 pb-3" style={{ gap: 8, borderBottomWidth: 1, borderBottomColor: c.border }}>
             <StepSpine steps={IMPORT_JOURNEY_STEPS} current={1} isDesktop c={c} />
             <View className="flex-row items-center flex-wrap" style={{ gap: 10 }}>
-              <Text className="text-typography-muted text-xs">
+              <Text className="text-typography-muted text-[13px]">
                 {file?.name} · header on row {parsed.headerRowIndex + 1}
               </Text>
               {summaryChips}
             </View>
-            <Text className="text-typography-dim text-[11px]">
+            <Text className="text-typography-dim text-[12px]">
               Nothing has been created yet. Every column is kept — as one of this product&apos;s concepts, or as a{' '}
               <Text className="font-black">project field</Text>: a column this product has no concept for
               (&quot;Inventory Count&quot;), stored on every project it came from and searchable afterwards.
               Change any of them before continuing.
             </Text>
-            {error && <Text className="text-state-danger text-xs font-bold">{error}</Text>}
+            {error && <Text className="text-state-danger text-[13px] font-bold">{error}</Text>}
           </View>
 
           {warningCards.length > 0 && (
@@ -1246,7 +1246,7 @@ export default function SpreadsheetImportSheet({
 
           <View className="px-6 pt-3 pb-4" style={{ flexDirection: 'row', flex: 1, minHeight: 0, gap: 24 }}>
             <View style={{ flex: 1, minWidth: 0 }}>
-              <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2">
+              <Text className="text-typography-label text-[11px] font-black uppercase tracking-widest mb-2">
                 Source Columns ({decisions.length})
               </Text>
               {columnList}
@@ -1260,16 +1260,16 @@ export default function SpreadsheetImportSheet({
             <BlockerList blockers={reviewBlockers} c={c} />
           </View>
           <View className="flex-row items-center gap-3 px-6 py-4" style={{ borderTopWidth: 1, borderTopColor: c.border }}>
-            <Text className="text-typography-dim text-[11px] flex-1">
+            <Text className="text-typography-dim text-[12px] flex-1">
               {importableRows.length} project{importableRows.length === 1 ? '' : 's'} · {fieldPlans.length} field{fieldPlans.length === 1 ? '' : 's'}
               {ignoredCount > 0 ? ` · ${ignoredCount} column${ignoredCount === 1 ? '' : 's'} will not be imported` : ''}
             </Text>
             <TouchableOpacity onPress={onClose} className="px-5 py-3 rounded-2xl items-center" style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border, minHeight: 44, justifyContent: 'center' }}>
-              <Text className="font-black uppercase tracking-widest text-xs" style={{ color: c.textMuted }}>Cancel</Text>
+              <Text className="font-black uppercase tracking-widest text-[13px]" style={{ color: c.textMuted }}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={goToClients} disabled={!canContinueToClients || busy} className="px-6 py-3 rounded-2xl items-center"
               style={{ backgroundColor: canContinueToClients && !busy ? c.primary : c.border, minHeight: 44, justifyContent: 'center' }}>
-              <Text className="font-black uppercase tracking-widest text-xs" style={{ color: canContinueToClients && !busy ? 'white' : c.textMuted }}>
+              <Text className="font-black uppercase tracking-widest text-[13px]" style={{ color: canContinueToClients && !busy ? 'white' : c.textMuted }}>
                 {busy ? 'Loading…' : 'Next: Clients'}
               </Text>
             </TouchableOpacity>
@@ -1289,7 +1289,7 @@ export default function SpreadsheetImportSheet({
             (plan §15.3). Rendered above the "ready" summary, not after it. */}
         {attentionCount > 0 && (
           <View style={{ gap: 8 }}>
-            <Text className="text-state-warning text-[10px] font-black uppercase tracking-widest">
+            <Text className="text-state-warning text-[11px] font-black uppercase tracking-widest">
               Needs Your Input ({attentionCount})
             </Text>
             {ambiguousRows.map(row => {
@@ -1308,10 +1308,10 @@ export default function SpreadsheetImportSheet({
             })}
             {blankRows.length > 0 && (
               <View className="bg-surface-background rounded-2xl p-3" style={{ borderWidth: 1, borderColor: c.warning, gap: 8 }}>
-                <Text className="text-typography-main text-xs font-black">
+                <Text className="text-typography-main text-[13px] font-black">
                   {blankRows.length} row{blankRows.length === 1 ? '' : 's'} will not be imported
                 </Text>
-                <Text className="text-typography-muted text-[10px]">
+                <Text className="text-typography-muted text-[11px]">
                   Rows {blankRows.map(r => r.rowNumber).join(', ')} are empty in
                   “{decisions[mapping.name as number]?.profile.header.trim() || 'the name column'}”, the column currently
                   supplying project names. If the names are in a different column, change it and they come back.
@@ -1327,27 +1327,27 @@ export default function SpreadsheetImportSheet({
 
         {unparsedDateRows.length > 0 && (
           <View className="bg-surface-background border border-surface-border rounded-2xl p-3">
-            <Text className="text-typography-muted text-xs font-bold">
+            <Text className="text-typography-muted text-[13px] font-bold">
               {unparsedDateRows.length} row{unparsedDateRows.length === 1 ? '' : 's'} had a date cell that didn't parse — they'll use the batch schedule anchor instead: rows {unparsedDateRows.map(r => r.rowNumber).join(', ')}.
             </Text>
           </View>
         )}
 
         <View style={{ gap: 8 }}>
-          <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest">
+          <Text className="text-typography-label text-[11px] font-black uppercase tracking-widest">
             Ready ({readyRows.length})
           </Text>
           <View className="bg-surface-background border border-surface-border rounded-2xl p-3" style={{ gap: 4 }}>
-            <Text className="text-typography-main text-xs font-bold">
+            <Text className="text-typography-main text-[13px] font-bold">
               {readyRows.filter(r => matches.get(r.rowNumber)?.kind === 'ref').length} matched by client ref
             </Text>
-            <Text className="text-typography-main text-xs font-bold">
+            <Text className="text-typography-main text-[13px] font-bold">
               {readyRows.filter(r => matches.get(r.rowNumber)?.kind === 'exact_name').length} matched by exact name
             </Text>
-            <Text className="text-typography-main text-xs font-bold">
+            <Text className="text-typography-main text-[13px] font-bold">
               {newClientCount} new client{newClientCount === 1 ? '' : 's'} will be created
             </Text>
-            <Text className="text-typography-muted text-xs">
+            <Text className="text-typography-muted text-[13px]">
               {fieldPlans.length} extra column{fieldPlans.length === 1 ? '' : 's'} will be carried across as project fields
             </Text>
           </View>
@@ -1362,7 +1362,7 @@ export default function SpreadsheetImportSheet({
         </View>
         <View className="flex-row gap-3 px-5 py-4" style={{ borderTopWidth: 1, borderTopColor: c.border }}>
           <TouchableOpacity onPress={() => setWizStep('review')} className="flex-1 py-3.5 rounded-2xl items-center" style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}>
-            <Text className="font-black uppercase tracking-widest text-xs" style={{ color: c.textMuted }}>Back</Text>
+            <Text className="font-black uppercase tracking-widest text-[13px]" style={{ color: c.textMuted }}>Back</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setHandoff(true)}
@@ -1370,7 +1370,7 @@ export default function SpreadsheetImportSheet({
             className="flex-[2] py-3.5 rounded-2xl items-center"
             style={{ backgroundColor: canFinishClients ? c.primary : c.border }}
           >
-            <Text className="font-black uppercase tracking-widest text-xs" style={{ color: canFinishClients ? 'white' : c.textMuted }}>
+            <Text className="font-black uppercase tracking-widest text-[13px]" style={{ color: canFinishClients ? 'white' : c.textMuted }}>
               Next: Template ({finalRows.length})
             </Text>
           </TouchableOpacity>
@@ -1399,7 +1399,7 @@ export default function SpreadsheetImportSheet({
     }
 
     return (
-      <Popup visible={visible} onClose={onClose} presentation="centered" title="Resolve Clients" footer="none" maxWidth={800} containerStyle={{ height: '80%' }}>
+      <Popup visible={visible} onClose={onClose} presentation="centered" title="Resolve Clients" footer="none" maxWidth={1040} containerStyle={{ height: '86%' }}>
         <View style={{ flex: 1, minHeight: 0 }}>
           <View className="px-6 pt-4" style={{ gap: 6 }}>
             <StepSpine steps={IMPORT_JOURNEY_STEPS} current={2} isDesktop c={c} />
@@ -1427,9 +1427,9 @@ function WarningCard({
     <View className="rounded-2xl p-3" style={[{ backgroundColor: c.background, borderWidth: 1, borderColor: tone, gap: 4 }, layout]}>
       <View className="flex-row items-center" style={{ gap: 6 }}>
         <FontAwesome name={icon} size={11} color={tone} />
-        <Text className="text-typography-main text-xs font-black flex-1" numberOfLines={2}>{title}</Text>
+        <Text className="text-typography-main text-[13px] font-black flex-1" numberOfLines={2}>{title}</Text>
       </View>
-      <Text className="text-typography-muted text-[10px]">{body}</Text>
+      <Text className="text-typography-muted text-[11px]">{body}</Text>
     </View>
   );
 }
@@ -1482,9 +1482,9 @@ function ColumnDetail({
       {/* The header VERBATIM, quoted — "Service " has a trailing space in the
           real file and that is the string a saved mapping matches on. */}
       <View style={{ gap: 4 }}>
-        <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest">Column {decision.index + 1}</Text>
+        <Text className="text-typography-label text-[11px] font-black uppercase tracking-widest">Column {decision.index + 1}</Text>
         <Text className="text-typography-main text-base font-black">“{p.header}”</Text>
-        <Text className="text-typography-muted text-[11px]">
+        <Text className="text-typography-muted text-[12px]">
           {PRIMITIVE_LABELS[p.primitive]} · {p.filled} of {p.rows} cells filled · {p.distinct} distinct value{p.distinct === 1 ? '' : 's'}
           {p.filled > 0 && p.primitive !== 'empty' ? ` · ${Math.round(p.coverage * 100)}% of them read as ${PRIMITIVE_LABELS[p.primitive].toLowerCase()}` : ''}
         </Text>
@@ -1492,8 +1492,8 @@ function ColumnDetail({
 
       {decision.sample !== '' && (
         <View className="rounded-xl px-3 py-2" style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}>
-          <Text className="text-typography-dim text-[10px] font-black uppercase tracking-wider mb-1">First value</Text>
-          <Text className="text-typography-main text-xs" numberOfLines={3}>{decision.sample}</Text>
+          <Text className="text-typography-dim text-[11px] font-black uppercase tracking-wider mb-1">First value</Text>
+          <Text className="text-typography-main text-[13px]" numberOfLines={3}>{decision.sample}</Text>
         </View>
       )}
 
@@ -1502,13 +1502,13 @@ function ColumnDetail({
           discover 8 nulls after the import (§18.5 #3). */}
       {p.nonMatchingSamples.length > 0 && (
         <View className="rounded-xl px-3 py-2" style={{ backgroundColor: `${c.warning}14`, borderWidth: 1, borderColor: c.warning, gap: 4 }}>
-          <Text className="text-[10px] font-black uppercase tracking-wider" style={{ color: c.warning }}>
+          <Text className="text-[11px] font-black uppercase tracking-wider" style={{ color: c.warning }}>
             {Math.round((1 - p.coverage) * 100)}% of the filled cells are not {PRIMITIVE_LABELS[p.primitive].toLowerCase()}
           </Text>
           {p.nonMatchingSamples.map((s, i) => (
-            <Text key={i} className="text-typography-main text-[11px]" numberOfLines={1}>· “{s}”</Text>
+            <Text key={i} className="text-typography-main text-[12px]" numberOfLines={1}>· “{s}”</Text>
           ))}
-          <Text className="text-typography-muted text-[10px]">
+          <Text className="text-typography-muted text-[11px]">
             These are imported as blank, not guessed at. Switch this column to Text to keep them verbatim instead.
           </Text>
         </View>
@@ -1516,7 +1516,7 @@ function ColumnDetail({
 
       {/* Target */}
       <View style={{ gap: 8 }}>
-        <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest">Import this column as</Text>
+        <Text className="text-typography-label text-[11px] font-black uppercase tracking-widest">Import this column as</Text>
         <View className="flex-row flex-wrap" style={{ gap: 6 }}>
           {MAPPED_FIELDS.map(f => (
             <PickerOption
@@ -1534,7 +1534,7 @@ function ColumnDetail({
 
       {target.kind === 'ignore' && (
         <View className="rounded-xl px-3 py-2" style={{ backgroundColor: `${c.danger}14`, borderWidth: 1, borderColor: c.danger }}>
-          <Text className="text-[11px] font-bold" style={{ color: c.danger }}>
+          <Text className="text-[12px] font-bold" style={{ color: c.danger }}>
             This is the only setting that loses data — this column will not exist anywhere after the import.
           </Text>
         </View>
@@ -1543,7 +1543,7 @@ function ColumnDetail({
       {custom && (
         <View style={{ gap: 10 }}>
           <View style={{ gap: 6 }}>
-            <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest">
+            <Text className="text-typography-label text-[11px] font-black uppercase tracking-widest">
               Field name {custom.defId ? '· reusing an existing field' : ''}
             </Text>
             <TextInput
@@ -1551,13 +1551,13 @@ function ColumnDetail({
               onChangeText={t => onSetTarget({ ...custom, label: t, key: custom.defId ? custom.key : slugifyFieldKey(t, decision.index) })}
               placeholder={p.header.trim() || `Column ${decision.index + 1}`}
               placeholderTextColor={c.textDim}
-              className="px-3 rounded-lg text-xs"
+              className="px-3 rounded-lg text-[13px]"
               style={{ minHeight: 40, color: c.textMain, backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}
             />
-            <Text className="text-typography-dim text-[10px]">Stored as `{custom.key}` · from “{p.header}”</Text>
+            <Text className="text-typography-dim text-[11px]">Stored as `{custom.key}` · from “{p.header}”</Text>
           </View>
           <View style={{ gap: 6 }}>
-            <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest">Field type</Text>
+            <Text className="text-typography-label text-[11px] font-black uppercase tracking-widest">Field type</Text>
             <View className="flex-row flex-wrap" style={{ gap: 6 }}>
               {FIELD_TYPES.map(t => (
                 <PickerOption
@@ -1571,7 +1571,7 @@ function ColumnDetail({
               ))}
             </View>
             {!!custom.defId && (
-              <Text className="text-typography-dim text-[10px]">
+              <Text className="text-typography-dim text-[11px]">
                 This field already holds data, so its type is fixed — changing it is a data migration, not an edit.
               </Text>
             )}
@@ -1582,12 +1582,12 @@ function ColumnDetail({
       {/* Date order — asked ONCE for the column (§18.4), never guessed per cell. */}
       {(p.primitive === 'date' || (custom?.dataType === 'date')) && p.dateOrder !== undefined && (
         <View style={{ gap: 6 }}>
-          <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest">Date order</Text>
+          <Text className="text-typography-label text-[11px] font-black uppercase tracking-widest">Date order</Text>
           <View className="flex-row" style={{ gap: 6 }}>
             <PickerOption label="Day / Month / Year" active={dateOrder === 'DMY'} onPress={() => onSetDateOrder('DMY')} c={c} />
             <PickerOption label="Month / Day / Year" active={dateOrder === 'MDY'} onPress={() => onSetDateOrder('MDY')} c={c} />
           </View>
-          <Text className="text-typography-dim text-[10px]">
+          <Text className="text-typography-dim text-[11px]">
             {p.dateOrder === 'ambiguous'
               ? 'Nothing in this column is over 12, so both readings are possible — we are asking rather than guessing.'
               : `Detected from the cells themselves (${p.dateOrder}).`}
