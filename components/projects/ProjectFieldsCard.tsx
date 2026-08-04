@@ -1,10 +1,11 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import React, { useState } from 'react';
-import { Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useMemo, useRef, useState } from 'react';
+import { Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 
 import Calendar from '@/components/common/Calendar';
 import Popup from '@/components/common/Popup';
-import { MetaStat, SectionCard } from '@/components/entities/EntityUI';
+import Tooltip from '@/components/common/Tooltip';
+import { FilterChip, SectionCard } from '@/components/entities/EntityUI';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectDetail } from '@/contexts/ProjectDetailContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -26,6 +27,19 @@ import {
 // parser could not name were already stored, already typed and already
 // company-scoped — and appeared nowhere. A project's own detail page is the
 // cheapest place to prove they survived, so it is the first one built.
+//
+// WHY A TABLE AND NOT A GRID OF STATS. The first version rendered these as a
+// wrapped row of `MetaStat`s, which is the right component for four or five
+// headline numbers and the wrong one for fourteen arbitrary spreadsheet
+// columns: the eye had no column to run down, the labels wrapped at different
+// heights, and — the part a user actually said out loud — nothing about it
+// looked editable, even though every cell already was. A spreadsheet column
+// should read like a spreadsheet column: aligned label, aligned value, and the
+// value obviously a thing you can click.
+//
+// Two column-pairs on desktop rather than one long list, per ux-consistency's
+// "use the width, go multi-column" — fourteen rows stacked single-file is a
+// scroll for no reason on a 1400px screen.
 
 /** Renders nothing when the company has no custom fields — which is every
  *  company that has never imported a spreadsheet. An empty "Custom fields"
@@ -35,13 +49,30 @@ export default function ProjectFieldsCard() {
   const { hasPermission } = useAuth();
   const { defs, loading: defsLoading } = useProjectFieldDefs();
   const { values, loading: valuesLoading, refresh } = useProjectFieldValues(projectId);
+  const { width } = useWindowDimensions();
+
   const [editing, setEditing] = useState<ProjectFieldDef | null>(null);
+  const [hideEmpty, setHideEmpty] = useState(false);
 
   const canEdit = hasPermission('project.edit');
+  const isFilled = (d: ProjectFieldDef) => values[d.key] !== undefined && values[d.key] !== null && values[d.key] !== '';
+  const filled = defs.filter(isFilled).length;
+
+  const shown = useMemo(
+    () => (hideEmpty ? defs.filter(isFilled) : defs),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [defs, values, hideEmpty],
+  );
+
+  // Split into two balanced columns, keeping the spreadsheet's own order
+  // running DOWN each column — reading order, not a zig-zag across the pair.
+  const columns = useMemo(() => {
+    if (width < 900 || shown.length < 6) return [shown];
+    const half = Math.ceil(shown.length / 2);
+    return [shown.slice(0, half), shown.slice(half)];
+  }, [shown, width]);
 
   if (defsLoading || valuesLoading || defs.length === 0) return null;
-
-  const filled = defs.filter(d => values[d.key] !== undefined && values[d.key] !== null).length;
 
   return (
     <>
@@ -53,28 +84,42 @@ export default function ProjectFieldsCard() {
             : `Columns from your spreadsheets that TrustFlow has no concept of its own for. ${filled} of ${defs.length} filled in here.`
         }
         icon="table"
+        right={
+          defs.length > filled ? (
+            <FilterChip
+              label={hideEmpty ? 'Showing filled only' : 'Hide empty'}
+              icon={hideEmpty ? 'eye-slash' : 'eye'}
+              active={hideEmpty}
+              count={hideEmpty ? filled : defs.length - filled}
+              onPress={() => setHideEmpty(v => !v)}
+            />
+          ) : undefined
+        }
       >
-        <View className="flex-row flex-wrap" style={{ gap: 20 }}>
-          {defs.map(def => {
-            const shown = formatFieldValue(def, values[def.key]);
-            const hint =
-              `${FIELD_TYPE_LABELS[def.data_type]}${def.source_column ? ` · from the “${def.source_column}” column` : ''}` +
-              (canEdit ? ' · click to edit' : '');
-            return (
-              <TouchableOpacity
-                key={def.id}
-                disabled={!canEdit}
-                onPress={() => setEditing(def)}
-                accessibilityRole={canEdit ? 'button' : undefined}
-                accessibilityLabel={canEdit ? `Edit ${def.label}` : undefined}
-                style={{ minWidth: 132 }}
-                className={`-mx-1.5 px-1.5 py-1 rounded-lg ${canEdit ? 'hover:bg-surface-overlay' : ''}`}
-              >
-                <MetaStat label={def.label} value={shown} hint={hint} />
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+        {shown.length === 0 ? (
+          <Text className="text-typography-muted text-xs">
+            Nothing is filled in on this project yet. Turn off “Showing filled only” to fill one in.
+          </Text>
+        ) : (
+          <View className="flex-row" style={{ gap: 28 }}>
+            {columns.map((col, i) => (
+              <View key={i} className="flex-1 min-w-0">
+                {col.map((def, r) => (
+                  <FieldRow
+                    key={def.id}
+                    def={def}
+                    value={values[def.key]}
+                    projectId={projectId}
+                    canEdit={canEdit}
+                    first={r === 0}
+                    onSaved={refresh}
+                    onNeedsPopup={() => setEditing(def)}
+                  />
+                ))}
+              </View>
+            ))}
+          </View>
+        )}
       </SectionCard>
 
       {!!editing && (
@@ -90,10 +135,153 @@ export default function ProjectFieldsCard() {
   );
 }
 
+/** enum and date need room to choose in — a list and a month grid don't belong
+ *  in a table cell. Everything else edits where it sits. */
+function needsPopup(def: ProjectFieldDef) {
+  return def.data_type === 'enum' || def.data_type === 'date';
+}
+
+// ── one row of the table ───────────────────────────────────────────────────
+
+function FieldRow({
+  def,
+  value,
+  projectId,
+  canEdit,
+  first,
+  onSaved,
+  onNeedsPopup,
+}: {
+  def: ProjectFieldDef;
+  value: ProjectFieldValue | undefined;
+  projectId: string;
+  canEdit: boolean;
+  first: boolean;
+  onSaved: () => void;
+  onNeedsPopup: () => void;
+}) {
+  const c = useThemeColors();
+  const { errorToast } = useToast();
+  const [draft, setDraft] = useState<string | null>(null); // non-null === editing in place
+  const [saving, setSaving] = useState(false);
+  // Escape must not save, but on web blur fires after the key handler — so the
+  // key handler marks the edit abandoned and blur checks the flag.
+  const cancelled = useRef(false);
+
+  const empty = value === undefined || value === null || value === '';
+  const shownValue = formatFieldValue(def, value);
+  const typeLine =
+    `${FIELD_TYPE_LABELS[def.data_type]}${def.source_column ? ` · from the “${def.source_column}” column` : ''}` +
+    (canEdit && def.data_type === 'boolean' ? ' · click the value to cycle Yes / No / empty' : '');
+
+  const commit = async (raw: string) => {
+    setDraft(null);
+    const trimmed = raw.trim();
+    if (trimmed === fieldValueToInput(def, value).trim()) return; // untouched
+
+    let next: string | number | boolean | null;
+    if (trimmed === '') {
+      next = null;
+    } else if (def.data_type === 'number') {
+      const n = Number(trimmed.replace(/,/g, ''));
+      if (!Number.isFinite(n)) {
+        errorToast('That is not a number. Digits, a minus sign and a decimal point only.', `${def.label} not saved`);
+        return;
+      }
+      next = n;
+    } else {
+      next = trimmed;
+    }
+
+    setSaving(true);
+    const err = await setProjectFieldValue(projectId, def.id, next);
+    setSaving(false);
+    if (err) {
+      errorToast(err, 'Could not save');
+      return;
+    }
+    onSaved();
+  };
+
+  const setBool = async (next: boolean | null) => {
+    setSaving(true);
+    const err = await setProjectFieldValue(projectId, def.id, next);
+    setSaving(false);
+    if (err) { errorToast(err, 'Could not save'); return; }
+    onSaved();
+  };
+
+  const openEditor = () => {
+    if (!canEdit) return;
+    if (needsPopup(def)) { onNeedsPopup(); return; }
+    if (def.data_type === 'boolean') { setBool(value === true ? false : value === false ? null : true); return; }
+    setDraft(fieldValueToInput(def, value));
+  };
+
+  return (
+    <View
+      className={`flex-row items-center gap-3 py-2 ${first ? '' : 'border-t'} border-surface-border`}
+      style={{ minHeight: 40 }}
+    >
+      <Tooltip label={typeLine} side="right">
+        <Text
+          numberOfLines={2}
+          className="text-typography-dim text-[9px] font-black uppercase tracking-[0.14em]"
+          style={{ width: 124 }}
+        >
+          {def.label}
+        </Text>
+      </Tooltip>
+
+      <View className="flex-1 min-w-0">
+        {draft !== null ? (
+          <TextInput
+            value={draft}
+            onChangeText={setDraft}
+            autoFocus
+            selectTextOnFocus
+            onBlur={() => (cancelled.current ? (cancelled.current = false, setDraft(null)) : commit(draft))}
+            onSubmitEditing={() => commit(draft)}
+            onKeyPress={(e: any) => { if (e.nativeEvent?.key === 'Escape') { cancelled.current = true; setDraft(null); } }}
+            keyboardType={def.data_type === 'number' ? 'numeric' : 'default'}
+            placeholder={def.data_type === 'number' ? 'e.g. 8000' : 'Type a value'}
+            placeholderTextColor={c.textDim}
+            accessibilityLabel={def.label}
+            className="bg-surface-background border border-brand-primary rounded-lg px-2 text-typography-main text-sm font-bold"
+            style={{ height: 32 }}
+          />
+        ) : (
+          <TouchableOpacity
+            disabled={!canEdit || saving}
+            onPress={openEditor}
+            accessibilityRole={canEdit ? 'button' : undefined}
+            accessibilityLabel={canEdit ? `Edit ${def.label}` : undefined}
+            className={`flex-row items-center gap-2 rounded-lg -mx-1.5 px-1.5 ${canEdit ? 'hover:bg-surface-overlay' : ''}`}
+            style={{ minHeight: 32 }}
+          >
+            <Text
+              numberOfLines={1}
+              className={`text-sm font-bold flex-shrink ${empty ? 'text-typography-dim' : 'text-typography-main'}`}
+            >
+              {empty && canEdit ? 'Add…' : shownValue}
+            </Text>
+            {canEdit && !saving && (
+              // Not a tooltip-only affordance: the pencil is what makes the
+              // whole row read as editable, which is the thing the stat grid
+              // never managed to say.
+              <FontAwesome name="pencil" size={9} color={c.textDim} />
+            )}
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
+  );
+}
+
 /**
- * One cell, one decision — so this is deliberately a NARROW popup (see
- * ux-consistency's "do NOT widen these"; ConfirmModal is 512). The dense
- * multi-column rule applies to composers, not to a single value.
+ * The two types a table cell cannot hold: a list of choices and a month grid.
+ * One decision, so a NARROW popup (see ux-consistency's "do NOT widen these") —
+ * the dense multi-column rule applies to composers, not to a single value.
  */
 function FieldValueEditor({
   def,
@@ -116,21 +304,7 @@ function FieldValueEditor({
 
   const save = async () => {
     const raw = draft.trim();
-    let value: string | number | boolean | null;
-    if (raw === '') {
-      value = null;
-    } else if (def.data_type === 'number') {
-      const n = Number(raw.replace(/,/g, ''));
-      if (!Number.isFinite(n)) {
-        setProblem('That is not a number. Digits, a minus sign and a decimal point only.');
-        return;
-      }
-      value = n;
-    } else if (def.data_type === 'boolean') {
-      value = raw === 'true';
-    } else {
-      value = raw;
-    }
+    const value: string | null = raw === '' ? null : raw;
 
     setSaving(true);
     setProblem(null);
@@ -184,30 +358,7 @@ function FieldValueEditor({
               );
             })}
           </View>
-        ) : def.data_type === 'boolean' ? (
-          <View className="flex-row gap-2">
-            {[
-              { v: 'true', label: 'Yes' },
-              { v: 'false', label: 'No' },
-            ].map(o => {
-              const active = draft === o.v;
-              return (
-                <TouchableOpacity
-                  key={o.v}
-                  onPress={() => setDraft(active ? '' : o.v)}
-                  className="flex-1 items-center justify-center rounded-xl border"
-                  style={{
-                    minHeight: 44,
-                    borderColor: active ? c.primary : c.border,
-                    backgroundColor: active ? c.primary + '1A' : 'transparent',
-                  }}
-                >
-                  <Text className={`text-sm font-bold ${active ? 'text-brand-primary' : 'text-typography-main'}`}>{o.label}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        ) : def.data_type === 'date' ? (
+        ) : (
           // Inline Calendar (ux-consistency: never a one-off date grid). It
           // needs a definite-width parent or MonthGrid's percentage cells
           // collapse — hence flex-1, not a bare row child.
@@ -215,19 +366,6 @@ function FieldValueEditor({
             <View className="flex-1">
               <Calendar selectedDate={draft || null} onSelect={iso => setDraft(iso)} />
             </View>
-          </View>
-        ) : (
-          <View className="flex-row items-center bg-surface-background border border-surface-border rounded-lg px-3 py-2.5">
-            <TextInput
-              value={draft}
-              onChangeText={setDraft}
-              autoFocus
-              placeholder={def.data_type === 'number' ? 'e.g. 8000' : 'Type a value'}
-              placeholderTextColor={c.textDim}
-              keyboardType={def.data_type === 'number' ? 'numeric' : 'default'}
-              accessibilityLabel={def.label}
-              className="flex-1 text-typography-main text-sm bg-transparent"
-            />
           </View>
         )}
 

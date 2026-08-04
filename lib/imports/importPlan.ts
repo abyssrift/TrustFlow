@@ -24,6 +24,14 @@ import {
 /** Mirrors project_field_defs.data_type's CHECK constraint exactly. */
 export type FieldDataType = 'text' | 'number' | 'date' | 'enum' | 'boolean';
 
+/**
+ * Mirrors project_field_defs.format's CHECK constraint exactly. A DISPLAY hint,
+ * never a storage type — see the migration and `displayFormatForPrimitive`.
+ * Declared here, beside the type it accompanies, and re-exported by
+ * hooks/useProjectFields so component code has one import to reach for.
+ */
+export type FieldFormat = 'plain' | 'year' | 'money' | 'percent';
+
 export const FIELD_TYPE_LABELS: Record<FieldDataType, string> = {
   text: 'Text', number: 'Number', date: 'Date', enum: 'Choice', boolean: 'Yes / No',
 };
@@ -76,6 +84,24 @@ export function fieldTypeForPrimitive(p: ColumnPrimitive, enumValues?: { label: 
         ? 'boolean'
         : 'enum';
     default: return 'text'; // email, phone, unique_id, freetext, empty, unknown
+  }
+}
+
+/**
+ * The half of the primitive that `fieldTypeForPrimitive` has to throw away.
+ *
+ * `year` and `money` both become the storage type `number`, and that collapse is
+ * correct — both belong in `value_num`. But it is also the whole reason a year
+ * rendered as "2,025": once the primitive is gone, the read UI sees a number and
+ * groups its thousands, which is right for a fee and wrong for a year. This
+ * keeps the distinction as a display hint alongside the storage type instead of
+ * re-deriving it from the label later, badly.
+ */
+export function displayFormatForPrimitive(p: ColumnPrimitive): FieldFormat | null {
+  switch (p) {
+    case 'year': return 'year';
+    case 'money': return 'money';
+    default: return null;
   }
 }
 
@@ -361,6 +387,8 @@ export type CustomFieldPlan = {
   key: string;
   label: string;
   dataType: FieldDataType;
+  /** The parser's primitive, kept so a year does not render as "2,025". */
+  format: FieldFormat | null;
   enumOptions: string[] | null;
   sourceColumn: string;
   columnIndex: number;
@@ -375,6 +403,9 @@ export function customFieldPlans(decisions: ColumnDecision[]): CustomFieldPlan[]
       key: d.target.key,
       label: d.target.label,
       dataType: d.target.dataType,
+      // Read off the profile, not the target: the user can retype a column in
+      // the mapping step, and a column they moved to Text is no longer a year.
+      format: d.target.dataType === 'number' ? displayFormatForPrimitive(d.profile.primitive) : null,
       enumOptions: d.target.dataType === 'enum' ? (d.target.enumOptions ?? []) : null,
       sourceColumn: d.profile.header,
       columnIndex: d.index,

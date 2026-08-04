@@ -797,7 +797,7 @@ export default function SpreadsheetImportSheet({
       const { data, error: defErr } = await supabase.rpc('rpc_save_project_field_def', {
         p_key: plan.key, p_label: plan.label, p_data_type: plan.dataType,
         p_enum_options: options, p_source_column: plan.sourceColumn,
-        p_sort_order: i, p_id: plan.defId,
+        p_sort_order: i, p_id: plan.defId, p_format: plan.format,
       });
       if (defErr) throw defErr;
       saved.push({ plan, id: (data as any).id as string, canonical });

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { friendlyFieldError, type FieldDataType, type FieldFormat, type ProjectFieldValue } from '@/lib/projectFields';
 import { supabase } from '@/lib/supabase';
 
 // Issue #197 — the read/write side of plan §18.3's typed custom fields.
@@ -15,16 +16,19 @@ import { supabase } from '@/lib/supabase';
 // PostgREST select is already correctly scoped (same reasoning as
 // useProjectLifecycle's direct `projects` select). The RPCs run their own
 // `project.edit` check.
+//
+// The PURE half — formatting a cell, parsing one back, sorting, error copy —
+// lives in lib/projectFields.ts so it can be checked without a Supabase
+// client, and is re-exported here so a component has one import to reach for.
 
-export type FieldDataType = 'text' | 'number' | 'date' | 'enum' | 'boolean';
-
-export const FIELD_TYPE_LABELS: Record<FieldDataType, string> = {
-  text: 'Text',
-  number: 'Number',
-  date: 'Date',
-  enum: 'Choice',
-  boolean: 'Yes / No',
-};
+export {
+  FIELD_TYPE_LABELS,
+  fieldSortValue,
+  fieldValueToInput,
+  formatFieldValue,
+  friendlyFieldError,
+} from '@/lib/projectFields';
+export type { FieldDataType, FieldFormat, ProjectFieldValue } from '@/lib/projectFields';
 
 export type ProjectFieldDef = {
   id: string;
@@ -34,73 +38,14 @@ export type ProjectFieldDef = {
   enum_options: string[] | null;
   source_column: string | null;
   sort_order: number;
+  /** Display hint from the import parser — see lib/projectFields.ts. */
+  format: FieldFormat | null;
 };
 
-/** A single cell, as `rpc_projects_table.custom_fields` and this hook return it. */
-export type ProjectFieldValue = string | number | boolean | null;
-
-const DEF_COLUMNS = 'id, key, label, data_type, enum_options, source_column, sort_order';
+const DEF_COLUMNS = 'id, key, label, data_type, enum_options, source_column, sort_order, format';
 
 export function sortDefs(defs: ProjectFieldDef[]): ProjectFieldDef[] {
   return [...defs].sort((a, b) => a.sort_order - b.sort_order || a.label.localeCompare(b.label));
-}
-
-/** Presentation for one cell. Never renders a bare `null` or a raw `true`. */
-export function formatFieldValue(def: ProjectFieldDef, value: ProjectFieldValue | undefined): string {
-  if (value === null || value === undefined || value === '') return '—';
-  switch (def.data_type) {
-    case 'boolean':
-      return value ? 'Yes' : 'No';
-    case 'date': {
-      // Values are stored as DATE, so the payload is 'YYYY-MM-DD' with no zone.
-      // Splitting beats `new Date(...)`, which shifts the day in west-of-UTC
-      // browsers — the §21 "a date a different tool already broke" trap, and
-      // not one worth re-introducing at render time.
-      const [y, m, d] = String(value).split('-');
-      if (!y || !m || !d) return String(value);
-      return `${d}/${m}/${y}`;
-    }
-    case 'number':
-      return Number(value).toLocaleString();
-    default:
-      return String(value);
-  }
-}
-
-/** Same value, as text a filter or an input can round-trip. */
-export function fieldValueToInput(def: ProjectFieldDef, value: ProjectFieldValue | undefined): string {
-  if (value === null || value === undefined) return '';
-  if (def.data_type === 'boolean') return value ? 'true' : 'false';
-  return String(value);
-}
-
-/** Sortable projection, so a custom column sorts like the built-in ones. */
-export function fieldSortValue(def: ProjectFieldDef, value: ProjectFieldValue | undefined): number | string {
-  if (value === null || value === undefined) return def.data_type === 'number' ? -Infinity : '';
-  if (def.data_type === 'number') return Number(value);
-  if (def.data_type === 'boolean') return value ? 1 : 0;
-  return String(value).toLowerCase();
-}
-
-// The RPCs raise readable sentences for the two rules that actually bite
-// (§18.3: a populated field's type is frozen; an in-use enum option cannot be
-// withdrawn), so those pass straight through. What is NOT readable is the
-// unique-index violation and the permission denial, so those get mapped.
-// Anything else falls back to a sentence that says what to do rather than a
-// bare Postgres string (§14.4.4).
-export function friendlyFieldError(message: string | null | undefined): string {
-  const m = message || '';
-  if (/project_field_defs_company_key_live|duplicate key/i.test(m)) {
-    return 'Another field already uses that key. Pick a different one.';
-  }
-  if (/Insufficient permissions/i.test(m)) {
-    return 'You do not have permission to change project fields.';
-  }
-  if (/invalid input syntax|invalid_text_representation/i.test(m)) {
-    return 'That value does not match the field’s type. Check the format and try again.';
-  }
-  if (/^(Cannot|Custom field|Field |An enum|Project not found|Value )/.test(m)) return m;
-  return m ? `${m} — if this keeps happening, tell an admin.` : 'Could not save the change.';
 }
 
 /** Every live custom field for the signed-in company. */
@@ -158,6 +103,7 @@ export type SaveFieldDefInput = {
   data_type: FieldDataType;
   enum_options?: string[] | null;
   sort_order?: number | null;
+  format?: FieldFormat | null;
 };
 
 /** Resolves to null on success, or a sentence fit to show a user. */
@@ -170,6 +116,7 @@ export async function saveFieldDef(input: SaveFieldDefInput): Promise<string | n
     p_source_column: null,
     p_sort_order: input.sort_order ?? null,
     p_id: input.id ?? null,
+    p_format: input.format ?? null,
   });
   return error ? friendlyFieldError(error.message) : null;
 }
