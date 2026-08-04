@@ -17,6 +17,7 @@ import {
   type ThemeColors,
 } from '@/components/entities/EntityUI';
 import { ageColor, dueColor, fmtDue } from '@/lib/projectPresentation';
+import ProjectFieldsCard from './ProjectFieldsCard';
 
 // #183 -- replaces the placeholder body moved here by #184 (twelve regions,
 // all equal weight -- see issue #183). Redesigned around the issue's four
@@ -248,6 +249,12 @@ export default function ProjectOverviewTab() {
           </View>
         </View>
       </View>
+
+      {/* #197 — the spreadsheet columns this product has no concept for. Last,
+          full width, and absent entirely when the company has none: it is
+          reference data about the engagement, not an answer to one of the
+          four questions above. */}
+      <ProjectFieldsCard />
     </View>
   );
 }
