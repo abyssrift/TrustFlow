@@ -91,6 +91,21 @@ export default function ProjectsScreen() {
         </View>
 
         <View className="flex-row items-center gap-2 flex-shrink-0">
+          {/* Icon-only here (the header is 3 controls at 390px), but present —
+              a template you cannot reopen on mobile is a template you cannot
+              reopen. */}
+          <Tooltip label="Templates">
+            <TouchableOpacity
+              onPress={() => router.push('/projects/templates' as any)}
+              accessibilityRole="button"
+              accessibilityLabel="Templates"
+              className="bg-surface-card border border-surface-border rounded-xl items-center justify-center"
+              style={{ width: 44, height: 44 }}
+            >
+              <FontAwesome name="clone" size={15} color={colors.textMuted} />
+            </TouchableOpacity>
+          </Tooltip>
+
           {canCreate && (
             <Tooltip label="Add several at once">
               <TouchableOpacity

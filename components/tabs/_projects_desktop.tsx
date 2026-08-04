@@ -91,6 +91,24 @@ export default function ProjectsScreenWeb() {
           </View>
 
           <View className="flex-row items-center gap-2 flex-shrink-0">
+            {/* The templates library. The editor has existed since #177 but was
+                reachable only from "Save as template" and from the starter
+                picker inside Bulk Create — both one-way creation doors, so a
+                saved template could never be opened again. This is the door
+                back in. */}
+            <Tooltip label="Open, edit and reuse your saved templates">
+              <TouchableOpacity
+                onPress={() => router.push('/projects/templates' as any)}
+                accessibilityRole="button"
+                accessibilityLabel="Templates"
+                className="bg-surface-card border border-surface-border px-4 rounded-xl hover:bg-surface-overlay flex-row items-center gap-2 justify-center"
+                style={{ minHeight: 44 }}
+              >
+                <FontAwesome name="clone" size={13} color={colors.textMuted} />
+                <Text className="text-typography-main text-sm font-semibold">Templates</Text>
+              </TouchableOpacity>
+            </Tooltip>
+
             {canCreate && (
               <Tooltip label="Bulk create, or import a spreadsheet">
                 <TouchableOpacity
