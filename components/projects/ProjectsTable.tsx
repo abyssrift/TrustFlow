@@ -67,7 +67,12 @@ function sortValue(row: ProjectRow, key: SortKey): number | string {
   }
 }
 
-function ErrorBanner({ rpcMissing, error }: { rpcMissing: boolean; error: string | null }) {
+/**
+ * Exported for ProjectsTimeline.tsx (Phase 10, #191): both surfaces read the
+ * same RPC and therefore fail the same two ways, and "Projects couldn't load"
+ * must not be worded two ways depending on which tab you were on.
+ */
+export function ErrorBanner({ rpcMissing, error }: { rpcMissing: boolean; error: string | null }) {
   const c = useThemeColors();
   return (
     <View className="mx-4 my-4 px-4 py-3 rounded-xl bg-state-danger/10 border border-state-danger/30 flex-row items-start gap-3">
