@@ -30,9 +30,22 @@ export type PinnedShortcut = {
   label: string;
   icon: IconName;
   href: string;
+  // Set only for a pinned portfolio — tells PinnedShortcuts to render it with
+  // EntityGlyph (components/entities/EntityUI.tsx) instead of a plain
+  // FontAwesome glyph, so a portfolio reads as workspace data, not a nav
+  // destination, everywhere it appears (pill + picker row).
+  kind?: 'portfolio';
 };
 
 export const MAX_PINNED_SHORTCUTS = 4;
+
+// The picker shows only the N most recent portfolios as pin candidates — a
+// company with 50 portfolios would otherwise turn "Pin a shortcut" into a
+// scroll pit of batches nobody is currently working. usePortfolios() already
+// orders by recency, so capping here keeps the ones most likely to be
+// pinned; "Browse all portfolios" (linking to /portfolios, which has its own
+// search) covers anything older.
+export const MAX_PORTFOLIO_CANDIDATES = 6;
 
 export const INTELLIGENCE_PERMISSIONS = ['analytics.view', 'analytics.compare', 'report.view', 'target.view', 'archive.view'];
 

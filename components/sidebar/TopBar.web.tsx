@@ -34,6 +34,8 @@ export default function TopBar({
   profileLabel,
   visibleShortcuts,
   pipelines,
+  portfolios,
+  portfoliosLoading,
   onPickerOpenChange,
   onSearchFocusChange,
 }: {
@@ -44,6 +46,8 @@ export default function TopBar({
   profileLabel: string;
   visibleShortcuts: Shortcut[];
   pipelines: { id: string; name: string }[];
+  portfolios: { id: string; name: string }[];
+  portfoliosLoading: boolean;
   onPickerOpenChange?: (open: boolean) => void;
   onSearchFocusChange?: (focused: boolean) => void;
 }) {
@@ -172,7 +176,13 @@ export default function TopBar({
           />
         </View>
 
-        <PinnedShortcuts visibleShortcuts={visibleShortcuts} pipelines={pipelines} onOpenChange={onPickerOpenChange} />
+        <PinnedShortcuts
+          visibleShortcuts={visibleShortcuts}
+          pipelines={pipelines}
+          portfolios={portfolios}
+          portfoliosLoading={portfoliosLoading}
+          onOpenChange={onPickerOpenChange}
+        />
 
         <View className="flex-1 px-6">
           <div
