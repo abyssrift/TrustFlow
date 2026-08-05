@@ -98,11 +98,14 @@ export default function ProjectsTimeline({
   refreshKey = 0,
   onCreateProject,
   onBrowseStarters,
+  portfolioId = null,
 }: {
   onOpenProject: (id: string) => void;
   refreshKey?: number;
   onCreateProject?: () => void;
   onBrowseStarters?: () => void;
+  /** #191 Phase 10 — scope the timeline to one portfolio. NULL = all. */
+  portfolioId?: string | null;
 }) {
   const c = useThemeColors();
   const { width } = useWindowDimensions();
@@ -125,6 +128,7 @@ export default function ProjectsTimeline({
         p_blocked: null,
         p_limit: LIMIT,
         p_offset: 0,
+        p_portfolio_id: portfolioId,
       });
       if (cancelled) return;
       if (err) {
@@ -138,7 +142,7 @@ export default function ProjectsTimeline({
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [refreshKey]);
+  }, [refreshKey, portfolioId]);
 
   // `now` is pinned per render pass rather than read inside the row loop, so
   // every bar and the today line agree on when "now" is.

@@ -2086,6 +2086,62 @@ lands before this phase, or the integration cannot be evaluated.
 7. **(met)** Typing a project or portfolio name in the top-bar box finds it,
    opens it, and never shows one the user cannot access — including never
    showing a portfolio whose projects are all out of reach.
+8. **(met)** Opening a portfolio lands on the projects screen scoped to that
+   batch — not on a second screen with its own list. See §16.6.
+
+### 16.6 A portfolio is a FILTER over projects, not a destination — SHIPPED
+
+**What was wrong.** `/portfolios/[id]` shipped its own hand-built list: a direct
+`supabase.from('projects').eq('portfolio_id', id)` mapped into `ProjectCard`s.
+No search, no stage filter, no sorting, no paging, no board, no timeline, no row
+actions. Opening a batch dropped you into a strictly worse version of the screen
+you had just left. The owner's verdict, verbatim:
+
+> "i was hoping the portfolio would just be ABOVE projects, but not a whole
+> different directory / category. I really LOVE the projects screen, but i dont
+> like how it just shows you every random project in the company, i was hoping to
+> have each portfolio redirect you to the project screen but only ITS PROJECTS
+> are visible... too much separation just confuses the user. portfolios are
+> composed of projects after all"
+
+**What shipped.**
+
+- `rpc_projects_table` grew a **seventh parameter, `p_portfolio_id uuid DEFAULT
+  NULL`, appended last** (`20260807_projects_table_portfolio_filter.sql`).
+  Scoping is a WHERE clause, so it lives in the one reader every projects
+  surface already shares — §16.1 applied. NULL means "every project the caller
+  can see", so every existing call site is unchanged.
+- The predicate is ANDed **one line below `fn_project_accessible(p.id)`**. It is
+  an **intersection** with access and can only ever REMOVE rows; there is no
+  input for which scoping reveals a project the same caller could not already
+  see unscoped. Proven in
+  `supabase/checks/20260807_projects_table_portfolio_filter_check.sql`, whose
+  key actor holds `project.view` (so a zero result cannot be the screen-level
+  gate firing) but not `project.view_all`.
+- `_projects_desktop.tsx` and `_projects_adaptive.tsx` take an optional
+  `portfolioId`, pass it to all three views (`ProjectsTable`, `ProjectBoard`,
+  `ProjectsTimeline`), and swap their identity block for
+  `components/portfolios/PortfolioScopeHeader.tsx` — the portfolio's glyph,
+  name, rollup and one "All projects" way back. Search, stage filters, sorting,
+  paging and the view toggle all keep working inside the scope.
+- **The bespoke detail screen was deleted.** `app/portfolios/[id].tsx` is now a
+  route, not a screen: it renders the projects screen scoped. The rollup header
+  survived because it has no other home; the duplicated list and its bespoke
+  fetch did not. There is no second projects screen to keep in sync.
+- `app/portfolios/index.tsx` (the grid) is unchanged — it is the "which batch?"
+  chooser, and its cards already linked here.
+
+**Route shape:** a path segment (`/portfolios/[id]`), not
+`/(tabs)/projects?portfolio=<id>`. The path already existed, is already what the
+grid links to, and is already linkable and refresh-stable. A query param would
+have needed BOTH a param on the tab route *and* something rendered at
+`/portfolios/[id]` anyway.
+
+**Create actions are hidden when scoped.** `ProjectFolderModal` has no portfolio
+field, so a "New project" button on a scoped screen would silently create a
+project outside the batch on screen; bulk create and spreadsheet import each
+make their own portfolio, so they make no sense from inside one. A create door
+that lies about where it puts things is worse than no door.
 
 ---
 

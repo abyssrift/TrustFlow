@@ -15,6 +15,7 @@ import SpreadsheetImportSheet from '@/components/projects/SpreadsheetImportSheet
 import ProjectsTable from '@/components/projects/ProjectsTable';
 import ProjectBoard from '@/components/projects/ProjectBoard';
 import ProjectsTimeline from '@/components/projects/ProjectsTimeline';
+import PortfolioScopeHeader from '@/components/portfolios/PortfolioScopeHeader';
 import Popup from '@/components/common/Popup';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAlert } from '@/contexts/AlertContext';
@@ -34,7 +35,9 @@ import { EntityGlyph, EntityTag, SegmentedControl } from '@/components/entities/
 // the vocabulary comes from components/entities/EntityUI.tsx, so a project
 // card at 390px and one at 1400px are the same object.
 
-export default function ProjectsScreen() {
+// Phase 10 (#191): same optional portfolio scope as _projects_desktop.tsx, so
+// mobile web and native land on the same screen, not a desktop-only fix.
+export default function ProjectsScreen({ portfolioId }: { portfolioId?: string } = {}) {
   const colors = useThemeColors();
   const { showAlert } = useAlert();
   const { width } = useWindowDimensions();
@@ -87,12 +90,27 @@ export default function ProjectsScreen() {
     );
   }
 
+  // See _projects_desktop.tsx for why a scoped screen hides the create doors.
+  const scoped = !!portfolioId;
+
+  const headerInset = isWeb
+    ? (!isLargeScreen && navPosition === 'top' ? { paddingTop: TAB_BAR_HEIGHT.web } : undefined)
+    : { paddingTop: TAB_BAR_HEIGHT.native };
+
   return (
     <View className="flex-1 bg-surface-background">
-      {/* Header */}
+      {scoped ? (
+        <View className="px-4 pt-3 pb-1" style={headerInset}>
+          <PortfolioScopeHeader
+            portfolioId={portfolioId!}
+            onAllProjects={() => router.push('/(tabs)/projects' as any)}
+          />
+        </View>
+      ) : (
+      /* Header */
       <View
         className={`flex-row items-center justify-between px-4 gap-3 ${isWeb ? 'py-5 border-b border-surface-border' : 'pb-3'}`}
-        style={isWeb ? (!isLargeScreen && navPosition === 'top' ? { paddingTop: TAB_BAR_HEIGHT.web } : undefined) : { paddingTop: TAB_BAR_HEIGHT.native }}
+        style={headerInset}
       >
         <View className="flex-row items-center gap-2.5 flex-1 min-w-0">
           <EntityGlyph kind="project" size={34} />
@@ -145,6 +163,7 @@ export default function ProjectsScreen() {
           </Tooltip>
         </View>
       </View>
+      )}
 
       {/* View toggle — Board shipped #176 (Phase 6), Timeline #191 (Phase 10). */}
       <View className="px-4 pt-3">
@@ -167,9 +186,10 @@ export default function ProjectsScreen() {
         >
           <ProjectsTable
             refreshKey={tableRefreshKey}
+            portfolioId={portfolioId ?? null}
             onOpenProject={(id) => router.push(`/projects/${id}` as any)}
-            onBrowseStarters={canCreate ? () => setBulkCreateVisible(true) : undefined}
-            onCreateProject={canCreate ? () => setModalVisible(true) : undefined}
+            onBrowseStarters={canCreate && !scoped ? () => setBulkCreateVisible(true) : undefined}
+            onCreateProject={canCreate && !scoped ? () => setModalVisible(true) : undefined}
           />
         </ScrollView>
       ) : view === 'timeline' ? (
@@ -179,15 +199,17 @@ export default function ProjectsScreen() {
         >
           <ProjectsTimeline
             refreshKey={tableRefreshKey}
+            portfolioId={portfolioId ?? null}
             onOpenProject={(id) => router.push(`/projects/${id}` as any)}
-            onBrowseStarters={canCreate ? () => setBulkCreateVisible(true) : undefined}
-            onCreateProject={canCreate ? () => setModalVisible(true) : undefined}
+            onBrowseStarters={canCreate && !scoped ? () => setBulkCreateVisible(true) : undefined}
+            onCreateProject={canCreate && !scoped ? () => setModalVisible(true) : undefined}
           />
         </ScrollView>
       ) : (
         <View className="flex-1 pt-3">
           <ProjectBoard
             refreshKey={tableRefreshKey}
+            portfolioId={portfolioId ?? null}
             onOpenProject={(id) => router.push(`/projects/${id}` as any)}
           />
         </View>

@@ -114,9 +114,16 @@ export default function ProjectsTable({
   refreshKey = 0,
   onBrowseStarters,
   onCreateProject,
+  portfolioId = null,
 }: {
   onOpenProject: (id: string) => void;
   refreshKey?: number;
+  /**
+   * #191 Phase 10 — scope every fetch to one portfolio. Passed to the RPC, not
+   * applied client-side: filtering a fetched page would silently shrink it
+   * below LIMIT and break paging. NULL = every project the caller can see.
+   */
+  portfolioId?: string | null;
   /** Shown on the genuinely-empty state (no search, zero projects). Omit to hide it (e.g. no project.create permission). */
   onBrowseStarters?: () => void;
   /** Primary action on the genuinely-empty state. Omit when the user can't create. */
@@ -151,7 +158,7 @@ export default function ProjectsTable({
     onOpenProject,
   });
 
-  useEffect(() => { setPage(0); }, [debouncedSearch, stageId, blockedOnly]);
+  useEffect(() => { setPage(0); }, [debouncedSearch, stageId, blockedOnly, portfolioId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -163,6 +170,7 @@ export default function ProjectsTable({
         p_blocked: blockedOnly ? true : null,
         p_limit: LIMIT,
         p_offset: page * LIMIT,
+        p_portfolio_id: portfolioId,
       });
       if (cancelled) return;
       if (err) {
@@ -182,7 +190,7 @@ export default function ProjectsTable({
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [debouncedSearch, stageId, blockedOnly, page, refreshKey, localRefresh]);
+  }, [debouncedSearch, stageId, blockedOnly, page, refreshKey, localRefresh, portfolioId]);
 
   const sortedRows = useMemo(() => {
     const dir = sortDir === 'asc' ? 1 : -1;

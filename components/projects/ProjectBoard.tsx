@@ -247,9 +247,12 @@ function ProjectColumn({
 export default function ProjectBoard({
   onOpenProject,
   refreshKey = 0,
+  portfolioId = null,
 }: {
   onOpenProject: (id: string) => void;
   refreshKey?: number;
+  /** #191 Phase 10 — scope every column to one portfolio. NULL = all. */
+  portfolioId?: string | null;
 }) {
   const c = useThemeColors();
   const { width } = useWindowDimensions();
@@ -325,6 +328,7 @@ export default function ProjectBoard({
       p_stage_id: stageId,
       p_limit: PAGE_SIZE,
       p_offset: offset,
+      p_portfolio_id: portfolioId,
     });
     const rows = (error ? [] : (data as BoardRow[])) || [];
     setColumns(prev => {
@@ -334,7 +338,7 @@ export default function ProjectBoard({
         [stageId]: { rows: [...existing, ...rows], offset, hasMore: rows.length === PAGE_SIZE, loading: false },
       };
     });
-  }, []);
+  }, [portfolioId]);
 
   // Initial + refresh load: every stage's first page, in parallel -- one
   // request per column, not one per project.
@@ -342,7 +346,7 @@ export default function ProjectBoard({
     if (stages.length === 0) return;
     stages.forEach(s => loadStage(s.id, 0));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stages, refreshKey]);
+  }, [stages, refreshKey, portfolioId]);
 
   const reloadBoard = useCallback(() => {
     stages.forEach(s => loadStage(s.id, 0));

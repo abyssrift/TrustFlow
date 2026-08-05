@@ -3,15 +3,13 @@ import { useWindowDimensions } from 'react-native';
 import ProjectsDesktop from './_projects_desktop';
 import ProjectsAdaptive from './_projects_adaptive';
 
-export default function ProjectsWebSwitcher() {
+export default function ProjectsWebSwitcher({ portfolioId }: { portfolioId?: string } = {}) {
   const { width } = useWindowDimensions();
   const isDesktop = width >= 1024;
 
   if (isDesktop) {
-    return <ProjectsDesktop />;
+    return <ProjectsDesktop portfolioId={portfolioId} />;
   }
 
-  return <ProjectsAdaptive />;
+  return <ProjectsAdaptive portfolioId={portfolioId} />;
 }
-
-
