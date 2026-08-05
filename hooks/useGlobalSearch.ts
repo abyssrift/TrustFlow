@@ -20,15 +20,23 @@ export type SearchResult = {
 
 export type GroupedResults = Partial<Record<ResultType, SearchResult[]>>;
 
+// ⚠ SINGLE SOURCE FOR "how a portfolio opens" (Phase 10 / #191).
+// How portfolios open is being reworked concurrently. This mirrors what
+// app/portfolios/index.tsx does on card press today; when that changes,
+// this one line is the only edit search needs.
+export const portfolioRoute = (id: string) => `/portfolios/${id}`;
+
 // route for a result row — mirrors existing nav (router.push(`/task/${id}`)).
 export function resultRoute(r: SearchResult): string {
   switch (r.type) {
-    case 'task':    return `/task/${r.id}`;
-    case 'comment': return r.task_id ? `/task/${r.task_id}` : '/tasks';
-    case 'file':    return r.task_id ? `/task/${r.task_id}` : `/filehub?file=${r.id}`;
-    case 'report':  return '/intelligence/reports';
-    case 'person':  return '/people';
-    case 'archive': return '/intelligence/archives';
+    case 'task':      return `/task/${r.id}`;
+    case 'comment':   return r.task_id ? `/task/${r.task_id}` : '/tasks';
+    case 'file':      return r.task_id ? `/task/${r.task_id}` : `/filehub?file=${r.id}`;
+    case 'report':    return '/intelligence/reports';
+    case 'person':    return '/people';
+    case 'archive':   return '/intelligence/archives';
+    case 'project':   return `/projects/${r.id}`;
+    case 'portfolio': return portfolioRoute(r.id);
   }
 }
 

@@ -144,7 +144,7 @@ export default function TopBar({
             onBlur={onBlur}
             onSubmitEditing={goToResults}
             returnKeyType="search"
-            placeholder="Search tasks, files, reports…"
+            placeholder="Search projects, tasks, files…"
             placeholderTextColor={colors.textDim}
             className="flex-1 text-sm text-typography-main"
             style={{ paddingVertical: 0 }}

@@ -103,4 +103,35 @@ p = parseQuery('user:ahmed', NOW);
 assert.deepEqual(p.types, ['person']);
 assert.equal(p.terms, 'ahmed');
 
+// ── Phase 10 (#191): project / portfolio types ────────────────────────────
+p = parseQuery('audit projects', NOW);
+assert.deepEqual(p.types, ['project']);
+assert.equal(p.terms, 'audit');
+assert.equal(p.humanized, 'Projects');
+
+p = parseQuery('project:statutory', NOW);
+assert.deepEqual(p.types, ['project']);
+assert.equal(p.terms, 'statutory');
+
+p = parseQuery('jba portfolio', NOW);
+assert.deepEqual(p.types, ['portfolio']);
+assert.equal(p.terms, 'jba');
+
+p = parseQuery('portfolios:excel', NOW);
+assert.deepEqual(p.types, ['portfolio']);
+assert.equal(p.terms, 'excel');
+
+// projects carry their own due_date server-side, so an explicit type must
+// survive the "due/completed => tasks" narrowing.
+p = parseQuery('projects due next week', NOW);
+assert.equal(p.field, 'due');
+assert.deepEqual(p.types, ['project']);
+assert.ok(p.from && p.to, 'next week range set');
+
+// "batch" is portfolio vocabulary but must stay a SEARCH TERM — real
+// portfolios are literally named "… Audit batch".
+p = parseQuery('audit batch', NOW);
+assert.deepEqual(p.types, []);
+assert.equal(p.terms, 'audit batch');
+
 console.log('useSearchQuery: all assertions passed');

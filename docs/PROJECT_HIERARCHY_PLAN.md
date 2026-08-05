@@ -1960,6 +1960,7 @@ defect rather than a cosmetic issue.
 | Calendar | `components/calendar/CalendarOverlay.web.tsx`, `components/common/Calendar.tsx` | project start/due/expiry as first-class entries beside task deadlines, filterable by portfolio and client |
 | **Timeline tab** | `components/tabs/_projects_*.tsx` | **the disabled placeholder shipped in Phase 6 gets built here** as the projection view — per project, actual dates vs projected end. §8 left it a stub with no phase and no issue. See §16.3.1 for why it stays on the Projects screen |
 | Deadline strip | existing top-bar strip | projects appear beside tasks |
+| **Global search** | `rpc_global_search`, `hooks/useSearchQuery.ts`, `components/sidebar/search/*`, `app/(tabs)/search.tsx` | **SHIPPED — see §16.3.2.** projects and portfolios indexed, parseable by keyword, and rendered with the §17 identity marks in both the top-bar dropdown and `/search` |
 
 #### 16.3.1 Why the projection timeline lives in Projects, not only Intelligence
 
@@ -1991,6 +1992,75 @@ applied: two presentations, one definition, never two pace calculations. If the
 timeline and the portfolio charts ever disagree about a date, that is a bug in
 having computed it twice.
 
+#### 16.3.2 Global search — SHIPPED
+
+The searchbar was the omission the user raised by name: projects and portfolios
+existed for nine phases and the one box that searches everything did not know
+they were there. Migration
+`supabase/migrations/20260808_global_search_projects_portfolios.sql`,
+check `supabase/checks/20260808_global_search_projects_portfolios_check.sql`.
+
+**What is indexed.** Both tables gained a `search_tsv` column, `GENERATED
+ALWAYS AS … STORED` rather than the trigger + backfill pattern the 20260714 tsv
+columns use — Postgres maintains it, so there is no trigger function to keep in
+sync and no backfill to forget.
+
+| | Weight A | Weight B |
+|---|---|---|
+| `projects` | `name` | `description` |
+| `portfolios` | `name` | — |
+
+Client name is deliberately **not** indexed: it lives on `clients`, and a
+cross-table term would force the old trigger pattern back for a search nobody
+has asked for. Add a trigger the day someone does.
+
+Matching mirrors tasks exactly: `search_tsv @@ tsquery` with the prefix rewrite,
+falling back to `word_similarity(terms, name) >= 0.45` for typos.
+
+**What the parser understands** (`hooks/useSearchQuery.ts`, asserted in
+`useSearchQuery.check.ts`):
+
+- bare words — `project`, `projects`, `portfolio`, `portfolios`
+- the `type:` prefix — `project:`, `portfolio:`, `projects:`, `portfolios:`
+- `"projects due next week"` targets `projects.due_date`; a portfolio's `due`
+  is its `target_date`. Neither has a completion timestamp, so a `completed`
+  range **excludes** them rather than silently answering with `created_at`.
+- **`batch` is NOT a keyword.** It is portfolio vocabulary, but real portfolios
+  are named "Statutory Financial Statement Audit batch" — making it a type word
+  would eat the term users actually type to find them.
+
+**Presentation.** `SearchResultRow` renders `EntityGlyph kind="project" |
+"portfolio"` and prefixes the muted line with `ENTITY_META[kind].label`, so a
+project in search results carries the same square/briefcase/primary mark it
+carries on its own page, and a portfolio the same offset stack. The label goes
+on the muted line, not as an eyebrow, so row height stays identical to every
+other result. `/search` renders a flat list with no group headers — without that
+label, §17's "users cannot tell a portfolio from a project" would reappear on
+the one screen that shows all four entities side by side.
+
+**The access rule — the part that matters.** `rpc_global_search` is
+`SECURITY DEFINER`. **RLS does not run inside it**, so `projects_select`
+(literally `fn_project_accessible(id)`, default-deny) protects nothing here.
+Search is the worst surface to get this wrong: it returns rows the user never
+had on screen, by name, company-wide, from three keystrokes.
+
+Both new types therefore carry their own `acl` discriminator in the existing
+`allowed` CTE — no second mechanism:
+
+- **`project`** → `public.fn_project_accessible(f.id)`. §13.14's one predicate,
+  called, never re-implemented.
+- **`portfolio`** → `EXISTS (SELECT 1 FROM projects p WHERE p.portfolio_id = f.id
+  AND p.company_id = … AND p.deleted_at IS NULL AND fn_project_accessible(p.id))`.
+  **A portfolio the caller can reach no project inside does not exist for them.**
+  `portfolios_select` is only company-scoped, so nothing else stops this, and
+  surfacing the batch name alone still tells them the engagement exists — the
+  #185/#186 shape, fixed twice already.
+
+The check proves both directions: two positives, two negatives, and then it
+grants `project.view_all` to the same actor and asserts the two hidden rows
+**appear**. Without that flip the negatives would also pass if the branch were
+dead or blanket-denied.
+
 ### 16.4 Access control is not automatic here
 
 Every one of these surfaces is a **new place a project can leak**. The dashboard
@@ -2013,6 +2083,9 @@ lands before this phase, or the integration cannot be evaluated.
 4. Project dates appear in the calendar and filter by portfolio.
 5. The Timeline toggle is no longer disabled.
 6. Three-actor visibility proven on every new surface.
+7. **(met)** Typing a project or portfolio name in the top-bar box finds it,
+   opens it, and never shows one the user cannot access — including never
+   showing a portfolio whose projects are all out of reach.
 
 ---
 
