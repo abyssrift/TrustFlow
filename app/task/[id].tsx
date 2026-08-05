@@ -3,6 +3,7 @@ import ActivityLog from '@/components/task-detail/ActivityLog';
 import ChildPipelinesPanel from '@/components/task-detail/ChildPipelinesPanel';
 import CommentsSection from '@/components/task-detail/CommentsSection';
 import EvidencePanel from '@/components/task-detail/EvidencePanel';
+import LinkedPipelinesPanel from '@/components/task-detail/LinkedPipelinesPanel';
 import PeoplePanel from '@/components/task-detail/PeoplePanel';
 import PipelineJourney from '@/components/task-detail/PipelineJourney';
 import StageActions from '@/components/task-detail/StageActions';
@@ -122,6 +123,7 @@ function TaskDetailContent() {
           {/* Secondary: collapsed by default to keep the screen calm */}
           <PeoplePanel />
           <ChildPipelinesPanel />
+          <LinkedPipelinesPanel />
           <PipelineJourney />
           <TimerPanel />
           <ActivityLog />

@@ -114,6 +114,11 @@ export type ChildTaskData = {
   pipeline_name: string | null; stage_name: string | null; stage_color: string | null;
 };
 
+export type LinkedPipelineData = {
+  pipeline_id: string; pipeline_name: string;
+  linked_by: { full_name: string | null } | null; created_at: string;
+};
+
 export type ActivityData = {
   id: string; event_type: string; user_name: string | null;
   metadata: any; created_at: string;
@@ -171,6 +176,7 @@ export type TaskDetailPayload = {
   stats: StatsData;
   permissions: PermissionsData;
   child_tasks: ChildTaskData[];
+  linked_pipelines: LinkedPipelineData[];
   task_attachments: TaskAttachmentData[];
   pending_time_approvals: ManualTimeApprovalEntry[];
   my_manual_time_entry: MyManualTimeEntry;
@@ -187,6 +193,8 @@ type TaskDetailContextType = {
   addComment: (content: string, parentId?: string | null) => Promise<void>;
   deleteComment: (commentId: string) => Promise<void>;
   advanceStage: (toStageId: string) => Promise<void>;
+  linkPipeline: (pipelineId: string) => Promise<void>;
+  unlinkPipeline: (pipelineId: string) => Promise<void>;
   reviewSubmission: (submissionId: string, decision: string, notes?: string, advanceStageId?: string) => Promise<void>;
   deleteSubmission: (submissionId: string) => Promise<void>;
   restoreSubmission: (submissionId: string) => Promise<void>;
@@ -222,7 +230,7 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
     try {
       taskFlowDebug('task-detail.fetch:start', { taskId });
       setError(null);
-      const [{ data: result, error: rpcError }, { data: childRows }] = await Promise.all([
+      const [{ data: result, error: rpcError }, { data: childRows }, { data: linkRows }] = await Promise.all([
         supabase.rpc('rpc_get_task_details', { p_task_id: taskId }),
         supabase
           .from('tasks')
@@ -233,6 +241,14 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
           `)
           .eq('parent_task_id', taskId)
           .is('deleted_at', null),
+        supabase
+          .from('task_pipeline_links')
+          .select(`
+            pipeline_id, created_at,
+            pipeline:pipeline_id(name),
+            linker:linked_by(full_name)
+          `)
+          .eq('task_id', taskId),
       ]);
 
       if (rpcError) throw rpcError;
@@ -251,9 +267,19 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
           stage_color: r.stage?.color ?? null,
         }));
 
+      const linked_pipelines: LinkedPipelineData[] = (linkRows || [])
+        .filter((r: any) => r.pipeline)
+        .map((r: any) => ({
+          pipeline_id: r.pipeline_id,
+          pipeline_name: r.pipeline?.name ?? 'Unknown Pipeline',
+          linked_by: r.linker ? { full_name: r.linker.full_name ?? null } : null,
+          created_at: r.created_at,
+        }));
+
       setData({
         ...(result as TaskDetailPayload),
         child_tasks,
+        linked_pipelines,
         pending_time_approvals: (result as any).pending_time_approvals ?? [],
         my_manual_time_entry: (result as any).my_manual_time_entry ?? null,
       });
@@ -390,6 +416,30 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
       throw err;
     }
   }, [taskId, fetchDetails, successToast, errorToast]);
+
+  const linkPipeline = useCallback(async (pipelineId: string) => {
+    try {
+      const { error } = await supabase.rpc('rpc_link_task_to_pipeline', { p_task_id: taskId, p_pipeline_id: pipelineId });
+      if (error) throw error;
+      await fetchDetails();
+      successToast('Task linked to pipeline.');
+    } catch (err: any) {
+      errorToast(err.message || 'Could not link task to pipeline.');
+      throw err;
+    }
+  }, [taskId, fetchDetails, successToast, errorToast]);
+
+  const unlinkPipeline = useCallback(async (pipelineId: string) => {
+    try {
+      const { error } = await supabase.rpc('rpc_unlink_task_from_pipeline', { p_task_id: taskId, p_pipeline_id: pipelineId });
+      if (error) throw error;
+      await fetchDetails();
+      infoToast('Link removed.');
+    } catch (err: any) {
+      errorToast(err.message || 'Could not remove link.');
+      throw err;
+    }
+  }, [taskId, fetchDetails, infoToast, errorToast]);
 
   const reviewSubmission = useCallback(async (submissionId: string, decision: string, notes?: string, advanceStageId?: string) => {
     try {
@@ -630,11 +680,12 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
 
     const subChannel = freshChannel(`task-subs-${taskId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'task_submissions', filter: `task_id=eq.${taskId}` }, () => fetchDetails()).subscribe();
     const histChannel = freshChannel(`task-hist-${taskId}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pipeline_stage_history', filter: `task_id=eq.${taskId}` }, () => fetchDetails()).subscribe();
+    const linksChannel = freshChannel(`task-links-${taskId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'task_pipeline_links', filter: `task_id=eq.${taskId}` }, () => fetchDetails()).subscribe();
     const metaChannel = freshChannel(`task-meta-${taskId}`).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tasks', filter: `id=eq.${taskId}` }, () => fetchDetails()).subscribe();
     const workSessionChannel = freshChannel(`task-sessions-${taskId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'task_work_sessions', filter: `task_id=eq.${taskId}` }, () => fetchDetails()).subscribe();
     const manualTimeChannel = freshChannel(`task-manual-time-${taskId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'task_manual_time_entries', filter: `task_id=eq.${taskId}` }, () => fetchDetails()).subscribe();
 
-    channelsRef.current = [commentChannel, subChannel, histChannel, metaChannel, workSessionChannel, manualTimeChannel];
+    channelsRef.current = [commentChannel, subChannel, histChannel, linksChannel, metaChannel, workSessionChannel, manualTimeChannel];
     return () => {
       channelsRef.current.forEach(ch => supabase.removeChannel(ch));
     };
@@ -643,7 +694,7 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
   return (
     <TaskDetailContext.Provider value={{
       taskId, data, loading, error, refresh: fetchDetails,
-      executeAction, submitWork, addComment, deleteComment, advanceStage, reviewSubmission, deleteSubmission, restoreSubmission, listDeletedSubmissions, submissionVersions, restoreSubmissionVersion,
+      executeAction, submitWork, addComment, deleteComment, advanceStage, linkPipeline, unlinkPipeline, reviewSubmission, deleteSubmission, restoreSubmission, listDeletedSubmissions, submissionVersions, restoreSubmissionVersion,
       replaceTaskAttachment, taskAttachmentVersions, restoreTaskAttachmentVersion, deleteTaskAttachment, restoreTaskAttachment, listDeletedTaskAttachments,
       updateTask, reviewManualTime
     }}>
