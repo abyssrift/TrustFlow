@@ -358,7 +358,10 @@ export default function DashboardScreenWeb() {
     { value: stats.activeNow > 0 ? String(stats.activeNow) : null, label: 'in progress', onPress: () => router.push('/tasks' as any) },
     { value: stats.completed > 0 ? String(stats.completed) : null, label: `done · ${completionRate}%`, tone: colors.success, onPress: () => router.push('/intelligence/archives' as any) },
     { value: stats.failed > 0 ? String(stats.failed) : null, label: `failed · ${failedRate}%`, tone: colors.danger, onPress: () => router.push('/intelligence/archives' as any) },
-    { value: stats.activeSessions > 0 ? String(stats.activeSessions) : null, label: 'working now', live: true, onPress: () => setShowLiveSessions(true) },
+    // Presence, not a tally — so it does NOT follow the hide-when-zero rule the
+    // other facts do. "0 working now" answers the question you asked; a missing
+    // row leaves you wondering whether nobody is working or the dot is broken.
+    { value: String(stats.activeSessions), label: 'working now', live: true, onPress: () => setShowLiveSessions(true) },
     { value: pulse && pulse.daily_points > 0 ? String(pulse.daily_points) : null, label: 'pts today' },
     { value: pulse && pulse.active_seconds_today > 0 ? formatCompact(pulse.active_seconds_today) : null, label: 'active' },
     // A good flap score is not news. It appears only when it is a problem —
