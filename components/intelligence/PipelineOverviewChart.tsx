@@ -48,36 +48,6 @@ export default function PipelineOverviewChart({
   const enabled = OVERVIEW_METRICS.filter(m => metrics.includes(m.key));
   const hasRightAxis = enabled.some(m => m.axis === 'right');
 
-  // No tracked pipelines, or the window returned no buckets at all: there is
-  // nothing to plot and nothing to say. Same convention as ProjectionStrip on
-  // this dashboard — render nothing rather than an empty axis.
-  if (!loading && !error && chartData.length === 0) {
-    return null;
-  }
-
-  // Pipelines are tracked and the window has real buckets, but every enabled
-  // metric is flat zero throughout. That IS a signal ("tracked pipelines
-  // completed nothing this window") as opposed to "nothing to measure" above,
-  // so it gets one quiet line instead of a 280px empty chart or vanishing
-  // entirely (a disappearing card reads as a bug).
-  const allZero = !loading && !error && chartData.length > 0 && enabled.length > 0 &&
-    chartData.every(d => enabled.every(m => (d as any)[m.key] === 0));
-  if (allZero) {
-    return (
-      // Deliberately does NOT inherit `className`. The caller sizes this as
-      // flex-[2] because a chart earns two thirds of the row; one sentence does
-      // not. Inheriting it left the message stranded beside ~125px of dead
-      // space while the activity card stayed pinned narrow on the right.
-      // Dropping the flex share lets that card take the width instead.
-      <View className="flex-row items-center gap-2 self-start">
-        <FontAwesome name="line-chart" size={10} color={colors.textDim} />
-        <Text className="text-typography-dim text-xs">
-          No completions in the last {chartData.length} {period === 'week' ? 'weeks' : 'months'}.
-        </Text>
-      </View>
-    );
-  }
-
   const tooltipStyle = {
     backgroundColor: colors.card,
     border: `1px solid ${colors.border}`,
