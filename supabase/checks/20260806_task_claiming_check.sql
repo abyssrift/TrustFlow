@@ -53,8 +53,8 @@ BEGIN
   INSERT INTO public.pipeline_stages (pipeline_id, name, position, is_initial)
   VALUES (v_pipe, 'Open', 0, true) RETURNING id INTO v_stage;
 
-  INSERT INTO public.tasks (company_id, title, pipeline_id, current_stage_id)
-  VALUES (v_co, 'Claiming Check Task', v_pipe, v_stage) RETURNING id INTO v_task;
+  INSERT INTO public.tasks (company_id, title, pipeline_id, current_stage_id, created_by, manager_id)
+  VALUES (v_co, 'Claiming Check Task', v_pipe, v_stage, v_claimant, v_claimant) RETURNING id INTO v_task;
 
   -- Assert 1: claiming a task with enforcement OFF is rejected.
   PERFORM set_config('request.jwt.claims', json_build_object('sub', v_claimant::text, 'role', 'authenticated')::text, true);
