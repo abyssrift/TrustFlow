@@ -46,6 +46,31 @@ export default function PipelineOverviewChartNative({
   const colorFor = (colorKey: string) => (colors as any)[colorKey] ?? colors.primary;
   const enabled = OVERVIEW_METRICS.filter(m => metrics.includes(m.key));
 
+  // No tracked pipelines, or the window returned no buckets at all: there is
+  // nothing to plot and nothing to say. Same convention as ProjectionStrip on
+  // this dashboard — render nothing rather than an empty axis.
+  if (!loading && !error && data.length === 0) {
+    return null;
+  }
+
+  // Pipelines are tracked and the window has real buckets, but every enabled
+  // metric is flat zero throughout. That IS a signal ("tracked pipelines
+  // completed nothing this window") as opposed to "nothing to measure" above,
+  // so it gets one quiet line instead of a 170px empty chart or vanishing
+  // entirely (a disappearing card reads as a bug).
+  const allZero = !loading && !error && data.length > 0 && enabled.length > 0 &&
+    data.every(d => enabled.every(m => (d as any)[m.key] === 0));
+  if (allZero) {
+    return (
+      <View className={`flex-row items-center gap-2 ${className || ''}`}>
+        <FontAwesome name="line-chart" size={10} color={colors.textDim} />
+        <Text className="text-typography-dim text-[11px]">
+          No completions in the last {data.length} {period === 'week' ? 'weeks' : 'months'}.
+        </Text>
+      </View>
+    );
+  }
+
   const plotH = CHART_H - PAD_TOP - PAD_BOTTOM;
 
   // Normalize each metric to its own max so lines with different units share
