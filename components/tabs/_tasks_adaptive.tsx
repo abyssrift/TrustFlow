@@ -500,7 +500,7 @@ function TasksScreen() {
             assignments:task_assignments(
               assignee_user_id,
               assignee_team_id,
-              team:assignee_team_id(name),
+              team:assignee_team_id(name, enforce_single_claimant),
               user:assignee_user_id(full_name)
             )
           `)
@@ -616,7 +616,7 @@ function TasksScreen() {
           assignments:task_assignments(
             assignee_user_id,
             assignee_team_id,
-            team:assignee_team_id(name),
+            team:assignee_team_id(name, enforce_single_claimant),
             user:assignee_user_id(full_name)
           )
         `)
@@ -992,6 +992,7 @@ function TasksScreen() {
             transitions={stageTransitions}
             activeSessions={activeSessions}
             userId={user?.id || ''}
+            myTeamIds={myTeamIds}
             onRefresh={silentRefresh}
           />
         </View>

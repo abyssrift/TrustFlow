@@ -57,10 +57,12 @@ type Task = {
   id: string;
   title: string;
   current_stage_id: string;
+  claimed_by?: string | null;
   assignments?: {
     assignee_user_id: string | null;
     assignee_team_id: string | null;
     user?: { full_name: string } | null;
+    team?: { name: string; enforce_single_claimant?: boolean } | null;
   }[];
 };
 
@@ -71,6 +73,8 @@ type Props = {
   transitions?: { id: string; to_stage_id: string }[];
   activeSessions: Record<string, ActiveSessionUser[]>;
   userId: string;
+  /** Team ids the current user belongs to — used to gate the #25 claim button to eligible team members. */
+  myTeamIds?: string[];
   onRefresh: () => void;
   /** Optional optimistic hook: fired the instant a stage-changing RPC succeeds, before onRefresh(). */
   onMoved?: (taskId: string, toStageId: string) => void;
@@ -91,7 +95,7 @@ const ACTION_STYLES: Record<string, { bg: string; border: string; text: string }
 
 
 // ─── Component ────────────────────────────────────────────────
-export default function TaskCardActions({ task, stages, stageActions, transitions = [], activeSessions, userId, onRefresh, onMoved, onSessionStarted, onArchived }: Props) {
+export default function TaskCardActions({ task, stages, stageActions, transitions = [], activeSessions, userId, myTeamIds = [], onRefresh, onMoved, onSessionStarted, onArchived }: Props) {
   const router = useRouter();
   const colors = useThemeColors();
   const { hasPermission, profile } = useAuth();
@@ -107,6 +111,17 @@ export default function TaskCardActions({ task, stages, stageActions, transition
   // ─── Derived State ───────────────────────────────────────
   const isAssignedToUser = (task.assignments || []).some(a => a.assignee_user_id !== null);
   const isMyTask = (task.assignments || []).some(a => a.assignee_user_id === userId);
+
+  // #25: single-claimant enforcement — only relevant when this task is
+  // assigned to a team that has claiming turned on.
+  const claimingEnforced = (task.assignments || []).some(a => a.team?.enforce_single_claimant === true);
+  const isClaimedByMe = task.claimed_by === userId;
+  const isClaimedByOther = claimingEnforced && !!task.claimed_by && !isClaimedByMe;
+  const canClaim = claimingEnforced && !task.claimed_by && (
+    isMyTask ||
+    (task.assignments || []).some(a => a.assignee_team_id && a.team?.enforce_single_claimant && myTeamIds.includes(a.assignee_team_id))
+  );
+  const claimantName = (task.assignments || []).find(a => a.assignee_user_id === task.claimed_by)?.user?.full_name || 'another team member';
   const currentStage = stages.find(s => s.id === task.current_stage_id);
   const stageRequiresTimer = currentStage?.requires_timer ?? false;
   const isInitialStage = currentStage?.is_initial ?? false;
@@ -289,7 +304,8 @@ export default function TaskCardActions({ task, stages, stageActions, transition
     }
   };
 
-  // Claim task (only for timer-required stages)
+  // #25: claim this task among its already-assigned team members, becoming
+  // the sole active worker until the task changes stage or gets unassigned.
   const handleClaim = async () => {
     setLoadingAction('__claim__');
     try {
@@ -416,8 +432,8 @@ export default function TaskCardActions({ task, stages, stageActions, transition
     );
   }
 
-  // ─── STATE: Timer Required + Unassigned → Claim Task ────────
-  if (stageRequiresTimer && !isAssignedToUser) {
+  // ─── STATE: #25 — unclaimed, this task requires claiming, I'm eligible ────
+  if (canClaim) {
     return (
       <DirectionalActionButton
         direction="forward"
@@ -428,6 +444,17 @@ export default function TaskCardActions({ task, stages, stageActions, transition
         loading={loadingAction === '__claim__'}
         onPress={handleClaim}
       />
+    );
+  }
+
+  // ─── STATE: #25 — claimed by someone else, work is locked to them ────
+  if (isClaimedByOther) {
+    return (
+      <View className="bg-surface-overlay py-2.5 rounded-xl border border-surface-border items-center justify-center">
+        <Text className="text-typography-muted font-bold text-[10px] uppercase tracking-widest">
+          Claimed by {claimantName}
+        </Text>
+      </View>
     );
   }
 

@@ -27,6 +27,7 @@ export type Team = {
   name: string;
   description: string | null;
   color: string | null;
+  enforce_single_claimant: boolean;
 };
 
 export type Role = {
@@ -80,6 +81,7 @@ type RoleManagerState = {
   deleteRole: (id: string) => Promise<boolean>;
   updateUserAssignments: (userId: string, roleIds: string[], teamIds: string[]) => Promise<boolean>;
   updateTeamAssignments: (teamId: string, roleIds: string[]) => Promise<boolean>;
+  setTeamClaiming: (teamId: string, enabled: boolean) => Promise<boolean>;
   createTeam: (name: string, description: string, color: string) => Promise<string | null>;
   removeUserFromCompany: (userId: string) => Promise<boolean>;
 };
@@ -284,6 +286,24 @@ export function RoleManagerProvider({ children }: { children: ReactNode }) {
     }
   }, [refreshAll, errorToast]);
 
+  const setTeamClaiming = useCallback(async (teamId: string, enabled: boolean) => {
+    setLoading(true);
+    try {
+      const { error: e } = await supabase.rpc('rpc_set_team_claiming', {
+        p_team_id: teamId,
+        p_enabled: enabled
+      });
+      if (e) throw e;
+      await refreshAll();
+      return true;
+    } catch (e: any) {
+      errorToast(e.message);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [refreshAll, errorToast]);
+
   const createTeam = useCallback(async (name: string, description: string, color: string) => {
     setLoading(true);
     try {
@@ -326,7 +346,7 @@ export function RoleManagerProvider({ children }: { children: ReactNode }) {
         loading, error,
         refreshAll,
         createRole, updateRole, deleteRole,
-        updateUserAssignments, updateTeamAssignments, createTeam, removeUserFromCompany
+        updateUserAssignments, updateTeamAssignments, setTeamClaiming, createTeam, removeUserFromCompany
       }}
     >
       {children}
