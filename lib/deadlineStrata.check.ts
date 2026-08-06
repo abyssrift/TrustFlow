@@ -60,11 +60,22 @@ const project = (id: string, p: Partial<StrataProject> = {}): StrataProject => (
 {
   const d = stripDomain([task('a', 10)], [project('p', { dueDate: at(30) })], TODAY);
   assert.strictEqual(d.startMs, TODAY, 'the left edge is now — the ribbon has always read that way');
-  assert.strictEqual(d.endMs, TODAY + 30 * DAY, 'the axis must reach the furthest PROJECT, not just the furthest task');
+  // This assertion used to demand the opposite, and that is exactly what broke
+  // the strip: a project 30 days out stretched the axis, so a week of real task
+  // deadlines collapsed into a few pixels and every segment looked identical.
+  // A segment's LENGTH is how long you have; only tasks may set that scale.
+  assert.strictEqual(d.endMs, TODAY + 10 * DAY, 'a distant project must NOT stretch the axis past the furthest task');
 }
 {
   const d = stripDomain([task('a', 40)], [project('p', { dueDate: at(5) })], TODAY);
-  assert.strictEqual(d.endMs, TODAY + 40 * DAY, 'and equally the furthest task, not just the furthest project');
+  assert.strictEqual(d.endMs, TODAY + 40 * DAY, 'the furthest task sets the end');
+}
+{
+  // The scale is task-driven even when there are no tasks to drive it: an
+  // all-project ribbon falls back to the one-day floor rather than sizing
+  // itself to projects, so adding a task later cannot make the strip jump.
+  const d = stripDomain([], [project('p', { dueDate: at(30) })], TODAY);
+  assert.strictEqual(d.endMs, TODAY + DAY, 'no tasks means no scale to stretch');
 }
 {
   // Everything due today: a zero span would divide by zero in every fraction.

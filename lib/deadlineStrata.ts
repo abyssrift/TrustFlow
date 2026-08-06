@@ -104,12 +104,21 @@ export function stripDomain(
     const m = msOf(t.dueDate);
     if (m != null && m > endMs) endMs = m;
   }
-  for (const p of projects) {
-    for (const d of [p.startDate, p.dueDate]) {
-      const m = msOf(d);
-      if (m != null && m > endMs) endMs = m;
-    }
-  }
+  // TASKS ALONE SET THE SCALE. Projects are marked on this axis, they do not
+  // stretch it.
+  //
+  // The whole point of the strip is that a segment's LENGTH is how long you
+  // have: the run from the previous deadline to this one. Letting a project
+  // due in December push endMs out squeezed a week of real task deadlines into
+  // a few pixels at the far left, and every segment became the same
+  // indistinguishable sliver. The encoding survived; the scale destroyed it.
+  //
+  // A project past the last task therefore falls outside the domain and is
+  // dropped from the strip by `visible`/`fraction` clamping. That is the right
+  // trade: the ribbon answers "what is landing soon", and the dropdown lists
+  // everything regardless. Restoring urgency-by-length matters more than
+  // guaranteeing every project gets a bead.
+  void projects;
   return { startMs: todayMs, endMs };
 }
 
