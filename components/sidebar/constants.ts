@@ -54,7 +54,12 @@ export const SHORTCUTS: Shortcut[] = [
   { id: 'tasks', permissionKey: '', icon: 'check-square-o', label: 'Tasks', href: '/tasks' },
   { id: 'search', permissionKey: '', icon: 'search', label: 'Search', href: '/search' },
   { id: 'deadlines', permissionKey: '', icon: 'calendar', label: 'Deadlines', href: '/deadlines' },
-  { id: 'projects', permissionKey: 'project.edit', icon: 'folder-o', label: 'Projects', href: '/projects' },
+  // project.view, not project.edit: reading the projects list has never required
+  // edit rights anywhere else. rpc_projects_table gates on project.view,
+  // projects_select is fn_project_accessible, and app/(tabs)/menu.tsx already
+  // used view — this entry was the outlier, and it meant a view-only user saw
+  // Portfolios (correctly gated on view) but not the Projects inside them.
+  { id: 'projects', permissionKey: 'project.view', icon: 'folder-o', label: 'Projects', href: '/projects' },
   // Icon/kind match components/entities/EntityUI.tsx's canonical portfolio
   // glyph (ENTITY_META.portfolio.icon === 'th-large') — same glyph the
   // /portfolios screen itself headers with. Gated on project.view: the same
