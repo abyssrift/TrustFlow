@@ -599,6 +599,7 @@ export default function CalendarOverlay({
               goToTask={goToTask}
               pinnedRange={pinned ? rangeSummary : null}
               onClearRange={clearRange}
+              reducedMotion={reducedMotion}
             />
           </div>
 
@@ -868,7 +869,7 @@ function relDue(dueDate: string): string {
 }
 
 function CalendarInsights({
-  colors, monthAnchor, monthTasks, unscheduledTasks, goToTask, pinnedRange, onClearRange,
+  colors, monthAnchor, monthTasks, unscheduledTasks, goToTask, pinnedRange, onClearRange, reducedMotion,
 }: {
   colors: ReturnType<typeof useThemeColors>;
   monthAnchor: Date;
@@ -877,6 +878,7 @@ function CalendarInsights({
   goToTask: (id: string) => void;
   pinnedRange: RangeSummary | null;
   onClearRange: () => void;
+  reducedMotion: boolean;
 }) {
   const { nextDeadline, overdue, heaviest } = useMemo(() => {
     const overdueList = monthTasks.filter((t) => t.overdue);
@@ -906,6 +908,12 @@ function CalendarInsights({
   const labelStyle: React.CSSProperties = {
     fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: colors.textDim, marginBottom: 6,
   };
+
+  // Every section below is gated independently, so with no data at all the
+  // sidebar used to render as a bordered 270px void. nextDeadline/overdue are
+  // both derived from monthTasks, so those two checks are already implied.
+  // A pinned range counts as content — it's the question the user just asked.
+  const isEmpty = !pinnedRange && monthTasks.length === 0 && unscheduledTasks.length === 0;
 
   return (
     <div style={{
@@ -998,6 +1006,96 @@ function CalendarInsights({
           </div>
         </div>
       )}
+
+      {/* Keyed on the month so navigating between two empty months re-prints
+          the dot field — the shape of the month actually changes. */}
+      {isEmpty && (
+        <EmptyInsights
+          key={monthAnchor.getTime()}
+          colors={colors}
+          monthAnchor={monthAnchor}
+          reducedMotion={reducedMotion}
+        />
+      )}
+    </div>
+  );
+}
+
+// The empty sidebar's mark is a miniature of the month you're looking at —
+// buildMonthGrid's real 42-cell grid, rendered as dots, with today's dot the
+// only lit one (and only when you're actually on the current month). It reads
+// as "this page of the calendar has nothing on it" rather than a generic
+// "all done" checkmark, and it stays honest when you browse to an empty
+// future month, which is not an achievement.
+//
+// Animation: plain CSS transitions with a per-dot delay. This whole component
+// tree is real DOM (createPortal to document.body, inline CSSProperties), not
+// react-native-web — so per animation-consistency.md §1 neither reanimated nor
+// LayoutAnimation applies here, and WAAPI would only buy us measurement we
+// don't need. Reduced motion follows the same `reducedMotion ? 'none' : ...`
+// mechanism the FLIP panel above already uses, and starts fully revealed.
+function EmptyInsights({
+  colors, monthAnchor, reducedMotion,
+}: {
+  colors: ReturnType<typeof useThemeColors>;
+  monthAnchor: Date;
+  reducedMotion: boolean;
+}) {
+  const [revealed, setRevealed] = useState(reducedMotion);
+  useEffect(() => {
+    if (reducedMotion) return;
+    const raf = requestAnimationFrame(() => setRevealed(true));
+    return () => cancelAnimationFrame(raf);
+  }, [reducedMotion]);
+
+  const now = new Date();
+  const sameYear = monthAnchor.getFullYear() === now.getFullYear();
+  const isCurrentMonth = sameYear && monthAnchor.getMonth() === now.getMonth();
+  const monthName = monthAnchor.toLocaleDateString('en-US', sameYear ? { month: 'long' } : { month: 'long', year: 'numeric' });
+  const todayKey = toKey(now);
+
+  return (
+    <div style={{
+      flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center', paddingBottom: 48,
+    }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 6px)', gap: 8, marginBottom: 24 }}>
+        {buildMonthGrid(monthAnchor).map((d, i) => {
+          const inMonth = d.getMonth() === monthAnchor.getMonth();
+          const isToday = isCurrentMonth && toKey(d) === todayKey;
+          return (
+            <div
+              key={i}
+              style={{
+                width: 6, height: 6, borderRadius: 3,
+                backgroundColor: isToday ? colors.primary : `${colors.textDim}${inMonth ? '66' : '1f'}`,
+                boxShadow: isToday && revealed ? `0 0 0 4px ${colors.primary}24` : `0 0 0 0 ${colors.primary}00`,
+                opacity: revealed ? 1 : 0,
+                transform: revealed ? 'scale(1)' : 'scale(0.35)',
+                transition: reducedMotion ? 'none' : [
+                  `opacity 420ms ease ${120 + i * 10}ms`,
+                  `transform 420ms ${EASING} ${120 + i * 10}ms`,
+                  'box-shadow 520ms ease 720ms',
+                ].join(', '),
+              }}
+            />
+          );
+        })}
+      </div>
+
+      <div style={{
+        textAlign: 'center', maxWidth: 200,
+        opacity: revealed ? 1 : 0,
+        transform: revealed ? 'translateY(0)' : 'translateY(5px)',
+        transition: reducedMotion ? 'none' : `opacity 380ms ease 540ms, transform 380ms ${EASING} 540ms`,
+      }}>
+        <div style={{ fontSize: 13.5, fontWeight: 800, color: colors.textMain, letterSpacing: -0.1 }}>
+          {isCurrentMonth ? `${monthName} is clear` : `Nothing due in ${monthName}`}
+        </div>
+        <div style={{ fontSize: 11.5, color: colors.textMuted, marginTop: 7, lineHeight: 1.55 }}>
+          Tasks appear here when they&apos;re due, overdue, or waiting on a date.
+        </div>
+      </div>
     </div>
   );
 }
