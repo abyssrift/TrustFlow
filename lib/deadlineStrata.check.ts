@@ -1,0 +1,263 @@
+// Self-check for lib/deadlineStrata.ts (Phase 10, #191).
+// Run by `npm run check` (scripts/run-checks.mjs auto-discovers *.check.ts).
+//
+// What would break without it, in order of how badly it would lie to a user:
+//   1. A stratum escaping the track. The previous attempt at this component
+//      shipped project markers positioned above the bar in pixels; they
+//      rendered as floating squares and the work was reverted. Every bound
+//      this file produces must stay inside [0,1] vertically.
+//   2. A finished project sitting on the ribbon as an outstanding deadline.
+//      "Done" is terminal AND terminal_type='success', and it is one dropped
+//      filter away from the ribbon nagging about work that shipped.
+//   3. Strata disagreeing about where a date falls. The task segments and the
+//      project bars are drawn from one domain; if a task's right edge stopped
+//      landing on its own due date, the levels would visibly drift apart.
+//   4. The task-only ribbon shrinking to a sliver for every company that has
+//      no projects — a regression for users who never adopted the feature.
+
+import assert from 'node:assert';
+import {
+  MIN_SPAN_FRACTION,
+  PROJECT_CAP,
+  overdueProjects,
+  portfolioBands,
+  projectBars,
+  ribbonProjects,
+  strataBounds,
+  stripDomain,
+  taskSegments,
+  type StrataProject,
+  type StrataTask,
+} from './deadlineStrata';
+import { fraction } from './projectTimeline';
+
+const DAY = 86_400_000;
+const TODAY = Date.parse('2026-08-06T00:00:00Z');
+const at = (n: number) => new Date(TODAY + n * DAY).toISOString();
+
+const task = (id: string, days: number, overdue = false): StrataTask => ({
+  id,
+  title: `Task ${id}`,
+  dueDate: at(days),
+  stageColor: '#3b82f6',
+  overdue,
+});
+
+const project = (id: string, p: Partial<StrataProject> = {}): StrataProject => ({
+  id,
+  name: `Project ${id}`,
+  color: null,
+  portfolioId: null,
+  portfolioName: null,
+  startDate: null,
+  dueDate: null,
+  done: false,
+  ...p,
+});
+
+// ── The axis ───────────────────────────────────────────────────────────────
+
+{
+  const d = stripDomain([task('a', 10)], [project('p', { dueDate: at(30) })], TODAY);
+  assert.strictEqual(d.startMs, TODAY, 'the left edge is now — the ribbon has always read that way');
+  assert.strictEqual(d.endMs, TODAY + 30 * DAY, 'the axis must reach the furthest PROJECT, not just the furthest task');
+}
+{
+  const d = stripDomain([task('a', 40)], [project('p', { dueDate: at(5) })], TODAY);
+  assert.strictEqual(d.endMs, TODAY + 40 * DAY, 'and equally the furthest task, not just the furthest project');
+}
+{
+  // Everything due today: a zero span would divide by zero in every fraction.
+  const d = stripDomain([task('a', 0)], [], TODAY);
+  assert.ok(d.endMs > d.startMs, 'the domain always has positive width');
+  assert.strictEqual(d.endMs - d.startMs, DAY, 'one-day floor');
+}
+{
+  const d = stripDomain([], [], TODAY);
+  assert.ok(d.endMs > d.startMs, 'an empty ribbon still yields a usable axis');
+}
+
+// ── Selection: done, overdue, cap, order ───────────────────────────────────
+
+{
+  const rows = [
+    project('done', { dueDate: at(5), done: true }),
+    project('live', { dueDate: at(5) }),
+  ];
+  const picked = ribbonProjects(rows, TODAY);
+  assert.deepStrictEqual(picked.map((p) => p.id), ['live'], 'a finished project must not sit on the ribbon');
+  assert.deepStrictEqual(overdueProjects(rows, TODAY).map((p) => p.id), [], 'nothing here is overdue');
+}
+{
+  const rows = [
+    project('late', { dueDate: at(-3) }),
+    project('lateDone', { dueDate: at(-3), done: true }),
+    project('soon', { dueDate: at(2) }),
+  ];
+  assert.deepStrictEqual(
+    overdueProjects(rows, TODAY).map((p) => p.id),
+    ['late'],
+    'overdue means outstanding and past due — a project finished late is not still overdue',
+  );
+  assert.deepStrictEqual(
+    ribbonProjects(rows, TODAY).map((p) => p.id),
+    ['soon'],
+    'overdue projects feed the cap, never a bar (a bar would sit at fraction 0, on top of the today cursor)',
+  );
+}
+{
+  const rows = [
+    project('c', { dueDate: at(30) }),
+    project('a', { dueDate: at(1) }),
+    project('b', { dueDate: at(10) }),
+  ];
+  assert.deepStrictEqual(ribbonProjects(rows, TODAY).map((p) => p.id), ['a', 'b', 'c'], 'nearest first');
+}
+{
+  const rows = Array.from({ length: PROJECT_CAP + 8 }, (_, i) => project(`p${i}`, { dueDate: at(i + 1) }));
+  assert.strictEqual(ribbonProjects(rows, TODAY).length, PROJECT_CAP, 'the ribbon is ambient, not a backlog');
+}
+{
+  // Dateless projects cannot be placed on a time axis at all.
+  assert.deepStrictEqual(ribbonProjects([project('nodate')], TODAY), []);
+  // Start-only is placeable: it is sorted and drawn at its start.
+  assert.deepStrictEqual(
+    ribbonProjects([project('startonly', { startDate: at(4) })], TODAY).map((p) => p.id),
+    ['startonly'],
+  );
+}
+
+// ── Geometry: nothing escapes, everything lands on its date ────────────────
+
+const DOMAIN = stripDomain([task('t1', 10), task('t2', 20)], [project('p', { startDate: at(5), dueDate: at(25) })], TODAY);
+
+{
+  const bars = projectBars([project('p', { startDate: at(5), dueDate: at(25) })], DOMAIN);
+  assert.strictEqual(bars.length, 1);
+  const { left, width } = bars[0].span;
+  assert.ok(Math.abs(left - fraction(TODAY + 5 * DAY, DOMAIN)) < 1e-9, 'a bar starts on its start date');
+  assert.ok(Math.abs(left + width - fraction(TODAY + 25 * DAY, DOMAIN)) < 1e-9, 'and ends on its due date');
+}
+{
+  // Reversed dates must not produce a negative width, which renders as nothing.
+  const bars = projectBars([project('p', { startDate: at(25), dueDate: at(5) })], DOMAIN);
+  assert.ok(bars[0].span.width > 0, 'a project entered back-to-front still draws');
+}
+{
+  const bars = projectBars([project('p', { dueDate: at(12) })], DOMAIN);
+  assert.strictEqual(bars[0].span.width, MIN_SPAN_FRACTION, 'a due-only project is a mark, not an invented span');
+  assert.ok(Math.abs(bars[0].span.left - fraction(TODAY + 12 * DAY, DOMAIN)) < 1e-9, 'placed at its real date');
+}
+{
+  // The last thing on the axis sits at fraction 1.0, so widening it to the
+  // visible minimum runs past the right edge. That is intended — the track
+  // clips. Clamping instead would slide the final deadline backwards in time.
+  const bars = projectBars([project('p', { dueDate: at(25) })], DOMAIN);
+  assert.ok(bars[0].span.left + bars[0].span.width > 1, 'the widened final mark overruns, and the track clips it');
+  assert.ok(bars[0].span.left <= 1, 'but its start is never off the axis');
+}
+
+{
+  const segs = taskSegments([task('t1', 10), task('t2', 20)], DOMAIN);
+  assert.strictEqual(segs.length, 2);
+  assert.strictEqual(segs[0].span.left, 0, 'the first segment starts at now');
+  assert.ok(
+    Math.abs(segs[0].span.left + segs[0].span.width - fraction(TODAY + 10 * DAY, DOMAIN)) < 1e-9,
+    "a task segment ends on the task's own due date — this is what keeps it aligned with the project bar above it",
+  );
+  assert.ok(
+    Math.abs(segs[1].span.left - segs[0].span.left - segs[0].span.width) < 1e-9,
+    'segments are contiguous: each one owns the gap since the previous deadline',
+  );
+}
+{
+  // Two tasks due the same day used to collapse to zero width and vanish.
+  const segs = taskSegments([task('t1', 10), task('t2', 10)], DOMAIN);
+  assert.ok(segs.every((s) => s.span.width >= MIN_SPAN_FRACTION), 'same-day tasks stay visible');
+  assert.ok(segs[1].span.left >= segs[0].span.left, 'and never run backwards');
+}
+{
+  // An out-of-order list must not produce a negative-width segment.
+  const segs = taskSegments([task('t1', 20), task('t2', 5)], DOMAIN);
+  assert.ok(segs.every((s) => s.span.width > 0), 'unsorted input still draws');
+}
+
+{
+  const rows = [
+    project('a', { portfolioId: 'P1', portfolioName: 'Audit batch', startDate: at(5), dueDate: at(15) }),
+    project('b', { portfolioId: 'P1', portfolioName: 'Audit batch', startDate: at(9), dueDate: at(25) }),
+    project('c', { portfolioId: null, startDate: at(1), dueDate: at(30) }),
+  ];
+  const bands = portfolioBands(rows, DOMAIN);
+  assert.strictEqual(bands.length, 1, 'one band per portfolio; a project with no portfolio contributes none');
+  assert.strictEqual(bands[0].label, 'Audit batch');
+  assert.ok(Math.abs(bands[0].span.left - fraction(TODAY + 5 * DAY, DOMAIN)) < 1e-9, 'the band starts at its earliest project');
+  assert.ok(
+    Math.abs(bands[0].span.left + bands[0].span.width - fraction(TODAY + 25 * DAY, DOMAIN)) < 1e-9,
+    'and ends at its latest — a portfolio is exactly the extent of the projects it contains',
+  );
+}
+{
+  // The band must actually span its children, or the containment the whole
+  // design rests on is a decoration rather than a fact.
+  const rows = [
+    project('a', { portfolioId: 'P1', portfolioName: 'P', startDate: at(5), dueDate: at(15) }),
+    project('b', { portfolioId: 'P1', portfolioName: 'P', startDate: at(9), dueDate: at(25) }),
+  ];
+  const band = portfolioBands(rows, DOMAIN)[0];
+  for (const bar of projectBars(rows, DOMAIN)) {
+    assert.ok(bar.span.left >= band.span.left - 1e-9, `${bar.label} starts inside its portfolio band`);
+    assert.ok(bar.span.left + bar.span.width <= band.span.left + band.span.width + 1e-9, `${bar.label} ends inside it`);
+  }
+}
+{
+  const bands = portfolioBands([project('a', { portfolioId: 'P1', portfolioName: 'P' })], DOMAIN);
+  assert.deepStrictEqual(bands, [], 'a portfolio whose projects carry no dates has no extent to draw');
+}
+
+// ── Vertical layout: the rule that prevents the reverted bug ───────────────
+
+for (const levels of [
+  { portfolio: true, project: true, task: true },
+  { portfolio: false, project: true, task: true },
+  { portfolio: false, project: false, task: true },
+  { portfolio: true, project: false, task: true },
+  { portfolio: true, project: true, task: false },
+  { portfolio: false, project: false, task: false },
+]) {
+  const bounds = strataBounds(levels);
+  const label = JSON.stringify(levels);
+  for (const key of ['portfolio', 'project', 'task'] as const) {
+    const b = bounds[key];
+    assert.strictEqual(b != null, levels[key], `${key} is drawn iff it has data — ${label}`);
+    if (!b) continue;
+    assert.ok(b.top >= 0, `${key} never starts above the track — ${label}`);
+    assert.ok(b.height > 0, `${key} has real height — ${label}`);
+    assert.ok(b.top + b.height <= 1 + 1e-9, `${key} never ends below the track — ${label}`);
+  }
+}
+{
+  const b = strataBounds({ portfolio: true, project: true, task: true });
+  assert.ok(b.portfolio!.top < b.project!.top, 'portfolio sits ABOVE projects — one level up, not a separate dimension');
+  assert.ok(b.project!.top < b.task!.top, 'and projects above tasks');
+  assert.ok(b.portfolio!.top + b.portfolio!.height <= b.project!.top + 1e-9, 'strata never overlap each other');
+  assert.ok(b.project!.top + b.project!.height <= b.task!.top + 1e-9);
+  assert.ok(b.project!.height > b.portfolio!.height, 'projects are the load-bearing level, the portfolio wash the lightest');
+}
+{
+  const only = strataBounds({ portfolio: false, project: false, task: true });
+  assert.strictEqual(only.task!.top, 0);
+  assert.ok(
+    Math.abs(only.task!.height - 1) < 1e-9,
+    'with no projects the ribbon is exactly what it has always been: task segments filling the whole track',
+  );
+}
+{
+  const two = strataBounds({ portfolio: false, project: true, task: true });
+  assert.ok(
+    Math.abs(two.task!.top + two.task!.height - 1) < 1e-9,
+    'the stack always reaches the bottom of the track — no dead band at the base',
+  );
+}
+
+console.log('deadlineStrata: all assertions passed (axis, selection, spans, containment, and no stratum escapes the track)');

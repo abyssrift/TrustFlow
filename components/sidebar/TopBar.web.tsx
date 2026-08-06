@@ -68,7 +68,9 @@ export default function TopBar({
   });
   const { recent, push: pushRecent, remove: removeRecent, clear: clearRecent } = useRecentSearches();
   const { saved, isSaved, toggle: toggleSaved } = useSavedSearches();
-  const { tasks: upcomingTasks } = useUpcomingTasks();
+  // The ribbon draws three levels, so it asks for the project half too. The
+  // mobile Deadlines screen calls the same hook without it and spends no query.
+  const { tasks: upcomingTasks, projects: upcomingProjects } = useUpcomingTasks({ withProjects: true });
   const [timelineOpen, setTimelineOpen] = React.useState(false);
   const timelineCloseTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const timelineDropdownRef = React.useRef<HTMLDivElement>(null);
@@ -191,7 +193,7 @@ export default function TopBar({
             onMouseEnter={openTimeline}
             onMouseLeave={scheduleCloseTimeline}
           >
-            <TimelineStrip tasks={upcomingTasks} onPress={expandCalendarFromStrip} />
+            <TimelineStrip tasks={upcomingTasks} projects={upcomingProjects} onPress={expandCalendarFromStrip} />
             {/* Transparent bridge over the 12px gap to the dropdown, same trick as
                 the search bar's bridge above, so the hover trip never flicker-closes it. */}
             {timelineOpen && (
@@ -200,6 +202,7 @@ export default function TopBar({
             <TimelineDropdown
               visible={timelineOpen}
               tasks={upcomingTasks}
+              projects={upcomingProjects}
               onNavigate={closeTimelineNow}
               onExpand={expandCalendar}
               containerRef={timelineDropdownRef}

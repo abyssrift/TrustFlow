@@ -1,5 +1,6 @@
+import { entityColor } from '@/components/entities/EntityUI';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { formatRelativeDue, type UpcomingTask } from '@/hooks/useUpcomingTasks';
+import { formatRelativeDue, type ProjectDeadline, type UpcomingTask } from '@/hooks/useUpcomingTasks';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
@@ -22,15 +23,34 @@ function buildMonthGrid(anchor: Date): Date[] {
   return Array.from({ length: 42 }, (_, i) => new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + i));
 }
 
+/**
+ * One row of the list, whatever level it came from. The strip is ambient and
+ * says only "something lands here"; this is where it says what, so projects
+ * belong in the list rather than as more dots on the month grid — a 30px day
+ * cell is already at its limit with three task dots.
+ */
+type DeadlineRow = {
+  key: string;
+  kind: 'task' | 'project';
+  title: string;
+  subtitle: string;
+  color: string;
+  date: string;
+  overdue: boolean;
+  href: string;
+};
+
 export default function TimelineDropdown({
   visible,
   tasks,
+  projects = [],
   onNavigate,
   onExpand,
   containerRef,
 }: {
   visible: boolean;
   tasks: UpcomingTask[];
+  projects?: ProjectDeadline[];
   onNavigate?: () => void;
   onExpand?: () => void;
   containerRef?: React.Ref<HTMLDivElement>;
@@ -53,6 +73,36 @@ export default function TimelineDropdown({
     list.push(t);
     tasksByDay.set(key, list);
   }
+
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const rows: DeadlineRow[] = [
+    ...tasks.map((t): DeadlineRow => ({
+      key: `task-${t.id}`,
+      kind: 'task',
+      title: t.title,
+      subtitle: t.pipelineName,
+      color: t.stageColor,
+      date: t.dueDate,
+      overdue: t.overdue,
+      href: `/task/${t.id}`,
+    })),
+    ...projects
+      .filter((p) => !p.done && p.dueDate)
+      .map((p): DeadlineRow => ({
+        key: `project-${p.id}`,
+        kind: 'project',
+        // The portfolio is what the strip's top stratum groups by, so it is the
+        // line that explains where a project bar came from. Client is the
+        // fallback for a project that belongs to no portfolio.
+        subtitle: p.portfolioName || p.clientName || 'No portfolio',
+        title: p.name,
+        color: entityColor('project', colors, p.color),
+        date: p.dueDate!,
+        overdue: new Date(p.dueDate!) < todayStart,
+        href: `/projects/${p.id}`,
+      })),
+  ].sort((a, b) => a.date.localeCompare(b.date));
 
   return (
     <div
@@ -144,19 +194,19 @@ export default function TimelineDropdown({
 
       {/* ── Task list ────────────────────────────────────────────────── */}
       <div style={{ borderTop: `1px solid ${colors.border}`, overflowY: 'auto', flex: 1, minHeight: 0 }}>
-        {tasks.length === 0 ? (
+        {rows.length === 0 ? (
           <div style={{ padding: '20px 14px', textAlign: 'center', fontSize: 12, color: colors.textDim }}>
             No upcoming deadlines
           </div>
         ) : (
-          tasks.map((t) => (
+          rows.map((r) => (
             <div
-              key={t.id}
-              onMouseEnter={() => setHoveredId(t.id)}
-              onMouseLeave={() => setHoveredId((id) => (id === t.id ? null : id))}
+              key={r.key}
+              onMouseEnter={() => setHoveredId(r.key)}
+              onMouseLeave={() => setHoveredId((id) => (id === r.key ? null : id))}
               onClick={() => {
                 onNavigate?.();
-                router.push(`/task/${t.id}` as any);
+                router.push(r.href as any);
               }}
               style={{
                 display: 'flex',
@@ -164,29 +214,40 @@ export default function TimelineDropdown({
                 gap: 10,
                 padding: '8px 14px',
                 cursor: 'pointer',
-                backgroundColor: hoveredId === t.id ? colors.background : 'transparent',
+                backgroundColor: hoveredId === r.key ? colors.background : 'transparent',
               }}
             >
-              <div style={{ width: 7, height: 7, borderRadius: 9999, flexShrink: 0, backgroundColor: t.stageColor }} />
+              {/* Shape carries the level, exactly as it does on every other
+                  projects surface: a task is a tick, a project is a square
+                  (lib/projectPresentation.ts). No extra label needed. */}
+              <div
+                style={{
+                  width: r.kind === 'project' ? 8 : 7,
+                  height: r.kind === 'project' ? 8 : 7,
+                  borderRadius: r.kind === 'project' ? 2 : 9999,
+                  flexShrink: 0,
+                  backgroundColor: r.color,
+                }}
+              />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{
                   fontSize: 12.5, fontWeight: 600, color: colors.textMain,
                   whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                 }}>
-                  {t.title}
+                  {r.title}
                 </div>
                 <div style={{
                   fontSize: 10.5, color: colors.textDim,
                   whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                 }}>
-                  {t.pipelineName}
+                  {r.kind === 'project' ? `Project · ${r.subtitle}` : r.subtitle}
                 </div>
               </div>
               <div style={{
                 fontSize: 10.5, fontWeight: 700, flexShrink: 0,
-                color: t.overdue ? colors.danger : colors.textDim,
+                color: r.overdue ? colors.danger : colors.textDim,
               }}>
-                {formatRelativeDue(t.dueDate, t.overdue)}
+                {formatRelativeDue(r.date, r.overdue)}
               </div>
             </div>
           ))
