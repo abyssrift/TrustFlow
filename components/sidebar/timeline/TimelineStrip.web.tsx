@@ -3,13 +3,10 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import type { ProjectDeadline, UpcomingTask } from '@/hooks/useUpcomingTasks';
 import {
   overdueProjects,
-  portfolioBands,
   projectBars,
   ribbonProjects,
-  strataBounds,
   stripDomain,
   taskSegments,
-  type StrataBar,
 } from '@/lib/deadlineStrata';
 import React, { useState } from 'react';
 
@@ -93,15 +90,8 @@ export default function TimelineStrip({
   const lateProjects = overdueProjects(projects, todayMs);
 
   const domain = stripDomain(upcomingTasks, liveProjects, todayMs);
-  const bands = portfolioBands(liveProjects, domain);
   const bars = projectBars(liveProjects, domain);
   const segments = taskSegments(upcomingTasks, domain);
-
-  const bounds = strataBounds({
-    portfolio: bands.length > 0,
-    project: bars.length > 0,
-    task: segments.length > 0,
-  });
 
   const trackH = hovered ? TRACK_HOVER : TRACK_REST;
   const hasCap = lateTasks.length > 0 || lateProjects.length > 0;
@@ -113,33 +103,6 @@ export default function TimelineStrip({
   const axisW = (w: number) => `calc(${w} * (100% - ${axisStart}px))`;
 
   const setHover = (v: boolean) => { setHovered(v); onHoverChange?.(v); };
-
-  const stratum = (
-    level: 'portfolio' | 'project' | 'task',
-    items: StrataBar[],
-    paint: (bar: StrataBar) => { color: string; title: string },
-  ) => {
-    const b = bounds[level];
-    if (!b) return null;
-    return items.map((bar) => {
-      const { color, title } = paint(bar);
-      return (
-        <div
-          key={bar.key}
-          title={title}
-          style={{
-            position: 'absolute',
-            left: axisX(bar.span.left),
-            width: axisW(bar.span.width),
-            top: `${b.top * 100}%`,
-            height: `${b.height * 100}%`,
-            borderRadius: 9999,
-            backgroundColor: color,
-          }}
-        />
-      );
-    });
-  };
 
   const lateSummary = [
     lateTasks.length > 0 ? `${lateTasks.length} task${lateTasks.length === 1 ? '' : 's'} overdue` : null,
@@ -195,25 +158,50 @@ export default function TimelineStrip({
           />
         )}
 
-        {stratum('portfolio', bands, (bar) => ({
-          // Faintest thing on the strip, and the only stratum drawn as a wash:
-          // a portfolio is context for the bars beneath it, not a deadline of
-          // its own.
-          color: entityColor('portfolio', colors) + '66',
-          title: `Portfolio · ${bar.label} — ${fmtRange(bar)}`,
-        }))}
+        {/* Tasks are the strip. One segment per deadline, full height, exactly
+            as before projects existed. */}
+        {segments.map((bar) => (
+          <div
+            key={bar.key}
+            title={`${bar.label} — due ${fmtDate(bar.toMs)}`}
+            style={{
+              position: 'absolute',
+              left: axisX(bar.span.left),
+              width: axisW(bar.span.width),
+              top: 0,
+              bottom: 0,
+              borderRadius: 9999,
+              backgroundColor: bar.color || colors.muted,
+            }}
+          />
+        ))}
 
-        {stratum('project', bars, (bar) => ({
-          // A project wears its own colour when it has one — same rule as its
-          // glyph, its card and its board lane (lib/projectPresentation.ts).
-          color: entityColor('project', colors, bar.color) + 'D9',
-          title: `Project · ${bar.label} — ${fmtRange(bar)}`,
-        }))}
-
-        {stratum('task', segments, (bar) => ({
-          color: bar.color || colors.muted,
-          title: `${bar.label} — due ${fmtDate(bar.toMs)}`,
-        }))}
+        {/* A project is a task-sized event with one distinguishing shape: a
+            circle sitting on its due date. Not a bar, not a lane, not a wash.
+            The strip answers "is anything landing soon"; which batch it belongs
+            to is a question for the dropdown, which already lists it. */}
+        {bars.map((bar) => {
+          const d = Math.max(trackH - 2, 4);
+          return (
+            <div
+              key={bar.key}
+              title={`Project · ${bar.label} — due ${fmtDate(bar.toMs)}`}
+              style={{
+                position: 'absolute',
+                left: `calc(${axisX(bar.span.left + bar.span.width)} - ${d / 2}px)`,
+                top: '50%',
+                width: d,
+                height: d,
+                marginTop: -d / 2,
+                borderRadius: '50%',
+                backgroundColor: entityColor('project', colors, bar.color),
+                // Reads as a bead ON the track rather than a hole punched in it,
+                // which is what it looked like sitting flush against a segment.
+                boxShadow: `0 0 0 1.5px ${colors.card}`,
+              }}
+            />
+          );
+        })}
       </div>
 
       {/* The one permitted escape. Deliberately taller than the track so it
