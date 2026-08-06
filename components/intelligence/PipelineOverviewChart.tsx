@@ -64,7 +64,12 @@ export default function PipelineOverviewChart({
     chartData.every(d => enabled.every(m => (d as any)[m.key] === 0));
   if (allZero) {
     return (
-      <View className={`flex-row items-center gap-2 ${className || ''}`}>
+      // Deliberately does NOT inherit `className`. The caller sizes this as
+      // flex-[2] because a chart earns two thirds of the row; one sentence does
+      // not. Inheriting it left the message stranded beside ~125px of dead
+      // space while the activity card stayed pinned narrow on the right.
+      // Dropping the flex share lets that card take the width instead.
+      <View className="flex-row items-center gap-2 self-start">
         <FontAwesome name="line-chart" size={10} color={colors.textDim} />
         <Text className="text-typography-dim text-xs">
           No completions in the last {chartData.length} {period === 'week' ? 'weeks' : 'months'}.
