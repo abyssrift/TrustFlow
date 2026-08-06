@@ -1935,6 +1935,28 @@ surface computes any of them client-side. If a surface needs a number the RPC
 does not return, the RPC grows a column — it does not get a second
 implementation next to it.
 
+**Confirmed exactly once, mid-phase — `70c4cee`.** The dashboard's client-side
+"needs attention" predicate and `rpc_projects_table`'s own `p_blocked` filter
+had quietly drifted apart: the server said `blocked OR past due`; the
+dashboard said `blocked OR 'blocked' in flags[], OR overdue and not
+finished, OR forecast to overrun at a confidence the server trusts`. One of
+the three gaps was a live bug, not a mere inconsistency — the server had no
+exclusion for finished work, so a project that reached a success-terminal
+stage after once running late still reported as needing a human. Fixed the
+way this section says to: the server definition grew into
+`fn_project_needs_attention(p_blocked_flag, p_flags, p_due_date,
+p_stage_is_terminal, p_stage_terminal_type, p_projected_end, p_confidence)`,
+called from both the new `needs_attention` column and the `p_blocked` filter
+inside the same `rpc_projects_table` body — not by trimming the dashboard's
+richer predicate down to match the server's poorer one.
+`rpc_projects_table` gained five columns for it (`needs_attention`, `flags`,
+`flag_note`, `stage_is_terminal`, `stage_terminal_type`), which let the
+dashboard delete both of its follow-up `SELECT`s — three round trips to one,
+the client no longer merging what the server already knew.
+`lib/projectExceptions.ts` now consumes the column instead of re-deriving
+it. This is the worked example this section predicted, catching a real bug
+rather than a hypothetical one.
+
 ### 16.2 Do not invent the forecast math — Phase 5 already shipped it
 
 `rpc_portfolio_throughput` and `rpc_portfolio_capacity` (§13.18) already compute
@@ -1951,16 +1973,59 @@ no date; this is the same standard §13.9 applied when it rejected a silent
 `COALESCE` default, and the same one that made 66 tasks with `due_date = 0` a
 defect rather than a cosmetic issue.
 
+**Shipped as `fn_project_projection(...)`** (`20260805_project_projection.sql`,
+`b62027b`/`e21ccd6`), `SECURITY DEFINER` and **not** granted to
+`authenticated` — it is a building block, not an entry point, and does no
+access check of its own; callers gate on `fn_project_accessible` first. It is
+joined into `rpc_projects_table` via `LEFT JOIN LATERAL` rather than shipped
+as the separate `rpc_project_health` this section names above — the "or an
+extension of `rpc_projects_table`" alternative this section already offered,
+taken because it costs the caller no second round trip.
+
+Pace is measured **from the first completion to now**, not between
+completions — measuring between them silently drops idle stretches, so a
+project that finished five tasks in a week and then stalled for two months
+would report the busy week's pace and promise a date it cannot hit.
+`confidence` is `'ok' | 'low' | 'none'`. Below `MIN_PROJECTION_SAMPLE` (5,
+defined once in `components/charts/projection.ts` and pinned equal on the
+server by `check_project_projection.sql`, which fails loudly if the two ever
+drift) there is no date at all: `projected_end` and `confidence` both come
+back null / `'none'`, and every surface renders nothing, not a placeholder.
+From 5 completions the server will forecast, but only reaches `'ok'` at 12 or
+more done tasks **and** at least 7 elapsed days; short of either bar it
+reports `'low'` — a real date, rendered hollow and dashed everywhere it
+appears (§16.3.4), never the solid treatment a fact gets.
+
+**"Done" is the stage predicate, never a timestamp** — settled by `e21ccd6`,
+on the owner's explicit call. `rpc_projects_table.tasks_done` already counted
+`is_terminal AND terminal_type = 'success'`; the projection as first shipped
+in `b62027b` counted `tasks.completed_at` instead, which agreed with the
+stage predicate on every real row but is a denormalised stamp that can be
+null, backfilled, or import-written — a second definition of "finished" one
+migration away from disagreeing with the first, the same §16.1 failure one
+table over. Timing for the projection now comes from
+`pipeline_stage_history`: the first (`MIN`, not `MAX` — a task reopened and
+re-finished completed once, on the earlier date) transition into a
+success-terminal stage per task. `completed_at` survives only as a fallback
+to date a task the stage predicate already counts, never to add one it does
+not. A project with enough done tasks but none datable now returns
+`confidence: 'none'` rather than what `GREATEST(NULL, 1)` would otherwise
+silently produce: an elapsed window of one day and a rate reading
+"everything finished today" — the most optimistic possible answer from the
+least possible evidence.
+
 ### 16.3 Surfaces, and what each one owes
 
 | Surface | Files | Owes |
 |---|---|---|
-| Dashboard | `components/tabs/_index_*.tsx` | blocked projects surfaced by exception (not a list of all projects — the point is what needs attention), output this period, projects at risk of their due date |
-| Intelligence → Overview | `components/intelligence/_analytics_*.tsx`, alongside `PipelineOverviewChart` | project-level rollup next to the existing pipeline rollup, reusing that chart's tooltip/theming, not a new chart idiom |
-| Calendar | `components/calendar/CalendarOverlay.web.tsx`, `components/common/Calendar.tsx` | project start/due/expiry as first-class entries beside task deadlines, filterable by portfolio and client |
-| **Timeline tab** | `components/tabs/_projects_*.tsx` | **the disabled placeholder shipped in Phase 6 gets built here** as the projection view — per project, actual dates vs projected end. §8 left it a stub with no phase and no issue. See §16.3.1 for why it stays on the Projects screen |
-| Deadline strip | existing top-bar strip | projects appear beside tasks |
+| **Dashboard** | `components/dashboard/BlockedExceptionsPanel.tsx`, `ProjectionStrip.tsx`, `DashboardFacts.tsx`, `components/tabs/_index_*.tsx` | **SHIPPED — see §16.3.5.** blocked projects surfaced by exception (not a list of all projects), a slim company-wide projection strip, live presence |
+| **Intelligence → Overview** | `components/intelligence/ProjectLens.tsx`, `_index_*.tsx`, alongside `PipelineOverviewChart` | **SHIPPED — see §16.3.6.** project- and portfolio-level rollup next to the existing pipeline rollup |
+| Calendar | `components/calendar/CalendarOverlay.web.tsx`, `components/common/Calendar.tsx` | project start/due/expiry as first-class entries beside task deadlines, filterable by portfolio and client — **not built this phase, see §16.7** |
+| **Timeline tab** | `components/projects/ProjectsTimeline.tsx`, `components/tabs/_projects_*.tsx` | **SHIPPED — see §16.3.4.** the disabled placeholder shipped in Phase 6, built as the projection view — per project, actual dates vs projected end. §8 left it a stub with no phase and no issue. See §16.3.1 for why it stays on the Projects screen |
+| Deadline strip | existing top-bar strip | projects appear beside tasks — **not built this phase, see §16.7** |
 | **Global search** | `rpc_global_search`, `hooks/useSearchQuery.ts`, `components/sidebar/search/*`, `app/(tabs)/search.tsx` | **SHIPPED — see §16.3.2.** projects and portfolios indexed, parseable by keyword, and rendered with the §17 identity marks in both the top-bar dropdown and `/search` |
+| **Portfolio screen** | `app/portfolios/index.tsx`, `components/portfolios/PortfolioGrid.tsx`, nav shortcuts, pins | **SHIPPED — see §16.3.3.** the grid, reachable from every nav surface and pinnable individually |
+| **Project notifications** | `20260805_project_notifications.sql`, `process-notification-event` | **SHIPPED, not deployed — see §16.3.7.** four new event types through the existing notification pathway |
 
 #### 16.3.1 Why the projection timeline lives in Projects, not only Intelligence
 
@@ -2061,6 +2126,246 @@ grants `project.view_all` to the same actor and asserts the two hidden rows
 **appear**. Without that flip the negatives would also pass if the branch were
 dead or blanket-denied.
 
+#### 16.3.3 Portfolio screen — SHIPPED
+
+`portfolios` has existed since the hierarchy migration and is written by
+every bulk instantiation and every spreadsheet import, but had no screen — a
+batch you could create and then never look at again. `d126349`
+(`supabase/migrations/20260805_portfolios_table.sql`) is the grid:
+`app/portfolios/index.tsx`, `components/portfolios/PortfolioGrid.tsx`,
+backed by `rpc_portfolios_table`.
+
+**The leak this RPC exists to prevent.** `portfolios_select` is company-wide,
+correctly — a portfolio row is a batch label, not sensitive. But a portfolio
+*screen* shows rollups ("12 projects, 340 tasks, 3 blocked, finishes 12
+March"), and every one of those numbers is computed over `projects`, which
+is default-deny (§13.14, `fn_project_accessible`). Counting straight off
+`projects` would hand every member a census of work they cannot open, so
+every aggregate goes through `fn_project_accessible`, and a portfolio whose
+projects are all invisible to the caller does not appear at all — two people
+legitimately seeing different counts for the same portfolio is the access
+model working, not a bug.
+
+A portfolio's `projected_end` is the MAX of its projects' — a batch finishes
+when its last project does — and confidence is deliberately pessimistic: any
+contributing project that cannot forecast drags the portfolio to `'low'`;
+`'ok'` requires every project to have reached `'ok'` alone. The cover art is
+derived (`entityColor()` plus the portfolio glyph, at size) rather than an
+upload flow, because no bucket or column for portfolio artwork exists yet
+and a derived cover has no missing-image case to design around; real artwork
+later is a `cover_url` column and an `<Image>` swapped in at one place.
+
+`d126349` also shipped a bespoke detail screen at `/portfolios/[id]`. It was
+retired one commit later — see §16.6. What survives from `d126349` is the
+grid and the rollup header now reused by the scoped projects screen.
+
+**Reachability.** The grid had nothing linking to it — reachable only by
+typing the URL — until `fcd17e7` added one entry to
+`components/sidebar/constants.ts` (feeding the desktop rail, the top-bar pin
+picker and the mobile-web drawer) and to `app/(tabs)/menu.tsx` (the
+hand-duplicated native copy), both gated on `project.view` to match
+`rpc_portfolios_table`'s own gate. `fcd17e7` also flagged, without fixing, a
+pre-existing inconsistency: the sidebar gates *Projects* on `project.edit`
+while the menu gates it on `project.view`, so a view-only user on web
+desktop now sees Portfolios but not Projects — left alone pending a call on
+which gate is the outlier.
+
+`d50e2c9` extends the pin picker itself: an individual portfolio can now be
+pinned as a shortcut, carrying `kind: 'portfolio'` and rendering through
+`EntityGlyph` in both the picker row and the pill so it never reads as
+another system link. Candidates are the caller's most-recent six from
+`usePortfolios()` → `rpc_portfolios_table` — no second query, so nothing
+here can see further than the grid does. Known collision, documented rather
+than fixed: a portfolio pinned earlier that has since aged out of the top
+six is indistinguishable from one whose access was revoked; both simply stop
+offering themselves. Raising `rpc_portfolios_table`'s `p_limit` is the fix if
+that ever bites.
+
+#### 16.3.4 Timeline tab — SHIPPED
+
+The third view-switcher segment had been disabled since Phase 6. `5ce20c7`
+builds it as `components/projects/ProjectsTimeline.tsx`, reading the
+`start_date` / `projected_end` / `projection_confidence` columns `2b5607a`
+added to `rpc_projects_table` — which is why those columns had to land first
+rather than the timeline opening a second reader over the same rows.
+
+**`rpc_projects_table`'s projection columns** (`2b5607a`,
+`20260805_projects_table_projection_columns.sql`). `start_date` was always
+on `projects` and simply never selected — a timeline cannot draw a bar
+without a left edge. `projected_end` and `projection_confidence` come from
+`fn_project_projection` via `LEFT JOIN LATERAL`, so the timeline, the
+project page and the portfolio card cannot show three different dates for
+one project; confidence travels *with* the date rather than being
+re-derived per surface, the only way §16.2's "no confident wrong dates" is
+enforceable rather than aspirational. The migration hit two mechanical traps
+worth remembering if this function body is ever hand-patched again: it
+carries CRLF line endings, so bare-`\n` needles silently matched nothing
+(diagnosed by `position()` — an 18-byte gap for a 17-character alias, the
+extra byte being `\r`); and the `LATERAL` join has to attach immediately
+after the base table, not immediately before `ORDER BY`, or it lands after
+the `WHERE` clause and is a syntax error.
+
+**The axis is data-derived, not a fixed window**: min/max over every start,
+due and non-suppressed projection date, always containing "now", floored at
+14 days, padded by `max(2 days, 4%)`. A fixed "next 90 days" would hide
+exactly what the screen exists to show — overdue work behind today, a
+forecast overrunning past the window edge — and a suppressed (`'none'`)
+projection deliberately does not widen the domain, or a date nobody will
+ever see would squash every real bar. Bars are positioned in percentages,
+not measured pixels, so there is no `onLayout` and no re-measure on resize
+or rotate.
+
+**Confidence drives what gets drawn**, per §16.2: `'none'` → nothing drawn,
+the row says "Not enough history"; `'low'` → hollow, dashed, never the solid
+treatment a fact gets; `'ok'` → solid. Overrun is the only place a danger
+fill appears, signalled three redundant ways because it is the point of the
+screen. The persisted view-mode guard that previously lived duplicated
+inline in both `_projects_desktop.tsx` and `_projects_adaptive.tsx` is now
+one `isProjectsView()` in `lib/projectPresentation.ts` — enabling
+`'timeline'` had to happen in both screens at once, and a half-updated copy
+would silently strand one screen on List. `lib/projectTimeline.ts` holds
+only placement maths and imports nothing — no pace maths lives here, the
+server owns that.
+
+**Known gap, shipped honestly**: the timeline fetches only the first 60
+projects by deadline and says so in its own legend, rather than presenting
+itself as the whole list.
+
+#### 16.3.5 Dashboard — SHIPPED
+
+Built in two passes plus one correction, both on direct owner feedback.
+
+**By exception, not a list** (`5ae98b5`, `lib/projectExceptions.ts`). A panel
+that shows every project is a panel people stop reading. `BlockedExceptionsPanel`
+is empty most days and says "all clear" when it is — three visibly distinct
+states (empty / loaded-with-items / failed), because a by-exception panel
+spends most of its life in the quiet one. Three conditions feed it:
+**blocked** (the union of `projects.blocked` and `'blocked' in flags[]` —
+both representations have existed side by side since
+`20260801_project_header_flags` left their reconciliation open, so this
+copies the union out of the existing flag trigger rather than inventing a
+third reading); **overdue** (past `due_date` and not in a success-terminal
+stage); **overrun** (`projected_end > due_date`, and only when the server's
+confidence is not `'none'` — `'low'` still fires, marked uncertain). No SQL
+shipped for this pass: `rpc_projects_table` already filters through
+`fn_project_accessible`, and the panel rides that same policy. Both render
+paths carry it — `_index_desktop` (web ≥ 1024) and `_index_adaptive` (native
++ mobile web) — since one of the two would have been a desktop-only
+feature. This predicate is the one `70c4cee` later found disagreeing with
+the server's own `p_blocked` filter — see the §16.1 worked example.
+
+**The redesign** (`34b480f`), verbatim: *"the dashboard looks so damn
+ugly... if theres no data, dont display shit. i like minimalism."* Zero is
+not information — a KPI reading 0 was rendering at full volume, and the
+all-clear state was a filled green box, the loudest element on a page whose
+message was "nothing is wrong." `DashboardFacts.tsx` now passes any zero
+value as `null` and never renders it; the active-projects cards shrank from
+four ~200px cards to four 44px rows, same information in about a quarter of
+the height. `components/dashboard/ProjectionStrip.tsx` is the one new
+visual element — a slim, company-wide projection strip, one ~44px lane per
+project, that spends the page's only saturated colour on exactly one
+condition: a forecast landing after its deadline. Confidence `'none'`
+renders nothing, not an empty chart or a placeholder — on this workspace,
+with every local project short of `MIN_PROJECTION_SAMPLE`, that means the
+section is currently absent entirely (see §16.7). No forecast math is
+computed client-side — `projected_end` / `projection_confidence` come from
+`rpc_projects_table` untouched, and the only arithmetic is the same
+`lib/projectTimeline.ts` the Timeline tab uses. This pass also moved the
+dashboard's settings dialog off raw RN `Modal` onto `Popup`, closing one more
+instance of the #88 violation.
+
+**`ProjectionStrip` is deliberately a second chart component**, not a reuse
+of the existing `ProjectionChart` — recorded here so it is not "fixed" back
+into one component later. `ProjectionChart` plots one project's cumulative
+completions against its own forecast; the dashboard's question is
+company-wide ("how is everything I'm responsible for doing, right now"), a
+different grain of data over a different question, not a parameterisation
+of the same chart.
+
+**Presence correction** (`a73a4e0`), again verbatim: *"i also liked the part
+where you can see how many people are active right now"* — `34b480f`'s
+hide-when-zero rule had swallowed the live-people count along with the KPI
+zeros. The rule was too blunt: a tally at zero (points today, completed)
+means "nothing yet" and is worth hiding; presence at zero means "nobody is
+working right now", which is itself the answer to the question being asked,
+and hiding it made an empty workspace indistinguishable from a broken
+indicator. Fixed by no longer nulling the value on either render path — the
+live dot, tap target and `LiveSessionsPopup` had never been removed, only
+starved of a number.
+
+#### 16.3.6 Intelligence → project and portfolio lens — SHIPPED
+
+`81775b0` adds `components/intelligence/ProjectLens.tsx` beside the existing
+pipeline rollup, not replacing it — two panels, batches of work (portfolio
+rollups) and needs-attention (projects), laid out Path A: side by side at
+≥900px, stacked below it on narrower widths, one component for desktop web,
+mobile web and native.
+
+No new SQL. The lens reads `rpc_portfolios_table` through the same
+`usePortfolios()` hook the `/portfolios` grid uses, and `rpc_projects_table`
+for attention, so it cannot show a number the portfolio grid disagrees with;
+the forecast gate is `hasProjection` / `isThinProjection` out of
+`lib/projectTimeline.ts`, not a local re-test of the confidence string.
+`usePortfolios()` was extended to separate denied from broken: "No
+portfolios yet" invites you to create one, which is bad advice when the
+truth is you may not see the ones that exist, so a permission refusal now
+gets a lock icon and no retry button — retrying only fails again.
+
+Deliberately left out: no cross-portfolio KPI totals, which would be a
+fourth number no other surface shows and the first thing that could
+disagree with the other three.
+
+Not driven in a browser — typecheck and self-check verification only (see
+§16.7).
+
+#### 16.3.7 Project notifications — SHIPPED, not deployed
+
+Projects emitted no notifications at all; tasks have for months. `0aad591`
+(`supabase/migrations/20260805_project_notifications.sql`) adds four event
+types, all through the pathway that already exists —
+`fn_emit_notification_event` → `notification_events` → the dispatch trigger
+→ `process-notification-event` — because a second notification pathway is
+how you end up with two inboxes that disagree:
+
+- `project.flag_raised` — trigger on `projects`
+- `project.due_soon` — `fn_check_project_deadlines` + `pg_cron` at 08:15Z, a
+  72-hour window (not 24 — a project is weeks of work, and a same-morning
+  warning is a post-mortem)
+- `portfolio.completed` — trigger on `projects`
+- `project_template.updated` — trigger on `project_templates`
+
+(`project.stage_transition` shipped earlier, in
+`20260803_project_stage_engine.sql` per §20.7, and is untouched here.)
+
+Recipients are resolved **in the database at emit time**, not in the Edge
+Function: each trigger enumerates the whole company as a deliberately
+too-wide candidate set, then impersonates each candidate and filters through
+the real predicate (`fn_project_accessible`, or `project.create` for
+templates). The filtered list ships in the notification payload, and the
+`payload_users` delivery strategy — the same one §20.7 introduced for
+`project.stage_transition` — can only narrow it, never re-expand it. That is
+what makes "no one is told about work they cannot open" provable from SQL
+rather than asserted in TypeScript — the same #185/#186 leak shape this repo
+has now closed three times.
+
+"Done" is `is_terminal AND terminal_type = 'success'` here too, never
+`completed_at`, so a notification cannot disagree with the screen it links
+to. Flags read the same `blocked` / `'blocked' in flags[]` union §16.3.5's
+dashboard panel reads, so either representation fires the notification
+exactly once.
+
+The self-check disables `trg_dispatch_notification_event` **by name**, not
+via `session_replication_role = replica` — replica would also disable the
+four new triggers under test and the check would pass by asserting on
+nothing. It re-reads `pg_trigger.tgenabled` afterward and fails if the
+dispatcher was ever live while test events were written, because the other
+end of that dispatcher is a hardcoded production URL.
+
+**Not deployed. Prod is frozen** at the user's instruction; the Edge
+Function change (`supabase/functions/process-notification-event/index.ts`)
+is committed but not pushed live, and none of the four event types has been
+observed firing against a real user in a running app (§16.7).
+
 ### 16.4 Access control is not automatic here
 
 Every one of these surfaces is a **new place a project can leak**. The dashboard
@@ -2074,20 +2379,47 @@ Note this interacts directly with #190: until per-company roles actually hold
 `project.view_all`, most of these surfaces render empty for most users. #190
 lands before this phase, or the integration cannot be evaluated.
 
+Each shipped surface carries its own proof rather than one proof for the
+phase: `059ca20`'s search check flips `project.view_all` on the same actor to
+prove the negatives were `fn_project_accessible` doing the work, not a dead
+branch; `9c1f77a`'s portfolio-scope check adds an out-of-batch assertion so a
+filter that silently did nothing could not pass; `81775b0`'s lens check holds
+`project.view` on its denied actor so a zero-row result cannot be the screen
+gate firing; `0aad591`'s notification check re-reads `pg_trigger.tgenabled`
+so a disabled dispatcher can't be mistaken for a passing test. The dashboard
+panel (§16.3.5) and the Timeline tab (§16.3.4) ship no access check of their
+own — both ride `rpc_projects_table`'s existing `fn_project_accessible`
+filter rather than repeating the proof a fourth and fifth time.
+
 ### 16.5 Acceptance
 
-1. A blocked project appears on the dashboard without the user opening Projects.
-2. The projected end date shown on the dashboard is byte-identical to the one on
-   the project's own page and in the timeline — same RPC, same number.
-3. A project with too little history shows no projection, not a confident guess.
-4. Project dates appear in the calendar and filter by portfolio.
-5. The Timeline toggle is no longer disabled.
-6. Three-actor visibility proven on every new surface.
+1. **(met)** A blocked project appears on the dashboard without the user
+   opening Projects. §16.3.5.
+2. **(met by construction, not yet observed)** The projected end date shown
+   on the dashboard is byte-identical to the one on the project's own page
+   and in the timeline — same RPC, same number. True by construction (one
+   `fn_project_projection` call joined into `rpc_projects_table`, read by
+   both surfaces), but every local project sits at confidence `'none'`, so
+   no one has actually seen two matching non-null dates side by side. See
+   §16.7.
+3. **(met)** A project with too little history shows no projection, not a
+   confident guess. §16.2.
+4. **Not met.** Project dates do not appear in the calendar this phase. See
+   §16.7.
+5. **(met)** The Timeline toggle is no longer disabled. §16.3.4.
+6. **(met, unevenly)** Three-actor visibility proven per-surface on search,
+   portfolio scoping, the Intelligence lens and notifications; the dashboard
+   panel and Timeline tab rely on `rpc_projects_table`'s own proof rather
+   than repeating it (see the note above §16.5).
 7. **(met)** Typing a project or portfolio name in the top-bar box finds it,
    opens it, and never shows one the user cannot access — including never
    showing a portfolio whose projects are all out of reach.
 8. **(met)** Opening a portfolio lands on the projects screen scoped to that
    batch — not on a second screen with its own list. See §16.6.
+9. **(met)** Portfolios are reachable from every nav surface and pinnable
+   individually as a shortcut. §16.3.3.
+10. **(met)** One project-attention predicate serves both the dashboard and
+    the Intelligence lens — `fn_project_needs_attention`, not two. §16.1.
 
 ### 16.6 A portfolio is a FILTER over projects, not a destination — SHIPPED
 
@@ -2142,6 +2474,53 @@ field, so a "New project" button on a scoped screen would silently create a
 project outside the batch on screen; bulk create and spreadsheet import each
 make their own portfolio, so they make no sense from inside one. A create door
 that lies about where it puts things is worse than no door.
+
+### 16.7 What Phase 10 does not have yet
+
+Recorded here so it does not have to be rediscovered, and so it does not read
+as more finished than it is.
+
+**Not merged.** All fifteen commits behind §16.1–§16.6 live on
+`projects-preview`. `experimental` — and prod — have none of them; prod is
+frozen at the user's explicit instruction.
+
+**Never opened in a running browser.** The Timeline tab (§16.3.4), the
+Intelligence lens (§16.3.6) and project notifications (§16.3.7) are proven
+against typecheck and their own self-checks only. Only the dashboard
+(§16.3.5), global search (§16.3.2), and portfolio scoping and pinning
+(§16.6, §16.3.3) were visually verified, in a browser, at both desktop and
+mobile-web widths.
+
+**The forecast has never been seen against real data.** Every local project
+sits at `confidence: 'none'` — none has reached `MIN_PROJECTION_SAMPLE` (5
+completions). The populated projection state — the dashed `'low'` bars, the
+solid `'ok'` bars, the overrun colour on the Timeline tab and the dashboard
+strip alike — has only ever been exercised against synthetic fixtures inside
+a rolled-back transaction, never against a real forecast a user will
+actually see.
+
+**The attention ribbon is the one Phase 10 surface still unbuilt.** It is
+being worked on separately as of this writing. Its absence here is not
+abandonment — do not mark it done until its own commit lands.
+
+**Deliberately not shipped**: a `project.overdue` notification event, cut
+for scope (roughly 20 lines) rather than for a technical reason —
+`project.due_soon` already covers the warning, and a second, redundant event
+firing after the deadline was judged not worth it this phase.
+
+**`notification_rules` still has no `company_id`.** The four new project
+event types (§16.3.7) are safe against that gap specifically because they use
+the `payload_users` strategy: the recipient list is resolved and filtered
+through `fn_project_accessible` at emit time and carried in the payload,
+which structurally cannot widen past what the emitting trigger already
+decided. Any future rule that resolves its own recipients from
+`notification_rules` rather than trusting a payload would need that gap
+closed first.
+
+**`ProjectionStrip` is a second chart component** (§16.3.5), not a reuse of
+`ProjectionChart`, contrary to the general instinct to reuse an existing
+chart. Recorded here so the choice is not "fixed" back into one component
+later without re-reading why it was split.
 
 ---
 
