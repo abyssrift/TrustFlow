@@ -33,6 +33,19 @@ raw `<Modal>` in a screen component.
   of inline `View + ScrollView` in sidebars. Must fall back to DraggableSheet
   on mobile web (< 768px) — see RoleEditorSheet.web.tsx for the pattern.
 
+## Creating GitHub issues
+
+When opening a new issue, always tag it with:
+
+- **One type label**: `bug`, `enhancement`, or `testing` (use `documentation`/`question`/etc. only when none of those three fit).
+- **One tier label**, by severity/impact — not effort:
+  - `tier: 1 - critical` — crash / data loss / blocking
+  - `tier: 2 - high` — UX friction & core polish
+  - `tier: 3 - medium` — product enhancements
+  - `tier: 4 - low` — architectural & strategy
+
+(Older `tier-3`/`tier-4` labels exist from before this convention — don't use them for new issues.)
+
 ## graphify
 
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.

@@ -296,7 +296,7 @@ export default function CommentsSection() {
       title={`Comments (${data.comments.length})`}
       headerRight={data.comments.some(c => checkIfMentioned(c.content)) ? (
         <View className="flex-row items-center">
-          <FontAwesome name="check-circle" size={10} color="#10b981" />
+          <FontAwesome name="check-circle" size={10} color={colors.success} />
           <Text className="text-state-success text-[9px] font-bold ml-1 uppercase">Mentions Cleared</Text>
         </View>
       ) : undefined}
