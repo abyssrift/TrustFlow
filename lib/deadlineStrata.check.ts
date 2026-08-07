@@ -20,10 +20,8 @@ import {
   MIN_SPAN_FRACTION,
   PROJECT_CAP,
   overdueProjects,
-  portfolioBands,
   projectBars,
   ribbonProjects,
-  strataBounds,
   stripDomain,
   taskSegments,
   type StrataProject,
@@ -193,82 +191,4 @@ const DOMAIN = stripDomain([task('t1', 10), task('t2', 20)], [project('p', { sta
   assert.ok(segs.every((s) => s.span.width > 0), 'unsorted input still draws');
 }
 
-{
-  const rows = [
-    project('a', { portfolioId: 'P1', portfolioName: 'Audit batch', startDate: at(5), dueDate: at(15) }),
-    project('b', { portfolioId: 'P1', portfolioName: 'Audit batch', startDate: at(9), dueDate: at(25) }),
-    project('c', { portfolioId: null, startDate: at(1), dueDate: at(30) }),
-  ];
-  const bands = portfolioBands(rows, DOMAIN);
-  assert.strictEqual(bands.length, 1, 'one band per portfolio; a project with no portfolio contributes none');
-  assert.strictEqual(bands[0].label, 'Audit batch');
-  assert.ok(Math.abs(bands[0].span.left - fraction(TODAY + 5 * DAY, DOMAIN)) < 1e-9, 'the band starts at its earliest project');
-  assert.ok(
-    Math.abs(bands[0].span.left + bands[0].span.width - fraction(TODAY + 25 * DAY, DOMAIN)) < 1e-9,
-    'and ends at its latest — a portfolio is exactly the extent of the projects it contains',
-  );
-}
-{
-  // The band must actually span its children, or the containment the whole
-  // design rests on is a decoration rather than a fact.
-  const rows = [
-    project('a', { portfolioId: 'P1', portfolioName: 'P', startDate: at(5), dueDate: at(15) }),
-    project('b', { portfolioId: 'P1', portfolioName: 'P', startDate: at(9), dueDate: at(25) }),
-  ];
-  const band = portfolioBands(rows, DOMAIN)[0];
-  for (const bar of projectBars(rows, DOMAIN)) {
-    assert.ok(bar.span.left >= band.span.left - 1e-9, `${bar.label} starts inside its portfolio band`);
-    assert.ok(bar.span.left + bar.span.width <= band.span.left + band.span.width + 1e-9, `${bar.label} ends inside it`);
-  }
-}
-{
-  const bands = portfolioBands([project('a', { portfolioId: 'P1', portfolioName: 'P' })], DOMAIN);
-  assert.deepStrictEqual(bands, [], 'a portfolio whose projects carry no dates has no extent to draw');
-}
-
-// ── Vertical layout: the rule that prevents the reverted bug ───────────────
-
-for (const levels of [
-  { portfolio: true, project: true, task: true },
-  { portfolio: false, project: true, task: true },
-  { portfolio: false, project: false, task: true },
-  { portfolio: true, project: false, task: true },
-  { portfolio: true, project: true, task: false },
-  { portfolio: false, project: false, task: false },
-]) {
-  const bounds = strataBounds(levels);
-  const label = JSON.stringify(levels);
-  for (const key of ['portfolio', 'project', 'task'] as const) {
-    const b = bounds[key];
-    assert.strictEqual(b != null, levels[key], `${key} is drawn iff it has data — ${label}`);
-    if (!b) continue;
-    assert.ok(b.top >= 0, `${key} never starts above the track — ${label}`);
-    assert.ok(b.height > 0, `${key} has real height — ${label}`);
-    assert.ok(b.top + b.height <= 1 + 1e-9, `${key} never ends below the track — ${label}`);
-  }
-}
-{
-  const b = strataBounds({ portfolio: true, project: true, task: true });
-  assert.ok(b.portfolio!.top < b.project!.top, 'portfolio sits ABOVE projects — one level up, not a separate dimension');
-  assert.ok(b.project!.top < b.task!.top, 'and projects above tasks');
-  assert.ok(b.portfolio!.top + b.portfolio!.height <= b.project!.top + 1e-9, 'strata never overlap each other');
-  assert.ok(b.project!.top + b.project!.height <= b.task!.top + 1e-9);
-  assert.ok(b.project!.height > b.portfolio!.height, 'projects are the load-bearing level, the portfolio wash the lightest');
-}
-{
-  const only = strataBounds({ portfolio: false, project: false, task: true });
-  assert.strictEqual(only.task!.top, 0);
-  assert.ok(
-    Math.abs(only.task!.height - 1) < 1e-9,
-    'with no projects the ribbon is exactly what it has always been: task segments filling the whole track',
-  );
-}
-{
-  const two = strataBounds({ portfolio: false, project: true, task: true });
-  assert.ok(
-    Math.abs(two.task!.top + two.task!.height - 1) < 1e-9,
-    'the stack always reaches the bottom of the track — no dead band at the base',
-  );
-}
-
-console.log('deadlineStrata: all assertions passed (axis, selection, spans, containment, and no stratum escapes the track)');
+console.log('deadlineStrata: all assertions passed (axis, selection, spans)');

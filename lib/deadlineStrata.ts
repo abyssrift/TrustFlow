@@ -1,5 +1,12 @@
 // Phase 10 (#191, plan §16) — the geometry behind the topbar attention ribbon
-// once it carries three levels of work instead of one.
+// once it marks projects alongside tasks.
+//
+// A THREE-LEVEL VERSION OF THIS EXISTED AND WAS REJECTED: portfolio wash over
+// project bars over task segments, each a horizontal band of the track. It read
+// as clutter at 8px. The ribbon now draws task segments on the track and one
+// circular bead per project on the same axis; portfolios are not on it at all.
+// `portfolioBands` and `strataBounds` were deleted with that design — check the
+// history before re-deriving them.
 //
 // WHY A .ts AND NOT PART OF TimelineStrip.web.tsx: same split as
 // lib/projectTimeline.ts, whose Domain/fraction/actualSpan helpers this file
@@ -8,12 +15,11 @@
 // `deadlineStrata.check.ts` can assert them under plain `npx tsx`. The
 // component holds no scaling maths of its own.
 //
-// THE INVARIANT THIS FILE EXISTS TO PROTECT: every stratum is expressed as a
-// fraction of ONE axis and ONE track height. A previous attempt at this
-// feature positioned project markers in pixels against a flex-laid-out task
-// row, so the markers escaped the track vertically and drifted horizontally
-// away from the task segments they were supposed to line up with. Fractions
-// in, fractions out; the component multiplies by `100%` and clips.
+// THE INVARIANT THIS FILE EXISTS TO PROTECT: every span is a fraction of ONE
+// axis. A previous attempt at this feature positioned project markers in pixels
+// against a flex-laid-out task row, so the markers drifted horizontally away
+// from the task segments they were supposed to line up with. Fractions in,
+// fractions out; the component multiplies by `100%` and clips.
 //
 // WHAT THIS FILE DOES NOT DO: compute a projected end date, or decide whether
 // a forecast is trustworthy. §16.1 — `fn_project_projection` is the one
@@ -76,11 +82,6 @@ export type StrataBar = {
   fromMs: number | null;
   toMs: number;
 };
-
-export type StrataLevel = 'portfolio' | 'project' | 'task';
-
-/** Vertical placement of one stratum, as fractions of the track height. */
-export type LevelBounds = { top: number; height: number };
 
 // ── The axis ───────────────────────────────────────────────────────────────
 
@@ -161,43 +162,6 @@ function visible(span: Span): Span {
 }
 
 /**
- * Portfolio bands: a portfolio's extent is the extent of the projects inside
- * it, so the band literally contains the bars beneath it. Derived from the same
- * project rows the middle stratum draws — no portfolio query, and no way for
- * the two levels to disagree about where a portfolio starts and ends.
- */
-export function portfolioBands(projects: readonly StrataProject[], d: Domain): StrataBar[] {
-  const groups = new Map<string, { name: string; lo: number; hi: number }>();
-  for (const p of projects) {
-    if (!p.portfolioId) continue;
-    const a = msOf(p.startDate);
-    const b = msOf(p.dueDate);
-    const lo = a != null && b != null ? Math.min(a, b) : (a ?? b);
-    const hi = a != null && b != null ? Math.max(a, b) : (b ?? a);
-    if (lo == null || hi == null) continue;
-    const found = groups.get(p.portfolioId);
-    if (found) {
-      found.lo = Math.min(found.lo, lo);
-      found.hi = Math.max(found.hi, hi);
-    } else {
-      groups.set(p.portfolioId, { name: p.portfolioName || 'Portfolio', lo, hi });
-    }
-  }
-  return Array.from(groups.entries()).map(([id, g]) => {
-    const left = fraction(g.lo, d);
-    return {
-      key: `portfolio-${id}`,
-      sourceId: id,
-      label: g.name,
-      color: null,
-      span: visible({ left, width: fraction(g.hi, d) - left }),
-      fromMs: g.lo,
-      toMs: g.hi,
-    };
-  });
-}
-
-/**
  * Project bars: the committed start -> due span. A project with only one of the
  * two dates becomes a minimum-width mark at that date rather than inventing the
  * missing end, which would read as a fact nobody entered.
@@ -238,50 +202,4 @@ export function taskSegments(tasks: readonly StrataTask[], d: Domain): StrataBar
     // deadline, not a date this task has. Only `toMs` is this task's own.
     return { key: `task-${t.id}`, sourceId: t.id, label: t.title, color: t.stageColor, span, fromMs: null, toMs: dueMs };
   });
-}
-
-// ── Vertical layout ────────────────────────────────────────────────────────
-
-/**
- * Where each stratum sits inside the track, as fractions of its height, so the
- * whole stack scales with the hover growth without a second set of numbers.
- *
- * Portfolio on top, then projects, then tasks — a portfolio contains projects,
- * a project contains tasks, and the reading order is the nesting order.
- *
- * Absent levels are not left as gaps. A company with no projects still gets the
- * ribbon it has always had: task segments filling the whole track. Degrading to
- * a third-height sliver would look broken to every user who never adopted
- * projects.
- */
-export function strataBounds(levels: {
-  portfolio: boolean;
-  project: boolean;
-  task: boolean;
-}): Record<StrataLevel, LevelBounds | null> {
-  // Relative weights, top to bottom. Projects are the load-bearing level and
-  // get the most ink; the portfolio wash is the lightest thing on the strip.
-  const WEIGHTS: [StrataLevel, number][] = [
-    ['portfolio', 0.26],
-    ['project', 0.36],
-    ['task', 0.38],
-  ];
-  const present = WEIGHTS.filter(([k]) => levels[k]);
-  const total = present.reduce((sum, [, w]) => sum + w, 0);
-  const out: Record<StrataLevel, LevelBounds | null> = { portfolio: null, project: null, task: null };
-  if (total <= 0) return out;
-
-  // A hairline between strata so the levels stay legible once the track grows
-  // on hover, taken out of each band rather than added around them (so the
-  // stack always sums to exactly the track height).
-  const GAP = present.length > 1 ? 0.06 / (present.length - 1) : 0;
-  const usable = 1 - GAP * (present.length - 1);
-
-  let top = 0;
-  for (const [key, weight] of present) {
-    const height = (weight / total) * usable;
-    out[key] = { top, height };
-    top += height + GAP;
-  }
-  return out;
 }
