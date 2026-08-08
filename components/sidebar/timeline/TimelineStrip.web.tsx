@@ -101,6 +101,10 @@ export default function TimelineStrip({
   const axisStart = (hasCap ? OVERDUE_CAP : 0) + CURSOR_GUTTER;
   const axisX = (f: number) => `calc(${axisStart}px + ${f} * (100% - ${axisStart}px))`;
   const axisW = (w: number) => `calc(${w} * (100% - ${axisStart}px))`;
+  // Bead center travel inset by beadRadiusPx on each end, so the bead fits
+  // fully inside the track from fraction 0 to 1, not half-clipped at the edges.
+  const axisXBeadCenter = (f: number, beadRadiusPx: number) =>
+    `calc(${axisStart + beadRadiusPx}px + ${f} * (100% - ${axisStart + beadRadiusPx * 2}px))`;
 
   const setHover = (v: boolean) => { setHovered(v); onHoverChange?.(v); };
 
@@ -188,7 +192,7 @@ export default function TimelineStrip({
               title={`Project · ${bar.label} — due ${fmtDate(bar.toMs)}`}
               style={{
                 position: 'absolute',
-                left: `calc(${axisX(bar.span.left + bar.span.width)} - ${d / 2}px)`,
+                left: `calc(${axisXBeadCenter(bar.span.left + bar.span.width, d / 2)} - ${d / 2}px)`,
                 top: '50%',
                 width: d,
                 height: d,
