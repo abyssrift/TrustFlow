@@ -188,7 +188,7 @@ export default function GraphCanvas({ onEditStage, onDeleteStage, onEditTransiti
                 onPress={() => { translateX.value = withSpring(0); translateY.value = withSpring(0); scale.value = withSpring(1); }}
                 className="bg-surface-card p-3 rounded-xl border border-surface-border shadow-xl hover:bg-surface-overlay active:scale-95 transition-all group"
               >
-                <FontAwesome name="compress" size={16} className="text-brand-primary group-active:text-brand-primary-active" />
+                <FontAwesome name="arrows" size={16} className="text-brand-primary group-active:text-brand-primary-active" />
               </TouchableOpacity>
             </Tooltip>
           </View>
