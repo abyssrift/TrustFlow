@@ -110,6 +110,28 @@ All layout must follow consistent spacing rules.
 * Must be `rounded-xl`
 * Must have consistent padding (`px-4 py-2` minimum)
 
+### Filter controls
+
+Filter UI is standardised across surfaces (issue #208) — never hand-roll a filter
+bar, chip wall, or filter modal. Compose from `components/common/FilterPanel.tsx`
+(it re-exports `FilterSection`, `FilterChipGroup`, `FilterDropdown`) and the
+animation primitive `components/common/SlideDownPanel.tsx`. Full interaction and
+placement conventions (auto-apply, Clear Filters, toolbar trigger with the
+`9+`-capped badge) live in `.agents/rules/ux-consistency.md` → "Filter Panels".
+
+* Toolbar filter trigger is an icon-only `filter` glyph button matching the
+  surrounding square icon buttons (`h-14 w-14` desktop, `p-2.5` adaptive) — no
+  text label.
+* Active-count badge is absolutely positioned on the trigger's corner, capped
+  at `9+`, so the button's width never shifts with the count.
+* Filter dimension surfaces are bordered (`border-surface-border`) fields with
+  `rounded-xl`; active selections tint `bg-brand-primary/10` /
+  `border-brand-primary`.
+* Short dimensions (~2-6 options) use `FilterChipGroup`; long / sortable
+  dimensions use `FilterDropdown`. Dropdowns lay out side by side with
+  `flex-1 min-w-[220px]` — never `grid-cols-*` (CSS grid does not render in
+  this RN-web build).
+
 ### Cards
 
 * Must use `bg-surface-card`
