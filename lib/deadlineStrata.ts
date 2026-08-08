@@ -146,6 +146,36 @@ export function ribbonProjects(
     .slice(0, cap);
 }
 
+/**
+ * Tasks the ribbon should hold: EVERY overdue one, plus the nearest `cap`
+ * upcoming ones.
+ *
+ * The two halves are not interchangeable and that is the whole reason this
+ * function exists. Overdue tasks are only ever counted ("3 tasks overdue" in
+ * the cap); upcoming tasks are what actually gets drawn, and — via
+ * `stripDomain` — what sets the axis scale. A caller that takes the nearest N
+ * of the combined list looks correct and is not: the list is sorted by due date
+ * ascending, so any real backlog fills every slot with overdue rows, the
+ * upcoming half arrives empty, the axis falls back to its one-day floor, and
+ * every segment and project bead clamps off the end of the track. The ribbon
+ * renders as an empty grey capsule. That shipped, and a bounded lookback does
+ * not prevent it — bounding how far back you look still lets ten old rows win
+ * the sort.
+ *
+ * Overdue is deliberately uncapped: it is a count, it costs no width, and
+ * truncating it would make the cap lie about how far behind you are.
+ */
+// Generic over the row rather than typed to StrataTask: the ribbon's caller
+// holds UpcomingTask, which carries stageName/pipelineName/points on top. All
+// this function needs is `overdue`, and narrowing the return type would strip
+// the extra fields off the caller's own state.
+export function ribbonTasks<T extends { overdue: boolean }>(tasks: readonly T[], cap = 10): T[] {
+  const upcoming: T[] = [];
+  const late: T[] = [];
+  for (const t of tasks) (t.overdue ? late : upcoming).push(t);
+  return [...late, ...upcoming.slice(0, cap)];
+}
+
 /** Outstanding projects already past their due date — they feed the overdue cap, not a bar. */
 export function overdueProjects(projects: readonly StrataProject[], todayMs: number): StrataProject[] {
   return projects.filter((p) => {

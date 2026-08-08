@@ -22,6 +22,7 @@ import {
   overdueProjects,
   projectBars,
   ribbonProjects,
+  ribbonTasks,
   stripDomain,
   taskSegments,
   type StrataProject,
@@ -189,6 +190,38 @@ const DOMAIN = stripDomain([task('t1', 10), task('t2', 20)], [project('p', { sta
   // An out-of-order list must not produce a negative-width segment.
   const segs = taskSegments([task('t1', 20), task('t2', 5)], DOMAIN);
   assert.ok(segs.every((s) => s.span.width > 0), 'unsorted input still draws');
+}
+
+// ── Task selection: the bug that emptied the ribbon in production ──────────
+
+{
+  // The exact shape that shipped broken: a backlog longer than the cap, sorted
+  // due-date ascending, with the only upcoming work at the far end. A plain
+  // slice(0, 10) returns ten overdue rows and NO upcoming ones.
+  const backlog = Array.from({ length: 15 }, (_, i) => task(`old${i}`, -30 + i, true));
+  const soon = task('soon', 5);
+  const picked = ribbonTasks([...backlog, soon]);
+
+  assert.ok(
+    picked.some((t) => t.id === 'soon'),
+    'an upcoming task must survive a backlog longer than the cap — this is the whole bug: the strip draws ONLY upcoming tasks, so losing them renders an empty grey track',
+  );
+  assert.strictEqual(
+    picked.filter((t) => t.overdue).length, 15,
+    'every overdue task is kept — the cap counts them and truncating would understate how far behind you are',
+  );
+}
+{
+  // And the consequence the axis cares about: with the upcoming task retained,
+  // the domain reaches it instead of collapsing to the one-day floor.
+  const picked = ribbonTasks([task('old', -10, true), task('soon', 6)]);
+  const d = stripDomain(picked.filter((t) => !t.overdue), [], TODAY);
+  assert.strictEqual(d.endMs, TODAY + 6 * DAY, 'the surviving upcoming task sets the scale');
+}
+{
+  assert.strictEqual(ribbonTasks([]).length, 0, 'no tasks, no selection');
+  const many = Array.from({ length: 40 }, (_, i) => task(`t${i}`, i + 1));
+  assert.strictEqual(ribbonTasks(many).length, 10, 'upcoming is still capped');
 }
 
 console.log('deadlineStrata: all assertions passed (axis, selection, spans)');

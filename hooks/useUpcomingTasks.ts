@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Platform } from 'react-native';
 import { supabase } from '@/lib/supabase';
+import { ribbonTasks } from '@/lib/deadlineStrata';
 import { toastError } from '@/lib/toast';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -330,7 +331,11 @@ export function useUpcomingTasks({ withProjects = false }: { withProjects?: bool
         fetchDeadlineTasks(userId, { gte: lookback }),
         withProjects ? fetchDeadlineProjects().catch(() => [] as ProjectDeadline[]) : Promise.resolve([]),
       ]);
-      setTasks(mine.slice(0, 10));
+      // NOT `mine.slice(0, 10)` — that is what shipped, and it emptied the
+      // ribbon. `mine` is sorted by due date ascending, so a backlog takes all
+      // ten slots and the upcoming deadlines the strip actually draws never
+      // survive. The bounded lookback above was meant to stop that and cannot.
+      setTasks(ribbonTasks(mine));
       if (withProjects) setProjects(mineProjects);
     } catch {
       // keep previous data on error
