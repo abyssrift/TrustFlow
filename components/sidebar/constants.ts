@@ -25,6 +25,42 @@ export const THEME_OPTIONS: { id: ThemeType; label: string; icon: IconName }[] =
 
 export const PIPELINE_ICONS: IconName[] = ['bolt', 'sitemap', 'random', 'sliders', 'exchange', 'cogs'];
 
+// The desktop rail groups SHORTCUTS into titled sections separated by
+// hairlines (#211). SHORTCUTS stays flat — it's the single source of truth for
+// shortcut metadata (icons, labels, hrefs, permission gating), while
+// SIDEBAR_GROUPS only governs the rail's order and hierarchy. An entry with a
+// `children` list renders as an expandable parent row that still navigates to
+// its own href (e.g. Intelligence ▸ Targets/Archives); the children dissolve
+// into plain siblings when none of them are visible to the user.
+export type SidebarGroupDef = {
+  id: string;
+  title?: string;
+  items: { id: string; children?: string[] }[];
+};
+
+export const SIDEBAR_GROUPS: SidebarGroupDef[] = [
+  { id: 'home', items: [{ id: 'dashboard' }] },
+  {
+    id: 'work',
+    title: 'Work',
+    items: [{ id: 'tasks' }, { id: 'deadlines' }, { id: 'projects' }, { id: 'portfolios' }],
+  },
+  {
+    id: 'intel',
+    items: [{ id: 'radar', children: ['targets', 'archives'] }],
+  },
+  {
+    id: 'company',
+    title: 'Company',
+    items: [{ id: 'filehub' }, { id: 'team' }],
+  },
+  {
+    id: 'admin',
+    title: 'Admin',
+    items: [{ id: 'pipelines-admin' }],
+  },
+];
+
 export type PinnedShortcut = {
   id: string;
   label: string;
