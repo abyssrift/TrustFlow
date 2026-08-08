@@ -28,17 +28,17 @@ export const PIPELINE_ICONS: IconName[] = ['bolt', 'sitemap', 'random', 'sliders
 // The desktop rail groups SHORTCUTS into titled sections separated by
 // hairlines (#211). SHORTCUTS stays flat — it's the single source of truth for
 // shortcut metadata (icons, labels, hrefs, permission gating), while
-// SIDEBAR_GROUPS only governs the rail's order and hierarchy. An entry with a
-// `children` list renders as an expandable parent row that still navigates to
-// its own href (e.g. Intelligence ▸ Targets/Archives); the children dissolve
-// into plain siblings when none of them are visible to the user.
+// SIDEBAR_GROUPS only governs the rail's order and grouping. Groups are plain:
+// every shortcut is a sibling row under its section title; there are no
+// expandable/collapsible parents.
 export type SidebarGroupDef = {
   id: string;
   title?: string;
-  items: { id: string; children?: string[] }[];
+  items: { id: string }[];
 };
 
 export const SIDEBAR_GROUPS: SidebarGroupDef[] = [
+  // Untitled lead-in group: Dashboard sits alone above the titled sections.
   { id: 'home', items: [{ id: 'dashboard' }] },
   {
     id: 'work',
@@ -47,7 +47,8 @@ export const SIDEBAR_GROUPS: SidebarGroupDef[] = [
   },
   {
     id: 'intel',
-    items: [{ id: 'radar', children: ['targets', 'archives'] }],
+    title: 'Intelligence',
+    items: [{ id: 'radar' }, { id: 'targets' }, { id: 'archives' }],
   },
   {
     id: 'company',

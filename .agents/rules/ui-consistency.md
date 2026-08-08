@@ -143,24 +143,19 @@ placement conventions (auto-apply, Clear Filters, toolbar trigger with the
 The desktop nav rail groups shortcuts into titled sections separated by hairlines
 (issue #211). `components/sidebar/constants.ts` keeps `SHORTCUTS` flat (the
 single source of truth for icon/label/href/permission) and declares the rail's
-order + hierarchy in `SIDEBAR_GROUPS`. Only `NavRail` renders the groups; the
+order + grouping in `SIDEBAR_GROUPS`. Only `NavRail` renders the groups; the
 mobile drawer and pinned-shortcut picker still consume the flat list.
 
 * Group titles are section labels (`text-[10px] font-black uppercase tracking-widest
   text-typography-muted`) shown only when the rail is expanded.
 * Groups are separated by hairline `h-px bg-surface-border` dividers, not extra
-  padding.
-* A parent shortcut (e.g. Intelligence ▸ Targets/Archives) renders as a row whose
-  label is a `Link` to its own href, with a sibling chevron `Pressable` absolutely
-  positioned on the right edge — the chevron toggles the children, never
-  navigates, so it must stay a sibling of (not nested inside) the `Link`.
-* Children render indented under the parent with a `border-l` guide and `ml-5`;
-  a child never outranks its parent in the DOM.
-* Collapsed (icon) rail: parents render as plain icon rows (children have no room);
-  active-state for a parent is `true` when either it or a child matches the path.
-* Permission gating stays on individual `SHORTCUTS` entries; a group with zero
-  visible items is dropped, and a parent with zero visible children degrades to a
-  plain row.
+  padding. The first (`home`) group is an untitled lead-in for Dashboard.
+* Groups are **flat** — every shortcut is a sibling row under its section title.
+  There are no expandable/collapsible parents or nested children.
+* Collapsed (icon) rail: only the icons render, group titles hide, and hairline
+  dividers narrow (`mx-3`) so the icon columns stay tight.
+* Permission gating stays on individual `SHORTCUTS` entries; a wholly empty group
+  is dropped.
 
 ### Inputs
 

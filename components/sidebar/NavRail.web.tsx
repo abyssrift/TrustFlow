@@ -1,7 +1,7 @@
 import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Link } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
 import Tooltip from '@/components/common/Tooltip';
@@ -18,10 +18,8 @@ cssInterop(FontAwesome, {
 } as any);
 
 // Renders the flat permission-filtered shortcut list through the SIDEBAR_GROUPS
-// hierarchy (#211): titled groups separated by hairlines, and the Intelligence
-// parent with its Targets/Archives children nested under an expandable row.
-// Children dissolve into plain rows when none are visible to the user, and the
-// parent collapses to a single row in icon-rail (collapsed) mode.
+// groups (#211): titled sections separated by hairlines. Every shortcut is a
+// sibling row — there are no expandable/collapsible parents.
 function NavGroups({
   visibleShortcuts,
   pathname,
@@ -33,9 +31,6 @@ function NavGroups({
   isExpanded: boolean;
   inboxUnread: number;
 }) {
-  const colors = useThemeColors();
-  const [collapsedParents, setCollapsedParents] = useState<Set<string>>(new Set());
-
   const byId = useMemo(() => new Map(visibleShortcuts.map((s) => [s.id, s])), [visibleShortcuts]);
 
   const groups = useMemo(
@@ -43,26 +38,11 @@ function NavGroups({
       SIDEBAR_GROUPS.map((group) => ({
         ...group,
         items: group.items
-          .map((item) => {
-            const shortcut = byId.get(item.id);
-            if (!shortcut) return null;
-            const children = (item.children ?? [])
-              .map((cid) => byId.get(cid))
-              .filter((s): s is Shortcut => !!s);
-            return { shortcut, children };
-          })
-          .filter((x): x is { shortcut: Shortcut; children: Shortcut[] } => !!x),
+          .map((item) => byId.get(item.id))
+          .filter((s): s is Shortcut => !!s),
       })).filter((group) => group.items.length > 0),
     [byId]
   );
-
-  const toggleParent = (id: string) =>
-    setCollapsedParents((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
 
   return (
     <>
@@ -77,91 +57,17 @@ function NavGroups({
                 {group.title}
               </Text>
             )}
-            {group.items.map(({ shortcut: s, children }) => {
-              const isParent = children.length > 0 && isExpanded;
-              const badge = s.id === 'filehub' ? inboxUnread : undefined;
-
-              if (!isParent && children.length > 0 && !isExpanded) {
-                // Icon rail: children have no room, so the parent is a plain
-                // icon row — keep it subtle and navigable.
-                return (
-                  <SidebarItem
-                    key={s.id}
-                    icon={s.icon}
-                    label={s.label}
-                    href={s.href}
-                    isActive={children.some((c) => matchesHref(pathname, c.href)) || matchesHref(pathname, s.href)}
-                    collapsed={true}
-                    badge={badge}
-                  />
-                );
-              }
-
-              if (isParent) {
-                const open = !collapsedParents.has(s.id);
-                const parentActive = matchesHref(pathname, s.href) || children.some((c) => matchesHref(pathname, c.href));
-                return (
-                  <View key={s.id}>
-                    <Tooltip label={s.label} side="right" disabled={isExpanded}>
-                      <View className="relative">
-                        <Link href={s.href as any} asChild>
-                          <Pressable
-                            className={`group relative mb-2 min-h-11 flex-row items-center overflow-hidden rounded-xl border p-3 pr-10 ${parentActive ? 'border-brand-primary/30 bg-brand-primary/10' : 'border-transparent hover:bg-surface-card'}`}
-                            accessibilityLabel={s.label}
-                          >
-                            <View className={`absolute left-0 top-2 bottom-2 w-1 rounded-r-full ${parentActive ? 'bg-brand-primary' : 'bg-transparent group-hover:bg-surface-border'}`} />
-                            <View className="w-8 items-center">
-                              <FontAwesome name={s.icon} size={18} color={parentActive ? colors.primary : colors.textDim} />
-                            </View>
-                            <Text className={`ml-2 font-bold ${parentActive ? 'text-brand-primary' : 'text-typography-muted'} whitespace-nowrap`} numberOfLines={1}>
-                              {s.label}
-                            </Text>
-                          </Pressable>
-                        </Link>
-                        {/* Chevron sits on top of the row's right edge — it's a
-                            sibling pressable (not nested in the Link) so toggling
-                            the parent never navigates. */}
-                        <Pressable
-                          onPress={() => toggleParent(s.id)}
-                          accessibilityLabel={open ? `Collapse ${s.label}` : `Expand ${s.label}`}
-                          className="absolute bottom-0 right-1 top-0 z-10 w-9 items-center justify-center rounded-r-xl hover:bg-surface-overlay"
-                        >
-                          <FontAwesome name={open ? 'chevron-up' : 'chevron-down'} size={12} color={colors.textDim} />
-                        </Pressable>
-                      </View>
-                    </Tooltip>
-
-                    {open && (
-                      <View className="mb-2 ml-5 border-l border-surface-border pl-3">
-                        {children.map((c) => (
-                          <SidebarItem
-                            key={c.id}
-                            icon={c.icon}
-                            label={c.label}
-                            href={c.href}
-                            isActive={matchesHref(pathname, c.href)}
-                            collapsed={false}
-                            badge={c.id === 'filehub' ? inboxUnread : undefined}
-                          />
-                        ))}
-                      </View>
-                    )}
-                  </View>
-                );
-              }
-
-              return (
-                <SidebarItem
-                  key={s.id}
-                  icon={s.icon}
-                  label={s.label}
-                  href={s.href}
-                  isActive={matchesHref(pathname, s.href)}
-                  collapsed={!isExpanded}
-                  badge={badge}
-                />
-              );
-            })}
+            {group.items.map((s) => (
+              <SidebarItem
+                key={s.id}
+                icon={s.icon}
+                label={s.label}
+                href={s.href}
+                isActive={matchesHref(pathname, s.href)}
+                collapsed={!isExpanded}
+                badge={s.id === 'filehub' ? inboxUnread : undefined}
+              />
+            ))}
           </View>
         </View>
       ))}
