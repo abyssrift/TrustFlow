@@ -15,6 +15,7 @@ export default function PingSettingsPanel() {
   const [soundFile, setSoundFile] = React.useState<{ name: string; size: number; uri: string } | null>(null);
   const [currentSoundUrl, setCurrentSoundUrl] = React.useState<string | null>(null);
   const [uploading, setUploading] = React.useState(false);
+  const [restoring, setRestoring] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
 
   // Fetch current sound on mount
@@ -117,6 +118,30 @@ export default function PingSettingsPanel() {
     }
   };
 
+  // Deletes the company's row — the app falls back to the bundled default
+  // ping sound whenever no row exists (see useGlobalPingListener.ts).
+  const restoreDefault = async () => {
+    if (!profile?.company_id) return;
+
+    try {
+      setRestoring(true);
+      const { error } = await supabase
+        .from('company_ping_sounds')
+        .delete()
+        .eq('company_id', profile.company_id);
+
+      if (error) throw error;
+
+      setCurrentSoundUrl(null);
+      setSoundFile(null);
+      successToast('Restored default ping sound');
+    } catch (err: any) {
+      errorToast(err.message || 'Failed to restore default sound');
+    } finally {
+      setRestoring(false);
+    }
+  };
+
   if (loading) {
     return (
       <View className="bg-surface-card rounded-xl p-4 border border-surface-border items-center justify-center py-8">
@@ -188,6 +213,23 @@ export default function PingSettingsPanel() {
           </>
         )}
       </TouchableOpacity>
+
+      {currentSoundUrl && (
+        <TouchableOpacity
+          onPress={restoreDefault}
+          disabled={restoring || uploading}
+          className={`rounded-lg py-3 mt-3 flex-row items-center justify-center border border-surface-border ${restoring ? 'opacity-50' : ''}`}
+        >
+          {restoring ? (
+            <ActivityIndicator color={colors.textMuted} size="small" />
+          ) : (
+            <>
+              <FontAwesome name="undo" size={12} className="text-typography-muted mr-2" />
+              <Text className="text-typography-muted font-black text-sm uppercase">Restore Default</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      )}
 
       <Text className="text-typography-dim text-xs mt-3 text-center">
         This sound will play for all team members when a task is pinged.
