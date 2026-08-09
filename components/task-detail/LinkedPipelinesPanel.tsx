@@ -23,10 +23,13 @@ export default function LinkedPipelinesPanel() {
   const colors = useThemeColors();
   const [showPicker, setShowPicker] = useState(false);
   const [options, setOptions] = useState<PipelineOption[] | null>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
+  // A Set, not a single id: linking one pipeline while unlinking another must
+  // not clear the first row's busy/disabled state while its request is still
+  // in flight.
+  const [busyIds, setBusyIds] = useState<Set<string>>(new Set());
 
   if (!data) return null;
-  const { task, pipeline, permissions, linked_pipelines } = data;
+  const { pipeline, permissions, linked_pipelines } = data;
 
   if (!permissions.can_edit && linked_pipelines.length === 0) return null;
 
@@ -44,28 +47,36 @@ export default function LinkedPipelinesPanel() {
   };
 
   const linkedIds = new Set(linked_pipelines.map((l) => l.pipeline_id));
-  const selectable = (options || []).filter((p) => p.id !== task.pipeline_id && !linkedIds.has(p.id));
+  const selectable = (options || []).filter((p) => p.id !== pipeline?.id && !linkedIds.has(p.id));
+
+  const setBusy = (pipelineId: string, busy: boolean) => {
+    setBusyIds((prev) => {
+      const next = new Set(prev);
+      if (busy) next.add(pipelineId); else next.delete(pipelineId);
+      return next;
+    });
+  };
 
   const handleLink = async (pipelineId: string) => {
-    setBusyId(pipelineId);
+    setBusy(pipelineId, true);
     try {
       await linkPipeline(pipelineId);
       setShowPicker(false);
     } catch {
       // linkPipeline already toasts
     } finally {
-      setBusyId(null);
+      setBusy(pipelineId, false);
     }
   };
 
   const handleUnlink = async (pipelineId: string) => {
-    setBusyId(pipelineId);
+    setBusy(pipelineId, true);
     try {
       await unlinkPipeline(pipelineId);
     } catch {
       // unlinkPipeline already toasts
     } finally {
-      setBusyId(null);
+      setBusy(pipelineId, false);
     }
   };
 
@@ -77,9 +88,10 @@ export default function LinkedPipelinesPanel() {
     >
       <View className="gap-2">
         {linked_pipelines.map((l) => (
-          <View
+          <TouchableOpacity
             key={l.pipeline_id}
-            className="flex-row items-center bg-surface-background rounded-xl border border-surface-border px-3 py-3"
+            onPress={() => router.push(`/(tabs)/tasks?pipelineId=${l.pipeline_id}` as any)}
+            className="flex-row items-center bg-surface-background rounded-xl border border-surface-border px-3 py-3 active:opacity-75"
           >
             <FontAwesome name="code-fork" size={12} color={colors.textMuted} style={{ marginRight: 10 }} />
             <View className="flex-1 min-w-0">
@@ -90,18 +102,19 @@ export default function LinkedPipelinesPanel() {
             </View>
             {permissions.can_edit && (
               <TouchableOpacity
-                onPress={() => handleUnlink(l.pipeline_id)}
-                disabled={busyId === l.pipeline_id}
+                onPress={(e: any) => { e.stopPropagation(); handleUnlink(l.pipeline_id); }}
+                disabled={busyIds.has(l.pipeline_id)}
                 className="p-2"
               >
-                {busyId === l.pipeline_id ? (
+                {busyIds.has(l.pipeline_id) ? (
                   <ActivityIndicator size="small" color={colors.danger} style={{ transform: [{ scale: 0.6 }] }} />
                 ) : (
                   <FontAwesome name="times" size={12} color={colors.danger} />
                 )}
               </TouchableOpacity>
             )}
-          </View>
+            <FontAwesome name="chevron-right" size={10} color={colors.textMuted} style={{ marginLeft: 8 }} />
+          </TouchableOpacity>
         ))}
 
         {linked_pipelines.length === 0 && !showPicker && (
@@ -132,7 +145,7 @@ export default function LinkedPipelinesPanel() {
                       <TouchableOpacity
                         key={p.id}
                         onPress={() => handleLink(p.id)}
-                        disabled={busyId === p.id}
+                        disabled={busyIds.has(p.id)}
                         className="px-4 py-3 bg-surface-background border-b border-surface-border/50 last:border-0"
                       >
                         <Text className="text-typography-main text-sm font-bold">{p.name}</Text>

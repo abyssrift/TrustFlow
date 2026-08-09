@@ -245,7 +245,7 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
           .from('task_pipeline_links')
           .select(`
             pipeline_id, created_at,
-            pipeline:pipeline_id(name),
+            pipeline:pipeline_id(name, deleted_at),
             linker:linked_by(full_name)
           `)
           .eq('task_id', taskId),
@@ -268,7 +268,10 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
         }));
 
       const linked_pipelines: LinkedPipelineData[] = (linkRows || [])
-        .filter((r: any) => r.pipeline)
+        // A soft-deleted linked pipeline is still a real row (no cascade fires
+        // on a soft delete) -- drop it here the same way the "add link" picker
+        // excludes it from being linked in the first place.
+        .filter((r: any) => r.pipeline && !r.pipeline.deleted_at)
         .map((r: any) => ({
           pipeline_id: r.pipeline_id,
           pipeline_name: r.pipeline?.name ?? 'Unknown Pipeline',
