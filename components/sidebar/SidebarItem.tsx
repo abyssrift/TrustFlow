@@ -6,6 +6,7 @@ import { Pressable, Text, View } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
 import Tooltip from '@/components/common/Tooltip';
 import type { IconName } from './constants';
+import { useTourTarget } from '@/lib/tour/TourContext';
 
 cssInterop(FontAwesome, {
   className: {
@@ -21,6 +22,7 @@ export default function SidebarItem({
   isActive,
   collapsed,
   badge,
+  tourId,
 }: {
   icon: IconName;
   label: string;
@@ -28,10 +30,13 @@ export default function SidebarItem({
   isActive: boolean;
   collapsed: boolean;
   badge?: number;
+  tourId?: string;
 }) {
   const colors = useThemeColors();
+  const tourRef = useTourTarget(tourId);
   const pressable = (
     <Pressable
+      ref={tourRef}
       className={`group relative mb-2 min-h-11 flex-row items-center overflow-hidden rounded-xl border p-3 ${isActive ? 'border-brand-primary/30 bg-brand-primary/10' : 'border-transparent hover:bg-surface-card'
         }`}
       accessibilityLabel={label}

@@ -97,6 +97,7 @@ export default function NavRail({
                       isActive={matchesHref(pathname, s.href)}
                       collapsed={!isExpanded}
                       badge={s.id === 'filehub' ? inboxUnread : undefined}
+                      tourId={`nav-${s.id}`}
                     />
                   ))}
                 </View>
