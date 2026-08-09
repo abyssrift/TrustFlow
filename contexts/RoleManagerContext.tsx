@@ -232,7 +232,7 @@ export function RoleManagerProvider({ children }: { children: ReactNode }) {
   const deleteRole = useCallback(async (id: string) => {
     setLoading(true);
     try {
-      const { error: e } = await supabase.from('roles').update({ deleted_at: new Date().toISOString() }).eq('id', id);
+      const { error: e } = await supabase.rpc('rpc_delete_role', { p_role_id: id });
       if (e) throw e;
       await refreshAll();
       return true;
