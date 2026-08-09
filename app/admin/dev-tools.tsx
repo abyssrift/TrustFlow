@@ -2,6 +2,7 @@ import { BackButton } from '@/components/common/BackButton';
 import { useAlert } from '@/contexts/AlertContext';
 import { useToast } from '@/contexts/ToastContext';
 import { supabase } from '@/lib/supabase';
+import { DEFAULT_PING_SOUND } from '@/hooks/useGlobalPingListener';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -166,18 +167,17 @@ export default function DevToolsScreen() {
       supabase.from('tasks').select('id, title').is('deleted_at', null).limit(1).maybeSingle(),
     ]);
 
-    logProgress(`🔔 Ping test: sound ${sound?.sound_url ? 'configured' : 'MISSING'}, target task ${task ? `"${task.title}"` : 'MISSING'}`);
+    logProgress(`🔔 Ping test: sound ${sound?.sound_url ? 'configured' : 'using bundled default (no company_ping_sounds row)'}, target task ${task ? `"${task.title}"` : 'MISSING'}`);
     logProgress('Firing in 3s (simulating a real, gesture-less websocket ping)...');
 
     setTimeout(async () => {
-      if (Platform.OS === 'web' && sound?.sound_url) {
-        new (window as any).Audio(sound.sound_url).play()
+      const url = sound?.sound_url ?? DEFAULT_PING_SOUND.uri;
+      if (Platform.OS === 'web') {
+        new (window as any).Audio(url).play()
           .then(() => logProgress('✅ Sound played'))
           .catch((err: any) => logProgress(`❌ Sound blocked: ${err.name} — ${err.message}`));
-      } else if (Platform.OS !== 'web') {
-        logProgress('ℹ️ Sound test is web-only here — native uses expo-audio via useGlobalPingListener directly');
       } else {
-        logProgress('⚠️ No company_ping_sounds row for this company — nothing to play');
+        logProgress('ℹ️ Sound test is web-only here — native uses expo-audio via useGlobalPingListener directly');
       }
 
       showToast({
@@ -185,6 +185,7 @@ export default function DevToolsScreen() {
         title: 'Pinged! (test)',
         message: task ? `You were pinged on "${task.title}"` : 'Test ping — no task found to link to',
         duration: 6000,
+        actionLabel: 'View Task',
         onPress: () => router.push((task ? `/task/${task.id}` : '/(tabs)') as any),
       });
       logProgress('Toast shown — tap it, it should open the task.');

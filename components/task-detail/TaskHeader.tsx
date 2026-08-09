@@ -41,7 +41,7 @@ function formatPingedNames(names: string[]): string {
 }
 
 export default function TaskHeader() {
-  const { data, executeAction } = useTaskDetail();
+  const { data, executeAction, revertStage } = useTaskDetail();
   const { isActive, activeSession, startWork, stopWork } = useTimer();
   const { theme: activeTheme } = useTheme();
   const { hasPermission, user } = useAuth();
@@ -50,6 +50,7 @@ export default function TaskHeader() {
   const [pingLoading, setPingLoading] = React.useState(false);
   const [showArchiveConfirm, setShowArchiveConfirm] = React.useState(false);
   const [archiving, setArchiving] = React.useState(false);
+  const [reverting, setReverting] = React.useState(false);
   const [showManualTimeModal, setShowManualTimeModal] = React.useState(false);
   const [pendingAction, setPendingAction] = React.useState<any | null>(null);
 
@@ -74,6 +75,27 @@ export default function TaskHeader() {
     } finally {
       setArchiving(false);
     }
+  };
+
+  const handleRevert = () => {
+    showConfirm(
+      'Revert Stage',
+      'The task will move back to its previous stage. This does not re-run stage automations (spawned sub-tasks, handshakes, reassignment).',
+      async () => {
+        setReverting(true);
+        try {
+          await revertStage();
+        } catch {
+          // revertStage already toasts
+        } finally {
+          setReverting(false);
+        }
+      },
+      undefined,
+      'Revert',
+      'Cancel',
+      'destructive'
+    );
   };
 
   const handlePingTask = async () => {
@@ -116,6 +138,10 @@ export default function TaskHeader() {
     }));
   const canArchive = data.permissions.is_owner || hasPermission('archive:create') || hasPermission('pipeline.edit');
   const canPing = data.permissions.is_manager || hasPermission('task.ping') || data.permissions.is_owner;
+  // #22: manager-only one-step-back correction. RPC is the real gate (it
+  // re-checks permission and whether a same-pipeline prior stage actually
+  // exists) — this just decides whether to show the button at all.
+  const canRevert = (data.permissions.is_owner || hasPermission('pipeline.reverse')) && data.stage_history.length > 0;
 
   // Deterministic: the task page's back arrow always returns to this task's
   // pipeline board. History-based back (router.back / window.history.back) is
@@ -354,6 +380,23 @@ export default function TaskHeader() {
                 <>
                   <FontAwesome name="bell" size={10} className="text-brand-primary" />
                   <Text className="text-brand-primary text-[10px] font-black uppercase tracking-wider ml-2">Ping</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
+
+          {canRevert && (
+            <TouchableOpacity
+              onPress={handleRevert}
+              disabled={reverting}
+              className={`flex-row items-center px-4 py-2 rounded-xl border border-state-warning/40 bg-state-warning/10 ${reverting ? 'opacity-50' : ''}`}
+            >
+              {reverting ? (
+                <ActivityIndicator size="small" color={colors.warning} />
+              ) : (
+                <>
+                  <FontAwesome name="undo" size={10} className="text-state-warning" />
+                  <Text className="text-state-warning text-[10px] font-black uppercase tracking-wider ml-2">Revert</Text>
                 </>
               )}
             </TouchableOpacity>

@@ -1,10 +1,12 @@
+import { useAlert } from '@/contexts/AlertContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { formatRelative } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React from 'react';
-import { Text, View } from 'react-native';
+import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 import CollapsibleCard from './CollapsibleCard';
 import PermissionGate from './PermissionGate';
 
@@ -13,10 +15,38 @@ function timeAgo(dateStr: string): string {
 }
 
 export default function PipelineJourney() {
-  const { data } = useTaskDetail();
+  const { data, revertStage } = useTaskDetail();
   const { theme: activeTheme } = useTheme();
+  const { hasPermission } = useAuth();
+  const { showConfirm } = useAlert();
   const colors = useThemeColors();
+  const [reverting, setReverting] = React.useState(false);
   if (!data) return null;
+
+  // #22: manager-only one-step-back correction. RPC is the real gate (it
+  // re-checks permission and whether a same-pipeline prior stage actually
+  // exists) — this just decides whether to show the button at all.
+  const canRevert = (data.permissions.is_owner || hasPermission('pipeline.reverse')) && data.stage_history.length > 0;
+  const handleRevert = () => {
+    showConfirm(
+      'Revert Stage',
+      'The task will move back to its previous stage. This does not re-run stage automations (spawned sub-tasks, handshakes, reassignment).',
+      async () => {
+        setReverting(true);
+        try {
+          await revertStage();
+        } catch {
+          // revertStage already toasts
+        } finally {
+          setReverting(false);
+        }
+      },
+      undefined,
+      'Revert',
+      'Cancel',
+      'destructive'
+    );
+  };
 
   return (
     <PermissionGate allowed={data.permissions.can_view_history}>
@@ -77,6 +107,23 @@ export default function PipelineJourney() {
           <Text className="text-typography-dim text-[10px] font-bold">Total transitions</Text>
           <Text className="text-typography-main text-[10px] font-black">{data.stats.total_transitions}</Text>
         </View>
+
+        {canRevert && (
+          <TouchableOpacity
+            onPress={handleRevert}
+            disabled={reverting}
+            className={`mt-3 flex-row items-center justify-center px-4 py-2 rounded-xl border border-state-warning/40 bg-state-warning/10 ${reverting ? 'opacity-50' : 'active:opacity-80'}`}
+          >
+            {reverting ? (
+              <ActivityIndicator size="small" color={colors.warning} />
+            ) : (
+              <>
+                <FontAwesome name="undo" size={10} color={colors.warning} />
+                <Text className="text-state-warning text-[10px] font-black uppercase tracking-wider ml-2">Revert to Previous Stage</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
       </CollapsibleCard>
     </PermissionGate>
   );

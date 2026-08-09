@@ -1,6 +1,7 @@
 import { useAlert } from '@/contexts/AlertContext';
 import { useToast } from '@/contexts/ToastContext';
 import { supabase } from '@/lib/supabase';
+import { DEFAULT_PING_SOUND } from '@/hooks/useGlobalPingListener';
 import { FontAwesome } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -141,23 +142,21 @@ export default function DevToolsScreenWeb() {
       supabase.from('tasks').select('id, title').is('deleted_at', null).limit(1).maybeSingle(),
     ]);
 
-    logProgress(`🔔 Ping test: sound ${sound?.sound_url ? 'configured' : 'MISSING'}, target task ${task ? `"${task.title}"` : 'MISSING'}`);
+    logProgress(`🔔 Ping test: sound ${sound?.sound_url ? 'configured' : 'using bundled default (no company_ping_sounds row)'}, target task ${task ? `"${task.title}"` : 'MISSING'}`);
     logProgress('Firing in 3s (simulating a real, gesture-less websocket ping)...');
 
     setTimeout(() => {
-      if (sound?.sound_url) {
-        new Audio(sound.sound_url).play()
-          .then(() => logProgress('✅ Sound played'))
-          .catch((err: any) => logProgress(`❌ Sound blocked: ${err.name} — ${err.message}`));
-      } else {
-        logProgress('⚠️ No company_ping_sounds row for this company — nothing to play');
-      }
+      const url = sound?.sound_url ?? DEFAULT_PING_SOUND.uri;
+      new Audio(url).play()
+        .then(() => logProgress('✅ Sound played'))
+        .catch((err: any) => logProgress(`❌ Sound blocked: ${err.name} — ${err.message}`));
 
       showToast({
         type: 'success',
         title: 'Pinged! (test)',
         message: task ? `You were pinged on "${task.title}"` : 'Test ping — no task found to link to',
         duration: 6000,
+        actionLabel: 'View Task',
         onPress: () => router.push((task ? `/task/${task.id}` : '/(tabs)') as any),
       });
       logProgress('Toast shown — tap it, it should open the task.');

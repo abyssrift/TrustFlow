@@ -8,7 +8,7 @@ import { usePingHighlight } from '@/contexts/PingHighlightContext';
 import { useRouter } from 'expo-router';
 
 // Bundled fallback used whenever a company hasn't uploaded its own sound.
-const DEFAULT_PING_SOUND = Asset.fromModule(require('@/assets/sounds/ping-default.mp3'));
+export const DEFAULT_PING_SOUND = Asset.fromModule(require('@/assets/sounds/ping-default.mp3'));
 
 // Mounted once at app root (both _layout.tsx and _layout.web.tsx). Keeps a
 // single WebSocket channel alive for the current user and plays the ping
@@ -162,6 +162,7 @@ export const useGlobalPingListener = () => {
             title: 'Pinged!',
             message: taskTitle ? `You were pinged on "${taskTitle}"` : 'You have been pinged on a task',
             duration: 6000,
+            actionLabel: 'View Task',
             onPress: () => router.push(`/task/${taskId}` as any),
           });
         }

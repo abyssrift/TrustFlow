@@ -11,6 +11,7 @@ export type ToastInput = {
   type?: ToastType;
   duration?: number;
   onPress?: () => void;
+  actionLabel?: string;
 };
 
 type ToastItem = ToastInput & {

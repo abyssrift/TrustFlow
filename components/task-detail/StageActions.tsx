@@ -323,10 +323,10 @@ function AdaptiveFileGrid({
 export default function StageActions() {
   const colors = useThemeColors();
   const { showConfirm, showAlert } = useAlert();
-  const { data, executeAction, submitWork, deleteSubmission, restoreSubmission, listDeletedSubmissions, submissionVersions, restoreSubmissionVersion, refresh, reviewManualTime, revertStage } = useTaskDetail();
+  const { data, executeAction, submitWork, deleteSubmission, restoreSubmission, listDeletedSubmissions, submissionVersions, restoreSubmissionVersion, refresh, reviewManualTime } = useTaskDetail();
   const { isActive, activeSession, serverTimeOffset, stopWork, startWork, smartTimer } = useTimer();
   const router = useRouter();
-  const { user, profile, hasPermission } = useAuth();
+  const { user } = useAuth();
   const { width } = useWindowDimensions();
   // Desktop web owns this surface via the topbar island (IslandTimeApprovalsBridge)
   // instead — same breakpoint the island itself is gated on.
@@ -342,7 +342,6 @@ export default function StageActions() {
   const [showDeleted, setShowDeleted] = useState(false);
   const [deletedSubs, setDeletedSubs] = useState<DeletedSubmissionData[] | null>(null);
   const [restoringId, setRestoringId] = useState<string | null>(null);
-  const [revertBusy, setRevertBusy] = useState(false);
 
   // Feature A: edit + version history
   const [editingSub, setEditingSub] = useState<SubmissionData | null>(null);
@@ -528,31 +527,6 @@ export default function StageActions() {
   };
 
   if (!data) return null;
-
-  // #22: manager-only one-step-back correction. RPC is the real gate (it
-  // re-checks permission and whether a same-pipeline prior stage actually
-  // exists) — this just decides whether to show the button at all.
-  const canRevert = (profile?.is_owner || hasPermission('pipeline.reverse')) && data.stage_history.length > 0;
-  const handleRevert = () => {
-    showConfirm(
-      'Revert Stage',
-      'The task will move back to its previous stage. This does not re-run stage automations (spawned sub-tasks, handshakes, reassignment).',
-      async () => {
-        setRevertBusy(true);
-        try {
-          await revertStage();
-        } catch {
-          // revertStage already toasts
-        } finally {
-          setRevertBusy(false);
-        }
-      },
-      undefined,
-      'Revert',
-      'Cancel',
-      'destructive'
-    );
-  };
 
   const myEntry = data.my_manual_time_entry;
   const isMyEntryPending = myEntry?.approval_status === 'pending';
@@ -752,29 +726,10 @@ export default function StageActions() {
   const hasLinkedPipeline = !!data.current_stage?.linked_pipeline_id;
   const linkedPipelineName = data.current_stage?.linked_pipeline?.name || 'Sub-Pipeline';
 
-  if (!buttonActions.length && !showSubmissionSection && !showTimerCard && !hasLinkedPipeline && !canRevert) return null;
+  if (!buttonActions.length && !showSubmissionSection && !showTimerCard && !hasLinkedPipeline) return null;
 
   return (
     <View className="gap-4">
-      {canRevert && (
-        <TouchableOpacity
-          onPress={handleRevert}
-          disabled={revertBusy}
-          className={`bg-state-warning/10 border border-state-warning/30 rounded-2xl p-4 flex-row items-center justify-between ${revertBusy ? 'opacity-50' : 'active:opacity-80'}`}
-        >
-          <View className="flex-row items-center gap-3 flex-1">
-            <View className="w-10 h-10 rounded-xl bg-state-warning/20 items-center justify-center">
-              <FontAwesome name="undo" size={14} color={colors.warning} />
-            </View>
-            <View className="flex-1">
-              <Text className="text-state-warning font-black text-xs uppercase tracking-wider">Revert to Previous Stage</Text>
-              <Text className="text-typography-dim text-[10px] mt-0.5">Correct a mistaken transition</Text>
-            </View>
-          </View>
-          {revertBusy ? <ActivityIndicator size="small" color={colors.warning} /> : <FontAwesome name="chevron-right" size={12} color={colors.textMuted} />}
-        </TouchableOpacity>
-      )}
-
       {hasLinkedPipeline && (
         <View className="bg-surface-card rounded-2xl border border-surface-border p-4">
           <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em] mb-3">Sub-Pipeline Active</Text>
