@@ -248,3 +248,105 @@ BEGIN
     RETURN v_session_id;
 END;
 $function$;
+
+-- ============================================================
+-- Section 7: review fix (PR #206, found by a reviewer other than the
+-- original author) -- rpc_update_task_assignments is the sole writer to
+-- task_assignments (search migrations for it; its current live body is
+-- reproduced below verbatim from the DB, since no committed migration
+-- actually holds it -- it predates this repo's tracked migration history).
+-- It does a blanket DELETE FROM task_assignments followed by a fresh
+-- INSERT of the whole new assignee/team set, as ONE call. That DELETE used
+-- to fire trg_task_assignments_clear_claim (Section 5, dropped below) once
+-- per deleted row, mid-transaction, before the reinsert -- so editing a
+-- claimed task's assignees for ANY reason (even adding one more member, or
+-- re-saving the identical set) cleared the claim, because the trigger had
+-- no way to "wait and see" the final state.
+--
+-- Fix: make the RPC itself claim-aware at the one place all assignment
+-- edits funnel through. After the new set is fully in place, re-check the
+-- claimant's eligibility with the SAME rule rpc_claim_task uses (directly
+-- assigned, or a member of an enforcing team currently assigned to the
+-- task). Only clear the claim if that re-check fails. tasks has a
+-- BEFORE UPDATE trigger (set_updated_at) that already stamps updated_at
+-- on this UPDATE, so nothing extra is needed for that.
+--
+-- ponytail: the documented gap in fn_trg_task_assignments_clear_claim (a
+-- claimant leaving team_members while the team assignment stays on the
+-- task doesn't release the claim) is untouched -- still an intentionally
+-- deferred limitation, not in scope here.
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.rpc_update_task_assignments(p_task_id uuid, p_user_ids uuid[] DEFAULT '{}'::uuid[], p_team_ids uuid[] DEFAULT '{}'::uuid[])
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_company_id UUID;
+  v_user_id    UUID := auth.uid();
+  v_manager_id UUID;
+  v_uid        UUID;
+  v_tid        UUID;
+  v_claimed_by UUID;
+BEGIN
+  -- 1: Check Permissions
+  SELECT company_id, manager_id INTO v_company_id, v_manager_id FROM public.tasks WHERE id = p_task_id;
+
+  -- Must be task manager OR company owner
+  IF v_user_id != v_manager_id AND NOT (SELECT is_owner FROM public.users WHERE id = v_user_id) THEN
+    -- Or if they are a manager of one of target teams?
+    -- For now, keep it simple: Task Manager only.
+    RAISE EXCEPTION 'Only the task manager can modify assignments.';
+  END IF;
+
+  -- 2: Clear old assignments
+  DELETE FROM public.task_assignments WHERE task_id = p_task_id;
+
+  -- 3: Insert User Assignments
+  FOREACH v_uid IN ARRAY p_user_ids LOOP
+    INSERT INTO public.task_assignments(task_id, company_id, assignee_user_id, assigned_by)
+    VALUES (p_task_id, v_company_id, v_uid, v_user_id);
+  END LOOP;
+
+  -- 4: Insert Team Assignments
+  FOREACH v_tid IN ARRAY p_team_ids LOOP
+    INSERT INTO public.task_assignments(task_id, company_id, assignee_team_id, assigned_by)
+    VALUES (p_task_id, v_company_id, v_tid, v_user_id);
+  END LOOP;
+
+  PERFORM public.log_event(v_company_id, v_user_id, 'task', p_task_id, 'task.assignments_updated', jsonb_build_object('user_count', array_length(p_user_ids, 1), 'team_count', array_length(p_team_ids, 1)));
+
+  -- 5: #25 review fix -- re-check the claim against the now-final
+  -- assignment set (same eligibility rule as rpc_claim_task).
+  SELECT claimed_by INTO v_claimed_by FROM public.tasks WHERE id = p_task_id;
+  IF v_claimed_by IS NOT NULL AND NOT (
+    EXISTS (
+      SELECT 1 FROM public.task_assignments ta
+      WHERE ta.task_id = p_task_id AND ta.assignee_user_id = v_claimed_by
+    ) OR EXISTS (
+      SELECT 1 FROM public.task_assignments ta
+      JOIN public.teams t ON t.id = ta.assignee_team_id
+      JOIN public.team_members tm ON tm.team_id = t.id
+      WHERE ta.task_id = p_task_id AND t.enforce_single_claimant = TRUE
+        AND tm.user_id = v_claimed_by AND tm.removed_at IS NULL
+    )
+  ) THEN
+    UPDATE public.tasks SET claimed_by = NULL, claimed_at = NULL WHERE id = p_task_id;
+  END IF;
+END;
+$function$;
+
+GRANT EXECUTE ON FUNCTION public.rpc_update_task_assignments(uuid, uuid[], uuid[]) TO authenticated;
+
+-- ============================================================
+-- Section 8: drop the superseded per-row DELETE trigger from Section 5.
+-- rpc_update_task_assignments (Section 7) now handles the claim re-check
+-- at the one place all assignment edits funnel through, so the trigger's
+-- out-of-order "clear on every deleted row" behavior is no longer needed
+-- and was the actual bug. The OTHER Section 5 trigger
+-- (trg_tasks_clear_claim_on_stage_change, on tasks) is unrelated and
+-- unaffected -- it stays.
+-- ============================================================
+DROP TRIGGER IF EXISTS trg_task_assignments_clear_claim ON public.task_assignments;
+DROP FUNCTION IF EXISTS public.fn_trg_task_assignments_clear_claim();
