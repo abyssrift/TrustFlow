@@ -3,7 +3,7 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { useFonts } from 'expo-font';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { View, useWindowDimensions } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
 import 'react-native-reanimated';
@@ -17,6 +17,9 @@ import IslandTimerBridge from '@/components/island/IslandTimerBridge.web';
 import TimerIsland from '@/components/TimerIsland';
 import WelcomeTour from '@/components/onboarding/WelcomeTour';
 import { useColorScheme } from '@/components/useColorScheme';
+import { TourProvider } from '@/lib/tour/TourContext';
+import TourOverlay from '@/lib/tour/TourOverlay.web';
+import { useNavTourAutoStart } from '@/lib/tour/navTour';
 import { AlertProvider } from '@/contexts/AlertContext';
 import { AnalyticsProvider } from '@/contexts/AnalyticsContext';
 import { IslandProvider } from '@/contexts/IslandContext';
@@ -70,7 +73,9 @@ export default function RootLayout() {
                 <ToastProvider>
                   <IslandProvider>
                     <UploadManagerProvider>
-                      <RootLayoutNav />
+                      <TourProvider>
+                        <RootLayoutNav />
+                      </TourProvider>
                     </UploadManagerProvider>
                   </IslandProvider>
                 </ToastProvider>
@@ -94,6 +99,11 @@ function RootLayoutNav() {
   const segments = useSegments();
   const router = useRouter();
   const { width } = useWindowDimensions();
+  const [welcomeToured, setWelcomeToured] = useState(false);
+
+  // Ready to start the nav tour once WelcomeTour has run this session, or
+  // for users who already completed it before this feature shipped.
+  useNavTourAutoStart(!!profile?.onboarded_at || welcomeToured);
 
   useEffect(() => {
     if (!initialized) return;
@@ -134,7 +144,8 @@ function RootLayoutNav() {
           <View className="flex-1 bg-surface-background" style={{ flex: 1, minHeight: '100dvh', height: '100%', width: '100%' } as any}>
             {/* Always-on ping listener — one WebSocket channel for the current user */}
             {session && <GlobalPingGuard />}
-            {session && <WelcomeTour />}
+            {session && <WelcomeTour onComplete={() => setWelcomeToured(true)} />}
+            <TourOverlay />
             {/* Desktop web shows the timer in the topbar island (published via
                 IslandTimerBridge), so only draw the floating pill on mobile web
                 (< 768). The bridge mirrors the running timer into the island. */}
