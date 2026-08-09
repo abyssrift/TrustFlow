@@ -1,6 +1,6 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React from 'react';
-import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, Switch, Text, TouchableOpacity, View } from 'react-native';
 
 import { Role } from '@/contexts/RoleManagerContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -8,7 +8,7 @@ import Popup from '@/components/common/Popup';
 import Tooltip from '@/components/common/Tooltip';
 import type { TeamRolesSheetProps } from './TeamRolesSheet';
 
-export default function TeamRolesSheet({ visible, onClose, team, roles, draftRoleIds, onToggleRole, onSave, loading }: TeamRolesSheetProps) {
+export default function TeamRolesSheet({ visible, onClose, team, roles, draftRoleIds, onToggleRole, onSave, loading, onToggleClaiming }: TeamRolesSheetProps) {
   const c = useThemeColors();
 
   return (
@@ -44,6 +44,25 @@ export default function TeamRolesSheet({ visible, onClose, team, roles, draftRol
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} className="px-7" contentContainerStyle={{ paddingTop: 16 }}>
+            <View
+              className="flex-row items-center justify-between rounded-xl px-4 py-4 mb-5"
+              style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}
+            >
+              <View className="flex-1 mr-3">
+                <Text style={{ color: c.textMain }} className="font-black text-xs uppercase tracking-widest">Task Claiming</Text>
+                <Text style={{ color: c.textMuted }} className="text-[10px] mt-1 leading-4">
+                  Only one assigned member can be the active worker on a task at a time.
+                </Text>
+              </View>
+              <Switch
+                value={!!team?.enforce_single_claimant}
+                onValueChange={onToggleClaiming}
+                disabled={loading}
+                trackColor={{ false: c.border, true: c.primary }}
+                thumbColor="white"
+              />
+            </View>
+
             <View className="flex-row items-center mb-4">
               <FontAwesome name="shield" size={12} color={c.primary} />
               <Text style={{ color: c.primary }} className="text-xs font-black uppercase ml-2 tracking-widest">Roles</Text>
