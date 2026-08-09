@@ -45,11 +45,14 @@ DECLARE
   v_from_stage_name  TEXT;
   v_to_stage_name    TEXT;
 BEGIN
-  -- 1. Context & authorization
+  -- 1. Context & authorization. FOR UPDATE serializes concurrent reverts on
+  -- the same task so two racing calls can't both read the same current_stage
+  -- and double-insert a history row for it.
   SELECT company_id, current_stage_id, pipeline_id
   INTO   v_company_id, v_current_stage, v_pipeline_id
   FROM   public.tasks
-  WHERE  id = p_task_id AND deleted_at IS NULL;
+  WHERE  id = p_task_id AND deleted_at IS NULL
+  FOR UPDATE;
 
   IF v_company_id IS NULL THEN RAISE EXCEPTION 'Task not found'; END IF;
 
@@ -64,17 +67,22 @@ BEGIN
     RAISE EXCEPTION 'Insufficient permissions';
   END IF;
 
-  -- 2. Find the previous stage: the most recent history row that moved this
-  -- task into its current stage, within its current pipeline. Scoping to
-  -- pipeline_id blocks reverting across a cross-pipeline move (out of scope
-  -- for this issue) — if the last move was cross-pipeline, this simply finds
-  -- nothing and step 3 raises.
+  -- 2. Find the previous stage: the most recent *forward* history row that
+  -- moved this task into its current stage, within its current pipeline.
+  -- Excluding is_reversal rows matters: a revert itself inserts a row with
+  -- to_stage_id = the stage we just landed on, so without this exclusion a
+  -- second revert would pick up the first revert's own row and walk the task
+  -- forward again instead of continuing back through the original history.
+  -- Scoping to pipeline_id blocks reverting across a cross-pipeline move
+  -- (out of scope for this issue) — if the last move was cross-pipeline,
+  -- this simply finds nothing and step 3 raises.
   SELECT from_stage_id
   INTO   v_prev_stage
   FROM   public.pipeline_stage_history
   WHERE  task_id = p_task_id
     AND  to_stage_id = v_current_stage
     AND  pipeline_id = v_pipeline_id
+    AND  is_reversal = FALSE
   ORDER  BY transitioned_at DESC
   LIMIT  1;
 

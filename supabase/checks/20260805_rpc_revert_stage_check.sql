@@ -97,7 +97,22 @@ BEGIN
     RAISE EXCEPTION 'CHECK FAILED: expected 1 is_reversal history row for C -> B, got %', v_hist_count;
   END IF;
 
-  -- Assert 3: reverting a task at its initial stage (no prior history) fails.
+  -- Assert 3: reverting a second time continues back to A instead of
+  -- bouncing forward to C (the previous revert's own history row must not
+  -- be picked up as "the previous stage").
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', v_attacker::text, 'role', 'authenticated')::text, true);
+  EXECUTE 'SET LOCAL ROLE authenticated';
+
+  PERFORM public.rpc_revert_stage(v_task);
+
+  RESET ROLE;
+
+  SELECT current_stage_id INTO v_current FROM public.tasks WHERE id = v_task;
+  IF v_current IS DISTINCT FROM v_stage_a THEN
+    RAISE EXCEPTION 'CHECK FAILED: second revert did not continue back to stage A (got %, expected %)', v_current, v_stage_a;
+  END IF;
+
+  -- Assert 4: reverting a task at its initial stage (no prior history) fails.
   DECLARE
     v_task2 UUID;
     v_rejected2 BOOLEAN := false;
@@ -117,7 +132,7 @@ BEGIN
     END IF;
   END;
 
-  RAISE NOTICE 'OK: rpc_revert_stage rejects non-owner/no-permission callers, reverts C -> B and records is_reversal history once granted pipeline.reverse, and rejects a task with no prior stage';
+  RAISE NOTICE 'OK: rpc_revert_stage rejects non-owner/no-permission callers, reverts C -> B and records is_reversal history once granted pipeline.reverse, continues back to A on a second revert (not back to C), and rejects a task with no prior stage';
 END $$;
 
 ROLLBACK;
