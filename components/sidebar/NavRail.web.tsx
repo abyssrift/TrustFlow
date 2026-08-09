@@ -140,12 +140,14 @@ export default function NavRail({
 
             <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
               <View className="pb-6">
-                <NavGroups
-                  visibleShortcuts={visibleShortcuts}
-                  pathname={pathname}
-                  isExpanded={isExpanded}
-                  inboxUnread={inboxUnread}
-                />
+                <View className="mb-6">
+                  <NavGroups
+                    visibleShortcuts={visibleShortcuts}
+                    pathname={pathname}
+                    isExpanded={isExpanded}
+                    inboxUnread={inboxUnread}
+                  />
+                </View>
 
                 {isPlatformAdmin && (
                   <View className="mt-4 mb-2">
