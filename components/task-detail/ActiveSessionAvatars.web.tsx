@@ -6,7 +6,7 @@ import { positionTooltip } from '@/lib/tooltipPosition';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Text, View } from 'react-native';
-import { Avatar, formatSessionStart, groupSessions, StatusDot } from './activeSessionAvatarsCore';
+import { Avatar, formatSessionStart, groupSessions, StatusDot, WorkingPulse } from './activeSessionAvatarsCore';
 import type { ActiveSessionUser } from './TaskCardActions';
 
 // The "who's working now" affordance on a task card. At rest it's an
@@ -177,6 +177,9 @@ export default function ActiveSessionAvatars({
           >
             <Text className="text-typography-muted text-[9px] font-black">+{extra}</Text>
           </View>
+        )}
+        {sessions.length <= 3 && (
+          <WorkingPulse count={sessions.length as 1 | 2 | 3} color={allIdle ? colors.warning : colors.success} />
         )}
       </View>
 

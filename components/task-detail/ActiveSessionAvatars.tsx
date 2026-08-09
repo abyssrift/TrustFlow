@@ -1,7 +1,8 @@
+import { useThemeColors } from '@/hooks/useThemeColors';
 import { useTicker } from '@/hooks/useTicker';
 import React from 'react';
 import { Text, View } from 'react-native';
-import { Avatar, groupSessions, StatusDot } from './activeSessionAvatarsCore';
+import { Avatar, groupSessions, StatusDot, WorkingPulse } from './activeSessionAvatarsCore';
 import type { ActiveSessionUser } from './TaskCardActions';
 
 // Native: just the overlapping avatar stack — no hover on touch devices, so
@@ -16,6 +17,7 @@ export default function ActiveSessionAvatars({
 }) {
   // Re-render each second so idle state flips as heartbeats go stale.
   useTicker(sessions?.[0]?.startedAt ?? null);
+  const colors = useThemeColors();
   if (!sessions?.length) return null;
 
   const { shown, extra, allIdle } = groupSessions(sessions);
@@ -40,6 +42,9 @@ export default function ActiveSessionAvatars({
           >
             <Text className="text-typography-muted text-[9px] font-black">+{extra}</Text>
           </View>
+        )}
+        {sessions.length <= 3 && (
+          <WorkingPulse count={sessions.length as 1 | 2 | 3} color={allIdle ? colors.warning : colors.success} />
         )}
       </View>
     </View>
