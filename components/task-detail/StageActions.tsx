@@ -849,8 +849,24 @@ export default function StageActions() {
               <TouchableOpacity
                 onPress={async () => {
                   setBusy(true);
-                  await startWork(data.task.id, data.task.title);
-                  setBusy(false);
+                  try {
+                    await startWork(data.task.id, data.task.title);
+                  } catch (err: any) {
+                    // startWork's own rpc_start_work call is deferred (see
+                    // TimerContext) and reports failures (e.g. claim-gated
+                    // rejection) via toast; this catch guards any synchronous
+                    // throw and mirrors handleAction's error-display pattern.
+                    // ponytail: TaskDetailContext doesn't expose claimed_by /
+                    // enforce_single_claimant yet, so there's no data here to
+                    // drive a "Claim Task" affordance like TaskCardActions.tsx
+                    // has -- the RPC's own message (e.g. "claimed by another
+                    // team member") is specific enough to stand alone. Upgrade
+                    // to full claim-aware UI once that data is threaded through.
+                    setErrorMsg({ title: 'Could Not Start Timer', message: err.message || 'Could not start the timer.' });
+                    setTimeout(() => setErrorMsg(null), 5000);
+                  } finally {
+                    setBusy(false);
+                  }
                 }}
                 disabled={busy}
                 className="bg-brand-primary px-6 py-2.5 rounded-xl active:opacity-75 flex-row items-center"
