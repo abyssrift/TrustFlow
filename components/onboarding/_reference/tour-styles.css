@@ -1,0 +1,83 @@
+    .tour-halo {
+      position: fixed;
+      pointer-events: none;
+      border: 3px solid var(--accent, var(--red));
+      border-radius: 10px;
+      z-index: 10000;
+      animation: ody-breathe 1.4s ease-in-out infinite;
+      opacity: 0;
+      transform: scale(0.94);
+      transition: opacity 0.35s ease-out, transform 0.35s ease-out;
+    }
+    .tour-halo.tour-fade-in {
+      opacity: 1;
+      transform: scale(1);
+    }
+    @keyframes ody-breathe {
+      0%, 100% {
+        box-shadow: 0 0 0 3px  color-mix(in srgb, var(--accent, var(--red)) 55%, transparent),
+                    0 0 22px 4px color-mix(in srgb, var(--accent, var(--red)) 40%, transparent);
+        border-color: var(--accent, var(--red));
+      }
+      50% {
+        box-shadow: 0 0 0 6px  color-mix(in srgb, var(--accent, var(--red)) 30%, transparent),
+                    0 0 40px 14px color-mix(in srgb, var(--accent, var(--red)) 70%, transparent);
+        border-color: color-mix(in srgb, var(--accent, var(--red)) 80%, transparent);
+      }
+    }
+    /* While the tour is active, lift overflow:hidden on common clipping
+       ancestors so the halo around a highlighted child isn't cropped. */
+    body.tour-active .sidebar,
+    body.tour-active .sidebar-inner,
+    body.tour-active .chat-input-bar,
+    body.tour-active .chat-input-top,
+    body.tour-active .chat-input-wrap,
+    body.tour-active .chat-input-right,
+    body.tour-active .mode-toggle,
+    body.tour-active .model-picker-wrap {
+      overflow: visible !important;
+    }
+
+    /* ── Secret tour hint (drag-to-snap on first modal open) ── */
+    .tour-hint {
+      position: fixed;
+      z-index: 10002;
+      background: var(--bg);
+      color: var(--fg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px 10px;
+      width: 240px;
+      font-size: 0.78rem;
+      line-height: 1.5;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.32);
+      opacity: 0;
+      transform: translateY(-4px);
+      transition: opacity 0.28s ease-out, transform 0.28s ease-out;
+      pointer-events: auto;
+    }
+    .tour-hint.tour-hint-in  { opacity: 1; transform: translateY(0); }
+    .tour-hint.tour-hint-out { opacity: 0; transform: translateY(-4px); }
+    .tour-hint-visual {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 8px;
+      color: var(--accent, var(--red));
+    }
+    .tour-hint-visual svg { display: block; }
+    .tour-hint-text { margin-bottom: 10px; opacity: 0.92; }
+    .tour-hint-text b { color: var(--accent, var(--red)); font-weight: 600; }
+    .tour-hint-dismiss {
+      display: block;
+      margin: 0 0 0 auto;
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--fg);
+      border-radius: 6px;
+      padding: 3px 12px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.72rem;
+      opacity: 0.85;
+      transition: opacity 0.15s, background 0.15s;
+    }
