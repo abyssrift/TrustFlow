@@ -1,5 +1,6 @@
 import { BackButton } from '@/components/common/BackButton';
 import { useAlert } from '@/contexts/AlertContext';
+import { useToast } from '@/contexts/ToastContext';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -9,6 +10,7 @@ import { ActivityIndicator, Platform, SafeAreaView, ScrollView, StatusBar, Text,
 export default function DevToolsScreen() {
   const router = useRouter();
   const { showAlert, showConfirm } = useAlert();
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
   const [seedProgress, setSeedProgress] = useState('');
   const [pipeline, setPipeline] = useState<any>(null);
@@ -154,6 +156,41 @@ export default function DevToolsScreen() {
     );
   };
 
+  // Fires the toast + sound 3s after the click returns, so by the time it
+  // runs there's no click on the call stack — same shape as a real ping
+  // arriving over the websocket. A same-tick test would trivially pass even
+  // if the browser is blocking autoplay on the real (gesture-less) path.
+  const testPing = async () => {
+    const [{ data: sound }, { data: task }] = await Promise.all([
+      supabase.from('company_ping_sounds').select('sound_url').maybeSingle(),
+      supabase.from('tasks').select('id, title').is('deleted_at', null).limit(1).maybeSingle(),
+    ]);
+
+    logProgress(`🔔 Ping test: sound ${sound?.sound_url ? 'configured' : 'MISSING'}, target task ${task ? `"${task.title}"` : 'MISSING'}`);
+    logProgress('Firing in 3s (simulating a real, gesture-less websocket ping)...');
+
+    setTimeout(async () => {
+      if (Platform.OS === 'web' && sound?.sound_url) {
+        new (window as any).Audio(sound.sound_url).play()
+          .then(() => logProgress('✅ Sound played'))
+          .catch((err: any) => logProgress(`❌ Sound blocked: ${err.name} — ${err.message}`));
+      } else if (Platform.OS !== 'web') {
+        logProgress('ℹ️ Sound test is web-only here — native uses expo-audio via useGlobalPingListener directly');
+      } else {
+        logProgress('⚠️ No company_ping_sounds row for this company — nothing to play');
+      }
+
+      showToast({
+        type: 'success',
+        title: 'Pinged! (test)',
+        message: task ? `You were pinged on "${task.title}"` : 'Test ping — no task found to link to',
+        duration: 6000,
+        onPress: () => router.push((task ? `/task/${task.id}` : '/(tabs)') as any),
+      });
+      logProgress('Toast shown — tap it, it should open the task.');
+    }, 3000);
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-surface-background" style={Platform.OS === 'android' ? { paddingTop: StatusBar.currentHeight } : {}}>
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
@@ -240,7 +277,7 @@ export default function DevToolsScreen() {
             <TouchableOpacity
               onPress={clearTasks}
               disabled={loading}
-              className={`rounded-xl border-2 border-red-500/50 bg-red-500/10 p-4 ${loading ? 'opacity-60' : ''}`}
+              className={`rounded-xl border-2 border-red-500/50 bg-red-500/10 p-4 mb-3 ${loading ? 'opacity-60' : ''}`}
             >
               <View className="flex-row items-start justify-between">
                 <View className="flex-1">
@@ -248,6 +285,20 @@ export default function DevToolsScreen() {
                   <Text className="text-red-600/70 text-xs mt-1">Remove all seeded data. Useful for fresh starts.</Text>
                 </View>
                 <FontAwesome name="chevron-right" size={12} color="#dc2626" />
+              </View>
+            </TouchableOpacity>
+
+            {/* Test Ping */}
+            <TouchableOpacity
+              onPress={testPing}
+              className="rounded-xl border-2 border-emerald-500 bg-emerald-500/10 p-4"
+            >
+              <View className="flex-row items-start justify-between">
+                <View className="flex-1">
+                  <Text className="text-emerald-600 font-bold">Test Ping (3s delay)</Text>
+                  <Text className="text-emerald-600/70 text-xs mt-1">Simulates a real ping — toast + sound fire with no click on the call stack. Tap the toast after to test navigation.</Text>
+                </View>
+                <FontAwesome name="chevron-right" size={12} color="#059669" />
               </View>
             </TouchableOpacity>
           </View>

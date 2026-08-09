@@ -1,10 +1,14 @@
 import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
+import { Asset } from 'expo-asset';
 import { supabase, freshChannel } from '@/lib/supabase';
 import { useToast } from '@/contexts/ToastContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePingHighlight } from '@/contexts/PingHighlightContext';
 import { useRouter } from 'expo-router';
+
+// Bundled fallback used whenever a company hasn't uploaded its own sound.
+const DEFAULT_PING_SOUND = Asset.fromModule(require('@/assets/sounds/ping-default.mp3'));
 
 // Mounted once at app root (both _layout.tsx and _layout.web.tsx). Keeps a
 // single WebSocket channel alive for the current user and plays the ping
@@ -20,6 +24,28 @@ export const useGlobalPingListener = () => {
   const { addPingedTask } = usePingHighlight();
   const router = useRouter();
   const playerRef = useRef<any>(null);
+  const primedRef = useRef(false);
+
+  // Browsers block HTMLMediaElement.play() unless the page has already seen a
+  // user gesture — a ping arriving over the websocket never has one, so the
+  // very first ping after page load silently fails autoplay. Prime the same
+  // element with a play()+pause() on the user's first click/keypress so the
+  // browser marks it as already-activated; every ping after that plays normally.
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const primeAudio = () => {
+      const player = playerRef.current;
+      if (!player || primedRef.current) return;
+      primedRef.current = true;
+      player.play().then(() => player.pause()).catch(() => { primedRef.current = false; });
+    };
+    window.addEventListener('pointerdown', primeAudio);
+    window.addEventListener('keydown', primeAudio);
+    return () => {
+      window.removeEventListener('pointerdown', primeAudio);
+      window.removeEventListener('keydown', primeAudio);
+    };
+  }, []);
 
   // Preload the company ping sound once per session
   useEffect(() => {
@@ -30,14 +56,15 @@ export const useGlobalPingListener = () => {
       const { data, error } = await supabase
         .from('company_ping_sounds')
         .select('sound_url')
-        .single();
+        .maybeSingle();
 
-      const url = data?.sound_url ?? null;
-      console.log('[PingListener] sound url loaded:', url?.slice(0, 80) ?? null, 'error:', error?.message ?? null);
-      if (!url || cancelled) return;
+      const companyUrl = data?.sound_url ?? null;
+      console.log('[PingListener] sound url loaded:', companyUrl?.slice(0, 80) ?? '(using default)', 'error:', error?.message ?? null);
+      if (cancelled) return;
 
       try {
         if (Platform.OS === 'web') {
+          const url = companyUrl ?? DEFAULT_PING_SOUND.uri;
           const audio = new Audio(url);
           audio.preload = 'auto';
           playerRef.current = audio;
@@ -45,23 +72,31 @@ export const useGlobalPingListener = () => {
           return;
         }
 
-        // Native: cache the file locally, keyed by upload version
-        const version = url.split('?v=')[1]?.split('&')[0] ?? 'default';
-        const { File, Paths } = await import('expo-file-system') as any;
-        const file = new File(Paths.cache, `ping-sound-${version}.mp3`);
-
-        if (!file.exists) {
-          console.log('[PingListener] downloading sound to cache...');
-          await File.downloadFileAsync(url, file);
-        }
-        if (cancelled) return;
-
         const ExpoAudio = await import('expo-audio') as any;
         await ExpoAudio.setAudioModeAsync({ playsInSilentMode: true }).catch(() => {});
-        const player = ExpoAudio.createAudioPlayer({ uri: file.uri });
+
+        let fileUri: string;
+        if (companyUrl) {
+          // Company override: cache the remote file locally, keyed by upload version
+          const version = companyUrl.split('?v=')[1]?.split('&')[0] ?? 'default';
+          const { File, Paths } = await import('expo-file-system') as any;
+          const file = new File(Paths.cache, `ping-sound-${version}.mp3`);
+          if (!file.exists) {
+            console.log('[PingListener] downloading sound to cache...');
+            await File.downloadFileAsync(companyUrl, file);
+          }
+          if (cancelled) return;
+          fileUri = file.uri;
+        } else {
+          // Default: bundled asset, no network fetch needed
+          await DEFAULT_PING_SOUND.downloadAsync();
+          fileUri = DEFAULT_PING_SOUND.localUri ?? DEFAULT_PING_SOUND.uri;
+        }
+
+        const player = ExpoAudio.createAudioPlayer({ uri: fileUri });
         player.volume = 1.0;
         playerRef.current = player;
-        console.log('[PingListener] native audio preloaded from:', file.uri);
+        console.log('[PingListener] native audio preloaded from:', fileUri);
       } catch (err: any) {
         console.warn('[PingListener] sound preload failed:', err?.message);
       }

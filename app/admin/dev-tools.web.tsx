@@ -1,4 +1,5 @@
 import { useAlert } from '@/contexts/AlertContext';
+import { useToast } from '@/contexts/ToastContext';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
@@ -8,6 +9,7 @@ import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'rea
 export default function DevToolsScreenWeb() {
   const router = useRouter();
   const { showAlert } = useAlert();
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
   const [seedProgress, setSeedProgress] = useState('');
   const [pipeline, setPipeline] = useState<any>(null);
@@ -129,6 +131,39 @@ export default function DevToolsScreenWeb() {
     }
   };
 
+  // Fires the toast + sound 3s after the click returns, so by the time it
+  // runs there's no click on the call stack — same shape as a real ping
+  // arriving over the websocket. A same-tick test would trivially pass even
+  // if the browser is blocking autoplay on the real (gesture-less) path.
+  const testPing = async () => {
+    const [{ data: sound }, { data: task }] = await Promise.all([
+      supabase.from('company_ping_sounds').select('sound_url').maybeSingle(),
+      supabase.from('tasks').select('id, title').is('deleted_at', null).limit(1).maybeSingle(),
+    ]);
+
+    logProgress(`🔔 Ping test: sound ${sound?.sound_url ? 'configured' : 'MISSING'}, target task ${task ? `"${task.title}"` : 'MISSING'}`);
+    logProgress('Firing in 3s (simulating a real, gesture-less websocket ping)...');
+
+    setTimeout(() => {
+      if (sound?.sound_url) {
+        new Audio(sound.sound_url).play()
+          .then(() => logProgress('✅ Sound played'))
+          .catch((err: any) => logProgress(`❌ Sound blocked: ${err.name} — ${err.message}`));
+      } else {
+        logProgress('⚠️ No company_ping_sounds row for this company — nothing to play');
+      }
+
+      showToast({
+        type: 'success',
+        title: 'Pinged! (test)',
+        message: task ? `You were pinged on "${task.title}"` : 'Test ping — no task found to link to',
+        duration: 6000,
+        onPress: () => router.push((task ? `/task/${task.id}` : '/(tabs)') as any),
+      });
+      logProgress('Toast shown — tap it, it should open the task.');
+    }, 3000);
+  };
+
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
@@ -227,6 +262,23 @@ export default function DevToolsScreenWeb() {
                 <Text className="text-red-600 font-bold text-sm mb-2">Remove Tasks</Text>
                 <Text className="text-red-600/70 text-xs leading-relaxed">
                   Deletes all seeded data. Useful for starting fresh with a clean slate.
+                </Text>
+              </TouchableOpacity>
+
+              {/* Test Ping Card */}
+              <TouchableOpacity
+                onPress={testPing}
+                className="flex-1 min-w-80 rounded-2xl border-2 border-emerald-500 bg-emerald-500/10 p-6 hover:bg-emerald-500/20 transition-colors"
+              >
+                <View className="flex-row items-start justify-between mb-3">
+                  <FontAwesome name="bell" size={20} color="#059669" />
+                  <Text className="text-emerald-600 font-black text-xs">3S DELAY</Text>
+                </View>
+                <Text className="text-emerald-600 font-black text-lg mb-1">Test Ping</Text>
+                <Text className="text-emerald-600 font-bold text-sm mb-2">Toast + Sound + Click</Text>
+                <Text className="text-emerald-600/70 text-xs leading-relaxed">
+                  Fires a simulated ping 3s after you click, so it lands with no gesture on the
+                  call stack — same as a real one. Check the log below and try tapping the toast.
                 </Text>
               </TouchableOpacity>
             </View>
