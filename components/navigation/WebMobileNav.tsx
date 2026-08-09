@@ -5,12 +5,14 @@ import { NavPosition } from '@/hooks/useNavBarPosition';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { useUnreadNotificationAttention } from '@/hooks/useUnreadNotificationAttention';
 import { addAlpha } from '@/lib/layout';
+import { useTourAction } from '@/lib/tour/TourContext';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Link, useLocalSearchParams, usePathname, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, LayoutAnimation, Modal, Platform, Pressable, ScrollView, Text, Vibration, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Tooltip from '../common/Tooltip';
+import WebMobileNavItem from './WebMobileNavItem';
 
 type IconName = React.ComponentProps<typeof FontAwesome>['name'];
 
@@ -55,6 +57,7 @@ export default function WebMobileNav({
 
   const insets = useSafeAreaInsets();
   const handleClose = () => setDrawerOpen(false);
+  useTourAction('open-mobile-nav', () => setDrawerOpen(true));
 
   // ponytail: closes the drawer on any route change (including browser/hardware
   // back) so it can't get stuck open over a page it no longer belongs to.
@@ -229,26 +232,16 @@ export default function WebMobileNav({
 
           <ScrollView className="flex-1 px-4 py-4">
             <Text className="mb-2 ml-2 text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>Navigation</Text>
-            {visibleShortcuts.map((s) => {
-              const isActive = matchesHref(pathname, s.href);
-              const badge = s.id === 'filehub' ? fileHubBadge : 0;
-              return (
-                <Link key={s.id} href={s.href as any} asChild onPress={handleClose}>
-                  <Pressable
-                    className="flex-row items-center p-4 rounded-xl mb-2 border"
-                    style={{ backgroundColor: isActive ? addAlpha(colors.primary, 0.1) : colors.card, borderColor: isActive ? addAlpha(colors.primary, 0.3) : colors.border }}
-                  >
-                    <FontAwesome name={s.icon} size={18} color={isActive ? colors.primary : colors.textMain} className="w-8" />
-                    <Text className="font-bold ml-2 flex-1" style={{ color: isActive ? colors.primary : colors.textMain }}>{s.label}</Text>
-                    {badge > 0 && (
-                      <View className="min-w-5 h-5 rounded-full bg-red-500 items-center justify-center px-1">
-                        <Text className="text-[10px] font-black text-white leading-none">{badge > 99 ? '99+' : badge}</Text>
-                      </View>
-                    )}
-                  </Pressable>
-                </Link>
-              );
-            })}
+            {visibleShortcuts.map((s) => (
+              <WebMobileNavItem
+                key={s.id}
+                shortcut={s}
+                isActive={matchesHref(pathname, s.href)}
+                badge={s.id === 'filehub' ? fileHubBadge : 0}
+                colors={colors}
+                onPress={handleClose}
+              />
+            ))}
 
             {isPlatformAdmin && (
               <View className="mt-4">
