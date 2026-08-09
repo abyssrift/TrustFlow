@@ -46,8 +46,8 @@ BEGIN
   INSERT INTO public.pipeline_stages (pipeline_id, name, position)
   VALUES (v_pipeline, 'C', 2) RETURNING id INTO v_stage_c;
 
-  INSERT INTO public.tasks (company_id, title, pipeline_id, current_stage_id)
-  VALUES (v_co, 'Revert Check Task', v_pipeline, v_stage_a)
+  INSERT INTO public.tasks (company_id, title, pipeline_id, current_stage_id, created_by)
+  VALUES (v_co, 'Revert Check Task', v_pipeline, v_stage_a, v_attacker)
   RETURNING id INTO v_task;
 
   -- Advance A -> B -> C as system (no auth context; mirrors how
@@ -117,8 +117,8 @@ BEGIN
     v_task2 UUID;
     v_rejected2 BOOLEAN := false;
   BEGIN
-    INSERT INTO public.tasks (company_id, title, pipeline_id, current_stage_id)
-    VALUES (v_co, 'Revert Check Task 2', v_pipeline, v_stage_a)
+    INSERT INTO public.tasks (company_id, title, pipeline_id, current_stage_id, created_by)
+    VALUES (v_co, 'Revert Check Task 2', v_pipeline, v_stage_a, v_attacker)
     RETURNING id INTO v_task2;
 
     BEGIN
