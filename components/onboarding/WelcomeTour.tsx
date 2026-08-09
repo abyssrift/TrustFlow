@@ -22,7 +22,7 @@ type Step = {
  * CLASSES render black inside a Modal on web, so all colored text/icons use
  * inline styles from useThemeColors instead.
  */
-export default function WelcomeTour() {
+export default function WelcomeTour({ onComplete }: { onComplete?: () => void } = {}) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const { profile, hasPermission, refreshProfile } = useAuth();
@@ -77,6 +77,7 @@ export default function WelcomeTour() {
   const finish = async () => {
     setSaving(true);
     setDismissed(true); // hide immediately for a snappy feel
+    onComplete?.();
     try {
       await supabase.rpc('rpc_complete_onboarding');
       await refreshProfile();
