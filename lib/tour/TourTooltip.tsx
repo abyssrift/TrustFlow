@@ -39,7 +39,6 @@ export default function TourTooltip({
         fontSize: 13,
         lineHeight: '19px',
         boxShadow: '0 6px 24px rgba(0,0,0,0.32)',
-        zIndex: 10001,
       }}
     >
       {title && <div style={{ fontWeight: 800, marginBottom: 6 }}>{title}</div>}

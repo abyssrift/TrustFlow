@@ -43,6 +43,7 @@ export default function TourOverlay() {
         }
         return;
       }
+      node.scrollIntoView?.({ block: 'nearest' });
       const r = node.getBoundingClientRect();
       setRect({ left: r.left, top: r.top, width: r.width, height: r.height });
     };
@@ -85,7 +86,7 @@ export default function TourOverlay() {
       <Halo rect={rect} color={colors.primary} />
       <div
         ref={tipRef}
-        style={{ position: 'fixed', left: pos?.left ?? 0, top: pos?.top ?? 0, visibility: pos ? 'visible' : 'hidden' }}
+        style={{ position: 'fixed', left: pos?.left ?? 0, top: pos?.top ?? 0, visibility: pos ? 'visible' : 'hidden', zIndex: 10001 }}
       >
         <TourTooltip
           title={current.title}

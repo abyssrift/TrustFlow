@@ -1,7 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useEffect, useRef } from 'react';
-import { Platform } from 'react-native';
+import { useEffect, useMemo, useRef } from 'react';
+import { Platform, useWindowDimensions } from 'react-native';
 import { SHORTCUTS } from '@/components/sidebar/constants';
+import { useAuth } from '@/contexts/AuthContext';
 import { useTour } from './TourContext';
 import type { TourStep } from './types';
 
@@ -33,8 +34,36 @@ export const navTourSteps: TourStep[] = SHORTCUTS.map((s) => ({
  */
 export function useNavTourAutoStart(ready: boolean) {
   const { active, startTour } = useTour();
+  const { hasPermission, profile } = useAuth();
+  const { width } = useWindowDimensions();
+  const isMobile = width < 768;
   const startedRef = useRef(false);
   const wasActiveRef = useRef(false);
+
+  // Mirrors components/Sidebar.web.tsx's `visibleShortcuts` filter exactly —
+  // the tour must only show steps for items the user will actually see.
+  // Can't filter by checking DOM registration (getTarget(...)?.current)
+  // instead: mobile drawer items don't register until the drawer opens,
+  // which only happens *during* the tour itself, so at start time zero
+  // mobile items are registered and that approach would produce an empty
+  // tour on mobile.
+  const eligibleSteps = useMemo(
+    () =>
+      navTourSteps.filter((step) => {
+        const s = SHORTCUTS.find((sc) => `nav-${sc.id}` === step.targetId);
+        if (!s) return false;
+        return (
+          s.id === 'dashboard' ||
+          s.id === 'tasks' ||
+          (isMobile && (s.id === 'search' || s.id === 'deadlines')) ||
+          (profile?.is_owner && (s.id === 'team' || s.id === 'pipelines-admin')) ||
+          (s.anyPermissions ? s.anyPermissions.some((p) => hasPermission(p)) : false) ||
+          (!!s.permissionKey && hasPermission(s.permissionKey)) ||
+          (!!s.fallbackPermissionKey && hasPermission(s.fallbackPermissionKey))
+        );
+      }),
+    [hasPermission, profile?.is_owner, isMobile]
+  );
 
   useEffect(() => {
     if (Platform.OS !== 'web') return;
@@ -43,10 +72,10 @@ export function useNavTourAutoStart(ready: boolean) {
     AsyncStorage.getItem(NAV_TOUR_SEEN_KEY).then((seen) => {
       if (cancelled || seen) return;
       startedRef.current = true;
-      startTour(navTourSteps);
+      startTour(eligibleSteps);
     });
     return () => { cancelled = true; };
-  }, [ready, startTour]);
+  }, [ready, startTour, eligibleSteps]);
 
   useEffect(() => {
     if (wasActiveRef.current && !active) {
