@@ -20,9 +20,6 @@ export default function TourOverlay() {
   const tipRef = useRef<HTMLDivElement>(null);
   const [rect, setRect] = useState<Rect | null>(null);
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
-  // Guards against re-firing next() every measure retry once a target is
-  // confirmed missing for the *current* step (permission-hidden item, etc.).
-  const skippedForTarget = useRef<string | null>(null);
 
   useEffect(() => {
     setRect(null);
@@ -31,12 +28,17 @@ export default function TourOverlay() {
     if (current.beforeActionId) runAction(current.beforeActionId);
 
     let cancelled = false;
+    // Guards against re-firing next() on every resize/scroll-triggered
+    // measure() retry within this single effect instance. Local, not a ref,
+    // so it resets naturally on every step change (forward or backward) —
+    // a target missing on visit N must still be skippable on visit N+1.
+    let skipped = false;
     const measure = () => {
       if (cancelled) return;
       const node = getTarget(current.targetId)?.current as any;
       if (!node?.getBoundingClientRect) {
-        if (skippedForTarget.current !== current.targetId) {
-          skippedForTarget.current = current.targetId;
+        if (!skipped) {
+          skipped = true;
           next();
         }
         return;
