@@ -46,7 +46,7 @@ BEGIN
   DELETE FROM public.user_roles WHERE user_id = v_claimant;
 
   INSERT INTO public.teams (company_id, name) VALUES (v_co, 'ZZ Claiming Team') RETURNING id INTO v_team;
-  INSERT INTO public.team_members (team_id, user_id) VALUES (v_team, v_claimant);
+  INSERT INTO public.team_members (team_id, user_id, company_id) VALUES (v_team, v_claimant, v_co);
 
   INSERT INTO public.pipelines (company_id, name, subject_kind)
   VALUES (v_co, 'Claiming Check Pipeline', 'task') RETURNING id INTO v_pipe;
@@ -95,7 +95,7 @@ BEGIN
   PERFORM public.rpc_set_team_claiming(v_team, true);
   RESET ROLE;
 
-  INSERT INTO public.task_assignments (task_id, company_id, assignee_team_id) VALUES (v_task, v_co, v_team);
+  INSERT INTO public.task_assignments (task_id, company_id, assignee_team_id, assigned_by) VALUES (v_task, v_co, v_team, v_claimant);
 
   -- Assert 3: a bystander (not on the team) cannot claim.
   v_rejected := false;
@@ -150,7 +150,40 @@ BEGIN
     END IF;
   END;
 
-  RAISE NOTICE 'OK: rpc_set_team_claiming is permission-gated, rpc_claim_task restricts claiming to team members and is exclusive/idempotent, and the claim auto-releases on stage change';
+  -- Review fix (PR #206): rpc_update_task_assignments used to clear a
+  -- claim on ANY assignment edit, because the DELETE-then-reinsert it does
+  -- as one call fired a per-row DELETE trigger before the reinsert could
+  -- show whether the claimant was still eligible. Re-claim (the stage
+  -- change above released it) and prove the RPC itself is now claim-aware.
+
+  -- Assert 7: re-claim, then ADD an assignee (bystander) alongside the
+  -- still-assigned team -- the claimant's own path (team membership) is
+  -- untouched by the edit, so the claim must survive.
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', v_claimant::text, 'role', 'authenticated')::text, true);
+  EXECUTE 'SET LOCAL ROLE authenticated';
+  PERFORM public.rpc_claim_task(v_task);
+  PERFORM public.rpc_update_task_assignments(v_task, ARRAY[v_bystander], ARRAY[v_team]);
+  RESET ROLE;
+
+  SELECT claimed_by INTO v_claimed_by FROM public.tasks WHERE id = v_task;
+  IF v_claimed_by IS DISTINCT FROM v_claimant THEN
+    RAISE EXCEPTION 'CHECK FAILED: adding an assignee via rpc_update_task_assignments cleared an existing claim (claimed_by is %, expected %)', v_claimed_by, v_claimant;
+  END IF;
+
+  -- Assert 8: now remove the claimant's actual assignment path (drop the
+  -- team from the assignment set, keep only the bystander) -- the claim
+  -- must be cleared, since the claimant is no longer eligible.
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', v_claimant::text, 'role', 'authenticated')::text, true);
+  EXECUTE 'SET LOCAL ROLE authenticated';
+  PERFORM public.rpc_update_task_assignments(v_task, ARRAY[v_bystander], '{}'::uuid[]);
+  RESET ROLE;
+
+  SELECT claimed_by INTO v_claimed_by FROM public.tasks WHERE id = v_task;
+  IF v_claimed_by IS NOT NULL THEN
+    RAISE EXCEPTION 'CHECK FAILED: removing the claimants assignment via rpc_update_task_assignments left claimed_by = % (expected NULL)', v_claimed_by;
+  END IF;
+
+  RAISE NOTICE 'OK: rpc_set_team_claiming is permission-gated, rpc_claim_task restricts claiming to team members and is exclusive/idempotent, the claim auto-releases on stage change, and rpc_update_task_assignments preserves a claim when adding an assignee but clears it when the claimants own assignment is removed';
 END $$;
 
 ROLLBACK;
