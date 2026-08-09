@@ -499,10 +499,11 @@ function TasksScreen() {
             *,
             project:project_id(id, name),
             manager:manager_id(id, full_name),
+            claimed_by_user:claimed_by(full_name),
             assignments:task_assignments(
               assignee_user_id,
               assignee_team_id,
-              team:assignee_team_id(name),
+              team:assignee_team_id(name, enforce_single_claimant),
               user:assignee_user_id(full_name)
             )
           `)
@@ -615,10 +616,11 @@ function TasksScreen() {
           *,
           project:project_id(id, name),
           manager:manager_id(id, full_name),
+          claimed_by_user:claimed_by(full_name),
           assignments:task_assignments(
             assignee_user_id,
             assignee_team_id,
-            team:assignee_team_id(name),
+            team:assignee_team_id(name, enforce_single_claimant),
             user:assignee_user_id(full_name)
           )
         `)
@@ -994,6 +996,7 @@ function TasksScreen() {
             transitions={stageTransitions}
             activeSessions={activeSessions}
             userId={user?.id || ''}
+            myTeamIds={myTeamIds}
             onRefresh={silentRefresh}
           />
         </View>

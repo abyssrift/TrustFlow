@@ -57,10 +57,15 @@ type Task = {
   id: string;
   title: string;
   current_stage_id: string;
+  claimed_by?: string | null;
+  /** #25: joined from tasks.claimed_by — the actual claimant's name, since
+   * team-only claims have no matching row in `assignments` to look up. */
+  claimed_by_user?: { full_name: string } | null;
   assignments?: {
     assignee_user_id: string | null;
     assignee_team_id: string | null;
     user?: { full_name: string } | null;
+    team?: { name: string; enforce_single_claimant?: boolean } | null;
   }[];
 };
 
@@ -71,6 +76,8 @@ type Props = {
   transitions?: { id: string; to_stage_id: string }[];
   activeSessions: Record<string, ActiveSessionUser[]>;
   userId: string;
+  /** Team ids the current user belongs to — used to gate the #25 claim button to eligible team members. */
+  myTeamIds?: string[];
   onRefresh: () => void;
   /** Optional optimistic hook: fired the instant a stage-changing RPC succeeds, before onRefresh(). */
   onMoved?: (taskId: string, toStageId: string) => void;
@@ -91,7 +98,7 @@ const ACTION_STYLES: Record<string, { bg: string; border: string; text: string }
 
 
 // ─── Component ────────────────────────────────────────────────
-export default function TaskCardActions({ task, stages, stageActions, transitions = [], activeSessions, userId, onRefresh, onMoved, onSessionStarted, onArchived }: Props) {
+export default function TaskCardActions({ task, stages, stageActions, transitions = [], activeSessions, userId, myTeamIds = [], onRefresh, onMoved, onSessionStarted, onArchived }: Props) {
   const router = useRouter();
   const colors = useThemeColors();
   const { hasPermission, profile } = useAuth();
@@ -107,6 +114,28 @@ export default function TaskCardActions({ task, stages, stageActions, transition
   // ─── Derived State ───────────────────────────────────────
   const isAssignedToUser = (task.assignments || []).some(a => a.assignee_user_id !== null);
   const isMyTask = (task.assignments || []).some(a => a.assignee_user_id === userId);
+
+  // #25: single-claimant enforcement — only relevant when this task is
+  // assigned to a team that has claiming turned on.
+  const claimingEnforced = (task.assignments || []).some(a => a.team?.enforce_single_claimant === true);
+  const isClaimedByMe = task.claimed_by === userId;
+  const isClaimedByOther = claimingEnforced && !!task.claimed_by && !isClaimedByMe;
+  const canClaim = claimingEnforced && !task.claimed_by && (
+    isMyTask ||
+    (task.assignments || []).some(a => a.assignee_team_id && a.team?.enforce_single_claimant && myTeamIds.includes(a.assignee_team_id))
+  );
+  // #25 Bug 1: eligible to see "Start Timer" — either I already hold the
+  // claim, or (the ordinary, non-claiming case) I'm directly assigned and
+  // no team on this task has claiming turned on. Mirrors rpc_start_work's
+  // gate: it only checks claimed_by when an enforcing team is assigned.
+  const canStartTimer = isClaimedByMe || (isMyTask && !claimingEnforced);
+  // #25 Bug 3: team-only claims have no `assignments` row keyed by the
+  // claimant (assignee_user_id is null for team rows), so the embed from
+  // the board query is the real source of truth; the assignments lookup is
+  // just a defensive fallback for the rare case the embed came back null.
+  const claimantName = task.claimed_by_user?.full_name
+    || (task.assignments || []).find(a => a.assignee_user_id === task.claimed_by)?.user?.full_name
+    || 'another team member';
   const currentStage = stages.find(s => s.id === task.current_stage_id);
   const stageRequiresTimer = currentStage?.requires_timer ?? false;
   const isInitialStage = currentStage?.is_initial ?? false;
@@ -289,14 +318,28 @@ export default function TaskCardActions({ task, stages, stageActions, transition
     }
   };
 
-  // Claim task (only for timer-required stages)
+  // #25: claim this task among its already-assigned team members, becoming
+  // the sole active worker until the task changes stage or gets unassigned.
   const handleClaim = async () => {
     setLoadingAction('__claim__');
     try {
       const { error } = await supabase.rpc('rpc_claim_task', { p_task_id: task.id });
       if (error) {
-         if (error.message?.includes('already claimed') || error.code === 'P0001') {
+         // #25 Bug 4: rpc_claim_task's RAISE EXCEPTION calls all default to
+         // SQLSTATE P0001 (no USING ERRCODE), so error.code can't tell them
+         // apart — match on the actual message text instead, the way
+         // TaskHeader.tsx's handleAction already does for LOW_TIMER_TIME.
+         if (error.message?.includes('already claimed by another team member')) {
             throw new Error('This task is already claimed. Please refresh the board.');
+         }
+         if (error.message?.includes('claiming is not enabled')) {
+            throw new Error('Claiming is not enabled for this task anymore. Please refresh the board.');
+         }
+         if (error.message?.includes('Only a member already assigned')) {
+            throw new Error('Only a team member already assigned to this task can claim it.');
+         }
+         if (error.message?.includes('Task not found')) {
+            throw new Error('This task no longer exists. Please refresh the board.');
          }
          throw error;
       }
@@ -416,8 +459,8 @@ export default function TaskCardActions({ task, stages, stageActions, transition
     );
   }
 
-  // ─── STATE: Timer Required + Unassigned → Claim Task ────────
-  if (stageRequiresTimer && !isAssignedToUser) {
+  // ─── STATE: #25 — unclaimed, this task requires claiming, I'm eligible ────
+  if (canClaim) {
     return (
       <DirectionalActionButton
         direction="forward"
@@ -428,6 +471,17 @@ export default function TaskCardActions({ task, stages, stageActions, transition
         loading={loadingAction === '__claim__'}
         onPress={handleClaim}
       />
+    );
+  }
+
+  // ─── STATE: #25 — claimed by someone else, work is locked to them ────
+  if (isClaimedByOther) {
+    return (
+      <View className="bg-surface-overlay py-2.5 rounded-xl border border-surface-border items-center justify-center">
+        <Text className="text-typography-muted font-bold text-[10px] uppercase tracking-widest">
+          Claimed by {claimantName}
+        </Text>
+      </View>
     );
   }
 
@@ -446,8 +500,8 @@ export default function TaskCardActions({ task, stages, stageActions, transition
     );
   }
 
-  // ─── STATE: My task + Timer required + No active session ────
-  if (isMyTask && stageRequiresTimer && !isTimerActive) {
+  // ─── STATE: Claimed by me (or ordinary direct assignment) + Timer required + No active session ────
+  if (canStartTimer && stageRequiresTimer && !isTimerActive) {
     return (
       <DirectionalActionButton
         direction="forward"
@@ -469,6 +523,23 @@ export default function TaskCardActions({ task, stages, stageActions, transition
 
   // No actions configured — fallback advance
   if (availableActions.length === 0) {
+    // ─── STATE: #25 Bug 2 — timer required, but no legitimate start-timer
+    // path applies (e.g. assigned only via a non-enforcing team) — the
+    // fallback "Advance" below calls rpc_advance_stage, which has NO timer
+    // enforcement server-side, so never let it bypass the requirement, and
+    // never dead-end with zero buttons either.
+    if (stageRequiresTimer && !isTimerActive && !canStartTimer) {
+      return (
+        <DirectionalActionButton
+          direction="forward"
+          block
+          color={colors.warning}
+          label="🔒 Timer Required"
+          disabled
+          onPress={() => {}}
+        />
+      );
+    }
     return (
       <View>
         {hasPermission('task.update') && (

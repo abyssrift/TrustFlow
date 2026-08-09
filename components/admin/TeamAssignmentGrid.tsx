@@ -16,7 +16,7 @@ cssInterop(FontAwesome, {
 
 export default function TeamAssignmentGrid() {
   const colors = useThemeColors();
-  const { teams, roles, teamRoles, updateTeamAssignments, createTeam, loading } = useRoleManager();
+  const { teams, roles, teamRoles, updateTeamAssignments, setTeamClaiming, createTeam, loading } = useRoleManager();
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [draftRoleIds, setDraftRoleIds] = useState<string[]>([]);
@@ -35,6 +35,11 @@ export default function TeamAssignmentGrid() {
     if (!selectedTeam) return;
     const success = await updateTeamAssignments(selectedTeam.id, draftRoleIds);
     if (success) setSelectedTeam(null);
+  };
+
+  const handleToggleClaiming = async (enabled: boolean) => {
+    if (!selectedTeam) return;
+    await setTeamClaiming(selectedTeam.id, enabled);
   };
 
   const handleCreateTeam = async () => {
@@ -131,12 +136,13 @@ export default function TeamAssignmentGrid() {
       <TeamRolesSheet
         visible={!!selectedTeam}
         onClose={() => setSelectedTeam(null)}
-        team={selectedTeam}
+        team={selectedTeam ? teams.find(t => t.id === selectedTeam.id) ?? selectedTeam : null}
         roles={roles}
         draftRoleIds={draftRoleIds}
         onToggleRole={(id) => setDraftRoleIds(prev => prev.includes(id) ? prev.filter(r => r !== id) : [...prev, id])}
         onSave={handleSave}
         loading={loading}
+        onToggleClaiming={handleToggleClaiming}
       />
     </View>
   );

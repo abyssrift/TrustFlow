@@ -2,6 +2,7 @@ import React, { createContext, useContext, useCallback, useMemo, useState, useRe
 import { Platform, AppState, AppStateStatus, DeviceEventEmitter } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, supabaseUrl, supabaseAnonKey, freshChannel } from '@/lib/supabase';
+import { toastError } from '@/lib/toast';
 import { useAuth } from './AuthContext';
 import { useSmartTimer } from '@/hooks/useSmartTimer';
 import { useActivityMarks } from '@/hooks/useActivityMarks';
@@ -300,6 +301,17 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
         await fetchActiveSession();
       } catch (err: any) {
         console.error('[Timer] Commit failed:', err);
+        // The optimistic 'pending' session never landed server-side (e.g. a
+        // claim-gated rpc_start_work rejection) -- revert the phantom timer
+        // instead of leaving it ticking with nothing tracked server-side.
+        // TimerProvider sits above ToastProvider in the tree (see app/_layout),
+        // so useToast() isn't reachable here -- use the lib/toast bridge
+        // non-React code is expected to use instead.
+        if (activeSessionRef.current?.id === 'pending' && activeSessionRef.current.task_id === taskId) {
+          setActiveSession(null);
+        }
+        await AsyncStorage.removeItem(ASYNC_STORAGE_KEY);
+        toastError(err.message || 'Could not start the timer.', 'Timer failed to start');
       } finally {
         setIsCommitting(false);
         commitTimeoutRef.current = null;

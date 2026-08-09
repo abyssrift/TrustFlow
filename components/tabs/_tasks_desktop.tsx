@@ -506,10 +506,11 @@ export function TasksScreenWeb() {
           *,
           project:project_id(id, name),
           manager:manager_id(id, full_name),
+          claimed_by_user:claimed_by(full_name),
           assignments:task_assignments(
             assignee_user_id,
             assignee_team_id,
-            team:assignee_team_id(name),
+            team:assignee_team_id(name, enforce_single_claimant),
             user:assignee_user_id(full_name)
           ),
           submission_count:task_submissions(count),
@@ -661,10 +662,11 @@ export function TasksScreenWeb() {
           *,
           project:project_id(id, name),
           manager:manager_id(id, full_name),
+          claimed_by_user:claimed_by(full_name),
           assignments:task_assignments(
             assignee_user_id,
             assignee_team_id,
-            team:assignee_team_id(name),
+            team:assignee_team_id(name, enforce_single_claimant),
             user:assignee_user_id(full_name)
           ),
           submission_count:task_submissions(count),
@@ -1146,6 +1148,7 @@ export function TasksScreenWeb() {
             transitions={stageTransitions}
             activeSessions={activeSessions}
             userId={user?.id || ''}
+            myTeamIds={myTeamIds}
             onRefresh={debouncedFetchData}
             onMoved={(taskId, toStageId) => {
               // Tag own moves too, so the actor chip shows for self-moves —
