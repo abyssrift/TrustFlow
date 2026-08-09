@@ -497,6 +497,7 @@ function TasksScreen() {
             *,
             project:project_id(id, name),
             manager:manager_id(id, full_name),
+            claimed_by_user:claimed_by(full_name),
             assignments:task_assignments(
               assignee_user_id,
               assignee_team_id,
@@ -613,6 +614,7 @@ function TasksScreen() {
           *,
           project:project_id(id, name),
           manager:manager_id(id, full_name),
+          claimed_by_user:claimed_by(full_name),
           assignments:task_assignments(
             assignee_user_id,
             assignee_team_id,
