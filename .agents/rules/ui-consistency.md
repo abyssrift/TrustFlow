@@ -138,6 +138,25 @@ placement conventions (auto-apply, Clear Filters, toolbar trigger with the
 * Must include `border-surface-border`
 * Must be `rounded-2xl`
 
+### Sidebar navigation
+
+The desktop nav rail groups shortcuts into titled sections separated by hairlines
+(issue #211). `components/sidebar/constants.ts` keeps `SHORTCUTS` flat (the
+single source of truth for icon/label/href/permission) and declares the rail's
+order + grouping in `SIDEBAR_GROUPS`. Only `NavRail` renders the groups; the
+mobile drawer and pinned-shortcut picker still consume the flat list.
+
+* Group titles are section labels (`text-[10px] font-black uppercase tracking-widest
+  text-typography-muted`) shown only when the rail is expanded.
+* Groups are separated by hairline `h-px bg-surface-border` dividers, not extra
+  padding. The first (`home`) group is an untitled lead-in for Dashboard.
+* Groups are **flat** — every shortcut is a sibling row under its section title.
+  There are no expandable/collapsible parents or nested children.
+* Collapsed (icon) rail: only the icons render, group titles hide, and hairline
+  dividers narrow (`mx-3`) so the icon columns stay tight.
+* Permission gating stays on individual `SHORTCUTS` entries; a wholly empty group
+  is dropped.
+
 ### Inputs
 
 * Must use surface background

@@ -1,12 +1,12 @@
 import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Link } from 'expo-router';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
 import Tooltip from '@/components/common/Tooltip';
 import BillingMeter from './BillingMeter.web';
-import { PIPELINE_ICONS, Shortcut } from './constants';
+import { PIPELINE_ICONS, SIDEBAR_GROUPS, Shortcut } from './constants';
 import { matchesHref } from './helpers';
 import SidebarItem from './SidebarItem';
 
@@ -16,6 +16,64 @@ cssInterop(FontAwesome, {
     nativeStyleToProp: { color: true, size: true },
   },
 } as any);
+
+// Renders the flat permission-filtered shortcut list through the SIDEBAR_GROUPS
+// groups (#211): titled sections separated by hairlines. Every shortcut is a
+// sibling row — there are no expandable/collapsible parents.
+function NavGroups({
+  visibleShortcuts,
+  pathname,
+  isExpanded,
+  inboxUnread,
+}: {
+  visibleShortcuts: Shortcut[];
+  pathname: string;
+  isExpanded: boolean;
+  inboxUnread: number;
+}) {
+  const byId = useMemo(() => new Map(visibleShortcuts.map((s) => [s.id, s])), [visibleShortcuts]);
+
+  const groups = useMemo(
+    () =>
+      SIDEBAR_GROUPS.map((group) => ({
+        ...group,
+        items: group.items
+          .map((item) => byId.get(item.id))
+          .filter((s): s is Shortcut => !!s),
+      })).filter((group) => group.items.length > 0),
+    [byId]
+  );
+
+  return (
+    <>
+      {groups.map((group, gi) => (
+        <View key={group.id}>
+          {gi > 0 && (
+            <View className={`my-3 ${isExpanded ? 'mx-1' : 'mx-3'} h-px bg-surface-border`} />
+          )}
+          <View className={gi > 0 ? 'mt-1' : ''}>
+            {isExpanded && group.title && (
+              <Text className="mb-3 ml-2 mt-2 text-[10px] font-black uppercase tracking-widest text-typography-muted whitespace-nowrap">
+                {group.title}
+              </Text>
+            )}
+            {group.items.map((s) => (
+              <SidebarItem
+                key={s.id}
+                icon={s.icon}
+                label={s.label}
+                href={s.href}
+                isActive={matchesHref(pathname, s.href)}
+                collapsed={!isExpanded}
+                badge={s.id === 'filehub' ? inboxUnread : undefined}
+              />
+            ))}
+          </View>
+        </View>
+      ))}
+    </>
+  );
+}
 
 export default function NavRail({
   sidebarRef,
@@ -83,22 +141,12 @@ export default function NavRail({
             <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
               <View className="pb-6">
                 <View className="mb-6">
-                  {isExpanded && (
-                    <Text className="mb-3 ml-2 text-[10px] font-black uppercase tracking-widest text-typography-muted whitespace-nowrap">
-                      Navigation
-                    </Text>
-                  )}
-                  {visibleShortcuts.map((s) => (
-                    <SidebarItem
-                      key={s.id}
-                      icon={s.icon}
-                      label={s.label}
-                      href={s.href}
-                      isActive={matchesHref(pathname, s.href)}
-                      collapsed={!isExpanded}
-                      badge={s.id === 'filehub' ? inboxUnread : undefined}
-                    />
-                  ))}
+                  <NavGroups
+                    visibleShortcuts={visibleShortcuts}
+                    pathname={pathname}
+                    isExpanded={isExpanded}
+                    inboxUnread={inboxUnread}
+                  />
                 </View>
 
                 {isPlatformAdmin && (
