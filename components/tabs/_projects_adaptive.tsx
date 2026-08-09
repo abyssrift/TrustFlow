@@ -14,6 +14,8 @@ import BulkCreateProjectsSheet from '@/components/projects/BulkCreateProjectsShe
 import SpreadsheetImportSheet from '@/components/projects/SpreadsheetImportSheet';
 import ProjectsTable from '@/components/projects/ProjectsTable';
 import ProjectBoard from '@/components/projects/ProjectBoard';
+import ProjectsTimeline from '@/components/projects/ProjectsTimeline';
+import PortfolioScopeHeader from '@/components/portfolios/PortfolioScopeHeader';
 import Popup from '@/components/common/Popup';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAlert } from '@/contexts/AlertContext';
@@ -21,6 +23,7 @@ import { TAB_BAR_HEIGHT } from '@/lib/layout';
 import { useNavBarPosition } from '@/hooks/useNavBarPosition';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { usePersistedState } from '@/hooks/usePersistedState';
+import { isProjectsView, type ProjectsView } from '@/lib/projectPresentation';
 import Tooltip from '@/components/common/Tooltip';
 import { EntityGlyph, EntityTag, SegmentedControl } from '@/components/entities/EntityUI';
 
@@ -32,7 +35,9 @@ import { EntityGlyph, EntityTag, SegmentedControl } from '@/components/entities/
 // the vocabulary comes from components/entities/EntityUI.tsx, so a project
 // card at 390px and one at 1400px are the same object.
 
-export default function ProjectsScreen() {
+// Phase 10 (#191): same optional portfolio scope as _projects_desktop.tsx, so
+// mobile web and native land on the same screen, not a desktop-only fix.
+export default function ProjectsScreen({ portfolioId }: { portfolioId?: string } = {}) {
   const colors = useThemeColors();
   const { showAlert } = useAlert();
   const { width } = useWindowDimensions();
@@ -47,16 +52,16 @@ export default function ProjectsScreen() {
   const [addMenuVisible, setAddMenuVisible] = useState(false);
   const [tableRefreshKey, setTableRefreshKey] = useState(0);
   const bumpTable = () => setTableRefreshKey(k => k + 1);
-  // #176 Projects P6 -- Table/Board toggle. Timeline stays disabled/future.
+  // #176 Projects P6 -- Table/Board toggle; Timeline landed in Phase 10 (#191).
   // Persisted: switching to Board and coming back to a List you did not choose
   // is the kind of small betrayal that makes an app feel like it is not
-  // listening. Validated on read — 'timeline' is not selectable yet, and a
-  // stored value from a future build must not strand the screen on a view
-  // this one cannot render.
-  const [view, setView] = usePersistedState<'table' | 'board'>(
+  // listening. Still validated on read, and the guard is shared with
+  // _projects_desktop.tsx (lib/projectPresentation.ts) so the two screens
+  // reading the same storage key cannot disagree about what is valid.
+  const [view, setView] = usePersistedState<ProjectsView>(
     'projects_view',
     'table',
-    (v): v is 'table' | 'board' => v === 'table' || v === 'board',
+    isProjectsView,
   );
 
   const { hasPermission } = useAuth();
@@ -85,12 +90,27 @@ export default function ProjectsScreen() {
     );
   }
 
+  // See _projects_desktop.tsx for why a scoped screen hides the create doors.
+  const scoped = !!portfolioId;
+
+  const headerInset = isWeb
+    ? (!isLargeScreen && navPosition === 'top' ? { paddingTop: TAB_BAR_HEIGHT.web } : undefined)
+    : { paddingTop: TAB_BAR_HEIGHT.native };
+
   return (
     <View className="flex-1 bg-surface-background">
-      {/* Header */}
+      {scoped ? (
+        <View className="px-4 pt-3 pb-1" style={headerInset}>
+          <PortfolioScopeHeader
+            portfolioId={portfolioId!}
+            onAllProjects={() => router.push('/(tabs)/projects' as any)}
+          />
+        </View>
+      ) : (
+      /* Header */
       <View
         className={`flex-row items-center justify-between px-4 gap-3 ${isWeb ? 'py-5 border-b border-surface-border' : 'pb-3'}`}
-        style={isWeb ? (!isLargeScreen && navPosition === 'top' ? { paddingTop: TAB_BAR_HEIGHT.web } : undefined) : { paddingTop: TAB_BAR_HEIGHT.native }}
+        style={headerInset}
       >
         <View className="flex-row items-center gap-2.5 flex-1 min-w-0">
           <EntityGlyph kind="project" size={34} />
@@ -143,17 +163,18 @@ export default function ProjectsScreen() {
           </Tooltip>
         </View>
       </View>
+      )}
 
-      {/* View toggle — Board shipped #176 (Phase 6). Timeline is still future. */}
+      {/* View toggle — Board shipped #176 (Phase 6), Timeline #191 (Phase 10). */}
       <View className="px-4 pt-3">
-        <SegmentedControl<'table' | 'board' | 'timeline'>
+        <SegmentedControl<ProjectsView>
           size="sm"
           value={view}
-          onChange={(v) => { if (v !== 'timeline') setView(v); }}
+          onChange={setView}
           options={[
             { value: 'table', label: 'List', icon: 'table' },
             { value: 'board', label: 'Board', icon: 'columns' },
-            { value: 'timeline', label: 'Timeline', icon: 'long-arrow-right', disabled: true, disabledReason: 'Timeline lands in a later phase. Use the board to see where work sits today.' },
+            { value: 'timeline', label: 'Timeline', icon: 'long-arrow-right' },
           ]}
         />
       </View>
@@ -165,15 +186,30 @@ export default function ProjectsScreen() {
         >
           <ProjectsTable
             refreshKey={tableRefreshKey}
+            portfolioId={portfolioId ?? null}
             onOpenProject={(id) => router.push(`/projects/${id}` as any)}
-            onBrowseStarters={canCreate ? () => setBulkCreateVisible(true) : undefined}
-            onCreateProject={canCreate ? () => setModalVisible(true) : undefined}
+            onBrowseStarters={canCreate && !scoped ? () => setBulkCreateVisible(true) : undefined}
+            onCreateProject={canCreate && !scoped ? () => setModalVisible(true) : undefined}
+          />
+        </ScrollView>
+      ) : view === 'timeline' ? (
+        <ScrollView
+          className="flex-1 pt-3"
+          contentContainerStyle={{ paddingBottom: isWeb ? 32 : TAB_BAR_HEIGHT.native + 16, paddingHorizontal: 16 }}
+        >
+          <ProjectsTimeline
+            refreshKey={tableRefreshKey}
+            portfolioId={portfolioId ?? null}
+            onOpenProject={(id) => router.push(`/projects/${id}` as any)}
+            onBrowseStarters={canCreate && !scoped ? () => setBulkCreateVisible(true) : undefined}
+            onCreateProject={canCreate && !scoped ? () => setModalVisible(true) : undefined}
           />
         </ScrollView>
       ) : (
         <View className="flex-1 pt-3">
           <ProjectBoard
             refreshKey={tableRefreshKey}
+            portfolioId={portfolioId ?? null}
             onOpenProject={(id) => router.push(`/projects/${id}` as any)}
           />
         </View>

@@ -25,14 +25,64 @@ export const THEME_OPTIONS: { id: ThemeType; label: string; icon: IconName }[] =
 
 export const PIPELINE_ICONS: IconName[] = ['bolt', 'sitemap', 'random', 'sliders', 'exchange', 'cogs'];
 
+// The desktop rail groups SHORTCUTS into titled sections separated by
+// hairlines (#211). SHORTCUTS stays flat — it's the single source of truth for
+// shortcut metadata (icons, labels, hrefs, permission gating), while
+// SIDEBAR_GROUPS only governs the rail's order and grouping. Groups are plain:
+// every shortcut is a sibling row under its section title; there are no
+// expandable/collapsible parents.
+export type SidebarGroupDef = {
+  id: string;
+  title?: string;
+  items: { id: string }[];
+};
+
+export const SIDEBAR_GROUPS: SidebarGroupDef[] = [
+  // Untitled lead-in group: Dashboard sits alone above the titled sections.
+  { id: 'home', items: [{ id: 'dashboard' }] },
+  {
+    id: 'work',
+    title: 'Work',
+    items: [{ id: 'tasks' }, { id: 'deadlines' }, { id: 'projects' }, { id: 'portfolios' }],
+  },
+  {
+    id: 'intel',
+    title: 'Intelligence',
+    items: [{ id: 'radar' }, { id: 'targets' }, { id: 'archives' }],
+  },
+  {
+    id: 'company',
+    title: 'Company',
+    items: [{ id: 'filehub' }, { id: 'team' }],
+  },
+  {
+    id: 'admin',
+    title: 'Admin',
+    items: [{ id: 'pipelines-admin' }],
+  },
+];
+
 export type PinnedShortcut = {
   id: string;
   label: string;
   icon: IconName;
   href: string;
+  // Set only for a pinned portfolio — tells PinnedShortcuts to render it with
+  // EntityGlyph (components/entities/EntityUI.tsx) instead of a plain
+  // FontAwesome glyph, so a portfolio reads as workspace data, not a nav
+  // destination, everywhere it appears (pill + picker row).
+  kind?: 'portfolio';
 };
 
 export const MAX_PINNED_SHORTCUTS = 4;
+
+// The picker shows only the N most recent portfolios as pin candidates — a
+// company with 50 portfolios would otherwise turn "Pin a shortcut" into a
+// scroll pit of batches nobody is currently working. usePortfolios() already
+// orders by recency, so capping here keeps the ones most likely to be
+// pinned; "Browse all portfolios" (linking to /portfolios, which has its own
+// search) covers anything older.
+export const MAX_PORTFOLIO_CANDIDATES = 6;
 
 export const INTELLIGENCE_PERMISSIONS = ['analytics.view', 'analytics.compare', 'report.view', 'target.view', 'archive.view'];
 
@@ -41,7 +91,18 @@ export const SHORTCUTS: Shortcut[] = [
   { id: 'tasks', permissionKey: '', icon: 'check-square-o', label: 'Tasks', href: '/tasks' },
   { id: 'search', permissionKey: '', icon: 'search', label: 'Search', href: '/search' },
   { id: 'deadlines', permissionKey: '', icon: 'calendar', label: 'Deadlines', href: '/deadlines' },
-  { id: 'projects', permissionKey: 'project.edit', icon: 'folder-o', label: 'Projects', href: '/projects' },
+  // project.view, not project.edit: reading the projects list has never required
+  // edit rights anywhere else. rpc_projects_table gates on project.view,
+  // projects_select is fn_project_accessible, and app/(tabs)/menu.tsx already
+  // used view — this entry was the outlier, and it meant a view-only user saw
+  // Portfolios (correctly gated on view) but not the Projects inside them.
+  { id: 'projects', permissionKey: 'project.view', icon: 'folder-o', label: 'Projects', href: '/projects' },
+  // Icon/kind match components/entities/EntityUI.tsx's canonical portfolio
+  // glyph (ENTITY_META.portfolio.icon === 'th-large') — same glyph the
+  // /portfolios screen itself headers with. Gated on project.view: the same
+  // permission rpc_portfolios_table and fn_project_accessible enforce
+  // server-side, so a user without it never sees the entry point.
+  { id: 'portfolios', permissionKey: 'project.view', icon: 'th-large', label: 'Portfolios', href: '/portfolios' },
   { id: 'radar', permissionKey: '', anyPermissions: INTELLIGENCE_PERMISSIONS, icon: 'bullseye', label: 'Intelligence', href: '/intelligence' },
   { id: 'targets', permissionKey: 'target.view', icon: 'crosshairs', label: 'Targets', href: '/intelligence/targets' },
   { id: 'archives', permissionKey: 'archive.view', icon: 'archive', label: 'Archives', href: '/intelligence/archives' },

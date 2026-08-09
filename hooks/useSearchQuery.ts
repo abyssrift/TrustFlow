@@ -8,7 +8,7 @@
 // is ever needed = swap parseQuery() for an async understand() (LLM) behind the
 // same ParsedQuery shape — nothing downstream changes.
 
-export type SearchType = 'task' | 'file' | 'report' | 'comment' | 'person';
+export type SearchType = 'task' | 'file' | 'report' | 'comment' | 'person' | 'project' | 'portfolio';
 export type DateField = 'created' | 'due' | 'completed';
 
 export type ParsedQuery = {
@@ -28,6 +28,10 @@ const TYPE_WORDS: Record<string, SearchType> = {
   comment: 'comment', comments: 'comment', note: 'comment', notes: 'comment',
   person: 'person', people: 'person', user: 'person', users: 'person',
   member: 'person', members: 'person', staff: 'person', teammate: 'person',
+  project: 'project', projects: 'project',
+  portfolio: 'portfolio', portfolios: 'portfolio',
+  // ponytail: NOT "batch" — real portfolios are named "…Audit batch", so it
+  // would eat the term users actually type to find them.
 };
 
 const MONTHS = ['january','february','march','april','may','june','july',
@@ -203,7 +207,7 @@ export function parseQuery(raw: string, now: Date = new Date()): ParsedQuery {
   const chips: string[] = [];
 
   // 1. explicit "type:" prefix
-  text = text.replace(/\b(task|file|report|comment|person|people|user|member)s?:/gi, (_, w: string) => {
+  text = text.replace(/\b(task|file|report|comment|person|people|user|member|project|portfolio)s?:/gi, (_, w: string) => {
     const t = TYPE_WORDS[w.toLowerCase()]; if (t && !types.includes(t)) types.push(t); return ' ';
   });
 
@@ -238,5 +242,5 @@ export function parseQuery(raw: string, now: Date = new Date()): ParsedQuery {
 }
 
 function cap(s: string) { return s.charAt(0).toUpperCase() + s.slice(1); }
-function pluralLabel(t: SearchType) { return { task: 'Tasks', file: 'Files', report: 'Reports', comment: 'Comments', person: 'People' }[t]; }
+function pluralLabel(t: SearchType) { return { task: 'Tasks', file: 'Files', report: 'Reports', comment: 'Comments', person: 'People', project: 'Projects', portfolio: 'Portfolios' }[t]; }
 function escapeRe(s: string) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }

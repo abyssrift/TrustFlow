@@ -5,6 +5,7 @@ import { useFileHubBadge } from '@/hooks/useFileHubBadge';
 import { useNavBarPosition } from '@/hooks/useNavBarPosition';
 import { useUnreadNotificationAttention } from '@/hooks/useUnreadNotificationAttention';
 import { useIsPlatformAdmin } from '@/components/platform-admin/useControlPlaneData';
+import { usePortfolios } from '@/hooks/usePortfolios';
 import { supabase } from '@/lib/supabase';
 import { useLocalSearchParams, usePathname } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -35,6 +36,11 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
   });
   const [isHovered, setIsHovered] = useState(false);
   const [pipelines, setPipelines] = useState<{ id: string; name: string }[]>([]);
+  // Same rollup /portfolios itself reads — rpc_portfolios_table already
+  // filters through fn_project_accessible, so nothing here needs a second,
+  // wider query. `loading` gates PinnedShortcuts's stale-pin check so a pin
+  // isn't dropped from view mid-fetch and then flash back in.
+  const { rows: portfolios, loading: portfoliosLoading } = usePortfolios();
   const [topSearch, setTopSearch] = useState('');
   const [isTopBarCollapsed, setIsTopBarCollapsed] = useState(() => {
     if (Platform.OS === 'web') {
@@ -159,6 +165,8 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
           profileLabel={profileLabel}
           visibleShortcuts={visibleShortcuts}
           pipelines={pipelines}
+          portfolios={portfolios}
+          portfoliosLoading={portfoliosLoading}
         />
 
         <View className="flex-1 bg-surface-background">

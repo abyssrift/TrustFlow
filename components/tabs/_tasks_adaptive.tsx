@@ -3,6 +3,8 @@ import ConfirmModal from '@/components/common/ConfirmModal';
 import HorizontalScroll from '@/components/common/HorizontalScroll';
 import LinkifiedText from '@/components/common/LinkifiedText';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
+import SlideDownPanel from '@/components/common/SlideDownPanel';
+import { FilterDropdown } from '@/components/common/FilterPanel';
 import Tooltip from '@/components/common/Tooltip';
 import BoardSwitcherPopup from '@/components/kanban/BoardSwitcherPopup';
 import KanbanPersonalizer from '@/components/kanban/KanbanPersonalizer';
@@ -1314,12 +1316,12 @@ function TasksScreen() {
             <Tooltip label="Filter tasks">
               <TouchableOpacity
                 onPress={() => setShowFilters(v => !v)}
-                className={`p-2.5 rounded-xl border flex-row items-center gap-1.5 ${showFilters || activeFilterCount > 0 ? 'bg-brand-primary/10 border-brand-primary' : 'bg-brand-primary/10 border-brand-primary/20'}`}
+                className={`relative p-2.5 rounded-xl border flex-row items-center gap-1.5 ${showFilters || activeFilterCount > 0 ? 'bg-brand-primary/10 border-brand-primary' : 'bg-brand-primary/10 border-brand-primary/20'}`}
               >
-                <FontAwesome name="sliders" size={15} color={colors.primary} />
+                <FontAwesome name="filter" size={15} color={colors.primary} />
                 {activeFilterCount > 0 && (
-                  <View className="bg-brand-primary rounded-full w-4 h-4 items-center justify-center">
-                    <Text className="text-white text-[9px] font-black">{activeFilterCount}</Text>
+                  <View className="absolute -top-1 -right-1 bg-brand-primary rounded-full min-w-[16px] h-[16px] px-1 items-center justify-center border-2 border-surface-card">
+                    <Text className="text-white text-[8px] font-black">{activeFilterCount > 9 ? '9+' : activeFilterCount}</Text>
                   </View>
                 )}
               </TouchableOpacity>
@@ -1435,143 +1437,112 @@ function TasksScreen() {
         onCancel={() => setArchiveModal({ visible: false, taskId: null })}
       />
 
-      {/* Filter Panel */}
-      {showFilters && (
-        <View className="mx-4 mb-3 bg-surface-card border border-surface-border rounded-2xl p-4" style={{ maxHeight: 260 }}>
+      {/* Filter Panel — animated slide-down (issue #208) */}
+      <SlideDownPanel isOpen={showFilters} maxHeight={330}>
+        <View className="mx-4 mb-3 bg-surface-card border border-surface-border rounded-2xl p-4">
           <View className="flex-row items-center justify-between mb-3">
             <Text className="text-typography-main font-black text-xs uppercase tracking-widest">Filters</Text>
-            {activeFilterCount > 0 && (
-              <TouchableOpacity onPress={clearFilters} className="flex-row items-center gap-1 bg-state-danger/10 border border-state-danger/20 px-2.5 py-1 rounded-xl">
-                <FontAwesome name="times" size={9} color={colors.danger} />
-                <Text className="text-state-danger text-[9px] font-black uppercase tracking-wider">Clear</Text>
+            <Tooltip label={activeFilterCount > 0 ? 'Clear all filters' : 'No active filters'}>
+              <TouchableOpacity
+                onPress={clearFilters}
+                disabled={activeFilterCount === 0}
+                className="flex-row items-center gap-1 px-2.5 py-1 rounded-xl border"
+                style={{
+                  borderColor: activeFilterCount > 0 ? colors.danger : colors.border,
+                  backgroundColor: activeFilterCount > 0 ? colors.danger + '0F' : undefined,
+                  opacity: activeFilterCount > 0 ? 1 : 0.4,
+                }}
+              >
+                <FontAwesome name="times" size={9} color={activeFilterCount > 0 ? colors.danger : colors.textMuted} />
+                <Text
+                  className="text-[9px] font-black uppercase tracking-wider"
+                  style={{ color: activeFilterCount > 0 ? colors.danger : colors.textMuted }}
+                >
+                  Clear Filters
+                </Text>
               </TouchableOpacity>
-            )}
+            </Tooltip>
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-            {/* Priority */}
-            <View className="mb-3">
-              <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-1.5">Priority</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
-                {(['urgent', 'high', 'normal', 'low'] as const).map(p => {
-                  const active = filters.priorities.includes(p);
-                  const colors: Record<string, string> = { urgent: 'text-state-danger', high: 'text-state-warning', normal: 'text-typography-muted', low: 'text-state-success' };
-                  return (
-                    <TouchableOpacity
-                      key={p}
-                      onPress={() => toggleFilter('priorities', p)}
-                      className={`px-3 py-1 rounded-xl border ${active ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border'}`}
-                    >
-                      <Text className={`text-[10px] font-black uppercase tracking-wider ${active ? 'text-brand-primary' : colors[p]}`}>{p.charAt(0).toUpperCase() + p.slice(1)}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            </View>
-
-            {/* Category */}
-            {filterOptions.categories.length > 0 && (
-              <View className="mb-3">
-                <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-1.5">Category</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
-                  {filterOptions.categories.map(cat => {
-                    const active = filters.categories.includes(cat);
+            <View className="gap-3">
+            {/* Priority & Category side by side */}
+            <View className="flex-row flex-wrap gap-2">
+              <View className="flex-1 min-w-[150px]">
+                <Text className="text-typography-muted font-black uppercase tracking-widest text-[9px] mb-1.5">Priority</Text>
+                <View className="flex-row flex-wrap gap-1.5">
+                  {(['urgent', 'high', 'normal', 'low'] as const).map(p => {
+                    const colorClass = ({ urgent: 'text-state-danger', high: 'text-state-warning', normal: 'text-typography-muted', low: 'text-state-success' } as Record<string, string>)[p];
+                    const active = filters.priorities.includes(p);
                     return (
                       <TouchableOpacity
-                        key={cat}
-                        onPress={() => toggleFilter('categories', cat)}
-                        className={`px-3 py-1 rounded-xl border ${active ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border'}`}
+                        key={p}
+                        onPress={() => toggleFilter('priorities', p)}
+                        className={`flex-row items-center gap-1.5 px-3 py-2.5 rounded-xl border ${active ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-card border-surface-border'}`}
                       >
-                        <Text className={`text-[10px] font-black uppercase tracking-wider ${active ? 'text-brand-primary' : 'text-typography-muted'}`}>{cat}</Text>
+                        <Text className={`text-[9px] font-black uppercase tracking-widest ${active ? 'text-brand-primary' : colorClass}`}>{p.charAt(0).toUpperCase() + p.slice(1)}</Text>
                       </TouchableOpacity>
                     );
                   })}
-                </ScrollView>
+                </View>
               </View>
-            )}
-
-            {/* Project */}
+              {filterOptions.categories.length > 0 && (
+                <View className="flex-1 min-w-[150px]">
+                  <Text className="text-typography-muted font-black uppercase tracking-widest text-[10px] mb-1.5">Category</Text>
+                  <View className="flex-row flex-wrap gap-1.5">
+                    {filterOptions.categories.map(cat => {
+                      const active = filters.categories.includes(cat);
+                      return (
+                        <TouchableOpacity
+                          key={cat}
+                          onPress={() => toggleFilter('categories', cat)}
+                          className={`px-3 py-2.5 rounded-xl border ${active ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-card border-surface-border'}`}
+                        >
+                          <Text className={`text-[9px] font-black uppercase tracking-widest ${active ? 'text-brand-primary' : 'text-typography-muted'}`}>{cat}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
+            </View>
             {filterOptions.projects.length > 0 && (
-              <View className="mb-3">
-                <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-1.5">Project</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
-                  {filterOptions.projects.map(proj => {
-                    const active = filters.projectIds.includes(proj.id);
-                    return (
-                      <TouchableOpacity
-                        key={proj.id}
-                        onPress={() => toggleFilter('projectIds', proj.id)}
-                        className={`px-3 py-1 rounded-xl border ${active ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border'}`}
-                      >
-                        <Text className={`text-[10px] font-black uppercase tracking-wider ${active ? 'text-brand-primary' : 'text-typography-muted'}`}>{proj.name}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              </View>
+              <FilterDropdown
+                label="Project"
+                count={filters.projectIds.length}
+                selected={filters.projectIds}
+                options={filterOptions.projects.map(proj => ({ value: proj.id, label: proj.name }))}
+                onToggle={v => toggleFilter('projectIds', v)}
+              />
             )}
-
-            {/* Manager */}
             {filterOptions.managers.length > 0 && (
-              <View className="mb-3">
-                <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-1.5">Manager</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
-                  {filterOptions.managers.map(mgr => {
-                    const active = filters.managerIds.includes(mgr.id);
-                    return (
-                      <TouchableOpacity
-                        key={mgr.id}
-                        onPress={() => toggleFilter('managerIds', mgr.id)}
-                        className={`px-3 py-1 rounded-xl border ${active ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border'}`}
-                      >
-                        <Text className={`text-[10px] font-black uppercase tracking-wider ${active ? 'text-brand-primary' : 'text-typography-muted'}`}>{mgr.full_name}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              </View>
+              <FilterDropdown
+                label="Manager"
+                count={filters.managerIds.length}
+                selected={filters.managerIds}
+                options={filterOptions.managers.map(mgr => ({ value: mgr.id, label: mgr.full_name }))}
+                onToggle={v => toggleFilter('managerIds', v)}
+              />
             )}
-
-            {/* Due Date */}
-            <View className="mb-3">
-              <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-1.5">Due Date</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
-                {DUE_DATE_BUCKETS.map(({ key, label }) => {
-                  const active = filters.dueDates.includes(key);
-                  return (
-                    <TouchableOpacity
-                      key={key}
-                      onPress={() => toggleFilter('dueDates', key)}
-                      className={`px-3 py-1 rounded-xl border ${active ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border'}`}
-                    >
-                      <Text className={`text-[10px] font-black uppercase tracking-wider ${active ? 'text-brand-primary' : 'text-typography-muted'}`}>{label}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            </View>
-
-            {/* Sort By */}
-            <View>
-              <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-1.5">Sort By</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
-                {TASK_SORT_OPTIONS.map(({ key, label }) => {
-                  const active = sortKey === key;
-                  return (
-                    <TouchableOpacity
-                      key={key}
-                      onPress={() => setSortKey(key)}
-                      className={`px-3 py-1 rounded-xl border ${active ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border'}`}
-                    >
-                      <Text className={`text-[10px] font-black uppercase tracking-wider ${active ? 'text-brand-primary' : 'text-typography-muted'}`}>{label}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
+            <FilterDropdown
+              label="Due Date"
+              count={filters.dueDates.length}
+              selected={filters.dueDates}
+              options={DUE_DATE_BUCKETS.map(({ key, label }) => ({ value: key, label }))}
+              onToggle={v => toggleFilter('dueDates', v)}
+            />
+            <FilterDropdown
+              label="Sort By"
+              single
+              count={0}
+              selected={[sortKey]}
+              options={TASK_SORT_OPTIONS.map(({ key, label }) => ({ value: key, label }))}
+              onToggle={v => setSortKey(v as TaskSortKey)}
+            />
             </View>
           </ScrollView>
         </View>
-      )}
+      </SlideDownPanel>
 
       <HorizontalScroll
         className="flex-1 px-5"

@@ -2,6 +2,7 @@ import ConfirmModal from '@/components/common/ConfirmModal';
 import Popup from '@/components/common/Popup';
 import { BackButton } from '@/components/common/BackButton';
 import { IntelligencePicker } from '@/components/intelligence/IntelligenceCommon';
+import ProjectLens from '@/components/intelligence/ProjectLens';
 import { SLARiskPulseDot, slaPulseStagger } from '@/components/intelligence/SLARiskPulse';
 import Tooltip from '@/components/common/Tooltip';
 
@@ -383,6 +384,13 @@ const RadarSection = ({ data, activeWidgets, onEditWidgets }: any) => {
       </View>
       <View className="flex-row flex-wrap justify-between mb-6">
         {activeWidgets.map((w: string, i: number) => renderWidget(w, i))}
+      </View>
+      {/* The project / portfolio lens (#191 Phase 10) — same position as the
+          desktop overview (right under the KPI row, above the pipeline
+          charts), same component, so mobile web and native get the identical
+          feature rather than a reduced copy of it. */}
+      <View className="mb-6">
+        <ProjectLens />
       </View>
       <SLARiskAlert data={data} />
       <PipelineLoadChart data={data} />

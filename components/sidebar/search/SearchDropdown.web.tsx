@@ -5,11 +5,15 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import Tooltip from '@/components/common/Tooltip';
+import { ENTITY_META } from '@/components/entities/EntityUI';
 import SearchResultRow from './SearchResultRow';
 
-const GROUP_ORDER: ResultType[] = ['task', 'person', 'file', 'report', 'comment'];
+// Containers first (a project holds tasks holds files) — matches the hierarchy
+// Phase 10 is integrating; within a group, rank order still decides.
+const GROUP_ORDER: ResultType[] = ['project', 'portfolio', 'task', 'person', 'file', 'report', 'comment'];
 const GROUP_LABEL: Record<string, string> = {
   task: 'Tasks', person: 'People', file: 'Files', report: 'Reports', comment: 'Comments', archive: 'Archived',
+  project: ENTITY_META.project.plural, portfolio: ENTITY_META.portfolio.plural,
 };
 const PER_GROUP = 4;             // dropdown preview cap; full list lives on /search
 const SPARSE = 5;                // below this, offer the archive fallback
@@ -22,6 +26,7 @@ const TIPS: string[] = [
   'Ranges work: “before July”, “after 2026-01”, “between june and august”.',
   '“completed last month” finds finished tasks; “created this week” the new ones.',
   'Weekdays & quarters too: “last monday”, “this year”, “Q2”.',
+  'Projects and portfolios are searchable too — “audit projects”, “portfolio:”.',
 ];
 
 function Tips({ color }: { color: string }) {
@@ -114,7 +119,7 @@ export default function SearchDropdown({
           {recent.length === 0 ? (
             <View className="items-center px-3 pt-6 pb-1">
               <FontAwesome name="search" size={18} color={colors.textDim} />
-              <Text className="text-typography-muted text-xs mt-2">Search tasks, files, reports…</Text>
+              <Text className="text-typography-muted text-xs mt-2">Search projects, tasks, files…</Text>
             </View>
           ) : (
             <View>

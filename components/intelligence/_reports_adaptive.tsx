@@ -1,4 +1,5 @@
-import ReportFiltersModal, {
+import SlideDownPanel from '@/components/common/SlideDownPanel';
+import ReportFiltersPanelBody, {
   applyReportFilters,
   countActiveFilters,
   describeDateRange,
@@ -164,8 +165,8 @@ export default function IntelligenceReportsNative() {
         <View className="flex-row gap-2 mt-3">
           <Tooltip label="Filter reports">
             <TouchableOpacity
-              onPress={() => setShowFilters(true)}
-              className={`w-11 h-11 items-center justify-center rounded-2xl border ${
+              onPress={() => setShowFilters(v => !v)}
+              className={`w-11 h-11 items-center justify-center rounded-2xl border transition-all ${
                 activeFilterCount > 0
                   ? 'bg-brand-primary/10 border-brand-primary'
                   : 'bg-surface-card border-surface-border'
@@ -194,6 +195,16 @@ export default function IntelligenceReportsNative() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Filter panel — slide-down beneath the trigger (issue #208) */}
+      <SlideDownPanel isOpen={showFilters} maxHeight={420}>
+        <View className="px-6 pb-2">
+          <ReportFiltersPanelBody
+            onChange={setFilters}
+            filters={filters}
+          />
+        </View>
+      </SlideDownPanel>
 
       {/* Active filter pills (horizontal scroll on mobile) */}
       {activeFilterCount > 0 && (
@@ -312,13 +323,6 @@ export default function IntelligenceReportsNative() {
         pipelines={pipelines}
         teams={teams}
         users={users}
-      />
-
-      <ReportFiltersModal
-        visible={showFilters}
-        onClose={() => setShowFilters(false)}
-        onApply={setFilters}
-        initial={filters}
       />
     </View>
   );

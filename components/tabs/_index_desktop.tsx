@@ -1,9 +1,13 @@
 import PipelineOverviewChart, { DEFAULT_OVERVIEW_METRICS, OverviewMetricKey } from '@/components/intelligence/PipelineOverviewChart';
+import BlockedExceptionsPanel from '@/components/dashboard/BlockedExceptionsPanel';
+import DashboardFacts, { type Fact } from '@/components/dashboard/DashboardFacts';
+import ProjectionStrip from '@/components/dashboard/ProjectionStrip';
 import LiveSessionsPopup from '@/components/tabs/LiveSessionsPopup';
+import Popup from '@/components/common/Popup';
 import Tooltip from '@/components/common/Tooltip';
-import ActiveSessionAvatars from '@/components/task-detail/ActiveSessionAvatars';
-import type { ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
+import { EntityGlyph, ProgressMeter } from '@/components/entities/EntityUI';
 import { useAuth } from '@/contexts/AuthContext';
+import { useDashboardProjects } from '@/hooks/useDashboardProjects';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { isAuthError, supabase, triggerAuthError } from '@/lib/supabase';
 import { formatCompact, formatRelative } from '@/lib/time';
@@ -11,7 +15,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Modal, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -75,7 +79,6 @@ export default function DashboardScreenWeb() {
   const colors = useThemeColors();
   const [stats, setStats] = useState<DashboardStats>({ totalTasks: 0, activeNow: 0, completed: 0, failed: 0, activeSessions: 0 });
   const [showLiveSessions, setShowLiveSessions] = useState(false);
-  const [liveUsers, setLiveUsers] = useState<ActiveSessionUser[]>([]);
   const [pulse, setPulse] = useState<PersonalPulse | null>(null);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
@@ -85,12 +88,18 @@ export default function DashboardScreenWeb() {
   const [config, setConfig] = useState<DashboardConfig | null>(null);
   const [trackedPipelineIds, setTrackedPipelineIds] = useState<string[]>([]);
   const [widgetRefreshKey, setWidgetRefreshKey] = useState(0);
-  const [activityCardHeight, setActivityCardHeight] = useState(0);
 
   const { user, profile, hasPermission } = useAuth();
   const router = useRouter();
   const canViewIntelligence = hasPermission('report.view');
   const canViewOverview = hasPermission('analytics.view');
+
+  // ONE rpc_projects_table read, shared by the projection strip and the
+  // exceptions panel below it (they used to fire the same 500-row call twice).
+  // Named `dashProjects` because `projects` above is the four-card summary from
+  // a different query — two things called `projects` in one scope was exactly
+  // the redeclaration that broke the previous attempt at this screen.
+  const dashProjects = useDashboardProjects(widgetRefreshKey);
 
   const overviewMetrics = config?.overviewMetrics ?? DEFAULT_OVERVIEW_METRICS;
   const overviewPeriod = config?.overviewPeriod ?? 'week';
@@ -220,21 +229,10 @@ export default function DashboardScreenWeb() {
         triggerAuthError();
         return;
       }
-      const sessionCount = sessionRows?.length || 0;
-      // One avatar per person, even if they somehow hold multiple sessions.
-      const byUser = new Map<string, ActiveSessionUser>();
-      for (const s of sessionRows || []) {
-        if (!byUser.has(s.user_id)) {
-          byUser.set(s.user_id, {
-            userId: s.user_id,
-            name: (s.user as any)?.full_name || 'User',
-            avatar: (s.user as any)?.avatar_url ?? null,
-            startedAt: s.started_at,
-            lastHeartbeatAt: (s as any).last_heartbeat_at,
-          });
-        }
-      }
-      setLiveUsers([...byUser.values()]);
+      // One session per person, even if they somehow hold several. The avatar
+      // row this used to build lived inside a KPI card that no longer exists;
+      // LiveSessionsPopup fetches its own people when you open it.
+      const sessionCount = new Set((sessionRows || []).map((s: any) => s.user_id)).size;
 
       setStats({
         totalTasks: total,
@@ -351,70 +349,25 @@ export default function DashboardScreenWeb() {
   const completionRate = stats.totalTasks > 0 ? Math.round((stats.completed / stats.totalTasks) * 100) : 0;
   const failedRate = stats.totalTasks > 0 ? Math.round((stats.failed / stats.totalTasks) * 100) : 0;
 
-  const KPICard = ({
-    icon,
-    label,
-    value,
-    subtitle,
-    accentType = 'brand',
-    onPress,
-    children,
-  }: {
-    icon: React.ComponentProps<typeof FontAwesome>['name'];
-    label: string;
-    value: number;
-    subtitle: string;
-    accentType?: 'brand' | 'success' | 'warning' | 'info' | 'danger';
-    onPress?: () => void;
-    children?: React.ReactNode;
-  }) => {
-    const iconBgClass =
-      accentType === 'success' ? 'bg-state-success/10' :
-      accentType === 'warning' ? 'bg-state-warning/10' :
-      accentType === 'info' ? 'bg-state-info/10' :
-      accentType === 'danger' ? 'bg-state-danger/10' :
-      'bg-brand-primary/10';
-
-    const iconBorderClass =
-      accentType === 'success' ? 'border-state-success/20' :
-      accentType === 'warning' ? 'border-var(--color-warning)/20' :
-      accentType === 'info' ? 'border-state-info/20' :
-      accentType === 'danger' ? 'border-var(--color-danger)/20' :
-      'border-brand-primary/20';
-
-    const iconColorClass =
-      accentType === 'success' ? 'text-state-success' :
-      accentType === 'warning' ? 'text-state-warning' :
-      accentType === 'info' ? 'text-state-info' :
-      accentType === 'danger' ? 'text-state-danger' :
-      'text-brand-primary';
-
-    const subtitleClass =
-      accentType === 'success' ? 'text-state-success' :
-      accentType === 'warning' ? 'text-state-warning' :
-      accentType === 'info' ? 'text-state-info' :
-      accentType === 'danger' ? 'text-state-danger' :
-      'text-brand-primary';
-
-    return (
-      <TouchableOpacity
-        onPress={onPress}
-        disabled={!onPress}
-        activeOpacity={0.75}
-        className={`flex-1 min-w-[240px] bg-surface-card p-8 rounded-[32px] border border-surface-border premium-shadow ${onPress ? 'hover:border-brand-primary/50 transition-colors' : ''}`}
-      >
-        <View className={`w-14 h-14 rounded-2xl ${iconBgClass} items-center justify-center mb-6 border ${iconBorderClass}`}>
-          <FontAwesome name={icon} size={22} className={iconColorClass} />
-        </View>
-        <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mb-2">{label}</Text>
-        <Text className="text-typography-main text-5xl font-black tracking-tighter">{value}</Text>
-        <View className="mt-3 flex-row items-center">
-          <Text className={`${subtitleClass} text-[10px] font-black uppercase tracking-widest`}>{subtitle}</Text>
-        </View>
-        {children}
-      </TouchableOpacity>
-    );
-  };
+  // ONE row of facts, in place of a three-stat pulse band and four 240px cards.
+  // Anything that is zero is passed as null and never rendered at all — see
+  // DashboardFacts. On a young workspace this row is two items long, and on a
+  // brand-new one it is empty and disappears.
+  const facts: Fact[] = [
+    { value: stats.totalTasks > 0 ? String(stats.totalTasks) : null, label: 'in pipeline', onPress: () => router.push('/tasks' as any) },
+    { value: stats.activeNow > 0 ? String(stats.activeNow) : null, label: 'in progress', onPress: () => router.push('/tasks' as any) },
+    { value: stats.completed > 0 ? String(stats.completed) : null, label: `done · ${completionRate}%`, tone: colors.success, onPress: () => router.push('/intelligence/archives' as any) },
+    { value: stats.failed > 0 ? String(stats.failed) : null, label: `failed · ${failedRate}%`, tone: colors.danger, onPress: () => router.push('/intelligence/archives' as any) },
+    // Presence, not a tally — so it does NOT follow the hide-when-zero rule the
+    // other facts do. "0 working now" answers the question you asked; a missing
+    // row leaves you wondering whether nobody is working or the dot is broken.
+    { value: String(stats.activeSessions), label: 'working now', live: true, onPress: () => setShowLiveSessions(true) },
+    { value: pulse && pulse.daily_points > 0 ? String(pulse.daily_points) : null, label: 'pts today' },
+    { value: pulse && pulse.active_seconds_today > 0 ? formatCompact(pulse.active_seconds_today) : null, label: 'active' },
+    // A good flap score is not news. It appears only when it is a problem —
+    // the same threshold the old band coloured it red at.
+    { value: pulse && pulse.flap_rate_score > 1.5 ? `${pulse.flap_rate_score}x` : null, label: 'task switching', tone: colors.danger },
+  ];
 
   return (
     <ScrollView
@@ -422,144 +375,74 @@ export default function DashboardScreenWeb() {
       showsVerticalScrollIndicator={false}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
     >
-      <View className="max-w-[1600px] mx-auto w-full p-10">
-        <View className="mb-12 flex-row items-center justify-between">
-          <View>
-            <Text className="text-typography-main text-5xl font-black tracking-tighter">
+      <View className="max-w-[1280px] mx-auto w-full px-8 py-8">
+        <View className="mb-7 flex-row items-start justify-between gap-6">
+          <View className="flex-1 min-w-0">
+            <Text className="text-typography-main text-2xl font-black tracking-tight">
               {getGreeting()}, {firstName}
             </Text>
-            <Text className="text-typography-muted text-lg mt-2 font-medium">
-              Here's your operational overview for today.
-            </Text>
+            {/* The strapline said "Here's your operational overview for today"
+                and carried no information. The facts line says what the day
+                actually looks like, in the same space. */}
+            <View className="mt-1.5">
+              <DashboardFacts facts={facts} />
+            </View>
           </View>
 
-          <View className="flex-row items-center gap-4">
-            <TouchableOpacity
-              onPress={() => setShowSettings(true)}
-              className="flex-row items-center bg-surface-card border border-surface-border px-6 py-4 rounded-2xl premium-shadow active:scale-95 transition-transform hover:border-brand-primary/50"
-            >
-              <FontAwesome name="cog" size={14} className="text-brand-primary" />
-              <Text className="ml-3 font-black uppercase tracking-widest text-xs text-typography-main">Settings</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={onRefresh}
-              className="flex-row items-center bg-surface-card border border-surface-border px-6 py-4 rounded-2xl premium-shadow active:scale-95 transition-transform hover:border-brand-primary/50"
-            >
-              <FontAwesome name="refresh" size={14} className="text-brand-primary" />
-              <Text className="ml-3 font-black uppercase tracking-widest text-xs text-typography-main">Refresh</Text>
-            </TouchableOpacity>
+          {/* Two icon buttons, not two labelled pills. They are the least
+              important controls on the page and used to be the loudest. */}
+          <View className="flex-row items-center gap-2 pt-1">
+            <Tooltip label="Choose which pipelines this dashboard tracks">
+              <TouchableOpacity
+                onPress={() => setShowSettings(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Dashboard settings"
+                className="rounded-xl border border-surface-border hover:bg-surface-overlay items-center justify-center transition-colors"
+                style={{ width: 44, height: 44 }}
+              >
+                <FontAwesome name="sliders" size={14} color={colors.textMuted} />
+              </TouchableOpacity>
+            </Tooltip>
+            <Tooltip label="Refresh">
+              <TouchableOpacity
+                onPress={onRefresh}
+                accessibilityRole="button"
+                accessibilityLabel="Refresh dashboard"
+                className="rounded-xl border border-surface-border hover:bg-surface-overlay items-center justify-center transition-colors"
+                style={{ width: 44, height: 44 }}
+              >
+                <FontAwesome name="refresh" size={14} color={colors.textMuted} />
+              </TouchableOpacity>
+            </Tooltip>
           </View>
         </View>
 
         {loading ? (
-          <View className="h-96 items-center justify-center bg-surface-card rounded-[32px] border border-surface-border">
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text className="text-typography-muted mt-4 font-bold uppercase tracking-widest text-[10px]">Loading intelligence...</Text>
+          <View className="py-24 items-center justify-center">
+            <ActivityIndicator color={colors.primary} />
           </View>
         ) : (
           <View>
-            {pulse && (
-              <View className="mb-10 p-6 rounded-[32px] border border-surface-border bg-brand-primary/5 flex-row items-center justify-between premium-shadow">
-                <View className="flex-row gap-10">
-                  <View>
-                    <Text className="text-[10px] text-brand-primary font-black uppercase tracking-widest mb-1">Today's Points</Text>
-                    <View className="flex-row items-baseline">
-                      <Text className="text-3xl font-black text-brand-primary">{pulse.daily_points}</Text>
-                      <Text className="text-xs text-brand-primary/60 ml-1 font-bold">PTS</Text>
-                    </View>
-                  </View>
-                  <View>
-                    <Text className="text-[10px] text-typography-muted font-black uppercase tracking-widest mb-1">Active Time</Text>
-                    <View className="flex-row items-baseline">
-                       <Text className="text-3xl font-black text-typography-main">{formatCompact(pulse.active_seconds_today)}</Text>
-                      <Text className="text-xs text-typography-muted ml-1 font-bold">{Math.floor((pulse.active_seconds_today % 3600) / 60)}m</Text>
-                    </View>
-                  </View>
-                  <Tooltip label="Task switching frequency (lower is better)">
-                    <View>
-                      <Text className="text-[10px] text-typography-muted font-black uppercase tracking-widest mb-1">Flap Score</Text>
-                      <Text className={`text-3xl font-black ${pulse.flap_rate_score > 1.5 ? 'text-state-danger' : 'text-state-success'}`}>
-                        {pulse.flap_rate_score}x
-                      </Text>
-                    </View>
-                  </Tooltip>
-                </View>
-                {pulse.is_working && (
-                  <View className="flex-row items-center bg-state-success/10 px-5 py-3 rounded-full border border-state-success/20">
-                    <View className="w-2.5 h-2.5 rounded-full bg-state-success mr-3 pulse-animation" />
-                    <Text className="text-state-success text-[10px] font-black uppercase tracking-widest">Session Active</Text>
-                  </View>
-                )}
-              </View>
-            )}
-
-            <View className="flex-row flex-wrap gap-6 mb-10">
-              <KPICard
-                icon="tasks"
-                label="Total Pipeline"
-                value={stats.totalTasks}
-                subtitle="Across all stages"
-                accentType="brand"
-              />
-              <KPICard
-                icon="hourglass-half"
-                label="In Progress"
-                value={stats.activeNow}
-                subtitle="In non-terminal stages"
-                accentType="warning"
-              />
-              <KPICard
-                icon="check-circle"
-                label="Completed"
-                value={stats.completed}
-                subtitle={`${completionRate}% completion rate`}
-                accentType="success"
-              />
-              {stats.failed > 0 ? (
-                <KPICard
-                  icon="times-circle"
-                  label="Failed / Rejected"
-                  value={stats.failed}
-                  subtitle={`${failedRate}% of total pipeline`}
-                  accentType="danger"
-                />
-              ) : (
-                <KPICard
-                  icon="bolt"
-                  label="Live Sessions"
-                  value={stats.activeSessions}
-                  subtitle="Users working now"
-                  accentType="info"
-                  onPress={() => setShowLiveSessions(true)}
-                >
-                  <ActiveSessionAvatars sessions={liveUsers} className="mt-4 self-start" />
-                </KPICard>
-              )}
-            </View>
-
-            {/* Show Live Sessions as a 5th card only when there are also failed tasks */}
-            {stats.failed > 0 && stats.activeSessions > 0 && (
-              <View className="flex-row mb-10">
-                <TouchableOpacity
-                  onPress={() => setShowLiveSessions(true)}
-                  activeOpacity={0.75}
-                  className="flex-1 min-w-[240px] bg-surface-card p-8 rounded-[32px] border border-surface-border premium-shadow max-w-[300px] hover:border-brand-primary/50 transition-colors"
-                >
-                  <View className="w-14 h-14 rounded-2xl bg-state-info/10 items-center justify-center mb-6 border border-state-info/20">
-                    <FontAwesome name="bolt" size={22} className="text-state-info" />
-                  </View>
-                  <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mb-2">Live Sessions</Text>
-                  <Text className="text-typography-main text-5xl font-black tracking-tighter">{stats.activeSessions}</Text>
-                  <Text className="text-state-info text-[10px] font-black uppercase tracking-widest mt-3">Users working now</Text>
-                  <ActiveSessionAvatars sessions={liveUsers} className="mt-4 self-start" />
-                </TouchableOpacity>
-              </View>
-            )}
-
             <LiveSessionsPopup visible={showLiveSessions} onClose={() => setShowLiveSessions(false)} />
 
-            <View className="flex-row gap-8 mb-10">
+            {/* The one place this screen spends any boldness. Renders nothing
+                at all — no card, no heading, no empty state — when the server
+                has forecast nothing. */}
+            <ProjectionStrip rows={dashProjects.rows} loading={dashProjects.state === 'loading'} />
+
+            <BlockedExceptionsPanel
+              rows={dashProjects.rows}
+              state={dashProjects.state}
+              reload={dashProjects.reload}
+              canView={dashProjects.canView}
+            />
+
+            {/* items-start, not the default stretch: the activity card used to
+                be grown to the chart's height and then have its row count
+                measured to fill it, which on a quiet day meant one entry
+                floating in ~400px of empty card. It is now as tall as what it
+                has to say. */}
+            <View className="flex-row gap-6 mb-8 items-start">
               {canViewOverview ? (
                 <PipelineOverviewChart
                   className="flex-[2]"
@@ -572,35 +455,26 @@ export default function DashboardScreenWeb() {
                   refreshKey={widgetRefreshKey}
                 />
               ) : (
-              <View className="flex-[2] bg-surface-card p-10 rounded-[32px] border border-surface-border premium-shadow">
-                <View className="flex-row items-center justify-between mb-8">
-                  <View>
-                    <Text className="text-typography-main text-2xl font-black tracking-tight">Pipeline Completion</Text>
-                    <Text className="text-typography-muted text-xs mt-1 font-medium">
-                      Task breakdown across all monitored pipelines.
-                    </Text>
-                  </View>
-                  <View className="bg-brand-primary/10 px-5 py-2.5 rounded-full border border-brand-primary/20">
-                    <Text className="text-brand-primary font-black text-xl">{completionRate}%</Text>
-                  </View>
+              <View className="flex-[2] bg-surface-card p-6 rounded-2xl border border-surface-border">
+                <View className="flex-row items-center justify-between mb-4">
+                  <Text className="text-typography-dim text-[10px] font-bold uppercase tracking-[0.12em]">Pipeline completion</Text>
+                  <Text className="text-typography-main text-base font-bold">{completionRate}%</Text>
                 </View>
 
-                <View className="w-full h-4 bg-surface-background rounded-full overflow-hidden border border-surface-border mb-10">
+                <View className="w-full h-2 bg-surface-background rounded-full overflow-hidden border border-surface-border mb-5">
                   <View
                     className="h-full bg-brand-primary rounded-full"
                     style={{ width: `${completionRate}%` }}
                   />
                 </View>
 
-                <View className="gap-6">
+                <View className="gap-4">
                   <View>
-                    <View className="flex-row justify-between mb-2 px-1">
-                      <Text className="text-typography-main font-bold text-sm">In Progress</Text>
-                      <Text className="text-typography-muted font-bold text-[10px] uppercase tracking-widest">
-                        {stats.activeNow} of {stats.totalTasks}
-                      </Text>
+                    <View className="flex-row justify-between mb-1.5">
+                      <Text className="text-typography-main text-xs font-semibold">In progress</Text>
+                      <Text className="text-typography-muted text-xs">{stats.activeNow} of {stats.totalTasks}</Text>
                     </View>
-                    <View className="w-full h-2 bg-surface-background rounded-full overflow-hidden border border-surface-border/50">
+                    <View className="w-full h-1.5 bg-surface-background rounded-full overflow-hidden border border-surface-border/50">
                       <View
                         className="h-full bg-state-warning rounded-full"
                         style={{ width: `${stats.totalTasks > 0 ? (stats.activeNow / stats.totalTasks) * 100 : 0}%` }}
@@ -609,13 +483,11 @@ export default function DashboardScreenWeb() {
                   </View>
 
                   <View>
-                    <View className="flex-row justify-between mb-2 px-1">
-                      <Text className="text-typography-main font-bold text-sm">Completed</Text>
-                      <Text className="text-typography-muted font-bold text-[10px] uppercase tracking-widest">
-                        {stats.completed} of {stats.totalTasks}
-                      </Text>
+                    <View className="flex-row justify-between mb-1.5">
+                      <Text className="text-typography-main text-xs font-semibold">Completed</Text>
+                      <Text className="text-typography-muted text-xs">{stats.completed} of {stats.totalTasks}</Text>
                     </View>
-                    <View className="w-full h-2 bg-surface-background rounded-full overflow-hidden border border-surface-border/50">
+                    <View className="w-full h-1.5 bg-surface-background rounded-full overflow-hidden border border-surface-border/50">
                       <View
                         className="h-full bg-state-success rounded-full"
                         style={{ width: `${completionRate}%` }}
@@ -625,13 +497,11 @@ export default function DashboardScreenWeb() {
 
                   {stats.failed > 0 && (
                     <View>
-                      <View className="flex-row justify-between mb-2 px-1">
-                        <Text className="text-typography-main font-bold text-sm">Failed / Rejected</Text>
-                        <Text className="text-typography-muted font-bold text-[10px] uppercase tracking-widest">
-                          {stats.failed} of {stats.totalTasks}
-                        </Text>
+                      <View className="flex-row justify-between mb-1.5">
+                        <Text className="text-typography-main text-xs font-semibold">Failed / rejected</Text>
+                        <Text className="text-typography-muted text-xs">{stats.failed} of {stats.totalTasks}</Text>
                       </View>
-                      <View className="w-full h-2 bg-surface-background rounded-full overflow-hidden border border-surface-border/50">
+                      <View className="w-full h-1.5 bg-surface-background rounded-full overflow-hidden border border-surface-border/50">
                         <View
                           className="h-full bg-state-danger rounded-full"
                           style={{ width: `${failedRate}%` }}
@@ -643,57 +513,57 @@ export default function DashboardScreenWeb() {
               </View>
               )}
 
-              <View
-                className="flex-1 bg-surface-card p-10 rounded-[32px] border border-surface-border premium-shadow"
-                onLayout={(e) => setActivityCardHeight(e.nativeEvent.layout.height)}
-              >
-                <View className="flex-row items-center justify-between mb-8">
-                  <View className="flex-row items-center gap-3">
-                    <View className="w-1.5 h-4 bg-brand-primary rounded-full" />
-                    <Text className="text-typography-main text-sm font-black uppercase tracking-widest">Recent Activity</Text>
-                  </View>
+              <View className="flex-1 bg-surface-card p-6 rounded-2xl border border-surface-border">
+                <View className="flex-row items-center justify-between mb-4">
+                  <Text className="text-typography-dim text-[10px] font-bold uppercase tracking-[0.12em]">Recent activity</Text>
                   {canViewIntelligence && (
-                    <TouchableOpacity onPress={() => router.push('/intelligence' as any)}>
-                      <FontAwesome name="chevron-right" size={10} color={colors.primary} />
+                    <TouchableOpacity
+                      onPress={() => router.push('/intelligence' as any)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Open Intelligence"
+                      className="items-center justify-center"
+                      style={{ width: 24, height: 24 }}
+                    >
+                      <FontAwesome name="chevron-right" size={10} color={colors.textDim} />
                     </TouchableOpacity>
                   )}
                 </View>
 
                 {activity.length === 0 ? (
-                  <View className="flex-1 items-center justify-center p-8 rounded-[24px] bg-surface-background/50 border border-dashed border-surface-border">
-                    <Text className="text-typography-muted text-[10px] uppercase font-black tracking-widest">No Activity Yet</Text>
-                  </View>
+                  // A quiet line, not a dashed box that stretches to match the
+                  // chart beside it. Nothing happened; that needs one sentence.
+                  <Text className="text-typography-dim text-xs">Nothing has moved yet.</Text>
                 ) : (
                   <View className="gap-0">
-                    {/* Header (~56px) + p-10 padding (~80px) eat into the stretched card height; ~60px per row. */}
+                    {/* A flat 5. The card no longer stretches, so there is no
+                        height to measure and fill — the onLayout/row-count
+                        arithmetic that used to live here went with it. */}
                     {activity
-                      .slice(0, activityCardHeight ? Math.max(1, Math.floor((activityCardHeight - 136) / 60)) : 4)
+                      .slice(0, 5)
                       .map((entry, idx, visible) => (
                       <TouchableOpacity
                         key={entry.id}
                         activeOpacity={0.6}
                         disabled={!entry.taskId}
                         onPress={() => entry.taskId && router.push(`/task/${entry.taskId}` as any)}
-                        className={`flex-row items-center py-3 ${idx !== visible.length - 1 ? 'border-b border-surface-border/30' : ''}`}
+                        className={`flex-row items-center py-2.5 ${idx !== visible.length - 1 ? 'border-b border-surface-border/30' : ''}`}
                       >
-                        <View className="w-8 h-8 rounded-lg bg-surface-background items-center justify-center mr-4 border border-surface-border">
-                          <FontAwesome name="exchange" size={12} color={colors.primary} />
-                        </View>
-                        <View className="flex-1">
-                          <Text className="text-typography-main font-bold text-xs" numberOfLines={1}>
+                        {/* The 32px bordered medallion that used to sit here
+                            carried no information — every row had the same
+                            icon. The stage pair below already says "moved". */}
+                        <View className="flex-1 pr-3">
+                          <Text className="text-typography-main font-semibold text-xs" numberOfLines={1}>
                             {entry.taskTitle}
                           </Text>
                           <View className="flex-row items-center gap-1">
-                            <Text className="text-typography-muted text-[9px] font-black uppercase tracking-tighter" numberOfLines={1}>{entry.fromStage}</Text>
-                            <FontAwesome name="long-arrow-right" size={8} color={colors.primary} />
-                            <Text className="text-brand-primary text-[9px] font-black uppercase tracking-tighter" numberOfLines={1}>{entry.toStage}</Text>
+                            <Text className="text-typography-dim text-[10px]" numberOfLines={1}>{entry.fromStage}</Text>
+                            <FontAwesome name="long-arrow-right" size={8} color={colors.textDim} />
+                            <Text className="text-typography-muted text-[10px]" numberOfLines={1}>{entry.toStage}</Text>
                           </View>
                         </View>
                         <View className="items-end">
-                          <Text className="text-typography-dim text-[10px] font-black uppercase tracking-tighter">
-                            {timeAgo(entry.movedAt)}
-                          </Text>
-                          <Text className="text-typography-dim text-[9px] italic">{entry.movedBy}</Text>
+                          <Text className="text-typography-dim text-[10px]">{timeAgo(entry.movedAt)}</Text>
+                          <Text className="text-typography-dim text-[10px]" numberOfLines={1}>{entry.movedBy}</Text>
                         </View>
                       </TouchableOpacity>
                     ))}
@@ -702,44 +572,44 @@ export default function DashboardScreenWeb() {
               </View>
             </View>
 
+            {/* Four 200px cards holding a name and one percentage became four
+                44px rows in a single card: the same information at roughly a
+                quarter of the height. ProgressMeter is EntityUI's, so this
+                reads identically to the meter on every project surface. */}
             {projects.length > 0 && (
-              <View className="mb-20">
-                <View className="flex-row items-center justify-between mb-8">
-                  <Text className="text-typography-main text-2xl font-black tracking-tight">Active Projects</Text>
-                  <TouchableOpacity onPress={() => router.push('/projects')}>
-                    <View className="flex-row items-center bg-surface-card border border-surface-border px-5 py-2.5 rounded-xl hover:border-brand-primary/50 transition-colors">
-                      <FontAwesome name="arrow-right" size={10} className="text-brand-primary" />
-                    </View>
+              <View className="mb-12">
+                <View className="flex-row items-center justify-between mb-2.5">
+                  <Text className="text-typography-dim text-[10px] font-bold uppercase tracking-[0.12em]">Active projects</Text>
+                  <TouchableOpacity
+                    onPress={() => router.push('/projects')}
+                    accessibilityRole="button"
+                    accessibilityLabel="Open Projects"
+                    className="flex-row items-center gap-1.5 justify-center"
+                    style={{ minHeight: 44, paddingHorizontal: 4 }}
+                  >
+                    <Text className="text-brand-primary text-xs font-bold">All projects</Text>
+                    <FontAwesome name="arrow-right" size={9} color={colors.primary} />
                   </TouchableOpacity>
                 </View>
-                <View className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-                  {projects.map((project) => (
+                <View className="bg-surface-card border border-surface-border rounded-2xl overflow-hidden">
+                  {projects.map((project, idx) => (
                     <TouchableOpacity
                       key={project.id}
-                      onPress={() => router.push('/projects')}
-                      className="bg-surface-card p-8 rounded-[32px] border border-surface-border premium-shadow hover:border-brand-primary/50 transition-all"
+                      onPress={() => router.push(`/projects/${project.id}` as any)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Open ${project.name}, ${Math.round(project.completionRate)} percent complete`}
+                      className={`flex-row items-center gap-4 px-4 hover:bg-surface-overlay/40 transition-colors ${idx !== projects.length - 1 ? 'border-b border-surface-border/50' : ''}`}
+                      style={{ minHeight: 44 }}
                     >
-                      <View className="flex-row items-center mb-4">
-                        <View className="w-12 h-12 rounded-2xl bg-brand-primary/10 items-center justify-center mr-4 border border-brand-primary/20">
-                          <FontAwesome name="folder-open" size={18} className="text-brand-primary" />
-                        </View>
-                        <View className="flex-1">
-                          <Text className="text-typography-main font-black text-lg tracking-tight" numberOfLines={1}>{project.name}</Text>
-                          <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest">
-                            {project.completedTasks} / {project.totalTasks} Tasks
-                          </Text>
-                        </View>
+                      <EntityGlyph kind="project" size={18} />
+                      <Text className="text-typography-main text-xs font-semibold flex-1" numberOfLines={1}>{project.name}</Text>
+                      <Text className="text-typography-dim text-[10px]">{project.completedTasks}/{project.totalTasks}</Text>
+                      <View style={{ width: 120 }}>
+                        <ProgressMeter percent={project.completionRate} showCaption={false} height={4} />
                       </View>
-                      <View className="flex-row justify-between items-end mb-2">
-                        <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em]">Progress</Text>
-                        <Text className="text-typography-main text-sm font-black">{Math.round(project.completionRate)}%</Text>
-                      </View>
-                      <View className="h-2.5 w-full bg-surface-background rounded-full overflow-hidden border border-surface-border/50">
-                        <View
-                          style={{ width: `${project.completionRate}%` }}
-                          className="h-full bg-brand-primary rounded-full"
-                        />
-                      </View>
+                      <Text className="text-typography-muted text-[10px] font-semibold" style={{ width: 32, textAlign: 'right' }}>
+                        {Math.round(project.completionRate)}%
+                      </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -857,21 +727,30 @@ function DashboardSettingsModal({ visible, onClose, config, onSave }: {
     }
   };
 
+  // Was a raw RN `Modal`, which the repo's popup rule forbids outright. It is
+  // an info-dense config dialog, so it keeps its ~900px width (ux-consistency
+  // §"Desktop density": 720–1100 is the band for this) rather than collapsing
+  // to the 420px single column the old default would have given it.
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View className="flex-1 bg-black/70 items-center justify-center p-10">
-        <View className="bg-surface-card w-full max-w-4xl rounded-[40px] border border-surface-border premium-shadow overflow-hidden max-h-[90vh]">
-          <View className="p-10 border-b border-surface-border flex-row justify-between items-center">
-            <View>
-              <Text className="text-typography-main text-3xl font-black tracking-tight mb-2">Dashboard Configuration</Text>
-              <Text className="text-typography-muted font-medium">Select pipelines to monitor and define success stages.</Text>
+    <Popup visible={visible} onClose={onClose} presentation="auto" maxWidth={896} maxHeight="90%">
+        <View className="flex-1">
+          <View className="p-6 border-b border-surface-border flex-row justify-between items-center">
+            <View className="flex-1 pr-4">
+              <Text className="text-typography-main text-xl font-black tracking-tight">Dashboard configuration</Text>
+              <Text className="text-typography-muted text-xs mt-1">Choose which pipelines to monitor and which stages count as done.</Text>
             </View>
-            <TouchableOpacity onPress={onClose} className="w-12 h-12 rounded-full bg-surface-background items-center justify-center border border-surface-border">
-              <FontAwesome name="times" size={16} className="text-typography-dim" />
+            <TouchableOpacity
+              onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+              className="rounded-full bg-surface-background items-center justify-center border border-surface-border"
+              style={{ width: 44, height: 44 }}
+            >
+              <FontAwesome name="times" size={14} color={colors.textDim} />
             </TouchableOpacity>
           </View>
 
-          <ScrollView className="p-10">
+          <ScrollView className="p-6">
             {loading ? (
               <ActivityIndicator size="large" color={colors.primary} />
             ) : (
@@ -989,19 +868,25 @@ function DashboardSettingsModal({ visible, onClose, config, onSave }: {
             )}
           </ScrollView>
 
-          <View className="p-10 border-t border-surface-border flex-row gap-6 bg-surface-card/50">
-            <TouchableOpacity onPress={onClose} className="flex-1 py-5 rounded-2xl bg-surface-background border border-surface-border items-center">
-              <Text className="text-typography-muted font-black uppercase tracking-widest text-xs">Cancel</Text>
+          <View className="p-6 border-t border-surface-border flex-row gap-4">
+            <TouchableOpacity
+              onPress={onClose}
+              accessibilityRole="button"
+              className="flex-1 rounded-xl bg-surface-background border border-surface-border items-center justify-center"
+              style={{ minHeight: 44 }}
+            >
+              <Text className="text-typography-muted text-xs font-bold">Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={handleSave}
-              className="flex-1 py-5 rounded-2xl bg-brand-primary premium-shadow items-center"
+              accessibilityRole="button"
+              className="flex-[2] rounded-xl bg-brand-primary hover:bg-brand-primary-hover items-center justify-center transition-colors"
+              style={{ minHeight: 44 }}
             >
-              <Text className="text-white font-black uppercase tracking-widest text-xs">Save Configuration</Text>
+              <Text className="text-white text-xs font-bold">Save configuration</Text>
             </TouchableOpacity>
           </View>
         </View>
-      </View>
-    </Modal>
+    </Popup>
   );
 }

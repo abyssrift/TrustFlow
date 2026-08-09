@@ -105,6 +105,50 @@ absolute-positioned hint `View`** — every tooltip goes through
   `Popup`. And don't use a tooltip as the *only* carrier of information a user
   needs to complete a task — mobile discoverability is a long-press away.
 
+## Filter Panels
+
+The standardized filter UI (issue #208), used by **Tasks** and **Reports**. Never build a
+one-off filter bar, chip wall, or filter modal — compose these primitives instead:
+
+- **`SlideDownPanel`** (`components/common/SlideDownPanel.tsx`) — a *controlled*
+  animated expand/collapse container. Web animates height via reanimated
+  `withTiming`, native uses `LayoutAnimation`, both behind `useReducedMotion()`.
+  Owns only the animation — no trigger, no open/close callback. Lazy-mounts on
+  first open, and `maxHeight` caps the region with an internal ScrollView.
+- **`FilterPanel`** (`components/common/FilterPanel.tsx`) — `SlideDownPanel` +
+  a trigger button (or a render-prop/custom trigger). Controlled or
+  uncontrolled; `footer` renders an optional Apply/Clear row under the body.
+- **`FilterSection`** — a labelled group (`.uppercase tracking-widest` caption).
+- **`FilterChipGroup`** — a wrapping (`flex-row flex-wrap gap-2`) row of toggle
+  chips. Use for *short* categorical dimensions (e.g. Priority, Category).
+- **`FilterDropdown`** — label + active-count badge + chevron opening an inline
+  option list, multi- or single (`single`) select. Use for *long* dimensions
+  (Projects, Managers, Due Date) and for Sort. Running option lists scroll
+  internally (capped), so one dropdown never blows out the panel height.
+
+### Agreed conventions
+
+- **Auto-apply, no Apply/Save/Cancel.** Filtering the list is live — there is
+  no commit step and no footer of action buttons. The body is fully controlled:
+  it reads `filters` and writes via `onChange` on every interaction (no local
+  draft copy to resync — a mirrored draft state is a reseed/auto-apply loop
+  waiting to happen).
+- **One "Clear Filters" button on every surface.** Positioned top-right of the
+  panel header, danger-tinted, **always visible but disabled/muted when nothing
+  is active**. One tap resets to defaults without confirmation and does **not**
+  close the panel.
+- **Toolbar trigger is an icon-only button** (`filter` glyph) matching the rest
+  of the toolbar's square icon buttons (`h-14 w-14` desktop, `p-2.5` adaptive).
+  No text label. The active-count badge is **absolutely positioned** on the
+  button's corner and **capped at `9+`**, so the button's width never changes
+  as the count grows.
+- **Chips for short sets, dropdowns for long sets.** Avoid making 2–4 item
+  dimensions (priority, status, type) open a dropdown; a second tap to reach a
+  handful of options is friction.
+- **Dropdowns sit side by side** in the panel (`flex-row flex-wrap` with
+  `flex-1 min-w-[220px]` children). Do **not** rely on `grid-cols-*` classes —
+  CSS grid does not render in this app's RN-web build; use flex-wrap.
+
 ## When to use what
 
 | You need this | Use this |
@@ -117,6 +161,9 @@ absolute-positioned hint `View`** — every tooltip goes through
 | Saving/loading overlay | `LoadingOverlay` |
 | Initial data load placeholder | `SkeletonBlock` / `SkeletonList` |
 | Any date or date-range input | `Calendar` (see Calendar section above) |
+| An animated filter panel under a toolbar trigger | `FilterPanel` / `SlideDownPanel` (see Filter Panels above) |
+| A short categorical filter (~2-6 options) | `FilterChipGroup` inside a filter panel |
+| A long or sortable filter dimension | `FilterDropdown` (multi or `single`) |
 | Hint text on an icon/control | `Tooltip` (hover on web, long-press on native) |
 | Hint content with links/buttons in it | `Popup` — not `Tooltip` |
 

@@ -5,7 +5,13 @@ import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
-const IGNORE_DIRS = new Set(['node_modules', '.git', 'website', 'dist', '.expo']);
+// `.claude` holds git worktrees — 36 of them at time of writing, several with
+// their own node_modules. Without it here the runner walks every sibling
+// checkout, so `npm run check` from this repo reported 531 checks and 16
+// failures that all lived in OTHER branches. The count became meaningless as
+// evidence: the same suite reported 23/23 from inside a worktree and 515/531
+// from the repo root, and neither number described the code being changed.
+const IGNORE_DIRS = new Set(['node_modules', '.git', 'website', 'dist', '.expo', '.claude']);
 
 function findCheckFiles(dir) {
   const out = [];

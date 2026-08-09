@@ -110,11 +110,52 @@ All layout must follow consistent spacing rules.
 * Must be `rounded-xl`
 * Must have consistent padding (`px-4 py-2` minimum)
 
+### Filter controls
+
+Filter UI is standardised across surfaces (issue #208) — never hand-roll a filter
+bar, chip wall, or filter modal. Compose from `components/common/FilterPanel.tsx`
+(it re-exports `FilterSection`, `FilterChipGroup`, `FilterDropdown`) and the
+animation primitive `components/common/SlideDownPanel.tsx`. Full interaction and
+placement conventions (auto-apply, Clear Filters, toolbar trigger with the
+`9+`-capped badge) live in `.agents/rules/ux-consistency.md` → "Filter Panels".
+
+* Toolbar filter trigger is an icon-only `filter` glyph button matching the
+  surrounding square icon buttons (`h-14 w-14` desktop, `p-2.5` adaptive) — no
+  text label.
+* Active-count badge is absolutely positioned on the trigger's corner, capped
+  at `9+`, so the button's width never shifts with the count.
+* Filter dimension surfaces are bordered (`border-surface-border`) fields with
+  `rounded-xl`; active selections tint `bg-brand-primary/10` /
+  `border-brand-primary`.
+* Short dimensions (~2-6 options) use `FilterChipGroup`; long / sortable
+  dimensions use `FilterDropdown`. Dropdowns lay out side by side with
+  `flex-1 min-w-[220px]` — never `grid-cols-*` (CSS grid does not render in
+  this RN-web build).
+
 ### Cards
 
 * Must use `bg-surface-card`
 * Must include `border-surface-border`
 * Must be `rounded-2xl`
+
+### Sidebar navigation
+
+The desktop nav rail groups shortcuts into titled sections separated by hairlines
+(issue #211). `components/sidebar/constants.ts` keeps `SHORTCUTS` flat (the
+single source of truth for icon/label/href/permission) and declares the rail's
+order + grouping in `SIDEBAR_GROUPS`. Only `NavRail` renders the groups; the
+mobile drawer and pinned-shortcut picker still consume the flat list.
+
+* Group titles are section labels (`text-[10px] font-black uppercase tracking-widest
+  text-typography-muted`) shown only when the rail is expanded.
+* Groups are separated by hairline `h-px bg-surface-border` dividers, not extra
+  padding. The first (`home`) group is an untitled lead-in for Dashboard.
+* Groups are **flat** — every shortcut is a sibling row under its section title.
+  There are no expandable/collapsible parents or nested children.
+* Collapsed (icon) rail: only the icons render, group titles hide, and hairline
+  dividers narrow (`mx-3`) so the icon columns stay tight.
+* Permission gating stays on individual `SHORTCUTS` entries; a wholly empty group
+  is dropped.
 
 ### Inputs
 

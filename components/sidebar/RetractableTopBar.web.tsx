@@ -12,6 +12,8 @@ type TopBarProps = {
   profileLabel: string;
   visibleShortcuts: Shortcut[];
   pipelines: { id: string; name: string }[];
+  portfolios: { id: string; name: string }[];
+  portfoliosLoading: boolean;
 };
 
 const LEAVE_GRACE_MS = 160; // brief exits (overshoot, crossing a gap) don't collapse

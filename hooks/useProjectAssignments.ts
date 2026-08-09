@@ -4,8 +4,24 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import {
   MIN_PROJECTION_SAMPLE,
+  type ProjectionConfidence,
   type ProjectionSeries,
 } from '@/components/charts/projection';
+
+/**
+ * Exactly what rpc_project_health returns (Phase 10, #191). The RPC builds its
+ * JSON with these camelCase keys precisely so they land on ProjectionSeries
+ * without a renaming layer in between — a translation step is somewhere a
+ * field can quietly become a different field.
+ */
+type ProjectHealth = {
+  tasksTotal: number;
+  tasksDone: number;
+  sampleSize: number;
+  projectedEnd: string | null;
+  dueDate: string | null;
+  confidence: ProjectionConfidence;
+};
 
 // Issue #198 — the data behind the project Assignments screen.
 //
@@ -60,15 +76,32 @@ const isoDay = (d: Date) => d.toISOString().slice(0, 10);
  * reason a bar chart of last month's invoices is: nothing is being predicted.
  *
  * What it very deliberately does NOT do is compute `projectedEnd` or
- * `confidence`. Those stay `null` / `'none'` until Phase 10's
- * `rpc_project_health` supplies them from the server-side pace maths that
- * `rpc_portfolio_throughput` already owns. Plan §16.1/§16.2: one definition of
- * "projected end", computed once, server-side — a pace calculation written
- * here would be the second one, and the two would disagree on screen.
+ * `confidence`. Those arrive from Phase 10's `rpc_project_health`
+ * (20260805_project_projection.sql) and are passed in as `health` — the
+ * server-side pace maths that `rpc_portfolio_throughput` already owns. Plan
+ * §16.1/§16.2: one definition of "projected end", computed once, server-side.
+ * A pace calculation written here would be the second one, and the two would
+ * disagree on screen.
+ *
+ * `health` is null while the RPC is in flight, and the series degrades to
+ * exactly what it used to be — history with no forecast. That is the correct
+ * loading state for a forecast: no date is honest, a stale or guessed one is
+ * not.
  */
-function buildProjection(tasks: AssignmentTask[], dueDate: string | null): ProjectionSeries {
+function buildProjection(
+  tasks: AssignmentTask[],
+  dueDate: string | null,
+  health: ProjectHealth | null,
+): ProjectionSeries {
+  // Membership is the STAGE, matching fn_project_projection and
+  // rpc_projects_table.tasks_done — a task is finished when it reaches a
+  // success-terminal stage, which is the only way anything finishes here.
+  // `completed_at` is only used to place it on the x-axis; a finished task
+  // with no stamp still counts (the server counts it), it just cannot be
+  // plotted on a specific day, so it is excluded from the line rather than
+  // from the total.
   const done = tasks
-    .filter(t => !!t.completed_at)
+    .filter(t => t.is_complete && !!t.completed_at)
     .map(t => t.completed_at!.slice(0, 10))
     .sort();
 
@@ -88,16 +121,49 @@ function buildProjection(tasks: AssignmentTask[], dueDate: string | null): Proje
     }
   }
 
+  // The projected arm has to grow out of the last ACTUAL point, or the two
+  // lines render as separate objects. ProjectionPoint's contract requires both
+  // fields set on the handoff day, so the join is seamless.
+  if (health?.projectedEnd && health.confidence !== 'none' && points.length > 0) {
+    const lastActual = points[points.length - 1];
+    lastActual.projected = lastActual.actual;
+
+    const from = new Date(lastActual.date + 'T00:00:00Z');
+    const to = new Date(health.projectedEnd + 'T00:00:00Z');
+    const spanDays = Math.round((to.getTime() - from.getTime()) / 86_400_000);
+    // Remaining comes from the SERVER's counts, not from `done.length`, which
+    // omits finished-but-undated tasks. Mixing the two would make the
+    // projected arm aim at the wrong number of tasks.
+    const remaining = health.tasksTotal - health.tasksDone;
+
+    if (spanDays > 0 && remaining > 0) {
+      for (let d = 1; d <= spanDays && d <= 400; d++) {
+        const day = new Date(from);
+        day.setUTCDate(day.getUTCDate() + d);
+        points.push({
+          date: isoDay(day),
+          actual: null,
+          // Straight line to the target — the server gave us the landing date,
+          // and inventing a curve between here and there would be this file
+          // doing pace maths after all.
+          projected: health.tasksDone + (remaining * d) / spanDays,
+        });
+      }
+    }
+  }
+
   return {
     points,
     target: tasks.length,
     unitLabel: 'tasks',
-    sampleSize: done.length,
-    // Both null/'none' on purpose — see the doc comment above. The chart is
-    // wired, the contract is real, and the forecast arrives from the server.
-    projectedEnd: null,
+    // sampleSize comes from the server too. Deriving it here from `done`
+    // would be a second count that could disagree with the one the forecast
+    // was actually computed from — and it is the number the "not enough yet"
+    // sentence quotes.
+    sampleSize: health?.sampleSize ?? done.length,
+    projectedEnd: health?.projectedEnd ?? null,
     dueDate,
-    confidence: 'none',
+    confidence: health?.confidence ?? 'none',
   };
 }
 
@@ -110,13 +176,14 @@ export function useProjectAssignments(projectId: string) {
   const [teams, setTeams] = useState<{ id: string; name: string; color: string | null }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [health, setHealth] = useState<ProjectHealth | null>(null);
 
   const fetchAll = useCallback(async () => {
     if (!companyId) return;
     setLoading(true);
     setError(null);
 
-    const [taskRes, userRes, teamRes] = await Promise.all([
+    const [taskRes, userRes, teamRes, healthRes] = await Promise.all([
       supabase
         .from('tasks')
         .select(`
@@ -139,6 +206,7 @@ export function useProjectAssignments(projectId: string) {
         .eq('company_id', companyId)
         .is('deleted_at', null)
         .order('name'),
+      supabase.rpc('rpc_project_health', { p_project_id: projectId }),
     ]);
 
     if (taskRes.error) {
@@ -175,6 +243,11 @@ export function useProjectAssignments(projectId: string) {
     );
     setUsers((userRes.data ?? []).map((u: any) => ({ id: u.id, name: u.full_name || u.email || 'Unnamed' })));
     setTeams((teamRes.data ?? []).map((t: any) => ({ id: t.id, name: t.name, color: t.color })));
+    // A failed forecast is NOT a failed screen. The tasks, the assignee list
+    // and the history all still render; only the projected arm goes missing,
+    // which the chart already has an honest empty state for. Setting `error`
+    // here would blank a working page over a chart annotation.
+    setHealth(healthRes.error ? null : (healthRes.data as ProjectHealth | null));
     setLoading(false);
   }, [projectId, companyId]);
 
@@ -231,5 +304,22 @@ export function useProjectAssignments(projectId: string) {
     [fetchAll]
   );
 
-  return { tasks, assignees, nameById, loading, error, refresh: fetchAll, assign, buildProjection, MIN_PROJECTION_SAMPLE };
+  /**
+   * The server's forecast is bound in here rather than added as a third
+   * argument at the call site, so callers keep the signature they already use
+   * and cannot accidentally pass a health object from a different project.
+   * The identity changes when `health` arrives, which is exactly what the
+   * consumer's useMemo depends on.
+   */
+  const buildProjectionWithHealth = useCallback(
+    (t: AssignmentTask[], dueDate: string | null) => buildProjection(t, dueDate, health),
+    [health],
+  );
+
+  return {
+    tasks, assignees, nameById, loading, error, refresh: fetchAll, assign,
+    buildProjection: buildProjectionWithHealth,
+    health,
+    MIN_PROJECTION_SAMPLE,
+  };
 }

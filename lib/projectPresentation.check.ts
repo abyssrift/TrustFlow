@@ -8,10 +8,12 @@
 import assert from 'node:assert';
 import {
   ENTITY_META,
+  PROJECTS_VIEWS,
   ageColor,
   dueColor,
   fmtDue,
   initials,
+  isProjectsView,
   projectHealth,
   toneColor,
   type EntityKind,
@@ -61,6 +63,18 @@ assert.strictEqual(dueColor(-1, C), 'danger');
 assert.strictEqual(dueColor(0, C), 'warning');
 assert.strictEqual(dueColor(3, C), 'warning');
 assert.strictEqual(dueColor(4, C), 'textMuted');
+
+// ── Projects view modes (#191) ─────────────────────────────────────────────
+// The guard behind the persisted `projects_view` key. Both projects screens
+// read it, so an accepted-but-unrenderable value strands whichever screen the
+// user lands on, silently, with no error.
+for (const v of PROJECTS_VIEWS) assert.ok(isProjectsView(v), `${v} must be a valid view`);
+assert.ok(isProjectsView('timeline'), 'Timeline shipped in #191 — a stored "timeline" must survive a reload');
+assert.strictEqual(isProjectsView('gantt'), false, 'a view this build cannot render must fall back');
+assert.strictEqual(isProjectsView(null), false);
+assert.strictEqual(isProjectsView(undefined), false);
+assert.strictEqual(isProjectsView(3), false);
+assert.strictEqual(isProjectsView({ view: 'table' }), false);
 
 // ── Wording ────────────────────────────────────────────────────────────────
 // "—" used to be the no-due-date string; an em dash is exactly the bare text

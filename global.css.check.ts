@@ -55,7 +55,10 @@ for (const start of layerBlocks) {
 }
 
 // --- 2. no local suppression --------------------------------------------
-const SKIP = new Set(['node_modules', '.git', 'website', 'dist', '.expo', 'graphify-out']);
+// `.claude` holds git worktrees — other branches' copies of these same files.
+// Without it here the check reports violations that live in code this branch
+// does not contain and cannot fix. Same reason scripts/run-checks.mjs skips it.
+const SKIP = new Set(['node_modules', '.git', 'website', 'dist', '.expo', 'graphify-out', '.claude']);
 const sources: string[] = [];
 (function walk(dir: string) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {

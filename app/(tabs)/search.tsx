@@ -7,9 +7,12 @@ import { useLocalSearchParams } from 'expo-router';
 import React from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import Tooltip from '@/components/common/Tooltip';
+import { ENTITY_META } from '@/components/entities/EntityUI';
 
 const TABS: { key: SearchType | 'all'; label: string }[] = [
   { key: 'all', label: 'All' },
+  { key: 'project', label: ENTITY_META.project.plural },
+  { key: 'portfolio', label: ENTITY_META.portfolio.plural },
   { key: 'task', label: 'Tasks' },
   { key: 'person', label: 'People' },
   { key: 'file', label: 'Files' },
@@ -42,7 +45,7 @@ export default function SearchScreen() {
           value={query}
           onChangeText={setQuery}
           autoFocus
-          placeholder="Search tasks, files, reports…"
+          placeholder="Search projects, tasks, files…"
           placeholderTextColor={colors.textDim}
           className="flex-1 text-base text-typography-main"
           style={{ paddingVertical: 0 }}

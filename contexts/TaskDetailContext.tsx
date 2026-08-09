@@ -195,6 +195,7 @@ type TaskDetailContextType = {
   advanceStage: (toStageId: string) => Promise<void>;
   linkPipeline: (pipelineId: string) => Promise<void>;
   unlinkPipeline: (pipelineId: string) => Promise<void>;
+  revertStage: () => Promise<void>;
   reviewSubmission: (submissionId: string, decision: string, notes?: string, advanceStageId?: string) => Promise<void>;
   deleteSubmission: (submissionId: string) => Promise<void>;
   restoreSubmission: (submissionId: string) => Promise<void>;
@@ -443,6 +444,21 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
       throw err;
     }
   }, [taskId, fetchDetails, infoToast, errorToast]);
+
+  const revertStage = useCallback(async () => {
+    try {
+      taskFlowDebug('task-detail.revertStage:start', { taskId });
+      const { error } = await supabase.rpc('rpc_revert_stage', { p_task_id: taskId });
+      if (error) throw error;
+      await fetchDetails();
+      taskFlowDebug('task-detail.revertStage:success', { taskId });
+      successToast('Task reverted to previous stage.');
+    } catch (err: any) {
+      taskFlowError('task-detail.revertStage:error', err, { taskId });
+      errorToast(err.message || 'Could not revert task.');
+      throw err;
+    }
+  }, [taskId, fetchDetails, successToast, errorToast]);
 
   const reviewSubmission = useCallback(async (submissionId: string, decision: string, notes?: string, advanceStageId?: string) => {
     try {
@@ -697,7 +713,7 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
   return (
     <TaskDetailContext.Provider value={{
       taskId, data, loading, error, refresh: fetchDetails,
-      executeAction, submitWork, addComment, deleteComment, advanceStage, linkPipeline, unlinkPipeline, reviewSubmission, deleteSubmission, restoreSubmission, listDeletedSubmissions, submissionVersions, restoreSubmissionVersion,
+      executeAction, submitWork, addComment, deleteComment, advanceStage, linkPipeline, unlinkPipeline, revertStage, reviewSubmission, deleteSubmission, restoreSubmission, listDeletedSubmissions, submissionVersions, restoreSubmissionVersion,
       replaceTaskAttachment, taskAttachmentVersions, restoreTaskAttachmentVersion, deleteTaskAttachment, restoreTaskAttachment, listDeletedTaskAttachments,
       updateTask, reviewManualTime
     }}>

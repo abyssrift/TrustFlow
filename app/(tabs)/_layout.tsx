@@ -24,7 +24,7 @@ function TabBarIcon(props: {
   className?: string;
   color?: string;
 }) {
-  return <FontAwesome size={22} style={{ marginBottom: -3 }} {...props} />;
+  return <FontAwesome size={20} style={{ marginBottom: -2 }} {...props} />;
 }
 
 function NotificationBell() {

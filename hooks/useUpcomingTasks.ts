@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Platform } from 'react-native';
 import { supabase } from '@/lib/supabase';
+import { ribbonTasks } from '@/lib/deadlineStrata';
 import { toastError } from '@/lib/toast';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -113,6 +114,54 @@ export async function fetchDeadlineTasks(
       overdue: new Date(t.due_date) < today,
       points: t.weight ?? 0,
     }));
+}
+
+// Phase 10 (#191) — project dates for the attention ribbon, alongside the task
+// deadlines above. Shaped for lib/deadlineStrata.ts, which turns these into the
+// ribbon's middle and top strata.
+export type ProjectDeadline = {
+  id: string;
+  name: string;
+  color: string | null;
+  portfolioId: string | null;
+  portfolioName: string | null;
+  clientName: string | null;
+  startDate: string | null;
+  dueDate: string | null;
+  /** §16: the project's CURRENT stage is terminal AND terminal_type='success'. */
+  done: boolean;
+};
+
+// rpc_projects_table already applies fn_project_accessible — the `projects_select`
+// boundary, which is default-deny — and already returns start_date, due_date AND
+// the current stage's own stage_is_terminal / stage_terminal_type. So "done" is
+// decided from the row in hand: no follow-up query to pipeline_stages, and no
+// second reader of projects that could drift from the Projects screens.
+//
+// No per-user "mine" narrowing (unlike fetchDeadlineTasks): fn_project_accessible
+// is this app's definition of who a project is visible to, and every other
+// projects surface reads company-wide within that boundary. Narrowing to "I own
+// it" here would make the ribbon disagree with the Projects screens about which
+// projects exist.
+//
+// NOT FETCHED: projected_end / projection_confidence. fn_project_projection is
+// the single definition of "when will this land" (§16.1) and the ribbon has no
+// room to draw a forecast differently from a fact — so it draws committed dates
+// only. The Timeline tab is where a projection belongs.
+export async function fetchDeadlineProjects(): Promise<ProjectDeadline[]> {
+  const { data, error } = await supabase.rpc('rpc_projects_table', { p_limit: 200 });
+  if (error) throw error;
+  return ((data || []) as any[]).map((r) => ({
+    id: r.id,
+    name: r.name,
+    color: r.color ?? null,
+    portfolioId: r.portfolio_id ?? null,
+    portfolioName: r.portfolio_name ?? null,
+    clientName: r.client_name ?? null,
+    startDate: r.start_date ?? null,
+    dueDate: r.due_date ?? null,
+    done: !!r.stage_is_terminal && r.stage_terminal_type === 'success',
+  }));
 }
 
 export type UnscheduledTask = { id: string; title: string; stageColor: string; stageName: string };
@@ -240,20 +289,31 @@ export async function fetchCompletedTasks(
 
 // Live updates for deadline data: task edits/creates (due date, stage, delete)
 // and assignment changes (both affect "mine") from anyone, not just this tab.
+// Also `projects` (Phase 10, #191) — a start/due edit or a stage move into or
+// out of "done" changes the ribbon's project and portfolio strata.
 export function subscribeDeadlineChanges(onChange: () => void): () => void {
   const channelName = `deadline-realtime-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const channel = supabase
     .channel(channelName)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, onChange)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'task_assignments' }, onChange)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, onChange)
     .subscribe();
   return () => { supabase.removeChannel(channel); };
 }
 
-export function useUpcomingTasks() {
+/**
+ * `withProjects` is opt-in rather than always-on: the desktop ribbon draws
+ * projects and portfolios, the mobile Deadlines screen does not, and there is
+ * no reason to spend a query on rows a caller will never render. Both halves
+ * share ONE refresh cycle (poll, window focus, AppState, realtime) so the two
+ * strata of the same picture can never be refreshed out of step with each other.
+ */
+export function useUpcomingTasks({ withProjects = false }: { withProjects?: boolean } = {}) {
   const { user } = useAuth();
   const userId = user?.id;
   const [tasks, setTasks] = useState<UpcomingTask[]>([]);
+  const [projects, setProjects] = useState<ProjectDeadline[]>([]);
   const [loading, setLoading] = useState(true);
   const hasLoaded = useRef(false);
 
@@ -264,15 +324,26 @@ export function useUpcomingTasks() {
       // Overdue lookback is bounded so an old backlog can't fill the window
       // and crowd out actual upcoming deadlines.
       const lookback = new Date(Date.now() - 30 * 86400000).toISOString();
-      const mine = await fetchDeadlineTasks(userId, { gte: lookback });
-      setTasks(mine.slice(0, 10));
+      // Projects are the optional half: a projects-side failure (no access, RPC
+      // missing on an older environment) must not zero out the task deadlines,
+      // which are the part every user has.
+      const [mine, mineProjects] = await Promise.all([
+        fetchDeadlineTasks(userId, { gte: lookback }),
+        withProjects ? fetchDeadlineProjects().catch(() => [] as ProjectDeadline[]) : Promise.resolve([]),
+      ]);
+      // NOT `mine.slice(0, 10)` — that is what shipped, and it emptied the
+      // ribbon. `mine` is sorted by due date ascending, so a backlog takes all
+      // ten slots and the upcoming deadlines the strip actually draws never
+      // survive. The bounded lookback above was meant to stop that and cannot.
+      setTasks(ribbonTasks(mine));
+      if (withProjects) setProjects(mineProjects);
     } catch {
       // keep previous data on error
     } finally {
       hasLoaded.current = true;
       setLoading(false);
     }
-  }, [userId]);
+  }, [userId, withProjects]);
 
   useEffect(() => {
     refetch();
@@ -301,5 +372,5 @@ export function useUpcomingTasks() {
     return subscribeDeadlineChanges(refetch);
   }, [userId, refetch]);
 
-  return { tasks, loading, refetch };
+  return { tasks, projects, loading, refetch };
 }

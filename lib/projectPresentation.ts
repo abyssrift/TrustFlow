@@ -113,6 +113,23 @@ export const ENTITY_META: Record<EntityKind, EntityMeta> = {
   },
 };
 
+// ── The projects screen's view modes ───────────────────────────────────────
+// One definition, because there are two screen files (_projects_desktop.tsx
+// and _projects_adaptive.tsx) and the persisted `projects_view` key is shared
+// between them. When Timeline shipped (#191) the guard had to learn a third
+// value in both places at once; a copy in each file is a copy that can be
+// half-updated, which strands whichever screen was missed on the List view
+// with no error.
+
+export type ProjectsView = 'table' | 'board' | 'timeline';
+
+export const PROJECTS_VIEWS: readonly ProjectsView[] = ['table', 'board', 'timeline'];
+
+/** Validates what came back from AsyncStorage — written by some older build. */
+export function isProjectsView(raw: unknown): raw is ProjectsView {
+  return typeof raw === 'string' && (PROJECTS_VIEWS as readonly string[]).includes(raw);
+}
+
 // ── Ageing / deadline thresholds ───────────────────────────────────────────
 // Moved here from ProjectsTable.tsx (they were exported from a screen file and
 // already imported by two others). One definition, one place to change them.

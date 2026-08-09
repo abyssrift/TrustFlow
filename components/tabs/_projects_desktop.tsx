@@ -16,9 +16,12 @@ import BulkCreateProjectsSheet from '@/components/projects/BulkCreateProjectsShe
 import SpreadsheetImportSheet from '@/components/projects/SpreadsheetImportSheet';
 import ProjectsTable from '@/components/projects/ProjectsTable';
 import ProjectBoard from '@/components/projects/ProjectBoard';
+import ProjectsTimeline from '@/components/projects/ProjectsTimeline';
+import PortfolioScopeHeader from '@/components/portfolios/PortfolioScopeHeader';
 import { EntityGlyph, EntityTag, SegmentedControl } from '@/components/entities/EntityUI';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { usePersistedState } from '@/hooks/usePersistedState';
+import { isProjectsView, type ProjectsView } from '@/lib/projectPresentation';
 
 // Phase 8 (#187, plan §14/§17). What changed and why:
 //
@@ -34,7 +37,15 @@ import { usePersistedState } from '@/hooks/usePersistedState';
 // from a task — so every projects surface now says which one it is, in the
 // same vocabulary (components/entities/EntityUI.tsx).
 
-export default function ProjectsScreenWeb() {
+// Phase 10 (#191): this screen now takes an optional portfolio scope.
+//
+// "i was hoping the portfolio would just be ABOVE projects, but not a whole
+// different directory / category... portfolios are composed of projects after
+// all". So /portfolios/[id] renders THIS component with portfolioId set — the
+// portfolio's rollup sits above, the screen below is the one the user already
+// likes, with search, filters, sorting, paging and all three views intact.
+// There is no second projects screen.
+export default function ProjectsScreenWeb({ portfolioId }: { portfolioId?: string } = {}) {
   const colors = useThemeColors();
   const { showAlert } = useAlert();
   const { hasPermission } = useAuth();
@@ -49,16 +60,16 @@ export default function ProjectsScreenWeb() {
   const [spreadsheetImportVisible, setSpreadsheetImportVisible] = useState(false);
   const [addMenuVisible, setAddMenuVisible] = useState(false);
   const [tableRefreshKey, setTableRefreshKey] = useState(0);
-  // #176 Projects P6 -- Table/Board toggle. Timeline stays disabled/future.
+  // #176 Projects P6 -- Table/Board toggle; Timeline landed in Phase 10 (#191).
   // Persisted: switching to Board and coming back to a List you did not choose
   // is the kind of small betrayal that makes an app feel like it is not
-  // listening. Validated on read — 'timeline' is not selectable yet, and a
-  // stored value from a future build must not strand the screen on a view
-  // this one cannot render.
-  const [view, setView] = usePersistedState<'table' | 'board'>(
+  // listening. Still validated on read — what comes back from storage is a
+  // string written by an older build, and an unknown one must fall back to the
+  // list rather than strand the screen on a view this build cannot render.
+  const [view, setView] = usePersistedState<ProjectsView>(
     'projects_view',
     'table',
-    (v): v is 'table' | 'board' => v === 'table' || v === 'board',
+    isProjectsView,
   );
 
   const canViewProjects = hasPermission('project.view');
@@ -84,10 +95,26 @@ export default function ProjectsScreenWeb() {
 
   const bumpTable = () => setTableRefreshKey(k => k + 1);
 
+  // Scoped to one batch: the identity on screen is the PORTFOLIO's, and the
+  // create actions are hidden. ProjectFolderModal has no portfolio field, so a
+  // "New project" button here would silently create a project outside the
+  // batch you are looking at — a create door that lies about where it puts
+  // things is worse than no door. Bulk create / import make their OWN
+  // portfolio, so they make no sense from inside one either.
+  const scoped = !!portfolioId;
+
   return (
     <View className="flex-1 bg-surface-background px-8 py-7">
       <View className="max-w-[1600px] mx-auto w-full flex-1">
-        {/* Header — one identity, one primary action, one overflow. */}
+        {scoped ? (
+          <View className="mb-5">
+            <PortfolioScopeHeader
+              portfolioId={portfolioId!}
+              onAllProjects={() => router.push('/(tabs)/projects' as any)}
+            />
+          </View>
+        ) : (
+        /* Header — one identity, one primary action, one overflow. */
         <View className="flex-row items-center justify-between gap-4 mb-5">
           <View className="flex-row items-center gap-3">
             <EntityGlyph kind="project" size={44} />
@@ -148,16 +175,17 @@ export default function ProjectsScreenWeb() {
             </Tooltip>
           </View>
         </View>
+        )}
 
-        {/* View toggle — Board shipped #176 (Phase 6). Timeline is still future. */}
+        {/* View toggle — Board shipped #176 (Phase 6), Timeline #191 (Phase 10). */}
         <View className="mb-4">
-          <SegmentedControl<'table' | 'board' | 'timeline'>
+          <SegmentedControl<ProjectsView>
             value={view}
-            onChange={(v) => { if (v !== 'timeline') setView(v); }}
+            onChange={setView}
             options={[
               { value: 'table', label: 'List', icon: 'table' },
               { value: 'board', label: 'Board', icon: 'columns' },
-              { value: 'timeline', label: 'Timeline', icon: 'long-arrow-right', disabled: true, disabledReason: 'Timeline lands in a later phase. Use the board to see where work sits today.' },
+              { value: 'timeline', label: 'Timeline', icon: 'long-arrow-right' },
             ]}
           />
         </View>
@@ -166,15 +194,28 @@ export default function ProjectsScreenWeb() {
           <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
             <ProjectsTable
               refreshKey={tableRefreshKey}
+              portfolioId={portfolioId ?? null}
               onOpenProject={(id) => router.push(`/projects/${id}` as any)}
-              onBrowseStarters={canCreate ? () => setBulkCreateVisible(true) : undefined}
-              onCreateProject={canCreate ? () => setModalVisible(true) : undefined}
+              onBrowseStarters={canCreate && !scoped ? () => setBulkCreateVisible(true) : undefined}
+              onCreateProject={canCreate && !scoped ? () => setModalVisible(true) : undefined}
+            />
+            <View className="h-16" />
+          </ScrollView>
+        ) : view === 'timeline' ? (
+          <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
+            <ProjectsTimeline
+              refreshKey={tableRefreshKey}
+              portfolioId={portfolioId ?? null}
+              onOpenProject={(id) => router.push(`/projects/${id}` as any)}
+              onBrowseStarters={canCreate && !scoped ? () => setBulkCreateVisible(true) : undefined}
+              onCreateProject={canCreate && !scoped ? () => setModalVisible(true) : undefined}
             />
             <View className="h-16" />
           </ScrollView>
         ) : (
           <ProjectBoard
             refreshKey={tableRefreshKey}
+            portfolioId={portfolioId ?? null}
             onOpenProject={(id) => router.push(`/projects/${id}` as any)}
           />
         )}
