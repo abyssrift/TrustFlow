@@ -30,7 +30,9 @@ export const PIPELINE_ICONS: IconName[] = ['bolt', 'sitemap', 'random', 'sliders
 // shortcut metadata (icons, labels, hrefs, permission gating), while
 // SIDEBAR_GROUPS only governs the rail's order and grouping. Groups are plain:
 // every shortcut is a sibling row under its section title; there are no
-// expandable/collapsible parents.
+// expandable/collapsible parents. Targets/Archives were removed from the rail
+// entirely (#211) — they live inside the Intelligence hub itself, not as nav
+// destinations.
 export type SidebarGroupDef = {
   id: string;
   title?: string;
@@ -48,7 +50,7 @@ export const SIDEBAR_GROUPS: SidebarGroupDef[] = [
   {
     id: 'intel',
     title: 'Intelligence',
-    items: [{ id: 'radar' }, { id: 'targets' }, { id: 'archives' }],
+    items: [{ id: 'radar' }],
   },
   {
     id: 'company',
@@ -104,8 +106,6 @@ export const SHORTCUTS: Shortcut[] = [
   // server-side, so a user without it never sees the entry point.
   { id: 'portfolios', permissionKey: 'project.view', icon: 'th-large', label: 'Portfolios', href: '/portfolios' },
   { id: 'radar', permissionKey: '', anyPermissions: INTELLIGENCE_PERMISSIONS, icon: 'bullseye', label: 'Intelligence', href: '/intelligence' },
-  { id: 'targets', permissionKey: 'target.view', icon: 'crosshairs', label: 'Targets', href: '/intelligence/targets' },
-  { id: 'archives', permissionKey: 'archive.view', icon: 'archive', label: 'Archives', href: '/intelligence/archives' },
   { id: 'filehub', permissionKey: 'filehub:view', icon: 'folder-open', label: 'File Hub', href: '/filehub' },
   { id: 'team', permissionKey: 'user.view_all', fallbackPermissionKey: 'role.manage', icon: 'users', label: 'Corporate', href: '/people?section=teams' },
   { id: 'pipelines-admin', permissionKey: 'pipeline.edit', icon: 'gear', label: 'Pipelines', href: '/admin/pipelines' },
