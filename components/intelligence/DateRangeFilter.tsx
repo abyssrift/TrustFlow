@@ -88,13 +88,69 @@ const PRESETS = [
   { label: '12M', days: 365 },
 ];
 
+/**
+ * The From -> To pill pair + single range-mode Calendar popup, on its own
+ * (issue #262). This is the piece other screens want without the preset row
+ * or the granularity stepper — DateRangeControls below composes it with
+ * those for the full Intelligence filter bar. `from`/`to` accept `null` for
+ * an open-ended/"Anytime" state (shows `placeholder` instead of a date).
+ */
+export function DateRangePillPicker({ from, to, onApply, maxDays, active = true, placeholder = 'Select' }: {
+  from: string | null; to: string | null;
+  onApply: (from: string, to: string) => void;
+  maxDays?: number | null;
+  /** Brand-tint the pills (defaults on — pass false when a sibling preset row already owns the active styling). */
+  active?: boolean;
+  placeholder?: string;
+}) {
+  const colors = useThemeColors();
+  const [showRangePicker, setShowRangePicker] = useState(false);
+  const tint = active ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-card border-surface-border';
+  const iconColor = active ? colors.primary : colors.textMuted;
+  const textClass = active ? 'text-brand-primary' : 'text-typography-muted';
+
+  return (
+    <>
+      <TouchableOpacity
+        onPress={() => setShowRangePicker(true)}
+        className={`px-3.5 py-2 rounded-xl border flex-row items-center gap-2 ${tint}`}
+      >
+        <FontAwesome name="calendar-o" size={11} color={iconColor} />
+        <Text className={`text-[11px] font-bold ${textClass}`}>{from ? fmtDate(from) : placeholder}</Text>
+      </TouchableOpacity>
+      <Text className="text-typography-dim font-bold">→</Text>
+      <TouchableOpacity
+        onPress={() => setShowRangePicker(true)}
+        className={`px-3.5 py-2 rounded-xl border flex-row items-center gap-2 ${tint}`}
+      >
+        <FontAwesome name="calendar-o" size={11} color={iconColor} />
+        <Text className={`text-[11px] font-bold ${textClass}`}>{to ? fmtDate(to) : placeholder}</Text>
+      </TouchableOpacity>
+
+      <Calendar
+        visible={showRangePicker}
+        onClose={() => setShowRangePicker(false)}
+        onSelect={() => {}}
+        mode="range"
+        dual_display
+        showQuickSelect
+        selectedDate={from}
+        rangeDate={to}
+        maxDays={maxDays}
+        onApplyRange={onApply}
+        accentColor={colors.primary}
+        rangeColor={colors.secondary}
+      />
+    </>
+  );
+}
+
 export function DateRangeControls({ from, to, setFrom, setTo, maxDays, granularity }: {
   from: string; to: string; setFrom: (d: string) => void; setTo: (d: string) => void;
   maxDays?: number | null;
   granularity?: Granularity;
 }) {
   const colors = useThemeColors();
-  const [showRangePicker, setShowRangePicker] = useState(false);
 
   // Active preset is derived, not stored: highlighted only when the range
   // actually matches "last N days ending today".
@@ -132,21 +188,13 @@ export function DateRangeControls({ from, to, setFrom, setTo, maxDays, granulari
         );
       })}
 
-      <TouchableOpacity
-        onPress={() => setShowRangePicker(true)}
-        className={`px-3.5 py-2 rounded-xl border flex-row items-center gap-2 ${activePreset === null ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-card border-surface-border'}`}
-      >
-        <FontAwesome name="calendar-o" size={11} color={activePreset === null ? colors.primary : colors.textMuted} />
-        <Text className={`text-[11px] font-bold ${activePreset === null ? 'text-brand-primary' : 'text-typography-muted'}`}>{fmtDate(from)}</Text>
-      </TouchableOpacity>
-      <Text className="text-typography-dim font-bold">→</Text>
-      <TouchableOpacity
-        onPress={() => setShowRangePicker(true)}
-        className={`px-3.5 py-2 rounded-xl border flex-row items-center gap-2 ${activePreset === null ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-card border-surface-border'}`}
-      >
-        <FontAwesome name="calendar-o" size={11} color={activePreset === null ? colors.primary : colors.textMuted} />
-        <Text className={`text-[11px] font-bold ${activePreset === null ? 'text-brand-primary' : 'text-typography-muted'}`}>{fmtDate(to)}</Text>
-      </TouchableOpacity>
+      <DateRangePillPicker
+        from={from}
+        to={to}
+        active={activePreset === null}
+        maxDays={maxDays}
+        onApply={(f, t) => { setFrom(f); setTo(t); }}
+      />
 
       {granularity && (
         <View className="flex-row items-center bg-surface-card border border-surface-border rounded-xl px-1 py-0.5 gap-0.5">
@@ -165,21 +213,6 @@ export function DateRangeControls({ from, to, setFrom, setTo, maxDays, granulari
           )}
         </View>
       )}
-
-      <Calendar
-        visible={showRangePicker}
-        onClose={() => setShowRangePicker(false)}
-        onSelect={() => {}}
-        mode="range"
-        dual_display
-        showQuickSelect
-        selectedDate={from}
-        rangeDate={to}
-        maxDays={maxDays}
-        onApplyRange={(f, t) => { setFrom(f); setTo(t); }}
-        accentColor={colors.primary}
-        rangeColor={colors.secondary}
-      />
     </View>
   );
 }

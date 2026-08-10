@@ -1964,7 +1964,7 @@ function GroupMembersSheet({
                   >
                     <FontAwesome name="sliders" size={11} color={colors.primary} />
                     <Text className="text-brand-primary font-black text-xs">Change sharing permissions</Text>
-                    <FontAwesome name="angle-right" size={12} color={colors.primary} />
+                    <FontAwesome name="chevron-right" size={12} color={colors.primary} />
                   </TouchableOpacity>
                 )}
               </View>
@@ -2772,7 +2772,7 @@ function FileHubAdaptiveInner() {
           </TouchableOpacity>
           {breadcrumbChain.map((f, i) => (
             <React.Fragment key={f.id}>
-              <FontAwesome name="angle-right" size={10} color={colors.textDim} />
+              <FontAwesome name="chevron-right" size={10} color={colors.textDim} />
               <TouchableOpacity onPress={() => setSelectedFolderId(f.id)} className="py-1">
                 <Text className={`text-xs font-black ${i === breadcrumbChain.length - 1 ? 'text-typography-main' : 'text-typography-muted'}`} numberOfLines={1}>{f.name}</Text>
               </TouchableOpacity>

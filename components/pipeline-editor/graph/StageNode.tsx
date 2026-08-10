@@ -181,7 +181,7 @@ export default function StageNode({
                   onPress={onDelete}
                   className="p-1 hover:bg-surface-overlay rounded-md transition-all"
                 >
-                  <FontAwesome name="trash" size={10} color={colors.danger} />
+                  <FontAwesome name="trash-o" size={10} color={colors.danger} />
                 </TouchableOpacity>
               </Tooltip>
             </View>

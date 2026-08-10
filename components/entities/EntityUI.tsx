@@ -565,11 +565,26 @@ export function SectionCard({
  * §17: "an empty state on every projects surface that explains the entity
  * rather than saying 'No projects'." The blurb is the entity's own sentence
  * from lib/projectPresentation.ts, so the explanation cannot drift per screen.
+ *
+ * Issue #245 — the one shared empty/unavailable-state primitive for the whole
+ * app, not just the projects domain. `kind` is now optional so a screen with
+ * no natural EntityKind (notifications, admin lists, a report) can still use
+ * this instead of hand-rolling its own icon+title+body block. `variant`
+ * covers the other three surfaces the issue calls out — "no permission" and
+ * "feature unavailable" both render the same lock badge the app already used
+ * ad hoc (see `_analytics_desktop.tsx`'s `PlanGate` / "Access Restricted"),
+ * so this doesn't invent a new icon language, it just gives the existing one
+ * one home. "Loading-empty" is deliberately NOT a variant here — that's
+ * `SkeletonBlock`/`SkeletonList` (components/Skeleton.tsx), a different
+ * pattern (a placeholder shape, not a message), already used everywhere this
+ * component is.
  */
 export function EntityEmptyState({
   kind,
+  variant = 'empty',
   title,
   body,
+  icon,
   actionLabel,
   onAction,
   actionIcon = 'plus',
@@ -577,11 +592,16 @@ export function EntityEmptyState({
   onSecondary,
   compact,
 }: {
-  kind: EntityKind;
-  /** Defaults to "No <plural> here yet". Pass one when the situation is narrower. */
+  /** Omit for a surface with no natural entity (e.g. notifications, a report). */
+  kind?: EntityKind;
+  /** 'empty' = no data yet (default). 'denied' = lacks permission. 'unavailable' = feature/plan gated. */
+  variant?: 'empty' | 'denied' | 'unavailable';
+  /** Defaults to "No <plural> here yet" ('empty') or a variant default. Pass one when the situation is narrower. */
   title?: string;
-  /** Defaults to the entity's own explanation. Pass one to say what would fix THIS screen. */
+  /** Defaults to the entity's own explanation ('empty') or a variant default. Pass one to say what would fix THIS screen. */
   body?: string;
+  /** FontAwesome name overriding the glyph. Only used for 'denied'/'unavailable' or when kind is omitted — 'empty' with a kind always uses that entity's own glyph. */
+  icon?: string;
   actionLabel?: string;
   onAction?: () => void;
   actionIcon?: string;
@@ -589,18 +609,45 @@ export function EntityEmptyState({
   onSecondary?: () => void;
   compact?: boolean;
 }) {
-  const meta = ENTITY_META[kind];
+  const c = useThemeColors();
+  const meta = kind ? ENTITY_META[kind] : null;
+  const VARIANT_COPY = {
+    empty: { icon: meta?.icon || 'inbox', title: meta ? `No ${meta.plural.toLowerCase()} here yet` : 'Nothing here yet', body: meta?.blurb ?? '' },
+    denied: { icon: 'lock', title: "You don't have permission to view this", body: 'Ask an admin to grant you access if you think this is wrong.' },
+    unavailable: { icon: 'lock', title: 'Not available here', body: "This isn't available on your current plan or in this context." },
+  } as const;
+  const d = VARIANT_COPY[variant];
+  const glyphSize = compact ? 40 : 54;
+  const useEntityGlyph = variant === 'empty' && !!kind;
+
   return (
     <View className={`items-center ${compact ? 'py-8 px-4' : 'py-14 px-6'}`}>
-      <EntityGlyph kind={kind} size={compact ? 40 : 54} />
+      {useEntityGlyph ? (
+        <EntityGlyph kind={kind!} size={glyphSize} />
+      ) : (
+        <View
+          style={{
+            width: glyphSize,
+            height: glyphSize,
+            borderRadius: glyphSize * 0.3,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: c.textMuted + '14',
+            borderWidth: 1,
+            borderColor: c.textMuted + '30',
+          }}
+        >
+          <FontAwesome name={(icon ?? d.icon) as any} size={Math.round(glyphSize * 0.42)} color={c.textMuted} />
+        </View>
+      )}
       <View className="mt-4 items-center">
-        <EntityTag kind={kind} />
+        {!!kind && <EntityTag kind={kind} />}
         <Text className="text-typography-main text-base font-bold mt-1 text-center">
-          {title ?? `No ${meta.plural.toLowerCase()} here yet`}
+          {title ?? d.title}
         </Text>
       </View>
       <Text className="text-typography-muted text-xs text-center mt-2 leading-5" style={{ maxWidth: 420 }}>
-        {body ?? meta.blurb}
+        {body ?? d.body}
       </Text>
       {(!!onAction || !!onSecondary) && (
         <View className="flex-row items-center flex-wrap justify-center gap-2 mt-5">

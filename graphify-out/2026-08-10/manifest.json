@@ -4978,10 +4978,5 @@
     "mtime": 1786282781.4411404,
     "ast_hash": "84e64e63a79f1d734440e07264164cd8",
     "semantic_hash": ""
-  },
-  "components/common/MultiViewList.tsx": {
-    "mtime": 1786361009.9514732,
-    "ast_hash": "c44daa4a439ebe69602e062d7d96d1ca",
-    "semantic_hash": ""
   }
 }

@@ -156,7 +156,7 @@ export function StepSpine({
     <View className="flex-row items-center flex-wrap" style={{ gap: 6 }}>
       {steps.map((s, i) => (
         <React.Fragment key={s}>
-          {i > 0 && <FontAwesome name="angle-right" size={11} color={c.textDim} />}
+          {i > 0 && <FontAwesome name="chevron-right" size={11} color={c.textDim} />}
           <View
             className="px-2 py-1 rounded-lg flex-row items-center"
             style={{ gap: 5, backgroundColor: i === current ? `${c.primary}1f` : 'transparent' }}

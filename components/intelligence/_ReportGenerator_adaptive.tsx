@@ -1,7 +1,7 @@
 import HorizontalScroll from '@/components/common/HorizontalScroll';
-import Calendar from '@/components/common/Calendar';
 import { BackButton } from '@/components/common/BackButton';
 import Tooltip from '@/components/common/Tooltip';
+import { DateRangePillPicker } from '@/components/intelligence/DateRangeFilter';
 import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { useTicker } from '@/hooks/useTicker';
@@ -119,7 +119,6 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
   const [timeFrame, setTimeFrame]         = useState<'7' | '30' | '90' | 'custom'>('30');
   const [dateStart, setDateStart]         = useState('');
   const [dateEnd, setDateEnd]             = useState('');
-  const [activeDateField, setActiveDateField] = useState<'start' | 'end'>('start');
 
   const [pipelines, setPipelines] = useState<any[]>([]);
   const [teams, setTeams]         = useState<any[]>([]);
@@ -431,42 +430,11 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
                     </Pressable>
                   </View>
                   {timeFrame === 'custom' && (
-                    <View className="gap-3">
-                      <View className="flex-row gap-2">
-                        <TouchableOpacity
-                          onPress={() => setActiveDateField('start')}
-                          className={`flex-1 py-4 px-4 rounded-2xl border ${activeDateField === 'start' ? 'bg-brand-primary/10 border-brand-primary' : 'border-surface-border bg-surface-card'}`}
-                        >
-                          <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest text-center">From</Text>
-                          <Text className={`text-center font-black text-sm mt-1 ${activeDateField === 'start' ? 'text-brand-primary' : 'text-typography-main'}`} numberOfLines={1}>
-                            {dateStart || 'Select'}
-                          </Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          onPress={() => setActiveDateField('end')}
-                          className={`flex-1 py-4 px-4 rounded-2xl border ${activeDateField === 'end' ? 'bg-brand-primary/10 border-brand-primary' : 'border-surface-border bg-surface-card'}`}
-                        >
-                          <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest text-center">To</Text>
-                          <Text className={`text-center font-black text-sm mt-1 ${activeDateField === 'end' ? 'text-brand-primary' : 'text-typography-main'}`} numberOfLines={1}>
-                            {dateEnd || 'Select'}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                      <Calendar
-                        scale="compact"
-                        showDaysBetween
-                        selectedDate={activeDateField === 'start' ? dateStart : dateEnd}
-                        onSelect={(date) => {
-                          if (activeDateField === 'start') {
-                            setDateStart(date);
-                            if (!dateEnd) setActiveDateField('end');
-                          } else {
-                            setDateEnd(date);
-                          }
-                        }}
-                        accentColor={activeDateField === 'start' ? colors.primary : colors.secondary}
-                        rangeDate={activeDateField === 'start' ? dateEnd : dateStart}
-                        rangeColor={activeDateField === 'start' ? colors.secondary : colors.primary}
+                    <View className="flex-row items-center gap-2">
+                      <DateRangePillPicker
+                        from={dateStart || null}
+                        to={dateEnd || null}
+                        onApply={(f, t) => { setDateStart(f); setDateEnd(t); }}
                       />
                     </View>
                   )}

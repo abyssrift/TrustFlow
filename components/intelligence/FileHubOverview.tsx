@@ -196,7 +196,7 @@ export default function FileHubOverview({
                   {[`${g.file_count} file${g.file_count === 1 ? '' : 's'}`, g.last_activity ? `active ${ago(g.last_activity)}` : null].filter(Boolean).join(' · ')}
                 </Text>
               </View>
-              <FontAwesome name="angle-right" size={16} color={colors.textDim} />
+              <FontAwesome name="chevron-right" size={16} color={colors.textDim} />
             </TouchableOpacity>
           ))}
         </View>
@@ -240,7 +240,7 @@ export default function FileHubOverview({
                 {stats.inbox_unread} unread file{stats.inbox_unread === 1 ? '' : 's'} in your inbox
               </Text>
             </View>
-            <FontAwesome name="angle-right" size={18} color={colors.primary} />
+            <FontAwesome name="chevron-right" size={18} color={colors.primary} />
           </TouchableOpacity>
         </View>
       )}
@@ -287,7 +287,7 @@ function Card({ icon, title, colors, children, onAction, actionLabel }: {
         {onAction && (
           <TouchableOpacity onPress={onAction} className="flex-row items-center gap-1.5">
             <Text className="text-brand-primary text-[11px] font-black uppercase tracking-wider">{actionLabel}</Text>
-            <FontAwesome name="angle-right" size={13} color={colors.primary} />
+            <FontAwesome name="chevron-right" size={13} color={colors.primary} />
           </TouchableOpacity>
         )}
       </View>

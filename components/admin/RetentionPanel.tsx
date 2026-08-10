@@ -300,7 +300,7 @@ export default function RetentionPanel() {
                       onPress={() => setPurgeTarget(u)}
                       className="px-3 py-2 rounded-lg bg-state-danger/10 border border-state-danger/20 flex-row items-center gap-1.5"
                     >
-                      <FontAwesome name="trash-o" size={12} color={colors.danger} />
+                      <FontAwesome name="trash" size={12} color={colors.danger} />
                       <Text style={{ color: colors.danger }} className="text-[10px] font-black uppercase tracking-widest">Purge</Text>
                     </TouchableOpacity>
                   )}

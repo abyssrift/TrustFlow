@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 
-import Tooltip from '@/components/common/Tooltip';
+import { ListCard, ListPagination, ListRow } from '@/components/common/ListRow';
 import UserLink from '@/components/common/UserLink';
 import {
   ClientMark,
@@ -297,35 +297,16 @@ export default function ProjectsTable({
   );
 
   const pagination = (
-    <View className={`flex-row items-center justify-between border-t border-surface-border ${isDesktop ? 'px-5 py-2.5' : 'px-4 py-3'}`}>
-      <Text className="text-typography-muted text-[11px] font-medium">
-        {sortedRows.length === 0
-          ? 'Nothing to show'
-          : `Showing ${page * LIMIT + 1}–${page * LIMIT + sortedRows.length}${hasMore ? '' : ' — that’s all of them'}`}
-      </Text>
-      <View className="flex-row items-center gap-2">
-        <Tooltip label={page === 0 ? 'You’re on the first page' : 'Previous page'}>
-          <TouchableOpacity
-            disabled={page === 0}
-            onPress={() => setPage(p => Math.max(0, p - 1))}
-            accessibilityLabel="Previous page"
-            className={`w-8 h-8 items-center justify-center rounded-lg border border-surface-border ${page === 0 ? 'opacity-30' : 'hover:bg-surface-overlay'}`}
-          >
-            <FontAwesome name="chevron-left" size={11} color={c.textMuted} />
-          </TouchableOpacity>
-        </Tooltip>
-        <Tooltip label={!hasMore ? 'No more projects after this page' : 'Next page'}>
-          <TouchableOpacity
-            disabled={!hasMore}
-            onPress={() => setPage(p => p + 1)}
-            accessibilityLabel="Next page"
-            className={`w-8 h-8 items-center justify-center rounded-lg border border-surface-border ${!hasMore ? 'opacity-30' : 'hover:bg-surface-overlay'}`}
-          >
-            <FontAwesome name="chevron-right" size={11} color={c.textMuted} />
-          </TouchableOpacity>
-        </Tooltip>
-      </View>
-    </View>
+    <ListPagination
+      page={page}
+      count={sortedRows.length}
+      limit={LIMIT}
+      hasMore={hasMore}
+      onPrev={() => setPage(p => Math.max(0, p - 1))}
+      onNext={() => setPage(p => p + 1)}
+      isDesktop={isDesktop}
+      itemNoun="projects"
+    />
   );
 
   const SortHeader = ({ label, sortK, flex = 1, align = 'left' }: { label: string; sortK: SortKey; flex?: number; align?: 'left' | 'center' | 'right' }) => (
@@ -379,10 +360,11 @@ export default function ProjectsTable({
     emptyState
   ) : isDesktop ? (
     sortedRows.map((row, i) => (
-      <TouchableOpacity
+      <ListRow
         key={row.id}
         onPress={() => onOpenProject(row.id)}
-        className={`flex-row items-center px-5 py-3 ${i < sortedRows.length - 1 ? 'border-b border-surface-border/50' : ''} hover:bg-surface-overlay/40 transition-colors`}
+        isLast={i === sortedRows.length - 1}
+        accessibilityLabel={`Open ${row.name}`}
       >
         {/* Project — glyph first, so the row is identifiable before it's read */}
         <View style={{ flex: 2.6 }} className="pr-3 flex-row items-center gap-2.5">
@@ -458,7 +440,7 @@ export default function ProjectsTable({
         <View style={{ width: 32 }} className="items-end">
           <ProjectActionsButton onPress={() => actions.openMenu(row)} label={`Actions for ${row.name}`} />
         </View>
-      </TouchableOpacity>
+      </ListRow>
     ))
   ) : (
     <View className="px-4" style={{ gap: 10 }}>
@@ -502,7 +484,7 @@ export default function ProjectsTable({
   }
 
   return (
-    <View className="bg-surface-card rounded-2xl border border-surface-border overflow-hidden">
+    <ListCard>
       {filterBar}
       <View className="flex-row items-center px-5 py-2 border-b border-surface-border bg-surface-background/50">
         <SortHeader label="Project" sortK="name" flex={2.6} />
@@ -518,6 +500,6 @@ export default function ProjectsTable({
       {body}
       {!loading && !rpcMissing && pagination}
       {actions.overlay}
-    </View>
+    </ListCard>
   );
 }

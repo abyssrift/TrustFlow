@@ -10,6 +10,7 @@ import { Image, Platform, Pressable, ScrollView, Text, View } from 'react-native
 import { cssInterop } from 'react-native-css-interop';
 import UserLink from '@/components/common/UserLink';
 import Tooltip from '@/components/common/Tooltip';
+import { EntityEmptyState } from '@/components/entities/EntityUI';
 import KanbanNotes from './KanbanNotes.web';
 import KanbanActivity from './KanbanActivity.web';
 import TimeByCategoryPie from './TimeByCategoryPie';
@@ -267,7 +268,12 @@ export default function RightSidebar({
 
               <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
                 {members.length === 0 ? (
-                  <Text className="px-1 py-3 text-typography-muted text-xs">No one has access yet.</Text>
+                  <EntityEmptyState
+                    icon="users"
+                    compact
+                    title="No one has access yet"
+                    body="Nobody has been given access to this board yet."
+                  />
                 ) : (
                   members.map(m => (
                     <MemberRow key={m.id} member={m} work={workByUser.get(m.id)} onOpen={id => router.push(`/task/${id}` as any)} />

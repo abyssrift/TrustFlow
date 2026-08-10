@@ -1347,7 +1347,7 @@ function FolderBreadcrumb({
       <View className="flex-row items-center flex-wrap flex-1 min-w-0">
         {crumbs.map((c, i) => (
           <React.Fragment key={c.id ?? 'root'}>
-            {i > 0 && <FontAwesome name="angle-right" size={11} color={colors.textDim} style={{ marginHorizontal: 6 }} />}
+            {i > 0 && <FontAwesome name="chevron-right" size={11} color={colors.textDim} style={{ marginHorizontal: 6 }} />}
             <BreadcrumbCrumb crumb={c} isLast={i === crumbs.length - 1} onNavigate={onNavigate} onDropMove={onDropMove} />
           </React.Fragment>
         ))}
@@ -2949,7 +2949,7 @@ function GroupMembersPanel({
             >
               <FontAwesome name="sliders" size={11} color={colors.primary} />
               <Text className="text-brand-primary font-black text-xs">Change sharing permissions</Text>
-              <FontAwesome name="angle-right" size={12} color={colors.primary} />
+              <FontAwesome name="chevron-right" size={12} color={colors.primary} />
             </TouchableOpacity>
           )}
         </View>
@@ -3612,13 +3612,13 @@ function FileHubDesktopInner() {
         </View>
       )}
       {/* ── Header ── */}
-      <View className="px-10 pt-8 pb-5 flex-row flex-wrap items-start justify-between gap-4 border-b border-surface-border flex-shrink-0">
+      <View className="px-10 pt-8 pb-5 flex-row flex-wrap items-center justify-between gap-4 border-b border-surface-border flex-shrink-0">
         <View className="min-w-0">
           <Text className="text-brand-primary font-black uppercase tracking-[0.3em] text-[9px] mb-1">Intelligence Hub</Text>
           <Text className="text-typography-main text-4xl font-black tracking-tighter">File Hub</Text>
         </View>
         <View className="flex-row items-center gap-3 flex-wrap justify-end">
-          <View className="flex-row items-center bg-surface-card border border-surface-border rounded-xl px-4 py-2.5 gap-3 w-full max-w-[320px] min-w-[200px]">
+          <View className="flex-row items-center bg-surface-card border border-surface-border rounded-xl px-4 py-2.5 gap-3 w-full max-w-[280px] min-w-[200px]">
             <FontAwesome name="search" size={12} color={colors.textMuted} />
             <TextInput
               value={search}
@@ -3635,13 +3635,18 @@ function FileHubDesktopInner() {
               </Tooltip>
             )}
           </View>
-          <TouchableOpacity
-            onPress={() => setShowAnalytics(true)}
-            className="h-10 flex-row items-center gap-2 px-4 bg-surface-card border border-surface-border rounded-xl shrink-0"
-          >
-            <FontAwesome name="bar-chart" size={12} color={colors.primary} />
-            <Text className="text-typography-main font-black text-sm tracking-wide">Insights</Text>
-          </TouchableOpacity>
+          {/* Icon-only, matching the Sent/Bin/Refresh squares beside it — this used
+              to carry an "Insights" text label and was the single widest item in
+              the row, which is what pushed Upload onto its own wrapped line on
+              real (sidebar-narrowed) desktop widths. */}
+          <Tooltip label="Insights">
+            <TouchableOpacity
+              onPress={() => setShowAnalytics(true)}
+              className="h-10 w-10 items-center justify-center bg-surface-card border border-surface-border rounded-xl shrink-0"
+            >
+              <FontAwesome name="bar-chart" size={13} color={colors.primary} />
+            </TouchableOpacity>
+          </Tooltip>
           <Tooltip label="View sent files">
             <TouchableOpacity
               onPress={() => handleTabChange('sent')}
@@ -3706,12 +3711,12 @@ function FileHubDesktopInner() {
       </View>
 
       {/* ── Tabs ── */}
-      <View className="px-10 pt-4 pb-3 flex-row items-center gap-2 flex-shrink-0 border-b border-surface-border">
+      <View className="px-10 pt-3 pb-2.5 flex-row items-center gap-2 flex-shrink-0 border-b border-surface-border">
         {tabs.map(tab => (
           <TouchableOpacity
             key={tab.key}
             onPress={() => handleTabChange(tab.key)}
-            className={`flex-row items-center gap-2 px-5 py-2 rounded-xl border transition-colors ${
+            className={`flex-row items-center gap-2 px-5 py-1.5 rounded-xl border transition-colors ${
               mode === tab.key
                 ? 'bg-brand-primary/10 border-brand-primary/30'
                 : 'bg-surface-card border-surface-border hover:bg-surface-overlay'

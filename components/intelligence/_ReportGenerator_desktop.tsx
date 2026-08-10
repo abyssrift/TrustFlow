@@ -1,4 +1,5 @@
 import Tooltip from '@/components/common/Tooltip';
+import { DateRangePillPicker } from '@/components/intelligence/DateRangeFilter';
 import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { useTicker } from '@/hooks/useTicker';
@@ -482,27 +483,12 @@ export default function ReportGeneratorDesktop() {
                         </TouchableOpacity>
                       </View>
                       {timeFrame === 'custom' && (
-                        <View className="flex-row gap-4">
-                          <View className="flex-1">
-                            <Text className="text-typography-muted text-[10px] font-bold uppercase mb-2 ml-1">Start Date</Text>
-                            <RNTextInput
-                              placeholder="YYYY-MM-DD"
-                              value={dateStart}
-                              onChangeText={setDateStart}
-                              className="border border-surface-border bg-surface-background rounded-2xl p-5 text-typography-main font-bold"
-                              placeholderTextColor={colors.textMuted}
-                            />
-                          </View>
-                          <View className="flex-1">
-                            <Text className="text-typography-muted text-[10px] font-bold uppercase mb-2 ml-1">End Date</Text>
-                            <RNTextInput
-                              placeholder="YYYY-MM-DD"
-                              value={dateEnd}
-                              onChangeText={setDateEnd}
-                              className="border border-surface-border bg-surface-background rounded-2xl p-5 text-typography-main font-bold"
-                              placeholderTextColor={colors.textMuted}
-                            />
-                          </View>
+                        <View className="flex-row items-center gap-3">
+                          <DateRangePillPicker
+                            from={dateStart || null}
+                            to={dateEnd || null}
+                            onApply={(f, t) => { setDateStart(f); setDateEnd(t); }}
+                          />
                         </View>
                       )}
                     </View>

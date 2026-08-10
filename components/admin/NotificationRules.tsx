@@ -256,7 +256,7 @@ const RuleInspector = ({
                   className="w-10 h-10 rounded-xl border items-center justify-center"
                   style={{ backgroundColor: colors.background, borderColor: colors.border }}
                 >
-                  <FontAwesome name="trash" size={14} color={colors.danger} />
+                  <FontAwesome name="trash-o" size={14} color={colors.danger} />
                 </TouchableOpacity>
               </Tooltip>
             </View>
