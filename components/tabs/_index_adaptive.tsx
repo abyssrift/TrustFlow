@@ -614,28 +614,30 @@ function DashboardSettingsModal({ visible, onClose, config, onSave }: {
 
   return (
     <Popup visible={visible} onClose={onClose} presentation="auto" maxWidth={420}>
-          <View className="p-5 border-b border-surface-border flex-row justify-between items-center bg-surface-card">
+          <View className="px-4 py-3 border-b border-surface-border flex-row justify-between items-center bg-surface-card">
             <View>
-              <Text className="text-typography-main text-lg font-black">Dashboard Config</Text>
+              <Text className="text-typography-main text-base font-black">Dashboard Config</Text>
               <Text className="text-typography-muted text-[10px] font-bold uppercase">Pipeline Source Settings</Text>
             </View>
             <TouchableOpacity onPress={onClose} className="w-9 h-9 rounded-full bg-surface-background items-center justify-center border border-surface-border">
-              <FontAwesome name="times" size={14} color={colors.textDim} />
+              <FontAwesome name="times" size={13} color={colors.textDim} />
             </TouchableOpacity>
           </View>
 
-          <ScrollView className="flex-1 p-5">
+          <ScrollView className="flex-1 px-4 py-4">
             {loading ? (
-              <ActivityIndicator size="large" color={colors.primary} className="mt-8" />
+              <View className="py-10 items-center">
+                <ActivityIndicator size="large" color={colors.primary} />
+              </View>
             ) : (
-              <View className="pb-16">
+              <View className="pb-8">
                 {/* All Pipelines Toggle */}
                 <TouchableOpacity
                   onPress={() => setUseAllPipelines(v => !v)}
-                  className={`p-4 rounded-2xl border mb-4 flex-row items-center justify-between ${useAllPipelines ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-card border-surface-border'}`}
+                  className={`px-3.5 py-3 rounded-xl border mb-3 flex-row items-center justify-between ${useAllPipelines ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-card border-surface-border'}`}
                 >
                   <View className="flex-1 mr-4">
-                    <Text className={`font-black text-sm mb-1 ${useAllPipelines ? 'text-brand-primary' : 'text-typography-main'}`}>
+                    <Text className={`font-black text-sm mb-0.5 ${useAllPipelines ? 'text-brand-primary' : 'text-typography-main'}`}>
                       Monitor All Pipelines
                     </Text>
                     <Text className="text-typography-muted text-[10px] font-medium">
@@ -653,8 +655,8 @@ function DashboardSettingsModal({ visible, onClose, config, onSave }: {
                 </TouchableOpacity>
 
                 {useAllPipelines && (
-                  <View className="bg-surface-card p-4 rounded-2xl border border-surface-border mb-4">
-                    <View className="flex-row items-center mb-2">
+                  <View className="bg-surface-card px-3.5 py-3 rounded-xl border border-surface-border mb-5">
+                    <View className="flex-row items-center mb-1.5">
                       <FontAwesome name="check-circle" size={12} color={colors.primary} />
                       <Text className="text-brand-primary font-black text-[10px] ml-2 uppercase tracking-widest">Auto Mode Active</Text>
                     </View>
@@ -667,15 +669,15 @@ function DashboardSettingsModal({ visible, onClose, config, onSave }: {
 
                 {!useAllPipelines && (
                   <>
-                    <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-3">Select Pipelines</Text>
-                    <View className="gap-2 mb-6">
+                    <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2.5">Select Pipelines</Text>
+                    <View className="gap-2 mb-5">
                       {pipelines.map(p => (
                         <TouchableOpacity
                           key={p.id}
                           onPress={() => togglePipeline(p.id)}
-                          className={`p-3 rounded-xl border flex-row items-center justify-between ${selectedPipelines.includes(p.id) ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border'}`}
+                          className={`px-3.5 py-2.5 rounded-lg border flex-row items-center justify-between ${selectedPipelines.includes(p.id) ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border'}`}
                         >
-                          <Text className={`font-bold ${selectedPipelines.includes(p.id) ? 'text-white' : 'text-typography-main'}`}>{p.name}</Text>
+                          <Text className={`font-bold text-sm ${selectedPipelines.includes(p.id) ? 'text-white' : 'text-typography-main'}`}>{p.name}</Text>
                           {selectedPipelines.includes(p.id) && <FontAwesome name="check" size={12} color="white" />}
                         </TouchableOpacity>
                       ))}
@@ -683,7 +685,7 @@ function DashboardSettingsModal({ visible, onClose, config, onSave }: {
 
                     {selectedPipelines.length > 0 && (
                       <>
-                        <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Success Stages</Text>
+                        <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-0.5">Success Stages</Text>
                         <Text className="text-typography-muted text-xs mb-3 font-medium">
                           Completed stages are pre-selected. These count toward the "Completed" metric.
                         </Text>
@@ -691,8 +693,8 @@ function DashboardSettingsModal({ visible, onClose, config, onSave }: {
                           const pipeline = pipelines.find(p => p.id === pid);
                           const pipelineStages = stages.filter(s => s.pipeline_id === pid);
                           return (
-                            <View key={pid} className="mb-4 bg-surface-card p-3 rounded-2xl border border-surface-border">
-                              <Text className="text-typography-main font-black mb-2 text-xs">{pipeline?.name}</Text>
+                            <View key={pid} className="mb-3 bg-surface-card p-3 rounded-xl border border-surface-border">
+                              <Text className="text-typography-main font-black mb-2 text-sm">{pipeline?.name}</Text>
                               <View className="flex-row flex-wrap gap-2">
                                 {pipelineStages.map(s => {
                                   const isSelected = selectedSuccessStages.includes(s.id);
@@ -708,13 +710,13 @@ function DashboardSettingsModal({ visible, onClose, config, onSave }: {
                                     <TouchableOpacity
                                       key={s.id}
                                       onPress={() => toggleStage(s.id)}
-                                      className={`px-3 py-2 rounded-lg border flex-row items-center ${isSelected ? 'bg-state-success/10 border-state-success' : 'bg-surface-background border-surface-border'}`}
+                                      className={`px-2.5 py-1.5 rounded-lg border flex-row items-center ${isSelected ? 'bg-state-success/10 border-state-success' : 'bg-surface-background border-surface-border'}`}
                                     >
                                       <FontAwesome
-                                        name={isSelected ? "check-circle" : "circle-o"} 
-                                        size={18} 
-                                        color={isSelected ? colors.success : colors.textDim} 
-                                        style={{ marginRight: 6 }}
+                                        name={isSelected ? "check-circle" : "circle-o"}
+                                        size={16}
+                                        color={isSelected ? colors.success : colors.textDim}
+                                        style={{ marginRight: 5 }}
                                       />
                                       <Text className={`text-[10px] font-bold mr-1.5 ${isSelected ? 'text-state-success' : 'text-typography-muted'}`}>{s.name}</Text>
                                       {s.is_terminal && (
@@ -739,10 +741,10 @@ function DashboardSettingsModal({ visible, onClose, config, onSave }: {
             )}
           </ScrollView>
 
-          <View className="p-4 border-t border-surface-border bg-surface-card">
+          <View className="px-4 py-3 border-t border-surface-border bg-surface-card">
             <TouchableOpacity
               onPress={handleSave}
-              className="w-full py-3 rounded-2xl bg-brand-primary items-center"
+              className="w-full h-11 rounded-xl bg-brand-primary items-center justify-center"
             >
               <Text className="text-white font-black uppercase tracking-widest text-sm">Save Config</Text>
             </TouchableOpacity>

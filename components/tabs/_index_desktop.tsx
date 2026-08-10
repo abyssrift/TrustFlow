@@ -727,167 +727,167 @@ function DashboardSettingsModal({ visible, onClose, config, onSave }: {
     }
   };
 
-  // Was a raw RN `Modal`, which the repo's popup rule forbids outright. Now a
-  // Popup sized for what it actually holds — one toggle plus optional
-  // pipeline/stage pickers — so it reads proportionally instead of dominating
-  // the dashboard view. Kept above the 420 one-column floor: two-column stage
-  // chips need the room, but the 720 center band is enough for that, not 896.
+  // Dimensioned for what it actually holds — one toggle plus optional
+  // pipeline/stage pickers — so ~2–3 controls read proportionally instead of
+  // dominating the dashboard view: compact header, single-control rows, tight
+  // footer. Kept above the 420 one-column floor (two-column stage chips need
+  // the room), well under the 896px it used to sprawl at.
   return (
-    <Popup visible={visible} onClose={onClose} presentation="auto" maxWidth={720} maxHeight="90%">
-        <View className="flex-1">
-          <View className="p-5 border-b border-surface-border flex-row justify-between items-center">
-            <View className="flex-1 pr-4">
-              <Text className="text-typography-main text-lg font-black tracking-tight">Dashboard configuration</Text>
-              <Text className="text-typography-muted text-xs mt-0.5">Choose which pipelines to monitor and which stages count as done.</Text>
-            </View>
-            <TouchableOpacity
-              onPress={onClose}
-              accessibilityRole="button"
-              accessibilityLabel="Close"
-              className="rounded-full bg-surface-background items-center justify-center border border-surface-border"
-              style={{ width: 40, height: 40 }}
-            >
-              <FontAwesome name="times" size={14} color={colors.textDim} />
-            </TouchableOpacity>
+    <Popup visible={visible} onClose={onClose} presentation="auto" maxWidth={600}>
+      <View>
+        <View className="px-4 py-3 border-b border-surface-border flex-row justify-between items-center">
+          <View className="flex-1 pr-4">
+            <Text className="text-typography-main text-base font-black tracking-tight">Dashboard configuration</Text>
+            <Text className="text-typography-muted text-xs mt-0.5">Choose which pipelines to monitor and which stages count as done.</Text>
           </View>
-
-          <ScrollView className="p-5">
-            {loading ? (
-              <ActivityIndicator size="large" color={colors.primary} />
-            ) : (
-              <View>
-                {/* All Pipelines Toggle */}
-                <TouchableOpacity
-                  onPress={() => setUseAllPipelines(v => !v)}
-                  className={`p-4 rounded-2xl border mb-5 flex-row items-center justify-between ${useAllPipelines ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border'}`}
-                >
-                  <View className="flex-1 mr-5">
-                    <Text className={`font-black text-sm mb-1 ${useAllPipelines ? 'text-brand-primary' : 'text-typography-main'}`}>
-                      Monitor All Pipelines
-                    </Text>
-                    <Text className="text-typography-muted text-xs font-medium">
-                      Include every pipeline automatically. Success stages are auto-detected from{' '}
-                      <Text className="text-state-success font-bold">terminal_type = success</Text> stages.
-                    </Text>
-                  </View>
-                  <View
-                    className={`w-12 h-7 rounded-full justify-center px-1 border-2 ${useAllPipelines ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border'}`}
-                  >
-                    <View
-                      className="w-4 h-4 rounded-full bg-white"
-                      style={{ alignSelf: useAllPipelines ? 'flex-end' : 'flex-start' }}
-                    />
-                  </View>
-                </TouchableOpacity>
-
-                {useAllPipelines && (
-                  <View className="bg-surface-background p-4 rounded-2xl border border-surface-border mb-5">
-                    <View className="flex-row items-center mb-2">
-                      <FontAwesome name="check-circle" size={13} className="text-brand-primary" />
-                      <Text className="text-brand-primary font-black text-[11px] ml-2 uppercase tracking-widest">Auto Mode Active</Text>
-                    </View>
-                    <Text className="text-typography-muted text-xs font-medium leading-relaxed">
-                      All {pipelines.length} pipeline{pipelines.length !== 1 ? 's' : ''} are being monitored. Stages with{' '}
-                      <Text className="text-state-success font-bold">terminal_type = success</Text> count toward the Completed metric.
-                      Stages with other terminal types (failed, cancelled) are tracked separately as Failed/Rejected.
-                    </Text>
-                  </View>
-                )}
-
-                {!useAllPipelines && (
-                  <>
-                    <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mb-4">Select Pipelines to Monitor</Text>
-                    <View className="flex-row flex-wrap gap-3 mb-7">
-                      {pipelines.map(p => (
-                        <TouchableOpacity
-                          key={p.id}
-                          onPress={() => togglePipeline(p.id)}
-                          className={`px-5 py-2.5 rounded-xl border ${selectedPipelines.includes(p.id) ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
-                        >
-                          <Text className={`font-black text-xs ${selectedPipelines.includes(p.id) ? 'text-white' : 'text-typography-main'}`}>{p.name}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-
-                    {selectedPipelines.length > 0 && (
-                      <>
-                        <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mb-3">Define Success Stages</Text>
-                        <Text className="text-typography-muted text-xs mb-5 font-medium">
-                          Completed terminal stages are pre-selected. Adjust as needed — these are the stages that count toward "Completed".
-                        </Text>
-                        <View className="gap-5">
-                          {selectedPipelines.map(pid => {
-                            const pipeline = pipelines.find(p => p.id === pid);
-                            const pipelineStages = stages.filter(s => s.pipeline_id === pid);
-                            return (
-                              <View key={pid} className="bg-surface-background p-4 rounded-2xl border border-surface-border">
-                                <Text className="text-typography-main font-black mb-3">{pipeline?.name}</Text>
-                                <View className="flex-row flex-wrap gap-2">
-                                  {pipelineStages.map(s => {
-                                    const isSelected = selectedSuccessStages.includes(s.id);
-                                    const terminalColor =
-                                      s.terminal_type === 'success' ? 'text-state-success' :
-                                      s.terminal_type === 'failure' ? 'text-state-danger' :
-                                      'text-state-warning';
-                                    const terminalBg =
-                                      s.terminal_type === 'success' ? 'bg-state-success/20' :
-                                      s.terminal_type === 'failure' ? 'bg-state-danger/20' :
-                                      'bg-state-warning/20';
-                                    return (
-                                      <TouchableOpacity
-                                        key={s.id}
-                                        onPress={() => toggleStage(s.id)}
-                                        className={`px-3 py-1.5 rounded-lg border flex-row items-center ${isSelected ? 'bg-state-success/20 border-state-success' : 'bg-surface-card border-surface-border'}`}
-                                      >
-                                        <FontAwesome
-                                          name={isSelected ? 'check-square' : 'square-o'}
-                                          size={13}
-                                          className={isSelected ? 'text-state-success' : 'text-typography-dim'}
-                                          style={{ marginRight: 7 }}
-                                        />
-                                        <Text className={`text-[11px] font-bold mr-2 ${isSelected ? 'text-state-success' : 'text-typography-muted'}`}>{s.name}</Text>
-                                        {s.is_terminal && (
-                                          <View className={`px-2 py-0.5 rounded-full ${terminalBg}`}>
-                                            <Text className={`text-[8px] font-black uppercase ${terminalColor}`}>
-                                              {s.terminal_type || 'terminal'}
-                                            </Text>
-                                          </View>
-                                        )}
-                                      </TouchableOpacity>
-                                    );
-                                  })}
-                                </View>
-                              </View>
-                            );
-                          })}
-                        </View>
-                      </>
-                    )}
-                  </>
-                )}
-              </View>
-            )}
-          </ScrollView>
-
-          <View className="p-4 border-t border-surface-border flex-row gap-3">
-            <TouchableOpacity
-              onPress={onClose}
-              accessibilityRole="button"
-              className="flex-1 rounded-xl bg-surface-background border border-surface-border items-center justify-center"
-              style={{ minHeight: 40 }}
-            >
-              <Text className="text-typography-muted text-xs font-bold">Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={handleSave}
-              accessibilityRole="button"
-              className="flex-[2] rounded-xl bg-brand-primary hover:bg-brand-primary-hover items-center justify-center transition-colors"
-              style={{ minHeight: 40 }}
-            >
-              <Text className="text-white text-xs font-bold">Save configuration</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+            className="rounded-full bg-surface-background items-center justify-center border border-surface-border"
+            style={{ width: 36, height: 36 }}
+          >
+            <FontAwesome name="times" size={13} color={colors.textDim} />
+          </TouchableOpacity>
         </View>
+
+        <ScrollView className="px-4 py-4">
+          {loading ? (
+            <View className="py-10 items-center">
+              <ActivityIndicator size="large" color={colors.primary} />
+            </View>
+          ) : (
+            <View>
+              {/* All Pipelines Toggle */}
+              <TouchableOpacity
+                onPress={() => setUseAllPipelines(v => !v)}
+                className={`px-3.5 py-3 rounded-xl border mb-3 flex-row items-center justify-between ${useAllPipelines ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border'}`}
+              >
+                <View className="flex-1 mr-5">
+                  <Text className={`font-black text-sm mb-0.5 ${useAllPipelines ? 'text-brand-primary' : 'text-typography-main'}`}>
+                    Monitor All Pipelines
+                  </Text>
+                  <Text className="text-typography-muted text-xs font-medium">
+                    Include every pipeline automatically. Success stages are auto-detected from{' '}
+                    <Text className="text-state-success font-bold">terminal_type = success</Text> stages.
+                  </Text>
+                </View>
+                <View
+                  className={`w-12 h-7 rounded-full justify-center px-1 border-2 ${useAllPipelines ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border'}`}
+                >
+                  <View
+                    className="w-4 h-4 rounded-full bg-white"
+                    style={{ alignSelf: useAllPipelines ? 'flex-end' : 'flex-start' }}
+                  />
+                </View>
+              </TouchableOpacity>
+
+              {useAllPipelines && (
+                <View className="bg-surface-background px-3.5 py-3 rounded-xl border border-surface-border mb-5">
+                  <View className="flex-row items-center mb-1.5">
+                    <FontAwesome name="check-circle" size={12} className="text-brand-primary" />
+                    <Text className="text-brand-primary font-black text-[10px] ml-2 uppercase tracking-widest">Auto Mode Active</Text>
+                  </View>
+                  <Text className="text-typography-muted text-xs font-medium leading-relaxed">
+                    All {pipelines.length} pipeline{pipelines.length !== 1 ? 's' : ''} are being monitored. Stages with{' '}
+                    <Text className="text-state-success font-bold">terminal_type = success</Text> count toward the Completed metric.
+                    Stages with other terminal types (failed, cancelled) are tracked separately as Failed/Rejected.
+                  </Text>
+                </View>
+              )}
+
+              {!useAllPipelines && (
+                <>
+                  <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mb-2.5">Select Pipelines to Monitor</Text>
+                  <View className="flex-row flex-wrap gap-2 mb-5">
+                    {pipelines.map(p => (
+                      <TouchableOpacity
+                        key={p.id}
+                        onPress={() => togglePipeline(p.id)}
+                        className={`px-4 py-2 rounded-lg border ${selectedPipelines.includes(p.id) ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
+                      >
+                        <Text className={`font-black text-xs ${selectedPipelines.includes(p.id) ? 'text-white' : 'text-typography-main'}`}>{p.name}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  {selectedPipelines.length > 0 && (
+                    <>
+                      <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mb-0.5">Define Success Stages</Text>
+                      <Text className="text-typography-muted text-xs mb-3 font-medium">
+                        Completed terminal stages are pre-selected. Adjust as needed — these are the stages that count toward "Completed".
+                      </Text>
+                      {selectedPipelines.map(pid => {
+                        const pipeline = pipelines.find(p => p.id === pid);
+                        const pipelineStages = stages.filter(s => s.pipeline_id === pid);
+                        return (
+                          <View key={pid} className="bg-surface-background p-3 rounded-xl border border-surface-border mb-3">
+                            <Text className="text-typography-main font-black mb-2 text-sm">{pipeline?.name}</Text>
+                            <View className="flex-row flex-wrap gap-2">
+                              {pipelineStages.map(s => {
+                                const isSelected = selectedSuccessStages.includes(s.id);
+                                const terminalColor =
+                                  s.terminal_type === 'success' ? 'text-state-success' :
+                                  s.terminal_type === 'failure' ? 'text-state-danger' :
+                                  'text-state-warning';
+                                const terminalBg =
+                                  s.terminal_type === 'success' ? 'bg-state-success/20' :
+                                  s.terminal_type === 'failure' ? 'bg-state-danger/20' :
+                                  'bg-state-warning/20';
+                                return (
+                                  <TouchableOpacity
+                                    key={s.id}
+                                    onPress={() => toggleStage(s.id)}
+                                    className={`px-2.5 py-1.5 rounded-lg border flex-row items-center ${isSelected ? 'bg-state-success/20 border-state-success' : 'bg-surface-card border-surface-border'}`}
+                                  >
+                                    <FontAwesome
+                                      name={isSelected ? 'check-square' : 'square-o'}
+                                      size={13}
+                                      className={isSelected ? 'text-state-success' : 'text-typography-dim'}
+                                      style={{ marginRight: 6 }}
+                                    />
+                                    <Text className={`text-[11px] font-bold mr-2 ${isSelected ? 'text-state-success' : 'text-typography-muted'}`}>{s.name}</Text>
+                                    {s.is_terminal && (
+                                      <View className={`px-2 py-0.5 rounded-full ${terminalBg}`}>
+                                        <Text className={`text-[8px] font-black uppercase ${terminalColor}`}>
+                                          {s.terminal_type || 'terminal'}
+                                        </Text>
+                                      </View>
+                                    )}
+                                  </TouchableOpacity>
+                                );
+                              })}
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </>
+                  )}
+                </>
+              )}
+            </View>
+          )}
+        </ScrollView>
+
+        <View className="px-4 py-3 border-t border-surface-border flex-row gap-3">
+          <TouchableOpacity
+            onPress={onClose}
+            accessibilityRole="button"
+            className="flex-1 rounded-xl bg-surface-background border border-surface-border items-center justify-center"
+            style={{ minHeight: 38 }}
+          >
+            <Text className="text-typography-muted text-xs font-bold">Cancel</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleSave}
+            accessibilityRole="button"
+            className="flex-[2] rounded-xl bg-brand-primary hover:bg-brand-primary-hover items-center justify-center transition-colors"
+            style={{ minHeight: 38 }}
+          >
+            <Text className="text-white text-xs font-bold">Save configuration</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     </Popup>
   );
 }
