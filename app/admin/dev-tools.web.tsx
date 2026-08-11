@@ -254,7 +254,7 @@ export default function DevToolsScreenWeb() {
                 style={loading ? { opacity: 0.6 } : {}}
               >
                 <View className="flex-row items-start justify-between mb-3">
-                  <FontAwesome name="trash" size={20} color="#dc2626" />
+                  <FontAwesome name="trash-o" size={20} color="#dc2626" />
                   <Text className="text-red-600 font-black text-xs">DESTRUCTIVE</Text>
                 </View>
                 <Text className="text-red-600 font-black text-lg mb-1">Clear All</Text>
@@ -270,7 +270,7 @@ export default function DevToolsScreenWeb() {
                 className="flex-1 min-w-80 rounded-2xl border-2 border-emerald-500 bg-emerald-500/10 p-6 hover:bg-emerald-500/20 transition-colors"
               >
                 <View className="flex-row items-start justify-between mb-3">
-                  <FontAwesome name="bell" size={20} color="#059669" />
+                  <FontAwesome name="bell-o" size={20} color="#059669" />
                   <Text className="text-emerald-600 font-black text-xs">3S DELAY</Text>
                 </View>
                 <Text className="text-emerald-600 font-black text-lg mb-1">Test Ping</Text>
@@ -278,6 +278,23 @@ export default function DevToolsScreenWeb() {
                 <Text className="text-emerald-600/70 text-xs leading-relaxed">
                   Fires a simulated ping 3s after you click, so it lands with no gesture on the
                   call stack — same as a real one. Check the log below and try tapping the toast.
+                </Text>
+              </TouchableOpacity>
+
+              {/* Icon Audit Card */}
+              <TouchableOpacity
+                onPress={() => router.push('/admin/icon-audit' as any)}
+                className="flex-1 min-w-80 rounded-2xl border-2 border-brand-primary bg-brand-primary/10 p-6 hover:bg-brand-primary/20 transition-colors"
+              >
+                <View className="flex-row items-start justify-between mb-3">
+                  <FontAwesome name="sliders" size={20} color="#6366f1" />
+                  <Text className="text-brand-primary font-black text-xs">AUDIT</Text>
+                </View>
+                <Text className="text-brand-primary font-black text-lg mb-1">Icon Audit</Text>
+                <Text className="text-brand-primary font-bold text-sm mb-2">Every glyph + location</Text>
+                <Text className="text-brand-primary/70 text-xs leading-relaxed">
+                  Every FontAwesome glyph used across the app, grouped by icon name with every
+                  file:line it appears in. Search, filter duplicates, spot inconsistencies.
                 </Text>
               </TouchableOpacity>
             </View>
