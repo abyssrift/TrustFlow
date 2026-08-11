@@ -302,6 +302,20 @@ export default function DevToolsScreen() {
                 <FontAwesome name="chevron-right" size={12} color="#059669" />
               </View>
             </TouchableOpacity>
+
+            {/* Icon Audit */}
+            <TouchableOpacity
+              onPress={() => router.push('/admin/icon-audit' as any)}
+              className="rounded-xl border-2 border-brand-primary bg-brand-primary/10 p-4 mt-3"
+            >
+              <View className="flex-row items-start justify-between">
+                <View className="flex-1">
+                  <Text className="text-brand-primary font-bold">Icon Audit</Text>
+                  <Text className="text-brand-primary/70 text-xs mt-1">Every FontAwesome glyph used in the app and where — spot icon inconsistencies.</Text>
+                </View>
+                <FontAwesome name="chevron-right" size={12} color="#6366f1" />
+              </View>
+            </TouchableOpacity>
           </View>
 
           {/* Info Sections */}
