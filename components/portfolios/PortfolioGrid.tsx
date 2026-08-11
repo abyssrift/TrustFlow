@@ -1,6 +1,6 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Image, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 
 import {
   EntityEmptyState,
@@ -11,6 +11,8 @@ import {
   fmtDate,
 } from '@/components/entities/EntityUI';
 import Tooltip from '@/components/common/Tooltip';
+import PortfolioEditModal from '@/components/portfolios/PortfolioEditModal';
+import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { usePortfolios, type PortfolioRow } from '@/hooks/usePortfolios';
 
@@ -26,18 +28,14 @@ import { usePortfolios, type PortfolioRow } from '@/hooks/usePortfolios';
  * be two things to keep in sync for no behavioural gain.
  *
  * ── ABOUT THE "BIG PICTURE" ────────────────────────────────────────────────
- * `portfolios` has no image, colour or icon column — checked, there are none —
- * and no bucket holds portfolio artwork. Rather than add an upload flow (and a
- * migration, a bucket policy, and an empty-cover state for every portfolio
- * that already exists), the cover is DERIVED: the portfolio's own entity hue,
- * tinted, carrying the portfolio glyph at size. That means:
- *   - every portfolio ever created already has one, including the six in this
- *     database that were made by imports months ago;
- *   - it cannot look broken, because there is no missing-image case;
- *   - it stays inside the design system — the hue comes from entityColor(),
- *     not from a new palette invented here.
- * If real artwork is wanted later, it is a `cover_url` column and an <Image>
- * swapped in at one place in this file; nothing else changes.
+ * `portfolios` has no colour or icon column — checked, there are none — but
+ * since issue #259 it CAN carry a picture (portfolios.cover_url, stored in the
+ * `portfolio-covers` bucket). When a portfolio has one, the cover is the image
+ * and the card needs nothing else; when it does not, the cover is DERIVED from
+ * the portfolio's own entity hue, tinted, carrying the portfolio glyph. That
+ * means every portfolio ever created has a cover that cannot look broken —
+ * there is no missing-image case, even for the six batches made by imports
+ * months ago — and a picture, when someone adds one, just wins.
  *
  * Colours are inline from useThemeColors rather than token classes because the
  * hue is computed at runtime — the same sanctioned exception Tooltip and
@@ -52,8 +50,11 @@ export default function PortfolioGrid({
 }) {
   const c = useThemeColors();
   const { width } = useWindowDimensions();
+  const { hasPermission } = useAuth();
   const [search, setSearch] = useState('');
+  const [editing, setEditing] = useState<PortfolioRow | null>(null);
   const { rows, loading, error, denied, refresh } = usePortfolios(search);
+  const canEdit = hasPermission('project.edit');
 
   // Three across on a wide screen puts six cards in view without scrolling,
   // which is the density asked for. Two on tablets, one on phones — below
@@ -114,11 +115,12 @@ export default function PortfolioGrid({
             row={p}
             columns={columns}
             onPress={onOpenPortfolio ? () => onOpenPortfolio(p.id) : undefined}
+            onEdit={canEdit ? () => setEditing(p) : undefined}
           />
         ))}
       </View>
     );
-  }, [loading, rows, error, search, columns, c, refresh, onCreate, onOpenPortfolio]);
+  }, [loading, rows, error, search, columns, c, refresh, onCreate, onOpenPortfolio, canEdit]);
 
   return (
     <View style={{ gap: 16 }}>
@@ -150,6 +152,12 @@ export default function PortfolioGrid({
         )}
       </View>
       {content}
+      <PortfolioEditModal
+        visible={!!editing}
+        onClose={() => setEditing(null)}
+        onSaved={refresh}
+        portfolio={editing ? { id: editing.id, name: editing.name, cover_url: editing.cover_url, target_date: editing.target_date } : null}
+      />
     </View>
   );
 }
@@ -158,10 +166,12 @@ function PortfolioCard({
   row,
   columns,
   onPress,
+  onEdit,
 }: {
   row: PortfolioRow;
   columns: number;
   onPress?: () => void;
+  onEdit?: () => void;
 }) {
   const c = useThemeColors();
   const hue = entityColor('portfolio', c);
@@ -187,34 +197,53 @@ function PortfolioCard({
         className="bg-surface-card border border-surface-border rounded-2xl overflow-hidden"
         activeOpacity={0.85}
       >
-        {/* The cover. Derived, not uploaded — see the file header. */}
-        <View
-          className="items-center justify-center"
-          style={{ height: 128, backgroundColor: hue + '14', borderBottomWidth: 1, borderBottomColor: c.border }}
-        >
-          <EntityGlyph kind="portfolio" size={56} />
-          {row.projects_blocked > 0 && (
-            <View
-              className="absolute rounded-lg px-2 flex-row items-center"
-              style={{ top: 10, right: 10, minHeight: 24, gap: 5, backgroundColor: c.card, borderWidth: 1, borderColor: c.danger }}
-            >
-              <FontAwesome name="exclamation-circle" size={10} color={c.danger} />
-              <Text className="text-[11px] font-black" style={{ color: c.danger }}>
-                {row.projects_blocked} blocked
-              </Text>
-            </View>
-          )}
-        </View>
+          {/* The cover. The uploaded picture when there is one (#259),
+              otherwise the derived glyph — see the file header. */}
+          <View
+            className="items-center justify-center"
+            style={{ height: 128, backgroundColor: hue + '14', borderBottomWidth: 1, borderBottomColor: c.border }}
+          >
+            {row.cover_url ? (
+              <Image source={{ uri: row.cover_url }} className="h-full w-full" resizeMode="cover" />
+            ) : (
+              <EntityGlyph kind="portfolio" size={56} />
+            )}
+            {row.projects_blocked > 0 && (
+              <View
+                className="absolute rounded-lg px-2 flex-row items-center"
+                style={{ top: 10, right: 10, minHeight: 24, gap: 5, backgroundColor: c.card, borderWidth: 1, borderColor: c.danger }}
+              >
+                <FontAwesome name="exclamation-circle" size={10} color={c.danger} />
+                <Text className="text-[11px] font-black" style={{ color: c.danger }}>
+                  {row.projects_blocked} blocked
+                </Text>
+              </View>
+            )}
+          </View>
 
         <View className="p-4" style={{ gap: 10 }}>
-          <View>
-            <EntityTag kind="portfolio" />
-            <Text className="text-typography-main text-base font-black tracking-tight" numberOfLines={1}>
-              {row.name}
-            </Text>
-            <Text className="text-typography-muted text-[11px] mt-0.5" numberOfLines={1}>
-              {row.template_name ? `From “${row.template_name}”` : row.source || 'Created manually'}
-            </Text>
+          <View className="flex-row items-center" style={{ gap: 10 }}>
+            <View className="flex-1">
+              <EntityTag kind="portfolio" />
+              <Text className="text-typography-main text-base font-black tracking-tight" numberOfLines={1}>
+                {row.name}
+              </Text>
+              <Text className="text-typography-muted text-[11px] mt-0.5" numberOfLines={1}>
+                {row.template_name ? `From “${row.template_name}”` : row.source || 'Created manually'}
+              </Text>
+            </View>
+
+            {onEdit && (
+              <TouchableOpacity
+                onPress={(e: any) => { e?.stopPropagation?.(); onEdit(); }}
+                accessibilityRole="button"
+                accessibilityLabel={`Edit portfolio ${row.name}`}
+                className="w-8 h-8 rounded-lg items-center justify-center border border-surface-border flex-shrink-0"
+                style={{ backgroundColor: c.card }}
+              >
+                <FontAwesome name="pencil" size={13} color={c.textMuted} />
+              </TouchableOpacity>
+            )}
           </View>
 
           <ProgressMeter

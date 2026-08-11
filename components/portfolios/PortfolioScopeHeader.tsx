@@ -1,8 +1,10 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import React from 'react';
-import { ActivityIndicator, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import React, { useState } from 'react';
+import { ActivityIndicator, Image, Pressable, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 
 import { EntityGlyph, EntityTag, MetaStat, ProgressMeter, fmtDate } from '@/components/entities/EntityUI';
+import PortfolioEditModal from '@/components/portfolios/PortfolioEditModal';
+import { useAuth } from '@/contexts/AuthContext';
 import { usePortfolios } from '@/hooks/usePortfolios';
 import { useThemeColors } from '@/hooks/useThemeColors';
 
@@ -38,12 +40,15 @@ export default function PortfolioScopeHeader({
 }) {
   const c = useThemeColors();
   const { width } = useWindowDimensions();
+  const { hasPermission } = useAuth();
   const wide = width >= 1024;
+  const [editing, setEditing] = useState(false);
 
   // Mounted only when scoped, so the unscoped projects screen never pays for
   // this fetch. usePortfolios is the same reader the grid uses.
-  const { rows, loading } = usePortfolios('');
+  const { rows, loading, refresh } = usePortfolios('');
   const p = rows.find(r => r.id === portfolioId);
+  const canEdit = hasPermission('project.edit');
 
   const pct = p && p.projects_total > 0 ? (p.projects_done / p.projects_total) * 100 : 0;
 
@@ -61,15 +66,37 @@ export default function PortfolioScopeHeader({
           <Text className="text-typography-main text-sm font-semibold">All projects</Text>
         </TouchableOpacity>
 
-        <EntityGlyph kind="portfolio" size={wide ? 44 : 34} />
+        {p?.cover_url ? (
+          <Image
+            source={{ uri: p.cover_url }}
+            className="rounded-xl border border-surface-border"
+            style={{ width: wide ? 44 : 34, height: wide ? 44 : 34 }}
+            resizeMode="cover"
+          />
+        ) : (
+          <EntityGlyph kind="portfolio" size={wide ? 44 : 34} />
+        )}
         <View style={{ flex: 1, minWidth: 0 }}>
           <EntityTag kind="portfolio" />
-          <Text
-            numberOfLines={2}
-            className={`${wide ? 'text-2xl' : 'text-xl'} text-typography-main font-black tracking-tight`}
-          >
-            {p?.name ?? (loading ? 'Loading…' : 'Portfolio')}
-          </Text>
+          <View className="flex-row items-center" style={{ gap: 10 }}>
+            <Text
+              numberOfLines={2}
+              className={`${wide ? 'text-2xl' : 'text-xl'} text-typography-main font-black tracking-tight flex-shrink`}
+            >
+              {p?.name ?? (loading ? 'Loading…' : 'Portfolio')}
+            </Text>
+            {canEdit && p && (
+              <Pressable
+                onPress={() => setEditing(true)}
+                accessibilityRole="button"
+                accessibilityLabel={`Edit portfolio ${p.name}`}
+                className="items-center justify-center rounded-full border border-surface-border hover:bg-surface-overlay"
+                style={{ width: 32, height: 32, backgroundColor: c.card }}
+              >
+                <FontAwesome name="pencil" size={13} color={c.textMuted} />
+              </Pressable>
+            )}
+          </View>
         </View>
       </View>
 
@@ -109,6 +136,13 @@ export default function PortfolioScopeHeader({
           )}
         </View>
       ) : null}
+
+      <PortfolioEditModal
+        visible={editing}
+        onClose={() => setEditing(false)}
+        onSaved={refresh}
+        portfolio={p ? { id: p.id, name: p.name, cover_url: p.cover_url, target_date: p.target_date } : null}
+      />
     </View>
   );
 }

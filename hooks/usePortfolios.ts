@@ -21,6 +21,7 @@ import type { ProjectionConfidence } from '@/components/charts/projection';
 export type PortfolioRow = {
   id: string;
   name: string;
+  cover_url: string | null;
   source: string | null;
   received_at: string | null;
   target_date: string | null;
