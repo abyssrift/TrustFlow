@@ -1,6 +1,6 @@
 import DraggableSheet from '@/components/common/DraggableSheet';
-import Calendar from '@/components/common/Calendar';
 import Tooltip from '@/components/common/Tooltip';
+import { DateRangePillPicker } from '@/components/intelligence/DateRangeFilter';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -48,9 +48,7 @@ export default function EditTaskModal({ visible, onClose, focusField }: Props) {
 
   const [pipelineId, setPipelineId] = useState<string | null>(null);
 
-  const [activeDateField, setActiveDateField] = useState<'due' | 'start' | null>(null);
-  const [showManagerPicker, setShowManagerPicker] = useState(false);
-  const [showPipelinePicker, setShowPipelinePicker] = useState(false);
+  const [showManagerPicker, setShowManagerPicker] = useState(false);  const [showPipelinePicker, setShowPipelinePicker] = useState(false);
   const [pipelines, setPipelines] = useState<PipelineOption[]>([]);
   const [users, setUsers] = useState<UserOption[]>([]);
   const [saving, setSaving] = useState(false);
@@ -80,7 +78,6 @@ export default function EditTaskModal({ visible, onClose, focusField }: Props) {
       const rawHours = (data as any).task.estimated_hours;
       setEstimatedHours(rawHours?.toString() || '');
       setPipelineId((data as any).task.pipeline_id ?? null);
-      setActiveDateField(focusField === 'due_date' ? 'due' : null);
       setShowManagerPicker(false);
       setShowPipelinePicker(false);
       setError(null);
@@ -142,8 +139,7 @@ export default function EditTaskModal({ visible, onClose, focusField }: Props) {
     }
   };
 
-  const formatDate = (d: string | null) =>
-    d ? new Date(d + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : null;
+  const dateConflict = !!(startDate && dueDate && startDate > dueDate);
 
   return (
     <DraggableSheet
@@ -244,82 +240,19 @@ export default function EditTaskModal({ visible, onClose, focusField }: Props) {
                 </View>
               </View>
 
-              {/* Dates — one shared calendar, colored per field */}
+              {/* Timeline — shared range picker (issue #262) */}
               <View>
-                <View className="flex-row gap-4">
-                  {/* Due Date */}
-                  <View className="flex-1">
-                    <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em] mb-2">Due Date</Text>
-                    <View className="flex-row gap-2">
-                      <TouchableOpacity
-                        onPress={() => setActiveDateField(f => f === 'due' ? null : 'due')}
-                        className="flex-1 border px-3 py-3 rounded-2xl flex-row items-center justify-between"
-                        style={{
-                          backgroundColor: activeDateField === 'due' ? `${colors.primary}14` : colors.background,
-                          borderColor: activeDateField === 'due' ? colors.primary : colors.border,
-                        }}
-                      >
-                        <Text className={`font-medium text-sm ${dueDate ? 'text-typography-main' : 'text-typography-muted'}`}>
-                          {formatDate(dueDate) ?? 'Set date'}
-                        </Text>
-                        <FontAwesome name="calendar-o" size={11} color={dueDate ? colors.primary : colors.textMuted} />
-                      </TouchableOpacity>
-                      {dueDate && (
-                        <Tooltip label="Clear date">
-                          <TouchableOpacity
-                            onPress={() => { setDueDate(null); if (activeDateField === 'due') setActiveDateField(null); }}
-                            className="w-11 h-11 bg-surface-background border border-surface-border rounded-2xl items-center justify-center"
-                          >
-                            <FontAwesome name="times" size={11} color={colors.textMuted} />
-                          </TouchableOpacity>
-                        </Tooltip>
-                      )}
-                    </View>
-                  </View>
-
-                  {/* Start Date */}
-                  <View className="flex-1">
-                    <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em] mb-2">Start Date</Text>
-                    <View className="flex-row gap-2">
-                      <TouchableOpacity
-                        onPress={() => setActiveDateField(f => f === 'start' ? null : 'start')}
-                        className="flex-1 border px-3 py-3 rounded-2xl flex-row items-center justify-between"
-                        style={{
-                          backgroundColor: activeDateField === 'start' ? `${colors.secondary}14` : colors.background,
-                          borderColor: activeDateField === 'start' ? colors.secondary : colors.border,
-                        }}
-                      >
-                        <Text className={`font-medium text-sm ${startDate ? 'text-typography-main' : 'text-typography-muted'}`}>
-                          {formatDate(startDate) ?? 'Set date'}
-                        </Text>
-                        <FontAwesome name="calendar-o" size={11} color={startDate ? colors.secondary : colors.textMuted} />
-                      </TouchableOpacity>
-                      {startDate && (
-                        <Tooltip label="Clear date">
-                          <TouchableOpacity
-                            onPress={() => { setStartDate(null); if (activeDateField === 'start') setActiveDateField(null); }}
-                            className="w-11 h-11 bg-surface-background border border-surface-border rounded-2xl items-center justify-center"
-                          >
-                            <FontAwesome name="times" size={11} color={colors.textMuted} />
-                          </TouchableOpacity>
-                        </Tooltip>
-                      )}
-                    </View>
-                  </View>
-                </View>
-
-                {activeDateField && (
-                  <View className="mt-2">
-                    <Calendar
-                      selectedDate={activeDateField === 'due' ? dueDate : startDate}
-                      onSelect={(d) => activeDateField === 'due' ? setDueDate(d) : setStartDate(d)}
-                      accentColor={activeDateField === 'due' ? colors.primary : colors.secondary}
-                      rangeDate={activeDateField === 'due' ? startDate : dueDate}
-                      rangeColor={activeDateField === 'due' ? colors.secondary : colors.primary}
-                      scale="compact"
-                      showDaysBetween
-                    />
-                  </View>
+                <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em] mb-2">Timeline</Text>
+                <DateRangePillPicker
+                  from={startDate}
+                  to={dueDate}
+                  fromPlaceholder="Start"
+                  toPlaceholder="Deadline"
+                  onApply={(f, t) => { setStartDate(f); setDueDate(t); }}
+                  onClear={() => { setStartDate(null); setDueDate(null); }}
+                />
+                {dateConflict && (
+                  <Text className="text-typography-danger text-[10px] font-black mt-2 ml-1">Start date is after due date</Text>
                 )}
               </View>
 
