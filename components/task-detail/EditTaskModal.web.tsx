@@ -1,14 +1,13 @@
 import DraggableSheet from '@/components/common/DraggableSheet';
 import Popup from '@/components/common/Popup';
 import SidebarLayout from '@/components/common/SidebarLayout';
-import Calendar from '@/components/common/Calendar';
+import { DateRangePillPicker } from '@/components/intelligence/DateRangeFilter';
 import Tooltip from '@/components/common/Tooltip';
 import UserLink from '@/components/common/UserLink';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
-import { useCalendarPosition } from '@/lib/calendarPicker';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { cssInterop } from 'react-native-css-interop';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -86,8 +85,6 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
   const [pipelines, setPipelines]               = useState<PipelineOption[]>([]);
 
   // Overlay state
-  const [showDueCal, setShowDueCal]           = useState(false);
-  const [showStartCal, setShowStartCal]       = useState(false);
   const [showManagerDrop, setShowManagerDrop] = useState(false);
   const [managerSearch, setManagerSearch]     = useState('');
   const managerRef   = useRef<any>(null);
@@ -97,18 +94,12 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState<string | null>(null);
 
-  // Mobile-only overlay state — kept separate from the desktop dropdown/calendar
-  // state above (which relies on getBoundingClientRect positioning tied to
+  // Mobile-only overlay state — kept separate from the desktop dropdown state
+  // above (which relies on getBoundingClientRect positioning tied to
   // desktop-only ref elements) so the two layouts can't cross-contaminate.
-  const [mobileActiveDateField, setMobileActiveDateField] = useState<'due' | 'start' | null>(null);
   const [showMobileManagerPicker, setShowMobileManagerPicker] = useState(false);
 
-  const dueCalPos = useCalendarPosition({ calendarWidth: 332 });
-  const startCalPos = useCalendarPosition({ calendarWidth: 332 });
-
   const closeAllOverlays = useCallback(() => {
-    setShowDueCal(false);
-    setShowStartCal(false);
     setShowManagerDrop(false);
   }, []);
 
@@ -161,7 +152,6 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
       setPipelineId((data as any).task.pipeline_id ?? null);
       setShowPipelinePicker(false);
       closeAllOverlays();
-      setMobileActiveDateField(focusField === 'due_date' ? 'due' : null);
       setShowMobileManagerPicker(false);
       setTab(focusField === 'due_date' ? 'scheduling' : 'details');
       setError(null);
@@ -284,9 +274,9 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
 
   // ─── Mobile-web layout (narrow viewports) ───────────────────────────────────
   // Mirrors native's EditTaskModal.tsx (single-scroll DraggableSheet, no tabs,
-  // shared inline calendar toggled per-field) instead of the desktop two-pane
-  // tabbed layout below — desktop has full field parity with native already, so
-  // nothing is being dropped here, just reflowed.
+  // shared range picker) instead of the desktop two-pane tabbed layout below —
+  // desktop has full field parity with native already, so nothing is being
+  // dropped here, just reflowed.
   if (isNarrow) {
     return (
       <DraggableSheet
@@ -377,76 +367,19 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
               </View>
             </View>
 
-            {/* Dates — one shared inline calendar, colored per field */}
+            {/* Dates — shared range picker (issue #262) */}
             <View>
-              <View className="flex-row gap-4">
-                <View className="flex-1">
-                  <Text className="text-[10px] font-black uppercase tracking-[0.15em] mb-2" style={{ color: colors.textMuted }}>Due Date</Text>
-                  <View className="flex-row gap-2">
-                    <TouchableOpacity
-                      onPress={() => setMobileActiveDateField(f => f === 'due' ? null : 'due')}
-                      className="flex-1 px-3 py-3 rounded-2xl flex-row items-center justify-between"
-                      style={{ backgroundColor: mobileActiveDateField === 'due' ? colors.primary + '14' : colors.background, borderWidth: 1, borderColor: mobileActiveDateField === 'due' ? colors.primary : colors.border }}
-                    >
-                      <Text className="font-medium text-sm" style={{ color: dueDate ? colors.textMain : colors.textMuted }}>{fmtDate(dueDate) !== '—' ? fmtDate(dueDate) : 'Set date'}</Text>
-                      <FontAwesome name="calendar-o" size={11} color={dueDate ? colors.primary : colors.textMuted} />
-                    </TouchableOpacity>
-                    {dueDate && (
-                      <Tooltip label="Clear date">
-                        <TouchableOpacity
-                          onPress={() => { setDueDate(null); if (mobileActiveDateField === 'due') setMobileActiveDateField(null); }}
-                          className="w-11 h-11 rounded-2xl items-center justify-center"
-                          style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}
-                        >
-                          <FontAwesome name="times" size={11} color={colors.textMuted} />
-                        </TouchableOpacity>
-                      </Tooltip>
-                    )}
-                  </View>
-                </View>
-
-                <View className="flex-1">
-                  <Text className="text-[10px] font-black uppercase tracking-[0.15em] mb-2" style={{ color: colors.textMuted }}>Start Date</Text>
-                  <View className="flex-row gap-2">
-                    <TouchableOpacity
-                      onPress={() => setMobileActiveDateField(f => f === 'start' ? null : 'start')}
-                      className="flex-1 px-3 py-3 rounded-2xl flex-row items-center justify-between"
-                      style={{ backgroundColor: mobileActiveDateField === 'start' ? colors.secondary + '14' : colors.background, borderWidth: 1, borderColor: mobileActiveDateField === 'start' ? colors.secondary : colors.border }}
-                    >
-                      <Text className="font-medium text-sm" style={{ color: startDate ? colors.textMain : colors.textMuted }}>{fmtDate(startDate) !== '—' ? fmtDate(startDate) : 'Set date'}</Text>
-                      <FontAwesome name="calendar-o" size={11} color={startDate ? colors.secondary : colors.textMuted} />
-                    </TouchableOpacity>
-                    {startDate && (
-                      <Tooltip label="Clear date">
-                        <TouchableOpacity
-                          onPress={() => { setStartDate(null); if (mobileActiveDateField === 'start') setMobileActiveDateField(null); }}
-                          className="w-11 h-11 rounded-2xl items-center justify-center"
-                          style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}
-                        >
-                          <FontAwesome name="times" size={11} color={colors.textMuted} />
-                        </TouchableOpacity>
-                      </Tooltip>
-                    )}
-                  </View>
-                </View>
-              </View>
-
+              <Text className="text-[10px] font-black uppercase tracking-[0.15em] mb-2" style={{ color: colors.textMuted }}>Timeline</Text>
+              <DateRangePillPicker
+                from={startDate}
+                to={dueDate}
+                fromPlaceholder="Start"
+                toPlaceholder="Deadline"
+                onApply={(f, t) => { setStartDate(f); setDueDate(t); }}
+                onClear={() => { setStartDate(null); setDueDate(null); }}
+              />
               {dateConflict && (
                 <Text className="text-[10px] font-black mt-2 ml-1" style={{ color: colors.danger }}>Start date is after due date</Text>
-              )}
-
-              {mobileActiveDateField && (
-                <View className="mt-3">
-                  <Calendar
-                    selectedDate={mobileActiveDateField === 'due' ? dueDate : startDate}
-                    onSelect={(d) => mobileActiveDateField === 'due' ? setDueDate(d) : setStartDate(d)}
-                    accentColor={mobileActiveDateField === 'due' ? colors.primary : colors.secondary}
-                    rangeDate={mobileActiveDateField === 'due' ? startDate : dueDate}
-                    rangeColor={mobileActiveDateField === 'due' ? colors.secondary : colors.primary}
-                    scale="compact"
-                    showDaysBetween
-                  />
-                </View>
               )}
             </View>
 
@@ -623,43 +556,6 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
       sideMenu={sideMenuContent}
       overlays={(
         <>
-          {/* Backdrop for overlays */}
-          {(showDueCal || showStartCal) && (
-            <TouchableOpacity
-              onPress={closeAllOverlays}
-              className="absolute inset-0 z-40"
-              style={{ backgroundColor: 'transparent' }}
-            />
-          )}
-
-          {/* Due Date Calendar */}
-          {showDueCal && (
-            <Calendar
-              selectedDate={dueDate}
-              onSelect={(d) => setDueDate(d)}
-              accentColor={colors.primary}
-              rangeDate={startDate}
-              rangeColor={colors.secondary}
-              scale="compact"
-              showDaysBetween
-              floatingStyle={dueCalPos.style as any}
-            />
-          )}
-
-          {/* Start Date Calendar */}
-          {showStartCal && (
-            <Calendar
-              selectedDate={startDate}
-              onSelect={(d) => setStartDate(d)}
-              accentColor={colors.secondary}
-              rangeDate={dueDate}
-              rangeColor={colors.primary}
-              scale="compact"
-              showDaysBetween
-              floatingStyle={startCalPos.style as any}
-            />
-          )}
-
           {/* Manager Dropdown */}
           {showManagerDrop && (
             <View
@@ -877,14 +773,24 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
               ) : (
                 <View className="gap-6 pb-8">
 
-                  {/* Start Date */}
+                  {/* Timeline — shared range picker (issue #262) */}
                   <View>
-                    <Text className="text-[10px] font-black uppercase tracking-widest mb-2.5 ml-1" style={{ color: colors.textMuted }}>Start Date</Text>
+                    <Text className="text-[10px] font-black uppercase tracking-widest mb-2.5 ml-1" style={{ color: colors.textMuted }}>Timeline</Text>
                     <View className="flex-row gap-3 flex-wrap mb-3">
                       {[{ label: 'Today', days: 0 }, { label: 'Tomorrow', days: 1 }, { label: '+3d', days: 3 }].map(qd => (
                         <TouchableOpacity
-                          key={qd.days}
+                          key={`start-${qd.days}`}
                           onPress={() => setStartDate(quickDate(qd.days))}
+                          className="px-3 py-1.5 rounded-xl hover:border-brand-primary hover:bg-brand-primary/5 transition-all"
+                          style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}
+                        >
+                          <Text className="text-[10px] font-black uppercase tracking-wider" style={{ color: colors.textMuted }}>{qd.label}</Text>
+                        </TouchableOpacity>
+                      ))}
+                      {QUICK_DATES.map(qd => (
+                        <TouchableOpacity
+                          key={`due-${qd.days}`}
+                          onPress={() => setDueDate(quickDate(qd.days))}
                           className="px-3 py-1.5 rounded-xl hover:border-brand-primary hover:bg-brand-primary/5 transition-all"
                           style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}
                         >
@@ -897,77 +803,30 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
                           className="px-3 py-1.5 rounded-xl hover:bg-state-danger/10 transition-all"
                           style={{ backgroundColor: colors.danger + '0D', borderWidth: 1, borderColor: colors.danger + '4D' }}
                         >
-                          <Text className="text-[10px] font-black uppercase tracking-wider" style={{ color: colors.danger }}>Clear</Text>
+                          <Text className="text-[10px] font-black uppercase tracking-wider" style={{ color: colors.danger }}>Clear start</Text>
                         </TouchableOpacity>
                       )}
-                    </View>
-                    <TouchableOpacity
-                      ref={startCalPos.triggerRef}
-                      onPress={() => {
-                        if (showStartCal) { closeAllOverlays(); return; }
-                        closeAllOverlays();
-                        startCalPos.measure();
-                        setShowStartCal(true);
-                      }}
-                      className="rounded-2xl px-5 py-4 flex-row items-center justify-between transition-all"
-                      style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: showStartCal ? colors.primary : dateConflict ? colors.danger + '80' : colors.border }}
-                    >
-                      <View className="flex-row items-center gap-3">
-                        <FontAwesome name="calendar-o" size={13} color={startDate ? colors.primary : colors.textDim} />
-                        <Text className="font-bold" style={{ color: startDate ? colors.textMain : colors.textDim }}>
-                          {fmtDate(startDate) !== '—' ? fmtDate(startDate) : 'Set start'}
-                        </Text>
-                      </View>
-                      <FontAwesome name={showStartCal ? 'chevron-up' : 'chevron-down'} size={11} color={colors.textDim} />
-                    </TouchableOpacity>
-                    {dateConflict && (
-                      <Text className="text-[10px] font-black mt-1.5 ml-1" style={{ color: colors.danger }}>Start date is after due date</Text>
-                    )}
-                  </View>
-
-                  {/* Due Date */}
-                  <View>
-                    <Text className="text-[10px] font-black uppercase tracking-widest mb-2.5 ml-1" style={{ color: colors.textMuted }}>Due Date</Text>
-                    <View className="flex-row gap-3 flex-wrap mb-3">
-                      {QUICK_DATES.map(qd => (
-                        <TouchableOpacity
-                          key={qd.days}
-                          onPress={() => setDueDate(quickDate(qd.days))}
-                          className="px-3 py-1.5 rounded-xl hover:border-brand-primary hover:bg-brand-primary/5 transition-all"
-                          style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}
-                        >
-                          <Text className="text-[10px] font-black uppercase tracking-wider" style={{ color: colors.textMuted }}>{qd.label}</Text>
-                        </TouchableOpacity>
-                      ))}
                       {dueDate && (
                         <TouchableOpacity
                           onPress={() => setDueDate(null)}
                           className="px-3 py-1.5 rounded-xl hover:bg-state-danger/10 transition-all"
                           style={{ backgroundColor: colors.danger + '0D', borderWidth: 1, borderColor: colors.danger + '4D' }}
                         >
-                          <Text className="text-[10px] font-black uppercase tracking-wider" style={{ color: colors.danger }}>Clear</Text>
+                          <Text className="text-[10px] font-black uppercase tracking-wider" style={{ color: colors.danger }}>Clear due</Text>
                         </TouchableOpacity>
                       )}
                     </View>
-                    <TouchableOpacity
-                      ref={dueCalPos.triggerRef}
-                      onPress={() => {
-                        if (showDueCal) { closeAllOverlays(); return; }
-                        closeAllOverlays();
-                        dueCalPos.measure();
-                        setShowDueCal(true);
-                      }}
-                      className="rounded-2xl px-5 py-4 flex-row items-center justify-between transition-all"
-                      style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: showDueCal ? colors.primary : colors.border }}
-                    >
-                      <View className="flex-row items-center gap-3">
-                        <FontAwesome name="calendar-o" size={13} color={dueDate ? colors.primary : colors.textDim} />
-                        <Text className="font-bold" style={{ color: dueDate ? colors.textMain : colors.textDim }}>
-                          {fmtDate(dueDate) !== '—' ? fmtDate(dueDate) : 'Set deadline'}
-                        </Text>
-                      </View>
-                      <FontAwesome name={showDueCal ? 'chevron-up' : 'chevron-down'} size={11} color={colors.textDim} />
-                    </TouchableOpacity>
+                    <DateRangePillPicker
+                      from={startDate}
+                      to={dueDate}
+                      fromPlaceholder="Start"
+                      toPlaceholder="Deadline"
+                      onApply={(f, t) => { setStartDate(f); setDueDate(t); }}
+                      onClear={() => { setStartDate(null); setDueDate(null); }}
+                    />
+                    {dateConflict && (
+                      <Text className="text-[10px] font-black mt-2 ml-1" style={{ color: colors.danger }}>Start date is after due date</Text>
+                    )}
                   </View>
 
                   {/* Estimated Hours */}
