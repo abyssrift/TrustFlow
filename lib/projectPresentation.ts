@@ -66,7 +66,7 @@ export const ENTITY_META: Record<EntityKind, EntityMeta> = {
   project: {
     label: 'Project',
     plural: 'Projects',
-    icon: 'briefcase',
+    icon: 'folder-o',
     shape: 'square',
     tone: 'primary',
     blurb: 'A project is one piece of work for one client — its own tasks, its own deadline, and one stage it currently sits in.',
@@ -74,7 +74,7 @@ export const ENTITY_META: Record<EntityKind, EntityMeta> = {
   portfolio: {
     label: 'Portfolio',
     plural: 'Portfolios',
-    icon: 'th-large',
+    icon: 'cubes',
     shape: 'stack',
     tone: 'secondary',
     blurb: 'A portfolio is a group of projects created together — one intake, one client office, one season.',

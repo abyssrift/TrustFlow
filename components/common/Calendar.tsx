@@ -236,7 +236,7 @@ export default function Calendar({
           </View>
         ) : (
           <View className="flex-row items-center gap-2">
-            <FontAwesome name="calendar" size={14} className="text-brand-primary" />
+            <FontAwesome name="calendar-o" size={14} className="text-brand-primary" />
             <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.4em]">Objective Timeline</Text>
           </View>
         )}

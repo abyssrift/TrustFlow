@@ -331,7 +331,7 @@ export default function PipelineList() {
                                 }}
                                 className="p-2.5 rounded-xl border border-surface-border bg-surface-background"
                               >
-                                <FontAwesome name="pencil" size={12} className="text-typography-muted" />
+                                <FontAwesome name="pencil-square-o" size={12} className="text-typography-muted" />
                               </TouchableOpacity>
                             </Tooltip>
 

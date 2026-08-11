@@ -204,7 +204,7 @@ export default function ProfilePage() {
               onPress={() => router.push('/notifications/preferences' as any)}
               className={`h-14 flex-row items-center px-5 active:bg-surface-overlay ${hasPermission('manage_notifications') || hasPermission('role.manage') ? 'border-b border-surface-border' : ''}`}
             >
-              <FontAwesome name="bell" size={16} color={colors.primary} style={{ marginRight: 12 }} />
+              <FontAwesome name="bell-o" size={16} color={colors.primary} style={{ marginRight: 12 }} />
               <Text className="flex-1 text-sm font-bold text-typography-main">Notification Preferences</Text>
               <FontAwesome name="chevron-right" size={12} color={colors.textMuted} />
             </Pressable>
@@ -228,7 +228,7 @@ export default function ProfilePage() {
                 onPress={handleDisbandWorkspace}
                 className="h-14 flex-row items-center justify-center rounded-2xl border border-state-danger bg-state-danger/10 active:bg-state-danger/20 mb-2"
               >
-                <FontAwesome name="trash" size={18} color="#ef4444" style={{ marginRight: 12 }} />
+                <FontAwesome name="trash-o" size={18} color="#ef4444" style={{ marginRight: 12 }} />
                 <Text className="text-sm font-black uppercase tracking-widest text-state-danger">Disband Workspace</Text>
               </Pressable>
             )}

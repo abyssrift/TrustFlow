@@ -17,7 +17,7 @@ type IconName = React.ComponentProps<typeof FontAwesome>['name'];
 const MAIN_TABS = [
   { id: 'dashboard', icon: 'th-large', label: 'Dashboard', href: '/' },
   { id: 'tasks', icon: 'check-square-o', label: 'Tasks', href: '/tasks' },
-  { id: 'filehub', icon: 'folder-open', label: 'File Hub', href: '/filehub' },
+  { id: 'filehub', icon: 'folder-open-o', label: 'File Hub', href: '/filehub' },
 ] as const;
 
 const matchesHref = (pathname: string, href: string) => {
@@ -206,7 +206,7 @@ export default function WebMobileNav({
           delayLongPress={500}
           className="flex-1 items-center justify-center py-2"
         >
-          <FontAwesome name="navicon" size={22} color={colors.textDim} style={{ marginBottom: 4 }} />
+          <FontAwesome name="bars" size={22} color={colors.textDim} style={{ marginBottom: 4 }} />
           <Text className="text-[10px] font-bold text-typography-muted">Menu</Text>
         </Pressable>
       </View>
@@ -272,7 +272,7 @@ export default function WebMobileNav({
               <View className="mt-4">
                 <Text className="mb-2 ml-2 text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>Pipelines</Text>
                 {pipelines.map((p, i) => {
-                  const icons = ['bolt', 'sitemap', 'random', 'sliders', 'exchange', 'cogs'];
+                  const icons = ['bolt', 'sitemap', 'random', 'server', 'exchange', 'cogs'];
                   const icon = icons[i % icons.length] as IconName;
                   const isActive = pathname === '/tasks' && String(params.pipelineId || '') === p.id;
                   return (
@@ -303,7 +303,7 @@ export default function WebMobileNav({
 
               <Link href="/notifications" asChild onPress={handleClose}>
                 <Pressable className="flex-row items-center p-4 rounded-xl mb-2 border" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
-                  <FontAwesome name="bell" size={18} color={colors.textMain} className="w-8" />
+                  <FontAwesome name="bell-o" size={18} color={colors.textMain} className="w-8" />
                   <Text className="font-bold ml-2" style={{ color: colors.textMain }}>Notifications</Text>
                   {unreadCount > 0 && (
                     <View className="ml-auto min-w-5 h-5 rounded-full items-center justify-center px-1" style={{ backgroundColor: colors.danger }}>

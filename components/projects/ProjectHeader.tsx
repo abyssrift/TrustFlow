@@ -221,7 +221,7 @@ export default function ProjectHeader() {
               accessibilityLabel="Edit project"
               style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: c.card, borderWidth: 1, borderColor: c.border, opacity: canEdit ? 1 : 0.45 }}
             >
-              <FontAwesome name="pencil" size={14} color={c.textMuted} />
+              <FontAwesome name="pencil-square-o" size={14} color={c.textMuted} />
             </TouchableOpacity>
           </Tooltip>
           {!!project && (

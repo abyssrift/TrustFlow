@@ -1079,7 +1079,7 @@ export default function StageActions() {
                       <>
                         <Tooltip label="Edit submission">
                           <TouchableOpacity onPress={() => openEdit(s)} className="ml-auto p-1">
-                            <FontAwesome name="pencil" size={11} color={colors.textMuted} />
+                            <FontAwesome name="pencil-square-o" size={11} color={colors.textMuted} />
                           </TouchableOpacity>
                         </Tooltip>
                         <Tooltip label="Delete submission">

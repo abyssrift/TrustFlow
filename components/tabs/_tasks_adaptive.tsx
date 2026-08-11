@@ -1282,7 +1282,7 @@ function TasksScreen() {
                   onPress={() => router.push('/admin/notifications' as any)}
                   className="bg-brand-primary/10 p-2.5 rounded-xl border border-brand-primary/20"
                 >
-                  <FontAwesome name="bell" size={15} className="text-brand-primary" />
+                  <FontAwesome name="bell-o" size={15} className="text-brand-primary" />
                 </TouchableOpacity>
               </Tooltip>
             )}
@@ -1343,7 +1343,7 @@ function TasksScreen() {
                   onPress={() => router.push('/admin/pipelines')}
                   className="bg-brand-primary/10 p-2.5 rounded-xl border border-brand-primary/20"
                 >
-                  <FontAwesome name="cog" size={15} className="text-brand-primary" />
+                  <FontAwesome name="gear" size={15} className="text-brand-primary" />
                 </TouchableOpacity>
               </Tooltip>
             )}

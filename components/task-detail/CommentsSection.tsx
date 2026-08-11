@@ -389,7 +389,7 @@ export default function CommentsSection() {
                 {sending ? (
                   <ActivityIndicator size="small" color={colors.textMain} />
                 ) : (
-                  <FontAwesome name="paper-plane" size={14} color={colors.textMain} />
+                  <FontAwesome name="paper-plane-o" size={14} color={colors.textMain} />
                 )}
               </TouchableOpacity>
             </Tooltip>

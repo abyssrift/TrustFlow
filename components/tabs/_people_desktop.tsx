@@ -40,7 +40,7 @@ const SECTION_META: Record<PeopleSection, { label: string; description: string; 
   members: { label: 'Members', description: 'View and manage your team roster', icon: 'users' },
   teams: { label: 'Teams', description: 'Group members into working teams', icon: 'sitemap' },
   roles: { label: 'Role Registry', description: 'Define roles and permissions', icon: 'id-badge' },
-  notifications: { label: 'Alert Rules', description: 'Configure notification triggers', icon: 'bell' },
+  notifications: { label: 'Alert Rules', description: 'Configure notification triggers', icon: 'bell-o' },
   workspace: { label: 'Workspace', description: 'General workspace preferences', icon: 'sliders' },
   company: { label: 'Company Info', description: 'Legal name, branding, details', icon: 'building' },
   retention: { label: 'Retention', description: 'Inactivity policy and data lifecycle', icon: 'history' },

@@ -253,7 +253,7 @@ export default function ImageLightbox({
               className="w-10 h-10 rounded-full bg-white/10 items-center justify-center"
               style={Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : undefined}
             >
-              <FontAwesome name="info" size={16} color="#fff" />
+              <FontAwesome name="info-circle" size={16} color="#fff" />
             </TouchableOpacity>
           </Tooltip>
         )}

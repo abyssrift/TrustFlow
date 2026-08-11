@@ -102,7 +102,7 @@ export default function PinnedShortcuts({
       portfolios.slice(0, MAX_PORTFOLIO_CANDIDATES).map((p) => ({
         id: portfolioPinId(p.id),
         label: p.name,
-        icon: 'th-large',
+        icon: 'cubes',
         href: `/portfolios/${p.id}`,
         kind: 'portfolio' as const,
       })),

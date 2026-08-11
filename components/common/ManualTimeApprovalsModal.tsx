@@ -111,7 +111,7 @@ export default function ManualTimeApprovalsModal({ visible, onClose, entries, on
               className="w-8 h-8 rounded-full items-center justify-center"
               style={{ backgroundColor: colors.background }}
             >
-              <FontAwesome name="close" size={13} color={colors.textMuted} />
+              <FontAwesome name="times" size={13} color={colors.textMuted} />
             </TouchableOpacity>
           </Tooltip>
         </View>

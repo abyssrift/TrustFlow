@@ -221,7 +221,7 @@ export default function TopBar({
           <Link href="/notifications" asChild>
             <Pressable className="h-9 w-9 items-center justify-center rounded-xl border border-surface-border bg-surface-card hover:bg-surface-overlay">
               <View>
-                <FontAwesome name="bell" size={14} color={colors.primary} />
+                <FontAwesome name="bell-o" size={14} color={colors.primary} />
                 {unreadCount > 0 && (
                   <View className="absolute -top-1.5 -right-1.5 min-w-4 h-4 rounded-full bg-state-danger items-center justify-center px-0.5">
                     <Text className="text-[9px] font-black text-white leading-none">

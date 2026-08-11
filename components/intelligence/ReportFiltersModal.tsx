@@ -24,9 +24,9 @@ const STATUS_OPTIONS = [
 ];
 
 export const REPORT_TYPE_OPTIONS = [
-  { value: 'performance_audit',        label: 'Overview',             icon: 'bar-chart'     },
+  { value: 'performance_audit',        label: 'Overview',             icon: 'file-pdf-o'   },
   { value: 'worker_comparison',        label: 'People Compare',      icon: 'users'         },
-  { value: 'team_comparison',          label: 'Team Compare',        icon: 'group'         },
+  { value: 'team_comparison',          label: 'Team Compare',        icon: 'users'         },
   { value: 'workflow_analysis',        label: 'Pipeline Review',     icon: 'rocket'        },
   { value: 'user_performance_series',  label: 'Perf Timeline',       icon: 'line-chart'    },
   { value: 'user_performance_summary', label: 'Perf Summary',        icon: 'user'          },

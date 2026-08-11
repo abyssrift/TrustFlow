@@ -512,7 +512,7 @@ export default function TaskMobilityModal({ visible, onClose, onImported, pipeli
                   disabled={busy}
                   style={{ paddingVertical: 14, paddingHorizontal: 16, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.background, marginBottom: 8, flexDirection: 'row', alignItems: 'center' }}
                 >
-                  <FontAwesome name="folder" size={16} color={colors.primary} style={{ marginRight: 12 }} />
+                  <FontAwesome name="folder-o" size={16} color={colors.primary} style={{ marginRight: 12 }} />
                   <Text style={{ color: colors.textMain, fontWeight: '800', fontSize: 13, flex: 1 }}>{name}</Text>
                   <FontAwesome name="chevron-right" size={12} color={colors.textMuted} />
                 </TouchableOpacity>

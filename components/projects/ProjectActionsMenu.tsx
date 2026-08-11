@@ -213,7 +213,7 @@ export function useProjectActions({
                 />
               )}
               <ActionRow
-                icon="pencil"
+                icon="pencil-square-o"
                 label="Rename"
                 hint="Edit the name right here in the list."
                 disabled={!canEdit}

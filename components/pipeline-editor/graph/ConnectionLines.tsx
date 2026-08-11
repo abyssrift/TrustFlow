@@ -164,7 +164,7 @@ export default function ConnectionLines({ stages, transitions, onEditTransition 
                 onPress={() => onEditTransition?.(item.id)}
                 className="w-6 h-6 rounded-full bg-surface-card border border-brand-primary items-center justify-center shadow-lg hover:bg-brand-primary/10 transition-all active:scale-90"
               >
-                <FontAwesome name="pencil" size={10} color={colors.primary} />
+                <FontAwesome name="pencil-square-o" size={10} color={colors.primary} />
               </TouchableOpacity>
             </Tooltip>
 

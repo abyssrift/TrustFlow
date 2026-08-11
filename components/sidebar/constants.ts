@@ -23,7 +23,7 @@ export const THEME_OPTIONS: { id: ThemeType; label: string; icon: IconName }[] =
   { id: 'dark', label: 'Dark Mode', icon: 'circle-o' },
 ];
 
-export const PIPELINE_ICONS: IconName[] = ['bolt', 'sitemap', 'random', 'sliders', 'exchange', 'cogs'];
+export const PIPELINE_ICONS: IconName[] = ['bolt', 'sitemap', 'random', 'server', 'exchange', 'cogs'];
 
 // The desktop rail groups SHORTCUTS into titled sections separated by
 // hairlines (#211). SHORTCUTS stays flat — it's the single source of truth for
@@ -92,7 +92,7 @@ export const SHORTCUTS: Shortcut[] = [
   { id: 'dashboard', permissionKey: 'dashboard', icon: 'th-large', label: 'Dashboard', href: '/' },
   { id: 'tasks', permissionKey: '', icon: 'check-square-o', label: 'Tasks', href: '/tasks' },
   { id: 'search', permissionKey: '', icon: 'search', label: 'Search', href: '/search' },
-  { id: 'deadlines', permissionKey: '', icon: 'calendar', label: 'Deadlines', href: '/deadlines' },
+  { id: 'deadlines', permissionKey: '', icon: 'calendar-o', label: 'Deadlines', href: '/deadlines' },
   // project.view, not project.edit: reading the projects list has never required
   // edit rights anywhere else. rpc_projects_table gates on project.view,
   // projects_select is fn_project_accessible, and app/(tabs)/menu.tsx already
@@ -100,13 +100,13 @@ export const SHORTCUTS: Shortcut[] = [
   // Portfolios (correctly gated on view) but not the Projects inside them.
   { id: 'projects', permissionKey: 'project.view', icon: 'folder-o', label: 'Projects', href: '/projects' },
   // Icon/kind match components/entities/EntityUI.tsx's canonical portfolio
-  // glyph (ENTITY_META.portfolio.icon === 'th-large') — same glyph the
+  // glyph (ENTITY_META.portfolio.icon === 'cubes') — same glyph the
   // /portfolios screen itself headers with. Gated on project.view: the same
   // permission rpc_portfolios_table and fn_project_accessible enforce
   // server-side, so a user without it never sees the entry point.
-  { id: 'portfolios', permissionKey: 'project.view', icon: 'th-large', label: 'Portfolios', href: '/portfolios' },
+  { id: 'portfolios', permissionKey: 'project.view', icon: 'cubes', label: 'Portfolios', href: '/portfolios' },
   { id: 'radar', permissionKey: '', anyPermissions: INTELLIGENCE_PERMISSIONS, icon: 'bullseye', label: 'Intelligence', href: '/intelligence' },
-  { id: 'filehub', permissionKey: 'filehub:view', icon: 'folder-open', label: 'File Hub', href: '/filehub' },
-  { id: 'team', permissionKey: 'user.view_all', fallbackPermissionKey: 'role.manage', icon: 'users', label: 'Corporate', href: '/people?section=teams' },
-  { id: 'pipelines-admin', permissionKey: 'pipeline.edit', icon: 'gear', label: 'Pipelines', href: '/admin/pipelines' },
+  { id: 'filehub', permissionKey: 'filehub:view', icon: 'folder-open-o', label: 'File Hub', href: '/filehub' },
+  { id: 'team', permissionKey: 'user.view_all', fallbackPermissionKey: 'role.manage', icon: 'briefcase', label: 'Corporate', href: '/people?section=teams' },
+  { id: 'pipelines-admin', permissionKey: 'pipeline.edit', icon: 'code-fork', label: 'Pipelines', href: '/admin/pipelines' },
 ];

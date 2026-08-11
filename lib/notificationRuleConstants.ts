@@ -14,7 +14,7 @@ export type NotificationRule = {
 
 export const EVENT_META: Record<string, { label: string; cat: string; icon: any; colorKey: string }> = {
   'task.assigned':              { label: 'Task Assigned',          cat: 'Tasks',     icon: 'user-plus',          colorKey: 'primary' },
-  'task.commented':             { label: 'New Comment',            cat: 'Comments',  icon: 'comment',            colorKey: 'warning' },
+  'task.commented':             { label: 'New Comment',            cat: 'Comments',  icon: 'comment-o',          colorKey: 'warning' },
   'task.due_soon':              { label: 'Due Soon',               cat: 'Deadlines', icon: 'clock-o',            colorKey: 'danger'  },
   'task.mentioned':             { label: 'Mention',                cat: 'Comments',  icon: 'at',                 colorKey: 'warning' },
   'task.overdue':               { label: 'Task Overdue',           cat: 'Deadlines', icon: 'exclamation-circle', colorKey: 'danger'  },

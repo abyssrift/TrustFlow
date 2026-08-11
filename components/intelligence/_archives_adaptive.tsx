@@ -144,7 +144,7 @@ export default function IntelligenceArchivesNative() {
             onPress={() => setDeleteModal(true)}
             className="bg-state-danger px-3 py-2 rounded-xl flex-row items-center gap-2"
           >
-            <FontAwesome name="trash" size={11} color="#fff" />
+            <FontAwesome name="trash-o" size={11} color="#fff" />
             <Text className="text-white text-[10px] font-black uppercase tracking-widest">Delete</Text>
           </TouchableOpacity>
         </View>
@@ -185,7 +185,7 @@ export default function IntelligenceArchivesNative() {
                 )}
                 <View className={`w-11 h-11 rounded-xl items-center justify-center mr-4 ${isRestored ? 'bg-state-success/10' : 'bg-surface-background border border-surface-border'}`}>
                   <FontAwesome
-                    name={archive.entity_type === 'project' ? 'briefcase' : 'tasks'}
+                    name={archive.entity_type === 'project' ? 'folder-o' : 'tasks'}
                     size={16}
                     color={isRestored ? colors.success : colors.primary}
                   />
@@ -199,7 +199,7 @@ export default function IntelligenceArchivesNative() {
                       {new Date(archive.archived_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                     </Text>
                     {isRestored && <View className="bg-state-success/10 px-1.5 py-0.5 rounded"><Text className="text-state-success text-[8px] font-black uppercase">Restored</Text></View>}
-                    {hasIssue && <View className="bg-state-danger/10 px-1.5 py-0.5 rounded flex-row items-center gap-1"><FontAwesome name="warning" size={7} color={colors.danger} /><Text className="text-state-danger text-[8px] font-black uppercase">Issue</Text></View>}
+                    {hasIssue && <View className="bg-state-danger/10 px-1.5 py-0.5 rounded flex-row items-center gap-1"><FontAwesome name="exclamation-triangle" size={7} color={colors.danger} /><Text className="text-state-danger text-[8px] font-black uppercase">Issue</Text></View>}
                   </View>
                 </View>
                 {!isRestored && !hasIssue && hasPermission('archive.restore') && (

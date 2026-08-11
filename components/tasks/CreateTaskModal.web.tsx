@@ -823,7 +823,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                     ) : (
                       <Tooltip label="Select deadline">
                         <TouchableOpacity onPress={() => { setShowCalendar(v => !v); setShowStartCalendar(false); setShowPipelineDropdown(false); setShowProjectDropdown(false); }} className="px-4 py-4">
-                          <FontAwesome name="calendar" size={14} color={colors.primary} />
+                                <FontAwesome name="calendar-o" size={14} color={colors.primary} />
                         </TouchableOpacity>
                       </Tooltip>
                     )}
@@ -1159,7 +1159,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                   className="flex-row items-center px-5 py-3.5 hover:bg-surface-overlay"
                   style={{ borderBottomWidth: 1, borderColor: colors.border + '66', backgroundColor: !draft.pipelineId ? colors.primary + '0D' : undefined }}
                 >
-                  <FontAwesome name="times-circle-o" size={13} color={colors.textDim} />
+                  <FontAwesome name="times-circle" size={13} color={colors.textDim} />
                   <Text className="font-bold text-sm ml-3 flex-1" style={{ color: colors.textDim }}>None</Text>
                   {!draft.pipelineId && <FontAwesome name="check" size={11} color={colors.primary} />}
                 </TouchableOpacity>
@@ -1210,7 +1210,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                       className="flex-row items-center px-5 py-3.5 hover:bg-surface-overlay"
                       style={{ borderBottomWidth: 1, borderColor: colors.border + '66', backgroundColor: !draft.projectId ? colors.accent + '0D' : undefined }}
                     >
-                      <FontAwesome name="times-circle-o" size={13} color={colors.textDim} />
+                      <FontAwesome name="times-circle" size={13} color={colors.textDim} />
                       <Text className="font-bold text-sm ml-3 flex-1" style={{ color: colors.textDim }}>None</Text>
                       {!draft.projectId && <FontAwesome name="check" size={11} color={colors.accent} />}
                     </TouchableOpacity>
@@ -1528,7 +1528,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                                 }}
                                 className="px-4 py-4"
                               >
-                                <FontAwesome name="calendar" size={14} color={colors.primary} />
+                          <FontAwesome name="calendar-o" size={14} color={colors.primary} />
                               </TouchableOpacity>
                             </Tooltip>
                           )}

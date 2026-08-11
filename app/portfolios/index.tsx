@@ -69,7 +69,7 @@ export default function PortfoliosScreen() {
                   className="bg-surface-card border border-surface-border rounded-xl flex-row items-center justify-center px-4"
                   style={{ minHeight: 44, gap: 8 }}
                 >
-                  <FontAwesome name="folder-open" size={13} color={c.textMuted} />
+                  <FontAwesome name="folder-open-o" size={13} color={c.textMuted} />
                   {isLargeScreen && <Text className="text-typography-main text-sm font-semibold">Projects</Text>}
                 </TouchableOpacity>
               </Tooltip>

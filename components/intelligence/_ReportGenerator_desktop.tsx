@@ -91,7 +91,7 @@ const REPORT_TYPES: {
 }[] = [
   { value: 'general',                  label: 'Overview',                    desc: 'Organization or pipeline metrics',                    icon: 'bar-chart',     group: 'legacy'    },
   { value: 'worker_comparison',         label: 'People Comparison',          desc: 'Compare people in pairs or groups',                   icon: 'users',         group: 'legacy'    },
-  { value: 'team_comparison',           label: 'Team Comparison',            desc: 'Efficiency metrics across teams',                     icon: 'group',         group: 'legacy'    },
+  { value: 'team_comparison',           label: 'Team Comparison',            desc: 'Efficiency metrics across teams',                     icon: 'users',         group: 'legacy'    },
   { value: 'workflow_analysis',         label: 'Pipeline Review',            desc: 'Stage-by-stage efficiency and delay deep-dive',       icon: 'rocket',        group: 'legacy'    },
   { value: 'user_performance_series',   label: 'Performance Timeline',       desc: 'Period-by-period output, session hours and efficiency', icon: 'line-chart',    group: 'analytics' },
   { value: 'user_performance_summary',  label: 'Performance Summary',        desc: 'All aggregated stats for one person over a date range', icon: 'user',          group: 'analytics' },
@@ -404,7 +404,7 @@ export default function ReportGeneratorDesktop() {
 
               {loading && (
                 <View className="bg-state-warning/10 border border-state-warning/30 rounded-2xl px-8 py-4 mb-4 flex-row items-center gap-4">
-                  <FontAwesome name="warning" size={15} color={colors.warning} />
+                  <FontAwesome name="exclamation-triangle" size={15} color={colors.warning} />
                   <Text className="text-state-warning font-semibold text-sm flex-1">
                     Don't close or navigate away — reports are actively being generated. Leaving will cancel the remaining jobs.
                   </Text>

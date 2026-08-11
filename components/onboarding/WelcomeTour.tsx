@@ -50,7 +50,7 @@ export default function WelcomeTour() {
         body: 'The Tasks board is organised into pipeline stages. Open a card to track time, comment, and advance work forward (or send it back) as it progresses.',
       },
       {
-        icon: 'folder-open',
+        icon: 'folder-open-o',
         title: 'Projects & FileHub',
         body: 'Group work under Projects to watch progress at a glance, and use FileHub to send files to teammates or broadcast them company-wide.',
       },

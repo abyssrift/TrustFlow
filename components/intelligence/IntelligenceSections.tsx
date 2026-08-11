@@ -189,12 +189,12 @@ export const ArchivesSectionWeb = ({ reports, archives, search, activeSchema, on
                 <View key={archive.id} className="w-full md:w-[calc(50%-8px)] lg:w-[calc(33.33%-11px)] xl:w-[calc(16.66%-14px)] bg-surface-card p-4 rounded-2xl border border-surface-border premium-shadow">
                   <View className="flex-row justify-between mb-3">
                     <View className={`w-9 h-9 rounded-lg items-center justify-center ${archive.restored_at ? 'bg-state-success/10' : 'bg-surface-background'}`}>
-                      <FontAwesome name={archive.entity_type === 'project' ? 'briefcase' : 'tasks'} size={14} color={archive.restored_at ? colors.success : colors.primary} />
+                      <FontAwesome name={archive.entity_type === 'project' ? 'folder-o' : 'tasks'} size={14} color={archive.restored_at ? colors.success : colors.primary} />
                     </View>
                     <View className="flex-row gap-1">
                        {hasIntegrityIssue && (
                          <View className="bg-state-danger/10 px-1.5 py-0.5 rounded-md">
-                           <FontAwesome name="warning" size={8} color={colors.danger} />
+                           <FontAwesome name="exclamation-triangle" size={8} color={colors.danger} />
                          </View>
                        )}
                        <View className="bg-surface-background px-2 py-0.5 rounded-md border border-surface-border">

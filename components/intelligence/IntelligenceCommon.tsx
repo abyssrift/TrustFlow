@@ -272,7 +272,7 @@ export const CircularTargetCard = ({ target, onEdit, onClear }: any) => {
       <View className="mt-6 flex-row items-center justify-between">
         <View className="flex-row items-center">
           <View className="mr-1.5">
-            <FontAwesome name="calendar" size={9} color={colors.textDim} />
+            <FontAwesome name="calendar-o" size={9} color={colors.textDim} />
           </View>
           <Text className="text-[9px] font-bold" style={{ color: colors.textMuted }}>
             {target.target_deadline ? new Date(target.target_deadline).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'No Limit'}
@@ -311,7 +311,7 @@ export const CircularTargetCard = ({ target, onEdit, onClear }: any) => {
                   style={{ backgroundColor: `${colors.primary}1a`, borderColor: `${colors.primary}33` }}
                 >
                   <View className="flex-row items-center">
-                    <FontAwesome name="pencil" size={9} color={palette.primary} />
+                    <FontAwesome name="pencil-square-o" size={9} color={palette.primary} />
                     <Text className="text-[9px] font-black uppercase tracking-widest ml-1.5" style={{ color: colors.primary }}>Tune</Text>
                   </View>
                 </TouchableOpacity>
@@ -424,7 +424,7 @@ export const CircularTargetCardMobile = ({ target, onEdit, onAction }: any) => {
           </View>
 
           <View className="flex-row items-center mb-4">
-            <FontAwesome name="calendar" size={8} color={colors.textDim} />
+            <FontAwesome name="calendar-o" size={8} color={colors.textDim} />
             <Text className="text-[8px] font-bold ml-1.5" style={{ color: colors.textMuted }}>
               {target.target_deadline ? new Date(target.target_deadline).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'No Limit'}
             </Text>
@@ -456,7 +456,7 @@ export const CircularTargetCardMobile = ({ target, onEdit, onAction }: any) => {
                   className="flex-1 flex-row items-center justify-center py-2.5 rounded-xl border"
                   style={{ backgroundColor: `${colors.primary}1a`, borderColor: `${colors.primary}33` }}
                 >
-                  <FontAwesome name="pencil" size={10} color={colors.primary} />
+                  <FontAwesome name="pencil-square-o" size={10} color={colors.primary} />
                   <Text className="text-[9px] font-black uppercase tracking-widest ml-2" style={{ color: colors.primary }}>Edit</Text>
                 </TouchableOpacity>
               )}

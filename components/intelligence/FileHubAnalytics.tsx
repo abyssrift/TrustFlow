@@ -81,7 +81,7 @@ export default function FileHubAnalytics({ visible, onClose }: { visible: boolea
   );
 
   const statCards = totals ? [
-    { label: 'Files Sent', value: String(totals.files_sent ?? 0), icon: 'paper-plane', color: c.primary },
+    { label: 'Files Sent', value: String(totals.files_sent ?? 0), icon: 'paper-plane-o', color: c.primary },
     { label: 'Total Volume', value: formatBytes(totals.total_bytes ?? 0), icon: 'database', color: c.accent },
     { label: 'People Reached', value: String(totals.recipients_reached ?? 0), icon: 'users', color: c.success },
     { label: 'Read Rate', value: totals.read_rate == null ? '—' : `${Math.round(totals.read_rate * 100)}%`, icon: 'check-circle', color: c.warning },

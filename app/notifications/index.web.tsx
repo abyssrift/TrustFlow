@@ -14,7 +14,7 @@ function getIconSpec(type: string): IconSpec {
   switch (type) {
     case 'task.assigned':       return { name: 'user-plus',         color: colors.primary };
     case 'task.mentioned':      return { name: 'at',                color: colors.warning };
-    case 'task.commented':      return { name: 'comment',           color: colors.textMuted };
+    case 'task.commented':      return { name: 'comment-o',         color: colors.textMuted };
     case 'task.created':        return { name: 'plus-square',       color: colors.success };
     case 'task.completed':      return { name: 'check-circle',      color: colors.success };
     case 'task.stage_transition': return { name: 'exchange',        color: colors.primary };
@@ -25,14 +25,14 @@ function getIconSpec(type: string): IconSpec {
     case 'task.manual_time_flagged':  return { name: 'flag',        color: colors.warning };
     case 'task.manual_time_approved': return { name: 'thumbs-up',   color: colors.success };
     case 'task.manual_time_rejected': return { name: 'thumbs-down', color: colors.danger };
-    case 'task.submission_deleted':   return { name: 'trash',       color: colors.danger };
+    case 'task.submission_deleted':   return { name: 'trash-o',      color: colors.danger };
     case 'pipeline.member_added': return { name: 'users',           color: colors.primary };
     case 'pipeline.archived':   return { name: 'archive',           color: colors.textMuted };
     case 'filehub.file_received':    return { name: 'file-text-o',  color: colors.primary };
     case 'filehub.broadcast_posted': return { name: 'rss',          color: colors.warning };
     case 'filehub.group_file_shared': return { name: 'share-alt',   color: colors.primary };
     case 'timer.auto_stopped':  return { name: 'hourglass-end',     color: colors.danger };
-    default:                    return { name: 'bell',              color: colors.primary };
+    default:                    return { name: 'bell-o',             color: colors.primary };
   }
 }
 
@@ -246,7 +246,7 @@ export default function NotificationsScreenWeb() {
           <View className="w-60 border-r border-surface-border p-4 flex-col">
             <View className="flex-row items-center px-3 pt-2 pb-5">
               <View className="h-10 w-10 rounded-2xl bg-brand-primary/10 items-center justify-center mr-3">
-                <FontAwesome name="bell" size={17} color={colors.primary} />
+                <FontAwesome name="bell-o" size={17} color={colors.primary} />
               </View>
               <View className="flex-1 min-w-0">
                 <Text className="text-base font-black text-typography-main tracking-tight" numberOfLines={1}>
@@ -306,7 +306,7 @@ export default function NotificationsScreenWeb() {
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity onPress={() => router.back()} className={iconBtn}>
-                  <FontAwesome name="close" size={14} color={colors.textMuted} />
+                  <FontAwesome name="times" size={14} color={colors.textMuted} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -333,7 +333,7 @@ export default function NotificationsScreenWeb() {
           <View className="flex-row items-center flex-1 min-w-0 mr-3">
             {!isNarrow && (
               <View className="h-12 w-12 rounded-2xl bg-brand-primary/10 items-center justify-center mr-4">
-                <FontAwesome name="bell" size={20} color={colors.primary} />
+                <FontAwesome name="bell-o" size={20} color={colors.primary} />
               </View>
             )}
             <View className="flex-1 min-w-0">
@@ -391,7 +391,7 @@ export default function NotificationsScreenWeb() {
                 : `${iconBtn} ml-1`
               }
             >
-              <FontAwesome name="close" size={14} color={colors.textMuted} />
+              <FontAwesome name="times" size={14} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
         </View>

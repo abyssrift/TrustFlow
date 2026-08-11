@@ -340,7 +340,7 @@ export default function DashboardScreen() {
             className="bg-surface-card rounded-full items-center justify-center border border-surface-border flex-shrink-0"
             style={{ width: 44, height: 44 }}
           >
-            <FontAwesome name="bell" size={15} color={colors.primary} />
+            <FontAwesome name="bell-o" size={15} color={colors.primary} />
             {unreadCount > 0 && (
               <View
                 className="absolute top-0 right-0 bg-state-danger rounded-full items-center justify-center"

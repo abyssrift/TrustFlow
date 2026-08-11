@@ -1081,7 +1081,7 @@ export function TasksScreenWeb() {
             {(task.submission_count?.[0]?.count ?? 0) > 0 && (
               <Tooltip label="Submissions">
                 <View className="bg-brand-primary/10 px-2.5 py-1 rounded-lg border border-brand-primary/20 flex-row items-center gap-1">
-                  <FontAwesome name="send" size={9} className="text-brand-primary" />
+                  <FontAwesome name="paper-plane-o" size={9} className="text-brand-primary" />
                   <Text className="text-brand-primary text-[10px] font-black">{task.submission_count?.[0]?.count}</Text>
                 </View>
               </Tooltip>

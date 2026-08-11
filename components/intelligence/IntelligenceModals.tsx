@@ -112,7 +112,7 @@ export const TargetCreationModal = ({ visible, onClose, onConfirm, pipelines, st
 };
 
 const QUICK_REPORT_TYPES = [
-  { value: 'performance_audit',        label: 'Overview',          icon: 'bar-chart'     },
+  { value: 'performance_audit',        label: 'Overview',          icon: 'file-pdf-o'    },
   { value: 'user_performance_summary', label: 'Performance Summary', icon: 'user'          },
   { value: 'pipeline_stage_dwell',     label: 'Stage Dwell',       icon: 'clock-o'       },
   { value: 'personnel_comparison',     label: 'People Compare',    icon: 'balance-scale' },

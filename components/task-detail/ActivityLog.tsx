@@ -33,8 +33,8 @@ export default function ActivityLog() {
       case 'task.stage_advanced': return { icon: 'arrow-right', color: colors.success };
       case 'task.work_submitted': return { icon: 'upload', color: colors.info };
       case 'task.submission_reviewed': return { icon: 'gavel', color: colors.warning };
-      case 'task.comment_added': return { icon: 'comment', color: colors.primary };
-      case 'task.comment_deleted': return { icon: 'trash', color: colors.danger };
+      case 'task.comment_added': return { icon: 'comment-o', color: colors.primary };
+      case 'task.comment_deleted': return { icon: 'trash-o', color: colors.danger };
       case 'task.assigned': return { icon: 'user-plus', color: colors.info };
       default: return { icon: 'circle-o', color: colors.textMuted };
     }

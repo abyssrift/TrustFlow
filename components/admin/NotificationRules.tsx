@@ -56,7 +56,7 @@ const RuleListItem = ({
   onToggle: (id: string, active: boolean) => void;
 }) => {
   const colors = useThemeColors();
-  const meta = EVENT_META[rule.event_type] || { label: rule.event_type, icon: 'bell', colorKey: 'textMuted' };
+  const meta = EVENT_META[rule.event_type] || { label: rule.event_type, icon: 'bell-o', colorKey: 'textMuted' };
   return (
     <TouchableOpacity
       onPress={onSelect}
@@ -247,7 +247,7 @@ const RuleInspector = ({
                   className="w-10 h-10 rounded-xl border items-center justify-center"
                   style={{ backgroundColor: colors.background, borderColor: colors.border }}
                 >
-                  <FontAwesome name="pencil" size={14} color={colors.primary} />
+                  <FontAwesome name="pencil-square-o" size={14} color={colors.primary} />
                 </TouchableOpacity>
               </Tooltip>
               <Tooltip label="Delete rule">
@@ -344,7 +344,7 @@ const RuleInspector = ({
                 <Text className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color: colors.textMuted }}>Channels</Text>
                 <View className="flex-row gap-3 mb-3 flex-wrap">
                   {[
-                    { icon: 'envelope', label: 'Email' },
+                    { icon: 'envelope-o', label: 'Email' },
                     { icon: 'mobile',   label: 'Mobile' },
                     { icon: 'globe',    label: 'Web' },
                   ].map((c) => (
@@ -564,8 +564,8 @@ const RuleInspector = ({
                       </View>
                     </View>
                     <View className="flex-row items-center gap-3 px-3 py-1.5 rounded-lg border" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
-                      {channels.includes('in_app')      && <FontAwesome name="bell"     size={10} color={colors.primary} />}
-                      {channels.includes('email')       && <FontAwesome name="envelope" size={10} color={colors.primary} />}
+                      {channels.includes('in_app')      && <FontAwesome name="bell-o"    size={10} color={colors.primary} />}
+                      {channels.includes('email')       && <FontAwesome name="envelope-o" size={10} color={colors.primary} />}
                       {channels.includes('push_mobile') && <FontAwesome name="mobile"   size={12} color={colors.primary} />}
                       {channels.includes('push_web')    && <FontAwesome name="globe"    size={11} color={colors.primary} />}
                       {channels.length === 0           && <FontAwesome name="ban"      size={10} color={colors.textMuted} />}

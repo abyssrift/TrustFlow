@@ -35,7 +35,7 @@ function NotificationBell() {
       <Pressable>
         {({ pressed }) => (
           <View className="bg-brand-primary/10 p-2 rounded-full mr-2" style={{ opacity: pressed ? 0.5 : 1 }}>
-            <FontAwesome name="bell" size={18} className="text-brand-primary" />
+            <FontAwesome name="bell-o" size={18} className="text-brand-primary" />
             {unreadCount > 0 && (
               <View
                 className="absolute -top-1 -right-1 bg-state-danger rounded-full items-center justify-center"
@@ -128,7 +128,7 @@ export default function TabLayout() {
         options={{
           href: null,
           title: 'Corporate',
-          tabBarIcon: ({ color }) => <TabBarIcon name="users" color={color} />,
+          tabBarIcon: ({ color }) => <TabBarIcon name="briefcase" color={color} />,
         }}
       />
       <Tabs.Screen
@@ -143,7 +143,7 @@ export default function TabLayout() {
         name="filehub"
         options={{
           title: 'File Hub',
-          tabBarIcon: ({ color }) => <TabBarIcon name="folder-open" color={color} />,
+          tabBarIcon: ({ color }) => <TabBarIcon name="folder-open-o" color={color} />,
           tabBarBadge: inboxUnread > 0 ? (inboxUnread > 99 ? '99+' : inboxUnread) : undefined,
         }}
       />

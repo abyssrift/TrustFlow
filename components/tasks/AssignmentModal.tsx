@@ -158,7 +158,7 @@ export default function AssignmentModal({
             </View>
             <Tooltip label="Close">
               <TouchableOpacity onPress={onClose} className="p-2">
-                <FontAwesome name="close" size={20} color={colors.textMuted} />
+                <FontAwesome name="times" size={20} color={colors.textMuted} />
               </TouchableOpacity>
             </Tooltip>
           </View>

@@ -90,7 +90,7 @@ export const ROLE_TEMPLATES: RoleTemplate[] = [
     name: 'File Coordinator',
     description: 'Owns FileHub: company-wide broadcasts, group management and file distribution.',
     color: '#a855f7',
-    icon: 'folder-open',
+    icon: 'folder-open-o',
     permissionKeys: [
       'filehub:view', 'filehub:send', 'filehub:broadcast', 'filehub:groups',
       'task.comment', 'project.view',
