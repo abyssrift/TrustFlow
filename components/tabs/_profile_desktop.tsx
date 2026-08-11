@@ -165,7 +165,7 @@ export default function ProfilePageWeb() {
                   onPress={handleDisbandWorkspace}
                   className="h-12 flex-row items-center rounded-xl border border-state-danger bg-state-danger/10 px-4 hover:bg-state-danger/20 transition-colors"
                 >
-                  <FontAwesome name="trash" size={14} color="#ef4444" style={{ marginRight: 12 }} />
+                  <FontAwesome name="trash-o" size={14} color="#ef4444" style={{ marginRight: 12 }} />
                   <Text className="text-xs font-black uppercase tracking-widest text-state-danger">Disband Workspace</Text>
                 </Pressable>
               )}

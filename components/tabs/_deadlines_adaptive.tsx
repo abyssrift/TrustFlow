@@ -173,7 +173,7 @@ export default function DeadlinesScreen() {
             <ActivityIndicator size="small" color={colors.primary} className="mt-6" />
           ) : ribbonTasks.length === 0 ? (
             <View className="items-center justify-center py-10 bg-surface-card border border-surface-border rounded-2xl">
-              <FontAwesome name="check-circle-o" size={28} color={colors.textMuted} />
+              <FontAwesome name="check-circle" size={28} color={colors.textMuted} />
               <Text className="text-typography-muted text-sm font-bold mt-3">No upcoming deadlines</Text>
             </View>
           ) : (

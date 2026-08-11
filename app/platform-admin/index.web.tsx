@@ -417,7 +417,7 @@ function CompanyDetailPanel({ companyId, onClose, onDeleted }: { companyId: stri
                     className="flex-row items-center gap-2 self-start px-4 py-2 rounded-xl hover:bg-state-danger/10 transition-colors"
                     style={{ borderWidth: 1, borderColor: colors.danger + '4D', backgroundColor: colors.danger + '0D' }}
                   >
-                    <FontAwesome name="trash" size={11} color={colors.danger} />
+                    <FontAwesome name="trash-o" size={11} color={colors.danger} />
                     <Text className="text-xs font-bold" style={{ color: colors.danger }}>Delete Workspace</Text>
                   </TouchableOpacity>
                 ) : (
@@ -646,7 +646,7 @@ function TenantsSection({ companies, loading, onCompanyDeleted }: { companies: C
 
         {companies.length === 0 && (
           <View className="items-center py-20">
-            <FontAwesome name="building-o" size={36} className="text-typography-dim" />
+            <FontAwesome name="briefcase" size={36} className="text-typography-dim" />
             <Text className="text-typography-dim mt-4 text-sm">No tenants registered yet</Text>
           </View>
         )}
@@ -866,7 +866,7 @@ function LiveSection() {
               <Text className="text-brand-primary text-xs font-bold mb-2" numberOfLines={1}>{s.task_title ?? 'Unknown task'}</Text>
               <View className="flex-row items-center justify-between">
                 <View className="flex-row items-center gap-1.5">
-                  <FontAwesome name="building-o" size={9} className="text-typography-dim" />
+                  <FontAwesome name="briefcase" size={9} className="text-typography-dim" />
                   <Text className="text-typography-dim text-[10px]">{s.company_name ?? 'Unknown workspace'}</Text>
                 </View>
                 <Text className="text-typography-dim text-[10px]">Started {timeAgo(s.started_at)}</Text>
@@ -1015,7 +1015,7 @@ function UserDetailPanel({
                   className="flex-row items-center gap-2 px-3 py-2 rounded-xl hover:bg-surface-overlay transition-colors"
                   style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}
                 >
-                  <FontAwesome name="pencil" size={11} color={colors.textMuted} />
+                  <FontAwesome name="pencil-square-o" size={11} color={colors.textMuted} />
                   <Text className="text-xs font-bold" style={{ color: colors.textMuted }}>Edit</Text>
                 </TouchableOpacity>
               ) : (
@@ -1125,11 +1125,11 @@ function UserDetailPanel({
               ) : (
                 <>
                   {[
-                    { icon: 'building-o', label: 'Workspace', value: user.company_name ?? 'No workspace' },
+                    { icon: 'briefcase', label: 'Workspace', value: user.company_name ?? 'No workspace' },
                     { icon: 'briefcase', label: 'Job Title', value: user.job_title ?? '—' },
                     { icon: 'sitemap', label: 'Department', value: user.department ?? '—' },
                     { icon: 'phone', label: 'Phone', value: user.phone ?? '—' },
-                    { icon: 'calendar', label: 'Joined', value: new Date(user.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) },
+                    { icon: 'calendar-o', label: 'Joined', value: new Date(user.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) },
                     { icon: 'clock-o', label: 'Last Seen', value: timeAgo(user.last_seen_at) },
                   ].map((row, idx, arr) => (
                     <View key={row.label}>
@@ -1207,7 +1207,7 @@ function UserDetailPanel({
                       className="flex-row items-center gap-2 self-start px-4 py-2 rounded-xl hover:bg-state-danger/10 transition-colors"
                       style={{ borderWidth: 1, borderColor: colors.danger + '4D', backgroundColor: colors.danger + '0D' }}
                     >
-                      <FontAwesome name="trash" size={11} color={colors.danger} />
+                      <FontAwesome name="trash-o" size={11} color={colors.danger} />
                       <Text className="text-xs font-bold" style={{ color: colors.danger }}>Delete User</Text>
                     </TouchableOpacity>
                   ) : (
@@ -1339,7 +1339,7 @@ function UsersSection({ companies, onUserDeleted }: { companies: CompanyOverview
         {/* User rows */}
         {users.length === 0 && !loading && (
           <View className="items-center py-20">
-            <FontAwesome name="user-o" size={36} className="text-typography-dim" />
+            <FontAwesome name="user" size={36} className="text-typography-dim" />
             <Text className="text-typography-dim mt-4 text-sm">
               {query ? 'No users match your search' : 'No users found'}
             </Text>
@@ -2050,7 +2050,7 @@ function TrialCodesSection() {
                 onPress={() => setShowExpiryCalendar(v => !v)}
                 className={`flex-row items-center gap-2 bg-surface-background border rounded-xl px-3 py-2.5 transition-colors ${showExpiryCalendar ? 'border-brand-primary' : 'border-surface-border hover:border-brand-primary/50'}`}
               >
-                <FontAwesome name="calendar" size={11} className={form.expires_at ? 'text-brand-primary' : 'text-typography-muted'} />
+                <FontAwesome name="calendar-o" size={11} className={form.expires_at ? 'text-brand-primary' : 'text-typography-muted'} />
                 <Text className={`text-sm flex-1 ${form.expires_at ? 'text-typography-main font-bold' : 'text-typography-dim'}`}>
                   {form.expires_at
                     ? new Date(form.expires_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -2544,7 +2544,7 @@ function WaitlistSection() {
       {/* Stat cards */}
       <View className="flex-row gap-4 mb-6">
         <StatCard label="Total Signups" value={fmtNumber(overview.total)} icon="user-plus" sub="all time" sparkData={spark} accent />
-        <StatCard label="Today" value={fmtNumber(overview.today)} icon="calendar" sub="new signups" />
+        <StatCard label="Today" value={fmtNumber(overview.today)} icon="calendar-o" sub="new signups" />
         <StatCard label="This Week" value={fmtNumber(overview.this_week)} icon="line-chart" sub="new signups" sparkData={spark} />
         <StatCard label="Via Referral" value={fmtNumber(overview.referred)} icon="share-alt" sub={overview.total > 0 ? `${Math.round((overview.referred / overview.total) * 100)}% of total` : 'no signups yet'} />
       </View>
@@ -2618,7 +2618,7 @@ function WaitlistSection() {
           <Text className="text-typography-main font-black text-base mb-5">Snapshot</Text>
           {[
             { label: 'Total signups', value: fmtNumber(overview.total), icon: 'user-plus' },
-            { label: 'Signed up today', value: fmtNumber(overview.today), icon: 'calendar' },
+            { label: 'Signed up today', value: fmtNumber(overview.today), icon: 'calendar-o' },
             { label: 'Signed up this week', value: fmtNumber(overview.this_week), icon: 'line-chart' },
             { label: 'Came via referral', value: fmtNumber(overview.referred), icon: 'share-alt' },
           ].map((row, idx, arr) => (
@@ -2691,7 +2691,7 @@ const NAV_ITEMS: { id: Section; label: string; icon: string }[] = [
   { id: 'signals',     label: 'Signals',        icon: 'line-chart' },
   { id: 'waitlist',    label: 'Waitlist',       icon: 'user-plus' },
   { id: 'live',        label: 'Live',           icon: 'circle' },
-  { id: 'alerts',      label: 'Alerts',         icon: 'bell' },
+  { id: 'alerts',      label: 'Alerts',         icon: 'bell-o' },
   { id: 'infra',       label: 'Infrastructure', icon: 'server' },
   { id: 'trial_codes', label: 'Trial Codes',    icon: 'ticket' },
   { id: 'plans',       label: 'Plans',          icon: 'credit-card' },
@@ -2808,7 +2808,7 @@ export default function PlatformAdminWebScreen() {
                 onPress={() => setSection('alerts')}
                 className="flex-row items-center gap-2 bg-state-danger/10 border border-state-danger/20 rounded-xl px-3 py-1.5 hover:bg-state-danger/20 transition-colors"
               >
-                <FontAwesome name="bell" size={10} className="text-state-danger" />
+                <FontAwesome name="bell-o" size={10} className="text-state-danger" />
                 <Text className="text-state-danger text-[10px] font-black">{alertCount} alert{alertCount !== 1 ? 's' : ''}</Text>
               </TouchableOpacity>
             )}

@@ -266,7 +266,7 @@ export default function FileHubBin({ visible, onClose }: { visible: boolean; onC
                 >
                   {emptying
                     ? <ActivityIndicator size="small" color={c.danger} />
-                    : <FontAwesome name="trash" size={12} color={c.danger} />}
+                    : <FontAwesome name="trash-o" size={12} color={c.danger} />}
                   <Text className="text-xs font-black uppercase tracking-wider" style={{ color: c.danger }}>Empty Bin</Text>
                 </TouchableOpacity>
               )}

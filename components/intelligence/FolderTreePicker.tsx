@@ -72,7 +72,7 @@ export default function FolderTreePicker({
             )}
           </TouchableOpacity>
           <FontAwesome
-            name={id === null ? 'inbox' : isOpen && kids.length > 0 ? 'folder-open' : 'folder'}
+            name={id === null ? 'inbox' : isOpen && kids.length > 0 ? 'folder-open-o' : 'folder-o'}
             size={13}
             color={isSelected ? colors.primary : id === null ? colors.textMuted : '#f59e0b'}
             style={{ marginRight: 8 }}

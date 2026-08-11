@@ -625,7 +625,7 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
     island.publish({
       id: islandId,
       kind: 'upload',
-      icon: 'trash',
+      icon: 'trash-o',
       accent: 'danger',
       compactLabel: '0%',
       progress: 0,

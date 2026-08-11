@@ -427,7 +427,7 @@ export default function TransitionEditor() {
                           }}
                           className="p-2 rounded-lg border border-surface-border bg-surface-background"
                         >
-                          <FontAwesome name="pencil" size={10} color="#64748b" />
+                          <FontAwesome name="pencil-square-o" size={10} color="#64748b" />
                         </TouchableOpacity>
                       </Tooltip>
                       <Tooltip label="Delete rule">

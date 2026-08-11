@@ -105,7 +105,7 @@ function TaskDetailContent() {
           onPress={() => router.push('/deadlines' as any)}
           className="bg-surface-background p-2 rounded-xl border border-surface-border active:opacity-50"
         >
-          <FontAwesome name="calendar" size={16} color={colors.textMuted} />
+          <FontAwesome name="calendar-o" size={16} color={colors.textMuted} />
         </TouchableOpacity>
       </Tooltip>
 

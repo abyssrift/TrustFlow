@@ -149,7 +149,7 @@ export default function IntelligenceArchives() {
             onPress={() => setDeleteModal(true)}
             className="bg-state-danger px-4 py-2 rounded-xl flex-row items-center gap-2"
           >
-            <FontAwesome name="trash" size={11} color="#fff" />
+            <FontAwesome name="trash-o" size={11} color="#fff" />
             <Text className="text-white text-[10px] font-black uppercase tracking-widest">Delete Permanently</Text>
           </TouchableOpacity>
         </View>
@@ -218,7 +218,7 @@ export default function IntelligenceArchives() {
                   <View className="flex-[3] flex-row items-center gap-4">
                     <View className={`w-10 h-10 rounded-xl items-center justify-center ${isRestored ? 'bg-state-success/10' : 'bg-surface-background border border-surface-border'}`}>
                       <FontAwesome
-                        name={archive.entity_type === 'project' ? 'briefcase' : 'tasks'}
+                        name={archive.entity_type === 'project' ? 'folder-o' : 'tasks'}
                         size={16}
                         color={isRestored ? colors.success : colors.primary}
                       />
@@ -227,7 +227,7 @@ export default function IntelligenceArchives() {
                       <Text className="text-typography-main font-black text-sm" numberOfLines={1}>{title}</Text>
                       {hasIssue && (
                         <View className="flex-row items-center gap-1.5 mt-0.5">
-                          <FontAwesome name="warning" size={9} color={colors.danger} />
+                          <FontAwesome name="exclamation-triangle" size={9} color={colors.danger} />
                           <Text className="text-state-danger text-[9px] font-black uppercase">Integrity Issue</Text>
                         </View>
                       )}

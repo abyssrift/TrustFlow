@@ -76,7 +76,7 @@ function RolesLayout() {
         <View className="bg-surface-background p-1 rounded-2xl border border-surface-border flex-row">
           {[
             { id: 'users', label: 'Individuals', icon: 'user' },
-            { id: 'teams', label: 'Teams', icon: 'group' },
+            { id: 'teams', label: 'Teams', icon: 'users' },
             { id: 'roles', label: 'Roles', icon: 'shield' },
           ].map((tab) => {
             const isActive = activeTab === tab.id;
@@ -114,7 +114,7 @@ function RolesLayout() {
       {/* Error Overlay */}
       {error && (
         <View className="absolute bottom-6 left-6 right-6 bg-state-danger p-4 rounded-xl flex-row items-center border border-white/20 premium-shadow">
-          <FontAwesome name="warning" size={16} color="white" />
+          <FontAwesome name="exclamation-triangle" size={16} color="white" />
           <Text className="text-typography-main font-bold ml-3 flex-1 text-xs">{error}</Text>
         </View>
       )}

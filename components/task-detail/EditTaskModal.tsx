@@ -262,7 +262,7 @@ export default function EditTaskModal({ visible, onClose, focusField }: Props) {
                         <Text className={`font-medium text-sm ${dueDate ? 'text-typography-main' : 'text-typography-muted'}`}>
                           {formatDate(dueDate) ?? 'Set date'}
                         </Text>
-                        <FontAwesome name="calendar" size={11} color={dueDate ? colors.primary : colors.textMuted} />
+                        <FontAwesome name="calendar-o" size={11} color={dueDate ? colors.primary : colors.textMuted} />
                       </TouchableOpacity>
                       {dueDate && (
                         <Tooltip label="Clear date">

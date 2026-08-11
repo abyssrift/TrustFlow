@@ -94,7 +94,7 @@ function SharedFolderCard({ folder }: { folder: ResolvedFolderShare }) {
     <View className="bg-surface-card p-8 rounded-[2.5rem] border border-surface-border w-full max-w-md" style={{ maxHeight: '85%' }}>
       <View className="items-center mb-5">
         <View className="w-16 h-16 bg-surface-background rounded-2xl border border-surface-border items-center justify-center mb-4">
-          <FontAwesome name="folder" size={26} color={colors.primary} />
+          <FontAwesome name="folder-o" size={26} color={colors.primary} />
         </View>
         <Text className="text-typography-main text-lg font-black text-center" numberOfLines={2}>{folder.name}</Text>
         <Text className="text-typography-muted text-xs mt-1">

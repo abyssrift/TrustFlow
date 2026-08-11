@@ -145,7 +145,7 @@ export interface MultiViewListProps<T> {
 
 const MODE_META: Record<MultiViewMode, { label: string; icon: string }> = {
   large: { label: 'Large', icon: 'th-large' },
-  medium: { label: 'Medium', icon: 'th' },
+  medium: { label: 'Medium', icon: 'th-large' },
   list: { label: 'List', icon: 'list-ul' },
   details: { label: 'Details', icon: 'table' },
 };

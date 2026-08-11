@@ -16,7 +16,7 @@ import { resolveNativeColorToken } from './colorCompat';
 const CONDITION_TYPES = [
   { value: 'overdue', label: 'Overdue', desc: 'Past its due date', icon: 'clock-o', color: '#ef4444', implemented: true },
   { value: 'idle', label: 'Idle', desc: 'Not updated for X hours', icon: 'pause-circle', color: '#f59e0b', implemented: false },
-  { value: 'due_soon', label: 'Due Soon', desc: 'Approaching its due date', icon: 'bell', color: '#3b82f6', implemented: false },
+  { value: 'due_soon', label: 'Due Soon', desc: 'Approaching its due date', icon: 'bell-o', color: '#3b82f6', implemented: false },
 ];
 
 export default function AutomationEditor() {

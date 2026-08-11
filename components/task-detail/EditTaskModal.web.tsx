@@ -389,7 +389,7 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
                       style={{ backgroundColor: mobileActiveDateField === 'due' ? colors.primary + '14' : colors.background, borderWidth: 1, borderColor: mobileActiveDateField === 'due' ? colors.primary : colors.border }}
                     >
                       <Text className="font-medium text-sm" style={{ color: dueDate ? colors.textMain : colors.textMuted }}>{fmtDate(dueDate) !== '—' ? fmtDate(dueDate) : 'Set date'}</Text>
-                      <FontAwesome name="calendar" size={11} color={dueDate ? colors.primary : colors.textMuted} />
+                      <FontAwesome name="calendar-o" size={11} color={dueDate ? colors.primary : colors.textMuted} />
                     </TouchableOpacity>
                     {dueDate && (
                       <Tooltip label="Clear date">
@@ -593,7 +593,7 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
         <StatRow icon="user"            label="Creator"       value={creator?.full_name || '—'} valueNode={creator?.id ? <UserLink userId={creator.id} name={creator.full_name} className="text-[11px] font-black" style={{ color: colors.textMain }} /> : undefined} />
         <StatRow icon="briefcase"       label="Manager"       value={manager?.full_name || '—'} valueNode={manager?.id ? <UserLink userId={manager.id} name={manager.full_name} className="text-[11px] font-black" style={{ color: colors.textMain }} /> : undefined} />
         <StatRow icon="calendar-o"      label="Created"       value={fmtDate(task.created_at)} />
-        <StatRow icon="calendar"        label="Due"           value={fmtDate(task.due_date)} />
+        <StatRow icon="calendar-o"        label="Due"           value={fmtDate(task.due_date)} />
         <StatRow icon="clock-o"         label="In Pipeline"   value={`${stats.days_in_pipeline}d`} />
         <StatRow icon="balance-scale"   label="Weight"        value={task.weight?.toString() || '1'} />
         {task.is_recurring && <StatRow icon="repeat" label="Recurring" value="Yes" accent />}
@@ -961,7 +961,7 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
                       style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: showDueCal ? colors.primary : colors.border }}
                     >
                       <View className="flex-row items-center gap-3">
-                        <FontAwesome name="calendar" size={13} color={dueDate ? colors.primary : colors.textDim} />
+                        <FontAwesome name="calendar-o" size={13} color={dueDate ? colors.primary : colors.textDim} />
                         <Text className="font-bold" style={{ color: dueDate ? colors.textMain : colors.textDim }}>
                           {fmtDate(dueDate) !== '—' ? fmtDate(dueDate) : 'Set deadline'}
                         </Text>

@@ -88,7 +88,7 @@ function RolesWebLayout() {
           <View className="bg-surface-background p-1.5 rounded-2xl border border-surface-border flex-row">
             {[
               { id: 'users', label: 'Individuals', icon: 'user' },
-              { id: 'teams', label: 'Tactical Teams', icon: 'group' },
+              { id: 'teams', label: 'Tactical Teams', icon: 'users' },
               { id: 'roles', label: 'Role Registry', icon: 'shield' },
             ].map((t) => {
               const isActive = activeTab === t.id;
@@ -129,7 +129,7 @@ function RolesWebLayout() {
       {/* Persistent Status Bar / Error Overlay */}
       {error && (
         <View className="absolute bottom-10 right-10 bg-state-danger px-8 py-5 rounded-2xl flex-row items-center border border-surface-border shadow-2xl">
-          <FontAwesome name="warning" size={18} color={colors.textMain} />
+          <FontAwesome name="exclamation-triangle" size={18} color={colors.textMain} />
           <Text className="text-typography-main font-black ml-4 text-sm">{error}</Text>
         </View>
       )}

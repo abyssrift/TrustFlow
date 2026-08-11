@@ -295,7 +295,7 @@ export default function StageBuilder() {
           desc="Calculates duration only during Sun-Thu 09:00-17:00"
           active={formUseBus}
           onToggle={() => setFormUseBus(!formUseBus)}
-          icon="calendar"
+          icon="calendar-o"
           color={colors.success}
         />
         )}
@@ -516,7 +516,7 @@ export default function StageBuilder() {
                     </Tooltip>
                     <Tooltip label="Move up" disabled={isOperationInFlight || index === 0}>
                       <TouchableOpacity onPress={() => handleMoveUp(index)} disabled={isOperationInFlight || index === 0} className="py-1 px-3 items-center justify-center mb-1">
-                        <FontAwesome name="caret-up" size={24} color={isOperationInFlight || index === 0 ? colors.border : colors.textDim} />
+                        <FontAwesome name="chevron-up" size={24} color={isOperationInFlight || index === 0 ? colors.border : colors.textDim} />
                       </TouchableOpacity>
                     </Tooltip>
                     <View className={`w-9 h-9 rounded-lg items-center justify-center ${isOperationInFlight ? 'opacity-50' : ''}`} style={{ backgroundColor: resolveNativeColorToken(s.color, colors) }}>
@@ -524,7 +524,7 @@ export default function StageBuilder() {
                     </View>
                     <Tooltip label="Move down" disabled={isOperationInFlight || index === stages.length - 1}>
                       <TouchableOpacity onPress={() => handleMoveDown(index)} disabled={isOperationInFlight || index === stages.length - 1} className="py-1 px-3 items-center justify-center mt-1">
-                        <FontAwesome name="caret-down" size={24} color={isOperationInFlight || index === stages.length - 1 ? colors.border : colors.textDim} />
+                        <FontAwesome name="chevron-down" size={24} color={isOperationInFlight || index === stages.length - 1 ? colors.border : colors.textDim} />
                       </TouchableOpacity>
                     </Tooltip>
                     <Tooltip label="Move to bottom" disabled={isOperationInFlight || index === stages.length - 1}>
@@ -594,7 +594,7 @@ export default function StageBuilder() {
                         onPress={() => { populateForm(s); setEditingStage(s.id); }}
                         className="p-2 rounded-lg border border-surface-border bg-surface-background"
                       >
-                        <FontAwesome name="pencil" size={12} color={colors.textDim} />
+                        <FontAwesome name="pencil-square-o" size={12} color={colors.textDim} />
                       </TouchableOpacity>
                     </Tooltip>
                     <Tooltip label="Delete stage">
@@ -820,7 +820,7 @@ function StageActionManager({ stageId }: { stageId: string }) {
 
       <View className="mb-2 gap-1">
         <FlagToggle label="Requires Timer" desc="Forces work session for this action" active={form.requiresTimer} onToggle={() => patch({ requiresTimer: !form.requiresTimer })} icon="clock-o" color={colors.warning} />
-        <FlagToggle label="Use Business Hours" desc="Filter session via business window" active={form.useBus} onToggle={() => patch({ useBus: !form.useBus })} icon="calendar" color={colors.success} />
+        <FlagToggle label="Use Business Hours" desc="Filter session via business window" active={form.useBus} onToggle={() => patch({ useBus: !form.useBus })} icon="calendar-o" color={colors.success} />
       </View>
 
       <View className="flex-row gap-2 mt-1">
@@ -898,7 +898,7 @@ function StageActionManager({ stageId }: { stageId: string }) {
                 </Tooltip>
                 <Tooltip label="Edit action">
                   <TouchableOpacity onPress={() => startEdit(act)} className="p-1.5 bg-surface-card rounded-lg border border-surface-border ml-1">
-                    <FontAwesome name="pencil" size={10} color="#64748b" />
+                    <FontAwesome name="pencil-square-o" size={10} color="#64748b" />
                   </TouchableOpacity>
                 </Tooltip>
                 <Tooltip label="Remove action">

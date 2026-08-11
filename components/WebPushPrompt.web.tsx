@@ -58,7 +58,7 @@ export default function WebPushPrompt() {
           <View className="flex-row items-start gap-3 mb-3">
             <View className={`w-10 h-10 rounded-xl items-center justify-center ${isDenied ? 'bg-state-danger/10' : 'bg-brand-primary/10'}`}>
               <FontAwesome
-                name={isDenied ? 'bell-slash' : 'bell'}
+                name={isDenied ? 'bell-slash' : 'bell-o'}
                 size={16}
                 color={isDenied ? colors.danger : colors.primary}
               />
@@ -93,7 +93,7 @@ export default function WebPushPrompt() {
                 <ActivityIndicator color="#fff" size="small" />
               ) : (
                 <>
-                  <FontAwesome name="bell" size={12} color="white" />
+                  <FontAwesome name="bell-o" size={12} color="white" />
                   <Text className="text-white font-black uppercase tracking-widest text-[11px]">
                     Enable Notifications
                   </Text>

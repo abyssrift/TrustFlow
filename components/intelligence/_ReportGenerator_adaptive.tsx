@@ -88,7 +88,7 @@ function getTemporalMode(type: ReportType, tp: Record<string, any> = {}): Tempor
 const REPORT_TYPES: { value: ReportType; label: string; desc: string; icon: string; group: 'legacy' | 'analytics' }[] = [
   { value: 'general',                  label: 'Performance Audit',             desc: 'Org or pipeline metrics',                        icon: 'bar-chart',     group: 'legacy'    },
   { value: 'worker_comparison',         label: 'Personnel Benchmarking',        desc: 'Head-to-head (2) or group table (3+), empty = all', icon: 'users',         group: 'legacy'    },
-  { value: 'team_comparison',           label: 'Team Matrix Analysis',          desc: 'Head-to-head (2) or group table (3+), empty = all', icon: 'group',         group: 'legacy'    },
+  { value: 'team_comparison',           label: 'Team Matrix Analysis',          desc: 'Head-to-head (2) or group table (3+), empty = all', icon: 'users',         group: 'legacy'    },
   { value: 'workflow_analysis',         label: 'Pipeline Review',         desc: 'Stage-by-stage delay deep-dive',                 icon: 'rocket',        group: 'legacy'    },
   { value: 'user_performance_series',   label: 'Performance Timeline',    desc: 'Period-by-period output and efficiency',         icon: 'line-chart',    group: 'analytics' },
   { value: 'user_performance_summary',  label: 'Performance Summary',     desc: 'Aggregated stats over a date range',             icon: 'user',          group: 'analytics' },
@@ -347,7 +347,7 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
         {!isPage && (
           <Tooltip label="Close" side="bottom">
             <Pressable onPress={onClose} className="h-10 w-10 items-center justify-center rounded-full bg-surface-background border border-surface-border active:scale-90">
-              <FontAwesome name="close" size={16} color={colors.primary} />
+              <FontAwesome name="times" size={16} color={colors.primary} />
             </Pressable>
           </Tooltip>
         )}
@@ -477,7 +477,7 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
       {/* Leave warning */}
       {loading && (
         <View className="mx-6 mb-0 mt-2 bg-state-warning/10 border border-state-warning/30 rounded-2xl px-5 py-3 flex-row items-center gap-3">
-          <FontAwesome name="warning" size={13} color={colors.warning} />
+          <FontAwesome name="exclamation-triangle" size={13} color={colors.warning} />
           <Text className="text-state-warning font-semibold text-xs flex-1">
             Don't close this — reports are being generated. Leaving will cancel the remaining jobs.
           </Text>

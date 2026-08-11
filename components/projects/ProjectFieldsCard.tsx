@@ -269,7 +269,7 @@ function FieldRow({
               // Not a tooltip-only affordance: the pencil is what makes the
               // whole row read as editable, which is the thing the stat grid
               // never managed to say.
-              <FontAwesome name="pencil" size={9} color={c.textDim} />
+              <FontAwesome name="pencil-square-o" size={9} color={c.textDim} />
             )}
           </TouchableOpacity>
         )}

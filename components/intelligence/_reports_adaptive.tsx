@@ -220,7 +220,7 @@ export default function IntelligenceReportsNative() {
               className="flex-row items-center gap-2 bg-brand-primary/10 border border-brand-primary/30 px-3 py-1.5 rounded-full"
             >
               <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest capitalize">{s}</Text>
-              <FontAwesome name="close" size={9} color={colors.primary} />
+              <FontAwesome name="times" size={9} color={colors.primary} />
             </TouchableOpacity>
           ))}
           {filters.types.map(t => (
@@ -230,7 +230,7 @@ export default function IntelligenceReportsNative() {
               className="flex-row items-center gap-2 bg-brand-primary/10 border border-brand-primary/30 px-3 py-1.5 rounded-full"
             >
               <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest">{typeLabel(t)}</Text>
-              <FontAwesome name="close" size={9} color={colors.primary} />
+              <FontAwesome name="times" size={9} color={colors.primary} />
             </TouchableOpacity>
           ))}
           {describeDateRange(filters) && (
@@ -238,9 +238,9 @@ export default function IntelligenceReportsNative() {
               onPress={() => setFilters(f => ({ ...f, dateFrom: null, dateTo: null }))}
               className="flex-row items-center gap-2 bg-brand-primary/10 border border-brand-primary/30 px-3 py-1.5 rounded-full"
             >
-              <FontAwesome name="calendar" size={9} color={colors.primary} />
+              <FontAwesome name="calendar-o" size={9} color={colors.primary} />
               <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest">{describeDateRange(filters)}</Text>
-              <FontAwesome name="close" size={9} color={colors.primary} />
+              <FontAwesome name="times" size={9} color={colors.primary} />
             </TouchableOpacity>
           )}
           <TouchableOpacity

@@ -300,7 +300,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                    <Text className={`font-black ${draft.dueDate ? 'text-typography-main' : 'text-typography-dim'}`}>
                       {draft.dueDate ? new Date(draft.dueDate).toLocaleDateString(undefined, { dateStyle: 'long' }) : 'Set Objective Deadline'}
                    </Text>
-                   <FontAwesome name="calendar" size={14} className="text-brand-primary" />
+                   <FontAwesome name="calendar-o" size={14} className="text-brand-primary" />
                 </TouchableOpacity>
 
                 {showCalendar && (

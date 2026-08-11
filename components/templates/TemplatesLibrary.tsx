@@ -520,7 +520,7 @@ function TemplateCard({
             className="px-4 rounded-xl border border-surface-border hover:bg-surface-overlay flex-row items-center justify-center gap-2"
             style={{ minHeight: 40 }}
           >
-            <FontAwesome name={canEdit ? 'pencil' : 'eye'} size={12} color={c.textMuted} />
+            <FontAwesome name={canEdit ? 'pencil-square-o' : 'eye'} size={12} color={c.textMuted} />
             <Text className="text-typography-main text-xs font-bold">{canEdit ? 'Edit' : 'View'}</Text>
           </TouchableOpacity>
         </View>

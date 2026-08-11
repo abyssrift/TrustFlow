@@ -73,7 +73,7 @@ export default function TaskPingButton({ task, userId, className = '' }: Props) 
         {pingLoading ? (
           <ActivityIndicator size="small" color={colors.primary} />
         ) : (
-          <FontAwesome name="bell" size={10} color={colors.primary} />
+          <FontAwesome name="bell-o" size={10} color={colors.primary} />
         )}
       </TouchableOpacity>
     </Tooltip>

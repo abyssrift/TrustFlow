@@ -107,7 +107,7 @@ export const SLARiskAlertWeb = ({ data, className }: { data: any, className?: st
       {/* Header: identity on the left, reason mix + help on the right */}
       <View className="flex-row items-center justify-between mb-3 flex-wrap gap-y-2">
         <View className="flex-row items-center gap-2.5">
-          <FontAwesome name="warning" size={13} color={colors.danger} />
+          <FontAwesome name="exclamation-triangle" size={13} color={colors.danger} />
           <Text className="text-typography-main font-black text-sm tracking-tight">SLA Risks</Text>
           <Text className="text-typography-muted text-[11px] font-medium">
             {data.sla_risks.length} at risk
@@ -125,7 +125,7 @@ export const SLARiskAlertWeb = ({ data, className }: { data: any, className?: st
               onPress={() => setShowInfo(v => !v)}
               className={`w-6 h-6 rounded-md items-center justify-center border transition-all ${showInfo ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
             >
-              <FontAwesome name="question" size={10} color={showInfo ? 'var(--color-on-primary)' : colors.textDim} />
+              <FontAwesome name="question-circle" size={10} color={showInfo ? 'var(--color-on-primary)' : colors.textDim} />
             </TouchableOpacity>
           </Tooltip>
         </View>
@@ -330,7 +330,7 @@ export const QualityLeaderboardWeb = ({ data, className }: { data: any, classNam
               onPress={() => setShowInfo(v => !v)}
               className={`w-6 h-6 rounded-md items-center justify-center border transition-all ${showInfo ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
             >
-              <FontAwesome name="question" size={10} color={showInfo ? 'var(--color-on-primary)' : colors.textDim} />
+              <FontAwesome name="question-circle" size={10} color={showInfo ? 'var(--color-on-primary)' : colors.textDim} />
             </TouchableOpacity>
           </Tooltip>
         </View>
@@ -440,7 +440,7 @@ export const SLARiskAlertMiniWeb = ({ data, onViewAll, className }: { data: any,
     <View className={`bg-state-danger-dim border border-state-danger/20 p-6 rounded-2xl flex-row items-center justify-between mb-4 ${className || ''}`}>
       <View className="flex-row items-center gap-4">
         <View className="w-10 h-10 rounded-full bg-state-danger-dim items-center justify-center border border-state-danger/10">
-          <FontAwesome name="warning" size={16} color={colors.danger} />
+          <FontAwesome name="exclamation-triangle" size={16} color={colors.danger} />
         </View>
         <View>
           <Text className="text-state-danger font-black text-sm">SLA Risks</Text>

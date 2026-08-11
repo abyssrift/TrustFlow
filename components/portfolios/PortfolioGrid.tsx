@@ -232,7 +232,7 @@ function PortfolioCard({
 
           <View className="flex-row flex-wrap" style={{ gap: 12 }}>
             <CardStat
-              icon="calendar"
+              icon="calendar-o"
               label="Next due"
               value={row.next_due ? fmtDate(row.next_due) : '—'}
               c={c}

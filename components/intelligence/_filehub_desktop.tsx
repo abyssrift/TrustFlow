@@ -125,7 +125,7 @@ function AdaptiveFileGrid({
               className="rounded-xl overflow-hidden border border-surface-border bg-surface-background relative"
             >
               <View className="flex-1 items-center justify-center p-2" style={{ backgroundColor: '#f59e0b12' }}>
-                <FontAwesome name="folder" size={exactSquareSize > 100 ? 36 : 28} color="#f59e0b" />
+                <FontAwesome name="folder-o" size={exactSquareSize > 100 ? 36 : 28} color="#f59e0b" />
                 <View className="mt-3 bg-surface-background px-2 py-1 rounded-md border border-surface-border shadow-sm" style={{ maxWidth: '90%' }}>
                   <Text className="text-[10px] font-black text-typography-muted" numberOfLines={1}>
                     {entry.name}
@@ -765,7 +765,7 @@ function UploadModal({
                     className="flex-row items-center gap-2 border px-5 py-2.5 rounded-xl"
                     style={{ backgroundColor: colors.background, borderColor: colors.border }}
                   >
-                    <FontAwesome name="folder-open" size={12} color={colors.textMuted} />
+                    <FontAwesome name="folder-open-o" size={12} color={colors.textMuted} />
                     <Text className="font-black text-sm" style={{ color: colors.textMuted }}>Folder</Text>
                   </TouchableOpacity>
                 </View>
@@ -1475,7 +1475,7 @@ function FolderRow({
         </Tooltip>
       ) : (
         <View className="w-9 h-9 rounded-xl bg-surface-background border border-surface-border items-center justify-center mr-3.5 flex-shrink-0">
-          <FontAwesome name="folder" size={16} color={colors.primary} />
+          <FontAwesome name="folder-o" size={16} color={colors.primary} />
         </View>
       )}
       {isRenaming ? (
@@ -1511,7 +1511,7 @@ function FolderRow({
               onPress={(e) => { e?.stopPropagation?.(); setRenameValue(folder.name); setIsRenaming(true); }}
               className="w-7 h-7 items-center justify-center rounded-lg hover:bg-brand-primary/10 hover:scale-110 active:scale-90 transition-all"
             >
-              <FontAwesome name="pencil" size={11} color={colors.textMuted} />
+              <FontAwesome name="pencil-square-o" size={11} color={colors.textMuted} />
             </TouchableOpacity>
           </Tooltip>
           <Tooltip label="Share link">
@@ -1834,7 +1834,7 @@ function FolderDetailPanel({
     <View className="flex-1 flex-col" style={{ minHeight: 0 }}>
       <View className="px-7 pt-6 pb-4 border-b border-surface-border/50 flex-shrink-0">
         <View className="bg-surface-background rounded-2xl border border-surface-border items-center justify-center py-8 mb-4">
-          <FontAwesome name="folder" size={44} color={colors.primary} />
+          <FontAwesome name="folder-o" size={44} color={colors.primary} />
         </View>
         {isRenaming ? (
           <TextInput
@@ -1928,11 +1928,11 @@ function FolderDetailPanel({
 
         <View className="gap-2.5">
           <TouchableOpacity onPress={onOpen} className="flex-row items-center justify-center bg-brand-primary rounded-xl px-4 py-3.5 gap-2">
-            <FontAwesome name="folder-open" size={13} color="#fff" />
+            <FontAwesome name="folder-open-o" size={13} color="#fff" />
             <Text className="text-white font-black text-sm">Open Folder</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => { setRenameValue(displayName); setIsRenaming(true); }} className="flex-row items-center justify-center bg-surface-card border border-surface-border rounded-xl px-4 py-3 gap-2">
-            <FontAwesome name="pencil" size={13} color={colors.primary} />
+            <FontAwesome name="pencil-square-o" size={13} color={colors.primary} />
             <Text className="text-brand-primary font-black text-sm">Rename</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => setShowShareLink(true)} className="flex-row items-center justify-center bg-surface-card border border-surface-border rounded-xl px-4 py-3 gap-2">
@@ -2302,7 +2302,7 @@ function DetailPanel({
             <View className="mb-4 pb-4 border-b border-surface-border/50">
               <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-1">Folder</Text>
               <View className="flex-row items-center gap-2">
-                <FontAwesome name="folder" size={12} color={colors.textMuted} />
+                <FontAwesome name="folder-o" size={12} color={colors.textMuted} />
                 <Text className="text-typography-main text-sm font-bold">{file.folder.name}</Text>
               </View>
             </View>
@@ -2829,7 +2829,7 @@ function GroupMembersPanel({
             className="flex-row items-center gap-2"
           >
             <Text className="text-typography-main text-lg font-black text-center">{group.name}</Text>
-            {myRole === 'admin' && <FontAwesome name="pencil" size={11} color={colors.textMuted} />}
+            {myRole === 'admin' && <FontAwesome name="pencil-square-o" size={11} color={colors.textMuted} />}
           </TouchableOpacity>
         )}
         {group.description && (
@@ -2947,7 +2947,7 @@ function GroupMembersPanel({
               onPress={() => router.push('/admin/roles?tab=roles')}
               className="flex-row items-center gap-2 mt-2.5"
             >
-              <FontAwesome name="sliders" size={11} color={colors.primary} />
+              <FontAwesome name="filter" size={11} color={colors.primary} />
               <Text className="text-brand-primary font-black text-xs">Change sharing permissions</Text>
               <FontAwesome name="chevron-right" size={12} color={colors.primary} />
             </TouchableOpacity>
@@ -3086,7 +3086,7 @@ function TagsManageModal({ visible, onClose, onChanged }: {
                           className="w-8 h-8 border rounded-lg items-center justify-center"
                           style={{ backgroundColor: colors.background, borderColor: colors.border }}
                         >
-                          <FontAwesome name="pencil" size={12} color={colors.textMuted} />
+                          <FontAwesome name="pencil-square-o" size={12} color={colors.textMuted} />
                         </TouchableOpacity>
                         <TouchableOpacity
                           onPress={() => handleDelete(tag)}

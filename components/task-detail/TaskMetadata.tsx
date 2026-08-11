@@ -54,7 +54,7 @@ export default function TaskMetadata() {
             onPress={() => openEdit()}
             className="flex-row items-center bg-surface-background px-2.5 py-1.5 rounded-lg border border-surface-border active:opacity-75"
           >
-            <FontAwesome name="pencil" size={10} color={colors.primary} />
+            <FontAwesome name="pencil-square-o" size={10} color={colors.primary} />
             <Text className="text-brand-primary text-[10px] font-bold ml-1.5 uppercase tracking-wider">Edit</Text>
           </TouchableOpacity>
         ) : undefined}
@@ -95,7 +95,7 @@ export default function TaskMetadata() {
             className="flex-row items-center justify-between py-2.5 border-b border-surface-border/30 active:opacity-60"
           >
             <View className="flex-row items-center">
-              <FontAwesome name="calendar" size={11} color={colors.textMuted} />
+              <FontAwesome name="calendar-o" size={11} color={colors.textMuted} />
               <Text className="text-typography-muted text-xs font-bold ml-2.5 uppercase tracking-wider">Due Date</Text>
             </View>
             <View className="flex-row items-center">
@@ -107,7 +107,7 @@ export default function TaskMetadata() {
           </TouchableOpacity>
         ) : (
           <MetaRow
-            icon="calendar"
+            icon="calendar-o"
             label="Due Date"
             value={task.due_date ? `${formatDate(task.due_date)}${isOverdue ? ' ⚠ OVERDUE' : ''}` : 'No due date'}
             valueColor={isOverdue ? 'text-state-danger' : undefined}
@@ -120,7 +120,7 @@ export default function TaskMetadata() {
         {task.quarantine_reason && (
           <View className="mt-3 p-3 bg-state-warning/10 border border-state-warning/30 rounded-xl">
             <View className="flex-row items-center mb-1">
-              <FontAwesome name="warning" size={10} color={colors.warning} />
+              <FontAwesome name="exclamation-triangle" size={10} color={colors.warning} />
               <Text className="text-state-warning text-[10px] font-black uppercase ml-1.5 tracking-wider">Quarantined</Text>
             </View>
             <Text className="text-typography-main text-xs font-medium leading-4 italic">

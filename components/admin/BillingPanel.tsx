@@ -400,7 +400,7 @@ export default function BillingPanel() {
                   <View className="h-px bg-surface-border" />
                   <View className="flex-row items-center justify-between">
                     <View className="flex-row items-center gap-1.5">
-                      <FontAwesome name="file" size={10} color={colors.textMuted} />
+                      <FontAwesome name="file-o" size={10} color={colors.textMuted} />
                       <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-wider">FileHub</Text>
                     </View>
                     <Text className="text-typography-main text-[11px] font-black">

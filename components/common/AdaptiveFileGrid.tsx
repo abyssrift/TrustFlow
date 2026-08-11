@@ -70,7 +70,7 @@ function AdaptiveFileGrid({
                   className="rounded-2xl overflow-hidden border border-surface-border bg-surface-background relative"
                 >
                   <View className="flex-1 items-center justify-center p-2" style={{ backgroundColor: '#f59e0b12' }}>
-                    <FontAwesome name="folder" size={exactSquareSize > 120 ? 36 : 28} color="#f59e0b" />
+                    <FontAwesome name="folder-o" size={exactSquareSize > 120 ? 36 : 28} color="#f59e0b" />
                     <View className="mt-3 bg-surface-background px-2 py-1 rounded-lg border border-surface-border shadow-sm" style={{ maxWidth: '90%' }}>
                       <Text className="text-[10px] font-black text-typography-muted" numberOfLines={1}>
                         {entry.name}

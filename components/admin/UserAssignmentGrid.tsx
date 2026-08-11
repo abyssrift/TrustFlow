@@ -330,7 +330,7 @@ export default function UserAssignmentGrid() {
                   <Text className="text-[11px] font-black uppercase tracking-[0.15em] mb-4" style={{ color: colors.primary }}>Contact Information</Text>
                   <View className="gap-3">
                     <View className="flex-row items-center">
-                      <FontAwesome name="envelope" size={13} color={colors.textMuted} style={{ width: 24 }} />
+                      <FontAwesome name="envelope-o" size={13} color={colors.textMuted} style={{ width: 24 }} />
                       <Text className="ml-3 text-sm" style={{ color: colors.textMain }}>{selectedUser.email}</Text>
                     </View>
                     {selectedUser.phone && (
@@ -401,7 +401,7 @@ export default function UserAssignmentGrid() {
                 {canRemoveUsers && (
                   <View className="mt-8 pt-8 border-t" style={{ borderColor: colors.border }}>
                     <View className="flex-row items-start mb-4">
-                      <FontAwesome name="warning" size={16} color={colors.danger} style={{ marginRight: 8, marginTop: 2 }} />
+                      <FontAwesome name="exclamation-triangle" size={16} color={colors.danger} style={{ marginRight: 8, marginTop: 2 }} />
                       <View className="flex-1">
                         <Text className="text-[11px] font-black uppercase tracking-[0.15em]" style={{ color: colors.danger }}>Danger Zone</Text>
                         <Text className="text-[10px] mt-1" style={{ color: colors.textMuted }}>Irreversible actions</Text>
@@ -673,7 +673,7 @@ export default function UserAssignmentGrid() {
                       <Text className="text-[10px] font-black uppercase tracking-[0.15em] mb-3" style={{ color: colors.primary }}>Contact</Text>
                       <View className="gap-2">
                         <View className="flex-row items-center p-3 rounded-lg border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
-                          <FontAwesome name="envelope" size={11} color={colors.textMuted} style={{ marginRight: 12, width: 20 }} />
+                          <FontAwesome name="envelope-o" size={11} color={colors.textMuted} style={{ marginRight: 12, width: 20 }} />
                           <Text className="text-xs flex-1" numberOfLines={1} style={{ color: colors.textMain }}>
                             {selectedUser.email}
                           </Text>
@@ -740,7 +740,7 @@ export default function UserAssignmentGrid() {
                     {canRemoveUsers && (
                       <View className="mt-6 pt-6 border-t" style={{ borderColor: colors.border }}>
                         <View className="flex-row items-start mb-4">
-                          <FontAwesome name="warning" size={14} color={colors.danger} style={{ marginRight: 8, marginTop: 2 }} />
+                          <FontAwesome name="exclamation-triangle" size={14} color={colors.danger} style={{ marginRight: 8, marginTop: 2 }} />
                           <View className="flex-1">
                             <Text className="text-[10px] font-black uppercase tracking-[0.15em]" style={{ color: colors.danger }}>Danger Zone</Text>
                             <Text className="text-[9px] mt-1" style={{ color: colors.textMuted }}>Irreversible actions</Text>

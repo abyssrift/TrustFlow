@@ -61,10 +61,10 @@ const STATUS_BG: Record<string, string> = {
 };
 
 const REPORT_META: Record<string, { label: string; icon: string }> = {
-  general:                   { label: 'Overview',                  icon: 'bar-chart'     },
-  performance_audit:         { label: 'Overview',                  icon: 'bar-chart'     },
+  general:                   { label: 'Overview',                  icon: 'file-pdf-o'    },
+  performance_audit:         { label: 'Overview',                  icon: 'file-pdf-o'    },
   worker_comparison:         { label: 'People Comparison',         icon: 'users'         },
-  team_comparison:           { label: 'Team Comparison',           icon: 'group'         },
+  team_comparison:           { label: 'Team Comparison',           icon: 'users'         },
   workflow_analysis:         { label: 'Pipeline Review',           icon: 'rocket'        },
   user_performance_series:   { label: 'Performance Timeline',      icon: 'line-chart'    },
   user_performance_summary:  { label: 'Performance Summary',       icon: 'user'          },
@@ -286,7 +286,7 @@ export default function IntelligenceReports() {
               className="flex-row items-center gap-2 bg-brand-primary/10 border border-brand-primary/30 px-3 py-1.5 rounded-full"
             >
               <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest capitalize">{s}</Text>
-              <FontAwesome name="close" size={9} color={colors.primary} />
+              <FontAwesome name="times" size={9} color={colors.primary} />
             </TouchableOpacity>
           ))}
           {filters.types.map(t => (
@@ -296,7 +296,7 @@ export default function IntelligenceReports() {
               className="flex-row items-center gap-2 bg-brand-primary/10 border border-brand-primary/30 px-3 py-1.5 rounded-full"
             >
               <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest">{typeLabel(t)}</Text>
-              <FontAwesome name="close" size={9} color={colors.primary} />
+              <FontAwesome name="times" size={9} color={colors.primary} />
             </TouchableOpacity>
           ))}
           {describeDateRange(filters) && (
@@ -304,9 +304,9 @@ export default function IntelligenceReports() {
               onPress={() => setFilters(f => ({ ...f, dateFrom: null, dateTo: null }))}
               className="flex-row items-center gap-2 bg-brand-primary/10 border border-brand-primary/30 px-3 py-1.5 rounded-full"
             >
-              <FontAwesome name="calendar" size={9} color={colors.primary} />
+              <FontAwesome name="calendar-o" size={9} color={colors.primary} />
               <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest">{describeDateRange(filters)}</Text>
-              <FontAwesome name="close" size={9} color={colors.primary} />
+              <FontAwesome name="times" size={9} color={colors.primary} />
             </TouchableOpacity>
           )}
           <TouchableOpacity

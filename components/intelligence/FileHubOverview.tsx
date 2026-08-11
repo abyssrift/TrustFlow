@@ -147,7 +147,7 @@ export default function FileHubOverview({
   );
 
   const RecentlyAssigned = (
-    <Card icon="user-o" title="Recently Assigned" colors={colors}>
+    <Card icon="user" title="Recently Assigned" colors={colors}>
       {assigned.length === 0 ? <Empty text="Files on tasks assigned to you show up here." /> : (
         <View className="gap-2">
           {assigned.map(r => (
