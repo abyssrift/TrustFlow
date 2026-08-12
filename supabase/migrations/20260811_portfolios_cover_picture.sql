@@ -11,6 +11,24 @@
 ALTER TABLE public.portfolios
   ADD COLUMN IF NOT EXISTS cover_url TEXT;
 
+-- Shared by the three storage policies below instead of repeating the same
+-- EXISTS subquery three times (precedent: fn_task_file_accessible).
+CREATE OR REPLACE FUNCTION public.fn_portfolio_cover_accessible(p_portfolio_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.portfolios p
+    JOIN public.users u ON u.id = auth.uid()
+    WHERE p.id = p_portfolio_id
+      AND p.company_id = u.company_id
+      AND p.deleted_at IS NULL
+  );
+$$;
+
 -- ── portfolio-covers bucket ────────────────────────────────────────────────
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types, avif_autodetection, owner, created_at, updated_at)
 VALUES (
@@ -39,13 +57,7 @@ CREATE POLICY "Allow users to upload portfolio covers" ON storage.objects
   FOR INSERT
   WITH CHECK (
     bucket_id = 'portfolio-covers'
-    AND EXISTS (
-      SELECT 1 FROM public.portfolios p
-      JOIN public.users u ON u.id = auth.uid()
-      WHERE p.id = path_tokens[1]::uuid
-        AND p.company_id = u.company_id
-        AND p.deleted_at IS NULL
-    )
+    AND public.fn_portfolio_cover_accessible(path_tokens[1]::uuid)
   )
 ;
 
@@ -53,13 +65,7 @@ CREATE POLICY "Allow users to update portfolio covers" ON storage.objects
   FOR UPDATE
   USING (
     bucket_id = 'portfolio-covers'
-    AND EXISTS (
-      SELECT 1 FROM public.portfolios p
-      JOIN public.users u ON u.id = auth.uid()
-      WHERE p.id = path_tokens[1]::uuid
-        AND p.company_id = u.company_id
-        AND p.deleted_at IS NULL
-    )
+    AND public.fn_portfolio_cover_accessible(path_tokens[1]::uuid)
   )
 ;
 
@@ -67,13 +73,7 @@ CREATE POLICY "Allow users to delete portfolio covers" ON storage.objects
   FOR DELETE
   USING (
     bucket_id = 'portfolio-covers'
-    AND EXISTS (
-      SELECT 1 FROM public.portfolios p
-      JOIN public.users u ON u.id = auth.uid()
-      WHERE p.id = path_tokens[1]::uuid
-        AND p.company_id = u.company_id
-        AND p.deleted_at IS NULL
-    )
+    AND public.fn_portfolio_cover_accessible(path_tokens[1]::uuid)
   )
 ;
 
@@ -99,7 +99,16 @@ DECLARE
 BEGIN
   IF NOT (
     (SELECT u.is_owner FROM public.users u WHERE u.id = auth.uid()) = TRUE
-    OR public.has_permission('project.edit')
+    OR (
+      public.has_permission('project.edit')
+      AND EXISTS (
+        SELECT 1 FROM public.projects pr
+        WHERE pr.portfolio_id = p_portfolio_id
+          AND pr.company_id = v_company
+          AND pr.deleted_at IS NULL
+          AND public.fn_project_accessible(pr.id)
+      )
+    )
   ) THEN
     RAISE EXCEPTION 'Insufficient permissions to edit this portfolio.';
   END IF;
@@ -139,6 +148,8 @@ COMMENT ON FUNCTION public.rpc_update_portfolio(UUID, TEXT, TIMESTAMPTZ, TEXT) I
 -- Full re-create of 20260805_portfolios_table.sql with cover_url added to the
 -- output, so the grid card and the scoped header can render the image. Column
 -- order in RETURNS TABLE and the RETURN QUERY SELECT must stay in lock-step.
+-- CREATE OR REPLACE can't change RETURNS TABLE's column list, so drop first.
+DROP FUNCTION IF EXISTS public.rpc_portfolios_table(TEXT, INTEGER, INTEGER);
 CREATE OR REPLACE FUNCTION public.rpc_portfolios_table(
   p_search TEXT    DEFAULT NULL,
   p_limit  INTEGER DEFAULT 100,

@@ -1,5 +1,5 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 
 import { EntityGlyph, EntityTag, MetaStat, ProgressMeter, fmtDate } from '@/components/entities/EntityUI';
@@ -43,12 +43,15 @@ export default function PortfolioScopeHeader({
   const { hasPermission } = useAuth();
   const wide = width >= 1024;
   const [editing, setEditing] = useState(false);
+  const [coverBroken, setCoverBroken] = useState(false);
 
   // Mounted only when scoped, so the unscoped projects screen never pays for
   // this fetch. usePortfolios is the same reader the grid uses.
   const { rows, loading, refresh } = usePortfolios('');
   const p = rows.find(r => r.id === portfolioId);
   const canEdit = hasPermission('project.edit');
+
+  useEffect(() => setCoverBroken(false), [p?.cover_url]);
 
   const pct = p && p.projects_total > 0 ? (p.projects_done / p.projects_total) * 100 : 0;
 
@@ -66,12 +69,13 @@ export default function PortfolioScopeHeader({
           <Text className="text-typography-main text-sm font-semibold">All projects</Text>
         </TouchableOpacity>
 
-        {p?.cover_url ? (
+        {p?.cover_url && !coverBroken ? (
           <Image
             source={{ uri: p.cover_url }}
             className="rounded-xl border border-surface-border"
             style={{ width: wide ? 44 : 34, height: wide ? 44 : 34 }}
             resizeMode="cover"
+            onError={() => setCoverBroken(true)}
           />
         ) : (
           <EntityGlyph kind="portfolio" size={wide ? 44 : 34} />
@@ -91,7 +95,7 @@ export default function PortfolioScopeHeader({
                 accessibilityRole="button"
                 accessibilityLabel={`Edit portfolio ${p.name}`}
                 className="items-center justify-center rounded-full border border-surface-border hover:bg-surface-overlay"
-                style={{ width: 32, height: 32, backgroundColor: c.card }}
+                style={{ width: 44, height: 44, backgroundColor: c.card }}
               >
                 <FontAwesome name="pencil" size={13} color={c.textMuted} />
               </Pressable>

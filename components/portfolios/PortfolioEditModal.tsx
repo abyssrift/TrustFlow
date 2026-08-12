@@ -1,6 +1,6 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Platform, Pressable, Text, TextInput, View } from 'react-native';
 
 import Calendar from '@/components/common/Calendar';
@@ -46,6 +46,10 @@ export default function PortfolioEditModal({
   const [showCalendar, setShowCalendar] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [coverBroken, setCoverBroken] = useState(false);
+  const uploadedPathsRef = useRef<string[]>([]);
+
+  useEffect(() => setCoverBroken(false), [coverUrl]);
 
   useEffect(() => {
     if (visible && portfolio) {
@@ -53,8 +57,9 @@ export default function PortfolioEditModal({
       setCoverUrl(portfolio.cover_url);
       setTargetDate(portfolio.target_date ? new Date(portfolio.target_date).toISOString().split('T')[0] : null);
       setShowCalendar(false);
+      uploadedPathsRef.current = [];
     }
-  }, [visible, portfolio]);
+  }, [visible, portfolio?.id, portfolio?.name, portfolio?.cover_url, portfolio?.target_date]);
 
   const uploadCover = async () => {
     if (!portfolio) return;
@@ -79,22 +84,9 @@ export default function PortfolioEditModal({
 
       let fileBody: Blob | File | FormData | null = null;
       if (Platform.OS === 'web') {
-        try {
-          const response = await fetch(image.uri);
-          const blob = await response.blob();
-          fileBody = new File([blob], fileName, { type: blob.type || `image/${fileExt}` });
-        } catch (err) {
-          if ((image as any).base64) {
-            const base64 = (image as any).base64 as string;
-            const binary = atob(base64);
-            const len = binary.length;
-            const u8 = new Uint8Array(len);
-            for (let i = 0; i < len; i++) u8[i] = binary.charCodeAt(i);
-            fileBody = new File([u8.buffer], fileName, { type: `image/${fileExt}` });
-          } else {
-            throw err;
-          }
-        }
+        const response = await fetch(image.uri);
+        const blob = await response.blob();
+        fileBody = new File([blob], fileName, { type: blob.type || `image/${fileExt}` });
       } else {
         const formData = new FormData();
         formData.append('file', {
@@ -112,6 +104,7 @@ export default function PortfolioEditModal({
       if (uploadError) throw uploadError;
 
       const { data } = supabase.storage.from('portfolio-covers').getPublicUrl(filePath);
+      uploadedPathsRef.current.push(filePath);
       setCoverUrl(data.publicUrl);
     } catch (error: any) {
       console.error('Portfolio cover upload error:', error);
@@ -120,6 +113,8 @@ export default function PortfolioEditModal({
       setUploading(false);
     }
   };
+
+  const coverPath = (url: string | null) => (url ? url.split('/portfolio-covers/')[1] ?? null : null);
 
   const handleSave = async () => {
     if (!portfolio) return;
@@ -134,10 +129,23 @@ export default function PortfolioEditModal({
       const { error } = await supabase.rpc('rpc_update_portfolio', {
         p_portfolio_id: portfolio.id,
         p_name: trimmed,
-        p_target_date: targetDate ? new Date(targetDate + 'T00:00:00').toISOString() : null,
+        p_target_date: targetDate ? new Date(targetDate + 'T00:00:00Z').toISOString() : null,
         p_cover_url: coverUrl,
       });
       if (error) throw error;
+
+      // Best-effort cleanup of orphaned storage objects: anything uploaded
+      // this session that isn't the final saved cover, plus the old cover if
+      // it was replaced or removed. Never blocks the save success path.
+      const keptPath = coverPath(coverUrl);
+      const staleUploads = uploadedPathsRef.current.filter(p => p !== keptPath);
+      const oldPath = portfolio.cover_url && coverUrl !== portfolio.cover_url ? coverPath(portfolio.cover_url) : null;
+      const toDelete = [...staleUploads, ...(oldPath ? [oldPath] : [])];
+      if (toDelete.length) {
+        supabase.storage.from('portfolio-covers').remove(toDelete).catch(() => {});
+      }
+      uploadedPathsRef.current = [];
+
       successToast('Portfolio updated.');
       onSaved();
       onClose();
@@ -149,21 +157,29 @@ export default function PortfolioEditModal({
     }
   };
 
+  const handleClose = () => {
+    if (uploadedPathsRef.current.length) {
+      supabase.storage.from('portfolio-covers').remove(uploadedPathsRef.current).catch(() => {});
+      uploadedPathsRef.current = [];
+    }
+    onClose();
+  };
+
   const nameMissing = !name.trim();
 
   return (
     <Popup
       visible={visible && !!portfolio}
-      onClose={onClose}
+      onClose={handleClose}
       presentation="auto"
       maxWidth={560}
       title="Edit portfolio"
       footer="dual-action"
-      secondaryAction={{ label: 'Cancel', onPress: onClose }}
+      secondaryAction={{ label: 'Cancel', onPress: handleClose }}
       primaryAction={{
         label: saving ? 'Saving…' : 'Save',
-        onPress: saving ? () => {} : handleSave,
-        variant: saving || nameMissing ? 'disabled' : 'default',
+        onPress: saving || uploading ? () => {} : handleSave,
+        variant: saving || uploading || nameMissing ? 'disabled' : 'default',
       }}
     >
       <View className="px-6 pt-5" style={{ gap: 20 }}>
@@ -174,8 +190,13 @@ export default function PortfolioEditModal({
             className="items-center justify-center rounded-2xl overflow-hidden border border-surface-border"
             style={{ height: 128, backgroundColor: c.background }}
           >
-            {coverUrl ? (
-              <Image source={{ uri: coverUrl }} className="h-full w-full" resizeMode="cover" />
+            {coverUrl && !coverBroken ? (
+              <Image
+                source={{ uri: coverUrl }}
+                className="h-full w-full"
+                resizeMode="cover"
+                onError={() => setCoverBroken(true)}
+              />
             ) : (
               <EntityGlyph kind="portfolio" size={48} />
             )}
@@ -187,7 +208,7 @@ export default function PortfolioEditModal({
                     onPress={() => setCoverUrl(null)}
                     accessibilityRole="button"
                     accessibilityLabel="Remove cover picture"
-                    className="h-10 w-10 items-center justify-center rounded-full border border-surface-border"
+                    className="h-11 w-11 items-center justify-center rounded-full border border-surface-border"
                     style={{ backgroundColor: c.card }}
                   >
                     <FontAwesome name="trash-o" size={14} color={c.textMuted} />
@@ -199,7 +220,7 @@ export default function PortfolioEditModal({
                   onPress={uploadCover}
                   disabled={uploading}
                   accessibilityRole="button"
-                  className="h-10 w-10 items-center justify-center rounded-full bg-brand-primary active:scale-95"
+                  className="h-11 w-11 items-center justify-center rounded-full bg-brand-primary hover:bg-brand-primary-hover active:scale-95"
                 >
                   {uploading ? (
                     <ActivityIndicator color="white" size="small" />

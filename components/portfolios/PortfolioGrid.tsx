@@ -1,5 +1,5 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 
 import {
@@ -175,6 +175,9 @@ function PortfolioCard({
 }) {
   const c = useThemeColors();
   const hue = entityColor('portfolio', c);
+  const [coverBroken, setCoverBroken] = useState(false);
+
+  useEffect(() => setCoverBroken(false), [row.cover_url]);
 
   // The headline number the owner asked for: how much of this batch actually
   // succeeded. projects_done counts a success-TERMINAL stage, the same
@@ -203,8 +206,13 @@ function PortfolioCard({
             className="items-center justify-center"
             style={{ height: 128, backgroundColor: hue + '14', borderBottomWidth: 1, borderBottomColor: c.border }}
           >
-            {row.cover_url ? (
-              <Image source={{ uri: row.cover_url }} className="h-full w-full" resizeMode="cover" />
+            {row.cover_url && !coverBroken ? (
+              <Image
+                source={{ uri: row.cover_url }}
+                className="h-full w-full"
+                resizeMode="cover"
+                onError={() => setCoverBroken(true)}
+              />
             ) : (
               <EntityGlyph kind="portfolio" size={56} />
             )}
@@ -238,7 +246,7 @@ function PortfolioCard({
                 onPress={(e: any) => { e?.stopPropagation?.(); onEdit(); }}
                 accessibilityRole="button"
                 accessibilityLabel={`Edit portfolio ${row.name}`}
-                className="w-8 h-8 rounded-lg items-center justify-center border border-surface-border flex-shrink-0"
+                className="w-11 h-11 rounded-xl items-center justify-center border border-surface-border flex-shrink-0"
                 style={{ backgroundColor: c.card }}
               >
                 <FontAwesome name="pencil" size={13} color={c.textMuted} />
