@@ -25,11 +25,11 @@ export interface IconAuditMeta {
 }
 
 export const ICON_AUDIT_META: IconAuditMeta = {
-  generatedAt: '2026-08-11T15:43:58.523Z',
-  totalIcons: 178,
-  totalUsages: 1843,
-  dynamicUsages: 239,
-  filesScanned: 512,
+  generatedAt: '2026-08-12T12:50:10.259Z',
+  totalIcons: 184,
+  totalUsages: 1864,
+  dynamicUsages: 246,
+  filesScanned: 539,
 };
 
 export const ICON_AUDIT: IconAuditEntry[] = [
@@ -63,6 +63,23 @@ export const ICON_AUDIT: IconAuditEntry[] = [
         "line": 514,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"angle-double-up\" size={18} color={isOperationInFlight || index === 0 ? colors.border : colors.textDim"
+      }
+    ]
+  },
+  {
+    "icon": "angle-right",
+    "usages": [
+      {
+        "file": "components/dashboard/widgets/WidgetPopups.tsx",
+        "line": 92,
+        "kind": "attribute",
+        "snippet": "<FontAwesome name=\"angle-right\" size={16} color={c.textDim} />"
+      },
+      {
+        "file": "components/dashboard/widgets/WidgetPopups.tsx",
+        "line": 608,
+        "kind": "attribute",
+        "snippet": "<FontAwesome name=\"angle-right\" size={16} color={c.textDim} />"
       }
     ]
   },
@@ -212,7 +229,7 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/portfolios/PortfolioScopeHeader.tsx",
-        "line": 60,
+        "line": 68,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"arrow-left\" size={12} color={c.textMuted} />"
       }
@@ -235,13 +252,19 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/common/PendingTimeApprovalsWidget.web.tsx",
-        "line": 96,
+        "line": 102,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"arrow-right\" size={10} color={colors.warning} />"
       },
       {
         "file": "components/dashboard/BlockedExceptionsPanel.tsx",
-        "line": 129,
+        "line": 151,
+        "kind": "attribute",
+        "snippet": "<FontAwesome name=\"arrow-right\" size={9} color={c.primary} />"
+      },
+      {
+        "file": "components/dashboard/widgets/personalRows.tsx",
+        "line": 123,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"arrow-right\" size={9} color={c.primary} />"
       },
@@ -259,7 +282,7 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/sidebar/PinnedShortcuts.web.tsx",
-        "line": 305,
+        "line": 248,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"arrow-right\" size={11} color={colors.textDim} />"
       },
@@ -268,12 +291,6 @@ export const ICON_AUDIT: IconAuditEntry[] = [
         "line": 196,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"arrow-right\" size={11} color={colors.primary} />"
-      },
-      {
-        "file": "components/tabs/_index_desktop.tsx",
-        "line": 591,
-        "kind": "attribute",
-        "snippet": "<FontAwesome name=\"arrow-right\" size={9} color={colors.primary} />"
       },
       {
         "file": "components/task-detail/actionRegistry.ts",
@@ -427,7 +444,7 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/task-detail/EditTaskModal.web.tsx",
-        "line": 686,
+        "line": 582,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"ban\" size={12} color={colors.textMuted} />"
       },
@@ -527,6 +544,12 @@ export const ICON_AUDIT: IconAuditEntry[] = [
         "snippet": " metrics', icon: 'bar-chart', group: 'legacy' "
       },
       {
+        "file": "lib/dashboardWidgets.ts",
+        "line": 500,
+        "kind": "metadata",
+        "snippet": "title: 'My performance', icon: 'bar-chart', blurb: 'Your poi"
+      },
+      {
         "file": "lib/roleTemplates.ts",
         "line": 79,
         "kind": "metadata",
@@ -568,25 +591,25 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "app/notifications/index.tsx",
-        "line": 131,
+        "line": 105,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"bell-o\" size={40} color={colors.primary} />"
       },
       {
         "file": "app/notifications/index.web.tsx",
-        "line": 144,
+        "line": 116,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"bell-o\" size={48} color={colors.primary} />"
       },
       {
         "file": "app/notifications/index.web.tsx",
-        "line": 249,
+        "line": 221,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"bell-o\" size={17} color={colors.primary} />"
       },
       {
         "file": "app/notifications/index.web.tsx",
-        "line": 336,
+        "line": 308,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"bell-o\" size={20} color={colors.primary} />"
       },
@@ -628,13 +651,13 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/sidebar/TopBar.web.tsx",
-        "line": 224,
+        "line": 272,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"bell-o\" size={14} color={colors.primary} />"
       },
       {
         "file": "components/tabs/_index_adaptive.tsx",
-        "line": 343,
+        "line": 194,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"bell-o\" size={15} color={colors.primary} />"
       },
@@ -646,7 +669,7 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/tabs/_profile_adaptive.tsx",
-        "line": 207,
+        "line": 228,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"bell-o\" size={16} color={colors.primary} style={{ marginRight: 12 }} />"
       },
@@ -1000,6 +1023,28 @@ export const ICON_AUDIT: IconAuditEntry[] = [
     ]
   },
   {
+    "icon": "calendar",
+    "usages": [
+      {
+        "file": "lib/dashboardWidgets.ts",
+        "line": 291,
+        "kind": "metadata",
+        "snippet": "{ title: 'Landing', icon: 'calendar', blurb: 'Where the"
+      }
+    ]
+  },
+  {
+    "icon": "calendar-check-o",
+    "usages": [
+      {
+        "file": "lib/dashboardWidgets.ts",
+        "line": 438,
+        "kind": "metadata",
+        "snippet": " title: 'My deadlines', icon: 'calendar-check-o', blurb: 'W"
+      }
+    ]
+  },
+  {
     "icon": "calendar-o",
     "usages": [
       {
@@ -1058,13 +1103,13 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/intelligence/DateRangeFilter.tsx",
-        "line": 118,
+        "line": 124,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"calendar-o\" size={11} color={iconColor} />"
       },
       {
         "file": "components/intelligence/DateRangeFilter.tsx",
-        "line": 126,
+        "line": 132,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"calendar-o\" size={11} color={iconColor} />"
       },
@@ -1097,6 +1142,12 @@ export const ICON_AUDIT: IconAuditEntry[] = [
         "line": 88,
         "kind": "metadata",
         "snippet": "') }, { id: 'deadlines', icon: 'calendar-o', label: 'Deadlines', "
+      },
+      {
+        "file": "components/portfolios/PortfolioEditModal.tsx",
+        "line": 270,
+        "kind": "attribute",
+        "snippet": "<FontAwesome name=\"calendar-o\" size={14} color={c.textMuted} />"
       },
       {
         "file": "components/projects/BulkCreateProjectsSheet.tsx",
@@ -1141,82 +1192,22 @@ export const ICON_AUDIT: IconAuditEntry[] = [
         "snippet": "<FontAwesome name=\"calendar-o\" size={11} color={colors.textMuted} />"
       },
       {
-        "file": "components/task-detail/EditTaskModal.tsx",
-        "line": 265,
-        "kind": "attribute",
-        "snippet": "<FontAwesome name=\"calendar-o\" size={11} color={dueDate ? colors.primary : colors.textMuted} />"
-      },
-      {
-        "file": "components/task-detail/EditTaskModal.tsx",
-        "line": 295,
-        "kind": "attribute",
-        "snippet": "<FontAwesome name=\"calendar-o\" size={11} color={startDate ? colors.secondary : colors.textMuted} />"
-      },
-      {
-        "file": "components/task-detail/EditTaskModal.web.tsx",
-        "line": 392,
-        "kind": "attribute",
-        "snippet": "<FontAwesome name=\"calendar-o\" size={11} color={dueDate ? colors.primary : colors.textMuted} />"
-      },
-      {
-        "file": "components/task-detail/EditTaskModal.web.tsx",
-        "line": 417,
-        "kind": "attribute",
-        "snippet": "<FontAwesome name=\"calendar-o\" size={11} color={startDate ? colors.secondary : colors.textMuted} />"
-      },
-      {
-        "file": "components/task-detail/EditTaskModal.web.tsx",
-        "line": 916,
-        "kind": "attribute",
-        "snippet": "<FontAwesome name=\"calendar-o\" size={13} color={startDate ? colors.primary : colors.textDim} />"
-      },
-      {
-        "file": "components/task-detail/EditTaskModal.web.tsx",
-        "line": 964,
-        "kind": "attribute",
-        "snippet": "<FontAwesome name=\"calendar-o\" size={13} color={dueDate ? colors.primary : colors.textDim} />"
-      },
-      {
         "file": "components/task-detail/TaskMetadata.tsx",
         "line": 98,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"calendar-o\" size={11} color={colors.textMuted} />"
-      },
-      {
-        "file": "components/tasks/CreateTaskModal.tsx",
-        "line": 303,
-        "kind": "attribute",
-        "snippet": "<FontAwesome name=\"calendar-o\" size={14} className=\"text-brand-primary\" />"
-      },
-      {
-        "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 784,
-        "kind": "attribute",
-        "snippet": "<FontAwesome name=\"calendar-o\" size={14} color={colors.accent} />"
-      },
-      {
-        "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 826,
-        "kind": "attribute",
-        "snippet": "<FontAwesome name=\"calendar-o\" size={14} color={colors.primary} />"
-      },
-      {
-        "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 1487,
-        "kind": "attribute",
-        "snippet": "<FontAwesome name=\"calendar-o\" size={14} color={colors.accent} />"
-      },
-      {
-        "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 1531,
-        "kind": "attribute",
-        "snippet": "<FontAwesome name=\"calendar-o\" size={14} color={colors.primary} />"
       }
     ]
   },
   {
     "icon": "camera",
     "usages": [
+      {
+        "file": "components/portfolios/PortfolioEditModal.tsx",
+        "line": 228,
+        "kind": "attribute",
+        "snippet": "<FontAwesome name=\"camera\" size={15} color=\"white\" />"
+      },
       {
         "file": "components/profile/ProfileAvatar.tsx",
         "line": 139,
@@ -1243,19 +1234,19 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/tasks/CreateTaskModal.tsx",
-        "line": 356,
+        "line": 348,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"camera\" size={11} color={colors.primary} />"
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 912,
+        "line": 830,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"camera\" size={13} color={colors.primary} />"
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 1709,
+        "line": 1515,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"camera\" size={13} color={colors.primary} />"
       }
@@ -1268,17 +1259,17 @@ export const ICON_AUDIT: IconAuditEntry[] = [
         "file": "components/sidebar/constants.ts",
         "line": 22,
         "kind": "metadata",
-        "snippet": "'light', label: 'Light Mode', icon: 'certificate' }, { id: 'dark', "
+        "snippet": "'light', label: 'Light Mode', icon: 'certificate' }, { id: 'dark', l"
       },
       {
         "file": "components/tabs/_profile_adaptive.tsx",
-        "line": 21,
+        "line": 22,
         "kind": "metadata",
         "snippet": " id: 'light', label: 'Light', icon: 'certificate' }, { id: 'dark', "
       },
       {
         "file": "components/tabs/_profile_desktop.tsx",
-        "line": 23,
+        "line": 24,
         "kind": "metadata",
         "snippet": "'light', label: 'Light Mode', icon: 'certificate' }, { id: 'dark', "
       }
@@ -1300,7 +1291,7 @@ export const ICON_AUDIT: IconAuditEntry[] = [
     "usages": [
       {
         "file": "app/notifications/index.web.tsx",
-        "line": 375,
+        "line": 347,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"check\" size={14} color={colors.primary} />"
       },
@@ -1366,9 +1357,15 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/dashboard/BlockedExceptionsPanel.tsx",
-        "line": 105,
+        "line": 119,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"check\" size={10} color={c.textDim} />"
+      },
+      {
+        "file": "components/dashboard/widgets/WidgetPopups.tsx",
+        "line": 219,
+        "kind": "metadata",
+        "snippet": " === 'singleton' ? { icon: 'check', color: c.success, text: '"
       },
       {
         "file": "components/GlobalUploadBanner.tsx",
@@ -1612,7 +1609,7 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/tabs/_index_adaptive.tsx",
-        "line": 681,
+        "line": 407,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"check\" size={12} color=\"white\" />"
       },
@@ -1624,43 +1621,43 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/task-detail/EditTaskModal.tsx",
-        "line": 439,
+        "line": 372,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"check\" size={10} color=\"white\" />"
       },
       {
         "file": "components/task-detail/EditTaskModal.tsx",
-        "line": 468,
+        "line": 401,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"check\" size={12} color=\"white\" />"
       },
       {
         "file": "components/task-detail/EditTaskModal.web.tsx",
-        "line": 525,
+        "line": 458,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"check\" size={10} color=\"white\" />"
       },
       {
         "file": "components/task-detail/EditTaskModal.web.tsx",
-        "line": 548,
+        "line": 481,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"check\" size={12} color=\"white\" />"
       },
       {
         "file": "components/task-detail/EditTaskModal.web.tsx",
-        "line": 702,
+        "line": 598,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"check\" size={10} color={colors.primary} style={{ marginLeft: 'auto' as any }} />"
       },
       {
         "file": "components/task-detail/EditTaskModal.web.tsx",
-        "line": 868,
+        "line": 764,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"check\" size={10} color=\"white\" />"
       },
       {
         "file": "components/task-detail/EditTaskModal.web.tsx",
-        "line": 1029,
+        "line": 888,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"check\" size={12} color=\"white\" />"
       },
@@ -1678,73 +1675,73 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 624,
+        "line": 613,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"check\" size={11} color={colors.primary} />"
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 633,
+        "line": 622,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"check\" size={11} color={colors.primary} />"
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 691,
+        "line": 680,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"check\" size={11} color={colors.accent} />"
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 701,
+        "line": 690,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"check\" size={11} color={colors.accent} />"
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 981,
+        "line": 899,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"check\" size={12} color={colors.primary} />"
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 1003,
+        "line": 921,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"check\" size={12} color={colors.accent} />"
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 1164,
+        "line": 1052,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"check\" size={11} color={colors.primary} />"
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 1175,
+        "line": 1063,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"check\" size={11} color={colors.primary} />"
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 1215,
+        "line": 1103,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"check\" size={11} color={colors.accent} />"
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 1226,
+        "line": 1114,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"check\" size={11} color={colors.accent} />"
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 1781,
+        "line": 1587,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"check\" size={12} color={colors.primary} />"
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 1804,
+        "line": 1610,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"check\" size={12} color={colors.accent} />"
       },
@@ -1758,7 +1755,7 @@ export const ICON_AUDIT: IconAuditEntry[] = [
         "file": "lib/projectPresentation.ts",
         "line": 101,
         "kind": "metadata",
-        "snippet": "', plural: 'Tasks', icon: 'check', shape: 'tick', "
+        "snippet": "sk', plural: 'Tasks', icon: 'check', shape: 'tick', to"
       },
       {
         "file": "lib/projectPresentation.ts",
@@ -1881,13 +1878,13 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/sidebar/PinnedShortcuts.web.tsx",
-        "line": 269,
+        "line": 212,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"check-circle\" size={14} color={colors.primary} />"
       },
       {
         "file": "components/sidebar/ThemeButton.web.tsx",
-        "line": 98,
+        "line": 62,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"check-circle\" size={13} color={colors.primary} />"
       },
@@ -1899,19 +1896,19 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/tabs/_index_adaptive.tsx",
-        "line": 660,
+        "line": 386,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"check-circle\" size={12} color={colors.primary} />"
       },
       {
         "file": "components/tabs/_index_desktop.tsx",
-        "line": 788,
+        "line": 400,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"check-circle\" size={12} className=\"text-brand-primary\" />"
       },
       {
         "file": "components/tabs/_profile_adaptive.tsx",
-        "line": 190,
+        "line": 192,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"check-circle\" size={10} color={colors.primary} />"
       },
@@ -1952,7 +1949,7 @@ export const ICON_AUDIT: IconAuditEntry[] = [
     "usages": [
       {
         "file": "app/notifications/index.web.tsx",
-        "line": 41,
+        "line": 13,
         "kind": "metadata",
         "snippet": "ask', label: 'Tasks', icon: 'check-square-o' }, { key: 'pip"
       },
@@ -2015,6 +2012,12 @@ export const ICON_AUDIT: IconAuditEntry[] = [
         "line": 93,
         "kind": "metadata",
         "snippet": ": 'tasks', permissionKey: '', icon: 'check-square-o', label: 'Tasks', "
+      },
+      {
+        "file": "lib/dashboardWidgets.ts",
+        "line": 424,
+        "kind": "metadata",
+        "snippet": "{ title: 'My work', icon: 'check-square-o', blurb: 'Eve"
       }
     ]
   },
@@ -2023,7 +2026,7 @@ export const ICON_AUDIT: IconAuditEntry[] = [
     "usages": [
       {
         "file": "app/notifications/index.tsx",
-        "line": 212,
+        "line": 186,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"chevron-down\" size={14} className=\"text-typography-muted\" />"
       },
@@ -2172,13 +2175,13 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/tasks/CreateTaskModal.tsx",
-        "line": 467,
+        "line": 459,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"chevron-left\" size={16} className=\"text-typography-main\" />"
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 1020,
+        "line": 938,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"chevron-left\" size={16} color={colors.textMain} />"
       },
@@ -2369,7 +2372,7 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/common/PendingTimeApprovalsWidget.tsx",
-        "line": 94,
+        "line": 105,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"chevron-right\" size={12} color={colors.warning} />"
       },
@@ -2495,7 +2498,7 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/tabs/LiveSessionsPopup.tsx",
-        "line": 63,
+        "line": 85,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"chevron-right\" size={10} className=\"text-typography-dim\" />"
       },
@@ -2506,18 +2509,6 @@ export const ICON_AUDIT: IconAuditEntry[] = [
         "snippet": "<FontAwesome name=\"chevron-right\" size={13} color={colors.textMuted} />"
       },
       {
-        "file": "components/tabs/_index_adaptive.tsx",
-        "line": 482,
-        "kind": "attribute",
-        "snippet": "<FontAwesome name=\"chevron-right\" size={10} color={colors.textDim} />"
-      },
-      {
-        "file": "components/tabs/_index_desktop.tsx",
-        "line": 527,
-        "kind": "attribute",
-        "snippet": "<FontAwesome name=\"chevron-right\" size={10} color={colors.textDim} />"
-      },
-      {
         "file": "components/tabs/_people_desktop.tsx",
         "line": 106,
         "kind": "attribute",
@@ -2525,13 +2516,13 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/tabs/_profile_adaptive.tsx",
-        "line": 209,
+        "line": 230,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"chevron-right\" size={12} color={colors.textMuted} />"
       },
       {
         "file": "components/tabs/_profile_adaptive.tsx",
-        "line": 218,
+        "line": 239,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"chevron-right\" size={12} color={colors.textMuted} />"
       },
@@ -2561,7 +2552,7 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 1031,
+        "line": 949,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"chevron-right\" size={12} color=\"#fff\" />"
       },
@@ -2662,17 +2653,17 @@ export const ICON_AUDIT: IconAuditEntry[] = [
         "file": "components/sidebar/constants.ts",
         "line": 23,
         "kind": "metadata",
-        "snippet": ": 'dark', label: 'Dark Mode', icon: 'circle-o' }, ]; export const "
+        "snippet": ": 'dark', label: 'Dark Mode', icon: 'circle-o' }, ]; export const PIP"
       },
       {
         "file": "components/tabs/_profile_adaptive.tsx",
-        "line": 22,
+        "line": 23,
         "kind": "metadata",
         "snippet": " { id: 'dark', label: 'Dark', icon: 'circle-o' }, ]; export defaul"
       },
       {
         "file": "components/tabs/_profile_desktop.tsx",
-        "line": 24,
+        "line": 25,
         "kind": "metadata",
         "snippet": ": 'dark', label: 'Dark Mode', icon: 'circle-o' }, ]; type TabType "
       },
@@ -2718,19 +2709,19 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/tasks/CreateTaskModal.tsx",
-        "line": 377,
+        "line": 369,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"clipboard\" size={11} color={colors.primary} />"
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 934,
+        "line": 852,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"clipboard\" size={13} color={colors.primary} />"
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 1731,
+        "line": 1537,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"clipboard\" size={13} color={colors.primary} />"
       }
@@ -2741,7 +2732,7 @@ export const ICON_AUDIT: IconAuditEntry[] = [
     "usages": [
       {
         "file": "app/notifications/index.web.tsx",
-        "line": 44,
+        "line": 16,
         "kind": "metadata",
         "snippet": "imer', label: 'Timers', icon: 'clock-o' }, ]; function timeA"
       },
@@ -2932,6 +2923,12 @@ export const ICON_AUDIT: IconAuditEntry[] = [
         "snippet": "<FontAwesome name=\"clock-o\" size={22} color={colors.warning} />"
       },
       {
+        "file": "lib/dashboardWidgets.ts",
+        "line": 456,
+        "kind": "metadata",
+        "snippet": "title: 'Last worked on', icon: 'clock-o', blurb: 'Pick up wh"
+      },
+      {
         "file": "lib/notificationRuleConstants.ts",
         "line": 18,
         "kind": "metadata",
@@ -2965,24 +2962,6 @@ export const ICON_AUDIT: IconAuditEntry[] = [
         "line": 327,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"clone\" size={12} color={c.primary} />"
-      },
-      {
-        "file": "components/tabs/_projects_adaptive.tsx",
-        "line": 135,
-        "kind": "attribute",
-        "snippet": "<FontAwesome name=\"clone\" size={15} color={colors.textMuted} />"
-      },
-      {
-        "file": "components/tabs/_projects_desktop.tsx",
-        "line": 144,
-        "kind": "attribute",
-        "snippet": "<FontAwesome name=\"clone\" size={13} color={colors.textMuted} />"
-      },
-      {
-        "file": "lib/projectPresentation.ts",
-        "line": 109,
-        "kind": "metadata",
-        "snippet": " plural: 'Templates', icon: 'clone', shape: 'blueprint', "
       }
     ]
   },
@@ -3048,8 +3027,14 @@ export const ICON_AUDIT: IconAuditEntry[] = [
     "icon": "code-fork",
     "usages": [
       {
+        "file": "components/sidebar/constants.ts",
+        "line": 111,
+        "kind": "metadata",
+        "snippet": "rmissionKey: 'pipeline.edit', icon: 'code-fork', label: 'Pipelines', h"
+      },
+      {
         "file": "components/task-detail/EditTaskModal.web.tsx",
-        "line": 252,
+        "line": 242,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"code-fork\" size={13} color={selectedPipeline ? colors.primary : colors.textDim} />"
       },
@@ -3080,19 +3065,19 @@ export const ICON_AUDIT: IconAuditEntry[] = [
         "file": "components/tabs/_projects_adaptive.tsx",
         "line": 176,
         "kind": "metadata",
-        "snippet": "lue: 'board', label: 'Board', icon: 'columns' }, { value:"
+        "snippet": "lue: 'board', label: 'Board', icon: 'columns' }, { value: "
       },
       {
         "file": "components/tabs/_projects_desktop.tsx",
         "line": 187,
         "kind": "metadata",
-        "snippet": "lue: 'board', label: 'Board', icon: 'columns' }, { valu"
+        "snippet": "lue: 'board', label: 'Board', icon: 'columns' }, { value"
       },
       {
         "file": "lib/projectPresentation.ts",
         "line": 93,
         "kind": "metadata",
-        "snippet": ", plural: 'Boards', icon: 'columns', shape: 'flow', "
+        "snippet": "d', plural: 'Boards', icon: 'columns', shape: 'flow', "
       }
     ]
   },
@@ -3227,7 +3212,7 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/sidebar/PinnedShortcuts.web.tsx",
-        "line": 105,
+        "line": 74,
         "kind": "metadata",
         "snippet": " label: p.name, icon: 'cubes', href: `/portfoli"
       },
@@ -3235,7 +3220,18 @@ export const ICON_AUDIT: IconAuditEntry[] = [
         "file": "lib/projectPresentation.ts",
         "line": 77,
         "kind": "metadata",
-        "snippet": " plural: 'Portfolios', icon: 'cubes', shape: 'stack', "
+        "snippet": " plural: 'Portfolios', icon: 'cubes', shape: 'stack', t"
+      }
+    ]
+  },
+  {
+    "icon": "dashboard",
+    "usages": [
+      {
+        "file": "lib/dashboardWidgets.ts",
+        "line": 256,
+        "kind": "metadata",
+        "snippet": " title: 'At a glance', icon: 'dashboard', blurb: \"Today's "
       }
     ]
   },
@@ -3263,17 +3259,17 @@ export const ICON_AUDIT: IconAuditEntry[] = [
         "file": "components/sidebar/constants.ts",
         "line": 21,
         "kind": "metadata",
-        "snippet": "yst', label: 'Amethyst Grid', icon: 'diamond' }, { id: 'light', lab"
+        "snippet": "yst', label: 'Amethyst Grid', icon: 'diamond' }, { id: 'light', labe"
       },
       {
         "file": "components/tabs/_profile_adaptive.tsx",
-        "line": 20,
+        "line": 21,
         "kind": "metadata",
         "snippet": "amethyst', label: 'Amethyst', icon: 'diamond' }, { id: 'light', lab"
       },
       {
         "file": "components/tabs/_profile_desktop.tsx",
-        "line": 22,
+        "line": 23,
         "kind": "metadata",
         "snippet": "yst', label: 'Amethyst Grid', icon: 'diamond' }, { id: 'light', lab"
       }
@@ -3646,6 +3642,12 @@ export const ICON_AUDIT: IconAuditEntry[] = [
         "line": 1742,
         "kind": "metadata",
         "snippet": "ate-danger' }, warning: { icon: 'exclamation', color: 'tex"
+      },
+      {
+        "file": "components/dashboard/widgets/personalRows.tsx",
+        "line": 181,
+        "kind": "attribute",
+        "snippet": "<FontAwesome name=\"exclamation\" size={8} color={c.danger} />"
       }
     ]
   },
@@ -3687,6 +3689,12 @@ export const ICON_AUDIT: IconAuditEntry[] = [
         "line": 171,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"exclamation-circle\" size={11} color={colors.danger} style={{ marginTop: 2 }} />"
+      },
+      {
+        "file": "components/dashboard/widgets/WidgetPopups.tsx",
+        "line": 523,
+        "kind": "attribute",
+        "snippet": "<FontAwesome name=\"exclamation-circle\" size={12} color={c.danger} style={{ marginTop: 1 }} />"
       },
       {
         "file": "components/intelligence/ProjectLens.tsx",
@@ -3750,7 +3758,7 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/portfolios/PortfolioGrid.tsx",
-        "line": 201,
+        "line": 224,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"exclamation-circle\" size={10} color={c.danger} />"
       },
@@ -3905,7 +3913,7 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/dashboard/BlockedExceptionsPanel.tsx",
-        "line": 86,
+        "line": 100,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"exclamation-triangle\" size={11} color={c.warning} />"
       },
@@ -3929,13 +3937,13 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/intelligence/PipelineOverviewChart.tsx",
-        "line": 122,
+        "line": 157,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"exclamation-triangle\" size={22} color={colors.textDim} />"
       },
       {
         "file": "components/intelligence/PipelineOverviewChartNative.tsx",
-        "line": 126,
+        "line": 143,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"exclamation-triangle\" size={20} color={colors.textDim} />"
       },
@@ -4102,16 +4110,28 @@ export const ICON_AUDIT: IconAuditEntry[] = [
         "snippet": "<FontAwesome name=\"exclamation-triangle\" size={10} color={colors.warning} />"
       },
       {
+        "file": "components/tasks/CreateTaskModal.tsx",
+        "line": 306,
+        "kind": "attribute",
+        "snippet": "<FontAwesome name=\"exclamation-triangle\" size={11} className=\"text-typography-muted\" color={colors.warning} />"
+      },
+      {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 847,
+        "line": 765,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"exclamation-triangle\" size={11} color={colors.warning} />"
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 1542,
+        "line": 1348,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"exclamation-triangle\" size={11} color={colors.warning} />"
+      },
+      {
+        "file": "lib/dashboardWidgets.ts",
+        "line": 310,
+        "kind": "metadata",
+        "snippet": "itle: 'Needs attention', icon: 'exclamation-triangle', blurb"
       },
       {
         "file": "lib/projectPresentation.ts",
@@ -4974,13 +4994,13 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 652,
+        "line": 641,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"folder-o\" size={13} color={colors.textDim} />"
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 1583,
+        "line": 1389,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"folder-o\" size={13} color={colors.textDim} />"
       },
@@ -4994,7 +5014,18 @@ export const ICON_AUDIT: IconAuditEntry[] = [
         "file": "lib/projectPresentation.ts",
         "line": 69,
         "kind": "metadata",
-        "snippet": " plural: 'Projects', icon: 'folder-o', shape: 'square', "
+        "snippet": ", plural: 'Projects', icon: 'folder-o', shape: 'square', "
+      }
+    ]
+  },
+  {
+    "icon": "folder-open",
+    "usages": [
+      {
+        "file": "lib/dashboardWidgets.ts",
+        "line": 335,
+        "kind": "metadata",
+        "snippet": "itle: 'Active projects', icon: 'folder-open', blurb: 'Your f"
       }
     ]
   },
@@ -5009,7 +5040,7 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "app/notifications/index.web.tsx",
-        "line": 43,
+        "line": 15,
         "kind": "metadata",
         "snippet": "ilehub', label: 'Files', icon: 'folder-open-o' }, { key: 'time"
       },
@@ -5144,12 +5175,6 @@ export const ICON_AUDIT: IconAuditEntry[] = [
         "snippet": "<FontAwesome name=\"gear\" size={18} color={pathname.startsWith('/admin/pipelines') ? colors.primary : colors.primary} />"
       },
       {
-        "file": "components/sidebar/constants.ts",
-        "line": 111,
-        "kind": "metadata",
-        "snippet": "rmissionKey: 'pipeline.edit', icon: 'gear', label: 'Pipelines', href: "
-      },
-      {
         "file": "components/tabs/_people_adaptive.tsx",
         "line": 133,
         "kind": "attribute",
@@ -5157,7 +5182,7 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/tabs/_profile_adaptive.tsx",
-        "line": 216,
+        "line": 237,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"gear\" size={16} color={colors.primary} style={{ marginRight: 12 }} />"
       },
@@ -5320,9 +5345,15 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 1058,
+        "line": 976,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"history\" size={14} color={colors.primary} />"
+      },
+      {
+        "file": "lib/dashboardWidgets.ts",
+        "line": 376,
+        "kind": "metadata",
+        "snippet": "itle: 'Recent activity', icon: 'history', blurb: 'The last s"
       }
     ]
   },
@@ -5354,13 +5385,13 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/common/PendingTimeApprovalsWidget.tsx",
-        "line": 86,
+        "line": 97,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"hourglass-end\" size={16} color={colors.warning} />"
       },
       {
         "file": "components/common/PendingTimeApprovalsWidget.web.tsx",
-        "line": 84,
+        "line": 90,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"hourglass-end\" size={22} color={colors.warning} />"
       },
@@ -5375,6 +5406,12 @@ export const ICON_AUDIT: IconAuditEntry[] = [
         "line": 762,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"hourglass-end\" size={16} color={colors.warning} />"
+      },
+      {
+        "file": "lib/dashboardWidgets.ts",
+        "line": 394,
+        "kind": "metadata",
+        "snippet": "title: 'Time approvals', icon: 'hourglass-end', blurb: 'Manu"
       }
     ]
   },
@@ -5462,6 +5499,12 @@ export const ICON_AUDIT: IconAuditEntry[] = [
         "snippet": "<FontAwesome name=\"inbox\" size={24} color={colors.textMuted} />"
       },
       {
+        "file": "components/sidebar/notifications/NotificationsDropdown.web.tsx",
+        "line": 101,
+        "kind": "attribute",
+        "snippet": "<FontAwesome name=\"inbox\" size={11} color={colors.textMuted} />"
+      },
+      {
         "file": "components/tabs/_tasks_adaptive.tsx",
         "line": 1074,
         "kind": "attribute",
@@ -5475,9 +5518,15 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 1086,
+        "line": 1004,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"inbox\" size={32} color={colors.textMuted} />"
+      },
+      {
+        "file": "lib/dashboardWidgets.ts",
+        "line": 484,
+        "kind": "metadata",
+        "snippet": " title: 'File inbox', icon: 'inbox', blurb: 'Files people"
       }
     ]
   },
@@ -5533,6 +5582,12 @@ export const ICON_AUDIT: IconAuditEntry[] = [
         "snippet": "<FontAwesome name=\"info-circle\" size={16} color=\"#fff\" />"
       },
       {
+        "file": "components/dashboard/widgets/WidgetPopups.tsx",
+        "line": 532,
+        "kind": "attribute",
+        "snippet": "<FontAwesome name=\"info-circle\" size={12} color={c.info} style={{ marginTop: 1 }} />"
+      },
+      {
         "file": "components/intelligence/_filehub_desktop.tsx",
         "line": 1505,
         "kind": "attribute",
@@ -5576,7 +5631,7 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/portfolios/PortfolioScopeHeader.tsx",
-        "line": 103,
+        "line": 134,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"info-circle\" size={11} color={c.textDim} style={{ marginTop: 2 }} />"
       },
@@ -5640,7 +5695,7 @@ export const ICON_AUDIT: IconAuditEntry[] = [
     "usages": [
       {
         "file": "components/task-detail/activeSessionAvatarsCore.tsx",
-        "line": 118,
+        "line": 130,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"laptop\" size={11} color={color} />"
       }
@@ -5653,17 +5708,17 @@ export const ICON_AUDIT: IconAuditEntry[] = [
         "file": "components/sidebar/constants.ts",
         "line": 19,
         "kind": "metadata",
-        "snippet": "ld', label: 'Emerald Matrix', icon: 'leaf' }, { id: 'amber', label:"
+        "snippet": "ld', label: 'Emerald Matrix', icon: 'leaf' }, { id: 'amber', label: "
       },
       {
         "file": "components/tabs/_profile_adaptive.tsx",
-        "line": 18,
+        "line": 19,
         "kind": "metadata",
         "snippet": " 'emerald', label: 'Emerald', icon: 'leaf' }, { id: 'amber', label:"
       },
       {
         "file": "components/tabs/_profile_desktop.tsx",
-        "line": 20,
+        "line": 21,
         "kind": "metadata",
         "snippet": "ld', label: 'Emerald Matrix', icon: 'leaf' }, { id: 'amber', label:"
       }
@@ -5708,25 +5763,25 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/dashboard/BlockedExceptionsPanel.tsx",
-        "line": 150,
+        "line": 172,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"line-chart\" size={10} color={c.warning} />"
       },
       {
         "file": "components/intelligence/PipelineOverviewChart.tsx",
-        "line": 127,
+        "line": 162,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"line-chart\" size={24} color={colors.textDim} />"
       },
       {
         "file": "components/intelligence/PipelineOverviewChart.tsx",
-        "line": 157,
+        "line": 192,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"line-chart\" size={24} color={colors.textDim} />"
       },
       {
         "file": "components/intelligence/PipelineOverviewChartNative.tsx",
-        "line": 135,
+        "line": 152,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"line-chart\" size={22} color={colors.textDim} />"
       },
@@ -5771,6 +5826,12 @@ export const ICON_AUDIT: IconAuditEntry[] = [
         "line": 69,
         "kind": "metadata",
         "snippet": " 'Performance Timeline', icon: 'line-chart' }, user_perform"
+      },
+      {
+        "file": "lib/dashboardWidgets.ts",
+        "line": 346,
+        "kind": "metadata",
+        "snippet": "le: 'Pipeline overview', icon: 'line-chart', blurb: 'Through"
       }
     ]
   },
@@ -5821,13 +5882,13 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/sidebar/PinnedShortcuts.web.tsx",
-        "line": 323,
+        "line": 266,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"link\" size={12} color={colors.textDim} />"
       },
       {
         "file": "components/sidebar/PinnedShortcuts.web.tsx",
-        "line": 51,
+        "line": 50,
         "kind": "metadata",
         "snippet": ")}`, label: linkLabel.trim(), icon: 'link', href }); setLinkLabel"
       }
@@ -5854,10 +5915,34 @@ export const ICON_AUDIT: IconAuditEntry[] = [
     "icon": "list-alt",
     "usages": [
       {
+        "file": "components/admin/RoleBuilder.tsx",
+        "line": 127,
+        "kind": "attribute",
+        "snippet": "<FontAwesome name=\"list-alt\" size={11} color={colors.primary} />"
+      },
+      {
+        "file": "components/tabs/_projects_adaptive.tsx",
+        "line": 135,
+        "kind": "attribute",
+        "snippet": "<FontAwesome name=\"list-alt\" size={15} color={colors.textMuted} />"
+      },
+      {
+        "file": "components/tabs/_projects_desktop.tsx",
+        "line": 144,
+        "kind": "attribute",
+        "snippet": "<FontAwesome name=\"list-alt\" size={13} color={colors.textMuted} />"
+      },
+      {
         "file": "components/templates/TemplateEditor.tsx",
         "line": 580,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"list-alt\" size={28} color={c.textDim} />"
+      },
+      {
+        "file": "lib/projectPresentation.ts",
+        "line": 109,
+        "kind": "metadata",
+        "snippet": " plural: 'Templates', icon: 'list-alt', shape: 'blueprint'"
       }
     ]
   },
@@ -5878,13 +5963,13 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 474,
+        "line": 463,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"list-ul\" size={10} color={bulkMode ? colors.primary : colors.textMuted} />"
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 1362,
+        "line": 1250,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"list-ul\" size={10} color={bulkMode ? colors.primary : colors.textMuted} />"
       }
@@ -5966,6 +6051,12 @@ export const ICON_AUDIT: IconAuditEntry[] = [
         "snippet": "<FontAwesome name=\"lock\" size={20} color={colors.textMuted} style={{ marginBottom: 12 }} />"
       },
       {
+        "file": "components/dashboard/widgets/WidgetPopups.tsx",
+        "line": 212,
+        "kind": "metadata",
+        "snippet": "ission' ? { icon: 'lock', color: c.textDi"
+      },
+      {
         "file": "components/entities/EntityUI.tsx",
         "line": 616,
         "kind": "metadata",
@@ -5979,7 +6070,7 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/intelligence/DateRangeFilter.tsx",
-        "line": 186,
+        "line": 204,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"lock\" size={8} color={colors.textMuted} />"
       },
@@ -6174,6 +6265,12 @@ export const ICON_AUDIT: IconAuditEntry[] = [
     "icon": "long-arrow-right",
     "usages": [
       {
+        "file": "components/dashboard/widgets/registry.tsx",
+        "line": 424,
+        "kind": "attribute",
+        "snippet": "<FontAwesome name=\"long-arrow-right\" size={8} color={c.textDim} />"
+      },
+      {
         "file": "components/pipeline-editor/AutomationEditor.tsx",
         "line": 347,
         "kind": "attribute",
@@ -6204,22 +6301,10 @@ export const ICON_AUDIT: IconAuditEntry[] = [
         "snippet": "<FontAwesome name=\"long-arrow-right\" size={10} color={colors.textDim} />"
       },
       {
-        "file": "components/tabs/_index_adaptive.tsx",
-        "line": 502,
-        "kind": "attribute",
-        "snippet": "<FontAwesome name=\"long-arrow-right\" size={8} color={colors.textDim} />"
-      },
-      {
-        "file": "components/tabs/_index_desktop.tsx",
-        "line": 560,
-        "kind": "attribute",
-        "snippet": "<FontAwesome name=\"long-arrow-right\" size={8} color={colors.textDim} />"
-      },
-      {
         "file": "components/tabs/_projects_adaptive.tsx",
         "line": 177,
         "kind": "metadata",
-        "snippet": "timeline', label: 'Timeline', icon: 'long-arrow-right' }, ]"
+        "snippet": "timeline', label: 'Timeline', icon: 'long-arrow-right' }, ]}"
       },
       {
         "file": "components/tabs/_projects_desktop.tsx",
@@ -6322,13 +6407,13 @@ export const ICON_AUDIT: IconAuditEntry[] = [
     "usages": [
       {
         "file": "components/tasks/CreateTaskModal.tsx",
-        "line": 323,
+        "line": 315,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"minus\" size={14} className=\"text-typography-main\" />"
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 577,
+        "line": 566,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"minus\" size={14} color={colors.textMain} />"
       },
@@ -6369,13 +6454,13 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/tabs/_profile_adaptive.tsx",
-        "line": 240,
+        "line": 261,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"minus-circle\" size={18} color=\"#ef4444\" style={{ marginRight: 12 }} />"
       },
       {
         "file": "components/tabs/_profile_desktop.tsx",
-        "line": 177,
+        "line": 179,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"minus-circle\" size={14} color=\"#ef4444\" style={{ marginRight: 12 }} />"
       }
@@ -6429,23 +6514,23 @@ export const ICON_AUDIT: IconAuditEntry[] = [
         "file": "components/sidebar/constants.ts",
         "line": 18,
         "kind": "metadata",
-        "snippet": "digo', label: 'Indigo Night', icon: 'moon-o' }, { id: 'emerald', la"
+        "snippet": "digo', label: 'Indigo Night', icon: 'moon-o' }, { id: 'emerald', lab"
       },
       {
         "file": "components/tabs/LiveSessionsPopup.tsx",
-        "line": 110,
+        "line": 133,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"moon-o\" size={26} className=\"text-typography-dim\" />"
       },
       {
         "file": "components/tabs/_profile_adaptive.tsx",
-        "line": 17,
+        "line": 18,
         "kind": "metadata",
         "snippet": "d: 'indigo', label: 'Indigo', icon: 'moon-o' }, { id: 'emerald', la"
       },
       {
         "file": "components/tabs/_profile_desktop.tsx",
-        "line": 19,
+        "line": 20,
         "kind": "metadata",
         "snippet": "digo', label: 'Indigo Night', icon: 'moon-o' }, { id: 'emerald', la"
       }
@@ -6478,7 +6563,7 @@ export const ICON_AUDIT: IconAuditEntry[] = [
     "usages": [
       {
         "file": "components/sidebar/ThemeButton.web.tsx",
-        "line": 61,
+        "line": 36,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"paint-brush\" size={14} color={colors.textDim} />"
       },
@@ -6554,19 +6639,19 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/tasks/CreateTaskModal.tsx",
-        "line": 366,
+        "line": 358,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"paperclip\" size={11} color={colors.primary} />"
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 923,
+        "line": 841,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"paperclip\" size={13} color={colors.primary} />"
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 1720,
+        "line": 1526,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"paperclip\" size={13} color={colors.primary} />"
       }
@@ -6580,6 +6665,23 @@ export const ICON_AUDIT: IconAuditEntry[] = [
         "line": 18,
         "kind": "metadata",
         "snippet": "c: 'Not updated for X hours', icon: 'pause-circle', color: '#f59e0b', "
+      }
+    ]
+  },
+  {
+    "icon": "pencil",
+    "usages": [
+      {
+        "file": "components/portfolios/PortfolioGrid.tsx",
+        "line": 252,
+        "kind": "attribute",
+        "snippet": "<FontAwesome name=\"pencil\" size={13} color={c.textMuted} />"
+      },
+      {
+        "file": "components/portfolios/PortfolioScopeHeader.tsx",
+        "line": 100,
+        "kind": "attribute",
+        "snippet": "<FontAwesome name=\"pencil\" size={13} color={c.textMuted} />"
       }
     ]
   },
@@ -6714,7 +6816,7 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/task-detail/EditTaskModal.web.tsx",
-        "line": 564,
+        "line": 497,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"pencil-square-o\" size={13} color={colors.primary} />"
       },
@@ -6758,6 +6860,12 @@ export const ICON_AUDIT: IconAuditEntry[] = [
   {
     "icon": "play",
     "usages": [
+      {
+        "file": "components/dashboard/widgets/LastWorkedOnWidget.tsx",
+        "line": 342,
+        "kind": "attribute",
+        "snippet": "<FontAwesome name=\"play\" size={11} color={c.success} />"
+      },
       {
         "file": "components/intelligence/_analytics_desktop.tsx",
         "line": 713,
@@ -6844,6 +6952,18 @@ export const ICON_AUDIT: IconAuditEntry[] = [
         "line": 393,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"plus\" size={12} color=\"white\" />"
+      },
+      {
+        "file": "components/dashboard/widgets/WidgetPopups.tsx",
+        "line": 221,
+        "kind": "metadata",
+        "snippet": "nDashboard > 0 ? { icon: 'plus', color: c.primary, text: `A"
+      },
+      {
+        "file": "components/dashboard/widgets/WidgetPopups.tsx",
+        "line": 222,
+        "kind": "metadata",
+        "snippet": "r dashboard` } : { icon: 'plus', color: c.primary, text: 'A"
       },
       {
         "file": "components/intelligence/FileHubOverview.tsx",
@@ -7021,9 +7141,21 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/sidebar/PinnedShortcuts.web.tsx",
-        "line": 222,
+        "line": 191,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"plus\" size={12} color={colors.textDim} />"
+      },
+      {
+        "file": "components/tabs/_index_adaptive.tsx",
+        "line": 230,
+        "kind": "attribute",
+        "snippet": "<FontAwesome name=\"plus\" size={12} color={colors.primary} />"
+      },
+      {
+        "file": "components/tabs/_index_desktop.tsx",
+        "line": 191,
+        "kind": "attribute",
+        "snippet": "<FontAwesome name=\"plus\" size={12} color={colors.primary} />"
       },
       {
         "file": "components/tabs/_projects_adaptive.tsx",
@@ -7063,25 +7195,25 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/tasks/CreateTaskModal.tsx",
-        "line": 327,
+        "line": 319,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"plus\" size={14} className=\"text-typography-main\" />"
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 583,
+        "line": 572,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"plus\" size={14} color={colors.textMain} />"
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 679,
+        "line": 668,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"plus\" size={13} color={colors.accent} />"
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 1202,
+        "line": 1090,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"plus\" size={13} color={colors.accent} />"
       },
@@ -7353,7 +7485,7 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/tabs/_index_desktop.tsx",
-        "line": 414,
+        "line": 225,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"refresh\" size={14} color={colors.textMuted} />"
       },
@@ -7625,7 +7757,7 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/portfolios/PortfolioGrid.tsx",
-        "line": 129,
+        "line": 131,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"search\" size={13} color={c.textDim} />"
       },
@@ -7649,13 +7781,13 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/sidebar/TopBar.web.tsx",
-        "line": 145,
+        "line": 188,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"search\" size={12} color={colors.textDim} />"
       },
       {
         "file": "components/tabs/_index_adaptive.tsx",
-        "line": 334,
+        "line": 185,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"search\" size={15} color={colors.primary} />"
       },
@@ -7697,25 +7829,25 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 944,
+        "line": 862,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"search\" size={14} color={colors.textMuted} />"
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 1152,
+        "line": 1040,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"search\" size={12} color={colors.textDim} />"
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 1192,
+        "line": 1080,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"search\" size={12} color={colors.textDim} />"
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 1743,
+        "line": 1549,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"search\" size={14} color={colors.textMuted} />"
       },
@@ -7978,13 +8110,13 @@ export const ICON_AUDIT: IconAuditEntry[] = [
     "usages": [
       {
         "file": "components/tabs/_profile_adaptive.tsx",
-        "line": 250,
+        "line": 271,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"sign-out\" size={18} color={colors.textMain} style={{ marginRight: 12 }} />"
       },
       {
         "file": "components/tabs/_profile_desktop.tsx",
-        "line": 187,
+        "line": 189,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"sign-out\" size={14} color={colors.textMuted} style={{ marginRight: 12 }} />"
       }
@@ -7995,7 +8127,7 @@ export const ICON_AUDIT: IconAuditEntry[] = [
     "usages": [
       {
         "file": "components/intelligence/DateRangeFilter.tsx",
-        "line": 201,
+        "line": 219,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"signal\" size={10} color={colors.textMuted} style={{ marginLeft: 6, marginRight: 2 }} />"
       }
@@ -8012,7 +8144,7 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "app/notifications/index.web.tsx",
-        "line": 42,
+        "line": 14,
         "kind": "metadata",
         "snippet": "ipeline', label: 'Pipelines', icon: 'sitemap' }, { key: 'filehub', "
       },
@@ -8078,19 +8210,19 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 598,
+        "line": 587,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"sitemap\" size={13} color={draft.pipelineId ? colors.primary : colors.textDim} />"
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 1173,
+        "line": 1061,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"sitemap\" size={13} color={draft.pipelineId === p.id ? colors.primary : colors.textDim} />"
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 1434,
+        "line": 1322,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"sitemap\" size={13} color={draft.pipelineId ? colors.primary : colors.textDim} />"
       },
@@ -8113,31 +8245,31 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "app/notifications/index.tsx",
-        "line": 242,
+        "line": 216,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"sliders\" size={14} className=\"text-typography-muted\" />"
       },
       {
         "file": "app/notifications/index.web.tsx",
-        "line": 284,
+        "line": 256,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"sliders\" size={14} color={colors.textMuted} />"
       },
       {
         "file": "app/notifications/index.web.tsx",
-        "line": 385,
+        "line": 357,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"sliders\" size={14} color={colors.textMuted} />"
       },
       {
         "file": "components/intelligence/PipelineOverviewChart.tsx",
-        "line": 89,
+        "line": 122,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"sliders\" size={14} color={colors.textMuted} />"
       },
       {
         "file": "components/intelligence/PipelineOverviewChartNative.tsx",
-        "line": 95,
+        "line": 112,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"sliders\" size={12} color={colors.textMuted} />"
       },
@@ -8149,13 +8281,13 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/tabs/_index_adaptive.tsx",
-        "line": 362,
+        "line": 213,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"sliders\" size={15} color={colors.primary} />"
       },
       {
         "file": "components/tabs/_index_desktop.tsx",
-        "line": 403,
+        "line": 214,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"sliders\" size={14} color={colors.textMuted} />"
       },
@@ -8254,17 +8386,17 @@ export const ICON_AUDIT: IconAuditEntry[] = [
         "file": "components/sidebar/constants.ts",
         "line": 20,
         "kind": "metadata",
-        "snippet": "mber', label: 'Amber Signal', icon: 'sun-o' }, { id: 'amethyst', la"
+        "snippet": "mber', label: 'Amber Signal', icon: 'sun-o' }, { id: 'amethyst', lab"
       },
       {
         "file": "components/tabs/_profile_adaptive.tsx",
-        "line": 19,
+        "line": 20,
         "kind": "metadata",
         "snippet": " id: 'amber', label: 'Amber', icon: 'sun-o' }, { id: 'amethyst', la"
       },
       {
         "file": "components/tabs/_profile_desktop.tsx",
-        "line": 21,
+        "line": 22,
         "kind": "metadata",
         "snippet": "mber', label: 'Amber Signal', icon: 'sun-o' }, { id: 'amethyst', la"
       }
@@ -8289,13 +8421,13 @@ export const ICON_AUDIT: IconAuditEntry[] = [
         "file": "components/tabs/_projects_adaptive.tsx",
         "line": 175,
         "kind": "metadata",
-        "snippet": "alue: 'table', label: 'List', icon: 'table' }, { value: '"
+        "snippet": "alue: 'table', label: 'List', icon: 'table' }, { value: 'b"
       },
       {
         "file": "components/tabs/_projects_desktop.tsx",
         "line": 186,
         "kind": "metadata",
-        "snippet": "alue: 'table', label: 'List', icon: 'table' }, { value:"
+        "snippet": "alue: 'table', label: 'List', icon: 'table' }, { value: "
       }
     ]
   },
@@ -8424,6 +8556,12 @@ export const ICON_AUDIT: IconAuditEntry[] = [
         "line": 48,
         "kind": "metadata",
         "snippet": ", }, { icon: 'tasks', title: 'Work you"
+      },
+      {
+        "file": "lib/dashboardWidgets.ts",
+        "line": 277,
+        "kind": "metadata",
+        "snippet": ": 'Pipeline completion', icon: 'tasks', blurb: 'Plain progre"
       }
     ]
   },
@@ -8435,12 +8573,6 @@ export const ICON_AUDIT: IconAuditEntry[] = [
         "line": 37,
         "kind": "metadata",
         "snippet": "overview', label: 'Overview', icon: 'th-large' }, { value: 'assignm"
-      },
-      {
-        "file": "components/admin/RoleBuilder.tsx",
-        "line": 127,
-        "kind": "attribute",
-        "snippet": "<FontAwesome name=\"th-large\" size={11} color={colors.primary} />"
       },
       {
         "file": "components/common/MultiViewList.tsx",
@@ -8582,13 +8714,13 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "app/notifications/index.web.tsx",
-        "line": 309,
+        "line": 281,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"times\" size={14} color={colors.textMuted} />"
       },
       {
         "file": "app/notifications/index.web.tsx",
-        "line": 394,
+        "line": 366,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"times\" size={14} color={colors.textMuted} />"
       },
@@ -8795,6 +8927,12 @@ export const ICON_AUDIT: IconAuditEntry[] = [
         "line": 52,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"times\" size={12} color=\"#fff\" />"
+      },
+      {
+        "file": "components/intelligence/DateRangeFilter.tsx",
+        "line": 143,
+        "kind": "attribute",
+        "snippet": "<FontAwesome name=\"times\" size={11} color={colors.textMuted} />"
       },
       {
         "file": "components/intelligence/FileHubAnalytics.tsx",
@@ -9121,6 +9259,12 @@ export const ICON_AUDIT: IconAuditEntry[] = [
         "snippet": "<FontAwesome name=\"times\" size={16} color={colors.textMuted} />"
       },
       {
+        "file": "components/portfolios/PortfolioEditModal.tsx",
+        "line": 280,
+        "kind": "attribute",
+        "snippet": "<FontAwesome name=\"times\" size={14} color={c.textMuted} />"
+      },
+      {
         "file": "components/projects/BulkCreateProjectsSheet.tsx",
         "line": 943,
         "kind": "attribute",
@@ -9188,13 +9332,13 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/tabs/_index_adaptive.tsx",
-        "line": 623,
+        "line": 349,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"times\" size={13} color={colors.textDim} />"
       },
       {
         "file": "components/tabs/_index_desktop.tsx",
-        "line": 750,
+        "line": 362,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"times\" size={13} color={colors.textDim} />"
       },
@@ -9230,43 +9374,19 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/task-detail/EditTaskModal.tsx",
-        "line": 167,
-        "kind": "attribute",
-        "snippet": "<FontAwesome name=\"times\" size={14} color={colors.textMuted} />"
-      },
-      {
-        "file": "components/task-detail/EditTaskModal.tsx",
-        "line": 273,
-        "kind": "attribute",
-        "snippet": "<FontAwesome name=\"times\" size={11} color={colors.textMuted} />"
-      },
-      {
-        "file": "components/task-detail/EditTaskModal.tsx",
-        "line": 303,
-        "kind": "attribute",
-        "snippet": "<FontAwesome name=\"times\" size={11} color={colors.textMuted} />"
-      },
-      {
-        "file": "components/task-detail/EditTaskModal.web.tsx",
-        "line": 308,
+        "line": 163,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"times\" size={14} color={colors.textMuted} />"
       },
       {
         "file": "components/task-detail/EditTaskModal.web.tsx",
-        "line": 401,
+        "line": 298,
         "kind": "attribute",
-        "snippet": "<FontAwesome name=\"times\" size={11} color={colors.textMuted} />"
+        "snippet": "<FontAwesome name=\"times\" size={14} color={colors.textMuted} />"
       },
       {
         "file": "components/task-detail/EditTaskModal.web.tsx",
-        "line": 426,
-        "kind": "attribute",
-        "snippet": "<FontAwesome name=\"times\" size={11} color={colors.textMuted} />"
-      },
-      {
-        "file": "components/task-detail/EditTaskModal.web.tsx",
-        "line": 735,
+        "line": 631,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"times\" size={isNarrow ? 13 : 16} color={colors.textMuted} />"
       },
@@ -9314,25 +9434,25 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 153,
+        "line": 152,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"times\" size={10} color=\"#fff\" />"
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 712,
+        "line": 701,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"times\" size={14} color={colors.textDim} />"
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 1236,
+        "line": 1124,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"times\" size={14} color={colors.textDim} />"
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 1315,
+        "line": 1203,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"times\" size={18} color={colors.textMuted} />"
       },
@@ -9475,7 +9595,7 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/portfolios/PortfolioGrid.tsx",
-        "line": 147,
+        "line": 149,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"times-circle\" size={14} color={c.textMuted} />"
       },
@@ -9493,49 +9613,25 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 778,
-        "kind": "attribute",
-        "snippet": "<FontAwesome name=\"times-circle\" size={14} color={colors.textDim} />"
-      },
-      {
-        "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 820,
-        "kind": "attribute",
-        "snippet": "<FontAwesome name=\"times-circle\" size={14} color={colors.textDim} />"
-      },
-      {
-        "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 956,
+        "line": 874,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"times-circle\" size={13} color={colors.textDim} />"
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 1162,
+        "line": 1050,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"times-circle\" size={13} color={colors.textDim} />"
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 1213,
+        "line": 1101,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"times-circle\" size={13} color={colors.textDim} />"
       },
       {
         "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 1472,
-        "kind": "attribute",
-        "snippet": "<FontAwesome name=\"times-circle\" size={14} color={colors.textDim} />"
-      },
-      {
-        "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 1516,
-        "kind": "attribute",
-        "snippet": "<FontAwesome name=\"times-circle\" size={14} color={colors.textDim} />"
-      },
-      {
-        "file": "components/tasks/CreateTaskModal.web.tsx",
-        "line": 1755,
+        "line": 1561,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"times-circle\" size={13} color={colors.textDim} />"
       },
@@ -9773,14 +9869,20 @@ export const ICON_AUDIT: IconAuditEntry[] = [
         "snippet": "<FontAwesome name=\"trash-o\" size={10} color={colors.textDim} />"
       },
       {
+        "file": "components/portfolios/PortfolioEditModal.tsx",
+        "line": 214,
+        "kind": "attribute",
+        "snippet": "<FontAwesome name=\"trash-o\" size={14} color={c.textMuted} />"
+      },
+      {
         "file": "components/tabs/_profile_adaptive.tsx",
-        "line": 231,
+        "line": 252,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"trash-o\" size={18} color=\"#ef4444\" style={{ marginRight: 12 }} />"
       },
       {
         "file": "components/tabs/_profile_desktop.tsx",
-        "line": 168,
+        "line": 170,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"trash-o\" size={14} color=\"#ef4444\" style={{ marginRight: 12 }} />"
       },
@@ -9864,6 +9966,12 @@ export const ICON_AUDIT: IconAuditEntry[] = [
         "line": 227,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"undo\" size={12} className=\"text-typography-muted mr-2\" />"
+      },
+      {
+        "file": "components/dashboard/widgets/WidgetPopups.tsx",
+        "line": 564,
+        "kind": "attribute",
+        "snippet": "<FontAwesome name=\"undo\" size={13} color={c.textMuted} />"
       },
       {
         "file": "components/devtools/IconAuditList.tsx",
@@ -10123,7 +10231,7 @@ export const ICON_AUDIT: IconAuditEntry[] = [
       },
       {
         "file": "components/task-detail/EditTaskModal.web.tsx",
-        "line": 834,
+        "line": 730,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"user\" size={13} color={selectedManager ? colors.primary : colors.textDim} />"
       },
@@ -10493,6 +10601,12 @@ export const ICON_AUDIT: IconAuditEntry[] = [
         "line": 305,
         "kind": "attribute",
         "snippet": "<FontAwesome name=\"users\" size={32} color={colors.textMuted} />"
+      },
+      {
+        "file": "lib/dashboardWidgets.ts",
+        "line": 470,
+        "kind": "metadata",
+        "snippet": " title: 'Live now', icon: 'users', blurb: 'Who is track"
       },
       {
         "file": "lib/roleTemplates.ts",

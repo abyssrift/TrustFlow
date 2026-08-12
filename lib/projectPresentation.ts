@@ -106,7 +106,7 @@ export const ENTITY_META: Record<EntityKind, EntityMeta> = {
   template: {
     label: 'Template',
     plural: 'Templates',
-    icon: 'clone',
+    icon: 'list-alt',
     shape: 'blueprint',
     tone: 'accent',
     blurb: 'A template is the task list a project starts from — captured once from real work, reused every year.',

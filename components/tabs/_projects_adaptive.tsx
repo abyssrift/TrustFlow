@@ -132,7 +132,7 @@ export default function ProjectsScreen({ portfolioId }: { portfolioId?: string }
               className="bg-surface-card border border-surface-border rounded-xl items-center justify-center"
               style={{ width: 44, height: 44 }}
             >
-              <FontAwesome name="clone" size={15} color={colors.textMuted} />
+              <FontAwesome name="list-alt" size={15} color={colors.textMuted} />
             </TouchableOpacity>
           </Tooltip>
 

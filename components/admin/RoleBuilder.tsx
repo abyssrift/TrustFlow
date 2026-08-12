@@ -124,7 +124,7 @@ export default function RoleBuilder() {
                 onPress={() => setShowTemplates(true)}
                 className="bg-surface-card border border-surface-border px-4 py-3 rounded-xl active:scale-[0.98] flex-row items-center"
               >
-                <FontAwesome name="th-large" size={11} color={colors.primary} />
+                <FontAwesome name="list-alt" size={11} color={colors.primary} />
                 <Text className="text-typography-main font-black text-[10px] uppercase tracking-widest ml-2">Templates</Text>
               </TouchableOpacity>
               <TouchableOpacity

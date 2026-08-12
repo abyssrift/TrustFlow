@@ -141,7 +141,7 @@ export default function ProjectsScreenWeb({ portfolioId }: { portfolioId?: strin
                 className="bg-surface-card border border-surface-border px-4 rounded-xl hover:bg-surface-overlay flex-row items-center gap-2 justify-center"
                 style={{ minHeight: 44 }}
               >
-                <FontAwesome name="clone" size={13} color={colors.textMuted} />
+                <FontAwesome name="list-alt" size={13} color={colors.textMuted} />
                 <Text className="text-typography-main text-sm font-semibold">Templates</Text>
               </TouchableOpacity>
             </Tooltip>
