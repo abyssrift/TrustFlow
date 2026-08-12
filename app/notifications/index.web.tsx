@@ -218,7 +218,7 @@ export default function NotificationsScreenWeb() {
           <View className="w-60 border-r border-surface-border p-4 flex-col">
             <View className="flex-row items-center px-3 pt-2 pb-5">
               <View className="h-10 w-10 rounded-2xl bg-brand-primary/10 items-center justify-center mr-3">
-                <FontAwesome name="bell" size={17} color={colors.primary} />
+                <FontAwesome name="bell-o" size={17} color={colors.primary} />
               </View>
               <View className="flex-1 min-w-0">
                 <Text className="text-base font-black text-typography-main tracking-tight" numberOfLines={1}>
@@ -278,7 +278,7 @@ export default function NotificationsScreenWeb() {
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity onPress={() => router.back()} className={iconBtn}>
-                  <FontAwesome name="close" size={14} color={colors.textMuted} />
+                  <FontAwesome name="times" size={14} color={colors.textMuted} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -305,7 +305,7 @@ export default function NotificationsScreenWeb() {
           <View className="flex-row items-center flex-1 min-w-0 mr-3">
             {!isNarrow && (
               <View className="h-12 w-12 rounded-2xl bg-brand-primary/10 items-center justify-center mr-4">
-                <FontAwesome name="bell" size={20} color={colors.primary} />
+                <FontAwesome name="bell-o" size={20} color={colors.primary} />
               </View>
             )}
             <View className="flex-1 min-w-0">
@@ -363,7 +363,7 @@ export default function NotificationsScreenWeb() {
                 : `${iconBtn} ml-1`
               }
             >
-              <FontAwesome name="close" size={14} color={colors.textMuted} />
+              <FontAwesome name="times" size={14} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
         </View>

@@ -1181,7 +1181,7 @@ function UploadSheet({
                     </TouchableOpacity>
                     {Platform.OS === 'web' && (
                       <TouchableOpacity onPress={() => folderInputRef.current?.click()} className="flex-row items-center gap-2 bg-surface-background border border-surface-border px-5 py-2.5 rounded-xl">
-                        <FontAwesome name="folder-open" size={12} color={colors.textMuted} />
+                        <FontAwesome name="folder-open-o" size={12} color={colors.textMuted} />
                         <Text className="text-typography-muted font-black text-sm">Folder</Text>
                       </TouchableOpacity>
                     )}
@@ -1843,7 +1843,7 @@ function GroupMembersSheet({
                   className="flex-1 flex-row items-center gap-2"
                 >
                   <Text className="text-typography-main text-xl font-black" numberOfLines={1}>{group.name}</Text>
-                  {myRole === 'admin' && <FontAwesome name="pencil" size={12} color={colors.textMuted} />}
+                  {myRole === 'admin' && <FontAwesome name="pencil-square-o" size={12} color={colors.textMuted} />}
                 </TouchableOpacity>
               )}
               <Tooltip label="Close">
@@ -1962,7 +1962,7 @@ function GroupMembersSheet({
                     onPress={() => { onClose(); router.push('/admin/roles?tab=roles'); }}
                     className="flex-row items-center gap-2 mt-2.5"
                   >
-                    <FontAwesome name="sliders" size={11} color={colors.primary} />
+                    <FontAwesome name="filter" size={11} color={colors.primary} />
                     <Text className="text-brand-primary font-black text-xs">Change sharing permissions</Text>
                     <FontAwesome name="chevron-right" size={12} color={colors.primary} />
                   </TouchableOpacity>
@@ -2004,7 +2004,7 @@ function FolderCard({ folder, onNavigate, onRename, onDelete }: {
 
   const folderIcon = (
     <View className="w-11 h-11 bg-surface-background border border-surface-border rounded-xl items-center justify-center flex-shrink-0">
-      <FontAwesome name="folder" size={20} color={colors.primary} />
+      <FontAwesome name="folder-o" size={20} color={colors.primary} />
     </View>
   );
 
@@ -2035,7 +2035,7 @@ function FolderCard({ folder, onNavigate, onRename, onDelete }: {
         <Text className="text-typography-main font-black text-sm" numberOfLines={1}>{folder.name}</Text>
       </View>
       <TouchableOpacity onPress={() => { setRenameValue(folder.name); setIsRenaming(true); }} className="w-9 h-9 items-center justify-center">
-        <FontAwesome name="pencil" size={12} color={colors.textMuted} />
+        <FontAwesome name="pencil-square-o" size={12} color={colors.textMuted} />
       </TouchableOpacity>
       <TouchableOpacity onPress={onDelete} className="w-9 h-9 items-center justify-center">
         <FontAwesome name="trash-o" size={12} color={colors.textMuted} />
@@ -2291,7 +2291,7 @@ function TagsManageSheet({ visible, onClose, onChanged }: {
                           onPress={() => { setRenamingTag(tag); setRenameInput(tag); }}
                           className="w-9 h-9 bg-surface-background border border-surface-border rounded-xl items-center justify-center"
                         >
-                          <FontAwesome name="pencil" size={13} color={colors.textMuted} />
+                          <FontAwesome name="pencil-square-o" size={13} color={colors.textMuted} />
                         </TouchableOpacity>
                         <TouchableOpacity
                           onPress={() => handleDelete(tag)}

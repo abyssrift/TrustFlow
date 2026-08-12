@@ -205,7 +205,7 @@ const CompanyDetailModal = ({
                 >
                   {deleting
                     ? <ActivityIndicator size="small" color={colors.danger} />
-                    : <FontAwesome name="trash" size={12} color={colors.danger} />
+                    : <FontAwesome name="trash-o" size={12} color={colors.danger} />
                   }
                   <Text className="text-state-danger text-xs font-bold">Delete Workspace</Text>
                 </TouchableOpacity>
@@ -382,7 +382,7 @@ const TenantsSection = ({
 
         {companies.length === 0 && (
           <View className="items-center py-20">
-            <FontAwesome name="building-o" size={40} color={colors.textDim} />
+            <FontAwesome name="briefcase" size={40} color={colors.textDim} />
             <Text className="text-typography-dim mt-4 text-sm">No tenants registered yet</Text>
           </View>
         )}
@@ -586,7 +586,7 @@ const LiveSection = () => {
               </Text>
               <View className="flex-row items-center justify-between mt-1">
                 <View className="flex-row items-center gap-1.5">
-                  <FontAwesome name="building-o" size={9} color={colors.textDim} />
+                  <FontAwesome name="briefcase" size={9} color={colors.textDim} />
                   <Text className="text-typography-dim text-[10px]">{s.company_name ?? 'Unknown workspace'}</Text>
                 </View>
                 <Text className="text-typography-dim text-[10px]">Started {timeAgo(s.started_at)}</Text>

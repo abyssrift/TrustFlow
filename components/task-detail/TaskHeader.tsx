@@ -378,7 +378,7 @@ export default function TaskHeader() {
                 <ActivityIndicator size="small" color={colors.primary} />
               ) : (
                 <>
-                  <FontAwesome name="bell" size={10} className="text-brand-primary" />
+                  <FontAwesome name="bell-o" size={10} className="text-brand-primary" />
                   <Text className="text-brand-primary text-[10px] font-black uppercase tracking-wider ml-2">Ping</Text>
                 </>
               )}

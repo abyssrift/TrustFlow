@@ -51,7 +51,7 @@ export default function StatsGrid() {
           { label: 'Tasks Completed', value: completedCount || 0, icon: 'check-circle', color: colors.success },
           { label: 'Active Tasks', value: activeCount || 0, icon: 'clock-o', color: colors.primary },
           { label: 'Work Hours', value: `${totalHours}h`, icon: 'hourglass-half', color: colors.accent },
-          { label: 'Projects', value: 3, icon: 'briefcase', color: colors.info }, // Mocked for now
+          { label: 'Projects', value: 3, icon: 'folder-o', color: colors.info }, // Mocked for now
         ]);
       } catch (err) {
         console.error('Error fetching stats:', err);

@@ -34,7 +34,7 @@ const LEGACY_TABS: Record<string, TabKey> = { work: 'assignments' };
 // projects list uses for its view switch — three separately-outlined
 // pill buttons read as three competing actions rather than one control.
 const TABS: { value: TabKey; label: string; icon: string }[] = [
-  { value: 'overview', label: 'Overview', icon: 'dashboard' },
+  { value: 'overview', label: 'Overview', icon: 'th-large' },
   { value: 'assignments', label: 'Assignments', icon: 'users' },
   { value: 'files', label: 'Files', icon: 'folder-o' },
 ];

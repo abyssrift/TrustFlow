@@ -363,7 +363,7 @@ const TargetCircle = ({
               onPress={onEdit}
               className="bg-brand-primary/10 border border-brand-primary/20 px-2.5 py-1 rounded-full flex-row items-center gap-1"
             >
-              <FontAwesome name="pencil" size={8} color={palette.primary} />
+              <FontAwesome name="pencil-square-o" size={8} color={palette.primary} />
               <Text className="text-brand-primary font-black uppercase" style={{ fontSize: 7 }}>Edit</Text>
             </TouchableOpacity>
           )}

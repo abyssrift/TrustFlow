@@ -70,7 +70,7 @@ export default function ProjectFolderModal({
               </Text>
               <Tooltip label="Close">
                 <TouchableOpacity onPress={onClose} className="p-2">
-                  <FontAwesome name="close" size={20} color={c.textMuted} />
+                  <FontAwesome name="times" size={20} color={c.textMuted} />
                 </TouchableOpacity>
               </Tooltip>
             </View>
@@ -130,7 +130,7 @@ export default function ProjectFolderModal({
                     <Text style={{ color: expiryDate ? c.textMain : c.textMuted, fontWeight: expiryDate ? '500' : '400' }}>
                       {expiryDate ? new Date(expiryDate + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'No expiry date set'}
                     </Text>
-                    <FontAwesome name="calendar" size={14} color={c.textDim} />
+                    <FontAwesome name="calendar-o" size={14} color={c.textDim} />
                   </TouchableOpacity>
                   {expiryDate && (
                     <Tooltip label="Clear date">

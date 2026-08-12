@@ -85,7 +85,7 @@ export default function QuickCreateButton({
     { id: 'report', icon: 'file-text-o', label: 'New Report', permission: 'report.view', run: () => router.push('/intelligence/reports') },
     { id: 'upload', icon: 'cloud-upload', label: 'Upload File', permission: 'filehub:view', run: () => router.push('/filehub') },
     { id: 'search', icon: 'search', label: 'Search', run: () => router.push('/search') },
-    { id: 'deadlines', icon: 'calendar', label: 'Deadlines', run: () => router.push('/deadlines') },
+    { id: 'deadlines', icon: 'calendar-o', label: 'Deadlines', run: () => router.push('/deadlines') },
   ];
 
   const items = actions.filter((a) => !a.permission || hasPermission(a.permission));

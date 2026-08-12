@@ -11,7 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DraggableSheet from '../common/DraggableSheet';
 import LoadingOverlay from '../common/LoadingOverlay';
 import ClipboardControls from '../common/ClipboardControls';
-import Calendar from '@/components/common/Calendar';
+import { DateRangePillPicker } from '@/components/intelligence/DateRangeFilter';
 import { formatFileSize, getFileIcon } from '@/lib/taskFileHelpers';
 import { useCreateTaskWizard } from '@/lib/useCreateTaskWizard';
 import { usePipelineAssignmentPreview } from '@/lib/usePipelineAssignmentPreview';
@@ -123,11 +123,11 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
     bulkText, setBulkText,
     bulkTitles, canSubmit,
     users, teams,
-    showCalendar, setShowCalendar,
     templates, saveAsTemplate, loadTemplate, deleteTemplate,
     handleCreate, removeBriefFile,
   } = useCreateTaskWizard({ visible, initialPipelineId });
   const { preview: assignmentPreview } = usePipelineAssignmentPreview(draft.pipelineId);
+  const dateConflict = !!(draft.startDate && draft.dueDate && draft.startDate > draft.dueDate);
 
   const renderStep = () => {
     switch (step) {
@@ -292,27 +292,19 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                 </View>
              </View>
              <View>
-                <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-4 ml-1">Deadline Sequence</Text>
-                <TouchableOpacity
-                  onPress={() => setShowCalendar(!showCalendar)}
-                  className="bg-surface-background border border-surface-border rounded-xl px-5 py-4 flex-row items-center justify-between"
-                >
-                   <Text className={`font-black ${draft.dueDate ? 'text-typography-main' : 'text-typography-dim'}`}>
-                      {draft.dueDate ? new Date(draft.dueDate).toLocaleDateString(undefined, { dateStyle: 'long' }) : 'Set Objective Deadline'}
-                   </Text>
-                   <FontAwesome name="calendar" size={14} className="text-brand-primary" />
-                </TouchableOpacity>
-
-                {showCalendar && (
-                  <View className="mt-4">
-                    <Calendar
-                      selectedDate={draft.dueDate}
-                      onSelect={(date) => {
-                        setDraft({ dueDate: date });
-                        setShowCalendar(false);
-                      }}
-                      scale="compact"
-                    />
+                <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-4 ml-1">Timeline</Text>
+                <DateRangePillPicker
+                  from={draft.startDate}
+                  to={draft.dueDate}
+                  fromPlaceholder="Start"
+                  toPlaceholder="Deadline"
+                  onApply={(f, t) => setDraft({ startDate: f, dueDate: t })}
+                  onClear={() => setDraft({ startDate: null, dueDate: null })}
+                />
+                {dateConflict && (
+                  <View className="flex-row items-center gap-2 ml-1 mt-2">
+                    <FontAwesome name="exclamation-triangle" size={11} className="text-typography-muted" color={colors.warning} />
+                    <Text className="text-typography-label text-[10px] font-black uppercase tracking-wider" style={{ color: colors.warning }}>Start date is after deadline</Text>
                   </View>
                 )}
              </View>

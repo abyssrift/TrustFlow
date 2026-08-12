@@ -273,7 +273,7 @@ export default function TimelineDropdown({
           cursor: 'pointer',
         }}
       >
-        <FontAwesome name="calendar" size={11} color={colors.textMuted} />
+        <FontAwesome name="calendar-o" size={11} color={colors.textMuted} />
         Open calendar
       </button>
     </div>

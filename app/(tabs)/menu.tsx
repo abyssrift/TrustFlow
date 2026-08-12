@@ -22,17 +22,17 @@ type Shortcut = {
 
 const SHORTCUTS: Shortcut[] = [
   { id: 'search', permissionKey: '', icon: 'search', label: 'Search', href: '/search' },
-  { id: 'deadlines', permissionKey: '', icon: 'calendar', label: 'Deadlines', href: '/deadlines' },
+  { id: 'deadlines', permissionKey: '', icon: 'calendar-o', label: 'Deadlines', href: '/deadlines' },
   { id: 'projects', permissionKey: 'project.view', icon: 'folder-o', label: 'Projects', href: '/projects' },
   // Same glyph as components/entities/EntityUI.tsx's canonical portfolio icon
   // (ENTITY_META.portfolio.icon), same gate as the server (project.view).
-  { id: 'portfolios', permissionKey: 'project.view', icon: 'th-large', label: 'Portfolios', href: '/portfolios' },
+  { id: 'portfolios', permissionKey: 'project.view', icon: 'cubes', label: 'Portfolios', href: '/portfolios' },
   { id: 'radar', permissionKey: 'report.view', icon: 'bullseye', label: 'Intelligence', href: '/intelligence' },
   { id: 'targets', permissionKey: 'target.view', icon: 'crosshairs', label: 'Targets', href: '/intelligence/targets' },
   { id: 'archives', permissionKey: 'archive.view', icon: 'archive', label: 'Archives', href: '/intelligence/archives' },
-  { id: 'filehub', permissionKey: 'filehub:view', icon: 'folder-open', label: 'File Hub', href: '/filehub' },
+  { id: 'filehub', permissionKey: 'filehub:view', icon: 'folder-open-o', label: 'File Hub', href: '/filehub' },
   { id: 'analytics', permissionKey: 'report.view', icon: 'bar-chart', label: 'Analytics', href: '/intelligence/analytics' },
-  { id: 'team', permissionKey: 'user.view_all', fallbackPermissionKey: 'role.manage', icon: 'users', label: 'Corporate', href: '/people?section=teams' },
+  { id: 'team', permissionKey: 'user.view_all', fallbackPermissionKey: 'role.manage', icon: 'briefcase', label: 'Corporate', href: '/people?section=teams' },
 ];
 
 const displayNameFromSession = (session: any) => {
@@ -185,7 +185,7 @@ export default function MenuScreen() {
             <Text className="mb-2 ml-2 text-[10px] font-black uppercase tracking-widest text-typography-muted">Pipelines</Text>
             <View className="bg-surface-card rounded-2xl border border-surface-border overflow-hidden mb-6">
               {pipelines.map((p, i) => {
-                const icons = ['bolt', 'sitemap', 'random', 'sliders', 'exchange', 'cogs'];
+                const icons = ['bolt', 'sitemap', 'random', 'server', 'exchange', 'cogs'];
                 const icon = icons[i % icons.length] as IconName;
                 const isActive = pathname === '/tasks' && String(params.pipelineId || '') === p.id;
                 return (
@@ -219,7 +219,7 @@ export default function MenuScreen() {
           <Link href="/notifications" asChild>
             <Pressable className="flex-row items-center p-4">
               <View className="w-8 items-center">
-                <FontAwesome name="bell" size={18} color={colors.textMain} />
+                <FontAwesome name="bell-o" size={18} color={colors.textMain} />
               </View>
               <Text className="font-bold ml-2 text-typography-main">Notifications</Text>
             </Pressable>

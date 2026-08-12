@@ -97,7 +97,7 @@ const PRIMITIVE_LABELS: Record<ColumnPrimitive, string> = {
   unique_id: 'Unique ID', enum: 'Choice', freetext: 'Text', empty: 'Empty', unknown: 'Unrecognised',
 };
 const PRIMITIVE_ICONS: Record<ColumnPrimitive, any> = {
-  email: 'envelope', phone: 'phone', date: 'calendar', year: 'calendar-o', money: 'money',
+  email: 'envelope-o', phone: 'phone', date: 'calendar-o', year: 'calendar-o', money: 'money',
   unique_id: 'key', enum: 'list-ul', freetext: 'font', empty: 'ban', unknown: 'question',
 };
 
@@ -1203,7 +1203,7 @@ export default function SpreadsheetImportSheet({
       warningCards.push(
         <View key={`dord-${d.index}`} className="rounded-2xl p-3" style={[{ backgroundColor: c.background, borderWidth: 1, borderColor: c.warning, gap: 8 }, cardLayout]}>
           <View className="flex-row items-center" style={{ gap: 6 }}>
-            <FontAwesome name="calendar" size={11} color={c.warning} />
+            <FontAwesome name="calendar-o" size={11} color={c.warning} />
             <Text className="text-typography-main text-[13px] font-black flex-1" numberOfLines={1}>
               “{d.profile.header.trim()}” — day or month first?
             </Text>

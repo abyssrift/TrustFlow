@@ -4,9 +4,8 @@ import DraggableSheet from '@/components/common/DraggableSheet';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
 import Popup from '@/components/common/Popup';
 import SidebarLayout from '@/components/common/SidebarLayout';
-import Calendar from '@/components/common/Calendar';
+import { DateRangePillPicker } from '@/components/intelligence/DateRangeFilter';
 import Tooltip from '@/components/common/Tooltip';
-import { useCalendarPosition } from '@/lib/calendarPicker';
 import { usePipelineAssignmentPreview } from '@/lib/usePipelineAssignmentPreview';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTaskCreation } from '@/contexts/TaskCreationContext';
@@ -212,14 +211,6 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
   const [pipelineSearch, setPipelineSearch] = useState('');
   const [projectSearch,  setProjectSearch]  = useState('');
 
-  // Deadline calendar
-  const [showCalendar, setShowCalendar] = useState(false);
-  const calPos = useCalendarPosition({ calendarWidth: 332 });
-
-  // Start date calendar
-  const [showStartCalendar, setShowStartCalendar] = useState(false);
-  const startCalPos = useCalendarPosition({ calendarWidth: 332 });
-
   // Pipeline dropdown
   const [showPipelineDropdown, setShowPipelineDropdown] = useState(false);
   const pipelineButtonRef                               = useRef<any>(null);
@@ -242,8 +233,6 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
   ];
 
   const closeAllOverlays = useCallback(() => {
-    setShowCalendar(false);
-    setShowStartCalendar(false);
     setShowPipelineDropdown(false);
     setShowProjectDropdown(false);
   }, []);
@@ -590,7 +579,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                 <View>
                   <Text className="text-[10px] font-black uppercase tracking-widest mb-3 ml-1" style={{ color: colors.textMuted }}>Pipeline</Text>
                   <TouchableOpacity
-                    onPress={() => { setShowPipelineDropdown(v => !v); setShowProjectDropdown(false); setShowCalendar(false); setShowStartCalendar(false); }}
+                    onPress={() => { setShowPipelineDropdown(v => !v); setShowProjectDropdown(false); }}
                     className="rounded-2xl px-5 py-4 flex-row items-center justify-between"
                     style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: showPipelineDropdown ? colors.primary : colors.border }}
                   >
@@ -642,7 +631,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                 <View>
                   <Text className="text-[10px] font-black uppercase tracking-widest mb-3 ml-1" style={{ color: colors.textMuted }}>Project</Text>
                   <TouchableOpacity
-                    onPress={() => { setShowProjectDropdown(v => !v); setShowPipelineDropdown(false); setShowCalendar(false); setShowStartCalendar(false); }}
+                    onPress={() => { setShowProjectDropdown(v => !v); setShowPipelineDropdown(false); }}
                     className="rounded-2xl px-5 py-4 flex-row items-center justify-between"
                     style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: showProjectDropdown ? colors.accent : colors.border }}
                   >
@@ -760,88 +749,17 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                 {/* Auto-assignment preview */}
                 <AssignmentModePreview preview={assignmentPreview} hasManualAssignees={assignmentCount > 0} />
 
-                {/* Start Date */}
+                {/* Timeline — shared range picker (issue #262) */}
                 <View>
-                  <Text className="text-[10px] font-black uppercase tracking-widest mb-3 ml-1" style={{ color: colors.textMuted }}>Start Date</Text>
-                  <View className="rounded-2xl flex-row items-center overflow-hidden" style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: dateConflict ? colors.warning : colors.border }}>
-                    <TouchableOpacity
-                      onPress={() => { setShowStartCalendar(v => !v); setShowCalendar(false); setShowPipelineDropdown(false); setShowProjectDropdown(false); }}
-                      className="flex-1 px-5 py-4"
-                    >
-                      <Text className="font-black text-sm" style={{ color: draft.startDate ? colors.textMain : colors.textDim }}>
-                        {draft.startDate ? new Date(draft.startDate).toLocaleDateString(undefined, { dateStyle: 'medium' }) : 'Set Start Date'}
-                      </Text>
-                    </TouchableOpacity>
-                    {draft.startDate ? (
-                      <Tooltip label="Clear start date">
-                        <TouchableOpacity onPress={() => setDraft({ startDate: null })} className="px-4 py-4">
-                          <FontAwesome name="times-circle" size={14} color={colors.textDim} />
-                        </TouchableOpacity>
-                      </Tooltip>
-                    ) : (
-                      <Tooltip label="Select start date">
-                        <TouchableOpacity onPress={() => { setShowStartCalendar(v => !v); setShowCalendar(false); setShowPipelineDropdown(false); setShowProjectDropdown(false); }} className="px-4 py-4">
-                          <FontAwesome name="calendar-o" size={14} color={colors.accent} />
-                        </TouchableOpacity>
-                      </Tooltip>
-                    )}
-                  </View>
-                  {showStartCalendar && (
-                    <View className="mt-3">
-                      <Calendar
-                        selectedDate={draft.startDate}
-                        onSelect={date => { setDraft({ startDate: date }); setShowStartCalendar(false); }}
-                        accentColor={colors.accent}
-                        rangeDate={draft.dueDate}
-                        rangeColor={colors.primary}
-                        scale="compact"
-                        showQuickSelect
-                        showDaysBetween
-                      />
-                    </View>
-                  )}
-                </View>
-
-                {/* Deadline */}
-                <View>
-                  <Text className="text-[10px] font-black uppercase tracking-widest mb-3 ml-1" style={{ color: colors.textMuted }}>Deadline</Text>
-                  <View className="rounded-2xl flex-row items-center overflow-hidden" style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: dateConflict ? colors.warning : colors.border }}>
-                    <TouchableOpacity
-                      onPress={() => { setShowCalendar(v => !v); setShowStartCalendar(false); setShowPipelineDropdown(false); setShowProjectDropdown(false); }}
-                      className="flex-1 px-5 py-4"
-                    >
-                      <Text className="font-black text-sm" style={{ color: draft.dueDate ? colors.textMain : colors.textDim }}>
-                        {draft.dueDate ? new Date(draft.dueDate).toLocaleDateString(undefined, { dateStyle: 'medium' }) : 'Set Deadline'}
-                      </Text>
-                    </TouchableOpacity>
-                    {draft.dueDate ? (
-                      <Tooltip label="Clear deadline">
-                        <TouchableOpacity onPress={() => setDraft({ dueDate: null })} className="px-4 py-4">
-                          <FontAwesome name="times-circle" size={14} color={colors.textDim} />
-                        </TouchableOpacity>
-                      </Tooltip>
-                    ) : (
-                      <Tooltip label="Select deadline">
-                        <TouchableOpacity onPress={() => { setShowCalendar(v => !v); setShowStartCalendar(false); setShowPipelineDropdown(false); setShowProjectDropdown(false); }} className="px-4 py-4">
-                          <FontAwesome name="calendar" size={14} color={colors.primary} />
-                        </TouchableOpacity>
-                      </Tooltip>
-                    )}
-                  </View>
-                  {showCalendar && (
-                    <View className="mt-3">
-                      <Calendar
-                        selectedDate={draft.dueDate}
-                        onSelect={date => { setDraft({ dueDate: date }); setShowCalendar(false); }}
-                        accentColor={colors.primary}
-                        rangeDate={draft.startDate}
-                        rangeColor={colors.accent}
-                        scale="compact"
-                        showQuickSelect
-                        showDaysBetween
-                      />
-                    </View>
-                  )}
+                  <Text className="text-[10px] font-black uppercase tracking-widest mb-3 ml-1" style={{ color: colors.textMuted }}>Timeline</Text>
+                  <DateRangePillPicker
+                    from={draft.startDate}
+                    to={draft.dueDate}
+                    fromPlaceholder="Start"
+                    toPlaceholder="Deadline"
+                    onApply={(f, t) => setDraft({ startDate: f, dueDate: t })}
+                    onClear={() => setDraft({ startDate: null, dueDate: null })}
+                  />
                   {dateConflict && (
                     <View className="flex-row items-center gap-2 ml-1 mt-2">
                       <FontAwesome name="exclamation-triangle" size={11} color={colors.warning} />
@@ -1103,41 +1021,11 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
       sideMenu={sideMenuContent}
       overlays={(
         <>
-          {(showCalendar || showStartCalendar || showPipelineDropdown || showProjectDropdown) && (
+          {(showPipelineDropdown || showProjectDropdown) && (
             <TouchableOpacity
               style={{ position: 'fixed', inset: 0, zIndex: 998 } as any}
               onPress={closeAllOverlays}
               activeOpacity={0}
-            />
-          )}
-
-          {/* Deadline calendar */}
-          {showCalendar && (
-            <Calendar
-              selectedDate={draft.dueDate}
-              onSelect={date => setDraft({ dueDate: date })}
-              accentColor={colors.primary}
-              rangeDate={draft.startDate}
-              rangeColor={colors.accent}
-              scale="compact"
-              showQuickSelect
-              showDaysBetween
-              floatingStyle={calPos.style as any}
-            />
-          )}
-
-          {/* Start date calendar */}
-          {showStartCalendar && (
-            <Calendar
-              selectedDate={draft.startDate}
-              accentColor={colors.accent}
-              onSelect={date => setDraft({ startDate: date })}
-              rangeDate={draft.dueDate}
-              rangeColor={colors.primary}
-              scale="compact"
-              showQuickSelect
-              showDaysBetween
-              floatingStyle={startCalPos.style as any}
             />
           )}
 
@@ -1159,7 +1047,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                   className="flex-row items-center px-5 py-3.5 hover:bg-surface-overlay"
                   style={{ borderBottomWidth: 1, borderColor: colors.border + '66', backgroundColor: !draft.pipelineId ? colors.primary + '0D' : undefined }}
                 >
-                  <FontAwesome name="times-circle-o" size={13} color={colors.textDim} />
+                  <FontAwesome name="times-circle" size={13} color={colors.textDim} />
                   <Text className="font-bold text-sm ml-3 flex-1" style={{ color: colors.textDim }}>None</Text>
                   {!draft.pipelineId && <FontAwesome name="check" size={11} color={colors.primary} />}
                 </TouchableOpacity>
@@ -1210,7 +1098,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                       className="flex-row items-center px-5 py-3.5 hover:bg-surface-overlay"
                       style={{ borderBottomWidth: 1, borderColor: colors.border + '66', backgroundColor: !draft.projectId ? colors.accent + '0D' : undefined }}
                     >
-                      <FontAwesome name="times-circle-o" size={13} color={colors.textDim} />
+                      <FontAwesome name="times-circle" size={13} color={colors.textDim} />
                       <Text className="font-bold text-sm ml-3 flex-1" style={{ color: colors.textDim }}>None</Text>
                       {!draft.projectId && <FontAwesome name="check" size={11} color={colors.accent} />}
                     </TouchableOpacity>
@@ -1424,7 +1312,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                         onPress={() => {
                           if (!showPipelineDropdown) {
                             openOverlay(pipelineButtonRef, setPipelineDropdownPos, setShowPipelineDropdown);
-                            setShowCalendar(false); setShowStartCalendar(false); setShowProjectDropdown(false);
+                            setShowProjectDropdown(false);
                           } else { setShowPipelineDropdown(false); }
                         }}
                         className="rounded-2xl px-5 py-4 flex-row items-center justify-between transition-all"
@@ -1444,101 +1332,19 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                   {/* Auto-assignment preview — shows the pipeline's mode and who it will pick */}
                   <AssignmentModePreview preview={assignmentPreview} hasManualAssignees={assignmentCount > 0} />
 
-                  {/* Start Date + Deadline */}
-                  <View className="gap-2">
-                    <View className="flex-row gap-8">
-                      {/* Start Date */}
-                      <View className="flex-1">
-                        <Text className="text-[10px] font-black uppercase tracking-widest mb-3 ml-1" style={{ color: colors.textMuted }}>Start Date</Text>
-                        <View className="rounded-2xl flex-row items-center overflow-hidden" style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: dateConflict ? colors.warning : colors.border }}>
-                          <TouchableOpacity
-                            ref={startCalPos.triggerRef}
-                            onPress={() => {
-                              if (!showStartCalendar) {
-                                startCalPos.measure();
-                                setShowStartCalendar(true);
-                                setShowCalendar(false); setShowPipelineDropdown(false); setShowProjectDropdown(false);
-                              } else { setShowStartCalendar(false); }
-                            }}
-                            className="flex-1 px-6 py-4"
-                          >
-                            <Text className="font-black text-sm" style={{ color: draft.startDate ? colors.textMain : colors.textDim }}>
-                              {draft.startDate ? new Date(draft.startDate).toLocaleDateString(undefined, { dateStyle: 'medium' }) : 'Set Start Date'}
-                            </Text>
-                          </TouchableOpacity>
-                          {draft.startDate ? (
-                            <Tooltip label="Clear start date">
-                              <TouchableOpacity onPress={() => setDraft({ startDate: null })} className="px-4 py-4">
-                                <FontAwesome name="times-circle" size={14} color={colors.textDim} />
-                              </TouchableOpacity>
-                            </Tooltip>
-                          ) : (
-                            <Tooltip label="Select start date">
-                              <TouchableOpacity
-                                onPress={() => {
-                                  if (!showStartCalendar) {
-                                    startCalPos.measure();
-                                    setShowStartCalendar(true);
-                                    setShowCalendar(false); setShowPipelineDropdown(false); setShowProjectDropdown(false);
-                                  } else { setShowStartCalendar(false); }
-                                }}
-                                className="px-4 py-4"
-                              >
-                                <FontAwesome name="calendar-o" size={14} color={colors.accent} />
-                              </TouchableOpacity>
-                            </Tooltip>
-                          )}
-                        </View>
-                      </View>
-
-                      {/* Deadline */}
-                      <View className="flex-1">
-                        <Text className="text-[10px] font-black uppercase tracking-widest mb-3 ml-1" style={{ color: colors.textMuted }}>Deadline</Text>
-                        <View className="rounded-2xl flex-row items-center overflow-hidden" style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: dateConflict ? colors.warning : colors.border }}>
-                          <TouchableOpacity
-                            ref={calPos.triggerRef}
-                            onPress={() => {
-                              if (!showCalendar) {
-                                calPos.measure();
-                                setShowCalendar(true);
-                                setShowStartCalendar(false); setShowPipelineDropdown(false); setShowProjectDropdown(false);
-                              } else { setShowCalendar(false); }
-                            }}
-                            className="flex-1 px-6 py-4"
-                          >
-                            <Text className="font-black text-sm" style={{ color: draft.dueDate ? colors.textMain : colors.textDim }}>
-                              {draft.dueDate ? new Date(draft.dueDate).toLocaleDateString(undefined, { dateStyle: 'medium' }) : 'Set Deadline'}
-                            </Text>
-                          </TouchableOpacity>
-                          {draft.dueDate ? (
-                            <Tooltip label="Clear deadline">
-                              <TouchableOpacity onPress={() => setDraft({ dueDate: null })} className="px-4 py-4">
-                                <FontAwesome name="times-circle" size={14} color={colors.textDim} />
-                              </TouchableOpacity>
-                            </Tooltip>
-                          ) : (
-                            <Tooltip label="Select deadline">
-                              <TouchableOpacity
-                                onPress={() => {
-                                  if (!showCalendar) {
-                                    calPos.measure();
-                                    setShowCalendar(true);
-                                    setShowStartCalendar(false); setShowPipelineDropdown(false); setShowProjectDropdown(false);
-                                  } else { setShowCalendar(false); }
-                                }}
-                                className="px-4 py-4"
-                              >
-                                <FontAwesome name="calendar" size={14} color={colors.primary} />
-                              </TouchableOpacity>
-                            </Tooltip>
-                          )}
-                        </View>
-                      </View>
-                    </View>
-
-                    {/* Date conflict warning */}
+                  {/* Timeline — shared range picker (issue #262) */}
+                  <View>
+                    <Text className="text-[10px] font-black uppercase tracking-widest mb-3 ml-1" style={{ color: colors.textMuted }}>Timeline</Text>
+                    <DateRangePillPicker
+                      from={draft.startDate}
+                      to={draft.dueDate}
+                      fromPlaceholder="Start"
+                      toPlaceholder="Deadline"
+                      onApply={(f, t) => setDraft({ startDate: f, dueDate: t })}
+                      onClear={() => setDraft({ startDate: null, dueDate: null })}
+                    />
                     {dateConflict && (
-                      <View className="flex-row items-center gap-2 ml-1">
+                      <View className="flex-row items-center gap-2 ml-1 mt-2">
                         <FontAwesome name="exclamation-triangle" size={11} color={colors.warning} />
                         <Text className="text-[10px] font-black uppercase tracking-wider" style={{ color: colors.warning }}>Start date is after deadline</Text>
                       </View>
@@ -1571,7 +1377,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                         onPress={() => {
                           if (!showProjectDropdown) {
                             openOverlay(projectButtonRef, setProjectDropdownPos, setShowProjectDropdown);
-                            setShowCalendar(false); setShowStartCalendar(false); setShowPipelineDropdown(false);
+                            setShowPipelineDropdown(false);
                           } else { setShowProjectDropdown(false); }
                         }}
                         className="rounded-2xl px-5 py-4 flex-row items-center justify-between transition-all"

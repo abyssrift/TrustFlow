@@ -30,7 +30,7 @@ function SLARiskSection({ data }: { data: any }) {
   return (
     <View className="bg-state-danger/5 border border-state-danger/20 p-5 rounded-2xl mb-4">
       <View className="flex-row items-center mb-4 gap-2">
-        <FontAwesome name="warning" size={14} color={colors.danger} />
+        <FontAwesome name="exclamation-triangle" size={14} color={colors.danger} />
         <Text className="text-state-danger font-black text-sm">SLA Breach Risks</Text>
         <View className="ml-auto bg-state-danger px-2 py-0.5 rounded-full">
           <Text className="text-white text-[9px] font-black">{data.sla_risks.length}</Text>

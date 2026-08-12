@@ -75,7 +75,7 @@ export default function GlobalToastOverlay({ toasts, onDismiss }: Props) {
                   </View>
 
                   <TouchableOpacity onPress={() => onDismiss(toast.id)} className="rounded-full p-1">
-                    <FontAwesome name="close" size={16} color={colors.textDim} />
+                    <FontAwesome name="times" size={16} color={colors.textDim} />
                   </TouchableOpacity>
                 </View>
               </View>

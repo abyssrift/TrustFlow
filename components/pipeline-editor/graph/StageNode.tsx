@@ -173,7 +173,7 @@ export default function StageNode({
                   onPress={onEdit}
                   className="p-1 hover:bg-surface-overlay rounded-md transition-all"
                 >
-                  <FontAwesome name="pencil" size={10} color={stage.color || colors.textDim} />
+                  <FontAwesome name="pencil-square-o" size={10} color={stage.color || colors.textDim} />
                 </TouchableOpacity>
               </Tooltip>
               <Tooltip label="Delete stage">

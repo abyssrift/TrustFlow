@@ -65,7 +65,7 @@ interface FilterPanelProps {
 export default function FilterPanel({
   trigger,
   label = 'Filters',
-  icon = 'sliders',
+  icon = 'filter',
   activeCount = 0,
   isOpen: controlledOpen,
   onOpenChange,

@@ -32,7 +32,7 @@ export default function ConfirmModal({
   const getVariantStyles = () => {
     switch (variant) {
       case 'danger':
-        return { bg: c.danger, icon: 'warning', dim: c.danger + '1A' };
+        return { bg: c.danger, icon: 'exclamation-triangle', dim: c.danger + '1A' };
       case 'warning':
         return { bg: c.warning, icon: 'exclamation-triangle', dim: c.warning + '1A' };
       case 'info':

@@ -73,7 +73,7 @@ const SLARiskAlert = ({ data }: any) => {
   return (
     <View className="mb-6 bg-state-danger/5 border border-state-danger/20 p-5 rounded-3xl">
       <View className="flex-row items-center mb-4">
-        <FontAwesome name="warning" size={14} color={colors.danger} className="mr-2" />
+        <FontAwesome name="exclamation-triangle" size={14} color={colors.danger} className="mr-2" />
         <Text className="text-state-danger font-bold">SLA Breach Risks</Text>
       </View>
       {data.sla_risks.slice(0, 3).map((r: any, i: number) => (
@@ -459,7 +459,7 @@ const ArchivesSection = ({ reports, onDownload, onNew, coldArchives, activeSchem
             return (
               <TouchableOpacity key={archive.id} onPress={() => onSelectArchive(archive)} className="bg-surface-card p-5 rounded-2xl border border-surface-border mb-4 flex-row items-center">
                 <View className={`w-12 h-12 rounded-xl items-center justify-center mr-4 ${archive.restored_at ? 'bg-state-success/10' : 'bg-surface-background'}`}>
-                  <FontAwesome name={archive.entity_type === 'project' ? 'briefcase' : 'tasks'} size={18} className={archive.restored_at ? 'text-state-success' : 'text-brand-primary'} />
+                  <FontAwesome name={archive.entity_type === 'project' ? 'folder-o' : 'tasks'} size={18} className={archive.restored_at ? 'text-state-success' : 'text-brand-primary'} />
                 </View>
                 <View className="flex-1">
                   <Text className="text-typography-main font-bold" numberOfLines={1}>
@@ -469,7 +469,7 @@ const ArchivesSection = ({ reports, onDownload, onNew, coldArchives, activeSchem
                     <Text className="text-typography-muted text-[10px]">{new Date(archive.archived_at).toLocaleDateString()}</Text>
                     {hasIntegrityIssue && (
                       <View className="ml-2 bg-state-danger/10 px-1.5 py-0.5 rounded flex-row items-center">
-                        <FontAwesome name="warning" size={8} className="text-state-danger mr-1" />
+                        <FontAwesome name="exclamation-triangle" size={8} className="text-state-danger mr-1" />
                         <Text className="text-state-danger text-[8px] font-black uppercase">Broken</Text>
                       </View>
                     )}
@@ -643,7 +643,7 @@ const ArchiveDetailModal = ({ visible, onClose, archive, activeSchema, onRestore
             {hasIntegrityIssue && (
               <View className="bg-state-danger/10 border border-state-danger/20 p-5 rounded-2xl mb-8">
                 <View className="flex-row items-center mb-2">
-                   <FontAwesome name="warning" size={16} color={colors.danger} className="mr-3" />
+                   <FontAwesome name="exclamation-triangle" size={16} color={colors.danger} className="mr-3" />
                    <Text className="text-state-danger font-black">Integrity Breach Detected</Text>
                 </View>
                 <Text className="text-state-danger/70 text-xs font-bold leading-relaxed">

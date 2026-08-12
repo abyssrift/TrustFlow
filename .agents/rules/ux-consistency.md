@@ -63,6 +63,15 @@ implementation), `showQuickSelect` (Today/Tomorrow/+3 Days/+1 Week/+2 Weeks/+1 M
 sidebar), `dual_display` (two months side by side — Popup mode only, must be
 explicit, never auto-detected from viewport width), `accentColor`/`rangeColor`.
 
+**Range inputs — canonical control is `DateRangePillPicker`** (`DateRangeFilter.tsx`),
+not two floating single-date `Calendar`s and not an inline `mode="range"` grid: a
+From → To pill row that opens one shared range-mode Calendar popup. Use it for every
+start/end date pair (report custom timeframes, task start/deadline — issue #262).
+Pass `fromPlaceholder`/`toPlaceholder` to label the unset pills (e.g. "Start" /
+"Deadline") and `onClear` to render a trailing clear button; derive any
+start-after-end warning in the parent. When only one date is edited at a time (a
+single field), the single-date Floating/Inline forms above still apply.
+
 **Layout gotcha:** `MonthGrid`'s day cells are percentage-widths, which only
 resolve correctly if every ancestor up to the floating/popup panel has a *definite*
 width — give any wrapper around a `Calendar` `flex-1` (or an explicit width), never

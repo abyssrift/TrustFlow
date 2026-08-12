@@ -95,13 +95,18 @@ const PRESETS = [
  * those for the full Intelligence filter bar. `from`/`to` accept `null` for
  * an open-ended/"Anytime" state (shows `placeholder` instead of a date).
  */
-export function DateRangePillPicker({ from, to, onApply, maxDays, active = true, placeholder = 'Select' }: {
+export function DateRangePillPicker({ from, to, onApply, maxDays, active = true, placeholder = 'Select', fromPlaceholder, toPlaceholder, onClear }: {
   from: string | null; to: string | null;
   onApply: (from: string, to: string) => void;
   maxDays?: number | null;
   /** Brand-tint the pills (defaults on — pass false when a sibling preset row already owns the active styling). */
   active?: boolean;
   placeholder?: string;
+  /** Overrides for the From/To pill labels when the respective date is unset (defaults to `placeholder`). */
+  fromPlaceholder?: string;
+  toPlaceholder?: string;
+  /** When provided, renders a trailing clear button (shown once a date is set) that resets the range. */
+  onClear?: () => void;
 }) {
   const colors = useThemeColors();
   const [showRangePicker, setShowRangePicker] = useState(false);
@@ -111,21 +116,34 @@ export function DateRangePillPicker({ from, to, onApply, maxDays, active = true,
 
   return (
     <>
-      <TouchableOpacity
-        onPress={() => setShowRangePicker(true)}
-        className={`px-3.5 py-2 rounded-xl border flex-row items-center gap-2 ${tint}`}
-      >
-        <FontAwesome name="calendar-o" size={11} color={iconColor} />
-        <Text className={`text-[11px] font-bold ${textClass}`}>{from ? fmtDate(from) : placeholder}</Text>
-      </TouchableOpacity>
-      <Text className="text-typography-dim font-bold">→</Text>
-      <TouchableOpacity
-        onPress={() => setShowRangePicker(true)}
-        className={`px-3.5 py-2 rounded-xl border flex-row items-center gap-2 ${tint}`}
-      >
-        <FontAwesome name="calendar-o" size={11} color={iconColor} />
-        <Text className={`text-[11px] font-bold ${textClass}`}>{to ? fmtDate(to) : placeholder}</Text>
-      </TouchableOpacity>
+      <View className="flex-row items-center gap-2">
+        <TouchableOpacity
+          onPress={() => setShowRangePicker(true)}
+          className={`px-3.5 py-2 rounded-xl border flex-row items-center gap-2 ${tint}`}
+        >
+          <FontAwesome name="calendar-o" size={11} color={iconColor} />
+          <Text className={`text-[11px] font-bold ${textClass}`}>{from ? fmtDate(from) : (fromPlaceholder ?? placeholder)}</Text>
+        </TouchableOpacity>
+        <Text className="text-typography-dim font-bold">→</Text>
+        <TouchableOpacity
+          onPress={() => setShowRangePicker(true)}
+          className={`px-3.5 py-2 rounded-xl border flex-row items-center gap-2 ${tint}`}
+        >
+          <FontAwesome name="calendar-o" size={11} color={iconColor} />
+          <Text className={`text-[11px] font-bold ${textClass}`}>{to ? fmtDate(to) : (toPlaceholder ?? placeholder)}</Text>
+        </TouchableOpacity>
+
+        {onClear && (from || to) && (
+          <TouchableOpacity
+            onPress={onClear}
+            accessibilityLabel="Clear date range"
+            className="px-3 py-2 rounded-xl border items-center justify-center"
+            style={{ borderColor: colors.border }}
+          >
+            <FontAwesome name="times" size={11} color={colors.textMuted} />
+          </TouchableOpacity>
+        )}
+      </View>
 
       <Calendar
         visible={showRangePicker}
