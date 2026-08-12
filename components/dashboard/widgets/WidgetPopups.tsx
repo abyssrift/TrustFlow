@@ -12,10 +12,22 @@
 // ui-consistency.md §8 "no inline styles" (same rule Tooltip.tsx and Popup.tsx
 // itself already follow). Spacing/layout stay in className.
 
+import ClipboardControls from '@/components/common/ClipboardControls';
 import Popup from '@/components/common/Popup';
 import { FilterChip } from '@/components/entities/EntityUI';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import {
+  LAYOUT_PRESETS,
+  buildPreset,
+  decodeLayout,
+  describeBuild,
+  encodeLayout,
+  isLayoutError,
+  type LayoutBuild,
+  type LayoutPreset,
+} from '@/lib/dashboardLayoutCodes';
 import {
   WIDGET_CATEGORY_ORDER,
   WIDGET_META,
@@ -25,8 +37,9 @@ import {
   type WidgetType,
 } from '@/lib/dashboardWidgets';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import React from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
+import React, { useEffect, useState } from 'react';
+import { Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 /** Picker entry basis. Same flexWrap idiom as WidgetGrid — grid-cols-* does not
  *  render in this RN-web build (ux-consistency.md, "Dropdowns sit side by side").
@@ -48,11 +61,13 @@ export function DashboardMenuPopup({
   onClose,
   onEditLayout,
   onOpenPipelineConfig,
+  onOpenPresets,
 }: {
   visible: boolean;
   onClose: () => void;
   onEditLayout: () => void;
   onOpenPipelineConfig: () => void;
+  onOpenPresets: () => void;
 }) {
   const c = useThemeColors();
 
@@ -79,11 +94,12 @@ export function DashboardMenuPopup({
   );
 
   return (
-    // Two rows and no columns to give them — 420 is what ux-consistency.md
+    // Three rows and no columns to give them — 420 is what ux-consistency.md
     // calls correct for a single decision, and says not to widen.
     <Popup visible={visible} onClose={onClose} presentation="auto" maxWidth={420} dimBackdrop title="Dashboard">
       <View className="px-6 pt-4 pb-6">
         {row('th-large', 'Edit dashboard layout', 'Add, resize, reorder or remove widgets.', onEditLayout)}
+        {row('magic', 'Presets and layout codes', 'Start from a ready-made layout, or copy this one to share it.', onOpenPresets)}
         {row('sliders', 'Pipeline configuration', 'Choose which pipelines this dashboard tracks.', onOpenPipelineConfig)}
       </View>
     </Popup>
@@ -342,6 +358,255 @@ export function WidgetConfigPopup({
         })}
       </View>
     </Popup>
+  );
+}
+
+// ── Presets and layout codes ─────────────────────────────────────────────
+
+/**
+ * One popup for both ways of replacing a layout, because they are one
+ * operation: a preset and a pasted code both become a validated instance list
+ * via lib/dashboardLayoutCodes.ts and both go through `onApply`.
+ *
+ * It is reached from the sliders menu rather than from a fourth header button —
+ * the adaptive header is already full at 390px (see DashboardMenuPopup).
+ */
+export function DashboardLayoutPopup({
+  visible,
+  onClose,
+  instances,
+  onApply,
+  onUndo,
+  canUndo,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  /** The dashboard as it stands — what "Copy layout code" encodes. */
+  instances: readonly WidgetInstance[];
+  onApply: (next: WidgetInstance[]) => void;
+  onUndo: () => void;
+  canUndo: boolean;
+}) {
+  const c = useThemeColors();
+  const { hasPermission } = useAuth();
+  const { showToast, successToast } = useToast();
+  const can = (permission: string | null) => permission === null || hasPermission(permission);
+
+  const [pasted, setPasted] = useState('');
+  const [copied, setCopied] = useState(false);
+
+  // A code left in the field from last time would be previewed against a layout
+  // it no longer describes.
+  useEffect(() => { if (!visible) { setPasted(''); setCopied(false); } }, [visible]);
+
+  const code = encodeLayout(instances);
+
+  // Recomputed every render rather than memoized: it is a string parse over at
+  // most 24 entries, and `can` is a new function identity on every render
+  // anyway (AuthContext rebuilds hasPermission), so a memo would be a lie.
+  const preview = pasted.trim() === '' ? null : decodeLayout(pasted, { can });
+
+  /**
+   * The one apply path the UI has. Replaces, closes, and hands back an Undo —
+   * offered as a toast action because that is where the user is looking after
+   * the popup closes, and GlobalToastOverlay already renders `actionLabel`.
+   */
+  const apply = (build: LayoutBuild, what: string) => {
+    onApply(build.instances);
+    onClose();
+    showToast({
+      type: 'success',
+      title: what,
+      message: describeBuild(build),
+      // Long enough to read a two-clause sentence and still act on it.
+      duration: 9000,
+      actionLabel: 'Undo',
+      onPress: onUndo,
+    });
+  };
+
+  const copy = async () => {
+    await Clipboard.setStringAsync(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1600);
+    successToast('Layout code copied. Paste it anywhere to rebuild this dashboard.', 'Copied');
+  };
+
+  const caption = (text: string) => (
+    <Text className="text-[10px] font-black uppercase tracking-widest mb-2.5" style={{ color: c.textMuted }}>
+      {text}
+    </Text>
+  );
+
+  return (
+    <Popup
+      visible={visible}
+      onClose={onClose}
+      presentation="auto"
+      // 560, not the 420 single-decision default: this is three stacked
+      // decisions and the code itself needs a line it can breathe on. Below
+      // Popup's 768px breakpoint it renders as a sheet and everything here is
+      // already one column, so mobile web needs no second layout.
+      maxWidth={560}
+      dimBackdrop
+      title="Presets and layout codes"
+    >
+      <View className="px-6 pt-4 pb-6">
+        {/* ── Presets ── */}
+        {caption('Start from a preset')}
+        <Text className="text-xs leading-5 mb-3" style={{ color: c.textMuted }}>
+          Each one replaces what you have now. Widgets you don't have access to are left out.
+        </Text>
+        {LAYOUT_PRESETS.map(preset => (
+          <PresetRow key={preset.id} preset={preset} can={can} onPick={apply} />
+        ))}
+
+        {/* ── Copy ── */}
+        <View className="mt-5">
+          {caption('Share this layout')}
+          <Text className="text-xs leading-5 mb-3" style={{ color: c.textMuted }}>
+            A layout code rebuilds this arrangement on another device or for someone else. It carries the
+            widgets and their settings — never your data, and never which pipelines you track.
+          </Text>
+          <View
+            className="rounded-xl px-3 py-2.5 mb-2.5"
+            style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}
+          >
+            <Text
+              className="text-[11px] leading-4"
+              numberOfLines={2}
+              selectable
+              style={{ color: c.textMuted }}
+            >
+              {code}
+            </Text>
+          </View>
+          <TouchableOpacity
+            onPress={copy}
+            accessibilityRole="button"
+            accessibilityLabel="Copy layout code to the clipboard"
+            className="flex-row items-center justify-center gap-2 rounded-xl px-4"
+            style={{ minHeight: 44, backgroundColor: copied ? c.success + '1F' : c.primary + '14', borderWidth: 1, borderColor: (copied ? c.success : c.primary) + '2E' }}
+          >
+            <FontAwesome name={copied ? 'check' : 'copy'} size={13} color={copied ? c.success : c.primary} />
+            <Text className="text-xs font-bold" style={{ color: copied ? c.success : c.primary }}>
+              {copied ? 'Copied' : 'Copy layout code'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ── Paste ── */}
+        <View className="mt-5">
+          <View className="flex-row items-center justify-between mb-2.5">
+            {caption('Paste a layout code')}
+            {/* The existing copy/paste affordance — one tap instead of a long
+                press, and it is the only paste path that works on both web and
+                native (navigator.clipboard is web-only and needs HTTPS). */}
+            <ClipboardControls value={pasted} onPaste={setPasted} showCopy={false} />
+          </View>
+          <TextInput
+            value={pasted}
+            onChangeText={setPasted}
+            placeholder="TFD1-…"
+            placeholderTextColor={c.textDim}
+            autoCapitalize="none"
+            autoCorrect={false}
+            multiline
+            accessibilityLabel="Layout code"
+            className="rounded-xl px-3 py-2.5 text-[11px]"
+            style={{ minHeight: 62, color: c.textMain, backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}
+          />
+
+          {preview !== null && (
+            isLayoutError(preview) ? (
+              <View className="flex-row items-start gap-2 mt-2.5">
+                <FontAwesome name="exclamation-circle" size={12} color={c.danger} style={{ marginTop: 1 }} />
+                <Text className="flex-1 text-[11px] leading-4 font-semibold" style={{ color: c.danger }}>
+                  {preview.error}
+                </Text>
+              </View>
+            ) : (
+              <>
+                {/* What will happen, BEFORE anything is replaced. */}
+                <View className="flex-row items-start gap-2 mt-2.5">
+                  <FontAwesome name="info-circle" size={12} color={c.info} style={{ marginTop: 1 }} />
+                  <Text className="flex-1 text-[11px] leading-4" style={{ color: c.textMuted }}>
+                    {describeBuild(preview)}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => apply(preview, 'Layout replaced')}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Use this layout. ${describeBuild(preview)}`}
+                  className="flex-row items-center justify-center gap-2 rounded-xl px-4 mt-2.5"
+                  style={{ minHeight: 44, backgroundColor: c.primary, borderWidth: 1, borderColor: c.primary }}
+                >
+                  {/* 'white' on a filled primary button, the idiom every other
+                      filled action in the app uses — `c.card` would be dark
+                      navy on a dark theme. */}
+                  <Text className="text-xs font-bold" style={{ color: 'white' }}>Use this layout</Text>
+                </TouchableOpacity>
+              </>
+            )
+          )}
+        </View>
+
+        {/* Undo also lives here, not only on the toast: a toast that has already
+            faded is not an affordance, and this is the surface the user was on. */}
+        {canUndo && (
+          <TouchableOpacity
+            onPress={() => { onUndo(); onClose(); }}
+            accessibilityRole="button"
+            accessibilityLabel="Undo the layout change and put back the previous dashboard"
+            className="flex-row items-center justify-center gap-2 rounded-xl px-4 mt-5"
+            style={{ minHeight: 44, borderWidth: 1, borderColor: c.border, backgroundColor: c.card }}
+          >
+            <FontAwesome name="undo" size={13} color={c.textMuted} />
+            <Text className="text-xs font-bold" style={{ color: c.textMuted }}>Put back my previous layout</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </Popup>
+  );
+}
+
+/**
+ * One preset, priced honestly: the count it shows is what THIS viewer would
+ * get, because it is built through the same permission-filtered path the tap
+ * applies. A preset that mostly does not apply to you says so before you pick it.
+ */
+function PresetRow({
+  preset,
+  can,
+  onPick,
+}: {
+  preset: LayoutPreset;
+  can: (permission: string | null) => boolean;
+  onPick: (build: LayoutBuild, what: string) => void;
+}) {
+  const c = useThemeColors();
+  const build = buildPreset(preset, can);
+  const denied = build.skipped.length;
+
+  return (
+    <TouchableOpacity
+      onPress={() => onPick(build, `Switched to ${preset.name}`)}
+      disabled={build.instances.length === 0}
+      accessibilityRole="button"
+      accessibilityLabel={`${preset.name}. ${preset.blurb} ${describeBuild(build)}`}
+      className="flex-row items-center gap-3 rounded-2xl p-3.5 mb-2.5"
+      style={{ minHeight: 44, borderWidth: 1, borderColor: c.border, backgroundColor: c.card }}
+    >
+      <View className="flex-1">
+        <Text className="text-sm font-bold" style={{ color: c.textMain }}>{preset.name}</Text>
+        <Text className="text-[11px] leading-4 mt-0.5" style={{ color: c.textMuted }}>{preset.blurb}</Text>
+        <Text className="text-[10px] font-semibold mt-1.5" style={{ color: denied > 0 ? c.warning : c.textDim }}>
+          {build.instances.length} widget{build.instances.length === 1 ? '' : 's'}
+          {denied > 0 ? ` — ${denied} left out, you don't have access` : ''}
+        </Text>
+      </View>
+      <FontAwesome name="angle-right" size={16} color={c.textDim} />
+    </TouchableOpacity>
   );
 }
 

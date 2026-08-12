@@ -1,6 +1,6 @@
 import Popup from '@/components/common/Popup';
 import WidgetGrid from '@/components/dashboard/widgets/WidgetGrid';
-import { AddWidgetPopup, DashboardMenuPopup, WidgetConfigPopup } from '@/components/dashboard/widgets/WidgetPopups';
+import { AddWidgetPopup, DashboardLayoutPopup, DashboardMenuPopup, WidgetConfigPopup } from '@/components/dashboard/widgets/WidgetPopups';
 import { WidgetLayoutProvider } from '@/components/dashboard/widgets/registry';
 import LiveSessionsPopup from '@/components/tabs/LiveSessionsPopup';
 import { useAuth } from '@/contexts/AuthContext';
@@ -40,6 +40,7 @@ export default function DashboardScreen() {
   const [showSettings, setShowSettings] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showAddWidget, setShowAddWidget] = useState(false);
+  const [showPresets, setShowPresets] = useState(false);
   const [editing, setEditing] = useState(false);
   // The id, not the instance — the config sheet writes straight through
   // layout.setConfig, so a captured object would show the option the user left.
@@ -81,6 +82,7 @@ export default function DashboardScreen() {
         visible={showMenu}
         onClose={() => setShowMenu(false)}
         onEditLayout={() => { setShowMenu(false); setEditing(true); }}
+        onOpenPresets={() => { setShowMenu(false); setShowPresets(true); }}
         onOpenPipelineConfig={() => { setShowMenu(false); setShowSettings(true); }}
       />
 
@@ -89,6 +91,17 @@ export default function DashboardScreen() {
         onClose={() => setShowAddWidget(false)}
         instances={layout.instances}
         onAdd={layout.addWidget}
+      />
+
+      {/* Same popup as the desktop screen — presentation="auto" renders it as a
+          sheet below 768px, so this file needs no mobile-specific variant. */}
+      <DashboardLayoutPopup
+        visible={showPresets}
+        onClose={() => setShowPresets(false)}
+        instances={layout.instances}
+        onApply={layout.applyLayout}
+        onUndo={layout.undoApply}
+        canUndo={layout.canUndo}
       />
 
       <WidgetConfigPopup

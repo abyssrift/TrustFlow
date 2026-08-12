@@ -1,7 +1,7 @@
 import Popup from '@/components/common/Popup';
 import Tooltip from '@/components/common/Tooltip';
 import WidgetGrid from '@/components/dashboard/widgets/WidgetGrid';
-import { AddWidgetPopup, DashboardMenuPopup, WidgetConfigPopup } from '@/components/dashboard/widgets/WidgetPopups';
+import { AddWidgetPopup, DashboardLayoutPopup, DashboardMenuPopup, WidgetConfigPopup } from '@/components/dashboard/widgets/WidgetPopups';
 import { WidgetLayoutProvider } from '@/components/dashboard/widgets/registry';
 import LiveSessionsPopup from '@/components/tabs/LiveSessionsPopup';
 import { useAuth } from '@/contexts/AuthContext';
@@ -39,6 +39,7 @@ export default function DashboardScreenWeb() {
   const [showSettings, setShowSettings] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showAddWidget, setShowAddWidget] = useState(false);
+  const [showPresets, setShowPresets] = useState(false);
   const [editing, setEditing] = useState(false);
   // The id, not the instance: the config sheet auto-applies straight through
   // layout.setConfig (no draft copy, same contract as the filter panels), so a
@@ -84,6 +85,7 @@ export default function DashboardScreenWeb() {
         visible={showMenu}
         onClose={() => setShowMenu(false)}
         onEditLayout={() => { setShowMenu(false); setEditing(true); }}
+        onOpenPresets={() => { setShowMenu(false); setShowPresets(true); }}
         onOpenPipelineConfig={() => { setShowMenu(false); setShowSettings(true); }}
       />
 
@@ -92,6 +94,17 @@ export default function DashboardScreenWeb() {
         onClose={() => setShowAddWidget(false)}
         instances={layout.instances}
         onAdd={layout.addWidget}
+      />
+
+      {/* Presets and layout codes are one popup because they are one operation:
+          both produce a validated instance list and both replace via applyLayout. */}
+      <DashboardLayoutPopup
+        visible={showPresets}
+        onClose={() => setShowPresets(false)}
+        instances={layout.instances}
+        onApply={layout.applyLayout}
+        onUndo={layout.undoApply}
+        canUndo={layout.canUndo}
       />
 
       <WidgetConfigPopup

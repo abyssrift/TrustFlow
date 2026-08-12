@@ -45,6 +45,16 @@ export type DashboardLayout = {
   /** Clamped at both ends, no wrap. */
   move: (id: string, delta: -1 | 1) => void;
   setConfig: (id: string, key: string, value: string) => void;
+  /**
+   * REPLACES the layout with an already-validated list — a built-in preset or a
+   * decoded layout code. Validation and permission filtering belong to
+   * lib/dashboardLayoutCodes.ts (`buildLayout`); this only persists.
+   */
+  applyLayout: (instances: WidgetInstance[]) => void;
+  /** Puts back what `applyLayout` replaced. One level, in memory, this session. */
+  undoApply: () => void;
+  /** True between an applyLayout and its undo (or the next apply). */
+  canUndo: boolean;
 };
 
 export function useDashboardLayout(): DashboardLayout {
@@ -125,6 +135,49 @@ export function useDashboardLayout(): DashboardLayout {
     void persist({ ...base, widgets: fn(current), widgetsVersion: 1, widgetsSeedVersion: WIDGET_SEED_VERSION });
   };
 
+  /**
+   * Applying a preset or a pasted code is a REAL edit, so it materializes the
+   * layout into storage and stamps the seed generation exactly like every other
+   * mutation — unlike the seed path, which must never write itself back.
+   *
+   * The undo snapshot is the two layout fields only, never the whole config: a
+   * pipeline-selection save between the apply and the undo must survive being
+   * undone. It is a ref plus a boolean rather than persisted state on purpose —
+   * one level, this session, gone on reload. Nothing to migrate, nothing stale.
+   */
+  const undoRef = useRef<{ widgets?: WidgetInstance[]; widgetsSeedVersion?: number } | null>(null);
+  const [canUndo, setCanUndo] = useState(false);
+
+  const applyLayout = (next: WidgetInstance[]) => {
+    if (!hydrated) return;
+    const base = configRef.current ?? EMPTY_DASHBOARD_CONFIG;
+    undoRef.current = { widgets: base.widgets, widgetsSeedVersion: base.widgetsSeedVersion };
+    setCanUndo(true);
+    void persist({ ...base, widgets: next, widgetsVersion: 1, widgetsSeedVersion: WIDGET_SEED_VERSION });
+  };
+
+  const undoApply = () => {
+    const snapshot = undoRef.current;
+    if (!hydrated || !snapshot) return;
+    undoRef.current = null;
+    setCanUndo(false);
+
+    const restored: DashboardConfig = { ...(configRef.current ?? EMPTY_DASHBOARD_CONFIG) };
+    if (snapshot.widgets) {
+      restored.widgets = snapshot.widgets;
+      restored.widgetsVersion = 1;
+      restored.widgetsSeedVersion = snapshot.widgetsSeedVersion ?? WIDGET_SEED_VERSION;
+    } else {
+      // They had never customized: the honest restore is back to "no stored
+      // widgets", which re-seeds from permissions on every load. Deleting the
+      // keys is what makes that true — JSON.stringify drops them entirely.
+      delete restored.widgets;
+      delete restored.widgetsVersion;
+      delete restored.widgetsSeedVersion;
+    }
+    void persist(restored);
+  };
+
   // Additive re-seeding. The first edit materializes the seed into storage and
   // from then on the seed never runs — which used to mean a widget type shipped
   // in a later release could never reach that user, and the trigger for it was
@@ -157,5 +210,8 @@ export function useDashboardLayout(): DashboardLayout {
     cycleSize: id => mutate(list => cycleInstanceSize(list, id)),
     move: (id, delta) => mutate(list => moveInstance(list, id, delta)),
     setConfig: (id, key, value) => mutate(list => setInstanceConfig(list, id, key, value)),
+    applyLayout,
+    undoApply,
+    canUndo,
   };
 }
