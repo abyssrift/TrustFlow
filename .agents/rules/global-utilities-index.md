@@ -74,6 +74,34 @@ Before writing new utility functions, hooks, or database RPCs, check this regist
   (`parseSpreadsheetBytes`, `fetchExistingClients`) on top of it. Reuse this
   before writing another "propose a column mapping" or "fuzzy-match a client
   name" anywhere else in the app.
+* **Dashboard widgets** (issue #213, `lib/dashboardWidgets.ts`): the whole
+  widget model — `WidgetType`/`WidgetSize`/`WidgetInstance`, the metadata half
+  of the registry (`WIDGET_META`, one entry per type: title/icon/blurb/
+  defaultSize/`requiredPermission`/category/`configFields`/`allowedSizes`/
+  `singleton`/`bare`/`flush`), the shared `DashboardConfig` type +
+  `DASHBOARD_CONFIG_KEY`, and every pure mutation (`addInstance`,
+  `removeInstance`, `moveInstance`, `cycleInstanceSize`, `setInstanceConfig`,
+  `seedDefaultInstances`, `visibleInstances`, `migrateDashboardConfig`,
+  `sizeToFlex`). Deliberately react-native-free so `lib/dashboardWidgets.check.ts`
+  runs under plain `npx tsx`. Three rules it encodes, none of which are taste:
+  **(a)** the role-based seed is NEVER written back to storage — persisting it
+  would freeze a user's defaults at day-one permissions and stop any
+  later-shipped widget type from ever appearing; **(b)** `sizeToFlex`'s
+  `flexShrink: 0` and `maxWidth: '100%'` are load-bearing (shrinkable cells
+  never wrap, and `flexBasis: 480` overflows a 335px mobile column without the
+  clamp) — do not "clean them up"; **(c)** `configFields` is `select`-only by
+  design, and only two of the eight types declare one. `DashboardConfig` is
+  **per-device, not per-user** (inherited from the pre-existing key); per-user
+  later = a `users.dashboard_layout jsonb` column + an RPC, not a second
+  AsyncStorage key.
+* **useDashboardLayout** (`hooks/useDashboardLayout.ts`): instances +
+  persistence on the EXISTING `@TrustFlow_dashboard_config` object — no second
+  key, and every write spreads the previous config so `pipelineIds` /
+  `successStageIds` / `overviewMetrics` survive a widget edit (and vice versa).
+  Both screens' hand-rolled `persistConfig` becomes `saveConfig(patch)`.
+  **Gate rendering on its `hydrated` flag**: `permissionsLoaded` is false on the
+  first render, so every `hasPermission` returns false and seeding in that
+  window produces a dashboard with all four permission-gated widgets stripped.
 
 ## Global UI Components (`/components/ui`)
 * **ConfirmModal**: (Global Common) A premium, themed confirmation dialog for sensitive tactical actions (archival, deletion, restoration). Supports danger/warning/info variants.
@@ -87,6 +115,7 @@ Root-level and widely consumed. Use these rather than local state for anything t
 * **AlertContext** → `useAlert().showConfirm` for confirmations. `Alert.alert` with multiple buttons is a **silent no-op on web** — never use it.
 * **ToastContext** → `useToast()` in React code; non-React `lib/*` code toasts via `lib/toast`'s registered handler instead.
 * **TimerContext**: the single work-session timer. A project must never become a timer target.
+* **DashboardDataContext** (`contexts/DashboardDataContext.tsx`, issue #213): every piece of data the dashboard widgets share — `stats`, `pulse`, `activity`, `projects`, `trackedPipelineIds`, `dashProjects`, `refreshKey`, `refreshAll()`. Mounted **above** the widget grid by both `_index_desktop.tsx` and `_index_adaptive.tsx`. This is a correctness boundary, not tidiness: with N widget instances, a per-widget hook means N copies of every query, including the 500-row `rpc_projects_table` read `useDashboardProjects` exists to deduplicate — so **`useDashboardProjects` is called exactly once, here**, and a widget must never call it again. It runs the adaptive `Promise.all` form with the desktop copy's `isAuthError`/`triggerAuthError` guards kept on every query (the adaptive screen dropped them — a latent bug, not a simplification), and keeps the web/`InteractionManager` split verbatim. Only two widgets legitimately self-fetch (`pending-time-approvals`, which is `singleton` because each mount opens a realtime channel, and `pipeline-overview`, whose `usePipelineOverviewData` rides AnalyticsContext's dedup cache); both take `refreshKey` so pull-to-refresh reaches them.
 * Others, same rule — reuse before inventing: `AuthContext`, `ThemeContext`, `NotificationsContext`, `AnalyticsContext`, `PipelineEditorContext`, `TaskCreationContext`, `TaskDetailContext`, `SubmissionContext`, `RoleManagerContext`, `PingHighlightContext`.
 
 ## Repo checks (`supabase/checks/`)

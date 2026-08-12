@@ -22,9 +22,18 @@ type PendingEntry = {
 type Props = {
   /** Pass a changing value (e.g. refreshing counter) to trigger a re-fetch from the parent */
   refreshKey?: number;
+  /**
+   * Fires whenever this widget flips between rendering its card and rendering
+   * nothing. Only this component can know: it owns the fetch and the realtime
+   * channel, and React gives a parent no signal that a child returned null.
+   * The dashboard grid (#213) needs it — a 0px widget there leaves a phantom
+   * cell whose edit controls land on the widget below. Optional, so every
+   * existing caller is unchanged.
+   */
+  onEmptyChange?: (empty: boolean) => void;
 };
 
-export default function PendingTimeApprovalsWidget({ refreshKey }: Props) {
+export default function PendingTimeApprovalsWidget({ refreshKey, onEmptyChange }: Props) {
   const colors = useThemeColors();
   const router = useRouter();
   const { profile } = useAuth();
@@ -56,8 +65,10 @@ export default function PendingTimeApprovalsWidget({ refreshKey }: Props) {
     return () => { supabase.removeChannel(channel); };
   }, [profile?.company_id, fetchEntries]);
 
-  if (loading) return null;
-  if (entries.length === 0) return null;
+  const empty = loading || entries.length === 0;
+  useEffect(() => { onEmptyChange?.(empty); }, [empty, onEmptyChange]);
+
+  if (empty) return null;
 
   const removeEntry = (id: string) =>
     setEntries(prev => prev.filter(e => e.id !== id));

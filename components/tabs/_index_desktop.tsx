@@ -1,66 +1,18 @@
-import PipelineOverviewChart, { DEFAULT_OVERVIEW_METRICS, OverviewMetricKey } from '@/components/intelligence/PipelineOverviewChart';
-import BlockedExceptionsPanel from '@/components/dashboard/BlockedExceptionsPanel';
-import DashboardFacts, { type Fact } from '@/components/dashboard/DashboardFacts';
-import ProjectionStrip from '@/components/dashboard/ProjectionStrip';
-import LiveSessionsPopup from '@/components/tabs/LiveSessionsPopup';
 import Popup from '@/components/common/Popup';
 import Tooltip from '@/components/common/Tooltip';
-import { EntityGlyph, ProgressMeter } from '@/components/entities/EntityUI';
+import WidgetGrid from '@/components/dashboard/widgets/WidgetGrid';
+import { AddWidgetPopup, DashboardMenuPopup, WidgetConfigPopup } from '@/components/dashboard/widgets/WidgetPopups';
+import { WidgetLayoutProvider } from '@/components/dashboard/widgets/registry';
+import LiveSessionsPopup from '@/components/tabs/LiveSessionsPopup';
 import { useAuth } from '@/contexts/AuthContext';
-import { useDashboardProjects } from '@/hooks/useDashboardProjects';
+import { DashboardDataProvider, useDashboardData } from '@/contexts/DashboardDataContext';
+import { useDashboardLayout, type DashboardLayout } from '@/hooks/useDashboardLayout';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import type { DashboardConfig, WidgetInstance } from '@/lib/dashboardWidgets';
 import { isAuthError, supabase, triggerAuthError } from '@/lib/supabase';
-import { formatCompact, formatRelative } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-
-// ── Types ────────────────────────────────────────────────────────────────
-
-type DashboardStats = {
-  totalTasks: number;
-  activeNow: number;
-  completed: number;
-  failed: number;
-  activeSessions: number;
-};
-
-type DashboardConfig = {
-  pipelineIds: string[];
-  successStageIds: string[];
-  useAllPipelines?: boolean;
-  // Overview graph customization (analytics.view holders only). Local per-device.
-  overviewMetrics?: OverviewMetricKey[];
-  overviewPeriod?: 'week' | 'month';
-};
-
-type PersonalPulse = {
-  daily_points: number;
-  monthly_points: number;
-  active_seconds_today: number;
-  flap_rate_score: number;
-  is_working: boolean;
-};
-
-type ActivityEntry = {
-  id: string;
-  taskId: string;
-  taskTitle: string;
-  fromStage: string;
-  toStage: string;
-  movedBy: string;
-  movedAt: string;
-};
-
-type ProjectSummary = {
-  id: string;
-  name: string;
-  completionRate: number;
-  totalTasks: number;
-  completedTasks: number;
-};
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -71,60 +23,28 @@ const getGreeting = (): string => {
   return 'Good evening';
 };
 
-const timeAgo = (dateStr: string): string => formatRelative(dateStr);
-
 // ── Component ────────────────────────────────────────────────────────────
 
 export default function DashboardScreenWeb() {
-  const colors = useThemeColors();
-  const [stats, setStats] = useState<DashboardStats>({ totalTasks: 0, activeNow: 0, completed: 0, failed: 0, activeSessions: 0 });
+  const { user, profile } = useAuth();
+
+  // Instances + the persisted config in one hook, on the one storage key both
+  // screens already used. The panels this screen used to hardcode are widget
+  // types in the registry now, and the queries that fed them moved into
+  // DashboardDataProvider — which is what keeps the 500-row rpc_projects_table
+  // read at one per dashboard however many project widgets a layout holds.
+  const layout = useDashboardLayout();
+
   const [showLiveSessions, setShowLiveSessions] = useState(false);
-  const [pulse, setPulse] = useState<PersonalPulse | null>(null);
-  const [activity, setActivity] = useState<ActivityEntry[]>([]);
-  const [projects, setProjects] = useState<ProjectSummary[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [config, setConfig] = useState<DashboardConfig | null>(null);
-  const [trackedPipelineIds, setTrackedPipelineIds] = useState<string[]>([]);
-  const [widgetRefreshKey, setWidgetRefreshKey] = useState(0);
-
-  const { user, profile, hasPermission } = useAuth();
-  const router = useRouter();
-  const canViewIntelligence = hasPermission('report.view');
-  const canViewOverview = hasPermission('analytics.view');
-
-  // ONE rpc_projects_table read, shared by the projection strip and the
-  // exceptions panel below it (they used to fire the same 500-row call twice).
-  // Named `dashProjects` because `projects` above is the four-card summary from
-  // a different query — two things called `projects` in one scope was exactly
-  // the redeclaration that broke the previous attempt at this screen.
-  const dashProjects = useDashboardProjects(widgetRefreshKey);
-
-  const overviewMetrics = config?.overviewMetrics ?? DEFAULT_OVERVIEW_METRICS;
-  const overviewPeriod = config?.overviewPeriod ?? 'week';
-
-  const persistConfig = async (next: DashboardConfig) => {
-    setConfig(next);
-    try {
-      await AsyncStorage.setItem('@TrustFlow_dashboard_config', JSON.stringify(next));
-    } catch (e) {
-      console.error('Failed to persist dashboard config', e);
-    }
-  };
-
-  // Overview toggles only affect the self-fetching chart — no full dashboard reload.
-  const toggleOverviewMetric = (key: OverviewMetricKey) => {
-    const base = config ?? { pipelineIds: [], successStageIds: [], useAllPipelines: true };
-    const cur = base.overviewMetrics ?? DEFAULT_OVERVIEW_METRICS;
-    const nextMetrics = cur.includes(key) ? cur.filter(k => k !== key) : [...cur, key];
-    persistConfig({ ...base, overviewMetrics: nextMetrics });
-  };
-
-  const setOverviewPeriod = (p: 'week' | 'month') => {
-    const base = config ?? { pipelineIds: [], successStageIds: [], useAllPipelines: true };
-    persistConfig({ ...base, overviewPeriod: p });
-  };
+  const [showMenu, setShowMenu] = useState(false);
+  const [showAddWidget, setShowAddWidget] = useState(false);
+  const [editing, setEditing] = useState(false);
+  // The id, not the instance: the config sheet auto-applies straight through
+  // layout.setConfig (no draft copy, same contract as the filter panels), so a
+  // captured instance object would keep showing the option the user just left.
+  const [configuringId, setConfiguringId] = useState<string | null>(null);
+  const configuring = layout.instances.find(i => i.id === configuringId) ?? null;
 
   const displayName = useMemo(() => {
     return profile?.display_name || profile?.full_name || user?.user_metadata?.full_name || 'Operator';
@@ -132,248 +52,103 @@ export default function DashboardScreenWeb() {
 
   const firstName = useMemo(() => displayName.split(' ')[0], [displayName]);
 
-  // ── Data Fetching ──────────────────────────────────────────────────────
+  return (
+    // Both providers sit above the grid and both are load-bearing.
+    // DashboardDataProvider so N instances share one copy of every query;
+    // WidgetLayoutProvider so a widget that writes its own config — the
+    // overview chart's inline period switch — writes the same place its config
+    // sheet does. useWidgetLayout() throws without it, deliberately: a period
+    // toggle that silently does nothing is worse than a crash.
+    <DashboardDataProvider
+      config={layout.config}
+      ready={layout.hydrated}
+      onOpenLiveSessions={() => setShowLiveSessions(true)}
+    >
+      <WidgetLayoutProvider layout={layout}>
+        <DashboardCanvas
+          layout={layout}
+          firstName={firstName}
+          editing={editing}
+          onOpenMenu={() => setShowMenu(true)}
+          onAddWidget={() => setShowAddWidget(true)}
+          onDoneEditing={() => setEditing(false)}
+          onConfigure={instance => setConfiguringId(instance.id)}
+        />
+      </WidgetLayoutProvider>
 
-  const loadConfig = async () => {
-    try {
-      const saved = await AsyncStorage.getItem('@TrustFlow_dashboard_config');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        setConfig(parsed);
-        return parsed;
-      }
-    } catch (e) {
-      console.error('Failed to load dashboard config', e);
-    }
-    return null;
-  };
+      {/* Stays mounted by the screen, not by the facts widget: it is a whole
+          popup with its own fetch, and the widget only asks for it to open. */}
+      <LiveSessionsPopup visible={showLiveSessions} onClose={() => setShowLiveSessions(false)} />
 
-  const fetchDashboardData = async (activeConfig?: DashboardConfig | null) => {
-    try {
-      const currentConfig = activeConfig !== undefined ? activeConfig : config;
-      let targetPipelineIds: string[] = [];
-      let successStageIds: string[] = [];
-      let terminalStageIds: string[] = [];
+      <DashboardMenuPopup
+        visible={showMenu}
+        onClose={() => setShowMenu(false)}
+        onEditLayout={() => { setShowMenu(false); setEditing(true); }}
+        onOpenPipelineConfig={() => { setShowMenu(false); setShowSettings(true); }}
+      />
 
-      // Default to all pipelines when no config, or when useAllPipelines is set, or no pipelines selected
-      const isAllPipelines =
-        !currentConfig ||
-        currentConfig.useAllPipelines === true ||
-        currentConfig.pipelineIds.length === 0;
+      <AddWidgetPopup
+        visible={showAddWidget}
+        onClose={() => setShowAddWidget(false)}
+        instances={layout.instances}
+        onAdd={layout.addWidget}
+      />
 
-      if (isAllPipelines) {
-        const { data: allPipelines, error: pipelineError } = await supabase
-          .from('pipelines')
-          .select('id')
-          .is('deleted_at', null);
-        if (isAuthError(pipelineError)) {
-          triggerAuthError();
-          return;
-        }
-        targetPipelineIds = (allPipelines || []).map((p: any) => p.id);
-      } else {
-        targetPipelineIds = currentConfig!.pipelineIds;
-      }
+      <WidgetConfigPopup
+        visible={!!configuring}
+        onClose={() => setConfiguringId(null)}
+        instance={configuring}
+        onChange={(key, value) => configuring && layout.setConfig(configuring.id, key, value)}
+      />
 
-      // Expose the resolved tracked set to the overview graph.
-      setTrackedPipelineIds(targetPipelineIds);
+      <DashboardSettingsModal
+        visible={showSettings}
+        onClose={() => setShowSettings(false)}
+        config={layout.config}
+        onSave={async (newConfig) => {
+          // saveConfig spreads over the stored object, so the widget layout and
+          // the overview-graph metrics survive a pipeline-selection save. The
+          // hand-rolled field-by-field merge that used to live here is the
+          // hook's single persist path now. Changing the tracked pipelines also
+          // changes the provider's fetch key, so the refetch is automatic.
+          await layout.saveConfig(newConfig);
+          setShowSettings(false);
+        }}
+      />
+    </DashboardDataProvider>
+  );
+}
 
-      if (targetPipelineIds.length === 0) {
-        setLoading(false);
-        setRefreshing(false);
-        return;
-      }
-
-      // Fetch all terminal stages for the selected pipelines
-      const { data: terminalStages, error: stageError } = await supabase
-        .from('pipeline_stages')
-        .select('id, terminal_type')
-        .in('pipeline_id', targetPipelineIds)
-        .eq('is_terminal', true);
-      if (isAuthError(stageError)) {
-        triggerAuthError();
-        return;
-      }
-
-      terminalStageIds = (terminalStages || []).map((s: any) => s.id);
-
-      // Use configured success stages if explicitly set; otherwise auto-detect terminal_type='success'
-      if (!isAllPipelines && currentConfig!.successStageIds.length > 0) {
-        successStageIds = currentConfig!.successStageIds;
-      } else {
-        successStageIds = (terminalStages || [])
-          .filter((s: any) => s.terminal_type === 'success')
-          .map((s: any) => s.id);
-      }
-
-      const { data: tasks, error: tasksError } = await supabase
-        .from('tasks')
-        .select('id, current_stage_id')
-        .in('pipeline_id', targetPipelineIds);
-      if (isAuthError(tasksError)) {
-        triggerAuthError();
-        return;
-      }
-
-      const total = tasks?.length || 0;
-      const completed = tasks?.filter((t: any) => successStageIds.includes(t.current_stage_id)).length || 0;
-      const activeNow = tasks?.filter((t: any) => !terminalStageIds.includes(t.current_stage_id)).length || 0;
-      // Tasks in a terminal stage that isn't a success stage (failed, rejected, cancelled)
-      const failed = total - completed - activeNow;
-
-      const { data: sessionRows, error: sessionError } = await supabase
-        .from('task_work_sessions')
-        .select('user_id, started_at, last_heartbeat_at, user:user_id(full_name, avatar_url)')
-        .eq('status', 'active');
-      if (isAuthError(sessionError)) {
-        triggerAuthError();
-        return;
-      }
-      // One session per person, even if they somehow hold several. The avatar
-      // row this used to build lived inside a KPI card that no longer exists;
-      // LiveSessionsPopup fetches its own people when you open it.
-      const sessionCount = new Set((sessionRows || []).map((s: any) => s.user_id)).size;
-
-      setStats({
-        totalTasks: total,
-        activeNow,
-        completed,
-        failed,
-        activeSessions: sessionCount || 0,
-      });
-
-      const { data: historyData, error: historyError } = await supabase
-        .from('pipeline_stage_history')
-        .select(`
-          id,
-          transitioned_at,
-          task_id,
-          task:task_id(title, pipeline_id),
-          from_stage:from_stage_id(name),
-          to_stage:to_stage_id(name),
-          transitioned_by_user:users!transitioned_by(full_name, display_name)
-        `)
-        .order('transitioned_at', { ascending: false })
-        .limit(20);
-      if (isAuthError(historyError)) {
-        triggerAuthError();
-        return;
-      }
-
-      const activityEntries: ActivityEntry[] = (historyData || [])
-        .filter((h: any) => targetPipelineIds.includes(h.task?.pipeline_id))
-        .slice(0, 20)
-        .map((h: any) => ({
-          id: h.id,
-          taskId: h.task_id,
-          taskTitle: h.task?.title || 'Unknown Task',
-          fromStage: h.from_stage?.name || '-',
-          toStage: h.from_stage ? (h.to_stage?.name || '—') : 'created',
-          movedBy: h.transitioned_by_user?.display_name || h.transitioned_by_user?.full_name || 'System',
-          movedAt: h.transitioned_at,
-        }));
-      setActivity(activityEntries);
-
-      const { data: rawProjects, error: projectsError } = await supabase
-        .from('projects')
-        .select('id, name')
-        .eq('status', 'active')
-        .order('is_featured', { ascending: false })
-        .limit(4);
-      if (isAuthError(projectsError)) {
-        triggerAuthError();
-        return;
-      }
-
-      if (rawProjects && rawProjects.length > 0) {
-        const projectIds = rawProjects.map((p: any) => p.id);
-        const { data: projectStats, error: statsError } = await supabase.rpc('rpc_get_project_stats', {
-          p_project_ids: projectIds,
-        });
-        if (isAuthError(statsError)) {
-          triggerAuthError();
-          return;
-        }
-
-        const merged: ProjectSummary[] = rawProjects.map((p: any) => {
-          const s = (projectStats || []).find((stat: any) => stat.project_id === p.id) || {
-            total_tasks: 0, completed_tasks: 0, completion_rate: 0,
-          };
-          return {
-            id: p.id,
-            name: p.name,
-            completionRate: s.completion_rate || 0,
-            totalTasks: s.total_tasks || 0,
-            completedTasks: s.completed_tasks || 0,
-          };
-        });
-        setProjects(merged);
-      }
-    } catch (err) {
-      console.error('[Dashboard] Data fetch error:', err);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  const fetchPulse = async () => {
-    try {
-      const { data, error } = await supabase.rpc('rpc_get_personal_pulse');
-      if (isAuthError(error)) {
-        triggerAuthError();
-        return;
-      }
-      if (data) setPulse(data);
-    } catch (err) {
-      console.error('[Dashboard] Pulse fetch error:', err);
-    }
-  };
-
-  useEffect(() => {
-    const init = async () => {
-      const loadedConfig = await loadConfig();
-      fetchDashboardData(loadedConfig);
-      fetchPulse();
-    };
-    init();
-  }, []);
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchDashboardData();
-    fetchPulse();
-    setWidgetRefreshKey(k => k + 1);
-  };
-
-  const completionRate = stats.totalTasks > 0 ? Math.round((stats.completed / stats.totalTasks) * 100) : 0;
-  const failedRate = stats.totalTasks > 0 ? Math.round((stats.failed / stats.totalTasks) * 100) : 0;
-
-  // ONE row of facts, in place of a three-stat pulse band and four 240px cards.
-  // Anything that is zero is passed as null and never rendered at all — see
-  // DashboardFacts. On a young workspace this row is two items long, and on a
-  // brand-new one it is empty and disappears.
-  const facts: Fact[] = [
-    { value: stats.totalTasks > 0 ? String(stats.totalTasks) : null, label: 'in pipeline', onPress: () => router.push('/tasks' as any) },
-    { value: stats.activeNow > 0 ? String(stats.activeNow) : null, label: 'in progress', onPress: () => router.push('/tasks' as any) },
-    { value: stats.completed > 0 ? String(stats.completed) : null, label: `done · ${completionRate}%`, tone: colors.success, onPress: () => router.push('/intelligence/archives' as any) },
-    { value: stats.failed > 0 ? String(stats.failed) : null, label: `failed · ${failedRate}%`, tone: colors.danger, onPress: () => router.push('/intelligence/archives' as any) },
-    // Presence, not a tally — so it does NOT follow the hide-when-zero rule the
-    // other facts do. "0 working now" answers the question you asked; a missing
-    // row leaves you wondering whether nobody is working or the dot is broken.
-    { value: String(stats.activeSessions), label: 'working now', live: true, onPress: () => setShowLiveSessions(true) },
-    { value: pulse && pulse.daily_points > 0 ? String(pulse.daily_points) : null, label: 'pts today' },
-    { value: pulse && pulse.active_seconds_today > 0 ? formatCompact(pulse.active_seconds_today) : null, label: 'active' },
-    // A good flap score is not news. It appears only when it is a problem —
-    // the same threshold the old band coloured it red at.
-    { value: pulse && pulse.flap_rate_score > 1.5 ? `${pulse.flap_rate_score}x` : null, label: 'task switching', tone: colors.danger },
-  ];
+/**
+ * Everything below the providers. Split out for one reason: pull-to-refresh and
+ * the loading gate read `useDashboardData()`, which the component that mounts
+ * the provider cannot do.
+ */
+function DashboardCanvas({
+  layout,
+  firstName,
+  editing,
+  onOpenMenu,
+  onAddWidget,
+  onDoneEditing,
+  onConfigure,
+}: {
+  layout: DashboardLayout;
+  firstName: string;
+  editing: boolean;
+  onOpenMenu: () => void;
+  onAddWidget: () => void;
+  onDoneEditing: () => void;
+  onConfigure: (instance: WidgetInstance) => void;
+}) {
+  const colors = useThemeColors();
+  const { loading, refreshing, refreshAll } = useDashboardData();
 
   return (
     <ScrollView
       className="flex-1 bg-surface-background"
       showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refreshAll} tintColor={colors.primary} />}
     >
       <View className="max-w-[1280px] mx-auto w-full px-8 py-8">
         <View className="mb-7 flex-row items-start justify-between gap-6">
@@ -381,261 +156,85 @@ export default function DashboardScreenWeb() {
             <Text className="text-typography-main text-2xl font-black tracking-tight">
               {getGreeting()}, {firstName}
             </Text>
-            {/* The strapline said "Here's your operational overview for today"
-                and carried no information. The facts line says what the day
-                actually looks like, in the same space. */}
-            <View className="mt-1.5">
-              <DashboardFacts facts={facts} />
-            </View>
+            {/* The facts line that used to sit under the greeting is the
+                `facts` widget now — same row, same wording, first in the seeded
+                layout, but removable by someone who does not want it. */}
           </View>
 
           {/* Two icon buttons, not two labelled pills. They are the least
-              important controls on the page and used to be the loudest. */}
+              important controls on the page and used to be the loudest. In edit
+              mode they give way to the two that are: add something, and get
+              back out. Same pair of controls, never both at once. */}
           <View className="flex-row items-center gap-2 pt-1">
-            <Tooltip label="Choose which pipelines this dashboard tracks">
-              <TouchableOpacity
-                onPress={() => setShowSettings(true)}
-                accessibilityRole="button"
-                accessibilityLabel="Dashboard settings"
-                className="rounded-xl border border-surface-border hover:bg-surface-overlay items-center justify-center transition-colors"
-                style={{ width: 44, height: 44 }}
-              >
-                <FontAwesome name="sliders" size={14} color={colors.textMuted} />
-              </TouchableOpacity>
-            </Tooltip>
-            <Tooltip label="Refresh">
-              <TouchableOpacity
-                onPress={onRefresh}
-                accessibilityRole="button"
-                accessibilityLabel="Refresh dashboard"
-                className="rounded-xl border border-surface-border hover:bg-surface-overlay items-center justify-center transition-colors"
-                style={{ width: 44, height: 44 }}
-              >
-                <FontAwesome name="refresh" size={14} color={colors.textMuted} />
-              </TouchableOpacity>
-            </Tooltip>
+            {editing ? (
+              <>
+                <TouchableOpacity
+                  onPress={onAddWidget}
+                  accessibilityRole="button"
+                  accessibilityLabel="Add a widget"
+                  className="flex-row items-center gap-2 rounded-xl border border-surface-border hover:bg-surface-overlay px-4 transition-colors"
+                  style={{ minHeight: 44 }}
+                >
+                  <FontAwesome name="plus" size={12} color={colors.primary} />
+                  <Text className="text-typography-main text-xs font-bold">Add widget</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={onDoneEditing}
+                  accessibilityRole="button"
+                  accessibilityLabel="Finish editing the dashboard layout"
+                  className="rounded-xl bg-brand-primary hover:bg-brand-primary-hover items-center justify-center px-5 transition-colors"
+                  style={{ minHeight: 44 }}
+                >
+                  <Text className="text-white text-xs font-bold">Done</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <Tooltip label="Dashboard layout and pipeline settings">
+                  <TouchableOpacity
+                    onPress={onOpenMenu}
+                    accessibilityRole="button"
+                    accessibilityLabel="Dashboard settings"
+                    className="rounded-xl border border-surface-border hover:bg-surface-overlay items-center justify-center transition-colors"
+                    style={{ width: 44, height: 44 }}
+                  >
+                    <FontAwesome name="sliders" size={14} color={colors.textMuted} />
+                  </TouchableOpacity>
+                </Tooltip>
+                <Tooltip label="Refresh">
+                  <TouchableOpacity
+                    onPress={refreshAll}
+                    accessibilityRole="button"
+                    accessibilityLabel="Refresh dashboard"
+                    className="rounded-xl border border-surface-border hover:bg-surface-overlay items-center justify-center transition-colors"
+                    style={{ width: 44, height: 44 }}
+                  >
+                    <FontAwesome name="refresh" size={14} color={colors.textMuted} />
+                  </TouchableOpacity>
+                </Tooltip>
+              </>
+            )}
           </View>
         </View>
 
-        {loading ? (
+        {/* `hydrated` is not the same wait as `loading`, and both belong here.
+            AuthContext's permissions start empty, so until permissionsLoaded
+            flips every hasPermission call answers false and the seed would come
+            back with all four gated widgets stripped out — painting that and
+            then swapping it is worse than one spinner. */}
+        {!layout.hydrated || loading ? (
           <View className="py-24 items-center justify-center">
             <ActivityIndicator color={colors.primary} />
           </View>
         ) : (
-          <View>
-            <LiveSessionsPopup visible={showLiveSessions} onClose={() => setShowLiveSessions(false)} />
-
-            {/* The one place this screen spends any boldness. Renders nothing
-                at all — no card, no heading, no empty state — when the server
-                has forecast nothing. */}
-            <ProjectionStrip rows={dashProjects.rows} loading={dashProjects.state === 'loading'} />
-
-            <BlockedExceptionsPanel
-              rows={dashProjects.rows}
-              state={dashProjects.state}
-              reload={dashProjects.reload}
-              canView={dashProjects.canView}
-            />
-
-            {/* items-start, not the default stretch: the activity card used to
-                be grown to the chart's height and then have its row count
-                measured to fill it, which on a quiet day meant one entry
-                floating in ~400px of empty card. It is now as tall as what it
-                has to say. */}
-            <View className="flex-row gap-6 mb-8 items-start">
-              {canViewOverview ? (
-                <PipelineOverviewChart
-                  className="flex-[2]"
-                  pipelineIds={trackedPipelineIds}
-                  metrics={overviewMetrics}
-                  period={overviewPeriod}
-                  onToggleMetric={toggleOverviewMetric}
-                  onSetPeriod={setOverviewPeriod}
-                  onCustomize={() => setShowSettings(true)}
-                  refreshKey={widgetRefreshKey}
-                />
-              ) : (
-              <View className="flex-[2] bg-surface-card p-6 rounded-2xl border border-surface-border">
-                <View className="flex-row items-center justify-between mb-4">
-                  <Text className="text-typography-dim text-[10px] font-bold uppercase tracking-[0.12em]">Pipeline completion</Text>
-                  <Text className="text-typography-main text-base font-bold">{completionRate}%</Text>
-                </View>
-
-                <View className="w-full h-2 bg-surface-background rounded-full overflow-hidden border border-surface-border mb-5">
-                  <View
-                    className="h-full bg-brand-primary rounded-full"
-                    style={{ width: `${completionRate}%` }}
-                  />
-                </View>
-
-                <View className="gap-4">
-                  <View>
-                    <View className="flex-row justify-between mb-1.5">
-                      <Text className="text-typography-main text-xs font-semibold">In progress</Text>
-                      <Text className="text-typography-muted text-xs">{stats.activeNow} of {stats.totalTasks}</Text>
-                    </View>
-                    <View className="w-full h-1.5 bg-surface-background rounded-full overflow-hidden border border-surface-border/50">
-                      <View
-                        className="h-full bg-state-warning rounded-full"
-                        style={{ width: `${stats.totalTasks > 0 ? (stats.activeNow / stats.totalTasks) * 100 : 0}%` }}
-                      />
-                    </View>
-                  </View>
-
-                  <View>
-                    <View className="flex-row justify-between mb-1.5">
-                      <Text className="text-typography-main text-xs font-semibold">Completed</Text>
-                      <Text className="text-typography-muted text-xs">{stats.completed} of {stats.totalTasks}</Text>
-                    </View>
-                    <View className="w-full h-1.5 bg-surface-background rounded-full overflow-hidden border border-surface-border/50">
-                      <View
-                        className="h-full bg-state-success rounded-full"
-                        style={{ width: `${completionRate}%` }}
-                      />
-                    </View>
-                  </View>
-
-                  {stats.failed > 0 && (
-                    <View>
-                      <View className="flex-row justify-between mb-1.5">
-                        <Text className="text-typography-main text-xs font-semibold">Failed / rejected</Text>
-                        <Text className="text-typography-muted text-xs">{stats.failed} of {stats.totalTasks}</Text>
-                      </View>
-                      <View className="w-full h-1.5 bg-surface-background rounded-full overflow-hidden border border-surface-border/50">
-                        <View
-                          className="h-full bg-state-danger rounded-full"
-                          style={{ width: `${failedRate}%` }}
-                        />
-                      </View>
-                    </View>
-                  )}
-                </View>
-              </View>
-              )}
-
-              <View className="flex-1 bg-surface-card p-6 rounded-2xl border border-surface-border">
-                <View className="flex-row items-center justify-between mb-4">
-                  <Text className="text-typography-dim text-[10px] font-bold uppercase tracking-[0.12em]">Recent activity</Text>
-                  {canViewIntelligence && (
-                    <TouchableOpacity
-                      onPress={() => router.push('/intelligence' as any)}
-                      accessibilityRole="button"
-                      accessibilityLabel="Open Intelligence"
-                      className="items-center justify-center"
-                      style={{ width: 24, height: 24 }}
-                    >
-                      <FontAwesome name="chevron-right" size={10} color={colors.textDim} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                {activity.length === 0 ? (
-                  // A quiet line, not a dashed box that stretches to match the
-                  // chart beside it. Nothing happened; that needs one sentence.
-                  <Text className="text-typography-dim text-xs">Nothing has moved yet.</Text>
-                ) : (
-                  <View className="gap-0">
-                    {/* A flat 5. The card no longer stretches, so there is no
-                        height to measure and fill — the onLayout/row-count
-                        arithmetic that used to live here went with it. */}
-                    {activity
-                      .slice(0, 5)
-                      .map((entry, idx, visible) => (
-                      <TouchableOpacity
-                        key={entry.id}
-                        activeOpacity={0.6}
-                        disabled={!entry.taskId}
-                        onPress={() => entry.taskId && router.push(`/task/${entry.taskId}` as any)}
-                        className={`flex-row items-center py-2.5 ${idx !== visible.length - 1 ? 'border-b border-surface-border/30' : ''}`}
-                      >
-                        {/* The 32px bordered medallion that used to sit here
-                            carried no information — every row had the same
-                            icon. The stage pair below already says "moved". */}
-                        <View className="flex-1 pr-3">
-                          <Text className="text-typography-main font-semibold text-xs" numberOfLines={1}>
-                            {entry.taskTitle}
-                          </Text>
-                          <View className="flex-row items-center gap-1">
-                            <Text className="text-typography-dim text-[10px]" numberOfLines={1}>{entry.fromStage}</Text>
-                            <FontAwesome name="long-arrow-right" size={8} color={colors.textDim} />
-                            <Text className="text-typography-muted text-[10px]" numberOfLines={1}>{entry.toStage}</Text>
-                          </View>
-                        </View>
-                        <View className="items-end">
-                          <Text className="text-typography-dim text-[10px]">{timeAgo(entry.movedAt)}</Text>
-                          <Text className="text-typography-dim text-[10px]" numberOfLines={1}>{entry.movedBy}</Text>
-                        </View>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
-              </View>
-            </View>
-
-            {/* Four 200px cards holding a name and one percentage became four
-                44px rows in a single card: the same information at roughly a
-                quarter of the height. ProgressMeter is EntityUI's, so this
-                reads identically to the meter on every project surface. */}
-            {projects.length > 0 && (
-              <View className="mb-12">
-                <View className="flex-row items-center justify-between mb-2.5">
-                  <Text className="text-typography-dim text-[10px] font-bold uppercase tracking-[0.12em]">Active projects</Text>
-                  <TouchableOpacity
-                    onPress={() => router.push('/projects')}
-                    accessibilityRole="button"
-                    accessibilityLabel="Open Projects"
-                    className="flex-row items-center gap-1.5 justify-center"
-                    style={{ minHeight: 44, paddingHorizontal: 4 }}
-                  >
-                    <Text className="text-brand-primary text-xs font-bold">All projects</Text>
-                    <FontAwesome name="arrow-right" size={9} color={colors.primary} />
-                  </TouchableOpacity>
-                </View>
-                <View className="bg-surface-card border border-surface-border rounded-2xl overflow-hidden">
-                  {projects.map((project, idx) => (
-                    <TouchableOpacity
-                      key={project.id}
-                      onPress={() => router.push(`/projects/${project.id}` as any)}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Open ${project.name}, ${Math.round(project.completionRate)} percent complete`}
-                      className={`flex-row items-center gap-4 px-4 hover:bg-surface-overlay/40 transition-colors ${idx !== projects.length - 1 ? 'border-b border-surface-border/50' : ''}`}
-                      style={{ minHeight: 44 }}
-                    >
-                      <EntityGlyph kind="project" size={18} />
-                      <Text className="text-typography-main text-xs font-semibold flex-1" numberOfLines={1}>{project.name}</Text>
-                      <Text className="text-typography-dim text-[10px]">{project.completedTasks}/{project.totalTasks}</Text>
-                      <View style={{ width: 120 }}>
-                        <ProgressMeter percent={project.completionRate} showCaption={false} height={4} />
-                      </View>
-                      <Text className="text-typography-muted text-[10px] font-semibold" style={{ width: 32, textAlign: 'right' }}>
-                        {Math.round(project.completionRate)}%
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-            )}
-          </View>
+          <WidgetGrid
+            instances={layout.instances}
+            editing={editing}
+            layout={layout}
+            onConfigure={onConfigure}
+          />
         )}
       </View>
-
-      <DashboardSettingsModal
-        visible={showSettings}
-        onClose={() => setShowSettings(false)}
-        config={config}
-        onSave={async (newConfig) => {
-          // Preserve overview-graph customization, which the pipeline-selection modal doesn't touch.
-          const merged: DashboardConfig = {
-            ...newConfig,
-            overviewMetrics: config?.overviewMetrics,
-            overviewPeriod: config?.overviewPeriod,
-          };
-          setConfig(merged);
-          await AsyncStorage.setItem('@TrustFlow_dashboard_config', JSON.stringify(merged));
-          fetchDashboardData(merged);
-          setShowSettings(false);
-        }}
-      />
     </ScrollView>
   );
 }

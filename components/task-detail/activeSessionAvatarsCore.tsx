@@ -1,3 +1,4 @@
+import { initials } from '@/lib/projectPresentation';
 import { IDLE_MS, idleMsOf } from '@/lib/sessionPresence';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useEffect } from 'react';
@@ -21,7 +22,18 @@ import type { ActiveSessionUser } from './TaskCardActions';
 // the hover popover on web, which portals out to document.body and loses
 // them — see ActiveSessionAvatars.web.tsx).
 
-export function Avatar({ user, size = 28 }: { user: ActiveSessionUser; size?: number }) {
+/**
+ * `user` is structural, NOT `ActiveSessionUser`, so surfaces that know a person
+ * by name alone (the dashboard's `recent-activity` rows) can draw the same face
+ * as the ones holding a whole session. `ActiveSessionUser` satisfies it, so
+ * every existing call site is unchanged — a widening, not a new component.
+ *
+ * The fallback is real, not a spacer: the monogram sits in a box of exactly the
+ * avatar's dimensions, so a missing or broken image never reflows the row it is
+ * in. `initials()` is `lib/projectPresentation`'s, the same one every project
+ * surface monograms with, so one person is never "J" here and "JD" there.
+ */
+export function Avatar({ user, size = 28 }: { user: { name: string; avatar?: string | null }; size?: number }) {
   return (
     <View
       style={{ width: size, height: size, borderRadius: size / 2 }}
@@ -30,8 +42,8 @@ export function Avatar({ user, size = 28 }: { user: ActiveSessionUser; size?: nu
       {user.avatar ? (
         <Image source={{ uri: user.avatar }} style={{ width: '100%', height: '100%' }} />
       ) : (
-        <Text className="text-brand-primary font-black" style={{ fontSize: Math.round(size * 0.42) }}>
-          {user.name.charAt(0).toUpperCase()}
+        <Text className="text-brand-primary font-black" style={{ fontSize: Math.round(size * 0.38) }}>
+          {initials(user.name)}
         </Text>
       )}
     </View>

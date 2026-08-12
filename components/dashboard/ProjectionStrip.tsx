@@ -61,7 +61,26 @@ export type ProjectionStripRow = {
 // what is being left out rather than silently truncating.
 const MAX_LANES = 5;
 
-export default function ProjectionStrip({ rows, loading }: { rows: ProjectionStripRow[]; loading?: boolean }) {
+export default function ProjectionStrip({
+  rows,
+  loading,
+  // The strip owns its own bottom gap on the two screens that stack panels by
+  // hand. Inside the widget grid (#213) the gap is the grid's, so the widget
+  // adapter passes ''. Optional with the old value as its default, so every
+  // existing caller is byte-identical.
+  className = 'mb-8',
+  // The caller already draws a card AND a heading (the widget shell does), so
+  // this renders the axis and the lanes only. Without it the strip's own card
+  // sits inside the shell's card and its 10px eyebrow is the only title the
+  // widget has — two borders, two radii, and nothing that reads as a heading.
+  // Optional and false by default, so every existing caller is byte-identical.
+  embedded = false,
+}: {
+  rows: ProjectionStripRow[];
+  loading?: boolean;
+  className?: string;
+  embedded?: boolean;
+}) {
   const c = useThemeColors();
   const router = useRouter();
   const { width } = useWindowDimensions();
@@ -101,8 +120,81 @@ export default function ProjectionStrip({ rows, loading }: { rows: ProjectionStr
   const ticks = axisTicks(domain, isDesktop ? 4 : 3);
   const anyThin = lanes.some(isThinProjection);
 
+  const strip = (
+    <>
+      {/* Axis. Same [label][rail] geometry as every lane, so a tick label sits
+          exactly above the date it names. */}
+      <View className="flex-row items-end px-4 pt-3 pb-1.5">
+        <View style={{ width: labelWidth }} />
+        <View className="flex-1" style={{ height: 12 }}>
+          {ticks.map((t, i) => (
+            <Text
+              key={t.at}
+              className="text-typography-dim text-[9px] font-medium"
+              style={{
+                position: 'absolute',
+                bottom: 0,
+                ...(i === 0
+                  ? { left: 0 }
+                  : i === ticks.length - 1
+                    ? { right: 0 }
+                    : { left: `${t.at * 100}%`, transform: [{ translateX: -16 }] }),
+              }}
+            >
+              {t.label}
+            </Text>
+          ))}
+        </View>
+        <View style={{ width: 54 }} />
+      </View>
+
+      <View style={{ position: 'relative' }}>
+        {lanes.map((row, i) => (
+          <Lane
+            key={row.id}
+            row={row}
+            domain={domain}
+            labelWidth={labelWidth}
+            last={i === lanes.length - 1}
+            onPress={() => router.push(`/projects/${row.id}` as any)}
+          />
+        ))}
+
+        {/* The today line, drawn ONCE across every lane rather than per lane —
+            broken between rows it reads as decoration instead of as "here".
+            Declared last so it paints above the lanes' hover fill, and
+            pointerEvents="none" keeps every lane clickable through it. */}
+        <View
+          pointerEvents="none"
+          style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, flexDirection: 'row', paddingHorizontal: 16 }}
+        >
+          <View style={{ width: labelWidth }} />
+          <View className="flex-1" style={{ position: 'relative' }}>
+            <View
+              style={{ position: 'absolute', top: 0, bottom: 0, left: `${todayAt * 100}%`, width: 1, backgroundColor: c.primary + '99' }}
+            />
+          </View>
+          <View style={{ width: 54 }} />
+        </View>
+      </View>
+
+      {(anyThin || ordered.length > lanes.length) && (
+        <Text className="text-typography-dim text-[10px] leading-4 px-4 pb-3 pt-1">
+          {anyThin ? 'Hollow markers rest on thin history — a direction, not a date. ' : ''}
+          {ordered.length > lanes.length
+            ? `${ordered.length - lanes.length} more forecast in Projects.`
+            : ''}
+        </Text>
+      )}
+    </>
+  );
+
+  // The caller owns the card and the heading; the strip is just its body. The
+  // lanes keep their own px-4, so the widget shell renders this `flush`.
+  if (embedded) return <View className={className}>{strip}</View>;
+
   return (
-    <View className="mb-8">
+    <View className={className}>
       {/* One eyebrow, no count beside it: the lanes are countable, and the
           overflow line below already names anything left out. (Removed on the
           design pass — three pieces of chrome around five rows read as a
@@ -112,70 +204,7 @@ export default function ProjectionStrip({ rows, loading }: { rows: ProjectionStr
       </Text>
 
       <View className="bg-surface-card border border-surface-border rounded-2xl overflow-hidden">
-        {/* Axis. Same [label][rail] geometry as every lane, so a tick label sits
-            exactly above the date it names. */}
-        <View className="flex-row items-end px-4 pt-3 pb-1.5">
-          <View style={{ width: labelWidth }} />
-          <View className="flex-1" style={{ height: 12 }}>
-            {ticks.map((t, i) => (
-              <Text
-                key={t.at}
-                className="text-typography-dim text-[9px] font-medium"
-                style={{
-                  position: 'absolute',
-                  bottom: 0,
-                  ...(i === 0
-                    ? { left: 0 }
-                    : i === ticks.length - 1
-                      ? { right: 0 }
-                      : { left: `${t.at * 100}%`, transform: [{ translateX: -16 }] }),
-                }}
-              >
-                {t.label}
-              </Text>
-            ))}
-          </View>
-          <View style={{ width: 54 }} />
-        </View>
-
-        <View style={{ position: 'relative' }}>
-          {lanes.map((row, i) => (
-            <Lane
-              key={row.id}
-              row={row}
-              domain={domain}
-              labelWidth={labelWidth}
-              last={i === lanes.length - 1}
-              onPress={() => router.push(`/projects/${row.id}` as any)}
-            />
-          ))}
-
-          {/* The today line, drawn ONCE across every lane rather than per lane —
-              broken between rows it reads as decoration instead of as "here".
-              Declared last so it paints above the lanes' hover fill, and
-              pointerEvents="none" keeps every lane clickable through it. */}
-          <View
-            pointerEvents="none"
-            style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, flexDirection: 'row', paddingHorizontal: 16 }}
-          >
-            <View style={{ width: labelWidth }} />
-            <View className="flex-1" style={{ position: 'relative' }}>
-              <View
-                style={{ position: 'absolute', top: 0, bottom: 0, left: `${todayAt * 100}%`, width: 1, backgroundColor: c.primary + '99' }}
-              />
-            </View>
-            <View style={{ width: 54 }} />
-          </View>
-        </View>
-
-        {(anyThin || ordered.length > lanes.length) && (
-          <Text className="text-typography-dim text-[10px] leading-4 px-4 pb-3 pt-1">
-            {anyThin ? 'Hollow markers rest on thin history — a direction, not a date. ' : ''}
-            {ordered.length > lanes.length
-              ? `${ordered.length - lanes.length} more forecast in Projects.`
-              : ''}
-          </Text>
-        )}
+        {strip}
       </View>
     </View>
   );

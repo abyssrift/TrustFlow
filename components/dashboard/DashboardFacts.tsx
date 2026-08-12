@@ -1,4 +1,4 @@
-// The dashboard's whole numeric summary, in one line (#191, Phase 10).
+// The dashboard's whole numeric summary, in one wrapping row (#191, Phase 10).
 //
 // It replaces a three-stat "pulse" band plus four 240px KPI cards — roughly
 // 600px of vertical chrome that, on a young workspace, carried five zeros and
@@ -15,10 +15,18 @@
 // PATH A (unified responsive): a wrapping row of facts at every width. On a
 // 390px viewport it wraps to two or three lines; nothing is hidden, because
 // each fact is already the shortest form of itself.
+//
+// FORM CHANGE (#213 follow-up): each fact is now a StatTile — a dim uppercase
+// label over a large tabular value — instead of a 16px number, a 12px word and
+// a `·` separator on one running line. The one-line form was written for the
+// full-width strip that used to sit under the greeting; inside a widget cell it
+// read as a sentence, not as numbers. The CONTRACT is unchanged: same `Fact[]`,
+// same "a fact with nothing to say is not rendered at all" rule, same null
+// return when every value is suppressed.
 
-import { useThemeColors } from '@/hooks/useThemeColors';
+import StatTile from '@/components/dashboard/StatTile';
 import React from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
+import { View } from 'react-native';
 
 export type Fact = {
   /** Suppressed when null — see the file header. */
@@ -36,50 +44,23 @@ export default function DashboardFacts({ facts }: { facts: Fact[] }) {
   if (shown.length === 0) return null;
 
   return (
-    <View className="flex-row items-center flex-wrap gap-x-1 gap-y-1">
-      {shown.map((f, i) => (
-        <View key={f.label} className="flex-row items-center">
-          {i > 0 && <Text className="text-typography-dim text-xs mr-1">·</Text>}
-          <FactItem fact={f} />
+    // Same flexWrap + flexBasis idiom as WidgetGrid itself, for the same reason:
+    // column count is arithmetic the layout engine does off the container's real
+    // width, so the row is 4 tiles wide in a 480px `m` cell and one line of 8 at
+    // full width with no breakpoint table anywhere. `flexShrink: 0` and
+    // `maxWidth: '100%'` are load-bearing here exactly as they are there.
+    <View className="flex-row flex-wrap" style={{ gap: 12 }}>
+      {shown.map((f) => (
+        <View key={f.label} style={{ flexGrow: 1, flexShrink: 0, flexBasis: 96, maxWidth: '100%' }}>
+          <StatTile
+            label={f.label}
+            value={f.value!}
+            tone={f.tone}
+            live={f.live}
+            onPress={f.onPress}
+          />
         </View>
       ))}
     </View>
-  );
-}
-
-function FactItem({ fact }: { fact: Fact }) {
-  const c = useThemeColors();
-
-  const body = (
-    <View className="flex-row items-baseline gap-1.5 px-1.5">
-      {fact.live && (
-        <View
-          className="rounded-full self-center"
-          style={{ width: 6, height: 6, backgroundColor: c.success }}
-        />
-      )}
-      <Text className="text-base font-bold" style={{ color: fact.tone ?? c.textMain }}>
-        {fact.value}
-      </Text>
-      <Text className="text-typography-muted text-xs">{fact.label}</Text>
-    </View>
-  );
-
-  if (!fact.onPress) {
-    // Non-interactive facts still sit on the same 44px baseline as the tappable
-    // ones, or the row's items land on different centre lines.
-    return <View style={{ minHeight: 44, justifyContent: 'center' }}>{body}</View>;
-  }
-
-  return (
-    <TouchableOpacity
-      onPress={fact.onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`${fact.value} ${fact.label}`}
-      className="rounded-xl hover:bg-surface-overlay/60 transition-colors justify-center"
-      style={{ minHeight: 44 }}
-    >
-      {body}
-    </TouchableOpacity>
   );
 }

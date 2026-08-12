@@ -21,9 +21,12 @@ type PendingEntry = {
 
 type Props = {
   refreshKey?: number;
+  /** See the native sibling: the dashboard grid's only way to learn that this
+   *  widget is rendering nothing. Optional; existing callers are unchanged. */
+  onEmptyChange?: (empty: boolean) => void;
 };
 
-export default function PendingTimeApprovalsWidget({ refreshKey }: Props) {
+export default function PendingTimeApprovalsWidget({ refreshKey, onEmptyChange }: Props) {
   const colors = useThemeColors();
   const router = useRouter();
   const { profile } = useAuth();
@@ -55,7 +58,10 @@ export default function PendingTimeApprovalsWidget({ refreshKey }: Props) {
     return () => { supabase.removeChannel(channel); };
   }, [profile?.company_id, fetchEntries]);
 
-  if (loading || entries.length === 0) return null;
+  const empty = loading || entries.length === 0;
+  useEffect(() => { onEmptyChange?.(empty); }, [empty, onEmptyChange]);
+
+  if (empty) return null;
 
   const removeEntry = (id: string) =>
     setEntries(prev => prev.filter(e => e.id !== id));

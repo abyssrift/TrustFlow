@@ -10,6 +10,28 @@ import { ActivityIndicator, Image, Text, TouchableOpacity, View } from 'react-na
 // "Who's live right now" list behind the dashboard Live Sessions card: one row
 // per active work session — person, the task they're on, live-ticking elapsed
 // time. Tapping a row jumps to the task.
+//
+// Fed by `rpc_company_live_sessions`, NOT by selecting task_work_sessions. That
+// table's only select policy is `auth.uid() = user_id`, so the direct read this
+// replaced could only ever return the viewer's own session — a "who is live"
+// list of exactly one person. The RPC is company-scoped server-side.
+//
+// It fetches for itself rather than reading DashboardDataContext: this popup
+// opens on demand and is mounted by both dashboard screens, so it must not
+// assume a provider above it.
+
+/** Wire shape of `rpc_company_live_sessions` (snake_case, straight from SQL). */
+type LiveSessionRow = {
+  session_id: string;
+  user_id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  task_id: string;
+  task_title: string | null;
+  pipeline_name: string | null;
+  started_at: string;
+  last_heartbeat_at: string | null;
+};
 
 type LiveRowData = {
   id: string;
@@ -73,24 +95,25 @@ export default function LiveSessionsPopup({ visible, onClose }: { visible: boole
     if (!visible) return;
     let cancelled = false;
     setRows(null);
-    supabase
-      .from('task_work_sessions')
-      .select('id, task_id, started_at, last_heartbeat_at, user:user_id(full_name, avatar_url), task:task_id(title, pipeline:pipeline_id(name))')
-      .eq('status', 'active')
-      .order('started_at', { ascending: true })
-      .then(({ data }) => {
-        if (cancelled) return;
-        setRows((data || []).map((s: any) => ({
-          id: s.id,
-          taskId: s.task_id,
-          startedAt: s.started_at,
-          lastHeartbeatAt: s.last_heartbeat_at,
-          name: s.user?.full_name || 'User',
-          avatar: s.user?.avatar_url ?? null,
-          taskTitle: s.task?.title || 'Unknown task',
-          pipelineName: s.task?.pipeline?.name ?? null,
-        })));
-      });
+    // Ordered started_at ASC by the RPC. On error — including PGRST202 before
+    // the migration lands — `data` is null and this renders "All quiet" rather
+    // than throwing inside a popup.
+    supabase.rpc('rpc_company_live_sessions').then(({ data }) => {
+      if (cancelled) return;
+      setRows(((data || []) as LiveSessionRow[]).map(s => ({
+        id: s.session_id,
+        taskId: s.task_id,
+        startedAt: s.started_at,
+        lastHeartbeatAt: s.last_heartbeat_at,
+        name: s.full_name || 'User',
+        avatar: s.avatar_url ?? null,
+        // NULL by design when the viewer could not read that task through tasks
+        // RLS — see DashboardDataContext's note on the same line. Presence stays
+        // visible; the title does not.
+        taskTitle: s.task_title || 'Unknown task',
+        pipelineName: s.pipeline_name ?? null,
+      })));
+    });
     return () => { cancelled = true; };
   }, [visible]);
 

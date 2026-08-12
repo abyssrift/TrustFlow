@@ -8,7 +8,7 @@ import {
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { FontAwesome } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Text, TouchableOpacity, View, type LayoutChangeEvent } from 'react-native';
 import Svg, { Circle, Line as SvgLine, Polyline } from 'react-native-svg';
 
 export { DEFAULT_OVERVIEW_METRICS };
@@ -25,6 +25,7 @@ interface Props {
   className?: string;
 }
 
+/** Floor for the plot now, not its height — it grows into the card's tier. */
 const CHART_H = 170;
 const PAD_TOP = 12;
 const PAD_BOTTOM = 12;
@@ -41,12 +42,27 @@ export default function PipelineOverviewChartNative({
 }: Props) {
   const colors = useThemeColors();
   const [width, setWidth] = useState(0);
+  const [height, setHeight] = useState(0);
   const { data, loading, error } = usePipelineOverviewData(pipelineIds, period, refreshKey);
 
   const colorFor = (colorKey: string) => (colors as any)[colorKey] ?? colors.primary;
   const enabled = OVERVIEW_METRICS.filter(m => metrics.includes(m.key));
 
-  const plotH = CHART_H - PAD_TOP - PAD_BOTTOM;
+  // The plot box takes what the widget shell's height tier left over instead of
+  // a flat 170, so a 360px cell is chart rather than chart-plus-dead-space. Both
+  // dimensions come off the same onLayout — an svg needs literal numbers, and
+  // that node deliberately carries no responder prop (react-native-web's
+  // onLayout never fires when one node has both; this component IS the web
+  // renderer below 640px, so that trap applies here too).
+  const plotStyle = { flexGrow: 1, minHeight: CHART_H };
+  const onPlotLayout = (e: LayoutChangeEvent) => {
+    const { width: w, height: h } = e.nativeEvent.layout;
+    if (w > 0 && Math.abs(w - width) > 1) setWidth(w);
+    if (h > 0 && Math.abs(h - height) > 1) setHeight(h);
+  };
+
+  const chartH = height || CHART_H;
+  const plotH = chartH - PAD_TOP - PAD_BOTTOM;
 
   // Normalize each metric to its own max so lines with different units share
   // one band as a trend overview. Absolute latest values live in the legend.
@@ -65,14 +81,15 @@ export default function PipelineOverviewChartNative({
   const latest = (key: OverviewMetricKey): number => (data.length ? (data[data.length - 1] as any)[key] : 0);
 
   return (
-    <View className={`bg-surface-card p-6 rounded-[28px] border border-surface-border ${className || ''}`}>
-      <View className="flex-row items-start justify-between mb-5">
-        <View className="flex-1 pr-3">
-          <Text className="text-typography-main text-lg font-black tracking-tight">Pipeline Throughput</Text>
-          <Text className="text-typography-muted text-[11px] mt-0.5 font-medium">
-            {pipelineIds.length} tracked pipeline{pipelineIds.length !== 1 ? 's' : ''} · normalized trend
-          </Text>
-        </View>
+    // No card and no heading — the widget shell draws both, and it is the only
+    // caller. Keeping them here is what made this widget `bare`, which exempted
+    // it from the grid's height tiers and left the graph shorter than every card
+    // beside it. See PipelineOverviewChart.tsx for the same note in full.
+    // `flexGrow` so the plot can claim the height the tier bought.
+    <View className={className} style={{ flexGrow: 1 }}>
+      {/* Controls only. The inline period switch stays: the config gear exists
+          only in edit mode, so this is the one-tap route to Monthly. */}
+      <View className="flex-row items-center justify-end mb-4">
         <View className="flex-row items-center gap-2">
           <View className="flex-row bg-surface-background border border-surface-border rounded-lg p-0.5">
             {(['week', 'month'] as OverviewPeriod[]).map(p => (
@@ -118,28 +135,28 @@ export default function PipelineOverviewChartNative({
       </View>
 
       {loading ? (
-        <View style={{ height: CHART_H }} className="items-center justify-center">
+        <View style={plotStyle} className="items-center justify-center">
           <ActivityIndicator size="small" color={colors.primary} />
         </View>
       ) : error ? (
-        <View style={{ height: CHART_H }} className="items-center justify-center opacity-60">
+        <View style={plotStyle} className="items-center justify-center opacity-60">
           <FontAwesome name="exclamation-triangle" size={20} color={colors.textDim} />
           <Text className="text-typography-muted text-[11px] mt-2">{error}</Text>
         </View>
       ) : enabled.length === 0 ? (
-        <View style={{ height: CHART_H }} className="items-center justify-center opacity-50">
+        <View style={plotStyle} className="items-center justify-center opacity-50">
           <Text className="text-typography-muted text-[11px]">Enable a metric above to plot it.</Text>
         </View>
       ) : data.length === 0 ? (
-        <View style={{ height: CHART_H }} className="items-center justify-center opacity-50">
+        <View style={plotStyle} className="items-center justify-center opacity-50">
           <FontAwesome name="line-chart" size={22} color={colors.textDim} />
           <Text className="text-typography-muted text-[11px] mt-2">No activity in this window.</Text>
         </View>
       ) : (
         <>
-          <View style={{ height: CHART_H }} onLayout={e => setWidth(e.nativeEvent.layout.width)}>
+          <View style={plotStyle} onLayout={onPlotLayout}>
             {width > 0 && (
-              <Svg height={CHART_H} width={width}>
+              <Svg height={chartH} width={width}>
                 {/* baseline */}
                 <SvgLine x1={0} y1={PAD_TOP + plotH} x2={width} y2={PAD_TOP + plotH} stroke={colors.border} strokeWidth={1} />
                 {enabled.map(m => {

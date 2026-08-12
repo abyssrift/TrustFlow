@@ -1,59 +1,21 @@
-import PendingTimeApprovalsWidget from '@/components/common/PendingTimeApprovalsWidget';
-import BlockedExceptionsPanel from '@/components/dashboard/BlockedExceptionsPanel';
-import DashboardFacts, { type Fact } from '@/components/dashboard/DashboardFacts';
-import ProjectionStrip from '@/components/dashboard/ProjectionStrip';
-import LiveSessionsPopup from '@/components/tabs/LiveSessionsPopup';
 import Popup from '@/components/common/Popup';
-import PipelineOverviewChartNative, { DEFAULT_OVERVIEW_METRICS, OverviewMetricKey } from '@/components/intelligence/PipelineOverviewChartNative';
+import WidgetGrid from '@/components/dashboard/widgets/WidgetGrid';
+import { AddWidgetPopup, DashboardMenuPopup, WidgetConfigPopup } from '@/components/dashboard/widgets/WidgetPopups';
+import { WidgetLayoutProvider } from '@/components/dashboard/widgets/registry';
+import LiveSessionsPopup from '@/components/tabs/LiveSessionsPopup';
 import { useAuth } from '@/contexts/AuthContext';
-import { useDashboardProjects } from '@/hooks/useDashboardProjects';
+import { DashboardDataProvider, useDashboardData } from '@/contexts/DashboardDataContext';
 import { useNotifications } from '@/contexts/NotificationsContext';
+import { useDashboardLayout, type DashboardLayout } from '@/hooks/useDashboardLayout';
 import { useNavBarPosition } from '@/hooks/useNavBarPosition';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import type { DashboardConfig, WidgetInstance } from '@/lib/dashboardWidgets';
 import { TAB_BAR_HEIGHT } from '@/lib/layout';
 import { supabase } from '@/lib/supabase';
-import { formatCompact, formatRelative } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, InteractionManager, Platform, RefreshControl, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
-
-// ── Types ────────────────────────────────────────────────────────────────
-
-type DashboardStats = {
-  totalTasks: number;
-  activeNow: number;
-  completed: number;
-  failed: number;
-  activeSessions: number;
-};
-
-type DashboardConfig = {
-  pipelineIds: string[];
-  successStageIds: string[];
-  useAllPipelines?: boolean;
-  overviewMetrics?: OverviewMetricKey[];
-  overviewPeriod?: 'week' | 'month';
-};
-
-type PersonalPulse = {
-  daily_points: number;
-  monthly_points: number;
-  active_seconds_today: number;
-  flap_rate_score: number;
-  is_working: boolean;
-};
-
-type ActivityEntry = {
-  id: string;
-  taskId: string;
-  taskTitle: string;
-  fromStage: string;
-  toStage: string;
-  movedBy: string;
-  movedAt: string;
-};
+import { ActivityIndicator, Platform, RefreshControl, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -64,59 +26,25 @@ const getGreeting = (): string => {
   return 'Good evening';
 };
 
-const timeAgo = (dateStr: string): string => formatRelative(dateStr);
-
 // ── Component ────────────────────────────────────────────────────────────
 
 export default function DashboardScreen() {
-  const { width } = useWindowDimensions();
-  const [stats, setStats] = useState<DashboardStats>({ totalTasks: 0, activeNow: 0, completed: 0, failed: 0, activeSessions: 0 });
+  const { user, profile } = useAuth();
+
+  // Same hook, same storage key and same registry as the desktop screen: the
+  // two files diverge on chrome (this one has a tab bar, a nav-bar position and
+  // a tighter header), never on what a widget is or where its data comes from.
+  const layout = useDashboardLayout();
+
   const [showLiveSessions, setShowLiveSessions] = useState(false);
-  const [pulse, setPulse] = useState<PersonalPulse | null>(null);
-  const [activity, setActivity] = useState<ActivityEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [config, setConfig] = useState<DashboardConfig | null>(null);
-  const [trackedPipelineIds, setTrackedPipelineIds] = useState<string[]>([]);
-  const [widgetRefreshKey, setWidgetRefreshKey] = useState(0);
-
-  const { user, profile, hasPermission } = useAuth();
-  const canViewOverview = hasPermission('analytics.view');
-
-  // ONE rpc_projects_table read, shared by the projection strip and the
-  // exceptions panel below it — same hook the desktop path uses, so the two
-  // screens cannot drift on what a project's forecast says.
-  const dashProjects = useDashboardProjects(widgetRefreshKey);
-
-  const overviewMetrics = config?.overviewMetrics ?? DEFAULT_OVERVIEW_METRICS;
-  const overviewPeriod = config?.overviewPeriod ?? 'week';
-
-  const persistConfig = async (next: DashboardConfig) => {
-    setConfig(next);
-    try {
-      await AsyncStorage.setItem('@TrustFlow_dashboard_config', JSON.stringify(next));
-    } catch (e) {
-      console.error('Failed to persist dashboard config', e);
-    }
-  };
-
-  const toggleOverviewMetric = (key: OverviewMetricKey) => {
-    const base = config ?? { pipelineIds: [], successStageIds: [], useAllPipelines: true };
-    const cur = base.overviewMetrics ?? DEFAULT_OVERVIEW_METRICS;
-    const nextMetrics = cur.includes(key) ? cur.filter(k => k !== key) : [...cur, key];
-    persistConfig({ ...base, overviewMetrics: nextMetrics });
-  };
-
-  const setOverviewPeriod = (p: 'week' | 'month') => {
-    const base = config ?? { pipelineIds: [], successStageIds: [], useAllPipelines: true };
-    persistConfig({ ...base, overviewPeriod: p });
-  };
-  const { unreadCount } = useNotifications();
-  const router = useRouter();
-  const colors = useThemeColors();
-  const isLargeScreen = width > 768;
-  const { position: navPosition } = useNavBarPosition();
+  const [showMenu, setShowMenu] = useState(false);
+  const [showAddWidget, setShowAddWidget] = useState(false);
+  const [editing, setEditing] = useState(false);
+  // The id, not the instance — the config sheet writes straight through
+  // layout.setConfig, so a captured object would show the option the user left.
+  const [configuringId, setConfiguringId] = useState<string | null>(null);
+  const configuring = layout.instances.find(i => i.id === configuringId) ?? null;
 
   const displayName = useMemo(() => {
     return profile?.display_name || profile?.full_name || user?.user_metadata?.full_name || 'Operator';
@@ -124,196 +52,104 @@ export default function DashboardScreen() {
 
   const firstName = useMemo(() => displayName.split(' ')[0], [displayName]);
 
-  // ── Data Fetching ──────────────────────────────────────────────────────
+  return (
+    // DashboardDataProvider so N widget instances share ONE copy of every
+    // query — including the 500-row rpc_projects_table read that
+    // useDashboardProjects exists to deduplicate. WidgetLayoutProvider so the
+    // overview chart's inline period switch writes the same per-instance config
+    // its sheet does; useWidgetLayout() throws without it, on purpose.
+    <DashboardDataProvider
+      config={layout.config}
+      ready={layout.hydrated}
+      onOpenLiveSessions={() => setShowLiveSessions(true)}
+    >
+      <WidgetLayoutProvider layout={layout}>
+        <DashboardCanvas
+          layout={layout}
+          firstName={firstName}
+          editing={editing}
+          onOpenMenu={() => setShowMenu(true)}
+          onAddWidget={() => setShowAddWidget(true)}
+          onDoneEditing={() => setEditing(false)}
+          onConfigure={instance => setConfiguringId(instance.id)}
+        />
+      </WidgetLayoutProvider>
 
-  const loadConfig = async () => {
-    try {
-      const saved = await AsyncStorage.getItem('@TrustFlow_dashboard_config');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        setConfig(parsed);
-        return parsed;
-      }
-    } catch (e) {
-      console.error('Failed to load dashboard config', e);
-    }
-    return null;
-  };
+      <LiveSessionsPopup visible={showLiveSessions} onClose={() => setShowLiveSessions(false)} />
 
-  const fetchDashboardData = async (activeConfig?: DashboardConfig | null) => {
-    try {
-      const currentConfig = activeConfig !== undefined ? activeConfig : config;
-      let targetPipelineIds: string[] = [];
-      let successStageIds: string[] = [];
-      let terminalStageIds: string[] = [];
+      <DashboardMenuPopup
+        visible={showMenu}
+        onClose={() => setShowMenu(false)}
+        onEditLayout={() => { setShowMenu(false); setEditing(true); }}
+        onOpenPipelineConfig={() => { setShowMenu(false); setShowSettings(true); }}
+      />
 
-      // Default to all pipelines when no config, or when useAllPipelines is set, or no pipelines selected
-      const isAllPipelines =
-        !currentConfig ||
-        currentConfig.useAllPipelines === true ||
-        currentConfig.pipelineIds.length === 0;
+      <AddWidgetPopup
+        visible={showAddWidget}
+        onClose={() => setShowAddWidget(false)}
+        instances={layout.instances}
+        onAdd={layout.addWidget}
+      />
 
-      if (isAllPipelines) {
-        const { data: allPipelines } = await supabase
-          .from('pipelines')
-          .select('id')
-          .is('deleted_at', null);
-        targetPipelineIds = (allPipelines || []).map((p: any) => p.id);
-      } else {
-        targetPipelineIds = currentConfig!.pipelineIds;
-      }
+      <WidgetConfigPopup
+        visible={!!configuring}
+        onClose={() => setConfiguringId(null)}
+        instance={configuring}
+        onChange={(key, value) => configuring && layout.setConfig(configuring.id, key, value)}
+      />
 
-      setTrackedPipelineIds(targetPipelineIds);
+      <DashboardSettingsModal
+        visible={showSettings}
+        onClose={() => setShowSettings(false)}
+        config={layout.config}
+        onSave={async (newConfig) => {
+          // saveConfig spreads over the stored object, so the widget layout and
+          // the overview-graph metrics this modal never touches survive the
+          // save — the hand-rolled merge that used to live here is the hook's
+          // one persist path now, and the refetch follows the fetch key.
+          await layout.saveConfig(newConfig);
+          setShowSettings(false);
+        }}
+      />
+    </DashboardDataProvider>
+  );
+}
 
-      if (targetPipelineIds.length === 0) {
-        setLoading(false);
-        setRefreshing(false);
-        return;
-      }
-
-      // Run all pipeline-dependent queries in parallel
-      const [
-        { data: terminalStages },
-        { data: tasks },
-        { data: sessionRows },
-        { data: historyData },
-      ] = await Promise.all([
-        supabase.from('pipeline_stages')
-          .select('id, terminal_type')
-          .in('pipeline_id', targetPipelineIds)
-          .eq('is_terminal', true),
-        supabase.from('tasks')
-          .select('id, current_stage_id')
-          .in('pipeline_id', targetPipelineIds),
-        supabase.from('task_work_sessions')
-          .select('user_id, started_at, last_heartbeat_at, user:user_id(full_name, avatar_url)')
-          .eq('status', 'active'),
-        supabase.from('pipeline_stage_history')
-          .select(`
-            id,
-            transitioned_at,
-            task_id,
-            task:task_id(title, pipeline_id),
-            from_stage:from_stage_id(name),
-            to_stage:to_stage_id(name),
-            transitioned_by_user:users!transitioned_by(full_name, display_name)
-          `)
-          .order('transitioned_at', { ascending: false })
-          .limit(4),
-      ]);
-
-      terminalStageIds = (terminalStages || []).map((s: any) => s.id);
-
-      // Use configured success stages if explicitly set; otherwise auto-detect terminal_type='success'
-      if (!isAllPipelines && currentConfig!.successStageIds.length > 0) {
-        successStageIds = currentConfig!.successStageIds;
-      } else {
-        successStageIds = (terminalStages || [])
-          .filter((s: any) => s.terminal_type === 'success')
-          .map((s: any) => s.id);
-      }
-
-      const total = tasks?.length || 0;
-      const completed = tasks?.filter((t: any) => successStageIds.includes(t.current_stage_id)).length || 0;
-      const activeNow = tasks?.filter((t: any) => !terminalStageIds.includes(t.current_stage_id)).length || 0;
-      const failed = total - completed - activeNow;
-
-      // One session per person, even if they somehow hold several. The avatar
-      // row this built lived in a KPI card that no longer exists;
-      // LiveSessionsPopup fetches its own people when you open it.
-      setStats({
-        totalTasks: total,
-        activeNow,
-        completed,
-        failed,
-        activeSessions: new Set((sessionRows || []).map((s: any) => s.user_id)).size,
-      });
-
-      const activityEntries: ActivityEntry[] = (historyData || [])
-        .filter((h: any) => targetPipelineIds.includes(h.task?.pipeline_id))
-        .slice(0, 8)
-        .map((h: any) => ({
-          id: h.id,
-          taskId: h.task_id,
-          taskTitle: h.task?.title || 'Unknown Task',
-          fromStage: h.from_stage?.name || '-',
-          toStage: h.from_stage ? (h.to_stage?.name || '—') : 'created',
-          movedBy: h.transitioned_by_user?.display_name || h.transitioned_by_user?.full_name || 'System',
-          movedAt: h.transitioned_at,
-        }));
-      setActivity(activityEntries);
-    } catch (err) {
-      console.error('[Dashboard] Data fetch error:', err);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  const fetchPulse = async () => {
-    try {
-      const { data } = await supabase.rpc('rpc_get_personal_pulse');
-      if (data) setPulse(data);
-    } catch (err) {
-      console.error('[Dashboard] Pulse fetch error:', err);
-    }
-  };
-
-  useEffect(() => {
-    // On web, InteractionManager.runAfterInteractions can hang indefinitely
-    // (its handle never clears with ongoing subscriptions/animations), so the
-    // callback never fires and loading stays true forever. Run directly on web.
-    if (Platform.OS === 'web') {
-      (async () => {
-        const loadedConfig = await loadConfig();
-        fetchDashboardData(loadedConfig);
-        fetchPulse();
-      })();
-      return;
-    }
-    const task = InteractionManager.runAfterInteractions(async () => {
-      const loadedConfig = await loadConfig();
-      fetchDashboardData(loadedConfig);
-      fetchPulse();
-    });
-    return () => task.cancel();
-  }, []);
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchDashboardData();
-    fetchPulse();
-    setWidgetRefreshKey(k => k + 1);
-  };
-
-  
-
-  const completionRate = stats.totalTasks > 0 ? Math.round((stats.completed / stats.totalTasks) * 100) : 0;
-  const failedRate = stats.totalTasks > 0 ? Math.round((stats.failed / stats.totalTasks) * 100) : 0;
-
-  // Same list, same order, same suppression rule as the desktop path — a fact
-  // that is zero is passed as null and never rendered. At 390px this wraps to
-  // two or three lines instead of four 150px cards and a pulse band.
-  const facts: Fact[] = [
-    { value: stats.totalTasks > 0 ? String(stats.totalTasks) : null, label: 'in pipeline', onPress: () => router.push('/tasks' as any) },
-    { value: stats.activeNow > 0 ? String(stats.activeNow) : null, label: 'in progress', onPress: () => router.push('/tasks' as any) },
-    { value: stats.completed > 0 ? String(stats.completed) : null, label: `done · ${completionRate}%`, tone: colors.success, onPress: () => router.push('/intelligence/archives' as any) },
-    { value: stats.failed > 0 ? String(stats.failed) : null, label: `failed · ${failedRate}%`, tone: colors.danger, onPress: () => router.push('/intelligence/archives' as any) },
-    // Presence, not a tally — so it does NOT follow the hide-when-zero rule the
-    // other facts do. "0 working now" answers the question you asked; a missing
-    // row leaves you wondering whether nobody is working or the dot is broken.
-    { value: String(stats.activeSessions), label: 'working now', live: true, onPress: () => setShowLiveSessions(true) },
-    { value: pulse && pulse.daily_points > 0 ? String(pulse.daily_points) : null, label: 'pts today' },
-    { value: pulse && pulse.active_seconds_today > 0 ? formatCompact(pulse.active_seconds_today) : null, label: 'active' },
-    { value: pulse && pulse.flap_rate_score > 1.5 ? `${pulse.flap_rate_score}x` : null, label: 'task switching', tone: colors.danger },
-  ];
+/**
+ * Split out only because pull-to-refresh and the loading gate read
+ * `useDashboardData()`, which the component mounting the provider cannot.
+ */
+function DashboardCanvas({
+  layout,
+  firstName,
+  editing,
+  onOpenMenu,
+  onAddWidget,
+  onDoneEditing,
+  onConfigure,
+}: {
+  layout: DashboardLayout;
+  firstName: string;
+  editing: boolean;
+  onOpenMenu: () => void;
+  onAddWidget: () => void;
+  onDoneEditing: () => void;
+  onConfigure: (instance: WidgetInstance) => void;
+}) {
+  const { width } = useWindowDimensions();
+  const { unreadCount } = useNotifications();
+  const router = useRouter();
+  const colors = useThemeColors();
+  const isLargeScreen = width > 768;
+  const { position: navPosition } = useNavBarPosition();
+  const { loading, refreshing, refreshAll } = useDashboardData();
 
   return (
     <ScrollView
       className="flex-1 bg-surface-background p-5"
       showsVerticalScrollIndicator={false}
       contentContainerStyle={{ paddingTop: Platform.OS === 'web' ? (isLargeScreen || navPosition !== 'top' ? 0 : TAB_BAR_HEIGHT.web) : TAB_BAR_HEIGHT.native, paddingBottom: (Platform.OS !== 'web' || !isLargeScreen) ? TAB_BAR_HEIGHT.native + 16 : 32 }}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refreshAll} tintColor={colors.primary} />}
     >
       <View className="mb-5 mt-4 flex-row justify-between items-start">
         <View className="flex-1 mr-3">
@@ -322,7 +158,9 @@ export default function DashboardScreen() {
           </Text>
         </View>
         {/* 44x44, not 40x40 — these are the screen's primary tap targets and
-            were under the minimum. */}
+            were under the minimum. Still three of them: at 390px a fourth does
+            not fit, which is why edit mode lives behind the sliders menu and
+            its own controls appear on their own row below. */}
         <View className="flex-row items-center gap-1.5">
           <TouchableOpacity
             onPress={() => router.push('/search' as any)}
@@ -353,7 +191,7 @@ export default function DashboardScreen() {
             )}
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => setShowSettings(true)}
+            onPress={onOpenMenu}
             accessibilityRole="button"
             accessibilityLabel="Dashboard settings"
             className="bg-surface-card rounded-full items-center justify-center border border-surface-border flex-shrink-0"
@@ -364,174 +202,49 @@ export default function DashboardScreen() {
         </View>
       </View>
 
-      {loading && !refreshing ? (
+      {/* Edit mode gets its own full-width row rather than a fourth header
+          button: two labelled targets at 44px tall fit here at 390px, where
+          they would not fit beside the three above. */}
+      {editing && (
+        <View className="flex-row items-center gap-2 mb-4">
+          <TouchableOpacity
+            onPress={onAddWidget}
+            accessibilityRole="button"
+            accessibilityLabel="Add a widget"
+            className="flex-1 flex-row items-center justify-center gap-2 rounded-xl bg-surface-card border border-surface-border"
+            style={{ minHeight: 44 }}
+          >
+            <FontAwesome name="plus" size={12} color={colors.primary} />
+            <Text className="text-typography-main text-xs font-bold">Add widget</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={onDoneEditing}
+            accessibilityRole="button"
+            accessibilityLabel="Finish editing the dashboard layout"
+            className="flex-1 rounded-xl bg-brand-primary items-center justify-center"
+            style={{ minHeight: 44 }}
+          >
+            <Text className="text-white text-xs font-bold">Done</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Two different waits, both real. `hydrated` covers AsyncStorage AND
+          permissionsLoaded — permissions start empty, so seeding before that
+          flips hands back a dashboard with every gated widget stripped out. */}
+      {(!layout.hydrated || loading) && !refreshing ? (
         <View className="items-center justify-center py-24">
           <ActivityIndicator size="large" color={colors.primary} />
           <Text className="text-typography-muted mt-3 font-bold uppercase tracking-widest text-[10px]">Loading data...</Text>
         </View>
       ) : (
-        <View>
-          {/* The pulse band and the four KPI cards are now this one wrapping
-              line, and anything reading zero is simply absent from it. */}
-          <View className="mb-5 -mt-1">
-            <DashboardFacts facts={facts} />
-          </View>
-
-          {/* Desktop web (>=768) surfaces this via the topbar island instead (IslandTimeApprovalsBridge). */}
-          {!(Platform.OS === 'web' && width >= 768) && (
-            <PendingTimeApprovalsWidget refreshKey={widgetRefreshKey} />
-          )}
-
-          <LiveSessionsPopup visible={showLiveSessions} onClose={() => setShowLiveSessions(false)} />
-
-          {/* Renders nothing at all when the server has forecast nothing. */}
-          <ProjectionStrip rows={dashProjects.rows} loading={dashProjects.state === 'loading'} />
-
-          <BlockedExceptionsPanel
-            rows={dashProjects.rows}
-            state={dashProjects.state}
-            reload={dashProjects.reload}
-            canView={dashProjects.canView}
-          />
-
-          {canViewOverview ? (
-            <View className="mb-6">
-              <PipelineOverviewChartNative
-                pipelineIds={trackedPipelineIds}
-                metrics={overviewMetrics}
-                period={overviewPeriod}
-                onToggleMetric={toggleOverviewMetric}
-                onSetPeriod={setOverviewPeriod}
-                onCustomize={() => setShowSettings(true)}
-                refreshKey={widgetRefreshKey}
-              />
-            </View>
-          ) : (
-          <View className="bg-surface-card p-5 rounded-2xl border border-surface-border mb-6">
-            <View className="flex-row items-center justify-between mb-4">
-              <Text className="text-typography-dim text-[10px] font-bold uppercase tracking-[0.12em]">Pipeline completion</Text>
-              <Text className="text-typography-main text-base font-bold">{completionRate}%</Text>
-            </View>
-
-            <View className="w-full h-2 bg-surface-background rounded-full overflow-hidden border border-surface-border/50 mb-5">
-              <View
-                className="h-full bg-brand-primary rounded-full"
-                style={{ width: `${completionRate}%` }}
-              />
-            </View>
-
-            <View className="gap-4">
-              <View>
-                <View className="flex-row justify-between mb-1.5">
-                  <Text className="text-typography-main text-xs font-semibold">In progress</Text>
-                  <Text className="text-typography-muted text-xs">{stats.activeNow} / {stats.totalTasks}</Text>
-                </View>
-                <View className="w-full h-1.5 bg-surface-background rounded-full overflow-hidden border border-surface-border/50">
-                  <View
-                    className="h-full bg-state-warning rounded-full"
-                    style={{ width: `${stats.totalTasks > 0 ? (stats.activeNow / stats.totalTasks) * 100 : 0}%` }}
-                  />
-                </View>
-              </View>
-
-              <View>
-                <View className="flex-row justify-between mb-1.5">
-                  <Text className="text-typography-main text-xs font-semibold">Completed</Text>
-                  <Text className="text-typography-muted text-xs">{stats.completed} / {stats.totalTasks}</Text>
-                </View>
-                <View className="w-full h-1.5 bg-surface-background rounded-full overflow-hidden border border-surface-border/50">
-                  <View
-                    className="h-full bg-state-success rounded-full"
-                    style={{ width: `${completionRate}%` }}
-                  />
-                </View>
-              </View>
-
-              {stats.failed > 0 && (
-                <View>
-                  <View className="flex-row justify-between mb-1.5">
-                    <Text className="text-typography-main text-xs font-semibold">Failed / rejected</Text>
-                    <Text className="text-typography-muted text-xs">{stats.failed} / {stats.totalTasks}</Text>
-                  </View>
-                  <View className="w-full h-1.5 bg-surface-background rounded-full overflow-hidden border border-surface-border/50">
-                    <View
-                      className="h-full bg-state-danger rounded-full"
-                      style={{ width: `${failedRate}%` }}
-                    />
-                  </View>
-                </View>
-              )}
-            </View>
-          </View>
-          )}
-
-          {/* Nothing has moved -> one line, no dashed placeholder box. */}
-          {activity.length === 0 ? (
-            <Text className="text-typography-dim text-xs">Nothing has moved yet.</Text>
-          ) : (
-            <View>
-              <View className="flex-row items-center justify-between mb-2.5">
-                <Text className="text-typography-dim text-[10px] font-bold uppercase tracking-[0.12em]">Recent activity</Text>
-                <TouchableOpacity
-                  onPress={() => router.push('/intelligence' as any)}
-                  accessibilityRole="button"
-                  accessibilityLabel="Open Intelligence"
-                  className="items-center justify-center"
-                  style={{ width: 44, height: 44 }}
-                >
-                  <FontAwesome name="chevron-right" size={10} color={colors.textDim} />
-                </TouchableOpacity>
-              </View>
-
-              <View className="bg-surface-card rounded-2xl border border-surface-border overflow-hidden">
-                {activity.map((entry, idx) => (
-                  <TouchableOpacity
-                    key={entry.id}
-                    activeOpacity={0.6}
-                    disabled={!entry.taskId}
-                    onPress={() => entry.taskId && router.push(`/task/${entry.taskId}` as any)}
-                    className={`flex-row items-center px-4 ${idx !== activity.length - 1 ? 'border-b border-surface-border/30' : ''}`}
-                    style={{ minHeight: 44, paddingVertical: 8 }}
-                  >
-                    <View className="flex-1 pr-3">
-                      <Text className="text-typography-main font-semibold text-xs" numberOfLines={1}>
-                        {entry.taskTitle}
-                      </Text>
-                      <View className="flex-row items-center gap-1">
-                        <Text className="text-typography-dim text-[10px]" numberOfLines={1}>{entry.fromStage}</Text>
-                        <FontAwesome name="long-arrow-right" size={8} color={colors.textDim} />
-                        <Text className="text-typography-muted text-[10px]" numberOfLines={1}>{entry.toStage}</Text>
-                      </View>
-                    </View>
-                    <View className="items-end">
-                      <Text className="text-typography-dim text-[10px]">{timeAgo(entry.movedAt)}</Text>
-                      <Text className="text-typography-dim text-[10px]" numberOfLines={1}>{entry.movedBy}</Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-          )}
-        </View>
+        <WidgetGrid
+          instances={layout.instances}
+          editing={editing}
+          layout={layout}
+          onConfigure={onConfigure}
+        />
       )}
-
-      <DashboardSettingsModal
-        visible={showSettings}
-        onClose={() => setShowSettings(false)}
-        config={config}
-        onSave={async (newConfig) => {
-          // Preserve overview-graph customization, which this modal doesn't touch.
-          const merged: DashboardConfig = {
-            ...newConfig,
-            overviewMetrics: config?.overviewMetrics,
-            overviewPeriod: config?.overviewPeriod,
-          };
-          setConfig(merged);
-          await AsyncStorage.setItem('@TrustFlow_dashboard_config', JSON.stringify(merged));
-          fetchDashboardData(merged);
-          setShowSettings(false);
-        }}
-      />
     </ScrollView>
   );
 }

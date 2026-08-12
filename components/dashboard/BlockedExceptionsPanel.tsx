@@ -46,11 +46,25 @@ export default function BlockedExceptionsPanel({
   state,
   reload,
   canView,
+  // This panel owns its bottom gap on the two screens that stack panels by
+  // hand. Inside the widget grid (#213) the gap belongs to the grid, so the
+  // adapter passes ''. Threaded to all four return paths. Optional with the old
+  // value as its default, so every existing caller is byte-identical.
+  className = 'mb-8',
+  // The caller already draws a card and a heading (the widget shell does), so
+  // the 10px eyebrow below would be a second, quieter title for the same thing.
+  // The COUNT is not chrome and survives — it is the one number in this panel —
+  // it just moves into a badge, since without the eyebrow beside it a bare
+  // numeral names nothing. Optional and false by default, so every existing
+  // caller is byte-identical.
+  embedded = false,
 }: {
   rows: any[];
   state: 'loading' | 'ready' | 'error';
   reload: () => void;
   canView: boolean;
+  className?: string;
+  embedded?: boolean;
 }) {
   const c = useThemeColors();
   const router = useRouter();
@@ -74,7 +88,7 @@ export default function BlockedExceptionsPanel({
   // space guarantees a layout jump on every load.
   if (state === 'loading') {
     return (
-      <View className="mb-8">
+      <View className={className}>
         <SkeletonList count={1} itemHeight={18} />
       </View>
     );
@@ -82,7 +96,7 @@ export default function BlockedExceptionsPanel({
 
   if (state === 'error') {
     return (
-      <View className="mb-8 flex-row items-center gap-2 flex-wrap">
+      <View className={`${className} flex-row items-center gap-2 flex-wrap`}>
         <FontAwesome name="exclamation-triangle" size={11} color={c.warning} />
         <Text className="text-typography-muted text-xs">
           Couldn't check project status — this isn't saying nothing's wrong.
@@ -101,7 +115,7 @@ export default function BlockedExceptionsPanel({
   // The all-clear: one line, no box, no fill, no icon medallion.
   if (rows.length === 0) {
     return (
-      <View className="mb-8 flex-row items-center gap-2">
+      <View className={`${className} flex-row items-center gap-2`}>
         <FontAwesome name="check" size={10} color={c.textDim} />
         <Text className="text-typography-dim text-xs">
           Nothing blocked, overdue, or forecast to miss a deadline.
@@ -111,14 +125,22 @@ export default function BlockedExceptionsPanel({
   }
 
   return (
-    <View className="mb-8">
+    <View className={className}>
       <View className="flex-row items-center justify-between mb-3">
-        <View className="flex-row items-center gap-2">
-          <Text className="text-typography-dim text-[10px] font-bold uppercase tracking-[0.12em]">
-            Needs attention
-          </Text>
-          <Text className="text-state-danger text-[10px] font-bold">{rows.length}</Text>
-        </View>
+        {embedded ? (
+          <View className="bg-state-danger-dim rounded-xl px-2.5 py-1">
+            <Text className="text-state-danger text-[10px] font-black uppercase tracking-[0.12em]">
+              {rows.length} flagged
+            </Text>
+          </View>
+        ) : (
+          <View className="flex-row items-center gap-2">
+            <Text className="text-typography-dim text-[10px] font-bold uppercase tracking-[0.12em]">
+              Needs attention
+            </Text>
+            <Text className="text-state-danger text-[10px] font-bold">{rows.length}</Text>
+          </View>
+        )}
         {rows.length > MAX_SHOWN && (
           <TouchableOpacity
             onPress={() => router.push('/projects' as any)}
