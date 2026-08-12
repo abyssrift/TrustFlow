@@ -1,17 +1,20 @@
 import { useAuth } from '@/contexts/AuthContext';
+import { useNotifications } from '@/contexts/NotificationsContext';
+import { useDropdownTrigger } from '@/hooks/useDropdownTrigger';
 import { useGlobalSearch } from '@/hooks/useGlobalSearch';
 import { useRecentSearches } from '@/hooks/useRecentSearches';
 import { useSavedSearches } from '@/hooks/useSavedSearches';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { useUpcomingTasks } from '@/hooks/useUpcomingTasks';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { Link, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import React from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
 import CalendarOverlay from '../calendar/CalendarOverlay.web';
 import Tooltip from '../common/Tooltip';
 import type { Shortcut } from './constants';
+import NotificationsDropdown from './notifications/NotificationsDropdown.web';
 import PinnedShortcuts from './PinnedShortcuts.web';
 import ProfilePill from './ProfilePill.web';
 import ThemeButton from './ThemeButton.web';
@@ -25,6 +28,9 @@ cssInterop(FontAwesome, {
     nativeStyleToProp: { color: true, size: true },
   },
 } as any);
+
+/** How long a freshly-arrived notification stays auto-expanded before collapsing. */
+const NOTIF_PEEK_MS = 3000;
 
 export default function TopBar({
   topSearch,
@@ -54,6 +60,7 @@ export default function TopBar({
   const colors = useThemeColors();
   const router = useRouter();
   const { hasPermission } = useAuth();
+  const { notifications } = useNotifications();
   const canViewArchives = hasPermission('archive.view');
   const [focused, setFocused] = React.useState(false);
   const [hovered, setHovered] = React.useState(false);
@@ -77,6 +84,8 @@ export default function TopBar({
   const timelineStripWrapRef = React.useRef<HTMLDivElement>(null);
   const [calendarOpen, setCalendarOpen] = React.useState(false);
   const [calendarOriginRect, setCalendarOriginRect] = React.useState<{ top: number; left: number; width: number; height: number } | null>(null);
+  const { open: notifOpen, setClickedOpen: setNotifOpen, toggle: toggleNotif, wrapperRef: notifWrapRef, closeNow: closeNotifRaw } = useDropdownTrigger(150);
+  const notifPeekTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const setFocus = (v: boolean) => { setFocused(v); onSearchFocusChange?.(v); };
   // Delay blur so a click inside the dropdown lands before it unmounts.
@@ -92,6 +101,40 @@ export default function TopBar({
   const scheduleCloseTimeline = () => { timelineCloseTimer.current = setTimeout(() => setTimelineOpen(false), 150); };
   const closeTimelineNow = () => { if (timelineCloseTimer.current) clearTimeout(timelineCloseTimer.current); setTimelineOpen(false); };
   React.useEffect(() => () => { if (timelineCloseTimer.current) clearTimeout(timelineCloseTimer.current); }, []);
+
+  // Hover-open / click-toggle / outside-click-close all come from
+  // useDropdownTrigger (shared with PinnedShortcuts) — this just layers the
+  // realtime auto-peek on top via the hook's clickedOpen setter.
+  const cancelNotifPeek = () => {
+    if (notifPeekTimer.current) { clearTimeout(notifPeekTimer.current); notifPeekTimer.current = null; }
+  };
+  // Explicit user actions (toggle, footer click, item click) win over a
+  // pending peek collapse — cancel it so a stale timer can't force-close a
+  // panel the user just reopened themselves.
+  const toggleNotifications = () => { cancelNotifPeek(); toggleNotif(); };
+  const closeNotifications = () => { cancelNotifPeek(); closeNotifRaw(); };
+
+  // Auto-peek: a realtime INSERT lands at the head of the context list, so a
+  // change in the top id is the arrival signal — no extra context state needed.
+  // The first fill (undefined -> id) is the initial fetch, not an arrival.
+  // Hovering the peeked panel keeps it open for free: `open` is
+  // `hovered || clickedOpen`, so this timer flipping clickedOpen back to
+  // false while the cursor is still over it doesn't close anything.
+  // ponytail: id-diff instead of an event bus; swap if a second consumer needs it.
+  const lastTopId = React.useRef<string | undefined>(undefined);
+  React.useEffect(() => {
+    const topId = notifications[0]?.id;
+    const previous = lastTopId.current;
+    lastTopId.current = topId;
+    if (!topId || previous === undefined || topId === previous) return;
+    if (notifications[0].read_at) return;
+
+    cancelNotifPeek();
+    setNotifOpen(true);
+    notifPeekTimer.current = setTimeout(() => { notifPeekTimer.current = null; setNotifOpen(false); }, NOTIF_PEEK_MS);
+  }, [notifications]);
+
+  React.useEffect(() => cancelNotifPeek, []);
 
   // Read the dropdown's current on-screen rect so CalendarOverlay's FLIP
   // morph can start from exactly where the click happened.
@@ -217,9 +260,14 @@ export default function TopBar({
 
         <ThemeButton />
 
-        <Tooltip label="Notifications">
-          <Link href="/notifications" asChild>
-            <Pressable className="h-9 w-9 items-center justify-center rounded-xl border border-surface-border bg-surface-card hover:bg-surface-overlay">
+        {/* Hover opens it, click latches it open, same trigger + animated
+            card as ThemeButton and PinnedShortcuts' picker. */}
+        <View ref={notifWrapRef} style={{ position: 'relative', zIndex: notifOpen ? 100 : undefined }}>
+          <Tooltip label="Notifications">
+            <Pressable
+              onPress={toggleNotifications}
+              className="h-9 w-9 items-center justify-center rounded-xl border border-surface-border bg-surface-card hover:bg-surface-overlay"
+            >
               <View>
                 <FontAwesome name="bell" size={14} color={colors.primary} />
                 {unreadCount > 0 && (
@@ -231,8 +279,9 @@ export default function TopBar({
                 )}
               </View>
             </Pressable>
-          </Link>
-        </Tooltip>
+          </Tooltip>
+          <NotificationsDropdown visible={notifOpen} onClose={closeNotifications} />
+        </View>
 
         <ProfilePill profileAvatarUrl={profileAvatarUrl} profileLabel={profileLabel} />
       </View>

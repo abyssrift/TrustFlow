@@ -1,40 +1,12 @@
 import { AppNotification, useNotifications } from '@/contexts/NotificationsContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { getNotificationIcon } from '@/lib/notificationIcons';
 import { getNotificationRoute } from '@/lib/notificationRouting';
 import { formatRelative } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Stack, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
-
-type IconSpec = { name: React.ComponentProps<typeof FontAwesome>['name']; color: string };
-
-function getIconSpec(type: string): IconSpec {
-  const colors = useThemeColors();
-  switch (type) {
-    case 'task.assigned':       return { name: 'user-plus',         color: colors.primary };
-    case 'task.mentioned':      return { name: 'at',                color: colors.warning };
-    case 'task.commented':      return { name: 'comment',           color: colors.textMuted };
-    case 'task.created':        return { name: 'plus-square',       color: colors.success };
-    case 'task.completed':      return { name: 'check-circle',      color: colors.success };
-    case 'task.stage_transition': return { name: 'exchange',        color: colors.primary };
-    case 'task.status_changed': return { name: 'refresh',           color: colors.primary };
-    case 'task.due_soon':       return { name: 'clock-o',           color: colors.warning };
-    case 'task.overdue':        return { name: 'exclamation-circle',color: colors.danger };
-    case 'task.pinged':         return { name: 'bullhorn',          color: colors.warning };
-    case 'task.manual_time_flagged':  return { name: 'flag',        color: colors.warning };
-    case 'task.manual_time_approved': return { name: 'thumbs-up',   color: colors.success };
-    case 'task.manual_time_rejected': return { name: 'thumbs-down', color: colors.danger };
-    case 'task.submission_deleted':   return { name: 'trash',       color: colors.danger };
-    case 'pipeline.member_added': return { name: 'users',           color: colors.primary };
-    case 'pipeline.archived':   return { name: 'archive',           color: colors.textMuted };
-    case 'filehub.file_received':    return { name: 'file-text-o',  color: colors.primary };
-    case 'filehub.broadcast_posted': return { name: 'rss',          color: colors.warning };
-    case 'filehub.group_file_shared': return { name: 'share-alt',   color: colors.primary };
-    case 'timer.auto_stopped':  return { name: 'hourglass-end',     color: colors.danger };
-    default:                    return { name: 'bell',              color: colors.primary };
-  }
-}
 
 /** Rail groups derived straight from the `type` prefix — no extra mapping to keep in sync. */
 const GROUPS: { key: string; label: string; icon: React.ComponentProps<typeof FontAwesome>['name'] }[] = [
@@ -61,7 +33,7 @@ function sectionLabel(iso: string): string {
 
 function NotificationItem({ item, onPress, compact }: { item: AppNotification; onPress: (item: AppNotification) => void; compact?: boolean; }) {
   const colors = useThemeColors();
-  const { name: iconName, color: iconColor } = getIconSpec(item.type);
+  const { name: iconName, color: iconColor } = getNotificationIcon(item.type, colors);
   const isUnread = !item.read_at;
 
   return (

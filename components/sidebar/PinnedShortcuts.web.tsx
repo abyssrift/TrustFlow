@@ -1,12 +1,14 @@
 import { EntityGlyph } from '@/components/entities/EntityUI';
+import { useDropdownTrigger } from '@/hooks/useDropdownTrigger';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Link, useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
 import Tooltip from '../common/Tooltip';
 import { MAX_PORTFOLIO_CANDIDATES, PIPELINE_ICONS, PinnedShortcut, Shortcut } from './constants';
+import DropdownPanel from './DropdownPanel.web';
 import { usePinnedShortcuts } from './usePinnedShortcuts';
 
 cssInterop(FontAwesome, {
@@ -34,10 +36,7 @@ export default function PinnedShortcuts({
   const colors = useThemeColors();
   const router = useRouter();
   const { pinned, isPinned, togglePin, maxPinned } = usePinnedShortcuts();
-  const [isHovered, setIsHovered] = useState(false);
-  const [clickedOpen, setClickedOpen] = useState(false);
-  const showPicker = isHovered || clickedOpen;
-  const wrapperRef = useRef<any>(null);
+  const { open: showPicker, wrapperRef, toggle: toggleShowPicker, setClickedOpen } = useDropdownTrigger();
   const [showAdd, setShowAdd] = useState(false);
   const [linkLabel, setLinkLabel] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
@@ -54,38 +53,8 @@ export default function PinnedShortcuts({
     setShowAdd(false);
   };
 
-  // Hover opens the picker (same mouseenter/mouseleave escape hatch Sidebar.web.tsx
-  // uses for its own hover-expand), covering both the trigger and the popover
-  // itself so moving the cursor between them doesn't flicker-close it.
-  useEffect(() => {
-    const el = wrapperRef.current;
-    const domNode = el instanceof Element ? el : (el as any)?.getDOMNode?.() ?? null;
-    if (!domNode) return;
-    const onEnter = () => setIsHovered(true);
-    // Only drop the hover-open here. A click-latched picker (clickedOpen) must
-    // survive the cursor leaving — it closes via the outside-click handler below.
-    const onLeave = () => setIsHovered(false);
-    domNode.addEventListener('mouseenter', onEnter);
-    domNode.addEventListener('mouseleave', onLeave);
-    return () => {
-      domNode.removeEventListener('mouseenter', onEnter);
-      domNode.removeEventListener('mouseleave', onLeave);
-    };
-  }, []);
-
-  // Click still works as a fallback (e.g. touch input, where hover never fires).
-  useEffect(() => {
-    if (!clickedOpen) return;
-    const handleClick = (e: MouseEvent) => {
-      const el = wrapperRef.current;
-      const domNode = el instanceof Element ? el : (el as any)?.getDOMNode?.() ?? null;
-      if (domNode && !domNode.contains(e.target as Node)) {
-        setClickedOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [clickedOpen]);
+  // Hover-open + click-toggle now lives in useDropdownTrigger (shared with
+  // the topbar's other popovers) — see its doc comment for the mechanism.
 
   // Keep the parent's interaction-lock in sync so the retractable bar won't
   // collapse while the picker is open.
@@ -215,7 +184,7 @@ export default function PinnedShortcuts({
       <View ref={wrapperRef} style={{ position: 'relative', zIndex: showPicker ? 100 : undefined }}>
         <Tooltip label="Pin shortcut" side="left">
           <Pressable
-            onPress={() => setClickedOpen((v) => !v)}
+            onPress={toggleShowPicker}
             accessibilityLabel="Pin a shortcut"
             className="h-9 w-9 items-center justify-center rounded-xl border border-dashed border-surface-border bg-surface-card transition-all duration-200 ease-out hover:rotate-90 hover:border-brand-primary/40 hover:bg-surface-overlay active:scale-95"
           >
@@ -223,33 +192,7 @@ export default function PinnedShortcuts({
           </Pressable>
         </Tooltip>
 
-        {/* Outer view starts flush under the trigger (top-9 = 36px) with
-            transparent top padding, bridging the old 8px hover-gap so moving the
-            cursor into the picker never fires the wrapper's mouseleave. */}
-        <View
-          pointerEvents={showPicker ? 'auto' : 'none'}
-          style={{
-            // `pointerEvents="none"` is NOT enough: RNW compiles a *disabled*
-            // Pressable to `pointer-events: box-none`, which re-enables
-            // `pointer-events: auto` on its own children. At 4/4 pinned every
-            // row + "Add custom link" is disabled, so the closed 288x400 panel
-            // stayed hit-testable and hovering the page under it (the date
-            // filters) fired the wrapper's mouseenter and popped it open.
-            // visibility:hidden takes the whole subtree out of hit testing.
-            // ponytail: kept in the tree (not unmounted) only for the open transition.
-            visibility: showPicker ? 'visible' : 'hidden',
-            opacity: showPicker ? 1 : 0,
-            transform: [
-              { scale: showPicker ? 1 : 0.96 },
-              { translateY: showPicker ? 0 : -6 },
-            ],
-            zIndex: 100,
-          } as any}
-          // `transition` (not `transition-all`) so visibility flips instantly
-          // instead of transitioning — no 300ms ghost panel on the way out.
-          className="absolute left-0 top-9 w-72 pt-2 transition duration-300 ease-in-out"
-        >
-          <View className="rounded-2xl border border-surface-border bg-surface-card/95 p-3 premium-shadow glass-card">
+        <DropdownPanel open={showPicker} align="left" width={288} contentClassName="p-3">
             <Text className="mb-2 px-1 text-[10px] font-black uppercase tracking-widest text-typography-dim">
               Pinned shortcuts ({visiblePinned.length}/{maxPinned})
             </Text>
@@ -358,8 +301,7 @@ export default function PinnedShortcuts({
                 </View>
               )}
             </View>
-          </View>
-        </View>
+        </DropdownPanel>
       </View>
     </View>
   );
