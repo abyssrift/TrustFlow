@@ -1,16 +1,35 @@
 -- Company-scoped "who is working right now".
 --
--- THE BUG THIS FIXES: task_work_sessions has exactly ONE select policy, and it
--- is `auth.uid() = user_id` (20260430_v3_bunker_timer.sql:22, and the two other
--- timer migrations that predate it). Every client that reads that table
--- directly therefore sees its OWN row and nothing else, which silently turned
---   - components/tabs/LiveSessionsPopup.tsx ("Live now") into a list of one,
---   - DashboardDataContext's stats.activeSessions ("working now") into 0 or 1.
--- Neither is a UI bug; both are that policy.
+-- WHY THIS EXISTS. An earlier draft of this header claimed the direct reads it
+-- replaces were returning a list of one, because the only select policy in
+-- supabase/migrations/ is `auth.uid() = user_id` (20260430_v3_bunker_timer.sql:22
+-- and the two timer migrations around it). That was WRONG, and the correction
+-- matters more than the original claim:
 --
--- The fix is a SECURITY DEFINER read, NOT a wider RLS policy: "everyone in my
--- company" is a presence feature, not a new default grant on a table that also
--- carries per-user billable duration. The policy stays as-is.
+--   task_work_sessions also carries `task_work_sessions_select USING (company_id
+--   = my_company_id())`. It is absent from supabase/migrations/ but present in
+--   the prod schema dump at 20260101000000_baseline_schema.sql:19963 (branch
+--   local-supabase-dev-env), taken 2026-07-29. Permissive policies OR together,
+--   so cross-user reads already worked. See docs/LOCAL_SUPABASE_DEV.md:55 — a
+--   chunk of migrations were applied straight to prod without updating the CLI's
+--   migration history, so ABSENCE FROM supabase/migrations/ PROVES NOTHING about
+--   what prod enforces. Verify against the baseline dump before claiming a policy
+--   does not exist.
+--
+-- So this is not a fix for a broken read. What it actually buys:
+--   1. It is a PREREQUISITE for shipped client code. LiveSessionsPopup.tsx and
+--      DashboardDataContext.tsx already call it; until this is applied they get
+--      PGRST202 and render an empty list, which is a REGRESSION of a feature
+--      that worked. Apply this with the deploy, not after it.
+--   2. Staleness. The direct reads filtered neither on the 8h heartbeat window
+--      nor on deleted_at, so stale sessions rendered as live. That bug was real.
+--   3. It makes the boundary explicit and self-contained instead of depending on
+--      an untracked policy that anyone with dashboard access could drop without
+--      leaving a trace in this repo.
+--
+-- Still a SECURITY DEFINER read rather than a wider RLS policy: presence is
+-- company-wide, but this table also carries per-user billable duration, and
+-- widening the policy would grant that too. The policies stay as they are.
 --
 -- Tenant scoping is done twice, on purpose:
 --   1. the WORKER must be in the caller's company (u.company_id), and

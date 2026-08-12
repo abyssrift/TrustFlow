@@ -8,14 +8,20 @@
 -- Wrapped in BEGIN/ROLLBACK: it inserts throwaway work sessions onto rows that
 -- already exist, asserts, then always rolls back.
 --
--- The function replaces direct reads of task_work_sessions, whose only select
--- policy is `auth.uid() = user_id`. So the two things that can break it are the
--- two things asserted here:
+-- The function replaces direct reads of task_work_sessions. NOTE: an earlier
+-- version of this header said that table's only select policy is
+-- `auth.uid() = user_id`. That is false -- it also carries
+-- `task_work_sessions_select USING (company_id = my_company_id())`, absent from
+-- supabase/migrations/ but present in the prod schema dump at
+-- 20260101000000_baseline_schema.sql:19963. The direct reads were NOT limited to
+-- one row. See the migration header for the full correction.
 --
 --   1. IT MUST SEE OTHER PEOPLE. A live session belonging to a DIFFERENT user
---      in my company is returned. This is the whole bug -- the direct select
---      this replaced returned the caller's own row and nothing else, which is
---      indistinguishable from "nobody else is working" and shipped that way.
+--      in my company is returned. Not a regression test for a bug that existed,
+--      but the contract this function must hold: if a scoping predicate is ever
+--      tightened by mistake, presence collapses to the caller's own row and the
+--      UI shows "nobody is working", which looks like real data rather than a
+--      failure.
 --   2. IT MUST NOT SEE OTHER TENANTS. Every returned row's user AND task belong
 --      to my_company_id(). This is not tautological against the function body:
 --      it is the guard for the recurring failure mode in this repo where an RPC
@@ -69,7 +75,13 @@ BEGIN
 
   -- Impersonate that owner so auth.uid()/my_company_id() resolve inside the
   -- SECURITY DEFINER function.
-  PERFORM set_config('request.jwt.claim.sub', v_user::text, true);
+  --
+  -- The `request.jwt.claims` JSON form, not the legacy `request.jwt.claim.sub`:
+  -- current auth.uid() reads the JSON claims and only coalesces the legacy key
+  -- in some versions. On a runtime that doesn't, my_company_id() resolves NULL,
+  -- the function returns zero rows, and assert 1 fails looking exactly like the
+  -- bug it is meant to detect. Matches 20260806_task_claiming_check.sql:60.
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', v_user::text, 'role', 'authenticated')::text, true);
 
   SELECT id INTO v_other_user
   FROM public.users WHERE company_id = v_company AND id <> v_user LIMIT 1;
@@ -85,8 +97,10 @@ BEGIN
   IF v_other_user IS NULL THEN
     RAISE NOTICE 'SKIP 1: company has only one user, cannot test cross-user visibility';
   ELSE
-    INSERT INTO public.task_work_sessions (user_id, task_id, started_at, last_heartbeat_at, status)
-    VALUES (v_other_user, v_task, now() - interval '10 minutes', now(), 'active');
+    -- company_id is NOT NULL with no default and no BEFORE INSERT trigger to
+    -- fill it, so every insert below has to name it explicitly.
+    INSERT INTO public.task_work_sessions (user_id, task_id, company_id, started_at, last_heartbeat_at, status)
+    VALUES (v_other_user, v_task, v_company, now() - interval '10 minutes', now(), 'active');
 
     SELECT count(*) INTO v_seen
     FROM public.rpc_company_live_sessions() r
@@ -112,11 +126,11 @@ BEGIN
   RAISE NOTICE 'PASS 2: every returned row is inside the caller company';
 
   -- ── 3. Stale and completed sessions are not "active" ────────────────────
-  INSERT INTO public.task_work_sessions (user_id, task_id, started_at, last_heartbeat_at, status)
+  INSERT INTO public.task_work_sessions (user_id, task_id, company_id, started_at, last_heartbeat_at, status)
   VALUES
     -- 9h since the last heartbeat: past the 8h sweep threshold.
-    (v_user, v_task, now() - interval '10 hours', now() - interval '9 hours', 'active'),
-    (v_user, v_task, now() - interval '10 minutes', now(), 'completed');
+    (v_user, v_task, v_company, now() - interval '10 hours', now() - interval '9 hours', 'active'),
+    (v_user, v_task, v_company, now() - interval '10 minutes', now(), 'completed');
 
   SELECT count(*) INTO v_seen
   FROM public.rpc_company_live_sessions() r
@@ -159,12 +173,20 @@ BEGIN
       DELETE FROM public.task_assignments WHERE task_id = v_priv_task;
       UPDATE public.tasks SET created_by = v_user, manager_id = v_user WHERE id = v_priv_task;
 
-      INSERT INTO public.task_work_sessions (user_id, task_id, started_at, last_heartbeat_at, status)
-      VALUES (v_user, v_priv_task, now() - interval '5 minutes', now(), 'active')
+      -- NOT redundant cleanup: idx_one_active_session_per_user is a UNIQUE
+      -- partial index on (user_id) WHERE status = 'active', and assert 3 above
+      -- deliberately leaves a 9h-stale ACTIVE row for this same v_user behind.
+      -- Without this delete the insert below dies on that index and assert 4 --
+      -- the only execution-level proof the intra-tenant title leak is closed --
+      -- never runs at all. Delete this line and the check stops checking.
+      DELETE FROM public.task_work_sessions WHERE user_id = v_user AND status = 'active';
+
+      INSERT INTO public.task_work_sessions (user_id, task_id, company_id, started_at, last_heartbeat_at, status)
+      VALUES (v_user, v_priv_task, v_company, now() - interval '5 minutes', now(), 'active')
       RETURNING id INTO v_session;
 
       -- Become the colleague with no claim on that task.
-      PERFORM set_config('request.jwt.claim.sub', v_other_user::text, true);
+      PERFORM set_config('request.jwt.claims', json_build_object('sub', v_other_user::text, 'role', 'authenticated')::text, true);
 
       IF public.task_list_visible(v_priv_task) THEN
         -- Only reachable if this member holds is_owner / system.view_all_data /
@@ -188,7 +210,7 @@ BEGIN
         RAISE NOTICE 'PASS 4: presence survives, title and board are withheld';
       END IF;
 
-      PERFORM set_config('request.jwt.claim.sub', v_user::text, true);
+      PERFORM set_config('request.jwt.claims', json_build_object('sub', v_user::text, 'role', 'authenticated')::text, true);
     END IF;
   END IF;
 
