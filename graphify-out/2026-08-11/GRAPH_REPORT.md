@@ -1,12 +1,12 @@
-# Graph Report - TrustFlow  (2026-08-12)
+# Graph Report - TrustFlow  (2026-08-11)
 
 ## Corpus Check
-- 928 files · ~1,032,078 words
+- 912 files · ~1,010,219 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 3984 nodes · 10344 edges · 220 communities (208 shown, 12 thin omitted)
-- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 143 edges (avg confidence: 0.76)
+- 3928 nodes · 10044 edges · 231 communities (218 shown, 13 thin omitted)
+- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 139 edges (avg confidence: 0.76)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
@@ -188,60 +188,70 @@
 - [[_COMMUNITY_migration_drift.js|migration_drift.js]]
 - [[_COMMUNITY_Task Stage Reversal (issue 22)|Task Stage Reversal (issue #22)]]
 - [[_COMMUNITY_run-checks.mjs|run-checks.mjs]]
+- [[_COMMUNITY_TimeByCategoryPie.web.tsx|TimeByCategoryPie.web.tsx]]
 - [[_COMMUNITY_wheelGesture.ts|wheelGesture.ts]]
 - [[_COMMUNITY_Design|Design]]
+- [[_COMMUNITY_ManualTimeModal.web.tsx|ManualTimeModal.web.tsx]]
 - [[_COMMUNITY_StageCountOdometer.tsx|StageCountOdometer.tsx]]
 - [[_COMMUNITY_StageBuilder.tsx|StageBuilder.tsx]]
 - [[_COMMUNITY_TimelineDropdown.web.tsx|TimelineDropdown.web.tsx]]
 - [[_COMMUNITY_20. Phase 12 — projects get the pipeline ENGINE, not just a stage column|20. Phase 12 — projects get the pipeline ENGINE, not just a stage column]]
 - [[_COMMUNITY_Task claiming toggle (issue 25)|Task claiming toggle (issue #25)]]
+- [[_COMMUNITY_13.11 Project detail becomes a workspace (amends §8)|13.11 Project detail becomes a workspace (amends §8)]]
 - [[_COMMUNITY_DraggableSheet.web.tsx|DraggableSheet.web.tsx]]
+- [[_COMMUNITY_ManualTimeApprovalsModal.web.tsx|ManualTimeApprovalsModal.web.tsx]]
 - [[_COMMUNITY_Production deploy history|Production deploy history]]
 - [[_COMMUNITY_19. Phase 11 — the import journey (Phase 9's UX debt)|19. Phase 11 — the import journey (Phase 9's UX debt)]]
 - [[_COMMUNITY_21. Messiness is the feature, not the edge case|21. Messiness is the feature, not the edge case]]
 - [[_COMMUNITY_reducedMotionNotice.test.ts|reducedMotionNotice.test.ts]]
+- [[_COMMUNITY_Features|Features]]
 - [[_COMMUNITY_`supabase_archive`|`supabase/_archive/`]]
+- [[_COMMUNITY_NetworkStatusBanner.tsx|NetworkStatusBanner.tsx]]
 - [[_COMMUNITY_ManualTimeModal.web.tsx|ManualTimeModal.web.tsx]]
 - [[_COMMUNITY_StageCountOdometer.tsx|StageCountOdometer.tsx]]
 - [[_COMMUNITY_Accessing Dev Tools|Accessing Dev Tools]]
+- [[_COMMUNITY_RetentionPanel.tsx|RetentionPanel.tsx]]
 - [[_COMMUNITY_WidgetShell.tsx|WidgetShell.tsx]]
 - [[_COMMUNITY_BillingMeter.web.tsx|BillingMeter.web.tsx]]
+- [[_COMMUNITY_TimelineDropdown.web.tsx|TimelineDropdown.web.tsx]]
+- [[_COMMUNITY_useSmartTimer.ts|useSmartTimer.ts]]
+- [[_COMMUNITY_What You Get|What You Get]]
 - [[_COMMUNITY_Method 2 Using Command Line Script (Most Complete)|Method 2: Using Command Line Script (Most Complete)]]
 - [[_COMMUNITY_filehub.tsx|filehub.tsx]]
 - [[_COMMUNITY_tasks.tsx|tasks.tsx]]
 
 ## God Nodes (most connected - your core abstractions)
-1. `useThemeColors()` - 671 edges
-2. `useAuth()` - 215 edges
-3. `supabase` - 146 edges
+1. `useThemeColors()` - 656 edges
+2. `useAuth()` - 209 edges
+3. `supabase` - 144 edges
 4. `useAlert()` - 116 edges
-5. `useToast()` - 85 edges
+5. `useToast()` - 83 edges
 6. `react` - 50 edges
 7. `useTheme()` - 39 edges
-8. `formatCompact()` - 34 edges
-9. `generateAndUploadReport()` - 33 edges
-10. `useTaskDetail()` - 33 edges
+8. `generateAndUploadReport()` - 33 edges
+9. `useTaskDetail()` - 33 edges
+10. `formatCompact()` - 30 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `matchEnumValues()` --indirect_call--> `near()`  [INFERRED]
-  lib/imports/importPlan.ts → hooks/useSearchQuery.check.ts
-- `GlobalPingGuard()` --calls--> `useGlobalPingListener()`  [EXTRACTED]
-  app/_layout.tsx → hooks/useGlobalPingListener.ts
-- `AdminNotificationsScreen()` --calls--> `useThemeColors()`  [EXTRACTED]
-  app/admin/notifications.tsx → hooks/useThemeColors.ts
-- `AdminNotificationsScreenWeb()` --calls--> `useThemeColors()`  [EXTRACTED]
-  app/admin/notifications.web.tsx → hooks/useThemeColors.ts
 - `PipelinesWebScreen()` --calls--> `useThemeColors()`  [EXTRACTED]
   app/admin/pipelines.web.tsx → hooks/useThemeColors.ts
+- `EmptyState()` --calls--> `useThemeColors()`  [EXTRACTED]
+  app/notifications/index.tsx → hooks/useThemeColors.ts
+- `RailItem()` --calls--> `useThemeColors()`  [EXTRACTED]
+  app/notifications/index.web.tsx → hooks/useThemeColors.ts
+- `EmptyState()` --calls--> `useThemeColors()`  [EXTRACTED]
+  app/notifications/index.web.tsx → hooks/useThemeColors.ts
+- `HBar()` --calls--> `useThemeColors()`  [EXTRACTED]
+  app/platform-admin/index.tsx → hooks/useThemeColors.ts
 
 ## Import Cycles
 - None detected.
 
-## Communities (220 total, 12 thin omitted)
+## Communities (231 total, 13 thin omitted)
 
 ### Community 0 - "generate.ts"
-Cohesion: 0.06
-Nodes (105): computeGeneralInsights(), GeneralData, GeneralReport(), GeneralReportPages(), s, buildReportSection(), dateRange(), fetchGeneral() (+97 more)
+Cohesion: 0.10
+Nodes (46): GeneralData, GeneralReport(), s, PersonalPulseData, PersonalPulseReport(), PersonalPulseReportPages(), s, PersonnelData (+38 more)
 
 ### Community 1 - "DataExportPanel.tsx"
 Cohesion: 0.19
@@ -252,8 +262,8 @@ Cohesion: 0.04
 Nodes (52): dependencies, classnames, expo, expo-blur, expo-clipboard, expo-constants, expo-device, expo-document-picker (+44 more)
 
 ### Community 3 - "AnalyticsContext.tsx"
-Cohesion: 0.07
-Nodes (48): SearchScreen(), TABS, GROUP_LABEL, GROUP_ORDER, SearchDropdown(), TIPS, ENTITY_KIND, plain() (+40 more)
+Cohesion: 0.09
+Nodes (38): SearchScreen(), GROUP_LABEL, GROUP_ORDER, SearchDropdown(), TIPS, archiveToResult(), GroupedResults, Options (+30 more)
 
 ### Community 4 - "_analytics_desktop.tsx"
 Cohesion: 0.08
@@ -261,7 +271,7 @@ Nodes (29): docxCache, DocxView(), FilePreviewModal(), FilePreviewTeaser(), html
 
 ### Community 5 - "FileHubAnalytics.tsx"
 Cohesion: 0.07
-Nodes (56): ENGAGEMENT_REGISTER, existing, messyFile, fetchExistingClients(), ParsedSpreadsheet, parseSpreadsheetBytes(), SpreadsheetIntakeError, buildIntakeRows() (+48 more)
+Nodes (62): ENGAGEMENT_REGISTER, existing, messyFile, ParsedSpreadsheet, parseSpreadsheetBytes(), SpreadsheetIntakeError, buildIntakeRows(), profiles (+54 more)
 
 ### Community 6 - "useThemeColors"
 Cohesion: 0.18
@@ -272,20 +282,20 @@ Cohesion: 0.10
 Nodes (20): Activity Timeline, Add Custom Task Types, Adjust Task Status Distribution, Change Task Count, Change Time Range, Change Worker Count, Comprehensive Reporting Data Seed Guide, Customization (+12 more)
 
 ### Community 8 - "supabase.ts"
-Cohesion: 0.09
-Nodes (25): PipelineList(), STAGE_PRESET_TEMPLATES, TRANSITION_PRESETS, AssignmentPoolMember, PipelineFormData, PipelineSettingsForm(), Props, AssignmentPoolMember (+17 more)
+Cohesion: 0.05
+Nodes (66): PipelineEditorInner(), SECTIONS, PipelinesWebInner(), PipelinesWebScreen(), Section, STAGE_PRESETS, TRANSITION_PRESETS, HorizontalScroll() (+58 more)
 
 ### Community 9 - "Task Filtering Analysis - Complete Codebase Search Results"
 Cohesion: 0.29
 Nodes (11): BinNode, buildBinTree(), countNodes(), daysRemaining(), FileHubBin(), FlatRow, flattenVisible(), formatDateTime() (+3 more)
 
 ### Community 10 - "useTaskDetail"
-Cohesion: 0.17
-Nodes (12): LinkifiedText(), LinkifiedTextProps, splitTextByUrls(), UserLink(), buildTree(), CommentNode(), CommentsSection(), CommentTree (+4 more)
+Cohesion: 0.10
+Nodes (24): LinkifiedText(), LinkifiedTextProps, splitTextByUrls(), GlobalUploadBanner(), formatDistanceToNow(), RecentActivitySidebar(), ago(), dur() (+16 more)
 
 ### Community 11 - "_filehub_adaptive.tsx"
-Cohesion: 0.09
-Nodes (21): AdaptiveFileGrid(), FilePreviewCard(), getMimeIcon(), AdaptiveFileGrid(), UploadJobInput, UploadJobState, UploadManagerContext, UploadManagerValue (+13 more)
+Cohesion: 0.17
+Nodes (15): RoleEditorSheet(), RoleEditorSheetProps, LEGACY_TWINS, RoleEditorSheet(), SENSITIVE_KEYS, RoleTemplateGallery(), RoleTemplateGalleryProps, RoleTemplateGallery() (+7 more)
 
 ### Community 12 - "expo"
 Cohesion: 0.06
@@ -296,68 +306,68 @@ Cohesion: 0.12
 Nodes (16): 0. Why this exists / scope, 1. Open decisions — SUPERSEDED, see design handoff, 1a. Resolved decisions (2026-07-19, with Adam), 2. Home page — content structure (7-8 sections), 2a. Product page — content structure, 2b. Content hub — Tutorials, FAQ, Videos, 3. Visual & interaction direction, 4. Copy (+8 more)
 
 ### Community 14 - "_index_desktop.tsx"
-Cohesion: 0.16
-Nodes (33): Lane(), ProjectionStrip(), ProjectionStripRow, PortfolioLine(), Legend(), ProjectsTimeline(), TimelineProjectRow, TimelineRowView() (+25 more)
+Cohesion: 0.10
+Nodes (50): Lane(), ProjectionStrip(), ProjectionStripRow, PortfolioLine(), Legend(), ProjectsTimeline(), TimelineProjectRow, TimelineRowView() (+42 more)
 
 ### Community 15 - "_people_adaptive.tsx"
-Cohesion: 0.14
-Nodes (13): IconName, INTELLIGENCE_PERMISSIONS, PIPELINE_ICONS, Shortcut, SHORTCUTS, SIDEBAR_GROUPS, SidebarGroupDef, THEME_OPTIONS (+5 more)
+Cohesion: 0.13
+Nodes (18): IconName, INTELLIGENCE_PERMISSIONS, PinnedShortcut, PIPELINE_ICONS, Shortcut, SHORTCUTS, SIDEBAR_GROUPS, SidebarGroupDef (+10 more)
 
 ### Community 16 - "Analytics Engine — UI Connection Document"
 Cohesion: 0.06
 Nodes (31): 1. New Permissions (must be assignable via Role Manager), 2. Personal Analytics Screen (`app/(tabs)/analytics.tsx`), 3. Admin Analytics Screen (`app/admin/analytics.tsx`), 4. AnalyticsContext (`contexts/AnalyticsContext.tsx`), 5. `rpc_get_personal_pulse` Bug (existing screen), 6. Reports Integration, 7. Customizable Fields Summary (for implementation checklist), 8. Edge Cases to Handle in UI (+23 more)
 
 ### Community 17 - "useAuth"
-Cohesion: 0.22
-Nodes (12): RoleBuilder(), RoleEditorSheetProps, LEGACY_TWINS, RoleEditorSheet(), SENSITIVE_KEYS, RoleTemplateGalleryProps, Action, ActionVariant (+4 more)
+Cohesion: 0.09
+Nodes (19): ConflictAction, Decision, FIELD_TYPES, MAPPED_FIELDS, MobilePage, NameConflict, PRIMITIVE_ICONS, PRIMITIVE_LABELS (+11 more)
 
 ### Community 18 - "useThemeColors.ts"
-Cohesion: 0.07
-Nodes (41): domRect(), EMPTY_DRAFT(), FileHubDesktopInner(), UploadModal(), DropZone(), AdaptiveFileGrid(), formatFileSize(), getFileIcon() (+33 more)
+Cohesion: 0.10
+Nodes (26): ClipboardControls(), Props, AssignmentModePreview(), MODE_LABEL, Props, CreateTaskModal(), Props, AdaptiveFileGrid() (+18 more)
 
 ### Community 19 - "TaskCardActions.tsx"
 Cohesion: 0.05
 Nodes (37): 2026-07-09 — Feature A (A1–A5) shipped, 2026-07-09 — Feature B (B1–B5) shipped, 2026-07-12 — Feature C (C1–C3) shipped, 2026-07-12 — Feature D (D1–D3) shipped, A1. Schema, A2. `rpc_edit_submission(p_submission_id, p_content, p_kept_attachment_ids uuid[], p_new_attachments jsonb)`, A3. Read + history, A4. Restore a prior version  *(pointer move — identical to FileHub)* (+29 more)
 
 ### Community 20 - "_ReportGenerator_adaptive.tsx"
-Cohesion: 0.08
-Nodes (64): computeSHA256Web(), FileCard(), FileDetailSheet(), FileHubAdaptiveInner(), getMimeIcon(), GroupCard(), GroupCreateSheet(), GroupMembersSheet() (+56 more)
+Cohesion: 0.07
+Nodes (70): AdaptiveFileGrid(), computeSHA256Web(), FileCard(), FileDetailSheet(), getMimeIcon(), GroupCard(), GroupCreateSheet(), GroupMembersSheet() (+62 more)
 
 ### Community 21 - "_reports_desktop.tsx"
-Cohesion: 0.10
-Nodes (28): FilterChipGroup(), FilterChipGroupProps, FilterDropdownOption, FilterDropdownProps, FilterPanel(), FilterPanelProps, FilterSection(), FilterSectionProps (+20 more)
+Cohesion: 0.15
+Nodes (20): applyReportFilters(), countActiveFilters(), describeDateRange(), EMPTY_FILTERS, Props, REPORT_TYPE_OPTIONS, ReportFilters, STATUS_OPTIONS (+12 more)
 
 ### Community 22 - "Test Acne Corp Seeding - Implementation Summary"
 Cohesion: 0.08
 Nodes (25): 1. **CLI Seed Script** (`seed_acme_corp.ts`), 2. **Enhanced DevTool Component** (`components/DevTool.tsx`), 3. **Documentation** (3 guides), 4. **NPM Script**, Created:, 🔧 Customization, 📋 Files Modified/Created, From Command Line (Most Complete) (+17 more)
 
 ### Community 23 - "_analytics_desktop.tsx"
-Cohesion: 0.07
-Nodes (45): ColumnDetail(), ConflictAction, Decision, FIELD_TYPES, MAPPED_FIELDS, MobilePage, NameConflict, PRIMITIVE_ICONS (+37 more)
+Cohesion: 0.10
+Nodes (37): ColumnDetail(), near(), NOW, p, span(), addDays(), batchOffsetRange(), batchSpan() (+29 more)
 
 ### Community 24 - "index.web.tsx"
 Cohesion: 0.08
-Nodes (25): ALERT_CONFIG, EditField(), fmtDurationHours(), HBar(), infraCacheColor(), InfraChartTooltip(), infraConnColor(), InfraSection() (+17 more)
+Nodes (26): ALERT_CONFIG, EditField(), fmtDurationHours(), HBar(), infraCacheColor(), InfraChartTooltip(), infraConnColor(), InfraSection() (+18 more)
 
 ### Community 25 - "Sidebar.web.tsx"
-Cohesion: 0.08
-Nodes (33): AdminAnalyticsNative(), AdminTab, DwellChart(), PersonnelTab(), PipelineTab(), AdminAnalyticsWeb(), AdminTab, fmtPct() (+25 more)
+Cohesion: 0.09
+Nodes (31): AdminAnalyticsNative(), AdminAnalyticsWeb(), AdminTab, fmtPct(), fmtUSD(), PersonnelTab(), PlanGate(), SortDir (+23 more)
 
 ### Community 26 - "FilePreview.tsx"
-Cohesion: 0.07
-Nodes (41): ColumnPrimitive, ColumnProfile, FIELD_CONTENT, headerNominates(), profileColumns(), proposeColumnMapping(), rankEntityNameColumns(), RowKind (+33 more)
+Cohesion: 0.08
+Nodes (34): ColumnPrimitive, profileColumns(), RowKind, expectedHeaderRowAfterRoundTrip(), FileResult, findRow(), primitiveOf(), report() (+26 more)
 
 ### Community 27 - "_tasks_adaptive.tsx"
-Cohesion: 0.09
-Nodes (19): GlobalPingGuard(), PushRegistrationGuard(), unstable_settings, WebPushAutoSubscribeGuard(), BannerState, NetworkStatusBanner(), useBannerState(), useWebConnectionInfo() (+11 more)
+Cohesion: 0.06
+Nodes (37): GlobalPingGuard(), PushRegistrationGuard(), RootLayoutNav(), unstable_settings, GlobalPingGuard(), RootLayoutNav(), WebPushAutoSubscribeGuard(), formatDeclaredMinutes() (+29 more)
 
 ### Community 28 - "_filehub_desktop.tsx"
 Cohesion: 0.18
 Nodes (12): ../assets/analytics-overview-screenshot.png, ../assets/BusyBoard.png, ../assets/file-hub-screenshot.png, ../assets/hero-task-board-macbook.png, ../assets/multi-device-dashboard.png, ../assets/phone-analytics-dashboard.png, astro, ../components/BrowserMockup.astro (+4 more)
 
 ### Community 29 - "usePipelineEditor"
-Cohesion: 0.10
-Nodes (36): buildMonthGrid(), CalendarInsights(), CalendarOverlay(), EmptyInsights(), fmtDay(), iconBtnStyle(), keyToDate(), Phase (+28 more)
+Cohesion: 0.14
+Nodes (19): buildMonthGrid(), CalendarInsights(), CalendarOverlay(), EmptyInsights(), fmtDay(), iconBtnStyle(), keyToDate(), Phase (+11 more)
 
 ### Community 30 - "index.tsx"
 Cohesion: 0.13
@@ -380,36 +390,36 @@ Cohesion: 0.09
 Nodes (22): 13.11 Project detail becomes a workspace (amends §8), 13.12 Flags are a fixed composable set, not custom states (settles §5), 13.13 Rollforward is template-instantiate against a live project (settles §11), 13.14 Project visibility settled — and it is not an RLS problem (settles §11), 13.15 Not yet load-bearing, 13.16 Phase 4 shipped — the sealed deliverable (settles §6, #174), 13.17 Phase 7 shipped — the template editor (settles §4/§8/§10, #177), 13.18 Phase 5 shipped — portfolio flow analytics (settles §9, #175) (+14 more)
 
 ### Community 35 - "NotificationRules.tsx"
-Cohesion: 0.21
-Nodes (16): Delivery, formatTimestamp(), NotificationRules(), RuleInspector(), RuleListItem(), SimulationResult, RuleEditorModal(), RuleEditorModalProps (+8 more)
+Cohesion: 0.34
+Nodes (10): RuleEditorModal(), RuleEditorModalProps, RuleEditorModal(), ALL_EVENT_TYPES, ALL_STRATEGIES, EVENT_META, NotificationRule, STRATEGY_HELP (+2 more)
 
 ### Community 36 - "Themed.tsx"
 Cohesion: 0.14
 Nodes (7): flushNow(), getSlot(), ImageSlot, load(), save(), setSlot(), toDataUrl()
 
 ### Community 37 - "TaskBriefPanel.tsx"
-Cohesion: 0.15
-Nodes (10): ago(), AssignedFile, FileHubOverview(), InboxFile, isImage(), Overview, RecentFile, FileHubMode (+2 more)
+Cohesion: 0.08
+Nodes (28): getPreviewKind(), ACTION_ICON, ago(), DetailFile, FileHubDetailPane(), isImage(), VRow, ago() (+20 more)
 
 ### Community 38 - "ToastContext.tsx"
-Cohesion: 0.08
-Nodes (34): DevToolsScreen(), DevToolsScreenWeb(), GlobalPingGuard(), formatDeclaredMinutes(), islandId(), IslandTimeApprovalsBridge(), PendingEntry, IslandTimerBridge() (+26 more)
+Cohesion: 0.07
+Nodes (29): Billing, BillingPanel(), Overview, Plan, PLAN_TIER, PlanLimits, STATUS_LABEL, GlobalToastOverlay() (+21 more)
 
 ### Community 39 - "_tasks_desktop.tsx"
-Cohesion: 0.08
-Nodes (29): BillingPanel(), DateRangeControls(), DateRangePillPicker(), daysBetween(), fmtDate(), Granularity, isoDay(), PipelineSelector() (+21 more)
+Cohesion: 0.09
+Nodes (27): DateRangeControls(), DateRangePillPicker(), daysBetween(), fmtDate(), Granularity, isoDay(), PRESETS, useDateRange() (+19 more)
 
 ### Community 40 - "TaskDetailContext.tsx"
-Cohesion: 0.10
-Nodes (18): AnimatedTaskCard(), FlipRect, resolveDomNode(), SlideDownPanel(), SlideDownPanelProps, ActorInfo, actorInfoCache, isWebNode() (+10 more)
+Cohesion: 0.18
+Nodes (10): AnimatedTaskCard(), FlipRect, resolveDomNode(), ActorInfo, actorInfoCache, isWebNode(), PendingTransition, StageTrailLayer() (+2 more)
 
 ### Community 41 - "seed_comprehensive.ts"
-Cohesion: 0.16
-Nodes (21): ThroughputChart(), PipelineTab(), ThroughputChart(), useGranularity(), IntelligenceGraphsNative(), IntelligenceGraphs(), AnalyticsSectionWeb(), PipelinePointsMiniWeb() (+13 more)
+Cohesion: 0.08
+Nodes (45): AdminTab, DwellChart(), PersonnelTab(), PipelineTab(), ThroughputChart(), PipelineTab(), IntelligenceAnalyticsWebSwitcher(), useGranularity() (+37 more)
 
 ### Community 42 - "useControlPlaneData.ts"
-Cohesion: 0.38
-Nodes (6): buildMonthGrid(), DeadlineRow, TimelineDropdown(), toKey(), WEEKDAY_LABELS, ProjectDeadline
+Cohesion: 0.25
+Nodes (16): DeadlinesScreen(), startOfMonth(), WEEKDAY_LABELS, buildMonthGrid(), fetchCompletedTasks(), fetchDeadlineProjects(), fetchDeadlineTasks(), fetchMyTeamIds() (+8 more)
 
 ### Community 43 - "preferences.web.tsx"
 Cohesion: 0.06
@@ -421,67 +431,67 @@ Nodes (21): UserDetailPanel(), WaitlistSection(), CompanyDetail, deleteUser(), I
 
 ### Community 45 - "_ReportGenerator_desktop.tsx"
 Cohesion: 0.16
-Nodes (19): canProject(), confidenceCaption(), noProjectionReason(), ProjectionConfidence, ProjectionPoint, ProjectionSeries, fmtShort(), PAD (+11 more)
+Nodes (20): canProject(), confidenceCaption(), noProjectionReason(), ProjectionPoint, ProjectionSeries, fmtShort(), PAD, ProjectionChart() (+12 more)
 
 ### Community 46 - "_targets_desktop.tsx"
-Cohesion: 0.12
-Nodes (25): CapacityList(), CfdChart(), fmtBucketLabel(), PortfolioFlowTab(), STAGE_COLORS, ThroughputAndCycleChart(), CapacityList(), CapacityTip() (+17 more)
+Cohesion: 0.08
+Nodes (36): PipelineSelector(), CapacityList(), CfdChart(), fmtBucketLabel(), PortfolioFlowTab(), STAGE_COLORS, ThroughputAndCycleChart(), CapacityList() (+28 more)
 
 ### Community 47 - "themeColors.ts"
-Cohesion: 0.10
-Nodes (37): isActive(), logShare(), ShareableFile, ShareFallbackSheet(), useShareFile(), EvidencePanel(), FilterType, formatSize() (+29 more)
+Cohesion: 0.14
+Nodes (23): isActive(), logShare(), ShareableFile, ShareFallbackSheet(), ShareLinkModal(), shareLinkUrl(), useFileHubOptional(), DownloadableFile (+15 more)
 
 ### Community 48 - "sign-up.tsx"
 Cohesion: 0.25
 Nodes (7): compilerOptions, baseUrl, paths, exclude, extends, include, @/*
 
 ### Community 49 - "TimerContext.tsx"
-Cohesion: 0.05
-Nodes (31): ThemedRoot(), GlobalToastOverlay(), Props, staticIcons, styles, ToastItem, GlobalToastOverlay(), Props (+23 more)
+Cohesion: 0.07
+Nodes (38): ThemedRoot(), NotificationBell(), TabLayout(), displayNameFromSession(), IconName, initials(), MenuScreen(), Shortcut (+30 more)
 
 ### Community 50 - "ThemeContext.tsx"
 Cohesion: 0.19
 Nodes (14): Props, PipelineOverviewChart(), Props, PipelineOverviewChartNative(), Props, Bucket, DEFAULT_OVERVIEW_METRICS, N_PERIODS (+6 more)
 
 ### Community 51 - "useAlert"
-Cohesion: 0.15
-Nodes (13): ALERT_COLORS, HBar(), LiveSection(), PlatformAdminScreen(), LiveSection(), AlertSeverity, CompanyOverview, PlatformAlert (+5 more)
+Cohesion: 0.17
+Nodes (9): ALERT_COLORS, HBar(), PlatformAdminScreen(), AlertSeverity, CompanyOverview, PlatformAlert, SignalMetric, SortKey (+1 more)
 
 ### Community 52 - "_index_desktop.tsx"
-Cohesion: 0.24
-Nodes (10): PinnedShortcut, DropdownPanel(), PinnedShortcuts(), portfolioPinId(), ThemeButton(), TopBar(), usePinnedShortcuts(), useDropdownTrigger() (+2 more)
+Cohesion: 0.33
+Nodes (5): initials(), ProfilePill(), TopBar(), useRecentSearches(), useSavedSearches()
 
 ### Community 53 - "fmtNumber"
 Cohesion: 0.08
-Nodes (34): RolesLayout(), RolesWebLayout(), TeamAssignmentGrid(), TeamRolesSheet(), TeamRolesSheetProps, ActivityData, fmtDur(), TabType (+26 more)
+Nodes (37): RolesLayout(), RolesWebLayout(), RoleBuilder(), TeamAssignmentGrid(), TeamRolesSheet(), TeamRolesSheetProps, TeamRolesSheet(), ActivityData (+29 more)
 
 ### Community 54 - "_analytics_adaptive.tsx"
 Cohesion: 0.13
-Nodes (20): WidgetLayoutProvider(), AddWidgetPopup(), DashboardMenuPopup(), ENTRY_FLEX, WidgetConfigPopup(), WidgetPickerEntry(), DashboardCanvas(), DashboardScreen() (+12 more)
+Nodes (17): WidgetLayoutProvider(), AddWidgetPopup(), DashboardMenuPopup(), ENTRY_FLEX, WidgetConfigPopup(), WidgetPickerEntry(), DashboardCanvas(), DashboardScreen() (+9 more)
 
 ### Community 55 - "_graphs_adaptive.tsx"
-Cohesion: 0.23
-Nodes (11): NotificationBell(), TabLayout(), IconName, MAIN_TABS, matchesHref(), WebMobileNav(), Sidebar(), useFileHubBadge() (+3 more)
+Cohesion: 0.10
+Nodes (26): TaskDetailContent(), TaskDetailContentWeb(), UserLink(), ActivityLog(), eventLabel(), timeAgo(), ChildPipelinesPanel(), getStatusStyle() (+18 more)
 
 ### Community 56 - "ManualTimeApprovalCard.mobile.tsx"
 Cohesion: 0.18
 Nodes (22): FieldRow(), FieldValueEditor(), needsPopup(), ProjectFieldsCard(), deleteFieldDef(), ProjectFieldDef, saveFieldDef(), SaveFieldDefInput (+14 more)
 
 ### Community 57 - "Test Acme Corp Seeding Guide"
-Cohesion: 0.08
-Nodes (24): 1. **Task Analytics**, 2. **Personnel Reports**, 3. **Pipeline Analytics**, 4. **Activity Timeline**, Advanced: Creating Custom Seed Scripts, Change Number of Tasks, Change Task Templates, Change Worker Names (+16 more)
+Cohesion: 0.11
+Nodes (19): 1. **Task Analytics**, 2. **Personnel Reports**, 3. **Pipeline Analytics**, 4. **Activity Timeline**, Advanced: Creating Custom Seed Scripts, Change Number of Tasks, Change Task Templates, Change Worker Names (+11 more)
 
 ### Community 58 - "_layout.tsx"
-Cohesion: 0.17
+Cohesion: 0.18
 Nodes (10): styles, styles, ExternalLink(), MonoText(), Text(), TextProps, ThemeProps, useThemeColor() (+2 more)
 
 ### Community 59 - "PipelineEditorContext.tsx"
-Cohesion: 0.16
-Nodes (11): AlertOptions, GlobalAlertOverlay(), GlobalAlertOverlayProps, styles, ApprovalQueueEntry, formatDeclaredMinutes(), ManualTimeApprovalsModal(), Props (+3 more)
+Cohesion: 0.05
+Nodes (47): DevToolsScreen(), DevToolsScreenWeb(), ChannelRow, CHANNELS, EVENT_GROUPS, EventRow, NotificationPreferencesScreen(), Prefs (+39 more)
 
 ### Community 60 - "Dev Tools - Dedicated Admin Page"
 Cohesion: 0.12
-Nodes (14): Clear All Tasks, Component Files, Comprehensive Seed (30 Tasks), Current Status Display, Dev Tools - Dedicated Admin Page, Environment Variables, Features, Full Reporting Seed (40 Tasks + Work) (+6 more)
+Nodes (17): 1. Quick Testing, 2. Complete Testing, 3. Start Fresh, Accessing Dev Tools, Component Files, Current Status Display, Dev Tools - Dedicated Admin Page, Direct URL (+9 more)
 
 ### Community 61 - "fix_all_vars.js"
 Cohesion: 0.18
@@ -489,15 +499,15 @@ Nodes (9): applyReplacements(), colorExpr(), DIM_BASE, files, fs, path, SKIP_DIR
 
 ### Community 62 - "pipelines.web.tsx"
 Cohesion: 0.04
-Nodes (62): RolesScreen(), PortfoliosScreen(), RoleEditorSheet(), RoleTemplateGallery(), RoleTemplateGallery(), TeamCreateSheet(), TeamCreateSheet(), TeamRolesSheet() (+54 more)
+Nodes (70): AdminNotificationsScreen(), AdminNotificationsScreenWeb(), RolesScreen(), PortfoliosScreen(), RuleListItem(), TeamCreateSheet(), TeamCreateSheetProps, TeamCreateSheet() (+62 more)
 
 ### Community 63 - "GraphCanvas.tsx"
 Cohesion: 0.37
 Nodes (22): banner(), chk(), emptyNote(), fmtDate(), fmtSec(), generateGeneral(), generatePersonalPulse(), generatePersonnelComparison() (+14 more)
 
 ### Community 64 - "CommentsSection.tsx"
-Cohesion: 0.19
-Nodes (19): fmtDate(), fmtRange(), TimelineStrip(), span(), anchorMs(), at(), DOMAIN, task() (+11 more)
+Cohesion: 0.33
+Nodes (9): compareTasksBySortKey(), prefetchOtherBoards(), getDueBucket(), getPriorityInfo(), TasksScreen(), getDueBucket(), TasksScreenWeb(), usePingHighlight() (+1 more)
 
 ### Community 65 - "CreateTaskModal.tsx"
 Cohesion: 0.25
@@ -548,8 +558,8 @@ Cohesion: 0.22
 Nodes (8): 1. Entry Point Isolation, 2. Downstream Dependency Expansion (Frontend), 3. Cross-Boundary Tracing (Frontend ↔ Supabase), 4. Upstream Impact Analysis, 5. Output Requirement: The Tracing Report, Core Directive, Role and Objective, The Tracing Protocol
 
 ### Community 77 - "BillingPanel.tsx"
-Cohesion: 0.21
-Nodes (10): StarterTemplatePickerSheet(), TemplateCard(), sectors, seenIds, VALID_PRIORITIES, STARTER_TEMPLATES, StarterPriority, StarterTaskItem (+2 more)
+Cohesion: 0.10
+Nodes (19): StarterTemplatePickerSheet(), TemplateCard(), COLOR_PALETTE, parseNum(), Priority, PRIORITY_LABEL, PRIORITY_OPTIONS, SavedTemplate (+11 more)
 
 ### Community 78 - "scripts"
 Cohesion: 0.18
@@ -569,7 +579,7 @@ Nodes (7): 1. The Contract Verification Check, 2. The DRY (Don't Repeat Yourself
 
 ### Community 82 - "_analytics_adaptive.tsx"
 Cohesion: 0.11
-Nodes (29): Blocker, BlockerList(), BULK_CREATE_STEPS, BulkCreateProjectsSheet(), CategoryMapping, endOfQuarterISO(), fmtShort(), Hint() (+21 more)
+Nodes (23): Blocker, BlockerList(), BULK_CREATE_STEPS, BulkCreateProjectsSheet(), CategoryMapping, endOfQuarterISO(), fmtShort(), Hint() (+15 more)
 
 ### Community 83 - "seed_acme_corp.ts"
 Cohesion: 0.22
@@ -580,8 +590,8 @@ Cohesion: 0.29
 Nodes (6): 1. The Supabase & State Vulnerability Check, 2. The Dead Logic & Edge Case Hunt, 3. The Implementation Interrogation (If reviewing code), Output Requirement: The Vulnerability Report, Role and Objective, The Attack Protocol
 
 ### Community 85 - "menu.tsx"
-Cohesion: 0.11
-Nodes (23): InboxTile(), ago(), dur(), initials(), Item, KanbanActivity(), Avatar(), BoardTask (+15 more)
+Cohesion: 0.28
+Nodes (8): Avatar(), BoardTask, fmt(), initials(), Member, MemberRow(), RightSidebar(), WorkInfo
 
 ### Community 86 - "RetentionPanel.tsx"
 Cohesion: 0.25
@@ -612,20 +622,20 @@ Cohesion: 0.17
 Nodes (11): css, FORBIDDEN, layerBlocks, offences, optOut, ring, ringBody, SKIP (+3 more)
 
 ### Community 94 - "NetworkStatusBanner.tsx"
-Cohesion: 0.08
-Nodes (40): useDashboardLayout(), addInstance(), ALL_WIDGET_SIZES, appendNewSeeds(), asStringArray(), customized, inboxLayout, moved (+32 more)
+Cohesion: 0.12
+Nodes (28): useDashboardLayout(), addInstance(), ALL_WIDGET_SIZES, asStringArray(), moved, order, savedLayout, seedAll (+20 more)
 
 ### Community 95 - "Troubleshooting"
-Cohesion: 0.11
-Nodes (24): LoginScreen(), LoginScreenWeb(), SignUpScreen(), SignUpScreenWeb(), PendingEntry, PendingTimeApprovalsWidget(), Props, PendingEntry (+16 more)
+Cohesion: 0.18
+Nodes (15): LoginScreen(), LoginScreenWeb(), SignUpScreen(), SignUpScreenWeb(), Delivery, formatTimestamp(), NotificationRules(), RuleInspector() (+7 more)
 
 ### Community 96 - "useFileViewer.tsx"
-Cohesion: 0.07
-Nodes (43): PointsSection(), QualitySection(), SLA_REASON_LABEL, SLARiskSection(), TrendsSection(), WorkDistributionSection(), IntelligenceGraphsWebSwitcher(), SLARiskAlert() (+35 more)
+Cohesion: 0.16
+Nodes (33): computeGeneralInsights(), GeneralReportPages(), buildReportSection(), dateRange(), fetchGeneral(), fetchPersonalPulse(), fetchPersonnel(), fetchProjects() (+25 more)
 
 ### Community 97 - "ProjectFolderModal.tsx"
-Cohesion: 0.13
-Nodes (16): accentColor(), ActivityRow(), Colors, DynamicIsland(), IslandLeading, toneColor(), IslandAccent, IslandAction (+8 more)
+Cohesion: 0.07
+Nodes (31): UploadProgressPanel(), accentColor(), ActivityRow(), Colors, DynamicIsland(), IslandLeading, toneColor(), IslandAccent (+23 more)
 
 ### Community 98 - "Global Utilities & Shared Logic Registry"
 Cohesion: 0.33
@@ -640,16 +650,16 @@ Cohesion: 0.18
 Nodes (10): Config model, Enforcement points — all switch to `fn_task_file_accessible`, FileHub File Visibility — per-pipeline configurable policy, Migration / defaults, Open decisions (need your call before Phase 1), Phases, Risks, Single enforcement function (+2 more)
 
 ### Community 102 - "ManualTimeApprovalsModal.tsx"
-Cohesion: 0.10
-Nodes (22): TeamCreateSheetProps, RangeTooltip(), ApprovalQueueEntry, formatDeclaredMinutes(), ManualTimeApprovalsModal(), Props, formatWorkedDate(), ManualTimeModal() (+14 more)
+Cohesion: 0.25
+Nodes (8): RangeTooltip(), Tooltip(), Tooltip(), positionTooltip(), Rect, tip, viewport, TooltipSide
 
 ### Community 103 - "Customization"
-Cohesion: 0.18
-Nodes (11): EVENT_GROUPS, EventRow, NotificationPreferencesWeb(), Prefs, WebPushPrompt(), usePushAutoSubscribe(), APP_SERVER_KEY, getOrCreateDeviceId() (+3 more)
+Cohesion: 0.12
+Nodes (25): Calendar(), CalendarProps, daysBetween(), fmtISO(), fmtShort(), MONTHS, QuickMenuSidebar(), RANGE_PRESETS (+17 more)
 
 ### Community 104 - "Troubleshooting"
-Cohesion: 0.12
-Nodes (19): EfficiencyIndicator(), EfficiencyIndicatorProps, PerformanceChart(), PerformanceChartProps, PERIODS, PeriodToggle(), ProfileAnalyticsProps, StatsCard() (+11 more)
+Cohesion: 0.16
+Nodes (14): EfficiencyIndicator(), EfficiencyIndicatorProps, PerformanceChart(), PerformanceChartProps, PERIODS, PeriodToggle(), StatsCard(), StatsCardProps (+6 more)
 
 ### Community 105 - "AlertContext.tsx"
 Cohesion: 0.13
@@ -660,8 +670,8 @@ Cohesion: 0.40
 Nodes (4): main, name, private, version
 
 ### Community 107 - "TaskHeader.tsx"
-Cohesion: 0.11
-Nodes (30): ConfirmModal(), ConfirmModalProps, ACTION_FALLBACK, ACTION_REGISTRY, ActionDescriptor, ActionExecutionRoute, ActionUiSlot, buildTransitionTargetMap() (+22 more)
+Cohesion: 0.10
+Nodes (34): ACTION_FALLBACK, ACTION_REGISTRY, ActionDescriptor, ActionExecutionRoute, ActionUiSlot, buildTransitionTargetMap(), getActionDescriptor(), isComplexActionType() (+26 more)
 
 ### Community 109 - "BillingMeter.web.tsx"
 Cohesion: 0.14
@@ -672,8 +682,8 @@ Cohesion: 0.25
 Nodes (15): handleConnect(), handleJira(), handleOdoo(), handleTrello(), odooAuth(), odooExecute(), odooJsonRpc(), passthrough() (+7 more)
 
 ### Community 114 - "CreateTaskModal.web.tsx"
-Cohesion: 0.11
-Nodes (27): DashboardFacts(), Fact, StatTile(), StatTileProps, FileHubInboxWidget(), LiveNowWidget(), isoDay(), MyPerformanceWidget() (+19 more)
+Cohesion: 0.13
+Nodes (21): DashboardFacts(), Fact, FactItem(), ActiveProjectsWidget(), BlockedExceptionsWidget(), FactsWidget(), PendingTimeApprovalsAdapter(), PipelineCompletionWidget() (+13 more)
 
 ### Community 115 - "fileTransfer.native.ts"
 Cohesion: 0.15
@@ -689,7 +699,7 @@ Nodes (7): CORS, countBin(), FileRow, purge(), start(), Summary, VersionRow
 
 ### Community 121 - "CollapsibleCard.tsx"
 Cohesion: 0.16
-Nodes (22): EmptyState(), NotificationItem(), NotificationsScreen(), sectionLabel(), ThemeColors, timeAgo(), EmptyState(), GROUPS (+14 more)
+Nodes (18): EmptyState(), getIconSpec(), NotificationItem(), NotificationsScreen(), sectionLabel(), ThemeColors, timeAgo(), EmptyState() (+10 more)
 
 ### Community 122 - "PipelineJourney.tsx"
 Cohesion: 0.12
@@ -704,32 +714,32 @@ Cohesion: 0.38
 Nodes (9): connectViaProxy(), captureTrelloTokenWeb(), deleteConnection(), extractToken(), getOAuthUrl(), startJiraFlow(), startOAuthFlow(), startTrelloFlow() (+1 more)
 
 ### Community 143 - "vitest.config.ts"
-Cohesion: 0.18
-Nodes (9): [], ../styles/global.css, @fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url, @fontsource-variable/inter-tight/files/inter-tight-latin-wght-normal.woff2?url, ../layouts/BaseLayout.astro, canonicalURL, ogImageURL, categories (+1 more)
+Cohesion: 0.10
+Nodes (17): badgeS, cmpS, coverStyles, divS, emptyS, footerS, hbarS, insightS (+9 more)
 
 ### Community 144 - "DraggableSheet.web.tsx"
 Cohesion: 0.13
 Nodes (15): 16.1 The one thing that will go wrong, 16.2 Do not invent the forecast math — Phase 5 already shipped it, 16.3.1 Why the projection timeline lives in Projects, not only Intelligence, 16.3.2 Global search — SHIPPED, 16.3.3 Portfolio screen — SHIPPED, 16.3.4 Timeline tab — SHIPPED, 16.3.5 Dashboard — SHIPPED, 16.3.6 Intelligence → project and portfolio lens — SHIPPED (+7 more)
 
 ### Community 145 - "ManualTimeModal.tsx"
-Cohesion: 0.70
-Nodes (4): formatWorkedDate(), ManualTimeModal(), Props, todayIso()
+Cohesion: 0.29
+Nodes (7): formatWorkedDate(), ManualTimeModal(), Props, todayIso(), formatSessionWhen(), TimerPanel(), WorkSessionData
 
 ### Community 146 - "_analytics_adaptive.tsx"
 Cohesion: 0.40
 Nodes (5): Check Progress, Combine Multiple Seeds, Test at Scale, Tips & Tricks, Troubleshooting
 
 ### Community 149 - "DynamicIsland.web.tsx"
-Cohesion: 0.08
-Nodes (28): RootLayoutNav(), RootLayoutNav(), OnboardingScreen(), displayNameFromSession(), IconName, initials(), MenuScreen(), Shortcut (+20 more)
+Cohesion: 0.07
+Nodes (43): OnboardingScreen(), OnboardingScreen(), Step, WelcomeTour(), DeadlockedTask, PipelineList(), STAGE_PRESET_TEMPLATES, TRANSITION_PRESETS (+35 more)
 
 ### Community 150 - "themeColors.ts"
-Cohesion: 0.36
-Nodes (4): IntelligenceArchivesNative(), IntelligenceArchives(), IntelligenceArchivesWebSwitcher(), useDebounce()
+Cohesion: 0.12
+Nodes (3): SEMANTIC_MAP, THEME_COLORS, ThemeColorMap
 
 ### Community 151 - "StageActions.tsx"
-Cohesion: 0.15
-Nodes (15): AnimatedPath, AnimatedView, ConnectionLines(), ConnectionLinesProps, AnimatedLine, AnimatedRect, GraphCanvas(), GraphCanvasProps (+7 more)
+Cohesion: 0.18
+Nodes (9): [], ../styles/global.css, @fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url, @fontsource-variable/inter-tight/files/inter-tight-latin-wght-normal.woff2?url, ../layouts/BaseLayout.astro, canonicalURL, ogImageURL, categories (+1 more)
 
 ### Community 152 - "🆘 Troubleshooting"
 Cohesion: 0.33
@@ -740,32 +750,32 @@ Cohesion: 0.33
 Nodes (6): 14.1 The standard: nothing renders as bare text, 14.2 Interaction polish is a first-class deliverable, not a garnish, 14.3 Scope guard, 14.4 Acceptance, 14.5 Shipped — the projects surfaces (branch `feat-projects-rebrand`, #187), 14. Phase 8 — re-brand and interaction polish
 
 ### Community 154 - "ActiveSessionAvatars.web.tsx"
-Cohesion: 0.15
-Nodes (19): LiveNowRow(), LiveRow(), LiveRowData, LiveSessionRow, ActiveSessionAvatars(), ActiveSessionAvatars(), SessionRow(), Avatar() (+11 more)
+Cohesion: 0.16
+Nodes (18): LiveRow(), LiveRowData, ActiveSessionAvatars(), ActiveSessionAvatars(), SessionRow(), Avatar(), formatSessionStart(), groupSessions() (+10 more)
 
 ### Community 155 - "CompanyDetailPanel"
-Cohesion: 0.05
-Nodes (53): Calendar(), CalendarProps, daysBetween(), fmtISO(), fmtShort(), MONTHS, QuickMenuSidebar(), RANGE_PRESETS (+45 more)
+Cohesion: 0.15
+Nodes (15): EditTaskModalWeb(), HOUR_PRESETS, PipelineOption, PRIORITY_LABEL, PRIORITY_OPTIONS, priorityBgColor(), priorityTextColor(), Props (+7 more)
 
 ### Community 156 - "RightSidebar.web.tsx"
-Cohesion: 0.29
-Nodes (7): CompanyDetailPanel(), statusColor(), deleteCompany(), extendRetention(), fmtBytes(), useCompanyDetail(), useCompanyRetention()
+Cohesion: 0.17
+Nodes (13): CategoryMapping, CategoryValue, endOfQuarterISO(), nextMondayISO(), Pipeline, randomKey(), RollforwardSheet(), SourceCategory (+5 more)
 
 ### Community 157 - "useControlPlaneData"
-Cohesion: 0.09
-Nodes (19): AdminNotificationsScreen(), ChannelRow, CHANNELS, EVENT_GROUPS, EventRow, NotificationPreferencesScreen(), Prefs, BackButton() (+11 more)
+Cohesion: 0.14
+Nodes (10): ChipRow(), getTemporalMode(), REPORT_TYPES, ReportGenerator(), ReportGeneratorProps, ReportType, TemporalMode, TypeCard() (+2 more)
 
 ### Community 158 - "menu.tsx"
-Cohesion: 0.06
-Nodes (49): FilterDropdown(), BoardRow(), BoardSwitcherPopup(), Props, IdleConveyor(), STRIPES, boardCacheMeta, BoardSnapshot (+41 more)
+Cohesion: 0.14
+Nodes (14): boardCacheMeta, BoardSnapshot, PRIORITY_SORT_RANK, TASK_SORT_OPTIONS, taskCache, TaskSortKey, BoardPeekCard(), DUE_DATE_BUCKETS (+6 more)
 
 ### Community 160 - "RetentionPanel.tsx"
 Cohesion: 0.36
 Nodes (7): CONVERT_FORMATS, Format, ImageLightbox(), loadImage(), ORIGINAL, renderToCanvas(), triggerBlobDownload()
 
 ### Community 161 - "EditTaskModal.tsx"
-Cohesion: 0.29
-Nodes (6): Billing, Overview, Plan, PLAN_TIER, PlanLimits, STATUS_LABEL
+Cohesion: 0.13
+Nodes (15): GenerationProgress(), GenerationProgress(), IslandTimerBridge(), LoadingOverlay(), LiveTimerChip(), ReviewStatusBadge(), TaskMetadata(), MAX_ISLAND_WIDTH (+7 more)
 
 ### Community 162 - "FileHubAnalytics.tsx"
 Cohesion: 0.40
@@ -776,16 +786,16 @@ Cohesion: 0.40
 Nodes (5): 4. Schema, New — all three are light, `project_templates.body` — one jsonb, not a normalized table, Upgraded, What deliberately does not change
 
 ### Community 164 - "_index_adaptive.tsx"
-Cohesion: 0.21
-Nodes (11): GlobalUploadBanner(), formatDistanceToNow(), RecentActivitySidebar(), ActivityEntry, getFileCategory(), MIME_CATEGORIES, SubmissionContext, SubmissionContextType (+3 more)
+Cohesion: 0.14
+Nodes (13): IdleConveyor(), STRIPES, BoardPeekCard(), DUE_DATE_BUCKETS, FilterState, PersonalPulse, PingTimeBadge(), Pipeline (+5 more)
 
 ### Community 165 - "Troubleshooting"
 Cohesion: 0.40
 Nodes (5): 7. Bulk instantiation — the highest-value piece, Capture: save-as-template, not a cold editor, Three hazards, all identified, all cheap, Two RPCs, UI — one sheet and one button
 
 ### Community 166 - "What Gets Created"
-Cohesion: 0.06
-Nodes (41): LEGACY_TABS, ProjectDetailContent(), TabKey, TABS, EntityHeading(), ActionableProject, InlineRename(), ProjectActionsButton() (+33 more)
+Cohesion: 0.12
+Nodes (23): EntityHeading(), FilterChip(), ProjectCardRow, ActionableProject, InlineRename(), ProjectActionsButton(), useProjectActions(), BoardRow (+15 more)
 
 ### Community 167 - "TopBar.web.tsx"
 Cohesion: 0.40
@@ -812,8 +822,8 @@ Cohesion: 0.40
 Nodes (5): Error: "Could not fetch company", Error: "Founder login failed", Error: "Service role key not available", Tasks are created but not showing, Troubleshooting
 
 ### Community 173 - "wheelGesture.ts"
-Cohesion: 0.15
-Nodes (17): LastWorkedOnWidget(), DashboardSettingsModal(), ActivityEntry, DashboardData, DashboardDataContext, DashboardDataProvider(), DashboardStats, EMPTY_STATS (+9 more)
+Cohesion: 0.18
+Nodes (16): DashboardCanvas(), DashboardSettingsModal(), getGreeting(), ActivityEntry, DashboardData, DashboardDataContext, DashboardDataProvider(), DashboardStats (+8 more)
 
 ### Community 174 - "Data Characteristics"
 Cohesion: 0.40
@@ -829,47 +839,55 @@ Nodes (5): Issue: DevTool not appearing, Issue: "Service role key not available"
 
 ### Community 177 - "NetworkStatusBanner.tsx"
 Cohesion: 0.14
-Nodes (17): ActivityStrip(), TimerContext, TimerContextType, TimerProvider(), WorkSession, inForeground(), useActivityMarks(), SmartTimerConfig (+9 more)
+Nodes (20): ActivityStrip(), AdaptiveFileGrid(), formatFileSize(), getFileIcon(), STATUS_STYLES, DeletedSubmissionData, StageActionData, SubmissionData (+12 more)
 
 ### Community 179 - "Skeleton.tsx"
-Cohesion: 0.09
-Nodes (45): ClientMark(), EntityEmptyState(), FilterChip(), HealthBadge(), MetaStat(), ProgressMeter(), ProjectCard(), ProjectCardRow (+37 more)
+Cohesion: 0.11
+Nodes (28): ListCard(), ListPagination(), ListRow(), ClientMark(), HealthBadge(), ProjectCard(), TaskRow(), StateStrip() (+20 more)
 
 ### Community 180 - "tasks.tsx"
-Cohesion: 0.33
-Nodes (6): CompanyStatus, fmtDate(), InactiveUser, Overview, RetentionPanel(), Settings
+Cohesion: 0.08
+Nodes (28): LEGACY_TABS, ProjectDetailContent(), TabKey, TABS, StageChip(), ThemeColors, fmtDuration(), ProjectOverviewTab() (+20 more)
 
 ### Community 181 - "Workflow"
-Cohesion: 0.05
-Nodes (51): TaskDetailContent(), TaskDetailContentWeb(), ActivityLog(), eventLabel(), timeAgo(), ChildPipelinesPanel(), getStatusStyle(), STATUS_STYLES (+43 more)
+Cohesion: 0.10
+Nodes (20): ActivityData, AssignmentData, ChildTaskData, DeletedTaskAttachmentData, LinkedPipelineData, ManualTimeApprovalEntry, MyManualTimeEntry, PermissionsData (+12 more)
+
+### Community 182 - "Accessing Dev Tools"
+Cohesion: 0.15
+Nodes (15): PointsSection(), QualitySection(), SLA_REASON_LABEL, SLARiskSection(), TrendsSection(), WorkDistributionSection(), IntelligenceGraphsWebSwitcher(), SLARiskAlert() (+7 more)
 
 ### Community 183 - "FileHub Unification Plan (issue #143)"
 Cohesion: 0.29
 Nodes (6): 1. Divergence audit — three file systems today, 2. Migration path — pointer-based, no byte moves, 3. Versioning convergence, 4. What unification unlocks, 5. Deprecation endgame, FileHub Unification Plan (issue #143)
 
 ### Community 184 - "reducedMotionNotice.test.ts"
-Cohesion: 0.09
-Nodes (32): PipelineEditorInner(), SECTIONS, PipelinesWebInner(), PipelinesWebScreen(), Section, STAGE_PRESETS, TRANSITION_PRESETS, HorizontalScroll() (+24 more)
+Cohesion: 0.20
+Nodes (9): SlideDownPanel(), SlideDownPanelProps, maybeShow(), noticeReducedMotion(), freshModule(), store, toast, toast() (+1 more)
 
 ### Community 185 - "fix_rgb_all.js"
-Cohesion: 0.24
-Nodes (17): AlertsSection(), CommandSection(), CompanyDetailModal(), SignalsSection(), TenantsSection(), AlertsSection(), ChartTooltip(), CommandSection() (+9 more)
+Cohesion: 0.33
+Nodes (12): AlertsSection(), CommandSection(), SignalsSection(), AlertsSection(), ChartTooltip(), CommandSection(), SignalsSection(), deriveAlerts() (+4 more)
 
 ### Community 186 - "StageCountOdometer.tsx"
-Cohesion: 0.09
-Nodes (28): getPreviewKind(), BrowseItem, Facets, FileHubBrowse(), idOf(), isImage(), SOURCE_TABS, ACTION_ICON (+20 more)
+Cohesion: 0.16
+Nodes (14): FileHubAdaptiveInner(), BrowseItem, Facets, FileHubBrowse(), idOf(), isImage(), SOURCE_TABS, useDoubleTap() (+6 more)
 
 ### Community 187 - "useCalendarPosition.ts"
 Cohesion: 0.50
 Nodes (4): 13.10 Bulk create produces orphans — the missing batch-configuration step, Corrected after review (branch `fix-batch-config-density`), Shipped — backend (branch `feat-project-batch-config`), Shipped — UI (branch `feat-project-batch-config-ui`)
 
+### Community 188 - "BoardSwitcherPopup.tsx"
+Cohesion: 0.22
+Nodes (8): BoardRow(), BoardSwitcherPopup(), Props, BOARD_PICKER_KEYS, PickerBoard, RecentEntry, useBoardPicker(), UseBoardPickerResult
+
 ### Community 189 - "UserAssignmentGrid.tsx"
-Cohesion: 0.15
-Nodes (11): GenerationProgress(), getTemporalMode(), ParameterSection(), REPORT_TYPES, ReportGeneratorDesktop(), ReportType, SeriesControls(), TemporalMode (+3 more)
+Cohesion: 0.19
+Nodes (9): buildConclusion(), ProfileAnalytics(), ProfileAnalyticsProps, ProfilePage(), THEME_OPTIONS, ProfilePageWeb(), TabType, THEME_OPTIONS (+1 more)
 
 ### Community 190 - "LinkifiedText.tsx"
-Cohesion: 0.31
-Nodes (5): fmtWhen(), summarize(), TemplateCard(), TemplateRow, TemplatesLibrary()
+Cohesion: 0.14
+Nodes (22): ProjectionConfidence, entityColor(), EntityEmptyState(), EntityGlyph(), EntityTag(), MetaStat(), ProgressMeter(), isDenied() (+14 more)
 
 ### Community 191 - "migration_drift.js"
 Cohesion: 0.14
@@ -883,6 +901,10 @@ Nodes (10): Design, Error handling, Out of scope (future issues), Problem, `rpc_
 Cohesion: 0.67
 Nodes (3): files, findCheckFiles(), IGNORE_DIRS
 
+### Community 195 - "TimeByCategoryPie.web.tsx"
+Cohesion: 0.24
+Nodes (9): TABS, ENTITY_KIND, plain(), relTime(), SearchResultRow(), TYPE_ICON, TYPE_LABEL, ENTITY_META (+1 more)
+
 ### Community 196 - "wheelGesture.ts"
 Cohesion: 0.47
 Nodes (4): createWheelStepper(), normaliseWheelDelta(), WheelStep, WheelStepperOptions
@@ -891,17 +913,21 @@ Nodes (4): createWheelStepper(), normaliseWheelDelta(), WheelStep, WheelStepperO
 Cohesion: 0.20
 Nodes (9): Data model, Design, RPCs, Scope decision, Shared Tasks: cross-pipeline visibility (issue #23), Testing, UI (follow-up, not in this PR), UI (this PR) (+1 more)
 
+### Community 198 - "ManualTimeModal.web.tsx"
+Cohesion: 0.23
+Nodes (10): formatWorkedDate(), ManualTimeModal(), Props, todayIso(), Action, ActionVariant, Popup(), PopupCommonProps (+2 more)
+
 ### Community 199 - "StageCountOdometer.tsx"
 Cohesion: 0.22
 Nodes (9): 18.1 Headers are not the signal. Content is., 18.2 The three rules that keep this industry-agnostic, 18.3 Decisions taken, 18.4 Row shape — the traps in the real file, 18.5 Acceptance, 18.6 Shipped — the parser (branch `feat-spreadsheet-classifier`), 18.7 Measured on a multi-industry corpus — where it breaks, 18. Phase 9 redesign — the smart parser (supersedes §15's mapping layer) (+1 more)
 
 ### Community 200 - "StageBuilder.tsx"
-Cohesion: 0.14
-Nodes (11): SidebarLayout(), SidebarLayoutProps, COLOR_PALETTE, parseNum(), Priority, PRIORITY_LABEL, PRIORITY_OPTIONS, SavedTemplate (+3 more)
+Cohesion: 0.20
+Nodes (9): FilterChipGroup(), FilterChipGroupProps, FilterDropdown(), FilterDropdownOption, FilterDropdownProps, FilterPanel(), FilterPanelProps, FilterSection() (+1 more)
 
 ### Community 201 - "TimelineDropdown.web.tsx"
-Cohesion: 0.15
-Nodes (16): entityColor(), EntityGlyph(), EntityTag(), SegmentedControl(), isDenied(), ProjectLens(), PortfolioCard(), PortfolioGrid() (+8 more)
+Cohesion: 0.18
+Nodes (11): SegmentedControl(), ProjectFolderModalProps, ProjectsScreen(), ProjectsScreenWeb(), ProjectsWebSwitcher(), NavPosition, useNavBarPosition(), usePersistedState() (+3 more)
 
 ### Community 202 - "20. Phase 12 — projects get the pipeline ENGINE, not just a stage column"
 Cohesion: 0.25
@@ -911,9 +937,17 @@ Nodes (8): 20.1 The decision this phase needs first, 20.2 Whatever is decided, o
 Cohesion: 0.25
 Nodes (7): Auto-release, Data model, Known follow-up (not fixed in this PR), RPCs, Scope decisions (from discussion), Task claiming toggle (issue #25), UI
 
+### Community 204 - "13.11 Project detail becomes a workspace (amends §8)"
+Cohesion: 0.27
+Nodes (9): computeProjectsInsights(), healthColor(), healthLabel(), ProjectRow, ProjectsData, ProjectsReport(), ProjectsReportPages(), s (+1 more)
+
 ### Community 205 - "DraggableSheet.web.tsx"
 Cohesion: 0.50
 Nodes (4): Action, ActionVariant, DraggableSheet(), PrimaryAction
+
+### Community 206 - "ManualTimeApprovalsModal.web.tsx"
+Cohesion: 0.16
+Nodes (19): useShareFile(), DropZone(), StageActions(), AdaptiveFileGrid(), formatSize(), getCategory(), getFileIcon(), TaskBriefPanel() (+11 more)
 
 ### Community 207 - "Production deploy history"
 Cohesion: 0.40
@@ -928,64 +962,76 @@ Cohesion: 0.40
 Nodes (5): 21.1 The generalisable technique, 21.2 The rule when evidence runs out, 21.3 Classes to handle, and where each stands, 21.4 What this means for the corpus, 21. Messiness is the feature, not the edge case
 
 ### Community 210 - "reducedMotionNotice.test.ts"
-Cohesion: 0.13
-Nodes (11): AdminNotificationsScreenWeb(), OnboardingScreen(), PlanControlSection(), PingSettingsPanel(), LoadingOverlay(), WorkspaceSettings(), ReviewStatusBadge(), useClientOnlyValue() (+3 more)
+Cohesion: 0.29
+Nodes (8): CompanyDetailModal(), CompanyDetailPanel(), statusColor(), deleteCompany(), extendRetention(), fmtBytes(), useCompanyDetail(), useCompanyRetention()
+
+### Community 211 - "Features"
+Cohesion: 0.32
+Nodes (7): CAT_DARK, CAT_LIGHT, CategoryPieMode, fmtH(), isDarkHex(), Slice, TimeByCategoryPie()
 
 ### Community 212 - "`supabase/_archive/`"
 Cohesion: 0.50
 Nodes (3): `generate-pdf-report-v8` — deleted from production 2026-08-04, `purge-ksa-templates-cleanup` — deleted from production 2026-08-04, `supabase/_archive/`
 
-### Community 218 - "ManualTimeModal.web.tsx"
-Cohesion: 0.15
-Nodes (13): widgetTint(), getWidget(), WidgetEmptyProvider(), HIDDEN_CELL, WidgetCell(), WidgetGridProps, SIZE_GLYPH, SIZE_LABEL (+5 more)
+### Community 217 - "NetworkStatusBanner.tsx"
+Cohesion: 0.36
+Nodes (8): LiveSection(), TenantsSection(), LiveSection(), TenantsSection(), healthLabel(), timeAgo(), useLiveSessions(), workspaceAge()
 
-### Community 219 - "StageCountOdometer.tsx"
-Cohesion: 0.33
-Nodes (7): ProjectFolderModal(), ProjectFolderModalProps, ProjectFolderModal(), ProjectFolderModalProps, PROJECT_STATUS_OPTIONS, ProjectFolderProject, useProjectFolderForm()
+### Community 218 - "ManualTimeModal.web.tsx"
+Cohesion: 0.32
+Nodes (6): getWidget(), WidgetCell(), WidgetGridProps, DashboardLayout, sizeToFlex(), WidgetInstance
 
 ### Community 220 - "Accessing Dev Tools"
 Cohesion: 0.39
 Nodes (7): isJiraExport(), JIRA_PRIORITY_MAP, JIRA_SIGNATURE_HEADERS, mapJiraRow(), normalizeJiraPriority(), parseJiraDate(), pick()
 
+### Community 221 - "RetentionPanel.tsx"
+Cohesion: 0.33
+Nodes (6): CompanyStatus, fmtDate(), InactiveUser, Overview, RetentionPanel(), Settings
+
 ### Community 222 - "WidgetShell.tsx"
-Cohesion: 0.21
-Nodes (19): ListCard(), ListPagination(), ListRow(), InboxRow, WorkedTask, MyDeadlinesWidget(), MyWorkWidget(), CATEGORY_TONE (+11 more)
+Cohesion: 0.29
+Nodes (5): SIZE_GLYPH, SIZE_LABEL, WidgetShell(), WidgetShellProps, WidgetSize
 
 ### Community 223 - "BillingMeter.web.tsx"
-Cohesion: 0.18
-Nodes (11): ClipboardControls(), Props, LoadingOverlay(), AssignmentModePreview(), MODE_LABEL, Props, AdaptiveFileGrid(), Props (+3 more)
+Cohesion: 0.43
+Nodes (5): BillingMeter(), STATUS_LABEL, AdaptiveFileGrid(), formatFileSize(), getFileIcon()
+
+### Community 224 - "TimelineDropdown.web.tsx"
+Cohesion: 0.38
+Nodes (6): buildMonthGrid(), DeadlineRow, TimelineDropdown(), toKey(), WEEKDAY_LABELS, ProjectDeadline
+
+### Community 225 - "useSmartTimer.ts"
+Cohesion: 0.43
+Nodes (4): SmartTimerConfig, useSmartTimer(), START, computeTimerAction()
+
+### Community 227 - "What You Get"
+Cohesion: 0.40
+Nodes (5): Clear All Tasks, Comprehensive Seed (30 Tasks), Full Reporting Seed (40 Tasks + Work), Quick Seed (5 Tasks), What You Get
 
 ### Community 228 - "Method 2: Using Command Line Script (Most Complete)"
-Cohesion: 0.48
-Nodes (4): displayNameFromSession(), initials(), ProfilePill(), useSidebarProfile()
-
-### Community 229 - "filehub.tsx"
-Cohesion: 0.50
-Nodes (4): 1. Quick Testing, 2. Complete Testing, 3. Start Fresh, Workflow
-
-### Community 230 - "tasks.tsx"
-Cohesion: 0.50
-Nodes (4): Accessing Dev Tools, Direct URL, From Admin Sidebar (Desktop), From the Tasks Screen
+Cohesion: 0.40
+Nodes (5): Example Output, Method 2: Using Command Line Script (Most Complete), Prerequisites, Run the Seed Script, What Gets Created
 
 ## Knowledge Gaps
-- **1390 isolated node(s):** `name`, `slug`, `version`, `orientation`, `icon` (+1385 more)
+- **1373 isolated node(s):** `name`, `slug`, `version`, `orientation`, `icon` (+1368 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **12 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **13 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `useThemeColors()` connect `pipelines.web.tsx` to `DataExportPanel.tsx`, `AnalyticsContext.tsx`, `_analytics_desktop.tsx`, `supabase.ts`, `Task Filtering Analysis - Complete Codebase Search Results`, `useTaskDetail`, `_filehub_adaptive.tsx`, `_index_desktop.tsx`, `_people_adaptive.tsx`, `useAuth`, `useThemeColors.ts`, `_ReportGenerator_adaptive.tsx`, `_reports_desktop.tsx`, `_analytics_desktop.tsx`, `index.web.tsx`, `Sidebar.web.tsx`, `usePipelineEditor`, `NotificationRules.tsx`, `TaskBriefPanel.tsx`, `ToastContext.tsx`, `_tasks_desktop.tsx`, `TaskDetailContext.tsx`, `seed_comprehensive.ts`, `useControlPlaneData.ts`, `expo-audio`, `_ReportGenerator_desktop.tsx`, `_targets_desktop.tsx`, `themeColors.ts`, `TimerContext.tsx`, `ThemeContext.tsx`, `useAlert`, `_index_desktop.tsx`, `fmtNumber`, `_analytics_adaptive.tsx`, `_graphs_adaptive.tsx`, `ManualTimeApprovalCard.mobile.tsx`, `PipelineEditorContext.tsx`, `CommentsSection.tsx`, `_projects_adaptive.tsx`, `BillingPanel.tsx`, `_analytics_adaptive.tsx`, `menu.tsx`, `Troubleshooting`, `useFileViewer.tsx`, `ProjectFolderModal.tsx`, `ManualTimeApprovalsModal.tsx`, `Customization`, `Troubleshooting`, `TaskHeader.tsx`, `BillingMeter.web.tsx`, `CreateTaskModal.web.tsx`, `fileTransfer.native.ts`, `CollapsibleCard.tsx`, `ManualTimeModal.tsx`, `DynamicIsland.web.tsx`, `themeColors.ts`, `StageActions.tsx`, `ActiveSessionAvatars.web.tsx`, `CompanyDetailPanel`, `RightSidebar.web.tsx`, `useControlPlaneData`, `menu.tsx`, `RetentionPanel.tsx`, `EditTaskModal.tsx`, `What Gets Created`, `TaskCreationContext.tsx`, `wheelGesture.ts`, `NetworkStatusBanner.tsx`, `Skeleton.tsx`, `tasks.tsx`, `Workflow`, `reducedMotionNotice.test.ts`, `fix_rgb_all.js`, `StageCountOdometer.tsx`, `UserAssignmentGrid.tsx`, `LinkifiedText.tsx`, `StageBuilder.tsx`, `TimelineDropdown.web.tsx`, `DraggableSheet.web.tsx`, `reducedMotionNotice.test.ts`, `ManualTimeModal.web.tsx`, `StageCountOdometer.tsx`, `WidgetShell.tsx`, `BillingMeter.web.tsx`?**
-  _High betweenness centrality (0.265) - this node is a cross-community bridge._
-- **Why does `supabase` connect `Troubleshooting` to `DataExportPanel.tsx`, `AnalyticsContext.tsx`, `_analytics_desktop.tsx`, `FileHubAnalytics.tsx`, `helpers.ts`, `supabase.ts`, `useTaskDetail`, `_filehub_adaptive.tsx`, `_index_desktop.tsx`, `ManualTimeModal.tsx`, `useThemeColors.ts`, `_ReportGenerator_adaptive.tsx`, `DynamicIsland.web.tsx`, `themeColors.ts`, `_reports_desktop.tsx`, `index.web.tsx`, `Sidebar.web.tsx`, `_analytics_desktop.tsx`, `CompanyDetailPanel`, `ActiveSessionAvatars.web.tsx`, `useControlPlaneData`, `menu.tsx`, `_tasks_adaptive.tsx`, `usePipelineEditor`, `EditTaskModal.tsx`, `index.tsx`, `NotificationRules.tsx`, `_index_adaptive.tsx`, `TaskBriefPanel.tsx`, `ToastContext.tsx`, `_tasks_desktop.tsx`, `What Gets Created`, `TaskDetailContext.tsx`, `TaskCreationContext.tsx`, `expo-audio`, `wheelGesture.ts`, `_targets_desktop.tsx`, `themeColors.ts`, `_ReportGenerator_desktop.tsx`, `TimerContext.tsx`, `NetworkStatusBanner.tsx`, `Skeleton.tsx`, `tasks.tsx`, `fmtNumber`, `_analytics_adaptive.tsx`, `_graphs_adaptive.tsx`, `reducedMotionNotice.test.ts`, `Workflow`, `StageCountOdometer.tsx`, `PipelineEditorContext.tsx`, `ManualTimeApprovalCard.mobile.tsx`, `UserAssignmentGrid.tsx`, `pipelines.web.tsx`, `LinkifiedText.tsx`, `StageBuilder.tsx`, `BillingPanel.tsx`, `reducedMotionNotice.test.ts`, `_analytics_adaptive.tsx`, `menu.tsx`, `StageCountOdometer.tsx`, `WidgetShell.tsx`, `BillingMeter.web.tsx`, `useFileViewer.tsx`, `Method 2: Using Command Line Script (Most Complete)`, `ManualTimeApprovalsModal.tsx`, `Customization`, `TaskHeader.tsx`, `BillingMeter.web.tsx`, `CollapsibleCard.tsx`?**
-  _High betweenness centrality (0.040) - this node is a cross-community bridge._
-- **Why does `useAuth()` connect `DynamicIsland.web.tsx` to `DataExportPanel.tsx`, `supabase.ts`, `Task Filtering Analysis - Complete Codebase Search Results`, `useTaskDetail`, `useAuth`, `useThemeColors.ts`, `_ReportGenerator_adaptive.tsx`, `themeColors.ts`, `Sidebar.web.tsx`, `_tasks_adaptive.tsx`, `CompanyDetailPanel`, `usePipelineEditor`, `useControlPlaneData`, `menu.tsx`, `EditTaskModal.tsx`, `NotificationRules.tsx`, `_index_adaptive.tsx`, `ToastContext.tsx`, `_tasks_desktop.tsx`, `What Gets Created`, `TaskCreationContext.tsx`, `expo-audio`, `wheelGesture.ts`, `_ReportGenerator_desktop.tsx`, `themeColors.ts`, `TimerContext.tsx`, `NetworkStatusBanner.tsx`, `useAlert`, `tasks.tsx`, `fmtNumber`, `_analytics_adaptive.tsx`, `_graphs_adaptive.tsx`, `reducedMotionNotice.test.ts`, `ManualTimeApprovalCard.mobile.tsx`, `_index_desktop.tsx`, `Workflow`, `PipelineEditorContext.tsx`, `UserAssignmentGrid.tsx`, `pipelines.web.tsx`, `LinkifiedText.tsx`, `TimelineDropdown.web.tsx`, `reducedMotionNotice.test.ts`, `_analytics_adaptive.tsx`, `WidgetShell.tsx`, `Troubleshooting`, `NetworkStatusBanner.tsx`, `Customization`, `Troubleshooting`, `TaskHeader.tsx`, `BillingMeter.web.tsx`, `CreateTaskModal.web.tsx`, `CollapsibleCard.tsx`?**
-  _High betweenness centrality (0.035) - this node is a cross-community bridge._
+- **Why does `useThemeColors()` connect `pipelines.web.tsx` to `DataExportPanel.tsx`, `AnalyticsContext.tsx`, `_analytics_desktop.tsx`, `supabase.ts`, `Task Filtering Analysis - Complete Codebase Search Results`, `useTaskDetail`, `_filehub_adaptive.tsx`, `_index_desktop.tsx`, `_people_adaptive.tsx`, `useAuth`, `useThemeColors.ts`, `_ReportGenerator_adaptive.tsx`, `_reports_desktop.tsx`, `index.web.tsx`, `Sidebar.web.tsx`, `_tasks_adaptive.tsx`, `usePipelineEditor`, `NotificationRules.tsx`, `TaskBriefPanel.tsx`, `ToastContext.tsx`, `_tasks_desktop.tsx`, `seed_comprehensive.ts`, `useControlPlaneData.ts`, `expo-audio`, `_ReportGenerator_desktop.tsx`, `_targets_desktop.tsx`, `themeColors.ts`, `TimerContext.tsx`, `ThemeContext.tsx`, `useAlert`, `_index_desktop.tsx`, `fmtNumber`, `_analytics_adaptive.tsx`, `_graphs_adaptive.tsx`, `ManualTimeApprovalCard.mobile.tsx`, `PipelineEditorContext.tsx`, `CommentsSection.tsx`, `_projects_adaptive.tsx`, `BillingPanel.tsx`, `_analytics_adaptive.tsx`, `menu.tsx`, `Troubleshooting`, `ProjectFolderModal.tsx`, `ManualTimeApprovalsModal.tsx`, `Customization`, `Troubleshooting`, `TaskHeader.tsx`, `BillingMeter.web.tsx`, `CreateTaskModal.web.tsx`, `fileTransfer.native.ts`, `CollapsibleCard.tsx`, `ManualTimeModal.tsx`, `DynamicIsland.web.tsx`, `ActiveSessionAvatars.web.tsx`, `CompanyDetailPanel`, `RightSidebar.web.tsx`, `useControlPlaneData`, `menu.tsx`, `RetentionPanel.tsx`, `EditTaskModal.tsx`, `_index_adaptive.tsx`, `What Gets Created`, `TaskCreationContext.tsx`, `wheelGesture.ts`, `NetworkStatusBanner.tsx`, `Skeleton.tsx`, `tasks.tsx`, `Accessing Dev Tools`, `reducedMotionNotice.test.ts`, `fix_rgb_all.js`, `StageCountOdometer.tsx`, `BoardSwitcherPopup.tsx`, `UserAssignmentGrid.tsx`, `LinkifiedText.tsx`, `TimeByCategoryPie.web.tsx`, `ManualTimeModal.web.tsx`, `StageBuilder.tsx`, `TimelineDropdown.web.tsx`, `DraggableSheet.web.tsx`, `ManualTimeApprovalsModal.web.tsx`, `reducedMotionNotice.test.ts`, `Features`, `NetworkStatusBanner.tsx`, `RetentionPanel.tsx`, `WidgetShell.tsx`, `BillingMeter.web.tsx`, `TimelineDropdown.web.tsx`?**
+  _High betweenness centrality (0.272) - this node is a cross-community bridge._
+- **Why does `supabase` connect `DynamicIsland.web.tsx` to `DataExportPanel.tsx`, `AnalyticsContext.tsx`, `_analytics_desktop.tsx`, `FileHubAnalytics.tsx`, `helpers.ts`, `supabase.ts`, `useTaskDetail`, `_index_desktop.tsx`, `ManualTimeModal.tsx`, `useAuth`, `useThemeColors.ts`, `_ReportGenerator_adaptive.tsx`, `_reports_desktop.tsx`, `index.web.tsx`, `Sidebar.web.tsx`, `ActiveSessionAvatars.web.tsx`, `_tasks_adaptive.tsx`, `RightSidebar.web.tsx`, `useControlPlaneData`, `menu.tsx`, `CompanyDetailPanel`, `index.tsx`, `NotificationRules.tsx`, `_index_adaptive.tsx`, `TaskBriefPanel.tsx`, `ToastContext.tsx`, `_tasks_desktop.tsx`, `What Gets Created`, `seed_comprehensive.ts`, `TaskDetailContext.tsx`, `TaskCreationContext.tsx`, `expo-audio`, `_ReportGenerator_desktop.tsx`, `wheelGesture.ts`, `_targets_desktop.tsx`, `useControlPlaneData.ts`, `TimerContext.tsx`, `NetworkStatusBanner.tsx`, `Skeleton.tsx`, `tasks.tsx`, `fmtNumber`, `Accessing Dev Tools`, `_analytics_adaptive.tsx`, `_graphs_adaptive.tsx`, `Workflow`, `StageCountOdometer.tsx`, `PipelineEditorContext.tsx`, `BoardSwitcherPopup.tsx`, `UserAssignmentGrid.tsx`, `LinkifiedText.tsx`, `pipelines.web.tsx`, `ManualTimeApprovalCard.mobile.tsx`, `ManualTimeModal.web.tsx`, `BillingPanel.tsx`, `ManualTimeApprovalsModal.web.tsx`, `_analytics_adaptive.tsx`, `menu.tsx`, `RetentionPanel.tsx`, `Troubleshooting`, `ProjectFolderModal.tsx`, `TaskHeader.tsx`, `BillingMeter.web.tsx`, `themeColors.ts`?**
+  _High betweenness centrality (0.046) - this node is a cross-community bridge._
+- **Why does `useAuth()` connect `DynamicIsland.web.tsx` to `DataExportPanel.tsx`, `supabase.ts`, `Task Filtering Analysis - Complete Codebase Search Results`, `useTaskDetail`, `useThemeColors.ts`, `_ReportGenerator_adaptive.tsx`, `Sidebar.web.tsx`, `_tasks_adaptive.tsx`, `RightSidebar.web.tsx`, `usePipelineEditor`, `useControlPlaneData`, `menu.tsx`, `_index_adaptive.tsx`, `ToastContext.tsx`, `_tasks_desktop.tsx`, `What Gets Created`, `seed_comprehensive.ts`, `useControlPlaneData.ts`, `TaskCreationContext.tsx`, `expo-audio`, `wheelGesture.ts`, `_ReportGenerator_desktop.tsx`, `themeColors.ts`, `TimerContext.tsx`, `NetworkStatusBanner.tsx`, `useAlert`, `_index_desktop.tsx`, `fmtNumber`, `_analytics_adaptive.tsx`, `_graphs_adaptive.tsx`, `ManualTimeApprovalCard.mobile.tsx`, `StageCountOdometer.tsx`, `PipelineEditorContext.tsx`, `UserAssignmentGrid.tsx`, `pipelines.web.tsx`, `LinkifiedText.tsx`, `CommentsSection.tsx`, `TimelineDropdown.web.tsx`, `ManualTimeApprovalsModal.web.tsx`, `_analytics_adaptive.tsx`, `RetentionPanel.tsx`, `NetworkStatusBanner.tsx`, `Troubleshooting`, `BillingMeter.web.tsx`, `Troubleshooting`, `TaskHeader.tsx`, `BillingMeter.web.tsx`, `CreateTaskModal.web.tsx`?**
+  _High betweenness centrality (0.037) - this node is a cross-community bridge._
 - **What connects `name`, `slug`, `version` to the rest of the system?**
-  _1390 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _1373 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `generate.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.057444790678769814 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.10025062656641603 - nodes in this community are weakly interconnected._
 - **Should `dependencies` be split into smaller, more focused modules?**
   _Cohesion score 0.038461538461538464 - nodes in this community are weakly interconnected._
 - **Should `AnalyticsContext.tsx` be split into smaller, more focused modules?**
-  _Cohesion score 0.0707070707070707 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.09291521486643438 - nodes in this community are weakly interconnected._

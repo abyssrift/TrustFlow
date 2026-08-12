@@ -3000,13 +3000,13 @@
     "semantic_hash": ""
   },
   "components/intelligence/PipelineOverviewChart.tsx": {
-    "mtime": 1786454862.8006153,
-    "ast_hash": "63b4a3facef1140fa5bbb747e707e2e7",
+    "mtime": 1785166507.8640063,
+    "ast_hash": "fbe9a94dc823bb53f62da0634399ef92",
     "semantic_hash": ""
   },
   "components/intelligence/PipelineOverviewChartNative.tsx": {
-    "mtime": 1786454698.014605,
-    "ast_hash": "5016d2bfe578f2fb1a8364d8e9ecb420",
+    "mtime": 1784706663.8283217,
+    "ast_hash": "43da5b511270272c2342c04b9a9cca24",
     "semantic_hash": ""
   },
   "hooks/usePipelineOverviewData.ts": {
@@ -3565,8 +3565,8 @@
     "semantic_hash": ""
   },
   "components/tabs/LiveSessionsPopup.tsx": {
-    "mtime": 1786452349.2092547,
-    "ast_hash": "4bdaec6fef13c61132ceb9eadd469ffb",
+    "mtime": 1786450895.228084,
+    "ast_hash": "01b14f6a4b75c26577188ab4a8b661e0",
     "semantic_hash": ""
   },
   "lib/chartBuckets.test.ts": {
@@ -3790,8 +3790,8 @@
     "semantic_hash": ""
   },
   "components/task-detail/activeSessionAvatarsCore.tsx": {
-    "mtime": 1786454966.7566068,
-    "ast_hash": "0bf2a7a7b0cc97945002415726496241",
+    "mtime": 1786282781.5511105,
+    "ast_hash": "acce676457102caa8df480b246339e89",
     "semantic_hash": ""
   },
   "lib/archiveForceStop.ts": {
@@ -4990,33 +4990,33 @@
     "semantic_hash": ""
   },
   "components/dashboard/widgets/PipelineOverviewWidget.web.tsx": {
-    "mtime": 1786454717.8615942,
-    "ast_hash": "66d5d5315133b67b54dad202dd8a1296",
+    "mtime": 1786365238.6001601,
+    "ast_hash": "c107ba84c45a27a0ae946babec779c52",
     "semantic_hash": ""
   },
   "components/dashboard/widgets/WidgetGrid.tsx": {
-    "mtime": 1786517521.9833584,
-    "ast_hash": "e72876fb1b86c345207016b2046f88d9",
+    "mtime": 1786437930.9405837,
+    "ast_hash": "43f9141cef3a5292481b981a22abb980",
     "semantic_hash": ""
   },
   "components/dashboard/widgets/WidgetPopups.tsx": {
-    "mtime": 1786452322.4689968,
-    "ast_hash": "b6ae6a9d994ecf768d85504090a90717",
+    "mtime": 1786433319.4082534,
+    "ast_hash": "6208d7d8501599bcfb61433e8af47971",
     "semantic_hash": ""
   },
   "components/dashboard/widgets/WidgetShell.tsx": {
-    "mtime": 1786455607.1616805,
-    "ast_hash": "78264d5ae32db83445c2f959943ecb01",
+    "mtime": 1786437897.722702,
+    "ast_hash": "669b4ad830dffffdcfc4dd52ff2153ad",
     "semantic_hash": ""
   },
   "components/dashboard/widgets/registry.tsx": {
-    "mtime": 1786455306.7738485,
-    "ast_hash": "32610e93bce8ea0385c3375f8cfac781",
+    "mtime": 1786451028.2103264,
+    "ast_hash": "36e3ff862a7dddea6d55ccbe22648811",
     "semantic_hash": ""
   },
   "contexts/DashboardDataContext.tsx": {
-    "mtime": 1786455327.7322836,
-    "ast_hash": "804be5b49beee88e3a9495f9abe53162",
+    "mtime": 1786450844.849835,
+    "ast_hash": "cbb8404288173278aa6904e82f5b6397",
     "semantic_hash": ""
   },
   "hooks/useDashboardLayout.ts": {
@@ -5025,53 +5025,53 @@
     "semantic_hash": ""
   },
   "lib/dashboardWidgets.check.ts": {
-    "mtime": 1786454736.7033575,
-    "ast_hash": "6e245ab466555fbc010fff1cd18849b8",
+    "mtime": 1786450951.3846672,
+    "ast_hash": "f0ec9ca7ba4a78c6904dcdd97069d782",
     "semantic_hash": ""
   },
   "lib/dashboardWidgets.ts": {
-    "mtime": 1786454573.360451,
-    "ast_hash": "1da675ab1950a435d7af467cb41673b5",
+    "mtime": 1786450753.6735356,
+    "ast_hash": "28da5b6a4f240e1823ddd12c2e50d538",
     "semantic_hash": ""
   },
   "components/dashboard/StatTile.tsx": {
-    "mtime": 1786454881.8063772,
-    "ast_hash": "3f50f7c96405a716f1bed17cd65e4fe5",
+    "mtime": 1786437077.0192897,
+    "ast_hash": "6e4bf03bada7ae7d8058a2e945c20cd7",
     "semantic_hash": ""
   },
   "components/dashboard/widgets/FileHubInboxWidget.tsx": {
-    "mtime": 1786455099.5282476,
-    "ast_hash": "d3668f40b79ae8973c6f78a4cd51abbc",
+    "mtime": 1786450847.2295997,
+    "ast_hash": "2e368b6d1cb881771b2a96c02d1cca49",
     "semantic_hash": ""
   },
   "components/dashboard/widgets/LastWorkedOnWidget.tsx": {
-    "mtime": 1786455432.2726872,
-    "ast_hash": "905850a1e9cc36977dd465315c58e644",
+    "mtime": 1786437400.673307,
+    "ast_hash": "9f7a0e82df915ab34de4a03ad1a984a5",
     "semantic_hash": ""
   },
   "components/dashboard/widgets/LiveNowWidget.tsx": {
-    "mtime": 1786455005.398538,
-    "ast_hash": "f6e63489dcc9cfc4e594ad1f8f5b1823",
+    "mtime": 1786450865.8187542,
+    "ast_hash": "5c8d253c73e45bdebc88981749683d74",
     "semantic_hash": ""
   },
   "components/dashboard/widgets/MyDeadlinesWidget.tsx": {
-    "mtime": 1786454945.9759138,
-    "ast_hash": "ea0f9fecdfbff39083b60c7604e92af4",
+    "mtime": 1786450845.7333345,
+    "ast_hash": "3abd70d4c840ed8f665c1f515972b08c",
     "semantic_hash": ""
   },
   "components/dashboard/widgets/MyPerformanceWidget.tsx": {
-    "mtime": 1786455246.4056516,
-    "ast_hash": "6cdec236f62da053f338602c7ea1eed0",
+    "mtime": 1786450836.2329123,
+    "ast_hash": "93a9f5ee773e912ce667d5db3337192a",
     "semantic_hash": ""
   },
   "components/dashboard/widgets/MyWorkWidget.tsx": {
-    "mtime": 1786454921.7699258,
-    "ast_hash": "710fe1220d06f2aa658d88cbc29c9fb0",
+    "mtime": 1786450843.7971141,
+    "ast_hash": "4ea527e0510c0902d635b16cb4afb5d9",
     "semantic_hash": ""
   },
   "components/dashboard/widgets/personalRows.tsx": {
-    "mtime": 1786454844.9539275,
-    "ast_hash": "e26dff498c8effa9dd8cf95306af5f4b",
+    "mtime": 1786450778.46897,
+    "ast_hash": "b3f9a1522a5c5f2d435a55abae2ff907",
     "semantic_hash": ""
   },
   "components/sidebar/DropdownPanel.web.tsx": {
@@ -5090,8 +5090,8 @@
     "semantic_hash": ""
   },
   "hooks/useMyTasks.ts": {
-    "mtime": 1786452331.6514735,
-    "ast_hash": "447be09239294cd4f7fe8a46b9f7dba7",
+    "mtime": 1786437113.8576486,
+    "ast_hash": "2b4e84bbaa11ed1289087adb67f56036",
     "semantic_hash": ""
   },
   "lib/notificationIcons.ts": {
@@ -5100,13 +5100,13 @@
     "semantic_hash": ""
   },
   "supabase/checks/20260811_company_live_sessions_check.sql": {
-    "mtime": 1786452491.598559,
-    "ast_hash": "78359166149931741745bd59de3e5c0c",
+    "mtime": 1786451040.7648008,
+    "ast_hash": "106c9d10d3afc310e78f331b6cfb6b3c",
     "semantic_hash": ""
   },
   "supabase/migrations/20260811_company_live_sessions.sql": {
-    "mtime": 1786452137.380518,
-    "ast_hash": "409e9a6ed2aee194d483486029ae7c73",
+    "mtime": 1786450761.8892374,
+    "ast_hash": "9a31a6ce7311019f558f34a98c7d9a8d",
     "semantic_hash": ""
   },
   "supabase/migrations/20260811_company_live_sessions_indexes.sql": {
