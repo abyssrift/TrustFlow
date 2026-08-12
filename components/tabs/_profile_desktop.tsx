@@ -8,6 +8,7 @@ import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { ThemeType, useTheme } from '@/contexts/ThemeContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { useAutoCollapseSubNav } from '@/hooks/useAutoCollapseSubNav';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import Constants from 'expo-constants';
@@ -30,6 +31,7 @@ export default function ProfilePageWeb() {
   const colors = useThemeColors();
   const { user, signOut, refreshProfile } = useAuth();
   const { theme: activeTheme, setTheme } = useTheme();
+  const [autoCollapseSubNav, setAutoCollapseSubNav] = useAutoCollapseSubNav();
   const [activeTab, setActiveTab] = useState<TabType>('general');
   const [profileData, setProfileData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -253,6 +255,29 @@ export default function ProfilePageWeb() {
                         </Pressable>
                       </Tooltip>
                     ))}
+                  </View>
+                </View>
+
+                <View>
+                  <Text className="mb-3 text-[10px] font-black uppercase tracking-[0.3em] text-typography-dim">Sidebar</Text>
+                  <View className="flex-row items-center justify-between rounded-2xl border border-surface-border bg-surface-background/50 p-5">
+                    <View className="flex-1 mr-4">
+                      <Text className="text-sm font-black text-typography-main">Auto-collapse nav on dashboard pages</Text>
+                      <Text className="text-typography-muted text-xs mt-1 leading-relaxed">
+                        While Intelligence, Corporate, Profile or Pipelines is open, the main sidebar stays on its icon rail until hovered
+                        ({'"expand on hover"'}). Keeps the page's own sidebar from stacking two full nav columns.
+                      </Text>
+                    </View>
+                    <Pressable
+                      onPress={() => setAutoCollapseSubNav(!autoCollapseSubNav)}
+                      accessibilityRole="switch"
+                      accessibilityState={{ checked: autoCollapseSubNav }}
+                      className={`w-12 h-7 rounded-full flex-row items-center px-1 transition-all ${
+                        autoCollapseSubNav ? 'bg-brand-primary justify-end' : 'bg-surface-overlay justify-start'
+                      }`}
+                    >
+                      <View className="w-5 h-5 rounded-full bg-white shadow-sm" />
+                    </Pressable>
                   </View>
                 </View>
 

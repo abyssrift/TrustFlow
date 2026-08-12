@@ -11,6 +11,7 @@ import { ProfileAnalytics } from '@/components/analytics/ProfileAnalytics';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTheme, ThemeType } from '@/contexts/ThemeContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { useAutoCollapseSubNav } from '@/hooks/useAutoCollapseSubNav';
 import Constants from 'expo-constants';
 
 const THEME_OPTIONS: { id: ThemeType; label: string; icon: string }[] = [
@@ -28,6 +29,7 @@ export default function ProfilePage() {
   const { showConfirm, showAlert } = useAlert();
   const { user, signOut, refreshProfile, hasPermission } = useAuth();
   const { theme: activeTheme, setTheme } = useTheme();
+  const [autoCollapseSubNav, setAutoCollapseSubNav] = useAutoCollapseSubNav();
   const [profileData, setProfileData] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -193,6 +195,25 @@ export default function ProfilePage() {
                 </Pressable>
               ))}
             </View>
+
+            {Platform.OS === 'web' && (
+              <Pressable
+                onPress={() => setAutoCollapseSubNav(!autoCollapseSubNav)}
+                accessibilityRole="switch"
+                accessibilityState={{ checked: autoCollapseSubNav }}
+                className="mt-4 flex-row items-center justify-between rounded-2xl border border-surface-border bg-surface-background/60 p-4"
+              >
+                <View className="flex-1 mr-3">
+                  <Text className="text-sm font-black text-typography-main">Auto-collapse nav on dashboard pages</Text>
+                  <Text className="text-typography-muted text-xs mt-0.5 leading-relaxed">
+                    Sidebar shrinks to icons, expanding on hover, while Intelligence, Corporate, Profile or Pipelines is open.
+                  </Text>
+                </View>
+                <View className={`w-12 h-7 rounded-full flex-row items-center px-1 transition-all ${autoCollapseSubNav ? 'bg-brand-primary justify-end' : 'bg-surface-overlay justify-start'}`}>
+                  <View className="w-5 h-5 rounded-full bg-white shadow-sm" />
+                </View>
+              </Pressable>
+            )}
           </View>
         </View>
 

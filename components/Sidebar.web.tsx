@@ -5,6 +5,7 @@ import { useFileHubBadge } from '@/hooks/useFileHubBadge';
 import { useNavBarPosition } from '@/hooks/useNavBarPosition';
 import { useUnreadNotificationAttention } from '@/hooks/useUnreadNotificationAttention';
 import { useIsPlatformAdmin } from '@/components/platform-admin/useControlPlaneData';
+import { useAutoCollapseSubNav } from '@/hooks/useAutoCollapseSubNav';
 import { usePortfolios } from '@/hooks/usePortfolios';
 import { supabase } from '@/lib/supabase';
 import { useLocalSearchParams, usePathname } from 'expo-router';
@@ -14,6 +15,11 @@ import NavRail from './sidebar/NavRail.web';
 import { SHORTCUTS } from './sidebar/constants';
 import RetractableTopBar from './sidebar/RetractableTopBar.web';
 import { useSidebarProfile } from './sidebar/useSidebarProfile';
+
+// Routes whose own sub-sidebar warrants auto-collapsing the main nav rail to
+// its icon rail (issue #217). Pathname prefixes/matches, never full hrefs with
+// query strings — usePathname() strips the query.
+const SUBNAV_ROUTES = ['/intelligence', '/people', '/profile', '/admin/pipelines'];
 
 export default function Sidebar({ children }: { children: React.ReactNode }) {
   const { width } = useWindowDimensions();
@@ -35,6 +41,11 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
     return false;
   });
   const [isHovered, setIsHovered] = useState(false);
+  const [autoCollapseSubNav] = useAutoCollapseSubNav();
+  // Manual per-page override: the toggle stays live on an auto-collapsed route
+  // (see toggleCollapse below) — this is what re-expands the rail there. Cleared
+  // on route change so each subnav page starts from the auto-collapsed default.
+  const [manuallyExpanded, setManuallyExpanded] = useState(false);
   const [pipelines, setPipelines] = useState<{ id: string; name: string }[]>([]);
   // Same rollup /portfolios itself reads — rpc_portfolios_table already
   // filters through fn_project_accessible, so nothing here needs a second,
@@ -49,8 +60,24 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
     return false;
   });
 
-  const isExpanded = isHovered || !isCollapsed;
+  // Issue #217: while a subnav page (Intelligence, Corporate, Profile,
+  // Pipelines editor) is active, collapse the nav rail to its icon dock by
+  // default — the page itself carries a second, content-scoped sidebar, so two
+  // full nav columns would read as stacked panels. Hover still docks out the
+  // full rail (`isExpanded`/`premium-shadow` keep working); the toggle can
+  // manually re-expand for the current visit via `manuallyExpanded`.
+  const isSubnavRoute = SUBNAV_ROUTES.some((r) => pathname === r || pathname.startsWith(r + '/'));
+  const autoCollapseActive = autoCollapseSubNav && isSubnavRoute;
+  // On a subnav route the rail is forced to its icon dock unless the user
+  // manually re-expands it for this visit (`manuallyExpanded`). Elsewhere the
+  // saved `isCollapsed` preference governs as before.
+  const effectiveCollapsed = autoCollapseActive ? !manuallyExpanded : isCollapsed;
+  const isExpanded = isHovered || !effectiveCollapsed;
   const sidebarRef = useRef<any>(null);
+
+  useEffect(() => {
+    setManuallyExpanded(false);
+  }, [pathname]);
 
   useEffect(() => {
     if (Platform.OS !== 'web') return;
@@ -97,6 +124,14 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
   }, []);
 
   const toggleCollapse = () => {
+    if (autoCollapseActive) {
+      // On an auto-collapsed subnav route the toggle flips the per-page
+      // override instead of the saved preference — leaving the route restores
+      // the user's real sidebar state. Persisting to the collapsed pref here
+      // would pin a subnav-route default onto every other page.
+      setManuallyExpanded((prev) => !prev);
+      return;
+    }
     const next = !isCollapsed;
     setIsCollapsed(next);
     if (Platform.OS === 'web') localStorage.setItem('sidebar_collapsed', String(next));
@@ -143,7 +178,7 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
           the content pane aside. Accepts the reflow cost for correct layout. */}
       <NavRail
         sidebarRef={sidebarRef}
-        isCollapsed={isCollapsed}
+        isCollapsed={effectiveCollapsed}
         isExpanded={isExpanded}
         toggleCollapse={toggleCollapse}
         visibleShortcuts={visibleShortcuts}
