@@ -1,21 +1,20 @@
 import AnimatedTaskCard from '@/components/common/AnimatedTaskCard';
-import { useStageTransitionFX, StageTrailLayer } from '@/components/tabs/StageTransitionFX';
-import StageCountOdometer from '@/components/tabs/StageCountOdometer';
-import { IdleConveyor } from '@/components/tabs/IdleConveyor';
-import BoardSwitcherPopup from '@/components/kanban/BoardSwitcherPopup';
-import KanbanPersonalizer from '@/components/kanban/KanbanPersonalizer';
 import LinkifiedText from '@/components/common/LinkifiedText';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
-import RightSidebar from '@/components/kanban/RightSidebar.web';
 import Tooltip from '@/components/common/Tooltip';
+import BoardSwitcherPopup from '@/components/kanban/BoardSwitcherPopup';
+import KanbanPersonalizer from '@/components/kanban/KanbanPersonalizer';
+import RightSidebar from '@/components/kanban/RightSidebar.web';
+import { IdleConveyor } from '@/components/tabs/IdleConveyor';
+import StageCountOdometer from '@/components/tabs/StageCountOdometer';
+import { StageTrailLayer, useStageTransitionFX } from '@/components/tabs/StageTransitionFX';
+import { boardCacheMeta, compareTasksBySortKey, prefetchOtherBoards, TASK_SORT_OPTIONS, taskCache, type BoardSnapshot, type TaskSortKey } from '@/components/tabs/taskBoardCache';
 import ActiveSessionAvatars from '@/components/task-detail/ActiveSessionAvatars';
 import TaskCardActions, { type ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
-import { boardCacheMeta, prefetchOtherBoards, taskCache, type BoardSnapshot, TASK_SORT_OPTIONS, compareTasksBySortKey, type TaskSortKey } from '@/components/tabs/taskBoardCache';
 import TaskPingButton from '@/components/task-detail/TaskPingButton';
 import AssignmentModal from '@/components/tasks/AssignmentModal';
 import CreateTaskModal from '@/components/tasks/CreateTaskModal.web';
 import TaskMobilityModal from '@/components/tasks/TaskMobilityModal';
-import { useBoardPicker, BOARD_PICKER_KEYS } from '@/hooks/useBoardPicker';
 import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePingHighlight } from '@/contexts/PingHighlightContext';
@@ -23,10 +22,11 @@ import { TaskCreationProvider } from '@/contexts/TaskCreationContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTimer } from '@/contexts/TimerContext';
 import { useToast } from '@/contexts/ToastContext';
+import { BOARD_PICKER_KEYS, useBoardPicker } from '@/hooks/useBoardPicker';
 import { offerForceStopOnArchiveError } from '@/lib/archiveForceStop';
 import { supabase } from '@/lib/supabase';
-import { createWheelStepper } from '@/lib/wheelGesture';
 import { formatCompact, formatRelative } from '@/lib/time';
+import { createWheelStepper } from '@/lib/wheelGesture';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -173,16 +173,16 @@ function BoardPeekCard({
   counts,
   newCounts,
   onSelect,
-  onHoverIn,
-  onHoverOut,
+  onMouseEnter,
+  onMouseLeave,
 }: {
   prevBoard: Pipeline | null;
   nextBoard: Pipeline | null;
   counts: Record<string, number>;
   newCounts: Record<string, number>;
   onSelect: (id: string) => void;
-  onHoverIn: () => void;
-  onHoverOut: () => void;
+  onMouseEnter: () => void;
+  onMouseLeave: () => void;
 }) {
   const colors = useThemeColors();
   const anim = useRef(new Animated.Value(0)).current;
@@ -198,23 +198,33 @@ function BoardPeekCard({
     if (!board) return null;
     const count = counts[board.id];
     const hasNew = (newCounts[board.id] || 0) > 0;
+    const isPrev = dir === 'prev';
     return (
       <Pressable
-        onPress={() => onSelect(board.id)}
-        className="flex-row items-center px-4 py-3 hover:bg-brand-primary/10"
+        onPress={(e) => {
+          // The card lives inside the pill's TouchableOpacity; stop the press
+          // from bubbling up and also opening the full board picker.
+          e.stopPropagation();
+          onSelect(board.id);
+        }}
+        className={`flex-row items-center rounded-2xl border px-3 py-2.5 transition-colors ${
+          hasNew
+            ? 'border-state-danger/40 bg-state-danger/5 hover:border-state-danger/70'
+            : 'border-surface-border bg-surface-background hover:border-brand-primary/50'
+        }`}
       >
-        <View className="w-6 items-center">
-          <FontAwesome name={dir === 'prev' ? 'arrow-up' : 'arrow-down'} size={13} className="text-brand-primary" />
+        <View className={`h-8 w-8 items-center justify-center rounded-lg ${isPrev ? 'bg-brand-primary/10' : 'bg-brand-primary/15'}`}>
+          <FontAwesome name={isPrev ? 'arrow-up' : 'arrow-down'} size={12} className="text-brand-primary" />
         </View>
-        <View className="ml-3 flex-1 min-w-0">
-          <Text className="text-typography-muted text-[9px] font-black uppercase tracking-[0.2em] mb-0.5">
-            {dir === 'prev' ? 'Previous Board' : 'Next Board'}
+        <View className="ml-2.5 flex-1 min-w-0">
+          <Text className="mb-0.5 text-typography-muted text-[7.5px] font-black uppercase tracking-[0.16em]">
+            {isPrev ? 'Previous' : 'Next'}
           </Text>
-          <Text className="text-typography-main text-base font-black tracking-tighter" numberOfLines={1}>{board.name}</Text>
+          <Text className="text-typography-main text-[13.5px] font-black tracking-tight" numberOfLines={1}>{board.name}</Text>
         </View>
         {count !== undefined && (
-          <View className={`ml-3 px-3 py-1 rounded-full border ${hasNew ? 'bg-state-danger border-state-danger' : 'bg-surface-overlay border-surface-border'}`}>
-            <Text className={`text-[11px] font-black ${hasNew ? 'text-white' : 'text-typography-muted'}`}>{count}</Text>
+          <View className={`ml-2 min-w-8 items-center rounded-full border px-2 py-0.5 ${hasNew ? 'border-state-danger bg-state-danger' : 'border-surface-border bg-surface-overlay'}`}>
+            <Text className={`text-[10px] font-black ${hasNew ? 'text-white' : 'text-typography-muted'}`}>{count}</Text>
           </View>
         )}
       </Pressable>
@@ -223,29 +233,40 @@ function BoardPeekCard({
 
   return (
     <Animated.View
-      {...({ onHoverIn, onHoverOut } as any)}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
       style={{
         position: 'absolute',
         top: '100%',
         left: 0,
-        marginTop: 12,
+        // Sits a touch above the "Task Board" heading so the card fully covers it.
+        marginTop: 4,
         zIndex: 60,
         width: 320,
         backgroundColor: colors.card,
         borderColor: colors.border,
         borderWidth: 1,
+        borderRadius: 16, // rounded-2xl
+        overflow: 'hidden',
+        boxShadow: '0px 4px 8px rgba(0, 0, 0, 0.3)', // premium-shadow
         opacity: anim,
         transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [-8, 0] }) }],
       }}
-      className="rounded-2xl premium-shadow overflow-hidden"
     >
-      <View className="px-4 pt-3 pb-1.5 flex-row items-center gap-2">
-        <FontAwesome name="random" size={9} className="text-typography-muted" />
-        <Text className="text-typography-muted text-[8px] font-black uppercase tracking-[0.2em]">Scroll or click to switch</Text>
+      <View className="flex-row items-center gap-2 border-b border-surface-border/70 px-4 py-3">
+        <View className="h-6 w-6 items-center justify-center rounded-lg bg-brand-primary/10">
+          <FontAwesome name="exchange" size={10} className="text-brand-primary" />
+        </View>
+        <Text className="text-typography-muted text-[9px] font-black uppercase tracking-[0.18em]">Switch board</Text>
+        <View className="ml-auto flex-row items-center gap-1">
+          <FontAwesome name="mouse-pointer" size={9} className="text-typography-muted/70" />
+          <Text className="text-typography-muted text-[8px] font-bold">wheel · ctrl+[ ]</Text>
+        </View>
       </View>
-      {renderRow(showPrev, 'prev')}
-      {showPrev && nextBoard && <View className="h-px bg-surface-border/60 mx-4" />}
-      {renderRow(nextBoard, 'next')}
+      <View className="gap-2 p-2.5">
+        {renderRow(showPrev, 'prev')}
+        {renderRow(nextBoard, 'next')}
+      </View>
     </Animated.View>
   );
 }
@@ -1229,42 +1250,62 @@ export function TasksScreenWeb() {
 
           {/* Header */}
           <View className="mb-10 flex-row items-center justify-between" style={{ zIndex: 50 }}>
-            <View style={{ position: 'relative', zIndex: 50 }}>
-            {/* Wheel-to-cycle is handled by the window-level listener above,
-                which already scopes itself to this button and debounces. */}
-            <TouchableOpacity
-              ref={boardPickerButtonRef}
-              onPress={() => setShowPipelinePicker(true)}
+           <View
+              style={{ position: 'relative', zIndex: 50 }}
               onMouseEnter={openPeek}
               onMouseLeave={closePeekSoon}
             >
-              <View>
-                <View className="flex-row items-center mb-2">
-                   <View className="bg-brand-primary/10 px-3 py-1 rounded-full border border-brand-primary/20 flex-row items-center relative">
-                      <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest mr-2">{pipeline?.name || 'Pipeline'}</Text>
-                      <FontAwesome name="chevron-down" size={8} className="text-brand-primary" />
-                      {availablePipelines.some(b => b.id !== pipeline?.id && (boardPicker.taskCounts[b.id] || 0) > 0) && (
-                        <View className="absolute -top-2 -right-2 bg-state-danger rounded-full w-5 h-5 items-center justify-center border-2 border-surface-card">
-                          <Text className="text-white text-[9px] font-black">!</Text>
-                        </View>
-                      )}
-                   </View>
+              <TouchableOpacity
+                ref={boardPickerButtonRef}
+                onPress={() => setShowPipelinePicker(true)}
+              >
+                <View>
+                  <View className="flex-row items-center mb-2" style={{ position: 'relative', zIndex: 2 }}>
+                    <View className="bg-brand-primary/10 px-3 py-1 rounded-full border border-brand-primary/20 flex-row items-center relative">
+                        <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest mr-2">{pipeline?.name || 'Pipeline'}</Text>
+                        <FontAwesome name="chevron-down" size={8} className="text-brand-primary" />
+                        {availablePipelines.some(b => b.id !== pipeline?.id && (boardPicker.taskCounts[b.id] || 0) > 0) && (
+                          <View className="absolute -top-2 -right-2 bg-state-danger rounded-full w-5 h-5 items-center justify-center border-2 border-surface-card">
+                            <Text className="text-white text-[9px] font-black">!</Text>
+                          </View>
+                        )}
+                    </View>
+                    {showBoardPeek && (boardPeekNeighbours.prev || boardPeekNeighbours.next) && (
+                     <>
+                       {/* Pointer bridging the pill to the card so the hover path stays connected. */}
+                       <View
+                         pointerEvents="none"
+                         style={{
+                           position: 'absolute',
+                           top: '100%',
+                           left: 76,
+                           marginTop: -1,
+                           zIndex: 62,
+                           width: 0,
+                           height: 0,
+                           borderLeftWidth: 6,
+                           borderRightWidth: 6,
+                           borderBottomWidth: 8,
+                           borderLeftColor: 'transparent',
+                           borderRightColor: 'transparent',
+                           borderBottomColor: colors.card,
+                         }}
+                       />
+                       <BoardPeekCard
+                         prevBoard={boardPeekNeighbours.prev}
+                         nextBoard={boardPeekNeighbours.next}
+                         counts={boardPicker.taskCounts}
+                         newCounts={boardPicker.newTaskCounts}
+                         onSelect={switchBoardPeek}
+                         onMouseEnter={openPeek}
+                         onMouseLeave={closePeekSoon}
+                       />
+                     </>
+                   )}
+                  </View>
+                  <Text className="text-typography-main text-5xl font-black tracking-tighter">Task Board</Text>
                 </View>
-                <Text className="text-typography-main text-5xl font-black tracking-tighter">Task Board</Text>
-              </View>
-            </TouchableOpacity>
-
-            {showBoardPeek && (boardPeekNeighbours.prev || boardPeekNeighbours.next) && (
-              <BoardPeekCard
-                prevBoard={boardPeekNeighbours.prev}
-                nextBoard={boardPeekNeighbours.next}
-                counts={boardPicker.taskCounts}
-                newCounts={boardPicker.newTaskCounts}
-                onSelect={switchBoardPeek}
-                onHoverIn={openPeek}
-                onHoverOut={closePeekSoon}
-              />
-            )}
+              </TouchableOpacity>
             </View>
 
             <View className="flex-row gap-4 items-center">
@@ -1714,8 +1755,8 @@ export function TasksScreenWeb() {
 }
 
 import ConfirmModal from '@/components/common/ConfirmModal';
-import SlideDownPanel from '@/components/common/SlideDownPanel';
 import { FilterDropdown } from '@/components/common/FilterPanel';
+import SlideDownPanel from '@/components/common/SlideDownPanel';
 import { useThemeColors } from '@/hooks/useThemeColors';
 
 export default function TasksScreenWebWrapper() {
