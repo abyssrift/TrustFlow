@@ -114,6 +114,18 @@ absolute-positioned hint `View`** — every tooltip goes through
   `Popup`. And don't use a tooltip as the *only* carrier of information a user
   needs to complete a task — mobile discoverability is a long-press away.
 
+## MultiViewList
+
+The one reusable list/grid/table primitive (issue #249, `components/common/MultiViewList.tsx`). **Never hand-roll a `ScrollView`/`FlatList` of uniform rows/cards with a hand-built view-mode toggle** — compose this instead.
+
+- **Four density modes** (Windows-Explorer-style): `large` / `medium` (both use the shared `renderCard(item, density)` prop — same identity, different column count + card size), `list` (`renderRow(item)` — contents only, the wrapper owns padding/divider/press), and `details` (desktop: a `columns[]` table; **mobile <768px: stacked labeled-field cards, not a cramped table row** — Path B from "Mobile overflow" above).
+- **It does NOT own filtering.** `items` is assumed to be the already-filtered array (same contract as `ProjectsTable`'s `sortedRows`). `search`/`groupFilter` are *controlled* — pass `value` + `onChange` (or `activeId` + `onChange`) and compute the filtered set yourself.
+- **Persistence is automatic.** The chosen mode is stored under AsyncStorage key `multiview:<storageKey>` — `storageKey` must be unique per adopting surface.
+- **Needs a bounded-height parent** (`flex: 1`), the same contract as every other FlatList in the app. If it doesn't fill the remaining space, the grid/table won't scroll internally.
+- **Empty vs. status:** `emptyState` (with `actionLabel`/`onAction`) renders when `items` is empty; `statusBanner` takes precedence and covers failures / "you can't see this" states. The caller decides title/body since only it knows whether a search is active.
+- **Nested presses:** card/row contents that are themselves tappable (a switch, an edit icon, a delete icon) must stop propagation — e.g. `TouchableOpacity onPress={(e) => e.stopPropagation()}` — so a toggle never double-fires the row's `onItemPress`. Rows wrap contents in a `TouchableOpacity` only when `onItemPress` is set.
+- Reference adoption: `components/admin/NotificationRules.tsx` (issue #218) — the first consumer; copy its `renderCard`/`renderRow`/`columns`/`emptyState` usage.
+
 ## Filter Panels
 
 The standardized filter UI (issue #208), used by **Tasks** and **Reports**. Never build a
@@ -175,6 +187,8 @@ one-off filter bar, chip wall, or filter modal — compose these primitives inst
 | A long or sortable filter dimension | `FilterDropdown` (multi or `single`) |
 | Hint text on an icon/control | `Tooltip` (hover on web, long-press on native) |
 | Hint content with links/buttons in it | `Popup` — not `Tooltip` |
+| A uniform list/grid/table of items with a density switcher | `MultiViewList` (see below) |
+| Any other uniform list of rows/cards | `MultiViewList` too — do **not** hand-roll a `ScrollView`/`FlatList` + a separate view-mode toggle |
 
 ## Desktop density: use the width, go multi-column
 

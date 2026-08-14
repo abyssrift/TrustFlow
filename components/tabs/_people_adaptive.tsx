@@ -29,14 +29,14 @@ import { supabase } from '@/lib/supabase';
 import { useMemberLimit } from '@/hooks/useMemberLimit';
 import { useThemeColors } from '@/hooks/useThemeColors';
 
-type PeopleSection = 'members' | 'teams' | 'roles' | 'notifications' | 'workspace' | 'company' | 'retention' | 'billing' | 'export';
+type PeopleSection = 'members' | 'teams' | 'roles' | 'notifications' | 'company' | 'retention' | 'billing' | 'export';
 
 function resolveSection(param: string | undefined, canViewMembers: boolean, canManageTeams: boolean, canManageNotifications: boolean, canEditCompany: boolean, canManageRetention: boolean, canManageBilling: boolean, canManageExport: boolean): PeopleSection {
   if (param === 'export' && canManageExport) return 'export';
   if (param === 'billing' && canManageBilling) return 'billing';
   if (param === 'retention' && canManageRetention) return 'retention';
   if (param === 'company' && canEditCompany) return 'company';
-  if (param === 'workspace' && canManageNotifications) return 'workspace';
+  if (param === 'workspace' && canManageNotifications) return 'notifications';
   if (param === 'notifications' && canManageNotifications) return 'notifications';
   if (param === 'roles' && canManageTeams) return 'roles';
   if (param === 'teams' && canManageTeams) return 'teams';
@@ -70,10 +70,16 @@ function TeamWorkspaceContent({ section }: { section: PeopleSection }) {
   if (section === 'billing') return <BillingPanel />;
   if (section === 'retention') return <RetentionPanel />;
   if (section === 'company') return <CompanyEditSettings />;
-  if (section === 'workspace') return <WorkspaceSettings />;
   if (section === 'roles') return <RoleBuilder />;
   if (section === 'teams') return <TeamAssignmentGrid />;
-  if (section === 'notifications') return <NotificationRules />;
+  if (section === 'notifications') {
+    return (
+      <View className="gap-6">
+        <WorkspaceSettings />
+        <NotificationRules />
+      </View>
+    );
+  }
   return <UserAssignmentGrid />;
 }
 
@@ -209,16 +215,6 @@ export default function PeopleScreen() {
                 >
                   <Text className={`font-black text-[10px] uppercase tracking-widest ${activeSection === 'notifications' ? 'text-white' : 'text-typography-muted'}`}>
                     Alert Rules
-                  </Text>
-                </TouchableOpacity>
-              )}
-              {canManageNotifications && (
-                <TouchableOpacity
-                  onPress={() => setActiveSection('workspace')}
-                  className={`px-5 py-3 rounded-xl items-center ${activeSection === 'workspace' ? 'bg-brand-primary' : ''}`}
-                >
-                  <Text className={`font-black text-[10px] uppercase tracking-widest ${activeSection === 'workspace' ? 'text-white' : 'text-typography-muted'}`}>
-                    Workspace
                   </Text>
                 </TouchableOpacity>
               )}

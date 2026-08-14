@@ -33,7 +33,7 @@ export default function RuleEditorModal({ visible, existing, onClose, onSaved }:
     >
       <View
         className="w-full rounded-3xl overflow-hidden"
-        style={{ maxWidth: 600, maxHeight: '90%', backgroundColor: c.card, borderWidth: 1, borderColor: c.border }}
+        style={{ maxWidth: 600, flex: 1, backgroundColor: c.card, borderWidth: 1, borderColor: c.border }}
       >
           <View className="flex-row items-center justify-between px-6 pt-5 pb-4" style={{ borderBottomWidth: 1, borderBottomColor: c.border }}>
             <Text style={{ color: c.textMain }} className="font-black text-xl tracking-tight">
@@ -50,7 +50,7 @@ export default function RuleEditorModal({ visible, existing, onClose, onSaved }:
             </Tooltip>
           </View>
 
-          <ScrollView className="px-6" contentContainerStyle={{ paddingTop: 20, paddingBottom: 20 }} showsVerticalScrollIndicator={false}>
+          <ScrollView className="px-6 flex-1" contentContainerStyle={{ paddingTop: 20, paddingBottom: 20 }} showsVerticalScrollIndicator={false}>
             {/* Name */}
             <Text style={{ color: c.textMuted }} className="text-[10px] font-black uppercase tracking-widest mb-2">Rule Name *</Text>
             <TextInput

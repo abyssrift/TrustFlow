@@ -138,6 +138,19 @@ placement conventions (auto-apply, Clear Filters, toolbar trigger with the
 * Must include `border-surface-border`
 * Must be `rounded-2xl`
 
+### Lists, grids, tables (uniform item collections)
+
+A surface that shows a uniform collection of rows/cards must use
+`components/common/MultiViewList.tsx` (issue #249) — it owns the density
+switcher (large/medium/list/details), the virtualized FlatList, persisted
+view-mode preference, and empty/status states. **Never build a one-off
+`ScrollView`/`FlatList` of cards with a hand-rolled view-mode toggle.** It does
+NOT own filtering — pass the already-filtered `items` and a controlled
+`search`/`groupFilter`. Needs a bounded-height parent (`flex: 1`). Contents of a
+card/row that are themselves tappable (switch, edit, delete) must
+`stopPropagation` so a tap doesn't double-fire `onItemPress`. See
+`.agents/rules/ux-consistency.md` → "MultiViewList".
+
 ### Sidebar navigation
 
 The desktop nav rail groups shortcuts into titled sections separated by hairlines
