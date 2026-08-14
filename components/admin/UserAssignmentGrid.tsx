@@ -1,15 +1,16 @@
 import Popup from '@/components/common/Popup';
 import Tooltip from '@/components/common/Tooltip';
+import MultiViewList from '@/components/common/MultiViewList';
 import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { User, useRoleManager } from '@/contexts/RoleManagerContext';
+import { Permission, Role, Team, User, useRoleManager } from '@/contexts/RoleManagerContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { daysToPeriodParams } from '@/lib/analyticsPeriods';
 import { supabase } from '@/lib/supabase';
 import { formatCompact } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Platform, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from 'recharts';
@@ -25,6 +26,43 @@ function fmtDur(sec: number): string {
   return formatCompact(sec);
 }
 
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  return parts.slice(0, 2).map((p) => p[0].toUpperCase()).join('');
+}
+
+function RoleChip({ role }: { role: Role }) {
+  const colors = useThemeColors();
+  const chipColor = role.color?.includes('var') ? colors.primary : (role.color || colors.primary);
+  return (
+    <View className="bg-surface-background px-2.5 py-1 rounded-md border border-surface-border flex-row items-center flex-shrink">
+      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: chipColor, marginRight: 6 }} />
+      <Text className="text-typography-muted text-[10px] font-bold" numberOfLines={1}>{role.name}</Text>
+    </View>
+  );
+}
+
+function TeamChip({ team }: { team: Team }) {
+  const colors = useThemeColors();
+  return (
+    <View className="bg-brand-primary/10 px-2.5 py-1 rounded-md border border-brand-primary/20 flex-row items-center flex-shrink">
+      <FontAwesome name="users" size={8} color={colors.primary} style={{ marginRight: 6 }} />
+      <Text className="text-brand-primary text-[10px] font-bold" numberOfLines={1}>{team.name}</Text>
+    </View>
+  );
+}
+
+type UserInfo = {
+  user: User;
+  directRoles: Role[];
+  inheritedRoles: Role[];
+  roles: Role[];
+  teams: Team[];
+  permissionCount: number;
+  permissionsByCategory: Record<string, number>;
+};
+
 type TabType = 'profile' | 'activity' | 'roles';
 
 type ActivityData = {
@@ -37,7 +75,7 @@ type ActivityData = {
 };
 
 export default function UserAssignmentGrid() {
-  const { users, roles, teams, userRoles, teamMembers, teamRoles, updateUserAssignments, removeUserFromCompany, loading } = useRoleManager();
+  const { users, roles, teams, permissions, userRoles, teamMembers, teamRoles, updateUserAssignments, removeUserFromCompany, loading } = useRoleManager();
   const { hasPermission } = useAuth();
   const { showConfirm } = useAlert();
   const colors = useThemeColors();
@@ -52,6 +90,58 @@ export default function UserAssignmentGrid() {
   const [draftTeamIds, setDraftTeamIds] = useState<string[]>([]);
   const [activityData, setActivityData] = useState<ActivityData | null>(null);
   const [activityLoading, setActivityLoading] = useState(false);
+  const [query, setQuery] = useState('');
+
+  const infoByUser = useMemo(() => {
+    const roleById = new Map(roles.map(r => [r.id, r]));
+    const teamById = new Map(teams.map(t => [t.id, t]));
+    const permById = new Map(permissions.map(p => [p.id, p]));
+    const teamToRoles = new Map<string, string[]>();
+    for (const tr of teamRoles) {
+      const list = teamToRoles.get(tr.team_id) ?? [];
+      list.push(tr.role_id);
+      teamToRoles.set(tr.team_id, list);
+    }
+    const map = new Map<string, UserInfo>();
+    for (const u of users) {
+      const directRoleIds = userRoles.filter(ur => ur.user_id === u.id).map(ur => ur.role_id);
+      const teamIds = teamMembers.filter(tm => tm.user_id === u.id).map(tm => tm.team_id);
+      const inheritedRoleIds = [...new Set(teamIds.flatMap(tid => teamToRoles.get(tid) ?? []))];
+      const allRoleIds = [...new Set([...directRoleIds, ...inheritedRoleIds])];
+      const roleObjs = allRoleIds.map(id => roleById.get(id)).filter((r): r is Role => !!r);
+      const directObjs = directRoleIds.map(id => roleById.get(id)).filter((r): r is Role => !!r);
+      const inheritedObjs = inheritedRoleIds.map(id => roleById.get(id)).filter((r): r is Role => !!r);
+      const teamObjs = teamIds.map(id => teamById.get(id)).filter((t): t is Team => !!t);
+      const permissionIds = [...new Set(roleObjs.flatMap(r => r.permissionIds ?? []))];
+      const permissionsByCategory: Record<string, number> = {};
+      for (const pid of permissionIds) {
+        const p = permById.get(pid);
+        if (!p) continue;
+        permissionsByCategory[p.category] = (permissionsByCategory[p.category] ?? 0) + 1;
+      }
+      map.set(u.id, {
+        user: u,
+        directRoles: directObjs,
+        inheritedRoles: inheritedObjs,
+        roles: roleObjs,
+        teams: teamObjs,
+        permissionCount: permissionIds.length,
+        permissionsByCategory,
+      });
+    }
+    return map;
+  }, [users, roles, teams, teamMembers, teamRoles, userRoles, permissions]);
+
+  const visibleUsers = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return users;
+    return users.filter(u =>
+      (u.full_name ?? '').toLowerCase().includes(q) ||
+      u.email.toLowerCase().includes(q) ||
+      (u.job_title ?? '').toLowerCase().includes(q) ||
+      (u.department ?? '').toLowerCase().includes(q)
+    );
+  }, [users, query]);
 
   const fetchActivityData = async (userId: string) => {
     setActivityLoading(true);
@@ -199,71 +289,178 @@ export default function UserAssignmentGrid() {
 
   return (
     <View className="flex-1">
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <View className="flex-row flex-wrap gap-4 pb-32">
-          {users.map(user => {
-            const directRoleIds = userRoles.filter(ur => ur.user_id === user.id).map(ur => ur.role_id);
-            const teamIds = teamMembers.filter(tm => tm.user_id === user.id).map(tm => tm.team_id);
-            const inheritedRoleIds = teamIds.flatMap(teamId =>
-              teamRoles.filter(tr => tr.team_id === teamId).map(tr => tr.role_id)
-            );
-            const allRoleIds = [...new Set([...directRoleIds, ...inheritedRoleIds])];
-            const userRoleCount = allRoleIds.length;
-            const teamCount = teamIds.length;
-            const lastSeen = getLastSeen(user.last_seen_at);
-
-            return (
-              <TouchableOpacity
-                key={user.id}
-                onPress={() => handleOpenUser(user)}
-                className="w-full sm:w-[48%] lg:w-[32%] p-5 rounded-2xl border premium-shadow transition-all active:scale-[0.98]"
-                style={{ backgroundColor: colors.card, borderColor: colors.border }}
-              >
-                <View className="flex-row items-center mb-5">
-                  <View style={{ position: 'relative' }}>
-                    <View className="w-12 h-12 rounded-xl items-center justify-center border overflow-hidden" style={{ backgroundColor: `${colors.primary}10`, borderColor: `${colors.primary}33` }}>
-                      {user.avatar_url ? (
-                        <Image source={{ uri: user.avatar_url }} className="w-full h-full" />
-                      ) : (
-                        <Text className="font-black text-lg" style={{ color: colors.primary }}>
-                          {user.full_name?.charAt(0) || user.email.charAt(0).toUpperCase()}
-                        </Text>
-                      )}
-                    </View>
-                    <View
-                      style={{
-                        position: 'absolute', bottom: -2, right: -2, width: 12, height: 12, borderRadius: 6,
-                        backgroundColor: lastSeen.online ? colors.success : colors.textMuted,
-                        borderWidth: 2, borderColor: colors.card,
-                      }}
-                    />
+      <MultiViewList
+        items={visibleUsers}
+        keyExtractor={(u) => u.id}
+        renderCard={(u) => {
+          const info = infoByUser.get(u.id);
+          const lastSeen = getLastSeen(u.last_seen_at);
+          return (
+            <View className="bg-surface-card w-full p-5 rounded-2xl border border-surface-border">
+              <View className="flex-row items-center mb-4">
+                <View style={{ position: 'relative' }}>
+                  <View className="w-12 h-12 rounded-xl items-center justify-center border overflow-hidden" style={{ backgroundColor: `${colors.primary}10`, borderColor: `${colors.primary}33` }}>
+                    {u.avatar_url ? (
+                      <Image source={{ uri: u.avatar_url }} className="w-full h-full" />
+                    ) : (
+                      <Text className="font-black text-lg" style={{ color: colors.primary }}>
+                        {getInitials(u.full_name || u.email)}
+                      </Text>
+                    )}
                   </View>
-                  <View className="ml-4 flex-1">
-                    <Text className="font-black text-base" numberOfLines={1} style={{ color: colors.textMain }}>
-                      {user.full_name || 'Unknown Node'}
-                    </Text>
-                    <Text className="text-[10px] font-bold uppercase tracking-widest" numberOfLines={1} style={{ color: colors.textMuted }}>
-                      {user.job_title || 'Unassigned Role'}
-                    </Text>
-                    <Text className="text-[10px] font-semibold mt-0.5" numberOfLines={1} style={{ color: lastSeen.online ? colors.success : colors.textMuted }}>
-                      {lastSeen.label}
-                    </Text>
-                  </View>
+                  <View
+                    style={{
+                      position: 'absolute', bottom: -2, right: -2, width: 12, height: 12, borderRadius: 6,
+                      backgroundColor: lastSeen.online ? colors.success : colors.textMuted,
+                      borderWidth: 2, borderColor: colors.card,
+                    }}
+                  />
                 </View>
-
-                <View className="flex-row items-center gap-3">
-                  <View className="px-3 py-2 rounded-lg border flex-1 items-center" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
-                    <Text className="text-[9px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>{userRoleCount} Roles</Text>
-                  </View>
-                  <View className="px-3 py-2 rounded-lg border flex-1 items-center" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
-                    <Text className="text-[9px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>{teamCount} Teams</Text>
-                  </View>
+                <View className="ml-3 flex-1">
+                  <Text className="font-black text-base" numberOfLines={1} style={{ color: colors.textMain }}>
+                    {u.full_name || 'Unknown Node'}
+                  </Text>
+                  <Text className="text-[10px] font-bold uppercase tracking-widest" numberOfLines={1} style={{ color: colors.textMuted }}>
+                    {u.job_title || 'Unassigned Role'}
+                  </Text>
+                  <Text className="text-[10px] font-semibold mt-0.5" numberOfLines={1} style={{ color: lastSeen.online ? colors.success : colors.textMuted }}>
+                    {lastSeen.label}
+                  </Text>
                 </View>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </ScrollView>
+              </View>
+
+              <View className="flex-row items-center gap-3">
+                <View className="px-3 py-2 rounded-lg border flex-1 items-center" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
+                  <Text className="text-[9px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>{info?.roles.length || 0} Roles</Text>
+                </View>
+                <View className="px-3 py-2 rounded-lg border flex-1 items-center" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
+                  <Text className="text-[9px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>{info?.teams.length || 0} Teams</Text>
+                </View>
+              </View>
+            </View>
+          );
+        }}
+        renderRow={(u) => {
+          const info = infoByUser.get(u.id);
+          const lastSeen = getLastSeen(u.last_seen_at);
+          return (
+            <View className="flex-row items-center gap-3">
+              <View style={{ position: 'relative' }}>
+                <View className="w-9 h-9 rounded-xl items-center justify-center border overflow-hidden flex-shrink-0" style={{ backgroundColor: `${colors.primary}10`, borderColor: `${colors.primary}33` }}>
+                  {u.avatar_url ? (
+                    <Image source={{ uri: u.avatar_url }} className="w-full h-full" />
+                  ) : (
+                    <Text className="font-black text-sm" style={{ color: colors.primary }}>
+                      {getInitials(u.full_name || u.email)}
+                    </Text>
+                  )}
+                </View>
+                <View
+                  style={{
+                    position: 'absolute', bottom: -1, right: -1, width: 10, height: 10, borderRadius: 5,
+                    backgroundColor: lastSeen.online ? colors.success : colors.textMuted,
+                    borderWidth: 2, borderColor: colors.card,
+                  }}
+                />
+              </View>
+              <View className="flex-1 min-w-0">
+                <View className="flex-row items-center gap-2">
+                  <Text className="font-black text-sm" numberOfLines={1} style={{ color: colors.textMain }}>{u.full_name || u.email}</Text>
+                  {(info?.teams.length ?? 0) > 0 && <TeamChip team={info!.teams[0]} />}
+                </View>
+                <Text className="text-[11px]" numberOfLines={1} style={{ color: colors.textMuted }}>
+                  {u.job_title || 'Unassigned Role'} · {info?.roles.length || 0} roles
+                </Text>
+              </View>
+              <Text className="text-[10px] font-black uppercase tracking-widest flex-shrink-0" style={{ color: lastSeen.online ? colors.success : colors.textMuted }}>
+                {lastSeen.label}
+              </Text>
+            </View>
+          );
+        }}
+        columns={[
+          {
+            key: 'member',
+            label: 'Member',
+            flex: 2.4,
+            render: (u) => (
+              <View className="flex-row items-center gap-3">
+                <View className="w-9 h-9 rounded-xl items-center justify-center border overflow-hidden flex-shrink-0" style={{ backgroundColor: `${colors.primary}10`, borderColor: `${colors.primary}33` }}>
+                  {u.avatar_url ? (
+                    <Image source={{ uri: u.avatar_url }} className="w-full h-full" />
+                  ) : (
+                    <Text className="font-black text-sm" style={{ color: colors.primary }}>{getInitials(u.full_name || u.email)}</Text>
+                  )}
+                </View>
+                <View className="min-w-0">
+                  <Text className="font-black text-sm" numberOfLines={1} style={{ color: colors.textMain }}>{u.full_name || u.email}</Text>
+                  <Text className="text-[10px] mt-0.5" numberOfLines={1} style={{ color: colors.textMuted }}>{u.job_title || 'Unassigned Role'}</Text>
+                </View>
+              </View>
+            ),
+          },
+          {
+            key: 'roles',
+            label: 'Roles',
+            flex: 1,
+            render: (u) => {
+              const info = infoByUser.get(u.id);
+              const shown = (info?.roles || []).slice(0, 2);
+              const extra = (info?.roles.length || 0) - shown.length;
+              if ((info?.roles.length || 0) === 0) return <Text className="text-typography-dim text-xs">—</Text>;
+              return (
+                <View className="flex-row items-center gap-1.5 flex-wrap">
+                  {shown.map(r => <RoleChip key={r.id} role={r} />)}
+                  {extra > 0 && <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">+{extra}</Text>}
+                </View>
+              );
+            },
+          },
+          {
+            key: 'teams',
+            label: 'Teams',
+            flex: 1.2,
+            render: (u) => {
+              const info = infoByUser.get(u.id);
+              const shown = (info?.teams || []).slice(0, 2);
+              const extra = (info?.teams.length || 0) - shown.length;
+              if ((info?.teams.length || 0) === 0) return <Text className="text-typography-dim text-xs">—</Text>;
+              return (
+                <View className="flex-row items-center gap-1.5 flex-wrap">
+                  {shown.map(t => <TeamChip key={t.id} team={t} />)}
+                  {extra > 0 && <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">+{extra}</Text>}
+                </View>
+              );
+            },
+          },
+          {
+            key: 'last-active',
+            label: 'Last Active',
+            flex: 1.2,
+            align: 'right',
+            render: (u) => {
+              const lastSeen = getLastSeen(u.last_seen_at);
+              return (
+                <Text className="text-typography-muted text-xs" style={{ color: lastSeen.online ? colors.success : undefined }}>
+                  {lastSeen.label}
+                </Text>
+              );
+            },
+          },
+        ]}
+        onItemPress={(u) => handleOpenUser(u)}
+        storageKey="user-registry"
+        modes={['large', 'list', 'details']}
+        defaultMode="large"
+        search={{ value: query, onChange: setQuery, placeholder: 'Search members' }}
+        loading={loading}
+        emptyState={{
+          icon: 'users',
+          title: query.trim() ? 'No matching members' : 'No members yet',
+          body: query.trim() ? 'Try a different search.' : 'Members appear here when they join your company.',
+        }}
+        style={{ flex: 1 }}
+      />
 
       {isDesktop ? (
         <Popup visible={!!selectedUser} onClose={() => setSelectedUser(null)} dimBackdrop presentation="centered" maxWidth={1150} maxHeight="87%">
@@ -343,59 +540,114 @@ export default function UserAssignmentGrid() {
                 </View>
 
                 {/* Work Information */}
-                <View className="mb-8">
-                  <Text className="text-[11px] font-black uppercase tracking-[0.15em] mb-4" style={{ color: colors.primary }}>Work Information</Text>
-                  <View className="gap-3">
-                    {selectedUser.job_title && (
-                      <View>
-                        <Text className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: colors.textMuted }}>Job Title</Text>
-                        <Text style={{ color: colors.textMain }}>{selectedUser.job_title}</Text>
-                      </View>
-                    )}
-                    {selectedUser.department && (
-                      <View>
-                        <Text className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: colors.textMuted }}>Department</Text>
-                        <Text style={{ color: colors.textMain }}>{selectedUser.department}</Text>
-                      </View>
-                    )}
-                    {selectedUser.work_status && (
-                      <View>
-                        <Text className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: colors.textMuted }}>Status</Text>
-                        <Text style={{ color: colors.textMain }}>{selectedUser.work_status}</Text>
-                      </View>
-                    )}
-                    <View>
-                      <Text className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: colors.textMuted }}>Last Active</Text>
-                      <View className="flex-row items-center gap-2">
-                        <View
-                          style={{
-                            width: 8, height: 8, borderRadius: 4,
-                            backgroundColor: getLastSeen(selectedUser.last_seen_at).online ? colors.success : colors.textMuted,
-                          }}
-                        />
-                        <Text style={{ color: colors.textMain }}>{getLastSeen(selectedUser.last_seen_at).label}</Text>
-                      </View>
-                    </View>
-                  </View>
-                </View>
+                {(() => {
+                  const info = infoByUser.get(selectedUser.id);
+                  const lastSeen = getLastSeen(selectedUser.last_seen_at);
+                  const permEntries = Object.entries(info?.permissionsByCategory ?? {}).sort((a, b) => b[1] - a[1]);
+                  return (
+                    <View className="mb-8">
+                      <Text className="text-[11px] font-black uppercase tracking-[0.15em] mb-4" style={{ color: colors.primary }}>Work Information</Text>
 
-                {/* Teams */}
-                {teamMembers.filter(tm => tm.user_id === selectedUser.id).length > 0 && (
-                  <View className="mb-8">
-                    <Text className="text-[11px] font-black uppercase tracking-[0.15em] mb-4" style={{ color: colors.primary }}>Teams</Text>
-                    <View className="flex-row flex-wrap gap-2">
-                      {teams
-                        .filter(t => teamMembers.find(tm => tm.user_id === selectedUser.id && tm.team_id === t.id))
-                        .map(team => (
-                          <View key={team.id} className="border px-3 py-2 rounded-lg" style={{ backgroundColor: `${colors.primary}10`, borderColor: `${colors.primary}33` }}>
-                            <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.primary }}>
-                              {team.name}
-                            </Text>
+                      {/* Stat tiles */}
+                      <View className="flex-row flex-wrap gap-3 mb-6">
+                        {[
+                          { label: 'Direct Roles', value: info?.directRoles.length || 0, icon: 'shield' as const },
+                          { label: 'Inherited', value: info?.inheritedRoles.length || 0, icon: 'lock' as const },
+                          { label: 'Teams', value: info?.teams.length || 0, icon: 'users' as const },
+                          { label: 'Permissions', value: info?.permissionCount || 0, icon: 'key' as const },
+                        ].map(stat => (
+                          <View key={stat.label} className="flex-1 p-4 rounded-xl border" style={{ backgroundColor: colors.background, borderColor: colors.border, minWidth: 130 }}>
+                            <Text className="text-[9px] font-black uppercase tracking-widest mb-2" style={{ color: colors.textMuted }}>{stat.label}</Text>
+                            <View className="flex-row items-center gap-2">
+                              <FontAwesome name={stat.icon} size={12} color={colors.primary} />
+                              <Text className="text-2xl font-black" style={{ color: colors.textMain }}>{stat.value}</Text>
+                            </View>
                           </View>
                         ))}
+                      </View>
+
+                      {/* Facts grid */}
+                      <View className="flex-row flex-wrap gap-3 mb-6">
+                        {[
+                          { label: 'Job Title', value: selectedUser.job_title },
+                          { label: 'Department', value: selectedUser.department },
+                          { label: 'Status', value: selectedUser.work_status },
+                          { label: 'Joined', value: `${new Date(selectedUser.created_at).toLocaleDateString()} · ${getTenure(selectedUser.created_at)} ago` },
+                        ].map(fact => (
+                          <View key={fact.label} className="flex-1 border rounded-xl px-4 py-3" style={{ backgroundColor: colors.card, borderColor: colors.border, minWidth: 180 }}>
+                            <Text className="text-[9px] font-black uppercase tracking-widest mb-1" style={{ color: colors.textMuted }}>{fact.label}</Text>
+                            <Text className="text-sm" style={{ color: colors.textMain }}>{fact.value || '—'}</Text>
+                          </View>
+                        ))}
+                        <View className="flex-1 border rounded-xl px-4 py-3" style={{ backgroundColor: colors.card, borderColor: colors.border, minWidth: 180 }}>
+                          <Text className="text-[9px] font-black uppercase tracking-widest mb-1" style={{ color: colors.textMuted }}>Last Active</Text>
+                          <View className="flex-row items-center gap-2">
+                            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: lastSeen.online ? colors.success : colors.textMuted }} />
+                            <Text className="text-sm" style={{ color: colors.textMain }}>{lastSeen.label}</Text>
+                          </View>
+                        </View>
+                      </View>
+
+                      {/* Roles with descriptions */}
+                      {info && (info.roles.length > 0) && (
+                        <View className="mb-6">
+                          <Text className="text-[10px] font-black uppercase tracking-[0.15em] mb-3" style={{ color: colors.textMuted }}>Roles</Text>
+                          <View className="gap-2">
+                            {info.roles.map(role => (
+                              <View key={role.id} className="p-4 rounded-xl border" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
+                                <View className="flex-row items-center gap-2">
+                                  <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: role.color?.includes('var') ? colors.primary : (role.color || colors.primary) }} />
+                                  <Text className="font-black text-sm flex-shrink" style={{ color: colors.textMain }}>{role.name}</Text>
+                                  {!info.directRoles.includes(role) && (
+                                    <View className="px-2 py-0.5 rounded-md ml-1" style={{ backgroundColor: `${colors.primary}15` }}>
+                                      <Text className="text-[8px] font-black uppercase tracking-widest" style={{ color: colors.primary }}>via team</Text>
+                                    </View>
+                                  )}
+                                </View>
+                                {role.description && (
+                                  <Text className="text-xs mt-1.5 leading-5" style={{ color: colors.textMuted }}>{role.description}</Text>
+                                )}
+                              </View>
+                            ))}
+                          </View>
+                        </View>
+                      )}
+
+                      {/* Teams with descriptions */}
+                      {info && (info.teams.length > 0) && (
+                        <View className="mb-6">
+                          <Text className="text-[10px] font-black uppercase tracking-[0.15em] mb-3" style={{ color: colors.textMuted }}>Teams</Text>
+                          <View className="gap-2">
+                            {info.teams.map(team => (
+                              <View key={team.id} className="p-4 rounded-xl border" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
+                                <Text className="font-black text-sm" style={{ color: colors.textMain }}>{team.name}</Text>
+                                {team.description && (
+                                  <Text className="text-xs mt-1.5 leading-5" style={{ color: colors.textMuted }}>{team.description}</Text>
+                                )}
+                              </View>
+                            ))}
+                          </View>
+                        </View>
+                      )}
+
+                      {/* Permissions summary */}
+                      {permEntries.length > 0 && (
+                        <View>
+                          <Text className="text-[10px] font-black uppercase tracking-[0.15em] mb-3" style={{ color: colors.textMuted }}>Permissions</Text>
+                          <View className="flex-row flex-wrap gap-2">
+                            {permEntries.map(([cat, n]) => (
+                              <View key={cat} className="px-3 py-2 rounded-lg border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
+                                <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>
+                                  {cat} <Text style={{ color: colors.primary }}>· {n}</Text>
+                                </Text>
+                              </View>
+                            ))}
+                          </View>
+                        </View>
+                      )}
                     </View>
-                  </View>
-                )}
+                  );
+                })()}
 
                 {/* Danger Zone */}
                 {canRemoveUsers && (
@@ -688,53 +940,113 @@ export default function UserAssignmentGrid() {
                     </View>
 
                     {/* Work Info */}
-                    <View className="mb-6">
-                      <Text className="text-[10px] font-black uppercase tracking-[0.15em] mb-3" style={{ color: colors.primary }}>Work Info</Text>
-                      <View className="gap-2">
-                        {selectedUser.job_title && (
-                          <View className="p-3 rounded-lg border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
-                            <Text className="text-[9px] font-bold uppercase tracking-widest mb-1" style={{ color: colors.textMuted }}>Job Title</Text>
-                            <Text className="text-sm" style={{ color: colors.textMain }}>{selectedUser.job_title}</Text>
-                          </View>
-                        )}
-                        {selectedUser.department && (
-                          <View className="p-3 rounded-lg border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
-                            <Text className="text-[9px] font-bold uppercase tracking-widest mb-1" style={{ color: colors.textMuted }}>Department</Text>
-                            <Text className="text-sm" style={{ color: colors.textMain }}>{selectedUser.department}</Text>
-                          </View>
-                        )}
-                        <View className="p-3 rounded-lg border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
-                          <Text className="text-[9px] font-bold uppercase tracking-widest mb-1" style={{ color: colors.textMuted }}>Last Active</Text>
-                          <View className="flex-row items-center gap-2">
-                            <View
-                              style={{
-                                width: 8, height: 8, borderRadius: 4,
-                                backgroundColor: getLastSeen(selectedUser.last_seen_at).online ? colors.success : colors.textMuted,
-                              }}
-                            />
-                            <Text className="text-sm" style={{ color: colors.textMain }}>{getLastSeen(selectedUser.last_seen_at).label}</Text>
-                          </View>
-                        </View>
-                      </View>
-                    </View>
+                    {(() => {
+                      const info = infoByUser.get(selectedUser.id);
+                      const lastSeen = getLastSeen(selectedUser.last_seen_at);
+                      const permEntries = Object.entries(info?.permissionsByCategory ?? {}).sort((a, b) => b[1] - a[1]);
+                      return (
+                        <View className="mb-6">
+                          <Text className="text-[10px] font-black uppercase tracking-[0.15em] mb-3" style={{ color: colors.primary }}>Work Info</Text>
 
-                    {/* Teams */}
-                    {teamMembers.filter(tm => tm.user_id === selectedUser.id).length > 0 && (
-                      <View className="mb-6">
-                        <Text className="text-[10px] font-black uppercase tracking-[0.15em] mb-3" style={{ color: colors.primary }}>Teams</Text>
-                        <View className="flex-row flex-wrap gap-2">
-                          {teams
-                            .filter(t => teamMembers.find(tm => tm.user_id === selectedUser.id && tm.team_id === t.id))
-                            .map(team => (
-                              <View key={team.id} className="border px-3 py-2 rounded-lg" style={{ backgroundColor: `${colors.primary}10`, borderColor: `${colors.primary}33` }}>
-                                <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.primary }}>
-                                  {team.name}
-                                </Text>
+                          {/* Stat tiles */}
+                          <View className="flex-row flex-wrap gap-2 mb-4">
+                            {[
+                              { label: 'Roles', value: info?.roles.length || 0, icon: 'shield' as const },
+                              { label: 'Teams', value: info?.teams.length || 0, icon: 'users' as const },
+                              { label: 'Permissions', value: info?.permissionCount || 0, icon: 'key' as const },
+                            ].map(stat => (
+                              <View key={stat.label} className="p-3 rounded-lg border" style={{ backgroundColor: colors.background, borderColor: colors.border, width: '30%' }}>
+                                <Text className="text-[8px] uppercase font-bold mb-1" style={{ color: colors.textMuted }}>{stat.label}</Text>
+                                <View className="flex-row items-center gap-1.5">
+                                  <FontAwesome name={stat.icon} size={10} color={colors.primary} />
+                                  <Text className="text-lg font-black" style={{ color: colors.textMain }}>{stat.value}</Text>
+                                </View>
                               </View>
                             ))}
+                          </View>
+
+                          {/* Facts */}
+                          <View className="gap-2 mb-4">
+                            {[
+                              { label: 'Job Title', value: selectedUser.job_title },
+                              { label: 'Department', value: selectedUser.department },
+                              { label: 'Status', value: selectedUser.work_status },
+                              { label: 'Joined', value: `${new Date(selectedUser.created_at).toLocaleDateString()} · ${getTenure(selectedUser.created_at)} ago` },
+                            ].map(fact => (
+                              <View key={fact.label} className="p-3 rounded-lg border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
+                                <Text className="text-[9px] font-bold uppercase tracking-widest mb-1" style={{ color: colors.textMuted }}>{fact.label}</Text>
+                                <Text className="text-sm" style={{ color: colors.textMain }}>{fact.value || '—'}</Text>
+                              </View>
+                            ))}
+                            <View className="p-3 rounded-lg border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
+                              <Text className="text-[9px] font-bold uppercase tracking-widest mb-1" style={{ color: colors.textMuted }}>Last Active</Text>
+                              <View className="flex-row items-center gap-2">
+                                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: lastSeen.online ? colors.success : colors.textMuted }} />
+                                <Text className="text-sm" style={{ color: colors.textMain }}>{lastSeen.label}</Text>
+                              </View>
+                            </View>
+                          </View>
+
+                          {/* Roles */}
+                          {info && (info.roles.length > 0) && (
+                            <View className="mb-4">
+                              <Text className="text-[10px] font-black uppercase tracking-[0.15em] mb-3" style={{ color: colors.textMuted }}>Roles</Text>
+                              <View className="gap-2">
+                                {info.roles.map(role => (
+                                  <View key={role.id} className="p-3 rounded-lg border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
+                                    <View className="flex-row items-center gap-2">
+                                      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: role.color?.includes('var') ? colors.primary : (role.color || colors.primary) }} />
+                                      <Text className="font-black text-sm flex-shrink" style={{ color: colors.textMain }}>{role.name}</Text>
+                                      {!info.directRoles.includes(role) && (
+                                        <View className="px-2 py-0.5 rounded-md ml-1" style={{ backgroundColor: `${colors.primary}15` }}>
+                                          <Text className="text-[8px] font-black uppercase tracking-widest" style={{ color: colors.primary }}>via team</Text>
+                                        </View>
+                                      )}
+                                    </View>
+                                    {role.description && (
+                                      <Text className="text-xs mt-1.5 leading-5" style={{ color: colors.textMuted }}>{role.description}</Text>
+                                    )}
+                                  </View>
+                                ))}
+                              </View>
+                            </View>
+                          )}
+
+                          {/* Teams */}
+                          {info && (info.teams.length > 0) && (
+                            <View className="mb-4">
+                              <Text className="text-[10px] font-black uppercase tracking-[0.15em] mb-3" style={{ color: colors.textMuted }}>Teams</Text>
+                              <View className="gap-2">
+                                {info.teams.map(team => (
+                                  <View key={team.id} className="p-3 rounded-lg border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
+                                    <Text className="font-black text-sm" style={{ color: colors.textMain }}>{team.name}</Text>
+                                    {team.description && (
+                                      <Text className="text-xs mt-1.5 leading-5" style={{ color: colors.textMuted }}>{team.description}</Text>
+                                    )}
+                                  </View>
+                                ))}
+                              </View>
+                            </View>
+                          )}
+
+                          {/* Permissions summary */}
+                          {permEntries.length > 0 && (
+                            <View>
+                              <Text className="text-[10px] font-black uppercase tracking-[0.15em] mb-3" style={{ color: colors.textMuted }}>Permissions</Text>
+                              <View className="flex-row flex-wrap gap-2">
+                                {permEntries.map(([cat, n]) => (
+                                  <View key={cat} className="px-3 py-2 rounded-lg border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
+                                    <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>
+                                      {cat} <Text style={{ color: colors.primary }}>· {n}</Text>
+                                    </Text>
+                                  </View>
+                                ))}
+                              </View>
+                            </View>
+                          )}
                         </View>
-                      </View>
-                    )}
+                      );
+                    })()}
 
                     {/* Danger Zone */}
                     {canRemoveUsers && (
