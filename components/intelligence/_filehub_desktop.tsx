@@ -17,6 +17,7 @@ import FileHubAnalytics from './FileHubAnalytics';
 import FileHubBin from './FileHubBin';
 import FileHubOverview from './FileHubOverview';
 import FileHubBrowse from './FileHubBrowse';
+import FileHubChannelsMultiView from './FileHubChannelsMultiView';
 import { groupPickedFiles, relDir, resolveExistingFolderLeaf } from '@/lib/filehubFolderTree';
 import FolderTreePicker from './FolderTreePicker';
 import { ACTIVITY_META, ALLOWED_EXTENSIONS, ALLOWED_TYPES_MESSAGE, expiresInDays, formatFileSize, getInitials, getTagColor, GROUP_COLORS, isAllowedFile, TAG_PALETTE } from './filehubShared';
@@ -3762,77 +3763,15 @@ function FileHubDesktopInner() {
 
           {/* Groups list mode */}
           {mode === 'groups' && !activeGroupId && (
-            <>
-              {groupsLoading ? (
-                <View className="flex-1 items-center justify-center">
-                  <ActivityIndicator size="large" color={colors.primary} />
-                </View>
-              ) : groups.length === 0 ? (
-                <View className="flex-1 items-center justify-center px-8">
-                  <View className="bg-surface-card p-10 rounded-[2.5rem] border border-surface-border items-center w-full max-w-sm premium-shadow">
-                    <View className="w-14 h-14 bg-brand-primary/10 rounded-full border border-brand-primary/20 items-center justify-center mb-4">
-                      <FontAwesome name="users" size={24} color={colors.primary} />
-                    </View>
-                    <Text className="text-typography-main text-xl font-black mb-2 text-center">No Channels Yet</Text>
-                    <Text className="text-typography-muted text-sm text-center leading-relaxed mb-6">
-                      Create a shared channel where team members can upload and access files together.
-                    </Text>
-                    <TouchableOpacity
-                      onPress={() => setShowCreateGroup(true)}
-                      className="bg-brand-primary px-6 py-3 rounded-xl flex-row items-center gap-2"
-                    >
-                      <FontAwesome name="plus" size={12} color="#fff" />
-                      <Text className="text-white font-black text-sm">Create First Channel</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ) : (
-                <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20 }}>
-                  {groups.map(g => (
-                    <TouchableOpacity
-                      key={g.id}
-                      onPress={() => { setActiveGroupId(g.id); setSelectedFile(null); }}
-                      className="flex-row items-center gap-4 bg-surface-card border border-surface-border rounded-2xl px-5 py-4 mb-3 hover:bg-surface-overlay transition-colors"
-                    >
-                      <View
-                        className="w-12 h-12 rounded-2xl items-center justify-center flex-shrink-0"
-                        style={{ backgroundColor: g.avatar_color + '22' }}
-                      >
-                        <Text style={{ color: g.avatar_color, fontSize: 16, fontWeight: '900' }}>{getInitials(g.name)}</Text>
-                      </View>
-                      <View className="flex-1 min-w-0">
-                        <View className="flex-row items-center gap-2 mb-0.5">
-                          <Text className="text-typography-main font-black text-base" numberOfLines={1}>{g.name}</Text>
-                          {g.is_override && (
-                            <View className="bg-warning/15 border border-warning/30 rounded-md px-1.5 py-0.5">
-                              <Text className="text-warning text-[9px] font-black tracking-wide">NOT A MEMBER</Text>
-                            </View>
-                          )}
-                        </View>
-                        {g.description && (
-                          <Text className="text-typography-muted text-xs mb-1" numberOfLines={1}>{g.description}</Text>
-                        )}
-                        <View className="flex-row items-center gap-4">
-                          <View className="flex-row items-center gap-1.5">
-                            <FontAwesome name="users" size={10} color={colors.textMuted} />
-                            <Text className="text-typography-dim text-xs">{g.member_count} members</Text>
-                          </View>
-                          <View className="flex-row items-center gap-1.5">
-                            <FontAwesome name="files-o" size={10} color={colors.textMuted} />
-                            <Text className="text-typography-dim text-xs">{g.file_count} files</Text>
-                          </View>
-                        </View>
-                      </View>
-                      <View className="items-end gap-1">
-                        {g.last_activity && <Text className="text-typography-dim text-xs">{relativeDate(g.last_activity)}</Text>}
-                        <FontAwesome name="chevron-right" size={10} color={colors.textDim} />
-                      </View>
-                    </TouchableOpacity>
-                  ))}
-                  <View style={{ height: 20 }} />
-                </ScrollView>
-              )}
-            </>
+            <View className="flex-1 px-6 py-6">
+              <FileHubChannelsMultiView
+                groups={groups}
+                loading={groupsLoading}
+                searchValue={search}
+                onPressGroup={(g) => { setActiveGroupId(g.id); setSelectedFile(null); }}
+                onCreateChannel={() => setShowCreateGroup(true)}
+              />
+            </View>
           )}
 
           {/* Groups — drill-down into a specific group */}

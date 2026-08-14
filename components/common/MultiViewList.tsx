@@ -32,8 +32,8 @@ export type { MultiViewMode } from '@/lib/multiViewList';
  * Issue #249 — one reusable list primitive with a Windows-Explorer-style
  * density switcher (large icons / medium icons / list / details), built once
  * so surfaces that each want the same view-mode treatment (Role/Team
- * registries #219, FileHub Channels #242 — NOT adopted here, later phases)
- * share it instead of hand-rolling their own toggle.
+ * registries #219, FileHub Channels #242, Alert Rules) share it instead of
+ * hand-rolling their own toggle.
  *
  * This component owns: the toolbar (search box + group chips + mode
  * switcher — visual only), the four density layouts, persisted view-mode
