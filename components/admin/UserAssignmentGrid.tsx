@@ -543,7 +543,6 @@ export default function UserAssignmentGrid() {
                 {(() => {
                   const info = infoByUser.get(selectedUser.id);
                   const lastSeen = getLastSeen(selectedUser.last_seen_at);
-                  const permEntries = Object.entries(info?.permissionsByCategory ?? {}).sort((a, b) => b[1] - a[1]);
                   return (
                     <View className="mb-8">
                       <Text className="text-[11px] font-black uppercase tracking-[0.15em] mb-4" style={{ color: colors.primary }}>Work Information</Text>
@@ -630,21 +629,6 @@ export default function UserAssignmentGrid() {
                         </View>
                       )}
 
-                      {/* Permissions summary */}
-                      {permEntries.length > 0 && (
-                        <View>
-                          <Text className="text-[10px] font-black uppercase tracking-[0.15em] mb-3" style={{ color: colors.textMuted }}>Permissions</Text>
-                          <View className="flex-row flex-wrap gap-2">
-                            {permEntries.map(([cat, n]) => (
-                              <View key={cat} className="px-3 py-2 rounded-lg border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
-                                <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>
-                                  {cat} <Text style={{ color: colors.primary }}>· {n}</Text>
-                                </Text>
-                              </View>
-                            ))}
-                          </View>
-                        </View>
-                      )}
                     </View>
                   );
                 })()}
@@ -943,7 +927,6 @@ export default function UserAssignmentGrid() {
                     {(() => {
                       const info = infoByUser.get(selectedUser.id);
                       const lastSeen = getLastSeen(selectedUser.last_seen_at);
-                      const permEntries = Object.entries(info?.permissionsByCategory ?? {}).sort((a, b) => b[1] - a[1]);
                       return (
                         <View className="mb-6">
                           <Text className="text-[10px] font-black uppercase tracking-[0.15em] mb-3" style={{ color: colors.primary }}>Work Info</Text>
@@ -1023,22 +1006,6 @@ export default function UserAssignmentGrid() {
                                     {team.description && (
                                       <Text className="text-xs mt-1.5 leading-5" style={{ color: colors.textMuted }}>{team.description}</Text>
                                     )}
-                                  </View>
-                                ))}
-                              </View>
-                            </View>
-                          )}
-
-                          {/* Permissions summary */}
-                          {permEntries.length > 0 && (
-                            <View>
-                              <Text className="text-[10px] font-black uppercase tracking-[0.15em] mb-3" style={{ color: colors.textMuted }}>Permissions</Text>
-                              <View className="flex-row flex-wrap gap-2">
-                                {permEntries.map(([cat, n]) => (
-                                  <View key={cat} className="px-3 py-2 rounded-lg border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
-                                    <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>
-                                      {cat} <Text style={{ color: colors.primary }}>· {n}</Text>
-                                    </Text>
                                   </View>
                                 ))}
                               </View>
