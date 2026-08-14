@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { Image, View, Text, TouchableOpacity } from 'react-native';
 import TeamCreateSheet from '@/components/admin/TeamCreateSheet';
 import TeamRolesSheet from '@/components/admin/TeamRolesSheet';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { useRoleManager, Team } from '@/contexts/RoleManagerContext';
+import Tooltip from '@/components/common/Tooltip';
+import { useRoleManager, Team, Role, User } from '@/contexts/RoleManagerContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { cssInterop } from 'react-native-css-interop';
 import MultiViewList from '@/components/common/MultiViewList';
@@ -15,9 +16,103 @@ cssInterop(FontAwesome, {
   },
 } as any);
 
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  return parts.slice(0, 2).map((p) => p[0].toUpperCase()).join('');
+}
+
+function MemberStack({ members, size = 22, max = 4 }: { members: User[]; size?: number; max?: number }) {
+  const colors = useThemeColors();
+  const shown = members.slice(0, max);
+  const overflow = members.length - shown.length;
+  const overlap = Math.round(size * 0.33);
+  return (
+    <View className="flex-row items-center">
+      {shown.map((m, i) => (
+        <View
+          key={m.id}
+          style={{
+            width: size,
+            height: size,
+            borderRadius: size / 2,
+            marginLeft: i === 0 ? 0 : -overlap,
+            borderWidth: 2,
+            borderColor: colors.card,
+            backgroundColor: colors.background,
+            overflow: 'hidden',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          {m.avatar_url ? (
+            <Image source={{ uri: m.avatar_url }} className="w-full h-full" />
+          ) : (
+            <Text style={{ color: colors.primary, fontSize: Math.round(size * 0.38), fontWeight: '900' }}>
+              {getInitials(m.full_name || m.email)}
+            </Text>
+          )}
+        </View>
+      ))}
+      {overflow > 0 && (
+        <View
+          style={{
+            width: size,
+            height: size,
+            borderRadius: size / 2,
+            marginLeft: -overlap,
+            borderWidth: 2,
+            borderColor: colors.card,
+            backgroundColor: colors.background,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Text style={{ color: colors.textMuted, fontSize: Math.round(size * 0.35), fontWeight: '900' }}>+{overflow}</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function RoleChip({ role }: { role: Role }) {
+  const colors = useThemeColors();
+  const chipColor = role.color?.includes('var') ? colors.primary : (role.color || colors.primary);
+  return (
+    <View className="bg-surface-background px-2.5 py-1 rounded-md border border-surface-border flex-row items-center flex-shrink">
+      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: chipColor, marginRight: 6 }} />
+      <Text className="text-typography-muted text-[10px] font-bold" numberOfLines={1}>{role.name}</Text>
+    </View>
+  );
+}
+
 export default function TeamAssignmentGrid() {
   const colors = useThemeColors();
-  const { teams, roles, teamRoles, updateTeamAssignments, setTeamClaiming, createTeam, loading } = useRoleManager();
+  const { users, teams, roles, teamRoles, teamMembers, updateTeamAssignments, setTeamClaiming, createTeam, loading } = useRoleManager();
+
+  const membersByTeam = useMemo(() => {
+    const map = new Map<string, User[]>();
+    for (const tm of teamMembers) {
+      const u = users.find((x) => x.id === tm.user_id);
+      if (!u) continue;
+      const list = map.get(tm.team_id);
+      if (list) list.push(u);
+      else map.set(tm.team_id, [u]);
+    }
+    return map;
+  }, [teamMembers, users]);
+
+  const rolesByTeam = useMemo(() => {
+    const map = new Map<string, Role[]>();
+    for (const tr of teamRoles) {
+      const r = roles.find((x) => x.id === tr.role_id);
+      if (!r) continue;
+      const list = map.get(tr.team_id);
+      if (list) list.push(r);
+      else map.set(tr.team_id, [r]);
+    }
+    return map;
+  }, [teamRoles, roles]);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [draftRoleIds, setDraftRoleIds] = useState<string[]>([]);
@@ -83,7 +178,10 @@ export default function TeamAssignmentGrid() {
           items={visibleTeams}
           keyExtractor={(t) => t.id}
           renderCard={(t) => {
-            const roleCount = teamRoles.filter(tr => tr.team_id === t.id).length;
+            const members = membersByTeam.get(t.id) || [];
+            const teamRoleObjs = rolesByTeam.get(t.id) || [];
+            const shownRoles = teamRoleObjs.slice(0, 3);
+            const extraRoles = teamRoleObjs.length - shownRoles.length;
             return (
               <View className="bg-surface-card w-full p-5 rounded-2xl border border-surface-border">
                 <View className="flex-row items-center mb-4">
@@ -99,15 +197,51 @@ export default function TeamAssignmentGrid() {
                       {t.description || 'No description'}
                     </Text>
                   </View>
+                  {t.enforce_single_claimant && (
+                    <Tooltip label="Task claiming enabled">
+                      <View className="bg-brand-primary/10 border border-brand-primary/20 rounded-lg px-2 py-1 flex-row items-center">
+                        <FontAwesome name="user-o" size={9} color={colors.primary} />
+                      </View>
+                    </Tooltip>
+                  )}
                 </View>
-                <View className="bg-surface-background px-3 py-1.5 rounded-lg border border-surface-border self-start">
-                  <Text className="text-brand-primary text-[9px] font-black uppercase tracking-widest">{roleCount} roles assigned</Text>
+
+                <View className="mb-4">
+                  <View className="flex-row items-center gap-2 mb-3">
+                    {members.length > 0 && <MemberStack members={members} size={28} />}
+                    <Text className="text-typography-dim text-xs">
+                      {members.length} member{members.length !== 1 ? 's' : ''}
+                    </Text>
+                  </View>
+                  <View className="flex-row items-center gap-1.5 flex-wrap">
+                    {teamRoleObjs.length === 0 && (
+                      <Text className="text-typography-dim text-xs">No roles assigned yet</Text>
+                    )}
+                    {shownRoles.map((r) => <RoleChip key={r.id} role={r} />)}
+                    {extraRoles > 0 && (
+                      <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">+{extraRoles}</Text>
+                    )}
+                  </View>
+                </View>
+
+                <View className="flex-row items-center justify-between pt-3 border-t border-surface-border">
+                  <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest">
+                    {teamRoleObjs.length} role{teamRoleObjs.length !== 1 ? 's' : ''} assigned
+                  </Text>
+                  <TouchableOpacity
+                    onPress={(e: any) => { e.stopPropagation(); handleOpenTeam(t); }}
+                    className="flex-row items-center gap-1.5 bg-surface-background px-3 py-2 rounded-lg border border-surface-border"
+                  >
+                    <FontAwesome name="cog" size={10} color={colors.primary} />
+                    <Text className="text-brand-primary text-[9px] font-black uppercase tracking-widest">Manage</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             );
           }}
           renderRow={(t) => {
-            const roleCount = teamRoles.filter(tr => tr.team_id === t.id).length;
+            const members = membersByTeam.get(t.id) || [];
+            const teamRoleObjs = rolesByTeam.get(t.id) || [];
             return (
               <View className="flex-row items-center gap-3">
                 <View
@@ -120,7 +254,10 @@ export default function TeamAssignmentGrid() {
                   <Text className="text-typography-main font-black text-sm" numberOfLines={1}>{t.name}</Text>
                   <Text className="text-typography-muted text-[11px]" numberOfLines={1}>{t.description || 'No description'}</Text>
                 </View>
-                <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest flex-shrink-0">{roleCount} roles</Text>
+                {members.length > 0 && <MemberStack members={members} size={26} max={3} />}
+                <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest flex-shrink-0">
+                  {teamRoleObjs.length} role{teamRoleObjs.length !== 1 ? 's' : ''}
+                </Text>
               </View>
             );
           }}
@@ -145,13 +282,34 @@ export default function TeamAssignmentGrid() {
               ),
             },
             {
+              key: 'members',
+              label: 'Members',
+              flex: 1,
+              render: (t) => {
+                const members = membersByTeam.get(t.id) || [];
+                return (
+                  <View className="flex-row items-center gap-1.5">
+                    {members.length > 0 && <MemberStack members={members} size={24} max={3} />}
+                    <Text className="text-typography-muted text-xs">{members.length}</Text>
+                  </View>
+                );
+              },
+            },
+            {
               key: 'roles',
               label: 'Roles',
-              flex: 1,
-              align: 'center',
+              flex: 1.6,
               render: (t) => {
-                const n = teamRoles.filter(tr => tr.team_id === t.id).length;
-                return <Text className="text-typography-main text-xs font-bold">{n}</Text>;
+                const teamRoleObjs = rolesByTeam.get(t.id) || [];
+                const shown = teamRoleObjs.slice(0, 2);
+                const extra = teamRoleObjs.length - shown.length;
+                if (teamRoleObjs.length === 0) return <Text className="text-typography-dim text-xs">—</Text>;
+                return (
+                  <View className="flex-row items-center gap-1.5 flex-wrap">
+                    {shown.map((r) => <RoleChip key={r.id} role={r} />)}
+                    {extra > 0 && <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">+{extra}</Text>}
+                  </View>
+                );
               },
             },
           ]}
