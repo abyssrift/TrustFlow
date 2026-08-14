@@ -206,17 +206,20 @@ export default function TeamAssignmentGrid() {
                   )}
                 </View>
 
-                <View className="flex-row items-center justify-between mb-4">
-                  <View className="flex-row items-center gap-2">
-                    {members.length > 0 && <MemberStack members={members} />}
+                <View className="mb-4">
+                  <View className="flex-row items-center gap-2 mb-3">
+                    {members.length > 0 && <MemberStack members={members} size={28} />}
                     <Text className="text-typography-dim text-xs">
                       {members.length} member{members.length !== 1 ? 's' : ''}
                     </Text>
                   </View>
-                  <View className="flex-row items-center gap-1.5 flex-wrap flex-shrink justify-end">
+                  <View className="flex-row items-center gap-1.5 flex-wrap">
+                    {teamRoleObjs.length === 0 && (
+                      <Text className="text-typography-dim text-xs">No roles assigned yet</Text>
+                    )}
                     {shownRoles.map((r) => <RoleChip key={r.id} role={r} />)}
                     {extraRoles > 0 && (
-                      <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest flex-shrink-0">+{extraRoles}</Text>
+                      <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">+{extraRoles}</Text>
                     )}
                   </View>
                 </View>
