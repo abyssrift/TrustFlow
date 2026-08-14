@@ -922,6 +922,7 @@ export default function NotificationRules() {
         ]}
         onItemPress={(r) => setSelectedId(r.id)}
         storageKey="alert-rules"
+        modes={['large', 'list', 'details']}
         defaultMode="list"
         search={{ value: query, onChange: setQuery, placeholder: 'Search rules' }}
         loading={false}
