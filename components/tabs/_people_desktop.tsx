@@ -20,14 +20,14 @@ import { useMemberLimit } from '@/hooks/useMemberLimit';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 
-type PeopleSection = 'members' | 'teams' | 'roles' | 'notifications' | 'workspace' | 'company' | 'retention' | 'billing' | 'export';
+type PeopleSection = 'members' | 'teams' | 'roles' | 'notifications' | 'company' | 'retention' | 'billing' | 'export';
 
 function resolveSection(param: string | undefined, canViewMembers: boolean, canManageTeams: boolean, canManageNotifications: boolean, canEditCompany: boolean, canManageRetention: boolean, canManageBilling: boolean, canManageExport: boolean): PeopleSection {
   if (param === 'export' && canManageExport) return 'export';
   if (param === 'billing' && canManageBilling) return 'billing';
   if (param === 'retention' && canManageRetention) return 'retention';
   if (param === 'company' && canEditCompany) return 'company';
-  if (param === 'workspace' && canManageNotifications) return 'workspace';
+  if (param === 'workspace' && canManageNotifications) return 'notifications';
   if (param === 'notifications' && canManageNotifications) return 'notifications';
   if (param === 'roles' && canManageTeams) return 'roles';
   if (param === 'teams' && canManageTeams) return 'teams';
@@ -41,7 +41,6 @@ const SECTION_META: Record<PeopleSection, { label: string; description: string; 
   teams: { label: 'Teams', description: 'Group members into working teams', icon: 'sitemap' },
   roles: { label: 'Role Registry', description: 'Define roles and permissions', icon: 'id-badge' },
   notifications: { label: 'Alert Rules', description: 'Configure notification triggers', icon: 'bell-o' },
-  workspace: { label: 'Workspace', description: 'General workspace preferences', icon: 'sliders' },
   company: { label: 'Company Info', description: 'Legal name, branding, details', icon: 'building' },
   retention: { label: 'Retention', description: 'Inactivity policy and data lifecycle', icon: 'history' },
   billing: { label: 'Billing', description: 'Plan, seats, and subscription', icon: 'credit-card' },
@@ -74,10 +73,16 @@ function TeamWorkspaceContent({ section }: { section: PeopleSection }) {
   if (section === 'billing') return <BillingPanel />;
   if (section === 'retention') return <RetentionPanel />;
   if (section === 'company') return <CompanyEditSettings />;
-  if (section === 'workspace') return <WorkspaceSettings />;
   if (section === 'roles') return <RoleBuilder />;
   if (section === 'teams') return <TeamAssignmentGrid />;
-  if (section === 'notifications') return <NotificationRules />;
+  if (section === 'notifications') {
+    return (
+      <View className="gap-6">
+        <WorkspaceSettings />
+        <NotificationRules />
+      </View>
+    );
+  }
   return <UserAssignmentGrid />;
 }
 
@@ -149,7 +154,6 @@ export default function PeopleScreenWeb() {
     teams: canManageTeams,
     roles: canManageTeams,
     notifications: canManageNotifications,
-    workspace: canManageNotifications,
     company: canEditCompany,
     retention: canManageRetention,
     billing: canManageBilling,

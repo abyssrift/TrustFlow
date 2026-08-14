@@ -6,8 +6,6 @@ import { FontAwesome } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Modal,
-  Platform,
   ScrollView,
   Switch,
   Text,
@@ -16,7 +14,8 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import DraggableSheet from '@/components/common/DraggableSheet';
+import Popup from '@/components/common/Popup';
+import MultiViewList from '@/components/common/MultiViewList';
 import RuleEditorModal from '@/components/admin/RuleEditorModal';
 import Tooltip from '@/components/common/Tooltip';
 import {
@@ -46,58 +45,130 @@ type SimulationResult = {
   recipient_count: number;
 };
 
-// ── Rule list item ────────────────────────────────────────────────────
-const RuleListItem = ({
-  rule, isSelected, onSelect, onToggle,
+// ── Rule list card ───────────────────────────────────────────────────
+const ChannelIcon = ({ name, size, color }: { name: string; size: number; color: string }) => (
+  <FontAwesome name={name as any} size={size} color={color} />
+);
+
+const RuleCard = ({
+  rule, onToggle, onEdit, onDelete,
 }: {
   rule: NotificationRule;
-  isSelected: boolean;
-  onSelect: () => void;
   onToggle: (id: string, active: boolean) => void;
+  onEdit: (rule: NotificationRule) => void;
+  onDelete: (rule: NotificationRule) => void;
 }) => {
   const colors = useThemeColors();
   const meta = EVENT_META[rule.event_type] || { label: rule.event_type, icon: 'bell-o', colorKey: 'textMuted' };
+  const conditions = Object.entries(rule.conditions ?? {});
+  const strategies = rule.recipient_strategies ?? [];
+  const activeColor = (colors as any)[meta.colorKey] || colors.primary;
+
+  const channelIcons = [
+    { name: 'envelope-o', label: 'Email' },
+    { name: 'mobile', label: 'Mobile' },
+    { name: 'globe', label: 'Web' },
+  ];
+
   return (
-    <TouchableOpacity
-      onPress={onSelect}
-      activeOpacity={0.7}
-      className="p-4 mb-2 rounded-xl border"
-      style={{
-        backgroundColor: isSelected ? colors.primary + '1A' : colors.card,
-        borderColor: isSelected ? colors.primary : colors.border,
-      }}
-    >
-      <View className="flex-row items-center justify-between">
-        <View className="flex-row items-center gap-3 flex-1">
-          <View className="w-8 h-8 rounded-lg items-center justify-center border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
-            <FontAwesome name={meta.icon} size={14} color={rule.is_active ? ((colors as any)[meta.colorKey] || colors.primary) : colors.textMuted} />
+    <View className="bg-surface-card w-full p-5 rounded-2xl border border-surface-border">
+      <View className="flex-row items-center justify-between mb-3">
+        <View className="flex-row items-center flex-1 mr-3">
+          <View className="w-10 h-10 rounded-xl items-center justify-center border flex-shrink-0" style={{ backgroundColor: rule.is_active ? colors.primary + '1A' : colors.background, borderColor: rule.is_active ? colors.primary + '33' : colors.border }}>
+            <FontAwesome name={meta.icon} size={15} color={rule.is_active ? activeColor : colors.textMuted} />
           </View>
-          <View className="flex-1">
-            <Text className="font-black text-sm" style={{ color: isSelected ? colors.textMain : colors.textMuted }} numberOfLines={1}>{rule.name}</Text>
-            <Text className="text-[10px] uppercase tracking-widest" style={{ color: colors.textMuted }}>{meta.label}</Text>
+          <View className="ml-3 flex-1">
+            <View className="flex-row items-center">
+              <Text className="text-typography-main font-black text-base flex-shrink" numberOfLines={1}>{rule.name}</Text>
+              <View className="bg-brand-primary/10 px-2 py-0.5 rounded-lg ml-2 border border-brand-primary/20 flex-shrink-0">
+                <Text className="text-brand-primary text-[8px] font-black uppercase tracking-widest">{meta.label}</Text>
+              </View>
+            </View>
+            <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest mt-0.5">
+              {rule.is_active ? 'Active' : 'Paused'} · ID {rule.id.slice(0, 8)}
+            </Text>
           </View>
         </View>
-        <Switch
-          value={rule.is_active}
-          onValueChange={(v) => onToggle(rule.id, v)}
-          trackColor={{ false: colors.border, true: colors.primary }}
-          thumbColor="#fff"
-          style={{ transform: [{ scaleX: 0.75 }, { scaleY: 0.75 }] }}
-        />
+        <View className="flex-row items-center gap-2 flex-shrink-0">
+          <Tooltip label={rule.is_active ? 'Disable rule' : 'Enable rule'}>
+            <TouchableOpacity activeOpacity={1} onPress={(e: any) => e.stopPropagation()}>
+              <Switch
+                value={rule.is_active}
+                onValueChange={(v) => onToggle(rule.id, v)}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor="#fff"
+                style={{ transform: [{ scaleX: 0.75 }, { scaleY: 0.75 }] }}
+              />
+            </TouchableOpacity>
+          </Tooltip>
+          <Tooltip label="Edit rule">
+            <TouchableOpacity
+              onPress={(e: any) => {
+                e.stopPropagation();
+                onEdit(rule);
+              }}
+              className="w-9 h-9 items-center justify-center border border-surface-border rounded-xl bg-surface-background"
+            >
+              <FontAwesome name="pencil-square-o" size={13} color={colors.primary} />
+            </TouchableOpacity>
+          </Tooltip>
+          <Tooltip label="Delete rule">
+            <TouchableOpacity
+              onPress={(e: any) => {
+                e.stopPropagation();
+                onDelete(rule);
+              }}
+              className="w-9 h-9 items-center justify-center border border-state-danger/10 rounded-xl bg-state-danger-dim"
+            >
+              <FontAwesome name="trash-o" size={14} color={colors.danger} />
+            </TouchableOpacity>
+          </Tooltip>
+        </View>
       </View>
-    </TouchableOpacity>
+
+      <Text className="text-typography-muted text-xs mb-4 leading-5" numberOfLines={2}>
+        {rule.description || 'No description provided.'}
+      </Text>
+
+      <View className="flex-row flex-wrap items-center gap-2">
+        {strategies.length > 0 && (
+          <Tooltip label="Recipient strategy">
+            <View className="bg-surface-background px-3 py-1.5 rounded-lg border border-surface-border flex-row items-center">
+              <FontAwesome name="user-o" size={10} color={colors.primary} />
+              <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest ml-2">
+                {STRATEGY_LABELS[strategies[0]] || strategies[0]}{strategies.length > 1 ? ` +${strategies.length - 1}` : ''}
+              </Text>
+            </View>
+          </Tooltip>
+        )}
+        <Tooltip label={conditions.length > 0 ? `${conditions.length} condition${conditions.length === 1 ? '' : 's'}` : 'Matches every event'}>
+          <View className="bg-surface-background px-3 py-1.5 rounded-lg border border-surface-border flex-row items-center">
+            <FontAwesome name="filter" size={10} color={colors.textMuted} />
+            <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest ml-2">
+              {conditions.length === 0 ? 'Every event' : `${conditions.length} condition${conditions.length === 1 ? '' : 's'}`}
+            </Text>
+          </View>
+        </Tooltip>
+        <View className="bg-surface-background px-3 py-1.5 rounded-lg border border-surface-border flex-row items-center gap-2">
+          {channelIcons.map((c) => (
+            <ChannelIcon key={c.label} name={c.name} size={10} color={rule.is_active ? colors.textMain : colors.textMuted} />
+          ))}
+        </View>
+      </View>
+    </View>
   );
 };
 
 // ── Rule inspector ───────────────────────────────────────────────────
 const RuleInspector = ({
-  rule, isDesktop, onToggle, onEdit, onDelete,
+  rule, isDesktop, onToggle, onEdit, onDelete, onClose,
 }: {
   rule: NotificationRule | null;
   isDesktop: boolean;
   onToggle: (id: string, active: boolean) => void;
   onEdit: (rule: NotificationRule) => void;
   onDelete: (rule: NotificationRule) => void;
+  onClose: () => void;
 }) => {
   const colors = useThemeColors();
   const [activeTab, setActiveTab] = useState<'config' | 'test' | 'logs'>('config');
@@ -212,7 +283,7 @@ const RuleInspector = ({
   const titleClass = isDesktop ? 'text-3xl' : 'text-xl';
 
   return (
-    <View className="flex-1 border-l" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
+    <View className="flex-1">
       {/* Header */}
       <View style={{ padding: headerPad, backgroundColor: colors.background + '80', borderColor: colors.border }} className="border-b">
         <View className="flex-row items-start justify-between">
@@ -257,6 +328,15 @@ const RuleInspector = ({
                   style={{ backgroundColor: colors.background, borderColor: colors.border }}
                 >
                   <FontAwesome name="trash-o" size={14} color={colors.danger} />
+                </TouchableOpacity>
+              </Tooltip>
+              <Tooltip label="Close">
+                <TouchableOpacity
+                  onPress={onClose}
+                  className="w-10 h-10 rounded-xl border items-center justify-center"
+                  style={{ backgroundColor: colors.background, borderColor: colors.border }}
+                >
+                  <FontAwesome name="times" size={15} color={colors.textMuted} />
                 </TouchableOpacity>
               </Tooltip>
             </View>
@@ -613,6 +693,7 @@ export default function NotificationRules() {
   const [rules, setRules] = useState<NotificationRule[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState('');
   const [editorTarget, setEditorTarget] = useState<NotificationRule | null>(null);
   const [editorOpen, setEditorOpen] = useState<'closed' | 'create' | 'edit'>('closed');
 
@@ -620,6 +701,16 @@ export default function NotificationRules() {
     () => rules.find((r) => r.id === selectedId) || null,
     [rules, selectedId]
   );
+
+  const visibleRules = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return rules;
+    return rules.filter((r) =>
+      r.name.toLowerCase().includes(q) ||
+      (r.description ?? '').toLowerCase().includes(q) ||
+      (EVENT_META[r.event_type]?.label ?? r.event_type).toLowerCase().includes(q)
+    );
+  }, [rules, query]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -630,12 +721,9 @@ export default function NotificationRules() {
     if (!error && data) {
       const cast = data as NotificationRule[];
       setRules(cast);
-      if (isDesktop && cast.length > 0) {
-        setSelectedId((curr) => curr ?? cast[0].id);
-      }
     }
     setLoading(false);
-  }, [isDesktop]);
+  }, []);
 
   useEffect(() => {
     if (initialized) load();
@@ -687,155 +775,188 @@ export default function NotificationRules() {
 
   const activeCount = rules.filter((r) => r.is_active).length;
 
-  if (!isDesktop) {
-    return (
-      <View className="flex-1">
-        <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-          <View className="px-4 py-4 gap-4">
-            <TouchableOpacity
-              onPress={openCreate}
-              className="w-full h-12 rounded-xl items-center justify-center flex-row gap-2"
-              style={{ backgroundColor: colors.primary }}
-            >
-              <FontAwesome name="plus" size={14} color="white" />
-              <Text className="text-white font-black text-xs uppercase tracking-widest">New Rule</Text>
-            </TouchableOpacity>
-
-            <View className="flex-row gap-2">
-              <View className="flex-1 p-3 rounded-xl items-center border" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
-                <Text className="font-black text-lg" style={{ color: colors.success }}>{activeCount}</Text>
-                <Text className="text-[9px] uppercase tracking-widest" style={{ color: colors.textMuted }}>Active</Text>
-              </View>
-              <View className="flex-1 p-3 rounded-xl items-center border" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
-                <Text className="font-black text-lg" style={{ color: colors.textMuted }}>{rules.length - activeCount}</Text>
-                <Text className="text-[9px] uppercase tracking-widest" style={{ color: colors.textMuted }}>Paused</Text>
-              </View>
-            </View>
-
-            {rules.map((r) => (
-              <RuleListItem
-                key={r.id}
-                rule={r}
-                isSelected={false}
-                onSelect={() => setSelectedId(r.id)}
-                onToggle={handleToggle}
-              />
-            ))}
-          </View>
-        </ScrollView>
-
-        {(() => {
-          const ruleDetailsContent = (
-            <View className="flex-1" style={{ backgroundColor: colors.background }}>
-              <View
-                className="pt-12 pb-4 px-4 border-b flex-row items-center gap-4"
-                style={{ borderColor: colors.border, backgroundColor: colors.card }}
-              >
-                <TouchableOpacity
-                  onPress={() => setSelectedId(null)}
-                  className="w-10 h-10 items-center justify-center rounded-full border"
-                  style={{ backgroundColor: colors.background, borderColor: colors.border }}
-                >
-                  <FontAwesome name="arrow-left" size={16} color={colors.textMain} />
-                </TouchableOpacity>
-                <Text className="font-black text-lg" style={{ color: colors.textMain }}>Rule Details</Text>
-              </View>
-              <RuleInspector
-                rule={activeRule}
-                isDesktop={false}
-                onToggle={handleToggle}
-                onEdit={openEdit}
-                onDelete={(r) => {
-                  handleDelete(r);
-                }}
-              />
-            </View>
-          );
-
-          if (Platform.OS === 'web') {
-            return (
-              <DraggableSheet
-                visible={!!selectedId}
-                onClose={() => setSelectedId(null)}
-                maxHeight="100%"
-                draggable={false}
-                scrollable={false}
-                containerClassName=""
-              >
-                {ruleDetailsContent}
-              </DraggableSheet>
-            );
-          }
-
-          // TODO(#93-native): remove this branch once native is testable — see issue #93/#115.
-          // Old raw-Modal path preserved untouched so native behavior doesn't change yet.
-          return (
-            <Modal visible={!!selectedId} animationType="slide" onRequestClose={() => setSelectedId(null)}>
-              {ruleDetailsContent}
-            </Modal>
-          );
-        })()}
-
-        <RuleEditorModal
-          visible={editorOpen !== 'closed'}
-          existing={editorOpen === 'edit' ? editorTarget : null}
-          onClose={closeEditor}
-          onSaved={load}
-        />
-      </View>
-    );
-  }
-
   return (
-    <View className="flex-1 flex-row overflow-hidden rounded-[32px] border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
-      <View className="w-80 border-r" style={{ borderColor: colors.border, backgroundColor: colors.background + '66' }}>
-        <View className="p-6 border-b flex-row items-center justify-between" style={{ borderColor: colors.border }}>
-          <View>
-            <Text className="font-black text-xl tracking-tight" style={{ color: colors.textMain }}>Notification Rules</Text>
-            <Text className="text-[10px] font-bold uppercase tracking-widest mt-0.5" style={{ color: colors.textMuted }}>{rules.length} Total</Text>
-          </View>
-          <TouchableOpacity
-            onPress={openCreate}
-            className="w-10 h-10 rounded-xl items-center justify-center"
-            style={{ backgroundColor: colors.primary }}
-          >
-            <FontAwesome name="plus" size={14} color="white" />
-          </TouchableOpacity>
+    <View className="flex-1">
+      <View className="flex-row items-center justify-between mb-4 px-1">
+        <View className="flex-1 mr-3">
+          <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.25em] mb-1">Notification Triggers</Text>
+          <Text className="text-typography-main text-2xl font-black tracking-tight">Alert Rules</Text>
+          <Text className="text-typography-muted text-xs font-bold mt-1">
+            {activeCount} of {rules.length} active
+          </Text>
         </View>
-
-        <View className="p-4 border-b flex-row gap-2" style={{ borderColor: colors.border, backgroundColor: colors.background + '99' }}>
-          <View className="flex-1 p-2 rounded-lg items-center border" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
-            <Text className="font-black text-xs" style={{ color: colors.success }}>{activeCount}</Text>
-            <Text className="text-[8px] uppercase" style={{ color: colors.textMuted }}>Active</Text>
-          </View>
-          <View className="flex-1 p-2 rounded-lg items-center border" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
-            <Text className="font-black text-xs" style={{ color: colors.textMuted }}>{rules.length - activeCount}</Text>
-            <Text className="text-[8px] uppercase" style={{ color: colors.textMuted }}>Paused</Text>
-          </View>
-        </View>
-
-        <ScrollView className="flex-1 p-4" showsVerticalScrollIndicator={false}>
-          {rules.map((r) => (
-            <RuleListItem
-              key={r.id}
-              rule={r}
-              isSelected={selectedId === r.id}
-              onSelect={() => setSelectedId(r.id)}
-              onToggle={handleToggle}
-            />
-          ))}
-        </ScrollView>
+        <TouchableOpacity
+          onPress={openCreate}
+          className="bg-brand-primary px-4 py-3 rounded-xl active:scale-[0.98]"
+        >
+          <Text className="text-white font-black text-[10px] uppercase tracking-widest">+ New Rule</Text>
+        </TouchableOpacity>
       </View>
 
-      <View className="flex-1">
-        <RuleInspector
-          rule={activeRule}
-          isDesktop={true}
-          onToggle={handleToggle}
-          onEdit={openEdit}
-          onDelete={handleDelete}
-        />
-      </View>
+      <MultiViewList
+        items={visibleRules}
+        keyExtractor={(r) => r.id}
+        renderCard={(r) => (
+          <RuleCard
+            rule={r}
+            onToggle={handleToggle}
+            onEdit={openEdit}
+            onDelete={handleDelete}
+          />
+        )}
+        renderRow={(r) => {
+          const m = EVENT_META[r.event_type] || { label: r.event_type, icon: 'bell-o' };
+          const conds = Object.keys(r.conditions ?? {}).length;
+          const strat = r.recipient_strategies?.[0];
+          return (
+            <View className="flex-row items-center gap-3">
+              <View className="w-9 h-9 rounded-xl items-center justify-center border flex-shrink-0" style={{ backgroundColor: colors.primary + '1A', borderColor: colors.primary + '33' }}>
+                <FontAwesome name={m.icon} size={14} color={colors.primary} />
+              </View>
+              <View className="flex-1 min-w-0">
+                <View className="flex-row items-center gap-2">
+                  <Text className="text-typography-main font-black text-sm flex-shrink" numberOfLines={1}>{r.name}</Text>
+                  <Text className="text-typography-muted text-[9px] font-bold uppercase tracking-widest flex-shrink-0">{m.label}</Text>
+                </View>
+                <Text className="text-typography-muted text-[11px]" numberOfLines={1}>
+                  {strat ? STRATEGY_LABELS[strat] || strat : 'No strategy'} · {conds === 0 ? 'Every event' : `${conds} condition${conds === 1 ? '' : 's'}`}
+                </Text>
+              </View>
+              <Tooltip label={r.is_active ? 'Disable rule' : 'Enable rule'}>
+                <TouchableOpacity activeOpacity={1} onPress={(e: any) => e.stopPropagation()}>
+                  <Switch
+                    value={r.is_active}
+                    onValueChange={(v) => handleToggle(r.id, v)}
+                    trackColor={{ false: colors.border, true: colors.primary }}
+                    thumbColor="#fff"
+                    style={{ transform: [{ scaleX: 0.75 }, { scaleY: 0.75 }] }}
+                  />
+                </TouchableOpacity>
+              </Tooltip>
+              <Tooltip label="Edit rule">
+                <TouchableOpacity
+                  onPress={(e: any) => { e.stopPropagation(); openEdit(r); }}
+                  className="w-9 h-9 items-center justify-center border border-surface-border rounded-xl bg-surface-background"
+                >
+                  <FontAwesome name="pencil-square-o" size={13} color={colors.primary} />
+                </TouchableOpacity>
+              </Tooltip>
+              <Tooltip label="Delete rule">
+                <TouchableOpacity
+                  onPress={(e: any) => { e.stopPropagation(); handleDelete(r); }}
+                  className="w-9 h-9 items-center justify-center border border-state-danger/10 rounded-xl bg-state-danger-dim"
+                >
+                  <FontAwesome name="trash-o" size={14} color={colors.danger} />
+                </TouchableOpacity>
+              </Tooltip>
+            </View>
+          );
+        }}
+        columns={[
+          {
+            key: 'rule',
+            label: 'Rule',
+            flex: 2.2,
+            render: (r) => {
+              const m = EVENT_META[r.event_type] || { label: r.event_type, icon: 'bell-o' };
+              return (
+                <View className="flex-row items-center gap-3">
+                  <View className="w-9 h-9 rounded-xl items-center justify-center border flex-shrink-0" style={{ backgroundColor: colors.primary + '1A', borderColor: colors.primary + '33' }}>
+                    <FontAwesome name={m.icon} size={14} color={colors.primary} />
+                  </View>
+                  <View className="min-w-0">
+                    <Text className="text-typography-main font-black text-sm" numberOfLines={1}>{r.name}</Text>
+                    <Text className="text-typography-muted text-[10px]">{r.is_active ? 'Active' : 'Paused'} · ID {r.id.slice(0, 8)}</Text>
+                  </View>
+                </View>
+              );
+            },
+          },
+          {
+            key: 'event',
+            label: 'Event',
+            flex: 1.2,
+            render: (r) => {
+              const m = EVENT_META[r.event_type] || { label: r.event_type };
+              return <Text className="text-typography-main text-xs font-bold">{m.label}</Text>;
+            },
+          },
+          {
+            key: 'recipients',
+            label: 'Recipients',
+            flex: 1.4,
+            render: (r) => {
+              const strat = r.recipient_strategies?.[0];
+              return <Text className="text-typography-muted text-xs">{strat ? STRATEGY_LABELS[strat] || strat : '—'}</Text>;
+            },
+          },
+          {
+            key: 'conditions',
+            label: 'Conditions',
+            flex: 1,
+            align: 'center',
+            render: (r) => {
+              const n = Object.keys(r.conditions ?? {}).length;
+              return <Text className="text-typography-muted text-xs">{n === 0 ? 'Every event' : String(n)}</Text>;
+            },
+          },
+          {
+            key: 'status',
+            label: 'Status',
+            flex: 0.9,
+            align: 'right',
+            render: (r) => (
+              <Tooltip label={r.is_active ? 'Disable rule' : 'Enable rule'}>
+                <TouchableOpacity activeOpacity={1} onPress={(e: any) => e.stopPropagation()}>
+                  <Switch
+                    value={r.is_active}
+                    onValueChange={(v) => handleToggle(r.id, v)}
+                    trackColor={{ false: colors.border, true: colors.primary }}
+                    thumbColor="#fff"
+                    style={{ transform: [{ scaleX: 0.75 }, { scaleY: 0.75 }] }}
+                  />
+                </TouchableOpacity>
+              </Tooltip>
+            ),
+          },
+        ]}
+        onItemPress={(r) => setSelectedId(r.id)}
+        storageKey="alert-rules"
+        modes={['large', 'list', 'details']}
+        defaultMode="list"
+        search={{ value: query, onChange: setQuery, placeholder: 'Search rules' }}
+        loading={false}
+        emptyState={{
+          icon: 'bell-slash',
+          title: query.trim() ? 'No matching rules' : 'No rules yet',
+          body: query.trim() ? 'Try a different search.' : 'Create a rule to get notified when something happens.',
+          actionLabel: 'New rule',
+          onAction: openCreate,
+        }}
+        listFooter={<View className="h-6" />}
+        style={{ flex: 1 }}
+      />
+
+      <Popup
+        visible={!!activeRule}
+        onClose={() => setSelectedId(null)}
+        presentation="auto"
+        maxWidth={920}
+        maxHeight="90%"
+        dimBackdrop
+        scrollable={false}
+      >
+        {activeRule && (
+          <RuleInspector
+            rule={activeRule}
+            isDesktop={isDesktop}
+            onToggle={handleToggle}
+            onEdit={openEdit}
+            onDelete={handleDelete}
+            onClose={() => setSelectedId(null)}
+          />
+        )}
+      </Popup>
 
       <RuleEditorModal
         visible={editorOpen !== 'closed'}
