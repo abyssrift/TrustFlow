@@ -3,6 +3,7 @@ import React from 'react';
 import { ScrollView, Switch, Text, TouchableOpacity, View } from 'react-native';
 
 import DraggableSheet from '@/components/common/DraggableSheet';
+import SearchableMultiSelect from '@/components/common/SearchableMultiSelect';
 import Tooltip from '@/components/common/Tooltip';
 import { Role, Team } from '@/contexts/RoleManagerContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -62,24 +63,20 @@ export default function TeamRolesSheet({ visible, onClose, team, roles, draftRol
           <FontAwesome name="shield" size={12} className="text-brand-primary" />
           <Text className="text-brand-primary text-xs font-black uppercase ml-2 tracking-widest">Roles</Text>
         </View>
-        <View className="flex-row flex-wrap gap-2 pb-4">
-          {roles.map(role => {
-            const isActive = draftRoleIds.includes(role.id);
-            return (
-              <TouchableOpacity
-                key={role.id}
-                onPress={() => onToggleRole(role.id)}
-                className={`px-4 py-3 rounded-xl border ${
-                  isActive ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'
-                }`}
-              >
-                <Text className={`text-[10px] font-black uppercase tracking-widest ${isActive ? 'text-white' : 'text-typography-muted'}`}>
-                  {role.name}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+        <SearchableMultiSelect
+          title="Roles"
+          items={roles.map(role => ({
+            id: role.id,
+            label: role.name,
+            description: role.description,
+            color: role.color,
+          }))}
+          selectedIds={draftRoleIds}
+          onToggle={onToggleRole}
+          searchPlaceholder="Search roles..."
+          emptyText="No roles match your search."
+        />
+        <View className="pb-4" />
       </ScrollView>
 
       <View className="flex-row gap-3 px-5 py-4 border-t border-surface-border">

@@ -1,6 +1,7 @@
 import Popup from '@/components/common/Popup';
 import Tooltip from '@/components/common/Tooltip';
 import MultiViewList from '@/components/common/MultiViewList';
+import SearchableMultiSelect from '@/components/common/SearchableMultiSelect';
 import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Permission, Role, Team, User, useRoleManager } from '@/contexts/RoleManagerContext';
@@ -756,40 +757,26 @@ export default function UserAssignmentGrid() {
                     <FontAwesome name="shield" size={13} color={colors.primary} />
                     <Text className="text-[11px] font-black uppercase ml-3 tracking-[0.15em]" style={{ color: colors.primary }}>Direct Roles</Text>
                   </View>
-                  <View className="flex-row flex-wrap gap-2">
-                    {(() => {
+                  <SearchableMultiSelect
+                    title="Direct Roles"
+                    items={(() => {
                       const inheritedRoleIds = draftTeamIds.flatMap(teamId =>
                         teamRoles.filter(tr => tr.team_id === teamId).map(tr => tr.role_id)
                       );
-                      return roles.map(role => {
-                        const isInherited = inheritedRoleIds.includes(role.id);
-                        const isDirect = draftRoleIds.includes(role.id);
-                        if (isInherited) {
-                          return (
-                            <View key={role.id} className="px-4 py-2.5 rounded-xl border flex-row items-center opacity-60" style={{ backgroundColor: `${colors.primary}10`, borderColor: `${colors.primary}33` }}>
-                              <FontAwesome name="lock" size={9} color={colors.primary} style={{ marginRight: 6 }} />
-                              <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.primary }}>{role.name}</Text>
-                            </View>
-                          );
-                        }
-                        return (
-                          <TouchableOpacity
-                            key={role.id}
-                            onPress={() => setDraftRoleIds(prev => isDirect ? prev.filter(id => id !== role.id) : [...prev, role.id])}
-                            className="px-4 py-2.5 rounded-xl border transition-all"
-                            style={{
-                              backgroundColor: isDirect ? colors.primary : colors.background,
-                              borderColor: isDirect ? colors.primary : colors.border
-                            }}
-                          >
-                            <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: isDirect ? colors.background : colors.textMuted }}>
-                              {role.name}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      });
+                      return roles.map(role => ({
+                        id: role.id,
+                        label: role.name,
+                        description: role.description,
+                        color: role.color,
+                        disabled: inheritedRoleIds.includes(role.id),
+                        disabledLabel: 'via team',
+                      }));
                     })()}
-                  </View>
+                    selectedIds={draftRoleIds}
+                    onToggle={(id) => setDraftRoleIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])}
+                    searchPlaceholder="Search roles..."
+                    emptyText="No roles match your search."
+                  />
                 </View>
 
                 {/* Teams */}
@@ -798,26 +785,19 @@ export default function UserAssignmentGrid() {
                     <FontAwesome name="users" size={13} color={colors.primary} />
                     <Text className="text-[11px] font-black uppercase ml-3 tracking-[0.15em]" style={{ color: colors.primary }}>Team Membership</Text>
                   </View>
-                  <View className="flex-row flex-wrap gap-2">
-                    {teams.map(team => {
-                      const isActive = draftTeamIds.includes(team.id);
-                      return (
-                        <TouchableOpacity
-                          key={team.id}
-                          onPress={() => setDraftTeamIds(prev => isActive ? prev.filter(id => id !== team.id) : [...prev, team.id])}
-                          className="px-4 py-2.5 rounded-xl border transition-all"
-                          style={{
-                            backgroundColor: isActive ? colors.primary : colors.background,
-                            borderColor: isActive ? colors.primary : colors.border
-                          }}
-                        >
-                          <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: isActive ? colors.background : colors.textMuted }}>
-                            {team.name}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
+                  <SearchableMultiSelect
+                    title="Team Membership"
+                    items={teams.map(team => ({
+                      id: team.id,
+                      label: team.name,
+                      description: team.description,
+                      color: team.color,
+                    }))}
+                    selectedIds={draftTeamIds}
+                    onToggle={(id) => setDraftTeamIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])}
+                    searchPlaceholder="Search teams..."
+                    emptyText="No teams match your search."
+                  />
                 </View>
               </View>
             )}
@@ -1088,46 +1068,26 @@ export default function UserAssignmentGrid() {
                         <FontAwesome name="shield" size={11} color={colors.primary} />
                         <Text className="text-[10px] font-black uppercase ml-2 tracking-widest" style={{ color: colors.primary }}>Direct Roles</Text>
                       </View>
-                      <View className="gap-2">
-                        {(() => {
+                      <SearchableMultiSelect
+                        title="Direct Roles"
+                        items={(() => {
                           const inheritedRoleIds = draftTeamIds.flatMap(teamId =>
                             teamRoles.filter(tr => tr.team_id === teamId).map(tr => tr.role_id)
                           );
-                          return roles.map(role => {
-                            const isInherited = inheritedRoleIds.includes(role.id);
-                            const isDirect = draftRoleIds.includes(role.id);
-                            if (isInherited) {
-                              return (
-                                <View key={role.id} className="flex-row items-center justify-between p-3 rounded-lg border opacity-60" style={{ backgroundColor: `${colors.primary}10`, borderColor: `${colors.primary}33` }}>
-                                  <View className="flex-row items-center flex-1 mr-2">
-                                    <FontAwesome name="lock" size={9} color={colors.primary} style={{ marginRight: 8 }} />
-                                    <Text className="text-[10px] font-black uppercase tracking-tight" style={{ color: colors.primary }}>{role.name}</Text>
-                                  </View>
-                                  <Text className="text-[8px] font-black uppercase tracking-widest" style={{ color: colors.primary }}>via team</Text>
-                                </View>
-                              );
-                            }
-                            return (
-                              <TouchableOpacity
-                                key={role.id}
-                                onPress={() => setDraftRoleIds(prev => isDirect ? prev.filter(id => id !== role.id) : [...prev, role.id])}
-                                className="flex-row items-center justify-between p-3 rounded-lg border"
-                                style={{
-                                  backgroundColor: isDirect ? `${colors.primary}10` : colors.background,
-                                  borderColor: isDirect ? `${colors.primary}66` : colors.border
-                                }}
-                              >
-                                <Text className="text-[10px] font-black uppercase tracking-tight flex-1" style={{ color: isDirect ? colors.textMain : colors.textMuted }}>
-                                  {role.name}
-                                </Text>
-                                <View className="w-5 h-5 rounded-full items-center justify-center border ml-2 flex-shrink-0" style={{ backgroundColor: isDirect ? colors.primary : 'transparent', borderColor: isDirect ? colors.primary : colors.border }}>
-                                  {isDirect && <FontAwesome name="check" size={9} color={colors.background} />}
-                                </View>
-                              </TouchableOpacity>
-                            );
-                          });
+                          return roles.map(role => ({
+                            id: role.id,
+                            label: role.name,
+                            description: role.description,
+                            color: role.color,
+                            disabled: inheritedRoleIds.includes(role.id),
+                            disabledLabel: 'via team',
+                          }));
                         })()}
-                      </View>
+                        selectedIds={draftRoleIds}
+                        onToggle={(id) => setDraftRoleIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])}
+                        searchPlaceholder="Search roles..."
+                        emptyText="No roles match your search."
+                      />
                     </View>
 
                     {/* Teams */}
@@ -1136,29 +1096,19 @@ export default function UserAssignmentGrid() {
                         <FontAwesome name="users" size={11} color={colors.primary} />
                         <Text className="text-[10px] font-black uppercase ml-2 tracking-widest" style={{ color: colors.primary }}>Team Membership</Text>
                       </View>
-                      <View className="gap-2">
-                        {teams.map(team => {
-                          const isActive = draftTeamIds.includes(team.id);
-                          return (
-                            <TouchableOpacity
-                              key={team.id}
-                              onPress={() => setDraftTeamIds(prev => isActive ? prev.filter(id => id !== team.id) : [...prev, team.id])}
-                              className="flex-row items-center justify-between p-3 rounded-lg border"
-                              style={{
-                                backgroundColor: isActive ? `${colors.primary}10` : colors.background,
-                                borderColor: isActive ? `${colors.primary}66` : colors.border
-                              }}
-                            >
-                              <Text className="text-[10px] font-black uppercase tracking-tight flex-1" style={{ color: isActive ? colors.textMain : colors.textMuted }}>
-                                {team.name}
-                              </Text>
-                              <View className="w-5 h-5 rounded-full items-center justify-center border ml-2 flex-shrink-0" style={{ backgroundColor: isActive ? colors.primary : 'transparent', borderColor: isActive ? colors.primary : colors.border }}>
-                                {isActive && <FontAwesome name="check" size={9} color={colors.background} />}
-                              </View>
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </View>
+                      <SearchableMultiSelect
+                        title="Team Membership"
+                        items={teams.map(team => ({
+                          id: team.id,
+                          label: team.name,
+                          description: team.description,
+                          color: team.color,
+                        }))}
+                        selectedIds={draftTeamIds}
+                        onToggle={(id) => setDraftTeamIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])}
+                        searchPlaceholder="Search teams..."
+                        emptyText="No teams match your search."
+                      />
                     </View>
                   </View>
                 )}

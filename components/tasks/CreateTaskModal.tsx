@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DraggableSheet from '../common/DraggableSheet';
 import LoadingOverlay from '../common/LoadingOverlay';
 import ClipboardControls from '../common/ClipboardControls';
+import SearchableMultiSelect from '../common/SearchableMultiSelect';
 import { DateRangePillPicker } from '@/components/intelligence/DateRangeFilter';
 import { formatFileSize, getFileIcon } from '@/lib/taskFileHelpers';
 import { useCreateTaskWizard } from '@/lib/useCreateTaskWizard';
@@ -378,32 +379,36 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
              />
 
              <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2 ml-1">Resources</Text>
-             <ScrollView className="max-h-96">
-                <Text className="text-brand-primary text-[10px] font-black uppercase mb-3">Agents</Text>
-                <View className="flex-row flex-wrap gap-2 mb-6">
-                   {users.map(u => (
-                     <TouchableOpacity
-                       key={u.id}
-                       onPress={() => setDraft({ assigneeUserIds: draft.assigneeUserIds.includes(u.id) ? draft.assigneeUserIds.filter(id => id !== u.id) : [...draft.assigneeUserIds, u.id] })}
-                       className={`px-4 py-2 rounded-lg border ${draft.assigneeUserIds.includes(u.id) ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
-                     >
-                       <Text className={`text-[10px] font-bold ${draft.assigneeUserIds.includes(u.id) ? 'text-white' : 'text-typography-main'}`}>{u.full_name}</Text>
-                     </TouchableOpacity>
-                   ))}
-                </View>
-                <Text className="text-brand-accent text-[10px] font-black uppercase mb-3">Teams</Text>
-                <View className="flex-row flex-wrap gap-2 mb-6">
-                   {teams.map(t => (
-                     <TouchableOpacity
-                       key={t.id}
-                       onPress={() => toggleTeamAssignee(t.id)}
-                       className={`px-4 py-2 rounded-lg border ${draft.assigneeTeamIds.includes(t.id) ? 'bg-brand-accent border-brand-accent' : 'bg-surface-background border-surface-border'}`}
-                     >
-                       <Text className={`text-[10px] font-bold ${draft.assigneeTeamIds.includes(t.id) ? 'text-white' : 'text-typography-main'}`}>{t.name}</Text>
-                     </TouchableOpacity>
-                   ))}
-                </View>
-             </ScrollView>
+             <View className="gap-6">
+                <SearchableMultiSelect
+                  title="Agents"
+                  items={users.map(u => ({
+                    id: u.id,
+                    label: u.full_name || u.email,
+                    color: colors.primary,
+                    icon: 'user',
+                  }))}
+                  selectedIds={draft.assigneeUserIds}
+                  onToggle={(id) => setDraft({ assigneeUserIds: draft.assigneeUserIds.includes(id) ? draft.assigneeUserIds.filter(x => x !== id) : [...draft.assigneeUserIds, id] })}
+                  searchPlaceholder="Search agents..."
+                  emptyText="No agents match your search."
+                  accent={colors.primary}
+                />
+                <SearchableMultiSelect
+                  title="Teams"
+                  items={teams.map(t => ({
+                    id: t.id,
+                    label: t.name,
+                    description: t.description,
+                    color: t.color || colors.accent,
+                  }))}
+                  selectedIds={draft.assigneeTeamIds}
+                  onToggle={toggleTeamAssignee}
+                  searchPlaceholder="Search teams..."
+                  emptyText="No teams match your search."
+                  accent={colors.accent}
+                />
+             </View>
           </View>
         );
       default:

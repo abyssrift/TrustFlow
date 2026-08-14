@@ -3,6 +3,7 @@ import ClipboardControls from '@/components/common/ClipboardControls';
 import DraggableSheet from '@/components/common/DraggableSheet';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
 import Popup from '@/components/common/Popup';
+import SearchableMultiSelect from '@/components/common/SearchableMultiSelect';
 import SidebarLayout from '@/components/common/SidebarLayout';
 import { DateRangePillPicker } from '@/components/intelligence/DateRangeFilter';
 import Tooltip from '@/components/common/Tooltip';
@@ -1545,72 +1546,39 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
               ) : (
                 /* ── ASSIGNMENTS TAB ── */
                 <View className="gap-8 pb-10">
-                  <View className="rounded-2xl flex-row items-center px-6 py-4 mb-4" style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}>
-                    <FontAwesome name="search" size={14} color={colors.textMuted} />
-                    <TextInput
-                      placeholder="Search Agents or Teams..."
-                      placeholderTextColor={colors.textDim}
-                      value={search}
-                      onChangeText={setSearch}
-                      className="flex-1 font-bold ml-4"
-                      style={{ color: colors.textMain }}
-                    />
-                    {search.length > 0 && (
-                      <Tooltip label="Clear search">
-                        <TouchableOpacity onPress={() => setSearch('')} className="ml-2 p-1">
-                          <FontAwesome name="times-circle" size={13} color={colors.textDim} />
-                        </TouchableOpacity>
-                      </Tooltip>
-                    )}
-                  </View>
-
                   <View className="flex-row gap-8">
                     <View className="flex-1">
-                      <Text className="text-[10px] font-black uppercase tracking-widest mb-4 ml-1" style={{ color: colors.primary }}>Individual Agents</Text>
-                      <View className="gap-2">
-                        {users.filter(u => u.full_name?.toLowerCase().includes(search.toLowerCase())).map(u => (
-                          <TouchableOpacity
-                            key={u.id}
-                            onPress={() => toggleUser(u.id)}
-                            className={`flex-row items-center justify-between p-4 rounded-xl border transition-all ${draft.assigneeUserIds.includes(u.id) ? '' : 'hover:border-brand-primary/40'}`}
-                            style={{
-                              backgroundColor: draft.assigneeUserIds.includes(u.id) ? colors.primary + '1A' : colors.background + '80',
-                              borderColor: draft.assigneeUserIds.includes(u.id) ? colors.primary : colors.border,
-                            }}
-                          >
-                            <View className="flex-row items-center">
-                              <View className="w-8 h-8 rounded-full items-center justify-center mr-3" style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}>
-                                <Text className="font-black text-[10px]" style={{ color: colors.textMain }}>{u.full_name?.charAt(0)}</Text>
-                              </View>
-                              <Text className="font-bold text-sm" style={{ color: colors.textMain }}>{u.full_name}</Text>
-                            </View>
-                            {draft.assigneeUserIds.includes(u.id) && <FontAwesome name="check" size={12} color={colors.primary} />}
-                          </TouchableOpacity>
-                        ))}
-                      </View>
+                      <SearchableMultiSelect
+                        title="Individual Agents"
+                        items={users.map(u => ({
+                          id: u.id,
+                          label: u.full_name || u.email,
+                          color: colors.primary,
+                          icon: 'user',
+                        }))}
+                        selectedIds={draft.assigneeUserIds}
+                        onToggle={toggleUser}
+                        searchPlaceholder="Search agents..."
+                        emptyText="No agents match your search."
+                        accent={colors.primary}
+                      />
                     </View>
 
                     <View className="flex-1">
-                      <Text className="text-[10px] font-black uppercase tracking-widest mb-4 ml-1" style={{ color: colors.accent }}>Tactical Teams</Text>
-                      <View className="gap-2">
-                        {teams.filter(t => t.name?.toLowerCase().includes(search.toLowerCase())).map(t => (
-                          <TouchableOpacity
-                            key={t.id}
-                            onPress={() => toggleTeamAssignee(t.id)}
-                            className={`flex-row items-center justify-between p-4 rounded-xl border transition-all ${draft.assigneeTeamIds.includes(t.id) ? '' : 'hover:border-brand-accent/40'}`}
-                            style={{
-                              backgroundColor: draft.assigneeTeamIds.includes(t.id) ? colors.accent + '1A' : colors.background + '80',
-                              borderColor: draft.assigneeTeamIds.includes(t.id) ? colors.accent : colors.border,
-                            }}
-                          >
-                            <View className="flex-row items-center">
-                              <View style={{ backgroundColor: t.color || colors.accent }} className="w-3 h-3 rounded-full mr-4" />
-                              <Text className="font-bold text-sm" style={{ color: colors.textMain }}>{t.name}</Text>
-                            </View>
-                            {draft.assigneeTeamIds.includes(t.id) && <FontAwesome name="check" size={12} color={colors.accent} />}
-                          </TouchableOpacity>
-                        ))}
-                      </View>
+                      <SearchableMultiSelect
+                        title="Tactical Teams"
+                        items={teams.map(t => ({
+                          id: t.id,
+                          label: t.name,
+                          description: t.description,
+                          color: t.color || colors.accent,
+                        }))}
+                        selectedIds={draft.assigneeTeamIds}
+                        onToggle={toggleTeamAssignee}
+                        searchPlaceholder="Search teams..."
+                        emptyText="No teams match your search."
+                        accent={colors.accent}
+                      />
                     </View>
                   </View>
                 </View>
