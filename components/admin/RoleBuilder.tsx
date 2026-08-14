@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Platform } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, Text, TouchableOpacity, Platform } from 'react-native';
 import RoleEditorSheet from '@/components/admin/RoleEditorSheet';
 import RoleTemplateGallery from '@/components/admin/RoleTemplateGallery';
 import { FontAwesome } from '@expo/vector-icons';
@@ -9,6 +9,7 @@ import { useAlert } from '@/contexts/AlertContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { RoleTemplate } from '@/lib/roleTemplates';
 import Tooltip from '@/components/common/Tooltip';
+import MultiViewList from '@/components/common/MultiViewList';
 
 export default function RoleBuilder() {
   const colors = useThemeColors();
@@ -19,6 +20,16 @@ export default function RoleBuilder() {
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [query, setQuery] = useState('');
+
+  const visibleRoles = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return roles;
+    return roles.filter((r) =>
+      r.name.toLowerCase().includes(q) ||
+      (r.description ?? '').toLowerCase().includes(q)
+    );
+  }, [roles, query]);
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -112,8 +123,7 @@ export default function RoleBuilder() {
 
   return (
     <View className="flex-1">
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <View className="flex-row items-center justify-between mb-6 px-1">
+        <View className="flex-row items-center justify-between mb-4 px-1">
           <View className="flex-1 mr-3">
             <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.25em] mb-1">Structural Paradigms</Text>
             <Text className="text-typography-main text-2xl font-black tracking-tight">Role Registry</Text>
@@ -137,88 +147,190 @@ export default function RoleBuilder() {
           )}
         </View>
 
-        <View className="gap-3 pb-32">
-          {roles.map(role => {
-            const nPeople = userRoles.filter(u => u.role_id === role.id).length;
-            const nTeams = teamRoles.filter(t => t.role_id === role.id).length;
+        <MultiViewList
+          items={visibleRoles}
+          keyExtractor={(r) => r.id}
+          renderCard={(r) => {
+            const nPeople = userRoles.filter(u => u.role_id === r.id).length;
+            const nTeams = teamRoles.filter(t => t.role_id === r.id).length;
             return (
-            <TouchableOpacity
-              key={role.id}
-              onPress={() => handleEditRole(role)}
-              className="bg-surface-card w-full p-5 rounded-2xl border border-surface-border active:scale-[0.98]"
-            >
-              <View className="flex-row items-center justify-between mb-3">
-                <View className="flex-row items-center flex-1 mr-3">
-                  <View
-                    style={{ backgroundColor: role.color?.includes('var') ? colors.primary : (role.color || colors.primary) }}
-                    className="w-3.5 h-3.5 rounded-full mr-3 flex-shrink-0"
-                  />
-                  <Text className="text-typography-main font-black text-base flex-shrink" numberOfLines={1}>{role.name}</Text>
-                  {role.is_system && (
-                    <View className="bg-brand-primary/10 px-2 py-0.5 rounded-lg ml-2 border border-brand-primary/20 flex-shrink-0">
-                      <Text className="text-brand-primary text-[8px] font-black uppercase tracking-widest">System</Text>
+              <View className="bg-surface-card w-full p-5 rounded-2xl border border-surface-border">
+                <View className="flex-row items-center justify-between mb-3">
+                  <View className="flex-row items-center flex-1 mr-3">
+                    <View
+                      style={{ backgroundColor: r.color?.includes('var') ? colors.primary : (r.color || colors.primary) }}
+                      className="w-3.5 h-3.5 rounded-full mr-3 flex-shrink-0"
+                    />
+                    <Text className="text-typography-main font-black text-base flex-shrink" numberOfLines={1}>{r.name}</Text>
+                    {r.is_system && (
+                      <View className="bg-brand-primary/10 px-2 py-0.5 rounded-lg ml-2 border border-brand-primary/20 flex-shrink-0">
+                        <Text className="text-brand-primary text-[8px] font-black uppercase tracking-widest">System</Text>
+                      </View>
+                    )}
+                  </View>
+                  <View className="flex-row items-center gap-2 flex-shrink-0">
+                    {canManageRoles && Platform.OS === 'web' && (
+                      <Tooltip label="Duplicate role">
+                        <TouchableOpacity
+                          onPress={(e: any) => {
+                            e.stopPropagation();
+                            handleCloneRole(r);
+                          }}
+                          className="w-9 h-9 items-center justify-center border border-surface-border rounded-xl bg-surface-background"
+                        >
+                          <FontAwesome name="clone" size={13} color={colors.textMuted} />
+                        </TouchableOpacity>
+                      </Tooltip>
+                    )}
+                    {!r.is_system && canManageRoles && (
+                      <Tooltip label="Delete role">
+                        <TouchableOpacity
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleDelete(r);
+                          }}
+                          className="w-9 h-9 items-center justify-center border border-state-danger/10 rounded-xl bg-state-danger-dim"
+                        >
+                          <FontAwesome name="trash-o" size={14} color={colors.danger} />
+                        </TouchableOpacity>
+                      </Tooltip>
+                    )}
+                  </View>
+                </View>
+
+                <Text className="text-typography-muted text-xs mb-4 leading-5" numberOfLines={2}>
+                  {r.description || 'No description provided.'}
+                </Text>
+
+                <View className="flex-row items-center gap-2">
+                  <Tooltip label="Permissions granted to this role">
+                    <View className="bg-surface-background px-3 py-1.5 rounded-lg border border-surface-border flex-row items-center">
+                      <FontAwesome name="key" size={10} color={colors.primary} />
+                      <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest ml-2">
+                        {r.permissionIds?.length || 0} permissions
+                      </Text>
                     </View>
-                  )}
-                </View>
-                <View className="flex-row items-center gap-2 flex-shrink-0">
-                  {canManageRoles && Platform.OS === 'web' && (
-                    <Tooltip label="Duplicate role">
-                      <TouchableOpacity
-                        onPress={(e: any) => {
-                          e.stopPropagation();
-                          handleCloneRole(role);
-                        }}
-                        className="w-9 h-9 items-center justify-center border border-surface-border rounded-xl bg-surface-background"
-                      >
-                        <FontAwesome name="clone" size={13} color={colors.textMuted} />
-                      </TouchableOpacity>
-                    </Tooltip>
-                  )}
-                  {!role.is_system && canManageRoles && (
-                    <Tooltip label="Delete role">
-                      <TouchableOpacity
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          handleDelete(role);
-                        }}
-                        className="w-9 h-9 items-center justify-center border border-state-danger/10 rounded-xl bg-state-danger-dim"
-                      >
-                        <FontAwesome name="trash-o" size={14} color={colors.danger} />
-                      </TouchableOpacity>
-                    </Tooltip>
-                  )}
+                  </Tooltip>
+                  <Tooltip label="Members with this role">
+                    <View className="bg-surface-background px-3 py-1.5 rounded-lg border border-surface-border flex-row items-center">
+                      <FontAwesome name="user" size={10} color={colors.textMuted} />
+                      <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest ml-2">
+                        {nPeople + nTeams > 0
+                          ? `${nPeople} ${nPeople === 1 ? 'person' : 'people'} · ${nTeams} ${nTeams === 1 ? 'team' : 'teams'}`
+                          : 'Unassigned'}
+                      </Text>
+                    </View>
+                  </Tooltip>
                 </View>
               </View>
-
-              <Text className="text-typography-muted text-xs mb-4 leading-5" numberOfLines={2}>
-                {role.description || 'No description provided.'}
-              </Text>
-
-              <View className="flex-row items-center gap-2">
-                <Tooltip label="Permissions granted to this role">
-                  <View className="bg-surface-background px-3 py-1.5 rounded-lg border border-surface-border flex-row items-center">
-                    <FontAwesome name="key" size={10} color={colors.primary} />
-                    <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest ml-2">
-                      {role.permissionIds?.length || 0} permissions
-                    </Text>
-                  </View>
-                </Tooltip>
-                <Tooltip label="Members with this role">
-                  <View className="bg-surface-background px-3 py-1.5 rounded-lg border border-surface-border flex-row items-center">
-                    <FontAwesome name="user" size={10} color={colors.textMuted} />
-                    <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest ml-2">
-                      {nPeople + nTeams > 0
-                        ? `${nPeople} ${nPeople === 1 ? 'person' : 'people'} · ${nTeams} ${nTeams === 1 ? 'team' : 'teams'}`
-                        : 'Unassigned'}
-                    </Text>
-                  </View>
-                </Tooltip>
-              </View>
-            </TouchableOpacity>
             );
-          })}
-        </View>
-      </ScrollView>
+          }}
+          renderRow={(r) => {
+            const nPeople = userRoles.filter(u => u.role_id === r.id).length;
+            const nTeams = teamRoles.filter(t => t.role_id === r.id).length;
+            return (
+              <View className="flex-row items-center gap-3">
+                <View
+                  style={{ backgroundColor: r.color?.includes('var') ? colors.primary : (r.color || colors.primary) }}
+                  className="w-9 h-9 rounded-xl items-center justify-center flex-shrink-0"
+                >
+                  <FontAwesome name="shield" size={14} color="white" />
+                </View>
+                <View className="flex-1 min-w-0">
+                  <View className="flex-row items-center gap-2">
+                    <Text className="text-typography-main font-black text-sm flex-shrink" numberOfLines={1}>{r.name}</Text>
+                    {r.is_system && (
+                      <View className="bg-brand-primary/10 px-2 py-0.5 rounded-lg border border-brand-primary/20 flex-shrink-0">
+                        <Text className="text-brand-primary text-[8px] font-black uppercase tracking-widest">System</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text className="text-typography-muted text-[11px]" numberOfLines={1}>
+                    {r.permissionIds?.length || 0} permissions · {nPeople + nTeams > 0 ? `${nPeople} people · ${nTeams} teams` : 'Unassigned'}
+                  </Text>
+                </View>
+                {canManageRoles && Platform.OS === 'web' && (
+                  <Tooltip label="Duplicate role">
+                    <TouchableOpacity
+                      onPress={(e: any) => { e.stopPropagation(); handleCloneRole(r); }}
+                      className="w-9 h-9 items-center justify-center border border-surface-border rounded-xl bg-surface-background"
+                    >
+                      <FontAwesome name="clone" size={13} color={colors.textMuted} />
+                    </TouchableOpacity>
+                  </Tooltip>
+                )}
+                {!r.is_system && canManageRoles && (
+                  <Tooltip label="Delete role">
+                    <TouchableOpacity
+                      onPress={(e: any) => { e.stopPropagation(); handleDelete(r); }}
+                      className="w-9 h-9 items-center justify-center border border-state-danger/10 rounded-xl bg-state-danger-dim"
+                    >
+                      <FontAwesome name="trash-o" size={14} color={colors.danger} />
+                    </TouchableOpacity>
+                  </Tooltip>
+                )}
+              </View>
+            );
+          }}
+          columns={[
+            {
+              key: 'role',
+              label: 'Role',
+              flex: 2.2,
+              render: (r) => (
+                <View className="flex-row items-center gap-3">
+                  <View
+                    style={{ backgroundColor: r.color?.includes('var') ? colors.primary : (r.color || colors.primary) }}
+                    className="w-9 h-9 rounded-xl items-center justify-center flex-shrink-0"
+                  >
+                    <FontAwesome name="shield" size={14} color="white" />
+                  </View>
+                  <View className="min-w-0">
+                    <Text className="text-typography-main font-black text-sm" numberOfLines={1}>{r.name}</Text>
+                    <Text className="text-typography-muted text-[10px]">{r.is_system ? 'System role' : 'Custom role'}</Text>
+                  </View>
+                </View>
+              ),
+            },
+            {
+              key: 'permissions',
+              label: 'Permissions',
+              flex: 1.2,
+              render: (r) => <Text className="text-typography-main text-xs font-bold">{r.permissionIds?.length || 0}</Text>,
+            },
+            {
+              key: 'members',
+              label: 'Members',
+              flex: 1.4,
+              render: (r) => {
+                const nPeople = userRoles.filter(u => u.role_id === r.id).length;
+                const nTeams = teamRoles.filter(t => t.role_id === r.id).length;
+                return <Text className="text-typography-muted text-xs">{nPeople + nTeams > 0 ? `${nPeople} people · ${nTeams} teams` : 'Unassigned'}</Text>;
+              },
+            },
+            {
+              key: 'status',
+              label: 'Status',
+              flex: 0.9,
+              align: 'right',
+              render: (r) => <Text className="text-typography-muted text-[10px] uppercase font-black tracking-widest">{r.is_system ? 'System' : 'Custom'}</Text>,
+            },
+          ]}
+          onItemPress={(r) => handleEditRole(r)}
+          storageKey="role-registry"
+          modes={['large', 'list', 'details']}
+          defaultMode="large"
+          search={{ value: query, onChange: setQuery, placeholder: 'Search roles' }}
+          loading={loading}
+          emptyState={{
+            icon: 'shield',
+            title: query.trim() ? 'No matching roles' : 'No roles yet',
+            body: query.trim() ? 'Try a different search.' : 'Create a role to define permissions for your team.',
+            actionLabel: 'New role',
+            onAction: canManageRoles ? () => handleStartCreate() : undefined,
+          }}
+          style={{ flex: 1 }}
+        />
 
       <RoleEditorSheet
         visible={!!editingRole || isCreating}
