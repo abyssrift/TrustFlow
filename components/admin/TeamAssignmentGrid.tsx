@@ -254,7 +254,7 @@ export default function TeamAssignmentGrid() {
                   <Text className="text-typography-main font-black text-sm" numberOfLines={1}>{t.name}</Text>
                   <Text className="text-typography-muted text-[11px]" numberOfLines={1}>{t.description || 'No description'}</Text>
                 </View>
-                {members.length > 0 && <MemberStack members={members} size={20} max={3} />}
+                {members.length > 0 && <MemberStack members={members} size={26} max={3} />}
                 <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest flex-shrink-0">
                   {teamRoleObjs.length} role{teamRoleObjs.length !== 1 ? 's' : ''}
                 </Text>
@@ -289,7 +289,7 @@ export default function TeamAssignmentGrid() {
                 const members = membersByTeam.get(t.id) || [];
                 return (
                   <View className="flex-row items-center gap-1.5">
-                    {members.length > 0 && <MemberStack members={members} size={18} max={3} />}
+                    {members.length > 0 && <MemberStack members={members} size={24} max={3} />}
                     <Text className="text-typography-muted text-xs">{members.length}</Text>
                   </View>
                 );
