@@ -531,12 +531,12 @@ export default function UserAssignmentGrid() {
                       <FontAwesome name="envelope-o" size={13} color={colors.textMuted} style={{ width: 24 }} />
                       <Text className="ml-3 text-sm" style={{ color: colors.textMain }}>{selectedUser.email}</Text>
                     </View>
-                    {selectedUser.phone && (
+                    {selectedUser.phone ? (
                       <View className="flex-row items-center">
                         <FontAwesome name="phone" size={13} color={colors.textMuted} style={{ width: 24 }} />
                         <Text className="ml-3 text-sm" style={{ color: colors.textMain }}>{selectedUser.phone}</Text>
                       </View>
-                    )}
+                    ) : null}
                   </View>
                 </View>
 
@@ -604,9 +604,9 @@ export default function UserAssignmentGrid() {
                                     </View>
                                   )}
                                 </View>
-                                {role.description && (
+                                {role.description ? (
                                   <Text className="text-xs mt-1.5 leading-5" style={{ color: colors.textMuted }}>{role.description}</Text>
-                                )}
+                                ) : null}
                               </View>
                             ))}
                           </View>
@@ -621,9 +621,9 @@ export default function UserAssignmentGrid() {
                             {info.teams.map(team => (
                               <View key={team.id} className="p-4 rounded-xl border" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
                                 <Text className="font-black text-sm" style={{ color: colors.textMain }}>{team.name}</Text>
-                                {team.description && (
+                                {team.description ? (
                                   <Text className="text-xs mt-1.5 leading-5" style={{ color: colors.textMuted }}>{team.description}</Text>
-                                )}
+                                ) : null}
                               </View>
                             ))}
                           </View>
@@ -894,12 +894,12 @@ export default function UserAssignmentGrid() {
                             {selectedUser.email}
                           </Text>
                         </View>
-                        {selectedUser.phone && (
+                        {selectedUser.phone ? (
                           <View className="flex-row items-center p-3 rounded-lg border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
                             <FontAwesome name="phone" size={11} color={colors.textMuted} style={{ marginRight: 12, width: 20 }} />
                             <Text className="text-xs" style={{ color: colors.textMain }}>{selectedUser.phone}</Text>
                           </View>
-                        )}
+                        ) : null}
                       </View>
                     </View>
 
@@ -966,9 +966,9 @@ export default function UserAssignmentGrid() {
                                         </View>
                                       )}
                                     </View>
-                                    {role.description && (
+                                    {role.description ? (
                                       <Text className="text-xs mt-1.5 leading-5" style={{ color: colors.textMuted }}>{role.description}</Text>
-                                    )}
+                                    ) : null}
                                   </View>
                                 ))}
                               </View>
@@ -983,9 +983,9 @@ export default function UserAssignmentGrid() {
                                 {info.teams.map(team => (
                                   <View key={team.id} className="p-3 rounded-lg border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
                                     <Text className="font-black text-sm" style={{ color: colors.textMain }}>{team.name}</Text>
-                                    {team.description && (
+                                    {team.description ? (
                                       <Text className="text-xs mt-1.5 leading-5" style={{ color: colors.textMuted }}>{team.description}</Text>
-                                    )}
+                                    ) : null}
                                   </View>
                                 ))}
                               </View>

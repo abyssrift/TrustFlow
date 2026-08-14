@@ -131,9 +131,9 @@ export default function SearchableMultiSelect({
               className="flex-row items-center px-2.5 py-1.5 rounded-lg"
               style={{ backgroundColor: accentColor + '14', borderWidth: 1, borderColor: accentColor + '3D' }}
             >
-              {it.color && (
+              {it.color ? (
                 <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: it.color?.includes('var') ? c.primary : it.color, marginRight: 6 }} />
-              )}
+              ) : null}
               <Text className="text-[9px] font-black uppercase tracking-widest" style={{ color: accentColor }} numberOfLines={1}>
                 {it.label}
               </Text>
@@ -222,7 +222,7 @@ export default function SearchableMultiSelect({
                       </View>
                     ) : it.color || it.icon ? (
                       <View className="w-6 h-6 rounded-lg items-center justify-center mr-3 flex-shrink-0" style={{ backgroundColor: swatchColor }}>
-                        {it.icon && <FontAwesome name={it.icon as any} size={11} color="#fff" />}
+                        {it.icon ? <FontAwesome name={it.icon as any} size={11} color="#fff" /> : null}
                       </View>
                     ) : null}
 
@@ -231,26 +231,26 @@ export default function SearchableMultiSelect({
                         <Text style={{ color: isActive ? c.textMain : c.textMuted }} className="font-black text-[11px] tracking-tight flex-shrink" numberOfLines={1}>
                           {it.label}
                         </Text>
-                        {it.badge && (
+                        {it.badge ? (
                           <View className="ml-2 px-1.5 py-0.5 rounded flex-shrink-0" style={{ backgroundColor: accentColor + '14' }}>
                             <Text className="text-[8px] font-black uppercase tracking-widest" style={{ color: accentColor }}>{it.badge}</Text>
                           </View>
-                        )}
+                        ) : null}
                       </View>
-                      {it.description && (
+                      {it.description ? (
                         <Text style={{ color: c.textDim }} className="text-[10px] font-bold leading-4 mt-0.5" numberOfLines={1}>
                           {it.description}
                         </Text>
-                      )}
+                      ) : null}
                     </View>
 
                     {/* Trailing: lock or checkbox */}
                     {isLocked ? (
                       <View className="flex-row items-center ml-2 flex-shrink-0">
                         <FontAwesome name="lock" size={10} color={accentColor} />
-                        {it.disabledLabel && (
+                        {it.disabledLabel ? (
                           <Text className="text-[8px] font-black uppercase tracking-widest ml-1" style={{ color: accentColor }}>{it.disabledLabel}</Text>
-                        )}
+                        ) : null}
                       </View>
                     ) : (
                       <View
