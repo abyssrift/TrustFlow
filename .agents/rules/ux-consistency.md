@@ -170,6 +170,18 @@ one-off filter bar, chip wall, or filter modal — compose these primitives inst
   `flex-1 min-w-[220px]` children). Do **not** rely on `grid-cols-*` classes —
   CSS grid does not render in this app's RN-web build; use flex-wrap.
 
+## SearchableMultiSelect
+
+The reusable **scalable picker** for any entity multi-select embedded in a popup/sheet (roles, teams, agents — issues #221/#222/#255). Replace large pill walls and stacked checkbox lists with a searchable, grouped, compact row list that stays usable at 10+ options.
+
+- **Where it lives:** `components/common/SearchableMultiSelect.tsx`. Generalizes the searchable grouped permission list that `RoleEditorSheet.web.tsx` proved (drill-in / dedicated-pane picking) to any item type.
+- **Props:** `title`, `items: SearchableMultiSelectItem[]` (`{id, label, description?, color?, category?, disabled?, disabledLabel?, avatarUrl?, icon?, badge?}`), `selectedIds`, `onToggle(id)`, `searchPlaceholder`, `emptyText`, `accent`, `showSelectedChips`, `hideBulkToggle`, `flat`.
+- **Grouping & counts:** items with the same `category` sit under a header with `n/total` counts and an All/Clear bulk toggle. Set `flat` to skip grouping.
+- **Locked items:** `disabled` items render a lock glyph + `disabledLabel` (e.g. "via team" for a role a member inherits from a team) and ignore taps — the caller passes the read-only set through unchanged.
+- **No ScrollView of its own.** It renders rows inline so a long list rides the parent Popup/DraggableSheet scroll. Nest it in the body that already scrolls.
+- **Grid-free.** flex-row/column only — CSS grid renders wrong in this RN-web build (same rule as Filter Panels).
+- Adopted in: `TeamRolesSheet` (team → roles), `UserAssignmentGrid` Access tab (member → direct roles + teams, with inherited-role locks), `CreateTaskModal` assignments pane (people + teams).
+
 ## When to use what
 
 | You need this | Use this |
@@ -185,6 +197,7 @@ one-off filter bar, chip wall, or filter modal — compose these primitives inst
 | An animated filter panel under a toolbar trigger | `FilterPanel` / `SlideDownPanel` (see Filter Panels above) |
 | A short categorical filter (~2-6 options) | `FilterChipGroup` inside a filter panel |
 | A long or sortable filter dimension | `FilterDropdown` (multi or `single`) |
+| A scalable multi-select of roles/teams/agents inside a popup | `SearchableMultiSelect` (see above) — never a pill wall or stacked checkbox list |
 | Hint text on an icon/control | `Tooltip` (hover on web, long-press on native) |
 | Hint content with links/buttons in it | `Popup` — not `Tooltip` |
 | A uniform list/grid/table of items with a density switcher | `MultiViewList` (see below) |

@@ -2,6 +2,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React from 'react';
 import { ScrollView, Switch, Text, TouchableOpacity, View } from 'react-native';
 
+import SearchableMultiSelect from '@/components/common/SearchableMultiSelect';
 import { Role } from '@/contexts/RoleManagerContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import Popup from '@/components/common/Popup';
@@ -67,27 +68,20 @@ export default function TeamRolesSheet({ visible, onClose, team, roles, draftRol
               <FontAwesome name="shield" size={12} color={c.primary} />
               <Text style={{ color: c.primary }} className="text-xs font-black uppercase ml-2 tracking-widest">Roles</Text>
             </View>
-            <View className="flex-row flex-wrap gap-2 pb-4">
-              {roles.map((role: Role) => {
-                const isActive = draftRoleIds.includes(role.id);
-                return (
-                  <TouchableOpacity
-                    key={role.id}
-                    onPress={() => onToggleRole(role.id)}
-                    className="px-4 py-3 rounded-xl"
-                    style={{
-                      backgroundColor: isActive ? c.primary : c.background,
-                      borderWidth: 1,
-                      borderColor: isActive ? c.primary : c.border,
-                    }}
-                  >
-                    <Text style={{ color: isActive ? '#fff' : c.textMuted }} className="text-[10px] font-black uppercase tracking-widest">
-                      {role.name}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+            <SearchableMultiSelect
+              title="Roles"
+              items={roles.map((role: Role) => ({
+                id: role.id,
+                label: role.name,
+                description: role.description,
+                color: role.color,
+              }))}
+              selectedIds={draftRoleIds}
+              onToggle={onToggleRole}
+              searchPlaceholder="Search roles..."
+              emptyText="No roles match your search."
+            />
+            <View className="pb-4" />
           </ScrollView>
 
           <View className="flex-row gap-3 px-7 py-5" style={{ borderTopWidth: 1, borderTopColor: c.border }}>
