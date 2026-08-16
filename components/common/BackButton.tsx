@@ -14,14 +14,16 @@ cssInterop(FontAwesome, {
 interface BackButtonProps {
   label?: string;
   onPress?: () => void;
+  /** Where to go when there's no back-stack to pop (deep link, tab reset, etc). Defaults to '/'. */
+  fallbackHref?: string;
 }
 
-export function BackButton({ label = 'Back', onPress }: BackButtonProps) {
+export function BackButton({ label = 'Back', onPress, fallbackHref = '/' }: BackButtonProps) {
   const router = useRouter();
 
   const handlePress =
     onPress ||
-    (() => (router.canGoBack() ? router.back() : router.replace('/intelligence')));
+    (() => (router.canGoBack() ? router.back() : router.replace(fallbackHref as any)));
 
   return (
     <TouchableOpacity

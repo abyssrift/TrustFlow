@@ -498,7 +498,7 @@ export default function AdminAnalyticsNative() {
             <Text className="text-brand-primary font-black uppercase tracking-[4px] text-[10px] mb-1">Operations Intelligence</Text>
             <Text className="text-typography-main text-3xl font-black tracking-tighter">Analytics Hub</Text>
           </View>
-          <BackButton label="" />
+          <BackButton label="" fallbackHref="/intelligence" />
         </View>
       </View>
 

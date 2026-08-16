@@ -2536,7 +2536,7 @@ function FileHubAdaptiveInner() {
               <Text className="text-brand-primary font-black uppercase tracking-[4px] text-[10px] mb-1">Intelligence Hub</Text>
               <Text className="text-typography-main text-3xl font-black">File Hub</Text>
             </View>
-            <BackButton label="" />
+            <BackButton label="" fallbackHref="/intelligence" />
           </View>
         </View>
       )}

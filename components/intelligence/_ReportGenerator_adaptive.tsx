@@ -322,7 +322,7 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
       {/* Header */}
       <View className={`px-6 py-5 border-b border-surface-border flex-row items-center justify-between ${isPage ? 'bg-surface-card' : 'bg-surface-card/50'}`}>
         <View className="flex-row items-center min-w-0 flex-1">
-          {isPage && <BackButton label="" />}
+          {isPage && <BackButton label="" fallbackHref="/intelligence" />}
           <View className="h-10 w-1 rounded-full bg-brand-primary mr-4" />
           <View className="flex-1 min-w-0">
             <Text className="text-lg font-black uppercase tracking-widest text-typography-main">Report Architect</Text>
