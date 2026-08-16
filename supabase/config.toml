@@ -445,6 +445,11 @@ verify_jwt = false
 [functions.filehub-orphan-sweep]
 verify_jwt = false
 
+# Internal bearer secret for cron sweep mode; platform-admin JWT verified via
+# rpc_platform_purge_company_authorize for instant mode. See #192.
+[functions.purge-company]
+verify_jwt = false
+
 # Resolves a public /share/<token> link for a logged-OUT visitor, so there is
 # no JWT by definition. Expiry/revocation/soft-delete are checked in the body.
 [functions.filehub-share-resolve]
