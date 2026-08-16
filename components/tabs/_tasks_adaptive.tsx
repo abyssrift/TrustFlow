@@ -23,11 +23,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { usePingHighlight } from '@/contexts/PingHighlightContext';
 import { TaskCreationProvider } from '@/contexts/TaskCreationContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useTimer } from '@/contexts/TimerContext';
 import { useNavBarPosition } from '@/hooks/useNavBarPosition';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { offerForceStopOnArchiveError } from '@/lib/archiveForceStop';
 import { TAB_BAR_HEIGHT } from '@/lib/layout';
 import { supabase } from '@/lib/supabase';
+import { addPinnedTaskId, emptyColumnPage, mergeTasksById, stagePageQuery, TASK_PAGE_SIZE, type BoardFilters, type ColumnPage } from '@/lib/taskBoardPage';
 import { formatCompact, formatRelative } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -127,6 +129,28 @@ type Pipeline = {
 
 // Board data cache + prefetch live in the shared module so the desktop board
 // reuses the exact same warm cache (see taskBoardCache.ts).
+
+// #194: one definition of "a task row on this board", shared by the per-stage
+// page fetch, the other-board prefetch and the pinned-task top-up. The adaptive
+// card doesn't show submission/comment counts, so unlike the desktop board's
+// TASK_SELECT this one doesn't ask for them.
+const TASK_SELECT = `
+  *,
+  project:project_id(id, name),
+  manager:manager_id(id, full_name),
+  claimed_by_user:claimed_by(full_name),
+  assignments:task_assignments(
+    assignee_user_id,
+    assignee_team_id,
+    team:assignee_team_id(name, enforce_single_claimant),
+    user:assignee_user_id(full_name)
+  )
+`;
+
+// What a page load was for — lets the filter/search effect skip the load
+// fetchData just did instead of firing a duplicate round of queries.
+const loadSignature = (pipelineId: string, stageList: { id: string }[], f: BoardFilters) =>
+  JSON.stringify([pipelineId, stageList.map(s => s.id), f.priorities, f.categories, f.projectIds, f.managerIds, f.dueDates, (f.search || '').trim()]);
 
 // Board picker state (favourites / recents / counts) lives in useBoardPicker,
 // shared with the desktop layout so preferences carry across both.
@@ -272,6 +296,10 @@ function TasksScreen() {
   const [pipeline, setPipeline] = useState<Pipeline | null>(seed?.pipeline ?? null);
   const [stages, setStages] = useState<Stage[]>(seed?.stages ?? []);
   const [tasks, setTasks] = useState<Task[]>(seed?.tasks ?? []);
+  // #194: `tasks` stays ONE flat array bucketed by stage at render time — that
+  // is what makes a cross-column move safe (see lib/taskBoardPage.ts). It is
+  // now filled a bounded page per stage; `columns` is each stage's cursor.
+  const [columns, setColumns] = useState<Record<string, ColumnPage>>(seed?.columns ?? {});
   const [loading, setLoading] = useState(!seed); // cache hit → skip the skeleton
   const [switchingBoard, setSwitchingBoard] = useState(false); // overlay while an uncached board loads
   const [refreshing, setRefreshing] = useState(false);
@@ -297,6 +325,26 @@ function TasksScreen() {
   const [showTools, setShowTools] = useState(false);
   const [myTeamIds, setMyTeamIds] = useState<string[]>(seed?.myTeamIds ?? []);
   const [skeletonBg, setSkeletonBg] = useState<string | null>(null);
+
+  // #194 paging refs. fetchData and the loaders are plain closures called from
+  // effects, focus handlers and realtime callbacks, so anything they must read
+  // "as of now" goes through a ref rather than a dependency array.
+  const { activeSession } = useTimer();
+  const pinnedIdsRef = useRef<string[]>([]);
+  const activeSessionTaskRef = useRef<string | null>(null);
+  const filtersRef = useRef<BoardFilters>({ priorities: [], categories: [], projectIds: [], managerIds: [], dueDates: [], search: '' });
+  const pipelineIdRef = useRef<string | null>(null);
+  const loadSigRef = useRef<string>('');
+  activeSessionTaskRef.current = activeSession?.task_id ?? null;
+  // Every filter that is a plain column predicate is served by the query, not
+  // by narrowing the rows already in memory (see lib/taskBoardPage.ts).
+  // `mineOnly` is the exception and stays a render-time narrowing.
+  filtersRef.current = { ...filters, search: searchQuery };
+  pipelineIdRef.current = pipeline?.id ?? null;
+
+  // A task the user just moved, and the task their timer is running on, must
+  // stay on the board even when they'd fall outside their column's page.
+  const pinTask = (taskId: string) => { pinnedIdsRef.current = addPinnedTaskId(pinnedIdsRef.current, taskId); };
 
   // Board picker state — shared with the desktop layout via useBoardPicker.
   const boardPicker = useBoardPicker(availablePipelines, pipeline?.id);
@@ -350,6 +398,7 @@ function TasksScreen() {
     setStageTransitions(snap.stageTransitions);
     setActiveSessions(snap.activeSessions);
     setMyTeamIds(snap.myTeamIds);
+    setColumns(snap.columns ?? {});
     setLoading(false);
   }, []);
 
@@ -405,6 +454,72 @@ function TasksScreen() {
       console.error('Failed to select board:', e);
     }
   }, [recordBoardVisit, router, prepareBoardSwitch]);
+
+  const stagePage = (pipelineId: string, stageId: string, offset: number) =>
+    stagePageQuery(
+      supabase.from('tasks').select(TASK_SELECT).eq('pipeline_id', pipelineId).eq('current_stage_id', stageId),
+      offset,
+      filtersRef.current,
+    );
+
+  /**
+   * #194: one bounded page per stage column, every stage in parallel — one
+   * request per column, never one per task. The initial payload is
+   * (stage count x TASK_PAGE_SIZE), not the pipeline's task count.
+   *
+   * Returns rows AND cursors so fetchData can snapshot both into taskCache: a
+   * board painted from cache has to know which columns still have rows behind
+   * them, or its "Show more" goes missing until the background refetch lands.
+   */
+  const loadColumns = async (targetPipelineId: string, stageList: Stage[]): Promise<{ rows: Task[]; columns: Record<string, ColumnPage> }> => {
+    loadSigRef.current = loadSignature(targetPipelineId, stageList, filtersRef.current);
+    setColumns(Object.fromEntries(stageList.map(s => [s.id, { ...emptyColumnPage(), loading: true }])));
+
+    const pages = await Promise.all(stageList.map(s => stagePage(targetPipelineId, s.id, 0)));
+
+    const nextColumns: Record<string, ColumnPage> = {};
+    let rows: any[] = [];
+    stageList.forEach((s, i) => {
+      const data = (pages[i]?.data as any[]) || [];
+      nextColumns[s.id] = { offset: 0, hasMore: data.length === TASK_PAGE_SIZE, loading: false };
+      rows = rows.concat(data);
+    });
+
+    // Top-up. The task this user's timer is running on, and anything they just
+    // moved, can legitimately sit outside their column's first page — one extra
+    // bounded request by id, only when one of them is actually missing.
+    const pinned = Array.from(new Set(
+      [...pinnedIdsRef.current, activeSessionTaskRef.current].filter(Boolean) as string[]
+    ));
+    const missing = pinned.filter(id => !rows.some(r => r.id === id));
+    if (missing.length > 0) {
+      const { data } = await supabase.from('tasks').select(TASK_SELECT).eq('pipeline_id', targetPipelineId).in('id', missing);
+      rows = rows.concat((data as any[]) || []);
+    }
+
+    setColumns(nextColumns);
+    setTasks(rows as Task[]);
+    return { rows: rows as Task[], columns: nextColumns };
+  };
+  const loadColumnsRef = useRef(loadColumns);
+  loadColumnsRef.current = loadColumns;
+
+  // "Show 30 more" for one column. Offset paging over a column whose membership
+  // can change under it may hand back a row that is already loaded — merging by
+  // id kills the duplicate. (A row can conversely be skipped if a task moved IN
+  // since page 0; the next reload picks it up. ponytail: keyset paging on
+  // (created_at, id) is the fix if that ever surfaces as a real complaint.)
+  const loadMoreStage = async (stageId: string) => {
+    const pid = pipelineIdRef.current;
+    const col = columns[stageId];
+    if (!pid || !col || col.loading || !col.hasMore) return;
+    const offset = col.offset + TASK_PAGE_SIZE;
+    setColumns(prev => ({ ...prev, [stageId]: { ...prev[stageId], loading: true } }));
+    const { data } = await stagePage(pid, stageId, offset);
+    const rows = (data as any[]) || [];
+    setTasks(prev => mergeTasksById(prev, rows as Task[]));
+    setColumns(prev => ({ ...prev, [stageId]: { offset, hasMore: rows.length === TASK_PAGE_SIZE, loading: false } }));
+  };
 
   const fetchData = async () => {
     try {
@@ -478,11 +593,13 @@ function TasksScreen() {
 
       // Wave 2: all queries that only depend on the pipeline ID run in parallel
       console.log('[TasksScreen] Starting Promise.all for parallel queries...');
+      // #194: the pipeline-wide task query is gone. Stages have to resolve
+      // before the columns can be paged, so this wave no longer carries tasks —
+      // loadColumns below fetches one bounded page per stage, in parallel.
       const [
         { data: allPipes },
         { data: stagesData, error: sError },
         { data: myTeams },
-        { data: tasksData, error: tError },
         { data: sessions },
       ] = await Promise.all([
         supabase.from('pipelines').select('id, name, task_visibility_mode, is_default').is('deleted_at', null),
@@ -494,30 +611,14 @@ function TasksScreen() {
           .select('team_id')
           .eq('user_id', user?.id)
           .is('removed_at', null),
-        supabase.from('tasks')
-          .select(`
-            *,
-            project:project_id(id, name),
-            manager:manager_id(id, full_name),
-            claimed_by_user:claimed_by(full_name),
-            assignments:task_assignments(
-              assignee_user_id,
-              assignee_team_id,
-              team:assignee_team_id(name, enforce_single_claimant),
-              user:assignee_user_id(full_name)
-            )
-          `)
-          .eq('pipeline_id', targetPipelineId)
-          .order('created_at', { ascending: false }),
         supabase.from('task_work_sessions')
           .select('task_id, user_id, started_at, last_heartbeat_at, user:user_id(full_name, avatar_url)')
           .eq('status', 'active'),
       ]);
 
-      console.log('[TasksScreen] Promise.all completed:', { stagesData: stagesData?.length, tasksData: tasksData?.length, sError, tError });
+      console.log('[TasksScreen] Promise.all completed:', { stagesData: stagesData?.length, sError });
 
       if (sError) throw sError;
-      if (tError) throw tError;
 
       setAvailablePipelines(allPipes as Pipeline[] || []);
       setStages(stagesData || []);
@@ -543,23 +644,14 @@ function TasksScreen() {
       setMyTeamIds(resolvedTeamIds);
       console.log('[TasksScreen] Team IDs resolved:', resolvedTeamIds);
 
-      let filteredTasks = tasksData || [];
-      const canViewAll = hasPermission('task.view_all') || hasPermission('tasks.view_all') || hasPermission('system.view_all_data') || hasPermission('pipeline.edit');
-      console.log('[TasksScreen] Can view all tasks:', canViewAll);
-
-      if (pipelineData?.task_visibility_mode === 'assigned_only' && !canViewAll) {
-        console.log('[TasksScreen] Filtering tasks by assignment...');
-        filteredTasks = filteredTasks.filter(t => {
-          const isManager = t.manager_id === user?.id;
-          const isAssigned = t.assignments?.some((a: any) =>
-            (a.assignee_user_id && a.assignee_user_id === user?.id) ||
-            (a.assignee_team_id && resolvedTeamIds.includes(a.assignee_team_id))
-          );
-          return isManager || isAssigned;
-        });
-      }
-      console.log('[TasksScreen] Tasks filtered:', filteredTasks.length);
-      setTasks(filteredTasks as any);
+      // #194: one bounded page per stage column, in parallel. The
+      // `assigned_only` visibility mode is NOT re-filtered in the client any
+      // more — `tasks_select_visibility` (RLS) already enforces exactly that
+      // predicate, and re-filtering a bounded page is what makes it ragged
+      // (30 fetched, 3 shown). See lib/taskBoardPage.ts.
+      const { rows: filteredTasks, columns: finalColumns } =
+        await loadColumns(targetPipelineId as string, (stagesData || []) as Stage[]);
+      console.log('[TasksScreen] Tasks paged:', filteredTasks.length);
 
       const sessionMap: Record<string, ActiveSessionUser[]> = {};
       sessions?.forEach(s => {
@@ -585,6 +677,7 @@ function TasksScreen() {
         stageTransitions: transitionsData || [],
         activeSessions: sessionMap,
         myTeamIds: resolvedTeamIds,
+        columns: finalColumns,
       });
       boardCacheMeta.lastPipelineId = targetPipelineId as string;
 
@@ -606,45 +699,32 @@ function TasksScreen() {
   const loadBoardSnapshot = useCallback(async (boardId: string): Promise<BoardSnapshot | null> => {
     const board = availablePipelines.find(p => p.id === boardId);
     if (!board) return null;
-    const [{ data: stagesData }, { data: tasksData }] = await Promise.all([
-      supabase.from('pipeline_stages')
-        .select('*, linked_pipeline:linked_pipeline_id(id, name)')
-        .eq('pipeline_id', boardId)
-        .order('position', { ascending: true }),
-      supabase.from('tasks')
-        .select(`
-          *,
-          project:project_id(id, name),
-          manager:manager_id(id, full_name),
-          claimed_by_user:claimed_by(full_name),
-          assignments:task_assignments(
-            assignee_user_id,
-            assignee_team_id,
-            team:assignee_team_id(name, enforce_single_claimant),
-            user:assignee_user_id(full_name)
-          )
-        `)
-        .eq('pipeline_id', boardId)
-        .order('created_at', { ascending: false }),
-    ]);
+    const { data: stagesData } = await supabase.from('pipeline_stages')
+      .select('*, linked_pipeline:linked_pipeline_id(id, name)')
+      .eq('pipeline_id', boardId)
+      .order('position', { ascending: true });
     const stages = stagesData || [];
     const stageIds = stages.map((s: any) => s.id);
-    const [{ data: actionsData }, { data: transitionsData }] = await Promise.all([
+    // #194: the warm-up is paged exactly like the live board. It used to pull
+    // every OTHER board's entire task list in the background — the same
+    // unbounded query, multiplied by the board count. Filters aren't applied:
+    // this is a cold snapshot of a board the user hasn't opened, and opening it
+    // triggers a filtered refetch anyway.
+    const [{ data: actionsData }, { data: transitionsData }, ...pages] = await Promise.all([
       supabase.from('pipeline_stage_actions').select('*').in('stage_id', stageIds),
       supabase.from('pipeline_stage_transitions').select('id, to_stage_id').in('from_stage_id', stageIds),
+      ...stages.map((s: any) => stagePageQuery(
+        supabase.from('tasks').select(TASK_SELECT).eq('pipeline_id', boardId).eq('current_stage_id', s.id),
+        0,
+      )),
     ]);
-    const canViewAll = hasPermission('task.view_all') || hasPermission('tasks.view_all') || hasPermission('system.view_all_data') || hasPermission('pipeline.edit');
-    let filteredTasks = tasksData || [];
-    if (board.task_visibility_mode === 'assigned_only' && !canViewAll) {
-      filteredTasks = filteredTasks.filter((t: any) => {
-        const isManager = t.manager_id === user?.id;
-        const isAssigned = t.assignments?.some((a: any) =>
-          (a.assignee_user_id && a.assignee_user_id === user?.id) ||
-          (a.assignee_team_id && myTeamIds.includes(a.assignee_team_id))
-        );
-        return isManager || isAssigned;
-      });
-    }
+    const columns: Record<string, ColumnPage> = {};
+    let filteredTasks: any[] = [];
+    stages.forEach((s: any, i: number) => {
+      const rows = ((pages[i] as any)?.data as any[]) || [];
+      columns[s.id] = { offset: 0, hasMore: rows.length === TASK_PAGE_SIZE, loading: false };
+      filteredTasks = filteredTasks.concat(rows);
+    });
     return {
       pipeline: board,
       stages,
@@ -654,8 +734,9 @@ function TasksScreen() {
       stageTransitions: transitionsData || [],
       activeSessions,
       myTeamIds,
+      columns,
     };
-  }, [availablePipelines, hasPermission, user?.id, myTeamIds, activeSessions]);
+  }, [availablePipelines, myTeamIds, activeSessions]);
 
   // Warm every other board in the background once the current board is loaded.
   const prefetchedRef = useRef<Set<string>>(new Set());
@@ -816,6 +897,25 @@ function TasksScreen() {
   const silentRefresh = useCallback(() => {
     fetchDataRef.current();
   }, []);
+
+  // #194: the filters and the search box are served by the query now, so a
+  // change to either has to re-page every column — narrowing the rows already
+  // in memory would silently miss matches on page 2. The signature check makes
+  // this a no-op for the load fetchData just did (mount, board switch, refocus),
+  // so it only fires on a real filter change. 250ms so typing a word is one
+  // round of requests, not one per keystroke.
+  useEffect(() => {
+    const pid = pipeline?.id;
+    if (!pid || stages.length === 0) return;
+    if (loadSignature(pid, stages, { ...filters, search: searchQuery }) === loadSigRef.current) return;
+    const t = setTimeout(() => {
+      // Re-check at fire time: on a warm-cache mount fetchData's own load may
+      // have landed inside these 250ms, and repeating it would be pure waste.
+      if (loadSignature(pid, stages, filtersRef.current) === loadSigRef.current) return;
+      loadColumnsRef.current(pid, stages);
+    }, 250);
+    return () => clearTimeout(t);
+  }, [filters, searchQuery, pipeline?.id, stages]);
 
   const handleSetDefault = async (pipelineId: string) => {
     try {
@@ -998,6 +1098,14 @@ function TasksScreen() {
             userId={user?.id || ''}
             myTeamIds={myTeamIds}
             onRefresh={silentRefresh}
+            onMoved={(taskId, toStageId) => {
+              // #194: re-bucket the row in place (it can neither vanish nor
+              // duplicate — one flat array, one entry per id) and pin it, so
+              // the silentRefresh that follows can't drop it for landing
+              // outside its new column's first page.
+              pinTask(taskId);
+              setTasks(prev => prev.map(t => (t.id === taskId ? { ...t, current_stage_id: toStageId } : t)));
+            }}
           />
         </View>
       </TouchableOpacity>
@@ -1021,6 +1129,7 @@ function TasksScreen() {
       return true;
     });
     if (sortKey !== 'default') stageTasks.sort((a, b) => compareTasksBySortKey(sortKey, a, b));
+    const col = columns[stage.id] ?? emptyColumnPage();
     return (
       <View
         key={stage.id}
@@ -1034,8 +1143,11 @@ function TasksScreen() {
               <View style={{ backgroundColor: stage.color }} className="w-2 h-2 rounded-full mr-2" />
               <Text className="text-typography-main font-black text-xs uppercase tracking-widest">{stage.name}</Text>
               {kanban.showStageTotals && (
+                // "30+" while the column is paginated: this counts the rows
+                // actually loaded, and an exact count would mean the
+                // full-pipeline scan #194 exists to remove.
                 <View className="ml-2 bg-surface-overlay px-1.5 rounded-md">
-                  <Text className="text-typography-muted text-[10px] font-bold">{stageTasks.length}</Text>
+                  <Text className="text-typography-muted text-[10px] font-bold">{stageTasks.length}{col.hasMore ? '+' : ''}</Text>
                 </View>
               )}
            </View>
@@ -1069,13 +1181,29 @@ function TasksScreen() {
           }`} 
           showsVerticalScrollIndicator={false}
         >
-          {stageTasks.length === 0 ? (
+          {stageTasks.length === 0 && !col.hasMore ? (
             <View className="py-10 items-center justify-center opacity-30">
                <FontAwesome name="inbox" size={32} className="text-typography-muted" />
                <Text className="text-typography-muted text-xs mt-2">Empty</Text>
             </View>
           ) : (
             stageTasks.map(renderTaskCard)
+          )}
+          {/* Manual page-in, matching ProjectBoard.tsx and the desktop board —
+              never an infinite scroll: a stage column is a work queue, and
+              growing one under the user costs them their place in it. 44px
+              minimum touch target (ui-style-guide §4). */}
+          {col.hasMore && (
+            <TouchableOpacity
+              onPress={() => loadMoreStage(stage.id)}
+              disabled={col.loading}
+              className="items-center justify-center py-3 mb-2 rounded-2xl border border-surface-border active:opacity-70"
+              style={{ minHeight: 44 }}
+            >
+              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">
+                {col.loading ? 'Loading…' : `Show ${TASK_PAGE_SIZE} more`}
+              </Text>
+            </TouchableOpacity>
           )}
         </ScrollView>
       </View>

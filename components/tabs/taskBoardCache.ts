@@ -1,4 +1,5 @@
 import type { ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
+import type { ColumnPage } from '@/lib/taskBoardPage';
 
 // Shared stale-while-revalidate cache for the task board, used by both the
 // adaptive board (native + web-mobile) and the desktop board. Module scope so
@@ -19,6 +20,13 @@ export type BoardSnapshot = {
   stageTransitions: { id: string; to_stage_id: string }[];
   activeSessions: Record<string, ActiveSessionUser[]>;
   myTeamIds: string[];
+  /**
+   * #194: per-stage paging cursors for `tasks` above, so a board painted from
+   * this cache still knows which columns have more rows behind them. Optional
+   * — a snapshot written before this existed just shows no "Show more" until
+   * its background refetch lands.
+   */
+  columns?: Record<string, ColumnPage>;
 };
 
 export const taskCache = new Map<string, BoardSnapshot>();

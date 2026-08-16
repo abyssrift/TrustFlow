@@ -25,6 +25,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { BOARD_PICKER_KEYS, useBoardPicker } from '@/hooks/useBoardPicker';
 import { offerForceStopOnArchiveError } from '@/lib/archiveForceStop';
 import { supabase } from '@/lib/supabase';
+import { addPinnedTaskId, emptyColumnPage, mergeTasksById, stagePageQuery, TASK_PAGE_SIZE, type BoardFilters, type ColumnPage } from '@/lib/taskBoardPage';
 import { formatCompact, formatRelative } from '@/lib/time';
 import { createWheelStepper } from '@/lib/wheelGesture';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -140,6 +141,30 @@ type Pipeline = {
 const STORAGE_KEYS = {
   LAST_BOARD: '@TrustFlow_last_board_id',
 } as const;
+
+// One definition of "a task row on this board" — the page fetch, the
+// warm-the-other-boards prefetch and the pinned-task top-up all select the same
+// columns, so a card can't render differently depending on which of the three
+// loaded it (#194).
+const TASK_SELECT = `
+  *,
+  project:project_id(id, name),
+  manager:manager_id(id, full_name),
+  claimed_by_user:claimed_by(full_name),
+  assignments:task_assignments(
+    assignee_user_id,
+    assignee_team_id,
+    team:assignee_team_id(name, enforce_single_claimant),
+    user:assignee_user_id(full_name)
+  ),
+  submission_count:task_submissions(count),
+  comment_count:task_comments(count)
+`;
+
+// What a page load was for. Comparing it lets the filter/search effect skip the
+// load fetchData just performed instead of firing a duplicate round of queries.
+const loadSignature = (pipelineId: string, stageList: { id: string }[], f: BoardFilters) =>
+  JSON.stringify([pipelineId, stageList.map(s => s.id), f.priorities, f.categories, f.projectIds, f.managerIds, f.dueDates, (f.search || '').trim()]);
 
 function PingTimeBadge({ pingedAt }: { pingedAt: number }) {
   const [, setTick] = useState(0);
@@ -284,6 +309,11 @@ export function TasksScreenWeb() {
   const [pipeline, setPipeline] = useState<Pipeline | null>((seed?.pipeline as Pipeline) ?? null);
   const [stages, setStages] = useState<Stage[]>((seed?.stages as Stage[]) ?? []);
   const [tasks, setTasks] = useState<Task[]>((seed?.tasks as Task[]) ?? []);
+  // #194: `tasks` is still ONE flat array bucketed by stage at render time —
+  // that is deliberate and is what makes a cross-column move safe (see
+  // lib/taskBoardPage.ts). What changed is that it is now filled a bounded page
+  // per stage at a time; `columns` is each stage's paging cursor.
+  const [columns, setColumns] = useState<Record<string, ColumnPage>>(seed?.columns ?? {});
   const [loading, setLoading] = useState(!seed);
   const [switchingBoard, setSwitchingBoard] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -306,6 +336,18 @@ export function TasksScreenWeb() {
   const boardContainerRef = useRef<View>(null);
   const stageFX = useStageTransitionFX(boardContainerRef, colors.primary);
   const fetchDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  // #194 paging refs. fetchData/loadColumns are plain (non-memoised) closures
+  // called from effects, realtime handlers and refs, so anything they need to
+  // read "as of now" goes through a ref rather than a dependency array.
+  const pinnedIdsRef = useRef<string[]>([]);
+  const activeSessionTaskRef = useRef<string | null>(null);
+  activeSessionTaskRef.current = activeSession?.task_id ?? null;
+  const filtersRef = useRef<BoardFilters>({ priorities: [], categories: [], projectIds: [], managerIds: [], dueDates: [], search: '' });
+  const pipelineIdRef = useRef<string | null>(null);
+  // Signature of the last page load actually performed, so the filter/search
+  // effect below doesn't re-run the load fetchData just did.
+  const loadSigRef = useRef<string>('');
 
   // Wait out the 300ms width transition before mounting the wrap-grid layout —
   // reflowing every card on each animation frame while the column resizes is what was dropping frames.
@@ -339,6 +381,12 @@ export function TasksScreenWeb() {
   const [mineOnly, setMineOnly] = useState(false);
   const [myTeamIds, setMyTeamIds] = useState<string[]>(seed?.myTeamIds ?? []);
 
+  // Every filter that is a plain column predicate is served by the query, not
+  // by narrowing the 30 rows already in memory (see lib/taskBoardPage.ts).
+  // `mineOnly` is the exception and stays a render-time narrowing.
+  filtersRef.current = { ...filters, search: searchQuery };
+  pipelineIdRef.current = pipeline?.id ?? null;
+
   // Archival State
   const [archiveModal, setArchiveModal] = useState<{ visible: boolean, taskId: string | null }>({ visible: false, taskId: null });
   const [archiving, setArchiving] = useState(false);
@@ -364,8 +412,16 @@ export function TasksScreenWeb() {
 
   // Optimistic local patch so a card jumps columns the instant its own action
   // succeeds, instead of waiting on the realtime round-trip / fetchData reload.
-  const patchTaskStage = (taskId: string, toStageId: string) =>
+  //
+  // #194: with paginated columns this is also the *only* thing keeping the card
+  // visible. The row stays in the flat array and simply re-buckets, so it can
+  // neither vanish nor duplicate — but the reconcile fetch ~500ms later re-pages
+  // every column from offset 0, and the task may now sit outside its new
+  // column's first page. Pinning it makes that fetch top it up explicitly.
+  const patchTaskStage = (taskId: string, toStageId: string) => {
+    pinnedIdsRef.current = addPinnedTaskId(pinnedIdsRef.current, taskId);
     setTasks(prev => prev.map(t => (t.id === taskId ? { ...t, current_stage_id: toStageId } : t)));
+  };
 
   // Same idea for archive, but two-phase: reanimated's declarative `exiting`
   // doesn't paint on this web build (same reason the stage FLIP is hand-rolled
@@ -377,6 +433,9 @@ export function TasksScreenWeb() {
     setExitingTaskIds(prev => (prev.has(taskId) ? prev : new Set(prev).add(taskId)));
 
   const patchTaskArchived = (taskId: string) => {
+    // Unpin first — otherwise the pinned top-up would fetch the archived task
+    // straight back onto the board on the next reconcile.
+    pinnedIdsRef.current = pinnedIdsRef.current.filter(id => id !== taskId);
     setTasks(prev => prev.filter(t => t.id !== taskId));
     setExitingTaskIds(prev => {
       if (!prev.has(taskId)) return prev;
@@ -408,6 +467,121 @@ export function TasksScreenWeb() {
         }],
       };
     });
+  };
+
+  // Time metrics + @-mention flags for a batch of rows. These were always
+  // keyed off the fetched task ids, so bounding the pages bounded them too —
+  // they no longer scan an entire pipeline's comments on every reconcile.
+  const enrichTasks = async (rows: any[]): Promise<Task[]> => {
+    if (rows.length === 0) return [];
+    const ids = rows.map(t => t.id);
+
+    const [{ data: timeMetrics }, { data: acks }] = await Promise.all([
+      supabase.from('view_task_time_metrics').select('*').in('task_id', ids),
+      supabase.from('task_mention_acks').select('task_id, acknowledged_at').eq('user_id', user?.id).in('task_id', ids),
+    ]);
+
+    const variants = Array.from(new Set([
+      profile?.full_name,
+      profile?.display_name,
+      user?.user_metadata?.full_name,
+      user?.email?.split('@')[0],
+    ].filter(Boolean) as string[]));
+    const searchTerms = new Set<string>();
+    variants.forEach(v => {
+      searchTerms.add(v);
+      const first = v.split(' ')[0];
+      if (first && first.length > 2) searchTerms.add(first);
+    });
+    const orQuery = Array.from(searchTerms).map(term => `content.ilike.%@${term}%`).join(',');
+    const { data: mentions } = orQuery
+      ? await supabase.from('task_comments').select('task_id, created_at').or(orQuery).in('task_id', ids)
+      : { data: [] as any[] };
+
+    const timeMap = (timeMetrics || []).reduce((acc, curr) => { acc[curr.task_id] = curr; return acc; }, {} as any);
+    const ackMap = new Map((acks || []).map(a => [a.task_id, a.acknowledged_at]));
+    const mentionTaskIds = new Set<string>();
+    (mentions || []).forEach((m: any) => {
+      const lastAck = ackMap.get(m.task_id);
+      if (!lastAck || new Date(m.created_at) > new Date(lastAck)) mentionTaskIds.add(m.task_id);
+    });
+
+    return rows.map(t => ({
+      ...t,
+      total_seconds: timeMap[t.id]?.total_seconds || 0,
+      my_seconds: timeMap[t.id]?.my_seconds || 0,
+      has_mention: mentionTaskIds.has(t.id),
+    })) as Task[];
+  };
+
+  const stagePage = (pipelineId: string, stageId: string, offset: number) =>
+    stagePageQuery(
+      supabase.from('tasks').select(TASK_SELECT).eq('pipeline_id', pipelineId).eq('current_stage_id', stageId),
+      offset,
+      filtersRef.current,
+    );
+
+  /**
+   * #194: one bounded page per stage column, every stage in parallel — one
+   * request per column, never one per task. The initial payload is
+   * (stage count x TASK_PAGE_SIZE), not the pipeline's task count.
+   *
+   * Returns the rows and cursors it set, so fetchData can snapshot both into
+   * taskCache — a board painted from cache has to know which columns still
+   * have rows behind them, or its "Show more" buttons go missing until the
+   * background refetch lands.
+   */
+  const loadColumns = async (targetPipelineId: string, stageList: Stage[]): Promise<{ rows: Task[]; columns: Record<string, ColumnPage> }> => {
+    loadSigRef.current = loadSignature(targetPipelineId, stageList, filtersRef.current);
+    setColumns(Object.fromEntries(stageList.map(s => [s.id, { ...emptyColumnPage(), loading: true }])));
+
+    const pages = await Promise.all(stageList.map(s => stagePage(targetPipelineId, s.id, 0)));
+
+    const nextColumns: Record<string, ColumnPage> = {};
+    let rows: any[] = [];
+    stageList.forEach((s, i) => {
+      const data = (pages[i]?.data as any[]) || [];
+      nextColumns[s.id] = { offset: 0, hasMore: data.length === TASK_PAGE_SIZE, loading: false };
+      rows = rows.concat(data);
+    });
+
+    // Top-up. A user must always be able to see the task their timer is running
+    // on, and a card someone just moved must not disappear a heartbeat later —
+    // either can legitimately sit outside its column's first page. One extra
+    // bounded request by id, only when one of them is actually missing.
+    const pinned = Array.from(new Set(
+      [...pinnedIdsRef.current, activeSessionTaskRef.current].filter(Boolean) as string[]
+    ));
+    const missing = pinned.filter(id => !rows.some(r => r.id === id));
+    if (missing.length > 0) {
+      const { data } = await supabase.from('tasks').select(TASK_SELECT).eq('pipeline_id', targetPipelineId).in('id', missing);
+      rows = rows.concat((data as any[]) || []);
+    }
+
+    const enriched = await enrichTasks(rows);
+    setColumns(nextColumns);
+    setTasks(enriched);
+    return { rows: enriched, columns: nextColumns };
+  };
+  const loadColumnsRef = useRef(loadColumns);
+  loadColumnsRef.current = loadColumns;
+
+  // "Show 30 more" for one column. Offset paging over a column whose membership
+  // can change under it may hand back a row that is already loaded — merging by
+  // id kills the duplicate. (A row can conversely be skipped if a task moved IN
+  // since page 0; the next reconcile reload picks it up. ponytail: keyset paging
+  // on (created_at, id) is the fix if that ever surfaces as a real complaint.)
+  const loadMoreStage = async (stageId: string) => {
+    const pid = pipelineIdRef.current;
+    const col = columns[stageId];
+    if (!pid || !col || col.loading || !col.hasMore) return;
+    const offset = col.offset + TASK_PAGE_SIZE;
+    setColumns(prev => ({ ...prev, [stageId]: { ...prev[stageId], loading: true } }));
+    const { data } = await stagePage(pid, stageId, offset);
+    const rows = (data as any[]) || [];
+    const enriched = await enrichTasks(rows);
+    setTasks(prev => mergeTasksById(prev, enriched));
+    setColumns(prev => ({ ...prev, [stageId]: { offset, hasMore: rows.length === TASK_PAGE_SIZE, loading: false } }));
   };
 
   // Trailing debounce so one move — which triggers a card action refresh PLUS
@@ -520,104 +694,13 @@ export function TasksScreenWeb() {
       const myTeamIds = myTeams?.map(mt => mt.team_id) || [];
       setMyTeamIds(myTeamIds);
 
-      // 5. Get tasks with time metrics
-      const { data: tasksData } = await supabase
-        .from('tasks')
-        .select(`
-          *,
-          project:project_id(id, name),
-          manager:manager_id(id, full_name),
-          claimed_by_user:claimed_by(full_name),
-          assignments:task_assignments(
-            assignee_user_id,
-            assignee_team_id,
-            team:assignee_team_id(name, enforce_single_claimant),
-            user:assignee_user_id(full_name)
-          ),
-          submission_count:task_submissions(count),
-          comment_count:task_comments(count)
-        `)
-        .eq('pipeline_id', targetPipelineId)
-        .order('created_at', { ascending: false });
-
-      const { data: timeMetrics } = await supabase
-        .from('view_task_time_metrics')
-        .select('*')
-        .in('task_id', (tasksData || []).map(t => t.id));
-
-      const timeMap = (timeMetrics || []).reduce((acc, curr) => {
-        acc[curr.task_id] = curr;
-        return acc;
-      }, {} as any);
-
-      // Filter tasks based on visibility mode and attach time metrics
-      let filteredTasks = (tasksData || []).map(t => ({
-        ...t,
-        total_seconds: timeMap[t.id]?.total_seconds || 0,
-        my_seconds: timeMap[t.id]?.my_seconds || 0
-      }));
-      
-      const canViewAll = hasPermission('task.view_all') || hasPermission('tasks.view_all') || hasPermission('system.view_all_data') || hasPermission('pipeline.edit');
-
-      if (pipelineData?.task_visibility_mode === 'assigned_only' && !canViewAll) {
-        filteredTasks = filteredTasks.filter(t => {
-          const isManager = t.manager_id === user?.id;
-          const isAssigned = t.assignments?.some((a: any) => 
-            (a.assignee_user_id && a.assignee_user_id === user?.id) || 
-            (a.assignee_team_id && myTeamIds.includes(a.assignee_team_id))
-          );
-          return isManager || isAssigned;
-        });
-      }
-
-      let mentionTaskIds = new Set<string>();
-      if (filteredTasks.length > 0) {
-        // Fetch mention acknowledgements for this user
-        const { data: acks } = await supabase
-          .from('task_mention_acks')
-          .select('task_id, acknowledged_at')
-          .eq('user_id', user?.id)
-          .in('task_id', filteredTasks.map(t => t.id));
-
-        const ackMap = new Map(acks?.map(a => [a.task_id, a.acknowledged_at]));
-
-        const variants = Array.from(new Set([
-          profile?.full_name,
-          profile?.display_name,
-          user?.user_metadata?.full_name,
-          user?.email?.split('@')[0]
-        ].filter(Boolean) as string[]));
-
-        const searchTerms = new Set<string>();
-        variants.forEach(v => {
-          searchTerms.add(v);
-          const first = v.split(' ')[0];
-          if (first && first.length > 2) searchTerms.add(first);
-        });
-
-        const orQuery = Array.from(searchTerms)
-          .map(term => `content.ilike.%@${term}%`)
-          .join(',');
-
-        const { data: mentions } = await supabase
-          .from('task_comments')
-          .select('task_id, created_at')
-          .or(orQuery)
-          .in('task_id', filteredTasks.map(t => t.id));
-        
-        mentions?.forEach(m => {
-          const lastAck = ackMap.get(m.task_id);
-          if (!lastAck || new Date(m.created_at) > new Date(lastAck)) {
-            mentionTaskIds.add(m.task_id);
-          }
-        });
-      }
-
-      const finalTasks = filteredTasks.map(t => ({
-        ...t,
-        has_mention: mentionTaskIds.has(t.id)
-      }));
-      setTasks(finalTasks as any);
+      // 5. Get tasks — one bounded page per stage column, in parallel (#194).
+      // The `assigned_only` visibility mode is NOT re-filtered here any more:
+      // `tasks_select_visibility` (RLS) already enforces exactly that predicate,
+      // so the page the server hands back is already visibility-filtered.
+      // Re-filtering a bounded page in the client is what makes it ragged
+      // (30 fetched, 3 shown) — see lib/taskBoardPage.ts.
+      const { rows: finalTasks, columns: finalColumns } = await loadColumns(targetPipelineId as string, (stagesData || []) as Stage[]);
 
       // 6. Active Sessions
       const { data: sessions } = await supabase
@@ -648,6 +731,7 @@ export function TasksScreenWeb() {
         stageTransitions: transitionsData || [],
         activeSessions: sessionMap,
         myTeamIds,
+        columns: finalColumns,
       });
       boardCacheMeta.lastPipelineId = targetPipelineId as string;
 
@@ -675,48 +759,36 @@ export function TasksScreenWeb() {
       .order('position', { ascending: true });
     const stages = stagesData || [];
     const stageIds = stages.map((s: any) => s.id);
-    const [{ data: actionsData }, { data: transitionsData }, { data: tasksData }] = await Promise.all([
+    // #194: the warm-up is paged exactly like the live board. It used to pull
+    // every other board's ENTIRE task list in the background — the same
+    // unbounded query as the board itself, multiplied by the board count.
+    // Filters are deliberately not applied: this is a cold snapshot for a board
+    // the user hasn't opened, and opening it triggers a filtered refetch anyway.
+    const [{ data: actionsData }, { data: transitionsData }, ...pages] = await Promise.all([
       supabase.from('pipeline_stage_actions').select('*').in('stage_id', stageIds),
       supabase.from('pipeline_stage_transitions').select('id, to_stage_id').in('from_stage_id', stageIds),
-      supabase.from('tasks')
-        .select(`
-          *,
-          project:project_id(id, name),
-          manager:manager_id(id, full_name),
-          claimed_by_user:claimed_by(full_name),
-          assignments:task_assignments(
-            assignee_user_id,
-            assignee_team_id,
-            team:assignee_team_id(name, enforce_single_claimant),
-            user:assignee_user_id(full_name)
-          ),
-          submission_count:task_submissions(count),
-          comment_count:task_comments(count)
-        `)
-        .eq('pipeline_id', boardId)
-        .order('created_at', { ascending: false }),
+      ...stages.map((s: any) => stagePageQuery(
+        supabase.from('tasks').select(TASK_SELECT).eq('pipeline_id', boardId).eq('current_stage_id', s.id),
+        0,
+      )),
     ]);
+    const columns: Record<string, ColumnPage> = {};
+    let tasksData: any[] = [];
+    stages.forEach((s: any, i: number) => {
+      const rows = ((pages[i] as any)?.data as any[]) || [];
+      columns[s.id] = { offset: 0, hasMore: rows.length === TASK_PAGE_SIZE, loading: false };
+      tasksData = tasksData.concat(rows);
+    });
     const { data: timeMetrics } = await supabase
       .from('view_task_time_metrics')
       .select('*')
-      .in('task_id', (tasksData || []).map(t => t.id));
+      .in('task_id', tasksData.map(t => t.id));
     const timeMap = (timeMetrics || []).reduce((acc, curr) => { acc[curr.task_id] = curr; return acc; }, {} as any);
-    let filteredTasks = (tasksData || []).map(t => ({
+    const filteredTasks = tasksData.map(t => ({
       ...t,
       total_seconds: timeMap[t.id]?.total_seconds || 0,
       my_seconds: timeMap[t.id]?.my_seconds || 0,
     }));
-    const canViewAll = hasPermission('task.view_all') || hasPermission('tasks.view_all') || hasPermission('system.view_all_data') || hasPermission('pipeline.edit');
-    if (board.task_visibility_mode === 'assigned_only' && !canViewAll) {
-      filteredTasks = filteredTasks.filter(t => {
-        const isManager = t.manager_id === user?.id;
-        const isAssigned = t.assignments?.some((a: any) =>
-          (a.assignee_user_id && a.assignee_user_id === user?.id) ||
-          (a.assignee_team_id && myTeamIds.includes(a.assignee_team_id))
-        );
-        return isManager || isAssigned;
-      });
-    }
     return {
       pipeline: board,
       stages,
@@ -726,8 +798,9 @@ export function TasksScreenWeb() {
       stageTransitions: transitionsData || [],
       activeSessions,
       myTeamIds,
+      columns,
     };
-  }, [availablePipelines, hasPermission, user?.id, myTeamIds, activeSessions]);
+  }, [availablePipelines, user?.id, myTeamIds, activeSessions]);
 
   // Warm every other board in the background once the current board is loaded.
   const prefetchedRef = useRef<Set<string>>(new Set());
@@ -781,6 +854,25 @@ export function TasksScreenWeb() {
       supabase.removeChannel(tasksChannel);
     };
   }, [paramPipelineId, user?.id]);
+
+  // #194: the filters and the search box are served by the query now, so a
+  // change to either has to re-page every column — narrowing the 30 rows
+  // already in memory would silently miss matches sitting on page 2. The
+  // signature check makes this a no-op for the load fetchData just did (mount,
+  // board switch, reconcile), so it only ever fires on a real filter change.
+  // 250ms so typing a word is one round of requests, not one per keystroke.
+  useEffect(() => {
+    const pid = pipeline?.id;
+    if (!pid || stages.length === 0) return;
+    if (loadSignature(pid, stages, { ...filters, search: searchQuery }) === loadSigRef.current) return;
+    const t = setTimeout(() => {
+      // Re-check at fire time: on a warm-cache mount fetchData's own load may
+      // have landed inside these 250ms, and repeating it would be pure waste.
+      if (loadSignature(pid, stages, filtersRef.current) === loadSigRef.current) return;
+      loadColumnsRef.current(pid, stages);
+    }, 250);
+    return () => clearTimeout(t);
+  }, [filters, searchQuery, pipeline?.id, stages]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -847,6 +939,7 @@ export function TasksScreenWeb() {
     setStageTransitions(snap.stageTransitions);
     setActiveSessions(snap.activeSessions);
     setMyTeamIds(snap.myTeamIds);
+    setColumns(snap.columns ?? {});
     setLoading(false);
   }, []);
 
@@ -1000,6 +1093,25 @@ export function TasksScreenWeb() {
   };
 
   const formatSeconds = (seconds: number) => formatCompact(seconds);
+
+  // The same manual page-in ProjectBoard.tsx uses on its paginated columns, and
+  // deliberately not an infinite scroll: a stage column is a work queue, and
+  // growing one under the user costs them their place in it.
+  const renderLoadMore = (stageId: string, col: ColumnPage) => {
+    if (!col.hasMore) return null;
+    return (
+      <TouchableOpacity
+        onPress={() => loadMoreStage(stageId)}
+        disabled={col.loading}
+        className="items-center justify-center py-2.5 rounded-xl border border-surface-border mb-4 hover:bg-surface-overlay transition-colors"
+        style={{ minHeight: 44 }}
+      >
+        <Text className="text-typography-muted text-[11px] font-black uppercase tracking-widest">
+          {col.loading ? 'Loading…' : `Show ${TASK_PAGE_SIZE} more`}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
 
   const renderTaskCard = (task: Task) => {
     if (!task) return null;
@@ -1579,6 +1691,7 @@ export function TasksScreenWeb() {
                   )) return false;
                   return true;
                 });
+                const col = columns[stage.id] ?? emptyColumnPage();
                 const isFullscreen = fullscreenStageId === stage.id;
                 const isHiddenByFullscreen = !!fullscreenStageId && !isFullscreen;
                 // An explicit sort pick wins everywhere. Otherwise: focus mode surfaces
@@ -1610,8 +1723,14 @@ export function TasksScreenWeb() {
                         <View style={{ backgroundColor: stage.color }} className="w-3 h-3 rounded-full mr-3 shadow-sm shadow-black/50" />
                         <Text className="text-typography-main font-black text-sm uppercase tracking-[0.2em]">{stage.name}</Text>
                         {kanban.showStageTotals && (
-                          <View className="ml-3 bg-surface-card border border-surface-border px-2 py-0.5 rounded-lg">
+                          // "30+" while the column is paginated: this counts the
+                          // rows actually loaded, and an exact count would mean
+                          // the full-pipeline scan #194 exists to remove.
+                          <View className="ml-3 bg-surface-card border border-surface-border px-2 py-0.5 rounded-lg flex-row items-center">
                             <StageCountOdometer value={stageTasks.length} />
+                            {col.hasMore && (
+                              <Text className="text-typography-muted text-[10px] font-black">+</Text>
+                            )}
                           </View>
                         )}
                       </View>
@@ -1637,7 +1756,7 @@ export function TasksScreenWeb() {
                         kanban.isVibrant ? 'bg-brand-primary/5 border-brand-primary/20' : 'bg-surface-card/30 border-surface-border/50'
                       }`}
                     >
-                      {isHiddenByFullscreen ? null : displayTasks.length === 0 ? (
+                      {isHiddenByFullscreen ? null : (displayTasks.length === 0 && !col.hasMore) ? (
                         // The idle conveyor states "this stage is empty", so it must
                         // never stand in for data that simply hasn't arrived yet.
                         // `loading` already swaps the entire board out for a spinner
@@ -1656,6 +1775,7 @@ export function TasksScreenWeb() {
                               {renderTaskCard(t)}
                             </View>
                           ))}
+                          {col.hasMore && <View style={{ width: '100%' }}>{renderLoadMore(stage.id, col)}</View>}
                         </ScrollView>
                       ) : boardTransitioning ? (
                         // `width` is a layout-triggering CSS property, so every frame of the column's
@@ -1669,6 +1789,7 @@ export function TasksScreenWeb() {
                       ) : (
                         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
                           {displayTasks.map(renderTaskCard)}
+                          {renderLoadMore(stage.id, col)}
                         </ScrollView>
                       )}
                     </View>
@@ -1744,7 +1865,10 @@ export function TasksScreenWeb() {
       <RightSidebar
         pipelineId={pipeline?.id}
         pipelineName={pipeline?.name}
-        taskCount={tasks.length}
+        // Board total, not "rows currently paged in" — useBoardPicker already
+        // keeps an exact per-board count (and keeps it live over realtime), so
+        // pagination doesn't make this sidebar stat quietly wrong (#194).
+        taskCount={(pipeline?.id ? boardPicker.taskCounts[pipeline.id] : undefined) ?? tasks.length}
         visibilityMode={pipeline?.task_visibility_mode}
         tasks={tasks}
         activeSessions={activeSessions}
