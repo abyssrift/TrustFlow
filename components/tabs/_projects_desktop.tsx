@@ -14,6 +14,7 @@ import Tooltip from '@/components/common/Tooltip';
 import Popup from '@/components/common/Popup';
 import BulkCreateProjectsSheet from '@/components/projects/BulkCreateProjectsSheet';
 import SpreadsheetImportSheet from '@/components/projects/SpreadsheetImportSheet';
+import ManageProjectFieldsPopup from '@/components/projects/ManageProjectFieldsPopup';
 import ProjectsTable from '@/components/projects/ProjectsTable';
 import ProjectBoard from '@/components/projects/ProjectBoard';
 import ProjectsTimeline from '@/components/projects/ProjectsTimeline';
@@ -59,6 +60,7 @@ export default function ProjectsScreenWeb({ portfolioId }: { portfolioId?: strin
   const [bulkCreateVisible, setBulkCreateVisible] = useState(false);
   const [spreadsheetImportVisible, setSpreadsheetImportVisible] = useState(false);
   const [addMenuVisible, setAddMenuVisible] = useState(false);
+  const [manageFieldsVisible, setManageFieldsVisible] = useState(false);
   const [tableRefreshKey, setTableRefreshKey] = useState(0);
   // #176 Projects P6 -- Table/Board toggle; Timeline landed in Phase 10 (#191).
   // Persisted: switching to Board and coming back to a List you did not choose
@@ -74,6 +76,7 @@ export default function ProjectsScreenWeb({ portfolioId }: { portfolioId?: strin
 
   const canViewProjects = hasPermission('project.view');
   const canCreate = hasPermission('project.create');
+  const canManageFields = hasPermission('project.edit');
 
   // Permission check: user must have project.view permission. Placed after
   // every hook call above (never before) so the same hooks run on every
@@ -146,12 +149,12 @@ export default function ProjectsScreenWeb({ portfolioId }: { portfolioId?: strin
               </TouchableOpacity>
             </Tooltip>
 
-            {canCreate && (
-              <Tooltip label="Bulk create, or import a spreadsheet">
+            {(canCreate || canManageFields) && (
+              <Tooltip label="Bulk create, import a spreadsheet, or manage custom fields">
                 <TouchableOpacity
                   onPress={() => setAddMenuVisible(true)}
                   accessibilityRole="button"
-                  accessibilityLabel="More ways to add projects"
+                  accessibilityLabel="More project tools"
                   className="bg-surface-card border border-surface-border px-4 rounded-xl hover:bg-surface-overlay flex-row items-center gap-2 justify-center"
                   style={{ minHeight: 44 }}
                 >
@@ -223,28 +226,47 @@ export default function ProjectsScreenWeb({ portfolioId }: { portfolioId?: strin
 
       {/* The two bulk paths, off the main bar. Both create many projects at
           once, so they belong together and behind one door rather than beside
-          the single-project action. */}
+          the single-project action. Issue #197 item 4 (manage custom fields)
+          joined this door too, rather than earning its own toolbar icon —
+          mobile's header is already at its 3-icon budget (see
+          _projects_adaptive.tsx), so a fourth action goes here on both
+          platforms for one consistent entry point instead of two. */}
       <Popup
         visible={addMenuVisible}
         onClose={() => setAddMenuVisible(false)}
         presentation="auto"
         maxWidth={460}
-        title="Add several projects"
+        title="More project tools"
         scrollable={false}
       >
-        <View className="px-5 py-4 gap-2">
-          <AddOption
-            icon="file-excel-o"
-            title="Import a spreadsheet"
-            body="Drop in a client list or engagement schedule. It reads the columns for you, then you confirm."
-            onPress={() => { setAddMenuVisible(false); setSpreadsheetImportVisible(true); }}
-          />
-          <AddOption
-            icon="magic"
-            title="Create from a template"
-            body="Paste a list of names and pick a template. Every project starts with the same task list and schedule."
-            onPress={() => { setAddMenuVisible(false); setBulkCreateVisible(true); }}
-          />
+        <View className="px-5 py-4 gap-3">
+          <View className="gap-2">
+            <Text className="text-typography-label text-[10px] font-bold uppercase tracking-wider px-1">Add several</Text>
+            <AddOption
+              icon="file-excel-o"
+              title="Import a spreadsheet"
+              body="Drop in a client list or engagement schedule. It reads the columns for you, then you confirm."
+              onPress={() => { setAddMenuVisible(false); setSpreadsheetImportVisible(true); }}
+            />
+            <AddOption
+              icon="magic"
+              title="Create from a template"
+              body="Paste a list of names and pick a template. Every project starts with the same task list and schedule."
+              onPress={() => { setAddMenuVisible(false); setBulkCreateVisible(true); }}
+            />
+          </View>
+
+          {canManageFields && (
+            <View className="gap-2 pt-1 border-t border-surface-border">
+              <Text className="text-typography-label text-[10px] font-bold uppercase tracking-wider px-1 mt-2">Manage</Text>
+              <AddOption
+                icon="table"
+                title="Custom fields"
+                body="Rename, retype, reorder or remove the columns your spreadsheet imports created."
+                onPress={() => { setAddMenuVisible(false); setManageFieldsVisible(true); }}
+              />
+            </View>
+          )}
         </View>
       </Popup>
 
@@ -270,6 +292,11 @@ export default function ProjectsScreenWeb({ portfolioId }: { portfolioId?: strin
           showAlert('Import finished', `${res.projects_created} projects and ${res.tasks_created} tasks are ready.`);
           bumpTable();
         }}
+      />
+
+      <ManageProjectFieldsPopup
+        visible={manageFieldsVisible}
+        onClose={() => setManageFieldsVisible(false)}
       />
     </View>
   );

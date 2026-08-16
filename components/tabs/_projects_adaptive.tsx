@@ -16,6 +16,7 @@ import ProjectsTable from '@/components/projects/ProjectsTable';
 import ProjectBoard from '@/components/projects/ProjectBoard';
 import ProjectsTimeline from '@/components/projects/ProjectsTimeline';
 import PortfolioScopeHeader from '@/components/portfolios/PortfolioScopeHeader';
+import ManageProjectFieldsPopup from '@/components/projects/ManageProjectFieldsPopup';
 import Popup from '@/components/common/Popup';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAlert } from '@/contexts/AlertContext';
@@ -50,6 +51,7 @@ export default function ProjectsScreen({ portfolioId }: { portfolioId?: string }
   const [bulkCreateVisible, setBulkCreateVisible] = useState(false);
   const [spreadsheetImportVisible, setSpreadsheetImportVisible] = useState(false);
   const [addMenuVisible, setAddMenuVisible] = useState(false);
+  const [manageFieldsVisible, setManageFieldsVisible] = useState(false);
   const [tableRefreshKey, setTableRefreshKey] = useState(0);
   const bumpTable = () => setTableRefreshKey(k => k + 1);
   // #176 Projects P6 -- Table/Board toggle; Timeline landed in Phase 10 (#191).
@@ -71,6 +73,7 @@ export default function ProjectsScreen({ portfolioId }: { portfolioId?: string }
 
   const canViewProjects = hasPermission('project.view');
   const canCreate = hasPermission('project.create');
+  const canManageFields = hasPermission('project.edit');
 
   // Permission check: user must have project.view permission. Placed after
   // every hook call above (never before) so the same hooks run on every
@@ -136,12 +139,12 @@ export default function ProjectsScreen({ portfolioId }: { portfolioId?: string }
             </TouchableOpacity>
           </Tooltip>
 
-          {canCreate && (
-            <Tooltip label="Add several at once">
+          {(canCreate || canManageFields) && (
+            <Tooltip label="Add several, or manage custom fields">
               <TouchableOpacity
                 onPress={() => setAddMenuVisible(true)}
                 accessibilityRole="button"
-                accessibilityLabel="More ways to add projects"
+                accessibilityLabel="More project tools"
                 className="bg-surface-card border border-surface-border rounded-xl items-center justify-center"
                 style={{ width: 44, height: 44 }}
               >
@@ -220,38 +223,61 @@ export default function ProjectsScreen({ portfolioId }: { portfolioId?: string }
         onClose={() => setAddMenuVisible(false)}
         presentation="auto"
         maxWidth={460}
-        title="Add several projects"
+        title="More project tools"
         scrollable={false}
       >
-        <View className="px-5 py-4 gap-2">
-          <TouchableOpacity
-            onPress={() => { setAddMenuVisible(false); setSpreadsheetImportVisible(true); }}
-            accessibilityRole="button"
-            className="flex-row items-start gap-3 rounded-xl border border-surface-border p-3.5"
-            style={{ minHeight: 44 }}
-          >
-            <FontAwesome name="file-excel-o" size={16} color={colors.primary} style={{ marginTop: 2 }} />
-            <View className="flex-1">
-              <Text className="text-typography-main text-sm font-bold">Import a spreadsheet</Text>
-              <Text className="text-typography-muted text-xs mt-0.5 leading-4">
-                Drop in a client list or engagement schedule. It reads the columns for you, then you confirm.
-              </Text>
+        <View className="px-5 py-4 gap-3">
+          <View className="gap-2">
+            <Text className="text-typography-label text-[10px] font-bold uppercase tracking-wider px-1">Add several</Text>
+            <TouchableOpacity
+              onPress={() => { setAddMenuVisible(false); setSpreadsheetImportVisible(true); }}
+              accessibilityRole="button"
+              className="flex-row items-start gap-3 rounded-xl border border-surface-border p-3.5"
+              style={{ minHeight: 44 }}
+            >
+              <FontAwesome name="file-excel-o" size={16} color={colors.primary} style={{ marginTop: 2 }} />
+              <View className="flex-1">
+                <Text className="text-typography-main text-sm font-bold">Import a spreadsheet</Text>
+                <Text className="text-typography-muted text-xs mt-0.5 leading-4">
+                  Drop in a client list or engagement schedule. It reads the columns for you, then you confirm.
+                </Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => { setAddMenuVisible(false); setBulkCreateVisible(true); }}
+              accessibilityRole="button"
+              className="flex-row items-start gap-3 rounded-xl border border-surface-border p-3.5"
+              style={{ minHeight: 44 }}
+            >
+              <FontAwesome name="magic" size={16} color={colors.primary} style={{ marginTop: 2 }} />
+              <View className="flex-1">
+                <Text className="text-typography-main text-sm font-bold">Create from a template</Text>
+                <Text className="text-typography-muted text-xs mt-0.5 leading-4">
+                  Paste a list of names and pick a template. Every project starts with the same task list and schedule.
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          {canManageFields && (
+            <View className="gap-2 pt-1 border-t border-surface-border">
+              <Text className="text-typography-label text-[10px] font-bold uppercase tracking-wider px-1 mt-2">Manage</Text>
+              <TouchableOpacity
+                onPress={() => { setAddMenuVisible(false); setManageFieldsVisible(true); }}
+                accessibilityRole="button"
+                className="flex-row items-start gap-3 rounded-xl border border-surface-border p-3.5"
+                style={{ minHeight: 44 }}
+              >
+                <FontAwesome name="table" size={16} color={colors.primary} style={{ marginTop: 2 }} />
+                <View className="flex-1">
+                  <Text className="text-typography-main text-sm font-bold">Custom fields</Text>
+                  <Text className="text-typography-muted text-xs mt-0.5 leading-4">
+                    Rename, retype, reorder or remove the columns your spreadsheet imports created.
+                  </Text>
+                </View>
+              </TouchableOpacity>
             </View>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => { setAddMenuVisible(false); setBulkCreateVisible(true); }}
-            accessibilityRole="button"
-            className="flex-row items-start gap-3 rounded-xl border border-surface-border p-3.5"
-            style={{ minHeight: 44 }}
-          >
-            <FontAwesome name="magic" size={16} color={colors.primary} style={{ marginTop: 2 }} />
-            <View className="flex-1">
-              <Text className="text-typography-main text-sm font-bold">Create from a template</Text>
-              <Text className="text-typography-muted text-xs mt-0.5 leading-4">
-                Paste a list of names and pick a template. Every project starts with the same task list and schedule.
-              </Text>
-            </View>
-          </TouchableOpacity>
+          )}
         </View>
       </Popup>
 
@@ -277,6 +303,11 @@ export default function ProjectsScreen({ portfolioId }: { portfolioId?: string }
           showAlert('Import finished', `${res.projects_created} projects and ${res.tasks_created} tasks are ready.`);
           bumpTable();
         }}
+      />
+
+      <ManageProjectFieldsPopup
+        visible={manageFieldsVisible}
+        onClose={() => setManageFieldsVisible(false)}
       />
     </View>
   );
