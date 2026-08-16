@@ -77,7 +77,7 @@ type ActivityData = {
 
 export default function UserAssignmentGrid() {
   const { users, roles, teams, permissions, userRoles, teamMembers, teamRoles, updateUserAssignments, removeUserFromCompany, loading } = useRoleManager();
-  const { hasPermission } = useAuth();
+  const { user, hasPermission } = useAuth();
   const { showConfirm } = useAlert();
   const colors = useThemeColors();
   const { width } = useWindowDimensions();
@@ -244,8 +244,10 @@ export default function UserAssignmentGrid() {
     if (success) setSelectedUser(null);
   };
 
+  const isRemovingSelf = !!selectedUser && selectedUser.id === user?.id;
+
   const handleRemoveUser = async () => {
-    if (!selectedUser || !canRemoveUsers) return;
+    if (!selectedUser || !canRemoveUsers || isRemovingSelf) return;
     showConfirm(
       'Remove User from Company',
       `Are you sure you want to remove ${selectedUser.full_name || selectedUser.email} from this company? They will lose access to all company resources.`,
@@ -644,17 +646,22 @@ export default function UserAssignmentGrid() {
                         <Text className="text-[10px] mt-1" style={{ color: colors.textMuted }}>Irreversible actions</Text>
                       </View>
                     </View>
-                    <TouchableOpacity
-                      onPress={handleRemoveUser}
-                      className="border px-4 py-3 rounded-lg flex-row items-center justify-between"
-                      style={{ backgroundColor: `${colors.danger}10`, borderColor: colors.danger }}
-                    >
-                      <View className="flex-1">
-                        <Text className="font-black text-sm" style={{ color: colors.danger }}>Remove from Company</Text>
-                        <Text className="text-[10px] mt-1" style={{ color: colors.textMuted }}>User will lose all access</Text>
-                      </View>
-                      <FontAwesome name="arrow-right" size={14} color={colors.danger} style={{ marginLeft: 12 }} />
-                    </TouchableOpacity>
+                    <Tooltip label={isRemovingSelf ? "You can't remove yourself from the company" : ''} disabled={!isRemovingSelf}>
+                      <TouchableOpacity
+                        onPress={handleRemoveUser}
+                        disabled={isRemovingSelf}
+                        className="border px-4 py-3 rounded-lg flex-row items-center justify-between"
+                        style={{ backgroundColor: `${colors.danger}10`, borderColor: colors.danger, opacity: isRemovingSelf ? 0.5 : 1 }}
+                      >
+                        <View className="flex-1">
+                          <Text className="font-black text-sm" style={{ color: colors.danger }}>Remove from Company</Text>
+                          <Text className="text-[10px] mt-1" style={{ color: colors.textMuted }}>
+                            {isRemovingSelf ? "You can't remove yourself" : 'User will lose all access'}
+                          </Text>
+                        </View>
+                        <FontAwesome name="arrow-right" size={14} color={colors.danger} style={{ marginLeft: 12 }} />
+                      </TouchableOpacity>
+                    </Tooltip>
                   </View>
                 )}
               </View>
@@ -1005,17 +1012,22 @@ export default function UserAssignmentGrid() {
                             <Text className="text-[9px] mt-1" style={{ color: colors.textMuted }}>Irreversible actions</Text>
                           </View>
                         </View>
-                        <TouchableOpacity
-                          onPress={handleRemoveUser}
-                          className="border px-3 py-3 rounded-lg flex-row items-center justify-between"
-                          style={{ backgroundColor: `${colors.danger}10`, borderColor: colors.danger }}
-                        >
-                          <View className="flex-1">
-                            <Text className="font-black text-xs" style={{ color: colors.danger }}>Remove from Company</Text>
-                            <Text className="text-[9px] mt-0.5" style={{ color: colors.textMuted }}>User loses all access</Text>
-                          </View>
-                          <FontAwesome name="arrow-right" size={12} color={colors.danger} style={{ marginLeft: 12 }} />
-                        </TouchableOpacity>
+                        <Tooltip label={isRemovingSelf ? "You can't remove yourself from the company" : ''} disabled={!isRemovingSelf}>
+                          <TouchableOpacity
+                            onPress={handleRemoveUser}
+                            disabled={isRemovingSelf}
+                            className="border px-3 py-3 rounded-lg flex-row items-center justify-between"
+                            style={{ backgroundColor: `${colors.danger}10`, borderColor: colors.danger, opacity: isRemovingSelf ? 0.5 : 1 }}
+                          >
+                            <View className="flex-1">
+                              <Text className="font-black text-xs" style={{ color: colors.danger }}>Remove from Company</Text>
+                              <Text className="text-[9px] mt-0.5" style={{ color: colors.textMuted }}>
+                                {isRemovingSelf ? "You can't remove yourself" : 'User loses all access'}
+                              </Text>
+                            </View>
+                            <FontAwesome name="arrow-right" size={12} color={colors.danger} style={{ marginLeft: 12 }} />
+                          </TouchableOpacity>
+                        </Tooltip>
                       </View>
                     )}
                   </View>
