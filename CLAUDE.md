@@ -33,6 +33,21 @@ raw `<Modal>` in a screen component.
   of inline `View + ScrollView` in sidebars. Must fall back to DraggableSheet
   on mobile web (< 768px) — see RoleEditorSheet.web.tsx for the pattern.
 
+## Picking up GitHub issues
+
+Multiple Claude sessions can be working this repo's issue backlog at the same
+time. Before starting work on an issue, check it isn't already labeled
+`in-progress` or claimed in a comment — skip it if so. When you start real
+work on an issue (past a quick look — you've decided to actually fix it),
+immediately, before deep investigation or any code changes:
+
+- `gh issue edit <n> --add-label in-progress`
+- `gh issue comment <n> --body "Claude session starting work on this."`
+
+This is a coordination signal for other sessions, not a lock — do it early so
+nobody else duplicates the work. Remove the label if you abandon the issue
+without finishing; leaving it on a closed issue is harmless.
+
 ## Creating GitHub issues
 
 When opening a new issue, always tag it with:
