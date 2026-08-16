@@ -87,14 +87,26 @@ BEGIN
   SELECT id INTO v_owner FROM public.users WHERE company_id = v_company AND is_owner = true LIMIT 1;
   IF v_owner IS NULL THEN RAISE EXCEPTION 'No owner user found for company %.', v_company; END IF;
 
+  -- Excludes project.view_all holders explicitly rather than trusting
+  -- whoever sorts first by id: deny_user (pool[1]) must genuinely lack
+  -- access for assertion 1 ("cannot see it -> cannot roll it forward"), and
+  -- link_user (pool[2]) must ALSO lack it for assertion 3's "no direct
+  -- access to the source project" check -- a view_all holder would make
+  -- either assertion fail on the luck of UUID ordering, not a real bug.
   SELECT ARRAY_AGG(id) INTO v_pool FROM (
     SELECT u.id FROM public.users u
     WHERE u.company_id = v_company AND u.is_owner = false
       AND u.id NOT IN (SELECT tm2.user_id FROM public.team_members tm2 WHERE tm2.team_id = v_team AND tm2.removed_at IS NULL)
+      AND u.id NOT IN (
+        SELECT ur3.user_id FROM public.user_roles ur3
+        JOIN public.role_permissions rp3 ON rp3.role_id = ur3.role_id
+        JOIN public.permissions perm3 ON perm3.id = rp3.permission_id AND perm3.key = 'project.view_all'
+        WHERE ur3.revoked_at IS NULL
+      )
     ORDER BY u.id LIMIT 2
   ) x;
   IF v_pool IS NULL OR ARRAY_LENGTH(v_pool, 1) < 2 THEN
-    RAISE EXCEPTION 'Need 2 distinct non-owner, non-team users in company % -- seed data too thin.', v_company;
+    RAISE EXCEPTION 'Need 2 distinct non-owner, non-team, non-project.view_all users in company % -- seed data too thin.', v_company;
   END IF;
 
   -- rpc_rollforward_project's OWN screen-level gate is project.create

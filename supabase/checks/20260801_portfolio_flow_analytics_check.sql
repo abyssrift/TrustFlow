@@ -146,6 +146,18 @@ BEGIN
   -- project_a: owner = pool[3] (u_powner), one task assigned to pool[2]
   -- (u_direct) with a known estimated_hours + a logged work session --
   -- accessible to owner + direct assignee, invisible to pool[1] (u_zero).
+  --
+  -- Trigger disabled around both project inserts below: neither supplies a
+  -- pipeline_id or current_stage_id, and trg_projects_default_stage
+  -- (20260803_project_stage_on_create_and_needs_attention.sql) resolves a
+  -- default stage from the COMPANY, not from v_pipeline1 -- it would land
+  -- these fixtures on some unrelated pre-existing pipeline instead of the
+  -- one this check just created, corrupting the very rpc_advance_project_
+  -- stage(..., v_intake) calls below (v_intake belongs to v_pipeline1).
+  -- This check isn't testing default-staging at all, so excluding it here
+  -- restores the pre-trigger fixture semantics the rest of the check relies on.
+  ALTER TABLE public.projects DISABLE TRIGGER trg_projects_default_stage;
+
   INSERT INTO public.projects (company_id, name, created_by, owner_id)
   VALUES (v_company1, 'PFA Selfcheck Project A', v_creator, v_pool[3])
   RETURNING id INTO v_project_a;
@@ -163,6 +175,8 @@ BEGIN
   INSERT INTO public.projects (company_id, name, created_by)
   VALUES (v_company1, 'PFA Selfcheck Project B', v_creator)
   RETURNING id INTO v_project_b;
+
+  ALTER TABLE public.projects ENABLE TRIGGER trg_projects_default_stage;
 
   -- Real trigger-written stage moves -- run as the company owner so
   -- rpc_advance_project_stage's owner bypass skips transition-path

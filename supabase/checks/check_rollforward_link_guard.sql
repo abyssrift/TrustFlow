@@ -7,7 +7,8 @@ DECLARE
   v_company UUID; v_actor UUID; v_role UUID;
   v_secret_project UUID; v_my_project UUID; v_folder UUID; v_file UUID;
   v_can_see_secret BOOLEAN; v_files_before INT; v_files_after INT;
-  v_updated INT;
+  v_blocked BOOLEAN := false;
+  v_errmsg TEXT;
 BEGIN
   -- Pick a company that actually has a non-owner to act as the attacker.
   SELECT c.id INTO v_company
@@ -73,30 +74,42 @@ BEGIN
   RAISE NOTICE 'secret files visible BEFORE: %  (expect 0)', v_files_before;
 
   -- THE ATTACK: claim my project was rolled forward from the secret one.
-  UPDATE public.projects
-     SET rolled_forward_from_project_id = v_secret_project
-   WHERE id = v_my_project;
-  GET DIAGNOSTICS v_updated = ROW_COUNT;
-  RAISE NOTICE 'attacker UPDATE affected % row(s)  (0 = blocked by RLS)', v_updated;
+  -- 20260802_rollforward_link_guard.sql made this a RAISE (stronger than
+  -- this check originally expected -- a silent RLS no-op / 0 rows). Catch it
+  -- as a subtransaction and assert it fired, rather than letting the
+  -- exception abort this whole DO block before the rest of the script runs.
+  BEGIN
+    UPDATE public.projects
+       SET rolled_forward_from_project_id = v_secret_project
+     WHERE id = v_my_project;
+  EXCEPTION WHEN OTHERS THEN
+    v_blocked := true;
+    v_errmsg := SQLERRM;
+  END;
+
+  IF NOT v_blocked THEN
+    RAISE EXCEPTION 'CHECK FAILED: forging rolled_forward_from_project_id was NOT rejected -- guard trigger missing or regressed';
+  END IF;
+  IF v_errmsg NOT LIKE '%rolled_forward_from_project_id may only be set by rpc_rollforward_project%' THEN
+    RAISE EXCEPTION 'CHECK FAILED: UPDATE was blocked but with an unexpected error: %', v_errmsg;
+  END IF;
+  RAISE NOTICE 'attacker UPDATE correctly rejected by guard trigger: %', v_errmsg;
 
   SELECT count(*) INTO v_files_after FROM public.filehub_files WHERE id = v_file;
   RAISE NOTICE 'secret files visible AFTER:  %  (expect 0; 1 = ESCALATION)', v_files_after;
 
   IF v_files_after > v_files_before THEN
-    RAISE WARNING 'ESCALATION CONFIRMED: project.edit + a forged rolled_forward_from_project_id grants read on another project''s files';
-  ELSE
-    RAISE NOTICE 'no escalation via this path';
+    RAISE EXCEPTION 'CHECK FAILED: ESCALATION -- project.edit + a forged rolled_forward_from_project_id grants read on another project''s files (got % visible files)', v_files_after;
   END IF;
+
+  RAISE NOTICE 'OK: forged rolled_forward_from_project_id rejected, no file disclosure';
 END $$;
 ROLLBACK;
 
--- Expected result AFTER 20260802_rollforward_link_guard.sql:
---   the attacker UPDATE raises
---   "projects.rolled_forward_from_project_id may only be set by
---    rpc_rollforward_project (it grants read access to the source project's files)."
---
--- BEFORE the guard this script printed:
---   secret files visible AFTER: 1  -> ESCALATION CONFIRMED
---
--- So a clean run of this file is an ERROR, not a NOTICE. If it ever completes
--- without raising, the guard has regressed and file disclosure is live again.
+-- Expected result AFTER 20260802_rollforward_link_guard.sql: the attacker
+-- UPDATE is caught, its message asserted to match the guard's own error
+-- ("projects.rolled_forward_from_project_id may only be set by
+--  rpc_rollforward_project (it grants read access to the source project's
+--  files)."), and secret files stay invisible. A clean run prints "OK:
+-- forged rolled_forward_from_project_id rejected, no file disclosure" --
+-- any CHECK FAILED means the guard trigger has regressed.

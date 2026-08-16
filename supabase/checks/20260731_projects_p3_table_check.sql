@@ -12,7 +12,9 @@
 -- Smallest thing that fails if any of these regress:
 --   1. days_in_current_stage matches project_stage_history (backdated via a
 --      direct UPDATE so the "days" math is actually exercised, not just
---      "it's 0 right after insert"), and is NULL for a never-staged project.
+--      "it's 0 right after insert"), and is NULL for a project with no
+--      project_stage_history row -- current_stage_id itself is still
+--      populated via trg_projects_default_stage's insert-time default.
 --   2. child rollups: tasks_total, tasks_done, weighted_progress,
 --      tracked_seconds, estimated_hours all match a hand-computed answer for
 --      a project with 3 tasks (2 weights, 1 done, 1 tracked session).
@@ -79,9 +81,17 @@ BEGIN
   RETURNING id INTO v_client_id;
 
   -- ── Project A: staged, backdated transition, 3 child tasks ──────────────
+  -- Trigger disabled around this one INSERT so the project starts genuinely
+  -- unstaged: rpc_advance_project_stage's NULL -> v_stage_a call below must
+  -- be a REAL first transition (trg_projects_stage_history only fires when
+  -- current_stage_id actually changes) so there's a history row to backdate.
+  -- Left enabled everywhere else in this check -- Project B below
+  -- deliberately tests the trigger's own default-assignment behavior.
+  ALTER TABLE public.projects DISABLE TRIGGER trg_projects_default_stage;
   INSERT INTO public.projects (company_id, name, pipeline_id, client_id, due_date, owner_id, weight)
   VALUES (v_company_id, 'P3 Check Project A', v_pipeline_id, v_client_id, now() + interval '4 days', v_user_id, 3)
   RETURNING id INTO v_project_id;
+  ALTER TABLE public.projects ENABLE TRIGGER trg_projects_default_stage;
 
   -- rpc_advance_project_stage stamps transitioned_at = now(); backdate it so
   -- days_in_current_stage has a real, checkable non-zero value.
@@ -143,13 +153,24 @@ BEGIN
     RAISE EXCEPTION 'CHECK FAILED: days_in_current_stage = % (expected 5, from a transition backdated 5 days 3 hours)', v_row.days_in_current_stage;
   END IF;
 
+  -- trg_projects_default_stage (20260803_project_stage_on_create_and_needs_attention.sql)
+  -- assigns a stage on INSERT when none is supplied, so Project B is no
+  -- longer "unstaged" -- it gets the company's default project stage. It
+  -- still has NO project_stage_history row (that trigger only sets a
+  -- column; only an UPDATE via trg_projects_stage_history writes history),
+  -- so days_in_current_stage stays NULL regardless.
   SELECT * INTO v_row FROM public.rpc_projects_table(p_search := 'P3 Check Project B') LIMIT 1;
   IF v_row.days_in_current_stage IS NOT NULL THEN
-    RAISE EXCEPTION 'CHECK FAILED: unstaged project should have NULL days_in_current_stage, got %', v_row.days_in_current_stage;
+    RAISE EXCEPTION 'CHECK FAILED: a project with no history row should have NULL days_in_current_stage, got %', v_row.days_in_current_stage;
   END IF;
-  IF v_row.current_stage_id IS NOT NULL THEN
-    RAISE EXCEPTION 'CHECK FAILED: unstaged project should have NULL current_stage_id, got %', v_row.current_stage_id;
-  END IF;
+  DECLARE
+    v_expected_stage UUID;
+  BEGIN
+    SELECT stage_id INTO v_expected_stage FROM public.fn_default_project_stage(v_company_id);
+    IF v_row.current_stage_id IS DISTINCT FROM v_expected_stage THEN
+      RAISE EXCEPTION 'CHECK FAILED: default-staged project should get the company default stage % from fn_default_project_stage, got %', v_expected_stage, v_row.current_stage_id;
+    END IF;
+  END;
 
   -- ── Assert 2: child rollups on Project A ─────────────────────────────────
   -- weight: done=5, open=2+3=5 total=10 -> weighted_progress = 50.00
