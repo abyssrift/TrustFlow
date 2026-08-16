@@ -8,6 +8,7 @@ import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
+import { localIsoDay } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { cssInterop } from 'react-native-css-interop';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -57,7 +58,7 @@ const HOUR_PRESETS = [1, 2, 4, 8, 16, 24];
 function quickDate(days: number): string {
   const d = new Date();
   d.setDate(d.getDate() + days);
-  return d.toISOString().split('T')[0];
+  return localIsoDay(d);
 }
 
 export default function EditTaskModalWeb({ visible, onClose, focusField }: Props) {

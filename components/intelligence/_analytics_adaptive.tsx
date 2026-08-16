@@ -4,6 +4,7 @@ import { DateRangeControls, useGranularity } from '@/components/intelligence/Dat
 import PortfolioFlowTab from '@/components/intelligence/PortfolioFlowTab';
 import { PersonnelRow, StageDwell, ThroughputBucket, useAnalytics } from '@/contexts/AnalyticsContext';
 import { bucketLabel } from '@/lib/chartBuckets';
+import { localIsoDay } from '@/lib/time';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBillingPlan } from '@/hooks/useBillingPlan';
 import { getAnalyticsLimits } from '@/lib/planLimits';
@@ -200,8 +201,8 @@ function PipelineTab() {
 
   const today = new Date();
   const defaultFrom = new Date(today.getTime() - 30 * 86400000);
-  const [from, setFrom] = useState(defaultFrom.toISOString().split('T')[0]);
-  const [to, setTo]     = useState(today.toISOString().split('T')[0]);
+  const [from, setFrom] = useState(localIsoDay(defaultFrom));
+  const [to, setTo]     = useState(localIsoDay(today));
 
   const [dwell, setDwell]           = useState<StageDwell[]>([]);
   const [throughput, setThroughput] = useState<ThroughputBucket[]>([]);
@@ -304,8 +305,8 @@ function PersonnelTab() {
 
   const today = new Date();
   const defaultFrom = new Date(today.getTime() - 30 * 86400000);
-  const [from, setFrom] = useState(defaultFrom.toISOString().split('T')[0]);
-  const [to, setTo]     = useState(today.toISOString().split('T')[0]);
+  const [from, setFrom] = useState(localIsoDay(defaultFrom));
+  const [to, setTo]     = useState(localIsoDay(today));
 
   useEffect(() => {
     supabase.from('users').select('id, full_name, avatar_url').is('deleted_at', null).order('full_name')

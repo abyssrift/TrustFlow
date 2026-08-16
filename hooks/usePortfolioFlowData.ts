@@ -1,4 +1,4 @@
-import { useGranularity } from '@/components/intelligence/DateRangeFilter';
+import { isoDay, useGranularity } from '@/components/intelligence/DateRangeFilter';
 import {
   PortfolioCapacityRow,
   PortfolioCfdPoint,
@@ -31,8 +31,8 @@ export function usePortfolioFlowData() {
 
   const today = new Date();
   const defaultFrom = new Date(today.getTime() - 56 * 86400000);
-  const [from, setFrom] = useState(defaultFrom.toISOString().split('T')[0]);
-  const [to, setTo] = useState(today.toISOString().split('T')[0]);
+  const [from, setFrom] = useState(isoDay(defaultFrom));
+  const [to, setTo] = useState(isoDay(today));
 
   const [wip, setWip] = useState<PortfolioWipStage[]>([]);
   const [cfd, setCfd] = useState<PortfolioCfdPoint[]>([]);

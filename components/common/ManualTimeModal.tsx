@@ -2,11 +2,12 @@ import DraggableSheet from '@/components/common/DraggableSheet';
 import Calendar from '@/components/common/Calendar';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
+import { localIsoDay } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useState } from 'react';
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-const todayIso = () => new Date().toISOString().split('T')[0];
+const todayIso = () => localIsoDay();
 const formatWorkedDate = (d: string) => {
   if (d === todayIso()) return 'Today';
   return new Date(d + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });

@@ -8,7 +8,7 @@ import { Permission, Role, Team, User, useRoleManager } from '@/contexts/RoleMan
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { daysToPeriodParams } from '@/lib/analyticsPeriods';
 import { supabase } from '@/lib/supabase';
-import { formatCompact } from '@/lib/time';
+import { formatCompact, localIsoDay } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -150,8 +150,8 @@ export default function UserAssignmentGrid() {
       // rpc_get_user_performance_series only buckets by 'week'/'month' snapshot —
       // there's no daily granularity, so a "last 30 days" window is shown as ~4 weekly points.
       const { periodType, nPeriods } = daysToPeriodParams(30);
-      const from = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-      const to   = new Date().toISOString().split('T')[0];
+      const from = localIsoDay(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
+      const to   = localIsoDay();
       // Recent activity from real signals — completed work sessions + stage moves by
       // this user (same tables the board feed uses). activity_log is ping-only, so it
       // was never the right source here.

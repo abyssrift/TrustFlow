@@ -14,6 +14,7 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import { getPastedImageFile, fileToStaged } from '@/lib/pasteImage';
 import { useDropPulse, useFileDrop } from '@/hooks/useWebDnd';
 import { supabase } from '@/lib/supabase';
+import { localIsoDay } from '@/lib/time';
 import { FontAwesome } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
@@ -60,7 +61,7 @@ function priorityBgColor(colors: ReturnType<typeof useThemeColors>, p: string): 
 function quickDate(days: number): string {
   const d = new Date();
   d.setDate(d.getDate() + days);
-  return d.toISOString().split('T')[0];
+  return localIsoDay(d);
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

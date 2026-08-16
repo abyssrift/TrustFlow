@@ -1,6 +1,7 @@
 import Calendar from '@/components/common/Calendar';
 import { bucketsForWidth } from '@/lib/chartBuckets';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { localIsoDay } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useState } from 'react';
 import { Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
@@ -11,7 +12,7 @@ import { Text, TouchableOpacity, useWindowDimensions, View } from 'react-native'
 
 const MS_DAY = 86400000;
 
-export const isoDay = (d: Date) => d.toISOString().split('T')[0];
+export const isoDay = localIsoDay;
 
 export function daysBetween(from: string, to: string): number {
   return Math.max(1, Math.round((new Date(to).getTime() - new Date(from).getTime()) / MS_DAY));

@@ -1,4 +1,5 @@
 import { StageDwell, ThroughputPeriod, useAnalytics } from '@/contexts/AnalyticsContext';
+import { localIsoDay } from '@/lib/time';
 import { FontAwesome } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -279,8 +280,8 @@ export const AnalyticsSectionWeb = ({ pipelines }: { pipelines: any[] }) => {
 
   const [pipelineId, setPipelineId] = useState<string | null>(pipelines[0]?.id ?? null);
   const [period, setPeriod]         = useState('month');
-  const [from, setFrom]             = useState(defFrom.toISOString().split('T')[0]);
-  const [to, setTo]                 = useState(today.toISOString().split('T')[0]);
+  const [from, setFrom]             = useState(localIsoDay(defFrom));
+  const [to, setTo]                 = useState(localIsoDay(today));
   const [dwell, setDwell]           = useState<StageDwell[]>([]);
   const [throughput, setThroughput] = useState<ThroughputPeriod[]>([]);
   const [loading, setLoading]       = useState(false);

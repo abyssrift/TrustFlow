@@ -4,6 +4,7 @@ import PortfolioFlowTab from '@/components/intelligence/PortfolioFlowTab';
 import { ConversionFunnelChartWeb, StageDwellChartWeb } from '@/components/intelligence/RadarWidgets';
 import { PersonnelRow, StageDwell, ThroughputBucket, useAnalytics } from '@/contexts/AnalyticsContext';
 import { bucketLabel } from '@/lib/chartBuckets';
+import { localIsoDay } from '@/lib/time';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useBillingPlan } from '@/hooks/useBillingPlan';
@@ -152,8 +153,8 @@ function PipelineTab({ planCode, limits }: { planCode: string; limits: Analytics
   const defaultFrom = new Date(today);
   defaultFrom.setDate(today.getDate() - initDays);
 
-  const [from, setFrom] = useState(defaultFrom.toISOString().split('T')[0]);
-  const [to, setTo]     = useState(today.toISOString().split('T')[0]);
+  const [from, setFrom] = useState(localIsoDay(defaultFrom));
+  const [to, setTo]     = useState(localIsoDay(today));
 
   const [dwell, setDwell]         = useState<StageDwell[]>([]);
   const [throughput, setThroughput] = useState<ThroughputBucket[]>([]);
@@ -298,8 +299,8 @@ function PersonnelTab({ planCode, limits, catalog }: { planCode: string; limits:
   const defaultFrom = new Date(today);
   defaultFrom.setDate(today.getDate() - initDays);
 
-  const [from, setFrom] = useState(defaultFrom.toISOString().split('T')[0]);
-  const [to, setTo]     = useState(today.toISOString().split('T')[0]);
+  const [from, setFrom] = useState(localIsoDay(defaultFrom));
+  const [to, setTo]     = useState(localIsoDay(today));
 
   const [results, setResults]   = useState<PersonnelRow[]>([]);
   const [loading, setLoading]   = useState(false);

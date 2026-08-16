@@ -45,7 +45,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useDashboardData } from '@/contexts/DashboardDataContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import type { WidgetSize } from '@/lib/dashboardWidgets';
-import { formatCompact } from '@/lib/time';
+import { formatCompact, localIsoDay } from '@/lib/time';
 
 /**
  * Instance config values are always strings, so the window is one too. The
@@ -59,8 +59,6 @@ const DEFAULT_PERIOD = '30';
 /** How many stats each size shows. Fewer stats, not smaller ones. */
 const STATS_BY_SIZE: Record<WidgetSize, number> = { s: 1, m: 3, l: 4 };
 
-const isoDay = (d: Date) => d.toISOString().split('T')[0];
-
 export default function MyPerformanceWidget({ instance, size }: WidgetBodyProps) {
   const { user } = useAuth();
   const { getUserPerformanceSummary } = useAnalytics();
@@ -68,8 +66,8 @@ export default function MyPerformanceWidget({ instance, size }: WidgetBodyProps)
   const c = useThemeColors();
 
   const days = PERIOD_DAYS[instance.config.period] ?? PERIOD_DAYS[DEFAULT_PERIOD];
-  const to = isoDay(new Date());
-  const from = isoDay(new Date(Date.now() - days * 86400000));
+  const to = localIsoDay();
+  const from = localIsoDay(new Date(Date.now() - days * 86400000));
 
   const [summary, setSummary] = useState<Record<string, number> | null>(null);
   const [loading, setLoading] = useState(true);

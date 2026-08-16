@@ -9,6 +9,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { NATIVE_THEME_COLORS } from '@/lib/layout';
 import { supabase } from '@/lib/supabase';
+import { localIsoDay } from '@/lib/time';
 import { FontAwesome } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
@@ -28,7 +29,7 @@ const CreateModal = ({ visible, onClose, onConfirm, pipelines, stages }: any) =>
   const [lifeGoal, setLifeGoal]   = useState('86400');
   const [quantity, setQuantity]   = useState('50');
   const [deadline, setDeadline]   = useState<string | null>(
-    new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    localIsoDay(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000))
   );
   const filteredStages = stages.filter((s: any) => s.pipeline_id === pipeline);
 
