@@ -292,7 +292,6 @@ export default function ReportGeneratorDesktop() {
 
       setGenProgress({ current: 0, total: jobs.length });
 
-      const createdJobIds: string[] = [];
       for (let i = 0; i < jobs.length; i++) {
         setGenProgress({ current: i + 1, total: jobs.length });
         const { reportType, parameters } = jobs[i];
@@ -303,19 +302,7 @@ export default function ReportGeneratorDesktop() {
         });
         if (error) throw error;
         if (!jobId) throw new Error('Failed to create report job');
-        createdJobIds.push(jobId);
         await generateAndUploadReport(jobId, reportType, taggedParams, supabase, user.id, profile.company_id);
-      }
-
-      // Post-loop verification: confirm every row is 'completed' in the DB before navigating away.
-      const { data: verifyRows } = await supabase
-        .from('reporting_jobs')
-        .select('id, status')
-        .in('id', createdJobIds);
-      const incomplete = (verifyRows || []).filter(r => r.status !== 'completed');
-      if (incomplete.length > 0) {
-        setGenError(`${incomplete.length} of ${createdJobIds.length} report(s) didn't reach completed status. Check the Reports list — the row may still be processing or failed.`);
-        return;
       }
 
       router.replace('/intelligence/reports');

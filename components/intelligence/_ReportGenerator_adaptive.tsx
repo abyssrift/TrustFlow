@@ -285,7 +285,6 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
 
       setGenProgress({ current: 0, total: jobs.length });
 
-      const createdJobIds: string[] = [];
       for (let i = 0; i < jobs.length; i++) {
         setGenProgress({ current: i + 1, total: jobs.length });
         const { reportType, parameters } = jobs[i];
@@ -296,19 +295,7 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
         });
         if (error) throw error;
         if (!jobId) throw new Error('Failed to create report job');
-        createdJobIds.push(jobId);
         await generateAndUploadReport(jobId, reportType, taggedParams, supabase, user.id, profile.company_id);
-      }
-
-      // Post-loop verification: confirm every row landed in 'completed' before navigating away
-      const { data: verifyRows } = await supabase
-        .from('reporting_jobs')
-        .select('id, status')
-        .in('id', createdJobIds);
-      const incomplete = (verifyRows || []).filter(r => r.status !== 'completed');
-      if (incomplete.length > 0) {
-        setGenError(`${incomplete.length} of ${createdJobIds.length} report(s) didn't reach completed status. Check the Reports list.`);
-        return;
       }
 
       if (isPage) {
