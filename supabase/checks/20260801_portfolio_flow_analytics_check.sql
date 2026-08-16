@@ -69,6 +69,7 @@ DECLARE
   v_team_member UUID;
   v_creator     UUID;
   v_pool        UUID[];
+  v_powner      UUID;
   v_pipeline1   UUID;
   v_pipeline2   UUID;
   v_intake      UUID;
@@ -95,6 +96,17 @@ BEGIN
     RAISE EXCEPTION 'No owner user in the chosen company.';
   END IF;
 
+  -- Excludes project.view_all holders explicitly rather than trusting
+  -- whoever sorts first by id (same reasoning as
+  -- check_rpc_rollforward_project.sql): u_zero (pool[1]) must genuinely see
+  -- nothing, and u_direct (pool[2]) must see ONLY project_a via its task
+  -- assignment -- a view_all holder in either slot passes both assertions
+  -- for the wrong reason (broad grant, not the accessibility path under
+  -- test), which is exactly what made this check flag a false #281.
+  -- u_powner is selected separately, without the view_all filter: it's only
+  -- ever used as project_a's OWNER, and ownership alone already grants full
+  -- access regardless of view_all, so the filter would just shrink the
+  -- candidate pool for no behavioural reason.
   SELECT ARRAY_AGG(id) INTO v_pool FROM (
     SELECT u.id FROM public.users u
     WHERE u.company_id = v_company1 AND u.is_owner = false
@@ -102,12 +114,31 @@ BEGIN
         SELECT tm2.user_id FROM public.team_members tm2
         WHERE tm2.team_id = v_team AND tm2.removed_at IS NULL
       )
+      AND u.id NOT IN (
+        SELECT ur3.user_id FROM public.user_roles ur3
+        JOIN public.role_permissions rp3 ON rp3.role_id = ur3.role_id
+        JOIN public.permissions perm3 ON perm3.id = rp3.permission_id AND perm3.key = 'project.view_all'
+        WHERE ur3.revoked_at IS NULL
+      )
     ORDER BY u.id
-    LIMIT 3
+    LIMIT 2
   ) x;
-  IF v_pool IS NULL OR ARRAY_LENGTH(v_pool, 1) < 3 THEN
-    RAISE EXCEPTION 'Need 3 distinct non-owner, non-team users in company % -- seed data too thin.', v_company1;
+  IF v_pool IS NULL OR ARRAY_LENGTH(v_pool, 1) < 2 THEN
+    RAISE EXCEPTION 'Need 2 distinct non-owner, non-team, non-project.view_all users (u_zero, u_direct) in company % -- seed data too thin.', v_company1;
   END IF;
+
+  SELECT u.id INTO v_powner FROM public.users u
+  WHERE u.company_id = v_company1 AND u.is_owner = false
+    AND u.id <> ALL (v_pool)
+    AND u.id NOT IN (
+      SELECT tm2.user_id FROM public.team_members tm2
+      WHERE tm2.team_id = v_team AND tm2.removed_at IS NULL
+    )
+  LIMIT 1;
+  IF v_powner IS NULL THEN
+    RAISE EXCEPTION 'Need a third distinct non-owner, non-team user (u_powner) in company % -- seed data too thin.', v_company1;
+  END IF;
+  v_pool := v_pool || v_powner;
 
   -- Grant everyone in the pool analytics.view -- this check is about
   -- fn_project_accessible row filtering, not the screen-level gate.
