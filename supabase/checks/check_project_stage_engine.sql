@@ -8,7 +8,7 @@
 --   MSYS_NO_PATHCONV=1 docker exec -i supabase_db_TrustFlow psql -U postgres \
 --     -d postgres -f - < supabase/checks/check_project_stage_engine.sql
 --
--- Wrapped in BEGIN/ROLLBACK: creates one throwaway project pipeline, four
+-- Wrapped in BEGIN/ROLLBACK: creates two throwaway project pipelines, seven
 -- projects and two tasks in an existing seeded company, reusing real
 -- users/roles and never inventing auth.users rows (same convention as every
 -- other check in this folder). Always rolls back -- safe to re-run, leaves
@@ -37,6 +37,11 @@
 --      and an automated stage does not move a project that is not overdue.
 --      The unchanged TASK branch still advances an overdue task, so the
 --      subject_kind split did not cost the old behaviour.
+--   4b. check_interval_minutes and buffer_minutes (20260816 fix) actually
+--      gate: a rule that just ran (last_run_at = NOW()) does not re-fire an
+--      otherwise-overdue project on the same tick, and an overdue project
+--      inside its configured buffer does not fire while one past the buffer
+--      does.
 --   5. fn_project_stage_notify_recipients restores the caller's JWT claims.
 --      It impersonates candidates to evaluate the predicate; leaking that
 --      into the surrounding transaction would silently re-authorise
@@ -73,6 +78,15 @@ DECLARE
   v_recips    UUID[];
   v_n         INT;
   v_claims    TEXT;
+  v_cadence_pipe UUID;
+  v_cs_a      UUID;
+  v_cs_b      UUID;
+  v_cs_c      UUID;
+  v_auto_gated     UUID;
+  v_auto_buffered  UUID;
+  v_p_gated   UUID;
+  v_p_buf_no  UUID;   -- overdue by less than the configured buffer
+  v_p_buf_yes UUID;   -- overdue by more than the configured buffer
 BEGIN
   -- ── Fixtures ──────────────────────────────────────────────────────────
   SELECT u.company_id INTO v_company
@@ -271,6 +285,49 @@ BEGIN
   VALUES (v_task_pipe, v_ts_a, v_ts_b, 'overdue', v_company)
   RETURNING id INTO v_task_auto;
 
+  -- Dedicated pipeline for the cadence checks (20260816), kept separate
+  -- from v_pipe/v_stage_a so its rules never compete with v_auto over the
+  -- same source stage.
+  INSERT INTO public.pipelines (company_id, name, subject_kind)
+  VALUES (v_company, 'PSE Cadence Selfcheck Pipeline', 'project')
+  RETURNING id INTO v_cadence_pipe;
+  INSERT INTO public.pipeline_stages (pipeline_id, name, position, is_initial)
+  VALUES (v_cadence_pipe, 'PSE Cadence A', 1, true) RETURNING id INTO v_cs_a;
+  INSERT INTO public.pipeline_stages (pipeline_id, name, position, is_terminal)
+  VALUES (v_cadence_pipe, 'PSE Cadence B', 2, true) RETURNING id INTO v_cs_b;
+  INSERT INTO public.pipeline_stages (pipeline_id, name, position)
+  VALUES (v_cadence_pipe, 'PSE Cadence C', 3) RETURNING id INTO v_cs_c;
+  INSERT INTO public.pipeline_stage_transitions (from_stage_id, to_stage_id)
+  VALUES (v_cs_a, v_cs_b), (v_cs_c, v_cs_b);
+
+  -- check_interval_minutes: a rule that "just ran" must not re-fire on this
+  -- tick even though its project is overdue.
+  INSERT INTO public.pipeline_automations
+    (pipeline_id, source_stage_id, target_stage_id, condition_type, check_interval_minutes, company_id)
+  VALUES (v_cadence_pipe, v_cs_a, v_cs_b, 'overdue', 60, v_company)
+  RETURNING id INTO v_auto_gated;
+  UPDATE public.pipeline_automations SET last_run_at = NOW() WHERE id = v_auto_gated;
+
+  INSERT INTO public.projects (company_id, name, created_by, owner_id, pipeline_id, current_stage_id, due_date)
+  VALUES (v_company, 'PSE Gated Project', v_creator, v_powner, v_cadence_pipe, v_cs_a, NOW() - INTERVAL '3 days')
+  RETURNING id INTO v_p_gated;
+
+  -- buffer_minutes: overdue-by-less-than-buffer must not fire, overdue-by-
+  -- more-than-buffer must.
+  INSERT INTO public.pipeline_automations
+    (pipeline_id, source_stage_id, target_stage_id, condition_type, company_id)
+  VALUES (v_cadence_pipe, v_cs_c, v_cs_b, 'overdue', v_company)
+  RETURNING id INTO v_auto_buffered;
+  INSERT INTO public.pipeline_automation_params (automation_id, key, value)
+  VALUES (v_auto_buffered, 'buffer_minutes', '60');
+
+  INSERT INTO public.projects (company_id, name, created_by, owner_id, pipeline_id, current_stage_id, due_date)
+  VALUES (v_company, 'PSE Buffer Not Elapsed', v_creator, v_powner, v_cadence_pipe, v_cs_c, NOW() - INTERVAL '10 minutes')
+  RETURNING id INTO v_p_buf_no;
+  INSERT INTO public.projects (company_id, name, created_by, owner_id, pipeline_id, current_stage_id, due_date)
+  VALUES (v_company, 'PSE Buffer Elapsed', v_creator, v_powner, v_cadence_pipe, v_cs_c, NOW() - INTERVAL '90 minutes')
+  RETURNING id INTO v_p_buf_yes;
+
   PERFORM public.rpc_process_automations();
 
   IF (SELECT current_stage_id FROM public.projects WHERE id = v_p_auto) IS DISTINCT FROM v_stage_b THEN
@@ -306,7 +363,26 @@ BEGIN
     RAISE EXCEPTION 'CHECK FAILED: an event was emitted for a project that never moved';
   END IF;
 
-  RAISE NOTICE 'ALL CHECKS PASSED: project stage changes notify (owner / assignee / view_all, never a no-access user) and overdue projects automate.';
+  -- 20260816: check_interval_minutes actually gates.
+  IF (SELECT current_stage_id FROM public.projects WHERE id = v_p_gated) IS DISTINCT FROM v_cs_a THEN
+    RAISE EXCEPTION 'CHECK FAILED: a rule with last_run_at inside its check_interval_minutes re-fired anyway';
+  END IF;
+
+  -- 20260816: buffer_minutes actually gates.
+  IF (SELECT current_stage_id FROM public.projects WHERE id = v_p_buf_no) IS DISTINCT FROM v_cs_c THEN
+    RAISE EXCEPTION 'CHECK FAILED: a project overdue by less than buffer_minutes fired anyway';
+  END IF;
+  IF (SELECT current_stage_id FROM public.projects WHERE id = v_p_buf_yes) IS DISTINCT FROM v_cs_b THEN
+    RAISE EXCEPTION 'CHECK FAILED: a project overdue by more than buffer_minutes did not fire';
+  END IF;
+
+  -- 20260816: last_run_at gets stamped so the interval gate has something to
+  -- compare against on the next tick, for every rule actually evaluated.
+  IF (SELECT last_run_at FROM public.pipeline_automations WHERE id = v_auto_buffered) IS NULL THEN
+    RAISE EXCEPTION 'CHECK FAILED: rpc_process_automations() did not stamp last_run_at';
+  END IF;
+
+  RAISE NOTICE 'ALL CHECKS PASSED: project stage changes notify (owner / assignee / view_all, never a no-access user), overdue projects automate, and check_interval_minutes/buffer_minutes gate correctly.';
 END $$;
 
 ROLLBACK;
