@@ -270,7 +270,7 @@ export default function BillingPanel() {
 
         {/* Current plan */}
         {billing && (
-          <View className={`bg-surface-card border border-surface-border rounded-2xl p-5 mb-6 ${isWide ? 'max-w-2xl' : ''}`}>
+          <View className="bg-surface-card border border-surface-border rounded-2xl p-5 mb-6">
             <View className="flex-row items-center justify-between mb-4">
               <View className="flex-1 mr-3">
                 <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest">Current plan</Text>
