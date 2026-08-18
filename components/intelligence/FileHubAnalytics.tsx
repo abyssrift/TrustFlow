@@ -182,7 +182,7 @@ export default function FileHubAnalytics({ visible, onClose }: { visible: boolea
   );
 
   return (
-    <Popup visible={visible} onClose={onClose} dimBackdrop presentation="auto" maxHeight="92%" maxWidth={420}>
+    <Popup visible={visible} onClose={onClose} dimBackdrop presentation="auto" maxHeight="92%" maxWidth={900}>
       {body}
     </Popup>
   );
