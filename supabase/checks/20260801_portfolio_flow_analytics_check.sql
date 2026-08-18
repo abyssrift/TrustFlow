@@ -162,6 +162,19 @@ BEGIN
   VALUES (v_company1, 'pro')
   ON CONFLICT (company_id) DO UPDATE SET plan_code = 'pro';
 
+  -- #282's backfill triggers (20260818_pipeline_project_backfill_unstaged.sql)
+  -- fire on exactly what this fixture does next: creating a project-kind
+  -- pipeline with an initial stage in a REAL seeded company. That company
+  -- may already have its own unrelated NULL-current_stage_id projects lying
+  -- around (the exact scenario #282 describes on prod) -- left enabled, the
+  -- new "Intake" stage below would silently adopt them, inflating the hand
+  -- count in section 1 past the 2 projects this fixture actually created.
+  -- Same rationale as disabling trg_projects_default_stage below: this check
+  -- isn't testing backfill-on-late-pipeline, so exclude it here.
+  ALTER TABLE public.pipelines DISABLE TRIGGER trg_pipelines_backfill_projects_insert;
+  ALTER TABLE public.pipelines DISABLE TRIGGER trg_pipelines_backfill_projects_update;
+  ALTER TABLE public.pipeline_stages DISABLE TRIGGER trg_pipeline_stages_backfill_projects;
+
   INSERT INTO public.pipelines (company_id, name, subject_kind, created_by)
   VALUES (v_company1, 'PFA Selfcheck Pipeline', 'project', v_creator)
   RETURNING id INTO v_pipeline1;
@@ -208,6 +221,9 @@ BEGIN
   RETURNING id INTO v_project_b;
 
   ALTER TABLE public.projects ENABLE TRIGGER trg_projects_default_stage;
+  ALTER TABLE public.pipelines ENABLE TRIGGER trg_pipelines_backfill_projects_insert;
+  ALTER TABLE public.pipelines ENABLE TRIGGER trg_pipelines_backfill_projects_update;
+  ALTER TABLE public.pipeline_stages ENABLE TRIGGER trg_pipeline_stages_backfill_projects;
 
   -- Real trigger-written stage moves -- run as the company owner so
   -- rpc_advance_project_stage's owner bypass skips transition-path
