@@ -1,4 +1,5 @@
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { formatRelative } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
@@ -10,6 +11,14 @@ type Note = { id: string; body: string; updatedAt: number };
 export function noteTitle(body: string): string {
   const line = body.split('\n').map(l => l.trim()).find(Boolean);
   return line ? line.slice(0, 22) : 'New note';
+}
+
+// Second non-empty line (or the rest of the first, if it's the only one) — the
+// preview shown under the title in the list row.
+function notePreview(body: string): string {
+  const lines = body.split('\n').map(l => l.trim()).filter(Boolean);
+  const preview = lines[1] ?? '';
+  return preview.slice(0, 60);
 }
 
 const keyFor = (userId?: string) => `kanban_notes_v1_${userId || 'anon'}`;
@@ -28,14 +37,16 @@ function load(userId?: string): Note[] {
 export default function KanbanNotes({ userId }: { userId?: string }) {
   const colors = useThemeColors();
   const [notes, setNotes] = useState<Note[]>(() => load(userId));
-  const [activeId, setActiveId] = useState<string | null>(() => load(userId)[0]?.id ?? null);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
   const firstRun = useRef(true);
 
   // Reload when the signed-in user changes.
   useEffect(() => {
     const loaded = load(userId);
     setNotes(loaded);
-    setActiveId(loaded[0]?.id ?? null);
+    setActiveId(null);
+    setSearch('');
     firstRun.current = true;
   }, [userId]);
 
@@ -60,71 +71,106 @@ export default function KanbanNotes({ userId }: { userId?: string }) {
 
   const deleteActive = () => {
     if (!active) return;
-    setNotes(prev => {
-      const next = prev.filter(n => n.id !== active.id);
-      setActiveId(next[0]?.id ?? null);
-      return next;
-    });
+    setNotes(prev => prev.filter(n => n.id !== active.id));
+    setActiveId(null);
   };
 
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return notes;
+    return notes.filter(n => n.body.toLowerCase().includes(q));
+  }, [notes, search]);
+
+  // Editor — opened by tapping a row in the list below.
+  if (active) {
+    return (
+      <View className="flex-1">
+        <View className="flex-row items-center justify-between mb-3">
+          <Pressable onPress={() => setActiveId(null)} className="flex-row items-center gap-1.5 rounded-lg px-1 py-1 hover:bg-surface-overlay">
+            <FontAwesome name="chevron-left" size={11} color={colors.muted} />
+            <Text className="text-typography-muted text-[11px] font-bold">All notes</Text>
+          </Pressable>
+          <Pressable onPress={deleteActive} accessibilityLabel="Delete note" className="flex-row items-center gap-1.5 rounded-lg px-2 py-1 hover:bg-state-danger/10">
+            <FontAwesome name="trash-o" size={11} color={colors.danger} />
+            <Text className="text-state-danger text-[10px] font-black uppercase tracking-widest">Delete</Text>
+          </Pressable>
+        </View>
+        <View className="flex-1 rounded-2xl border border-surface-border bg-surface-card p-3">
+          <TextInput
+            value={active.body}
+            onChangeText={updateActive}
+            multiline
+            autoFocus
+            placeholder="Write anything — reminders, things to look out for…"
+            placeholderTextColor={colors.muted}
+            className="flex-1 text-sm text-typography-main"
+            style={{ textAlignVertical: 'top' } as any}
+          />
+        </View>
+        <Text className="mt-2 text-typography-muted text-[10px] font-bold px-1">
+          {new Date(active.updatedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+        </Text>
+      </View>
+    );
+  }
+
+  // List — scalable for many notes (#257): vertical rows with title + preview
+  // + relative time instead of a horizontal chip strip.
   return (
     <View className="flex-1">
-      {/* Chip selector — every note stays here; the open one is highlighted. */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-3 -mx-1 flex-none" contentContainerStyle={{ paddingHorizontal: 4, gap: 6 }}>
-        {notes.map(n => {
-          const isActive = n.id === activeId;
-          return (
-            <Pressable
-              key={n.id}
-              onPress={() => setActiveId(n.id)}
-              className={`h-8 justify-center rounded-full border px-3 ${isActive ? 'border-brand-primary bg-brand-primary/15' : 'border-surface-border bg-surface-card hover:bg-surface-overlay'}`}
-            >
-              <Text className={`text-[11px] font-bold ${isActive ? 'text-brand-primary' : 'text-typography-muted'}`} numberOfLines={1}>
-                {noteTitle(n.body)}
-              </Text>
-            </Pressable>
-          );
-        })}
+      <View className="flex-row items-center gap-2 mb-3">
+        <View className="flex-1 flex-row items-center rounded-xl border border-surface-border bg-surface-card px-3 h-9">
+          <FontAwesome name="search" size={11} color={colors.muted} style={{ marginRight: 8 }} />
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Search notes..."
+            placeholderTextColor={colors.muted}
+            className="flex-1 text-typography-main text-xs font-bold"
+          />
+        </View>
         <Tooltip label="New note">
           <Pressable
             onPress={addNote}
             accessibilityLabel="New note"
-            className="h-8 w-8 items-center justify-center rounded-full border border-dashed border-surface-border hover:bg-surface-overlay"
+            className="h-9 w-9 items-center justify-center rounded-xl border border-dashed border-surface-border hover:bg-surface-overlay"
           >
-            <FontAwesome name="plus" size={11} color={colors.muted} />
+            <FontAwesome name="plus" size={12} color={colors.muted} />
           </Pressable>
         </Tooltip>
-      </ScrollView>
+      </View>
 
-      {active ? (
-        <>
-          <View className="flex-1 rounded-2xl border border-surface-border bg-surface-card p-3">
-            <TextInput
-              value={active.body}
-              onChangeText={updateActive}
-              multiline
-              placeholder="Write anything — reminders, things to look out for…"
-              placeholderTextColor={colors.muted}
-              className="flex-1 text-sm text-typography-main"
-              style={{ textAlignVertical: 'top' } as any}
-            />
-          </View>
-          <View className="mt-2 flex-row items-center justify-between px-1">
-            <Text className="text-typography-muted text-[10px] font-bold">
-              {new Date(active.updatedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-            </Text>
-            <Pressable onPress={deleteActive} accessibilityLabel="Delete note" className="flex-row items-center gap-1.5 rounded-lg px-2 py-1 hover:bg-state-danger/10">
-              <FontAwesome name="trash-o" size={11} color={colors.danger} />
-              <Text className="text-state-danger text-[10px] font-black uppercase tracking-widest">Delete</Text>
-            </Pressable>
-          </View>
-        </>
-      ) : (
+      {notes.length === 0 ? (
         <Pressable onPress={addNote} className="flex-1 items-center justify-center rounded-2xl border border-dashed border-surface-border hover:bg-surface-overlay">
           <FontAwesome name="sticky-note-o" size={22} color={colors.muted} />
           <Text className="mt-3 text-typography-muted text-xs font-bold">Create your first note</Text>
           <Text className="mt-1 text-typography-muted text-[10px]">Private to you, saved on this device</Text>
         </Pressable>
+      ) : filtered.length === 0 ? (
+        <View className="flex-1 items-center justify-center">
+          <Text className="text-typography-muted text-xs font-bold">No notes match "{search}"</Text>
+        </View>
+      ) : (
+        <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+          {filtered.map(n => {
+            const preview = notePreview(n.body);
+            return (
+              <Pressable
+                key={n.id}
+                onPress={() => setActiveId(n.id)}
+                className="rounded-xl border border-surface-border bg-surface-card px-3 py-2.5 hover:bg-surface-overlay"
+              >
+                <View className="flex-row items-center justify-between mb-0.5">
+                  <Text className="text-typography-main text-xs font-bold flex-1 mr-2" numberOfLines={1}>{noteTitle(n.body)}</Text>
+                  <Text className="text-typography-muted text-[10px] font-bold flex-shrink-0">{formatRelative(new Date(n.updatedAt))}</Text>
+                </View>
+                {!!preview && (
+                  <Text className="text-typography-muted text-[11px]" numberOfLines={1}>{preview}</Text>
+                )}
+              </Pressable>
+            );
+          })}
+        </ScrollView>
       )}
     </View>
   );
