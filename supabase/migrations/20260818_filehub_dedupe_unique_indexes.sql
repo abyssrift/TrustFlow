@@ -1,13 +1,25 @@
 -- Issue #35: idempotent upload retries need two real unique constraints to
 -- build on top of. Neither exists today:
 --
--- 1. No unique index on filehub_files.storage_path. A naive client retry on
---    a transient network failure re-PUTs to storage and re-inserts the row,
---    double-counting the file. CONFIRMED LIVE (2026-08-18): 13 storage_path
---    groups / 30 active rows already duplicated this way -- verified one
---    group by hand, two rows, same original_name/size_bytes, ~6s apart,
---    no replaces_file_id/current_version_id link, i.e. an accidental
---    double-submit or retry, not a version chain.
+-- 1. No unique index on filehub_files (visibility, storage_path). A naive
+--    client retry on a transient network failure re-PUTs to storage and
+--    re-inserts the row, double-counting the file. CONFIRMED LIVE
+--    (2026-08-18): 13 storage_path groups / 30 active rows already
+--    duplicated this way -- verified one group by hand, two rows, same
+--    original_name/size_bytes, ~6s apart, no replaces_file_id/
+--    current_version_id link, i.e. an accidental double-submit or retry,
+--    not a version chain.
+--
+--    Scoped by visibility, not just storage_path, because
+--    fn_harvest_task_output deliberately creates a SECOND filehub_files row
+--    (visibility='project') that points at the SAME storage_path as the
+--    originating task submission's row (visibility='task') -- it shares the
+--    physical object rather than duplicating bytes, instead of recording an
+--    actual reference back to the source row (see docs/audit/
+--    filehub-write-paths-review.md). A plain (storage_path) index would
+--    reject that legitimate cross-visibility sharing on the very next
+--    harvest; a (visibility, storage_path) index still catches same-
+--    visibility duplication -- the actual bug above -- while allowing it.
 --
 -- 2. filehub_dedupe_name() (20260720_filehub_upload_commit_folder_tree.sql)
 --    only prevents NEW clashes via a transaction-scoped advisory lock around
@@ -32,7 +44,7 @@
 -- ============================================================
 WITH ranked AS (
   SELECT id,
-         row_number() OVER (PARTITION BY storage_path ORDER BY created_at ASC, id ASC) AS rn
+         row_number() OVER (PARTITION BY visibility, storage_path ORDER BY created_at ASC, id ASC) AS rn
   FROM public.filehub_files
   WHERE deleted_at IS NULL
 )
@@ -43,7 +55,7 @@ WHERE f.id = ranked.id
   AND ranked.rn > 1;
 
 CREATE UNIQUE INDEX IF NOT EXISTS filehub_files_storage_path_uq
-  ON public.filehub_files (storage_path)
+  ON public.filehub_files (visibility, storage_path)
   WHERE deleted_at IS NULL;
 
 -- ============================================================
