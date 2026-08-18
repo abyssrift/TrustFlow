@@ -60,7 +60,7 @@ export default function ProjectFolderModal({
         containerClassName="w-[95%] max-h-[90vh] rounded-3xl overflow-hidden premium-shadow"
       >
         <View
-          className="w-full rounded-3xl overflow-hidden"
+          className="w-full flex-1 rounded-3xl overflow-hidden"
           style={{ maxWidth: 560, backgroundColor: c.card, borderWidth: 1, borderColor: c.border }}
         >
             {/* Header */}
@@ -76,7 +76,7 @@ export default function ProjectFolderModal({
             </View>
 
             {/* Form Content */}
-            <ScrollView className="px-6" contentContainerStyle={{ paddingTop: 24, paddingBottom: 8 }}>
+            <ScrollView className="px-6" style={{ flexShrink: 1 }} contentContainerStyle={{ paddingTop: 24, paddingBottom: 8 }}>
               <View className="mb-6">
                 <Text style={{ color: c.textMuted }} className="text-xs font-bold uppercase mb-2 tracking-widest">
                   Folder Name

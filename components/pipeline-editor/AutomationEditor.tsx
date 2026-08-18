@@ -135,7 +135,7 @@ export default function AutomationEditor() {
               <FontAwesome name="times" size={16} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
-          <ScrollView className="p-6" nestedScrollEnabled>
+          <ScrollView className="p-6" style={{ flexShrink: 1 }} nestedScrollEnabled>
             {/* Condition Type */}
             <Text className="text-typography-label text-[10px] font-bold uppercase tracking-wider mb-2">Condition</Text>
             <View className="gap-2 mb-4">

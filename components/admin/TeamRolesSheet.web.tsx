@@ -23,7 +23,7 @@ export default function TeamRolesSheet({ visible, onClose, team, roles, draftRol
       containerClassName="w-[95%] max-h-[90vh] rounded-3xl overflow-hidden premium-shadow"
     >
       <View
-        className="w-full rounded-3xl overflow-hidden"
+        className="w-full flex-1 rounded-3xl overflow-hidden"
         style={{ maxWidth: 560, backgroundColor: c.card, borderWidth: 1, borderColor: c.border }}
       >
           <View className="flex-row items-center justify-between px-7 pt-6 pb-5" style={{ borderBottomWidth: 1, borderBottomColor: c.border }}>
@@ -44,7 +44,7 @@ export default function TeamRolesSheet({ visible, onClose, team, roles, draftRol
             </Tooltip>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} className="px-7" contentContainerStyle={{ paddingTop: 16 }}>
+          <ScrollView showsVerticalScrollIndicator={false} className="px-7" style={{ flexShrink: 1 }} contentContainerStyle={{ paddingTop: 16 }}>
             <View
               className="flex-row items-center justify-between rounded-xl px-4 py-4 mb-5"
               style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}

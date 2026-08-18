@@ -142,7 +142,7 @@ export default function TransitionEditor() {
               <FontAwesome name="times" size={16} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
-          <ScrollView className="p-6" nestedScrollEnabled>
+          <ScrollView className="p-6" style={{ flexShrink: 1 }} nestedScrollEnabled>
             {/* From Stage */}
             <Text className="text-typography-label text-[10px] font-bold uppercase tracking-wider mb-2">From Stage</Text>
             <View className="flex-row flex-wrap gap-2 mb-3">

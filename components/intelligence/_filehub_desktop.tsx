@@ -2603,7 +2603,7 @@ function ShareLinkModal({ visible, fileId, folderId, fileName, onClose }: {
             </TouchableOpacity>
           </View>
 
-          <ScrollView contentContainerStyle={{ padding: 20 }} showsVerticalScrollIndicator={false}>
+          <ScrollView contentContainerStyle={{ padding: 20 }} style={{ flexShrink: 1 }} showsVerticalScrollIndicator={false}>
             <Text className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color: colors.textMuted }}>Expires In</Text>
             <View className="flex-row gap-2 mb-4">
               {EXPIRY_OPTIONS.map(opt => (
@@ -3039,7 +3039,7 @@ function TagsManageModal({ visible, onClose, onChanged }: {
               <Text className="text-sm mt-3" style={{ color: colors.textMuted }}>No tags yet</Text>
             </View>
           ) : (
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ flexShrink: 1 }}>
               {tags.map(({ tag, count }) => {
                 const c = getTagColor(tag);
                 const isRenaming = renamingTag === tag;
