@@ -1,3 +1,4 @@
+import FileHubDebugPanel from '@/components/admin/FileHubDebugPanel';
 import { BackButton } from '@/components/common/BackButton';
 import { useAlert } from '@/contexts/AlertContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -383,6 +384,8 @@ export default function DevToolsScreen() {
               </View>
             </TouchableOpacity>
           </View>
+
+          <FileHubDebugPanel />
 
           {/* Info Sections */}
           <View className="mb-6">

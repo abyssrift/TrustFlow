@@ -1,6 +1,9 @@
 // Shared FileHub upload helpers. Extracted from _filehub_desktop so the global
 // UploadManager and the upload modal compute hashes / format sizes identically.
 
+import NetInfo from '@react-native-community/netinfo';
+import { Platform } from 'react-native';
+
 export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -44,6 +47,15 @@ export class StorageUploadError extends Error {
     this.name = 'StorageUploadError';
     this.status = status;
   }
+}
+
+// Debug-only: forces the next uploadFileToStorage call to fail as if the
+// network dropped, so the retry-on-reconnect path (see UploadManagerContext's
+// uploadOne) can be exercised without real DevTools throttling. One-shot —
+// resets itself after firing once.
+let __debugForceNextUploadFailure = false;
+export function debugSimulateNetworkDrop(): void {
+  __debugForceNextUploadFailure = true;
 }
 
 export function uploadFileToStorage(opts: {
@@ -96,6 +108,55 @@ export function uploadFileToStorage(opts: {
     xhr.onerror = () => { opts.registerXhr?.(null); reject(new StorageUploadError('Network error during upload', 0)); };
     xhr.onabort = () => { opts.registerXhr?.(null); reject(new StorageUploadError('aborted', 0)); };
 
+    if (__debugForceNextUploadFailure) {
+      __debugForceNextUploadFailure = false;
+      reject(new StorageUploadError('Simulated network drop (debug)', 0));
+      return;
+    }
+
     xhr.send(form);
+  });
+}
+
+// ── Reconnect-and-retry ────────────────────────────────────────────────────
+// True when a failure looks like a dropped connection rather than an
+// application-level error (validation, permission, HTTP error response) —
+// used to decide whether to auto-retry once connectivity returns.
+export function isNetworkError(e: unknown): boolean {
+  if (e instanceof StorageUploadError && e.status === 0) return true;
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return true;
+  return false;
+}
+
+// Resolves once the device/browser is back online. Resolves immediately if
+// already online. Polls isCancelled() every second so a job cancel can
+// interrupt an indefinite wait instead of leaving a dangling listener.
+export function waitForReconnect(isCancelled: () => boolean): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const finish = () => resolve();
+
+    if (Platform.OS === 'web') {
+      if (typeof navigator === 'undefined' || navigator.onLine !== false) { finish(); return; }
+      let cleanup: () => void;
+      const onOnline = () => { cleanup(); finish(); };
+      const poll = setInterval(() => { if (isCancelled()) { cleanup(); finish(); } }, 1000);
+      cleanup = () => {
+        clearInterval(poll);
+        if (typeof window !== 'undefined') window.removeEventListener('online', onOnline);
+      };
+      if (typeof window !== 'undefined') window.addEventListener('online', onOnline);
+      return;
+    }
+
+    // Native
+    NetInfo.fetch().then((state) => {
+      if (state.isConnected && state.isInternetReachable !== false) { finish(); return; }
+      let cleanup: () => void;
+      const unsubscribe = NetInfo.addEventListener((s) => {
+        if (s.isConnected && s.isInternetReachable !== false) { cleanup(); finish(); }
+      });
+      const poll = setInterval(() => { if (isCancelled()) { cleanup(); finish(); } }, 1000);
+      cleanup = () => { clearInterval(poll); unsubscribe(); };
+    });
   });
 }

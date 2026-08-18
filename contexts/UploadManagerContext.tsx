@@ -28,7 +28,7 @@ import type { FileHubFolder } from '@/contexts/FileHubContext';
 import { relDir, resolveExistingFolderLeaf } from '@/lib/filehubFolderTree';
 import { randomId } from '@/lib/randomId';
 import { supabase, supabaseAnonKey, supabaseUrl } from '@/lib/supabase';
-import { computeSHA256, formatEta, formatFileSize, uploadFileToStorage } from '@/lib/uploadHelpers';
+import { computeSHA256, formatEta, formatFileSize, isNetworkError, uploadFileToStorage, waitForReconnect } from '@/lib/uploadHelpers';
 import { useRouter } from 'expo-router';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 
@@ -81,6 +81,7 @@ type UploadManagerValue = {
   jobsStore: {
     subscribe: (cb: () => void) => () => void;
     getJob: (jobId: string) => UploadJobState | undefined;
+    getAllJobs: () => UploadJobState[];
   };
 };
 
@@ -129,6 +130,7 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
   const jobsStore = useMemo(() => ({
     subscribe: (cb: () => void) => { jobListeners.current.add(cb); return () => { jobListeners.current.delete(cb); }; },
     getJob: (jobId: string) => jobsRef.current[jobId],
+    getAllJobs: () => Object.values(jobsRef.current),
   }), []);
 
   const cancelUpload = useCallback((jobId: string) => {
@@ -291,7 +293,7 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
         });
       };
 
-      const uploadOne = async (file: File, idx: number) => {
+      const uploadOne = async (file: File, idx: number, isRetry = false): Promise<void> => {
         if (ctrl.aborted) return;
         const relDirPath = relDir((file as any).webkitRelativePath);
         const existingLeaf = relDirPath
@@ -405,7 +407,13 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
         } catch (e: any) {
           // A cancel aborts the in-flight XHR, which rejects with 'aborted' —
           // that's expected teardown, not a per-file failure to report.
-          if (!ctrl.aborted) errors.push(`${file.name}: ${e?.message || 'Unknown error'}`);
+          if (ctrl.aborted) return;
+          if (!isRetry && isNetworkError(e)) {
+            setJob(jobId, { subtitle: `Connection lost — retrying "${file.name}" when back online…` });
+            await waitForReconnect(() => ctrl.aborted);
+            if (!ctrl.aborted) return uploadOne(file, idx, true);
+          }
+          errors.push(`${file.name}: ${e?.message || 'Unknown error'}`);
         }
       };
 
