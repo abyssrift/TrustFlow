@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAlert } from '@/contexts/AlertContext';
 import { useTaskCreation } from '@/contexts/TaskCreationContext';
 import { supabase } from '@/lib/supabase';
+import { localIsoDay } from '@/lib/time';
 
 export type TaskTemplate = {
   name: string;
@@ -107,6 +108,10 @@ export function useCreateTaskWizard({ visible, initialPipelineId }: { visible: b
       // deliberately overrides local persistence on every open.
       if (initialPipelineId) {
         setDraft({ pipelineId: initialPipelineId });
+      }
+      // Prefill start date to today for the common case (#253); user can still clear/change it.
+      if (!draft.startDate) {
+        setDraft({ startDate: localIsoDay() });
       }
     } else {
       setStep(1);

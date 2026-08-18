@@ -270,6 +270,8 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
       // Pipeline always follows the board you're on — the one draft field that
       // deliberately overrides local persistence on every open.
       if (initialPipelineId) setDraft({ pipelineId: initialPipelineId });
+      // Prefill start date to today for the common case (#253); user can still clear/change it.
+      if (!draft.startDate) setDraft({ startDate: localIsoDay() });
       setWeightText(String(draft.weight ?? 1));
     } else {
       setBulkMode(false);
