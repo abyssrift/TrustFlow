@@ -127,11 +127,25 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
     jobsRef.current = { ...jobsRef.current, [jobId]: { ...(prev as UploadJobState), ...patch } };
     emitJobs();
   }, [emitJobs]);
-  const jobsStore = useMemo(() => ({
-    subscribe: (cb: () => void) => { jobListeners.current.add(cb); return () => { jobListeners.current.delete(cb); }; },
-    getJob: (jobId: string) => jobsRef.current[jobId],
-    getAllJobs: () => Object.values(jobsRef.current),
-  }), []);
+  const jobsStore = useMemo(() => {
+    // getAllJobs must return a stable reference when nothing changed —
+    // useSyncExternalStore compares snapshots by identity, and jobsRef.current
+    // is only reassigned (see setJob) when a job actually updates, so caching
+    // against that identity avoids a new-array-every-render infinite loop.
+    let cachedFor: Record<string, UploadJobState> | null = null;
+    let cachedJobs: UploadJobState[] = [];
+    return {
+      subscribe: (cb: () => void) => { jobListeners.current.add(cb); return () => { jobListeners.current.delete(cb); }; },
+      getJob: (jobId: string) => jobsRef.current[jobId],
+      getAllJobs: () => {
+        if (cachedFor !== jobsRef.current) {
+          cachedFor = jobsRef.current;
+          cachedJobs = Object.values(jobsRef.current);
+        }
+        return cachedJobs;
+      },
+    };
+  }, []);
 
   const cancelUpload = useCallback((jobId: string) => {
     const id = `upload:${jobId}`;
