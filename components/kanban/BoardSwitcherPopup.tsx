@@ -189,7 +189,7 @@ export default function BoardSwitcherPopup<B extends PickerBoard>({
   };
 
   const boardList = (
-    <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+    <ScrollView keyboardShouldPersistTaps="handled" style={{ flexShrink: 1 }} showsVerticalScrollIndicator={false}>
       {filteredBoards.length === 0 ? (
         <Text className="text-typography-muted text-sm font-medium text-center mt-6">
           No boards match “{searchQuery}”

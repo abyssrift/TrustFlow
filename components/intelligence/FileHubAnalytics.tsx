@@ -118,7 +118,7 @@ export default function FileHubAnalytics({ visible, onClose }: { visible: boolea
               <Text className="text-sm font-bold mt-3 text-center" style={{ color: c.textMuted }}>{error}</Text>
             </View>
           ) : (
-            <ScrollView className="px-7 py-5" contentContainerStyle={{ paddingBottom: 28 }} showsVerticalScrollIndicator={false}>
+            <ScrollView className="px-7 py-5" style={{ flexShrink: 1 }} contentContainerStyle={{ paddingBottom: 28 }} showsVerticalScrollIndicator={false}>
               {/* Stat cards */}
               <View className="flex-row flex-wrap gap-3">
                 {statCards.map(s => (

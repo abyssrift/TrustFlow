@@ -270,7 +270,7 @@ export default function StageBuilder() {
             </Tooltip>
           </View>
 
-            <ScrollView className="p-6">
+            <ScrollView className="p-6" style={{ flexShrink: 1 }}>
               {/* Basic Info */}
               <Section label="Identification">
                 <Input 
@@ -651,7 +651,7 @@ export default function StageBuilder() {
             </Tooltip>
           </View>
 
-          <ScrollView className="p-6">
+          <ScrollView className="p-6" style={{ flexShrink: 1 }}>
             <Section label="Display">
               <Input 
                 label="Label / Action Name"
