@@ -230,5 +230,12 @@
   "228": "Method 2: Using Command Line Script (Most Complete)",
   "229": "filehub.tsx",
   "230": "tasks.tsx",
-  "231": "icons.ts"
+  "231": "icons.ts",
+  "232": "jiraImport.ts",
+  "233": "BillingMeter.web.tsx",
+  "234": "index.ts",
+  "235": "statusMapper.ts",
+  "236": "useControlPlaneData",
+  "237": "tasks.tsx",
+  "238": "Features"
 }

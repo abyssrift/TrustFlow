@@ -26,7 +26,7 @@
 // ScrollView, and a vertical scroller inside a vertical scroller is a gesture
 // conflict on native and an overflow trap on web. Lists cap at ROWS_BY_SIZE and
 // link out instead, which is the house pattern already (ProjectionStrip's
-// MAX_LANES = 5, BlockedExceptionsPanel's MAX_SHOWN = 6). A 200-row dataset
+// MAX_LANES = 5, BlockedExceptionsPanel's MAX_SHOWN = 3). A 200-row dataset
 // therefore renders 3, 6 or 10 rows plus one "see all" line, whatever the data
 // does. MultiViewList is NOT usable here: it needs a bounded-height parent.
 

@@ -39,7 +39,11 @@ import { Text, TouchableOpacity, View } from 'react-native';
 
 type Row = ProjectCardRow & ExceptionSourceRow;
 
-const MAX_SHOWN = 6;
+// 6 was copied from ROWS_BY_SIZE's compact-ListRow convention (registry.tsx)
+// without accounting for these being full ProjectCards (~120px vs a ListRow's
+// ~50px) — 6 of them ran to ~780px, dwarfing every other widget on the
+// dashboard grid. 3 lands near the same footprint as a 2-tier widget instead.
+const MAX_SHOWN = 3;
 
 export default function BlockedExceptionsPanel({
   rows: source,

@@ -313,7 +313,7 @@ export const WIDGET_META: Record<WidgetType, WidgetMeta> = {
     requiredPermission: 'project.view',
     category: 'projects',
     configFields: [],
-    // Six full-width ProjectCards do not become smaller in a 230px cell — the
+    // Full-width ProjectCards do not become smaller in a 230px cell — the
     // panel's MAX_SHOWN and its card layout are both server/design decisions
     // this widget may not re-derive. Same call as projection-strip and
     // pipeline-overview: withhold 's' rather than rewrite the panel.
