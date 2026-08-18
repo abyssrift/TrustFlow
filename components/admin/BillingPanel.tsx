@@ -352,6 +352,42 @@ export default function BillingPanel() {
                 </Text>
               </View>
             )}
+
+            {/* Trial code redemption — surfaced on the plan card itself (#226) */}
+            {canManage && billing.status !== 'trialing' && (
+              <View className="mt-4">
+                <TouchableOpacity
+                  onPress={() => setShowRedeemCode(v => !v)}
+                  className="flex-row items-center justify-center gap-2 border border-brand-primary/30 bg-brand-primary/5 rounded-xl py-2.5"
+                >
+                  <FontAwesome name="gift" size={12} color={colors.primary} />
+                  <Text className="text-brand-primary font-black text-xs uppercase tracking-widest">Redeem a Trial Code</Text>
+                  <FontAwesome name={showRedeemCode ? 'chevron-up' : 'chevron-down'} size={9} color={colors.primary} />
+                </TouchableOpacity>
+                {showRedeemCode && (
+                  <View className="mt-3 flex-row gap-2">
+                    <TextInput
+                      value={trialCode}
+                      onChangeText={setTrialCode}
+                      placeholder="TF-PRO-3M-XXXX"
+                      placeholderTextColor={colors.textMuted}
+                      autoCapitalize="characters"
+                      className="flex-1 bg-surface-background border border-surface-border rounded-xl px-3 py-2.5 text-typography-main text-sm"
+                    />
+                    <TouchableOpacity
+                      onPress={handleRedeemCode}
+                      disabled={redeemLoading || !trialCode.trim()}
+                      className="bg-brand-primary px-4 py-2.5 rounded-xl items-center justify-center"
+                      style={{ opacity: (redeemLoading || !trialCode.trim()) ? 0.5 : 1 }}
+                    >
+                      <Text className="text-white font-black text-xs uppercase tracking-widest">
+                        {redeemLoading ? '…' : 'Activate'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            )}
           </View>
         )}
 
@@ -456,40 +492,6 @@ export default function BillingPanel() {
             );
           })}
         </View>
-        {/* Trial code redemption */}
-        {canManage && billing?.status !== 'trialing' && (
-          <View className="mt-6">
-            <TouchableOpacity
-              onPress={() => setShowRedeemCode(v => !v)}
-              className="flex-row items-center gap-2 self-start"
-            >
-              <FontAwesome name={showRedeemCode ? 'chevron-up' : 'chevron-down'} size={9} color={colors.textMuted} />
-              <Text className="text-typography-muted text-xs">Have a trial code?</Text>
-            </TouchableOpacity>
-            {showRedeemCode && (
-              <View className="mt-3 flex-row gap-2">
-                <TextInput
-                  value={trialCode}
-                  onChangeText={setTrialCode}
-                  placeholder="TF-PRO-3M-XXXX"
-                  placeholderTextColor={colors.textMuted}
-                  autoCapitalize="characters"
-                  className="flex-1 bg-surface-background border border-surface-border rounded-xl px-3 py-2.5 text-typography-main text-sm"
-                />
-                <TouchableOpacity
-                  onPress={handleRedeemCode}
-                  disabled={redeemLoading || !trialCode.trim()}
-                  className="bg-brand-primary px-4 py-2.5 rounded-xl items-center justify-center"
-                  style={{ opacity: (redeemLoading || !trialCode.trim()) ? 0.5 : 1 }}
-                >
-                  <Text className="text-white font-black text-xs uppercase tracking-widest">
-                    {redeemLoading ? '…' : 'Activate'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        )}
       </ScrollView>
 
       {/* Downgrade confirmation modal */}
