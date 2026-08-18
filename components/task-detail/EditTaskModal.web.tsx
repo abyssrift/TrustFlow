@@ -42,10 +42,10 @@ const PRIORITY_LABEL: Record<string, string> = { low: 'Low', medium: 'Normal', h
 // Colors (not classNames) — this renders inside a <Modal> subtree, so theme tokens
 // must be resolved via useThemeColors() rather than CSS-variable-backed classNames.
 function priorityTextColor(colors: ReturnType<typeof useThemeColors>, p: string): string {
-  return ({ urgent: colors.danger, high: colors.warning, medium: colors.primary, low: colors.textDim } as Record<string, string>)[p] ?? colors.textMuted;
+  return ({ urgent: colors.danger, high: colors.warning, medium: colors.primary, low: colors.success } as Record<string, string>)[p] ?? colors.textMuted;
 }
 function priorityBgColor(colors: ReturnType<typeof useThemeColors>, p: string): string {
-  return ({ urgent: colors.danger + '26', high: colors.warning + '26', medium: colors.primary + '26', low: colors.border + '40' } as Record<string, string>)[p] ?? (colors.border + '40');
+  return ({ urgent: colors.danger + '26', high: colors.warning + '26', medium: colors.primary + '26', low: colors.success + '26' } as Record<string, string>)[p] ?? (colors.border + '40');
 }
 
 const QUICK_DATES = [
@@ -360,9 +360,9 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
                     key={p}
                     onPress={() => setPriority(p)}
                     className="px-5 py-2.5 rounded-full"
-                    style={{ backgroundColor: priority === p ? colors.primary : colors.background, borderWidth: 1, borderColor: priority === p ? colors.primary : colors.border }}
+                    style={{ backgroundColor: priority === p ? priorityTextColor(colors, p) : colors.background, borderWidth: 1, borderColor: priority === p ? priorityTextColor(colors, p) : colors.border }}
                   >
-                    <Text className="font-black text-[10px] uppercase tracking-widest" style={{ color: priority === p ? '#fff' : colors.textMuted }}>{PRIORITY_LABEL[p]}</Text>
+                    <Text className="font-black text-[10px] uppercase tracking-widest" style={{ color: priority === p ? '#fff' : priorityTextColor(colors, p) }}>{PRIORITY_LABEL[p]}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -681,9 +681,9 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
                             key={p}
                             onPress={() => setPriority(p)}
                             className={`flex-1 items-center justify-center rounded-xl transition-all ${priority === p ? '' : 'hover:bg-surface-overlay'}`}
-                            style={{ backgroundColor: priority === p ? colors.primary : undefined }}
+                            style={{ backgroundColor: priority === p ? priorityTextColor(colors, p) : undefined }}
                           >
-                            <Text className="font-black text-[10px] uppercase tracking-widest" style={{ color: priority === p ? '#fff' : colors.textMuted }}>
+                            <Text className="font-black text-[10px] uppercase tracking-widest" style={{ color: priority === p ? '#fff' : priorityTextColor(colors, p) }}>
                               {PRIORITY_LABEL[p]}
                             </Text>
                           </TouchableOpacity>

@@ -18,6 +18,14 @@ import { useCreateTaskWizard } from '@/lib/useCreateTaskWizard';
 import { usePipelineAssignmentPreview } from '@/lib/usePipelineAssignmentPreview';
 import AssignmentModePreview from './AssignmentModePreview';
 
+// Priority level colors (#252): urgent=danger, high=warning, normal=brand, low=success.
+const PRIORITY_STYLE: Record<string, { selectedBg: string; selectedBorder: string; idleText: string }> = {
+  urgent: { selectedBg: 'bg-state-danger', selectedBorder: 'border-state-danger', idleText: 'text-state-danger' },
+  high:   { selectedBg: 'bg-state-warning', selectedBorder: 'border-state-warning', idleText: 'text-state-warning' },
+  normal: { selectedBg: 'bg-brand-primary', selectedBorder: 'border-brand-primary', idleText: 'text-typography-muted' },
+  low:    { selectedBg: 'bg-state-success', selectedBorder: 'border-state-success', idleText: 'text-state-success' },
+};
+
 // ─── Adaptive File Grid ───────────────────────────────────────────────────────
 
 function AdaptiveFileGrid({
@@ -281,15 +289,19 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
              <View>
                 <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-4 ml-1">Priority</Text>
                 <View className="flex-row flex-wrap gap-2">
-                  {['low', 'normal', 'high', 'urgent'].map(p => (
-                    <TouchableOpacity
-                      key={p}
-                      onPress={() => setDraft({ priority: p as any })}
-                      className={`px-6 py-3 rounded-full border ${draft.priority === p ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
-                    >
-                      <Text className={`font-black text-[10px] uppercase tracking-widest ${draft.priority === p ? 'text-white' : 'text-typography-muted'}`}>{p}</Text>
-                    </TouchableOpacity>
-                  ))}
+                  {['low', 'normal', 'high', 'urgent'].map(p => {
+                    const style = PRIORITY_STYLE[p];
+                    const selected = draft.priority === p;
+                    return (
+                      <TouchableOpacity
+                        key={p}
+                        onPress={() => setDraft({ priority: p as any })}
+                        className={`px-6 py-3 rounded-full border ${selected ? `${style.selectedBg} ${style.selectedBorder}` : `bg-surface-background border-surface-border`}`}
+                      >
+                        <Text className={`font-black text-[10px] uppercase tracking-widest ${selected ? 'text-white' : style.idleText}`}>{p}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
              </View>
              <View>

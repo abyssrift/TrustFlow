@@ -52,10 +52,10 @@ const MOBILE_STEP_LABELS = ['Basics', 'Logistics', 'Files & Team'];
 // Colors (not classNames) — these render inside a <Modal> subtree, so theme tokens
 // must be resolved via useThemeColors() rather than CSS-variable-backed classNames.
 function priorityTextColor(colors: ReturnType<typeof useThemeColors>, p: string): string {
-  return ({ urgent: colors.danger, high: colors.warning, normal: colors.primary, low: colors.textDim } as Record<string, string>)[p] ?? colors.textDim;
+  return ({ urgent: colors.danger, high: colors.warning, normal: colors.primary, low: colors.success } as Record<string, string>)[p] ?? colors.textDim;
 }
 function priorityBgColor(colors: ReturnType<typeof useThemeColors>, p: string): string {
-  return ({ urgent: colors.danger + '33', high: colors.warning + '33', normal: colors.primary + '33', low: colors.border + '40' } as Record<string, string>)[p] ?? (colors.border + '40');
+  return ({ urgent: colors.danger + '33', high: colors.warning + '33', normal: colors.primary + '33', low: colors.success + '33' } as Record<string, string>)[p] ?? (colors.border + '40');
 }
 
 function quickDate(days: number): string {
@@ -553,9 +553,9 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                         key={p}
                         onPress={() => setDraft({ priority: p })}
                         className="flex-1 py-3 items-center rounded-xl"
-                        style={{ backgroundColor: draft.priority === p ? colors.primary : undefined }}
+                        style={{ backgroundColor: draft.priority === p ? priorityTextColor(colors, p) : undefined }}
                       >
-                        <Text className="font-black text-[10px] uppercase tracking-widest" style={{ color: draft.priority === p ? '#fff' : colors.textMuted }}>{p}</Text>
+                        <Text className="font-black text-[10px] uppercase tracking-widest" style={{ color: draft.priority === p ? '#fff' : priorityTextColor(colors, p) }}>{p}</Text>
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -1299,9 +1299,9 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
                           key={p}
                           onPress={() => setDraft({ priority: p })}
                           className={`flex-1 py-3 items-center rounded-xl transition-all ${draft.priority === p ? '' : 'hover:bg-surface-overlay'}`}
-                          style={{ backgroundColor: draft.priority === p ? colors.primary : undefined }}
+                          style={{ backgroundColor: draft.priority === p ? priorityTextColor(colors, p) : undefined }}
                         >
-                          <Text className="font-black text-[10px] uppercase tracking-widest" style={{ color: draft.priority === p ? '#fff' : colors.textMuted }}>{p}</Text>
+                          <Text className="font-black text-[10px] uppercase tracking-widest" style={{ color: draft.priority === p ? '#fff' : priorityTextColor(colors, p) }}>{p}</Text>
                         </TouchableOpacity>
                       ))}
                     </View>

@@ -29,6 +29,13 @@ type PipelineOption = { id: string; name: string };
 
 const PRIORITY_OPTIONS = ['low', 'medium', 'high', 'urgent'] as const;
 const PRIORITY_LABELS: Record<string, string> = { low: 'Low', medium: 'Normal', high: 'High', urgent: 'Urgent' };
+// Priority level colors (#252): urgent=danger, high=warning, medium=brand, low=success.
+const PRIORITY_STYLE: Record<string, { selectedBg: string; selectedBorder: string; idleText: string }> = {
+  urgent: { selectedBg: 'bg-state-danger', selectedBorder: 'border-state-danger', idleText: 'text-state-danger' },
+  high:   { selectedBg: 'bg-state-warning', selectedBorder: 'border-state-warning', idleText: 'text-state-warning' },
+  medium: { selectedBg: 'bg-brand-primary', selectedBorder: 'border-brand-primary', idleText: 'text-typography-muted' },
+  low:    { selectedBg: 'bg-state-success', selectedBorder: 'border-state-success', idleText: 'text-state-success' },
+};
 
 export default function EditTaskModal({ visible, onClose, focusField }: Props) {
   const colors = useThemeColors();
@@ -222,21 +229,25 @@ export default function EditTaskModal({ visible, onClose, focusField }: Props) {
               <View>
                 <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em] mb-3">Priority</Text>
                 <View className="flex-row flex-wrap gap-2">
-                  {PRIORITY_OPTIONS.map(p => (
-                    <TouchableOpacity
-                      key={p}
-                      onPress={() => setPriority(p)}
-                      className={`px-5 py-2.5 rounded-full border ${
-                        priority === p ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'
-                      }`}
-                    >
-                      <Text className={`font-black text-[10px] uppercase tracking-widest ${
-                        priority === p ? 'text-white' : 'text-typography-muted'
-                      }`}>
-                        {PRIORITY_LABELS[p]}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                  {PRIORITY_OPTIONS.map(p => {
+                    const style = PRIORITY_STYLE[p];
+                    const selected = priority === p;
+                    return (
+                      <TouchableOpacity
+                        key={p}
+                        onPress={() => setPriority(p)}
+                        className={`px-5 py-2.5 rounded-full border ${
+                          selected ? `${style.selectedBg} ${style.selectedBorder}` : 'bg-surface-background border-surface-border'
+                        }`}
+                      >
+                        <Text className={`font-black text-[10px] uppercase tracking-widest ${
+                          selected ? 'text-white' : style.idleText
+                        }`}>
+                          {PRIORITY_LABELS[p]}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               </View>
 
