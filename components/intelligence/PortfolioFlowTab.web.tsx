@@ -313,7 +313,7 @@ export default function PortfolioFlowTab() {
 
   if (pipelines.length === 0 && loaded) {
     return (
-      <View className="bg-surface-card border border-surface-border rounded-2xl">
+      <View className="w-full bg-surface-card border border-surface-border rounded-2xl">
         <EntityEmptyState
           kind="board"
           title="No project board yet"
