@@ -675,12 +675,12 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
                   <View className="flex-row gap-6">
                     <View className="flex-1">
                       <Text className="text-[10px] font-black uppercase tracking-widest mb-2.5 ml-1" style={{ color: colors.textMuted }}>Priority Level</Text>
-                      <View className="flex-row rounded-2xl p-1.5" style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}>
+                      <View className="flex-row rounded-2xl p-1.5 h-14" style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}>
                         {PRIORITY_OPTIONS.map(p => (
                           <TouchableOpacity
                             key={p}
                             onPress={() => setPriority(p)}
-                            className={`flex-1 py-2.5 items-center rounded-xl transition-all ${priority === p ? '' : 'hover:bg-surface-overlay'}`}
+                            className={`flex-1 items-center justify-center rounded-xl transition-all ${priority === p ? '' : 'hover:bg-surface-overlay'}`}
                             style={{ backgroundColor: priority === p ? colors.primary : undefined }}
                           >
                             <Text className="font-black text-[10px] uppercase tracking-widest" style={{ color: priority === p ? '#fff' : colors.textMuted }}>
@@ -696,7 +696,7 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
                         value={weight}
                         onChangeText={setWeight}
                         keyboardType="numeric"
-                        className="rounded-2xl px-5 py-4 font-black text-center text-lg"
+                        className="rounded-2xl px-5 h-14 font-black text-center text-lg"
                         style={{ backgroundColor: colors.background, color: colors.textMain, borderWidth: 1, borderColor: colors.border }}
                       />
                     </View>
