@@ -15,6 +15,12 @@ export default function DevToolsScreenWeb() {
   const [seedProgress, setSeedProgress] = useState('');
   const [pipeline, setPipeline] = useState<any>(null);
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
+  const [taskCount, setTaskCount] = useState<number | null>(null);
+
+  const refreshTaskCount = async () => {
+    const { count } = await supabase.from('tasks').select('id', { count: 'exact', head: true });
+    setTaskCount(count ?? 0);
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -26,6 +32,8 @@ export default function DevToolsScreenWeb() {
         .select('id, full_name')
         .neq('id', (await supabase.auth.getUser()).data.user?.id || '');
       setTeamMembers(users || []);
+
+      refreshTaskCount();
     };
     fetchData();
   }, []);
@@ -49,6 +57,34 @@ export default function DevToolsScreenWeb() {
     } else {
       logProgress('✅ All tasks cleared');
       showAlert('Success', 'Cleared all tasks!');
+    }
+  };
+
+  // #215: the RPC-backed replacement for clearTasks above. clearTasks runs a
+  // raw client .delete() with no company scope; tasks has RLS enabled with no
+  // DELETE policy, so that call silently deletes zero rows and reports
+  // "Success" regardless. rpc_dev_delete_all_company_tasks is SECURITY
+  // DEFINER, scoped to the caller's own company, and gated to company owners.
+  // Web gets a type-to-confirm prompt (native gets a double showConfirm).
+  const deleteAllCompanyTasks = async () => {
+    const count = taskCount ?? 0;
+    const typed = window.prompt(
+      `This permanently deletes all ${count} task${count === 1 ? '' : 's'} in your company — including comments, attachments, time logs, and history. This cannot be undone.\n\nType DELETE to confirm:`
+    );
+    if (typed !== 'DELETE') return;
+
+    setLoading(true);
+    setSeedProgress('Deleting all company tasks...');
+    const { data, error } = await supabase.rpc('rpc_dev_delete_all_company_tasks');
+    setLoading(false);
+
+    if (error) {
+      logProgress(`❌ Error: ${error.message}`);
+      showAlert('Error', error.message);
+    } else {
+      logProgress(`✅ Deleted ${data} tasks`);
+      showAlert('Success', `Deleted ${data} task${data === 1 ? '' : 's'}.`);
+      setTaskCount(0);
     }
   };
 
@@ -261,6 +297,24 @@ export default function DevToolsScreenWeb() {
                 <Text className="text-red-600 font-bold text-sm mb-2">Remove Tasks</Text>
                 <Text className="text-red-600/70 text-xs leading-relaxed">
                   Deletes all seeded data. Useful for starting fresh with a clean slate.
+                </Text>
+              </TouchableOpacity>
+
+              {/* Delete All Tasks for this Company Card — #215 */}
+              <TouchableOpacity
+                onPress={deleteAllCompanyTasks}
+                disabled={loading}
+                className="flex-1 min-w-80 rounded-2xl border-2 border-red-600 bg-red-600/15 p-6 hover:bg-red-600/25 transition-colors"
+                style={loading ? { opacity: 0.6 } : {}}
+              >
+                <View className="flex-row items-start justify-between mb-3">
+                  <FontAwesome name="exclamation-triangle" size={20} color="#b91c1c" />
+                  <Text className="text-red-700 font-black text-xs">OWNER ONLY</Text>
+                </View>
+                <Text className="text-red-700 font-black text-lg mb-1">Delete All Tasks for this Company</Text>
+                <Text className="text-red-700 font-bold text-sm mb-2">{taskCount ?? '…'} tasks currently</Text>
+                <Text className="text-red-700/70 text-xs leading-relaxed">
+                  Permanently wipes every task, comment, attachment, and time log for your company. Cannot be undone.
                 </Text>
               </TouchableOpacity>
 
