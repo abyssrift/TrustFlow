@@ -1,4 +1,5 @@
 import ConfirmModal from '@/components/common/ConfirmModal';
+import { EntityEmptyState } from '@/components/entities/EntityUI';
 import { SnapshotDetailModal } from '@/components/intelligence/IntelligenceModals';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -160,17 +161,17 @@ export default function IntelligenceArchives() {
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : archives.length === 0 ? (
-        <View className="flex-1 items-center justify-center">
-          <View className="bg-surface-card p-12 rounded-[3rem] border border-surface-border items-center max-w-[480px] premium-shadow">
-            <View className="w-16 h-16 bg-surface-background rounded-full items-center justify-center mb-5 border border-surface-border">
-              <FontAwesome name="archive" size={28} color={colors.textMuted} />
-            </View>
-            <Text className="text-typography-main text-2xl font-black mb-2 text-center">
-              {search ? 'No Results' : 'Empty Archive'}
-            </Text>
-            <Text className="text-typography-muted text-center text-sm leading-relaxed">
-              {search ? `No archived items match "${search}".` : 'Archived tasks and projects will appear here.'}
-            </Text>
+        <View className="flex-1 items-center justify-center px-10">
+          <View className="bg-surface-card rounded-[32px] border border-surface-border premium-shadow max-w-[520px] w-full">
+            <EntityEmptyState
+              icon={search ? 'search' : 'archive'}
+              title={search ? 'No Results' : 'Cold Storage is empty'}
+              body={
+                search
+                  ? `No archived items match "${search}".`
+                  : 'Tasks and projects you archive land here instead of disappearing — restore one anytime, or delete it permanently once you\'re sure.'
+              }
+            />
           </View>
         </View>
       ) : (

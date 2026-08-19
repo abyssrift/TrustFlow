@@ -1,5 +1,6 @@
 import ConfirmModal from '@/components/common/ConfirmModal';
 import { BackButton } from '@/components/common/BackButton';
+import { EntityEmptyState } from '@/components/entities/EntityUI';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDebounce } from '@/hooks/useDebounce';
 import { supabase } from '@/lib/supabase';
@@ -156,14 +157,16 @@ export default function IntelligenceArchivesNative() {
         </View>
       ) : archives.length === 0 ? (
         <View className="flex-1 items-center justify-center px-6">
-          <View className="bg-surface-card p-10 rounded-[2.5rem] border border-surface-border items-center w-full">
-            <FontAwesome name="archive" size={32} color={colors.textMuted} />
-            <Text className="text-typography-main text-xl font-black mt-4 mb-2">
-              {search ? 'No Results' : 'Empty Archive'}
-            </Text>
-            <Text className="text-typography-muted text-center text-sm leading-relaxed">
-              {search ? `No archived items match "${search}".` : 'Archived tasks and projects will appear here.'}
-            </Text>
+          <View className="bg-surface-card rounded-[2.5rem] border border-surface-border w-full">
+            <EntityEmptyState
+              icon={search ? 'search' : 'archive'}
+              title={search ? 'No Results' : 'Cold Storage is empty'}
+              body={
+                search
+                  ? `No archived items match "${search}".`
+                  : 'Tasks and projects you archive land here instead of disappearing — restore one anytime, or delete it permanently once you\'re sure.'
+              }
+            />
           </View>
         </View>
       ) : (
