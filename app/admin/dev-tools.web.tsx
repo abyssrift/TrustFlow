@@ -1,3 +1,4 @@
+import { useIsPlatformAdmin } from '@/components/platform-admin/useControlPlaneData';
 import { useAlert } from '@/contexts/AlertContext';
 import { useToast } from '@/contexts/ToastContext';
 import { supabase } from '@/lib/supabase';
@@ -11,6 +12,8 @@ export default function DevToolsScreenWeb() {
   const router = useRouter();
   const { showAlert } = useAlert();
   const { showToast } = useToast();
+  // Screen-level gate -- see dev-tools.tsx (native) for the full rationale.
+  const isPlatformAdmin = useIsPlatformAdmin();
   const [loading, setLoading] = useState(false);
   const [seedProgress, setSeedProgress] = useState('');
   const [pipeline, setPipeline] = useState<any>(null);
@@ -162,6 +165,19 @@ export default function DevToolsScreenWeb() {
       logProgress('Toast shown — tap it, it should open the task.');
     }, 3000);
   };
+
+  if (!isPlatformAdmin) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View className="flex-1 bg-surface-background items-center justify-center p-6 gap-3">
+          <FontAwesome name="lock" size={28} className="text-typography-muted" />
+          <Text className="text-typography-main font-black text-base">Platform admin only</Text>
+          <Text className="text-typography-muted text-xs text-center">This screen is for TrustFlow platform staff, not company admins.</Text>
+        </View>
+      </>
+    );
+  }
 
   return (
     <>
