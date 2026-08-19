@@ -1,5 +1,6 @@
 import FileHubDebugPanel from '@/components/admin/FileHubDebugPanel';
 import { BackButton } from '@/components/common/BackButton';
+import { useIsPlatformAdmin } from '@/components/platform-admin/useControlPlaneData';
 import { useAlert } from '@/contexts/AlertContext';
 import { useToast } from '@/contexts/ToastContext';
 import { supabase } from '@/lib/supabase';
@@ -13,6 +14,12 @@ export default function DevToolsScreen() {
   const router = useRouter();
   const { showAlert, showConfirm } = useAlert();
   const { showToast } = useToast();
+  // Screen-level gate. Not the real security boundary (every destructive RPC
+  // here is server-gated to _is_platform_admin() independently) -- this just
+  // keeps a company owner from ever seeing the screen at all. Called
+  // unconditionally with every other hook; the actual early-return sits after
+  // all hooks, right before the JSX (Rules of Hooks).
+  const isPlatformAdmin = useIsPlatformAdmin();
   const [loading, setLoading] = useState(false);
   const [seedProgress, setSeedProgress] = useState('');
   const [pipeline, setPipeline] = useState<any>(null);
@@ -241,6 +248,19 @@ export default function DevToolsScreen() {
       logProgress('Toast shown — tap it, it should open the task.');
     }, 3000);
   };
+
+  if (!isPlatformAdmin) {
+    return (
+      <SafeAreaView className="flex-1 bg-surface-background" style={Platform.OS === 'android' ? { paddingTop: StatusBar.currentHeight } : {}}>
+        <View className="flex-1 items-center justify-center p-6 gap-3">
+          <BackButton />
+          <FontAwesome name="lock" size={28} className="text-typography-muted" />
+          <Text className="text-typography-main font-black text-base">Platform admin only</Text>
+          <Text className="text-typography-muted text-xs text-center">This screen is for TrustFlow platform staff, not company admins.</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-surface-background" style={Platform.OS === 'android' ? { paddingTop: StatusBar.currentHeight } : {}}>
