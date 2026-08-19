@@ -334,6 +334,7 @@ export function TasksScreenWeb() {
   const [boardWidth, setBoardWidth] = useState(0);
   const boardWidthRef = useRef(0);
   const boardContainerRef = useRef<View>(null);
+  const boardScrollRef = useRef<ScrollView>(null);
   const stageFX = useStageTransitionFX(boardContainerRef, colors.primary);
   const fetchDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -366,6 +367,12 @@ export function TasksScreenWeb() {
           setBoardWidth(width);
         }
       });
+      // scrollEnabled just disables further scrolling — it doesn't reset the
+      // scrollLeft the board might already be sitting at (e.g. from scrolling
+      // over to a later stage before hitting fullscreen). Left uncleared, the
+      // fullscreen column renders shifted by that stale offset: clipped on the
+      // left, empty space on the right where the collapsed columns used to be.
+      boardScrollRef.current?.scrollTo({ x: 0, animated: false });
     }
     setBoardTransitioning(true);
     const t = setTimeout(() => {
@@ -1670,6 +1677,7 @@ export function TasksScreenWeb() {
               if (fullscreenStageId) setBoardWidth(boardWidthRef.current);
             }}>
             <ScrollView
+              ref={boardScrollRef}
               horizontal
               showsHorizontalScrollIndicator={!fullscreenStageId}
               scrollEnabled={!fullscreenStageId}
