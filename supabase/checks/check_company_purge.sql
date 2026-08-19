@@ -38,6 +38,9 @@ DECLARE
   v_attach   uuid;
   v_submit   uuid;
   v_file     uuid;
+  v_version  uuid;
+  v_folder   uuid;
+  v_rule     uuid;
 BEGIN
   -- Clear any JWT claim left set by a previous case's impersonation — this
   -- function always runs as the postgres superuser, but auth.uid() reads
@@ -84,17 +87,38 @@ BEGIN
   INSERT INTO public.task_submission_versions (submission_id, company_id, version_no, created_by)
     VALUES (v_submit, v_company, 1, v_owner);
 
+  -- storage_path is scoped by p_tag/v_owner (not a bare 'zz/path.txt') --
+  -- case 3 below deliberately never purges its company, so a fixed path
+  -- would collide with case 4's fixture under filehub_files' (visibility,
+  -- storage_path) unique index once both fixtures coexist in this same
+  -- transaction. Pre-existing gap, unrelated to #284 -- fixed here since it
+  -- blocks re-running this check at all.
   INSERT INTO public.filehub_files (company_id, uploaded_by, storage_path, original_name, size_bytes, visibility)
-    VALUES (v_company, v_owner, 'zz/path.txt', 'zz.txt', 10, 'direct') RETURNING id INTO v_file;
+    VALUES (v_company, v_owner, 'zz/' || p_tag || '/' || v_owner || '.txt', 'zz.txt', 10, 'direct') RETURNING id INTO v_file;
   INSERT INTO public.filehub_file_versions
       (file_id, company_id, version_no, storage_path, original_name, size_bytes, created_by)
-    VALUES (v_file, v_company, 1, 'zz/path.txt', 'zz.txt', 10, v_owner);
+    VALUES (v_file, v_company, 1, 'zz/' || p_tag || '/' || v_owner || '.txt', 'zz.txt', 10, v_owner)
+    RETURNING id INTO v_version;
 
   INSERT INTO public.task_work_sessions (task_id, user_id, company_id, status)
     VALUES (v_task, v_owner, v_company, 'active');
 
   INSERT INTO public.task_manual_time_entries (task_id, stage_id, user_id, company_id, declared_minutes)
     VALUES (v_task, v_stage, v_owner, v_company, 30);
+
+  -- #284: a harvest_rules + harvested_files row pointing at the fixture's
+  -- own filehub_file_versions row (v_version). This is the actual regression
+  -- guard for fn_purge_company_data's harvest_fk_fix migration --
+  -- harvested_files.source_file_version_id is ON DELETE RESTRICT, so if the
+  -- purge ever deletes filehub_file_versions before harvested_files/
+  -- harvest_rules again, this fixture makes the purge itself fail with a
+  -- foreign-key violation rather than passing vacuously.
+  INSERT INTO public.filehub_folders (company_id, name, created_by, scope)
+    VALUES (v_company, 'ZZ Harvest Dest', v_owner, 'broadcast') RETURNING id INTO v_folder;
+  INSERT INTO public.harvest_rules (company_id, pipeline_id, source_stage_id, condition_type, created_by)
+    VALUES (v_company, v_pipeline, v_stage, 'stage_entry', v_owner) RETURNING id INTO v_rule;
+  INSERT INTO public.harvested_files (harvest_rule_id, source_file_version_id, destination_folder_id, source_task_id, company_id, harvested_by)
+    VALUES (v_rule, v_version, v_folder, v_task, v_company, v_owner);
 END;
 $fn$;
 
@@ -110,7 +134,9 @@ LANGUAGE sql AS $fn$
     (SELECT count(*) FROM public.task_manual_time_entries WHERE company_id = p_company) +
     (SELECT count(*) FROM public.task_attachment_versions WHERE company_id = p_company) +
     (SELECT count(*) FROM public.task_submission_versions WHERE company_id = p_company) +
-    (SELECT count(*) FROM public.filehub_file_versions WHERE company_id = p_company)
+    (SELECT count(*) FROM public.filehub_file_versions WHERE company_id = p_company) +
+    (SELECT count(*) FROM public.harvest_rules WHERE company_id = p_company) +
+    (SELECT count(*) FROM public.harvested_files WHERE company_id = p_company)
 $fn$;
 
 DO $$

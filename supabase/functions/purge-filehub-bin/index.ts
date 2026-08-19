@@ -215,6 +215,33 @@ async function purge(
   summary: Summary,
   onProgress?: () => void,
 ): Promise<void> {
+  // A harvest rule can point at a specific version via
+  // harvested_files.source_file_version_id (ON DELETE RESTRICT). Deleting a
+  // filehub_files row cascades to ALL of its filehub_file_versions rows
+  // (file_id ON DELETE CASCADE), so if even one version is harvested the
+  // cascade would hit the RESTRICT — skip the whole file rather than let
+  // that happen; a sealed deliverable's source version must survive for as
+  // long as the pointer exists. Computed once per purge() call (both files
+  // and folders below share it via protectedFileIds).
+  const { data: harvestedRows, error: harvestErr } = await db
+    .from('harvested_files')
+    .select('source_file_version_id')
+  if (harvestErr) throw harvestErr
+  const harvestedVersionIds = Array.from(
+    new Set((harvestedRows ?? []).map((h: { source_file_version_id: string }) => h.source_file_version_id)),
+  )
+  let protectedFileIds: string[] = []
+  if (harvestedVersionIds.length > 0) {
+    const { data: protectedVersions, error: pvErr } = await db
+      .from('filehub_file_versions')
+      .select('file_id')
+      .in('id', harvestedVersionIds)
+    if (pvErr) throw pvErr
+    protectedFileIds = Array.from(
+      new Set((protectedVersions ?? []).map((v: { file_id: string }) => v.file_id)),
+    )
+  }
+
   // ── Files ──────────────────────────────────────────────────────────────
   for (;;) {
     let query = db
@@ -226,6 +253,7 @@ async function purge(
       .order('deleted_at', { ascending: true })
       .limit(BATCH_SIZE)
     if (scopeCompanyId) query = query.eq('company_id', scopeCompanyId)
+    if (protectedFileIds.length > 0) query = query.not('id', 'in', `(${protectedFileIds.join(',')})`)
 
     const { data, error } = await query
     if (error) throw error
@@ -268,6 +296,9 @@ async function purge(
 
       // Re-assert the purge predicate so a row restored between select and
       // delete (e.g. a concurrent rpc_filehub_restore call) is left alone.
+      // Also re-assert the harvested exclusion (a harvest created mid-batch):
+      // if the WHERE no longer matches we fall through to the "not deleted"
+      // branch below instead of letting the CASCADE hit the FK RESTRICT.
       let delQuery = db
         .from('filehub_files')
         .delete()
@@ -276,6 +307,7 @@ async function purge(
         .lt('deleted_at', cutoffIso)
         .select('id')
       if (scopeCompanyId) delQuery = delQuery.eq('company_id', scopeCompanyId)
+      if (protectedFileIds.length > 0) delQuery = delQuery.not('id', 'in', `(${protectedFileIds.join(',')})`)
 
       const { data: deleted, error: delErr } = await delQuery
       if (delErr) {
