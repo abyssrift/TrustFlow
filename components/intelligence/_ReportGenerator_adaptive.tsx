@@ -1,5 +1,6 @@
 import HorizontalScroll from '@/components/common/HorizontalScroll';
 import { BackButton } from '@/components/common/BackButton';
+import Popup from '@/components/common/Popup';
 import Tooltip from '@/components/common/Tooltip';
 import { DateRangePillPicker } from '@/components/intelligence/DateRangeFilter';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,7 +12,6 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-  Modal,
   Pressable,
   TextInput as RNTextInput,
   ScrollView,
@@ -317,7 +317,7 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
   const isMulti = selectedTypes.length > 1;
 
   const content = (
-    <View className={isPage ? 'flex-1 bg-surface-background' : 'w-full max-w-2xl h-[90%] bg-surface-background rounded-[32px] border border-surface-border overflow-hidden premium-shadow glass-card'}>
+    <View className={isPage ? 'flex-1 bg-surface-background' : 'flex-1'}>
 
       {/* Header */}
       <View className={`px-6 py-5 border-b border-surface-border flex-row items-center justify-between ${isPage ? 'bg-surface-card' : 'bg-surface-card/50'}`}>
@@ -503,11 +503,18 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
   if (isPage) return content;
 
   return (
-    <Modal visible={visible} animationType="slide" transparent={true}>
-      <View className="flex-1 justify-center items-center bg-black/40 p-4 lg:p-10">
-        {content}
-      </View>
-    </Modal>
+    <Popup
+      visible={visible}
+      onClose={onClose}
+      presentation="centered"
+      maxWidth={672}
+      footer="none"
+      scrollable={false}
+      containerClassName="rounded-[32px] overflow-hidden"
+      containerStyle={{ height: '90%' }}
+    >
+      {content}
+    </Popup>
   );
 }
 
