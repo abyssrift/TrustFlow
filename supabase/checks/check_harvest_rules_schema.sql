@@ -167,7 +167,13 @@ BEGIN
   RAISE NOTICE 'OK (1): both tables, required columns, and RESTRICT FKs are in place.';
 END $$;
 
--- ── 2. condition_type CHECK rejects anything but 'stage_entry' ─────────────
+-- ── 2. condition_type CHECK rejects anything outside the allowlist ─────────
+-- As of issue #284 Phase 3 (20260821_harvest_rule_configurability.sql), the
+-- allowlist widened to ('stage_entry', 'stage_terminal_success') --
+-- 'stage_terminal_success' is now a legal value (exercised separately in
+-- check_harvest_rules_rpc.sql), so this check now proves the CHECK still
+-- rejects 'field_equals' -- the plan's Phase 0 decision was that value
+-- stays a nonexistent, unimplemented condition, never a real allowed one.
 DO $$
 DECLARE
   c        RECORD;
@@ -177,15 +183,15 @@ BEGIN
   SELECT * INTO c FROM hrs_check_ctx;
   BEGIN
     INSERT INTO public.harvest_rules (company_id, pipeline_id, source_stage_id, condition_type, created_by)
-    VALUES (c.company_a, c.pipeline_a, c.stage_a, 'stage_terminal_success', c.user_a);
+    VALUES (c.company_a, c.pipeline_a, c.stage_a, 'field_equals', c.user_a);
     v_raised := true;
   EXCEPTION WHEN check_violation THEN
     v_msg := SQLERRM;
   END;
   IF v_raised THEN
-    RAISE EXCEPTION 'CHECK FAILED (2): condition_type accepted ''stage_terminal_success'' -- Phase 1 must restrict to stage_entry only';
+    RAISE EXCEPTION 'CHECK FAILED (2): condition_type accepted ''field_equals'' -- it must stay unimplemented, not a real allowed value';
   END IF;
-  RAISE NOTICE 'OK (2): condition_type CHECK correctly rejected a non-stage_entry value (%).', v_msg;
+  RAISE NOTICE 'OK (2): condition_type CHECK correctly rejected ''field_equals'' (%).', v_msg;
 END $$;
 
 -- ── 3. harvested_files one-of(source_task_id, source_project_id) CHECK ─────
