@@ -301,42 +301,42 @@ export const WidgetConfigModal = ({ visible, onClose, onSave, currentWidgets }: 
       onClose={onClose}
       presentation="auto"
       dismissible={false}
-      maxWidth={672}
-      containerClassName="rounded-[40px] overflow-hidden premium-shadow"
+      maxWidth={480}
+      containerClassName="rounded-3xl overflow-hidden"
     >
-      <View className="p-10 border-b" style={{ borderColor: colors.border }}>
-        <Text className="text-3xl font-black mb-1" style={{ color: colors.textMain }}>Radar Telemetry</Text>
-        <Text className="text-xs" style={{ color: colors.textMuted }}>Configure the strategic metrics displayed on your hub</Text>
+      <View className="px-5 py-4 border-b" style={{ borderColor: colors.border }}>
+        <Text className="text-base font-black" style={{ color: colors.textMain }}>Radar Telemetry</Text>
+        <Text className="text-xs mt-0.5" style={{ color: colors.textMuted }}>Configure the strategic metrics displayed on your hub</Text>
       </View>
-      <ScrollView className="p-10 max-h-[500px]">
+      <ScrollView className="px-5 py-4 max-h-[420px]">
         {library.map(widget => {
           const isActive = selected.includes(widget.id);
           return (
             <TouchableOpacity
               key={widget.id}
               onPress={() => toggleWidget(widget.id)}
-              className="p-6 rounded-2xl border mb-4 flex-row items-center justify-between transition-all"
+              className="px-4 py-3 rounded-xl border mb-2.5 flex-row items-center justify-between"
               style={{ backgroundColor: isActive ? `${colors.primary}0d` : colors.background, borderColor: isActive ? colors.primary : colors.border }}
             >
-              <View className="flex-1">
-                <Text className="font-black" style={{ color: isActive ? colors.primary : colors.textMain }}>{widget.name}</Text>
-                <Text className="text-[10px] mt-1" style={{ color: colors.textMuted }}>{widget.desc}</Text>
+              <View className="flex-1 mr-4">
+                <Text className="font-black text-sm" style={{ color: isActive ? colors.primary : colors.textMain }}>{widget.name}</Text>
+                <Text className="text-[10px] mt-0.5" style={{ color: colors.textMuted }}>{widget.desc}</Text>
               </View>
               <View
-                className="w-6 h-6 rounded-full border items-center justify-center"
+                className="w-5 h-5 rounded-full border items-center justify-center"
                 style={{ borderColor: isActive ? colors.primary : colors.border, backgroundColor: isActive ? colors.primary : 'transparent' }}
               >
-                {isActive && <FontAwesome name="check" size={10} color="white" />}
+                {isActive && <FontAwesome name="check" size={9} color="white" />}
               </View>
             </TouchableOpacity>
           );
         })}
       </ScrollView>
-      <View className="p-10 border-t flex-row gap-4" style={{ borderColor: colors.border, backgroundColor: `${colors.card}80` }}>
-        <TouchableOpacity onPress={onClose} className="flex-1 py-5 rounded-2xl border items-center" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
+      <View className="px-5 py-4 border-t flex-row gap-3" style={{ borderColor: colors.border, backgroundColor: `${colors.card}80` }}>
+        <TouchableOpacity onPress={onClose} className="flex-1 py-3 rounded-xl border items-center" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
           <Text className="font-black text-xs" style={{ color: colors.textMuted }}>Dismiss</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => onSave(selected)} className="flex-1 py-5 rounded-2xl items-center shadow-lg" style={{ backgroundColor: colors.primary }}>
+        <TouchableOpacity onPress={() => onSave(selected)} className="flex-1 py-3 rounded-xl items-center shadow-lg" style={{ backgroundColor: colors.primary }}>
           <Text className="font-black text-xs" style={{ color: 'white' }}>Update Matrix</Text>
         </TouchableOpacity>
       </View>
