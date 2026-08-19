@@ -28,7 +28,7 @@ import type { FileHubFolder } from '@/contexts/FileHubContext';
 import { relDir, resolveExistingFolderLeaf } from '@/lib/filehubFolderTree';
 import { randomId } from '@/lib/randomId';
 import { supabase, supabaseAnonKey, supabaseUrl } from '@/lib/supabase';
-import { computeSHA256, formatEta, formatFileSize, uploadFileToStorage } from '@/lib/uploadHelpers';
+import { computeSHA256, formatEta, formatFileSize, isNetworkError, uploadFileToStorage, waitForReconnect } from '@/lib/uploadHelpers';
 import { useRouter } from 'expo-router';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 
@@ -90,7 +90,7 @@ const SAFE_NAME = (name: string) => name.replace(/[^a-zA-Z0-9._-]/g, '_');
 
 export function UploadManagerProvider({ children }: { children: React.ReactNode }) {
   const { publish, update, remove } = useIsland();
-  const { successToast, errorToast } = useToast();
+  const { successToast, errorToast, infoToast } = useToast();
   const router = useRouter();
 
   const [activeCount, setActiveCount] = useState(0);
@@ -291,7 +291,7 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
         });
       };
 
-      const uploadOne = async (file: File, idx: number) => {
+      const uploadOne = async (file: File, idx: number, isRetry = false): Promise<void> => {
         if (ctrl.aborted) return;
         const relDirPath = relDir((file as any).webkitRelativePath);
         const existingLeaf = relDirPath
@@ -405,7 +405,16 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
         } catch (e: any) {
           // A cancel aborts the in-flight XHR, which rejects with 'aborted' —
           // that's expected teardown, not a per-file failure to report.
-          if (!ctrl.aborted) errors.push(`${file.name}: ${e?.message || 'Unknown error'}`);
+          if (ctrl.aborted) return;
+          if (!isRetry && isNetworkError(e)) {
+            const subtitle = `Connection lost — retrying "${file.name}" when back online…`;
+            setJob(jobId, { subtitle });
+            update(islandId, { subtitle }, { bump: false });
+            infoToast(`Connection dropped mid-upload — retrying "${file.name}"…`, 'Retrying');
+            await waitForReconnect(() => ctrl.aborted);
+            if (!ctrl.aborted) return uploadOne(file, idx, true);
+          }
+          errors.push(`${file.name}: ${e?.message || 'Unknown error'}`);
         }
       };
 
@@ -490,7 +499,7 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
         setTimeout(() => remove(islandId), 4000);
       }
     }
-  }, [publish, update, remove, router, cancelUpload, successToast, errorToast, emitJobs, setJob]);
+  }, [publish, update, remove, router, cancelUpload, successToast, errorToast, infoToast, emitJobs, setJob]);
 
   const value = useMemo(
     () => ({ startUpload, cancelUpload, activeCount, lastCompletedAt, jobsStore }),

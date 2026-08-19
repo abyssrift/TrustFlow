@@ -173,6 +173,7 @@ export const TaskCreationProvider = ({ children }: { children: React.ReactNode }
         .from('tasks')
         .select('*, assignments:task_assignments(assignee_user_id, assignee_team_id)')
         .eq('created_by', user.id)
+        .is('deleted_at', null)
         .order('created_at', { ascending: false })
         .limit(10);
       setRecentTasks(data || []);

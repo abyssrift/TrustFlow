@@ -438,7 +438,7 @@ export default function IntelligenceTargetsNative() {
 
       const enriched = await Promise.all((res || []).map(async t => {
         if (t.target_type === 'volume') {
-          const { count } = await supabase.from('tasks').select('*', { count: 'exact', head: true }).eq('current_stage_id', t.stage_id);
+          const { count } = await supabase.from('tasks').select('*', { count: 'exact', head: true }).eq('current_stage_id', t.stage_id).is('deleted_at', null);
           return { ...t, current_count: count || 0 };
         }
         return t;

@@ -221,7 +221,8 @@ export function DashboardDataProvider({ config, ready = true, onOpenLiveSessions
           .eq('is_terminal', true),
         supabase.from('tasks')
           .select('id, current_stage_id')
-          .in('pipeline_id', targetPipelineIds),
+          .in('pipeline_id', targetPipelineIds)
+          .is('deleted_at', null),
         // NOT a direct read of task_work_sessions: its only select policy is
         // `auth.uid() = user_id`, so that table can never answer "who else is
         // working" — it capped this count at 1. See the RPC's own migration.
