@@ -284,7 +284,7 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
     const [{ data: userData }, { data: teamData }, { data: pipelineData }, { data: projectData }] = await Promise.all([
       supabase.from('users').select('id, full_name, avatar_url').is('deleted_at', null),
       supabase.from('teams').select('id, name, color').is('deleted_at', null),
-      supabase.from('pipelines').select('id, name').is('deleted_at', null).order('name'),
+      supabase.from('pipelines').select('id, name').is('deleted_at', null).eq('subject_kind', 'task').order('name'),
       supabase.from('projects').select('id, name, color').is('deleted_at', null).order('name'),
     ]);
     setUsers(userData || []);
