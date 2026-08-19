@@ -73,11 +73,26 @@ serve(async (req: Request) => {
     const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
     const cutoffIso = new Date(Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString()
 
+    // A harvest rule can point at a specific version via
+    // harvested_files.source_file_version_id (ON DELETE RESTRICT) — that's a
+    // sealed deliverable, and its source version must survive for as long as
+    // the pointer exists, so exclude referenced versions from every candidate
+    // query below rather than let the DB reject the delete. Fetched once per
+    // run; the delete's WHERE re-assertion (below) covers a harvest created
+    // mid-run.
+    const { data: harvestedRows, error: harvestErr } = await db
+      .from('harvested_files')
+      .select('source_file_version_id')
+    if (harvestErr) throw harvestErr
+    const harvestedIds = Array.from(
+      new Set((harvestedRows ?? []).map((h: { source_file_version_id: string }) => h.source_file_version_id)),
+    )
+
     // Loop in batches until no more eligible rows remain.
     // Each iteration re-queries from the top because deleted rows fall out of
     // the result set; ordering by superseded_at keeps progress deterministic.
     for (;;) {
-      const { data, error } = await db
+      let selectQuery = db
         .from('filehub_file_versions')
         .select('id, file_id, bucket, storage_path, superseded_at, pinned')
         .not('superseded_at', 'is', null)        // superseded_at IS NOT NULL
@@ -85,6 +100,10 @@ serve(async (req: Request) => {
         .lt('superseded_at', cutoffIso)          // superseded_at < now() - 30d
         .order('superseded_at', { ascending: true })
         .limit(BATCH_SIZE)
+      if (harvestedIds.length > 0) {
+        selectQuery = selectQuery.not('id', 'in', `(${harvestedIds.join(',')})`)
+      }
+      const { data, error } = await selectQuery
 
       if (error) throw error
 
@@ -122,15 +141,22 @@ serve(async (req: Request) => {
 
         // 2) Delete the version row. Re-assert the purge predicate in the WHERE
         //    clause so a row that became current between select and delete
-        //    (e.g. a concurrent restore) is left untouched.
-        const { data: deleted, error: delErr } = await db
+        //    (e.g. a concurrent restore) is left untouched. The harvested-id
+        //    re-check covers a harvest rule created mid-batch: a still-referenced
+        //    version must survive (that's the FK's whole purpose), so if the
+        //    WHERE no longer matches we just fall through to the "no longer
+        //    purge-eligible" branch below instead of erroring.
+        let delQuery = db
           .from('filehub_file_versions')
           .delete()
           .eq('id', row.id)
           .not('superseded_at', 'is', null)
           .eq('pinned', false)
           .lt('superseded_at', cutoffIso)
-          .select('id')
+        if (harvestedIds.length > 0) {
+          delQuery = delQuery.not('id', 'in', `(${harvestedIds.join(',')})`)
+        }
+        const { data: deleted, error: delErr } = await delQuery.select('id')
 
         if (delErr) {
           summary.errors.push(`row delete failed ${row.id}: ${delErr.message}`)
