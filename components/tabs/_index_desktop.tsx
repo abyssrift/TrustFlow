@@ -1,3 +1,4 @@
+import Popup from '@/components/common/Popup';
 import PipelineOverviewChart, { DEFAULT_OVERVIEW_METRICS, OverviewMetricKey } from '@/components/intelligence/PipelineOverviewChart';
 import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -7,7 +8,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Modal, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -808,10 +809,14 @@ function DashboardSettingsModal({ visible, onClose, config, onSave }: {
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View className="flex-1 bg-black/70 items-center justify-center p-10">
-        <View className="bg-surface-card w-full max-w-4xl rounded-[40px] border border-surface-border premium-shadow overflow-hidden max-h-[90vh]">
-          <View className="p-10 border-b border-surface-border flex-row justify-between items-center">
+    <Popup
+      visible={visible}
+      onClose={onClose}
+      presentation="centered"
+      containerClassName="w-[95%] max-w-[1100px] max-h-[90vh] rounded-3xl overflow-hidden premium-shadow"
+    >
+      <View className="flex-1 flex-col">
+        <View className="p-10 border-b border-surface-border flex-row justify-between items-center">
             <View>
               <Text className="text-typography-main text-3xl font-black tracking-tight mb-2">Dashboard Configuration</Text>
               <Text className="text-typography-muted font-medium">Select pipelines to monitor and define success stages.</Text>
@@ -939,19 +944,18 @@ function DashboardSettingsModal({ visible, onClose, config, onSave }: {
             )}
           </ScrollView>
 
-          <View className="p-10 border-t border-surface-border flex-row gap-6 bg-surface-card/50">
-            <TouchableOpacity onPress={onClose} className="flex-1 py-5 rounded-2xl bg-surface-background border border-surface-border items-center">
-              <Text className="text-typography-muted font-black uppercase tracking-widest text-xs">Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={handleSave}
-              className="flex-1 py-5 rounded-2xl bg-brand-primary premium-shadow items-center"
-            >
-              <Text className="text-white font-black uppercase tracking-widest text-xs">Save Configuration</Text>
-            </TouchableOpacity>
-          </View>
+        <View className="p-10 border-t border-surface-border flex-row gap-6 bg-surface-card/50">
+          <TouchableOpacity onPress={onClose} className="flex-1 py-5 rounded-2xl bg-surface-background border border-surface-border items-center">
+            <Text className="text-typography-muted font-black uppercase tracking-widest text-xs">Cancel</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleSave}
+            className="flex-1 py-5 rounded-2xl bg-brand-primary premium-shadow items-center"
+          >
+            <Text className="text-white font-black uppercase tracking-widest text-xs">Save Configuration</Text>
+          </TouchableOpacity>
         </View>
       </View>
-    </Modal>
+    </Popup>
   );
 }
