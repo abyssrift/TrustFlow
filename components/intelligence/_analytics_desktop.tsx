@@ -492,11 +492,11 @@ function PersonnelTab({ planCode, limits, catalog }: { planCode: string; limits:
     const colors = useThemeColors();
     if (selected.length === 0) {
       return (
-        <View className="flex-1 items-center justify-center p-8 bg-surface-overlay/20 rounded-[32px] border border-dashed border-surface-border">
-          <View className="w-16 h-16 rounded-full bg-surface-card items-center justify-center mb-4 border border-surface-border">
-            <FontAwesome name="users" size={24} color={colors.muted} />
+        <View className="flex-1 items-center justify-center p-6 bg-surface-overlay/20 rounded-2xl border border-dashed border-surface-border">
+          <View className="w-12 h-12 rounded-full bg-surface-card items-center justify-center mb-3 border border-surface-border">
+            <FontAwesome name="users" size={18} color={colors.muted} />
           </View>
-          <Text className="text-typography-main font-black text-lg mb-2">Ready to Compare</Text>
+          <Text className="text-typography-main font-black text-base mb-1">Ready to Compare</Text>
           <Text className="text-typography-muted text-xs text-center">Select personnel from the roster to begin live analysis.</Text>
         </View>
       );
@@ -504,11 +504,11 @@ function PersonnelTab({ planCode, limits, catalog }: { planCode: string; limits:
 
     if (selected.length < 2) {
       return (
-        <View className="flex-1 items-center justify-center p-8 bg-surface-overlay/20 rounded-[32px] border border-dashed border-surface-border">
-          <View className="w-16 h-16 rounded-full bg-brand-primary/10 items-center justify-center mb-4 border border-brand-primary/20">
-            <FontAwesome name="plus" size={20} color={colors.primary} />
+        <View className="flex-1 items-center justify-center p-6 bg-surface-overlay/20 rounded-2xl border border-dashed border-surface-border">
+          <View className="w-12 h-12 rounded-full bg-brand-primary/10 items-center justify-center mb-3 border border-brand-primary/20">
+            <FontAwesome name="plus" size={16} color={colors.primary} />
           </View>
-          <Text className="text-typography-main font-black text-lg mb-2">Add One More</Text>
+          <Text className="text-typography-main font-black text-base mb-1">Add One More</Text>
           <Text className="text-typography-muted text-xs text-center">Comparative intelligence requires at least two individuals.</Text>
         </View>
       );
@@ -523,42 +523,42 @@ function PersonnelTab({ planCode, limits, catalog }: { planCode: string; limits:
     ];
 
     return (
-      <View className="flex-1 bg-surface-card rounded-[32px] border border-surface-border shadow-sm p-6 overflow-hidden">
-        <View className="flex-row items-center justify-between mb-4">
+      <View className="flex-1 bg-surface-card rounded-2xl border border-surface-border shadow-sm p-4 overflow-hidden">
+        <View className="flex-row items-center justify-between mb-3">
           <View>
-            <Text className="text-typography-main font-black text-lg">Group Pulse</Text>
-            <Text className="text-typography-muted text-[10px] uppercase font-bold tracking-widest">{selected.length} Personnel Linked</Text>
+            <Text className="text-typography-main font-black text-base">Group Pulse</Text>
+            <Text className="text-typography-muted text-[9px] uppercase font-bold tracking-widest">{selected.length} Personnel Linked</Text>
           </View>
-          <View className="w-8 h-8 rounded-full bg-brand-primary/10 items-center justify-center">
-            <FontAwesome name="bolt" size={14} color={colors.primary} />
+          <View className="w-7 h-7 rounded-full bg-brand-primary/10 items-center justify-center">
+            <FontAwesome name="bolt" size={12} color={colors.primary} />
           </View>
         </View>
 
-        <View style={{ height: 240, width: '100%' }}>
+        <View style={{ height: 200, width: '100%' }}>
           <ResponsiveContainer width="100%" height="100%">
-            <RadarChart cx="50%" cy="50%" outerRadius="80%" data={previewData}>
+            <RadarChart cx="50%" cy="50%" outerRadius="75%" data={previewData}>
               <PolarGrid stroke={colors.border} />
-              <PolarAngleAxis dataKey="subject" tick={{ fill: colors.textDim, fontSize: 10 }} />
+              <PolarAngleAxis dataKey="subject" tick={{ fill: colors.textDim, fontSize: 9 }} />
               <Radar
                 name="Group Mean"
                 dataKey="A"
                 stroke={colors.primary}
                 fill={colors.primary}
-                fillOpacity={0.3}
+                fillOpacity={0.25}
               />
             </RadarChart>
           </ResponsiveContainer>
         </View>
 
-        <View className="mt-4 pt-4 border-t border-surface-border flex-row justify-between">
+        <View className="mt-3 pt-3 border-t border-surface-border flex-row justify-between">
           <View className="items-center flex-1">
-            <Text className="text-typography-main font-black text-base">{selected.length}</Text>
-            <Text className="text-typography-muted text-[9px] uppercase font-bold">Roster Size</Text>
+            <Text className="text-typography-main font-black text-sm">{selected.length}</Text>
+            <Text className="text-typography-muted text-[8px] uppercase font-bold">Roster Size</Text>
           </View>
-          <View className="w-[1px] h-8 bg-surface-border mx-4" />
+          <View className="w-[1px] h-6 bg-surface-border mx-3" />
           <View className="items-center flex-1">
-            <Text className="text-state-success font-black text-base">Active</Text>
-            <Text className="text-typography-muted text-[9px] uppercase font-bold">Status</Text>
+            <Text className="text-state-success font-black text-sm">Active</Text>
+            <Text className="text-typography-muted text-[8px] uppercase font-bold">Status</Text>
           </View>
         </View>
       </View>
@@ -566,28 +566,28 @@ function PersonnelTab({ planCode, limits, catalog }: { planCode: string; limits:
   };
 
   return (
-    <View className="gap-8">
+    <View className="gap-6">
       {/* 3-Column Cockpit Header */}
-      <View className="flex-row gap-6 flex-wrap">
+      <View className="flex-row gap-4 flex-wrap">
         {/* Column 1: Cohort Selection */}
-        <View className="bg-surface-card border border-surface-border rounded-[32px] p-6 shadow-sm" style={{ flex: 1, minWidth: 280 }}>
-          <View className="flex-row items-center justify-between mb-6">
+        <View className="bg-surface-card border border-surface-border rounded-2xl p-4 shadow-sm" style={{ flex: 1, minWidth: 260 }}>
+          <View className="flex-row items-center justify-between mb-4">
             <View>
-              <Text className="text-typography-main font-black text-xl">Select Cohort</Text>
+              <Text className="text-typography-main font-black text-lg">Select Cohort</Text>
               <Text className="text-typography-muted text-xs font-medium">Choose personnel to benchmark</Text>
             </View>
-            <View className="flex-row gap-2">
-              <TouchableOpacity onPress={selectAll} className="bg-surface-background border border-surface-border px-3 py-1.5 rounded-lg">
-                <Text className="text-typography-main text-[10px] font-black uppercase">All</Text>
+            <View className="flex-row gap-1.5">
+              <TouchableOpacity onPress={selectAll} className="bg-surface-background border border-surface-border px-2.5 py-1 rounded-lg">
+                <Text className="text-typography-main text-[9px] font-black uppercase">All</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={clearAll} className="bg-surface-background border border-surface-border px-3 py-1.5 rounded-lg">
-                <Text className="text-typography-main text-[10px] font-black uppercase">None</Text>
+              <TouchableOpacity onPress={clearAll} className="bg-surface-background border border-surface-border px-2.5 py-1 rounded-lg">
+                <Text className="text-typography-main text-[9px] font-black uppercase">None</Text>
               </TouchableOpacity>
             </View>
           </View>
 
-          <View className="flex-row items-center bg-surface-background border border-surface-border rounded-xl px-4 py-2 mb-4">
-            <FontAwesome name="search" size={12} color={colors.muted} className="mr-3" />
+          <View className="flex-row items-center bg-surface-background border border-surface-border rounded-lg px-3 py-1.5 mb-3">
+            <FontAwesome name="search" size={11} color={colors.muted} className="mr-2" />
             <TextInput
               value={search}
               onChangeText={setSearch}
@@ -597,26 +597,26 @@ function PersonnelTab({ planCode, limits, catalog }: { planCode: string; limits:
             />
           </View>
 
-          <ScrollView className="max-h-[300px]" showsVerticalScrollIndicator={false}>
-            <View className="flex-row flex-wrap gap-2">
+          <ScrollView className="max-h-[260px]" showsVerticalScrollIndicator={false}>
+            <View className="flex-row flex-wrap gap-1.5">
               {filteredUsers.map(u => {
                 const isSel = selected.includes(u.id);
                 return (
                   <TouchableOpacity
                     key={u.id}
                     onPress={() => toggleUser(u.id)}
-                    className={`flex-row items-center gap-2 px-3 py-2 rounded-xl border transition-all ${
+                    className={`flex-row items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-all ${
                       isSel ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border opacity-70'
                     }`}
                   >
                     {u.avatar_url ? (
-                      <Image source={{ uri: u.avatar_url }} className="w-5 h-5 rounded-full" />
+                      <Image source={{ uri: u.avatar_url }} className="w-4 h-4 rounded-full" />
                     ) : (
-                      <View className="w-5 h-5 rounded-full bg-surface-border items-center justify-center">
-                        <Text className="text-[8px] font-black">{u.full_name[0]}</Text>
+                      <View className="w-4 h-4 rounded-full bg-surface-border items-center justify-center">
+                        <Text className="text-[7px] font-black">{u.full_name[0]}</Text>
                       </View>
                     )}
-                    <Text className={`text-[11px] font-bold ${isSel ? 'text-brand-primary' : 'text-typography-main'}`}>
+                    <Text className={`text-[10px] font-bold ${isSel ? 'text-brand-primary' : 'text-typography-main'}`}>
                       {u.full_name}
                     </Text>
                   </TouchableOpacity>
@@ -627,13 +627,13 @@ function PersonnelTab({ planCode, limits, catalog }: { planCode: string; limits:
         </View>
 
         {/* Column 2: The Radar Chart (Insights) */}
-        <View className="flex-col" style={{ flex: 1, minWidth: 280 }}>
+        <View className="flex-col" style={{ flex: 1, minWidth: 260 }}>
           <ComparisonInsights />
         </View>
 
         {/* Column 3: Parameters */}
-        <View className="gap-6" style={{ flex: 1, minWidth: 280 }}>
-          <View className="bg-surface-card border border-surface-border rounded-[32px] p-6 shadow-sm">
+        <View className="gap-4" style={{ flex: 1, minWidth: 260 }}>
+          <View className="bg-surface-card border border-surface-border rounded-2xl p-4 shadow-sm">
             <View className="mb-6">
               <Text className="text-typography-main font-black text-xl">Parameters</Text>
               <Text className="text-typography-muted text-xs font-medium">Define time & financial scope</Text>
@@ -723,28 +723,28 @@ function PersonnelTab({ planCode, limits, catalog }: { planCode: string; limits:
       {/* Results table */}
       {ran && sorted.length > 0 && (
         <View>
-          <View className="flex-row items-center justify-between mb-4 px-2">
-            <Text className="text-typography-main font-black text-xl italic uppercase tracking-tighter">Strategic Benchmarking Results</Text>
+          <View className="flex-row items-center justify-between mb-3 px-2">
+            <Text className="text-typography-main font-black text-lg italic uppercase tracking-tighter">Strategic Benchmarking Results</Text>
             {limits.personnelExport ? (
               <TouchableOpacity
                 onPress={exportCSV}
-                className="flex-row items-center gap-2 bg-surface-card border border-surface-border px-4 py-2 rounded-xl"
+                className="flex-row items-center gap-1.5 bg-surface-card border border-surface-border px-3 py-1.5 rounded-lg"
               >
-                <FontAwesome name="download" size={14} color={colors.primary} />
-                <Text className="text-typography-main text-xs font-black uppercase">Export CSV</Text>
+                <FontAwesome name="download" size={12} color={colors.primary} />
+                <Text className="text-typography-main text-[9px] font-black uppercase">Export CSV</Text>
               </TouchableOpacity>
             ) : (
-              <View className="flex-row items-center gap-2 bg-surface-card border border-surface-border px-4 py-2 rounded-xl opacity-40">
-                <FontAwesome name="lock" size={12} color={colors.muted} />
-                <Text className="text-typography-muted text-xs font-black uppercase">Export CSV — {requiredPlan('personnelExport', catalog)}+</Text>
+              <View className="flex-row items-center gap-1.5 bg-surface-card border border-surface-border px-3 py-1.5 rounded-lg opacity-40">
+                <FontAwesome name="lock" size={10} color={colors.muted} />
+                <Text className="text-typography-muted text-[9px] font-black uppercase">Export CSV — {requiredPlan('personnelExport', catalog)}+</Text>
               </View>
             )}
           </View>
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View className="bg-surface-card border border-surface-border rounded-3xl overflow-hidden shadow-sm">
-              <View className="flex-row px-4 py-4 bg-surface-background/50 border-b border-surface-border gap-4">
-                <View style={{ width: 200 }}><Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">Personnel</Text></View>
+            <View className="bg-surface-card border border-surface-border rounded-2xl overflow-hidden shadow-sm">
+              <View className="flex-row px-3 py-3 bg-surface-background/50 border-b border-surface-border gap-3">
+                <View style={{ width: 180 }}><Text className="text-typography-dim text-[9px] font-black uppercase tracking-widest">Personnel</Text></View>
                 {[
                   { field: 'weight_points',   label: 'Results (Pts)' },
                   { field: 'activity_count',  label: 'Effort (OPS)' },
@@ -757,7 +757,7 @@ function PersonnelTab({ planCode, limits, catalog }: { planCode: string; limits:
                   { field: 'cost_per_point',  label: 'Cost/Pt' },
                   { field: 'points_per_hour', label: 'Pts/Hr' },
                 ].map(col => (
-                  <View key={col.field} style={{ width: 110 }}>
+                  <View key={col.field} style={{ width: 100 }}>
                     <SortHeader field={col.field as keyof PersonnelRow} label={col.label} />
                   </View>
                 ))}
@@ -766,65 +766,60 @@ function PersonnelTab({ planCode, limits, catalog }: { planCode: string; limits:
               {sorted.map((row, i) => (
                 <View
                   key={row.user_id}
-                  className={`flex-row px-4 py-3 gap-4 border-b border-surface-border ${
+                  className={`flex-row px-3 py-2.5 gap-3 border-b border-surface-border ${
                     i % 2 === 0 ? 'bg-surface-card' : 'bg-surface-background'
                   }`}
                 >
-                  <View style={{ width: 200 }} className="flex-row items-center gap-3">
-                    <View className="w-8 h-8 rounded-full bg-surface-card border border-surface-border overflow-hidden">
+                  <View style={{ width: 180 }} className="flex-row items-center gap-2">
+                    <View className="w-7 h-7 rounded-full bg-surface-card border border-surface-border overflow-hidden">
                       {row.avatar_url ? (
                         <Image source={{ uri: row.avatar_url }} className="w-full h-full" />
                       ) : (
                         <View className="w-full h-full items-center justify-center bg-brand-primary/5">
-                          <Text className="text-brand-primary font-black text-[10px]">
+                          <Text className="text-brand-primary font-black text-[9px]">
                             {(row.full_name || 'A')[0].toUpperCase()}
                           </Text>
                         </View>
                       )}
                     </View>
-                    <View className="flex-1">
-                      <UserLink userId={row.user_id} name={row.full_name} className="text-typography-main text-sm font-bold" numberOfLines={1} />
-                      <Text className="text-typography-dim text-[10px]">{row.working_days}d tracked</Text>
-                    </View>
-                  </View>
                   <View style={{ width: 110 }}>
                     <CellBadgeText badge={cellBadge('weight_points', row.weight_points)}>{row.weight_points}</CellBadgeText>
                   </View>
-                  <View style={{ width: 110 }}>
+                  <View style={{ width: 100 }}>
                     <CellBadgeText badge={cellBadge('activity_count', row.activity_count)}>{row.activity_count}</CellBadgeText>
                   </View>
-                  <View style={{ width: 110 }}>
+                  <View style={{ width: 100 }}>
                     <CellBadgeText badge={cellBadge('active_hours', row.active_hours)}>
                       {row.active_hours.toFixed(1)}h
                     </CellBadgeText>
                   </View>
-                  <View style={{ width: 110 }}>
+                  <View style={{ width: 100 }}>
                     <CellBadgeText badge={cellBadge('completed_tasks', row.completed_tasks)}>{row.completed_tasks}</CellBadgeText>
                   </View>
-                  <View style={{ width: 110 }}>
+                  <View style={{ width: 100 }}>
                     <CellBadgeText badge={cellBadge('on_time_rate', row.on_time_rate)}>
                       {fmtPct(row.on_time_rate)}
                     </CellBadgeText>
                   </View>
-                  <View style={{ width: 110 }}>
+                  <View style={{ width: 100 }}>
                     <CellBadgeText badge={cellBadge('timer_efficiency', row.timer_efficiency)}>
                       {fmtPct(row.timer_efficiency)}
                     </CellBadgeText>
                   </View>
-                  <View style={{ width: 110 }}>
-                    <Text className="text-typography-main text-sm">{fmtUSD((row.daily_rate_usd ?? 0) * 30)}</Text>
+                  <View style={{ width: 100 }}>
+                    <Text className="text-typography-main text-[10px]">{fmtUSD((row.daily_rate_usd ?? 0) * 30)}</Text>
                   </View>
-                  <View style={{ width: 110 }}>
+                  <View style={{ width: 100 }}>
                     <CellBadgeText badge={cellBadge('total_cost_usd', row.total_cost_usd)}>
                       {fmtUSD(row.total_cost_usd)}
                     </CellBadgeText>
                   </View>
-                  <View style={{ width: 110 }}>
+                  <View style={{ width: 100 }}>
                     <CellBadgeText badge={cellBadge('cost_per_point', row.cost_per_point)}>
                       {row.cost_per_point !== null ? `$${row.cost_per_point.toFixed(2)}/pt` : '-'}
                     </CellBadgeText>
                   </View>
-                  <View style={{ width: 110 }}>
+                  <View style={{ width: 100 }}>
                     <CellBadgeText badge={cellBadge('points_per_hour', row.points_per_hour)}>
                       {row.points_per_hour !== null ? `${row.points_per_hour.toFixed(1)}/hr` : '-'}
                     </CellBadgeText>
@@ -837,7 +832,7 @@ function PersonnelTab({ planCode, limits, catalog }: { planCode: string; limits:
       )}
 
       {ran && sorted.length === 0 && (
-        <View className="bg-surface-card border border-surface-border rounded-2xl p-10 items-center gap-3">
+        <View className="bg-surface-card border border-surface-border rounded-xl p-6 items-center gap-2">
           <Text className="text-typography-main font-black">No data for selected users in this range.</Text>
         </View>
       )}
