@@ -77,6 +77,18 @@ async function fetchExportSessions(): Promise<ExportTimeSession[]> {
 
 const stamp = () => new Date().toISOString().slice(0, 10);
 
+const ENTITY_CONFIG: Record<EntityKey, { label: string; icon: keyof typeof FontAwesome.glyphMap; hint: string; columns: readonly string[] }> = {
+  tasks: { label: 'Tasks', icon: 'tasks', hint: 'Title, priority, pipeline, assignees, dates.', columns: TASK_COLUMNS },
+  projects: { label: 'Projects', icon: 'folder-open-o', hint: 'Name, status, pipeline, dates.', columns: PROJECT_COLUMNS },
+  sessions: { label: 'Time Tracking', icon: 'clock-o', hint: 'Work sessions — who, what, when, how long.', columns: TIME_TRACKING_COLUMNS },
+};
+
+const buildRowsForEntity = async (key: EntityKey): Promise<Record<string, any>[]> => {
+  if (key === 'tasks') return buildExportRows(await fetchExportTasks());
+  if (key === 'projects') return buildProjectExportRows(await fetchExportProjects());
+  return buildTimeTrackingExportRows(await fetchExportSessions());
+};
+
 export default function DataExportPanel() {
   const colors = useThemeColors();
   const { profile, hasPermission } = useAuth();
@@ -90,6 +102,7 @@ export default function DataExportPanel() {
   const [loadingCounts, setLoadingCounts] = useState(true);
   const [counts, setCounts] = useState({ tasks: 0, projects: 0, sessions: 0 });
   const [busyKey, setBusyKey] = useState<EntityKey | 'all' | null>(null);
+  const [lastExport, setLastExport] = useState<{ key: EntityKey | 'all'; rows: number; format: SpreadsheetFormat } | null>(null);
 
   const loadCounts = useCallback(async () => {
     setLoadingCounts(true);
@@ -115,39 +128,34 @@ export default function DataExportPanel() {
   if (!canManage) {
     return (
       <View className="flex-1 items-center justify-center p-10">
-        <FontAwesome name="lock" size={40} color={colors.textMuted} />
-        <Text className="text-typography-main text-lg font-black mt-4">Restricted</Text>
-        <Text className="text-typography-muted text-sm text-center mt-2">Only workspace admins can export company data.</Text>
+        <FontAwesome name="lock" size={48} color={colors.textMuted} />
+        <Text className="text-typography-main text-xl font-black mt-4">Export Restricted</Text>
+        <Text className="text-typography-muted text-sm text-center mt-2 max-w-xs leading-5">
+          Only workspace admins and users with the Data Export permission can download company data.
+        </Text>
       </View>
     );
   }
 
-  const handleExportEntity = async (key: EntityKey, label: string) => {
+  const handleExportEntity = async (key: EntityKey) => {
+    const cfg = ENTITY_CONFIG[key];
     setBusyKey(key);
     try {
-      let rows: Record<string, any>[];
-      let columns: readonly string[];
-      if (key === 'tasks') {
-        rows = buildExportRows(await fetchExportTasks());
-        columns = TASK_COLUMNS;
-      } else if (key === 'projects') {
-        rows = buildProjectExportRows(await fetchExportProjects());
-        columns = PROJECT_COLUMNS;
-      } else {
-        rows = buildTimeTrackingExportRows(await fetchExportSessions());
-        columns = TIME_TRACKING_COLUMNS;
-      }
+      const rows = await buildRowsForEntity(key);
 
       if (rows.length === 0) {
-        infoToast(`No ${label.toLowerCase()} to export.`);
+        infoToast(`No ${cfg.label.toLowerCase()} to export.`);
         return;
       }
 
-      const bytes = await sheetsToWorkbookBytes([{ name: label, rows, columns }], format);
+      const bytes = await sheetsToWorkbookBytes([{ name: cfg.label, rows, columns: cfg.columns }], format);
       const saved = await saveBytes(`${key}_export_${stamp()}.${format}`, bytes, MIME[format]);
       if (saved) {
+        setLastExport({ key, rows: rows.length, format });
         successToast(
-          Platform.OS === 'web' ? `Exported ${rows.length} ${label.toLowerCase()}.` : `Exported ${rows.length} ${label.toLowerCase()} to ${saved}`,
+          Platform.OS === 'web'
+            ? `Exported ${rows.length} ${cfg.label.toLowerCase()} (${format.toUpperCase()}).`
+            : `Exported ${rows.length} ${cfg.label.toLowerCase()} to ${saved}`,
           'Export complete'
         );
       } else {
@@ -164,7 +172,11 @@ export default function DataExportPanel() {
   const handleExportAll = async () => {
     setBusyKey('all');
     try {
-      const [tasks, projects, sessions] = await Promise.all([fetchExportTasks(), fetchExportProjects(), fetchExportSessions()]);
+      const [tasks, projects, sessions] = await Promise.all([
+        fetchExportTasks(),
+        fetchExportProjects(),
+        fetchExportSessions(),
+      ]);
       const bytes = await sheetsToWorkbookBytes(
         [
           { name: 'Tasks', rows: buildExportRows(tasks), columns: TASK_COLUMNS },
@@ -175,7 +187,9 @@ export default function DataExportPanel() {
       );
       const saved = await saveBytes(`company_export_${stamp()}.xlsx`, bytes, MIME.xlsx);
       if (saved) {
-        successToast(Platform.OS === 'web' ? 'Exported all company data.' : `Exported all company data to ${saved}`, 'Export complete');
+        const totalRows = tasks.length + projects.length + sessions.length;
+        setLastExport({ key: 'all', rows: totalRows, format: 'xlsx' });
+        successToast(Platform.OS === 'web' ? `Exported all company data (${totalRows} rows, XLSX).` : `Exported all company data to ${saved}`, 'Export complete');
       } else {
         errorToast('Could not save the export file.');
       }
@@ -187,15 +201,13 @@ export default function DataExportPanel() {
     }
   };
 
-  const entities: { key: EntityKey; label: string; icon: keyof typeof FontAwesome.glyphMap; count: number; hint: string }[] = [
-    { key: 'tasks', label: 'Tasks', icon: 'tasks', count: counts.tasks, hint: 'Title, priority, pipeline, assignees, dates.' },
-    { key: 'projects', label: 'Projects', icon: 'folder-open-o', count: counts.projects, hint: 'Name, status, pipeline, dates.' },
-    { key: 'sessions', label: 'Time Tracking', icon: 'clock-o', count: counts.sessions, hint: 'Work sessions — who, what, when, how long.' },
-  ];
+  const totalCount = counts.tasks + counts.projects + counts.sessions;
+  const hasData = totalCount > 0;
 
   return (
     <View className="flex-1">
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 48 }}>
+        {/* Header */}
         {!isWide && (
           <View className="mb-6 px-1">
             <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.25em] mb-1">Data Portability</Text>
@@ -225,47 +237,122 @@ export default function DataExportPanel() {
           })}
         </View>
 
-        {/* Entity cards */}
+        {/* Entity cards — grid on desktop, stacked on mobile */}
         <View className={isWide ? 'flex-row flex-wrap gap-3 mb-5' : 'gap-3 mb-5'}>
-          {entities.map(e => (
-            <View key={e.key} className={`bg-surface-card border border-surface-border rounded-2xl p-5 flex-row items-center ${isWide ? 'w-[32%]' : ''}`}>
-              <View className="w-11 h-11 rounded-xl bg-brand-primary/10 items-center justify-center mr-4">
-                <FontAwesome name={e.icon} size={16} color={colors.primary} />
-              </View>
-              <View className="flex-1 mr-3">
-                <View className="flex-row items-center gap-2">
-                  <Text className="text-typography-main font-black text-sm">{e.label}</Text>
-                  <Text className="text-typography-muted text-[11px] font-bold">{loadingCounts ? '…' : e.count}</Text>
-                </View>
-                <Text className="text-typography-muted text-[11px] mt-0.5" numberOfLines={1}>{e.hint}</Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => handleExportEntity(e.key, e.label)}
-                disabled={busyKey !== null || loadingCounts}
-                className="px-4 py-2.5 rounded-xl bg-brand-primary flex-row items-center gap-2"
+          {(Object.keys(ENTITY_CONFIG) as EntityKey[]).map(key => {
+            const cfg = ENTITY_CONFIG[key];
+            const count = counts[key];
+            const isBusy = busyKey === key;
+            const isLoading = loadingCounts;
+
+            return (
+              <View
+                key={key}
+                className={`bg-surface-card border border-surface-border rounded-2xl p-5 ${isWide ? 'w-[32%] flex-col items-stretch' : 'flex-row items-center'}`}
               >
-                {busyKey === e.key ? <ActivityIndicator color="#fff" size="small" /> : <FontAwesome name="download" size={12} color="#fff" />}
-                <Text className="text-white font-black text-[10px] uppercase tracking-widest">Export</Text>
-              </TouchableOpacity>
-            </View>
-          ))}
+                <View className="w-11 h-11 rounded-xl bg-brand-primary/10 items-center justify-center mb-3">
+                  <FontAwesome name={cfg.icon} size={18} color={colors.primary} />
+                </View>
+                <View className="flex-1 mb-3">
+                  <View className="flex-row items-center gap-2 mb-1">
+                    <Text className="text-typography-main font-black text-base">{cfg.label}</Text>
+                    <Text className="text-typography-muted text-[11px] font-bold">{isLoading ? '…' : count}</Text>
+                  </View>
+                  <Text className="text-typography-muted text-[11px] leading-5" numberOfLines={2}>{cfg.hint}</Text>
+                </View>
+                {!isWide && (
+                  <View className="w-full mt-2">
+                    <TouchableOpacity
+                      onPress={() => handleExportEntity(key)}
+                      disabled={busyKey !== null || isLoading || count === 0}
+                      className="w-full py-3 rounded-xl bg-brand-primary items-center justify-center gap-2 flex-row"
+                      style={{ opacity: (busyKey !== null || isLoading || count === 0) ? 0.5 : 1 }}
+                    >
+                      {isBusy ? <ActivityIndicator color="#fff" size="small" /> : <FontAwesome name="download" size={14} color="#fff" />}
+                      <Text className="text-white font-black text-[11px] uppercase tracking-widest">Export {cfg.label}</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+                {isWide && (
+                  <TouchableOpacity
+                    onPress={() => handleExportEntity(key)}
+                    disabled={busyKey !== null || isLoading || count === 0}
+                    className="mt-auto py-3 rounded-xl bg-brand-primary items-center justify-center gap-2 flex-row"
+                    style={{ opacity: (busyKey !== null || isLoading || count === 0) ? 0.5 : 1 }}
+                  >
+                    {isBusy ? <ActivityIndicator color="#fff" size="small" /> : <FontAwesome name="download" size={14} color="#fff" />}
+                    <Text className="text-white font-black text-[10px] uppercase tracking-widest">Export</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            );
+          })}
         </View>
 
-        {/* Export everything as one workbook */}
-        <View className={`bg-surface-card border border-surface-border rounded-2xl p-5 ${isWide ? 'max-w-2xl' : ''}`}>
-          <Text className="text-brand-primary text-[10px] font-black uppercase mb-2 tracking-widest">Everything, one file</Text>
+        {/* Export everything as one workbook — primary action */}
+        <View className={`bg-surface-card border border-surface-border rounded-2xl p-5 mb-5 ${isWide ? 'max-w-2xl' : ''}`}>
+          <View className="flex-row items-center justify-between mb-3">
+            <View>
+              <Text className="text-brand-primary text-[10px] font-black uppercase mb-1 tracking-widest">Primary Action</Text>
+              <Text className="text-typography-main text-lg font-black">Export All Data</Text>
+            </View>
+            <View className="px-3 py-1 rounded-full bg-brand-primary/10 border border-brand-primary/30">
+              <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest">XLSX Only</Text>
+            </View>
+          </View>
           <Text className="text-typography-muted text-xs leading-5 mb-4">
-            Bundle Tasks, Projects, and Time Tracking into a single Excel workbook with one sheet per entity.
+            Bundle Tasks ({counts.tasks}), Projects ({counts.projects}), and Time Tracking ({counts.sessions}) into a single Excel workbook with one sheet per entity.
           </Text>
-          <TouchableOpacity
-            onPress={handleExportAll}
-            disabled={busyKey !== null || loadingCounts}
-            className="bg-brand-primary py-4 rounded-xl items-center flex-row justify-center gap-2"
-          >
-            {busyKey === 'all' ? <ActivityIndicator color="#fff" /> : <FontAwesome name="download" size={14} color="#fff" />}
-            <Text className="text-white font-black text-[11px] uppercase tracking-widest">Export All (.xlsx)</Text>
-          </TouchableOpacity>
+          {!hasData ? (
+            <Text className="text-typography-muted text-sm text-center py-2">
+              No data to export — all entity counts are zero.
+            </Text>
+          ) : (
+            <TouchableOpacity
+              onPress={handleExportAll}
+              disabled={busyKey !== null || loadingCounts}
+              className="w-full py-4 rounded-xl bg-brand-primary items-center justify-center gap-2 flex-row"
+              style={{ opacity: (busyKey !== null || loadingCounts) ? 0.5 : 1 }}
+            >
+              {busyKey === 'all' ? <ActivityIndicator color="#fff" /> : <FontAwesome name="download" size={16} color="#fff" />}
+              <Text className="text-white font-black text-[11px] uppercase tracking-widest">Export All ({totalCount} rows, .xlsx)</Text>
+            </TouchableOpacity>
+          )}
         </View>
+
+        {/* Last export confirmation */}
+        {lastExport && (
+          <View className={`bg-state-success/10 border border-state-success/30 rounded-2xl p-4 ${isWide ? 'max-w-2xl' : ''}`}>
+            <View className="flex-row items-center gap-3">
+              <FontAwesome name="check-circle" size={18} color={colors.success} />
+              <View className="flex-1">
+                <Text className="text-state-success font-black text-sm">
+                  {lastExport.key === 'all' ? 'All data exported' : `${lastExport.rows} ${ENTITY_CONFIG[lastExport.key as EntityKey].label.toLowerCase()} exported`}
+                </Text>
+                <Text className="text-typography-muted text-[11px]">
+                  Format: {lastExport.format.toUpperCase()} · {new Date().toLocaleTimeString()}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setLastExport(null)}
+                className="p-1"
+              >
+                <FontAwesome name="times" size={12} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* Empty state */}
+        {!hasData && !loadingCounts && !lastExport && (
+          <View className={`bg-surface-background border border-surface-border rounded-2xl p-8 items-center ${isWide ? 'max-w-2xl' : ''}`}>
+            <FontAwesome name="inbox" size={32} color={colors.textMuted} />
+            <Text className="text-typography-main font-black text-base mt-3">No data to export</Text>
+            <Text className="text-typography-muted text-xs mt-1 text-center max-w-xs leading-5">
+              Your workspace doesn't have any tasks, projects, or time tracking sessions yet.
+            </Text>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
