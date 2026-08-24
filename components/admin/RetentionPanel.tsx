@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Switch, Modal, useWindowDimensions, Platform } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Switch, Modal, Platform, useWindowDimensions } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -49,6 +49,65 @@ const fmtDate = (iso: string | null) => {
   if (isNaN(d.getTime())) return 'Never';
   return d.toLocaleDateString();
 };
+
+const STATUS_CONFIG: Record<CompanyStatus['status'], { label: string; color: string; bg: string; border: string }> = {
+  active: { label: 'Active', color: 'text-state-success', bg: 'bg-state-success/10', border: 'border-state-success/30' },
+  warning: { label: 'Warning window', color: 'text-state-warning', bg: 'bg-state-warning/10', border: 'border-state-warning/30' },
+  overdue: { label: 'Overdue for review', color: 'text-state-danger', bg: 'bg-state-danger/10', border: 'border-state-danger/30' },
+};
+
+const numField = ({
+  label,
+  key,
+  suffix,
+  form,
+  setForm,
+  colors,
+}: {
+  label: string;
+  key: keyof Settings;
+  suffix: string;
+  form: Settings | null;
+  setForm: React.Dispatch<React.SetStateAction<Settings | null>>;
+  colors: ReturnType<typeof useThemeColors>;
+}) => (
+  <View className="flex-1 min-w-[140px]">
+    <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2">{label}</Text>
+    <View className="flex-row items-center bg-surface-background border border-surface-border rounded-xl px-4">
+      <TextInput
+        value={String((form as any)?.[key] ?? '')}
+        onChangeText={(t) => {
+          const n = parseInt(t.replace(/[^0-9]/g, ''), 10);
+          setForm(f => f ? { ...f, [key]: Number.isFinite(n) ? n : 0 } : f);
+        }}
+        keyboardType="number-pad"
+        className="flex-1 py-3.5 text-typography-main font-black text-base"
+        placeholderTextColor={colors.textMuted}
+      />
+      <Text className="text-typography-muted text-[10px] font-bold uppercase">{suffix}</Text>
+    </View>
+  </View>
+);
+
+const StatItem = ({
+  label,
+  value,
+  valueColor,
+  children,
+}: {
+  label: string;
+  value: string | number;
+  valueColor?: string;
+  children?: React.ReactNode;
+}) => (
+  <View className="w-1/2">
+    <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest">{label}</Text>
+    <Text style={{ color: valueColor }} className="text-2xl font-black mt-1">
+      {value}
+    </Text>
+    {children}
+  </View>
+);
 
 export default function RetentionPanel() {
   const colors = useThemeColors();
@@ -114,8 +173,7 @@ export default function RetentionPanel() {
   }
 
   const company = overview?.company;
-  const statusColor = company?.status === 'overdue' ? colors.danger : company?.status === 'warning' ? colors.warning : colors.success;
-  const statusLabel = company?.status === 'overdue' ? 'Overdue for review' : company?.status === 'warning' ? 'Warning window' : 'Active';
+  const statusConfig = company ? STATUS_CONFIG[company.status] : STATUS_CONFIG.active;
 
   const handleSaveSettings = async () => {
     if (!form) return;
@@ -170,25 +228,6 @@ export default function RetentionPanel() {
     }
   };
 
-  const numField = (label: string, key: keyof Settings, suffix: string) => (
-    <View className="flex-1 min-w-[140px]">
-      <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2">{label}</Text>
-      <View className="flex-row items-center bg-surface-background border border-surface-border rounded-xl px-4">
-        <TextInput
-          value={String((form as any)?.[key] ?? '')}
-          onChangeText={(t) => {
-            const n = parseInt(t.replace(/[^0-9]/g, ''), 10);
-            setForm(f => f ? { ...f, [key]: Number.isFinite(n) ? n : 0 } : f);
-          }}
-          keyboardType="number-pad"
-          className="flex-1 py-3.5 text-typography-main font-black text-base"
-          placeholderTextColor={colors.textMuted}
-        />
-        <Text className="text-typography-muted text-[10px] font-bold uppercase">{suffix}</Text>
-      </View>
-    </View>
-  );
-
   return (
     <View className="flex-1">
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 48 }}>
@@ -202,71 +241,59 @@ export default function RetentionPanel() {
 
         {/* Status + Policy — stacked on mobile, side-by-side on desktop */}
         <View className={isWide ? 'flex-row items-start gap-5 mb-5' : ''}>
-        {/* Company status card */}
-        {company && (
-          <View className={`bg-surface-card border border-surface-border rounded-2xl p-5 ${isWide ? 'flex-1' : 'mb-5'}`}>
-            <View className="flex-row items-center justify-between mb-4">
-              <Text className="text-typography-main font-black text-base flex-1 mr-3" numberOfLines={1}>{company.name}</Text>
-              <View style={{ backgroundColor: `${statusColor}1A`, borderColor: `${statusColor}55` }} className="px-3 py-1 rounded-full border">
-                <Text style={{ color: statusColor }} className="text-[10px] font-black uppercase tracking-widest">{statusLabel}</Text>
+          {/* Company status card */}
+          {company && (
+            <View className={`bg-surface-card border border-surface-border rounded-2xl p-5 ${isWide ? 'flex-1' : 'mb-5'}`}>
+              <View className="flex-row items-center justify-between mb-4">
+                <Text className="text-typography-main font-black text-base flex-1 mr-3" numberOfLines={1}>{company.name}</Text>
+                <View className={`px-3 py-1 rounded-full border ${statusConfig.bg} ${statusConfig.border}`}>
+                  <Text className={`text-[10px] font-black uppercase tracking-widest ${statusConfig.color}`}>{statusConfig.label}</Text>
+                </View>
+              </View>
+
+              <View className="flex-row flex-wrap gap-y-4">
+                <StatItem label="Days inactive" value={company.days_inactive} valueColor={statusConfig.color} />
+                <StatItem label="Days until purge" value={company.days_until_purge} />
+                <StatItem label="Last activity" value={fmtDate(company.last_active_at)} />
+                <StatItem label="Last warning sent" value={fmtDate(company.last_warning_at)} />
               </View>
             </View>
+          )}
 
-            <View className="flex-row flex-wrap gap-y-4">
-              <View className="w-1/2">
-                <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest">Days inactive</Text>
-                <Text style={{ color: statusColor }} className="text-2xl font-black">{company.days_inactive}</Text>
+          {/* Policy settings */}
+          {form && (
+            <View className={`bg-surface-card border border-surface-border rounded-2xl p-5 ${isWide ? 'flex-1' : 'mb-5'}`}>
+              <Text className="text-brand-primary text-[10px] font-black uppercase mb-4 tracking-widest">Policy</Text>
+              <View className="flex-row flex-wrap gap-3 mb-4">
+                {numField({ label: 'Company inactivity', key: 'inactivity_days', suffix: 'days', form, setForm, colors })}
+                {numField({ label: 'Warning lead time', key: 'warning_interval_days', suffix: 'days', form, setForm, colors })}
+                {numField({ label: 'User inactivity', key: 'user_inactivity_days', suffix: 'days', form, setForm, colors })}
               </View>
-              <View className="w-1/2">
-                <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest">Days until purge</Text>
-                <Text className="text-typography-main text-2xl font-black">{company.days_until_purge}</Text>
+
+              <View className="flex-row items-center justify-between bg-surface-background border border-surface-border rounded-xl px-4 py-3 mb-5">
+                <View className="flex-1 mr-3">
+                  <Text className="text-typography-main font-black text-xs uppercase tracking-tight">Recurring warnings</Text>
+                  <Text className="text-typography-muted text-[10px] mt-0.5">Notify members as the purge window approaches.</Text>
+                </View>
+                <Switch
+                  value={form.warnings_enabled}
+                  onValueChange={(v) => setForm(f => f ? { ...f, warnings_enabled: v } : f)}
+                  trackColor={{ false: colors.border, true: colors.primary }}
+                  thumbColor="white"
+                />
               </View>
-              <View className="w-1/2">
-                <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest">Last activity</Text>
-                <Text className="text-typography-main text-sm font-bold mt-1">{fmtDate(company.last_active_at)}</Text>
-              </View>
-              <View className="w-1/2">
-                <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest">Last warning sent</Text>
-                <Text className="text-typography-main text-sm font-bold mt-1">{fmtDate(company.last_warning_at)}</Text>
-              </View>
+
+              <TouchableOpacity
+                onPress={handleSaveSettings}
+                disabled={savingSettings}
+                className="bg-brand-primary py-4 rounded-xl items-center"
+              >
+                <Text className="text-white font-black text-[11px] uppercase tracking-widest">
+                  {savingSettings ? 'Saving…' : 'Save Policy'}
+                </Text>
+              </TouchableOpacity>
             </View>
-          </View>
-        )}
-
-        {/* Policy settings */}
-        {form && (
-          <View className={`bg-surface-card border border-surface-border rounded-2xl p-5 ${isWide ? 'flex-1' : 'mb-5'}`}>
-            <Text className="text-brand-primary text-[10px] font-black uppercase mb-4 tracking-widest">Policy</Text>
-            <View className="flex-row flex-wrap gap-3 mb-4">
-              {numField('Company inactivity', 'inactivity_days', 'days')}
-              {numField('Warning lead time', 'warning_interval_days', 'days')}
-              {numField('User inactivity', 'user_inactivity_days', 'days')}
-            </View>
-
-            <View className="flex-row items-center justify-between bg-surface-background border border-surface-border rounded-xl px-4 py-3 mb-5">
-              <View className="flex-1 mr-3">
-                <Text className="text-typography-main font-black text-xs uppercase tracking-tight">Recurring warnings</Text>
-                <Text className="text-typography-muted text-[10px] mt-0.5">Notify members as the purge window approaches.</Text>
-              </View>
-              <Switch
-                value={form.warnings_enabled}
-                onValueChange={(v) => setForm(f => f ? { ...f, warnings_enabled: v } : f)}
-                trackColor={{ false: colors.border, true: colors.primary }}
-                thumbColor="white"
-              />
-            </View>
-
-            <TouchableOpacity
-              onPress={handleSaveSettings}
-              disabled={savingSettings}
-              className="bg-brand-primary py-4 rounded-xl items-center"
-            >
-              <Text className="text-white font-black text-[11px] uppercase tracking-widest">
-                {savingSettings ? 'Saving…' : 'Save Policy'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
+          )}
         </View>
 
         {/* Inactive users */}
@@ -340,18 +367,18 @@ export default function RetentionPanel() {
         onCancel={() => setPurgeTarget(null)}
       />
 
-      {/* Purge company — type-to-confirm (inline colors per RN Modal convention) */}
+      {/* Purge company — type-to-confirm */}
       {(() => {
         const purgeCompanyContent = (
-          <View style={{ padding: 24 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-              <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: `${colors.danger}1A`, alignItems: 'center', justifyContent: 'center' }}>
-                <FontAwesome name="exclamation-triangle" size={20} color={colors.danger} />
+          <View className="p-6">
+            <View className="flex-row items-center gap-3 mb-4">
+              <View className="w-10 h-10 rounded-xl bg-state-danger/10 items-center justify-center">
+                <FontAwesome name="exclamation-triangle" size={18} color={colors.danger} />
               </View>
-              <Text style={{ color: colors.textMain, fontSize: 18, fontWeight: '900', flex: 1 }}>Purge entire workspace</Text>
+              <Text className="text-typography-main text-lg font-black flex-1">Purge entire workspace</Text>
             </View>
-            <Text style={{ color: colors.textMuted, fontSize: 13, lineHeight: 20, marginBottom: 16 }}>
-              This permanently deletes <Text style={{ color: colors.textMain, fontWeight: '800' }}>{company?.name}</Text> and every record in it. To confirm, type the workspace name exactly.
+            <Text className="text-typography-muted text-sm leading-6 mb-4">
+              This permanently deletes <Text className="text-typography-main font-black">{company?.name}</Text> and every record in it. To confirm, type the workspace name exactly.
             </Text>
             <TextInput
               value={confirmName}
@@ -359,22 +386,23 @@ export default function RetentionPanel() {
               placeholder={company?.name || 'Workspace name'}
               placeholderTextColor={colors.textMuted}
               autoCapitalize="none"
-              style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, color: colors.textMain, fontWeight: '700', marginBottom: 20 }}
+              className="bg-surface-background border border-surface-border rounded-xl px-4 py-3 text-typography-main font-black mb-4"
             />
-            <View style={{ flexDirection: 'row', gap: 12 }}>
+            <View className="flex-row gap-3">
               <TouchableOpacity
                 onPress={() => setShowCompanyPurge(false)}
                 disabled={purgingCompany}
-                style={{ flex: 1, paddingVertical: 15, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.background, alignItems: 'center' }}
+                className="flex-1 py-3.5 rounded-xl border border-surface-border bg-surface-card items-center justify-center"
               >
-                <Text style={{ color: colors.textMuted, fontWeight: '900', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1 }}>Cancel</Text>
+                <Text className="text-typography-muted font-black text-[11px] uppercase tracking-widest">Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handlePurgeCompany}
                 disabled={purgingCompany || confirmName.trim() !== (company?.name || '')}
-                style={{ flex: 2, paddingVertical: 15, borderRadius: 14, backgroundColor: colors.danger, alignItems: 'center', opacity: confirmName.trim() !== (company?.name || '') ? 0.5 : 1 }}
+                className="flex-2 py-3.5 rounded-xl bg-state-danger items-center justify-center"
+                style={{ opacity: confirmName.trim() !== (company?.name || '') ? 0.5 : 1 }}
               >
-                <Text style={{ color: '#fff', fontWeight: '900', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1 }}>
+                <Text className="text-white font-black text-[11px] uppercase tracking-widest">
                   {purgingCompany ? 'Purging…' : 'Purge forever'}
                 </Text>
               </TouchableOpacity>
@@ -398,8 +426,7 @@ export default function RetentionPanel() {
           );
         }
 
-        // TODO(#93-native): remove this branch once native is testable — see issue #93/#115.
-        // Old raw-Modal path preserved untouched so native behavior doesn't change yet.
+        // Native fallback — raw Modal (TODO: migrate to Popup when native is testable)
         return (
           <Modal visible={showCompanyPurge} transparent animationType="fade" onRequestClose={() => !purgingCompany && setShowCompanyPurge(false)}>
             <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
@@ -412,4 +439,5 @@ export default function RetentionPanel() {
       })()}
     </View>
   );
-}
+} 
+ 
