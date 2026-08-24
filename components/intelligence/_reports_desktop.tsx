@@ -1,4 +1,5 @@
 import { ReportConfigModal } from '@/components/intelligence/IntelligenceModals';
+import ReportGeneratorPopup from '@/components/intelligence/ReportGeneratorPopup';
 import SlideDownPanel from '@/components/common/SlideDownPanel';
 import ReportFiltersPanelBody, {
     applyReportFilters,
@@ -123,6 +124,7 @@ export default function IntelligenceReports() {
   const [reports, setReports]         = useState<any[]>([]);
   const [loading, setLoading]         = useState(true);
   const [showModal, setShowModal]     = useState(false);
+  const [showReportArchitect, setShowReportArchitect] = useState(false);
   const [pipelines, setPipelines]     = useState<any[]>([]);
   const [teams, setTeams]             = useState<any[]>([]);
   const [users, setUsers]             = useState<any[]>([]);
@@ -199,6 +201,11 @@ export default function IntelligenceReports() {
     } catch (e: any) { console.error(e); }
   };
 
+  const handleReportGenerated = () => {
+    setShowReportArchitect(false);
+    fetchReports();
+  };
+
   const handleDownload = async (path: string) => {
     const { data } = await supabase.storage.from('reports').createSignedUrl(path, 60);
     if (!data?.signedUrl) return;
@@ -250,7 +257,7 @@ export default function IntelligenceReports() {
             </TouchableOpacity>
           </Tooltip>
           {limits.reports ? (
-            <TouchableOpacity onPress={() => router.push('/intelligence/ReportGenerator')} className="bg-brand-primary px-6 py-2.5 rounded-xl flex-row items-center gap-2">
+            <TouchableOpacity onPress={() => setShowReportArchitect(true)} className="bg-brand-primary px-6 py-2.5 rounded-xl flex-row items-center gap-2">
               <FontAwesome name="file-pdf-o" size={12} color="white" />
               <Text className="text-white font-black uppercase tracking-widest text-[11px]">Generate Report</Text>
             </TouchableOpacity>
@@ -441,6 +448,11 @@ export default function IntelligenceReports() {
         onClose={() => setShowModal(false)}
         onConfirm={handleGenerate}
         pipelines={pipelines} teams={teams} users={users} initialDays={30}
+      />
+      <ReportGeneratorPopup
+        visible={showReportArchitect}
+        onClose={() => setShowReportArchitect(false)}
+        onReportGenerated={handleReportGenerated}
       />
     </View>
   );

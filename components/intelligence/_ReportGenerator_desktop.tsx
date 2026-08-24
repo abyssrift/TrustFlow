@@ -103,7 +103,11 @@ const REPORT_TYPES: {
   { value: 'projects',                  label: 'Projects Status',           desc: 'Folder-of-tasks completion, throughput, and projected ETA', icon: 'folder-open-o', group: 'analytics' },
 ];
 
-export default function ReportGeneratorDesktop() {
+interface ReportGeneratorDesktopProps {
+  onReportGenerated?: () => void;
+}
+
+export default function ReportGeneratorDesktop({ onReportGenerated }: ReportGeneratorDesktopProps) {
   const colors = useThemeColors();
   const router = useRouter();
   const { hasPermission, user, profile } = useAuth();
@@ -305,7 +309,11 @@ export default function ReportGeneratorDesktop() {
         await generateAndUploadReport(jobId, reportType, taggedParams, supabase, user.id, profile.company_id);
       }
 
-      router.replace('/intelligence/reports');
+      if (onReportGenerated) {
+        onReportGenerated();
+      } else {
+        router.replace('/intelligence/reports');
+      }
     } catch (error: any) {
       console.error('Report generation error:', error);
       setGenError(error.message || 'Failed to generate report');

@@ -19,6 +19,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useAlert } from '@/contexts/AlertContext';
+import ReportGenerator from '@/components/intelligence/_ReportGenerator_adaptive';
 
 const STATUS_COLOR: Record<string, string> = {
   completed:  'text-state-success',
@@ -94,6 +95,7 @@ export default function IntelligenceReportsNative() {
   const [reports, setReports]   = useState<any[]>([]);
   const [loading, setLoading]   = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showReportArchitect, setShowReportArchitect] = useState(false);
   const [pipelines, setPipelines] = useState<any[]>([]);
   const [teams, setTeams]         = useState<any[]>([]);
   const [users, setUsers]         = useState<any[]>([]);
@@ -143,6 +145,11 @@ export default function IntelligenceReportsNative() {
     } catch (e: any) { showAlert('Error', e.message); }
   };
 
+  const handleReportGenerated = () => {
+    setShowReportArchitect(false);
+    fetchReports();
+  };
+
   const handleDownload = async (path: string) => {
     const { data } = await supabase.storage.from('reports').createSignedUrl(path, 60);
     if (!data?.signedUrl) return;
@@ -189,7 +196,7 @@ export default function IntelligenceReportsNative() {
               <FontAwesome name="refresh" size={13} color={colors.primary} />
             </TouchableOpacity>
           </Tooltip>
-          <TouchableOpacity onPress={() => router.push('/intelligence/ReportGenerator')} className="bg-brand-primary px-5 py-3 rounded-2xl flex-row items-center gap-2">
+          <TouchableOpacity onPress={() => setShowReportArchitect(true)} className="bg-brand-primary px-5 py-3 rounded-2xl flex-row items-center gap-2">
             <FontAwesome name="file-pdf-o" size={11} color="white" />
             <Text className="text-white font-black text-[11px]">Generate</Text>
           </TouchableOpacity>
@@ -323,6 +330,11 @@ export default function IntelligenceReportsNative() {
         pipelines={pipelines}
         teams={teams}
         users={users}
+      />
+      <ReportGenerator
+        visible={showReportArchitect}
+        onClose={() => setShowReportArchitect(false)}
+        onReportGenerated={handleReportGenerated}
       />
     </View>
   );
