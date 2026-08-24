@@ -56,9 +56,9 @@ function PlanGate({ feature, limits, children }: {
   const colors = useThemeColors();
   if (limits[feature]) return <>{children}</>;
   return (
-    <View className="rounded-2xl border border-surface-border/50 px-4 py-3 flex-row items-center gap-2">
-      <FontAwesome name="lock" size={11} color={colors.textMuted} />
-      <Text className="text-typography-muted text-xs">Not available on your plan</Text>
+    <View className="rounded-xl border border-surface-border/50 px-3 py-2 flex-row items-center gap-2">
+      <FontAwesome name="lock" size={10} color={colors.textMuted} />
+      <Text className="text-typography-muted text-[10px]">Not available on your plan</Text>
     </View>
   );
 }
@@ -93,7 +93,7 @@ function ThroughputChart({ data }: { data: ThroughputBucket[] }) {
   const chartData = data.map(d => ({ ...d, period_label: bucketLabel(d.bucket_start, d.bucket_end) }));
 
   return (
-    <View style={{ height: 280, width: '100%' }}>
+    <View style={{ height: 220, width: '100%' }}>
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={chartData} margin={{ top: 5, right: 30, left: -20, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke={colors.border} vertical={false} opacity={0.4} />
@@ -202,9 +202,9 @@ function PipelineTab({ planCode, limits }: { planCode: string; limits: Analytics
 
 
   return (
-    <View className="gap-8">
+    <View className="gap-6">
       {/* Controls */}
-      <View className="flex-row gap-4 flex-wrap">
+      <View className="flex-row gap-3 flex-wrap">
         {/* Pipeline selector */}
         <View className="flex-1 min-w-[200px]">
           <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest mb-2">Pipeline</Text>
@@ -242,27 +242,27 @@ function PipelineTab({ planCode, limits }: { planCode: string; limits: Analytics
         </View>
       </View>
 
-      {loading && !loaded ? (
-        <View className="py-16 items-center">
+{loading && !loaded ? (
+        <View className="py-10 items-center">
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : pipelines.length === 0 ? (
-        <View className="bg-surface-card border border-surface-border rounded-2xl p-10 items-center gap-3">
-          <Text className="text-typography-main font-black text-lg">No Pipelines Found</Text>
+        <View className="bg-surface-card border border-surface-border rounded-xl p-6 items-center gap-2">
+          <Text className="text-typography_main font-black text-base">No Pipelines Found</Text>
           <Text className="text-typography-muted text-sm">Create a pipeline to see analytics.</Text>
         </View>
       ) : (
-        <View className="gap-8">
+        <View className="gap-6">
           {/* Stage Dwell — always available */}
           <StageDwellChartWeb data={dwell} />
 
           {/* Throughput — Pro+ */}
           <PlanGate feature="throughput" limits={limits}>
-            <View className="bg-surface-card border border-surface-border rounded-2xl p-6">
-              <View className="flex-row items-center justify-between mb-6">
-                <Text className="text-typography-main font-black text-lg">Throughput Trend</Text>
-                <View className="px-3 py-1 bg-surface-background border border-surface-border rounded-lg">
-                  <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest">Pipeline-Specific Analytics</Text>
+            <View className="bg-surface-card border border-surface-border rounded-xl p-4">
+              <View className="flex-row items-center justify-between mb-4">
+                <Text className="text-typography_main font-black text-base">Throughput Trend</Text>
+                <View className="px-2.5 py-0.5 bg-surface-background border border-surface-border rounded-lg">
+                  <Text className="text-typography-muted text-[8px] font-black uppercase tracking-widest">Pipeline-Specific Analytics</Text>
                 </View>
               </View>
               <ThroughputChart data={throughput} />

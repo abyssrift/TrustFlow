@@ -34,7 +34,7 @@ function ThroughputChart({ data }: { data: ThroughputBucket[] }) {
   const colors = useThemeColors();
   const [width, setWidth] = useState(0);
   const chartData = data.map(d => ({ ...d, period_label: bucketLabel(d.bucket_start, d.bucket_end) }));
-  const chartH = 180;
+  const chartH = 140;
   if (!chartData.length) return (
     <View className="h-32 items-center justify-center">
       <Text className="text-typography-muted text-sm">No throughput data in this period.</Text>
@@ -231,26 +231,26 @@ function PipelineTab() {
   useEffect(() => { load(); }, [load]);
 
   return (
-    <View className="gap-6">
+    <View className="gap-4">
       {/* Date Range */}
-      <View className="gap-2">
-        <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">Time Frame</Text>
+      <View className="gap-1.5">
+        <Text className="text-typography-dim text-[9px] font-black uppercase tracking-widest">Time Frame</Text>
         <DateRangeControls from={from} to={to} setFrom={setFrom} setTo={setTo} maxDays={limits.maxDays} granularity={granularity} />
       </View>
 
       {/* Pipeline selector */}
       {pipelines.length > 1 && (
-        <View className="gap-2">
-          <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">Pipeline</Text>
+        <View className="gap-1.5">
+          <Text className="text-typography-dim text-[9px] font-black uppercase tracking-widest">Pipeline</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View className="flex-row gap-2">
+            <View className="flex-row gap-1.5">
               {pipelines.map(p => (
                 <TouchableOpacity
                   key={p.id}
                   onPress={() => setSelected(p.id)}
-                  className={`px-4 py-2 rounded-xl border ${selectedPipeline === p.id ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border'}`}
+                  className={`px-3 py-1.5 rounded-lg border ${selectedPipeline === p.id ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border'}`}
                 >
-                  <Text className={`text-xs font-bold ${selectedPipeline === p.id ? 'text-white' : 'text-typography-main'}`}>{p.name}</Text>
+                  <Text className={`text-[10px] font-bold ${selectedPipeline === p.id ? 'text-white' : 'text-typography-main'}`}>{p.name}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -259,27 +259,27 @@ function PipelineTab() {
       )}
 
       {loading && !loaded ? (
-        <View className="py-16 items-center"><ActivityIndicator color={colors.primary} /></View>
+        <View className="py-10 items-center"><ActivityIndicator color={colors.primary} /></View>
       ) : (
         <>
           {/* Throughput chart */}
           {limits.throughput ? (
-            <View className="bg-surface-card border border-surface-border rounded-2xl p-5">
-              <Text className="text-typography-main font-black text-base mb-1">Throughput Over Time</Text>
-              <Text className="text-typography-muted text-[10px] mb-5">Tasks completed vs failed per period</Text>
+            <View className="bg-surface-card border border-surface-border rounded-xl p-4">
+              <Text className="text-typography-main font-black text-sm mb-0.5">Throughput Over Time</Text>
+              <Text className="text-typography-muted text-[9px] mb-4">Tasks completed vs failed per period</Text>
               <ThroughputChart data={throughput} />
             </View>
           ) : (
-            <View className="rounded-2xl border border-surface-border/50 px-4 py-3 flex-row items-center gap-2">
-              <FontAwesome name="lock" size={11} color={colors.textMuted} />
-              <Text className="text-typography-muted text-xs">Not available on your plan</Text>
+            <View className="rounded-xl border border-surface-border/50 px-3 py-2 flex-row items-center gap-2">
+              <FontAwesome name="lock" size={10} color={colors.textMuted} />
+              <Text className="text-typography-muted text-[10px]">Not available on your plan</Text>
             </View>
           )}
 
           {/* Stage dwell chart */}
-          <View className="bg-surface-card border border-surface-border rounded-2xl p-5">
-            <Text className="text-typography-main font-black text-base mb-1">Stage Dwell Times</Text>
-            <Text className="text-typography-muted text-[10px] mb-5">Avg time tasks spend per stage</Text>
+          <View className="bg-surface-card border border-surface-border rounded-xl p-4">
+            <Text className="text-typography-main font-black text-sm mb-0.5">Stage Dwell Times</Text>
+            <Text className="text-typography-muted text-[9px] mb-4">Avg time tasks spend per stage</Text>
             <DwellChart data={dwell} />
           </View>
         </>
@@ -492,11 +492,11 @@ export default function AdminAnalyticsNative() {
       <Stack.Screen options={{ title: 'Analytics Hub' }} />
 
       {/* Header */}
-      <View className="px-6 pt-14 pb-6">
-        <View className="flex-row items-start justify-between mb-4">
+      <View className="px-5 pt-10 pb-4">
+        <View className="flex-row items-start justify-between mb-3">
           <View className="flex-1">
-            <Text className="text-brand-primary font-black uppercase tracking-[4px] text-[10px] mb-1">Operations Intelligence</Text>
-            <Text className="text-typography-main text-3xl font-black tracking-tighter">Analytics Hub</Text>
+            <Text className="text-brand-primary font-black uppercase tracking-[4px] text-[9px] mb-1">Operations Intelligence</Text>
+            <Text className="text-typography-main text-2xl font-black tracking-tighter">Analytics Hub</Text>
           </View>
           <BackButton label="" fallbackHref="/intelligence" />
         </View>
