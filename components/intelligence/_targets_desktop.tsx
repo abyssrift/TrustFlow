@@ -18,6 +18,7 @@ import {
   ScatterChart,
   Tooltip, XAxis, YAxis, ZAxis,
 } from 'recharts';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 
 // ── Edit Modal ────────────────────────────────────────────────────────────────
 
@@ -355,6 +356,23 @@ export default function IntelligenceTargets() {
   const [timeframe, setTimeframe]   = useState('30D');
   const [showRightSidebar, setShowRightSidebar] = useState(true);
 
+  // Sidebar animation
+  const sidebarWidth = useSharedValue(480);
+
+  const toggleSidebar = () => {
+    const next = !showRightSidebar;
+    setShowRightSidebar(next);
+    sidebarWidth.value = withTiming(
+      next ? 480 : 0,
+      { duration: 300, easing: Easing.out(Easing.cubic) }
+    );
+  };
+
+  const sidebarAnimatedStyle = useAnimatedStyle(() => ({
+    width: sidebarWidth.value,
+    overflow: 'hidden',
+  }));
+
   useEffect(() => {
     Promise.all([
       supabase.from('pipelines').select('id, name').is('deleted_at', null),
@@ -483,7 +501,7 @@ export default function IntelligenceTargets() {
             </TouchableOpacity>
             <CustomTooltip label="Toggle activity panel">
               <TouchableOpacity
-                onPress={() => setShowRightSidebar(!showRightSidebar)}
+                onPress={toggleSidebar}
                 className={`px-4 py-2.5 rounded-xl border flex-row items-center gap-2 transition-all ${
                   showRightSidebar ? 'bg-brand-primary border-brand-primary premium-shadow' : 'bg-surface-card border-surface-border hover:bg-surface-overlay'
                 }`}
@@ -596,7 +614,10 @@ export default function IntelligenceTargets() {
 
       {/* ── RIGHT COLUMN: PERFORMANCE CONSOLE ── */}
       {showRightSidebar && (
-        <View className="w-[480px] border-l border-surface-border bg-surface-card/10">
+        <View
+          style={[sidebarAnimatedStyle, { width: 480 }]}
+          className="border-l border-surface-border bg-surface-card/10 flex-shrink-0 overflow-hidden"
+        >
           <View className="p-8 pb-0">
             <View className="bg-surface-card border border-surface-border rounded-xl px-4 py-3 flex-row items-center w-full mb-6 premium-shadow">
               <FontAwesome name="search" size={12} color={colors.muted} style={{ marginRight: 10 }} />
