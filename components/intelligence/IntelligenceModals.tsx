@@ -18,93 +18,119 @@ export const TargetCreationModal = ({ visible, onClose, onConfirm, pipelines, st
   const [quantity, setQuantity] = useState('100');
   const [deadline, setDeadline] = useState<Date | null>(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
   const filteredStages = stages.filter((stage: any) => stage.pipeline_id === p);
+
+  const isVolume = type === 'volume';
+  const handleSave = () => {
+    if (!s) return;
+    onConfirm({
+      stage_id: s,
+      target_type: type,
+      active: type === 'performance' ? parseInt(activeGoal) : null,
+      lifecycle: type === 'performance' ? parseInt(lifeGoal) : null,
+      quantity: type === 'volume' ? parseInt(quantity) : null,
+      deadline: type === 'volume' ? deadline?.toISOString() : null
+    });
+  };
+
   return (
     <Popup
       visible={visible}
       onClose={onClose}
       presentation="auto"
       dismissible={false}
-      maxWidth={896}
-      containerClassName="rounded-[40px] overflow-hidden premium-shadow"
+      maxWidth={768}
+      containerClassName="rounded-[32px] overflow-hidden premium-shadow max-h-[90vh] flex-col"
     >
-      <View className="p-10 border-b" style={{ borderColor: colors.border }}>
-        <Text className="text-3xl font-black tracking-tight mb-2" style={{ color: colors.textMain }}>Define Objective</Text>
-        <Text className="font-medium" style={{ color: colors.textMuted }}>Establish benchmarks for team performance tracking</Text>
+      <View className="p-6 border-b flex-row justify-between items-center" style={{ borderColor: colors.border }}>
+        <View>
+          <Text className="text-xl font-black tracking-tight" style={{ color: colors.textMain }}>Define Objective</Text>
+          <Text className="text-xs font-bold mt-1" style={{ color: colors.textMuted }}>
+            {type === 'volume' ? 'Volume Quota' : 'Performance SLA'}
+          </Text>
+        </View>
+        <TouchableOpacity
+          onPress={onClose}
+          className="w-9 h-9 rounded-full border items-center justify-center"
+          style={{ backgroundColor: colors.background, borderColor: colors.border }}
+        >
+          <FontAwesome name="times" size={13} color={colors.textDim} />
+        </TouchableOpacity>
       </View>
-      <ScrollView className="p-10 max-h-[600px]">
-        <Text className="text-[10px] font-black uppercase tracking-[0.2em] mb-4" style={{ color: colors.textMuted }}>Objective Classification</Text>
-        <View className="flex-row p-2 rounded-2xl mb-8 border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
-          {['performance', 'volume'].map(t => (
-            <TouchableOpacity
-              key={t}
-              onPress={() => setType(t)}
-              className={`flex-1 py-4 rounded-xl items-center ${type === t ? 'premium-shadow' : ''}`}
-              style={{ backgroundColor: type === t ? colors.primary : 'transparent' }}
-            >
-              <Text className="font-black text-[10px] uppercase tracking-widest" style={{ color: type === t ? 'white' : colors.textMuted }}>{t}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        <View className="flex-row gap-8 mb-8">
-          <View className="flex-1">
-            <Text className="text-[10px] font-black uppercase tracking-[0.2em] mb-4" style={{ color: colors.textMuted }}>Strategic Pipeline</Text>
-            <IntelligencePicker items={pipelines} selectedId={p} onSelect={(id: string) => { setP(id); setS(null); }} />
+
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+        <View className="p-6 gap-4">
+          <Text className="text-[9px] font-black uppercase tracking-[0.2em] mb-3" style={{ color: colors.textMuted }}>Objective Classification</Text>
+          <View className="flex-row p-1.5 rounded-xl mb-6 border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
+            {['performance', 'volume'].map(t => (
+              <TouchableOpacity
+                key={t}
+                onPress={() => setType(t)}
+                className={`flex-1 py-3 rounded-lg items-center ${type === t ? 'bg-brand-primary' : ''}`}
+              >
+                <Text className={`font-black text-[9px] uppercase tracking-widest ${type === t ? 'text-white' : 'text-typography-muted'}`}>{t}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
-          <View className="flex-1">
-            <Text className="text-[10px] font-black uppercase tracking-[0.2em] mb-4" style={{ color: colors.textMuted }}>Target Node</Text>
-            <IntelligencePicker items={filteredStages} selectedId={s} onSelect={setS} disabled={!p} />
-          </View>
-        </View>
-        <Text className="text-[10px] font-black uppercase tracking-[0.2em] mb-4" style={{ color: colors.textMuted }}>Boundary Parameters</Text>
-        {type === 'performance' ? (
-          <View className="flex-row gap-8">
+          <View className="flex-row gap-6 mb-6">
             <View className="flex-1">
-              <Text className="text-[10px] font-bold mb-3" style={{ color: colors.textMuted }}>Target Active Latency (Seconds)</Text>
-              <TextInput value={activeGoal} onChangeText={setActiveGoal} keyboardType="numeric" className="border p-5 rounded-2xl font-black text-lg" style={{ backgroundColor: colors.background, borderColor: colors.border, color: colors.textMain }} />
+              <Text className="text-[9px] font-black uppercase tracking-[0.2em] mb-3" style={{ color: colors.textMuted }}>Strategic Pipeline</Text>
+              <IntelligencePicker items={pipelines} selectedId={p} onSelect={(id: string) => { setP(id); setS(null); }} />
             </View>
             <View className="flex-1">
-              <Text className="text-[10px] font-bold mb-3" style={{ color: colors.textMuted }}>Max Life-Cycle (Seconds)</Text>
-              <TextInput value={lifeGoal} onChangeText={setLifeGoal} keyboardType="numeric" className="border p-5 rounded-2xl font-black text-lg" style={{ backgroundColor: colors.background, borderColor: colors.border, color: colors.textMain }} />
+              <Text className="text-[9px] font-black uppercase tracking-[0.2em] mb-3" style={{ color: colors.textMuted }}>Target Node</Text>
+              <IntelligencePicker items={filteredStages} selectedId={s} onSelect={setS} disabled={!p} />
             </View>
           </View>
-        ) : (
-          <View className="gap-8">
-            <View>
-              <Text className="text-[10px] font-bold mb-3" style={{ color: colors.textMuted }}>Tasks (Quota)</Text>
-              <TextInput value={quantity} onChangeText={setQuantity} keyboardType="numeric" className="border p-5 rounded-2xl font-black text-lg" style={{ backgroundColor: colors.background, borderColor: colors.border, color: colors.textMain }} />
+          <Text className="text-[9px] font-black uppercase tracking-[0.2em] mb-3" style={{ color: colors.textMuted }}>Boundary Parameters</Text>
+          {type === 'performance' ? (
+            <View className="flex-row gap-6">
+              <View className="flex-1">
+                <Text className="text-[9px] font-bold mb-2" style={{ color: colors.textMuted }}>Target Active Latency (Seconds)</Text>
+                <TextInput value={activeGoal} onChangeText={setActiveGoal} keyboardType="numeric" className="border p-4 rounded-xl font-black text-base" style={{ backgroundColor: colors.background, borderColor: colors.border, color: colors.textMain }} />
+              </View>
+              <View className="flex-1">
+                <Text className="text-[9px] font-bold mb-2" style={{ color: colors.textMuted }}>Max Life-Cycle (Seconds)</Text>
+                <TextInput value={lifeGoal} onChangeText={setLifeGoal} keyboardType="numeric" className="border p-4 rounded-xl font-black text-base" style={{ backgroundColor: colors.background, borderColor: colors.border, color: colors.textMain }} />
+              </View>
             </View>
-            <View>
-              <Text className="text-[10px] font-bold mb-3" style={{ color: colors.textMuted }}>Expiration Deadline</Text>
-              <Calendar
-                selectedDate={deadline?.toISOString() || null}
-                onSelect={(date) => setDeadline(new Date(date))}
-                scale="compact"
-              />
+          ) : (
+            <View className="gap-6">
+              <View>
+                <Text className="text-[9px] font-bold mb-2" style={{ color: colors.textMuted }}>Tasks (Quota)</Text>
+                <TextInput value={quantity} onChangeText={setQuantity} keyboardType="numeric" className="border p-4 rounded-xl font-black text-base" style={{ backgroundColor: colors.background, borderColor: colors.border, color: colors.textMain }} />
+              </View>
+              <View>
+                <Text className="text-[9px] font-bold mb-2" style={{ color: colors.textMuted }}>Expiration Deadline</Text>
+                <Calendar
+                  selectedDate={deadline?.toISOString() || null}
+                  onSelect={(date) => setDeadline(new Date(date))}
+                  scale="compact"
+                />
+              </View>
             </View>
-          </View>
-        )}
+          )}
+        </View>
       </ScrollView>
-      <View className="p-10 border-t flex-row gap-6" style={{ borderColor: colors.border, backgroundColor: `${colors.card}80` }}>
-        <TouchableOpacity onPress={onClose} className="flex-1 py-5 rounded-2xl border items-center" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
+
+      return (
+      <View className="p-6 border-t flex-row gap-4" style={{ borderColor: colors.border, backgroundColor: `${colors.card}80` }}>
+        <TouchableOpacity
+          onPress={onClose}
+          className="flex-1 py-4 rounded-xl border items-center"
+          style={{ backgroundColor: colors.background, borderColor: colors.border }}
+        >
           <Text className="font-black uppercase tracking-widest text-xs" style={{ color: colors.textMuted }}>Cancel</Text>
         </TouchableOpacity>
         <TouchableOpacity
           disabled={!s}
           onPress={() => {
-            onConfirm({
-              stage_id: s,
-              target_type: type,
-              active: type === 'performance' ? parseInt(activeGoal) : null,
-              lifecycle: type === 'performance' ? parseInt(lifeGoal) : null,
-              quantity: type === 'volume' ? parseInt(quantity) : null,
-              deadline: type === 'volume' ? deadline?.toISOString() : null
-            });
+            handleSave();
             onClose();
           }}
-          className="flex-[2] py-5 rounded-2xl items-center shadow-lg transition-all active:scale-[0.98]"
-          style={{ backgroundColor: s ? colors.primary : colors.border, opacity: s ? 1 : 0.5 }}
+          className="flex-1 py-4 rounded-xl items-center"
+          style={{ backgroundColor: colors.primary }}
         >
-          <Text className="font-black uppercase tracking-widest text-xs" style={{ color: 'white' }}>Create Objective</Text>
+          <Text className="text-white font-black uppercase tracking-widest text-xs">Save Changes</Text>
         </TouchableOpacity>
       </View>
     </Popup>

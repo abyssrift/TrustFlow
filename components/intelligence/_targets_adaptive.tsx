@@ -35,82 +35,82 @@ const CreateModal = ({ visible, onClose, onConfirm, pipelines, stages }: any) =>
 
   return (
     <Popup visible={visible} onClose={onClose} presentation="auto" maxWidth={420}>
-          <View className="p-8 pb-4 items-center">
-            <Text className="text-typography-main text-2xl font-black mb-1">Define Objective</Text>
+          <View className="p-6 pb-3 items-center">
+            <Text className="text-typography-main text-xl font-black mb-1">Define Objective</Text>
             <Text className="text-typography-muted text-xs">Establish high-fidelity benchmarks</Text>
           </View>
 
-          <ScrollView className="px-8 max-h-[520px]" showsVerticalScrollIndicator={false}>
-            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mt-6 mb-4">Targeting Vector</Text>
-            <View className="flex-row flex-wrap gap-2 bg-surface-background p-1.5 rounded-2xl mb-6">
+          <ScrollView className="px-6 max-h-[500px]" showsVerticalScrollIndicator={false}>
+            <Text className="text-typography-muted text-[9px] font-black uppercase tracking-[0.2em] mt-4 mb-3">Targeting Vector</Text>
+            <View className="flex-row flex-wrap gap-1.5 bg-surface-background p-1 rounded-xl mb-4">
               {['performance', 'volume'].map(t => (
                 <TouchableOpacity
                   key={t}
                   onPress={() => setType(t)}
-                  className={`flex-1 min-w-[132px] py-3 rounded-xl items-center flex-row justify-center ${type === t ? 'bg-brand-primary premium-shadow' : ''}`}
+                  className={`flex-1 min-w-[120px] py-2.5 rounded-lg items-center flex-row justify-center ${type === t ? 'bg-brand-primary' : ''}`}
                 >
                   <FontAwesome
                     name={t === 'performance' ? 'bolt' : 'database'}
-                    size={10}
+                    size={9}
                     color={type === t ? 'white' : colors.textMuted}
-                    style={{ marginRight: 8 }}
+                    style={{ marginRight: 6 }}
                   />
-                  <Text className={`font-black text-[10px] uppercase tracking-widest ${type === t ? 'text-white' : 'text-typography-muted'}`}>{t}</Text>
+                  <Text className={`font-black text-[9px] uppercase tracking-widest ${type === t ? 'text-white' : 'text-typography-muted'}`}>{t}</Text>
                 </TouchableOpacity>
               ))}
             </View>
 
-            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mb-4">Pipeline Architecture</Text>
+            <Text className="text-typography-muted text-[9px] font-black uppercase tracking-[0.2em] mb-3">Pipeline Architecture</Text>
             <IntelligencePicker items={pipelines} selectedId={pipeline} onSelect={(id: string) => { setPipeline(id); setStage(null); }} />
 
             {pipeline && (
               <>
-                <View className="h-4" />
+                <View className="h-3" />
                 <IntelligencePicker items={filteredStages} selectedId={stage} onSelect={setStage} />
               </>
             )}
 
-            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mt-8 mb-4">
+            <Text className="text-typography-muted text-[9px] font-black uppercase tracking-[0.2em] mt-6 mb-3">
               {type === 'performance' ? 'SLA Constraints' : 'Volume Metrics'}
             </Text>
 
             {type === 'performance' ? (
-              <View className="flex-row flex-wrap gap-4 mb-6">
+              <View className="flex-row flex-wrap gap-3 mb-4">
                 <View className="flex-1">
-                  <Text className="text-typography-muted text-[9px] font-black uppercase mb-2">Target Active (s)</Text>
+                  <Text className="text-typography-muted text-[8px] font-black uppercase mb-1.5">Target Active (s)</Text>
                   <TextInput
                     value={activeGoal}
                     onChangeText={setActiveGoal}
                     keyboardType="numeric"
                     placeholderTextColor={colors.textDim}
-                    className="bg-surface-background border border-surface-border text-typography-main p-4 rounded-2xl font-black text-lg"
+                    className="bg-surface-background border border-surface-border text-typography-main p-3 rounded-xl font-black text-base"
                   />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-typography-muted text-[9px] font-black uppercase mb-2">Max Life (s)</Text>
+                  <Text className="text-typography-muted text-[8px] font-black uppercase mb-1.5">Max Life (s)</Text>
                   <TextInput
                     value={lifeGoal}
                     onChangeText={setLifeGoal}
                     keyboardType="numeric"
                     placeholderTextColor={colors.textDim}
-                    className="bg-surface-background border border-surface-border text-typography-main p-4 rounded-2xl font-black text-lg"
+                    className="bg-surface-background border border-surface-border text-typography-main p-3 rounded-xl font-black text-base"
                   />
                 </View>
               </View>
             ) : (
-              <View className="gap-6 mb-6">
+              <View className="gap-4 mb-4">
                 <View>
-                  <Text className="text-typography-muted text-[9px] font-black uppercase mb-2">Target Quota (Units)</Text>
+                  <Text className="text-typography-muted text-[8px] font-black uppercase mb-1.5">Target Quota (Units)</Text>
                   <TextInput
                     value={quantity}
                     onChangeText={setQuantity}
                     keyboardType="numeric"
                     placeholderTextColor={colors.textDim}
-                    className="bg-surface-background border border-surface-border text-typography-main p-4 rounded-2xl font-black text-lg"
+                    className="bg-surface-background border border-surface-border text-typography-main p-3 rounded-xl font-black text-base"
                   />
                 </View>
                 <View>
-                  <Text className="text-typography-muted text-[9px] font-black uppercase mb-3">Expiration Deadline</Text>
+                  <Text className="text-typography-muted text-[8px] font-black uppercase mb-2">Expiration Deadline</Text>
                   <Calendar
                     selectedDate={deadline ?? null}
                     onSelect={(d) => setDeadline(d)}
@@ -119,11 +119,10 @@ const CreateModal = ({ visible, onClose, onConfirm, pipelines, stages }: any) =>
                 </View>
               </View>
             )}
-            <View className="h-10" />
           </ScrollView>
 
-          <View className="px-8 pt-4 flex-row flex-wrap gap-4 border-t border-surface-border">
-            <TouchableOpacity onPress={onClose} className="flex-1 py-4 rounded-2xl bg-surface-background border border-surface-border items-center">
+          <View className="px-6 pt-3 flex-row flex-wrap gap-3 border-t border-surface-border">
+            <TouchableOpacity onPress={onClose} className="flex-1 py-3.5 rounded-xl bg-surface-background border border-surface-border items-center">
               <Text className="text-typography-muted font-black uppercase tracking-widest text-xs">Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -139,7 +138,7 @@ const CreateModal = ({ visible, onClose, onConfirm, pipelines, stages }: any) =>
                 });
                 onClose();
               }}
-              className={`flex-1 py-4 rounded-2xl items-center premium-shadow ${stage ? 'bg-brand-primary' : 'bg-surface-border opacity-50'}`}
+              className={`flex-1 py-3.5 rounded-xl items-center premium-shadow ${stage ? 'bg-brand-primary' : 'bg-surface-border opacity-50'}`}
             >
               <Text className="text-brand-on-primary font-black uppercase tracking-widest text-xs">Deploy</Text>
             </TouchableOpacity>
